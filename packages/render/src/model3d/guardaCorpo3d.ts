@@ -1,5 +1,6 @@
 import type { MalhaGuardaCorpo } from '@hestia/engine';
 import type { Id } from '@hestia/model';
+import { acrescentarTriangulosFaceados } from './malhaFacetada3d.ts';
 import { ofElement, type SolidBatch } from './solids.ts';
 
 /**
@@ -18,34 +19,7 @@ export function buildGuardaCorpoSolids(malhas: readonly MalhaGuardaCorpo[], visi
         porMaterial.set(parte.materialId, b);
       }
       const lote = b;
-      ofElement(lote, m.guardaId, () => {
-        const pos = parte.positions;
-        for (let t = 0; t + 2 < parte.indices.length; t += 3) {
-          const ia = parte.indices[t]! * 3;
-          const ib = parte.indices[t + 1]! * 3;
-          const ic = parte.indices[t + 2]! * 3;
-          const ux = pos[ib]! - pos[ia]!;
-          const uy = pos[ib + 1]! - pos[ia + 1]!;
-          const uz = pos[ib + 2]! - pos[ia + 2]!;
-          const vx = pos[ic]! - pos[ia]!;
-          const vy = pos[ic + 1]! - pos[ia + 1]!;
-          const vz = pos[ic + 2]! - pos[ia + 2]!;
-          let nx = uy * vz - uz * vy;
-          let ny = uz * vx - ux * vz;
-          let nz = ux * vy - uy * vx;
-          const l = Math.hypot(nx, ny, nz);
-          if (l < 1e-18) continue;
-          nx /= l;
-          ny /= l;
-          nz /= l;
-          const base = lote.positions.length / 3;
-          for (const i of [ia, ib, ic]) {
-            lote.positions.push(pos[i]!, pos[i + 1]!, pos[i + 2]!);
-            lote.normals.push(nx, ny, nz);
-          }
-          lote.indices.push(base, base + 1, base + 2);
-        }
-      });
+      ofElement(lote, m.guardaId, () => acrescentarTriangulosFaceados(lote, parte.positions, parte.indices));
     }
   }
   return [...porMaterial.values()];

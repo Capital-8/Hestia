@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
+import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoEstr, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -277,6 +277,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         modelKey.current = '';
         planFrame.current?.reset();
         quadroRef.current?.invalidar();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }),
+    [],
+  );
+  // Idem para a estrutura (estrutura: ficha R1a): sem o kernel pilares, vigas e fundações não são desenhados; quando ele chega, a 3D é refeita.
+  useEffect(
+    () =>
+      servicoEstr().aoMudarPronto(() => {
+        modelKey.current = '';
         useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
       }),
     [],

@@ -97,9 +97,10 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
-  column: { entra: false, projeto: () => com({ type: 'addColumn', column: makeColumn({ id: 'cl1', typeId: 'pil_est_25x25', levelId: 'lv_0', pos: v(70, 70) }) }) },
-  beam: { entra: false, projeto: () => com({ type: 'addBeam', beam: makeBeam({ id: 'bm1', typeId: 'vig_15x40', levelId: 'lv_0', a: v(70, 70), b: v(75, 70) }) }) },
-  footing: { entra: false, projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'sap_80x80x30', levelId: 'lv_0', pos: v(70, 70) }) }) },
+  // estrutura: ficha R1a. O pilar entra com a meia-diagonal da caixa do perfil (25 x 25: 0,1768 m) em volta da posição.
+  column: { entra: true, projeto: () => com({ type: 'addColumn', column: makeColumn({ id: 'cl1', typeId: 'pil_est_25x25', levelId: 'lv_0', pos: v(70, 70) }) }), alvo: [v(69.8233, 69.8233), v(70.1767, 70.1767)] },
+  beam: { entra: true, projeto: () => com({ type: 'addBeam', beam: makeBeam({ id: 'bm1', typeId: 'vig_15x40', levelId: 'lv_0', a: v(70, 70), b: v(75, 70) }) }), alvo: [v(70, 70), v(75, 70)] },
+  footing: { entra: true, projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'sap_80x80x30', levelId: 'lv_0', pos: v(70, 70) }) }), alvo: [v(70, 70)] },
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
   cad: { entra: false, projeto: () => com({ type: 'addCadDrawing', cad }) },
@@ -220,5 +221,48 @@ describe('extensão do modelo: com paredes (regressão)', () => {
       { type: 'addSlab', slab: makeSlab({ id: 'l1', typeId: 'ls_mac12', levelId: 'lv_0', boundary: rect(-2, -2, 12, 4) }) },
     );
     expect(levelBox(p, 'lv_0')).toEqual({ minX: -2.5, minY: -2.5, maxX: 12.5, maxY: 4.5 });
+  });
+});
+
+describe('estrutura: ficha R1a (pilar, viga e fundação entram na extensão)', () => {
+  const pilar = (id: string, typeId: string, pos: Vec2, extra: Partial<Parameters<typeof makeColumn>[0]> = {}) => ({ type: 'addColumn' as const, column: makeColumn({ id, typeId, levelId: 'lv_0', pos, ...extra }) });
+
+  it('pilar 0,20 x 0,40 girado: a caixa cobre qualquer rotação (meia-diagonal do perfil)', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'upsertColumnType', columnType: { id: 'pil_20x40', name: 'E', code: 'E', description: '', disciplina: 'estrutural', perfil: { forma: 'retangular', b: 0.2, h: 0.4 }, materialId: 'mat_concreto', cost: 0 } });
+    s.exec(pilar('c1', 'pil_20x40', v(10, 20), { rotation: Math.PI / 5 }));
+    const box = extensaoDoModelo(s.project)!;
+    const r = Math.hypot(0.2, 0.4) / 2;
+    expect(box.minX).toBeCloseTo(10 - r, 9);
+    expect(box.maxY).toBeCloseTo(20 + r, 9);
+    // Os quatro cantos do retângulo girado ficam dentro da caixa.
+    const a = Math.PI / 5;
+    for (const [lx, ly] of [[-0.1, -0.2], [0.1, -0.2], [0.1, 0.2], [-0.1, 0.2]] as const) {
+      const q = { x: 10 + lx * Math.cos(a) - ly * Math.sin(a), y: 20 + lx * Math.sin(a) + ly * Math.cos(a) };
+      expect(contem(box, [q])).toBe(true);
+    }
+  });
+
+  it('pilar circular, perfil personalizado e tipo ausente (só a posição)', () => {
+    const s = new ProjectStore(createEmptyProject());
+    const tipo = (id: string, perfil: never) => ({ id, name: id, code: id, description: '', disciplina: 'estrutural' as const, perfil, materialId: 'mat_concreto', cost: 0 });
+    s.exec({ type: 'upsertColumnType', columnType: tipo('pc', { forma: 'circular', d: 0.4 } as never) });
+    s.exec({ type: 'upsertColumnType', columnType: tipo('pp', { forma: 'personalizado', anel: [[0, 0], [0.6, 0], [0.6, 0.1], [0, 0.1]] } as never) });
+    s.exec(pilar('c1', 'pc', v(0, 0)));
+    expect(extensaoDoModelo(s.project)).toEqual({ minX: -0.2, minY: -0.2, maxX: 0.2, maxY: 0.2 });
+    s.exec(pilar('c2', 'pp', v(10, 0)));
+    expect(extensaoDoModelo(s.project)!.maxX).toBeCloseTo(10 + Math.hypot(0.6, 0.1) / 2, 9);
+    const q = structuredClone(s.project);
+    (q.elements['c2'] as { typeId: string }).typeId = 'inexistente';
+    expect(extensaoDoModelo(q)!.maxX).toBe(10);
+  });
+
+  it('fundação corrida entra com a e b; filtra por nível', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addFooting', footing: makeFooting({ id: 'f1', typeId: 'bal_40x30', levelId: 'lv_0', a: v(1, 2), b: v(7, 2) }) });
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'b1', typeId: 'vig_15x40', levelId: 'lv_1', a: v(0, 9), b: v(3, 9) }) });
+    expect(extensaoDoModelo(s.project, 'lv_0')).toEqual({ minX: 1, minY: 2, maxX: 7, maxY: 2 });
+    expect(extensaoDoModelo(s.project, 'lv_1')).toEqual({ minX: 0, minY: 9, maxX: 3, maxY: 9 });
+    expect(extensaoDoModelo(s.project)).toEqual({ minX: 0, minY: 2, maxX: 7, maxY: 9 });
   });
 });

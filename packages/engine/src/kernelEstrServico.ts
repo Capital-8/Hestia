@@ -69,7 +69,7 @@ export function decodificarMalhaEstr(
   return [...porId.values()];
 }
 
-/** Quantidades de um elemento (consulta 203): volume (m³), área de forma (m²), comprimento (m) e área da seção (m²). Peso: o modelo não tem densidade ainda. */
+/** Quantidades de um elemento (consulta 203): volume (m3), área de forma (m2), comprimento (m) e área da seção (m2). Peso: o modelo não tem densidade ainda. */
 export interface LeituraEstrutura {
   volume: number;
   areaForma: number;
@@ -98,7 +98,7 @@ export function decodificarQuantEstr(
 export interface ContornoEstr {
   anel: Array<[number, number]>;
   furos: Array<Array<[number, number]>>;
-  /** Área líquida dos furos (m²) e perímetro (m), como o kernel mede. */
+  /** Área líquida dos furos (m2) e perímetro (m), como o kernel mede. */
   area: number;
   perimetro: number;
 }

@@ -50,6 +50,20 @@ export function chavesDeGuardaCorpo(p: Project, marca: string, visibilidade?: Vi
   return out;
 }
 
+/**
+ * Chave de cada nível para o LOTE 3D DE PILARES, VIGAS E FUNDAÇÕES (só dele; ficha R1a): a marca da vista (inclui a marca de kernel pronto), o bloco
+ * global (tipos, materiais, cotas, vista 3D com a visibilidade das categorias), os elementos de estrutura do nível e a visibilidade deles. Editar paredes, lajes
+ * ou guarda-corpos não a muda, e editar um pilar não remonta o nível. Só há chave para níveis com estrutura.
+ * Quando a planta, o corte e as junções (R1b: parede recortada pelo pilar) entrarem, a chave do nível das paredes deve ler a assinatura `estr` também.
+ */
+export function chavesDeEstr(p: Project, marca: string, visibilidade?: VisibilidadeDaChave): Map<Id, string> {
+  const a = assinaturasDoProjeto(p);
+  const vis = visibilidadePorNivel(p, visibilidade, 'estr');
+  const out = new Map<Id, string>();
+  for (const [id, h] of a.estr) out.set(id, hashTexto([marca, a.global, h, vis.nivel.get(id) ?? '', vis.global].join('|')));
+  return out;
+}
+
 const aparenciaMemo = new WeakMap<object, string>();
 const materiaisMemo = new WeakMap<object, string>();
 
@@ -98,16 +112,17 @@ export interface VisibilidadeDaChave {
  * Assinatura de visibilidade por nível: os ids ocultos/revelados de cada nível, em hash. Id que não é elemento de nível
  * (global, genérico, CAD, vista) vai para a assinatura global, que entra em todas as chaves (conservador, como antes).
  */
-function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, guardaCorpo: 'todos' | 'sem' | 'so' = 'todos'): { nivel: Map<Id, string>; global: string } {
+function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, modo: 'todos' | 'sem' | 'so' | 'estr' = 'todos'): { nivel: Map<Id, string>; global: string } {
   const porNivel = new Map<Id, string[]>();
   const globais: string[] = [];
   if (v) {
     for (const [tag, ids] of [['o', v.ocultos], ['r', v.revelados]] as const) {
       for (const id of ids) {
         const e = p.elements[id];
-        // Guarda-corpo tem lote e chave próprios: a visibilidade dele só entra na chave dele ('so'), nunca na do nível ('sem').
+        // Guarda-corpo e estrutura têm lote e chave próprios: a visibilidade deles só entra na chave deles ('so', 'estr'), nunca na do nível ('sem').
         const gc = e?.kind === 'railing';
-        if ((guardaCorpo === 'sem' && gc) || (guardaCorpo === 'so' && !gc)) continue;
+        const es = e?.kind === 'column' || e?.kind === 'beam' || e?.kind === 'footing';
+        if ((modo === 'sem' && (gc || es)) || (modo === 'so' && !gc) || (modo === 'estr' && !es)) continue;
         const nivel = e ? nivelDoElemento(p.elements, e) : null;
         const entrada = `${tag}:${id}`;
         if (nivel === null) globais.push(entrada);

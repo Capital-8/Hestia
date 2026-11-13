@@ -43,6 +43,8 @@ export interface AssinaturasProjeto {
   nivelSemGuardaCorpo: Map<Id, string>;
   /** Hash dos guarda-corpos de cada nível (só dos níveis que têm). */
   guardaCorpo: Map<Id, string>;
+  /** Hash dos pilares, vigas e fundações de cada nível (só dos níveis que têm); o lote 3D deles tem chave própria (estrutura: ficha R1a). */
+  estr: Map<Id, string>;
   /** Hash das escadas e rampas do projeto: os hospedeiros de que o caminho do guarda-corpo depende. */
   hospedeiros: string;
   /** Ids dos níveis do mais baixo ao mais alto (cota; empate pela ordem do projeto). */
@@ -64,6 +66,7 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   const porNivel = new Map<Id, string[]>();
   const porNivelSemGuarda = new Map<Id, string[]>();
   const guardas = new Map<Id, string[]>();
+  const estrutura = new Map<Id, string[]>();
   const hospedeiros: string[] = [];
   const globais: string[] = [];
   const anexadosAoTelhado = new Set<Id>();
@@ -80,7 +83,8 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
       const lista = porNivel.get(nivel);
       if (lista) lista.push(linha);
       else porNivel.set(nivel, [linha]);
-      const alvo = e.kind === 'railing' ? guardas : porNivelSemGuarda;
+      // Guarda-corpo e estrutura (pilar, viga, fundação) têm lote 3D e chave próprios: ficam fora da assinatura "sem guarda-corpo" do nível.
+      const alvo = e.kind === 'railing' ? guardas : e.kind === 'column' || e.kind === 'beam' || e.kind === 'footing' ? estrutura : porNivelSemGuarda;
       const l2 = alvo.get(nivel);
       if (l2) l2.push(linha);
       else alvo.set(nivel, [linha]);
@@ -94,6 +98,8 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   for (const l of p.levels) nivelSemGuardaCorpo.set(l.id, hashTexto((porNivelSemGuarda.get(l.id) ?? []).join(NL)));
   const guardaCorpo = new Map<Id, string>();
   for (const [id, lista] of guardas) guardaCorpo.set(id, hashTexto(lista.join(NL)));
+  const estr = new Map<Id, string>();
+  for (const [id, lista] of estrutura) estr.set(id, hashTexto(lista.join(NL)));
   const ordem = p.levels
     .map((l, i) => ({ id: l.id, cota: l.elevation, i }))
     .sort((a, b) => a.cota - b.cota || a.i - b.i)
@@ -104,6 +110,7 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
     nivel,
     nivelSemGuardaCorpo,
     guardaCorpo,
+    estr,
     hospedeiros: hashTexto(hospedeiros.join(NL)),
     ordem,
     anexadosAoTelhado,

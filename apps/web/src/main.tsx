@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import { estadoKernel, medicaoOperacoes } from '@hestia/geom';
 import { iniciarDespachoKernel } from '@hestia/engine';
+import { editor } from './editor/controller.ts';
+import { ligarEstrutura } from './editor/estrLigacao.ts';
 import './styles.css';
 import './ribbon.css';
 import './appshell.css';
@@ -24,6 +26,8 @@ createRoot(document.getElementById('root')!).render(<App />);
 // fatia ligada (só DEV), nada é instalado nem baixado.
 const despacho = configDoDespacho();
 if (despacho.fatiaA || despacho.fatiaB) void iniciarDespachoKernel(despacho);
+// estrutura: ficha R1a. Prévia do perfil (consulta 205) e quantidades (203) dos painéis e modais da U1 passam a vir do kernel.
+ligarEstrutura(() => editor.project);
 
 // Ganchos de depuração para testes no navegador (?debug=1). `resolveSlabs` e `resolveFloors` deixam o e2e medir o furo da
 // escada na laje e a área de cada camada de piso (decisão 0025); `junctionLevel` e `cutLevelByJunction` deixam o e2e
