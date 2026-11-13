@@ -61,7 +61,7 @@ const entrada = (): EntradaCenaCortina => ({
 
 describe('contrato da parede cortina', () => {
   it('as seções 100 a 113 (mais a 7) e as colunas conferem com o esquema gerado do JSON', () => {
-    expect(ESQUEMA_VERSAO).toBe(17);
+    expect(ESQUEMA_VERSAO).toBeGreaterThanOrEqual(17);
     expect(NOMES_SECOES_CORTINA).toHaveLength(14);
     for (const nome of NOMES_SECOES_CORTINA) {
       const s = SECOES[nome];

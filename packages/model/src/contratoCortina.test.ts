@@ -34,6 +34,8 @@ const lerArquivos = (rels: string[]) => rels.map((rel) => [rel, readFileSync(joi
 
 /** Arquivos de produção que leem `layers` de um tipo de parede (lista da fase 0, §12 risco 1). */
 const PONTOS_PERMITIDOS_LAYERS = new Set([
+  // Falso positivo: lê `r.layers[0]` de lajes e pisos JÁ RESOLVIDOS (não as camadas de um tipo de parede); só cita wallTypes ao montar o projeto de teste.
+  'tests/termino-camada-matriz.ts',
   // Núcleo do tipo de parede e o próprio tipo cortina (camada-sombra e validação).
   'packages/model/src/wallType.ts',
   'packages/model/src/wallCurtain.ts',
