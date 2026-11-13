@@ -44,3 +44,9 @@ em `apps/web/src/ui/ribbon/tabsSoon.ts`). O dono do projeto quer uma **plataform
 - Segurança: Worker sem rede; rede só no runtime externo (loopback) e por permissão futura `net.fetch` (fora desta fase).
 - Custo: três caminhos de execução a testar; mitigado por um contrato único de **porta do host** que os três usam.
 - Substitui "Plugins e scripting" em *Fora da v1* (`docs/04-ROTEIRO.md`) apenas no que o 0047 já cobria; scripting passa a ser planejado aqui.
+
+## Decisões do dono (registradas após a revisão)
+- `.wasm` recusado no pacote nesta fase; liberar depois é compatível.
+- `checks` e `schedules` usam **JSONLogic restrito** (lista branca de operadores), sem linguagem própria e sem sintaxe em pt-BR.
+- Uma única permissão de escrita, `model.write` (sem divisão em `elements` e `types`).
+- Demais padrões da proposta aceitos; detalhes em `docs/plugins/08-suplementos-v2.md` §12.
