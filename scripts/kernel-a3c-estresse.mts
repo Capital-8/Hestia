@@ -8,6 +8,7 @@ import type { OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
 import { aleatorio } from './kernel-a1-estresse.mts';
 import { enriquecerTipos } from './kernel-a2-estresse.mts';
 import { projetoDeEstresseA3a, type OpcoesEstresseA3a } from './kernel-a3a-estresse.mts';
+import { tiposDeAberturaParaSorteio } from './catalogo-estresse.mts';
 
 /** Projeto de estresse da A3a/A3b com os tipos de parede enriquecidos (materiais, faixas verticais, `wrapEnds`). */
 export function projetoDeEstresseA3c(semente: number, opcoes: OpcoesEstresseA3a = {}): Project {
@@ -44,7 +45,7 @@ export function variantesDoNivel(p: Project, levelId: Id, semente: number, zBase
 /** Aberturas adicionais determinísticas para exercitar vãos altos, baixos e de pé-direito parcial (sem tocar o resto do projeto). */
 export function comVaosExtras(p: Project, semente: number): Project {
   const r = aleatorio(semente * 31 + 5);
-  const tipos = Object.values(p.openingTypes);
+  const tipos = tiposDeAberturaParaSorteio(p);
   const cmds: Command[] = [];
   let n = 0;
   for (const w of Object.values(p.elements)) {
