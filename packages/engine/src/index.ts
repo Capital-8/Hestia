@@ -115,3 +115,8 @@ export * from './cortinaSubelementos.ts';
 export * from './cortinaEsquadrias.ts';
 export * from './curtainQuantities.ts';
 export * from './curtainSchedule.ts';
+export * from './loteGeometria.ts';
+export * from './loteIndices.ts';
+export * from './loteRumos.ts';
+export * from './loteIssues.ts';
+export * from './fixtureLote.ts';
