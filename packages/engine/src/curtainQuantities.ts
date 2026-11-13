@@ -5,16 +5,16 @@
 import type { LinhaQuantCortina } from './kernelCortinaConsultas.ts';
 import { PAPEL_QUANT_CORTINA } from './kernelCortinaTabelas.ts';
 
-/** Resumo de uma cortina (chave: `cortina_num` do adaptador). Áreas em m², comprimentos em m, volumes em m³. */
+/** Resumo de uma cortina (chave: `cortina_num` do adaptador). Áreas em metros quadrados, comprimentos em metros, volumes em metros cúbicos. */
 export interface ResumoCortina {
   cortina: number;
   /** Comprimento do sistema (L) e área bruta do sistema (L × H). */
   comprimento: number;
   areaSistema: number;
-  /** Vidro: área bruta (retângulo livre mais o encaixe) e visível (retângulo livre), em m². */
+  /** Vidro: área bruta (retângulo livre mais o encaixe) e visível (retângulo livre), em metros quadrados. */
   vidroBruta: number;
   vidroVisivel: number;
-  /** Chapa sólida (área bruta) e vão vazio (área do vão), em m². */
+  /** Chapa sólida (área bruta) e vão vazio (área do vão), em metros quadrados. */
   areaSolida: number;
   areaVazia: number;
   /** Montantes: metros lineares total, por papel e por tipo de montante; contagem e volume. */

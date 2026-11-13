@@ -117,7 +117,7 @@ export function contornoMontante(perfil: MullionProfile): AnelPerfil[] {
   }
 }
 
-/** Área de um anel fechado pela fórmula de Gauss (valor absoluto, m²). */
+/** Área de um anel fechado pela fórmula de Gauss (valor absoluto, em metros quadrados). */
 function areaDoAnel(anel: AnelPerfil): number {
   let soma = 0;
   for (let i = 0; i < anel.length; i += 1) {
@@ -128,7 +128,7 @@ function areaDoAnel(anel: AnelPerfil): number {
   return Math.abs(soma) / 2;
 }
 
-/** Área líquida da seção (m²): anel externo menos os furos. */
+/** Área líquida da seção (em metros quadrados): anel externo menos os furos. */
 export function areaMontante(aneis: AnelPerfil[]): number {
   return aneis.reduce((total, anel, i) => total + (i === 0 ? 1 : -1) * areaDoAnel(anel), 0);
 }

@@ -36,7 +36,7 @@ export interface CurtainScheduleRow {
   quantidadeMontantes: number | null;
   quantidadePaineis: number | null;
   volumeMontantes: number | null;
-  /** Custo informativo: custo da parede × área bruta, mais o custo por metro dos montantes e por m² dos painéis. */
+  /** Custo informativo: custo da parede × área bruta, mais o custo por metro dos montantes e por metro quadrado dos painéis. */
   custo: number | null;
   /** `true` quando a linha tem números do kernel. */
   pronto: boolean;

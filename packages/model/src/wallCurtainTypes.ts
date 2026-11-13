@@ -98,7 +98,7 @@ export interface CurtainPanelType {
   glassKind?: OpeningGlassKind;
   uValue?: number;
   fireRating?: string;
-  /** R$ por m². */
+  /** Custo por metro quadrado, na moeda do projeto. */
   cost?: number;
 }
 

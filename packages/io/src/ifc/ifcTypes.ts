@@ -171,11 +171,11 @@ export interface IfcCurtainInstanceGeo {
 export interface IfcCurtainQuantities {
   /** Comprimento do eixo (m). */
   length: number;
-  /** Área bruta do sistema, L × H (m²). */
+  /** Área bruta do sistema, L × H (em metros quadrados). */
   grossArea: number;
-  /** Área de vidro visível (m²), soma dos painéis de vidro. */
+  /** Área de vidro visível (em metros quadrados), soma dos painéis de vidro. */
   glassArea: number;
-  /** Área do painel sólido visível (m²). */
+  /** Área do painel sólido visível (em metros quadrados). */
   solidArea: number;
   /** Comprimento de montante somado (m), todos os papéis de montante. */
   mullionLength: number;

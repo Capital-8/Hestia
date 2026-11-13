@@ -53,7 +53,7 @@ export interface Montante {
   ate: number;
   /** true = corre contínuo (não aparado); false = aparado nas faces do contínuo. */
   continuo: boolean;
-  /** Área da seção (m²) do perfil. */
+  /** Área da seção (em metros quadrados) do perfil. */
   areaPerfil: number;
 }
 
