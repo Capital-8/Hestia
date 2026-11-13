@@ -2,13 +2,14 @@
 //!
 //! Mesmo molde de `secoes_gc` e `secoes_cortina`: `BTreeMap` por chave (ordem canônica = id crescente) e decodificação que valida antes de tocar a
 //! cena (atômica): tamanho, chave ausente ou duplicada, valores não finitos e enums fora do domínio (`ENTRADA`). Aqui só se guardam as linhas; as regras
-//! de geometria (A.4), as referências entre seções (massa da seção, seção do ponto) e os limites de A.3 ficam para a ficha R1, junto das consultas
-//! 140 a 145, que por enquanto devolvem `NAO_IMPLEMENTADO`.
+//! de geometria (A.4) ficam nos módulos `massa_*`. As referências entre seções (massa da seção, seção do ponto) e os limites de A.3 são conferidos na
+//! leitura tipada das consultas (`massas_do_nivel`), que monta a pilha de cada massa e devolve `ENTRADA` se alguma regra de A.3 item 5 falha.
 
 use std::collections::BTreeMap;
 
 use crate::cena::{decodificar_colunas, Coluna, COORD_MAX};
-use crate::esquema::{ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_MASSAS, SECAO_MASSA_PONTOS, SECAO_MASSA_SECOES};
+use crate::esquema::{ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, NIVEL_TODOS, SECAO_MASSAS, SECAO_MASSA_PONTOS, SECAO_MASSA_SECOES};
+use crate::massa_tipos::{validar, Arranjo, Massa, Perfil, Secao, SECOES_MIN};
 
 /// Uma massa (seção 140). `arr_n` 1 = sem arranjo.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -227,6 +228,56 @@ impl SecoesMassa {
     /// Total de linhas em todas as seções daqui.
     pub fn total_linhas(&self) -> usize {
         self.massas.len() + self.secoes.len() + self.pontos.len()
+    }
+
+    /// Leitura tipada para as consultas: as massas do nível (`NIVEL_TODOS` = todas), em ordem crescente de `id_num`, cada uma com a sua pilha.
+    ///
+    /// As seções de uma massa são lidas em ordem crescente de `ordem` e os pontos do perfil livre em ordem crescente de `ordem` (ordem repetida é
+    /// `ENTRADA`). Massa com menos de 2 seções não gera geometria e fica de fora (descrição da seção 140). Linhas que apontam para massa ou seção
+    /// inexistente, e pontos de seção que não é livre, não são lidos. Cada massa devolvida passou em `massa_tipos::validar` (senão, `ENTRADA`).
+    pub fn massas_do_nivel(&self, nivel: u32) -> Result<Vec<Massa>, u32> {
+        // (massa ou seção, ordem) -> id da linha; o BTreeMap já entrega na ordem de leitura.
+        let mut secoes_de: BTreeMap<(u32, u32), u32> = BTreeMap::new();
+        for (id, s) in &self.secoes {
+            if secoes_de.insert((s.massa, s.ordem), *id).is_some() && self.massas.get(&s.massa).is_some_and(|m| nivel == NIVEL_TODOS || m.nivel == nivel) {
+                return Err(ENTRADA);
+            }
+        }
+        let mut pontos_de: BTreeMap<(u32, u32), [f64; 2]> = BTreeMap::new();
+        let mut repetido: Vec<u32> = Vec::new();
+        for p in self.pontos.values() {
+            if pontos_de.insert((p.secao, p.ordem), [p.x, p.y]).is_some() {
+                repetido.push(p.secao);
+            }
+        }
+        let mut out = Vec::new();
+        for (num, l) in self.massas.iter().filter(|(_, l)| nivel == NIVEL_TODOS || l.nivel == nivel) {
+            let mut secoes = Vec::new();
+            for (_, id) in secoes_de.range((*num, 0)..=(*num, u32::MAX)) {
+                let s = self.secoes.get(id).ok_or(INTERNO)?;
+                let perfil = match s.forma {
+                    0 => Perfil::Circulo { raio: s.p1 },
+                    1 => Perfil::Elipse { rx: s.p1, ry: s.p2 },
+                    2 => Perfil::Poligono { lados: s.lados, raio: s.p1 },
+                    3 => {
+                        if repetido.contains(id) {
+                            return Err(ENTRADA);
+                        }
+                        Perfil::Livre { pontos: pontos_de.range((*id, 0)..=(*id, u32::MAX)).map(|(_, p)| *p).collect() }
+                    }
+                    _ => return Err(ENTRADA),
+                };
+                secoes.push(Secao { z: s.z, perfil, rot: s.rot, escala: s.escala, dx: s.dx, dy: s.dy });
+            }
+            if secoes.len() < SECOES_MIN {
+                continue;
+            }
+            let arranjo = if l.arr_n == 1 { None } else { Some(Arranjo { n: l.arr_n, cx: l.arr_cx, cy: l.arr_cy, ang: l.arr_ang }) };
+            let m = Massa { num: *num, nivel: l.nivel, ox: l.ox, oy: l.oy, z_base: l.z_base, suave: l.interp == 1, resolucao: l.resolucao, arranjo, secoes };
+            validar(&m)?;
+            out.push(m);
+        }
+        Ok(out)
     }
 }
 
