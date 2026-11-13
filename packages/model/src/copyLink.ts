@@ -182,6 +182,11 @@ function syncOne(
     // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
     case 'railing':
       return null;
+    // terreno, região de terreno e lote: ficha T1 e ficha P3 (copiar/colar e vínculo de andar-tipo); a cópia fica sem sincronização.
+    case 'terrain':
+    case 'terrainRegion':
+    case 'lot':
+      return null;
     case 'wall': {
       if (!isWall(target)) return null;
       const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;

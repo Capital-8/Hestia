@@ -272,6 +272,10 @@ const migrations: Record<number, Migration> = {
   // `mullionTypes` nem `curtainPanelTypes`: ausente = parede básica e padrões por leitura. Nada a converter; a migração
   // só avança a versão, e assim um programa antigo recusa um arquivo com cortina.
   24: (raw) => ({ ...raw }),
+  // v25 → v26: terreno, região de terreno, lote e `Project.localizacao` (todos opcionais). Arquivo antigo não tem nada
+  // disso e `elements` aceita os kinds novos sem conversão. A migração só avança a versão, e assim um programa antigo
+  // recusa um arquivo com terreno ou lote.
+  25: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}

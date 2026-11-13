@@ -16,6 +16,9 @@ import {
   makeCeiling,
   makeFloor,
   makeGuardaCorpo,
+  makeLot,
+  makeTerrain,
+  makeTerrainRegion,
   makeRamp,
   makeRoof,
   makeRoom,
@@ -94,6 +97,13 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
+  terrain: { entra: false, projeto: () => com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [80, 80, 1, 90, 80, 2, 85, 90, 3] }) }) },
+  terrainRegion: {
+    entra: false,
+    projeto: () =>
+      com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0' }) }, { type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: [v(80, 80), v(90, 80), v(85, 90)] }) }),
+  },
+  lot: { entra: false, projeto: () => com({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [v(100, 100), v(110, 100), v(110, 110), v(100, 110)], lados: [1, 2, 3, 4].map(() => ({ papel: 'lateral' as const, recuo: 0 })) }) }) },
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
   cad: { entra: false, projeto: () => com({ type: 'addCadDrawing', cad }) },

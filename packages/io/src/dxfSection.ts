@@ -58,6 +58,8 @@ const CATEGORY_LAYER: Record<GraphicsCategory, string> = {
   roof: 'CORTE_TELHADO',
   stair: 'CORTE_ESCADA',
   railing: 'CORTE_GUARDA_CORPO',
+  site: 'CORTE_TERRENO',
+  lot: 'CORTE_LOTE',
   room: 'CORTE_AMBIENTE',
   annotation: 'CORTE_ANOTACAO',
   generic: 'CORTE_IMPORTADO',
