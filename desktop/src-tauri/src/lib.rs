@@ -7,6 +7,8 @@ use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
 
 mod biblioteca;
+// SUPLEMENTOS (Fase D): leitura de pasta de suplemento em desenvolvimento.
+mod suplementos;
 
 /// Consulta o updater e devolve a versão nova com as notas (`notes` do latest.json).
 /// `null` significa que já estamos na versão mais recente.
@@ -72,7 +74,9 @@ pub fn run() {
             biblioteca::biblioteca_listar,
             biblioteca::biblioteca_ler,
             biblioteca::biblioteca_gravar,
-            biblioteca::biblioteca_gravar_indice
+            biblioteca::biblioteca_gravar_indice,
+            // SUPLEMENTOS (Fase D)
+            suplementos::suplementos_ler_pasta
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Hestia");

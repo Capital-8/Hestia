@@ -35,3 +35,6 @@ export {
   dxfLayerName,
   dxfLayerCanonical,
 } from './i18n.ts';
+// SUPLEMENTOS (Fase D): leitor de zip com limites e pacote `.hestiapkg`.
+export * from './zipRead.ts';
+export * from './pkg.ts';
