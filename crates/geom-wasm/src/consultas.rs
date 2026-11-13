@@ -292,6 +292,16 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
+        // Terreno (esquema v19, ficha M2): ids registrados no contrato; o cálculo entra nas fichas R1 a R3.
+        esquema::CONSULTA_TERRENO_MALHA
+        | esquema::CONSULTA_TERRENO_CURVAS
+        | esquema::CONSULTA_TERRENO_PLANTA
+        | esquema::CONSULTA_TERRENO_COTAS
+        | esquema::CONSULTA_TERRENO_CORTE
+        | esquema::CONSULTA_QUANT_TERRENO
+        | esquema::CONSULTA_QUANT_TERRENO_REGIOES
+        | esquema::CONSULTA_TERRENO_CORTE_ATERRO
+        | esquema::CONSULTA_TERRENO_AVISOS => Err(NAO_IMPLEMENTADO),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
