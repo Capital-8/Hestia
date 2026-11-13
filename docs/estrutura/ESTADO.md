@@ -22,7 +22,8 @@ Modo de execução: subagentes. Trabalho mecânico (i18n, registros, conferênci
 | K3 | mesclada | merge de estr/K3 | 0 | cargo test 504+6; clippy 39 (= base), nenhum aviso em estr_*; binário WASM reproduzível; test:wasm 1338 / 56 arq; typecheck/lint ✔; test:rapido não rodado isolado (K3 não toca TS; entra no portão integrado da R1a). Pescoço = grupo separado (volumes somam sem abater sobreposição). |
 | K4 | pendente | | 0 | |
 | U1 | mesclada | merge de estr/U1 | 0 | typecheck ✔, lint ✔, test:rapido 981 arq / 11461 testes; escopo e atalhos conferidos pelo fiscal. Pontos de ligação para o R1: `definirPerfilContorno(fn)` (consulta 205) e `definirLeituraEstr(fn)` (consulta 203). Pendências: navegador de projeto não lista os novos tipos (T1); es/de/fr/it/pl com texto em inglês até a I18; PerfilEditor/PerfilPreview em ui/dialogs/. |
-| R1 | pendente | | 0 | |
+| R1a | mesclada | merge de estr/R1a | 0 | (R1 dividida: R1a = adaptador + 3D; R1b = planta, corte, elevação após a K4). Portão integrado com K3: typecheck ✔, lint ✔, test:rapido 985 arq / 11492, test:wasm 58 arq (1 falha achada pelo fiscal: teste da R1a assumia topo da base em topOffset; K3 está certa — topo da PEÇA em topOffset; corrigido para -1,3 e os `if` condicionais viraram asserções firmes). Pendências: peso (kg) depende de densidade do material (não existe no modelo); parede não vai ao kernel nesta cena (hosp_num ausente) — R1b/K4 decidem; chavesDeNivel das paredes deve passar a ler `a.estr` quando o pilar recortar parede. |
+| R1b | pendente | | 0 | planta, corte e elevação (consultas 201/202), após K4 |
 | T1 | pendente | | 0 | |
 | I1 | pendente | | 0 | |
 | I18 | pendente | | 0 | Haiku 5.5 médio |
