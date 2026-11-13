@@ -3,6 +3,7 @@ import { PluginHost, RENDERER_CAPABILITIES, type CameraPort, type HostPorts, typ
 import { editor } from '../editor/controller.ts';
 import { aplicarCamera3DAoVivo, camera3DAtual, lerCena3D, prepararCena3D } from '../editor/vista3dAoVivo.ts';
 import { safeGet, safeSet } from '../editor/storage.ts';
+import { appDataPort, appModelPort } from './appModelPort.ts';
 import { fromSceneCamera, toSceneCamera } from './cameraConvert.ts';
 import { buildSceneContent } from './sceneExport.ts';
 import { connectWebSocket } from './wsTransport.ts';
@@ -66,7 +67,7 @@ const overridesPort: OverridesPort = {
   },
 };
 
-export const hostPorts: HostPorts = { scene: scenePort, camera: cameraPort, overrides: overridesPort };
+export const hostPorts: HostPorts = { scene: scenePort, camera: cameraPort, overrides: overridesPort, model: appModelPort, data: appDataPort }; // SUPLEMENTOS:
 
 /** Entrada embutida do renderizador arquitetônico independente: endereço padrão, desabilitado até o usuário habilitar. */
 export const RENDERER_ENTRY: PluginEntry = {

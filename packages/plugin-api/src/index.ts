@@ -14,3 +14,4 @@ export * from './contributesTypes.ts';
 export * from './contributes.ts';
 export * from './manifestV2.ts';
 export * from './registry.ts';
+export * from './modelPort.ts'; // SUPLEMENTOS:

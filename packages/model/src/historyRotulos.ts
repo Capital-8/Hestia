@@ -252,6 +252,10 @@ export function labelOf(c: Command): string {
       return 'Substituição de material de visualização';
     case 'clearPluginViewOverride':
       return 'Remover substituição de visualização';
+    case 'setPluginData': // SUPLEMENTOS:
+      return 'Gravar dados do plugin';
+    case 'deletePluginData': // SUPLEMENTOS:
+      return 'Remover dados do plugin';
     case 'addView3DPoint':
       return 'Salvar ponto de vista 3D';
     case 'updateView3DPoint':
