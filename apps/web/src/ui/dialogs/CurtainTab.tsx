@@ -17,7 +17,7 @@ import {
 import { editor } from '../../editor/controller.ts';
 import { useT } from '../../editor/i18n.ts';
 import { NumField, Row, TextField } from '../fields.tsx';
-import type { PT_PAREDE_CORTINA } from '../../editor/i18n/areas/parede-cortina.ts';
+import type { PT_PAREDE_CORTINA } from '../../editor/i18n/areas/parede-cortina-1.ts';
 
 type Chave = keyof typeof PT_PAREDE_CORTINA;
 
