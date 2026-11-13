@@ -17,6 +17,7 @@ use crate::secoes_a1::{ParedeZ, SecoesA1};
 use crate::secoes_a3::SecoesA3;
 use crate::secoes_b::SecoesB;
 use crate::secoes_cortina::SecoesCortina;
+use crate::secoes_estr::SecoesEstr;
 use crate::secoes_gc::SecoesGC;
 
 /// Módulo máximo aceito para uma coordenada ou espessura (metros). Evita `inf` em somas e
@@ -321,6 +322,8 @@ pub struct Cena {
     pub(crate) gc: SecoesGC,
     /// Seções da parede cortina (100 a 105); a cortina não passa pelo resolvedor de camadas das paredes.
     pub(crate) cortina: SecoesCortina,
+    /// Seções da estrutura (200 a 206; ficha K1): pilar, viga, fundação, tipos e vértices de perfis personalizados.
+    pub(crate) estr: SecoesEstr,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
@@ -439,6 +442,7 @@ impl Cena {
             s if SecoesB::e_minha(s) => self.b.definir(s, n_linhas, bytes),
             s if SecoesGC::e_minha(s) => self.gc.definir(s, n_linhas, bytes),
             s if SecoesCortina::e_minha(s) => self.cortina.definir(s, n_linhas, bytes),
+            s if SecoesEstr::e_minha(s) => self.estr.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         };
         if r.is_ok() {
@@ -468,6 +472,7 @@ impl Cena {
             s if SecoesB::e_minha(s) => self.b.upsert(s, n_linhas, bytes),
             s if SecoesGC::e_minha(s) => self.gc.upsert(s, n_linhas, bytes),
             s if SecoesCortina::e_minha(s) => self.cortina.upsert(s, n_linhas, bytes),
+            s if SecoesEstr::e_minha(s) => self.estr.upsert(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -501,6 +506,10 @@ impl Cena {
             }
             s if SecoesCortina::e_minha(s) => {
                 self.cortina.remover(s, ids);
+                Ok(())
+            }
+            s if SecoesEstr::e_minha(s) => {
+                self.estr.remover(s, ids);
                 Ok(())
             }
             _ => Err(ENTRADA),

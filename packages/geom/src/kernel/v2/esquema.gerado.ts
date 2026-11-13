@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 18;
+export const ESQUEMA_VERSAO = 19;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2680,6 +2680,396 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "pilares": {
+    "id": 200,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "disciplina",
+        "tipo": "u8"
+      },
+      {
+        "nome": "px",
+        "tipo": "f64"
+      },
+      {
+        "nome": "py",
+        "tipo": "f64"
+      },
+      {
+        "nome": "rotacao",
+        "tipo": "f64"
+      },
+      {
+        "nome": "deslocamento_base",
+        "tipo": "f64"
+      },
+      {
+        "nome": "nivel_topo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "deslocamento_topo",
+        "tipo": "f64"
+      },
+      {
+        "nome": "altura",
+        "tipo": "f64"
+      },
+      {
+        "nome": "hosp_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "vigas": {
+    "id": 201,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ax",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ay",
+        "tipo": "f64"
+      },
+      {
+        "nome": "bx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "by",
+        "tipo": "f64"
+      },
+      {
+        "nome": "deslocamento_z_a",
+        "tipo": "f64"
+      },
+      {
+        "nome": "deslocamento_z_b",
+        "tipo": "f64"
+      },
+      {
+        "nome": "alinhamento",
+        "tipo": "u8"
+      },
+      {
+        "nome": "rotacao",
+        "tipo": "f64"
+      },
+      {
+        "nome": "extremidade_a",
+        "tipo": "u8"
+      },
+      {
+        "nome": "extremidade_b",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "fundacoes": {
+    "id": 202,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "px",
+        "tipo": "f64"
+      },
+      {
+        "nome": "py",
+        "tipo": "f64"
+      },
+      {
+        "nome": "rotacao",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ax",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ay",
+        "tipo": "f64"
+      },
+      {
+        "nome": "bx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "by",
+        "tipo": "f64"
+      },
+      {
+        "nome": "hosp_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "deslocamento_topo",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "tipos_pilar": {
+    "id": 203,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "disciplina",
+        "tipo": "u8"
+      },
+      {
+        "nome": "forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "p0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p3",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p4",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p5",
+        "tipo": "f64"
+      },
+      {
+        "nome": "perfil_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura_camadas",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "tipos_viga": {
+    "id": 204,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "p0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p3",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p4",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p5",
+        "tipo": "f64"
+      },
+      {
+        "nome": "perfil_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "tipos_fundacao": {
+    "id": 205,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "modo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "base_forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "base_p0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_p1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_p2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_p3",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_p4",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_p5",
+        "tipo": "f64"
+      },
+      {
+        "nome": "base_perfil_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "altura_base",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "pescoco_p0",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_p1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_p2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_p3",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_p4",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_p5",
+        "tipo": "f64"
+      },
+      {
+        "nome": "pescoco_perfil_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "altura_pescoco",
+        "tipo": "f64"
+      },
+      {
+        "nome": "material_num",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "perfis": {
+    "id": 206,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "perfil_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "anel",
+        "tipo": "u32"
+      },
+      {
+        "nome": "indice",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -3637,6 +4027,207 @@ export const CONSULTAS = {
         "nome": "linhas_pos",
         "tipo": "f64",
         "elementos": "n"
+      }
+    ]
+  },
+  "estr_malha": {
+    "id": 200,
+    "args": [
+      "nivel_num",
+      "lod"
+    ],
+    "saidas": [
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "6n"
+      },
+      {
+        "nome": "vertices",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "indices",
+        "tipo": "u32",
+        "elementos": "n"
+      }
+    ]
+  },
+  "estr_planta": {
+    "id": 201,
+    "args": [
+      "nivel_num",
+      "corte_z",
+      "detalhe"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "estr_corte": {
+    "id": 202,
+    "args": [
+      "nivel_num",
+      "ox",
+      "oy",
+      "dx",
+      "dy",
+      "profundidade"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "estr_quant": {
+    "id": 203,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "4n"
+      }
+    ]
+  },
+  "estr_avisos": {
+    "id": 204,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "avisos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "estr_perfil": {
+    "id": 205,
+    "args": [
+      "nivel_num",
+      "forma",
+      "p0",
+      "p1",
+      "p2",
+      "p3",
+      "p4",
+      "p5",
+      "n_aneis"
+    ],
+    "argsVariaveis": true,
+    "saidas": [
+      {
+        "nome": "aneis",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "medidas",
+        "tipo": "f64",
+        "elementos": 2
+      }
+    ]
+  },
+  "estr_juncoes": {
+    "id": 206,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "recortes",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "recortes_z",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "aparos",
+        "tipo": "u32",
+        "elementos": "3n"
+      },
+      {
+        "nome": "aparos_recuo",
+        "tipo": "f64",
+        "elementos": "n"
+      },
+      {
+        "nome": "unioes",
+        "tipo": "u32",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "estr_apoio": {
+    "id": 207,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "pontos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos_xy",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "segmentos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "segmentos_xy",
+        "tipo": "f64",
+        "elementos": "4n"
       }
     ]
   }

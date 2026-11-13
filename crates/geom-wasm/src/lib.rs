@@ -99,6 +99,8 @@ pub mod cortina_quant;
 pub mod cortina_remap;
 pub mod cortina_tipos;
 pub mod secoes_cortina;
+// Estrutura: pilar, viga e fundação (docs/estrutura/PLANO.md, ficha K1).
+pub mod secoes_estr;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
