@@ -8,7 +8,7 @@ Modo de execução: A (subagentes). Modelo: padrão nas fichas comuns; o mais fo
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
-| M1 | pendente | | 0 | |
+| M1 | mesclada | merge de terreno/M1 | 0 | typecheck ✔, lint ✔ (8 avisos de base), test:rapido 976 arq / 11422 testes; escopo e atalhos conferidos pelo fiscal; SCHEMA_VERSION 26. Pendências para outras fichas: copiar/mover terreno leva as regiões (T1, em edit.ts); traço-dois-pontos do lote (P2); estilo `lot` gravado com cutWeight 1 |
 | M2 | pendente | | 0 | |
 | R1 | pendente | | 0 | exige a decisão D1 confirmada |
 | R2 | pendente | | 0 | |
