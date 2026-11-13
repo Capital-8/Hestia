@@ -1,6 +1,6 @@
 import { planFootprint } from './stairs.ts';
 import { resolveRampOne, resolveStairOne } from '@hestia/engine';
-import { isOpening, isRamp, isStair, isWall, type Element, type Id, type Project } from '@hestia/model';
+import { columnTypesOf, isOpening, isRamp, isStair, isWall, type Element, type Id, type PerfilForma, type Project } from '@hestia/model';
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
 
 /**
@@ -81,10 +81,10 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
-  // estrutura: ficha R1 (a extensão de pilar, viga e fundação vem do kernel; a vista ainda não os desenha).
-  column: { entra: false, motivo: 'estrutura: ficha R1 (o pilar ainda não é desenhado pela vista).', pontos: nenhum },
-  beam: { entra: false, motivo: 'estrutura: ficha R1 (a viga ainda não é desenhada pela vista).', pontos: nenhum },
-  footing: { entra: false, motivo: 'estrutura: ficha R1 (a fundação ainda não é desenhada pela vista).', pontos: nenhum },
+  // estrutura: ficha R1a. Só a extensão em planta (a vista de elevação ainda não desenha estes kinds: planta, corte e elevação são da R1b).
+  column: { entra: true, pontos: (e, p) => pontosDoPilar(e, p) },
+  beam: { entra: true, pontos: (e) => [e.a, e.b] },
+  footing: { entra: true, pontos: (e) => (e.pos ? [e.pos] : [e.a, e.b].filter((q): q is Vec2 => q !== undefined)) },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,
@@ -93,6 +93,38 @@ const COLETORES: Coletores = {
   },
   cad: { entra: false, motivo: 'O desenho CAD importado é só de planta (traços 2D); não aparece em corte nem em elevação.', pontos: nenhum },
 };
+
+/**
+ * Meia-diagonal (m) da caixa do perfil: aproximação CONSERVADORA do quanto o pilar se afasta da posição em qualquer giro. É só para a extensão do
+ * modelo (enquadrar a elevação e a planta), não geometria de desenho (o contorno é do kernel). Perfil personalizado: a caixa dos vértices do anel.
+ */
+function meiaDiagonalDoPerfil(pf: PerfilForma): number {
+  switch (pf.forma) {
+    case 'circular':
+    case 'tuboCircular':
+      return pf.d / 2;
+    case 'personalizado': {
+      const xs = pf.anel.map((q) => q[0]);
+      const ys = pf.anel.map((q) => q[1]);
+      return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2;
+    }
+    default:
+      return Math.hypot(pf.b, pf.h) / 2;
+  }
+}
+
+/** O pilar em planta: a posição com a meia-diagonal do perfil em cada direção (quadrado que envolve o pilar em qualquer giro). */
+function pontosDoPilar(c: Do<'column'>, p: Project): Pontos {
+  const tipo = columnTypesOf(p)[c.typeId];
+  const r = tipo ? meiaDiagonalDoPerfil(tipo.perfil) : 0;
+  if (!Number.isFinite(r) || r <= 0) return [c.pos];
+  return [
+    { x: c.pos.x - r, y: c.pos.y - r },
+    { x: c.pos.x + r, y: c.pos.y - r },
+    { x: c.pos.x + r, y: c.pos.y + r },
+    { x: c.pos.x - r, y: c.pos.y + r },
+  ];
+}
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {
   const host = p.elements[e.hostId];
@@ -130,7 +162,7 @@ export function pontosDaExtensao(p: Project, levelId?: Id): Pontos {
 
 /**
  * Caixa em planta (m, sem folga) de TODOS os elementos que aparecem em corte e elevação: paredes, esquadrias, pisos,
- * lajes, forros, telhados, escadas, rampas e guarda-corpos. Com `levelId`, só os daquele nível; sem ele, o modelo todo.
+ * lajes, forros, telhados, escadas, rampas, guarda-corpos, pilares, vigas e fundações. Com `levelId`, só os daquele nível; sem ele, o modelo todo.
  * Null quando nada entra (modelo ou nível sem elemento desenhável).
  */
 export function extensaoDoModelo(p: Project, levelId?: Id): CaixaPlano | null {

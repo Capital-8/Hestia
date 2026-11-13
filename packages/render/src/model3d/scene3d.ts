@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { servicoCortina, servicoEstr, temEstrutura, malhaEstr, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
 import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
@@ -16,6 +16,7 @@ import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type D
 import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
+import { buildEstrSolids } from './estr3d.ts';
 import { grupoSoEixos, montarGrupoCortina } from './cortinaGrupo3d.ts';
 import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
@@ -31,7 +32,7 @@ import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixa
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
+import { chavesDeCortina, chavesDeEstr, chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -144,6 +145,9 @@ interface EntradaCortina {
 /** Marca de cache das cortinas: um nível montado antes de o kernel carregar só tem o eixo; com a marca k0/k1 ele é refeito quando o kernel chega. */
 const kernelCortina = (p: Project): string => (temCortina(p) ? (servicoCortina().pronto() ? 'k1' : 'k0') : '-');
 
+/** Marca de cache da estrutura: um nível montado antes de o kernel carregar não tem a malha de pilares, vigas e fundações; com a marca e0/e1 ele é refeito quando o kernel chega. */
+const kernelEstr = (p: Project): string => (temEstrutura(p) ? (servicoEstr().pronto() ? 'e1' : 'e0') : '-');
+
 /** Lote 3D dos guarda-corpos de um nível (ver `atualizarGuardaCorpo`). */
 interface EntradaGuardaCorpo {
   readonly levelId: Id;
@@ -207,6 +211,8 @@ export class ModelScene {
   private cenaNiveis: EntradaNivel[] = [];
   /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
   private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
+  /** Lote 3D de pilares, vigas e fundações (malha do kernel), um grupo por nível, com chave própria (estrutura: ficha R1a). */
+  private estrNaCena: EntradaGuardaCorpo[] = [];
   /** Lote 3D das paredes cortina (instâncias do kernel), um grupo por nível, com chave própria por hash das cortinas. */
   private cortinaNaCena: EntradaCortina[] = [];
   private cache: CacheMalhas;
@@ -315,7 +321,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks)];
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.estrNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -434,6 +440,7 @@ export class ModelScene {
     this.cenaNiveis = atuais;
     for (const e of atuais) this.model.add(e.grupo);
     this.atualizarGuardaCorpo(p, opt, levels);
+    this.atualizarEstr(p, opt, levels);
     this.atualizarCortina(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
@@ -684,6 +691,7 @@ export class ModelScene {
     this.detach();
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
     for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
+    for (const g of this.estrNaCena) this.model.add(g.grupo);
     for (const g of this.cortinaNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
@@ -735,6 +743,68 @@ export class ModelScene {
     const reveladosIds = new Set(doNivel.filter((id) => this.revelados.has(id) && !this.ocultos.has(id)));
     const lotes = buildGuardaCorpoSolids(malhas, (id) => visiveis.has(id));
     const bordas = reveladosIds.size ? arestasDosLotes(buildGuardaCorpoSolids(malhas, (id) => reveladosIds.has(id)), EDGE_ANGLE) : null;
+    if (!lotes.length && !bordas) return null;
+    const grupo = new THREE.Group();
+    grupo.userData = { levelId };
+    const picks: PickSource[] = [];
+    const mats = new Set<string>();
+    const picksAnt = this.picks;
+    const matsAnt = this.mats.noNivel;
+    this.picks = picks;
+    this.mats.noNivel = mats;
+    this.desenharLotes(grupo, lotes, this.frame.edges, (id) => p.materials[id]);
+    this.picks = picksAnt;
+    this.mats.noNivel = matsAnt;
+    if (bordas) {
+      const linhasReveladas = new THREE.LineSegments(bordas, this.materialDoReveal());
+      linhasReveladas.renderOrder = 8;
+      linhasReveladas.userData = { reveal: true };
+      grupo.add(linhasReveladas);
+    }
+    return { levelId, chave, grupo, picks, mats: [...mats] };
+  }
+
+  /**
+   * Lote 3D de pilares, vigas e fundações (ficha R1a): um grupo por nível com estrutura, com a chave própria de `chavesDeEstr`. A malha vem do kernel Rust
+   * (consulta 200 `estr_malha`, pelo adaptador de `@hestia/engine`); sem kernel pronto não há o que desenhar (nunca TypeScript no lugar; o aviso
+   * `estr-sem-kernel` sai pelos avisos do projeto) e a marca `e0`/`e1` na chave refaz o lote quando o kernel chega. A cor vem do material do tipo, a visibilidade
+   * por categoria (`columns`, `beams`, `footings`) de `view.overrides` e a por id (Hide in View e Reveal), como no guarda-corpo.
+   */
+  private atualizarEstr(p: Project, opt: Scene3DOptions, levels: readonly ResolvedLevel[]): void {
+    const anteriores = new Map(this.estrNaCena.map((g) => [g.levelId, g] as const));
+    const atuais: EntradaGuardaCorpo[] = [];
+    const view = this.frame.view;
+    if (temEstrutura(p)) {
+      const marca = JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, kernelEstr(p)]);
+      const chaves = chavesDeEstr(p, marca, { ocultos: this.ocultos, revelados: this.revelados });
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      for (const [levelId, chave] of chaves) {
+        if (!nivelDe.has(levelId)) continue;
+        const velha = anteriores.get(levelId);
+        if (velha?.chave === chave) {
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(levelId);
+          continue;
+        }
+        const nova = this.montarEstr(p, levelId, chave);
+        if (nova) atuais.push(nova);
+      }
+    }
+    this.estrNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarGuardaCorpo(g);
+    for (const g of atuais) this.model.add(g.grupo);
+  }
+
+  private montarEstr(p: Project, levelId: Id, chave: string): EntradaGuardaCorpo | null {
+    const malhas = malhaEstr(p, levelId) ?? [];
+    const view = this.frame.view;
+    const doNivel = Object.values(p.elements).filter((e) => (e.kind === 'column' || e.kind === 'beam' || e.kind === 'footing') && e.levelId === levelId).map((e) => e.id);
+    const visiveis = new Set(doNivel.filter((id) => !this.ocultos.has(id)));
+    const reveladosIds = new Set(doNivel.filter((id) => this.revelados.has(id) && !this.ocultos.has(id)));
+    const categoria = (c: GraphicsCategory): boolean => view.overrides[c].visible;
+    const lotes = buildEstrSolids(malhas, (id) => visiveis.has(id), categoria);
+    const bordas = reveladosIds.size ? arestasDosLotes(buildEstrSolids(malhas, (id) => reveladosIds.has(id), categoria), EDGE_ANGLE) : null;
     if (!lotes.length && !bordas) return null;
     const grupo = new THREE.Group();
     grupo.userData = { levelId };
@@ -1372,6 +1442,8 @@ export class ModelScene {
     this.realces.soltarTodos();
     for (const g of this.guardaCorpoNaCena) this.liberarGuardaCorpo(g);
     this.guardaCorpoNaCena = [];
+    for (const g of this.estrNaCena) this.liberarGuardaCorpo(g);
+    this.estrNaCena = [];
     for (const g of this.cortinaNaCena) this.liberarCortina(g);
     this.cortinaNaCena = [];
     this.grupoRealceCortina = [];
