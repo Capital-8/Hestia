@@ -11,7 +11,7 @@ import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, mon
 import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, guardaCorposNaCaixaDoCorteDoProjeto, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
@@ -425,7 +425,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         // Linha de destaque (halo): o MESMO desenho da planta (`previewOverlay`), para o Alinhar ficar igual nas duas vistas.
         if (it.kind === 'line' && it.halo) liveStrokes.push(...previewOverlay([it], theme, () => []).strokes);
         else if (it.kind === 'line') liveStrokes.push({ pts: [it.a, it.b], closed: false, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
-        else if (it.kind === 'polygon') liveStrokes.push({ pts: it.ring, closed: true, widthPx: 1, color: theme.ink, alpha: 1 });
+        else if (it.kind === 'polygon') liveStrokes.push({ pts: it.ring, closed: true, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
         else if (it.kind === 'label' && it.dimensionStyle) {
           // Prévia de cota no corte: texto de papel com a fonte da família (sem a caixa do rótulo de interface).
           const estilo = dimensionStyleFor(p.settings, { familyId: st.options.dimensionFamilyId ?? undefined });
@@ -591,8 +591,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const wa = screenToWorld(v, a);
     const wb = screenToWorld(v, b);
     const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
+    const hidden = visibilityOf(editor.project, st).hidden;
     const ids = [
-      ...idsNaCaixaDoCorte(result, wa, wb, visibilityOf(editor.project, st).hidden),
+      ...idsNaCaixaDoCorte(result, wa, wb, hidden),
+      // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
+      ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
       // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
       ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
     ];

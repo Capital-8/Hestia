@@ -40,7 +40,31 @@ aparar/estender, dividir, apagar, copiar/colar entre pavimentos, desfazer/refaze
 - **Alinhar:** feição em `alignFeatures.ts` (política `transladar` para o que se move; `nenhum` para só referência).
 - **Elemento hospedado** (guarda-corpo em escada ou rampa): segue o hospedeiro. Mover, girar, espelhar ou copiar o
   hospedeiro leva o hospedado junto (a cópia vem com o hospedeiro remapeado). Sozinho ele **não** se move: a
-  ferramenta recusa com a mensagem `tl_msg_railing_hosted_locked` e nada muda (ADR 0055 §25).
+  ferramenta recusa com a mensagem `tl_msg_railing_hosted_locked`, que aparece na barra de status em todas as vistas
+  (planta, corte e elevação; no Mover e no Copiar já ao escolher a ferramenta e de novo ao concluir o gesto), e nada
+  muda (ADR 0055 §25).
+- **Corte e elevação:** Mover, Copiar e Alinhar da vista (`SectionMoveTool`, `SectionAlignTool`) levam o kind pelo mesmo
+  mecanismo, `comandosMoverNoCorte` (`sectionMoverElementos.ts`): o deslocamento ao longo da linha do corte vira um
+  `transform` de translação em planta (o mesmo comando da planta; a cópia vem com as aberturas e os guarda-corpos
+  hospedados) e o vertical vira a cota do próprio elemento (`baseOffset` e `topOffset` na escada e na rampa,
+  `heightOffset` em piso, laje e telhado, `cotaBase` no guarda-corpo manual). O Alinhar escolhe o alvo pelo desenho da
+  vista (`pickAt`); o guarda-corpo, que o kernel desenha fora do resultado do corte, entra com as MESMAS linhas
+  (`guardaCorpoPieces`, a partir de `corteGuardaCorpoDaSecao`), e a seleção, o realce de cursor e a caixa dele
+  saem dessa mesma camada (`guardaCorpoCorteOps`, `guardaCorposNaCaixa`).
+- **Fluxo do Mover e do Copiar na vista: o MESMO da planta** (`SectionMoveTool`, `sectionMoveTool.ts`), no plano (t, z). Nada de arraste:
+  (1) clique no **ponto base** com todos os snaps do índice da vista (vértice, extremidade, ponto médio, interseção, perpendicular,
+  mais próximo, arestas de parede, laje, escada, acabamentos, guarda-corpo e esquadria, rastreios, Orto e Polar), pelo mesmo
+  `this.snap` e com os mesmos marcadores e rótulos da Cota e do Medir de corte; (2) prévia com o contorno que a vista desenha
+  para cada elemento selecionado, deslocado (`fantasmaDoMover`, `sectionMoverPrevia.ts`; escada leva o guarda-corpo hospedado
+  junto), a linha do ponto base ao cursor e a cota dinâmica do deslocamento (`tempDims`, mesmo provedor da planta); (3) clique no
+  **destino** com snaps (o deslocamento é exatamente base até o ponto capturado) ou distância digitada + Enter, na direção do
+  cursor (dt ao longo do corte, dz na vertical); Esc cancela sem alterar, Mover termina e volta a Selecionar, Copiar fica com a
+  mesma base para várias cópias (um só desfazer; Esc encerra a sessão). O gesto (digitado, cota do deslocamento, sessão de cópias)
+  vem do núcleo comum `gestoDeslocamento.ts`, usado também pelo `MoveTool` da planta: estender o núcleo, não copiar (regra 1).
+  Com elementos já selecionados o primeiro clique é o ponto base; sem seleção, o elemento sob o cursor aparece realçado e o
+  clique o seleciona e vira o ponto base. O que não anda na vertical (parede, sozinha na seleção) já tem a prévia restrita à
+  horizontal do ponto base e a barra de status diz o porquê (`tl_msg_section_move_vertical`), sem reação muda. O Alinhar da vista
+  mostra o snap e o destaque do elemento e da linha escolhida, também na referência.
 
 Teste-guarda: `packages/tools/src/contratoModificacao.test.ts`. `CLASSIFICACAO` é um `Record<Element['kind'], ...>`:
 um kind novo sem linha **não compila**; cada marca tem de apontar código que existe e `null` exige o motivo (TODO).
@@ -135,6 +159,8 @@ ponto na direção do cursor. No lance reto e na rampa reta o valor digitado con
 Snaps (regra 6): forro, telhado, ambiente e objeto importado ainda não fornecem pontos de captura (motivos no teste-guarda).
 
 Modificação (regra 3): exceções explícitas no teste-guarda. Ambiente e CAD não têm feição alinhável; o objeto
-importado (`generic`) ainda não é movido pelo `transform` (o Colar translada a malha por conta própria). O Alinhar do
-corte (`SectionAlignTool`) só tem alvo parede e abertura, como para escada, laje e forro; o Mover do corte leva o
-guarda-corpo manual. Não existem "fixar" e "agrupar" no modelo.
+importado (`generic`) ainda não é movido pelo `transform` (o Colar translada a malha por conta própria). No corte e na
+elevação (`CORTE` no teste-guarda): parede, piso, laje, escada, rampa e guarda-corpo movem, copiam e alinham (a abertura move e alinha; a cópia dela vem com a parede);
+ficam de fora (TODO com motivo) o forro (nem `selectedMovables` o leva), o telhado no Alinhar (a água é inclinada) e
+ambiente, objeto importado e CAD, que não aparecem na vista. Girar, Espelhar, Matriz, Deslocar, Aparar e Dividir seguem só na
+planta (a barra de status explica ao escolhê-los no corte). Não existem "fixar" e "agrupar" no modelo.

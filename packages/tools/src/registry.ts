@@ -6,7 +6,8 @@ import { WallTool } from './wallTool.ts';
 import { OpeningTool } from './openingTool.ts';
 import { SelectTool } from './selectTool.ts';
 import { MirrorTool, MoveTool, RotateTool } from './transformTools.ts';
-import { SectionAlignTool, SectionMoveTool } from './sectionEditTools.ts';
+import { SectionAlignTool } from './sectionEditTools.ts';
+import { SectionMoveTool } from './sectionMoveTool.ts';
 import { ArrayTool } from './arrayTool.ts';
 import { OffsetTool } from './offsetTool.ts';
 import { AlignTool } from './alignTool.ts';
@@ -126,7 +127,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
     case 'move':
       return env.section?.() ? new SectionMoveTool(env) : new MoveTool(env, false);
     case 'copy':
-      return new MoveTool(env, true);
+      return env.section?.() ? new SectionMoveTool(env, true) : new MoveTool(env, true);
     case 'rotate':
       return new RotateTool(env);
     case 'mirror':

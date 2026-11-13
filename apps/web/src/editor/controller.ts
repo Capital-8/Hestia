@@ -125,7 +125,7 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
 };
 
 /** Ferramentas que fazem sentido na vista de corte/elevação. As demais continuam exclusivas da planta. */
-const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move']);
+const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move', 'copy']);
 
 export class Editor {
   readonly store = new ProjectStore(createEmptyProject(useI18n.getState().lang));
@@ -194,6 +194,7 @@ export class Editor {
           ...extra,
         }),
         result: () => result,
+        hidden: () => visibilityOf(this.project, useUi.getState()).hidden,
       };
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
@@ -616,7 +617,8 @@ export class Editor {
     switch (kind) {
       case 'move':
         t.move(info);
-        if (t.id === 'select') {
+        // No corte, Mover, Copiar e Alinhar sem seleção realçam o elemento que o clique vai escolher (o mesmo realce do Selecionar).
+        if (t.id === 'select' || (ui.view === 'section' && (t.id === 'move' || t.id === 'copy' || t.id === 'align'))) {
           const first = t.preview().find((i) => i.kind === 'highlight');
           useUi.setState({ hover: first && first.kind === 'highlight' ? (first.ids[0] ?? null) : null });
         }

@@ -22,7 +22,7 @@ export function ViewportOverlays({
   host: RefObject<HTMLDivElement | null>;
   model: ModelScene;
   selection: Id[];
-  ui: { view: ViewKind; gpu: Backend | 'cpu' | 'pending'; prompt: string | null; typed: string };
+  ui: { view: ViewKind; gpu: Backend | 'cpu' | 'pending'; prompt: string | null; typed: string; tool?: string };
 }): ReactElement {
   const { t } = useT();
   const only = selection.length === 1 ? editor.project.elements[selection[0]!] : undefined;
@@ -34,7 +34,8 @@ export function ViewportOverlays({
   return (
     <>
       {ui.view === 'plan' && selectedOpeningId ? <OpeningFlipGrips openingId={selectedOpeningId} /> : null}
-      {ui.view === 'plan' ? <TempDimsOverlay /> : null}
+      {/* No corte e na elevação só o Mover e o Copiar mostram a cota dinâmica do deslocamento (as cotas da seleção são de planta). */}
+      {ui.view === 'plan' || (ui.view === 'section' && (ui.tool === 'move' || ui.tool === 'copy')) ? <TempDimsOverlay /> : null}
       {ui.view === 'plan' || ui.view === 'section' ? <DimValueEditor /> : null}
       {ui.gpu === 'cpu' && <div className="cpu-note">{t('cvv_cpu_note')}</div>}
       {ui.gpu === 'cpu' && ui.view === '3d' && (
@@ -46,7 +47,7 @@ export function ViewportOverlays({
       <CanvasContextMenu model={model} host={host} />
       {ui.view === '3d' && ui.gpu !== 'cpu' ? <ViewCube model={model} /> : null}
       {ui.view === 'section' ? <SectionBadge /> : null}
-      {ui.view === 'plan' && ui.prompt ? (
+      {(ui.view === 'plan' || ui.view === 'section') && ui.prompt ? (
         <div className="typebox" role="status">
           <span className="cap">{ui.prompt}</span>
           <span className="buf" aria-live="polite">{ui.typed}</span>
