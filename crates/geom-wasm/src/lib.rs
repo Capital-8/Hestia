@@ -99,6 +99,7 @@ pub mod cortina_quant;
 pub mod cortina_remap;
 pub mod cortina_tipos;
 pub mod secoes_cortina;
+pub mod secoes_massa;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;

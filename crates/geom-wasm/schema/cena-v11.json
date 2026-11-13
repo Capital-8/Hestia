@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (término por camada): coluna `termino_ref` em `camadas_piso` e `camadas_laje` e o término 6 (camada). v14 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO). v15 (decisão 0056, fase 1 da parede cortina): seções 100 a 105 (cortinas, tipos_cortina, grades_cortina, grade_posicoes_cortina, tipos_montante_cortina, tipos_painel_cortina) e consultas 100 (cortina_grade), 101 (cortina_malha), 102 (cortina_planta), 104 (quant_cortina) e 105 (cortina_avisos), todas implementadas no Rust; a 103 (cortina_corte) é da fase 6. A cortina NÃO entra na seção 1 `paredes` nem no resolvedor de camadas. Convenções fixadas com a referência TS (`packages/engine/src/cortinaRef`): `cortina_grade.segmentos` tem 5 colunas e `linha` é o índice GLOBAL (U = 0..nu, V = nu+1..nu+1+nv); as bordas não são linhas em `linhas` (só índices 1 a n-1) mas são arestas dos segmentos; `quant_cortina` usa os papéis 0 a 5 (montantes), 10 a 12 (painéis) e 20 (sistema); o montante de borda fica EMBUTIDO em [0, L] x [0, H]; cortina com `sag` ≠ 0 é omitida das consultas geométricas e sai com o aviso 6; ângulo de grade ≠ 0 é ENTRADA. v16 (decisão 0056, fase 2 da parede cortina): seções 106 a 109 (cortina_linhas_extras, cortina_segmentos_removidos, cortina_linhas_sobrescritas e cortina_celulas_sobrescritas: linhas extras e travadas, segmentos removidos, linhas geradas sobrescritas e painel por célula) e os avisos 7 a 10 (órfãs e região não retangular); cortina_grade devolve regiões fundidas (regiao = célula canônica) e segmentos removidos. As demais seções e consultas não mudaram. v17 (decisão 0056, fase 3 da parede cortina, junção entre paredes): seção 110 `cortina_extremidades` (a vizinhança de cada ponta de cada cortina: parede vizinha, comum ou cortina, ângulo entre os eixos, os dois segmentos de face e a espessura da vizinha, o lado e as flags de junção desligada). Sem linha, ou com `vizinha_num` ausente, a cortina se comporta como antes (corte reto no eixo do nó). Cortina com parede comum em L ou T: encosto reto (a cortina recua até a face da vizinha); cortina com cortina: montante de canto entre as duas (ou continuidade quando colineares). Consultas `cortina_malha`, `cortina_planta` e `quant_cortina` passam a ler a seção. As demais seções e consultas não mudaram. v18 (decisão 0056, fase 5 da parede cortina, esquadria na célula e cortina embutida): seções 112 `cortina_celulas_abertura` (a esquadria de uma célula: chave da célula como na 109, o tipo da seção 7 `tipos_abertura`, as inversões, o ajuste e o alinhamento, a soleira) e 113 `cortina_hospedes` (a cortina embutida: hospedeiro, centro e largura do vão ao longo dele, peitoril e altura) e as consultas 106 `cortina_recorte_hospedeiro` e 107 `cortina_celula_porta`; avisos 11 a 13. A seção 111 (cadeias) fica reservada à fase 4, por isso o salto. `cortina_malha` passa a levar a esquadria em `grupos` (papéis 3 folha e batente, 4 vidro da esquadria), `cortina_planta` os papéis 4 e 5, `quant_cortina` os papéis 30 a 32 e `cortina_grade` o bit 3 de `celulas.flags`; o resolvedor de camadas das paredes (`resolver_nivel`) recorta o hospedeiro onde há linha na seção 113. Sem linhas nas seções 112 e 113, tudo se comporta como na v17. As demais seções e consultas não mudaram.",
-  "versao": 18,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (término por camada): coluna `termino_ref` em `camadas_piso` e `camadas_laje` e o término 6 (camada). v14 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO). v15 (decisão 0056, fase 1 da parede cortina): seções 100 a 105 (cortinas, tipos_cortina, grades_cortina, grade_posicoes_cortina, tipos_montante_cortina, tipos_painel_cortina) e consultas 100 (cortina_grade), 101 (cortina_malha), 102 (cortina_planta), 104 (quant_cortina) e 105 (cortina_avisos), todas implementadas no Rust; a 103 (cortina_corte) é da fase 6. A cortina NÃO entra na seção 1 `paredes` nem no resolvedor de camadas. Convenções fixadas com a referência TS (`packages/engine/src/cortinaRef`): `cortina_grade.segmentos` tem 5 colunas e `linha` é o índice GLOBAL (U = 0..nu, V = nu+1..nu+1+nv); as bordas não são linhas em `linhas` (só índices 1 a n-1) mas são arestas dos segmentos; `quant_cortina` usa os papéis 0 a 5 (montantes), 10 a 12 (painéis) e 20 (sistema); o montante de borda fica EMBUTIDO em [0, L] x [0, H]; cortina com `sag` ≠ 0 é omitida das consultas geométricas e sai com o aviso 6; ângulo de grade ≠ 0 é ENTRADA. v16 (decisão 0056, fase 2 da parede cortina): seções 106 a 109 (cortina_linhas_extras, cortina_segmentos_removidos, cortina_linhas_sobrescritas e cortina_celulas_sobrescritas: linhas extras e travadas, segmentos removidos, linhas geradas sobrescritas e painel por célula) e os avisos 7 a 10 (órfãs e região não retangular); cortina_grade devolve regiões fundidas (regiao = célula canônica) e segmentos removidos. As demais seções e consultas não mudaram. v17 (decisão 0056, fase 3 da parede cortina, junção entre paredes): seção 110 `cortina_extremidades` (a vizinhança de cada ponta de cada cortina: parede vizinha, comum ou cortina, ângulo entre os eixos, os dois segmentos de face e a espessura da vizinha, o lado e as flags de junção desligada). Sem linha, ou com `vizinha_num` ausente, a cortina se comporta como antes (corte reto no eixo do nó). Cortina com parede comum em L ou T: encosto reto (a cortina recua até a face da vizinha); cortina com cortina: montante de canto entre as duas (ou continuidade quando colineares). Consultas `cortina_malha`, `cortina_planta` e `quant_cortina` passam a ler a seção. As demais seções e consultas não mudaram. v18 (decisão 0056, fase 5 da parede cortina, esquadria na célula e cortina embutida): seções 112 `cortina_celulas_abertura` (a esquadria de uma célula: chave da célula como na 109, o tipo da seção 7 `tipos_abertura`, as inversões, o ajuste e o alinhamento, a soleira) e 113 `cortina_hospedes` (a cortina embutida: hospedeiro, centro e largura do vão ao longo dele, peitoril e altura) e as consultas 106 `cortina_recorte_hospedeiro` e 107 `cortina_celula_porta`; avisos 11 a 13. A seção 111 (cadeias) fica reservada à fase 4, por isso o salto. `cortina_malha` passa a levar a esquadria em `grupos` (papéis 3 folha e batente, 4 vidro da esquadria), `cortina_planta` os papéis 4 e 5, `quant_cortina` os papéis 30 a 32 e `cortina_grade` o bit 3 de `celulas.flags`; o resolvedor de camadas das paredes (`resolver_nivel`) recorta o hospedeiro onde há linha na seção 113. Sem linhas nas seções 112 e 113, tudo se comporta como na v17. As demais seções e consultas não mudaram. v19 (plano de massa, A.5; M2): seções 140 `massas`, 141 `massa_secoes` e 142 `massa_pontos` (a pilha de seções horizontais de cada massa de estudo volumétrico, com o perfil livre em linhas à parte) e as consultas 140 `massa_malha`, 141 `massa_planta`, 142 `massa_fatias`, 143 `massa_corte`, 144 `quant_massa` e 145 `massa_avisos`. Faixa reservada à massa: seções e consultas 140 a 159. As consultas ainda sem implementação devolvem NAO_IMPLEMENTADO; as seções aceitam definir_secao, upsert e remover. As demais seções e consultas não mudaram.",
+  "versao": 19,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -2792,6 +2792,142 @@
         }
       ],
       "descricao": "Cortina embutida numa parede comum (decisão 0056, fase 5; esquema v17; ADR §8). Uma linha por cortina embutida. cortina_num: id_num da cortina na seção 100 (informativo no kernel das paredes, que não tem a seção 100). hospedeiro_num: id_num da parede hospedeira na seção 1 `paredes` (reta). deslocamento: centro do vão ao longo do hospedeiro, a partir de `a`, em m. largura e altura: o vão em m. peitoril: base do vão sobre a base do hospedeiro, em m. O vão recorta o hospedeiro em todas as camadas, como uma abertura sem esquadria e sem retorno (o `resolver_nivel` das paredes lê a seção; paredes sem linha aqui não mudam). Fase 5."
+    },
+    {
+      "id": 140,
+      "nome": "massas",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ox",
+          "tipo": "f64"
+        },
+        {
+          "nome": "oy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "interp",
+          "tipo": "u8"
+        },
+        {
+          "nome": "resolucao",
+          "tipo": "u32"
+        },
+        {
+          "nome": "arr_n",
+          "tipo": "u32"
+        },
+        {
+          "nome": "arr_cx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "arr_cy",
+          "tipo": "f64"
+        },
+        {
+          "nome": "arr_ang",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Massa de estudo volumétrico (plano de massa, A.5; esquema v19). Uma linha por massa. nivel_num: id_num do nível (seção `niveis`) a que a massa pertence. ox, oy: origem em planta, no mundo, em m. z_base: cota absoluta da base da massa (cota do nível + deslocamento da base), em m; as seções ficam em z_base + z. interp: 0 linear, 1 suave (PCHIP) entre seções. resolucao: pontos por anel da grade uniforme de parâmetros, 16 a 128 (padrão 64). arr_n: número de cópias do arranjo polar, 1 = sem arranjo (a original conta; o modelo TS limita a 64); arr_cx, arr_cy: centro do giro, no mundo; arr_ang: ângulo total coberto, em rad (2π = volta completa, a última cópia não repete a primeira); sem arranjo, arr_cx, arr_cy e arr_ang valem 0. A pilha de seções vem das seções 141 e 142; massa sem seções (ou com menos de 2) não gera geometria e vira aviso no kernel. Ordem canônica de saída: massa_num crescente."
+    },
+    {
+      "id": 141,
+      "nome": "massa_secoes",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "massa_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "u32"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        },
+        {
+          "nome": "forma",
+          "tipo": "u8"
+        },
+        {
+          "nome": "p1",
+          "tipo": "f64"
+        },
+        {
+          "nome": "p2",
+          "tipo": "f64"
+        },
+        {
+          "nome": "lados",
+          "tipo": "u32"
+        },
+        {
+          "nome": "rot",
+          "tipo": "f64"
+        },
+        {
+          "nome": "escala",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "dy",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Seções horizontais da pilha de cada massa (A.2 e A.3). Uma linha por seção; massa_num: id_num de uma linha da seção 140; ordem: posição da seção na pilha (0 = a de baixo), as linhas de uma massa são lidas em ordem crescente de `ordem`. z: altura acima da base da massa, em m (a primeira é 0, as demais crescem estritamente, passo mínimo 0,01). forma: 0 círculo, 1 elipse, 2 polígono regular, 3 livre. p1 e p2: círculo, p1 = raio; elipse, p1 = rx e p2 = ry; polígono regular, p1 = raio do círculo circunscrito (p2 não usado); livre, nenhum (os pontos vêm da seção 142). lados: número de lados do polígono regular, 3 a 64 (0 nas demais formas). rot: rotação do perfil em torno do seu centro, em rad. escala: fator de escala do perfil, maior que 0. dx, dy: deslocamento do centro do perfil em relação à origem da massa, em m. O polígono regular tem um vértice no ângulo 0 local (+x). O perfil de cada seção é parametrizado por comprimento de arco normalizado, anti-horário, a partir da semirreta +x local (A.4 regra 1)."
+    },
+    {
+      "id": 142,
+      "nome": "massa_pontos",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "secao_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "u32"
+        },
+        {
+          "nome": "x",
+          "tipo": "f64"
+        },
+        {
+          "nome": "y",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Pontos do perfil livre (forma 3 da seção 141), só para essas seções. secao_num: id_num de uma linha da seção 141; ordem: posição do ponto no polígono (0 = o primeiro), lido em ordem crescente. x, y: coordenadas locais do perfil, em m (origem no centro do perfil, antes de escala, rotação e deslocamento). Polígono simples, anti-horário, 3 a 256 pontos, sem arcos e sem repetir o primeiro ponto no fim."
     }
   ],
   "consultas": [
@@ -3925,6 +4061,145 @@
         }
       ],
       "descricao": "Vão virtual de cada esquadria numa célula (ADR 0056 §7.6), em ordem de cortina_num, i, j (célula canônica da região). portas: [cortina_num, i, j, tipo_abertura_num, ajuste, flip_mao, flip_sentido, janela, lados, flags]; lados: bits 0 esquerda, 1 direita, 2 base e 3 topo = o lado TEM montante e o batente próprio é omitido ali; flags: bit 0 soleira derivada (o segmento da base some), bit 1 vão limitado à célula livre, bit 2 largura livre menor que a folha mínima, bit 3 porta sem soleira acima do piso, bit 4 região de mais de uma célula. vaos: [s0, s1, z0, z1, profundidade, soleira, largura_livre, altura_livre, folha_minima, z_regiao] em coordenadas da parede (s ao longo do eixo da cortina, z acima da base da cortina); [s0, s1, z0, z1] é o vão da esquadria; largura_livre e altura_livre são as da região entre as faces dos montantes. linhas e linhas_pos: no ajuste 1, as linhas que a grade deve receber para a esquadria nominal (ADR §7.4): [cortina_num, i, j, eixo] e a posição em m; sobra menor que o limiar (resto_minimo ou célula mínima) é absorvida. Fase 5."
+    },
+    {
+      "id": 140,
+      "nome": "massa_malha",
+      "args": [
+        "nivel_num",
+        "lod"
+      ],
+      "saidas": [
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "vertices",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "indices",
+          "tipo": "u32",
+          "elementos": "n"
+        }
+      ],
+      "descricao": "Malha triangulada fechada de cada massa do nível, uma casca por cópia do arranjo. grupos: [massa_num, copia, papel (0 lateral, 1 base, 2 topo), primeiro_indice, n_indices]; vertices: x, y, z no mundo; indices: 3 por triângulo, normais para fora (laterais com a mesma diagonal; tampas por orelhas, base para baixo e topo para cima). lod: 0 grosso (15° e 3 m entre anéis), 1 médio (5° e 1 m), 2 fino (2,5° e 0,5 m). Ordem de saída: massa_num, cópia, anel, t. Passou de 512 parâmetros por anel, 256 anéis por trecho ou 2048 por cópia, erro LIMITE. Regras de A.4 (regras 1 a 7 e 13)."
+    },
+    {
+      "id": 141,
+      "nome": "massa_planta",
+      "args": [
+        "nivel_num",
+        "corte_z",
+        "z_min",
+        "z_max"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ],
+      "descricao": "Anéis de planta de cada massa do nível, na cota de corte corte_z e na faixa de vista [z_min, z_max] (cotas absolutas). linhas: [massa_num, copia, estilo (0 cortado, 1 projetado, 2 acima), n_pontos]; pontos: x, y no mundo, de todas as linhas em sequência, anel fechado sem repetir o primeiro ponto. Estilo 0: a fatia exata na cota de corte; estilo 1: anéis das seções do usuário abaixo do corte e dentro da faixa (linha fina); estilo 2: anéis das seções acima do corte (tracejado). Sem união 2D entre massas nem entre cópias. Os anéis vêm direto das seções, independentes de lod. A.4 regras 8 e 10."
+    },
+    {
+      "id": 142,
+      "nome": "massa_fatias",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "fatias",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "3n"
+        }
+      ],
+      "descricao": "Fatia de cada massa na cota de cada nível do projeto que cai dentro dela (lê também a seção `niveis`), um anel por cópia. fatias: [massa_num, copia, nivel_alvo_num, n_pontos]; pontos: x, y no mundo, de todas as fatias em sequência; valores: [area, perimetro, z], z a cota absoluta do nível alvo. Alimenta a tabela \"Massas por pavimento\" e a derivação de pisos e paredes. Os anéis são calculados direto das seções, independentes de lod. Ordem de saída: massa_num, cópia, nível alvo. A.4 regras 8 e 11."
+    },
+    {
+      "id": 143,
+      "nome": "massa_corte",
+      "args": [
+        "nivel_num",
+        "ox",
+        "oy",
+        "dx",
+        "dy",
+        "profundidade"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ],
+      "descricao": "Linhas de um plano de corte vertical (origem ox, oy; direção dx, dy; profundidade para o lado visível), em (s, z) como guarda_corte, com s ao longo da direção e z absoluto. linhas: [massa_num, copia, estilo (0 cortado, 1 projetado, 3 feição), n_pontos]; pontos: s, z de todas as linhas em sequência. Estilo 0: polígonos fechados da interseção do plano com a malha lod 2 (triângulo com vértice exatamente no plano conta como lado positivo); estilo 1: contorno da projeção da parte visível até a profundidade; estilo 3: linhas de feição (horizontal em cada seção do usuário e curva de cada vértice de perfil cuja normal aponta para o observador). A.4 regra 9."
+    },
+    {
+      "id": 144,
+      "nome": "quant_massa",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ],
+      "descricao": "Quantidades por massa, somadas sobre as cópias do arranjo. linhas: [massa_num]; valores: [volume, area_lateral, area_base, area_topo, altura], na ordem de linhas; volume pelo teorema da divergência sobre a malha lod 2; altura = z da última seção. A área e o perímetro por pavimento saem de massa_fatias. A.4 regra 11."
+    },
+    {
+      "id": 145,
+      "nome": "massa_avisos",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ],
+      "descricao": "Avisos do kernel (não bloqueiam). avisos: [massa_num, codigo, copia, indice]; valores: [medido, limite, x, y, z]. Códigos: 1 anel autointersecta (indice = seção do usuário ou trecho); 2 cópias do arranjo se sobrepõem numa cota de nível (a área pode contar em dobro; indice = nível alvo); 3 limite atingido; 4 face lateral inclinada mais de 5° da vertical em algum pavimento (informativo, usado por \"Paredes da massa\"; medido = inclinação em graus, limite = 5). A.4 regra 12."
     }
   ],
   "args": {
