@@ -7,6 +7,7 @@ import {
   slabTypeThickness,
   wallThicknessOf,
   type CeilingType,
+  type DimensionStyle,
   type FloorType,
   type Material,
   type OpeningType,
@@ -21,6 +22,7 @@ import { FloorSectionPreview } from './dialogs/FloorSectionPreview.tsx';
 import { RampSectionPreview } from './dialogs/RampSectionPreview.tsx';
 import { RoofSectionPreview } from './dialogs/RoofSectionPreview.tsx';
 import { SectionPreview } from './dialogs/SectionPreview.tsx';
+import { DimensionStylePreview } from './dialogs/dimensionStylePreview.tsx';
 import { formatQuantity, type ResolvedUnits } from '@hestia/model';
 import { useUnits } from './useUnits.ts';
 import { SlabSectionPreview } from './dialogs/SlabSectionPreview.tsx';
@@ -37,12 +39,15 @@ export type PreviewSubject =
   | { kind: 'ramp'; type: RampType }
   | { kind: 'door' | 'window'; type: OpeningType }
   /** Tipo de guarda-corpo: a miniatura desenha a elevação do tipo (altura, trilhos, corrimãos e preenchimento). */
-  | { kind: 'railing'; type: TipoGuardaCorpo };
+  | { kind: 'railing'; type: TipoGuardaCorpo }
+  /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
+  | { kind: 'dimension'; style: DimensionStyle };
 
 
 
 /** Código do tipo (P-02, PA-14…), ou null quando o tipo não tem código. */
 function codeOf(s: PreviewSubject): string | null {
+  if (s.kind === 'dimension') return null;
   const c = s.type.code;
   return c ? c : null;
 }
@@ -66,6 +71,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
     case 'stair':
     case 'ramp':
     case 'railing':
+    case 'dimension':
       return null;
   }
 }
@@ -91,6 +97,8 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <RampSectionPreview type={subject.type} />;
     case 'railing':
       return <RailingThumb type={subject.type} />;
+    case 'dimension':
+      return <DimensionStylePreview style={subject.style} />;
     case 'door':
       return <DoorDrawing t={subject.type} uid={uid} />;
     case 'window':

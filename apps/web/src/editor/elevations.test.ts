@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, type SectionView } from '@hestia/model';
+import { computeSection } from '@hestia/engine';
+import { elevationFrameBox } from '@hestia/render';
+import { ProjectStore, createEmptyProject, defaultStairTypeId, makeCeiling, makeFloor, makeGuardaCorpo, makeRoof, makeSlab, makeStair, makeWall, sectionPoints, type Command, type SectionView, type StairCurve, type StairRun } from '@hestia/model';
 import { elevationCommand, elevationSpecs, ELEVATION_OFFSET, type PlanBox } from './elevations.ts';
 
 const BOX: PlanBox = { minX: 0, minY: 0, maxX: 10, maxY: 8 };
@@ -108,5 +110,73 @@ describe('elevationCommand', () => {
     const store = addAll([dup('s1'), dup('s2')]);
     expect(store.project.views.filter((v) => v.name === 'Sul')).toHaveLength(1);
     expect(store.project.views).toHaveLength(4);
+  });
+});
+
+describe('gerar elevações sem paredes (tudo o que aparece em elevação define os limites)', () => {
+  const v = (x: number, y: number) => ({ x, y });
+  const ln = (ax: number, ay: number, bx: number, by: number): StairCurve => ({ a: v(ax, ay), b: v(bx, by), sag: 0 });
+  const rect = (x0: number, y0: number, x1: number, y1: number) => [v(x0, y0), v(x1, y0), v(x1, y1), v(x0, y1)];
+  const lance = (): StairRun => ({
+    id: 'run',
+    kind: 'run',
+    boundaryLeft: [ln(19.5, 0.6, 23, 0.6)],
+    boundaryRight: [ln(19.5, -0.6, 23, -0.6)],
+    risers: Array.from({ length: 10 }, (_, k) => ln(20 + k * 0.28, -1, 20 + k * 0.28, 1)),
+    path: [],
+  });
+  const escada = () => makeStair({ id: 'st1', typeId: defaultStairTypeId, levelId: 'lv_0', topOffset: -0.2, height: 2.8, components: [lance()] });
+  const guarda = () =>
+    makeGuardaCorpo({ id: 'gc1', levelId: 'lv_0', typeId: 'gct_balaustres', cotaBase: 0, hospedeiro: { tipo: 'manual', uso: 'livre', caminho: [{ x: 20, y: 2, dz: 0 }, { x: 24, y: 2, dz: 0 }], fechado: false, ladoDeslocamento: 'esquerdo' } });
+  const paredes = (): Command[] => [
+    { type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: v(0, 0), b: v(10, 0) }) },
+    { type: 'addWall', wall: makeWall({ id: 'w2', typeId: 'wt_alv14', levelId: 'lv_0', a: v(10, 0), b: v(10, 8) }) },
+  ];
+
+  const MODELOS: Array<[string, Command[], boolean]> = [
+    ['só uma escada', [{ type: 'addStair', stair: escada() }], true],
+    ['só um guarda-corpo manual', [{ type: 'addGuardaCorpo', guardaCorpo: guarda() }], false],
+    ['só uma laje', [{ type: 'addSlab', slab: makeSlab({ id: 'l1', typeId: 'ls_mac12', levelId: 'lv_0', boundary: rect(0, 0, 6, 5) }) }], true],
+    ['só um piso', [{ type: 'addFloor', floor: makeFloor({ id: 'f1', typeId: 'ft_laje12', levelId: 'lv_0', boundary: rect(0, 0, 6, 5) }) }], true],
+    ['só um forro', [{ type: 'addCeiling', ceiling: makeCeiling({ id: 'c1', typeId: 'ct_gesso', levelId: 'lv_0', boundary: rect(0, 0, 6, 5) }) }], true],
+    ['só um telhado', [{ type: 'addRoof', roof: makeRoof({ id: 'r1', typeId: 'rt_ceramica', levelId: 'lv_0', boundary: rect(0, 0, 8, 6), heightOffset: 2.8, shape: 'gable', slopePercent: 30, dir: v(1, 0) }) }], true],
+    ['escada e guarda-corpo', [{ type: 'addStair', stair: escada() }, { type: 'addGuardaCorpo', guardaCorpo: guarda() }], true],
+    ['só paredes', paredes(), true],
+  ];
+
+  it.each(MODELOS)('%s: gera as quatro elevações, cada uma enquadrando o elemento', (_nome, cmds, desenhaNoMotor) => {
+    const store = new ProjectStore(createEmptyProject());
+    for (const c of cmds) store.exec(c);
+    const box = elevationFrameBox(store.project, 'lv_0');
+    expect(box, 'a caixa de elevação existe sem depender de paredes').not.toBeNull();
+    let n = 0;
+    store.exec(elevationCommand(store.project.views, box!, (p) => `${p}_${++n}`));
+    const views = store.project.views.filter((x) => x.kind === 'elevation');
+    expect(views.map((x) => x.role)).toEqual(['north', 'south', 'east', 'west']);
+    for (const view of views) {
+      const pts = sectionPoints(store.project, view);
+      const secao = computeSection(store.project, { a: pts.a, b: pts.b, depth: view.depth });
+      // O guarda-corpo é desenhado pelo kernel Rust (fora do `computeSection`); os demais entram no resultado do motor.
+      if (desenhaNoMotor) expect(secao.cut.length + secao.beyond.length, `${view.name}: a elevação tem de desenhar o elemento`).toBeGreaterThan(0);
+      // O elemento está dentro da faixa da elevação (a profundidade vai até o fundo da caixa).
+      expect(view.depth).toBeGreaterThan(ELEVATION_OFFSET);
+    }
+  });
+
+  it('sem nenhum elemento a caixa é nula (o controlador avisa em vez de falhar em silêncio)', () => {
+    expect(elevationFrameBox(createEmptyProject(), 'lv_0')).toBeNull();
+  });
+
+  it('a elevação Norte da escada mostra os degraus: o perfil tem mais de um patamar de altura', () => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addStair', stair: escada() });
+    let n = 0;
+    store.exec(elevationCommand(store.project.views, elevationFrameBox(store.project, 'lv_0')!, (p) => `${p}_${++n}`));
+    const leste = store.project.views.find((x) => x.role === 'east')!;
+    const pts = sectionPoints(store.project, leste);
+    const secao = computeSection(store.project, { a: pts.a, b: pts.b, depth: leste.depth });
+    // De lado (leste), os degraus sobem em escada: várias alturas distintas de topo.
+    const topos = new Set(secao.beyond.flatMap((b) => b.polygons.flatMap((poly) => poly.flatMap((ring) => ring.map((q) => Math.round(q.y * 100))))));
+    expect(topos.size).toBeGreaterThan(4);
   });
 });

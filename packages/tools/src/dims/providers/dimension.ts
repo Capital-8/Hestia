@@ -37,7 +37,7 @@ export function pickRefCommands(project: Project, levelId: Id, dimId: Id, slot: 
   const hit = dimRefAt(project, levelId, at, tol);
   if (!hit || !isElementRef(hit.ref)) return { error: translate(lang, 'tl_msg_no_feature_near') };
   const outra = d.refs?.[slot === 'a' ? 'b' : 'a'];
-  if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0)) {
+  if (isElementRef(outra) && outra.elementId === hit.ref.elementId && outra.feature === hit.ref.feature && (outra.index ?? 0) === (hit.ref.index ?? 0) && outra.key === hit.ref.key) {
     return { error: translate(lang, 'tl_msg_other_end_same') };
   }
   return { commands: [{ type: 'updateDimension', ...vista, id: dimId, patch: { refs: { ...(d.refs ?? {}), [slot]: hit.ref } } }] };
@@ -57,11 +57,12 @@ export function dimElementRefLabel(r: DimensionElementRef, lang: Lang = 'pt'): s
     case 'opening-center': return translate(lang, 'tl_dimref_opening_center');
     case 'vertex': return translate(lang, 'tl_dimref_vertex', { n });
     case 'edge': return translate(lang, 'tl_dimref_edge', { n });
+    case 'part': return translate(lang, 'tl_dimref_part');
   }
 }
 
 const sameRef = (x: DimensionElementRef, y: DimensionElementRef): boolean =>
-  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0);
+  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0) && x.key === y.key;
 
 /**
  * Alternativas de referência de uma ponta permanente: as feições do próprio elemento da ponta (de parede, a parede

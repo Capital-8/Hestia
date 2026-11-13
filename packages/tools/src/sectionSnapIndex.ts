@@ -56,9 +56,9 @@ const EPS = 1e-9;
 /** Tolerância para considerar uma aresta horizontal/vertical (o motor pode devolver diferenças de arredondamento). */
 const AXIS_EPS = 1e-7;
 
-/** Id do elemento de origem, quando há um só (para `ignore`/`hidden` e para o tooltip). */
+/** Id do elemento de origem (a esquadria tem id próprio, não o da parede hospedeira: ocultar a parede não esconde o vão) (para `ignore`/`hidden` e para o tooltip). */
 export function sectionOriginId(o: SectionOrigin): Id | undefined {
-  return o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.openingId;
+  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId;
 }
 
 const finite = (p: Vec2): boolean => Number.isFinite(p.x) && Number.isFinite(p.y);
@@ -92,9 +92,10 @@ function hostOf(draft: Draft, hostId: Id | undefined): SectionSnapHost | null {
   return bucket;
 }
 
-function addPoint(draft: Draft, p: Vec2, kind: SnapKind, hostId?: Id): void {
+function addPoint(draft: Draft, p: Vec2, kind: SnapKind, hostId?: Id, perHost = false): void {
   if (!finite(p)) return;
-  const key = `${kind}|${pointKey(p)}`;
+  // Por padrão o ponto é único na vista; com `perHost` é único por elemento (esconder um não apaga a captura do outro).
+  const key = perHost ? `${kind}|${hostId ?? ''}|${pointKey(p)}` : `${kind}|${pointKey(p)}`;
   if (draft.seenPoints.has(key)) return;
   draft.seenPoints.add(key);
   const point: SectionSnapPoint = { x: p.x, y: p.y, kind, ...(hostId !== undefined ? { hostId } : {}) };
@@ -126,10 +127,12 @@ function addSegment(draft: Draft, a: Vec2, b: Vec2, hostId?: Id, kind: SnapKind 
 }
 
 /** Aresta com as pontas e o ponto médio como capturas próprias. */
-function addEdge(draft: Draft, a: Vec2, b: Vec2, hostId?: Id): void {
+function addEdge(draft: Draft, a: Vec2, b: Vec2, hostId?: Id, perHost = false): void {
   addSegment(draft, a, b, hostId);
   if (!finite(a) || !finite(b)) return;
-  addPoint(draft, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 'midpoint', hostId);
+  // Aresta degenerada (anel que repete o primeiro ponto no fim) não tem meio: o ponto médio seria a própria ponta.
+  if (Math.hypot(b.x - a.x, b.y - a.y) < EPS) return;
+  addPoint(draft, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, 'midpoint', hostId, perHost);
 }
 
 function addRing(draft: Draft, ring: readonly Vec2[], hostId?: Id): void {
@@ -146,17 +149,54 @@ function addPolygons(draft: Draft, polys: ReadonlyArray<ReadonlyArray<readonly V
   for (const poly of polys ?? []) for (const ring of poly) addRing(draft, ring, hostId);
 }
 
+function newDraft(): Draft {
+  return { points: [], seenPoints: new Set(), segments: [], seenSegments: new Set(), tracks: [], seenTracks: new Set(), byHost: new Map() };
+}
+
+const finish = (draft: Draft): SectionSnapIndex => ({ points: draft.points, segments: draft.segments, tracks: draft.tracks, byHost: draft.byHost });
+
+/** Linha 2D (t, z) de um elemento que não vem no `SectionResult` (o guarda-corpo, desenhado pelo kernel): contorno fechado de peça ou polilinha aberta. */
+export interface SectionSnapLine {
+  hostId: Id;
+  /** Contorno fechado de peça (a última ponta liga à primeira); falso = polilinha aberta (eixo). */
+  closed: boolean;
+  pts: ReadonlyArray<Vec2>;
+}
+
+/**
+ * Índice só com linhas de elementos de fora do `SectionResult`. Cada ponto é único por elemento (a captura de um elemento
+ * escondido não some por outro estar no mesmo ponto). Vértices são extremidades; cada aresta traz o ponto médio, o
+ * segmento (perpendicular, mais próximo, cruzamentos) e a trilha de alinhamento.
+ */
+export function buildSnapIndexFromLines(lines: Iterable<SectionSnapLine>): SectionSnapIndex {
+  const draft = newDraft();
+  for (const line of lines) {
+    const { pts, hostId } = line;
+    const n = pts.length;
+    if (n < 2) continue;
+    // Peça com 3 pontos ou mais fecha; 2 pontos é um traço (a volta repetiria a mesma aresta ao contrário).
+    const closed = line.closed && n >= 3;
+    for (let i = 0; i < n; i++) {
+      addPoint(draft, pts[i]!, 'endpoint', hostId, true);
+      if (i + 1 < n || closed) addEdge(draft, pts[i]!, pts[(i + 1) % n]!, hostId, true);
+    }
+  }
+  return finish(draft);
+}
+
+/** Junta dois índices (o segundo acrescenta elementos; ids repetidos somam). Não altera os de entrada. */
+export function mergeSectionSnapIndex(base: SectionSnapIndex, extra: SectionSnapIndex): SectionSnapIndex {
+  const byHost = new Map<Id, SectionSnapHost>(base.byHost);
+  for (const [id, h] of extra.byHost) {
+    const b = byHost.get(id);
+    byHost.set(id, b ? { points: [...b.points, ...h.points], segments: [...b.segments, ...h.segments], tracks: [...b.tracks, ...h.tracks] } : h);
+  }
+  return { points: [...base.points, ...extra.points], segments: [...base.segments, ...extra.segments], tracks: [...base.tracks, ...extra.tracks], byHost };
+}
+
 /** Constrói o índice de captura a partir do `SectionResult` (sem tocar no projeto). */
 export function buildSectionSnapIndex(section: SectionResult): SectionSnapIndex {
-  const draft: Draft = {
-    points: [],
-    seenPoints: new Set(),
-    segments: [],
-    seenSegments: new Set(),
-    tracks: [],
-    seenTracks: new Set(),
-    byHost: new Map(),
-  };
+  const draft = newDraft();
 
   // Cortes por material: contornos visíveis das paredes, pisos, lajes e telhados atravessados pelo plano.
   for (const region of section.cut) {
@@ -197,12 +237,7 @@ export function buildSectionSnapIndex(section: SectionResult): SectionSnapIndex 
     addSegment(draft, a, b, level.levelId, 'nearest');
   }
 
-  return {
-    points: draft.points,
-    segments: draft.segments,
-    tracks: draft.tracks,
-    byHost: draft.byHost,
-  };
+  return finish(draft);
 }
 
 /** Índice cacheado por identidade do `SectionResult`: o mesmo resultado nunca é reindexado entre movimentos. */

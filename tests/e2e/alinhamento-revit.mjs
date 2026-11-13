@@ -262,6 +262,17 @@ try {
 
       const refX = (porta.t0 + porta.t1) / 2;
       const refZ = porta.z1;
+      // Antes de qualquer clique: passar o mouse (em movimento, 3 px acima da aresta) já realça a feição que o clique pega.
+      {
+        const e = await screenOf(refX, refZ);
+        await page.mouse.move(e.x - 40, e.y - 20);
+        await page.mouse.move(e.x, e.y - 3, { steps: 8 });
+        await page.waitForTimeout(120);
+        const hov = await alignState();
+        report.check('hover sem referência: aresta tracejada com halo no topo da porta',
+          hov.preview.some((i) => i.kind === 'line' && i.halo && i.dashed && near(i.a.y, refZ) && near(i.b.y, refZ)), JSON.stringify(hov.preview));
+        report.check('hover sem referência: rótulo da feição', hov.preview.some((i) => i.kind === 'label' && /topo/i.test(i.text)), JSON.stringify(hov.preview));
+      }
       await clickWorld(refX, refZ);
       const ref = await alignState();
       report.check('primeiro clique vira referência no topo da porta', /Referência .*topo da porta/i.test(ref.status), ref.status);

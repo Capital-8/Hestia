@@ -218,8 +218,11 @@ export interface PadraoBalaustresGC {
   /**
    * Só escada/rampa: balaústres por degrau no lugar do `periodo` nos lances. `distanciaDoBocel` é medida da borda frontal do piso até o centro do
    * montante (m); `null` = centro da pisada (padrão). O montante fica sempre inteiro sobre o piso: sem espaço, o motor avisa.
+   * `automatico` (padrão dos tipos de fábrica; ausente = falso, como nos projetos gravados): o motor calcula a quantidade por degrau (o mínimo para o vão
+   * livre não passar da esfera da norma do tipo, com os montantes no centro de faixas iguais) e, fora dos degraus, o espaçamento máximo da norma;
+   * `quantidade` e `distanciaDoBocel` ficam sem efeito.
    */
-  porDegrau: { ativo: boolean; quantidade: number; distanciaDoBocel: number | null; modelo: ElementoPadraoGC['modelo'] };
+  porDegrau: { ativo: boolean; quantidade: number; automatico?: boolean; distanciaDoBocel: number | null; modelo: ElementoPadraoGC['modelo'] };
 }
 
 export type FamiliaPainelGC = 'vidro' | 'chapa' | 'chapa-perfurada' | 'tela' | 'cabo-aco';

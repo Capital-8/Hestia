@@ -88,7 +88,7 @@ export class AngularDimensionTool extends ToolBase {
   private candidates(at: Vec2): AlignFeature[] {
     // Corte/elevação: as referências são as arestas da vista (t, z); a planta não entra.
     const sec = this.env.section?.();
-    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.(), this.uiLang());
+    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.(), this.uiLang(), this.env.project());
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),

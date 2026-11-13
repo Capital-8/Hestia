@@ -194,7 +194,8 @@ export function montarCenaGC(p: Project, opcoes: OpcoesCenaGC = {}): CenaGC {
       junc_tangente: codigo(ENUM.juncTangente, t.juncaoTangente, 'junção tangente'),
       conexao: codigo(ENUM.conexao, t.conexaoTrilho, 'conexão de trilho'),
       tol_corda: TOL_CORDA_PADRAO_GC,
-      norma_num: normaPerfil ? normaNum(normaPerfil) : ID_AUSENTE_GC,
+      // Sempre a norma que vale para o tipo (a dele ou a do projeto): a geometria (balaústres automáticos) e os avisos leem a mesma esfera.
+      norma_num: normaNum(normaPerfil ?? normaProjeto),
     });
     linhasDoTipo(ctx, t, id);
     return id;

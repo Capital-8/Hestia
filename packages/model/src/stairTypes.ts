@@ -253,14 +253,14 @@ export interface StairType {
   riserFinishThickness?: number;
   /**
    * Bocel: ressalto do piso acabado sobre a face acabada do espelho. Ausente = ligado, com `bocelProjection` (padrão
-   * 0,02 m). Só tem efeito com o acabamento do piso ligado; faz parte do mesmo sólido do piso e não muda a planta.
+   * 0,015 m). Só tem efeito com o acabamento do piso ligado; faz parte do mesmo sólido do piso e não muda a planta.
    */
   bocelEnabled?: boolean;
   /** Projeção do bocel (m). */
   bocelProjection?: number;
 }
 
-/** Valores padrão dos acabamentos de um tipo novo (desligados; bocel ligado com 2 cm). */
+/** Valores padrão dos acabamentos de um tipo novo (desligados; bocel ligado com 1,5 cm, o limite do aviso). */
 export const DEFAULT_STAIR_FINISH = {
   treadFinishEnabled: false,
   treadFinishMaterialId: 'mat_ceramica',
@@ -269,7 +269,7 @@ export const DEFAULT_STAIR_FINISH = {
   riserFinishMaterialId: 'mat_ceramica',
   riserFinishThickness: 0.01,
   bocelEnabled: true,
-  bocelProjection: 0.02,
+  bocelProjection: 0.015,
 } as const;
 
 /** Acabamentos do tipo, já com os padrões aplicados. `treadOn`/`riserOn` só valem com espessura positiva. */

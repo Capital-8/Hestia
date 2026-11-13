@@ -56,16 +56,16 @@ export function GuardaCorpoPreview({ tipo }: { tipo: TipoGuardaCorpo }): ReactEl
   });
 
   return (
-    <figure className="gc-preview" style={{ margin: '8px 0' }}>
+    <figure className="gc-preview">
       <h3>{t('gc6c_preview')}</h3>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={t('gc6c_preview')} style={{ maxWidth: W, display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={t('gc6c_preview')}>
         <line x1={0} y1={BASE} x2={W} y2={BASE} stroke="currentColor" strokeOpacity={0.5} />
         {preenchimento}
         {trilhos}
         {postes}
         {corrimaos}
       </svg>
-      <figcaption className="hint">{t('gc6c_preview_note')}</figcaption>
+      <figcaption className="fam-hint">{t('gc6c_preview_note')}</figcaption>
     </figure>
   );
 }

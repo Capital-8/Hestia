@@ -110,6 +110,22 @@ describe('quadro do corte: a lista não depende da vista', () => {
     expect(frame.stats().builds).toBe(2);
   });
 
+  it('um resultado novo do corte refaz a lista mesmo com o mesmo projeto e a mesma versão', () => {
+    // O corte é calculado em segundo plano: o commit já subiu a versão e o quadro desenhou o resultado anterior; quando o
+    // novo é publicado, projeto e versão continuam os mesmos. A janela alinhada tem de aparecer sem esperar outro evento.
+    const frame = new SectionFrame();
+    const project = projeto(false);
+    const v = vista(60, 4, 3);
+    const antes = computeSection(project, linha);
+    const i: SectionFrameInput = { project, version: 1, sectionId: 'sv1', section: antes, theme: LIGHT, dark: false, showGrid: false };
+    const dl = frame.drawList(i, v, true);
+    const depois = computeSection(project, { ...linha, a: { x: 3.9, y: -2 } });
+    expect(depois).not.toBe(antes);
+    expect(SectionFrame.keyOf({ ...i, section: depois })).not.toBe(SectionFrame.keyOf(i));
+    expect(frame.drawList({ ...i, section: depois }, v, true)).not.toBe(dl);
+    expect(frame.stats().builds).toBe(2);
+  });
+
   it('sem GPU, a lista resolvida é cacheada por zoom e mantém a lista base intacta', () => {
     const frame = new SectionFrame();
     const i = entrada(false);

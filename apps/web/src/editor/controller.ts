@@ -15,6 +15,8 @@ import {
   migrateProject,
   newId,
   sectionAnnotationsOf,
+  setSectionDimensionResolver,
+  type SectionAnnotations,
   type AnnotationCommand,
   type Command,
   type Id,
@@ -23,7 +25,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, sectionInferContext, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
@@ -37,7 +39,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -175,6 +177,7 @@ export class Editor {
   private env: ToolEnv = {
     project: () => this.store.project,
     levelId: () => useUi.getState().levelId,
+    isSectionView: () => { const st = useUi.getState(); return st.view === 'section' && !!st.sectionId; },
     section: () => {
       const st = useUi.getState();
       if (st.view !== 'section' || !st.sectionId) return null;
@@ -367,6 +370,11 @@ export class Editor {
     return hit?.value ?? null;
   }
 
+  /** Último corte calculado da vista (do projeto atual ou de um anterior), sem pedir cálculo. */
+  sectionLast(id: Id): SectionResult | null {
+    return this.sectionCache.get(id)?.value ?? null;
+  }
+
   /** O corte desta vista está calculado para o projeto atual? (falso enquanto a tela mostra o resultado anterior ou nada) */
   sectionFresh(id: Id | null): boolean {
     return !!id && this.sectionCache.get(id)?.project === this.project;
@@ -400,6 +408,10 @@ export class Editor {
           const box = sectionBox(value as SectionResult);
           if (vp && box) this.viewports.set(key, fitBox(vp, box));
         }
+        // A prévia da ferramenta foi calculada com o corte anterior: relê a vista no mesmo ponteiro antes de desenhar,
+        // senão a linha tracejada/halo fica presa na geometria antiga até o próximo movimento do mouse.
+        const st = useUi.getState();
+        if (st.view === 'section' && st.sectionId === id) this.tool.refreshPreviewAtPointer?.();
         this.bump();
       },
       (e: unknown) => {
@@ -830,9 +842,9 @@ export class Editor {
 
   /** Gera (ou atualiza) as quatro elevações do nível ativo, em um único passo de desfazer. */
   generateElevations(): void {
-    const box = levelFrameBox(this.project, useUi.getState().levelId);
+    const box = elevationFrameBox(this.project, useUi.getState().levelId);
     if (!box) {
-      useUi.setState({ status: { key: 'eds_msg_no_walls_for_elevations' } });
+      useUi.setState({ status: { key: 'eds_msg_no_elements_for_elevations' } });
       return;
     }
     this.store.exec(elevationCommand(this.project.views, box, newId), 'eds_undo_elevations');
@@ -1064,6 +1076,14 @@ export class Editor {
   selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
   /** "Mesmo tipo" (botão na aba Modificar). */
   selectAllOfSelectedType(): boolean { this.setTool('select'); return transfer.sameType(this.project, useUi.getState().levelId) > 0; }
+  /** "Visíveis na vista": o mesmo tipo da seleção, só do que a vista ativa mostra (planta ou corte/elevação). */
+  selectAllVisibleOfSelectedType(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    const hidden = visibilityOf(this.project, st).hidden;
+    const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
+    return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
+  }
   /** "Mesmo nome" dos ambientes selecionados (botão na aba Modificar). */
   selectAllOfSelectedName(): boolean { this.setTool('select'); return transfer.sameName(this.project, useUi.getState().levelId) > 0; }
 
@@ -1312,6 +1332,23 @@ export class Editor {
 }
 
 export const editor = new Editor();
+
+/**
+ * Cotas de corte/elevação ligadas ao elemento: as pontas são relidas do índice de captura da vista (seção + guarda-corpo do kernel) a cada
+ * leitura das anotações, então a cota acompanha a escada e o guarda-corpo quando eles mudam. Memorizado por (anotações, índice): o índice só
+ * muda quando o corte ou o guarda-corpo mudam.
+ */
+const cotasLigadas = new WeakMap<SectionAnnotations, { index: object; out: SectionAnnotations }>();
+setSectionDimensionResolver((view, annotations) => {
+  const result = view.id ? editor.sectionLast(view.id) : null;
+  if (!result) return null;
+  const index = sectionSnapIndexDoProjeto(result, editor.project);
+  const hit = cotasLigadas.get(annotations);
+  if (hit && hit.index === index) return hit.out;
+  const out = resolveSectionAnnotations(annotations, index);
+  cotasLigadas.set(annotations, { index, out });
+  return out;
+});
 
 /** Reage a qualquer mudança do projeto (documento + histórico). */
 export function useProjectVersion(): number {

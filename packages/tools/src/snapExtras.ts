@@ -1,6 +1,7 @@
 import { closestOnSegment, v2, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import type { ExtraTrack, InferContext } from './infer.ts';
+import { arestasPerto, pontosPerto, segmentosDeFace, trilhasPerto } from './snapAccel.ts';
 import type { Guide, SnapKind, SnapOptions } from './types.ts';
 
 /** Assinatura do registrador de candidatos do motor de captura. */
@@ -21,10 +22,11 @@ function boxNear(a: Vec2, b: Vec2, cursor: Vec2, tol: number): boolean {
 export function addExtraPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: AddCandidate): void {
   if (ctx.onWallsOnly) return;
   const reach = tol * tol;
-  for (const q of ctx.extraPoints ?? []) {
+  // Lista grande (vista com muitas escadas e guarda-corpos): só os pontos da vizinhança do cursor (ver `snapAccel`).
+  for (const q of pontosPerto(ctx.extraPoints, cursor, tol)) {
     if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
     const kind = q.kind ?? 'endpoint';
-    if ((kind === 'endpoint' && sn.endpoint === false) || (kind === 'center' && sn.midpoint === false) || (kind === 'face' && !sn.faces)) continue;
+    if ((kind === 'endpoint' && sn.endpoint === false) || ((kind === 'center' || kind === 'midpoint') && sn.midpoint === false) || (kind === 'face' && !sn.faces)) continue;
     if (dist2(cursor, q) <= reach) add(v2(q.x, q.y), kind, [], q.hostId);
   }
 }
@@ -34,16 +36,18 @@ export function addExtraPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec2,
  * As ombreiras (`kind: 'face'`) também dão o pé da perpendicular a partir do ponto anterior.
  */
 export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: AddCandidate): void {
-  if (!sn.faces) return;
+  // A perpendicular é captura própria: não depende de Faces (nem do tipo da aresta). Com só ela ligada, o pé sobre
+  // qualquer aresta extra (contorno de piso/laje, ombreira, aresta do corte) continua valendo.
+  if (!sn.faces && !(sn.perpendicular && ctx.from)) return;
   const reach = tol * tol;
-  for (const e of ctx.extraSegments ?? []) {
+  for (const e of arestasPerto(ctx.extraSegments, cursor, tol)) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (!boxNear(e.a, e.b, cursor, tol)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     const kind = e.kind ?? 'nearest';
     const foot = closestOnSegment(cursor, e.a, e.b);
-    if (dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
-    if (kind === 'face' && sn.perpendicular && ctx.from) {
+    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
+    if (sn.perpendicular && ctx.from) {
       const pf = closestOnSegment(ctx.from, e.a, e.b);
       if (dist2(cursor, pf) <= reach && dist2(pf, ctx.from) > 1e-12) add(pf, 'perpendicular', [{ from: ctx.from, to: pf, kind: 'perpendicular' }], e.hostId);
     }
@@ -65,8 +69,7 @@ export function addExtraTracks(
 ): void {
   // Ombreiras da planta: a linha atravessa a espessura da parede. O comportamento da planta fica igual (todas as
   // pontas continuam servindo de referência de alinhamento).
-  for (const e of ctx.extraSegments ?? []) {
-    if (e.kind !== 'face') continue;
+  for (const e of segmentosDeFace(ctx.extraSegments)) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     tracks.push({ a: e.a, b: e.b, ...(e.hostId !== undefined ? { hostId: e.hostId } : {}) });
@@ -77,7 +80,7 @@ export function addExtraTracks(
   // Dedupe moderado só na seção: várias arestas colineares (a mesma face fatiada por vãos, ou as duas metades de uma
   // água de telhado) valem uma trilha só, porque `infer` estende a mesma reta. A planta não passa por aqui.
   const seenLines = ctx.section ? new Set<string>() : null;
-  for (const e of ctx.extraTracks ?? []) {
+  for (const e of cursor ? trilhasPerto(ctx.extraTracks, cursor, reach) : (ctx.extraTracks ?? [])) {
     if (e.hostId !== undefined && ctx.ignore?.has(e.hostId)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     if (cursor && !trackNear(e, cursor, reach)) continue;

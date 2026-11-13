@@ -107,12 +107,33 @@ function sharesRiser(prev: StairRunSketch, next: StairRunSketch): boolean {
   return (same(a.a, b.a) && same(a.b, b.b)) || (same(a.a, b.b) && same(a.b, b.a));
 }
 
+/**
+ * Escada resolvida guardada pela identidade da escada do modelo. Uma edição cria outro objeto de projeto, mas o Immer mantém o mesmo
+ * objeto `Stair` (e o mesmo `StairType`) para o que não mudou; a resolução só depende desses dois, das cotas de base e de topo, do nível
+ * de topo e do idioma. Quando as cinco coisas são as mesmas a escada resolvida é A MESMA (mesmo objeto), então o que depende dela por identidade
+ * (modelo dos acabamentos, corpo do desenho, cortes, 3D) também continua valendo. Antes, editar uma parede refazia todas as escadas do projeto.
+ */
+const resolvidasPorEscada = new WeakMap<Stair, Map<Lang, { type: StairType; baseZ: number; topZ: number; topLevelId: Id | null; rs: ResolvedStair }>>();
+
 /** Resolve uma escada; null se o tipo não existe (o validador do modelo já aponta `stair-type-missing`). */
 function resolveOne(p: Project, s: Stair, lang: Lang): ResolvedStair | null {
   const type = p.stairTypes[s.typeId];
   if (!type) return null;
   const baseZ = stairBaseZ(p, s);
   const topZ = stairTopZ(p, s);
+  const topLevelId = stairTopLevel(p, s)?.id ?? null;
+  const guardada = resolvidasPorEscada.get(s)?.get(lang);
+  if (guardada && guardada.type === type && guardada.baseZ === baseZ && guardada.topZ === topZ && guardada.topLevelId === topLevelId) return guardada.rs;
+  const rs = resolveFresh(p, s, lang, type, baseZ, topZ);
+  if (rs) {
+    let porLang = resolvidasPorEscada.get(s);
+    if (!porLang) resolvidasPorEscada.set(s, (porLang = new Map()));
+    porLang.set(lang, { type, baseZ, topZ, topLevelId, rs });
+  }
+  return rs;
+}
+
+function resolveFresh(p: Project, s: Stair, lang: Lang, type: StairType, baseZ: number, topZ: number): ResolvedStair | null {
   const H = topZ - baseZ;
   // `shared[ci]`: o lance ci começa com o espelho de emenda do lance anterior (ci−1), que conta uma vez só.
   const shared = s.components.map((c, ci) => {

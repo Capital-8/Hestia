@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GraphicsCategory, Id } from '@hestia/model';
 import type { SolidBatch } from './solids.ts';
+import { arestasPorAngulo } from './arestasRapidas3d.ts';
 
 /**
  * Juntada dos lotes de um nível em malhas (desempenho 3D): cada grupo de categoria e material vira uma malha só, em vez de
@@ -35,16 +36,31 @@ export function agruparLotes(lotes: readonly SolidBatch[]): Map<string, SolidBat
  * juntados, e as faixas de elemento pelos índices já juntados (as faixas contam índices, não triângulos).
  */
 export function juntarLote(fontes: readonly SolidBatch[]): SolidBatch {
-  const out: SolidBatch = { materialId: fontes[0]!.materialId, category: fontes[0]!.category, positions: [], normals: [], indices: [], ids: [] };
+  // Vetores do tamanho final e preenchidos por posição: milhões de `push` um a um (guarda-corpos, escadas) eram o maior custo da juntada.
+  let nPos = 0;
+  let nNor = 0;
+  let nIdx = 0;
   for (const f of fontes) {
-    const vBase = out.positions.length / 3;
-    const iBase = out.indices.length;
-    for (const x of f.positions) out.positions.push(x);
-    for (const n of f.normals) out.normals.push(n);
-    for (const i of f.indices) out.indices.push(i + vBase);
-    for (const r of f.ids) out.ids.push({ id: r.id, start: r.start + iBase, count: r.count });
+    nPos += f.positions.length;
+    nNor += f.normals.length;
+    nIdx += f.indices.length;
   }
-  return out;
+  const positions = new Array<number>(nPos);
+  const normals = new Array<number>(nNor);
+  const indices = new Array<number>(nIdx);
+  const ids: SolidBatch['ids'] = [];
+  let p = 0;
+  let n = 0;
+  let k = 0;
+  for (const f of fontes) {
+    const vBase = p / 3;
+    const iBase = k;
+    for (let j = 0; j < f.positions.length; j++) positions[p++] = f.positions[j]!;
+    for (let j = 0; j < f.normals.length; j++) normals[n++] = f.normals[j]!;
+    for (let j = 0; j < f.indices.length; j++) indices[k++] = f.indices[j]! + vBase;
+    for (const r of f.ids) ids.push({ id: r.id, start: r.start + iBase, count: r.count });
+  }
+  return { materialId: fontes[0]!.materialId, category: fontes[0]!.category, positions, normals, indices, ids };
 }
 
 /** Os lotes juntados por chave: um lote por grupo (ver `agruparLotes`). Lotes vazios saem. */
@@ -69,11 +85,8 @@ export function arestasDosLotes(lotes: readonly SolidBatch[], angulo: number): T
   const pos: number[] = [];
   for (const b of lotes) {
     if (!comTriangulos(b)) continue;
-    const g = geometriaDoLote(b);
-    const e = new THREE.EdgesGeometry(g, angulo);
-    for (const x of e.getAttribute('position').array) pos.push(x);
-    g.dispose();
-    e.dispose();
+    // Mesmo critério e mesma saída do `THREE.EdgesGeometry`, sem o texto por vértice (ver `arestasRapidas3d.ts`).
+    for (const x of arestasPorAngulo(b.positions, b.indices, angulo)) pos.push(x);
   }
   if (!pos.length) return null;
   const out = new THREE.BufferGeometry();

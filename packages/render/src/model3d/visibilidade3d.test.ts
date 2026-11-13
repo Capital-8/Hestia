@@ -141,7 +141,7 @@ describe('Hide in View: o oculto não entra na malha nem no picking', () => {
     expect(faixas(ms).some((r) => r.id === 'r1' || r.id === 'st1')).toBe(false);
   });
 
-  it('abertura oculta some; abertura de parede oculta também', () => {
+  it('abertura oculta some; a abertura de uma parede oculta continua (visibilidade por elemento)', () => {
     const p = casa();
     expect(cena(p).selectionBounds(['d1'])).not.toBeNull();
 
@@ -152,8 +152,27 @@ describe('Hide in View: o oculto não entra na malha nem no picking', () => {
     expect(semAbertura.selectionBounds(['j1'])).not.toBeNull();
 
     const semParede = cena(p, { hidden: new Set(['a']) });
-    expect(semParede.selectionBounds(['d1'])).toBeNull();
-    expect(faixas(semParede).some((r) => r.id === 'd1')).toBe(false);
+    expect(semParede.selectionBounds(['a'])).toBeNull();
+    expect(semParede.selectionBounds(['d1'])).not.toBeNull();
+    expect(faixas(semParede).some((r) => r.id === 'd1')).toBe(true);
+  });
+
+  it('isolar a porta (tudo o mais oculto) deixa só a porta; isolar as paredes não traz as esquadrias', () => {
+    const p = casa();
+    const todos = Object.keys(p.elements);
+    const soPorta = cena(p, { hidden: new Set(todos.filter((id) => id !== 'd1')) });
+    expect(soPorta.selectionBounds(['d1'])).not.toBeNull();
+    for (const id of ['a', 'b', 'c', 'd', 'j1', 'f']) expect(soPorta.selectionBounds([id])).toBeNull();
+
+    const soParedes = cena(p, { hidden: new Set(todos.filter((id) => !['a', 'b', 'c', 'd'].includes(id))) });
+    for (const id of ['a', 'b', 'c', 'd']) expect(soParedes.selectionBounds([id])).not.toBeNull();
+    expect(soParedes.selectionBounds(['d1'])).toBeNull();
+    expect(soParedes.selectionBounds(['j1'])).toBeNull();
+
+    const paredeEPorta = cena(p, { hidden: new Set(todos.filter((id) => id !== 'a' && id !== 'd1')) });
+    expect(paredeEPorta.selectionBounds(['a'])).not.toBeNull();
+    expect(paredeEPorta.selectionBounds(['d1'])).not.toBeNull();
+    expect(paredeEPorta.selectionBounds(['j1'])).toBeNull();
   });
 
   it('caminho instanciado: parede oculta sai das caixas e do picking', () => {

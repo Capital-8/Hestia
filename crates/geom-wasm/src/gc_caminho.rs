@@ -7,7 +7,7 @@
 
 use crate::cena::Cena;
 use crate::consultas::Saida;
-use crate::esquema::{ENTRADA, NIVEL_TODOS};
+use crate::esquema::{ENTRADA, ID_AUSENTE, NIVEL_TODOS};
 use crate::gc_tipos::*;
 use crate::geo2d::{add, arco_da_flecha, arco_ponto, cross, dot, hipot, mul, perp, sub, v, V};
 use crate::secoes_gc::{ComponenteGC, EscadaGC, EspelhoGC, GuardaCorpoLinha};
@@ -188,8 +188,12 @@ fn deslocar(p: &[V], d: f64, fechado: bool) -> Option<Vec<(V, usize)>> {
         };
         let den = 1.0 + dot(n1, n2);
         let mit = if den > 1e-9 { Some(mul(add(n1, n2), d / den)) } else { None };
+        // Do lado de dentro da curva (deslocar para o lado para onde o caminho vira) as duas retas deslocadas se cruzam no ponto da esquadria, e esse
+        // ponto é exato por mais fechado que seja o canto: cortar em chanfro o jogaria para fora do hospedeiro (a ponta de um patamar em leque).
+        // O limite de esquadria vale só do lado de fora, onde a ponta cresce sem parar.
+        let por_dentro = cross(n1, n2) * d > 0.0;
         match mit {
-            Some(w) if hipot(w.x, w.y) <= LIMITE_ESQUADRIA * d.abs() => out.push((add(p[k], w), k)),
+            Some(w) if por_dentro || hipot(w.x, w.y) <= LIMITE_ESQUADRIA * d.abs() => out.push((add(p[k], w), k)),
             _ => {
                 out.push((add(p[k], mul(n1, d)), k));
                 out.push((add(p[k], mul(n2, d)), k));
@@ -428,8 +432,44 @@ fn aviso(acc: &mut Acc, guarda: u32, codigo: u32, trecho: u32, indice: u32, vals
     acc.valores.extend(vals);
 }
 
+/// Raio (m) do menor círculo centrado no eixo que contém a seção do perfil, em qualquer rotação: o que a peça avança para os lados.
+fn raio_do_perfil(cena: &Cena, num: u32) -> f64 {
+    let Some(p) = cena.gc.perfis.get(&num) else { return 0.0 };
+    match p.forma {
+        FORMA_RETANGULAR => hipot(p.largura, p.altura) / 2.0,
+        FORMA_POLIGONO => cena.gc.perfis_pontos.values().filter(|q| q.perfil == num).map(|q| hipot(q.x, q.y)).fold(0.0, f64::max),
+        _ => p.largura / 2.0,
+    }
+}
+
+/// Recuo mínimo (m) do eixo para dentro da borda lateral do degrau: o raio da maior peça vertical do tipo (poste ou balaústre) que aparece no
+/// guarda-corpo `g`. Assim a seção inteira da peça fica sobre o piso, esteja ela alinhada com o caminho ou girada no canto. O `deslocamento` do tipo
+/// vale como mínimo: se for menor que isso, o recuo é este.
+fn recuo_das_pecas(cena: &Cena, g: &GuardaCorpoLinha) -> f64 {
+    let mut r: f64 = 0.0;
+    for p in cena.gc.postes.values().filter(|p| p.tipo == g.tipo && p.ativo) {
+        if p.papel == POSTE_INTERMEDIARIO && (p.modo == 0 || g.flags & FLAG_POSTES_INTERMEDIARIOS == 0) {
+            continue;
+        }
+        r = r.max(raio_do_perfil(cena, p.perfil));
+    }
+    if g.flags & FLAG_PREENCHIMENTO != 0 {
+        for (pid, pad) in cena.gc.padroes.iter().filter(|(_, pad)| pad.tipo == g.tipo) {
+            if pad.pd_ativo && pad.pd_perfil != ID_AUSENTE {
+                r = r.max(raio_do_perfil(cena, pad.pd_perfil));
+            }
+            for e in cena.gc.padrao_elementos.values().filter(|e| e.padrao == *pid && e.perfil != ID_AUSENTE) {
+                r = r.max(raio_do_perfil(cena, e.perfil));
+            }
+        }
+    }
+    r
+}
+
 fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: &mut Acc) {
     let tipo = &cena.gc.tipos[&g.tipo];
+    // Base no degrau: o eixo fica recuado da borda pelo deslocamento, e nunca menos que o raio da maior peça vertical (poste, balaústre).
+    let desloc = if g.pos_base == 0 { g.desloc.max(recuo_das_pecas(cena, g)) } else { g.desloc };
     let mut itens = if g.hosp == HOSP_ESCADA { itens_escada(cena, g.hosp_num, tipo.tol_corda) } else { itens_rampa(cena, g.hosp_num) };
     // Patamar sem anel não tem borda; com anel, o lado que sobra com menos de dois nós é curto demais (vira ponto).
     let mut sem_anel: Vec<bool> = vec![false; itens.len()];
@@ -519,7 +559,7 @@ fn hospedado(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tol_juncao: f64, acc: 
             let t = inicio_de.iter().find(|(i, _)| *i == k).map_or(trecho, |x| x.1);
             aviso(acc, gid, AVISO_HOSPEDEIRO_DESCONTINUO, t, k as u32, vals);
         }
-        let d = if (g.pos_base == 0) == (lado == 1) { g.desloc } else { -g.desloc };
+        let d = if (g.pos_base == 0) == (lado == 1) { desloc } else { -desloc };
         for run in runs {
             let mut plano: Vec<V> = Vec::new();
             let mut inicio: Vec<usize> = Vec::new();

@@ -1,4 +1,4 @@
-import { asMulti, difference, dist, dot, mul, multiArea, norm, perp, ringArea, sub, union, add, type Ring, type Vec2 } from '@hestia/geom';
+import { asMulti, closeGapsSafe, difference, dist, dot, intersection, mid, mul, multiArea, offsetMulti, norm, perp, ringArea, sub, union, add, type Ring, type Vec2 } from '@hestia/geom';
 import { stairFinishOf, type Id } from '@hestia/model';
 import type { ResolvedStair, ResolvedStairRiser, ResolvedStairStep } from './stairs.ts';
 
@@ -34,10 +34,14 @@ export interface StairFinishSolid {
    * face acabada (m), para a área.
    */
   edgeLength: number;
+  /** Piso: a planta da faixa do bocel (à frente do espelho de baixo), que já está unida em ; ausente sem bocel. */
+  bocelPolygon?: Ring;
 }
 
 export interface StairFinishModel {
   solids: StairFinishSolid[];
+  /** Planta do acabamento do espelho k (nº global): a faixa atrás da face, com as laterais na borda do degrau. */
+  bands: Map<number, Ring>;
   /** Planta da estrutura de cada degrau/patamar (a estrutura perde a faixa do espelho de trás e ganha a da frente). */
   structure: Map<ResolvedStairStep, Ring[]>;
   /** Espessura do acabamento do espelho (m): a chegada começa depois dela. */
@@ -46,6 +50,8 @@ export interface StairFinishModel {
 
 const Z_TOL = 1e-6;
 const EPS = 1e-9;
+/** Quanto a faixa prolonga além das pontas da linha do espelho antes de ser recortada pelo degrau vizinho (m). */
+const EXTEND = 0.5;
 
 /** Normais à esquerda de cada vértice da polilinha (diferença central; unilateral nas pontas). */
 function leftNormals(pts: Vec2[]): Vec2[] {
@@ -62,6 +68,50 @@ function band(pts: Vec2[], side: 1 | -1, t: number): Ring {
   const off = pts.map((p, i) => add(p, mul(ns[i]!, side * t)));
   const ring = [...pts, ...off.reverse()];
   return ringArea(ring) < 0 ? ring.reverse() : ring;
+}
+
+
+/** Prolonga a polilinha nas duas pontas, na direção da tangente (a faixa é depois recortada pelo degrau vizinho). */
+function extended(pts: Vec2[], e: number): Vec2[] {
+  const out = pts.slice();
+  const a = pts[0]!;
+  const b = pts[1]!;
+  const y = pts[pts.length - 2]!;
+  const z = pts[pts.length - 1]!;
+  out[0] = add(a, mul(norm(sub(a, b)), e));
+  out[out.length - 1] = add(z, mul(norm(sub(z, y)), e));
+  return out;
+}
+
+/**
+ * Faixa de espessura `t` ao lado da linha do espelho, com as laterais ALINHADAS À BORDA do degrau vizinho: a faixa
+ * perpendicular (prolongada) é recortada pela planta dos degraus que ficam daquele lado (`neighbours`). Assim, em espelho
+ * oblíquo ou em leque, a faixa nunca passa da lateral nem deixa vão. Sem vizinho: a faixa é inclinada para a direção de
+ * subida `dir` (espessura medida na normal), e sem direção, perpendicular.
+ */
+function alignedBand(pts: Vec2[], side: 1 | -1, t: number, neighbours: Ring[], dir: Vec2 | null): Ring {
+  if (neighbours.length > 0) {
+    const big = band(extended(pts, EXTEND), side, t);
+    const clipped = intersection(asMulti(big), neighbours.map((r) => [r]));
+    const rings = clipped.map((poly) => poly[0]!).filter((r) => r.length >= 3);
+    if (rings.length === 1 && multiArea(asMulti(rings[0]!)) > 0.5 * t * polyLength(pts)) return rings[0]!;
+    // Vários trechos (vizinho em dois pedaços, como patamar + degrau): fica o maior; o resto seria faixa solta no ar.
+    if (rings.length > 1) {
+      const best = rings.reduce((m, r) => (multiArea(asMulti(r)) > multiArea(asMulti(m)) ? r : m));
+      if (multiArea(asMulti(best)) > 0.5 * t * polyLength(pts)) return best;
+    }
+    if (rings.length === 0 && dir === null) return band(pts, side, t);
+  }
+  if (dir && pts.length === 2) {
+    const n = leftNormals(pts)[0]!;
+    const c = dot(dir, n) * side;
+    if (Math.abs(c) > 0.2) {
+      const sh = mul(dir, Math.sign(c) * (t / Math.abs(c)));
+      const ring = [pts[0]!, pts[1]!, add(pts[1]!, sh), add(pts[0]!, sh)];
+      return ringArea(ring) < 0 ? ring.reverse() : ring;
+    }
+  }
+  return band(pts, side, t);
 }
 
 const polyLength = (pts: Vec2[]): number => pts.reduce((s, q, i) => (i === 0 ? 0 : s + dist(pts[i - 1]!, q)), 0);
@@ -82,13 +132,42 @@ function upSide(stair: ResolvedStair, r: ResolvedStairRiser, pts: Vec2[]): 1 | -
   return null;
 }
 
+/**
+ * Une dois anéis que dividem uma aresta de comprimento `shared` (a linha do espelho) em UM anel, ou null se não se juntam.
+ * A aresta oblíqua compartilhada sai do arredondamento da grade do Clipper com frestas de µm: nesse caso o fechamento de
+ * frestas da própria biblioteca (`closeGapsSafe`) cola os dois, mas só quando há aresta em comum de fato (encostar só num
+ * canto, como um patamar vizinho, não une nada).
+ */
+function joinAlong(a: Ring, b: Ring, shared: number): Ring | null {
+  const plain = union(asMulti(a), asMulti(b));
+  if (plain.length === 1) return plain[0]![0]!;
+  const reach = 5e-6;
+  const touch = multiArea(intersection(offsetMulti(asMulti(a), reach), asMulti(b)));
+  if (!(touch >= 0.5 * reach * shared)) return null;
+  const glued = closeGapsSafe(plain);
+  return glued.length === 1 ? glued[0]![0]! : null;
+}
+
 const cache = new WeakMap<ResolvedStair, StairFinishModel | null>();
+
+/**
+ * Cópia rasa de uma escada resolvida (ex.: a do desenho, sem os erros de norma) -> a escada original. O modelo dos acabamentos só
+ * depende de tipo, cotas, degraus e espelhos, que a cópia compartilha; sem isto o cache (por identidade) errava a cada cópia e o
+ * modelo, que une e subtrai polígonos por degrau, era refeito várias vezes por vista (corte, elevação, 3D e planta).
+ */
+const origemDaCopia = new WeakMap<ResolvedStair, ResolvedStair>();
+
+/** Declara `copia` como cópia rasa de `original` quanto ao que os acabamentos leem (só vale se o tipo, as cotas, os degraus e os espelhos são os mesmos). */
+export function declararCopiaDeEscada(copia: ResolvedStair, original: ResolvedStair): void {
+  origemDaCopia.set(copia, origemDaCopia.get(original) ?? original);
+}
 
 /** Modelo dos acabamentos da escada resolvida; null sem acabamento (nada ligado, estilo montado ou escada sem degraus). */
 export function stairFinishModel(stair: ResolvedStair): StairFinishModel | null {
-  if (cache.has(stair)) return cache.get(stair)!;
-  const out = buildModel(stair);
-  cache.set(stair, out);
+  const chave = origemDaCopia.get(stair) ?? stair;
+  if (cache.has(chave)) return cache.get(chave)!;
+  const out = buildModel(chave);
+  cache.set(chave, out);
   return out;
 }
 
@@ -110,8 +189,19 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
     if (side === null || !(polyLength(pts) > EPS)) continue;
     info.set(Math.round((r.z0 - baseZ) / h) + 1, { r, pts, side });
   }
+  const stepsAt = (z: number): Ring[] => stair.steps.filter((st) => Math.abs(st.z - z) < Z_TOL).map((st) => st.polygon);
+  /** Direção de subida na linha do espelho k: do espelho vizinho de baixo ao de cima (a de baixo no último espelho). */
+  const climb = (k: number): Vec2 | null => {
+    const here = info.get(k);
+    const other = info.get(k + 1) ?? info.get(k - 1);
+    if (!here || !other) return null;
+    const a = mid(here.pts[0]!, here.pts[here.pts.length - 1]!);
+    const b = mid(other.pts[0]!, other.pts[other.pts.length - 1]!);
+    const d = info.get(k + 1) ? sub(b, a) : sub(a, b);
+    return dist(a, b) > EPS ? norm(d) : null;
+  };
   const bandUp = new Map<number, Ring>();
-  if (fin.riserOn) for (const [k, i] of info) bandUp.set(k, band(i.pts, i.side, te));
+  if (fin.riserOn) for (const [k, i] of info) bandUp.set(k, alignedBand(i.pts, i.side, te, stepsAt(i.r.z1), climb(k)));
 
   const solids: StairFinishSolid[] = [];
   if (fin.riserOn) {
@@ -137,18 +227,24 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
       const bi = info.get(back);
       let polygon = st.polygon;
       let edgeLength = 0;
+      let bocelPolygon: Ring | undefined;
       // O piso corre por baixo do espelho acabado de cima, até encostar na estrutura (a faixa do espelho da frente).
       const underRiser = fin.riserOn && front && Math.abs(front.r.z0 - st.z) < Z_TOL ? bandUp.get(back + 1) : undefined;
       if (underRiser) {
-        const ext = union(asMulti(st.polygon), asMulti(underRiser));
-        if (ext.length === 1) polygon = ext[0]![0]!;
+        const ext = joinAlong(st.polygon, underRiser, polyLength(front!.pts));
+        if (ext) polygon = ext;
       }
       if (fin.bocel > 0 && bi) {
-        const strip = band(bi.pts, bi.side === 1 ? -1 : 1, fin.bocel);
-        const joined = union(asMulti(polygon), asMulti(strip));
-        if (joined.length === 1) {
-          polygon = joined[0]![0]!;
+        const raw = alignedBand(bi.pts, bi.side === 1 ? -1 : 1, fin.bocel, stepsAt(bi.r.z0), climb(back));
+        // O bocel só existe à frente do degrau de cima: limitado a `bocel` ao redor dele, não avança além do canto do patamar.
+        const near = offsetMulti(stepsAt(bi.r.z1).map((r) => [r]), fin.bocel + 1e-5);
+        const cut = near.length > 0 ? intersection(asMulti(raw), near) : [];
+        const strip: Ring = cut.length === 1 ? cut[0]![0]! : raw;
+        const joined = joinAlong(polygon, strip, polyLength(bi.pts));
+        if (joined) {
+          polygon = joined;
           edgeLength = polyLength(bi.pts);
+          bocelPolygon = strip;
         }
       }
       solids.push({
@@ -161,6 +257,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
         z1: st.z,
         materialId: fin.treadMaterialId,
         edgeLength,
+        ...(bocelPolygon ? { bocelPolygon } : {}),
       });
     }
     if (fin.riserOn) {
@@ -172,7 +269,7 @@ function buildModel(stair: ResolvedStair): StairFinishModel | null {
       structure.set(st, m.map((poly) => poly[0]!).filter((r) => r.length >= 3));
     }
   }
-  return { solids, structure, riserThickness: te };
+  return { solids, bands: bandUp, structure, riserThickness: te };
 }
 
 /** Áreas e metros dos acabamentos de uma escada (zero sem acabamento). Piso: área em planta (inclui o bocel). */

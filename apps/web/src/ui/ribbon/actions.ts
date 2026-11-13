@@ -338,7 +338,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   genElevations: {
     label: t('Elevação', 'Elevation'),
     icon: 'plan',
-    hint: t('Cria Norte, Sul, Leste e Oeste em volta das paredes do nível ativo (substitui as de mesmo nome).', 'Creates North, South, East and West elevations around the walls.'),
+    hint: t('Cria Norte, Sul, Leste e Oeste em volta de tudo o que está no projeto: paredes, escadas, guarda-corpos, lajes, telhados... (substitui as de mesmo nome).', 'Creates North, South, East and West elevations around everything in the project: walls, stairs, railings, slabs, roofs...'),
     run: () => editor.generateElevations(),
   },
   newSheet: {
@@ -387,7 +387,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       }
     },
   },
-  materials: { label: t('Materiais', 'Materials'), icon: 'layers', run: openDialog('materials') },
+  materials: { label: t('Materiais', 'Materials'), icon: 'materialSphere', run: openDialog('materials') },
   externalTools: {
     label: t('Ferramentas externas', 'External Tools'),
     icon: 'component',

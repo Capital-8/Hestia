@@ -339,7 +339,10 @@ describe.skipIf(!bytes)('B1: pisos_lajes_nivel do Rust x motor TypeScript', () =
       // seções inválidas: enum fora do domínio, valor não finito, chave reservada, papel e tipo_el fora do domínio
       const camada = Object.fromEntries(Object.entries(b.secoes.camadas_piso).map(([k, v]) => [k, v.slice(0, 1)]));
       expect(() => cena.upsert('camadas_piso', { ...camada, funcao: [6] }, 1)).toThrow(ErroKernelLeve);
-      expect(() => cena.upsert('camadas_piso', { ...camada, termino: [6] }, 1)).toThrow(ErroKernelLeve);
+      // 6 é `{ camada }` (esquema v13); 7 é o primeiro código fora do domínio, e `termino_ref` só vale com o 6 e até 41
+      expect(() => cena.upsert('camadas_piso', { ...camada, termino: [7] }, 1)).toThrow(ErroKernelLeve);
+      expect(() => cena.upsert('camadas_piso', { ...camada, termino: [6], termino_ref: [42] }, 1)).toThrow(ErroKernelLeve);
+      expect(() => cena.upsert('camadas_piso', { ...camada, termino: [5], termino_ref: [3] }, 1)).toThrow(ErroKernelLeve);
       expect(() => cena.upsert('camadas_piso', { ...camada, espessura: [Number.NaN] }, 1)).toThrow(ErroKernelLeve);
       expect(() => cena.upsert('camadas_piso', { ...camada, id_num: [0xffffffff] }, 1)).toThrow(ErroKernelLeve);
       const piso = Object.fromEntries(Object.entries(b.secoes.pisos).map(([k, v]) => [k, v.slice(0, 1)]));

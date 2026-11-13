@@ -47,6 +47,22 @@ export interface SectionFrameStats {
 }
 
 /**
+ * Identidade do resultado do corte. O cálculo roda em segundo plano: o commit já subiu a versão do projeto e a tela
+ * desenhou o resultado anterior; quando o novo chega, projeto e versão continuam os mesmos. Sem esta identidade na
+ * chave, o quadro reutilizaria a lista antiga e a janela alinhada só apareceria no próximo movimento/tecla.
+ */
+let proximoNumeroDeSecao = 1;
+const numeroDaSecao = new WeakMap<SectionResult, number>();
+function identidadeDaSecao(section: SectionResult): number {
+  let id = numeroDaSecao.get(section);
+  if (id === undefined) {
+    id = proximoNumeroDeSecao++;
+    numeroDaSecao.set(section, id);
+  }
+  return id;
+}
+
+/**
  * Cache do desenho do corte por vista. A chave não tem `cx`, `cy`, `zoom`, `width` nem `height`: mudar a vista não refaz
  * nada. O fundo entra pela cor do tema, e a seleção/cursor pelos ids, como no `PlanFrame` da planta.
  */
@@ -83,7 +99,7 @@ export class SectionFrame {
     const rev = i.revealed?.size ? `r:${[...i.revealed].sort().join(',')}` : '';
     const ann = i.annotations ? JSON.stringify(i.annotations) : '';
     const ext = i.levelExtents ? JSON.stringify(i.levelExtents) : '';
-    return [i.version, i.sectionId, i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
+    return [i.version, i.sectionId, identidadeDaSecao(i.section), i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
   }
 
   /**

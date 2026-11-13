@@ -35,6 +35,10 @@ pub const TERMINO_NUCLEO: u8 = 2;
 pub const TERMINO_PASSA: u8 = 3;
 pub const TERMINO_ATE: u8 = 4;
 pub const TERMINO_CM: u8 = 5;
+/// `termino` = 6: `{ camada }` (decisão 0054); a referência vem em `termino_ref`.
+pub const TERMINO_CAMADA: u8 = 6;
+/// Maior `termino_ref` (6 `eixo` + 7 * (1 + 2 * 2) = 41).
+pub const TERMINO_REF_MAX: u8 = 41;
 /// Códigos de `limite_externo`.
 pub const LIMITE_PAREDE: u8 = 1;
 pub const LIMITE_NUCLEO: u8 = 2;
@@ -81,6 +85,8 @@ pub struct CamadaLinha {
     pub termino: u8,
     pub termino_valor: f64,
     pub limite_externo: u8,
+    /// `funcao + 7 * (lado + 2 * face)` do término por camada (decisão 0054); 0 nos demais.
+    pub termino_ref: u8,
 }
 
 /// Linha de `contornos_estaticos`, `contornos_vinculados` ou `furos_nivel`: um vértice.
@@ -294,6 +300,7 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             let term = u8s(c.next())?;
             let term_v = f64s(c.next())?;
             let lim = u8s(c.next())?;
+            let term_ref = u8s(c.next())?;
             chaves_validas(&id)?;
             let mut v = Vec::with_capacity(n);
             for i in 0..n {
@@ -301,8 +308,8 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
                 let (Some(&k), Some(&t), Some(&ix), Some(&e), Some(&p), Some(&m), Some(&tv)) = (id.get(i), tipo.get(i), indice.get(i), esp.get(i), prio.get(i), mat.get(i), term_v.get(i)) else {
                     return Err(INTERNO);
                 };
-                let (fn_, tm, lm) = (g(funcao.get(i))?, g(term.get(i))?, g(lim.get(i))?);
-                if !(finito(e) && finito(p) && finito(tv)) || fn_ > FUNCAO_MAX || tm > TERMINO_CM || lm > LIMITE_NUCLEO {
+                let (fn_, tm, lm, tr) = (g(funcao.get(i))?, g(term.get(i))?, g(lim.get(i))?, g(term_ref.get(i))?);
+                if !(finito(e) && finito(p) && finito(tv)) || fn_ > FUNCAO_MAX || tm > TERMINO_CAMADA || lm > LIMITE_NUCLEO || tr > TERMINO_REF_MAX || (tr != 0 && tm != TERMINO_CAMADA) {
                     return Err(ENTRADA);
                 }
                 v.push((
@@ -317,6 +324,7 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
                         termino: tm,
                         termino_valor: tv,
                         limite_externo: lm,
+                        termino_ref: tr,
                     },
                 ));
             }

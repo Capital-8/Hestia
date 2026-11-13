@@ -148,7 +148,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
     case 'trim':
       return new TrimTool(env);
     case 'align':
-      return env.section?.() ? new SectionAlignTool(env) : new AlignTool(env);
+      return env.section?.() || env.isSectionView?.() ? new SectionAlignTool(env) : new AlignTool(env);
     case 'joins':
       return new JoinTool(env);
     case 'split':

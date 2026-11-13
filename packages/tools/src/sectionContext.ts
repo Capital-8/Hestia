@@ -2,7 +2,9 @@ import type { Vec2 } from '@hestia/geom';
 import { projectGrids, type Id, type Project } from '@hestia/model';
 import type { SectionResult } from '@hestia/engine';
 import type { ExtraTrack, InferContext, SnapPoint } from './infer.ts';
-import { sectionSnapIndex, type SectionSnapSegment } from './sectionSnapIndex.ts';
+import { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
+import type { SectionSnapIndex, SectionSnapSegment } from './sectionSnapIndex.ts';
+import { registrarCauda } from './snapAccel.ts';
 
 /**
  * Opções da inferência numa vista de corte/elevação. Além dos campos da vista, aceita qualquer campo de `InferContext`
@@ -22,12 +24,51 @@ export interface SectionInferOptions extends Partial<Omit<InferContext, 'project
 const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 const EPS = 1e-9;
 
-/** Concatena sem copiar quando só há uma fonte (o índice cacheado é reaproveitado entre movimentos do mouse). */
+/**
+ * Concatena sem copiar quando só há uma fonte (o índice cacheado é reaproveitado entre movimentos do mouse). Com mais de uma, a
+ * primeira (o índice da vista) é a base: o resultado é registrado como "base + cauda" e a consulta espacial (`snapAccel`) reaproveita a
+ * estrutura da base em vez de refazê-la a cada contexto.
+ */
 function concat<T>(...lists: Array<readonly T[] | undefined>): T[] {
   const present = lists.filter((l): l is readonly T[] => l !== undefined && l.length > 0);
   if (present.length === 0) return [];
   if (present.length === 1) return present[0] as T[];
-  return present.flatMap((l) => l as T[]);
+  const [base, ...rest] = present;
+  return registrarCauda(base!.concat(...rest), base!);
+}
+
+interface Visiveis {
+  points: SectionSnapIndex['points'];
+  segments: SectionSnapIndex['segments'];
+  tracks: SectionSnapIndex['tracks'];
+}
+
+/**
+ * Listas do índice sem os elementos ocultos. Cacheadas por índice e pelo conjunto de ocultos QUE existem no índice: o contexto é criado a
+ * cada movimento do mouse, e refiltrar dezenas de milhares de itens (e refazer a estrutura espacial deles) a cada vez seria o custo todo.
+ */
+const filtradas = new WeakMap<SectionSnapIndex, Map<string, Visiveis>>();
+function visiveis(index: SectionSnapIndex, hidden: ReadonlySet<Id> | undefined): Visiveis {
+  if (!hidden || hidden.size === 0) return index;
+  const ocultos: Id[] = [];
+  for (const id of hidden) if (index.byHost.has(id)) ocultos.push(id);
+  if (ocultos.length === 0) return index;
+  const chave = ocultos.sort().join('|');
+  let porChave = filtradas.get(index);
+  if (!porChave) filtradas.set(index, (porChave = new Map()));
+  let v = porChave.get(chave);
+  if (!v) {
+    const set = new Set(ocultos);
+    v = {
+      points: index.points.filter((p) => !isHidden(set, p.hostId)),
+      segments: index.segments.filter((e) => !isHidden(set, e.hostId)),
+      tracks: index.tracks.filter((tr) => !isHidden(set, tr.hostId)),
+    };
+    // Poucas combinações de ocultos por vista; se a vista muda muito, a memória não cresce sem limite.
+    if (porChave.size >= 8) porChave.clear();
+    porChave.set(chave, v);
+  }
+  return v;
 }
 
 const isHidden = (hidden: ReadonlySet<Id> | undefined, hostId: Id | undefined): boolean =>
@@ -51,13 +92,12 @@ export function sectionInferContext(
   extra: Partial<InferContext> = {},
 ): InferContext {
   const { line, grids = true, hidden, ...runtime } = options;
-  const index = sectionSnapIndex(section);
+  // Seção + guarda-corpo (o kernel o desenha na camada própria): o mesmo índice cacheado serve a todos os movimentos.
+  const index = sectionSnapIndexDoProjeto(section, project);
 
   // Elementos ocultos na vista saem dos pontos, arestas e trilhas. O filtro devolve o próprio array do índice quando
   // não há nada oculto, para não alocar a cada movimento.
-  const visiblePoints = hidden && hidden.size > 0 ? index.points.filter((p) => !isHidden(hidden, p.hostId)) : index.points;
-  const visibleSegments = hidden && hidden.size > 0 ? index.segments.filter((e) => !isHidden(hidden, e.hostId)) : index.segments;
-  const visibleTracks = hidden && hidden.size > 0 ? index.tracks.filter((tr) => !isHidden(hidden, tr.hostId)) : index.tracks;
+  const { points: visiblePoints, segments: visibleSegments, tracks: visibleTracks } = visiveis(index, hidden);
 
   // Grades do projeto projetadas no plano do corte: cada eixo que cruza o plano vira uma vertical em t.
   const gridSegments = grids && line ? projectGridSegments(project, section, line, hidden) : [];

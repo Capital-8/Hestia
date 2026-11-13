@@ -6,9 +6,8 @@ import { keptStairType } from '../../editor/stairActions.ts';
 import { saveStairType, stairTypeDeleteBlock, tryDeleteStairType } from '../../editor/stairTypeActions.ts';
 import { dictOf, useI18n } from '../../editor/i18n.ts';
 import { safeGet, safeSet } from '../../editor/storage.ts';
-import { TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
-import { TypeDialogHeader } from './TypeDialogHeader.tsx';
+import { FamilyHint, FamilyTypeDialog } from './familia/index.ts';
 import { FAMILY } from '../typeFamilies.ts';
 import { StairSectionPreview } from './StairSectionPreview.tsx';
 import { StairCalculatorPanel } from './StairCalculatorPanel.tsx';
@@ -202,7 +201,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   if (!draft) {
     return (
       <Dialog title={t.stt_title} onClose={closeNow} size="mid" footer={<button className="btn" onClick={closeNow}>{t.stt_close}</button>}>
-        <p className="hint">{t.stt_missing}</p>
+        <FamilyHint>{t.stt_missing}</FamilyHint>
       </Dialog>
     );
   }
@@ -231,45 +230,42 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
   const disabledReason = errors.length > 0 ? stairIssueText(errors[0]!, t) : undefined;
 
   return (
-    <Dialog
+    <FamilyTypeDialog
       title={t.stt_title}
       sub={sub}
       onClose={requestClose}
       onSubmit={() => runAction(() => okRef.current())}
-      size="wide"
-      footer={
-        <>
-          <button className="btn danger" disabled={blocked !== null} title={blocked ?? t.stt_delete_type_tip} onClick={del}>{t.stt_delete}</button>
-          {blocked ? <span className="stt-ref">{fill(t.stt_delete_blocked, { reason: blocked })}</span> : null}
-          <span style={{ flex: 1 }} />
-          {errors.length > 0 ? (
-            <button className="btn small" onClick={focusFirstError} title={disabledReason}>{count}</button>
-          ) : (
-            <span className="stt-ref">{count}</span>
-          )}
-          {disabledReason ? <span className="stt-ref" style={{ maxWidth: 230, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{disabledReason}</span> : null}
-          <button className="btn" onClick={requestClose}>{t.stt_cancel}</button>
-          <button className="btn" onClick={apply} disabled={!canSave} aria-disabled={!canSave} title={disabledReason}>{t.stt_apply}</button>
-          <button className="btn primary" onClick={ok} disabled={!canSave} aria-disabled={!canSave} title={disabledReason}>{t.stt_ok}</button>
-          <span className="stt-ref">{t.stt_kbd_hint}</span>
-        </>
-      }
+      size="fam"
+      family={FAMILY.stair}
+      types={Object.values(p.stairTypes)}
+      currentId={draft.id}
+      onDuplicate={duplicate}
+      onSelectType={selectType}
+      name={{ id: 'stt-name', value: draft.name, onCommit: (v) => set({ name: v }), error: nameMsg, autofocus: true }}
+      footer={{
+        onDelete: del,
+        deleteDisabled: blocked !== null,
+        deleteTitle: blocked ?? t.stt_delete_type_tip,
+        afterDelete: blocked ? <span className="stt-ref">{fill(t.stt_delete_blocked, { reason: blocked })}</span> : null,
+        beforeCancel: (
+          <>
+            {errors.length > 0 ? (
+              <button className="btn small" onClick={focusFirstError} title={disabledReason}>{count}</button>
+            ) : (
+              <span className="stt-ref">{count}</span>
+            )}
+            {disabledReason ? <span className="stt-ref fam-ellipsis">{disabledReason}</span> : null}
+          </>
+        ),
+        onApply: apply,
+        onOk: ok,
+        saveDisabled: !canSave,
+        saveTitle: disabledReason,
+        end: <span className="stt-ref">{t.stt_kbd_hint}</span>,
+      }}
     >
-      <TypeDialogHeader family={FAMILY.stair} types={Object.values(p.stairTypes)} currentId={draft.id} nameFieldId="stt-name" onDuplicate={duplicate} onSelect={selectType} />
-      <div className="field-row">
-        <label htmlFor="stt-name">{t.stt_f_name}</label>
-        <TextField
-          id="stt-name"
-          value={draft.name}
-          onCommit={(v) => set({ name: v })}
-          invalid={Boolean(nameMsg)}
-          describedBy={nameMsg ? 'stt-name-err' : undefined}
-          dataAutofocus
-        />
-      </div>
-      {nameMsg ? <div className="vr-error" id="stt-name-err">{nameMsg}</div> : null}
       {saveError ? <div className="vr-error" role="alert">{saveError}</div> : null}
-      {impact ? <p className="hint" role="status" style={{ color: 'var(--warn)' }}>{fill(t.stt_impact, { n: String(usage) })}</p> : null}
+      {impact ? <FamilyHint warn role="status">{fill(t.stt_impact, { n: String(usage) })}</FamilyHint> : null}
       <div className="stt-grid">
         <div className="stt-main">
           <StairTypeSections
@@ -284,7 +280,7 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
         </div>
         <div className="stt-side">
           <div>
-            <div className="stt-ref" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{t.stt_preview_title}</div>
+            <FamilyHint tone="title">{t.stt_preview_title}</FamilyHint>
             <StairSectionPreview
               type={draft}
               riser={calc?.valid ? calc.riser : undefined}
@@ -295,6 +291,6 @@ export function StairTypeDialog({ typeId }: { typeId: string }): ReactElement | 
           <StairBlondelCard type={draft} heightCm={calcHeight} />
         </div>
       </div>
-    </Dialog>
+    </FamilyTypeDialog>
   );
 }

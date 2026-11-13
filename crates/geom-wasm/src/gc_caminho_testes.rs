@@ -671,3 +671,107 @@ fn saida_plana_dos_avisos_de_geometria() {
     assert_eq!(a.len() / 4, v.len() / 5);
     assert!(a.chunks(4).any(|x| x[1] == AV_CAMINHO_REPETIDO));
 }
+
+// ------------------------------------------------ recuo lateral e esquadria por dentro
+
+#[test]
+fn eixo_recua_da_borda_o_raio_do_maior_poste() {
+    // Poste retangular de 8 cm: o raio é 5,66 cm, maior que o deslocamento de 3,5 cm do tipo. O eixo recua o raio, para a seção ficar inteira no degrau.
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 0, 0.035);
+    escada(&mut c);
+    lance_reto(&mut c, 1, 0, 0.0, 5, 0.17, 1.2, 0.0);
+    c.gc.perfis.insert(7, PerfilGuardaLinha { forma: FORMA_RETANGULAR, largura: 0.08, altura: 0.08, n_pontos: 0, lados: 16 });
+    c.gc.postes.insert(1, PosteLinha { tipo: 1, papel: POSTE_INICIO, ativo: true, perfil: 7, material: 1, acima: 0.0, abaixo: 0.0, ang_canto: 0.0873, modo: 0, espacamento: 0.0, numero: 0 });
+    let raio = (0.08f64 * 0.08 * 2.0).sqrt() / 2.0;
+    let r = rodar(&c, 1e-6);
+    perto(r.trecho(0)[0], [0.0, 0.6 - raio, 0.17]);
+    perto(r.trecho(1)[0], [0.0, -0.6 + raio, 0.17]);
+    // Poste inativo, ou de papel que não aparece (intermediário sem espaçamento), não conta: vale o deslocamento do tipo.
+    c.gc.postes.get_mut(&1).unwrap().ativo = false;
+    perto(rodar(&c, 1e-6).trecho(0)[0], [0.0, 0.6 - 0.035, 0.17]);
+    c.gc.postes.insert(2, PosteLinha { tipo: 1, papel: POSTE_INTERMEDIARIO, ativo: true, perfil: 7, material: 1, acima: 0.0, abaixo: 0.0, ang_canto: 0.0873, modo: 0, espacamento: 0.0, numero: 0 });
+    perto(rodar(&c, 1e-6).trecho(0)[0], [0.0, 0.6 - 0.035, 0.17]);
+    // Deslocamento maior que o raio: vale o do tipo. E base lateral (poste preso na face, por fora) não recua nada.
+    c.gc.postes.get_mut(&1).unwrap().ativo = true;
+    c.gc.guardas.get_mut(&1).unwrap().desloc = 0.1;
+    perto(rodar(&c, 1e-6).trecho(0)[0], [0.0, 0.6 - 0.1, 0.17]);
+    c.gc.guardas.get_mut(&1).unwrap().desloc = 0.035;
+    c.gc.guardas.get_mut(&1).unwrap().pos_base = 1;
+    perto(rodar(&c, 1e-6).trecho(0)[0], [0.0, 0.6 + 0.035, 0.17]);
+}
+
+#[test]
+fn esquadria_por_dentro_de_canto_agudo_fica_dentro_e_por_fora_vira_chanfro() {
+    // Giro de 135° (canto de 45°): do lado de dentro da curva o ponto da esquadria é exato, mesmo muito além de 2,5x o deslocamento.
+    let a = 135.0f64.to_radians();
+    let pts = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (1.0 + a.cos(), a.sin(), 0.0)];
+    let dentro = rodar(&manual_c(&pts, false, 0.1, 0), 1e-6).trecho(0);
+    assert_eq!(dentro.len(), 3, "por dentro, um ponto só no canto");
+    let r = 0.1 / (22.5f64.to_radians()).sin();
+    let canto = dentro[1];
+    assert!(((canto[0] - 1.0).hypot(canto[1]) - r).abs() < 1e-6, "esquadria a {r} do vértice, veio {:?}", canto);
+    assert!(canto[1] > 0.0, "do lado esquerdo, dentro da curva");
+    // Do lado de fora a ponta passa de 2,5x e vira chanfro (dois pontos).
+    let fora = rodar(&manual_c(&pts, false, 0.1, 1), 1e-6).trecho(0);
+    assert_eq!(fora.len(), 4, "por fora, chanfro");
+}
+
+// ------------------------------------------------ extensão do corrimão e seu aviso
+
+/// Escada reta com guarda-corpo nos dois lados, tipo equipado (corrimão de agarrar com a extensão dada) e norma com extensão mínima de 0,30 m.
+fn escada_com_extensao(estilo: u8, comprimento: f64, funcao: u8, hosp_manual: bool) -> Montagem {
+    let mut c = cena_base(HOSP_ESCADA, 1, 0b0101, 0, 0.0);
+    escada(&mut c);
+    lance_reto(&mut c, 1, 0, 0.0, 6, 0.17, 1.2, 0.0);
+    equipar(&mut c, false);
+    {
+        let k = c.gc.corrimaos.get_mut(&1).unwrap();
+        k.ext_inicio = ExtensaoLinha { estilo, comprimento, mais_piso: false };
+        k.ext_fim = ExtensaoLinha { estilo, comprimento, mais_piso: false };
+        k.funcao = funcao;
+        k.posicao = 3;
+    }
+    if hosp_manual {
+        for (i, (x, y)) in [(0.0, 0.0), (4.0, 0.0)].into_iter().enumerate() {
+            c.gc.caminhos.insert(i as u32 + 1, CaminhoLinha { guarda: 1, indice: i as u32, x, y, dz: 0.0 });
+        }
+        let g = c.gc.guardas.get_mut(&1).unwrap();
+        g.hosp = HOSP_MANUAL;
+        g.hosp_num = 0;
+    }
+    let mut norma = [None; NORMA_N_LIMITES as usize];
+    norma[limite::CORRIMAO_EXTENSAO_MIN] = Some(0.3);
+    c.gc.normas.insert(1, NormaLinha { limite: norma });
+    c.gc.tipos.get_mut(&1).unwrap().norma = 1;
+    montar(&c, NIVEL_TODOS, 1, ID_AUSENTE, 1e-3, false).expect("montar")
+}
+
+fn avisos_de_extensao(m: &Montagem) -> Vec<(u32, u32)> {
+    m.avisos.iter().filter(|a| a.codigo == crate::gc_avisos::AV_CORRIMAO_EXTENSAO).map(|a| (a.trecho, a.indice)).collect()
+}
+
+#[test]
+fn extensao_do_corrimao_de_escada_avisa_so_abaixo_do_minimo_da_norma() {
+    // Sem extensão: um aviso por ponta e por lado do hospedeiro (2 lados x 2 pontas), e o corrimão de dois lados não repete.
+    let sem = escada_com_extensao(0, 0.0, 1, false);
+    assert_eq!(avisos_de_extensao(&sem).len(), 4, "{:?}", avisos_de_extensao(&sem));
+    assert!(sem.avisos.iter().filter(|a| a.codigo == crate::gc_avisos::AV_CORRIMAO_EXTENSAO).all(|a| a.medido == 0.0 && a.limite == 0.3));
+    // Com a extensão mínima da norma nas duas pontas (fábrica): nenhum aviso.
+    assert!(avisos_de_extensao(&escada_com_extensao(3, 0.3, 1, false)).is_empty());
+    // Abaixo do mínimo: avisa e mede o comprimento real.
+    let curta = escada_com_extensao(3, 0.2, 1, false);
+    assert_eq!(avisos_de_extensao(&curta).len(), 4);
+    assert!(curta.avisos.iter().filter(|a| a.codigo == crate::gc_avisos::AV_CORRIMAO_EXTENSAO).all(|a| (a.medido - 0.2).abs() < 1e-9));
+    // Estilo "nenhum" não estende nada: mede 0 mesmo com comprimento.
+    let nenhum = escada_com_extensao(0, 0.3, 1, false);
+    assert!(nenhum.avisos.iter().filter(|a| a.codigo == crate::gc_avisos::AV_CORRIMAO_EXTENSAO).all(|a| a.medido == 0.0));
+    assert_eq!(avisos_de_extensao(&nenhum).len(), 4);
+}
+
+#[test]
+fn extensao_do_corrimao_nao_avisa_em_travessa_nem_em_guarda_corpo_manual() {
+    // Travessa superior (função 0) não é para agarrar.
+    assert!(avisos_de_extensao(&escada_com_extensao(0, 0.0, 0, false)).is_empty());
+    // Guarda-corpo manual (varanda) não tem ponta de escada.
+    assert!(avisos_de_extensao(&escada_com_extensao(0, 0.0, 1, true)).is_empty());
+}

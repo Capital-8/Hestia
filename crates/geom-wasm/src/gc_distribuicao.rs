@@ -14,6 +14,8 @@ const EPS: f64 = 1e-9;
 const EPS_S: f64 = 1e-7;
 /// Quanto a quina de um degrau pode ficar fora da cadeia (m) e ainda contar (arco discretizado da Fase 3a).
 const TOL_PONTA_DEGRAU: f64 = 0.005;
+/// Folga (m) entre um montante por degrau e o poste que o empurrou.
+const FOLGA_MONTANTE_POSTE: f64 = 0.005;
 
 pub const AVISO_PADRAO_NAO_CABE: u8 = 1;
 pub const AVISO_PADRAO_COMPRIMIDO: u8 = 2;
@@ -87,6 +89,11 @@ impl PerfilP {
         } else {
             self.largura
         }
+    }
+
+    /// Meia extensão do perfil para os lados do caminho (o que avança para a esquerda e para a direita do eixo).
+    pub fn meia_transversal(&self) -> f64 {
+        self.anel().iter().map(|q| q[1].abs()).fold(0.0, f64::max)
     }
 
     fn lados_efetivos(&self) -> u32 {
@@ -303,7 +310,12 @@ impl ParamPostes {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Poste {
+    /// Posição nominal no percurso (o nó ou o ponto do espaçamento): é o que divide os vãos.
     pub s: f64,
+    /// Posição real do centro, depois de recuar o poste para dentro do piso do hospedeiro (`AjustePostes`); sem ajuste, igual a `s`.
+    pub pos: f64,
+    /// Meia largura mais o quanto o centro foi recuado: a folga que os balaústres e painéis do vão guardam deste poste, a partir de `s`.
+    pub margem: f64,
     pub papel: u8,
     /// `true` = poste de nó (início, fim, canto, transição); `false` = intermediário de vão.
     pub no: bool,
@@ -316,47 +328,130 @@ pub struct Poste {
     pub uy: f64,
 }
 
-fn novo_poste(perc: &Percurso, s: f64, papel: u8, no: bool, pp: &ParamPostes, altura: f64) -> Poste {
+fn novo_poste(perc: &Percurso, s: f64, papel: u8, no: bool, pp: &ParamPostes, altura: f64, lugar: (f64, Option<f64>)) -> Poste {
     let par = pp.do_papel(papel);
-    let a = perc.amostra(s);
-    Poste { s, papel, no, meia: par.perfil.largura_ao_longo() / 2.0, x: a.x, y: a.y, z0: a.z - par.abaixo, z1: a.z + altura + par.acima, ux: a.ux, uy: a.uy }
+    let (pos, z_piso) = lugar;
+    let a = perc.amostra(pos);
+    let meia = par.perfil.largura_ao_longo() / 2.0;
+    Poste {
+        s,
+        pos,
+        margem: meia + (pos - s).abs(),
+        papel,
+        no,
+        meia,
+        x: a.x,
+        y: a.y,
+        z0: z_piso.unwrap_or(a.z) - par.abaixo,
+        z1: a.z + altura + par.acima,
+        ux: a.ux,
+        uy: a.uy,
+    }
+}
+
+/// Como os postes de um trecho se apoiam no hospedeiro. Com `sobre_piso` (escada ou rampa com a base no degrau) cada poste fica com a seção INTEIRA
+/// sobre o piso: nas pontas do trecho recua meia seção para dentro; num lance de escada vai para dentro da pisada útil do degrau (medida do bocel) e
+/// apoia a base no topo do piso acabado. `omitir_inicio` e `omitir_fim` tiram o poste de uma ponta soldada a outro trecho, onde o poste do trecho
+/// vizinho (o do lado mais alto) já serve aos dois.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AjustePostes {
+    pub sobre_piso: bool,
+    pub omitir_inicio: bool,
+    pub omitir_fim: bool,
+    /// Degraus que apoiam os postes. Vazio = os `degraus` da configuração (o caracol só dá degraus aos postes, não aos balaústres).
+    pub degraus: Vec<DegrauP>,
+}
+
+/// Centro de um poste de seção `a` (meia extensão ao longo do caminho) por `b` (meia extensão para os lados), nominal em `s`, levado para dentro da
+/// pisada que contém `sonda` (um ponto um pouco para dentro do trecho, do lado da subida) e a cota do piso acabado ali. A última linha de espelho
+/// de um lance é a chegada no piso de cima, que não é degrau, e não conta. Nas pontas (`ponta`) o trecho pode começar ou terminar fora de qualquer
+/// pisada (espelho oblíquo, em leque ou em caracol corta o caminho longe do ponto médio): vale então a pisada mais próxima. `None` se não há pisada.
+fn posicao_no_piso(degraus: &[DegrauP], sonda: f64, s: f64, a: f64, b: f64, ponta: bool) -> Option<(f64, f64)> {
+    let reais = &degraus[..degraus.len().saturating_sub(1)];
+    let mut escolhido: Option<(&DegrauP, f64)> = None;
+    for dg in reais {
+        let (bocel, pisada) = piso_do_degrau(dg);
+        let (lo, hi) = (bocel.min(bocel + pisada), bocel.max(bocel + pisada));
+        let dist = if sonda < lo { lo - sonda } else if sonda > hi { sonda - hi } else { 0.0 };
+        // A fronteira direita da pisada é aberta (o ponto exato pertence à pisada seguinte).
+        let dist = if dist == 0.0 && (sonda - (bocel + pisada)).abs() < EPS { EPS } else { dist };
+        if escolhido.is_none_or(|(_, d)| dist < d) {
+            escolhido = Some((dg, dist));
+        }
+    }
+    let (dg, dist) = escolhido?;
+    if dist > 1e-6 && !ponta {
+        return None;
+    }
+    let (bocel, pisada) = piso_do_degrau(dg);
+    let sg = if pisada < 0.0 { -1.0 } else { 1.0 };
+    let p = pisada.abs();
+    let off = (s - bocel) * sg;
+    let meia = dg.avanco(a, b);
+    let novo = if p < 2.0 * meia { p / 2.0 } else { off.clamp(meia, p - meia) };
+    Some((bocel + sg * novo, dg.z))
 }
 
 /// Postes de um trecho: nós (início, fim, canto, transição) e intermediários de cada vão. Ordenados por `s`.
-pub fn postes(perc: &Percurso, curvo: bool, pp: &ParamPostes, altura: f64, avisos: &mut Vec<Aviso>) -> Vec<Poste> {
+pub fn postes(perc: &Percurso, curvo: bool, pp: &ParamPostes, altura: f64, degraus: &[DegrauP], aj: &AjustePostes, avisos: &mut Vec<Aviso>) -> Vec<Poste> {
     let mut nos: Vec<Poste> = Vec::new();
     if perc.nos.len() < 2 {
         return nos;
     }
     let (n, m) = (perc.n, perc.n_seg());
+    // Onde o centro do poste fica de fato. Fora de `sobre_piso` é o próprio nó.
+    let sentido_subida = if degraus.first().is_some_and(|d| d.profundidade < 0.0) { -1.0 } else { 1.0 };
+    let lugar = |s: f64, papel: u8| -> (f64, Option<f64>) {
+        if !aj.sobre_piso {
+            return (s, None);
+        }
+        let perfil = &pp.do_papel(papel).perfil;
+        let meia = perfil.largura_ao_longo() / 2.0;
+        let (inicio, fim) = (papel == POSTE_INICIO, papel == POSTE_FIM);
+        let sonda = if inicio {
+            s + 1e-6
+        } else if fim {
+            s - 1e-6
+        } else {
+            s + sentido_subida * 1e-6
+        };
+        if let Some(r) = posicao_no_piso(degraus, sonda, s, meia, perfil.meia_transversal(), inicio || fim) {
+            return (r.0, Some(r.1));
+        }
+        if inicio || fim {
+            let novo = if perc.total < 2.0 * meia { perc.total / 2.0 } else { s.clamp(meia, perc.total - meia) };
+            return (novo, None);
+        }
+        (s, None)
+    };
     for i in 0..n {
         let s = perc.s[i];
         if !perc.fechado && i == 0 {
-            if pp.inicio.ativo {
-                nos.push(novo_poste(perc, s, POSTE_INICIO, true, pp, altura));
+            if pp.inicio.ativo && !(aj.sobre_piso && aj.omitir_inicio) {
+                nos.push(novo_poste(perc, s, POSTE_INICIO, true, pp, altura, lugar(s, POSTE_INICIO)));
             }
         } else if !perc.fechado && i == n - 1 {
-            if pp.fim.ativo {
-                nos.push(novo_poste(perc, s, POSTE_FIM, true, pp, altura));
+            if pp.fim.ativo && !(aj.sobre_piso && aj.omitir_fim) {
+                nos.push(novo_poste(perc, s, POSTE_FIM, true, pp, altura, lugar(s, POSTE_FIM)));
             }
         } else if !curvo {
             let (a, b) = if i == 0 { (m - 1, 0) } else { (i - 1, i) };
             if perc.giro(i) > pp.ang_canto + EPS {
                 if pp.canto.ativo {
-                    nos.push(novo_poste(perc, s, POSTE_CANTO, true, pp, altura));
+                    nos.push(novo_poste(perc, s, POSTE_CANTO, true, pp, altura, lugar(s, POSTE_CANTO)));
                 }
             } else if (perc.inclinacao(a) - perc.inclinacao(b)).abs() > 1e-9 {
                 // Nó de transição: intermediário se houver espaçamento configurado, senão canto.
                 if pp.intermediario.ativo && pp.modo != MODO_NENHUM {
-                    nos.push(novo_poste(perc, s, POSTE_INTERMEDIARIO, true, pp, altura));
+                    nos.push(novo_poste(perc, s, POSTE_INTERMEDIARIO, true, pp, altura, lugar(s, POSTE_INTERMEDIARIO)));
                 } else if pp.canto.ativo {
-                    nos.push(novo_poste(perc, s, POSTE_CANTO, true, pp, altura));
+                    nos.push(novo_poste(perc, s, POSTE_CANTO, true, pp, altura, lugar(s, POSTE_CANTO)));
                 }
             }
         }
     }
     // Limites de vão: pontas do trecho e cada nó com poste.
-    let meia_no = |s: f64| nos.iter().filter(|p| (p.s - s).abs() < EPS_S || (perc.fechado && s > perc.total - EPS_S && p.s < EPS_S)).map(|p| p.meia).fold(0.0, f64::max);
+    let meia_no = |s: f64| nos.iter().filter(|p| (p.s - s).abs() < EPS_S || (perc.fechado && s > perc.total - EPS_S && p.s < EPS_S)).map(|p| p.margem).fold(0.0, f64::max);
     let mut lim: Vec<f64> = vec![0.0];
     lim.extend(nos.iter().map(|p| p.s).filter(|&s| s > EPS_S && s < perc.total - EPS_S));
     lim.push(perc.total);
@@ -397,7 +492,7 @@ pub fn postes(perc: &Percurso, curvo: bool, pp: &ParamPostes, altura: f64, aviso
                 if s - a < ma + meia_i - EPS || b - s < mb + meia_i - EPS {
                     continue;
                 }
-                inter.push(novo_poste(perc, s, POSTE_INTERMEDIARIO, false, pp, altura));
+                inter.push(novo_poste(perc, s, POSTE_INTERMEDIARIO, false, pp, altura, lugar(s, POSTE_INTERMEDIARIO)));
             }
         }
     }
@@ -410,7 +505,7 @@ fn meia_em(postes: &[Poste], perc: &Percurso, s: f64) -> f64 {
     postes
         .iter()
         .filter(|p| (p.s - s).abs() < EPS_S || (perc.fechado && s > perc.total - EPS_S && p.s < EPS_S))
-        .map(|p| p.meia)
+        .map(|p| p.margem)
         .fold(0.0, f64::max)
 }
 
@@ -476,12 +571,24 @@ pub struct DegrauP {
     pub bocel: f64,
     /// Projeção do bocel do degrau seguinte, que avança sobre o fundo desta pisada. 0 sem bocel ou sem degrau seguinte.
     pub bocel_seguinte: f64,
+    /// Obliquidade das duas linhas de espelho do degrau (a maior): tangente do ângulo entre o espelho e a perpendicular ao caminho. 0 = espelho
+    /// perpendicular. Uma seção alinhada com o caminho avança `meia_ao_longo + meia_transversal * obliq` sobre a linha do espelho.
+    pub obliq: f64,
+    /// Curvatura (1/m) do caminho no degrau: numa curva a linha do espelho (radial) gira em relação à seção conforme ela se afasta do cruzamento.
+    pub curv: f64,
 }
 
 impl DegrauP {
+    /// Quanto o centro de uma seção de meia extensão `a` ao longo do caminho e `b` para os lados tem de ficar afastado da linha do espelho para a
+    /// seção inteira ficar do lado do piso: `a`, mais `b` vezes a inclinação da linha em relação à seção (a obliquidade e, numa curva, o giro que a
+    /// seção acumula ao se afastar do cruzamento: `curv` vezes o próprio afastamento, o que dá o divisor).
+    pub fn avanco(&self, a: f64, b: f64) -> f64 {
+        (a + b * self.obliq) / (1.0 - (b * self.curv).min(0.5))
+    }
+
     /// Degrau sem acabamento: bocel zero, a pisada vai da face do espelho à do seguinte.
     pub fn simples(s0: f64, profundidade: f64, z: f64) -> Self {
-        DegrauP { s0, profundidade, z, bocel: 0.0, bocel_seguinte: 0.0 }
+        DegrauP { s0, profundidade, z, bocel: 0.0, bocel_seguinte: 0.0, obliq: 0.0, curv: 0.0 }
     }
 }
 
@@ -575,6 +682,12 @@ pub fn piso_do_degrau(dg: &DegrauP) -> (f64, f64) {
 /// `[meia, pisada - meia]`; se a pisada não comporta a seção inteira (`pisada < 2 * meia`), vai para o meio da pisada. Fora de qualquer
 /// pisada (antes do 1º degrau, depois do último) `s` não muda. Só vale para escada (degraus informados).
 pub fn empurrar_para_o_piso(degraus: &[DegrauP], s: f64, meia: f64) -> f64 {
+    empurrar_seccao_para_o_piso(degraus, s, meia, 0.0)
+}
+
+/// Como `empurrar_para_o_piso`, para uma seção de meia extensão `a` ao longo do caminho e `b` para os lados: com espelho oblíquo ela avança
+/// `a + b * obliq` sobre a linha do espelho (ver `DegrauP::obliq`).
+pub fn empurrar_seccao_para_o_piso(degraus: &[DegrauP], s: f64, a: f64, b: f64) -> f64 {
     for dg in degraus {
         let (bocel, pisada) = piso_do_degrau(dg);
         let sg = if pisada < 0.0 { -1.0 } else { 1.0 };
@@ -583,6 +696,7 @@ pub fn empurrar_para_o_piso(degraus: &[DegrauP], s: f64, meia: f64) -> f64 {
         if off < -EPS || off >= p - EPS {
             continue;
         }
+        let meia = dg.avanco(a, b);
         let novo = if p < 2.0 * meia { p / 2.0 } else { off.clamp(meia, p - meia) };
         return bocel + sg * novo;
     }
@@ -605,6 +719,61 @@ pub fn deslocamentos_no_piso(pd: &PorDegrauP, p: f64) -> Vec<f64> {
     (0..q).map(|j| d + j as f64 * passo).collect()
 }
 
+/// `PorDegrauP::quantidade` com este valor = quantidade automática (o mínimo que a norma exige; ver `quantidade_automatica`).
+pub const QTD_AUTOMATICA: u32 = 0;
+/// Quantidade por degrau usada no modo automático quando a norma não informa esfera máxima.
+const QTD_AUTOMATICA_SEM_NORMA: u32 = 2;
+const QTD_AUTOMATICA_MAX: u32 = 64;
+
+/// Menor quantidade `N` de montantes por degrau (centros de N faixas iguais da pisada útil) para que nenhum vão livre entre montantes passe de `esfera`:
+/// dentro do degrau (`pisada / N - largura`) e do último deste ao primeiro do seguinte (centro a centro, menos a largura). Mesmo critério horizontal do
+/// aviso `gc-vao-grande`. Um só `N` para o lance inteiro (o maior que algum degrau exige).
+pub fn quantidade_automatica(degraus: &[DegrauP], largura: f64, esfera: f64) -> u32 {
+    let util: Vec<(f64, f64, f64)> = degraus
+        .iter()
+        .map(|dg| {
+            let (bocel, pisada) = piso_do_degrau(dg);
+            (bocel, if pisada < 0.0 { -1.0 } else { 1.0 }, pisada.abs())
+        })
+        .collect();
+    let cabe = |n: u32| -> bool {
+        let nf = n as f64;
+        for (i, &(b, sg, p)) in util.iter().enumerate() {
+            if n > 1 && p / nf - largura > esfera + EPS {
+                return false;
+            }
+            if let Some(&(b2, _, p2)) = util.get(i + 1) {
+                let ultimo = b + sg * (p - p / (2.0 * nf));
+                let primeiro = b2 + sg * (p2 / (2.0 * nf));
+                if ((primeiro - ultimo) * sg).abs() - largura > esfera + EPS {
+                    return false;
+                }
+            }
+        }
+        true
+    };
+    (1..=QTD_AUTOMATICA_MAX).find(|&n| cabe(n)).unwrap_or(QTD_AUTOMATICA_MAX)
+}
+
+/// Padrão com o modo automático resolvido: quantidade por degrau mínima para a norma e, fora dos degraus (patamar, trecho livre), o espaçamento
+/// máximo permitido (`esfera + largura` do balaústre, centro a centro). Sem esfera na norma: 2 por degrau e o período do tipo.
+fn resolver_automatico(pad: &PadraoP, degraus: &[DegrauP], esfera: Option<f64>) -> PadraoP {
+    let mut r = pad.clone();
+    r.por_degrau.centro = true;
+    let larg_pd = pad.por_degrau.perfil.as_ref().map_or(0.0, |p| p.largura_ao_longo());
+    match esfera.filter(|e| *e > EPS) {
+        Some(e) => {
+            r.por_degrau.quantidade = quantidade_automatica(degraus, larg_pd, e);
+            if pad.elementos.len() == 1 {
+                let w = pad.elementos[0].perfil.as_ref().map_or(larg_pd, |p| p.largura_ao_longo());
+                r.periodo = e + w;
+            }
+        }
+        None => r.por_degrau.quantidade = QTD_AUTOMATICA_SEM_NORMA,
+    }
+    r
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn balaustres(
     perc: &Percurso,
@@ -614,6 +783,7 @@ pub fn balaustres(
     pad: &PadraoP,
     degraus: &[DegrauP],
     restante: usize,
+    afastar_de_postes: bool,
     avisos: &mut Vec<Aviso>,
 ) -> Result<Vec<Balaustre>, u32> {
     if pad.elementos.is_empty() || pad.elementos.len() > LIMITE_ELEMENTOS_PADRAO || pad.periodo.is_nan() || pad.periodo <= EPS {
@@ -650,6 +820,7 @@ pub fn balaustres(
     // Por degrau: só nos lances (escada); patamares usam o padrão normal.
     if pad.por_degrau.ativo && matches!(origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) && !degraus.is_empty() && pad.por_degrau.quantidade >= 1 {
         let meia_pd = pad.por_degrau.perfil.as_ref().map_or(0.0, |p| p.largura_ao_longo()) / 2.0;
+        let lado_pd = pad.por_degrau.perfil.as_ref().map_or(0.0, |p| p.meia_transversal());
         if pad.por_degrau.perfil.is_some() {
             let mut avisou = false;
             for dg in degraus {
@@ -659,7 +830,8 @@ pub fn balaustres(
                 let desl = deslocamentos_no_piso(&pad.por_degrau, p);
                 for off in desl.iter() {
                     // O montante inteiro tem de ficar sobre o piso: a seção não passa do bocel nem do espelho do degrau seguinte.
-                    if *off < meia_pd - EPS || *off > p - meia_pd + EPS {
+                    let folga = dg.avanco(meia_pd, lado_pd);
+                    if *off < folga - EPS || *off > p - folga + EPS {
                         if !avisou {
                             avisos.push(Aviso { codigo: AVISO_MONTANTE_FORA_DO_PISO, s: bocel, valor: p });
                             avisou = true;
@@ -671,8 +843,21 @@ pub fn balaustres(
                     if s < -TOL_PONTA_DEGRAU || s > perc.total + TOL_PONTA_DEGRAU {
                         continue;
                     }
-                    let s = s.clamp(0.0, perc.total);
-                    if colide(postes, s, meia_pd, -1.0, perc.total + 1.0) {
+                    let mut s = s.clamp(0.0, perc.total);
+                    if let Some(pst) = postes.iter().find(|q| (q.pos - s).abs() < q.meia + meia_pd - EPS) {
+                        // Com os postes sobre o piso, o montante que cairia dentro de um poste não some (abriria um vão maior que o da norma): fica encostado
+                        // nele, com uma folga de 5 mm, do lado em que estava, desde que continue inteiro sobre o piso.
+                        if !afastar_de_postes {
+                            continue;
+                        }
+                        let dir = if s >= pst.pos { 1.0 } else { -1.0 };
+                        s = pst.pos + dir * (pst.meia + meia_pd + FOLGA_MONTANTE_POSTE);
+                        let o = (s - bocel) * sg;
+                        if s < 0.0 || s > perc.total || o < folga - EPS || o > p - folga + EPS || colide(postes, s, meia_pd, -1.0, perc.total + 1.0) {
+                            continue;
+                        }
+                    }
+                    if out.last().is_some_and(|u| (u.s - s).abs() < 2.0 * meia_pd - EPS) {
                         continue;
                     }
                     let a = perc.amostra(s);
@@ -727,7 +912,7 @@ pub fn balaustres(
             let Some(perfil) = &e.perfil else { continue };
             // Escada: o balaústre nunca fica sobre a quina nem sobre o espelho; vai para dentro do piso.
             if matches!(origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) && !degraus.is_empty() {
-                s = empurrar_para_o_piso(degraus, s, perfil.largura_ao_longo() / 2.0);
+                s = empurrar_seccao_para_o_piso(degraus, s, perfil.largura_ao_longo() / 2.0, perfil.meia_transversal());
             }
             if colide(postes, s, perfil.largura_ao_longo() / 2.0, sa, sb) {
                 continue;
@@ -741,7 +926,7 @@ pub fn balaustres(
 
 /// `true` se um elemento centrado em `s` (meia largura `meia`) encosta num poste estritamente interior ao vão `(sa, sb)`.
 fn colide(postes: &[Poste], s: f64, meia: f64, sa: f64, sb: f64) -> bool {
-    postes.iter().any(|p| p.s > sa + EPS_S && p.s < sb - EPS_S && (p.s - s).abs() < p.meia + meia - EPS)
+    postes.iter().any(|p| p.s > sa + EPS_S && p.s < sb - EPS_S && (p.pos - s).abs() < p.meia + meia - EPS)
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1006,6 +1191,10 @@ pub struct ConfigDistribuicao {
     pub padroes: Vec<PadraoP>,
     pub paineis: Vec<PainelP>,
     pub degraus: Vec<DegrauP>,
+    /// Como os postes se apoiam no hospedeiro (escada, rampa); o padrão não ajusta nada.
+    pub ajuste_postes: AjustePostes,
+    /// Maior esfera permitida pela norma do tipo (m). Só o modo automático do balaústre por degrau a usa (`QTD_AUTOMATICA`); `None` = sem limite conhecido.
+    pub esfera: Option<f64>,
     /// `false` = só posições e avisos (sem malha), para as consultas de contagem.
     pub gerar_malha: bool,
 }
@@ -1027,10 +1216,18 @@ pub struct SaidaDistribuicao {
 pub fn distribuir(trecho: &TrechoGC, cfg: &ConfigDistribuicao, restante: usize) -> Result<SaidaDistribuicao, u32> {
     let perc = Percurso::de(trecho);
     let mut saida = SaidaDistribuicao::default();
-    saida.postes = postes(&perc, trecho.curvo, &cfg.postes, cfg.altura, &mut saida.avisos);
+    let degraus_postes = if cfg.ajuste_postes.degraus.is_empty() { &cfg.degraus } else { &cfg.ajuste_postes.degraus };
+    saida.postes = postes(&perc, trecho.curvo, &cfg.postes, cfg.altura, degraus_postes, &cfg.ajuste_postes, &mut saida.avisos);
     let mut resta = restante;
     for pad in &cfg.padroes {
-        let v = balaustres(&perc, trecho.curvo, trecho.origem, &saida.postes, pad, &cfg.degraus, resta, &mut saida.avisos)?;
+        let resolvido;
+        let pad = if pad.por_degrau.ativo && pad.por_degrau.quantidade == QTD_AUTOMATICA {
+            resolvido = resolver_automatico(pad, &cfg.degraus, cfg.esfera);
+            &resolvido
+        } else {
+            pad
+        };
+        let v = balaustres(&perc, trecho.curvo, trecho.origem, &saida.postes, pad, &cfg.degraus, resta, cfg.ajuste_postes.sobre_piso, &mut saida.avisos)?;
         resta -= v.len();
         saida.balaustres.push(v);
     }

@@ -14,7 +14,7 @@ use crate::esquema::{ENTRADA, ID_AUSENTE};
 use crate::gc_avisos::{self, Aviso, VaoGC};
 use crate::gc_caminho;
 use crate::gc_distribuicao::{
-    self as dist, ConfigDistribuicao, DegrauP, ElemP, PadraoP, PainelP, ParamPostes, Percurso, PerfilP, PorDegrauP, PosteP,
+    self as dist, AjustePostes, ConfigDistribuicao, DegrauP, ElemP, PadraoP, PainelP, ParamPostes, Percurso, PerfilP, PorDegrauP, PosteP,
 };
 use crate::gc_malha::{self, MalhaGC, PecaMalha as PecaSolda};
 use crate::gc_planta::{FormaGC, PecaGC};
@@ -192,6 +192,77 @@ fn s_da_projecao(nos: &[No3], p: [f64; 2]) -> f64 {
     melhor.1
 }
 
+/// `s` onde a reta do espelho `a`-`b` cruza a polilinha `nos` (o cruzamento mais perto da projeção do ponto médio do espelho; a primeira e a última
+/// aresta valem prolongadas, em trecho reto) e a obliquidade do espelho: tangente do ângulo entre a reta e a perpendicular ao caminho ali. Sem cruzamento (reta
+/// paralela ao caminho), a projeção do ponto médio e obliquidade 0.
+fn cruzamento_do_espelho(nos: &[No3], a: [f64; 2], b: [f64; 2], curvo: bool) -> (f64, f64, f64) {
+    let mid = [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0];
+    let s_mid = s_da_projecao(nos, mid);
+    if curvo {
+        // Trecho curvo (leque, caracol, arco): o espelho é radial e o caminho é concêntrico, então o ponto do caminho mais perto do ponto médio do
+        // espelho é onde a reta do espelho o cruza (prolongar a tangente da ponta erraria). A obliquidade é zero; a curvatura vem da aresta ali.
+        let mut acc = 0.0;
+        let mut k = 0;
+        for (i, w) in nos.windows(2).enumerate() {
+            let l = (w[1].x - w[0].x).hypot(w[1].y - w[0].y);
+            if s_mid <= acc + l + 1e-9 || i + 2 == nos.len() {
+                k = i;
+                break;
+            }
+            acc += l;
+        }
+        return (s_mid, 0.0, curvatura_em(nos, k));
+    }
+    let e = [b[0] - a[0], b[1] - a[1]];
+    let le = e[0].hypot(e[1]);
+    if le < 1e-12 || nos.len() < 2 {
+        return (s_mid, 0.0, 0.0);
+    }
+    let e = [e[0] / le, e[1] / le];
+    let n_seg = nos.len() - 1;
+    let mut melhor: Option<(f64, f64, f64)> = None;
+    let mut acc = 0.0;
+    for (k, w) in nos.windows(2).enumerate() {
+        let d = [w[1].x - w[0].x, w[1].y - w[0].y];
+        let l = d[0].hypot(d[1]);
+        if l < 1e-12 {
+            continue;
+        }
+        let u = [d[0] / l, d[1] / l];
+        let den = u[0] * e[1] - u[1] * e[0];
+        if den.abs() > 1e-9 {
+            // w0 + t*u = a + r*e  =>  t = cross(a - w0, e) / cross(u, e)
+            let t = ((a[0] - w[0].x) * e[1] - (a[1] - w[0].y) * e[0]) / den;
+            let folga = 1e-6;
+            let dentro = (t >= -folga || k == 0) && (t <= l + folga || k == n_seg - 1);
+            if dentro {
+                let s = acc + t;
+                let obliq = ((u[0] * e[0] + u[1] * e[1]).abs() / den.abs()).min(8.0);
+                if melhor.is_none_or(|m| (s - s_mid).abs() < (m.0 - s_mid).abs()) {
+                    melhor = Some((s, obliq, curvatura_em(nos, k)));
+                }
+            }
+        }
+        acc += l;
+    }
+    melhor.unwrap_or((s_mid, 0.0, 0.0))
+}
+
+/// Curvatura (1/m) da polilinha na aresta `k`: o giro entre as arestas vizinhas dividido pelo comprimento entre os pontos médios delas. 0 em trecho reto.
+fn curvatura_em(nos: &[No3], k: usize) -> f64 {
+    if k == 0 || k + 2 >= nos.len() {
+        return 0.0;
+    }
+    let dir = |i: usize| (nos[i + 1].x - nos[i].x, nos[i + 1].y - nos[i].y);
+    let (d0, d1, d2) = (dir(k - 1), dir(k), dir(k + 1));
+    let (l0, l1, l2) = (d0.0.hypot(d0.1), d1.0.hypot(d1.1), d2.0.hypot(d2.1));
+    if l0 < 1e-12 || l1 < 1e-12 || l2 < 1e-12 {
+        return 0.0;
+    }
+    let giro = (d0.0 * d2.1 - d0.1 * d2.0).atan2(d0.0 * d2.0 + d0.1 * d2.1).abs();
+    giro / ((l0 + l2) / 2.0 + l1)
+}
+
 struct Tipo<'a> {
     linha: &'a TipoGuardaLinha,
     trilhos: Vec<(u32, TrilhoLinha)>,
@@ -349,7 +420,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
             }
             let seq: Vec<&&TrechoInfo> = if g.inverter { trechos[i..j].iter().rev().collect() } else { trechos[i..j].iter().collect() };
             for t in seq {
-                if t.origem == OrigemTrecho::Lance {
+                if matches!(t.origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) {
                     ordem_lance.insert(t.trecho, n);
                     n += 1;
                 }
@@ -362,7 +433,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
     // Posições (planta) dos postes por trecho: alimentam o layout "alinhar com postes" dos suportes do corrimão.
     let mut postes_xy: BTreeMap<u32, Vec<[f64; 2]>> = BTreeMap::new();
     // Padrões e painéis (as alturas dependem do trecho: patamar soma o ajuste).
-    for t in trechos.iter() {
+    for (ti, t) in trechos.iter().enumerate() {
         let ajuste = if t.origem == OrigemTrecho::Patamar { tipo.linha.ajuste_patamar } else { 0.0 };
         let h_t = altura + ajuste;
         let mut padroes: Vec<PadraoP> = Vec::new();
@@ -422,7 +493,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
         }
         // Degraus do lance (qualquer padrão de balaústres os usa: por degrau, ou o espaçamento que não cai na quina).
         let mut degraus: Vec<DegrauP> = Vec::new();
-        if t.origem == OrigemTrecho::Lance && !padroes.is_empty() {
+        if matches!(t.origem, OrigemTrecho::Lance | OrigemTrecho::Caracol) {
             // O lado do trecho vem da ordem: esquerdo primeiro, depois o direito, na ordem dos componentes.
             let n_lance = lances.len().max(1);
             let ordem = ordem_lance.get(&t.trecho).copied().unwrap_or(0);
@@ -430,15 +501,32 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 let mut esp: Vec<&EspelhoGC> = cena.gc.espelhos.values().filter(|e| e.componente == comp).collect();
                 esp.sort_by_key(|e| e.indice);
                 let prof = prof_piso;
+                // Cada espelho vale onde a SUA reta cruza o caminho deste lado (espelho oblíquo ou em leque cruza longe do ponto médio), e a pisada é a
+                // distância até o cruzamento do espelho seguinte, medida no mesmo caminho; o último degrau não tem seguinte e usa a profundidade média.
                 // O bocel do degrau seguinte avança sobre o fundo desta pisada; o último degrau não tem seguinte.
+                let cruz: Vec<(f64, f64, f64)> = esp.iter().map(|e| cruzamento_do_espelho(&t.nos, e.a, e.b, t.curvo)).collect();
                 for (k, e) in esp.iter().enumerate() {
-                    let mid = [(e.a[0] + e.b[0]) / 2.0, (e.a[1] + e.b[1]) / 2.0];
                     let bocel_seguinte = esp.get(k + 1).map_or(0.0, |n| n.bocel);
-                    degraus.push(DegrauP { s0: s_da_projecao(&t.nos, mid), profundidade: sentido * prof, z: e.z_piso, bocel: e.bocel, bocel_seguinte });
+                    let (s0, obl, curv) = cruz[k];
+                    let (profundidade, obliq, curv) = match cruz.get(k + 1) {
+                        Some(&(s1, obl1, curv1)) if (s1 - s0) * sentido > 1e-6 => (s1 - s0, obl.max(obl1), curv.max(curv1)),
+                        _ => (sentido * prof, obl, curv),
+                    };
+                    degraus.push(DegrauP { s0, profundidade, z: e.z_piso, bocel: e.bocel, bocel_seguinte, obliq, curv });
                 }
             }
         }
-        let cfg = ConfigDistribuicao { altura: h_t, postes: params.clone(), padroes: padroes.clone(), paineis: paineis.clone(), degraus, gerar_malha: com_malha };
+        // Os balaústres por degrau só usam os degraus dos lances retos ou curvos; o caracol (a pisada é uma cunha) só os usa para apoiar os postes.
+        let degraus_postes = degraus.clone();
+        if t.origem == OrigemTrecho::Caracol {
+            degraus.clear();
+        }
+        // Postes inteiros sobre o piso (escada ou rampa com a base no degrau). Numa ponta soldada a outro trecho há um só poste: o do trecho do lado
+        // mais alto (a sequência corre do piso para cima; invertida, ao contrário), então o do lado mais baixo é omitido.
+        let sobre_piso = g.hosp != HOSP_MANUAL && g.pos_base == 0;
+        let proximo_soldado = trechos.get(ti + 1).is_some_and(|u| u.soldado);
+        let ajuste_postes = AjustePostes { sobre_piso, omitir_inicio: t.soldado && g.inverter, omitir_fim: proximo_soldado && !g.inverter, degraus: degraus_postes };
+        let cfg = ConfigDistribuicao { altura: h_t, postes: params.clone(), padroes: padroes.clone(), paineis: paineis.clone(), degraus, ajuste_postes, esfera: lim(limite::ESFERA_MAXIMA), gerar_malha: com_malha };
         let tr = TrechoGC { guarda: gid, indice: t.trecho, origem: t.origem, curvo: t.curvo, fechado: t.fechado, nos: t.nos.clone() };
         let saida = dist::distribuir(&tr, &cfg, restante)?;
         postes_xy.insert(t.trecho, saida.postes.iter().map(|p| [p.x, p.y]).collect());
@@ -610,7 +698,7 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
             let papel = if c.funcao == 0 { gc_malha::PAPEL_TRAVESSA } else { gc_malha::PAPEL_CORRIMAO };
             let h_centro = c.altura - alt / 2.0;
             let mut caminhos: Vec<Vec<V3>>;
-            for off in lados {
+            for (indice_lado, off) in lados.into_iter().enumerate() {
                 if ch.len() == 2 && ch[0].origem == OrigemTrecho::Lance && ch[1].origem == OrigemTrecho::Patamar && !ch[0].curvo && !ch[1].curvo && c.transicao != 0 {
                     let l: Vec<V3> = deslocar(&ch[0].nos.iter().map(pt).collect::<Vec<_>>(), off);
                     let p: Vec<V3> = deslocar(&ch[1].nos.iter().map(pt).collect::<Vec<_>>(), off);
@@ -622,8 +710,9 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                 if c.juncao == 1 && c.raio_filete > 0.0 && !fechado {
                     caminhos = caminhos.into_iter().map(|p| var::filete(&p, c.raio_filete, tipo.linha.tol_corda, None)).collect();
                 }
-                // Extensões nas pontas da sequência.
-                if !fechado && caminhos.len() >= 1 {
+                // Extensões nas pontas da sequência. A extensão do corrimão é de escada e rampa (a norma pede o prolongamento nas pontas da escada); num
+                // guarda-corpo manual (varanda, borda de laje) não há ponta de escada, então não se estende nem se avisa.
+                if !fechado && !caminhos.is_empty() && g.hosp != HOSP_MANUAL {
                     let ini = ext(c.ext_inicio.estilo, c.ext_inicio.comprimento, c.ext_inicio.mais_piso, false);
                     let fim = ext(c.ext_fim.estilo, c.ext_fim.comprimento, c.ext_fim.mais_piso, true);
                     if caminhos.len() == 1 {
@@ -633,12 +722,13 @@ fn montar_guarda(cena: &Cena, gid: u32, g: &GuardaCorpoLinha, tipo: &Tipo, trech
                         caminhos[0] = var::estender(&caminhos[0], ini, None, prof_piso);
                         caminhos[n - 1] = var::estender(&caminhos[n - 1], None, fim, prof_piso);
                     }
-                    let comp_ini = c.ext_inicio.comprimento + if c.ext_inicio.mais_piso { prof_piso } else { 0.0 };
-                    let comp_fim = c.ext_fim.comprimento + if c.ext_fim.mais_piso { prof_piso } else { 0.0 };
-                    if let Some(min) = lim(limite::CORRIMAO_EXTENSAO_MIN) {
-                        {
-                            m.avisos.extend(gc_avisos::aviso_corrimao_extensao(gid, ch[0].trecho, 0, comp_ini, min));
-                            m.avisos.extend(gc_avisos::aviso_corrimao_extensao(gid, ch[ch.len() - 1].trecho, 1, comp_fim, min));
+                    // Só o corrimão de agarrar (função diferente de travessa) e uma vez por corrimão e ponta: o corrimão nos dois lados repete a mesma
+                    // extensão e o aviso é o mesmo. Sem extensão aplicada (estilo "nenhum" ou comprimento nulo) a extensão real é zero.
+                    if c.funcao != 0 && indice_lado == 0 {
+                        let real = |e: Option<ExtensaoPonta>| e.map_or(0.0, |e| e.comprimento + if e.mais_piso { prof_piso } else { 0.0 });
+                        if let Some(min) = lim(limite::CORRIMAO_EXTENSAO_MIN) {
+                            m.avisos.extend(gc_avisos::aviso_corrimao_extensao(gid, ch[0].trecho, 0, real(ini), min));
+                            m.avisos.extend(gc_avisos::aviso_corrimao_extensao(gid, ch[ch.len() - 1].trecho, 1, real(fim), min));
                         }
                     }
                 }

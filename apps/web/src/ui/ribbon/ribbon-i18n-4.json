@@ -710,5 +710,53 @@
     "fr": "Couper ne fonctionne que pour les murs, sols, dalles, toits, escaliers, rampes, pièces et ouvertures hébergées (avec le mur hôte sélectionné).",
     "it": "Taglia vale solo per muri, pavimenti, solai, tetti, scale, rampe, ambienti e aperture ospitate (con il muro ospite selezionato).",
     "pl": "Wycinanie działa tylko dla ścian, podłóg, stropów, dachów, schodów, ramp, pomieszczeń i osadzonych otworów (z wybraną ścianą)."
+  },
+  {
+    "pt": "Cria Norte, Sul, Leste e Oeste em volta de tudo o que está no projeto: paredes, escadas, guarda-corpos, lajes, telhados... (substitui as de mesmo nome).",
+    "es": "Crea alzados Norte, Sur, Este y Oeste alrededor de todo lo que hay en el proyecto: muros, escaleras, barandillas, losas, tejados... (sustituye los del mismo nombre).",
+    "de": "Erstellt Nord-, Süd-, Ost- und Westansichten um alles im Projekt: Wände, Treppen, Geländer, Decken, Dächer... (ersetzt gleichnamige Ansichten).",
+    "fr": "Crée les élévations Nord, Sud, Est et Ouest autour de tout ce qui est dans le projet : murs, escaliers, garde-corps, dalles, toits... (remplace celles portant le même nom).",
+    "it": "Crea i prospetti Nord, Sud, Est e Ovest attorno a tutto ciò che è nel progetto: muri, scale, parapetti, solai, tetti... (sostituisce quelli con lo stesso nome).",
+    "pl": "Tworzy widoki północny, południowy, wschodni i zachodni wokół wszystkiego w projekcie: ścian, schodów, balustrad, stropów, dachów... (zastępuje widoki o tej samej nazwie)."
+  },
+  {
+    "pt": "Conecta programas externos (como o renderizador) ao modelo.",
+    "es": "Conecta programas externos (como el renderizador) al modelo.",
+    "de": "Verbindet externe Programme (wie den Renderer) mit dem Modell.",
+    "fr": "Connecte des programmes externes (comme le moteur de rendu) au modèle.",
+    "it": "Collega programmi esterni (come il renderizzatore) al modello.",
+    "pl": "Łączy programy zewnętrzne (takie jak renderer) z modelem."
+  },
+  {
+    "pt": "Guarda-corpo da escada ou rampa",
+    "es": "Barandilla de la escalera o rampa",
+    "de": "Geländer der Treppe oder Rampe",
+    "fr": "Garde-corps de l'escalier ou de la rampe",
+    "it": "Parapetto della scala o della rampa",
+    "pl": "Balustrada schodów lub rampy"
+  },
+  {
+    "pt": "Cria um guarda-corpo nos dois lados da escada ou rampa selecionada.",
+    "es": "Crea una barandilla en los dos lados de la escalera o rampa seleccionada.",
+    "de": "Erstellt ein Geländer auf beiden Seiten der gewählten Treppe oder Rampe.",
+    "fr": "Crée un garde-corps des deux côtés de l'escalier ou de la rampe sélectionné.",
+    "it": "Crea un parapetto su entrambi i lati della scala o della rampa selezionata.",
+    "pl": "Tworzy balustradę po obu stronach wybranych schodów lub rampy."
+  },
+  {
+    "pt": "Selecione uma escada ou uma rampa.",
+    "es": "Seleccione una escalera o una rampa.",
+    "de": "Wählen Sie eine Treppe oder eine Rampe aus.",
+    "fr": "Sélectionnez un escalier ou une rampe.",
+    "it": "Selezionare una scala o una rampa.",
+    "pl": "Zaznacz schody lub rampę."
+  },
+  {
+    "pt": "Da escada ou rampa selecionada",
+    "es": "De la escalera o rampa seleccionada",
+    "de": "Von der gewählten Treppe oder Rampe",
+    "fr": "De l'escalier ou de la rampe sélectionné",
+    "it": "Dalla scala o rampa selezionata",
+    "pl": "Z wybranych schodów lub rampy"
   }
 ]

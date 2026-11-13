@@ -84,6 +84,22 @@ const riserLen = (r: ResolvedStairRiser): number => (r.points.length >= 2 ? poly
 /** Área em planta de um conjunto de degraus ou patamares. */
 const areaOf = (steps: ResolvedStairStep[]): number => steps.reduce((s, x) => s + multiArea([[x.polygon]]), 0);
 
+/**
+ * Quantitativos de cada lance (nº de degraus, largura, área e piso médio). Só lê degraus e espelhos: o validador de norma usa isto sem
+ * pagar o volume do corpo e dos acabamentos, que `stairQuantities` também calcula.
+ */
+export function stairRunQuantities(s: ResolvedStair): StairRunQuantity[] {
+  const treads = s.steps.filter((x) => x.kind === 'tread');
+  const indexes = [...new Set(treads.map((t) => t.componentIndex))].sort((a, b) => a - b);
+  return indexes.map<StairRunQuantity>((ci) => {
+    const ts = treads.filter((t) => t.componentIndex === ci);
+    const rs = s.risers.filter((r) => r.componentIndex === ci);
+    const w = rs.length ? Math.min(...rs.map(riserLen)) : 0;
+    const area = areaOf(ts);
+    return { componentIndex: ci, treadCount: ts.length, width: w, treadArea: area, treadMean: w > 0 ? area / (w * ts.length) : 0 };
+  });
+}
+
 /** Quantitativos de uma escada resolvida. Escada sem geometria (erro no croqui) sai com tudo zero. */
 export function stairQuantities(s: ResolvedStair): StairQuantities {
   const treads = s.steps.filter((x) => x.kind === 'tread');
@@ -93,14 +109,7 @@ export function stairQuantities(s: ResolvedStair): StairQuantities {
   const riserLength = s.risers.reduce((acc, r) => acc + riserLen(r), 0);
   const width = s.risers.length ? Math.min(...s.risers.map(riserLen)) : 0;
 
-  const indexes = [...new Set(treads.map((t) => t.componentIndex))].sort((a, b) => a - b);
-  const runs = indexes.map<StairRunQuantity>((ci) => {
-    const ts = treads.filter((t) => t.componentIndex === ci);
-    const rs = s.risers.filter((r) => r.componentIndex === ci);
-    const w = rs.length ? Math.min(...rs.map(riserLen)) : 0;
-    const area = areaOf(ts);
-    return { componentIndex: ci, treadCount: ts.length, width: w, treadArea: area, treadMean: w > 0 ? area / (w * ts.length) : 0 };
-  });
+  const runs = stairRunQuantities(s);
   const treadCount = treads.length;
   const treadMean = treadCount ? runs.reduce((acc, r) => acc + r.treadMean * r.treadCount, 0) / treadCount : 0;
 

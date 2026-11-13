@@ -111,15 +111,15 @@ describe('B2: seções, argumentos e referência do motor TypeScript', () => {
 
   it('a referência da B2 é a da B1 e a zona da porta que chega ao piso muda a região', () => {
     expect(referenciaB2).toBe(referenciaB1);
-    // com a porta, a zona da parede perde o vão no piso; sem a porta, não
+    // com a porta, a zona da parede perde o vão no piso (acima da verga a parede é contínua); sem a porta, não
     const comPortas = projetoDeEstresseB1(2, { paredesB2: true, pavimentos: 1, semParedes: false });
     let achou = false;
     for (const rw of wallsOfLevel(comPortas, comPortas.levels[0]!.id)) {
       const aberturas = Object.values(comPortas.elements).filter((e) => e.kind === 'door' && (e as Opening).hostId === rw.wallId);
       if (aberturas.length === 0) continue;
       const base = rw.baseZ;
-      const pegada = wallZoneAt(comPortas, rw, { kind: 'face' }, base + 5);
-      const semPortas = wallZoneAt({ ...comPortas, elements: Object.fromEntries(Object.entries(comPortas.elements).filter(([, e]) => e.kind !== 'door')) }, rw, { kind: 'face' }, base + 5);
+      const pegada = wallZoneAt(comPortas, rw, { kind: 'face' }, base + 1);
+      const semPortas = wallZoneAt({ ...comPortas, elements: Object.fromEntries(Object.entries(comPortas.elements).filter(([, e]) => e.kind !== 'door')) }, rw, { kind: 'face' }, base + 1);
       if (areaDaForma(pegada) < areaDaForma(semPortas) - 1e-6 && wallTouchesZone(rw, base, base + 1)) achou = true;
     }
     expect(achou, 'alguma porta tira o vão da zona da parede').toBe(true);
