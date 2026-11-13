@@ -39,7 +39,7 @@ import { PT_SHELL_RIBBON, EN_SHELL_RIBBON } from './shell-ribbon.ts';
 import { PT_SHELL, EN_SHELL } from './shell.ts';
 import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
-import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina.ts';
+import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
