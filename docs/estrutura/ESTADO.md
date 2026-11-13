@@ -16,7 +16,7 @@ Modo de execução: subagentes. Trabalho mecânico (i18n, registros, conferênci
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
-| M1 | pendente | | 0 | |
+| M1 | mesclada | merge de estr/M1 | 0 | typecheck ✔, lint ✔, test:rapido 976 arq / 11392 testes; escopo e atalhos conferidos pelo fiscal; SCHEMA_VERSION 26. Pendências: espelhar pilar/fundação não reflete perfis assimétricos (L, personalizado) — decidir em T1/K4; COLETORES entram com `entra:false` (R1 troca para true); pesos de linha das categorias são palpite; camadas DXF HESTIA-* ficam para I1. |
 | K1 | pendente | | 0 | |
 | K2 | pendente | | 0 | |
 | K3 | pendente | | 0 | |
