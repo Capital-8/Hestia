@@ -513,6 +513,17 @@ mod testes {
     }
 
     #[test]
+    fn consultas_da_massa_140_a_145_devolvem_nao_implementado() {
+        let ids: Vec<(u32, usize)> = esquema::CONSULTAS.iter().filter(|q| (140..=159).contains(&q.id)).map(|q| (q.id, q.args.len())).collect();
+        assert_eq!(ids, vec![(140, 2), (141, 4), (142, 1), (143, 6), (144, 1), (145, 1)]);
+        let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
+        for (id, n) in ids {
+            assert_eq!(executar(&mut c, id, &vec![0.0; n]).err(), Some(NAO_IMPLEMENTADO), "consulta {id}");
+            assert_eq!(executar(&mut c, id, &vec![0.0; n + 1]).err(), Some(ENTRADA), "consulta {id} com argumento a mais");
+        }
+    }
+
+    #[test]
     fn argumentos_invalidos() {
         let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
         assert_eq!(executar(&mut c, 99, &[]), Err(NAO_IMPLEMENTADO));

@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 18;
+pub const VERSAO_ESQUEMA: u32 = 19;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -130,6 +130,10 @@ pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
 /// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
 pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
 pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
+/// Massa de estudo volumétrico (plano de massa, A.5; esquema v19). Faixa reservada: seções 140 a 159.
+pub const SECAO_MASSAS: u32 = 140;
+pub const SECAO_MASSA_SECOES: u32 = 141;
+pub const SECAO_MASSA_PONTOS: u32 = 142;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -983,6 +987,55 @@ pub const SECOES: &[Secao] = &[
             col("altura", Tipo::F64),
         ],
     },
+    Secao {
+        id: SECAO_MASSAS,
+        nome: "massas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("ox", Tipo::F64),
+            col("oy", Tipo::F64),
+            col("z_base", Tipo::F64),
+            col("interp", Tipo::U8),
+            col("resolucao", Tipo::U32),
+            col("arr_n", Tipo::U32),
+            col("arr_cx", Tipo::F64),
+            col("arr_cy", Tipo::F64),
+            col("arr_ang", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_MASSA_SECOES,
+        nome: "massa_secoes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("massa_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("z", Tipo::F64),
+            col("forma", Tipo::U8),
+            col("p1", Tipo::F64),
+            col("p2", Tipo::F64),
+            col("lados", Tipo::U32),
+            col("rot", Tipo::F64),
+            col("escala", Tipo::F64),
+            col("dx", Tipo::F64),
+            col("dy", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_MASSA_PONTOS,
+        nome: "massa_pontos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("secao_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1044,6 +1097,13 @@ pub const CONSULTA_CORTINA_AVISOS: u32 = 105;
 /// Fase 5 (esquema v17): recorte da cortina embutida no hospedeiro e vão virtual da esquadria na célula.
 pub const CONSULTA_CORTINA_RECORTE_HOSPEDEIRO: u32 = 106;
 pub const CONSULTA_CORTINA_CELULA_PORTA: u32 = 107;
+/// Massa (esquema v19). Faixa reservada: consultas 140 a 159. Sem implementação até a ficha R1: devolvem `NAO_IMPLEMENTADO`.
+pub const CONSULTA_MASSA_MALHA: u32 = 140;
+pub const CONSULTA_MASSA_PLANTA: u32 = 141;
+pub const CONSULTA_MASSA_FATIAS: u32 = 142;
+pub const CONSULTA_MASSA_CORTE: u32 = 143;
+pub const CONSULTA_QUANT_MASSA: u32 = 144;
+pub const CONSULTA_MASSA_AVISOS: u32 = 145;
 
 /// Códigos de `cortina_avisos.avisos[1]` (ADR 0056 §5.8): o TS decide o texto e a severidade.
 pub const AVISO_CORTINA_CELULA_PEQUENA: u32 = 1;
@@ -1428,6 +1488,68 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "vaos", tipo: Tipo::F64, elementos: Elementos::Multiplo(10) },
             SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_MASSA_MALHA,
+        nome: "massa_malha",
+        args: &["nivel_num", "lod"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "vertices", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_MASSA_PLANTA,
+        nome: "massa_planta",
+        args: &["nivel_num", "corte_z", "z_min", "z_max"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_MASSA_FATIAS,
+        nome: "massa_fatias",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "fatias", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_MASSA_CORTE,
+        nome: "massa_corte",
+        args: &["nivel_num", "ox", "oy", "dx", "dy", "profundidade"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_MASSA,
+        nome: "quant_massa",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::N },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_MASSA_AVISOS,
+        nome: "massa_avisos",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
         ],
     },
 ];

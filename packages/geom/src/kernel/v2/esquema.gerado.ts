@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 18;
+export const ESQUEMA_VERSAO = 19;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2680,6 +2680,136 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "massas": {
+    "id": 140,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ox",
+        "tipo": "f64"
+      },
+      {
+        "nome": "oy",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z_base",
+        "tipo": "f64"
+      },
+      {
+        "nome": "interp",
+        "tipo": "u8"
+      },
+      {
+        "nome": "resolucao",
+        "tipo": "u32"
+      },
+      {
+        "nome": "arr_n",
+        "tipo": "u32"
+      },
+      {
+        "nome": "arr_cx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "arr_cy",
+        "tipo": "f64"
+      },
+      {
+        "nome": "arr_ang",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "massa_secoes": {
+    "id": 141,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "massa_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "z",
+        "tipo": "f64"
+      },
+      {
+        "nome": "forma",
+        "tipo": "u8"
+      },
+      {
+        "nome": "p1",
+        "tipo": "f64"
+      },
+      {
+        "nome": "p2",
+        "tipo": "f64"
+      },
+      {
+        "nome": "lados",
+        "tipo": "u32"
+      },
+      {
+        "nome": "rot",
+        "tipo": "f64"
+      },
+      {
+        "nome": "escala",
+        "tipo": "f64"
+      },
+      {
+        "nome": "dx",
+        "tipo": "f64"
+      },
+      {
+        "nome": "dy",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "massa_pontos": {
+    "id": 142,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "secao_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -3637,6 +3767,133 @@ export const CONSULTAS = {
         "nome": "linhas_pos",
         "tipo": "f64",
         "elementos": "n"
+      }
+    ]
+  },
+  "massa_malha": {
+    "id": 140,
+    "args": [
+      "nivel_num",
+      "lod"
+    ],
+    "saidas": [
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "vertices",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "indices",
+        "tipo": "u32",
+        "elementos": "n"
+      }
+    ]
+  },
+  "massa_planta": {
+    "id": 141,
+    "args": [
+      "nivel_num",
+      "corte_z",
+      "z_min",
+      "z_max"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "massa_fatias": {
+    "id": 142,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "fatias",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "3n"
+      }
+    ]
+  },
+  "massa_corte": {
+    "id": 143,
+    "args": [
+      "nivel_num",
+      "ox",
+      "oy",
+      "dx",
+      "dy",
+      "profundidade"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "quant_massa": {
+    "id": 144,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
+      }
+    ]
+  },
+  "massa_avisos": {
+    "id": 145,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "avisos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
       }
     ]
   }
