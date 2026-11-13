@@ -77,7 +77,8 @@ describe('estrutura, ficha R1a: adaptador TS + kernel Rust real', () => {
     expect(volume(por('pa')!)).toBeCloseTo(0.2 * 0.2 * 3, 9);
     // A fundação (E7: 0,22325 m3) vem com a ficha K3; antes dela o kernel a ignora, sem recusar a consulta.
     const f = por('f1');
-    if (f) expect(volume(f)).toBeCloseTo(0.22325, 9);
+    expect(f).toBeDefined();
+    expect(volume(f!)).toBeCloseTo(0.22325, 9);
     expect(srv.recusados(s.project)).toEqual([]);
     srv.encerrar();
   });

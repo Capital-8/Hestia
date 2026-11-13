@@ -75,12 +75,11 @@ describe('estrutura no 3D com o kernel real', () => {
     expect(bv.max.z - bv.min.z).toBeCloseTo(0.4, 6);
     const bp = caixa(colunas.filter((m) => cor(m) === concreto));
     expect(bp.max.z - bp.min.z).toBeCloseTo(3, 6);
-    // Fundação: só quando o kernel a entrega (ficha K3).
+    // Fundação (ficha K3): topo da peça em -0,5 m, pescoço de 0,5 m sobre a base de 0,3 m: a base desce até -1,3 m.
     const fundacoes = malhas(ms, ['footings']);
-    if (fundacoes.length) {
-      expect(fundacoes.flatMap(idsDe)).toContain('f1');
-      expect(caixa(fundacoes).min.z).toBeCloseTo(-0.8, 6);
-    }
+    expect(fundacoes.length).toBeGreaterThan(0);
+    expect(fundacoes.flatMap(idsDe)).toContain('f1');
+    expect(caixa(fundacoes).min.z).toBeCloseTo(-1.3, 6);
     ms.dispose();
   });
 
