@@ -59,6 +59,9 @@ import { StairTypeDialog } from './ui/dialogs/StairTypeDialog.tsx';
 import { StairScheduleDialog } from './ui/dialogs/StairScheduleDialog.tsx';
 import { RampTypeDialog } from './ui/dialogs/RampTypeDialog.tsx';
 import { GuardaCorpoTypeDialog } from './ui/dialogs/guardaCorpoType/index.tsx';
+import { ColumnTypeDialog } from './ui/dialogs/ColumnTypeDialog.tsx'; // estrutura: ficha U1
+import { BeamTypeDialog } from './ui/dialogs/BeamTypeDialog.tsx'; // estrutura: ficha U1
+import { FootingTypeDialog } from './ui/dialogs/FootingTypeDialog.tsx'; // estrutura: ficha U1
 import { NormaGuardaCorpoDialog } from './ui/dialogs/normaGuardaCorpo/index.tsx';
 import { RampScheduleDialog } from './ui/dialogs/RampScheduleDialog.tsx';
 import { GuardaCorpoScheduleDialog } from './ui/dialogs/GuardaCorpoScheduleDialog.tsx';
@@ -144,6 +147,12 @@ function Dialogs(): ReactElement | null {
       return arg ? <RampTypeDialog typeId={arg} /> : null;
     case 'guardaCorpoType':
       return arg ? <GuardaCorpoTypeDialog typeId={arg} /> : null;
+    case 'columnType': // estrutura: ficha U1
+      return arg ? <ColumnTypeDialog typeId={arg} /> : null;
+    case 'beamType': // estrutura: ficha U1
+      return arg ? <BeamTypeDialog typeId={arg} /> : null;
+    case 'footingType': // estrutura: ficha U1
+      return arg ? <FootingTypeDialog typeId={arg} /> : null;
     case 'normaGuardaCorpo':
       return <NormaGuardaCorpoDialog />;
     case 'rampSchedule':

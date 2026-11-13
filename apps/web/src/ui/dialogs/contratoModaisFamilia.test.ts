@@ -22,7 +22,7 @@ function listar(dir: string): string[] {
   return out;
 }
 
-/** Diálogos de tipo que já usam o esqueleto comum (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo). */
+/** Diálogos de tipo que já usam o esqueleto comum (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo, pilar, viga, fundação). */
 const MIGRADOS = [
   'WallTypeDialog.tsx',
   'StairTypeDialog.tsx',
@@ -32,10 +32,14 @@ const MIGRADOS = [
   'CeilingTypeDialog.tsx',
   'RoofTypeDialog.tsx',
   'guardaCorpoType/index.tsx',
+  // Estrutura (ficha U1): pilar nas duas disciplinas, viga e fundação.
+  'ColumnTypeDialog.tsx',
+  'BeamTypeDialog.tsx',
+  'FootingTypeDialog.tsx',
 ];
 
 /** Peças internas dos diálogos migrados: também não podem ter seção/linha própria. */
-const PECAS = ['StairTypeSections.tsx', 'StairCalculatorPanel.tsx', 'StairBlondelCard.tsx', 'TypeParams.tsx'];
+const PECAS = ['StairTypeSections.tsx', 'StairCalculatorPanel.tsx', 'StairBlondelCard.tsx', 'TypeParams.tsx', 'EstrTypeParts.tsx', 'PerfilEditor.tsx', 'PerfilPreview.tsx'];
 
 /**
  * Exceções EXPLÍCITAS (TODO): diálogos de tipo ainda fora do esqueleto. Quando migrarem, o teste "exceção obsoleta" pede

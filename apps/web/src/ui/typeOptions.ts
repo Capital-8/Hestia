@@ -61,3 +61,8 @@ export function guardaCorpoOptions(p: Project, family: string): TypeOption[] {
 export function dimensionOptions(familias: ReadonlyArray<{ id: string; name: string } & DimensionStyle>, family: string): TypeOption[] {
   return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'dimension', style: f } }));
 }
+
+/** Tipos de estrutura (pilar, viga, fundação): a lista do seletor, com a família de agrupamento dada por `family` (idioma ativo). */
+export function estrOptions<T extends { id: string; name: string; code: string }>(tipos: readonly T[], family: (tp: T) => string): TypeOption[] {
+  return tipos.map((tp) => ({ id: tp.id, name: tp.name, code: tp.code, family: family(tp), subject: { kind: 'estr', type: { code: tp.code } } }));
+}
