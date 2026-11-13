@@ -1,6 +1,6 @@
 import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
-import { formatQuantity, makeWall, totalThickness, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
+import { formatQuantity, makeWall, wallThicknessOf, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
@@ -90,7 +90,7 @@ export class WallTool extends ToolBase {
     const p = this.env.project();
     const t = p.wallTypes[o.wallTypeId] ?? p.wallTypes[p.defaults.wallTypeId];
     if (!t) return { thickness: 0.15, sMid: 0 };
-    const th = totalThickness(t);
+    const th = wallThicknessOf(t);
     const ext = exteriorOffset(t, o.locationLine);
     const sign = this.sideFlip() ? -1 : 1;
     return { thickness: th, sMid: sign * (ext - th / 2) };

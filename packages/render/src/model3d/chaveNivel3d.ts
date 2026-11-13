@@ -1,5 +1,5 @@
 import type { Id, Project } from '@hestia/model';
-import { assinaturasDoProjeto, hashTexto, nivelDoElemento } from '@hestia/engine';
+import { assinaturasDasCortinasPorNivel, assinaturasDoProjeto, hashTexto, nivelDoElemento } from '@hestia/engine';
 
 export { assinaturasDoProjeto, hashTexto, type AssinaturasProjeto } from '@hestia/engine';
 
@@ -47,6 +47,44 @@ export function chavesDeGuardaCorpo(p: Project, marca: string, visibilidade?: Vi
   const vis = visibilidadePorNivel(p, visibilidade, 'so');
   const out = new Map<Id, string>();
   for (const [id, h] of a.guardaCorpo) out.set(id, hashTexto([marca, a.global, a.hospedeiros, h, vis.nivel.get(id) ?? '', vis.global].join('|')));
+  return out;
+}
+
+const aparenciaMemo = new WeakMap<object, string>();
+const materiaisMemo = new WeakMap<object, string>();
+
+/** Hash do que a cortina lê do resto do projeto: os materiais (cor, brilho, opacidade) e a vista 3D (categorias). Os tipos de cortina entram no hash de cada cortina. */
+function aparenciaDoProjeto(p: Project): string {
+  let m = materiaisMemo.get(p.materials);
+  if (m === undefined) materiaisMemo.set(p.materials, (m = hashTexto(JSON.stringify(p.materials))));
+  if (!p.view3d) return m;
+  let v = aparenciaMemo.get(p.view3d);
+  if (v === undefined) aparenciaMemo.set(p.view3d, (v = hashTexto(JSON.stringify(p.view3d))));
+  return `${m}.${v}`;
+}
+
+/**
+ * Chave de cada nível para o LOTE 3D DAS PAREDES CORTINA (só dele; ADR 0056 §9): a marca da vista, os materiais e a vista 3D, o HASH das
+ * cortinas do nível (`assinaturasDasCortinasPorNivel`, nunca a serialização da grade) e a visibilidade das cortinas dele. O tamanho da chave não cresce com o
+ * número de células, e editar uma cortina só muda a chave do nível dela. Só há chave para níveis com cortina.
+ */
+export function chavesDeCortina(p: Project, marca: string, visibilidade?: VisibilidadeDaChave): Map<Id, string> {
+  const porNivel = assinaturasDasCortinasPorNivel(p);
+  const out = new Map<Id, string>();
+  if (porNivel.size === 0) return out;
+  const vis = new Map<Id, string[]>();
+  if (visibilidade) {
+    for (const [tag, ids] of [['o', visibilidade.ocultos], ['r', visibilidade.revelados]] as const) {
+      for (const id of ids) {
+        const e = p.elements[id];
+        if (e?.kind !== 'wall' || !porNivel.has(e.levelId)) continue;
+        const l = vis.get(e.levelId);
+        if (l) l.push(`${tag}:${id}`);
+        else vis.set(e.levelId, [`${tag}:${id}`]);
+      }
+    }
+  }
+  for (const [id, h] of porNivel) out.set(id, hashTexto([marca, aparenciaDoProjeto(p), h, (vis.get(id) ?? []).sort().join('')].join('|')));
   return out;
 }
 

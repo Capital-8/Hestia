@@ -25,9 +25,11 @@ import { FR_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { FR_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 
 export const FR_ALL = {
   ...FR_GUARDA_CORPO,
+  ...FR_PAREDE_CORTINA,
   ...FR_SHELL_RIBBON,
   ...FR_MISC_UI,
   ...FR_SCHEDULES_EXTRA,

@@ -136,6 +136,30 @@ const familia = (id: string): string => {
       ['ot_pf120_90', 'door_swing'],
       ['ot_pbasc250', 'door_garage'],
       ['ot_penrol280', 'door_garage'],
+      ['ot_pgiro_80_alu', 'door_swing'],
+      ['ot_pgiro_90_alu', 'door_swing'],
+      ['ot_pgiro2_140_alu', 'door_double'],
+      ['ot_pgiro2_160_alu', 'door_double'],
+      ['ot_pcorrer_160_alu', 'door_sliding'],
+      ['ot_pcorrer_180_alu', 'door_sliding'],
+      ['ot_ppiv_100_alu', 'door_pivot'],
+      ['ot_ppiv_120_alu', 'door_pivot'],
+      ['ot_pgiro_80_pvc', 'door_swing'],
+      ['ot_pgiro_90_pvc', 'door_swing'],
+      ['ot_pgiro2_140_pvc', 'door_double'],
+      ['ot_pgiro2_160_pvc', 'door_double'],
+      ['ot_pcorrer_160_pvc', 'door_sliding'],
+      ['ot_pcorrer_180_pvc', 'door_sliding'],
+      ['ot_ppiv_100_pvc', 'door_pivot'],
+      ['ot_ppiv_120_pvc', 'door_pivot'],
+      ['ot_pgiro_80_vid', 'door_swing'],
+      ['ot_pgiro_90_vid', 'door_swing'],
+      ['ot_pgiro2_140_vid', 'door_double'],
+      ['ot_pgiro2_160_vid', 'door_double'],
+      ['ot_pcorrer_160_vid', 'door_sliding'],
+      ['ot_pcorrer_180_vid', 'door_sliding'],
+      ['ot_ppiv_100_vid', 'door_pivot'],
+      ['ot_ppiv_120_vid', 'door_pivot'],
       ['ot_jc2_120x100', 'window_sliding'],
       ['ot_jc2_150x120', 'window_sliding'],
       ['ot_jc2_120x150', 'window_sliding'],
@@ -294,9 +318,9 @@ const areaComum = (a: PartBox, b: PartBox): number =>
   Math.max(0, Math.min(a.t1, b.t1) - Math.max(a.t0, b.t0)) * Math.max(0, Math.min(a.s1, b.s1) - Math.max(a.s0, b.s0));
 
 describe('catálogo completo: padrões do tipo', () => {
-  it('são 130 tipos, cada um na família esperada e sem problema de tipo', () => {
-    expect(DEFAULT_OPENING_TYPES).toHaveLength(130);
-    expect(new Set(DEFAULT_OPENING_TYPES.map((t) => t.id)).size).toBe(130);
+  it('são 154 tipos, cada um na família esperada e sem problema de tipo', () => {
+    expect(DEFAULT_OPENING_TYPES).toHaveLength(154);
+    expect(new Set(DEFAULT_OPENING_TYPES.map((t) => t.id)).size).toBe(154);
     for (const t of DEFAULT_OPENING_TYPES) {
       expect(openingFamilyOf(t)?.id, t.id).toBe(familia(t.id));
       expect(openingTypeIssue(t), t.id).toBeNull();
@@ -326,7 +350,7 @@ describe('catálogo completo: modelo único', () => {
         }
       }
     }
-  }, 120_000); // Catálogo brasileiro completo (130 tipos) é lento por natureza; passa dos 5 s padrão.
+  }, 120_000); // Catálogo brasileiro completo (154 tipos) é lento por natureza; passa dos 5 s padrão.
 
   it('folha fechada não tem volume comum com batente/caixilho em nenhuma família', () => {
     for (const base of DEFAULT_OPENING_TYPES.map((t) => t.id)) {
@@ -340,7 +364,7 @@ describe('catálogo completo: modelo único', () => {
         }
       }
     }
-  }, 60_000); // Com o catálogo brasileiro (130 tipos × 4 combinações): ~10 s isolado; sob carga da suíte passa dos 30 s.
+  }, 60_000); // Com o catálogo brasileiro (154 tipos × 4 combinações): ~10 s isolado; sob carga da suíte passa dos 30 s.
 
   it('movimento aberto preserva o tamanho de cada peça e a folha lateral fica no lado side', () => {
     for (const base of DEFAULT_OPENING_TYPES.map((t) => t.id)) {
@@ -363,7 +387,7 @@ describe('catálogo completo: modelo único', () => {
         }
       }
     }
-  }, 30_000); // Com o catálogo brasileiro (130 tipos) passa dos 5 s padrão sob carga da suíte.
+  }, 30_000); // Com o catálogo brasileiro (154 tipos) passa dos 5 s padrão sob carga da suíte.
 
   it('correr, guilhotina e dobrável continuam no vão; embutir fica na cavidade; seccionada sobe H', () => {
     for (const base of DEFAULT_OPENING_TYPES.map((t) => t.id)) {
@@ -400,7 +424,7 @@ describe('catálogo completo: modelo único', () => {
         }
       }
     }
-  }, 30_000); // Com o catálogo brasileiro (130 tipos) passa dos 5 s padrão sob carga da suíte.
+  }, 30_000); // Com o catálogo brasileiro (154 tipos) passa dos 5 s padrão sob carga da suíte.
 });
 
 // Mesmo motivo do bloco anterior: o catálogo brasileiro passa dos 5 s padrão sob a carga da suíte completa.

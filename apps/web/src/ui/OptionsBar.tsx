@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactElement } from 'react';
-import { DEFAULT_DISJOIN } from '@hestia/tools';
+import { DEFAULT_DISJOIN, type ToolOptions } from '@hestia/tools';
 import { addRoomsAllCircuits } from '../editor/roomActions.ts';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
@@ -73,6 +73,57 @@ function DimensionOptions(): ReactElement {
       {o.dimensionMode === 'aligned' || o.dimensionMode === 'horizontal' || o.dimensionMode === 'vertical' ? null : (
         <span style={{ color: 'var(--fg-soft)' }}>{t('pro_dim_dir_hint')}</span>
       )}
+    </>
+  );
+}
+
+/**
+ * Barra da porta/janela na cortina (decisão 0056, §7.3): o mesmo seletor de tipo das esquadrias, os dois modos (preencher
+ * a célula ou ajustar a grade à porta), o alinhamento da grade e as inversões (também Espaço e Tab na ferramenta).
+ */
+export function CurtainOpeningOptions({ tool }: { tool: 'curtainDoor' | 'curtainWindow' }): ReactElement {
+  const o = useUi((s) => s.options);
+  const { t } = useT();
+  const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...useUi.getState().options, ...patch } });
+  const kind = tool === 'curtainDoor' ? 'door' : 'window';
+  return (
+    <>
+      <span style={{ color: 'var(--fg-soft)' }}>{t('pct_curtain_tool_hint')}</span>
+      <OpeningTypePicker kind={kind} value={kind === 'door' ? o.doorTypeId : o.windowTypeId} onChange={(id) => set(kind === 'door' ? { doorTypeId: id } : { windowTypeId: id })} />
+      <CurtainOpeningModes opcoes={o} onChange={set} />
+    </>
+  );
+}
+
+/** Modo (preencher a célula ou ajustar a grade), alinhamento da grade e inversões. Puro: as opções entram e o patch sai. */
+export function CurtainOpeningModes({ opcoes, onChange }: { opcoes: Pick<ToolOptions, 'curtainFit' | 'curtainAlign' | 'openingFlipHand' | 'openingFlipFacing'>; onChange: (patch: Partial<ToolOptions>) => void }): ReactElement {
+  const { t } = useT();
+  const fit = opcoes.curtainFit ?? 'cell';
+  return (
+    <>
+      <label>
+        {t('pct_mode')}
+        <select id="opt-curtain-fit" className="select" value={fit} onChange={(e) => onChange({ curtainFit: e.target.value as 'cell' | 'grid' })}>
+          <option value="cell">{t('pct_fit_cell')}</option>
+          <option value="grid">{t('pct_fit_grid')}</option>
+        </select>
+      </label>
+      {fit === 'grid' && (
+        <label>
+          {t('pct_justify')}
+          <select id="opt-curtain-align" className="select" value={opcoes.curtainAlign ?? 'center'} onChange={(e) => onChange({ curtainAlign: e.target.value as 'center' | 'start' | 'end' })}>
+            <option value="center">{t('pct_justify_center')}</option>
+            <option value="start">{t('pct_justify_start')}</option>
+            <option value="end">{t('pct_justify_end')}</option>
+          </select>
+        </label>
+      )}
+      <button id="opt-curtain-hand" className="btn small" aria-pressed={opcoes.openingFlipHand === true} onClick={() => onChange({ openingFlipHand: opcoes.openingFlipHand !== true })}>
+        {t('pct_flip_hand')}
+      </button>
+      <button id="opt-curtain-facing" className="btn small" aria-pressed={opcoes.openingFlipFacing === true} onClick={() => onChange({ openingFlipFacing: opcoes.openingFlipFacing !== true })}>
+        {t('pct_flip_facing')}
+      </button>
     </>
   );
 }
@@ -246,6 +297,7 @@ export function OptionsBar(): ReactElement {
           onChange={(id) => set(tool === 'door' ? { doorTypeId: id } : { windowTypeId: id })}
         />
       )}
+      {(tool === 'curtainDoor' || tool === 'curtainWindow') && <CurtainOpeningOptions tool={tool} />}
       {tool === 'trim' && (
         <label>
           {t('pro_mode')}

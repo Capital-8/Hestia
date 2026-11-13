@@ -55,7 +55,9 @@ export function projetoDeEstresse(semente: number, opcoes: OpcoesEstresse = {}):
   const ruido = opcoes.ruido ?? true;
   const store = new ProjectStore(createEmptyProject(`Estresse ${semente}`));
   const base = Object.values(store.project.wallTypes)[0]!;
-  const tipos = [...Object.keys(store.project.wallTypes), ...tiposExtras(base).map((t) => t.id)];
+  // A parede cortina (família 'curtain', ADR 0056) fica de fora do sorteio: ela não passa pelo resolvedor de camadas e tem paridade própria (kernel-cortina*.wasm.test.ts).
+  // Sem este filtro os tipos de cortina do registro padrão entram no sorteio e deslocam toda a sequência aleatória dos testes de paredes comuns.
+  const tipos = [...Object.values(store.project.wallTypes).filter((t) => t.family !== 'curtain').map((t) => t.id), ...tiposExtras(base).map((t) => t.id)];
   const cmds: Command[] = tiposExtras(base).map((wallType) => ({ type: 'upsertWallType', wallType }));
   const niveis: Id[] = [];
   for (let i = 0; i < pavimentos; i++) {

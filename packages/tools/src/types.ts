@@ -1,8 +1,8 @@
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
-import type { SectionResult } from '@hestia/engine';
-import type { Command, Id, LocationLine, Project, SectionAnnotations } from '@hestia/model';
+import type { ParedeSubelementos, SectionResult } from '@hestia/engine';
+import type { Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
@@ -95,6 +95,11 @@ export interface ToolEnv {
    * Síncrono nos testes; na interface abre o diálogo e resolve quando o usuário escolhe.
    */
   confirmHostedLoss?(losses: readonly HostedLoss[], message: string): boolean | Promise<boolean>;
+  /**
+   * Pergunta de sim ou não genérica (ex.: fundir células vizinhas para caber uma porta). Ausente = recusa. Síncrono nos
+   * testes; na interface abre o diálogo de confirmação e resolve quando o usuário escolhe.
+   */
+  confirm?(message: string): boolean | Promise<boolean>;
   /** Pede à interface para voltar à ferramenta de seleção. */
   done(): void;
   /** Abre uma vista de corte/elevação na área de desenho. Ausente = a interface não abre a vista sozinha. */
@@ -105,6 +110,11 @@ export interface ToolEnv {
   setOptions?(patch: Partial<ToolOptions>): void;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
+  /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */
+  subelementos?(wallId: Id): ParedeSubelementos | null;
+  /** Subelemento de cortina escolhido com o Tab (null = a parede inteira). Ausente = sempre a parede. */
+  subelemento?(): SubelementoCortina | null;
+  setSubelemento?(sub: SubelementoCortina | null): void;
 }
 
 /** Tipo da ferramenta Matriz: linear (repete pelo espaçamento) ou radial (gira em torno de um centro). */
@@ -190,6 +200,9 @@ export interface ToolOptions {
   wallShape: 'line' | 'arc' | 'rect';
   doorTypeId: Id;
   windowTypeId: Id;
+  /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */
+  curtainFit?: 'cell' | 'grid';
+  curtainAlign?: 'center' | 'start' | 'end';
   openingFlipHand?: boolean;
   openingFlipFacing?: boolean;
   /** Sentido da abertura na colocação: pelo lado do cursor (padrão) ou manual (`openingFlipFacing`). */
@@ -302,6 +315,8 @@ export interface PointerInfo {
    * ferramenta acha o elemento pelo ponto (`raw`).
    */
   hit3d?: Id | null;
+  /** Vista 3D: altura absoluta (m) do ponto da superfície sob o cursor (com `hit3d`). Ausente na planta. */
+  hitZ?: number;
 }
 
 /** Contrato único de ferramenta (docs/01 §7). A ferramenta nunca altera o modelo: ela emite comandos. */
@@ -320,6 +335,8 @@ export interface Tool {
   readonly hint: string;
   /** Aceita clique na vista 3D: o ponto entregue é o (x, y) da superfície sob o cursor (`pickModelPoint`). */
   readonly pick3d?: boolean;
+  /** Recebe o elemento e a altura sob o cursor também no movimento (vista 3D), não só no clique. */
+  readonly hover3d?: boolean;
   /** Campo de valor aceita texto livre (letras e espaços), não só números. */
   readonly freeText?: boolean;
   start(): void;
@@ -329,7 +346,7 @@ export interface Tool {
   /** Valor digitado (medida em metros, ângulo em graus ou contagem), confirmado com Enter. */
   type(text: string): boolean;
   /** Tab alterna uma opção da ferramenta. */
-  tab(): void;
+  tab(reverso?: boolean): void;
   /** Espaço alterna uma opção secundária quando a ferramenta declara suporte. */
   space?(): void;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */

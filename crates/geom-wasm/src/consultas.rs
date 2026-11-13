@@ -274,6 +274,24 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             let (a, v) = crate::gc_avisos::achatar_avisos(&m.avisos);
             Ok(vec![Saida::U32(a), Saida::F64(v)])
         }
+        esquema::CONSULTA_CORTINA_GRADE => crate::cortina_grade::consulta_cortina_grade(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_CORTINA_MALHA => {
+            let lod = arg_nivel(args[1])?;
+            if lod > 2 {
+                return Err(ENTRADA);
+            }
+            crate::cortina_malha::consulta_cortina_malha(cena, arg_nivel(args[0])?, lod)
+        }
+        esquema::CONSULTA_CORTINA_PLANTA => {
+            let nivel = arg_nivel(args[0])?;
+            let corte_z = arg_finito(args[1])?;
+            let detalhe = arg_nivel(args[2])?.min(255) as u8;
+            crate::cortina_planta::consulta_cortina_planta(cena, nivel, corte_z, detalhe)
+        }
+        esquema::CONSULTA_QUANT_CORTINA => crate::cortina_quant::consulta_quant_cortina(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }

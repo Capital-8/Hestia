@@ -1,6 +1,6 @@
 {
-  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (término por camada): coluna `termino_ref` em `camadas_piso` e `camadas_laje` e o término 6 (camada). v14 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO).",
-  "versao": 14,
+  "$comentario": "Fonte única do contrato de dados do kernel Rust (ABI v2, decisão 0046). TS e Rust implementam o que está aqui; um teste de contrato de cada lado lê este arquivo e confere as constantes. Mudou aqui => sobe `versao` e os dois lados. v2 (sub-etapa A1 da fatia A, decisão 0047): seções `paredes_quadro`, `tipos_parede` e `camadas` e a consulta `quadros_e_juncoes`. v3 (sub-etapa A2): colunas novas em `camadas` (material_num, envolve) e `tipos_parede` (wrap_ends, n_faixas), seções `faixas` e `paredes_z` e a consulta `itens_pintados`; as demais seções e consultas não mudaram. v4 (sub-etapa A3a, vãos): seções `tipos_abertura` e `aberturas` e a consulta `aberturas_geom`; as demais não mudaram. Os perfis de topo e base de `wallZRange` NÃO entram em `paredes_z` nesta versão (nenhuma consulta da A3a os lê; entram na A3d, onde `withProfile`/`withBottomProfile` os consomem). v5 (sub-etapa A3b, retornos de acabamento nos vãos): `tipos_parede.wrap_inserts`; `tipos_abertura` ganha janela, fechamento, tem_alizar, estilo_batente, modo_prof, prof_pedida, larg_batente e esp_folha (tudo o que `insertMode` e `insertReturns` leem do tipo da abertura, já resolvido pelo JS); consulta `retornos_geom`; as demais seções e consultas não mudaram. v6 (sub-etapa A3c, faixas verticais e solveCluster): nenhuma seção nova; consulta `cluster_resolvido` (a lista de aberturas que furam a planta, `planOpenings`, viaja como argumento variável). v7 (sub-etapa A3d, ResolvedLevel completo): seção `perfis_z` (pontos dos perfis de topo e de base de `wallZRange`, mais o `topProfile` do modelo, que o JS calcula e envia; uma lista por parede é uma lista de linhas, por isso é uma seção à parte e não colunas de `paredes_z`) e consulta `resolver_nivel` (tudo o que `resolveLevel` devolve: campos de ResolvedWall, camadas com faixas já recortadas pelos perfis, membranas, regiões e silhueta). As demais seções e consultas não mudaram. v8 (sub-etapa B1 da fatia B, decisão 0050): seções pisos, lajes, tipos_piso, tipos_laje, camadas_piso, camadas_laje, contornos_estaticos, contornos_vinculados e furos_nivel e a consulta pisos_lajes_nivel (resolveFloors e resolveSlabs; os circuitos dos vinculados e os furos de escada e rampa chegam do JS já calculados; os términos que dependem de paredes ficam para a B2). As demais seções e consultas não mudaram. v9 (sub-etapa B2 da fatia B, decisão 0050): seção `niveis` (cota de cada nível, para a adjacência de níveis acima e abaixo que as lajes usam) e consulta `pisos_lajes_com_paredes` (resolveFloors e resolveSlabs COM as paredes do projeto: o Rust aplica regionMinusWalls e regionPlusWalls com as paredes resolvidas do nível, por dentro, sem precisa_paredes; a consulta pisos_lajes_nivel da B1 segue igual). As demais seções e consultas não mudaram. v10 (sub-etapa B3 da fatia B, decisão 0050): seções `paredes_z_juncao` e `perfis_z_juncao` (a cota e os perfis das paredes na variante da JUNÇÃO, sem flatAttach: a junção usa `resolveLevel(p, nivel)` padrão para as faixas de parede, enquanto o término por camada de piso e laje usa `flatAttach`) e a consulta `junction_nivel` (levelCutterSet e junctionLevel: cortadores por nível e junção resolvida de camadas de piso, laje e faixas de parede). As demais seções e consultas não mudaram. v11 (sub-etapa B3, saída 3 da 0050): seções `faixas_juncao` (22) e `pontos_faixas_juncao` (23), a partição vertical das faixas de parede já resolvida pelo JS (`resolveLevel` padrão, DEPOIS do perfil superior e do perfil de base: as faixas que `wallLayerBandsAfterJunction` devolve), com a região de cada faixa; o Rust da consulta `junction_nivel` usa essas faixas no lugar de recalcular os pontos de quebra quando a seção `faixas_juncao` está definida, e só executa os recortes de piso e laje. Sem a seção, vale o cálculo anterior (`paredes_z_juncao`, `perfis_z_juncao`). As demais seções e consultas não mudaram. v12 (quantidades): seções `camadas_forro` (24) e `pontos_forro` (25) (os forros chegam do JS já resolvidos: contorno e espessura de cada camada) e as consultas `quant_paredes` (13), `quant_pisos` (14), `quant_lajes` (15) e `quant_forros` (16): bruto, cortado, líquido, área de face e altura de cada camada (volume líquido = max(0, bruto - cortado), o zero uma vez por camada). As demais seções e consultas não mudaram. v13 (término por camada): coluna `termino_ref` em `camadas_piso` e `camadas_laje` e o término 6 (camada). v14 (decisão 0055, guarda-corpo): seções 60 a 81 e consultas 60 a 65, declaradas para o contrato do guarda-corpo e ainda não implementadas no Rust (seção ainda sem implementação: definir/upsert devolvem ENTRADA; consulta: NAO_IMPLEMENTADO). v15 (decisão 0056, fase 1 da parede cortina): seções 100 a 105 (cortinas, tipos_cortina, grades_cortina, grade_posicoes_cortina, tipos_montante_cortina, tipos_painel_cortina) e consultas 100 (cortina_grade), 101 (cortina_malha), 102 (cortina_planta), 104 (quant_cortina) e 105 (cortina_avisos), todas implementadas no Rust; a 103 (cortina_corte) é da fase 6. A cortina NÃO entra na seção 1 `paredes` nem no resolvedor de camadas. Convenções fixadas com a referência TS (`packages/engine/src/cortinaRef`): `cortina_grade.segmentos` tem 5 colunas e `linha` é o índice GLOBAL (U = 0..nu, V = nu+1..nu+1+nv); as bordas não são linhas em `linhas` (só índices 1 a n-1) mas são arestas dos segmentos; `quant_cortina` usa os papéis 0 a 5 (montantes), 10 a 12 (painéis) e 20 (sistema); o montante de borda fica EMBUTIDO em [0, L] x [0, H]; cortina com `sag` ≠ 0 é omitida das consultas geométricas e sai com o aviso 6; ângulo de grade ≠ 0 é ENTRADA. v16 (decisão 0056, fase 2 da parede cortina): seções 106 a 109 (cortina_linhas_extras, cortina_segmentos_removidos, cortina_linhas_sobrescritas e cortina_celulas_sobrescritas: linhas extras e travadas, segmentos removidos, linhas geradas sobrescritas e painel por célula) e os avisos 7 a 10 (órfãs e região não retangular); cortina_grade devolve regiões fundidas (regiao = célula canônica) e segmentos removidos. As demais seções e consultas não mudaram. v17 (decisão 0056, fase 3 da parede cortina, junção entre paredes): seção 110 `cortina_extremidades` (a vizinhança de cada ponta de cada cortina: parede vizinha, comum ou cortina, ângulo entre os eixos, os dois segmentos de face e a espessura da vizinha, o lado e as flags de junção desligada). Sem linha, ou com `vizinha_num` ausente, a cortina se comporta como antes (corte reto no eixo do nó). Cortina com parede comum em L ou T: encosto reto (a cortina recua até a face da vizinha); cortina com cortina: montante de canto entre as duas (ou continuidade quando colineares). Consultas `cortina_malha`, `cortina_planta` e `quant_cortina` passam a ler a seção. As demais seções e consultas não mudaram. v18 (decisão 0056, fase 5 da parede cortina, esquadria na célula e cortina embutida): seções 112 `cortina_celulas_abertura` (a esquadria de uma célula: chave da célula como na 109, o tipo da seção 7 `tipos_abertura`, as inversões, o ajuste e o alinhamento, a soleira) e 113 `cortina_hospedes` (a cortina embutida: hospedeiro, centro e largura do vão ao longo dele, peitoril e altura) e as consultas 106 `cortina_recorte_hospedeiro` e 107 `cortina_celula_porta`; avisos 11 a 13. A seção 111 (cadeias) fica reservada à fase 4, por isso o salto. `cortina_malha` passa a levar a esquadria em `grupos` (papéis 3 folha e batente, 4 vidro da esquadria), `cortina_planta` os papéis 4 e 5, `quant_cortina` os papéis 30 a 32 e `cortina_grade` o bit 3 de `celulas.flags`; o resolvedor de camadas das paredes (`resolver_nivel`) recorta o hospedeiro onde há linha na seção 113. Sem linhas nas seções 112 e 113, tudo se comporta como na v17. As demais seções e consultas não mudaram.",
+  "versao": 18,
   "abi": 2,
   "tipos": {
     "u32": {
@@ -2144,6 +2144,654 @@
         }
       ],
       "descricao": "Perfil de norma (LimitesNormaGC). n_flags: máscara dos limites definidos; o bit k corresponde à k-ésima coluna depois de n_flags, na ordem desta seção (bit0 desnivel_exige_guarda ... bit25 carga_corrimao). Coluna com bit zerado é ignorada (use 0); com bit ligado precisa ser finita. corrimao_dois_lados e corrimao_continuo: 0 ou 1. altura_alta_acima e altura_alta_altura formam o par `alturaMinimaAlta` e valem juntos (os dois bits ligados ou os dois desligados)."
+    },
+    {
+      "id": 100,
+      "nome": "cortinas",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nivel_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z_base",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "sag",
+          "tipo": "f64"
+        },
+        {
+          "nome": "flipped",
+          "tipo": "u8"
+        },
+        {
+          "nome": "loc",
+          "tipo": "u8"
+        },
+        {
+          "nome": "flags",
+          "tipo": "u8"
+        },
+        {
+          "nome": "painel_padrao_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "hosp_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Parede cortina (instância; decisão 0056). A cortina sai da seção 1 `paredes` e entra só aqui. z_base: cota absoluta da base; altura: altura da cortina (vem de wallZRange, a cortina não a calcula). sag: flecha do arco (≠ 0 só vale na fase 4; antes disso a cortina é omitida com o aviso 6). flipped: 0 ou 1. loc: linha de localização (0 centro da parede, 1 centro do núcleo, 2 face externa, 3 face interna, 4 núcleo externo, 5 núcleo interno; a cortina tem uma camada só, então 1 = 0, 4 = 2 e 5 = 3). flags: bit 0 há sobrescrita de grade, bit 1 hospedada, bit 2 junção do início desligada, bit 3 junção do fim desligada (a fase 1 só lê). painel_padrao_num: chave de `tipos_painel_cortina`; ID_AUSENTE = o do tipo. hosp_num: ID_AUSENTE (fase 5). Fase 1."
+    },
+    {
+      "id": 101,
+      "nome": "tipos_cortina",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "profundidade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "painel_padrao_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_int_v",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_int_h",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_borda_ini",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_borda_fim",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_borda_base",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_borda_topo",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mont_canto",
+          "tipo": "u32"
+        },
+        {
+          "nome": "prioridade",
+          "tipo": "u8"
+        },
+        {
+          "nome": "celula_minima",
+          "tipo": "f64"
+        },
+        {
+          "nome": "faceta_max",
+          "tipo": "f64"
+        },
+        {
+          "nome": "cadeia_grade",
+          "tipo": "u8"
+        }
+      ],
+      "descricao": "Tipo de parede cortina. profundidade: profundidade do sistema (m, > 0). mont_*: chave de `tipos_montante_cortina` por papel (interior vertical, interior horizontal, borda início, borda fim, borda base, borda topo, canto); ID_AUSENTE = sem montante nesse papel. prioridade: quem corre contínuo na interseção (0 vertical, 1 horizontal). celula_minima: célula livre com lado menor que isto gera aviso (m); NaN = 0,15. faceta_max e cadeia_grade: fase 4 (NaN e 0 antes). Fase 1."
+    },
+    {
+      "id": 102,
+      "nome": "grades_cortina",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "dono",
+          "tipo": "u8"
+        },
+        {
+          "nome": "dono_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "eixo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "numero",
+          "tipo": "u32"
+        },
+        {
+          "nome": "distancia",
+          "tipo": "f64"
+        },
+        {
+          "nome": "justificacao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ancora",
+          "tipo": "u8"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "angulo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "resto_minimo",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Um eixo da grade de um tipo (dono 0, dono_num = tipos_cortina.id_num) ou de uma instância (dono 1, dono_num = cortinas.id_num); no máximo uma linha por (dono, dono_num, eixo). eixo: 0 U (ao longo do eixo da parede), 1 V (vertical). modo: 0 número de células, 1 distância fixa, 2 distância máxima, 3 manual; 255 = herda do tipo (só na instância). numero: células (modo 0); ID_AUSENTE = ausente. distancia (m): lado da célula cheia (modo 1) ou lado máximo (modo 2); NaN = ausente. justificacao: 0 início, 1 centro, 2 fim (modo 1); 255 = ausente/herda (vale 0). ancora (modo 3): 0 início, 1 fim; 255 = ausente/herda (vale 0). deslocamento (m): desloca as linhas geradas, as que saem de (0, A) somem; NaN = ausente/herda (vale 0). angulo (rad): só 0 até a fase 7; NaN = ausente/herda (vale 0). resto_minimo (m): sobra de ponta menor que isto é fundida à célula vizinha; NaN = ausente/herda (vale 0,05). A grade efetiva é { ...tipo, ...instância } campo a campo; a lista de posições do modo 3 da instância, se tiver linhas, substitui a do tipo. Fase 1."
+    },
+    {
+      "id": 103,
+      "nome": "grade_posicoes_cortina",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "grade_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "ordem",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pos",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Posições (m, a partir da âncora) das linhas internas do modo manual de uma `grades_cortina`; `ordem` ordena as posições. Posição fora de (0, A) é ignorada (aviso 4) e duas a menos de 1e-6 viram uma. Fase 1."
+    },
+    {
+      "id": 104,
+      "nome": "tipos_montante_cortina",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "forma",
+          "tipo": "u8"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "profundidade",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "largura2",
+          "tipo": "f64"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "posicao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Tipo de montante. forma: 0 retangular, 1 redonda; 2 L, 3 trapézio e 4 canto devolvem ENTRADA até a fase 3. largura: largura vista na face (m; o diâmetro na redonda). profundidade: na espessura do sistema (m; a redonda usa a largura). espessura, largura2 e posicao: fase 3. deslocamento: do perfil na profundidade, em relação ao plano central (m, positivo para fora). Fase 1."
+    },
+    {
+      "id": 105,
+      "nome": "tipos_painel_cortina",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "espessura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "encaixe",
+          "tipo": "f64"
+        },
+        {
+          "nome": "material_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "vidro_tipo",
+          "tipo": "u8"
+        }
+      ],
+      "descricao": "Tipo de painel. tipo: 0 vidro, 1 sólido, 2 vazio (vão aberto: sem peça). espessura (m, > 0 exceto no vazio). deslocamento: na profundidade, em relação ao plano central (m, positivo para fora). encaixe: quanto o painel entra no montante, para a área bruta (m); NaN = 0,012. vidro_tipo: o tipo de vidro do modelo (informativo para o TS). Fase 1."
+    },
+    {
+      "id": 106,
+      "nome": "cortina_linhas_extras",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "eixo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pos",
+          "tipo": "f64"
+        },
+        {
+          "nome": "travada",
+          "tipo": "u8"
+        },
+        {
+          "nome": "comp_gravado",
+          "tipo": "f64"
+        },
+        {
+          "nome": "montante_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Linha extra da grade de uma parede cortina (ADR 0056 §4.3, AddedGridLine). eixo: 0 U, 1 V. pos (m, a partir do início ou da base). travada: 1 mantém a posição absoluta ao mudar o comprimento; 0 acompanha a fração pos / comp_gravado vezes o comprimento novo (comp_gravado é o comprimento do eixo na gravação, maior que 0 quando não travada). montante_num: montante deste tipo em vez do interior do sistema (ID_AUSENTE = o interior). Fora do vão a linha não se aplica e sai como órfã (aviso 8). Fase 2."
+    },
+    {
+      "id": 107,
+      "nome": "cortina_segmentos_removidos",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "eixo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "origem",
+          "tipo": "u8"
+        },
+        {
+          "nome": "linha_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pos_norm",
+          "tipo": "f64"
+        },
+        {
+          "nome": "n",
+          "tipo": "u32"
+        },
+        {
+          "nome": "k",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nk",
+          "tipo": "u32"
+        },
+        {
+          "nome": "mid",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Segmento removido de uma parede cortina (SegmentRef, ADR 0056 §4.3). eixo: 0 U (linha vertical), 1 V (horizontal). origem: 0 linha gerada (linha_num é o índice 1 a n-1 na gravação, pos_norm = pos / A e n = nº de células do eixo na gravação), 1 linha extra (linha_num é o id dela em cortina_linhas_extras; pos_norm NaN e n ID_AUSENTE). k: índice do segmento ao longo da linha (0 é o primeiro) e nk o total na gravação; mid: posição normalizada do ponto médio do segmento (0 a 1). Remover um segmento funde as duas células vizinhas numa região, que precisa ser retângulo: a remoção que não couber é recusada (aviso 10). Índice 0 ou n é a borda: remover tira só o montante da borda, sem fundir. Fase 2."
+    },
+    {
+      "id": 108,
+      "nome": "cortina_linhas_sobrescritas",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "eixo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "linha_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "pos_norm",
+          "tipo": "f64"
+        },
+        {
+          "nome": "n",
+          "tipo": "u32"
+        },
+        {
+          "nome": "travada",
+          "tipo": "u8"
+        },
+        {
+          "nome": "pos",
+          "tipo": "f64"
+        },
+        {
+          "nome": "comp_gravado",
+          "tipo": "f64"
+        },
+        {
+          "nome": "montante_modo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "montante_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Sobrescrita de uma linha GERADA da grade (LineOverride, ADR 0056 §4.3). eixo, linha_num (índice 1 a n-1 na gravação), pos_norm e n identificam a linha como em cortina_segmentos_removidos. travada, pos (m; NaN = sem posição nova) e comp_gravado: a mesma regra de cortina_linhas_extras. montante_modo: 0 herda o montante do eixo, 1 sem montante (null no TS), 2 o tipo montante_num. Quando a grade muda de contagem, a linha vai à gerada nova mais próxima em posição normalizada. Fase 2."
+    },
+    {
+      "id": 109,
+      "nome": "cortina_celulas_sobrescritas",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "i",
+          "tipo": "u32"
+        },
+        {
+          "nome": "j",
+          "tipo": "u32"
+        },
+        {
+          "nome": "s",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        },
+        {
+          "nome": "nu",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nv",
+          "tipo": "u32"
+        },
+        {
+          "nome": "painel_num",
+          "tipo": "u32"
+        }
+      ],
+      "descricao": "Sobrescrita de painel de uma célula (PanelCellOverride, ADR 0056 §4.3 e §4.4). i, j: índices da célula na gravação; s e z: centro normalizado (0 a 1) na gravação; nu e nv: colunas e fileiras na gravação; painel_num: chave de tipos_painel_cortina. A chave gravada pode ter índice fora da topologia gravada (aí vale a posição, §4.4 passo 4, e a célula adotada precisa estar a uma célula de distância). A chave é remapeada pela regra de §4.4 (mesma topologia vale o índice; senão a posição; fusão pela menor distância; órfã sai com o aviso 7). Se a célula faz parte de uma região fundida, a sobrescrita vale para a região inteira (a da célula de menor (j, i) que tenha uma). Fase 2."
+    },
+    {
+      "id": 110,
+      "nome": "cortina_extremidades",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "fim",
+          "tipo": "u8"
+        },
+        {
+          "nome": "vizinha_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "vizinha_tipo",
+          "tipo": "u8"
+        },
+        {
+          "nome": "lado",
+          "tipo": "u8"
+        },
+        {
+          "nome": "flags",
+          "tipo": "u8"
+        },
+        {
+          "nome": "angulo",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face1_ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face1_ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face1_bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face1_by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face2_ax",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face2_ay",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face2_bx",
+          "tipo": "f64"
+        },
+        {
+          "nome": "face2_by",
+          "tipo": "f64"
+        },
+        {
+          "nome": "espessura_vizinha",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Vizinhança de cada ponta de cada cortina (decisão 0056, fase 3; esquema v16): uma linha por (cortina_num, fim), fim 0 = a (início) e 1 = b (fim). vizinha_num: ID_AUSENTE = nenhuma parede no nó (a cortina termina no eixo); vizinha_tipo: 0 parede comum (o número é só informativo), 1 outra cortina (id_num da seção 100); lado: onde a vizinha sai do nó em relação ao eixo da cortina (0 esquerda, 1 direita, 2 atravessa ou em linha), conferido só na validação; flags: bit 0 junção desligada nesta ponta (noJoin), bit 2 a vizinha atravessa o nó (T); angulo: radianos de 0 a π entre as direções que saem do nó, uma para cada parede (informativo; a geometria vem das faces). face1 e face2: os dois segmentos de face da vizinha, no mundo, ax ay bx by (NaN sem vizinha); espessura_vizinha: a espessura dela. Regras: parede comum em L ou T (e cortina que atravessa o nó) = encosto reto, a cortina recua até o menor valor que tira a sobreposição com o fecho dos segmentos de face; cortina com cortina = montante de canto (o corner do tipo da cortina de MENOR id, ou o montante de borda dela; sem nenhum, não há junção), que substitui os dois montantes de borda da ponta, ou continuidade se colineares; a vizinha cortina precisa apontar de volta e estar com a junção ligada, senão vale como parede comum. A cortina passa a medir comprimento - recuos a partir do ponto recuado. Fase 3."
+    },
+    {
+      "id": 112,
+      "nome": "cortina_celulas_abertura",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "i",
+          "tipo": "u32"
+        },
+        {
+          "nome": "j",
+          "tipo": "u32"
+        },
+        {
+          "nome": "s",
+          "tipo": "f64"
+        },
+        {
+          "nome": "z",
+          "tipo": "f64"
+        },
+        {
+          "nome": "nu",
+          "tipo": "u32"
+        },
+        {
+          "nome": "nv",
+          "tipo": "u32"
+        },
+        {
+          "nome": "tipo_abertura_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "flip_mao",
+          "tipo": "u8"
+        },
+        {
+          "nome": "flip_sentido",
+          "tipo": "u8"
+        },
+        {
+          "nome": "ajuste",
+          "tipo": "u8"
+        },
+        {
+          "nome": "alinhamento",
+          "tipo": "u8"
+        },
+        {
+          "nome": "soleira",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Esquadria (porta ou janela) numa célula da cortina (decisão 0056, fase 5; esquema v17; ADR §7). Uma linha por célula-esquadria; a chave da célula (i, j, s, z, nu, nv) é a da seção 109 e é remapeada do mesmo jeito (a esquadria segue a célula; a órfã sai no aviso 7). tipo_abertura_num: id_num de uma linha da seção 7 `tipos_abertura` (o mesmo catálogo das paredes comuns; largura, altura, peitoril, folhas, plano, janela, larg_batente, esp_folha). flip_mao e flip_sentido: as inversões do tipo (mão da dobradiça e sentido de abertura). ajuste: 0 preencher a célula (a esquadria assume o tamanho livre) e 1 grade ajustada (tamanho nominal do tipo, limitado à célula livre). alinhamento (só no ajuste 1): 0 centro, 1 início, 2 fim. soleira: peitoril por instância em m acima da base livre da região (NaN = 0, a base; o peitoril do tipo não entra: o comando do modelo grava o que quer). A célula-esquadria ocupa a região inteira (célula ou retângulo fundido pela seção 107) e NÃO tem painel; uma sobrescrita de painel na mesma célula perde. Porta (janela = 0 no tipo) com soleira 0 omite o segmento horizontal da base sob a região (soleira derivada, nunca gravada). O batente próprio da esquadria é omitido nos lados que têm montante. Fase 5."
+    },
+    {
+      "id": 113,
+      "nome": "cortina_hospedes",
+      "chave": "id_num",
+      "colunas": [
+        {
+          "nome": "id_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "cortina_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "hospedeiro_num",
+          "tipo": "u32"
+        },
+        {
+          "nome": "deslocamento",
+          "tipo": "f64"
+        },
+        {
+          "nome": "largura",
+          "tipo": "f64"
+        },
+        {
+          "nome": "peitoril",
+          "tipo": "f64"
+        },
+        {
+          "nome": "altura",
+          "tipo": "f64"
+        }
+      ],
+      "descricao": "Cortina embutida numa parede comum (decisão 0056, fase 5; esquema v17; ADR §8). Uma linha por cortina embutida. cortina_num: id_num da cortina na seção 100 (informativo no kernel das paredes, que não tem a seção 100). hospedeiro_num: id_num da parede hospedeira na seção 1 `paredes` (reta). deslocamento: centro do vão ao longo do hospedeiro, a partir de `a`, em m. largura e altura: o vão em m. peitoril: base do vão sobre a base do hospedeiro, em m. O vão recorta o hospedeiro em todas as camadas, como uma abertura sem esquadria e sem retorno (o `resolver_nivel` das paredes lê a seção; paredes sem linha aqui não mudam). Fase 5."
     }
   ],
   "consultas": [
@@ -3064,6 +3712,219 @@
         }
       ],
       "descricao": "Medidas para os avisos de norma (ADR 0055 §8). norma_num: chave de `normas_guarda` (ID_AUSENTE = a de cada tipo). avisos: [guarda_num, codigo, trecho, indice]; valores: [medido, limite, x, y, z]. Fase 4a."
+    },
+    {
+      "id": 100,
+      "nome": "cortina_grade",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "linhas_pos",
+          "tipo": "f64",
+          "elementos": "n"
+        },
+        {
+          "nome": "celulas",
+          "tipo": "u32",
+          "elementos": "6n"
+        },
+        {
+          "nome": "celulas_ret",
+          "tipo": "f64",
+          "elementos": "4n"
+        },
+        {
+          "nome": "segmentos",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "segmentos_ext",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ],
+      "descricao": "Grade de cada cortina do nível. linhas: [cortina_num, eixo, indice, origem (0 gerada, 1 extra, 2 manual), flags (bit 0 = travada, linha com sobrescrita travada ou extra travada)] só das linhas internas (indice 1 a n-1; 0 e n são as bordas); linhas_pos: posição (m) de cada uma. celulas: [cortina_num, i, j, regiao (i · nv + j da célula canônica da região, a de menor (j, i)), painel_tipo_num, flags (bit 0 = menor lado livre menor que a célula mínima; bit 1 = célula com sobrescrita de painel adotada; bit 2 = região com mais de uma célula)]; celulas_ret: [s0, s1, z0, z1] da célula cheia. segmentos: [cortina_num, linha, k, removido (1 se a remoção vale ou se o segmento fica dentro de uma região fundida, e nesse caso montante_tipo_num é ID_AUSENTE), montante_tipo_num (ID_AUSENTE = sem montante)]; linha é o índice GLOBAL (U = 0..nu com 0 = borda início e nu = borda fim; V = nu+1..nu+1+nv com nu+1 = borda base); k corre de baixo para cima nas verticais e do início ao fim nas horizontais; segmentos_ext: [de, ate] (m), nominal de linha a linha, sem aparo. Ordem: cortina, U antes de V, índice; células por i e depois j. Grade de 1 µm. Fase 1."
+    },
+    {
+      "id": 101,
+      "nome": "cortina_malha",
+      "args": [
+        "nivel_num",
+        "lod"
+      ],
+      "saidas": [
+        {
+          "nome": "prototipos",
+          "tipo": "u32",
+          "elementos": "8n"
+        },
+        {
+          "nome": "vertices",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "indices",
+          "tipo": "u32",
+          "elementos": "n"
+        },
+        {
+          "nome": "instancias",
+          "tipo": "u32",
+          "elementos": "6n"
+        },
+        {
+          "nome": "matrizes",
+          "tipo": "f64",
+          "elementos": "12n"
+        },
+        {
+          "nome": "grupos",
+          "tipo": "u32",
+          "elementos": "6n"
+        },
+        {
+          "nome": "vertices_av",
+          "tipo": "f64",
+          "elementos": "3n"
+        },
+        {
+          "nome": "indices_av",
+          "tipo": "u32",
+          "elementos": "n"
+        }
+      ],
+      "descricao": "Peças instanciáveis. prototipos: [proto, papel (0 montante, 1 painel de vidro, 2 painel sólido), tipo_num, material_num, primeiro_vertice, n_vertices, primeiro_indice, n_indices]; vertices: x, y, z locais; indices: 3 por triângulo, LOCAIS ao protótipo (a partir do primeiro_vertice). Montante: perfil em (x largura vista, y profundidade com o deslocamento do tipo) extrudado em z de 0 a 1; painel: caixa x de -0,5 a 0,5, y na espessura, z de 0 a 1. instancias: [cortina_num, proto, papel, ref_i, ref_j, transparente]; montante: ref_i = aresta da linha, ref_j = (k << 1) | eixo (0 vertical, 1 horizontal), uma instância por segmento; painel sem área livre não gera instância; painel: ref_i, ref_j = célula (i, j); transparente = 1 no vidro. matrizes: 12 por instância, 3 linhas de [r0 r1 r2 t] (linha-maior), mundo = M · (x, y, z, 1), base destra, translação na grade de 1 µm. lod: 0 grosso (redondos com 8 lados), 1 médio, 2 fino (redondos com 16 lados, 24 acima de 80 mm). grupos, vertices_av e indices_av (peças avulsas: [cortina_num, papel, material_num, primeiro_indice, n_indices, transparente]; vertices_av no MUNDO e indices_av absolutos, um grupo por cortina e material): na fase 1 ficam vazios; desde a fase 3 levam os montantes L, trapézio e canto com esquadria e o montante de canto entre cortinas (prisma de altura total). Mais de 20 000 instâncias devolve LIMITE. Fase 1."
+    },
+    {
+      "id": 102,
+      "nome": "cortina_planta",
+      "args": [
+        "nivel_num",
+        "corte_z",
+        "detalhe"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "pontos",
+          "tipo": "f64",
+          "elementos": "2n"
+        }
+      ],
+      "descricao": "Linhas de planta. linhas: [cortina_num, papel (0 contorno, 1 vidro, 2 montante, 3 painel sólido), estilo (0 cortado, 1 projetado, 2 oculto), n_pontos]; pontos: x, y. Contornos fechados repetem o primeiro ponto; a linha do eixo do vidro (detalhe 0) é aberta, de 2 pontos. corte_z: cota absoluta; peça que cruza sai cortada, inteira abaixo projetada, inteira acima oculta. detalhe: 0 grosso (contorno e eixo do painel padrão), 1 médio (e um retângulo por coluna e tipo de painel e um perfil por linha vertical), 2 fino (e um retângulo por painel e o perfil de cada peça de montante). Fase 1."
+    },
+    {
+      "id": 104,
+      "nome": "quant_cortina",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "5n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "4n"
+        }
+      ],
+      "descricao": "Quantidades por cortina, papel, tipo e material. linhas: [cortina_num, papel, tipo_num, material_num, n]; papel: 0 a 5 montante (interior vertical, interior horizontal, borda início, borda fim, borda base, borda topo), 10 painel de vidro, 11 sólido, 12 vazio, 20 sistema (tipo_num = material_num = 0). valores: [comprimento, area, area_liquida, volume]. Montante: n peças (uma por segmento, aparadas), comprimento total, area = area_liquida = comprimento × largura vista, volume = comprimento × área do perfil. Painel (um por célula): comprimento 0, area = área bruta (livre mais o encaixe nos lados com montante), area_liquida = área visível (livre), volume = bruta × espessura (0 no vazio; no vazio area = area_liquida). Sistema: n 1, comprimento L, area = area_liquida = L × H, volume 0. Grade de 1 µm. Fase 1."
+    },
+    {
+      "id": 105,
+      "nome": "cortina_avisos",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "avisos",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "valores",
+          "tipo": "f64",
+          "elementos": "5n"
+        }
+      ],
+      "descricao": "Medidas para os avisos (ADR 0056 §5.8). avisos: [cortina_num, codigo, i, j]; valores: [medido, limite, x, y, z] (x, y, z no mundo). codigo: 1 célula pequena (i, j = célula; medido = menor lado livre, limite = célula mínima), 2 montante sobreposto (eixo U: i = aresta da esquerda e j = ID_AUSENTE; eixo V: i = ID_AUSENTE e j = aresta de baixo; medido = distância entre os centros dos montantes, limite = meia soma das larguras), 3 sobra fundida (eixo U: i = índice da célula e j = ID_AUSENTE; V: o inverso; medido = célula resultante, limite = 1,5 · lado nominal), 4 posição fora (índices como o 3, com a ordem da posição manual; medido = posição com âncora e deslocamento, limite = comprimento do eixo), 5 profundidade menor que o perfil (i = id_num do tipo de montante; medido = profundidade do perfil, limite = a do sistema), 6 arco não suportado (medido = flecha). ID_AUSENTE onde não se aplica. Ordem: cortina, código, i, j, medido. Fase 1. Fase 2: 7 órfã de célula (i, j = a célula gravada; medido e limite = a posição aproximada s e z, em m), 8 órfã de linha (i = índice da linha gerada ou id da extra; j = ID_AUSENTE), 9 órfã de segmento (i = linha, como no 8; j = k gravado), 10 remoção de segmento recusada porque a região deixaria de ser retângulo (i, j = célula de referência; medido = células da região, limite = área do retângulo que a envolve). Os códigos 7 a 9 são o cortina-override-orfao do ADR; x, y e z são o ponto no mundo."
+    },
+    {
+      "id": 106,
+      "nome": "cortina_recorte_hospedeiro",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "recortes",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "retangulos",
+          "tipo": "f64",
+          "elementos": "4n"
+        },
+        {
+          "nome": "colisoes",
+          "tipo": "u32",
+          "elementos": "3n"
+        },
+        {
+          "nome": "colisoes_ret",
+          "tipo": "f64",
+          "elementos": "4n"
+        }
+      ],
+      "descricao": "Recorte da cortina embutida no hospedeiro e colisões (ADR 0056 §8.2), por nível (NIVEL_TODOS é ENTRADA). Uma linha por linha da seção 113 cujo hospedeiro está no nível, em ordem de cortina_num. recortes: [cortina_num, hospedeiro_num, diag, n_colisoes]; diag: bit 0 o vão passa das pontas ou do topo do hospedeiro (o recorte sai limitado ao hospedeiro), bit 1 colide em parte com uma abertura do hospedeiro, bit 2 cobriria uma abertura por inteiro (o comando recusa), bit 3 hospedeiro curvo (sem recorte; retângulo zerado); hospedeiro que não está no nível não sai. retangulos: [t0, t1, z0, z1] no referencial do hospedeiro (t ao longo de a para b, z acima da base do hospedeiro), já limitado ao hospedeiro. colisoes: [cortina_num, abertura_num, total (0 parcial, 1 cobre por inteiro)] e colisoes_ret: [t0, t1, z0, z1] da interseção, na ordem das linhas de recortes e, dentro de cada uma, por abertura_num. Fase 5."
+    },
+    {
+      "id": 107,
+      "nome": "cortina_celula_porta",
+      "args": [
+        "nivel_num"
+      ],
+      "saidas": [
+        {
+          "nome": "portas",
+          "tipo": "u32",
+          "elementos": "10n"
+        },
+        {
+          "nome": "vaos",
+          "tipo": "f64",
+          "elementos": "10n"
+        },
+        {
+          "nome": "linhas",
+          "tipo": "u32",
+          "elementos": "4n"
+        },
+        {
+          "nome": "linhas_pos",
+          "tipo": "f64",
+          "elementos": "n"
+        }
+      ],
+      "descricao": "Vão virtual de cada esquadria numa célula (ADR 0056 §7.6), em ordem de cortina_num, i, j (célula canônica da região). portas: [cortina_num, i, j, tipo_abertura_num, ajuste, flip_mao, flip_sentido, janela, lados, flags]; lados: bits 0 esquerda, 1 direita, 2 base e 3 topo = o lado TEM montante e o batente próprio é omitido ali; flags: bit 0 soleira derivada (o segmento da base some), bit 1 vão limitado à célula livre, bit 2 largura livre menor que a folha mínima, bit 3 porta sem soleira acima do piso, bit 4 região de mais de uma célula. vaos: [s0, s1, z0, z1, profundidade, soleira, largura_livre, altura_livre, folha_minima, z_regiao] em coordenadas da parede (s ao longo do eixo da cortina, z acima da base da cortina); [s0, s1, z0, z1] é o vão da esquadria; largura_livre e altura_livre são as da região entre as faces dos montantes. linhas e linhas_pos: no ajuste 1, as linhas que a grade deve receber para a esquadria nominal (ADR §7.4): [cortina_num, i, j, eixo] e a posição em m; sobra menor que o limiar (resto_minimo ou célula mínima) é absorvida. Fase 5."
     }
   ],
   "args": {

@@ -45,7 +45,7 @@ export abstract class ToolBase implements Tool {
   type(_text: string): boolean {
     return false;
   }
-  tab(): void {}
+  tab(_reverso?: boolean): void {}
   space(): void {}
   confirm(): void {
     if (this.busy()) {

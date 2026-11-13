@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { add, dist, multiArea, type Vec2 } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeWall, type JoinKind, type LocationLine, type Opening, type Project, type Wall } from '@hestia/model';
 import { resolveLevel, type ResolvedLevel } from './index.ts';
+import { tiposDeAberturaParaSorteio } from '../../../scripts/catalogo-estresse.mts';
 
 /**
  * Testes de propriedade: paredes aleatórias, mas reprodutíveis (mulberry32 com semente fixa).
@@ -30,7 +31,8 @@ const LOCATIONS: LocationLine[] = ['wallCenter', 'coreCenter', 'finishExterior',
 const JOINS: JoinKind[] = ['butt', 'miter'];
 const BASE = createEmptyProject();
 const WALL_TYPE_IDS = Object.keys(BASE.wallTypes);
-const OPENING_TYPES = Object.values(BASE.openingTypes);
+/** Tipos sorteados: os 130 de antes do acréscimo de portas alu/pvc/vid (ver scripts/catalogo-estresse.mts). */
+const OPENING_TYPES = tiposDeAberturaParaSorteio(BASE);
 
 const NAMES = {
   a: '(a) resolveLevel não lança',

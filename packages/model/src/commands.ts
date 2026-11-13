@@ -81,6 +81,11 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
+import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
+import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
+import { applyCurtainOpeningCommand } from './curtainOpeningCommands.ts';
+import { applyCurtainHostCommand, sincronizarCortinasEmbutidas, temCortinaEmbutida, transformarHospedados } from './curtainHost.ts';
 import { transformarGuardaCorpos } from './guardaCorpoTransform.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
@@ -147,6 +152,29 @@ export type Command =
   | { type: 'deleteElements'; ids: Id[] }
   | { type: 'upsertWallType'; wallType: WallType }
   | { type: 'deleteWallType'; id: Id }
+  // Parede cortina (decisão 0056, §4.7): tratados em curtainCommands.ts.
+  | { type: 'upsertMullionType'; mullionType: MullionType }
+  | { type: 'deleteMullionType'; id: Id }
+  | { type: 'upsertCurtainPanelType'; panelType: CurtainPanelType }
+  | { type: 'deleteCurtainPanelType'; id: Id }
+  // Parede cortina, fase 2 (§4.7): linhas, segmentos, painéis de célula e normalização (curtainCommands.ts).
+  | { type: 'addGridLine'; wallId: Id; line: AddedGridLine }
+  | { type: 'moveGridLine'; wallId: Id; line: LineRef; pos: number }
+  | { type: 'lockGridLine'; wallId: Id; line: LineRef; locked: boolean }
+  | { type: 'removeGridLine'; wallId: Id; line: LineRef }
+  | { type: 'removeSegment'; wallId: Id; line: LineRef; k: number }
+  | { type: 'restoreSegment'; wallId: Id; line: LineRef; k: number }
+  | { type: 'setLineMullion'; wallId: Id; line: LineRef; mullionTypeId: Id | null }
+  | { type: 'clearLineOverride'; wallId: Id; line: LineRef }
+  | { type: 'setCellPanel'; wallId: Id; i: number; j: number; panelTypeId: Id }
+  | { type: 'clearCellOverride'; wallId: Id; i: number; j: number }
+  | { type: 'normalizarSobrescritas'; wallId?: Id }
+  // Parede cortina, fase 5 (§7, §8): esquadria na célula e cortina embutida (curtainOpeningCommands.ts, curtainHost.ts).
+  | { type: 'setCellOpening'; wallId: Id; i: number; j: number; openingTypeId: Id; flipHand: boolean; flipFacing: boolean; mark: string; fit: 'cell' | 'grid'; align?: 'center' | 'start' | 'end'; fundir: boolean }
+  | { type: 'updateCellOpening'; wallId: Id; i: number; j: number; patch: CellOpeningPatch }
+  | { type: 'removeCellOpening'; wallId: Id; i: number; j: number }
+  | { type: 'setCurtainHost'; wallId: Id; host: CurtainHost }
+  | { type: 'clearCurtainHost'; wallId: Id }
   | { type: 'upsertMaterial'; material: Material }
   | { type: 'upsertOpeningType'; openingType: OpeningType }
   | { type: 'upsertLevel'; level: Level }
@@ -270,6 +298,8 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       p.elements[w.id] = next;
     }
   }
+  // Cortina embutida (§8.4, regra 3): acompanha o hospedeiro (espelho inverte o offset; cópia leva a cortina junto).
+  transformarHospedados(p, c.transform.kind === 'mirror', c.ids, idMap);
   if (!idMap) {
     // Espelhar troca a face para onde a folha abre (`flipFacing`); a mão da dobradiça (`flipHand`) fica.
     // Só as aberturas das paredes realmente transformadas mudam.
@@ -294,8 +324,28 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   }
 }
 
+/** Comandos que podem mudar o comprimento ou a altura de uma parede cortina (§4.9: aparar, estender, altura, nível). */
+const COMANDOS_DE_GEOMETRIA = new Set<Command['type']>(['setWallEnds', 'updateElements', 'setElementLevel', 'upsertLevel', 'deleteLevel']);
+
+/**
+ * Aplica um comando ao projeto (único ponto de escrita, docs/01 §5). Depois de um comando que muda L ou H de uma
+ * parede cortina, as sobrescritas são remapeadas e regravadas no mesmo passo de desfazer (decisão 0056, §4.4).
+ */
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang)) return;
+  // Cortina embutida (§8.1): depois de qualquer comando, a posição da cortina volta a vir do hospedeiro (e as órfãs de
+  // hospedeiro apagado são promovidas). Sem cortina embutida, o caminho é o de sempre.
+  if (!COMANDOS_DE_GEOMETRIA.has(c.type) && !temCortinaEmbutida(p)) {
+    applyCommandBase(p, c, lang);
+    return;
+  }
+  const antes = dimensoesCortinas(p);
+  applyCommandBase(p, c, lang);
+  sincronizarCortinasEmbutidas(p);
+  if (antes.size > 0) ajustarCortinasAlteradas(p, antes);
+}
+
+function applyCommandBase(p: Project, c: Command, lang: Lang): void {
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -452,7 +502,8 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
       prunePlanElementTags(p);
       break;
     case 'upsertWallType':
-      p.wallTypes[c.wallType.id] = c.wallType;
+      // Decisão 0056 §4.1/§4.7: família fixada, camada-sombra da cortina regravada e tipo validado.
+      p.wallTypes[c.wallType.id] = prepararTipoParede(p, c.wallType, lang);
       break;
     case 'deleteWallType': {
       if (Object.values(p.elements).some((e) => isWall(e) && e.typeId === c.id)) throw new Error(t(lang, 'md_cmd_type_in_use'));

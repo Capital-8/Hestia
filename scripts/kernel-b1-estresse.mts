@@ -129,7 +129,8 @@ export function projetoDeEstresseB1(semente: number, opcoes: OpcoesEstresseB1 = 
     cmds.push({ type: 'upsertLevel', level: makeLevel({ id, name: `Pav ${i}`, elevation: i * 2.8 }) });
   }
   const comParedes = niveis.slice(0, pavimentos);
-  const tiposDeParede = Object.keys(store.project.wallTypes);
+  // Sem os tipos de parede cortina (família 'curtain'): ver kernel-a1-estresse.mts.
+  const tiposDeParede = Object.values(store.project.wallTypes).filter((t) => t.family !== 'curtain').map((t) => t.id);
   for (const levelId of comParedes) {
     SEGMENTS.forEach(([[ax, ay], [bx, by]], j) => {
       cmds.push({ type: 'addWall', wall: makeWall({ id: `bw_${semente}_${levelId}_${j}`, typeId: r() < 0.7 ? 'wt_ext19' : escolhe(tiposDeParede), levelId, a: { x: ax, y: ay }, b: { x: bx, y: by } }) });

@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { servicoGuardaCorpo } from '@hestia/engine';
+import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -17,6 +17,9 @@ import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/di
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
+
+/** Tolerância (m) para escolher a linha de cortina sob o cursor na 3D (metade de um montante, com folga). */
+const TOLERANCIA_SUB_3D = 0.08;
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D, registrarPreparoCena3D } from '../editor/vista3dAoVivo.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
@@ -278,6 +281,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       }),
     [],
   );
+  // Idem para a parede cortina: sem o kernel só o eixo aparece; quando ele chega, 3D e planta são refeitos.
+  useEffect(
+    () =>
+      servicoCortina().aoMudarPronto(() => {
+        modelKey.current = '';
+        planFrame.current?.reset();
+        quadroRef.current?.invalidar();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }),
+    [],
+  );
   useEffect(() => {
     registrarPreparo3d(() => {
       iniciarMontagem3d(darkRef.current, useUi.getState());
@@ -360,6 +374,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       m.selecionarNivel(p, st.selectedLevel);
         // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
         m.highlight(st.selection, st.hover, st.avisoParede ? [st.avisoParede] : []);
+        m.highlightSubelemento(p, st.subElemento);
         // Prévia do Colar alinhado: fantasmas violeta do rascunho, enquadrados uma vez por rascunho.
         const camada = (fantasmas.current ??= new CamadaFantasmas());
         if (st.pastePreview) {
@@ -532,7 +547,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang }; return planFrameUpdateOf(estado); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -685,10 +700,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     return pickModelPoint(model.current.scene, model.current.orbit.camera, { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 }, pickGpu.current ?? undefined);
   };
   /** Elemento (parede, abertura, piso, laje, telhado, escada) sob o cursor na vista 3D; null no vazio (decisão 0016). */
-  const elementAt3d = (s: Pt) => {
+  const elementBrutoAt3d = (s: Pt) => {
     const r = host.current!.getBoundingClientRect();
     return pickElement(model.current.scene, model.current.orbit.camera, { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 }, pickGpu.current ?? undefined);
   };
+  /** A esquadria virtual da parede cortina (ADR 0056 §7.6) conta como a própria parede para quem só entende elementos do projeto (hover, menu, ferramentas). */
+  const comoElementoDoProjeto = <T extends { id: string } | null>(el: T): T => (el && lerIdEsquadriaCortina(el.id) ? { ...el, id: idDoProjetoDoPick(el.id) } : el);
+  const elementAt3d = (s: Pt) => comoElementoDoProjeto(elementBrutoAt3d(s));
   /**
    * Realce ao passar o cursor sobre o 3D. Um raio por quadro (não por evento de ponteiro): o último ponto ganha.
    */
@@ -708,7 +726,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey,
   });
   /** `info` a partir de ponto e modificadores já capturados (o `down` adiado sai depois do evento original). */
-  const infoDe = (s: Pt, m: Mods) => ({ raw: screenToWorld(editor.viewport() as Viewport, s), ...m });
+  // Ferramenta que declara `hover3d` (Porta na cortina) recebe, na 3D, o ponto e a altura da superfície sob o cursor.
+  const infoDe = (s: Pt, m: Mods) => {
+    if (useUi.getState().view === '3d' && editor.activeTool.hover3d) {
+      const el = elementAt3d(s);
+      return { raw: el ? { x: el.point.x, y: el.point.y } : { x: 0, y: 0 }, ...m, hit3d: el?.id ?? null, hitZ: el?.point.z };
+    }
+    return { raw: screenToWorld(editor.viewport() as Viewport, s), ...m };
+  };
   const info = (e: RPointerEvent, s: Pt) => infoDe(s, modsDe(e));
 
   const cancelarDownAdiado = (): void => {
@@ -1069,10 +1094,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     // Clique no vazio deseleciona.
     if (!d.moved && d.pick && useUi.getState().view === '3d') {
       const hit = pick3dAt(s);
-      const el = elementAt3d(s);
+      const bruto = elementBrutoAt3d(s);
+      const el = comoElementoDoProjeto(bruto);
       if (editor.activeTool.pick3d) {
         if (hit || el) {
-          editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null });
+          editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
         } else {
           // Clique no vazio cancela/sai para a ferramenta de seleção
           editor.activeTool.cancel();
@@ -1081,7 +1107,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         }
       } else {
         // Um elemento sob o cursor tem prioridade: a anotação do nível (texto/bolha) não pode bloquear parede/telhado.
-        if (el) clickSelect3d(el.id, e.shiftKey || e.ctrlKey || e.metaKey);
+        if (el) {
+          const antes = useUi.getState().selection;
+          const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
+          clickSelect3d(el.id, !comum);
+          // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
+          // Parede cortina já selecionada sozinha: o clique sobre a linha ou o painel escolhe o subelemento (sem nada, a parede inteira).
+          const daEsquadria = comum && bruto ? subelementoDaEsquadriaCortina(editor.project, bruto.id) : null;
+          useUi.setState({ subElemento: daEsquadria ?? (comum && antes.length === 1 && antes[0] === el.id ? subelementoDaCortinaEm(editor.project, el.id, el.point, TOLERANCIA_SUB_3D) : null) });
+        }
         else if (!selecionarNivelNoClique(model.current, host.current!.getBoundingClientRect(), s)) clickSelect3d(null, e.shiftKey || e.ctrlKey || e.metaKey);
       }
     }

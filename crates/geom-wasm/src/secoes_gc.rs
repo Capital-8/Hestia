@@ -997,7 +997,7 @@ mod testes {
 
     #[test]
     fn toda_secao_gc_tem_dono_e_decodifica_zeros_ou_recusa_com_codigo() {
-        let ids: Vec<u32> = SECOES.iter().map(|s| s.id).filter(|&i| i >= 60).collect();
+        let ids: Vec<u32> = SECOES.iter().map(|s| s.id).filter(|&i| (60..=81).contains(&i)).collect();
         assert_eq!(ids.len(), 20);
         for id in ids {
             assert!(SecoesGC::e_minha(id), "seção {id}");

@@ -1,8 +1,9 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor, isGuardaCorpo, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits } from '@hestia/model';
+import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor,isGuardaCorpo, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits, type SubelementoCortina } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
+import { cotaDeCorteCortina, proximoSubelemento, sNaParede, subelementoEmPonto, type ParedeSubelementos } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
@@ -20,7 +21,7 @@ import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import { resizeWallCommands } from './lengthEdit.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import { refuseMoveOverlap } from './wallOverlapGuard.ts';
-import { gripHoldAt, annotationGripHoldAt, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
+import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
 import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
@@ -262,6 +263,7 @@ export class SelectTool extends ToolBase {
     // área ficam só as alças do separador de ambiente (as de modelo não são desenhadas).
     if (this.mode === 'idle') {
       this.items.push(...ringHandlePreview(pr, this.env.selection(), this.focus, !this.somenteLeitura));
+      for (const previa of previasDeAlcas) this.items.push(...previa(this.env));
       if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()));
     }
     // Alça da cota selecionada: sob o cursor, a cota destaca-se (arrastar muda o deslocamento).
@@ -336,6 +338,38 @@ export class SelectTool extends ToolBase {
     this.focus = { id: f.id, index: Math.min(this.focus.index, ring.length - 1) };
     this.env.say('Vértice removido. Ctrl+Z desfaz.');
     return true;
+  }
+
+  /** Lista de subelementos da parede cortina que é a única seleção; `null` se a seleção não é uma cortina (ou não há kernel). */
+  private subelementosDaCortinaSelecionada(): ParedeSubelementos | null {
+    const sel = this.env.selection();
+    if (sel.length !== 1 || !this.env.subelementos) return null;
+    const pr = this.env.project();
+    const w = pr.elements[sel[0]!];
+    // A grade só existe para cortina: `subelementos` devolve null para qualquer outra parede.
+    if (!isWall(w)) return null;
+    return this.env.subelementos(w.id);
+  }
+
+  /**
+   * Tab (ADR 0056, fase 2): com uma parede cortina selecionada, percorre parede → linha de grade → segmento → célula e volta à parede.
+   * Shift+Tab volta a ordem. Sem cortina sozinha, não faz nada.
+   */
+  override tab(reverso?: boolean): void {
+    if (this.mode !== 'idle' || !this.env.setSubelemento) return;
+    const parede = this.subelementosDaCortinaSelecionada();
+    if (!parede) return;
+    this.env.setSubelemento(proximoSubelemento(parede, this.env.subelemento?.() ?? null, reverso === true));
+  }
+
+  /**
+   * Clique sobre uma parede cortina que já é a única seleção: a linha ou a célula sob o cursor vira o subelemento (na planta, o corte da planta
+   * define a altura; a tolerância é de seis pixels). Sem nada sob o cursor, `null` (a parede inteira).
+   */
+  private subelementoSobCursor(wallId: Id, at: Vec2): SubelementoCortina | null {
+    const parede = this.env.subelementos?.(wallId) ?? null;
+    if (!parede) return null;
+    return subelementoEmPonto(parede, sNaParede(parede, at.x, at.y), cotaDeCorteCortina(this.env.project(), this.env.levelId()), 6 * this.env.metersPerPixel());
   }
 
   down(p: PointerInfo): void {
@@ -546,11 +580,18 @@ export class SelectTool extends ToolBase {
       const hit = this.hitAt(p.raw);
       const cur = this.env.selection();
       if (!hit) {
-        if (!soma(p)) this.env.setSelection([]);
+        if (!soma(p)) {
+          this.env.setSelection([]);
+          this.env.setSubelemento?.(null);
+        }
       } else if (soma(p)) {
         this.env.setSelection(cur.includes(hit.id) ? cur.filter((x) => x !== hit.id) : [...cur, hit.id]);
+        this.env.setSubelemento?.(null);
       } else {
+        // Parede cortina já selecionada sozinha: o clique escolhe a linha ou a célula sob o cursor; sem nada, a parede inteira.
+        const sub = cur.length === 1 && cur[0] === hit.id && this.env.setSubelemento ? this.subelementoSobCursor(hit.id, p.raw) : null;
         this.env.setSelection([hit.id]);
+        this.env.setSubelemento?.(sub);
       }
     }
     this.reset();

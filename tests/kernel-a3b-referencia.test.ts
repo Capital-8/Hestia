@@ -4,14 +4,15 @@
  * na ordem de `resolveLevel`, e (3) cada decisão de modo muda a saída do TypeScript: se não mudasse nada, a mutação no Rust
  * seria invisível ao teste de equivalência (`kernel-a3b.wasm.test.ts`).
  */
-import { openingType, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, openingType, type Command, type Opening, type Project } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
 import { montarCenaA1 } from '../packages/engine/src/kernelA1.ts';
 import { montarCenaA3, referenciaA3b } from '../packages/engine/src/kernelA3.ts';
 import { frameOfWall } from '../packages/engine/src/resolve.ts';
 import { insertMode, insertReturns } from '../packages/engine/src/wrap.ts';
 import { SECOES } from '../packages/geom/src/kernel/v2/esquema.gerado.ts';
-import { casosDeLimiarA3b, projetoDeEstresseA3a } from '../scripts/kernel-a3a-estresse.mts';
+import { IDS_TIPOS_ABERTURA_ANTIGOS } from '../scripts/catalogo-estresse.mts';
+import { casosDeLimiarA3b, projetoDeEstresseA3a, tiposDeParedeRetorno } from '../scripts/kernel-a3a-estresse.mts';
 
 const ref = (p: Project) => {
   const a1 = montarCenaA1(p);
@@ -80,6 +81,39 @@ describe('A3b: montagem e referência do motor TypeScript', () => {
     expect(vistos.alizar.has(1)).toBe(true);
     expect(vistos.folhas.has(0)).toBe(true);
   });
+});
+
+describe('A3b: tipos de abertura acrescentados depois dos estresses (portas alu/pvc/vid) têm cobertura', () => {
+  // Os geradores não sorteiam estes tipos (ver scripts/catalogo-estresse.mts): aqui cada um recebe uma parede com retorno
+  // (`wt_r_both`) e UMA abertura, sozinho, no meio de uma parede de 6 m. Prova que a montagem não lança e a referência roda.
+  const catalogo = createEmptyProject().openingTypes;
+  const novos = Object.values(catalogo).filter((t) => !IDS_TIPOS_ABERTURA_ANTIGOS.has(t.id));
+  it('os antigos são 130 e todos existem no catálogo; os novos são o resto', () => {
+    expect(IDS_TIPOS_ABERTURA_ANTIGOS.size).toBe(130);
+    for (const id of IDS_TIPOS_ABERTURA_ANTIGOS) expect(catalogo[id]).toBeDefined();
+    expect(novos.length).toBeGreaterThanOrEqual(24);
+  });
+  for (const t of novos) {
+    it(`${t.id}: uma abertura numa parede de retorno monta e a referência TS roda`, () => {
+      const p = createEmptyProject();
+      const parede = tiposDeParedeRetorno(Object.values(p.wallTypes)[0]!).find((w) => w.id === 'wt_r_both')!;
+      p.wallTypes[parede.id] = parede;
+      const cmds: Command[] = [
+        { type: 'addWall', wall: makeWall({ id: 'W', typeId: parede.id, levelId: p.levels[0]!.id, a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, locationLine: 'wallCenter', flipped: false, sag: 0, height: 2.8 }) },
+        { type: 'addOpening', opening: { id: 'O', kind: t.kind, typeId: t.id, hostId: 'W', offset: 3, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } as Opening },
+      ];
+      const store = new ProjectStore(p);
+      store.exec({ type: 'batch', commands: cmds });
+      const q = store.project;
+      const a1 = montarCenaA1(q);
+      const a3 = montarCenaA3(q, a1);
+      expect(a3.aberturaDe.size).toBe(1);
+      // Nem todo tipo gera retorno (batente sem caixilho, por exemplo): o que se prova é que a referência roda e devolve uma lista.
+      const r = referenciaA3b(q, q.levels[0]!.id, a1, a3);
+      expect(Array.isArray(r)).toBe(true);
+      for (const x of r) expect(x.modo).toBeGreaterThan(0);
+    });
+  }
 });
 
 describe('A3b: cada limiar de decisão muda a saída do motor TypeScript entre os dois lados', () => {

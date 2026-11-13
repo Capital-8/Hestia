@@ -1,8 +1,8 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import type { DimensionElementRef } from './dimensionContract.ts';
 import { openingsOfWall, openingType, wallsOnLevel } from './queries.ts';
-import { coreSpan, totalThickness } from './wallType.ts';
-import { isOpening, isWall, type DimensionRef, type Opening, type Id, type LocationLine, type Project, type Wall } from './types.ts';
+import { coreSpan, wallThicknessOf } from './wallType.ts';
+import { isOpening, isWall, type DimensionRef, type Opening, type Id, type LocationLine, type Project, type Wall, type WallType } from './types.ts';
 
 /**
  * Referências associativas de cota (docs/cotas/CONTRATO.md). Convenções, todas em planta (m):
@@ -44,8 +44,8 @@ export const isElementRef = (r: DimensionRef | DimensionElementRef | undefined):
   !!r && typeof r === 'object' && 'elementId' in r;
 
 /** Deslocamento da face externa até a linha de localização (mesma regra do engine `exteriorOffset`). */
-function exteriorOffset(type: { layers: readonly { thickness: number }[] } & Parameters<typeof coreSpan>[0], loc: LocationLine): number {
-  const total = totalThickness(type);
+function exteriorOffset(type: WallType, loc: LocationLine): number {
+  const total = wallThicknessOf(type);
   const core = coreSpan(type);
   switch (loc) {
     case 'wallCenter': return total / 2;
@@ -68,7 +68,7 @@ function wallGeo(p: Pick<Project, 'wallTypes' | 'defaults'>, w: Wall): WallGeo |
   if (!type) return null;
   const u = { x: dx / length, y: dy / length };
   const sign = w.flipped ? -1 : 1;
-  const thickness = totalThickness(type);
+  const thickness = wallThicknessOf(type);
   const ext = exteriorOffset(type, w.locationLine);
   const sExt = sign * ext;
   const sInt = sign * (ext - thickness);

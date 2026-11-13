@@ -17,6 +17,7 @@ import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
 import type { PlanInput } from './build.ts';
 import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
+import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
 
@@ -26,9 +27,10 @@ const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
  * Forma da parede na planta: as camadas cortadas (`cut`) ou, para parede só de contorno, os fragmentos inteiros
  * (`fragment`, sem as aberturas).
  */
-function wallUnion(geo: ResolvedLevel, id: Id, outline = false): MultiPolygon {
+function wallUnion(geo: ResolvedLevel, id: Id, outline = false, p?: Project, cutZ?: number): MultiPolygon {
   const rw = geo.walls[id];
-  if (!rw) return [];
+  // Parede cortina não tem camadas: o contorno vem do kernel (`cortina_planta`, detalhe grosso).
+  if (!rw) return p ? contornoDaCortina(p, geo.levelId, id, cutZ) : [];
   return outline ? union(...rw.layers.map((l) => l.fragment)) : union(...rw.layers.map((l) => l.cut));
 }
 
@@ -39,7 +41,7 @@ function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: stri
     const e = p.elements[id];
     if (isWall(e)) {
       // Parede fora da geometria (oculta ou fora do intervalo): nada a destacar.
-      const m = wallUnion(geo, id, view?.outlineWalls.has(id) === true);
+      const m = wallUnion(geo, id, view?.outlineWalls.has(id) === true, p, view?.cutZ);
       if (m.length > 0) out.push({ polygons: m, color, alpha });
     } else if (isOpening(e)) {
       const f = frameOfWall(p, e.hostId);
@@ -63,7 +65,7 @@ function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: PlanView | null)
   if (view?.hidden.has(id)) return out;
   const e = p.elements[id];
   if (isWall(e)) {
-    const m = wallUnion(geo, id, view?.outlineWalls.has(id) === true);
+    const m = wallUnion(geo, id, view?.outlineWalls.has(id) === true, p, view?.cutZ);
     if (m.length === 0) return out;
     out.fills.push({ polygons: m, color: AVISO, alpha: AVISO_ALPHA });
     for (const ring of m.flat()) out.strokes.push({ pts: ring, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
@@ -110,7 +112,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
     const e = p.elements[id];
     if (!e) continue;
     if (isWall(e)) {
-      contorno(wallUnion(geo, id, view?.outlineWalls.has(id) === true));
+      contorno(wallUnion(geo, id, view?.outlineWalls.has(id) === true, p, view?.cutZ));
       continue;
     }
     if (isOpening(e)) {
@@ -228,7 +230,7 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
     for (const id of selection) {
       const e = p.elements[id];
       if (!isWall(e) || hidden?.has(id)) continue;
-      for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
+      for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true, p, view?.cutZ))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
       // Alças nas pontas do eixo e nos cantos visíveis (a ponta que se vê): é lá que o arrasto pega a parede.
       if (!alcasDeModelo) continue;
       const corners = wallEndCorners(p, e);
@@ -338,7 +340,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
     for (const id of selection) {
       const e = p.elements[id];
       if (!isWall(e) || hidden?.has(id)) continue;
-      for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
+      for (const ring of ringsOf(wallUnion(geo, id, view?.outlineWalls.has(id) === true, p, view?.cutZ))) out.strokes.push({ pts: ring, closed: true, widthPx: 2, color: theme.select, alpha: 1 });
       if (!alcasDeModelo) continue;
       const corners = wallEndCorners(p, e);
       for (const pt of [e.a, e.b, ...corners.a, ...corners.b] as Vec2[]) {
@@ -350,6 +352,8 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   }
 
   // Anotações (textos e cotas): caixa de seleção, alça do texto e realce leve do hover.
+  // Subelemento da cortina selecionada (Tab ou clique, ADR 0056 fase 2): traço ou contorno realçado sobre a parede.
+  if (input.subelemento && !hidden?.has(input.subelemento.wallId)) out.strokes.push(...destaqueSubelementoPlanta(p, input.subelemento, theme.select));
   comAnotacoes(out, input, style.scale, { selection, hover });
 
   // Modo Reveal: os ocultos voltam ao desenho (geometria) e ganham esta borda azul, uma vez só, na sobreposição.

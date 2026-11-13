@@ -1,6 +1,6 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import { joinStatus, levelFrames } from '@hestia/engine';
-import { totalThickness, type JoinKind } from '@hestia/model';
+import { wallThicknessOf, type JoinKind } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
@@ -172,7 +172,8 @@ export class JoinTool extends ToolBase {
     const at = n.clicked.end === 'a' ? wall.a : wall.b;
     const ends = [hostFrame.a, hostFrame.b];
     const near = ends.reduce((best, e) => (dist(e, at) < dist(best, at) ? e : best));
-    const reach = 2 * totalThickness(pr.wallTypes[host.typeId] ?? { layers: [] });
+    const hostType = pr.wallTypes[host.typeId];
+    const reach = 2 * (hostType ? wallThicknessOf(hostType) : 0);
     if (dist(near, at) > reach) {
       this.env.say(this.t('tl_msg_join_far'));
       return;

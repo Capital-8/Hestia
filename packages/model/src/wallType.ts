@@ -1,6 +1,19 @@
-import type { Layer } from './types.ts';
+import type { Layer, WallType } from './types.ts';
+import type { CurtainSpec } from './wallCurtainTypes.ts';
 
 export const totalThickness = (t: { layers: readonly Layer[] }): number => t.layers.reduce((s, l) => s + l.thickness, 0);
+
+/** Tipo de parede cortina válido: `family === 'curtain'` com o sistema preenchido (decisão 0056, §4.1). */
+export const isCurtainType = (t: WallType | undefined): t is WallType & { family: 'curtain'; curtain: CurtainSpec } =>
+  t?.family === 'curtain' && t.curtain !== undefined;
+
+/**
+ * Fonte ÚNICA da espessura de uma parede (decisão 0056, §4.1). Cortina: profundidade do sistema, nunca a soma da
+ * camada-sombra. Básica: soma das camadas. Pisos, lajes e forros seguem com `totalThickness`.
+ */
+export function wallThicknessOf(t: WallType): number {
+  return isCurtainType(t) ? t.curtain.depth : totalThickness(t);
+}
 
 /**
  * Faixa do núcleo: do primeiro ao último layer de estrutura (inclusive). Sem estrutura, o elemento inteiro.

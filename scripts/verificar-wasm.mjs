@@ -29,7 +29,9 @@ const estrito = process.argv.includes('--estrito');
 
 /** Piso de um módulo com o ABI e a geometria; teto do que faz sentido servir como asset separado. */
 const MIN_BYTES = 10 * 1024;
-const MAX_BYTES = 2 * 1024 * 1024;
+// 3 MB: a parede cortina (decisão 0056) levou o módulo de 1,95 para 2,28 MB e as fases 3 a 5 (junção, porta, recorte) ainda somam código;
+// o teto anterior era 2,25 MB (antes disso, 2 MB). Decisão do coordenador em 2026-11-12, a confirmar com o dono.
+const MAX_BYTES = 3 * 1024 * 1024;
 /** Todo módulo wasm começa com os quatro bytes `\0asm`. */
 const MAGICO = [0x00, 0x61, 0x73, 0x6d];
 const erros = [];

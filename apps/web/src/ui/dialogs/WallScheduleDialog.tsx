@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model';
-import { buildWallSchedule, scheduleToCsv, sumWallRows, type WallScheduleRow } from '@hestia/engine';
+import { buildCurtainSchedule, buildWallSchedule, scheduleToCsv, sumWallRows, type CurtainScheduleRow, type WallScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
@@ -59,6 +59,7 @@ export function WallScheduleDialog(): ReactElement {
   const t = dictOf(lang);
   const units = useUnits();
   const schedule = useMemo(() => buildWallSchedule(p), [p]);
+  const curtain = useMemo(() => buildCurtainSchedule(p), [p]);
   const [levelId, setLevelId] = useState('');
   const [typeId, setTypeId] = useState('');
   const [sort, setSort] = useState<Sort | null>(null);
@@ -162,6 +163,10 @@ export function WallScheduleDialog(): ReactElement {
         </>
       )}
 
+      {curtain.rows.length > 0 && (
+        <CurtainSection rows={curtain.rows} pronto={curtain.pronto} totals={curtain.totals} lang={lang} units={units} />
+      )}
+
       <h3 className="wsched-h">{t.sched_material_volume}</h3>
       <table className="layers">
         <thead>
@@ -180,5 +185,70 @@ export function WallScheduleDialog(): ReactElement {
         </tbody>
       </table>
     </Dialog>
+  );
+}
+
+type CurtainTotals = ReturnType<typeof buildCurtainSchedule>['totals'];
+
+/** Seção das paredes cortina: quantidades do kernel. Sem kernel, a linha aparece com o aviso e os campos vazios, nunca zero. */
+function CurtainSection({ rows, pronto, totals, lang, units }: { rows: CurtainScheduleRow[]; pronto: boolean; totals: CurtainTotals; lang: Lang; units: ResolvedUnits }): ReactElement {
+  const tr = (k: keyof typeof I18N.pt): string => translate(lang, k);
+  const q = (v: number | null, quantidade: Quantity, casas: number): string => (v === null ? '—' : formatQuantity(units, quantidade, v, { decimals: casas }));
+  const n = (v: number | null): string => (v === null ? '—' : String(v));
+  const dinheiro = (v: number | null): string => (v === null ? '—' : formatQuantity(units, 'currency', v, { decimals: 2 }));
+  return (
+    <>
+      <h3 className="wsched-h">{tr('pct_sch_title')}</h3>
+      {!pronto && <p className="hint" role="status">{tr('pct_sch_kernel_off')}</p>}
+      <div className="wsched-scroll">
+        <table className="layers wsched">
+          <thead>
+            <tr>
+              <th>{translate(lang, 'col_mark')}</th>
+              <th>{translate(lang, 'col_type')}</th>
+              <th>{translate(lang, 'col_level')}</th>
+              <th className="num">{tr('pct_sch_length')}</th>
+              <th className="num">{tr('pct_sch_height')}</th>
+              <th className="num">{tr('pct_sch_area')}</th>
+              <th className="num">{tr('pct_sch_glass_gross')}</th>
+              <th className="num">{tr('pct_sch_glass_net')}</th>
+              <th className="num">{tr('pct_sch_solid')}</th>
+              <th className="num">{tr('pct_sch_mullion_m')}</th>
+              <th className="num">{tr('pct_sch_mullion_n')}</th>
+              <th className="num">{tr('pct_sch_panel_n')}</th>
+              <th className="num">{tr('pct_sch_cost')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.wallId}>
+                <td>{r.mark}</td>
+                <td>{r.typeName}</td>
+                <td>{r.levelName}</td>
+                <td className="num">{q(r.comprimento, 'length', 2)}</td>
+                <td className="num">{q(r.altura, 'length', 2)}</td>
+                <td className="num">{q(r.areaBruta, 'area', 2)}</td>
+                <td className="num">{q(r.vidroBruta, 'area', 2)}</td>
+                <td className="num">{q(r.vidroVisivel, 'area', 2)}</td>
+                <td className="num">{q(r.areaSolida, 'area', 2)}</td>
+                <td className="num">{q(r.metrosMontante, 'length', 2)}</td>
+                <td className="num">{n(r.quantidadeMontantes)}</td>
+                <td className="num">{n(r.quantidadePaineis)}</td>
+                <td className="num">{dinheiro(r.custo)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pronto && (
+        <div className="total">
+          <span>{totals.count}</span>
+          <span>{formatQuantity(units, 'length', totals.comprimento, { decimals: 2 })}</span>
+          <span>{formatQuantity(units, 'area', totals.vidroBruta, { decimals: 2 })}</span>
+          <span>{formatQuantity(units, 'length', totals.metrosMontante, { decimals: 2 })}</span>
+          <span>{formatQuantity(units, 'currency', totals.custo, { decimals: 2 })}</span>
+        </div>
+      )}
+    </>
   );
 }

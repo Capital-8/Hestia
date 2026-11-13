@@ -40,6 +40,8 @@ export interface IfcCtx {
   products?: Map<Id, number>;
   /** Id STEP do `IFCPROJECT`, alvo do `Pset_Hestia_Project`. Sem ele, o pset acha o projeto pelo GlobalId. */
   project?: number;
+  /** Avisos de exportação (ex.: cortina sem geometria do kernel). Ausente = os avisos não são coletados. */
+  avisos?: string[];
 }
 
 /** Pavimento do nível, ou `undefined` quando o nível não existe no projeto (o elemento não sai). */

@@ -25,6 +25,8 @@ export * from './lengthEdit.ts';
 export * from './hostedLoss.ts';
 export * from './hostedGuard.ts';
 export * from './selectionFilters.ts';
+export { registrarAlcasDeElemento, type GripHold, type GripProvider } from './selectGrips.ts';
+export { encaixeNaGradeDaParede } from './curtainGridLineTool.ts';
 export * from './enclosed.ts';
 export * from './roomPick.ts';
 export * from './floorPick.ts';

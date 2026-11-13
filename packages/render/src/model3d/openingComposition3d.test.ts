@@ -259,3 +259,43 @@ describe('composição no 3D: estilos de linha', () => {
     });
   }
 });
+
+describe('folha com material próprio (leafMaterialId): papel leaf no modelo, no 3D e nas caixas', () => {
+  /** Mesma cena (Ex. 4: folha, laterais de vidro e bandeira), com o tipo `ot_x` levando folha de alumínio. */
+  const comFolhaDeAluminio = (c: Cena): Project => ({ ...c.p, openingTypes: { ...c.p.openingTypes, ot_x: { ...c.t, leafMaterialId: 'mat_aluminio' } } });
+
+  it('modelo montado: a folha é do papel leaf (material leaf) e o batente do papel frame', () => {
+    const c = cena(EX4.layout);
+    const folhas = c.model.parts.filter((x) => x.role === 'leaf' || x.role === 'leafPanel');
+    expect(folhas.length).toBeGreaterThan(0);
+    for (const x of folhas) expect(x.material, x.id).toBe('leaf');
+    for (const x of c.model.parts.filter((y) => y.role === 'jamb')) expect(x.material, x.id).toBe('frame');
+  });
+
+  it('3D: folha de alumínio e batente de madeira geram materiais diferentes; vidro segue no seu material', () => {
+    const c = cena(EX4.layout);
+    const pecas = openingPieces(comFolhaDeAluminio(c), c.o, c.g, c.f, 2.8, false);
+    const folhas = pecas.filter((x) => x.role === 'leaf' || x.role === 'leafPanel');
+    expect(folhas.length).toBeGreaterThan(0);
+    for (const x of folhas) expect(x.materialId).toBe('mat_aluminio');
+    for (const x of pecas.filter((y) => y.role === 'jamb' || y.role === 'head' || y.role === 'mullion')) expect(x.materialId).toBe(c.t.frameMaterialId);
+    for (const x of pecas.filter((y) => y.role === 'glass')) expect(x.materialId).toBe(c.t.glassMaterialId);
+  });
+
+  it('caixas e prismas: a folha sai em alumínio e o batente em madeira', () => {
+    const c = cena(EX4.layout);
+    const p = comFolhaDeAluminio(c);
+    const a = caixasEPrismasDaAbertura(p, c.o, c.f, 0, 2.8, view3dOf(p))!;
+    const ids = new Set([...a.caixas.map((x) => x.materialId), ...a.prismas.map((x) => x.materialId)]);
+    expect(ids.has('mat_aluminio')).toBe(true);
+    expect(ids.has(c.t.frameMaterialId)).toBe(true);
+  });
+
+  it('sem leafMaterialId (ou com o do batente), a folha segue o batente: nada muda (regressão)', () => {
+    const c = cena(EX4.layout);
+    const semCampo = openingPieces(c.p, c.o, c.g, c.f, 2.8, false).map((x) => x.materialId);
+    const igualAoBatente = openingPieces({ ...c.p, openingTypes: { ...c.p.openingTypes, ot_x: { ...c.t, leafMaterialId: c.t.frameMaterialId } } }, c.o, c.g, c.f, 2.8, false).map((x) => x.materialId);
+    expect(igualAoBatente).toEqual(semCampo);
+    expect(semCampo.filter((id) => id === c.t.frameMaterialId).length).toBeGreaterThanOrEqual(5);
+  });
+});

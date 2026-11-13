@@ -14,12 +14,13 @@ import {
   isSlab,
   isCeiling,
   isStair,
+  isCurtainType,
   isWall,
   type DetailLevel,
   type JoinKind,
   openingHeight,
   openingSill,
-  totalThickness,
+  wallThicknessOf,
   viewRangeOf,
   wallLength,
   wallType,
@@ -62,6 +63,7 @@ import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
+import { CurtainSubelementPanel } from './CurtainSubelementPanel.tsx';
 import { openingOptions, wallOptions } from './typeOptions.ts';
 import { ToolTypeProps, isToolTypeKind } from './ToolTypeProps.tsx';
 import { changeOpeningType } from '../editor/openingTypeActions.ts';
@@ -179,6 +181,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
         onSelect={(id) => patch(ids, { typeId: id })}
         onEdit={() => useUi.setState({ dialog: 'wallType', dialogArg: typeId.value })}
       />
+      {single && isCurtainType(wt ?? undefined) && <CurtainSubelementPanel />}
       <Group title={t('prc_pgrp_constraints')} stateKey="constraints">
         <LevelField ids={ids} label={t('prc_fld_base_level')} />
         <Row label={t('prc_fld_base_offset')} htmlFor="p-base"><NumField id="p-base" value={base.value} mixed={base.mixed} onCommit={(v) => patch(ids, { baseOffset: v })} quantity="length" /></Row>
@@ -220,7 +223,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
       <Group title={t('prc_pgrp_construction')} stateKey="construction" open={false}>
         {wt ? (
           <>
-            <Row label={t('prc_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', totalThickness(wt))}</span></Row>
+            <Row label={t('prc_fld_total_thickness')} readOnly fromType><span className="val">{fmt('smallLength', wallThicknessOf(wt))}</span></Row>
             {wt.layers.map((l, i) => (
               <div className="prow ro" key={i}>
                 <span className="lbl" title={fnLabel(l.function, lang)}>{fnLabel(l.function, lang)}</span>

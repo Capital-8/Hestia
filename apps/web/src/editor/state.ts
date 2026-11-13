@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Id, LocationLine, OpeningDimRef, WallDimRef } from '@hestia/model';
+import type { Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
@@ -20,7 +20,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | null;
 
 export interface UiState {
   tool: ToolId;
@@ -107,6 +107,11 @@ export interface UiState {
    * `view`/`levelId`/`sectionId`/`sheetId` continuam sendo a fonte da vista ativa, e esta lista é sincronizada com eles.
    */
   openViews: OpenView[];
+  /**
+   * Subelemento da parede cortina escolhido com o Tab ou com o clique (ADR 0056, fase 2): a parede continua na seleção comum; isto é a linha, o
+   * segmento ou a célula dentro dela. null = a parede inteira. Sessão, não vai para o projeto.
+   */
+  subElemento: SubelementoCortina | null;
 }
 
 const SNAP_KEY = 'hestia.snap';
@@ -376,7 +381,20 @@ export const useUi = create<UiState>(() => ({
   fileMenu: false,
   ifcImport: null,
   openViews: DEFAULT_OPEN_VIEWS.map((v) => ({ ...v })),
+  subElemento: null,
 }));
+
+/** Mesmos ids, na mesma ordem. */
+const mesmosIds = (a: readonly Id[], b: readonly Id[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * Subelemento de cortina (Tab, ADR 0056 fase 2) vale só enquanto a seleção, a ferramenta, o nível e a vista são os de quando foi escolhido. Qualquer
+ * outra mudança dessas o descarta; quem escolhe o subelemento o põe depois da seleção (ver `clickSelect3d` e a ferramenta Selecionar).
+ */
+useUi.subscribe((s, prev) => {
+  if (s.subElemento === null) return;
+  if (s.tool !== prev.tool || s.levelId !== prev.levelId || s.view !== prev.view || !mesmosIds(s.selection, prev.selection)) useUi.setState({ subElemento: null });
+});
 
 /**
  * Toda vista ativa entra na lista de vistas abertas (abrir um nível já aberto só ativa, pois `addView` não duplica).

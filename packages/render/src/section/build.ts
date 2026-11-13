@@ -182,18 +182,26 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const cx = (t0 + t1) / 2;
     const frameBase = pt.color ?? p.materials[o.frameMaterialId]?.color ?? '#9aa0a6';
     const frameColor = pt.visual === 'shaded' ? frameBase : mix(frameBase, paper, 0.5);
+    // Folha (papel `leaf`): o material da folha do tipo, ou o do batente quando o tipo não informa outro.
+    const leafId = o.leafMaterialId ?? o.frameMaterialId;
+    const leafBase = pt.color ?? p.materials[leafId]?.color ?? '#9aa0a6';
+    const leafColor = pt.visual === 'shaded' ? leafBase : mix(leafBase, paper, 0.5);
     const concrete = p.materials['mat_concreto'];
     const materialIdOf = (part: SectionOpening['model']['parts'][number]): string | null =>
       part.material === 'concrete'
         ? 'mat_concreto'
         : part.material === 'glass'
           ? o.glassMaterialId
-          : o.frameMaterialId;
-    // Cor da peça: vidro e concreto têm cor própria; a folha de porta mantém o tom do desenho; o resto é o perfil.
+          : part.material === 'leaf'
+            ? leafId
+            : o.frameMaterialId;
+    // Cor da peça: vidro e concreto têm cor própria; a folha de porta mantém o tom do desenho; a folha de janela e o
+    // resto seguem o material de cada papel.
     const colorOf = (part: SectionOpening['model']['parts'][number]): string => {
       if (part.material === 'glass') return pt.color ?? GLASS_FILL;
       if (part.material === 'concrete') return concrete?.color ?? '#8f9296';
       if (kind === 'door' && (part.role === 'leaf' || part.role === 'leafPanel')) return DOOR_FILL;
+      if (part.material === 'leaf') return leafColor;
       return frameColor;
     };
     // Peça cortada pelo plano da seção transversal: o plano está na posição `t = cutT` do vão.

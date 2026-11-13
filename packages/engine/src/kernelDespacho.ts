@@ -19,6 +19,7 @@
 import { ativarKernelExperimental, desativarKernelExperimental, exigirKernel, CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
 import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/model';
 import { montarCenaA1 } from './kernelA1.ts';
+import { semCortina } from './cortinaProjeto.ts';
 import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
@@ -328,7 +329,7 @@ export class DespachoKernel {
 
   private verificarCobertura(p: Project, levelId: Id, e: EntradaCena): void {
     if (!e.a1.nivelDe.has(levelId)) throw new NaoCoberto(`nível ${levelId} fora do projeto`);
-    for (const w of wallsOnLevel(p, levelId)) {
+    for (const w of semCortina(p, wallsOnLevel(p, levelId))) {
       if (!e.a1.idDe.has(w.id)) throw new NaoCoberto(`parede ${w.id} sem tipo ou nível: a consulta não a cobre`);
       for (const o of openingsOfWall(p, w.id)) if (!e.a3.aberturaDe.has(o.id)) throw new NaoCoberto(`abertura ${o.id} sem tipo: a consulta não a cobre`);
     }

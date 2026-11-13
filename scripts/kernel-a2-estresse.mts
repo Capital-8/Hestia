@@ -14,6 +14,11 @@ export function enriquecerTipos(p: Project, semente: number): Project {
   const r = aleatorio(semente * 7919 + 13);
   const wallTypes: Record<string, WallType> = {};
   for (const [id, t] of Object.entries(p.wallTypes)) {
+    // Tipo de parede cortina passa intacto e não consome a sequência aleatória (ver kernel-a1-estresse.mts).
+    if (t.family === 'curtain') {
+      wallTypes[id] = t;
+      continue;
+    }
     const layers = t.layers.map((l) => ({
       ...l,
       materialId: MATERIAIS[Math.floor(r() * MATERIAIS.length)]!,

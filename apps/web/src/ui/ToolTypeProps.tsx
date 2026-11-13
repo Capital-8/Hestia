@@ -4,15 +4,18 @@ import { useT, type Dict } from '../editor/i18n.ts';
 import { DEFAULT_RAMP_OPTIONS, DEFAULT_STAIR_RUN_OPTIONS, stairTypeForShape, stairTypeId, stairTypesForShape } from '@hestia/tools';
 import type { ReactElement } from 'react';
 import { TypeSelector } from './TypeSelector.tsx';
-import { floorOptions, ceilingOptions, openingOptions, rampOptions, roofOptions, slabOptions, stairOptions, wallOptions } from './typeOptions.ts';
+import { floorOptions, ceilingOptions, openingOptions, openingOptionsDaCortina, rampOptions, roofOptions, slabOptions, stairOptions, wallOptions } from './typeOptions.ts';
 import { setStairOpt } from './StairOptionsBar.tsx';
 
 /** Ferramentas de colocação com tipo: a paleta mostra o tipo escolhido antes de desenhar (o mesmo valor da barra de opções). */
-export type ToolTypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp';
+export type ToolTypeKind = 'wall' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp';
 const TOOL_TYPE_LABEL = {
   wall: 'prb_place_wall',
   door: 'prb_place_door',
   window: 'prb_place_window',
+  // Porta/janela na cortina: o mesmo cabeçalho e o mesmo seletor de tipo das esquadrias de parede (decisão 0056, §7.2).
+  curtainDoor: 'prb_place_door',
+  curtainWindow: 'prb_place_window',
   floor: 'prb_place_floor',
   slab: 'prb_place_slab',
   ceiling: 'prb_place_ceiling',
@@ -48,9 +51,19 @@ export function ToolTypeProps({ tool }: { tool: ToolTypeKind }): ReactElement {
         <TypeSelector categoryLabel={categoryLabel} triggerId="prop-opentype" label={t('prb_prop_type_opening')} options={openingOptions(p, 'door')} selectedId={o.doorTypeId ?? null}
           favoriteIds={p.settings.favoriteOpeningTypes ?? []} onSelect={(id) => setOpt({ doorTypeId: id })} onEdit={() => edit('openingType', o.doorTypeId)} />
       );
+    case 'curtainDoor':
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-opentype" label={t('prb_prop_type_opening')} options={openingOptionsDaCortina(p, 'door')} selectedId={o.doorTypeId ?? null}
+          favoriteIds={p.settings.favoriteOpeningTypes ?? []} onSelect={(id) => setOpt({ doorTypeId: id })} onEdit={() => edit('openingType', o.doorTypeId)} />
+      );
     case 'window':
       return (
         <TypeSelector categoryLabel={categoryLabel} triggerId="prop-opentype" label={t('prb_prop_type_opening')} options={openingOptions(p, 'window')} selectedId={o.windowTypeId ?? null}
+          favoriteIds={p.settings.favoriteOpeningTypes ?? []} onSelect={(id) => setOpt({ windowTypeId: id })} onEdit={() => edit('openingType', o.windowTypeId)} />
+      );
+    case 'curtainWindow':
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-opentype" label={t('prb_prop_type_opening')} options={openingOptionsDaCortina(p, 'window')} selectedId={o.windowTypeId ?? null}
           favoriteIds={p.settings.favoriteOpeningTypes ?? []} onSelect={(id) => setOpt({ windowTypeId: id })} onEdit={() => edit('openingType', o.windowTypeId)} />
       );
     case 'floor':

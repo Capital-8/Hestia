@@ -5,7 +5,7 @@ import {
   floorTypeThickness,
   roofTypeThickness,
   slabTypeThickness,
-  totalThickness,
+  wallThicknessOf,
   type CeilingType,
   type DimensionStyle,
   type FloorType,
@@ -59,7 +59,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
     case 'window':
       return `${formatQuantity(units, 'length', s.type.width, { withUnit: false })} × ${formatQuantity(units, 'length', s.type.height)}`;
     case 'wall':
-      return formatQuantity(units, 'smallLength', totalThickness(s.type));
+      return formatQuantity(units, 'smallLength', wallThicknessOf(s.type));
     case 'floor':
       return formatQuantity(units, 'smallLength', floorTypeThickness(s.type));
     case 'slab':

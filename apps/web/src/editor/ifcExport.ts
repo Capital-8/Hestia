@@ -17,13 +17,32 @@ import {
   rampBody,
   stairArrivalTopZ,
   stairBody,
+  paredesCortina,
+  pointAt,
+  servicoCortina,
+  temCortina,
+  zDaCortina,
   type OpeningGeometry,
   type PartMaterial,
   type ResolvedRamp,
   type ResolvedStair,
 } from '@hestia/engine';
-import { exportIfc, type IfcGeometry, type IfcGuardaCorpoGeo, type IfcOpeningPartGeo, type IfcPlane, type IfcPolygon, type IfcPrism, type IfcRampGeo, type IfcStairGeo } from '@hestia/io';
-import { isOpening, isRamp, openingSill, openingType, wallBaseElevation, wallHeight, type Id, type Opening, type OpeningType, type Project, type Wall } from '@hestia/model';
+import {
+  exportIfc,
+  type IfcCurtainGeo,
+  type IfcCurtainPrototypeGeo,
+  type IfcCurtainWallGeo,
+  type IfcGeometry,
+  type IfcGuardaCorpoGeo,
+  type IfcOpeningPartGeo,
+  type IfcPlane,
+  type IfcPolygon,
+  type IfcPrism,
+  type IfcRampGeo,
+  type IfcStairGeo,
+  type IfcWallGeo,
+} from '@hestia/io';
+import { isOpening, isRamp, mullionTypesOf, openingSill, openingType, wallBaseElevation, wallHeight, type Id, type Opening, type OpeningType, type Project, type Wall } from '@hestia/model';
 import { saveText } from './saveText.ts';
 import { useI18n, type Lang } from './i18n.ts';
 
@@ -218,9 +237,86 @@ export function railingsOf(p: Project): IfcGuardaCorpoGeo[] | undefined {
   }));
 }
 
+/** Contorno em planta de uma parede reta (os dois lados do eixo, pela locação e a espessura do tipo), para a face externa e a parede genérica. */
+function footprintOfWall(p: Project, wallId: Id): IfcPolygon | null {
+  const f = frameOfWall(p, wallId);
+  if (!f) return null;
+  const at = (x: number, s: number): IfcPolygon[number][number] => pointAt(f, x, s);
+  return [[at(0, f.sHi), at(f.length, f.sHi), at(f.length, f.sLo), at(0, f.sLo)]];
+}
+
+/**
+ * Cortinas do projeto para o IFC (decisão 0056, fase 6): os protótipos e as matrizes de `cortina_malha`, os quantitativos de `quant_cortina` por
+ * parede e o contorno de cada uma. Sem kernel pronto, ou sem nenhuma cortina que ele resolva, devolve `undefined`: a cortina sai como parede
+ * genérica (`ifcGeometryOf` a põe em `walls`) e o exportador registra o aviso.
+ */
+export function curtainsOf(p: Project): IfcCurtainGeo | undefined {
+  if (!temCortina(p)) return undefined;
+  const s = servicoCortina();
+  const malha = s.malha(p);
+  const quant = s.quantidades(p);
+  if (!malha || !quant) return undefined;
+  const resolvidas = new Set(quant.filter((q) => q.papel === 20).map((q) => q.wallId));
+  const montantes = mullionTypesOf(p);
+  const materialDoProto = new Map<number, Id | null>();
+  for (const g of malha.instancias) if (!materialDoProto.has(g.proto)) materialDoProto.set(g.proto, g.materialId);
+  const prototypes: IfcCurtainPrototypeGeo[] = [...malha.protos.values()]
+    .sort((a, b) => a.proto - b.proto)
+    .map((pr) => ({
+      proto: pr.proto,
+      papel: pr.papel as 0 | 1 | 2,
+      typeId: pr.tipoId,
+      ...(pr.papel === 0 && pr.tipoId !== null && montantes[pr.tipoId] ? { shape: montantes[pr.tipoId]!.profile.shape } : {}),
+      materialId: materialDoProto.get(pr.proto) ?? null,
+      mesh: { positions: Array.from(pr.vertices), indices: Array.from(pr.indices) },
+    }));
+  const walls: IfcCurtainWallGeo[] = [];
+  for (const { wall } of paredesCortina(p)) {
+    if (!resolvidas.has(wall.id)) continue;
+    const footprint = footprintOfWall(p, wall.id);
+    if (!footprint) continue;
+    const instances = malha.instancias
+      .filter((g) => g.wallId === wall.id)
+      .flatMap((g) => Array.from({ length: g.n }, (_, k) => ({ proto: g.proto, matrix: Array.from(g.matrizes.subarray(12 * k, 12 * k + 12)) })));
+    const linhas = quant.filter((q) => q.wallId === wall.id);
+    const soma = (filtro: (q: (typeof linhas)[number]) => boolean, valor: (q: (typeof linhas)[number]) => number): number => linhas.filter(filtro).reduce((acc, q) => acc + valor(q), 0);
+    const sistema = linhas.find((q) => q.papel === 20);
+    walls.push({
+      wallId: wall.id,
+      footprint,
+      instances,
+      quantities: {
+        length: sistema?.comprimento ?? 0,
+        grossArea: sistema?.area ?? 0,
+        glassArea: soma((q) => q.papel === 10, (q) => q.areaLiquida),
+        solidArea: soma((q) => q.papel === 11, (q) => q.areaLiquida),
+        mullionLength: soma((q) => q.papel <= 5, (q) => q.comprimento),
+      },
+    });
+  }
+  return { prototypes, walls };
+}
+
+/** Cortina sem geometria do kernel como parede genérica (contorno e cota do tipo de cortina), para sair como `IFCWALL` com aviso. */
+function genericWallOfCurtain(p: Project, wall: Wall): IfcWallGeo | null {
+  const footprint = footprintOfWall(p, wall.id);
+  const z = zDaCortina(p, wall);
+  if (!footprint || !z) return null;
+  return { wallId: wall.id, footprints: [footprint], baseZ: z.z0, height: z.height };
+}
+
 export function ifcGeometryOf(p: Project): IfcGeometry {
   const levels = p.levels.map((l) => l.id);
-  const walls = levels.flatMap((id) => wallsOfLevel(p, id));
+  const curtains = curtainsOf(p);
+  const resolvidas = new Set(curtains?.walls.map((w) => w.wallId) ?? []);
+  // Cortina que o kernel não resolveu (inclusive sem kernel) sai como parede genérica: o exportador avisa.
+  const cortinasGenericas = paredesCortina(p)
+    .filter((c) => !resolvidas.has(c.wall.id))
+    .flatMap((c) => {
+      const g = genericWallOfCurtain(p, c.wall);
+      return g ? [g] : [];
+    });
+  const walls = [...levels.flatMap((id) => wallsOfLevel(p, id)), ...cortinasGenericas];
   // Pisos e lajes com a região resolvida pela junção, como a planta e o DXF (F7.1, 0023 §6). Sem corte, o contorno do elemento.
   const floors = levels
     .flatMap((id) => resolveFloorsWithJunction(p, id))
@@ -248,16 +344,36 @@ export function ifcGeometryOf(p: Project): IfcGeometry {
     .filter((c) => c.prisms.length > 0);
   const ramps = resolveRamps(p).map((r) => rampOf(p, r));
   const railings = railingsOf(p);
-  return { walls, openings: openingsOf(p), floors, slabs, ceilings, roofs, stairs, ramps, ...(railings ? { railings } : {}) };
+  return {
+    walls,
+    openings: openingsOf(p),
+    floors,
+    slabs,
+    ceilings,
+    roofs,
+    stairs,
+    ramps,
+    ...(railings ? { railings } : {}),
+    ...(curtains ? { curtains } : {}),
+  };
+}
+
+/** Texto IFC4 (STEP) do projeto e os avisos de exportação (cortina sem geometria do kernel), no idioma pedido. */
+export function projectIfcComAvisos(p: Project, now: Date = new Date(), lang: Lang = useI18n.getState().lang): { texto: string; avisos: string[] } {
+  const avisos: string[] = [];
+  const texto = exportIfc(p, ifcGeometryOf(p), { timestamp: now.toISOString().slice(0, 19), lang, avisos });
+  return { texto, avisos };
 }
 
 /** Texto IFC4 (STEP) do projeto inteiro, com a data atual no cabeçalho e os nomes padrão no idioma ativo. */
 export function projectIfc(p: Project, now: Date = new Date(), lang: Lang = useI18n.getState().lang): string {
-  return exportIfc(p, ifcGeometryOf(p), { timestamp: now.toISOString().slice(0, 19), lang });
+  return projectIfcComAvisos(p, now, lang).texto;
 }
 
-/** Entrega o `.ifc` pelo mesmo caminho do DXF (`saveText`) e devolve a frase de status. */
-export function saveProjectIfc(p: Project, lang: Lang = useI18n.getState().lang): Promise<string> {
+/** Entrega o `.ifc` pelo mesmo caminho do DXF (`saveText`) e devolve a frase de status, com os avisos de exportação no fim. */
+export async function saveProjectIfc(p: Project, lang: Lang = useI18n.getState().lang): Promise<string> {
   const base = p.name.trim() || (lang === 'en' ? 'project' : 'projeto');
-  return saveText(`${base}.ifc`, projectIfc(p, new Date(), lang));
+  const { texto, avisos } = projectIfcComAvisos(p, new Date(), lang);
+  const status = await saveText(`${base}.ifc`, texto);
+  return avisos.length > 0 ? `${status} ${avisos.join(' ')}` : status;
 }

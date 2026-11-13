@@ -1,12 +1,19 @@
-import type { DimensionStyle, Project } from '@hestia/model';
-import { useI18n, type Lang } from '../editor/i18n.ts';
+import { embutirNaCortina, type DimensionStyle, type OpeningType, type Project } from '@hestia/model';
+import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
 
 /** Opções do seletor de tipo de cada categoria: a lista, a família de agrupamento e o que a prévia desenha. */
 
+/** Paredes: o grupo é "Parede básica" ou "Parede cortina", conforme a família do tipo (decisão 0056, §4.7). */
 export function wallOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
-  return Object.values(p.wallTypes).map((t) => ({ id: t.id, name: t.name, code: t.code, family: familyName('wall', lang), subject: { kind: 'wall', type: t, materials: p.materials } }));
+  return Object.values(p.wallTypes).map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    family: t.family === 'curtain' ? traduzir(lang, 'pct_fam_curtain') : familyName('wall', lang),
+    subject: { kind: 'wall', type: t, materials: p.materials },
+  }));
 }
 
 export function floorOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
@@ -34,10 +41,15 @@ export function rampOptions(p: Project, lang: Lang = useI18n.getState().lang): T
 }
 
 /** Portas (kind `door`) ou janelas (`window`), com a família do símbolo de planta (Porta de giro, Janela de correr…). */
-export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang): TypeOption[] {
+export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang, aceita: (t: OpeningType) => boolean = () => true): TypeOption[] {
   return Object.values(p.openingTypes)
-    .filter((t) => t.kind === kind)
+    .filter((t) => t.kind === kind && aceita(t))
     .map((t) => ({ id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), subject: { kind, type: t } }));
+}
+
+/** Esquadrias oferecidas numa célula de parede cortina: sem as de embutir (a cavidade de parede não existe na cortina). */
+export function openingOptionsDaCortina(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang): TypeOption[] {
+  return openingOptions(p, kind, lang, (t) => !embutirNaCortina(t));
 }
 
 /** Tipos de guarda-corpo: a lista do seletor, todos no grupo `family` (o rótulo vem de quem chama, no idioma ativo). */

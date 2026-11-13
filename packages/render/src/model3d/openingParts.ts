@@ -53,16 +53,17 @@ function mostraNoDetalhe(part: OpeningPart, detail: ReturnType<typeof openingDet
   return true;
 }
 
-/** Material do projeto para o papel lógico da peça: esquadria, vidro, concreto ou metal. */
-function materialIdOf(part: OpeningPart, p: Project, frameId: Id, glassId: Id): Id {
+/** Material do projeto para o papel lógico da peça: esquadria, folha, vidro, concreto ou metal. */
+function materialIdOf(part: OpeningPart, p: Project, frameId: Id, glassId: Id, leafId: Id): Id {
   if (part.material === 'glass') return glassId;
+  if (part.material === 'leaf') return leafId;
   if (part.material === 'concrete') return p.materials['mat_concreto'] ? 'mat_concreto' : frameId;
   if (part.material === 'metal') {
     if (p.materials['mat_aco']) return 'mat_aco';
     if (p.materials['mat_perfil']) return 'mat_perfil';
     return frameId;
   }
-  // 'frame' (batente, montantes, travessas, baguetes), 'leaf' e 'casing' usam o material do batente do tipo.
+  // 'frame' (batente, montantes, travessas, baguetes) e 'casing' usam o material do batente do tipo.
   return frameId;
 }
 
@@ -103,7 +104,7 @@ export function pecasDoModelo(p: Project, t: OpeningType, model: OpeningModel, o
       x: (b.t0 + b.t1) / 2,
       y: (b.s0 + b.s1) / 2,
       z: (b.z0 + b.z1) / 2,
-      materialId: materialIdOf(part, p, t.frameMaterialId, t.glassMaterialId),
+      materialId: materialIdOf(part, p, t.frameMaterialId, t.glassMaterialId, t.leafMaterialId ?? t.frameMaterialId),
       material: part.material,
       role: part.role,
       ...(part.profile ? { profile: part.profile } : {}),

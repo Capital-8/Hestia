@@ -9,6 +9,7 @@
  */
 import { CenaV2, ErroKernelGrave, fonteDeSecoes, type GerenciadorKernelV2 } from '@hestia/geom';
 import { isWall, openingsOfWall, wallsOnLevel, type Id, type Project } from '@hestia/model';
+import { ehParedeCortina, semCortina } from './cortinaProjeto.ts';
 import type { ResolvedFloor } from './floors.ts';
 import { projetoInteiroDaJuncao, type JunctionLevel } from './junctionLevel.ts';
 import type { ResolvedSlab } from './slabs.ts';
@@ -47,13 +48,13 @@ export interface EntradaB {
 /** Cada parede do projeto tem tipo e nÃ­vel e cada abertura tem tipo (senÃ£o a cena nÃ£o a contÃ©m e o Rust calcularia outra coisa). */
 function verificarCobertura(p: Project, a1: CenaA1, a3: CenaA3): void {
   for (const l of p.levels) {
-    for (const w of wallsOnLevel(p, l.id)) {
+    for (const w of semCortina(p, wallsOnLevel(p, l.id))) {
       if (!a1.idDe.has(w.id)) throw new NaoCobertoB(`parede ${w.id} sem tipo ou nÃ­vel: a consulta nÃ£o a cobre`);
       for (const o of openingsOfWall(p, w.id)) if (!a3.aberturaDe.has(o.id)) throw new NaoCobertoB(`abertura ${o.id} sem tipo: a consulta nÃ£o a cobre`);
     }
   }
   // Paredes de nÃ­vel inexistente: o TS as ignora por nÃ­vel, mas a cena de paredes as perderia em silÃªncio.
-  for (const el of Object.values(p.elements)) if (isWall(el) && !a1.idDe.has(el.id)) throw new NaoCobertoB(`parede ${el.id} sem tipo ou nÃ­vel: a consulta nÃ£o a cobre`);
+  for (const el of Object.values(p.elements)) if (isWall(el) && !ehParedeCortina(p, el) && !a1.idDe.has(el.id)) throw new NaoCobertoB(`parede ${el.id} sem tipo ou nÃ­vel: a consulta nÃ£o a cobre`);
 }
 
 function secoesDe(a1: CenaA1, a3: CenaA3, perfis: ReturnType<typeof montarPerfisA3d>, b: CenaB1, b3: CenaB3 | null, forros: CenaForros | null): Secoes {
@@ -273,8 +274,8 @@ export class DespachoB {
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
     const ger = this.gerenciador(levelId);
     if (!ger) return ts();
-    // O Rust tem a cena do projeto inteiro: o projeto reduzido da junção (cópia nova a cada nível) vira o inteiro, senão cada nível reenviaria a
-    // cena toda e as paredes dos níveis cortados pela redução ficariam fora da cobertura.
+    // O Rust tem a cena do projeto inteiro: o projeto reduzido da junï¿½ï¿½o (cï¿½pia nova a cada nï¿½vel) vira o inteiro, senï¿½o cada nï¿½vel reenviaria a
+    // cena toda e as paredes dos nï¿½veis cortados pela reduï¿½ï¿½o ficariam fora da cobertura.
     const inteiro = projetoInteiroDaJuncao.get(p) ?? p;
     const rust = this.exigir(this.juncaoDoRust(inteiro, levelId, ger), inteiro, levelId, 'j');
     if (this.ctx.sombra()) this.compararJuncao(inteiro, levelId, ts, ger, p);

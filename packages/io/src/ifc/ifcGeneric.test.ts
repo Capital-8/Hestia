@@ -46,7 +46,7 @@ function danglingRefs(text: string): number[] {
 
 /** Argumento `CoordIndex` do único `IFCTRIANGULATEDFACESET` do arquivo. */
 function coordIndexArg(text: string): string {
-  const m = /IFCTRIANGULATEDFACESET\(#\d+,\$,\$,(\(.*?\))\);/s.exec(text);
+  const m = /IFCTRIANGULATEDFACESET\(#\d+,\$,\$,(\(.*?\)),\$\);/s.exec(text);
   return m?.[1] ?? '';
 }
 

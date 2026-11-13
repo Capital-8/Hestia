@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 14;
+pub const VERSAO_ESQUEMA: u32 = 18;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -113,6 +113,23 @@ pub const SECAO_PADROES_GUARDA: u32 = 78;
 pub const SECAO_PADRAO_ELEMENTOS_GUARDA: u32 = 79;
 pub const SECAO_PAINEIS_GUARDA: u32 = 80;
 pub const SECAO_NORMAS_GUARDA: u32 = 81;
+/// Parede cortina (decisão 0056, fase 1; esquema v14). Faixa reservada: seções 100 a 139.
+pub const SECAO_CORTINAS: u32 = 100;
+pub const SECAO_TIPOS_CORTINA: u32 = 101;
+pub const SECAO_GRADES_CORTINA: u32 = 102;
+pub const SECAO_GRADE_POSICOES_CORTINA: u32 = 103;
+pub const SECAO_TIPOS_MONTANTE_CORTINA: u32 = 104;
+pub const SECAO_TIPOS_PAINEL_CORTINA: u32 = 105;
+/// Parede cortina, fase 2 (esquema v15): sobrescritas de grade e de célula (ADR 0056 §4.3 e §6.1).
+pub const SECAO_CORTINA_LINHAS_EXTRAS: u32 = 106;
+pub const SECAO_CORTINA_SEGMENTOS_REMOVIDOS: u32 = 107;
+pub const SECAO_CORTINA_LINHAS_SOBRESCRITAS: u32 = 108;
+pub const SECAO_CORTINA_CELULAS_SOBRESCRITAS: u32 = 109;
+/// Parede cortina, fase 3 (esquema v16): a vizinhança de cada ponta (ADR 0056 §6.1 e §6.5).
+pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
+/// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
+pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
+pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -744,6 +761,228 @@ pub const SECOES: &[Secao] = &[
             col("carga_corrimao", Tipo::F64),
         ],
     },
+    Secao {
+        id: SECAO_CORTINAS,
+        nome: "cortinas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("tipo_num", Tipo::U32),
+            col("ax", Tipo::F64),
+            col("ay", Tipo::F64),
+            col("bx", Tipo::F64),
+            col("by", Tipo::F64),
+            col("z_base", Tipo::F64),
+            col("altura", Tipo::F64),
+            col("sag", Tipo::F64),
+            col("flipped", Tipo::U8),
+            col("loc", Tipo::U8),
+            col("flags", Tipo::U8),
+            col("painel_padrao_num", Tipo::U32),
+            col("hosp_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_CORTINA,
+        nome: "tipos_cortina",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("profundidade", Tipo::F64),
+            col("painel_padrao_num", Tipo::U32),
+            col("mont_int_v", Tipo::U32),
+            col("mont_int_h", Tipo::U32),
+            col("mont_borda_ini", Tipo::U32),
+            col("mont_borda_fim", Tipo::U32),
+            col("mont_borda_base", Tipo::U32),
+            col("mont_borda_topo", Tipo::U32),
+            col("mont_canto", Tipo::U32),
+            col("prioridade", Tipo::U8),
+            col("celula_minima", Tipo::F64),
+            col("faceta_max", Tipo::F64),
+            col("cadeia_grade", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_GRADES_CORTINA,
+        nome: "grades_cortina",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("dono", Tipo::U8),
+            col("dono_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("modo", Tipo::U8),
+            col("numero", Tipo::U32),
+            col("distancia", Tipo::F64),
+            col("justificacao", Tipo::U8),
+            col("ancora", Tipo::U8),
+            col("deslocamento", Tipo::F64),
+            col("angulo", Tipo::F64),
+            col("resto_minimo", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_GRADE_POSICOES_CORTINA,
+        nome: "grade_posicoes_cortina",
+        chave: "id_num",
+        colunas: &[col("id_num", Tipo::U32), col("grade_num", Tipo::U32), col("ordem", Tipo::U32), col("pos", Tipo::F64)],
+    },
+    Secao {
+        id: SECAO_TIPOS_MONTANTE_CORTINA,
+        nome: "tipos_montante_cortina",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("forma", Tipo::U8),
+            col("largura", Tipo::F64),
+            col("profundidade", Tipo::F64),
+            col("espessura", Tipo::F64),
+            col("largura2", Tipo::F64),
+            col("deslocamento", Tipo::F64),
+            col("posicao", Tipo::U8),
+            col("material_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_TIPOS_PAINEL_CORTINA,
+        nome: "tipos_painel_cortina",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("tipo", Tipo::U8),
+            col("espessura", Tipo::F64),
+            col("deslocamento", Tipo::F64),
+            col("encaixe", Tipo::F64),
+            col("material_num", Tipo::U32),
+            col("vidro_tipo", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_LINHAS_EXTRAS,
+        nome: "cortina_linhas_extras",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("pos", Tipo::F64),
+            col("travada", Tipo::U8),
+            col("comp_gravado", Tipo::F64),
+            col("montante_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_SEGMENTOS_REMOVIDOS,
+        nome: "cortina_segmentos_removidos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("origem", Tipo::U8),
+            col("linha_num", Tipo::U32),
+            col("pos_norm", Tipo::F64),
+            col("n", Tipo::U32),
+            col("k", Tipo::U32),
+            col("nk", Tipo::U32),
+            col("mid", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_LINHAS_SOBRESCRITAS,
+        nome: "cortina_linhas_sobrescritas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("eixo", Tipo::U8),
+            col("linha_num", Tipo::U32),
+            col("pos_norm", Tipo::F64),
+            col("n", Tipo::U32),
+            col("travada", Tipo::U8),
+            col("pos", Tipo::F64),
+            col("comp_gravado", Tipo::F64),
+            col("montante_modo", Tipo::U8),
+            col("montante_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_CELULAS_SOBRESCRITAS,
+        nome: "cortina_celulas_sobrescritas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("i", Tipo::U32),
+            col("j", Tipo::U32),
+            col("s", Tipo::F64),
+            col("z", Tipo::F64),
+            col("nu", Tipo::U32),
+            col("nv", Tipo::U32),
+            col("painel_num", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_EXTREMIDADES,
+        nome: "cortina_extremidades",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("fim", Tipo::U8),
+            col("vizinha_num", Tipo::U32),
+            col("vizinha_tipo", Tipo::U8),
+            col("lado", Tipo::U8),
+            col("flags", Tipo::U8),
+            col("angulo", Tipo::F64),
+            col("face1_ax", Tipo::F64),
+            col("face1_ay", Tipo::F64),
+            col("face1_bx", Tipo::F64),
+            col("face1_by", Tipo::F64),
+            col("face2_ax", Tipo::F64),
+            col("face2_ay", Tipo::F64),
+            col("face2_bx", Tipo::F64),
+            col("face2_by", Tipo::F64),
+            col("espessura_vizinha", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_CELULAS_ABERTURA,
+        nome: "cortina_celulas_abertura",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("i", Tipo::U32),
+            col("j", Tipo::U32),
+            col("s", Tipo::F64),
+            col("z", Tipo::F64),
+            col("nu", Tipo::U32),
+            col("nv", Tipo::U32),
+            col("tipo_abertura_num", Tipo::U32),
+            col("flip_mao", Tipo::U8),
+            col("flip_sentido", Tipo::U8),
+            col("ajuste", Tipo::U8),
+            col("alinhamento", Tipo::U8),
+            col("soleira", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_HOSPEDES,
+        nome: "cortina_hospedes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("hospedeiro_num", Tipo::U32),
+            col("deslocamento", Tipo::F64),
+            col("largura", Tipo::F64),
+            col("peitoril", Tipo::F64),
+            col("altura", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -796,6 +1035,36 @@ pub const CONSULTA_GUARDA_PLANTA: u32 = 62;
 pub const CONSULTA_GUARDA_CORTE: u32 = 63;
 pub const CONSULTA_QUANT_GUARDA: u32 = 64;
 pub const CONSULTA_GUARDA_AVISOS: u32 = 65;
+/// Parede cortina (decisão 0056, fase 1). Faixa reservada: consultas 100 a 119 (a 103, `cortina_corte`, é da fase 6).
+pub const CONSULTA_CORTINA_GRADE: u32 = 100;
+pub const CONSULTA_CORTINA_MALHA: u32 = 101;
+pub const CONSULTA_CORTINA_PLANTA: u32 = 102;
+pub const CONSULTA_QUANT_CORTINA: u32 = 104;
+pub const CONSULTA_CORTINA_AVISOS: u32 = 105;
+/// Fase 5 (esquema v17): recorte da cortina embutida no hospedeiro e vão virtual da esquadria na célula.
+pub const CONSULTA_CORTINA_RECORTE_HOSPEDEIRO: u32 = 106;
+pub const CONSULTA_CORTINA_CELULA_PORTA: u32 = 107;
+
+/// Códigos de `cortina_avisos.avisos[1]` (ADR 0056 §5.8): o TS decide o texto e a severidade.
+pub const AVISO_CORTINA_CELULA_PEQUENA: u32 = 1;
+pub const AVISO_CORTINA_MONTANTE_SOBREPOSTO: u32 = 2;
+pub const AVISO_CORTINA_SOBRA_FUNDIDA: u32 = 3;
+pub const AVISO_CORTINA_POSICAO_FORA: u32 = 4;
+pub const AVISO_CORTINA_PROFUNDIDADE_MENOR_QUE_PERFIL: u32 = 5;
+pub const AVISO_CORTINA_ARCO_NAO_SUPORTADO: u32 = 6;
+/// Fase 2 (§4.4 e §5.2). Órfã: a sobrescrita de célula (7), de linha (8) ou de segmento (9) não se aplica à grade nova e sai do modelo na próxima
+/// edição (`normalizarSobrescritas`). Os três são o aviso `cortina-override-orfao` do ADR; o código separa o alvo para "Ir para".
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_CELULA: u32 = 7;
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_LINHA: u32 = 8;
+pub const AVISO_CORTINA_OVERRIDE_ORFAO_SEGMENTO: u32 = 9;
+/// Remoção de segmento recusada: a região fundida deixaria de ser retângulo (ADR §5.2). `i` e `j` são a célula de referência.
+pub const AVISO_CORTINA_CELULA_NAO_RETANGULAR: u32 = 10;
+/// Fase 5 (§7.5): a largura livre da célula é menor que a folha mínima do tipo (11); porta sem soleira numa fileira acima do piso (12); a esquadria nominal
+/// (`ajuste` grid) é maior que a célula livre e o vão foi limitado a ela (13). `i`, `j` = a célula. Os dois primeiros são o `cortina-porta-folha-minima` e o
+/// `cortina-porta-fora-do-piso` do ADR.
+pub const AVISO_CORTINA_PORTA_FOLHA_MINIMA: u32 = 11;
+pub const AVISO_CORTINA_PORTA_FORA_DO_PISO: u32 = 12;
+pub const AVISO_CORTINA_ESQUADRIA_MAIOR_QUE_CELULA: u32 = 13;
 
 pub const CONSULTAS: &[Consulta] = &[
     Consulta {
@@ -1075,6 +1344,90 @@ pub const CONSULTAS: &[Consulta] = &[
         saidas: &[
             SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_GRADE,
+        nome: "cortina_grade",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
+            SaidaDef { nome: "celulas", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "celulas_ret", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "segmentos", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "segmentos_ext", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_MALHA,
+        nome: "cortina_malha",
+        args: &["nivel_num", "lod"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "prototipos", tipo: Tipo::U32, elementos: Elementos::Multiplo(8) },
+            SaidaDef { nome: "vertices", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices", tipo: Tipo::U32, elementos: Elementos::N },
+            SaidaDef { nome: "instancias", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "matrizes", tipo: Tipo::F64, elementos: Elementos::Multiplo(12) },
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(6) },
+            SaidaDef { nome: "vertices_av", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices_av", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_PLANTA,
+        nome: "cortina_planta",
+        args: &["nivel_num", "corte_z", "detalhe"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_CORTINA,
+        nome: "quant_cortina",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_AVISOS,
+        nome: "cortina_avisos",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_RECORTE_HOSPEDEIRO,
+        nome: "cortina_recorte_hospedeiro",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "recortes", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "retangulos", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "colisoes", tipo: Tipo::U32, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "colisoes_ret", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_CORTINA_CELULA_PORTA,
+        nome: "cortina_celula_porta",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "portas", tipo: Tipo::U32, elementos: Elementos::Multiplo(10) },
+            SaidaDef { nome: "vaos", tipo: Tipo::F64, elementos: Elementos::Multiplo(10) },
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
         ],
     },
 ];

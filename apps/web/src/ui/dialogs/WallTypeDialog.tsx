@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactElement } from 'react';
-import { formatQuantity, functionLabels, FUNCTION_LABEL, coreRange, layerPriority, newId, totalThickness, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
+import { CURTAIN_PRESET_ID, curtainPresetType, formatQuantity, functionLabels, FUNCTION_LABEL, coreRange, isCurtainType, layerPriority, newId, wallThicknessOf, wallTypeUsage, type Layer, type LayerFunction, type WallType, type WrapMode } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { NumField, TextField } from '../fields.tsx';
@@ -13,9 +13,11 @@ import { StripsTab, stripError } from './StripsTab.tsx';
 import { TypeParams } from './TypeParams.tsx';
 import { useUnits } from '../useUnits.ts';
 import { useT } from '../../editor/i18n.ts';
+import { AbaCortina } from './CurtainTab.tsx';
+import { AbaMontantes } from './MontantesTab.tsx';
 
 const FUNCTIONS = Object.keys(FUNCTION_LABEL) as LayerFunction[];
-type Tab = 'estrutura' | 'faixas' | 'graficos' | 'identidade';
+type Tab = 'estrutura' | 'faixas' | 'graficos' | 'identidade' | 'cortina' | 'montantes';
 
 export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | null {
   const units = useUnits();
@@ -45,6 +47,11 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const core = coreRange(draft);
   const stripsInvalid = draft.strips.some((s) => stripError(s, lang) !== null);
+  // Tipo cortina (decisão 0056): tem as abas Cortina e Montantes, e não tem camadas, faixas nem gráficos de camada.
+  const curtainDraft = isCurtainType(draft) ? draft : null;
+  const aba: Tab = curtainDraft
+    ? (tab === 'identidade' || tab === 'montantes' ? tab : 'cortina')
+    : (tab === 'cortina' || tab === 'montantes' ? 'estrutura' : tab);
   const setLayer = (i: number, patch: Partial<Layer>): void => setDraft({ ...draft, layers: draft.layers.map((l, k) => (k === i ? { ...l, ...patch } : l)) });
   const replaceLayer = (i: number, next: Layer): void => setDraft({ ...draft, layers: draft.layers.map((l, k) => (k === i ? next : l)) });
   const move = (i: number, d: -1 | 1): void => {
@@ -68,20 +75,34 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
       setAdv(null);
     }
   };
-  /** Grava como o OK, mas o diálogo segue aberto com o rascunho. */
-  const apply = (): void => {
+  /** Grava como o OK, mas o diálogo segue aberto com o rascunho. Erro de validação (cortina inválida) vai para a barra de status. */
+  const gravar = (fechar: boolean): void => {
     if (stripsInvalid) return;
-    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'undo_edit_wall_type');
+    try {
+      editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'undo_edit_wall_type');
+      if (fechar) close();
+    } catch (e) {
+      useUi.setState({ status: e instanceof Error ? e.message : { key: 'dlt_err_delete_generic' } });
+    }
   };
-  const ok = (): void => {
-    if (stripsInvalid) return;
-    editor.store.exec({ type: 'upsertWallType', wallType: draft }, 'undo_edit_wall_type');
-    close();
-  };
+  const apply = (): void => gravar(false);
+  const ok = (): void => gravar(true);
   const duplicate = (): void => {
     const copy = { ...draft, id: newId('wt'), name: `${draft.name} ${t('dlt_duplicate_suffix')}` };
     editor.store.exec({ type: 'upsertWallType', wallType: copy }, 'dlo_cmd_duplicate');
     useUi.setState({ dialogArg: copy.id });
+  };
+  /** Cria um tipo cortina a partir da predefinição "vidraça de fachada" (decisão 0056, §4.5). */
+  const duplicateAsCurtain = (): void => {
+    const base = curtainPresetType(CURTAIN_PRESET_ID.vitrine, lang);
+    if (!base) return;
+    const novo: WallType = { ...base, id: newId('wt') };
+    try {
+      editor.store.exec({ type: 'upsertWallType', wallType: novo }, 'dlo_cmd_duplicate');
+      useUi.setState({ dialogArg: novo.id });
+    } catch (e) {
+      useUi.setState({ status: e instanceof Error ? e.message : { key: 'dlt_err_delete_generic' } });
+    }
   };
   const del = (): void => {
     try {
@@ -97,7 +118,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
         title={t('dlt_wall_title')}
         sub={t(usage === 1 ? 'dlt_wall_sub_one' : 'dlt_wall_sub_many', { n: usage })}
         onClose={close}
-        family={FAMILY.wall}
+        family={curtainDraft ? t('pct_fam_curtain') : FAMILY.wall}
         types={Object.values(p.wallTypes)}
         currentId={draft.id}
         onDuplicate={duplicate}
@@ -110,19 +131,32 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
           onOk: ok,
           saveDisabled: stripsInvalid,
           saveTitle: stripsInvalid ? t('dlt_wall_fix_strips') : undefined,
+          afterDelete: curtainDraft ? undefined : <button className="btn" onClick={duplicateAsCurtain}>{t('pct_dup_curtain')}</button>,
         }}
       >
         <FamilyTabs
-          tabs={[
-            { id: 'estrutura', label: t('dlt_tab_structure') },
-            { id: 'faixas', label: t('dlt_tab_strips') },
-            { id: 'graficos', label: t('dlt_tab_graphics') },
-            { id: 'identidade', label: t('dlt_tab_identity') },
-          ]}
-          value={tab}
+          tabs={
+            curtainDraft
+              ? [
+                  { id: 'cortina', label: t('pct_tab_curtain') },
+                  { id: 'montantes', label: t('pct_tab_mullions') },
+                  { id: 'identidade', label: t('dlt_tab_identity') },
+                ]
+              : [
+                  { id: 'estrutura', label: t('dlt_tab_structure') },
+                  { id: 'faixas', label: t('dlt_tab_strips') },
+                  { id: 'graficos', label: t('dlt_tab_graphics') },
+                  { id: 'identidade', label: t('dlt_tab_identity') },
+                ]
+          }
+          value={aba}
           onChange={setTab}
         />
-        {tab === 'estrutura' && (
+        {aba === 'cortina' && curtainDraft?.curtain && (
+          <AbaCortina curtain={curtainDraft.curtain} project={p} onChange={(curtain) => setDraft({ ...draft, curtain })} />
+        )}
+        {aba === 'montantes' && <AbaMontantes project={p} />}
+        {aba === 'estrutura' && (
           <div className="split">
             <div style={{ minWidth: 0 }}>
               <div className="table-scroll">
@@ -178,7 +212,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
                 </tbody>
               </table>
               </div>
-              <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', totalThickness(draft))}</strong></div>
+              <div className="total"><span>{t('dlt_total_thickness')}</span><strong>{formatQuantity(units, 'smallLength', wallThicknessOf(draft))}</strong></div>
               <button className="btn small" onClick={insert}>{t('dlt_add_layer')}</button>
               <div style={{ marginTop: 10 }} />
               <FamilyRow label={t('dlt_wrap_inserts')} htmlFor="wt-wrap-ins" title={t('dlt_tt_wrap_inserts')}>
@@ -200,10 +234,10 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
             </div>
           </div>
         )}
-        {tab === 'faixas' && (
+        {aba === 'faixas' && (
           <StripsTab strips={draft.strips} materials={p.materials} onChange={(strips) => setDraft({ ...draft, strips })} onPickMaterial={setStripPick} />
         )}
-        {tab === 'graficos' && (
+        {aba === 'graficos' && (
           <div>
             <p className="hint" style={{ padding: '0 0 8px' }}>{t('dlt_wall_graphics_help')}</p>
             <table className="layers">
@@ -224,7 +258,7 @@ export function WallTypeDialog({ typeId }: { typeId: string }): ReactElement | n
             <p><button className="chiplink" onClick={() => setPick(0)}>{t('dlt_open_material_browser')}</button></p>
           </div>
         )}
-        {tab === 'identidade' && (
+        {aba === 'identidade' && (
           <>
             <FamilyRow label={t('dlt_col_code')} htmlFor="wt-code"><TextField id="wt-code" value={draft.code} onCommit={(v) => setDraft({ ...draft, code: v })} /></FamilyRow>
             <FamilyRow label={t('stt_f_description')} htmlFor="wt-desc"><TextField id="wt-desc" value={draft.description} onCommit={(v) => setDraft({ ...draft, description: v })} /></FamilyRow>

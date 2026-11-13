@@ -18,7 +18,7 @@ export type ShortcutMap = Partial<Record<ShortcutCommand, string>>;
  * As sequências livres de conflito dos comandos sem atalho no Revit: Extrusão de telhado (TE), Separador de ambiente (RS), Atalhos de teclado (KS), Unidades do projeto (UN) e Criar semelhante (CS).
  */
 export const PERFIL_REVIT: ShortcutMap = {
-  wall: 'WA', door: 'DR', window: 'WN', floor: 'SB', slab: 'LJ', ceiling: 'FR', slope: 'IN', roof: 'TL', roofarrow: 'SI', roofextrusion: 'TE',
+  wall: 'WA', door: 'DR', window: 'WN', curtainDoor: 'CP', curtainWindow: 'CJ', curtainGridLine: 'CG', floor: 'SB', slab: 'LJ', ceiling: 'FR', slope: 'IN', roof: 'TL', roofarrow: 'SI', roofextrusion: 'TE',
   attachroof: 'AT', detachroof: 'DT', stair: 'ES', stairrun: 'LE', ramp: 'RA', railing: 'GC', room: 'RM', roomsep: 'RS', dimension: 'DI', angularDimension: 'DA', text: 'TX',
   move: 'MV', copy: 'CO', rotate: 'RO', mirror: 'MM', array: 'AR', offset: 'OF', parallel: 'PP', trim: 'TR', align: 'AL', joins: 'UG',
   split: 'SL', measure: 'ME', level: 'LL', section: 'CT', rehost: 'TH', atalhos: 'KS', unidades: 'UN', createSimilar: 'CS',
@@ -35,7 +35,7 @@ export const PERFIL_REVIT: ShortcutMap = {
  * Etiqueta (VT), Grade (VG), Unidades (VU) e Criar semelhante (VS) dividem a letra V: acabaram as teclas livres, então usam duas teclas.
  */
 export const PERFIL_SIMPLES: ShortcutMap = {
-  wall: 'W', floor: 'F', slab: 'B', roof: 'U', door: 'D', window: 'J', move: 'M', copy: 'C', rotate: 'R', mirror: 'S', array: 'A', offset: 'O',
+  wall: 'W', floor: 'F', slab: 'B', roof: 'U', door: 'D', window: 'J', curtainDoor: 'VK', curtainWindow: 'VJ', curtainGridLine: 'VR', move: 'M', copy: 'C', rotate: 'R', mirror: 'S', array: 'A', offset: 'O',
   parallel: 'G', trim: 'T', align: 'L', joins: 'N', split: 'P', measure: 'E', level: 'VL', section: 'K', rehost: 'H', stair: 'I', stairrun: 'Q', ramp: ',', railing: 'VC',
   dimension: 'Y', angularDimension: 'VD', text: 'X', room: 'Z',
   ceiling: '1', slope: '2', roofarrow: '3', roofextrusion: '4', attachroof: '5', detachroof: '6', roomsep: '7', atalhos: '8', unidades: 'VU', createSimilar: 'VS',

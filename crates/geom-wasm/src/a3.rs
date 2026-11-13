@@ -86,7 +86,7 @@ pub fn geometria_da_abertura(f: &Quadro, t: &TipoAbertura, o: &Abertura) -> Geom
 }
 
 /// `orientedRect(cx, cy, ux, uy, halfAlong, halfAcross)`, os 4 vértices na ordem do TS.
-fn retangulo_orientado(c: V, u: V, along: f64, across: f64) -> Anel {
+pub(crate) fn retangulo_orientado(c: V, u: V, along: f64, across: f64) -> Anel {
     let vx = -u.y;
     let vy = u.x;
     vec![

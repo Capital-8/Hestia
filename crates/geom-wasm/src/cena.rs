@@ -16,6 +16,7 @@ use crate::indice::{Caixa, Indice};
 use crate::secoes_a1::{ParedeZ, SecoesA1};
 use crate::secoes_a3::SecoesA3;
 use crate::secoes_b::SecoesB;
+use crate::secoes_cortina::SecoesCortina;
 use crate::secoes_gc::SecoesGC;
 
 /// Módulo máximo aceito para uma coordenada ou espessura (metros). Evita `inf` em somas e
@@ -318,6 +319,8 @@ pub struct Cena {
     /// Seções da B1 (`pisos`, `lajes`, tipos, camadas, contornos e furos).
     pub(crate) b: SecoesB,
     pub(crate) gc: SecoesGC,
+    /// Seções da parede cortina (100 a 105); a cortina não passa pelo resolvedor de camadas das paredes.
+    pub(crate) cortina: SecoesCortina,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
@@ -384,7 +387,8 @@ impl Cena {
     fn invalidar_caches(&mut self, secao_id: u32) {
         use esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PAREDES_Z_JUNCAO, SECAO_PERFIS_Z_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
         // As seções do guarda-corpo (60 a 81) não entram em nenhum cache de paredes, pisos, lajes ou forros.
-        if SecoesGC::e_minha(secao_id) {
+        // Idem as da parede cortina (100 a 112); a 113 (`cortina_hospedes`) NÃO: ela recorta o hospedeiro no nível resolvido das paredes, como uma abertura.
+        if SecoesGC::e_minha(secao_id) || (SecoesCortina::e_minha(secao_id) && secao_id != esquema::SECAO_CORTINA_HOSPEDES) {
             return;
         }
         let so_b = SecoesB::e_minha(secao_id);
@@ -434,6 +438,7 @@ impl Cena {
             s if SecoesA3::e_minha(s) => self.a3.definir(s, n_linhas, bytes),
             s if SecoesB::e_minha(s) => self.b.definir(s, n_linhas, bytes),
             s if SecoesGC::e_minha(s) => self.gc.definir(s, n_linhas, bytes),
+            s if SecoesCortina::e_minha(s) => self.cortina.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         };
         if r.is_ok() {
@@ -462,6 +467,7 @@ impl Cena {
             s if SecoesA3::e_minha(s) => self.a3.upsert(s, n_linhas, bytes),
             s if SecoesB::e_minha(s) => self.b.upsert(s, n_linhas, bytes),
             s if SecoesGC::e_minha(s) => self.gc.upsert(s, n_linhas, bytes),
+            s if SecoesCortina::e_minha(s) => self.cortina.upsert(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -491,6 +497,10 @@ impl Cena {
             }
             s if SecoesGC::e_minha(s) => {
                 self.gc.remover(s, ids);
+                Ok(())
+            }
+            s if SecoesCortina::e_minha(s) => {
+                self.cortina.remover(s, ids);
                 Ok(())
             }
             _ => Err(ENTRADA),

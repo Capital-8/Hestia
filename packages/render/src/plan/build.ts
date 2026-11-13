@@ -1,6 +1,6 @@
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { buildOpeningModel, cutLevelByJunction, frameOfWall, openingGeometry, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab } from '@hestia/engine';
-import { openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Project } from '@hestia/model';
+import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -19,6 +19,7 @@ import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
+import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
@@ -93,6 +94,8 @@ export interface PlanInput {
   hover: Id | null;
   /** Parede em conflito (decisão 0044): realçada em amarelo na camada de hover. */
   aviso?: Id | null;
+  /** Subelemento da parede cortina selecionada (ADR 0056, fase 2): realçado na camada de seleção. */
+  subelemento?: import('@hestia/model').SubelementoCortina | null;
   preview: PreviewItem[];
   inference: Inference | null;
   showGrid: boolean;
@@ -181,6 +184,7 @@ function openingSymbolStrokes(
 ): StrokeOp[] {
   if (detail === 'coarse') return [];
   const out: StrokeOp[] = [];
+  const ctx: ContextoSimbolo = { paint, theme, fillBase, zoom, limiares, view };
   for (const w of paredesDoNivel(p, levelId)) {
     // A visibilidade da abertura é dela (`hidden.has(o.id)`), não do hospedeiro: parede oculta não oculta a esquadria.
     const f = frameOfWall(p, w.id);
@@ -189,31 +193,55 @@ function openingSymbolStrokes(
       if (hidden?.has(o.id)) continue;
       const g = openingGeometry(p, o, f);
       if (oculto?.(g.center)) continue;
-      const type = openingTypeById(p, o.typeId);
-      if (!type) continue;
-      const pt = paint[g.kind];
       const model = buildOpeningModel(p, o, g, f);
-      // O nível de detalhe pelo zoom entra nos limiares da geometria: o quadro só a refaz quando cruza 1 px = 0,012 m
-      // ou 1 px = 0,004 m (ver `limiares.ts`), e a lista de desenho continua a mesma entre os limiares.
-      const detail2d = openingPlanDetail(openingDetail2d(type), zoom, limiares);
-      const cls = view?.cls.get(o.id);
-      // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
-      // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
-      const cutLocal = view ? view.cutZ - (f.z?.z0 ?? 0) - g.sill : model.height / 2;
-      const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
-        model,
-        detail: detail2d,
-        angle: (openingAngle2d(type) * Math.PI) / 180,
-        planDisplay: openingPlanDisplay(type),
-        showSwing: openingShowSwing(type),
-        swingStyle: openingSwingStyle(type),
-        leafPlan: openingLeafPlan(type),
-        cutZ: cls === undefined || cls === 'cut' ? cutLocal : model.height / 2,
-      });
-      out.push(...paintOps({ fills: [], strokes: sym, labels: [] }, pt, fillBase).strokes);
+      out.push(...tracosDaAbertura(p, o, g, model, f.z?.z0 ?? 0, view?.cls.get(o.id), ctx));
     }
   }
+  // Esquadrias das células das paredes cortina (ADR 0056 §7.6): `Opening` virtual no vão do kernel, com o mesmo desenho das esquadrias comuns.
+  for (const e of esquadriasDaCortina(p, levelId)) {
+    if (hidden?.has(e.wallId) || oculto?.(e.geometria.center)) continue;
+    const cls = view ? viewClassOf(view.range, levelElevation(p, levelId), e.baseZ + e.geometria.sill, e.baseZ + e.geometria.sill + e.geometria.height) : undefined;
+    out.push(...tracosDaAbertura(p, e.opening, e.geometria, modeloDaEsquadriaCortina(p, e), e.baseZ, cls, ctx));
+  }
   return out;
+}
+
+/** O que o símbolo de uma abertura lê da planta: o estilo, o zoom (para o detalhe) e a vista. */
+interface ContextoSimbolo {
+  paint: PlanStyle['paint'];
+  theme: PlanTheme;
+  fillBase: string;
+  zoom: number;
+  limiares: Limiares;
+  view: PlanView | null;
+}
+
+/**
+ * Traços do símbolo de UMA abertura (comum ou virtual de cortina), no estilo da categoria dela. `baseZ` é a cota absoluta da base da parede que a hospeda
+ * (o corte é absoluto na vista; o modelo usa z local: soleira = 0).
+ */
+function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: OpeningModel, baseZ: number, cls: ViewClass | undefined, c: ContextoSimbolo): StrokeOp[] {
+  const { paint, theme, fillBase, zoom, limiares, view } = c;
+  const type = openingTypeById(p, o.typeId);
+  if (!type) return [];
+  const pt = paint[g.kind];
+  // O nível de detalhe pelo zoom entra nos limiares da geometria: o quadro só a refaz quando cruza 1 px = 0,012 m
+  // ou 1 px = 0,004 m (ver `limiares.ts`), e a lista de desenho continua a mesma entre os limiares.
+  const detail2d = openingPlanDetail(openingDetail2d(type), zoom, limiares);
+  // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
+  // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
+  const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
+  const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
+    model,
+    detail: detail2d,
+    angle: (openingAngle2d(type) * Math.PI) / 180,
+    planDisplay: openingPlanDisplay(type),
+    showSwing: openingShowSwing(type),
+    swingStyle: openingSwingStyle(type),
+    leafPlan: openingLeafPlan(type),
+    cutZ: cls === undefined || cls === 'cut' ? cutLocal : model.height / 2,
+  });
+  return paintOps({ fills: [], strokes: sym, labels: [] }, pt, fillBase).strokes;
 }
 
 /**
@@ -347,6 +375,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
+  if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
   if (profile.ceilings && up) addOps(ceilingFills(p, input.levelId, theme, input.dark, detail, v, hidden, paint.floor, style.scale), paint.floor, true);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { guardaCorpoAvisosDeGeometria, servicoGuardaCorpo } from '@hestia/engine';
+import { cortinaAvisosDeGeometria, cortinaAvisosSemKernel, guardaCorpoAvisosDeGeometria, servicoCortina, servicoGuardaCorpo, temCortina } from '@hestia/engine';
 import { isGuardaCorpo, type Project, type ValidationIssue } from '@hestia/model';
 import { useProject } from './controller.ts';
 import { useI18n } from './i18n.ts';
@@ -15,6 +15,16 @@ export function avisosGeometriaGuardaCorpo(p: Project, lang = useI18n.getState()
 }
 
 /**
+ * Avisos da parede cortina (decisão 0056): as medidas vêm do kernel Rust; sem o kernel pronto aparece o aviso `cortina-sem-kernel` (a cortina vira só o eixo).
+ * Vazio sem cortina no projeto.
+ */
+export function avisosGeometriaCortina(p: Project, lang = useI18n.getState().lang): ValidationIssue[] {
+  if (!temCortina(p)) return [];
+  const s = servicoCortina();
+  return s.pronto() ? cortinaAvisosDeGeometria(s.avisos(p), lang) : cortinaAvisosSemKernel(p, lang);
+}
+
+/**
  * Avisos de validação do projeto atual. Todo modelo é validado depois de SETTLE_MS sem novas mudanças (até lá, mostra o
  * resultado anterior; na abertura, lista vazia). Antes, modelos com até 2000 elementos eram validados na mesma renderização,
  * o que somava o custo dos avisos à abertura. O resultado final é o mesmo: `agendarAvisos` usa `avisosDoProjeto`.
@@ -25,8 +35,9 @@ export function useIssues(): ValidationIssue[] {
   const [settled, setSettled] = useState<ValidationIssue[]>([]);
   const [kernelPronto, setKernelPronto] = useState(0);
   useEffect(() => servicoGuardaCorpo().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
+  useEffect(() => servicoCortina().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(
-    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project)])),
+    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project)])),
     // `kernelPronto` refaz a lista quando o kernel carrega ou é trocado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, kernelPronto],

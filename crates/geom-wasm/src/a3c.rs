@@ -153,7 +153,8 @@ fn resolver_grupo(
     aberturas_planta: &Option<BTreeSet<u32>>,
 ) -> Result<GrupoResolvido, u32> {
     let itens = &g.itens;
-    let abre_na_planta = |id: u32| aberturas_planta.as_ref().map_or(true, |s| s.contains(&id));
+    // O vão de uma cortina embutida (bit alto) fura sempre a planta: `planOpenings` só fala das aberturas.
+    let abre_na_planta = |id: u32| id & crate::cortina_hosp::BIT_HOSPEDE != 0 || aberturas_planta.as_ref().map_or(true, |s| s.contains(&id));
 
     // `paintFor(active)`: pintura só entre os itens ativos (cache por conjunto ativo; o `plan` é o do pintor da A2).
     let mut cache: HashMap<Vec<usize>, Rc<Vec<MultiPoligono>>> = HashMap::new();
@@ -321,6 +322,12 @@ pub fn resolver_nivel(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDoCluste
             .filter(|(_, a, _, _)| paredes.contains(&a.parede))
             .map(|(id, a, _, geo)| VaoDoGrupo { id: *id, parede: a.parede, peitoril: geo.peitoril, vao_altura: geo.vao_altura, retangulo: retangulo_do_vao(geo) })
             .collect();
+        // Cortinas embutidas (fase 5, seção 113): o vão recorta o hospedeiro em todas as camadas, como uma abertura sem retorno.
+        let mut vaos = vaos;
+        if !cena.cortina.hospedes.is_empty() {
+            let quadros: Vec<&crate::quadro::Quadro> = g.membros.iter().map(|&i| &pintado.quadros[i]).collect();
+            vaos.extend(crate::cortina_hosp::vaos_dos_hospedes(cena, &quadros).into_iter().map(|(id, parede, peitoril, vao_altura, retangulo)| VaoDoGrupo { id, parede, peitoril, vao_altura, retangulo }));
+        }
         let mut retornos: BTreeMap<(u32, i64), Vec<(u32, MultiPoligono)>> = BTreeMap::new();
         for r in todos_retornos.iter().filter(|r| r.grupo as usize == gi) {
             retornos.entry((r.parede, r.camada as i64)).or_default().push((r.abertura, r.poly.clone()));

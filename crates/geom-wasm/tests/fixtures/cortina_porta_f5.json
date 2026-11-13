@@ -1,0 +1,33 @@
+{
+  "$comentario": "Casos da esquadria na célula (fase 5 da parede cortina, ADR 0056 §7). Não vêm da referência TS (não há referência nesta fase): ENTRADA e SAÍDA foram conferidas à mão. Cortina reta de (0,0) a (4,0), altura 3, grade de nu x nv células iguais, todos os montantes retangulares de 50 mm (a borda fica embutida: face a 0,05 da ponta; o interior fica no centro da linha: face a 0,025), folga da folha de 4 mm, limiar de resto 0,15. Entrada: o tipo de abertura (largura, altura, janela, folhas, plano) e a esquadria (i, j da célula; ajuste 0 preenche e 1 grade ajustada; alinhamento 0 centro, 1 início, 2 fim; soleira null = NaN). Saída esperada: o vão [s0, s1, z0, z1], lados (bits 1 esquerda, 2 direita, 4 base, 8 topo = tem montante), flags (1 soleira derivada, 2 limitada, 4 folha mínima, 8 fora do piso), linhas de grade pedidas [eixo, pos] e os códigos de aviso da esquadria (11, 12, 13).",
+  "versao": 1,
+  "casos": [
+    { "id": "celula_porta", "descricao": "porta 0,8 preenchendo a célula (1,0) de 1 m: faces 1,025 e 1,975, menos 4 mm; da base (soleira derivada) à face de cima (2,95)",
+      "nu": 4, "nv": 1, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 0, "ajuste": 0, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [1.029, 1.971, 0.0, 2.95], "lados": 11, "flags": 1, "linhas": [], "avisos": [] } },
+    { "id": "celula_janela", "descricao": "janela com peitoril de 0,9 sobre a face de baixo (0,05): base em 0,95; o montante da base fica (bit 4)",
+      "nu": 4, "nv": 1, "tipo": { "largura": 1.0, "altura": 1.0, "janela": true, "folhas": 1, "plano": 6 }, "abertura": { "i": 1, "j": 0, "ajuste": 0, "alinhamento": 0, "soleira": 0.9 },
+      "esperado": { "vao": [1.029, 1.971, 0.95, 2.95], "lados": 15, "flags": 0, "linhas": [], "avisos": [] } },
+    { "id": "grade_centro", "descricao": "porta 0,8 x 2,1 no centro da célula (1,0) de 2 m (s de 2 a 4): sobra de 0,6 de cada lado",
+      "nu": 2, "nv": 1, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 0, "ajuste": 1, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [2.6, 3.4, 0.0, 2.1], "lados": 11, "flags": 1, "linhas": [[0, 2.6], [0, 3.4], [1, 2.1]], "avisos": [] } },
+    { "id": "grade_inicio", "descricao": "alinhada ao início: de 2 a 2,8, recortada pela face mais a folga (2,029)",
+      "nu": 2, "nv": 1, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 0, "ajuste": 1, "alinhamento": 1, "soleira": null },
+      "esperado": { "vao": [2.029, 2.8, 0.0, 2.1], "lados": 11, "flags": 1, "linhas": [[0, 2.8], [1, 2.1]], "avisos": [] } },
+    { "id": "grade_fim", "descricao": "alinhada ao fim: de 3,2 a 4, recortada pela face menos a folga (3,946)",
+      "nu": 2, "nv": 1, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 0, "ajuste": 1, "alinhamento": 2, "soleira": null },
+      "esperado": { "vao": [3.2, 3.946, 0.0, 2.1], "lados": 11, "flags": 1, "linhas": [[0, 3.2], [1, 2.1]], "avisos": [] } },
+    { "id": "grade_maior_que_a_celula", "descricao": "porta nominal de 3 m numa região de 2 m: aviso 13, vão limitado às faces (2,029 a 3,946); a sobra é negativa e vira início; só a linha de cima",
+      "nu": 2, "nv": 1, "tipo": { "largura": 3.0, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 0, "ajuste": 1, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [2.029, 3.946, 0.0, 2.1], "lados": 11, "flags": 3, "linhas": [[1, 2.1]], "avisos": [13] } },
+    { "id": "folha_minima", "descricao": "20 colunas de 0,2 m: a célula (5,0) tem 0,15 entre as faces e 0,142 com as folgas, menos que os 0,60 da porta de giro: aviso 11",
+      "nu": 20, "nv": 1, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 5, "j": 0, "ajuste": 0, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [1.029, 1.171, 0.0, 2.95], "lados": 11, "flags": 5, "linhas": [], "avisos": [11] } },
+    { "id": "vao_livre_sem_folha", "descricao": "o mesmo vão estreito com um tipo de vão livre (0 folha): folha mínima 0, sem aviso",
+      "nu": 20, "nv": 1, "tipo": { "largura": 0.9, "altura": 2.1, "janela": false, "folhas": 0, "plano": 4 }, "abertura": { "i": 5, "j": 0, "ajuste": 0, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [1.029, 1.171, 0.0, 2.95], "lados": 11, "flags": 1, "linhas": [], "avisos": [] } },
+    { "id": "porta_fora_do_piso", "descricao": "porta na fileira de cima de uma grade 4 x 2 (base da região em 1,5): a base da região vira o piso da porta (soleira derivada) e sai o aviso 12",
+      "nu": 4, "nv": 2, "tipo": { "largura": 0.8, "altura": 2.1, "janela": false, "folhas": 1, "plano": 0 }, "abertura": { "i": 1, "j": 1, "ajuste": 0, "alinhamento": 0, "soleira": null },
+      "esperado": { "vao": [1.029, 1.971, 1.5, 2.95], "lados": 11, "flags": 9, "linhas": [], "avisos": [12] } }
+  ]
+}

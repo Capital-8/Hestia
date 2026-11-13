@@ -6,6 +6,7 @@
 // Nada de projeto real: só geometria sintética.
 import { ProjectStore, compositionOfType, createEmptyProject, makeWall, openingTypeById, type Command, type Opening, type OpeningType, type Project, type WallType, type WrapMode } from '@hestia/model';
 import { aleatorio, projetoDeEstresse, type OpcoesEstresse } from './kernel-a1-estresse.mts';
+import { tiposDeAberturaParaSorteio } from './catalogo-estresse.mts';
 
 /** Tipos sintéticos de abertura, acrescentados ao catálogo (não passam por `upsertOpeningType`: a folga negativa é recusada lá de propósito). */
 export function tiposSinteticos(base: OpeningType): OpeningType[] {
@@ -70,7 +71,7 @@ export interface OpcoesEstresseA3a extends OpcoesEstresse {
 export function projetoDeEstresseA3a(semente: number, opcoes: OpcoesEstresseA3a = {}): Project {
   const p0 = projetoDeEstresse(semente, opcoes);
   const r = aleatorio(semente * 104729 + 7);
-  const catalogo = Object.values(p0.openingTypes);
+  const catalogo = tiposDeAberturaParaSorteio(p0);
   const sinteticos = tiposSinteticos(catalogo[0]!);
   const tiposP = tiposDeParedeRetorno(Object.values(p0.wallTypes)[0]!);
   const trocar = opcoes.comTiposDeRetorno ?? true;

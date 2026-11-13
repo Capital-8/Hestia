@@ -1,13 +1,13 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
-import { caixasEPrismasDaAbertura, montarAbertura } from './aberturas3d.ts';
+import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
 import { arestasDosLotes, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
 import { SombrasDaCena, SOMBRA_MAX_TRIANGULOS, prepararSombraDoQuadro, type FaixaDeSombra } from './sombras3d.ts';
@@ -16,19 +16,22 @@ import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type D
 import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
+import { grupoSoEixos, montarGrupoCortina } from './cortinaGrupo3d.ts';
+import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 import { buildRampSolids } from './rampSolids.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
+import { GRUPO_DE_REALCE_VAZIO, RealceDaCortina, type GrupoDeRealceCortina } from './realceCortina3d.ts';
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
 import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from './caixasDoNivel3d.ts';
 import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
+import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -126,6 +129,21 @@ type Rampas = ReturnType<typeof resolveRamps>;
  */
 const gcPronto = (p: Project): string => (ServicoGuardaCorpo.temGuardaCorpo(p) ? (servicoGuardaCorpo().pronto() ? 'gc1' : 'gc0') : '-');
 
+/** Lote 3D das paredes cortina de um nível (ver `atualizarCortina`). */
+interface EntradaCortina {
+  readonly levelId: Id;
+  readonly chave: string;
+  readonly grupo: THREE.Group;
+  readonly picks: PickSource[];
+  readonly caixas: Map<Id, THREE.Box3>;
+  readonly mats: string[];
+  /** Desenhos do nível para o realce de seleção (sem a caixa de picking). */
+  readonly realce: GrupoDeRealceCortina;
+}
+
+/** Marca de cache das cortinas: um nível montado antes de o kernel carregar só tem o eixo; com a marca k0/k1 ele é refeito quando o kernel chega. */
+const kernelCortina = (p: Project): string => (temCortina(p) ? (servicoCortina().pronto() ? 'k1' : 'k0') : '-');
+
 /** Lote 3D dos guarda-corpos de um nível (ver `atualizarGuardaCorpo`). */
 interface EntradaGuardaCorpo {
   readonly levelId: Id;
@@ -142,6 +160,12 @@ export class ModelScene {
   private model = new THREE.Group();
   /** Sobreposições de realce, fora do modelo: não entram nas malhas do modelo nem no picking por faixas. */
   private realces = new RealcesDaCena(this.scene);
+  /** Realce das paredes cortina: as instâncias e as arestas delas (nunca a caixa de picking; ver `realceCortina3d.ts`). */
+  private realceCortina = new RealceDaCortina();
+  /** Desenhos de realce dos níveis com cortina (na ordem de `cortinaNaCena`). */
+  private grupoRealceCortina: GrupoDeRealceCortina[] = [];
+  /** Realce do subelemento de cortina (Tab ou clique, ADR 0056 fase 2): traços sobre o modelo. */
+  private realceSub = new RealceSubelementoCortina();
   private conjuntoDaSelecao: { ref: readonly Id[]; ids: Set<Id> } | null = null;
   /** Malhas só de picking no wireframe (fora do modelo; ver `buildPickLayer`). */
   private pickLayer = new THREE.Object3D();
@@ -183,6 +207,8 @@ export class ModelScene {
   private cenaNiveis: EntradaNivel[] = [];
   /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
   private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
+  /** Lote 3D das paredes cortina (instâncias do kernel), um grupo por nível, com chave própria por hash das cortinas. */
+  private cortinaNaCena: EntradaCortina[] = [];
   private cache: CacheMalhas;
   private sequencia = 0;
   private frame: Frame3D = { view: view3dOf({}), dark: false, edges: false, shadows: false };
@@ -237,6 +263,8 @@ export class ModelScene {
     this.niveis3d.userData = { levels: true };
     this.scene.add(this.niveis3d);
     this.scene.add(this.realces.camada);
+    this.scene.add(this.realceCortina.camada);
+    this.scene.add(this.realceSub.camada);
     // Gancho de quadro do three (antes da lista de desenho e antes do passe de sombra): é onde o orçamento de sombra e o
     // enquadramento do sol acontecem, com a câmera do quadro. Sem ele, a vista teria de chamar a cena a cada rAF.
     this.scene.onBeforeRender = (renderer) => this.antesDeDesenhar(renderer as unknown as RendererDeQuadro);
@@ -287,7 +315,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks)];
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -295,7 +323,7 @@ export class ModelScene {
       const mesh = new THREE.Mesh(s.geo, pick);
       mesh.matrixAutoUpdate = false;
       mesh.matrix.copy(s.owner.matrixWorld);
-      mesh.userData = { kind: s.kind, ranges: s.ranges };
+      mesh.userData = { kind: s.kind, ranges: s.ranges, semRealce: s.semRealce === true };
       this.pickLayer.add(mesh);
     }
   }
@@ -313,9 +341,22 @@ export class ModelScene {
    */
   highlight(selection: readonly Id[], hover: Id | null, aviso: readonly Id[] = []): void {
     const color = this.frame.dark ? DARK.select : LIGHT.select;
-    this.realces.definir('sel', selection, { color, fill: 0.35, edges: 1 });
-    this.realces.definir('hov', hover && !this.naSelecao(selection, hover) ? [hover] : [], { color, fill: 0.15, edges: 0.6 });
-    this.realces.definir('aviso', aviso, { color: AVISO, fill: 0.4, edges: 1 });
+    const hovIds = hover && !this.naSelecao(selection, hover) ? [hover] : [];
+    const sel = { color, fill: 0.35, edges: 1 };
+    const hovEstilo = { color, fill: 0.15, edges: 0.6 };
+    const avisoEstilo = { color: AVISO, fill: 0.4, edges: 1 };
+    this.realces.definir('sel', selection, sel);
+    this.realces.definir('hov', hovIds, hovEstilo);
+    this.realces.definir('aviso', aviso, avisoEstilo);
+    // Cortina: o mesmo realce, nas instâncias da própria cortina (a caixa de picking não entra).
+    this.realceCortina.definir('sel', selection, sel);
+    this.realceCortina.definir('hov', hovIds, hovEstilo);
+    this.realceCortina.definir('aviso', aviso, avisoEstilo);
+  }
+
+  /** Realce do subelemento da parede cortina selecionada (linha, segmento ou célula; `null` tira). ADR 0056, fase 2. */
+  highlightSubelemento(p: Project, sub: SubelementoCortina | null): void {
+    this.realceSub.definir(p, sub, this.frame.dark ? DARK.select : LIGHT.select, this.grupoRealceCortina);
   }
 
   /** `selection` tem `id`? Com seleção grande o conjunto é montado uma vez por referência do array, não a cada quadro. */
@@ -393,6 +434,7 @@ export class ModelScene {
     this.cenaNiveis = atuais;
     for (const e of atuais) this.model.add(e.grupo);
     this.atualizarGuardaCorpo(p, opt, levels);
+    this.atualizarCortina(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
       const res = this.lotes.atualizar(
@@ -642,6 +684,7 @@ export class ModelScene {
     this.detach();
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
     for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
+    for (const g of this.cortinaNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
     for (const m of res.instanciadas) this.model.add(m);
@@ -711,6 +754,99 @@ export class ModelScene {
       grupo.add(linhasReveladas);
     }
     return { levelId, chave, grupo, picks, mats: [...mats] };
+  }
+
+  /**
+   * Lote 3D das paredes cortina (decisão 0056): um grupo por nível com cortina, com a chave de `chavesDeCortina` (hash das cortinas do nível). A malha vem
+   * do kernel por INSTÂNCIAS (`cortina_malha`): montantes e painéis sólidos no grupo opaco, vidro em lote posterior. Sem o kernel pronto desenha só o
+   * eixo (e o aviso `cortina-sem-kernel` sai pelos avisos do projeto); nunca TypeScript no lugar.
+   */
+  private atualizarCortina(p: Project, opt: Scene3DOptions, levels: readonly ResolvedLevel[]): void {
+    const anteriores = new Map(this.cortinaNaCena.map((g) => [g.levelId, g] as const));
+    const atuais: EntradaCortina[] = [];
+    const view = this.frame.view;
+    if (view.overrides.wall.visible && temCortina(p)) {
+      const marca = JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, kernelCortina(p)]);
+      const chaves = chavesDeCortina(p, marca, { ocultos: this.ocultos, revelados: this.revelados });
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      for (const [levelId, chave] of chaves) {
+        if (!nivelDe.has(levelId)) continue;
+        const velha = anteriores.get(levelId);
+        if (velha?.chave === chave) {
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(levelId);
+          continue;
+        }
+        const nova = this.montarCortina(p, levelId, chave);
+        if (nova) atuais.push(nova);
+      }
+    }
+    this.cortinaNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarCortina(g);
+    for (const g of atuais) this.model.add(g.grupo);
+    // Os realces de cortina seguem os níveis desta montagem (os anteriores saíram com as malhas).
+    this.grupoRealceCortina = atuais.map((g) => g.realce);
+    this.realceCortina.trocarGrupos(this.grupoRealceCortina);
+  }
+
+  private montarCortina(p: Project, levelId: Id, chave: string): EntradaCortina | null {
+    const doNivel = paredesCortina(p).filter((c) => c.wall.levelId === levelId && !this.ocultos.has(c.wall.id));
+    if (!doNivel.length) return null;
+    const mats = new Set<string>();
+    const matsAnt = this.mats.noNivel;
+    this.mats.noNivel = mats;
+    const malha = servicoCortina().pronto() ? servicoCortina().malha(p) : null;
+    let montado = malha
+      ? montarGrupoCortina(p, malha, new Set(doNivel.map((c) => c.wall.id)), {
+          view: this.frame.view,
+          edges: this.frame.edges,
+          shadows: this.frame.shadows,
+          anguloAresta: EDGE_ANGLE,
+          mats: this.mats,
+          material: (id) => p.materials[id],
+          visivel: (id) => !this.ocultos.has(id),
+          revelado: (id) => this.revelados.has(id),
+          materialReveal: () => this.materialDoReveal(),
+        })
+      : null;
+    if (!montado && !malha) {
+      const g = grupoSoEixos(doNivel.map((c) => ({ a: c.wall.a, b: c.wall.b, z: wallBaseElevation(p, c.wall) + wallHeight(p, c.wall) / 2 })), this.mats);
+      if (g) montado = { grupo: g, picks: [], caixas: new Map(), mats: [], desenhos: 1, instancias: 0, realce: GRUPO_DE_REALCE_VAZIO };
+    }
+    if (montado && malha) this.esquadriasDaCortina(p, levelId, montado);
+    this.mats.noNivel = matsAnt;
+    if (!montado) return null;
+    montado.grupo.userData = { levelId };
+    return { levelId, chave, grupo: montado.grupo, picks: montado.picks, caixas: montado.caixas, mats: [...mats], realce: montado.realce };
+  }
+
+  /**
+   * Esquadrias das células das cortinas do nível (ADR 0056 §7.6): `Opening` virtual no vão do kernel, desenhada com o mesmo código das esquadrias comuns
+   * (folha, batente, ferragens, vidro, giro e "abrir vãos"). A folha simples do kernel (papéis 3 e 4) não é desenhada (ver `avulsosDaCortina`). O picking
+   * leva o id da esquadria virtual (`idEsquadriaCortina`).
+   */
+  private esquadriasDaCortina(p: Project, levelId: Id, montado: { grupo: THREE.Group; picks: PickSource[] }): void {
+    const view = this.frame.view;
+    const linhas = isLineStyle(view.style);
+    const picksAnt = this.picks;
+    this.picks = montado.picks;
+    for (const e of esquadriasDaCortina(p, levelId)) {
+      if (this.ocultos.has(e.wallId)) continue;
+      const m = montarAberturaDoModelo(p, e.opening, e.geometria, e.baseZ, modeloDaEsquadriaCortina(p, e), view, linhas, (parent, geo, mat, cat, edges, ranges) => this.draw(parent, geo, mat, cat, edges, ranges));
+      if (!m) continue;
+      this.desenharLotes(m.grupo, m.lotes, linhas, (id) => p.materials[id], m.arestasGrupos);
+      m.grupo.traverse((c) => {
+        c.userData.elementId = e.id;
+      });
+      montado.grupo.add(m.grupo);
+    }
+    this.picks = picksAnt;
+  }
+
+  private liberarCortina(g: EntradaCortina): void {
+    g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
+    for (const s of g.picks) s.geo.dispose();
   }
 
   /** Material do contorno azul do Reveal (um por cena, do cache de materiais). */
@@ -1203,7 +1339,15 @@ export class ModelScene {
 
   /** Caixa delimitadora (mundo) dos elementos dados (seleção), ou null se vazia/não encontrada. */
   selectionBounds(ids: readonly Id[]): THREE.Box3 | null {
-    return caixaDaSelecao(this.model, ids);
+    // Cortina: o InstancedMesh não tem faixas por elemento; a caixa de cada cortina vem do próprio lote.
+    let box = caixaDaSelecao(this.model, ids);
+    for (const g of this.cortinaNaCena) {
+      for (const id of ids) {
+        const c = g.caixas.get(id);
+        if (c) (box ??= new THREE.Box3()).union(c);
+      }
+    }
+    return box;
   }
 
   fit(): void {
@@ -1228,6 +1372,11 @@ export class ModelScene {
     this.realces.soltarTodos();
     for (const g of this.guardaCorpoNaCena) this.liberarGuardaCorpo(g);
     this.guardaCorpoNaCena = [];
+    for (const g of this.cortinaNaCena) this.liberarCortina(g);
+    this.cortinaNaCena = [];
+    this.grupoRealceCortina = [];
+    this.realceCortina.dispose();
+    this.realceSub.dispose();
     const todas = new Set([...this.cenaNiveis, ...this.cache.limpar()]);
     this.cenaNiveis = [];
     for (const e of todas) disposeNivel(e);
