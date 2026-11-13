@@ -16,6 +16,7 @@ import {
 import { isOpening, isWall, wallBaseElevation, type Id, type Project } from '@hestia/model';
 import { buildCadLines } from './cad3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
+import { buildFurnitureGhostBatches } from './furnitureSolids.ts';
 import { geometriaDoLote, juntarLote } from './lotesMalha3d.ts';
 import { buildRampSolids } from './rampSolids.ts';
 import {
@@ -162,6 +163,7 @@ export class CamadaFantasmas {
         ...buildStairSolids(dasEscadas, (s) => stairArrivalTop(previa, s).top),
         ...buildRampSolids(dasRampas),
         ...buildGenericSolids(projetoNovo, nivelId),
+        ...buildFurnitureGhostBatches(projetoNovo, nivelId),
       );
     }
 

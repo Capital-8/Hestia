@@ -25,6 +25,7 @@ import { PL_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { PL_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { PL_FURNITURE } from '../../areas/furniture.ts';
 
 export const PL_ALL = {
   ...PL_GUARDA_CORPO,
@@ -53,4 +54,5 @@ export const PL_ALL = {
   ...PL_PROPS_OPTIONS,
   ...PL_PACKAGES_IO,
   ...PL_BIBLIOTECA,
+  ...PL_FURNITURE,
 };

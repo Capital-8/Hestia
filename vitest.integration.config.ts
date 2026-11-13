@@ -14,6 +14,7 @@ export default defineConfig({
     fileParallelism: false,
     // Um único arquivo que compila Rust e abre processos: threads evitam o canal IPC do pool de processos, que fechava durante a compilação.
     pool: 'threads',
+    teardownTimeout: 8000,
     reporters: ['verbose'],
   },
 });

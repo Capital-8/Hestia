@@ -1,4 +1,5 @@
 export * from './version.ts';
+export * from './auth.ts';
 export * from './permissions.ts';
 export * from './manifest.ts';
 export * from './scene.ts';
@@ -6,6 +7,8 @@ export * from './protocol.ts';
 export * from './transport.ts';
 export * from './hostPorts.ts';
 export * from './sceneSync.ts';
+export * from './sceneValidate.ts';
+export * from './sceneForProtocol.ts';
 export * from './hostSession.ts';
 export * from './pluginHost.ts';
 export * from './testkit.ts';

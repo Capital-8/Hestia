@@ -5,7 +5,7 @@ import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloo
 import { resolveAngularDimension } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
+import { furnitureAt, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
@@ -225,6 +225,8 @@ export class SelectTool extends ToolBase {
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
     const gn = genericAt(pr, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
+    const fu = furnitureAt(pr, lv, at, mpp);
+    if (fu) return { id: fu, kind: 'generic' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(pr, lv, at);
     if (rm) return { id: rm, kind: 'room' };

@@ -15,6 +15,8 @@ function Card({ p, lang }: { p: PluginView; lang: string }): ReactElement {
   const pt = lang === 'pt';
   const tx = (a: string, b: string): string => (pt ? a : b);
   // Antes de habilitar (ou se nada foi concedido ainda) a escolha começa pelo sugerido; depois, pelo que está concedido.
+  const [tok, setTok] = useState('');
+  const [tokBad, setTokBad] = useState(false);
   const [draft, setDraft] = useState<Capability[]>(() => (p.enabled || p.grants.length ? p.grants : p.suggested));
   const shown: Capability[] = p.manifest ? p.manifest.capabilities : (p.suggested.length ? p.suggested : []);
   const dirty = draft.length !== p.grants.length || draft.some((c) => !p.grants.includes(c));
@@ -29,6 +31,9 @@ function Card({ p, lang }: { p: PluginView; lang: string }): ReactElement {
       </div>
       <div className="hint">{stateHelp(p.state, lang, !!p.error)}</div>
       {p.error ? <div role="alert" style={{ color: '#c62828', margin: '4px 0' }}>{p.error.message}</div> : null}
+      {p.error && (p.error.code === 'auth_required' || p.error.code === 'auth_failed') ? (
+        <div className="hint">{tx('Cole abaixo o token gerado pelo programa externo (por exemplo, hestia-renderer --init-token). Ele precisa ser o mesmo nos dois lados.', 'Paste the token created by the external program below (for example, hestia-renderer --init-token). It must be the same on both sides.')}</div>
+      ) : null}
       <div className="hint">{tx('Endereço local', 'Local address')}: {p.endpoint.host}:{p.endpoint.port}</div>
 
       {shown.length > 0 ? (
@@ -43,6 +48,18 @@ function Card({ p, lang }: { p: PluginView; lang: string }): ReactElement {
           {live && p.pending.length > 0 ? <div className="hint">{tx('O plugin pediu e ainda não tem:', 'Requested but not granted:')} {p.pending.map((c) => capabilityLabel(c, lang)).join('; ')}</div> : null}
         </fieldset>
       ) : null}
+
+      <div role="group" aria-label={tx('Token de pareamento', 'Pairing token')} style={{ margin: '8px 0' }}>
+        <b>{tx('Token de pareamento', 'Pairing token')}: </b>
+        <span data-testid="token-state">{p.hasToken ? tx('configurado', 'set') : tx('não configurado', 'not set')}</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+          <input type="password" autoComplete="off" spellCheck={false} aria-label={tx('Token', 'Token')} placeholder={tx('Cole o token', 'Paste the token')} value={tok} onChange={(e) => { setTok(e.target.value); setTokBad(false); }} style={{ width: 280 }} />
+          <button className="btn" disabled={!tok.trim()} onClick={() => { if (host.setToken(p.key, tok)) { setTok(''); setTokBad(false); } else setTokBad(true); }}>{tx('Salvar token', 'Save token')}</button>
+          {p.hasToken ? <button className="btn" onClick={() => host.clearToken(p.key)}>{tx('Remover token', 'Remove token')}</button> : null}
+        </div>
+        {tokBad ? <div role="alert" style={{ color: '#c62828' }}>{tx('Token inválido (mínimo de 32 caracteres).', 'Invalid token (at least 32 characters).')}</div> : null}
+        <div className="hint">{tx('O token nunca é enviado pela conexão: só provas derivadas dele. Guarde-o como uma senha.', 'The token is never sent over the connection, only proofs derived from it. Treat it like a password.')}</div>
+      </div>
 
       {live ? (
         <div role="group" aria-label={tx('Câmera', 'Camera')} style={{ margin: '8px 0' }}>

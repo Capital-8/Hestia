@@ -1,6 +1,8 @@
+import { isNonce } from './auth.ts';
 import type { Capability } from './permissions.ts';
 import type { PluginManifest } from './manifest.ts';
 import type { CameraMode, MaterialId, SceneCamera, SceneDelta, SceneSnapshot, ViewMaterialOverride } from './scene.ts';
+import { lightIssue, materialIssue, meshIssue, siteIssue } from './sceneValidate.ts';
 
 /**
  * Protocolo de conexão (docs/plugins/02-protocolo.md). Independente de linguagem: quadros JSON (texto) sobre um
@@ -16,12 +18,13 @@ export interface Envelope { t: string; seq?: number; id?: string; re?: string }
 export type ErrorCode =
   | 'bad_frame' | 'unknown_type' | 'unsupported_version' | 'bad_manifest' | 'not_handshaken'
   | 'permission_denied' | 'bad_request' | 'out_of_order' | 'cancelled' | 'ack_timeout' | 'heartbeat_timeout'
-  | 'image_payload_forbidden' | 'internal';
+  | 'image_payload_forbidden' | 'internal' | 'auth_required' | 'auth_failed' | 'not_authenticated';
 
 export interface ProtocolError { code: ErrorCode; message: string; fatal: boolean; detail?: Record<string, unknown> }
 
 // ---- plugin → host ----
-export interface HelloMsg extends Envelope { t: 'hello'; protocol: { min: string; max: string }; manifest: PluginManifest; resume?: { sessionId: string; lastRevision: number } }
+export interface HelloMsg extends Envelope { t: 'hello'; protocol: { min: string; max: string }; manifest: PluginManifest; resume?: { sessionId: string; lastRevision: number }; auth?: { nonce: string } }
+export interface AuthOkMsg extends Envelope { t: 'auth.ok'; proof: string }
 export interface ResyncMsg extends Envelope { t: 'scene.resync' }
 export interface CameraModeSetMsg extends Envelope { t: 'camera.mode.set'; mode: CameraMode }
 export interface CameraSetMsg extends Envelope { t: 'camera.set'; camera: SceneCamera; cameraRev: number }
@@ -40,8 +43,16 @@ export interface WelcomeMsg extends Envelope {
   heartbeatMs: number;
   cameraMode: CameraMode;
   resumed: boolean;
+  /** true quando o pareamento por token foi concluído nesta conexão (protocolo 1.1). */
+  authenticated?: boolean;
 }
+export interface AuthMsg extends Envelope { t: 'auth'; nonce: string; proof: string }
 export interface SnapshotMsg extends Envelope { t: 'scene.snapshot'; snapshot: SceneSnapshot }
+/** Snapshot em partes (protocolo 1.2): cabeçalho sem as listas, depois `parts` partes numeradas, depois o fim. */
+export type SnapshotHeader = Omit<SceneSnapshot, 'entities' | 'materials' | 'textures'>;
+export interface SnapshotBeginMsg extends Envelope { t: 'scene.snapshot.begin'; snapshot: SnapshotHeader; parts: number; counts: { entities: number; materials: number; textures: number } }
+export interface SnapshotPartMsg extends Envelope { t: 'scene.snapshot.part'; index: number; entities?: SceneSnapshot['entities']; materials?: SceneSnapshot['materials']; textures?: SceneSnapshot['textures'] }
+export interface SnapshotEndMsg extends Envelope { t: 'scene.snapshot.end'; revision: number }
 export interface DeltaMsg extends Envelope { t: 'scene.delta'; delta: SceneDelta }
 export interface ConnectionEventMsg extends Envelope { t: 'event.connection'; state: 'connected' | 'closing'; reason?: string }
 
@@ -55,14 +66,14 @@ export interface PongMsg extends Envelope { t: 'pong'; n: number }
 export interface ByeMsg extends Envelope { t: 'bye'; reason?: string }
 export interface ErrorMsg extends Envelope { t: 'error'; error: ProtocolError }
 
-export type PluginToHost = HelloMsg | ResyncMsg | CameraModeSetMsg | CameraSetMsg | OverridesSetMsg | OverridesClearMsg | CancelMsg | CameraUpdateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
-export type HostToPlugin = WelcomeMsg | SnapshotMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
+export type PluginToHost = HelloMsg | AuthOkMsg | ResyncMsg | CameraModeSetMsg | CameraSetMsg | OverridesSetMsg | OverridesClearMsg | CancelMsg | CameraUpdateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
+export type HostToPlugin = WelcomeMsg | AuthMsg | SnapshotMsg | SnapshotBeginMsg | SnapshotPartMsg | SnapshotEndMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
 export type Message = PluginToHost | HostToPlugin;
 
 /** Tipos que consomem `seq` e exigem `ack`. */
 export const ACKED_TYPES: ReadonlySet<string> = new Set([
-  'hello', 'scene.resync', 'camera.mode.set', 'camera.set', 'overrides.set', 'overrides.clear', 'cancel',
-  'welcome', 'scene.snapshot', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
+  'hello', 'auth', 'auth.ok', 'scene.resync', 'camera.mode.set', 'camera.set', 'overrides.set', 'overrides.clear', 'cancel',
+  'welcome', 'scene.snapshot', 'scene.snapshot.begin', 'scene.snapshot.part', 'scene.snapshot.end', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
 ]);
 
 export const KNOWN_TYPES: ReadonlySet<string> = new Set([...ACKED_TYPES, 'bye', 'ack', 'ping', 'pong', 'error']);
@@ -142,7 +153,36 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object
 const isStr = (x: unknown, max = 100): x is string => typeof x === 'string' && x.length > 0 && x.length <= max;
 const isInt = (x: unknown, min = 0): x is number => typeof x === 'number' && Number.isSafeInteger(x) && x >= min;
 const isUnit = (x: unknown): boolean => typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 1;
+const isProof = (x: unknown): boolean => typeof x === 'string' && /^[A-Za-z0-9+/]{43}=$/.test(x);
 const CAMERA_MODES = ['follow-hestia', 'plugin-drives'];
+
+/** Campos do protocolo 1.3 num trecho de cena (snapshot, cabeçalho ou parte): materiais, malhas, luzes e localização. */
+function sceneFieldsProblem(x: Record<string, unknown>): string | null {
+  if (Array.isArray(x.materials)) for (const m of x.materials) { const p = materialIssue(m); if (p) return `material: ${p}`; }
+  if (Array.isArray(x.entities)) {
+    for (const e of x.entities) {
+      if (isObj(e) && isObj(e.mesh)) { const p = meshIssue(e.mesh); if (p) return `malha: ${p}`; }
+    }
+  }
+  if (x.lights !== undefined) {
+    if (!Array.isArray(x.lights)) return '"lights" precisa ser lista';
+    for (const l of x.lights) { const p = lightIssue(l); if (p) return `luz: ${p}`; }
+  }
+  if (x.site !== undefined) { const p = siteIssue(x.site); if (p) return `site: ${p}`; }
+  return null;
+}
+
+/** Op de delta com campos de 1.3 (luz e material) ou malha de entidade: problema ou null. Ops antigas passam. */
+function opFieldsProblem(op: unknown): string | null {
+  if (!isObj(op)) return 'op inválida';
+  switch (op.op) {
+    case 'entity.add': case 'entity.update': return isObj(op.entity) && isObj(op.entity.mesh) ? meshIssue(op.entity.mesh) : null;
+    case 'material.add': case 'material.update': return materialIssue(op.material);
+    case 'light.add': case 'light.update': return lightIssue(op.light);
+    case 'light.remove': return isStr(op.id, 100) ? null : 'light.remove sem id';
+    default: return null;
+  }
+}
 
 export function isValidCamera(c: unknown): boolean {
   if (!isObj(c)) return false;
@@ -178,16 +218,36 @@ export function validateMessage(m: Message): string | null {
     case 'hello': {
       if (!isObj(r.protocol) || !isStr(r.protocol.min, 10) || !isStr(r.protocol.max, 10)) return '"protocol" precisa de min e max';
       if (!isObj(r.manifest)) return '"manifest" ausente';
+      if (r.auth !== undefined && !(isObj(r.auth) && isNonce(r.auth.nonce))) return '"auth" inválido';
       if (r.resume !== undefined && !(isObj(r.resume) && isStr(r.resume.sessionId, 64) && isInt(r.resume.lastRevision))) return '"resume" inválido';
       return null;
     }
+    case 'auth':
+      return isNonce(r.nonce) && isProof(r.proof) ? null : 'auth inválido';
+    case 'auth.ok':
+      return isProof(r.proof) ? null : 'auth.ok inválido';
     case 'welcome':
       if (!isStr(r.sessionId, 64) || !CAMERA_MODES.includes(r.cameraMode as string) || !isInt(r.heartbeatMs, 1) || !Array.isArray(r.granted) || !Array.isArray(r.denied)) return 'campos inválidos';
       return null;
     case 'scene.snapshot':
-      return isObj(r.snapshot) && isInt(r.snapshot.revision) && isStr(r.snapshot.projectId, 100) && Array.isArray(r.snapshot.entities) && Array.isArray(r.snapshot.materials) ? null : 'snapshot inválido';
-    case 'scene.delta':
-      return isObj(r.delta) && isInt(r.delta.baseRevision) && isInt(r.delta.revision) && (r.delta.revision as number) > (r.delta.baseRevision as number) && Array.isArray(r.delta.ops) ? null : 'delta inválido';
+      if (!(isObj(r.snapshot) && isInt(r.snapshot.revision) && isStr(r.snapshot.projectId, 100) && Array.isArray(r.snapshot.entities) && Array.isArray(r.snapshot.materials))) return 'snapshot inválido';
+      return sceneFieldsProblem(r.snapshot);
+    case 'scene.snapshot.begin':
+      if (!(isObj(r.snapshot) && isInt(r.snapshot.revision) && isStr(r.snapshot.projectId, 100) && isInt(r.parts, 1) && isObj(r.counts) && isInt(r.counts.entities) && isInt(r.counts.materials) && isInt(r.counts.textures))) return 'snapshot.begin inválido';
+      return sceneFieldsProblem(r.snapshot);
+    case 'scene.snapshot.part':
+      if (!(isInt(r.index) && (r.entities === undefined || Array.isArray(r.entities)) && (r.materials === undefined || Array.isArray(r.materials)) && (r.textures === undefined || Array.isArray(r.textures)))) return 'snapshot.part inválido';
+      return sceneFieldsProblem(r);
+    case 'scene.snapshot.end':
+      return isInt(r.revision) ? null : 'snapshot.end inválido';
+    case 'scene.delta': {
+      if (!(isObj(r.delta) && isInt(r.delta.baseRevision) && isInt(r.delta.revision) && (r.delta.revision as number) > (r.delta.baseRevision as number) && Array.isArray(r.delta.ops))) return 'delta inválido';
+      for (const op of r.delta.ops as unknown[]) {
+        const p = opFieldsProblem(op);
+        if (p) return p;
+      }
+      return null;
+    }
     case 'camera.mode.set': case 'camera.mode':
       return CAMERA_MODES.includes(r.mode as string) ? null : '"mode" precisa ser follow-hestia ou plugin-drives';
     case 'camera.set':

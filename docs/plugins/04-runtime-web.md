@@ -8,18 +8,19 @@ manifesto não tem caminho de executável. Não há loja nem download automátic
 ## Limitações conhecidas
 - **Safari e HTTPS:** pode bloquear `ws://` vindo de página HTTPS (conteúdo misto). No desktop (Tauri) a CSP foi aberta
   para `ws://127.0.0.1:*` e `ws://localhost:*`; no navegador depende da política dele.
-- **Autenticação:** a versão 1 não tem token. O plugin **deve validar o cabeçalho `Origin`** (aceitar só as origens do
-  Hestia) e escutar apenas em loopback, senão qualquer página aberta no navegador consegue falar com ele. Token de
-  pareamento fica para a versão 1.1.
+- **Autenticação:** o protocolo 1.1 tem pareamento por token ([07](07-pareamento-por-token.md)), obrigatório por padrão. O `Origin`
+  e o `Host` continuam validados pelo plugin. No navegador o token fica em `localStorage` (limitação: usar o cofre do sistema no Tauri).
 - **Geometria:** vem das malhas com faixas por elemento da cena 3D montada. Entidades instanciadas sem faixas e elementos de
   níveis ainda não montados saem com `mesh: null`; o material por triângulo sai `null` (usa-se `materialIds` do tipo).
   Texturas: contrato pronto, mas o Hestia ainda não as tem.
-- **Escala:** geometria como números em JSON; adequado a protótipo. Quadros binários ou compactados ficam para a 1.x.
+- **Escala:** geometria como números em JSON. O quadro máximo continua 64 MiB, mas desde o protocolo 1.2 o snapshot vai **em partes** de ~8 MiB
+  e não há mais teto prático de cena (validado com 70 MiB entre processos, [06](06-validacao-processo-rust.md)). Cada **entidade** ainda precisa caber
+  num quadro, e o plugin guarda a cena inteira em memória (JSON→estruturas: ~4 vezes o tamanho do texto no Rust de referência). Quadros binários
+  seguem como melhoria futura (o JSON de posições ocupa ~65 a 100 bytes por triângulo).
 - **Câmera:** a órbita não emite eventos; há amostragem a cada 80 ms só com sessão assinante. A órbita é "olhar para o
   alvo": `up` e roll do plugin são descartados.
 - As substituições entram no desfazer do projeto; o `projectUid` é criado no primeiro uso (marca o projeto como alterado).
 
 ## Pendências
 O protocolo está validado contra um **processo Rust separado** por WebSocket real ([06](06-validacao-processo-rust.md)); o
-processo ainda **não desenha**. Pendentes: **token de pareamento ([07](07-pareamento-por-token.md), obrigatório antes de uso
-real)**, geometria de um projeto real, transporte binário, texturas, Linux/macOS.
+processo ainda **não desenha**. Pendentes: cofre do sistema para o token no Tauri, geometria de um projeto real, transporte binário, texturas, Linux/macOS.

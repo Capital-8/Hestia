@@ -25,6 +25,7 @@ import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { DE_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { DE_FURNITURE } from '../../areas/furniture.ts';
 
 export const DE_ALL = {
   ...DE_GUARDA_CORPO,
@@ -53,4 +54,5 @@ export const DE_ALL = {
   ...DE_PROPS_OPTIONS,
   ...DE_PACKAGES_IO,
   ...DE_BIBLIOTECA,
+  ...DE_FURNITURE,
 };

@@ -1,10 +1,12 @@
 import { ALL_CAPABILITIES, CAPABILITY_REQUIRES, type Capability } from './permissions.ts';
 import { validateManifest, type ManifestIssue, type PluginManifest } from './manifest.ts';
 import type { HostPorts, SceneContent } from './hostPorts.ts';
+import { authProof, isNonce, randomNonce, timingSafeEqual } from './auth.ts';
 import { Peer, type Transport } from './transport.ts';
 import { REQUIRED_CAPABILITY, isValidCamera, type ErrorCode, type Message, type ProtocolError } from './protocol.ts';
 import { SCENE_AXES, SCENE_UNITS, type CameraMode, type SceneCamera, type SceneSnapshot } from './scene.ts';
 import { diffScene } from './sceneSync.ts';
+import { contentForProtocol, snapshotExtensionFields } from './sceneForProtocol.ts';
 import { API_VERSION, PROTOCOL_VERSION, formatVersion, negotiateProtocol, parseVersion } from './version.ts';
 
 /** Estado retido entre conexões do mesmo plugin, para a retomada (`hello.resume`). */
@@ -34,6 +36,13 @@ export interface HostSessionOptions {
   /** Tempo em que mudanças da câmera do Hestia, logo depois de aplicar a do plugin, são tratadas como eco. */
   cameraSettleMs?: number;
   retained?: RetainedSession | null;
+  /** Tamanho-alvo (caracteres de JSON) de cada parte do snapshot em partes (protocolo 1.2). Padrão 8 MiB. */
+  snapshotChunkChars?: number;
+  /**
+   * Pareamento por token (protocolo 1.1). PADRÃO: autenticação OBRIGATÓRIA. `allowUnauthenticated` existe só para
+   * testes locais e compatibilidade 1.0 explícita; nunca deve ser ligado por padrão em uso real.
+   */
+  auth?: { token: string | null; allowUnauthenticated: boolean };
   onEvent(e: SessionEvent): void;
   /** Guarda o estado para uma retomada futura. */
   onRetain?(r: RetainedSession): void;
@@ -58,7 +67,11 @@ let sessionCounter = 0;
 export class HostSession {
   private readonly o: HostSessionOptions & typeof DEFAULTS;
   private readonly peer: Peer;
-  private state: 'handshaking' | 'ready' | 'closed' = 'handshaking';
+  private state: 'handshaking' | 'authenticating' | 'ready' | 'closed' = 'handshaking';
+  private authCtx: { nP: string; expected: string; finish: () => void } | null = null;
+  private authenticated = false;
+  /** `minor` do protocolo negociado (1.2+ usa snapshot em partes). */
+  private protoMinor = 0;
   private manifest: PluginManifest | null = null;
   private granted = new Set<Capability>();
   private revision = 0;
@@ -91,7 +104,7 @@ export class HostSession {
     }, this.o.handshakeMs);
   }
 
-  get currentState(): 'handshaking' | 'ready' | 'closed' { return this.state; }
+  get currentState(): 'handshaking' | 'authenticating' | 'ready' | 'closed' { return this.state; }
   get pluginManifest(): PluginManifest | null { return this.manifest; }
   get grantedCapabilities(): Capability[] { return ALL_CAPABILITIES.filter((c) => this.granted.has(c)); }
   get mode(): CameraMode { return this.cameraMode; }
@@ -117,7 +130,7 @@ export class HostSession {
 
   private fail(code: ErrorCode, message: string, detail?: Record<string, unknown>): void {
     const error: ProtocolError = { code, message, fatal: true, ...(detail ? { detail } : {}) };
-    if (this.state === 'handshaking') this.o.onEvent({ type: 'incompatible', code, message });
+    if (this.state === 'handshaking' || this.state === 'authenticating') this.o.onEvent({ type: 'incompatible', code, message });
     this.peer.sendError(error);
     this.peer.close(code);
   }
@@ -125,7 +138,20 @@ export class HostSession {
   private onMessage(m: Message): void {
     if (this.state === 'closed') return;
     if (m.t === 'bye') { this.peer.close('bye'); return; }
-    if (m.t === 'error') return; // erros do plugin chegam como informação; não há o que desfazer aqui
+    if (m.t === 'error') {
+      // Recusa de pareamento pelo plugin (token diferente, ou ele exige autenticação): mostra o motivo e encerra.
+      if ((this.state === 'authenticating' || this.state === 'handshaking') && (m.error.code === 'auth_failed' || m.error.code === 'auth_required')) {
+        this.o.onEvent({ type: 'incompatible', code: m.error.code, message: m.error.code === 'auth_failed' ? 'O plugin recusou o pareamento: o token configurado no Hestia não é o do plugin.' : 'O plugin exige pareamento por token.' });
+        this.authCtx = null;
+        this.peer.close(m.error.code);
+      }
+      return; // demais erros do plugin chegam como informação; não há o que desfazer aqui
+    }
+    if (this.state === 'authenticating') {
+      if (m.t === 'auth.ok') void this.onAuthOk(m.proof);
+      else this.fail('not_authenticated', 'Mensagem antes de concluir o pareamento.');
+      return;
+    }
     if (this.state === 'handshaking') {
       if (m.t !== 'hello') { this.fail('not_handshaken', 'Esperava "hello" antes de qualquer outra mensagem.'); return; }
       this.onHello(m);
@@ -173,6 +199,45 @@ export class HostSession {
       this.fail('bad_manifest', `Esperava um plugin do tipo "${this.o.expectedKind}", recebeu "${v.manifest.kind}".`);
       return;
     }
+    // Pareamento: obrigatório por padrão. Só protocolo >= 1.1 com `auth` no hello e token configurado autentica.
+    const cfg = this.o.auth ?? { token: null, allowUnauthenticated: false };
+    const nP = m.auth && isNonce(m.auth.nonce) ? m.auth.nonce : null;
+    const finish = (): void => this.finishHello(m, neg.version, v.manifest);
+    if (nP && neg.version.minor >= 1 && cfg.token) {
+      this.state = 'authenticating';
+      void this.startAuth(cfg.token, nP, finish);
+      return;
+    }
+    if (!cfg.allowUnauthenticated) {
+      this.fail('auth_required', !nP || neg.version.minor < 1
+        ? 'O plugin não oferece autenticação por token (protocolo 1.0) e o Hestia exige pareamento.'
+        : 'Este plugin pede pareamento por token e nenhum token foi configurado para ele no Hestia.');
+      return;
+    }
+    finish();
+  }
+
+  private async startAuth(token: string, nP: string, finish: () => void): Promise<void> {
+    const nH = randomNonce();
+    const [proof, expected] = [await authProof(token, 'host', nP, nH), await authProof(token, 'plugin', nP, nH)];
+    if (this.state !== 'authenticating') return;
+    this.authCtx = { nP, expected, finish };
+    this.handshakeTimer = setTimeout(() => { if (this.state === 'authenticating') this.fail('auth_failed', 'O plugin não concluiu o pareamento a tempo.'); }, this.o.handshakeMs);
+    this.peer.send({ t: 'auth', nonce: nH, proof });
+  }
+
+  private async onAuthOk(proof: string): Promise<void> {
+    const ctx = this.authCtx;
+    if (!ctx || this.state !== 'authenticating') return;
+    this.authCtx = null;
+    if (this.handshakeTimer) clearTimeout(this.handshakeTimer);
+    if (!timingSafeEqual(proof, ctx.expected)) { this.fail('auth_failed', 'Token incorreto: o plugin não provou conhecer o token deste Hestia.'); return; }
+    this.authenticated = true;
+    ctx.finish();
+  }
+
+  private finishHello(m: Extract<Message, { t: 'hello' }>, version: { major: number; minor: number }, manifest: PluginManifest): void {
+    const v = { manifest };
     // Concessão = pedido ∩ usuário, com as dependências (camera.write sem camera.read não vale).
     const want = new Set(v.manifest.capabilities);
     const g = new Set(this.o.grants.filter((c) => want.has(c)));
@@ -181,10 +246,11 @@ export class HostSession {
     const denied = v.manifest.capabilities.filter((c) => !g.has(c));
     const ret = this.o.retained;
     const resumed = !!(m.resume && ret && m.resume.sessionId === ret.sessionId && m.resume.lastRevision === ret.revision);
+    this.protoMinor = version.minor;
     this.state = 'ready';
     this.peer.setHeartbeat(this.o.heartbeatMs);
     this.peer.startHeartbeat();
-    this.peer.send({ t: 'welcome', protocol: formatVersion(neg.version), api: formatVersion(API_VERSION), sessionId: this.sessionId, granted: this.grantedCapabilities, denied, heartbeatMs: this.o.heartbeatMs, cameraMode: this.cameraMode, resumed });
+    this.peer.send({ t: 'welcome', protocol: formatVersion(version), authenticated: this.authenticated, api: formatVersion(API_VERSION), sessionId: this.sessionId, granted: this.grantedCapabilities, denied, heartbeatMs: this.o.heartbeatMs, cameraMode: this.cameraMode, resumed });
     this.o.onEvent({ type: 'ready', manifest: v.manifest, granted: this.grantedCapabilities, denied, resumed });
     if (this.can('scene.read')) {
       if (resumed && ret) this.resumeFrom(ret);
@@ -208,20 +274,49 @@ export class HostSession {
       textures: content.textures,
       camera: this.o.ports.camera.read() ?? defaultCamera(),
       overrides: this.o.ports.overrides.read(this.manifest!.id),
+      ...snapshotExtensionFields(content, this.protoMinor),
     };
   }
 
+  /** Conteúdo da cena na versão negociada (1.0 a 1.2 saem sem nada de 1.3). */
+  private contentNow(): SceneContent {
+    return contentForProtocol(this.o.ports.scene.read(), this.protoMinor);
+  }
+
   private sendSnapshot(re?: string): void {
-    const content = this.o.ports.scene.read();
+    const content = this.contentNow();
     this.revision += 1;
     this.sent = content;
-    this.peer.send({ t: 'scene.snapshot', snapshot: this.snapshotOf(content), ...(re ? { re } : {}) });
+    const full = this.snapshotOf(content);
+    if (this.protoMinor >= 2) this.sendSnapshotInParts(full, re);
+    else this.peer.send({ t: 'scene.snapshot', snapshot: full, ...(re ? { re } : {}) });
     this.retain();
+  }
+
+  /** Protocolo 1.2: cabeçalho, partes de ~`snapshotChunkChars` e fim. Nenhum quadro passa do teto do protocolo. */
+  private sendSnapshotInParts(full: SceneSnapshot, re?: string): void {
+    const limit = this.o.snapshotChunkChars ?? 8 * 1024 * 1024;
+    const { entities, materials, textures, ...header } = full;
+    const parts: Array<{ entities?: typeof entities; materials?: typeof materials; textures?: typeof textures }> = [];
+    let cur: typeof entities = [];
+    let size = 0;
+    for (const e of entities) {
+      const n = JSON.stringify(e).length;
+      if (cur.length > 0 && size + n > limit) { parts.push({ entities: cur }); cur = []; size = 0; }
+      cur.push(e);
+      size += n;
+    }
+    if (cur.length > 0) parts.push({ entities: cur });
+    if (parts.length === 0) parts.push({});
+    parts[0] = { ...parts[0], materials, textures };
+    this.peer.send({ t: 'scene.snapshot.begin', snapshot: header, parts: parts.length, counts: { entities: entities.length, materials: materials.length, textures: textures.length }, ...(re ? { re } : {}) });
+    parts.forEach((p, index) => this.peer.send({ t: 'scene.snapshot.part', index, ...p }));
+    this.peer.send({ t: 'scene.snapshot.end', revision: full.revision });
   }
 
   private resumeFrom(ret: RetainedSession): void {
     this.revision = ret.revision;
-    this.sent = ret.content;
+    this.sent = contentForProtocol(ret.content, this.protoMinor);
     this.flushDelta();
   }
 
@@ -249,7 +344,9 @@ export class HostSession {
 
   private flushDelta(): void {
     if (this.state !== 'ready' || !this.sent) return;
-    const next = this.o.ports.scene.read();
+    const next = this.contentNow();
+    // A localização não tem operação própria no delta: quando muda, vai um snapshot completo (nova revisão).
+    if (JSON.stringify(this.sent.site ?? null) !== JSON.stringify(next.site ?? null)) { this.sendSnapshot(); return; }
     const ops = diffScene(this.sent, next);
     if (ops.length === 0) return;
     const base = this.revision;

@@ -49,6 +49,12 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
   cad: { mover: 'selectedCads', colar: 'cad', alinhar: null, motivo: 'TODO: o desenho CAD é um objeto só; alinhar pelas linhas dele ainda não existe.' },
+  furniture: {
+    mover: null,
+    colar: null,
+    alinhar: null,
+    motivo: 'TODO: o móvel importado é editado pelos comandos próprios (`addFurniture`/`updateFurniture`/`deleteFurniture`: posição, giro e espelho nas Propriedades); o `transform` (Mover, Girar, Espelhar, Copiar, Matriz), o Copiar/Colar e o Alinhar da planta ainda não o levam.',
+  },
 };
 
 /**
@@ -77,6 +83,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
   cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o móvel importado é uma malha 3D que o corte e a elevação ainda não projetam, então não há desenho para mover ou alinhar nessas vistas.' },
 };
 
 const CODIGO_MOVER = ['edit.ts', 'arrayRadial.ts'].map(lerTools).join('\n');

@@ -297,6 +297,8 @@ export function migrateProject(raw: unknown): Project {
     }
     obj = { ...obj, stairTypes };
   }
+  // Moveis importados (`Project.furniture`, `elements` com kind 'furniture'): campo opcional e aditivo, SEM migracao e
+  // sem bump de SCHEMA_VERSION; projeto antigo nao o tem e abre igual (os arrays ja estao em base64 no JSON).
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');

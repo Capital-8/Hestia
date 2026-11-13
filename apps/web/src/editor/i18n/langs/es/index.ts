@@ -25,6 +25,7 @@ import { ES_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { ES_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { ES_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { ES_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { ES_FURNITURE } from '../../areas/furniture.ts';
 
 export const ES_ALL = {
   ...ES_GUARDA_CORPO,
@@ -53,4 +54,5 @@ export const ES_ALL = {
   ...ES_PROPS_OPTIONS,
   ...ES_PACKAGES_IO,
   ...ES_BIBLIOTECA,
+  ...ES_FURNITURE,
 };

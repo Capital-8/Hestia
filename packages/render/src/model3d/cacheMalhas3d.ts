@@ -1,4 +1,4 @@
-import type { BufferGeometry, Group, Object3D } from 'three';
+import type { BufferGeometry, Group, InstancedMesh, Object3D } from 'three';
 import type { GraphicsCategory, Id, Material } from '@hestia/model';
 import type { ColecaoCaixas } from './caixasDoNivel3d.ts';
 import type { ElementRange, SolidBatch } from './solids.ts';
@@ -83,7 +83,11 @@ export function bytesDeNivel(
 
 /** Libera as geometrias de um nível (grupo e picking). Os materiais são do pool de materiais, não do nível. */
 export function disposeNivel(e: EntradaNivel): void {
-  e.grupo.traverse((o) => (o as { geometry?: BufferGeometry }).geometry?.dispose());
+  e.grupo.traverse((o) => {
+    (o as { geometry?: BufferGeometry }).geometry?.dispose();
+    // Móveis importados: as matrizes das instâncias têm buffer próprio na GPU.
+    if ((o as InstancedMesh).isInstancedMesh) (o as InstancedMesh).dispose();
+  });
   for (const s of e.picks) s.geo.dispose();
 }
 

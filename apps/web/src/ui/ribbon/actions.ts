@@ -400,6 +400,8 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Insere um desenho DXF no nível, como um objeto só, com as camadas do arquivo.', 'Insert a DXF drawing on the level as a single object, with the file layers.'),
     run: openDialog('importCad'),
   },
+  importFurniture: { label: t('Importar móvel', 'Import furniture'), icon: 'open', hint: t('Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.', 'Brings a 3D piece of furniture from a file (.skp, .glb, .obj...) into the project.'), run: openDialog('importFurniture') },
+  myBlocks: { label: t('Meus blocos', 'My blocks'), icon: 'layers', hint: t('Lista os blocos do projeto para colocar mais cópias.', 'Lists the project blocks so you can place more copies.'), run: openDialog('importFurniture', 'blocks') },
   manageCad: {
     label: t('Gerenciar CAD', 'Manage CAD'),
     icon: 'layers',

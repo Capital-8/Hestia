@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
-  type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type ViewMaterialOverride,
+  SnapshotAssembler, authProof, API_VERSION, PluginHost, TEST_RENDERER_MANIFEST, TestPlugin, createMemoryPair, decode, findImagePayload, negotiateProtocol, validateEndpoint, validateManifest,
+  type Capability, type HostPorts, type PluginEntry, type SceneCamera, type SceneContent, type SceneEntity, type SceneLight, type ViewMaterialOverride,
 } from './index.ts';
 
 const cam = (x: number): SceneCamera => ({ projection: 'perspective', target: { x: 0, y: 0, z: 0 }, position: { x, y: -10, z: 8 }, up: { x: 0, y: 0, z: 1 }, fovY: 0.8, orthoHeight: 20, near: 0.1, far: 1000 });
@@ -31,12 +31,15 @@ function fakePorts() {
   };
 }
 
+// HMAC (WebCrypto) conclui em tempo real, fora dos timers falsos: espera um pouco de verdade a cada passo.
+const realSetTimeout = globalThis.setTimeout;
+const flushAuth = async (): Promise<void> => { for (let i = 0; i < 6; i++) { await vi.advanceTimersByTimeAsync(1); await new Promise<void>((r) => realSetTimeout(r, 12)); } };
 const flush = async (): Promise<void> => { for (let i = 0; i < 8; i++) { await vi.advanceTimersByTimeAsync(1); } };
 
 const ENTRY: PluginEntry = { key: 'renderer', label: 'Renderizador', endpoint: { host: '127.0.0.1', port: 47800 }, enabled: false, grants: [], suggested: ['scene.read'], expectedKind: 'renderer', builtin: true };
 const ALL: Capability[] = ['scene.read', 'camera.read', 'events.subscribe', 'camera.write', 'overrides.write'];
 
-function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean } = {}) {
+function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; refuse?: boolean; insecure?: boolean; token?: string; spy?: string[]; chunk?: number } = {}) {
   const f = fakePorts();
   const mem = new Map<string, string>();
   const plugins: TestPlugin[] = [];
@@ -46,15 +49,24 @@ function setup(opts: { plugin?: ConstructorParameters<typeof TestPlugin>[1]; ref
     builtins: [{ ...ENTRY }],
     heartbeatMs: 1000,
     backoffMs: [100, 200],
+    insecureAllowUnauthenticated: opts.insecure ?? true,
+    ...(opts.chunk ? { snapshotChunkChars: opts.chunk } : {}),
     connect: async () => {
       if (opts.refuse) throw new Error('recusado');
       const [a, b] = createMemoryPair();
+      if (opts.spy) {
+        const o1 = a.send.bind(a);
+        a.send = (f) => { opts.spy!.push(f); o1(f); };
+        const o2 = b.send.bind(b);
+        b.send = (f) => { opts.spy!.push(f); o2(f); };
+      }
       const p = new TestPlugin(b, { heartbeatMs: 1000, ...opts.plugin });
       plugins.push(p);
       p.hello();
       return a;
     },
   });
+  if (opts.token) host.setToken('renderer', opts.token);
   return { f, host, plugins, mem, last: () => plugins[plugins.length - 1]! };
 }
 
@@ -382,5 +394,398 @@ describe('mensagens malformadas', () => {
     expect(s.f.ov[TEST_RENDERER_MANIFEST.id]!.mat1!.color).toBe('#445566');
     expect(s.host.get('renderer')!.state).toBe('connected');
     expect(p.peer.pendingAcks).toBe(0);
+  });
+});
+
+describe('pareamento por token (protocolo 1.1)', () => {
+  const TOKEN = 'a'.repeat(31) + 'T'.repeat(33);
+  const OTHER = 'b'.repeat(64);
+
+  it('token correto: autentica, negocia 1.1 e só então entrega a cena', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('connected');
+    expect(s.last().authenticated).toBe(true);
+    expect(s.last().welcome).toMatchObject({ protocol: '1.1', authenticated: true });
+    expect(s.last().snapshot?.entities.length).toBe(1);
+  });
+
+  it('token incorreto no Hestia: incompatível (auth_failed) e NENHUMA cena sai', async () => {
+    const s = setup({ insecure: false, token: OTHER, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(s.last().snapshot).toBeNull();
+    expect(s.last().welcome).toBeNull();
+  });
+
+  it('plugin com token errado não prova o token: Hestia recusa', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, proofToken: OTHER } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(s.last().snapshot).toBeNull();
+  });
+
+  it('sem token configurado no Hestia: auth_required, sem reconexão automática', async () => {
+    const s = setup({ insecure: false, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.host.get('renderer')!.error?.code).toBe('auth_required');
+    expect(s.host.get('renderer')!.state).toBe('incompatible');
+    expect(s.host.get('renderer')!.hasToken).toBe(false);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(s.plugins.length).toBe(1);
+  });
+
+  it('compatibilidade 1.0: plugin sem auth é recusado por padrão e aceito só no modo inseguro explícito', async () => {
+    const req = setup({ insecure: false, token: TOKEN });
+    req.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(req.host.get('renderer')!.error?.code).toBe('auth_required');
+    expect(req.last().snapshot).toBeNull();
+    const legacy = setup({ insecure: true });
+    legacy.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(legacy.host.get('renderer')!.state).toBe('connected');
+    expect(legacy.last().welcome).toMatchObject({ protocol: '1.0', authenticated: false });
+  });
+
+  it('mensagem antes de concluir o pareamento: not_authenticated e conexão fechada', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    s.host.enable('renderer', ALL);
+    await vi.advanceTimersByTimeAsync(0);
+    s.last().peer.send({ t: 'scene.resync' });
+    await flushAuth();
+    expect(s.last().errors.some((e) => e.code === 'not_authenticated')).toBe(true);
+    expect(s.last().snapshot).toBeNull();
+  });
+
+  it('repetição: prova capturada em outra conexão não vale (nonces novos); quadro duplicado não reexecuta', async () => {
+    const first = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    first.host.enable('renderer', ALL);
+    await flushAuth();
+    const captured = first.last().lastProof!;
+    expect(captured).toBeTruthy();
+    const replay = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, replayProof: captured } });
+    replay.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(replay.host.get('renderer')!.error?.code).toBe('auth_failed');
+    expect(replay.last().snapshot).toBeNull();
+    const sent: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN }, spy: sent });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = s.last();
+    p.setMode('plugin-drives');
+    await flushAuth();
+    p.drive(cam(40));
+    await flushAuth();
+    const frame = sent.find((f) => f.includes('"camera.set"'))!;
+    const tr = (p.peer as unknown as { tr: { send(f: string): void } }).tr;
+    tr.send(frame);
+    tr.send(frame);
+    await flushAuth();
+    expect(s.f.writes.length).toBe(1);
+    expect(s.host.get('renderer')!.state).toBe('connected');
+  });
+
+  it('o token nunca trafega nem aparece na visão do gerenciador', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN }, spy: wire });
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(wire.length).toBeGreaterThan(5);
+    expect(wire.some((f) => f.includes(TOKEN))).toBe(false);
+    expect(JSON.stringify(s.host.list())).not.toContain(TOKEN);
+    expect(s.mem.get('hestia.plugins.v1')).not.toContain(TOKEN);
+    expect(s.host.get('renderer')!.hasToken).toBe(true);
+    expect(s.host.setToken('renderer', 'curto')).toBe(false);
+  });
+});
+
+describe('compatibilidade das provas com o renderizador Rust', () => {
+  it('vetor fixo: o HMAC do WebCrypto é idêntico ao do Rust', async () => {
+    const T = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const np = 'AAAAAAAAAAAAAAAAAAAAAA==';
+    const nh = 'BBBBBBBBBBBBBBBBBBBBBB==';
+    expect(await authProof(T, 'host', np, nh)).toBe('ee6ZJLkKce+oaVKpc8wRmc8AnOzpS+ror65AwTwKLSY=');
+    expect(await authProof(T, 'plugin', np, nh)).toBe('pkiqvzN+kIf4STO/1ClJqHrwtmVY2HPTihukJBJEqU0=');
+  });
+});
+
+describe('snapshot em partes (protocolo 1.2)', () => {
+  const TOKEN = 'c'.repeat(64);
+  const many = (f: ReturnType<typeof fakePorts>, n: number): void => { for (let i = 0; i < n; i++) f.content.entities.push(wall(`m${i}`, `h${i}`)); };
+
+  it('plugin 1.2: negocia 1.2, recebe várias partes pequenas e a cena fecha igual ao snapshot inteiro', async () => {
+    const parts = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, chunk: 600 });
+    many(parts.f, 12);
+    parts.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = parts.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.2' });
+    expect(p.partsReceived).toBeGreaterThan(3);
+    const whole = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN } });
+    many(whole.f, 12);
+    whole.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(whole.last().welcome).toMatchObject({ protocol: '1.1' });
+    expect(whole.last().partsReceived).toBe(0);
+    expect(p.snapshot!.entities).toEqual(whole.last().snapshot!.entities);
+    expect(p.snapshot!.materials).toEqual(whole.last().snapshot!.materials);
+    expect(p.snapshot!.revision).toBe(whole.last().snapshot!.revision);
+    // Depois do snapshot em partes, os deltas seguem normais.
+    parts.f.content.entities.push(wall('novo'));
+    parts.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.entities.some((e) => e.id === 'novo')).toBe(true);
+    expect(p.resyncs).toBe(0);
+  });
+
+  it('nenhum quadro passa do tamanho-alvo (mais a folga de uma entidade)', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, chunk: 2000, spy: wire });
+    many(s.f, 40);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const partFrames = wire.filter((f) => f.includes('"scene.snapshot.part"'));
+    expect(partFrames.length).toBeGreaterThan(2);
+    const maxEntity = Math.max(...s.f.content.entities.map((e) => JSON.stringify(e).length));
+    expect(Math.max(...partFrames.map((f) => f.length))).toBeLessThan(2000 + maxEntity + 400);
+  });
+
+  it('montador recusa sequência inconsistente', () => {
+    const a = new SnapshotAssembler();
+    const head = { t: 'scene.snapshot.begin', snapshot: { projectId: 'p', projectName: 'n', revision: 3, units: { length: 'm', angle: 'rad' }, axes: {}, camera: {}, overrides: {} }, parts: 2, counts: { entities: 1, materials: 0, textures: 0 } } as never;
+    expect(() => a.part({ t: 'scene.snapshot.part', index: 0 })).toThrow(/sem begin/);
+    a.begin(head);
+    expect(() => a.part({ t: 'scene.snapshot.part', index: 1 })).toThrow(/fora de ordem/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    expect(() => a.end({ t: 'scene.snapshot.end', revision: 3 })).toThrow(/faltam partes/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    a.part({ t: 'scene.snapshot.part', index: 1 });
+    expect(() => a.end({ t: 'scene.snapshot.end', revision: 4 })).toThrow(/revisão/);
+    a.begin(head);
+    a.part({ t: 'scene.snapshot.part', index: 0, entities: [wall('x')] });
+    a.part({ t: 'scene.snapshot.part', index: 1 });
+    expect(a.end({ t: 'scene.snapshot.end', revision: 3 }).entities.map((e) => e.id)).toEqual(['x']);
+  });
+
+  it('mensagens de snapshot em partes malformadas são recusadas', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: -1 })).toBe(false);
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: 0, entities: 'x' })).toBe(false);
+    expect(d({ t: 'scene.snapshot.end', seq: 1, revision: 'a' })).toBe(false);
+    expect(d({ t: 'scene.snapshot.begin', seq: 1, snapshot: { revision: 1, projectId: 'p' }, parts: 0, counts: { entities: 0, materials: 0, textures: 0 } })).toBe(false);
+    expect(d({ t: 'scene.snapshot.part', seq: 1, index: 0, entities: [] })).toBe(true);
+  });
+});
+
+
+describe('extensão de renderização (protocolo 1.3)', () => {
+  const TOKEN = 'd'.repeat(64);
+  const luz = (id: string): SceneLight => ({ id, kind: 'point', position: { x: 1, y: 2, z: 3 }, color: '#ffeedd', intensity: 800 });
+  /** Cena rica: normais, material por grupo, PBR, luz e sol. */
+  function rica(f: ReturnType<typeof fakePorts>): void {
+    f.content.entities[0]!.mesh!.normals = [0, 0, 1, 0, 0, 1, 0, 0, 1];
+    f.content.materials[0] = { ...f.content.materials[0]!, metallic: 0.9, emissive: { color: '#ff0000', intensity: 2 }, ior: 1.5, transmission: 0.4 };
+    f.content.lights = [luz('l1')];
+    f.content.site = { latitude: -23.5, longitude: -46.6, northAngle: 0.3, timezone: 'America/Sao_Paulo' };
+  }
+  const run = async (max: string, mut?: (f: ReturnType<typeof fakePorts>) => void) => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: max } });
+    rica(s.f);
+    mut?.(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    return s;
+  };
+
+  it('plugin 1.3: negocia 1.3 e recebe grupos com material, normais, PBR, luzes e site', async () => {
+    const s = await run('1.3');
+    const p = s.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.3' });
+    const snap = p.snapshot!;
+    expect(snap.entities[0]!.mesh!.groups[0]!.materialId).toBe('mat1');
+    expect(snap.entities[0]!.mesh!.normals).toEqual([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+    expect(snap.materials[0]).toMatchObject({ metallic: 0.9, emissive: { color: '#ff0000', intensity: 2 }, ior: 1.5, transmission: 0.4 });
+    expect(snap.lights).toEqual([luz('l1')]);
+    expect(snap.site).toEqual({ latitude: -23.5, longitude: -46.6, northAngle: 0.3, timezone: 'America/Sao_Paulo' });
+  });
+
+  it('plugin 1.2 no mesmo host: negocia 1.2 e a cena sai como antes (sem campos de 1.3, material do grupo em null)', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.2' }, spy: wire });
+    rica(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    const p = s.last();
+    expect(p.welcome).toMatchObject({ protocol: '1.2' });
+    const snap = p.snapshot!;
+    expect(snap.lights).toBeUndefined();
+    expect(snap.site).toBeUndefined();
+    expect(snap.entities[0]!.mesh!.normals).toBeUndefined();
+    expect(snap.entities[0]!.mesh!.groups[0]!.materialId).toBeNull();
+    expect(Object.keys(snap.materials[0]!).sort()).toEqual(['color', 'gloss', 'id', 'name', 'opacity']);
+    expect(wire.join('\n')).not.toMatch(/"lights"|"site"|"normals"|"metallic"|"emissive"|"transmission"/);
+  });
+
+  it('plugin 1.1 (snapshot inteiro) também não recebe nada de 1.3', async () => {
+    const s = await run('1.1');
+    expect(s.last().welcome).toMatchObject({ protocol: '1.1' });
+    expect(s.last().snapshot!.lights).toBeUndefined();
+    expect(s.last().snapshot!.entities[0]!.mesh!.groups[0]!.materialId).toBeNull();
+  });
+
+  it('deltas 1.3: light.add, light.update e light.remove chegam e o plugin fecha igual ao host', async () => {
+    const s = await run('1.3');
+    const p = s.last();
+    s.f.content.lights!.push(luz('l2'));
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights!.map((l) => l.id)).toEqual(['l1', 'l2']);
+    s.f.content.lights![0] = { ...luz('l1'), kind: 'spot', direction: { x: 0, y: 0, z: -1 }, innerAngle: 0.2, outerAngle: 0.5, range: 10 };
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights![0]).toMatchObject({ kind: 'spot', outerAngle: 0.5 });
+    s.f.content.lights = [s.f.content.lights![1]!];
+    s.f.changeScene();
+    await flushAuth();
+    expect(p.snapshot!.lights!.map((l) => l.id)).toEqual(['l2']);
+    expect(p.resyncs).toBe(0);
+  });
+
+  it('mudança de site manda novo snapshot; mudança de luz num plugin 1.2 não gera nada', async () => {
+    const s13 = await run('1.3');
+    const rev = s13.last().snapshot!.revision;
+    s13.f.content.site = { latitude: 10 };
+    s13.f.changeScene();
+    await flushAuth();
+    expect(s13.last().snapshot!.site).toEqual({ latitude: 10 });
+    expect(s13.last().snapshot!.revision).toBeGreaterThan(rev);
+    const s12 = await run('1.2');
+    const d = s12.last().deltas;
+    s12.f.content.lights!.push(luz('l9'));
+    s12.f.changeScene();
+    await flushAuth();
+    expect(s12.last().deltas).toBe(d);
+  });
+
+  it('valores inválidos são descartados no host (a cena não cai)', async () => {
+    const s = await run('1.3', (f) => {
+      f.content.materials[0] = { ...f.content.materials[0]!, metallic: 7, ior: 1.4 };
+      f.content.lights = [luz('ok'), { ...luz('ruim'), intensity: -1 }, { ...luz('spot-sem-direcao'), kind: 'spot' }];
+      f.content.site = { latitude: 200, timezone: 'America/Sao_Paulo' };
+      f.content.entities[0]!.mesh!.normals = [0, 0, 1];
+    });
+    const snap = s.last().snapshot!;
+    expect(snap.materials[0]!.metallic).toBeUndefined();
+    expect(snap.materials[0]!.ior).toBe(1.4);
+    expect(snap.lights!.map((l) => l.id)).toEqual(['ok']);
+    expect(snap.site).toEqual({ timezone: 'America/Sao_Paulo' });
+    expect(snap.entities[0]!.mesh!.normals).toBeUndefined();
+  });
+
+  it('snapshot em partes (1.3) leva luzes e site no cabeçalho', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.3' }, chunk: 600 });
+    rica(s.f);
+    for (let i = 0; i < 8; i++) s.f.content.entities.push(wall(`m${i}`, `h${i}`));
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().partsReceived).toBeGreaterThan(2);
+    expect(s.last().snapshot!.lights).toHaveLength(1);
+    expect(s.last().snapshot!.site?.timezone).toBe('America/Sao_Paulo');
+  });
+
+  it('validação de mensagens: luz, material, site e normais malformados são recusados', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    const delta = (op: unknown): unknown => ({ t: 'scene.delta', seq: 1, delta: { baseRevision: 1, revision: 2, ops: [op] } });
+    const mat = (extra: object): unknown => ({ id: 'm', name: 'x', color: '#000000', gloss: 0, opacity: 1, ...extra });
+    expect(d(delta({ op: 'light.add', light: luz('a') }))).toBe(true);
+    expect(d(delta({ op: 'light.add', light: { ...luz('a'), kind: 'sol' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), color: 'vermelho' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), kind: 'spot' } }))).toBe(false);
+    expect(d(delta({ op: 'light.update', light: { ...luz('a'), kind: 'spot', direction: { x: 0, y: 0, z: -1 }, innerAngle: 1, outerAngle: 0.5 } }))).toBe(false);
+    expect(d(delta({ op: 'light.remove', id: 'a' }))).toBe(true);
+    expect(d(delta({ op: 'light.remove' }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ transmission: 2 }) }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ emissive: { color: '#fff', intensity: 1 } }) }))).toBe(false);
+    expect(d(delta({ op: 'material.update', material: mat({ metallic: 1, ior: 1.5, emissive: { color: '#ffffff', intensity: 0 } }) }))).toBe(true);
+    const snap = (extra: object): unknown => ({ t: 'scene.snapshot', seq: 1, snapshot: { revision: 1, projectId: 'p', entities: [], materials: [], ...extra } });
+    expect(d(snap({ lights: [luz('a')], site: { latitude: -23, timezone: 'UTC' } }))).toBe(true);
+    expect(d(snap({ site: { latitude: 91 } }))).toBe(false);
+    expect(d(snap({ site: { timezone: 'nao e fuso' } }))).toBe(false);
+    expect(d(snap({ lights: 'x' }))).toBe(false);
+    expect(d(snap({ entities: [{ mesh: { positions: [0, 0, 0], normals: [0, 1], indices: [], groups: [] } }] }))).toBe(false);
+  });
+});
+
+
+describe('categoria do material e UVs (protocolo 1.3)', () => {
+  const TOKEN = 'e'.repeat(64);
+  const comCat = (f: ReturnType<typeof fakePorts>): void => {
+    f.content.materials[0] = { ...f.content.materials[0]!, category: 'brick' };
+    f.content.entities[0]!.mesh!.uvs = [0, 0, 1, 0, 0, 1];
+  };
+  it('1.3 leva category e uvs; 1.1 e 1.2 não levam nenhum dos dois (nem no fio)', async () => {
+    for (const [max, esperado] of [['1.3', true], ['1.2', false], ['1.1', false]] as const) {
+      const wire: string[] = [];
+      const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: max }, spy: wire });
+      comCat(s.f);
+      s.host.enable('renderer', ALL);
+      await flushAuth();
+      const snap = s.last().snapshot!;
+      expect(snap.materials[0]!.category).toBe(esperado ? 'brick' : undefined);
+      expect(snap.entities[0]!.mesh!.uvs !== undefined).toBe(esperado);
+      expect(wire.join('\n').includes('"category"')).toBe(esperado);
+      expect(wire.join('\n').includes('"uvs"')).toBe(esperado);
+    }
+  });
+  it('plugin 1.0 (sem token) também não recebe category', async () => {
+    const wire: string[] = [];
+    const s = setup({ insecure: true, spy: wire });
+    comCat(s.f);
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().welcome).toMatchObject({ protocol: '1.0' });
+    expect(wire.join('\n')).not.toMatch(/"category"|"uvs"/);
+  });
+  it('snapshot em partes e deltas material.update/add levam category', async () => {
+    const s = setup({ insecure: false, token: TOKEN, plugin: { token: TOKEN, protocolMax: '1.3' }, chunk: 600 });
+    comCat(s.f);
+    for (let i = 0; i < 6; i++) s.f.content.entities.push(wall(`m${i}`, `h${i}`));
+    s.host.enable('renderer', ALL);
+    await flushAuth();
+    expect(s.last().partsReceived).toBeGreaterThan(2);
+    expect(s.last().snapshot!.materials[0]!.category).toBe('brick');
+    s.f.content.materials[0] = { ...s.f.content.materials[0]!, category: 'ceramic' };
+    s.f.changeScene();
+    await flushAuth();
+    expect(s.last().snapshot!.materials[0]!.category).toBe('ceramic');
+    s.f.content.materials.push({ id: 'mat2', name: 'N', color: '#000000', gloss: 0, opacity: 1, category: 'wood' });
+    s.f.changeScene();
+    await flushAuth();
+    expect(s.last().snapshot!.materials.find((m) => m.id === 'mat2')!.category).toBe('wood');
+    expect(s.last().resyncs).toBe(0);
+  });
+  it('validação: category minúscula até 32 caracteres; desconhecida é aceita; uvs com tamanho errado é recusado', () => {
+    const d = (m: unknown): boolean => decode(JSON.stringify(m)).ok;
+    const up = (extra: object): unknown => ({ t: 'scene.delta', seq: 1, delta: { baseRevision: 1, revision: 2, ops: [{ op: 'material.add', material: { id: 'm', name: 'x', color: '#000000', gloss: 0, opacity: 1, ...extra } }] } });
+    expect(d(up({ category: 'wood' }))).toBe(true);
+    expect(d(up({ category: 'categoria_nova_do_futuro' }))).toBe(true);
+    expect(d(up({}))).toBe(true);
+    expect(d(up({ category: 'Wood' }))).toBe(false);
+    expect(d(up({ category: 'a'.repeat(33) }))).toBe(false);
+    expect(d(up({ category: 3 }))).toBe(false);
+    expect(d(up({ category: '' }))).toBe(false);
+    const snap = (mesh: object): unknown => ({ t: 'scene.snapshot', seq: 1, snapshot: { revision: 1, projectId: 'p', materials: [], entities: [{ mesh }] } });
+    expect(d(snap({ positions: [0, 0, 0], uvs: [0, 0], indices: [], groups: [] }))).toBe(true);
+    expect(d(snap({ positions: [0, 0, 0], uvs: [0, 0, 0], indices: [], groups: [] }))).toBe(false);
   });
 });

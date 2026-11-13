@@ -88,6 +88,11 @@ const COLETORES: Coletores = {
     pontos: nenhum,
   },
   cad: { entra: false, motivo: 'O desenho CAD importado é só de planta (traços 2D); não aparece em corte nem em elevação.', pontos: nenhum },
+  furniture: {
+    entra: false,
+    motivo: 'TODO: o móvel importado é uma malha 3D; a planta mostra só um contorno simples (overlay da interface) e o corte e a elevação ainda não projetam a malha, então não há o que enquadrar.',
+    pontos: nenhum,
+  },
 };
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {

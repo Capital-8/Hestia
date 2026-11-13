@@ -17,6 +17,8 @@ import { buildEaveSolids } from './eaveSolids.ts';
 import { buildStairSolids } from './stairSolids.ts';
 import { buildGuardaCorpoSolids } from './guardaCorpo3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
+import { MoveisDaCena } from './furnitureCena.ts';
+import type { OpcoesMoveis } from './furnitureSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
@@ -179,6 +181,10 @@ export class ModelScene {
   private soRevelados: Project | null = null;
   /** Materiais por chave (ver `Materiais3D`). */
   private mats = new Materiais3D();
+  /** Móveis importados: instâncias compartilhando geometria, versão leve em fatias (ver `furnitureCena.ts`). */
+  readonly moveis = new MoveisDaCena(() => this.recarregarMoveis());
+  /** Última atualização (a cena se refaz sozinha quando uma versão leve de móvel fica pronta). */
+  private ultimaAtualizacao: { p: Project; levels: ResolvedLevel[]; opt: Scene3DOptions } | null = null;
   /** Níveis que a cena mostra agora, e o cache de malhas por nível (ver `update`). */
   private cenaNiveis: EntradaNivel[] = [];
   /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
@@ -217,9 +223,12 @@ export class ModelScene {
       niveisPorFaixa?: number;
       faixasMax?: number;
       sombraMaxTriangulos?: number;
+      /** Móveis importados: qualidade padrão, meta da versão leve, modo síncrono (render offscreen). */
+      moveis?: OpcoesMoveis;
     } = {},
   ) {
     this.cache = new CacheMalhas(opcoes.tetoMalhasBytes);
+    if (opcoes.moveis) this.moveis.opcoes = opcoes.moveis;
     this.reduzirJuncao = opcoes.reduzirJuncao ?? true;
     this.instanciar = opcoes.instanciar ?? true;
     this.sombraMaxTriangulos = opcoes.sombraMaxTriangulos ?? SOMBRA_MAX_TRIANGULOS;
@@ -341,6 +350,8 @@ export class ModelScene {
     };
     this.mats.marco = { view, dark: opt.dark };
     this.mats.used = new Set();
+    this.moveis.inicio();
+    this.ultimaAtualizacao = { p, levels, opt };
     this.sombra.marcar();
     // O realce guarda cópias dos triângulos: com o modelo refeito, refaz-se (a seleção e o cursor são lidos de novo).
     this.realces.soltarTodos();
@@ -362,6 +373,7 @@ export class ModelScene {
       // Guarda-corpo tem lote e chave próprios (`atualizarGuardaCorpo`): mudar um não remonta o outro.
       { semGuardaCorpo: true },
     );
+    this.moveis.chaves(p, chaves, this.ocultos);
     const antes = this.cenaNiveis;
     const atuais: EntradaNivel[] = [];
     const sobras: EntradaNivel[] = [];
@@ -726,6 +738,14 @@ export class ModelScene {
   /** Motivo (número do teste) da última recusa de `atualizarAberturas`; diagnóstico. */
   ultimaRecusa = 0;
 
+  /** Uma versão leve de móvel ficou pronta: refaz só os níveis com móveis (a chave deles mudou) e avisa o app. */
+  private recarregarMoveis(): void {
+    const u = this.ultimaAtualizacao;
+    if (!u) return;
+    this.update(u.p, u.levels, u.opt);
+    this.moveis.aoAtualizar?.();
+  }
+
   private recusar(motivo: number): false {
     this.ultimaRecusa = motivo;
     return false;
@@ -734,7 +754,9 @@ export class ModelScene {
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true });
+    const chaves = chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true });
+    this.moveis.chaves(p, chaves, this.ocultos);
+    return chaves;
   }
 
   /**
@@ -980,6 +1002,7 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    if (shown('generic')) this.moveis.montar(grupo, this.mats, p, lv.levelId, this.frame.shadows, this.ocultos);
     const batches: SolidBatch[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
@@ -1215,6 +1238,8 @@ export class ModelScene {
   }
 
   dispose(): void {
+    this.moveis.dispose();
+    this.ultimaAtualizacao = null;
     this.detach();
     this.liberarNiveis();
     this.niveisAssinatura = null;

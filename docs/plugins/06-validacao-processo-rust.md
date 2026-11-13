@@ -1,5 +1,8 @@
 # Validação com o processo Rust separado
 
+> **Atualização (pareamento):** o processo Rust agora exige token por padrão; os casos de pareamento (correto, errado, ausente,
+> repetição, compatibilidade 1.0) estão em [07](07-pareamento-por-token.md) e no mesmo arquivo de teste (21 casos).
+
 **Estado:** a troca de mensagens entre o Hestia e um processo Rust separado está validada por WebSocket real em loopback.
 **Isto NÃO é o renderizador completo:** o processo mantém o espelho da cena e prova o protocolo; **não desenha**. A geometria
 de um projeto real ainda não foi validada (ver "Próximo passo").
@@ -22,7 +25,9 @@ de um projeto real ainda não foi validada (ver "Próximo passo").
 cd crates/hestia-renderer && cargo test          # 3 testes unitários da política Origin/Host
 npm run test:rust-processo                       # compila o binário e roda a integração (precisa de cargo)
 ```
-Argumentos do binário: `--port N`, `--state-file F`, `--control-stdin`, `--allow-origin O` (repetível), `--allow-no-origin`.
+Argumentos do binário: `--token-file F` (**obrigatório**, ver [07](07-pareamento-por-token.md)), `--init-token F [--show-token]`,
+`--port N`, `--state-file F`, `--control-stdin`, `--allow-origin O` (repetível). **Somente testes locais:** `--insecure-no-auth`
+(sem autenticação) e `--allow-no-origin`.
 
 ## O que o teste de integração prova (11 casos, dois processos do sistema operacional)
 O lado Hestia é o Node do teste, com código real de `@hestia/plugin-api` (PluginHost, HostSession), o transporte WebSocket do
@@ -43,6 +48,11 @@ transporte em memória; o PID do relatório é do processo filho e difere do PID
    (`resumed: true`, nenhum snapshot novo).
 10. Processo Rust encerrado: o Hestia sai de "conectado", reconecta sozinho a um processo novo e este recebe o snapshot.
 
+## Snapshot em partes entre processos (protocolo 1.2)
+O teste `snapshot em partes (protocolo 1.2) entre processos` envia ao Rust uma cena **sintética** de 70 entidades (~70 MiB de JSON, maior que o
+quadro de 64 MiB) e confere: protocolo negociado 1.2, `chunkedSnapshots = 1`, 70 entidades completas, material, `resyncs = 0`, ≥ 8 partes e o
+maior quadro recebido < 10 MiB. A cena não é um projeto real; ela existe para provar o mecanismo.
+
 ## Defeito achado só com processos reais
 Um quadro numerado com campos inválidos não consumia o `seq`; a mensagem válida seguinte virava `out_of_order` fatal e
 derrubava a conexão. Corrigido em `Peer` (`transport.ts`): o `seq` é consumido e confirmado, e o erro volta com o `re` do
@@ -54,7 +64,7 @@ seguidas de válidas.
   app (`extractElementMeshes`) depende de THREE + GPU montada e **não** foi exercitada contra o Rust.
 - O processo Rust não desenha; não há pipeline gráfico, texturas nem materiais PBR.
 - Uma conexão por vez; conexões extras esperam na fila do `accept`.
-- O teste usa `--allow-no-origin` porque o WebSocket do Node não envia `Origin`. A aceitação da origem do Hestia é provada
+- O WebSocket do Node não envia `Origin`; por isso o teste usa o modo autenticado (cliente sem `Origin` só entra com token). A aceitação da origem do Hestia é provada
   por aperto de mãos HTTP cru; o fluxo completo com `Origin` de navegador/Tauri não foi exercitado.
 - Dentro do sandbox do agente, processos filhos só escrevem dentro do projeto: o teste usa `crates/hestia-renderer/target/`.
 - `clippy` acusa `result_large_err` em tipos de resposta HTTP do `tungstenite`; não é código nosso.

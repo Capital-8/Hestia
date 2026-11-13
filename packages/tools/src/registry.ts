@@ -41,8 +41,9 @@ import { TagTool } from './tagTool.ts';
 import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
+import { FurnitureTool } from './furnitureTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'furniture';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
@@ -70,6 +71,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
   switch (id) {
     case 'select':
       return new SelectTool(env);
+    case 'furniture':
+      return new FurnitureTool(env);
     case 'paste':
       return new PasteTool(env);
     case 'perimeter':
@@ -160,6 +163,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
 export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
+  furniture: 'Móvel',
   wall: 'Parede',
   floor: 'Piso',
   slab: 'Laje',

@@ -2,6 +2,7 @@ import { applyPatches, enablePatches, produceWithPatches, type Patch } from 'imm
 import { applyCommand, type Command } from './commands.ts';
 import type { Project } from './types.ts';
 import type { Lang } from './i18n.ts';
+import { furnitureLabel, isFurnitureCommand } from './furniture/commands.ts';
 
 enablePatches();
 
@@ -149,7 +150,8 @@ export class ProjectStore {
   }
 }
 
-export function labelOf(c: Command): string {
+export function labelOf(c: Command, lang: Lang = 'pt'): string {
+  if (isFurnitureCommand(c)) return furnitureLabel(c, lang);
   switch (c.type) {
     case 'addWall':
       return 'Criar parede';
@@ -273,6 +275,8 @@ export function labelOf(c: Command): string {
       return 'Restaurar gráficos do corte';
     case 'setProjectName':
       return 'Renomear projeto';
+    case 'setRenderSetup':
+      return 'Local e luzes para o renderizador';
     case 'setDefaults':
       return 'Padrões do projeto';
     case 'setSettings':

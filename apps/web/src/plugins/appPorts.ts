@@ -1,4 +1,4 @@
-import { newId, pluginProjectUid, pluginViewOverrides, type Id } from '@hestia/model';
+import { newId, pluginProjectUid, pluginViewOverrides, projectView3DPoints, type Id } from '@hestia/model';
 import { PluginHost, RENDERER_CAPABILITIES, type CameraPort, type HostPorts, type OverridesPort, type PluginEntry, type ScenePort } from '@hestia/plugin-api';
 import { editor } from '../editor/controller.ts';
 import { aplicarCamera3DAoVivo, camera3DAtual, lerCena3D, prepararCena3D } from '../editor/vista3dAoVivo.ts';
@@ -39,7 +39,8 @@ const scenePort: ScenePort = {
 
 const cameraPort: CameraPort = {
   read() {
-    const c = camera3DAtual();
+    // Sem vista 3D aberta, o renderizador parte do primeiro ponto de vista salvo do projeto (por exemplo, "Fachada principal").
+    const c = camera3DAtual() ?? projectView3DPoints(editor.project)[0]?.camera ?? null;
     return c ? toSceneCamera(c) : null;
   },
   write: (c) => aplicarCamera3DAoVivo(fromSceneCamera(c)),

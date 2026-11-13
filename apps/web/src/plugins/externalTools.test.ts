@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, pluginViewOverrides } from '@hestia/model';
+import { ProjectStore, createEmptyProject, pluginViewOverrides, view3dOf } from '@hestia/model';
 import { useUi } from '../editor/state.ts';
 import { ACTIONS } from '../ui/ribbon/actions.ts';
 import { TABS } from '../ui/ribbon/tabs.ts';
 import { fromSceneCamera, toSceneCamera } from './cameraConvert.ts';
-import { buildSceneContent, extractElementMeshes } from './sceneExport.ts';
+import { buildSceneContent, extractElementMeshes, extractLights, extractSite, categoriaDoMaterial, uvsCaixa, UVS_MAX_VERTICES } from './sceneExport.ts';
 
 describe('Suplementos › Ferramentas externas', () => {
   it('é a única entrada habilitada da aba e abre o diálogo', () => {
@@ -74,5 +74,145 @@ describe('exportação de cena', () => {
     const c = buildSceneContent(p, null);
     expect(c.materials.map((x) => x.id).sort()).toEqual(Object.keys(p.materials).sort());
     expect(c.entities.every((e) => e.mesh === null)).toBe(true);
+  });
+});
+
+describe('exportação de cena (protocolo 1.3)', () => {
+  /** Duas malhas de lotes de materiais diferentes, com faixas do MESMO elemento (parede de duas camadas). */
+  function lote(materialId: string, x: number, ranges: Array<{ id: string; start: number; count: number }>): THREE.Mesh {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([x, 0, 0, x + 1, 0, 0, x, 1, 0]), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
+    g.setIndex([0, 1, 2]);
+    const m = new THREE.Mesh(g);
+    m.userData = { materialId, ranges };
+    return m;
+  }
+
+  it('grupos por material: cada faixa vai para o grupo do material do seu lote; normais acompanham os vértices', () => {
+    const root = new THREE.Group();
+    root.add(lote('mat-reboco', 0, [{ id: 'w', start: 0, count: 3 }]), lote('mat-bloco', 5, [{ id: 'w', start: 0, count: 3 }]));
+    const m = extractElementMeshes(root).get('w')!;
+    expect(m.groups).toEqual([{ start: 0, count: 3, materialId: 'mat-reboco' }, { start: 3, count: 3, materialId: 'mat-bloco' }]);
+    expect(m.positions).toHaveLength(18);
+    expect(m.normals).toHaveLength(18);
+    expect(m.normals!.slice(0, 3)).toEqual([0, 0, 1]);
+  });
+
+  it('normais são giradas junto com a malha; hash muda se o material do grupo muda', () => {
+    const a = new THREE.Group();
+    const la = lote('m1', 0, [{ id: 'e', start: 0, count: 3 }]);
+    la.rotation.x = Math.PI / 2;
+    a.add(la);
+    const ma = extractElementMeshes(a).get('e')!;
+    expect(ma.normals![0]).toBeCloseTo(0, 6);
+    expect(Math.abs(ma.normals![1]!)).toBeCloseTo(1, 6);
+    const b = new THREE.Group();
+    const lb = lote('m2', 0, [{ id: 'e', start: 0, count: 3 }]);
+    lb.rotation.x = Math.PI / 2;
+    b.add(lb);
+    expect(extractElementMeshes(b).get('e')!.hash).not.toBe(ma.hash);
+  });
+
+  it('lote sem normais ou sem material: entidade sem normais e grupo com materialId null', () => {
+    const l = lote('x', 0, [{ id: 'e', start: 0, count: 3 }]);
+    l.geometry.deleteAttribute('normal');
+    delete l.userData.materialId;
+    const root = new THREE.Group();
+    root.add(l);
+    const m = extractElementMeshes(root).get('e')!;
+    // Sem o atributo `normal` (malha só de picking), as normais saem derivadas dos triângulos.
+    expect(m.normals).toHaveLength(m.positions.length);
+    expect(m.groups[0]!.materialId).toBeNull();
+  });
+
+  it('luzes: modelo sem luminárias dá lista vazia; luminária IFC vira luz pontual no centro da caixa', () => {
+    const p = createEmptyProject('pt');
+    expect(buildSceneContent(p, null).lights).toEqual([]);
+    const lvl = Object.keys(p.levels)[0]!;
+    (p.elements as Record<string, unknown>).lum1 = {
+      id: 'lum1', kind: 'generic', levelId: lvl, name: 'Luminária', sourceClass: 'IfcLightFixture', order: 0,
+      mesh: { positions: [0, 0, 2, 1, 0, 2, 0, 1, 3], indices: [0, 1, 2] },
+      ifcProperties: [{ name: 'LuminousIntensity', value: 1200, pset: 'Pset_LightFixtureTypeCommon' }],
+    };
+    (p.elements as Record<string, unknown>).viga = {
+      id: 'viga', kind: 'generic', levelId: lvl, name: 'Viga', sourceClass: 'IFCBEAM', order: 1, mesh: { positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], indices: [0, 1, 2] },
+    };
+    const luzes = extractLights(p);
+    expect(luzes).toEqual([{ id: 'light:lum1', kind: 'point', position: { x: 0.5, y: 0.5, z: 2.5 }, color: '#ffffff', intensity: 1200 }]);
+  });
+
+  it('site: sol da vista 3D em radiano; latitude, longitude, norte e fuso não existem no modelo e não saem', () => {
+    const p = createEmptyProject('pt');
+    const s = extractSite(p)!;
+    expect(s.latitude).toBeUndefined();
+    expect(s.timezone).toBeUndefined();
+    const v = view3dOf(p);
+    expect(s.sun!.azimuth).toBeCloseTo((v.sunAzimuth * Math.PI) / 180, 9);
+    expect(s.sun!.elevation).toBeCloseTo((v.sunElevation * Math.PI) / 180, 9);
+    expect(buildSceneContent(p, null).site).toEqual(s);
+  });
+
+  it('materiais do tipo do elemento entram em materialIds (base dos grupos)', () => {
+    const p = createEmptyProject('pt');
+    const tipo = Object.values(p.wallTypes)[0];
+    if (!tipo) return;
+    const mats = [...new Set(tipo.layers.map((l) => l.materialId))];
+    (p.elements as Record<string, unknown>).wx = { id: 'wx', kind: 'wall', typeId: tipo.id, levelId: Object.keys(p.levels)[0], name: 'P' };
+    const e = buildSceneContent(p, null).entities.find((x) => x.id === 'wx')!;
+    expect(e.materialIds).toEqual(mats);
+  });
+});
+
+
+describe('categoria, PBR derivado e UVs (protocolo 1.3)', () => {
+  it('catálogo: categoria por id e PBR derivado (metal e vidro); demais sem PBR', () => {
+    const p = createEmptyProject('pt');
+    const mats = new Map(buildSceneContent(p, null).materials.map((m) => [m.id, m]));
+    expect(mats.get('mat_reboco')!.category).toBe('plaster');
+    expect(mats.get('mat_bloco14')!.category).toBe('brick');
+    expect(mats.get('mat_aco')).toMatchObject({ category: 'metal', metallic: 1 });
+    expect(mats.get('mat_aco')!.transmission).toBeUndefined();
+    expect(mats.get('mat_vidro')).toMatchObject({ category: 'glass', transmission: 0.9, ior: 1.5 });
+    expect(mats.get('mat_vidro')!.metallic).toBeUndefined();
+    expect(mats.get('mat_madeira')!.metallic).toBeUndefined();
+    for (const id of Object.keys(p.materials)) expect(mats.get(id)!.category, id).toBeDefined();
+  });
+  it('categoria do usuário tem prioridade sobre o catálogo; inválida é ignorada; sem categoria fica ausente', () => {
+    expect(categoriaDoMaterial({ id: 'mat_reboco', category: 'wood' })).toBe('wood');
+    expect(categoriaDoMaterial({ id: 'mat_reboco', category: 'Madeira Boa' })).toBe('plaster');
+    expect(categoriaDoMaterial({ id: 'mat_livre' })).toBeUndefined();
+    const p = createEmptyProject('pt');
+    p.materials.mat_usr = { id: 'mat_usr', name: 'Bancada', color: '#aa8855', hatch: 'none', gloss: 0.2, opacity: 1, cost: 0, unit: 'm2', category: 'wood' };
+    p.materials.mat_sem = { id: 'mat_sem', name: 'Parede sala 2', color: '#aa8855', hatch: 'none', gloss: 0.2, opacity: 1, cost: 0, unit: 'm2' };
+    const m = new Map(buildSceneContent(p, null).materials.map((x) => [x.id, x]));
+    expect(m.get('mat_usr')!.category).toBe('wood');
+    expect('category' in m.get('mat_sem')!).toBe(false);
+  });
+  it('category persiste no JSON do projeto (sem mudar o esquema)', () => {
+    const store = new ProjectStore(createEmptyProject('pt'));
+    const base = store.project.materials.mat_tinta!;
+    store.exec({ type: 'upsertMaterial', material: { ...base, id: 'mat_n', category: 'paint' } });
+    expect(JSON.parse(JSON.stringify(store.project)).materials.mat_n.category).toBe('paint');
+  });
+  it('UVs por projeção em caixa, em metros: eixo da maior componente da normal', () => {
+    const pos = [5, 6, 7, 5, 6, 7, 5, 6, 7];
+    const nor = [1, 0, 0, 0, -1, 0, 0, 0.2, 0.9];
+    expect(uvsCaixa(pos, nor)).toEqual([6, 7, 5, 7, 5, 6]);
+    expect(uvsCaixa(pos, [0, 0, 1])).toBeUndefined();
+    const n = 3 * (UVS_MAX_VERTICES + 1);
+    expect(uvsCaixa(new Array<number>(n).fill(0), new Array<number>(n).fill(1))).toBeUndefined();
+  });
+  it('extração envia uvs com 2 números por vértice quando há normais', () => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 2, 1, 0, 2, 0, 1, 2]), 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]), 3));
+    g.setIndex([0, 1, 2]);
+    const mesh = new THREE.Mesh(g);
+    mesh.position.set(10, 0, 0);
+    mesh.userData = { materialId: 'm', ranges: [{ id: 'a', start: 0, count: 3 }] };
+    const root = new THREE.Group();
+    root.add(mesh);
+    expect(extractElementMeshes(root).get('a')!.uvs).toEqual([10, 0, 11, 0, 10, 1]);
   });
 });

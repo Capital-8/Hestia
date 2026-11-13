@@ -4,6 +4,7 @@ import { contextoDaVista } from '@hestia/render';
 import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hestia/engine';
 import {
   isCad,
+  isFurniture,
   isFloor,
   isGeneric,
   isOpening,
@@ -57,6 +58,7 @@ import { RoomProperties } from './RoomProperties.tsx';
 import { AreaProfileGroups, activeAreaPlan } from './AreaPlanProperties.tsx';
 import { GenericProps, selectionLabel } from './GenericProps.tsx';
 import { CadProps } from './CadProps.tsx';
+import { FurnitureProps } from './FurnitureProps.tsx';
 import { GridProperties } from './GridProperties.tsx';
 import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
@@ -446,18 +448,18 @@ export function Properties(): ReactElement {
   const stairs = els.filter(isStair);
   const ramps = els.filter(isRamp);
   const railings = els.filter(isGuardaCorpo);
-  const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad);
+  const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad), furnitures = els.filter(isFurniture);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + rooms.length + generics.length + cads.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, rooms, generics, cads].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + rooms.length + generics.length + cads.length + furnitures.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, rooms, generics, cads, furnitures].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
   // Nível selecionado no 3D: só ocupa o painel quando não há elementos na seleção nem ferramenta em colocação.
   const selectedLevel = useUi((s) => s.selectedLevel);
   const nivelSelecionado = count === 0 && !placing ? p.levels.find((l) => l.id === selectedLevel) : undefined;
-  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, grade, view }, lang);
+  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, furnitures: furnitures.length, grade, view }, lang);
   return (
     <aside className="side" aria-label={t('properties_title')}>
       <PanelHead panel="props" name={t('properties_title')} closeLabel={t('prc_aria_close_properties')} extra={<span style={{ color: 'var(--fg-faint)', fontWeight: 400 }}>{panelLabel}</span>}>
@@ -477,6 +479,7 @@ export function Properties(): ReactElement {
           : kinds === 1 && rooms.length > 0 ? <RoomProperties rooms={rooms} />
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />
+          : kinds === 1 && furnitures.length > 0 ? <FurnitureProps items={furnitures} />
           : grade ? <GridProperties grid={grade} />
           : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} section={note.section} planId={planId} sectionId={sectionId} />
           : view ? <SectionViewProps view={view} />
