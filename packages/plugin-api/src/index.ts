@@ -9,3 +9,4 @@ export * from './sceneSync.ts';
 export * from './hostSession.ts';
 export * from './pluginHost.ts';
 export * from './testkit.ts';
+export * from './modelPort.ts'; // SUPLEMENTOS:

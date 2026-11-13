@@ -563,6 +563,8 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'ensurePluginProjectUid':
     case 'setPluginViewOverride':
     case 'clearPluginViewOverride':
+    case 'setPluginData': // SUPLEMENTOS:
+    case 'deletePluginData': // SUPLEMENTOS:
       applyPluginDataCommand(p, c);
       break;
     case 'addView3DPoint':

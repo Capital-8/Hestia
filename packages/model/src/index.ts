@@ -79,6 +79,7 @@ export * from './sheet.ts';
 export * from './sheetCommands.ts';
 export * from './view3dPoints.ts';
 export * from './pluginData.ts';
+export * from './pluginCommands.ts'; // SUPLEMENTOS:
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';
