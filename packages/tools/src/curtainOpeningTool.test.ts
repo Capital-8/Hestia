@@ -260,7 +260,7 @@ describe('fusão de células vizinhas (confirmação)', () => {
     await esperar();
     expect(c.confirmacoes).toHaveLength(1);
     expect(c.confirmacoes[0]).toContain('não cabe na célula');
-    expect(c.confirmacoes[0]).toContain('0.80');
+    expect(c.confirmacoes[0]).toContain('(0,80 m × 2,10 m)');
     const e = esquadriasDe(c.store);
     expect(e).toHaveLength(1);
     expect(e[0]!.override).toMatchObject({ openingTypeId: 'ot_p80' });

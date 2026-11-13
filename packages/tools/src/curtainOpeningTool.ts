@@ -4,6 +4,7 @@ import {
   embutirNaCortina,
   folgasDaRegiao,
   folhaMinima,
+  formatQuantity,
   isCurtainType,
   isOpening,
   isWall,
@@ -11,6 +12,7 @@ import {
   resolverParede,
   retanguloDaRegiao,
   tDoModelo,
+  unitsOf,
   type Command,
   type Id,
   type OpeningType,
@@ -164,7 +166,8 @@ export class CurtainOpeningTool extends ToolBase {
     const c = tipo ? this.caber(pr, wall, i, j, tipo) : null;
     if (!tipo || !c) return this.t('tl_msg_curtain_no_type');
     if (c.minimo > 0 && c.larguraLivre < c.minimo - TOL) {
-      return tDoModelo(this.uiLang(), 'md_ct_w_folha_minima', { i, j, medida: c.larguraLivre.toFixed(2), minimo: c.minimo.toFixed(2) });
+      const u = unitsOf(pr, this.uiLang());
+      return tDoModelo(this.uiLang(), 'md_ct_w_folha_minima', { i, j, medida: formatQuantity(u, 'length', c.larguraLivre), minimo: formatQuantity(u, 'length', c.minimo) });
     }
     return this.t(c.cabe ? 'tl_msg_curtain_fits' : 'tl_msg_curtain_needs_fuse', { type: tipo.name, i, j });
   }
@@ -214,7 +217,8 @@ export class CurtainOpeningTool extends ToolBase {
         return;
       }
       if (e.chave === 'md_ct_opening_no_fit' && !fundir && this.env.confirm) {
-        const pergunta = this.t('tl_msg_curtain_confirm_fuse', { type: tipo.name, w: tipo.width.toFixed(2), h: tipo.height.toFixed(2) });
+        const u = unitsOf(this.env.project(), this.uiLang());
+        const pergunta = this.t('tl_msg_curtain_confirm_fuse', { type: tipo.name, w: formatQuantity(u, 'length', tipo.width), h: formatQuantity(u, 'length', tipo.height) });
         void Promise.resolve(this.env.confirm(pergunta)).then((ok) => {
           if (ok) this.colocar(alvo, true);
           else this.env.say(this.t('tl_msg_curtain_fuse_refused'));

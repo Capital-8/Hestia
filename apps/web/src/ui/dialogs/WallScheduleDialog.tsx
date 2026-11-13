@@ -195,7 +195,7 @@ function CurtainSection({ rows, pronto, totals, lang, units }: { rows: CurtainSc
   const tr = (k: keyof typeof I18N.pt): string => translate(lang, k);
   const q = (v: number | null, quantidade: Quantity, casas: number): string => (v === null ? '—' : formatQuantity(units, quantidade, v, { decimals: casas }));
   const n = (v: number | null): string => (v === null ? '—' : String(v));
-  const dinheiro = (v: number | null): string => (v === null ? '—' : v.toFixed(2));
+  const dinheiro = (v: number | null): string => (v === null ? '—' : formatQuantity(units, 'currency', v, { decimals: 2 }));
   return (
     <>
       <h3 className="wsched-h">{tr('pct_sch_title')}</h3>
@@ -246,7 +246,7 @@ function CurtainSection({ rows, pronto, totals, lang, units }: { rows: CurtainSc
           <span>{formatQuantity(units, 'length', totals.comprimento, { decimals: 2 })}</span>
           <span>{formatQuantity(units, 'area', totals.vidroBruta, { decimals: 2 })}</span>
           <span>{formatQuantity(units, 'length', totals.metrosMontante, { decimals: 2 })}</span>
-          <span>{totals.custo.toFixed(2)}</span>
+          <span>{formatQuantity(units, 'currency', totals.custo, { decimals: 2 })}</span>
         </div>
       )}
     </>

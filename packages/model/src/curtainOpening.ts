@@ -3,6 +3,8 @@
 // no 3D e na planta; aqui só se decide o que cabe e o que avisar.
 
 import { t, type Lang } from './i18n.ts';
+import { unitsOf } from './units.ts';
+import { formatQuantity } from './unitsFormat.ts';
 import { isWall, type Id, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
 import { resolverParede, type ParedeResolvida } from './curtainRemap.ts';
@@ -116,6 +118,7 @@ export function embutirNaCortina(tipo: Pick<OpeningType, 'plan'>): boolean {
  */
 export function curtainOpeningIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] {
   const out: ValidationIssue[] = [];
+  const u = unitsOf(p, lang);
   for (const e of Object.values(p.elements)) {
     if (!isWall(e) || !e.curtain) continue;
     const res = resolverParede(p, e);
@@ -146,7 +149,7 @@ export function curtainOpeningIssues(p: Project, lang: Lang = 'pt'): ValidationI
         out.push({
           severity: 'warning',
           code: 'cortina-porta-folha-minima',
-          message: t(lang, 'md_ct_w_folha_minima', { i, j, medida: f.larguraLivre.toFixed(2), minimo: minimo.toFixed(2) }),
+          message: t(lang, 'md_ct_w_folha_minima', { i, j, medida: formatQuantity(u, 'length', f.larguraLivre), minimo: formatQuantity(u, 'length', minimo) }),
           elementId: e.id,
         });
       }
@@ -154,7 +157,7 @@ export function curtainOpeningIssues(p: Project, lang: Lang = 'pt'): ValidationI
         out.push({
           severity: 'warning',
           code: 'cortina-porta-fora-do-piso',
-          message: t(lang, 'md_ct_w_fora_piso', { i, j, z: f.z0.toFixed(2) }),
+          message: t(lang, 'md_ct_w_fora_piso', { i, j, z: formatQuantity(u, 'length', f.z0) }),
           elementId: e.id,
         });
       }
