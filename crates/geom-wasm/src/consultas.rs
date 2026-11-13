@@ -292,13 +292,16 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
-        // Estrutura (ficha K1): declaradas no contrato v19; implementadas nas fichas K2 (200, 205), K3 e K4 (201 a 204, 206, 207).
-        esquema::CONSULTA_ESTR_MALHA
-        | esquema::CONSULTA_ESTR_PLANTA
+        // Estrutura (ficha K1): declaradas no contrato v19; a 200 e a 205 vêm da ficha K2; as demais, das fichas K3 e K4 (201 a 204, 206, 207).
+        esquema::CONSULTA_ESTR_MALHA => crate::estr_malha::consulta_estr_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
+        esquema::CONSULTA_ESTR_PERFIL => {
+            arg_nivel(args[0])?;
+            crate::estr_perfil::consulta_estr_perfil(args)
+        }
+        esquema::CONSULTA_ESTR_PLANTA
         | esquema::CONSULTA_ESTR_CORTE
         | esquema::CONSULTA_ESTR_QUANT
         | esquema::CONSULTA_ESTR_AVISOS
-        | esquema::CONSULTA_ESTR_PERFIL
         | esquema::CONSULTA_ESTR_JUNCOES
         | esquema::CONSULTA_ESTR_APOIO => Err(NAO_IMPLEMENTADO),
         _ => Err(NAO_IMPLEMENTADO),
@@ -548,7 +551,9 @@ mod testes {
             let def = esquema::consulta(id).expect("consulta registrada");
             assert!(def.nome.starts_with("estr_"), "{}", def.nome);
             let args = vec![NIVEL_TODOS as f64; def.args.len()];
-            assert_eq!(executar(&mut c, id, &args), Err(NAO_IMPLEMENTADO), "consulta {id}");
+            // A 200 e a 205 são da ficha K2 (aqui com lod e forma fora do domínio).
+            let esperado = if id == 200 || id == 205 { ENTRADA } else { NAO_IMPLEMENTADO };
+            assert_eq!(executar(&mut c, id, &args), Err(esperado), "consulta {id}");
             assert_eq!(executar(&mut c, id, &args[..args.len() - 1]), Err(ENTRADA), "consulta {id} com argumento a menos");
         }
         assert!(esquema::consulta(208).is_none());
