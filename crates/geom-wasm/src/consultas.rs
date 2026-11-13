@@ -292,6 +292,7 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_MASSA_MALHA => crate::massa_malha::consulta_massa_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
@@ -518,7 +519,12 @@ mod testes {
         assert_eq!(ids, vec![(140, 2), (141, 4), (142, 1), (143, 6), (144, 1), (145, 1)]);
         let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
         for (id, n) in ids {
-            assert_eq!(executar(&mut c, id, &vec![0.0; n]).err(), Some(NAO_IMPLEMENTADO), "consulta {id}");
+            // A 140 (`massa_malha`) entrou na ficha R1: sem massas na cena, devolve as três saídas vazias. As demais seguem sem implementação.
+            if id == esquema::CONSULTA_MASSA_MALHA {
+                assert_eq!(executar(&mut c, id, &vec![0.0; n]).map(|s| s.iter().map(Saida::len).collect::<Vec<_>>()), Ok(vec![0, 0, 0]));
+            } else {
+                assert_eq!(executar(&mut c, id, &vec![0.0; n]).err(), Some(NAO_IMPLEMENTADO), "consulta {id}");
+            }
             assert_eq!(executar(&mut c, id, &vec![0.0; n + 1]).err(), Some(ENTRADA), "consulta {id} com argumento a mais");
         }
     }
