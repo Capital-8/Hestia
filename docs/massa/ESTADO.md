@@ -2,14 +2,14 @@
 
 Linha de base (2026-11-13, commit c1d30ac1): typecheck ✔ | lint ✔ | test:rapido 969 arquivos / 11316 testes (1 todo) | cargo test geom-wasm 474 testes | build:wasm ✔ | wasm:check ✔ | test:wasm 1334 testes (5 ignorados).
 Observação: `npm run build:wasm` regrava `packages/geom/assets/geom_wasm.{wasm,sha256}`; o fiscal restaura com `git checkout packages/geom/assets` quando a ficha não é de Rust.
-Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R1, R2, R3 e V3. Executado sem a pergunta de B.2 passo 4 porque o dono mandou executar.
+Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **A partir da R3: só haiku 5.5 (effort high) ou sonnet 5.5 (effort medium), nunca opus/fable (emenda E5).**
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
 | M1 | mesclada | merge de massa/m1 | 0 | typecheck ✔, lint ✔ (8 avisos já existentes), test:rapido 971 arq / 11358 testes; escopo e atalhos conferidos pelo fiscal; emenda E1 no PLANO |
 | M2 | mesclada | merge de massa/m2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 477, test:wasm 1335, clippy sem erro novo; reiniciou o contêiner no meio (agente refeito); emenda E2 |
 | R1 | mesclada | merge de massa/r1 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 502, test:wasm 55 arq/1338 (agora inclui kernel-massa), clippy 39 = base, mesmos locais; agente interrompido pelo limite de uso e retomado; emenda E3 |
-| R2 | pendente | | 0 | |
+| R2 | mesclada | merge de massa/r2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 508, test:wasm 56 arq/1343 (inclui kernel-massa-planta), clippy 39 = base; interrompida pelo limite e retomada; emenda E4 |
 | R3 | pendente | | 0 | |
 | E1 | pendente | | 0 | |
 | V1 | pendente | | 0 | |
