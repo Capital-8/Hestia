@@ -1,6 +1,6 @@
 # Suplementos 2.0: especificação
 
-**Estado:** PROPOSTO. Nada deste documento está implementado, salvo o que vier marcado **EXISTE**. Decisão: [0057](../decisoes/0057-suplementos-geral.md); base: [0047](../decisoes/0047-plugins-de-integracao.md) e [01](01-api.md) a [07](07-pareamento-por-token.md).
+**Estado:** em implementação (fases B, C, D e integração entregues; E a I pendentes). O que estiver implementado vem marcado **EXISTE**; o resto é PROPOSTO. Decisão: [0057](../decisoes/0057-suplementos-geral.md); base: [0047](../decisoes/0047-plugins-de-integracao.md) e [01](01-api.md) a [07](07-pareamento-por-token.md).
 Unidades em todo o documento: comprimentos em **metro**, ângulos em **radiano**, tempos em **milissegundos (ms)**, memória em **mebibytes (MiB)**, tamanhos de arquivo em **bytes** ou **MiB**.
 
 ## 1. Conceitos
@@ -17,7 +17,7 @@ PROPOSTO: `PluginManifestV2` em `packages/plugin-api/src/manifestV2.ts`. O valid
 | `id` | texto | sim | reverso-DNS minúsculo, `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$` (mesmo `ID_RE` de `manifest.ts`), até 100 caracteres |
 | `name` | texto | sim | 1 a 80 caracteres |
 | `version` | texto | sim | semver do suplemento `x.y.z` (até 40 caracteres) |
-| `hestiaApi` | texto | sim | `major.minor` alvo (EXISTE: `apiSupports`); mesmo `major`, `minor` <= o do host |
+| `hestiaApi` | texto | sim | `major.minor` alvo (EXISTE: `apiSupports`); mesmo `major`, `minor` <= o do host. O host atual é **1.0** (`API_VERSION`): os exemplos usam `"1.0"`; `"2.0"` é recusado na instalação |
 | `runtime` | `'declarative' \| 'script' \| 'external'` | sim | define os campos abaixo |
 | `description` | texto | não | até 400 caracteres |
 | `author`, `homepage`, `license` | texto | não | até 120, 200 e 40 caracteres; `homepage` só `https://` e só exibido (nunca aberto sem clique) |
@@ -120,11 +120,17 @@ Regras do host (implementação em `apps/web/src/plugins/appModelPort.ts`, PROPO
 4. O plugin **nunca** recebe o `Project` mutável nem o `ProjectStore`; só cópias (como nas portas atuais).
 5. **IA desenha:** a IA devolve `commands[]`; o host mostra uma **prévia** (a transação roda, o resultado é desenhado, e só `confirmar` a mantém; `cancelar` faz `undo` silencioso) e aplica como um passo. Sem confirmação, nada fica.
 
+### 6.1 Resultado de um handler (EXISTE)
+O que um handler `export async function nome(ctx, valores)` devolve é **dado não confiável**, mostrado só como texto simples numa caixa de diálogo (`DialogKind` `'pluginResult'`): `string`, ou `{ title?: Txt, message: Txt }` com `Txt = string | { pt, en }`, ou qualquer JSON (exibido formatado, até 4000 caracteres). `null`/`undefined` não abre caixa alguma. Erro lançado vira entrada de log e aviso na barra de estado; três falhas em 60000 ms desativam o suplemento (§7).
+
+### 6.2 Integração no app (EXISTE)
+`apps/web/src/plugins/supRuntime.ts` junta instalador, carregador, registro, portas e Worker; `supApp.ts` o liga ao app (registro global, IndexedDB, Worker embutido, avisos); `supStore.ts` persiste pacote, estado e **concessões** no IndexedDB (`hestia-suplementos`). Botão e diálogo: aba Suplementos > Gerenciar suplementos (`SupplementsDialog.tsx`). Exemplos empacotáveis em `plugins-exemplo/` (`npm run suplementos:empacotar`).
+
 ## 7. Ciclo de vida
 Estados PROPOSTOS (estendem `PluginState` de `pluginHost.ts`, EXISTE: `absent`, `disconnected`, `connecting`, `connected`, `reconnecting`, `incompatible`): `installed`, `needs-grant`, `active`, `failed`, `disabled`.
 
 1. **Instalar:** o usuário escolhe um `.hestiapkg` (ou pasta, em desenvolvimento). O host lê o zip (limites em §8), valida `manifest.json` (dado não confiável) e **nada executa**. Resultado: `installed`, com a lista de permissões pedidas na tela. Falha de validação mostra o motivo e não instala.
-2. **Conceder e ativar:** o usuário marca as permissões e ativa. `declarative`: contribuições registradas, sem código. `script`: cria o Worker, carrega `entry`, chama `activate(ctx)`. `external`: conecta como hoje (e exige token).
+2. **Conceder e ativar:** o usuário marca as permissões e ativa (nada vem concedido de início). **Concessão parcial** ativa só o concedido (o registro esconde as contribuições sem permissão e o host nega as portas não concedidas); **nenhuma** concessão, tendo o manifesto pedido alguma, deixa o suplemento em `needs-grant`. `declarative`: contribuições registradas, sem código. `script`: cria o Worker, carrega `entry`, chama `activate(ctx)`. `external`: conecta como hoje (e exige token).
 3. **Operação:** cada chamada ao script tem `timeoutMs`; excedeu = Worker **encerrado** e recriado na próxima chamada. `memoryMiB` estourado (medido pelo Worker/host quando disponível, e por tamanho de mensagens) = idem. Três falhas em 60 s (60000 ms) = `failed` e desativação automática com aviso.
 4. **Falha:** erro de um suplemento **nunca** propaga ao editor: exceção do script vira entrada de log e aviso, a contribuição do suplemento é retirada, o app segue. Na abertura do app e do projeto, cada suplemento carrega **dentro de try/catch e fora do caminho crítico** (depois da primeira pintura); manifesto inválido ou pacote corrompido = `failed` e o app abre normalmente.
 5. **Desativar:** remove contribuições, encerra Worker/conexão, **mantém** o espaço de dados e as concessões. **Desinstalar:** remove o pacote e as concessões; o espaço de dados no projeto **permanece** até o usuário pedir "limpar dados do suplemento".
@@ -141,7 +147,7 @@ meu-suplemento.hestiapkg
 ├── icons/*.svg          (opcional)
 └── README.md            (opcional, mostrado ao instalar)
 ```
-Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, razão de compressão até 100:1; caminhos relativos com `/`, sem `..`, sem `/` inicial, sem links, sem nomes reservados. Tipos aceitos: `.json`, `.js`, `.mjs`, `.svg`, `.png`, `.md`, `.txt`. Sem binários executáveis (`.exe`, `.dll`, `.so`, `.wasm` fica **recusado** nesta fase). Assinatura e loja: não-objetivo. Em desenvolvimento: uma pasta com `manifest.json`, lida no desktop (Tauri, a ser feito em módulo novo `desktop/src-tauri/src/suplementos.rs`, no mesmo estilo de `biblioteca.rs`: raiz escolhida pelo usuário, nome como um único segmento) e, no navegador, por seletor de pasta/arquivo.
+Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, razão de compressão até 100:1; caminhos relativos com `/`, sem `..`, sem `/` inicial, sem links, sem nomes reservados. Tipos aceitos: `.json`, `.js`, `.mjs`, `.svg`, `.png`, `.md`, `.txt`. Sem binários executáveis (`.exe`, `.dll`, `.so`, `.wasm` fica **recusado** nesta fase). Assinatura e loja: não-objetivo. Em desenvolvimento: uma pasta com `manifest.json`, lida no desktop (Tauri, comando `suplementos_ler_pasta` em `desktop/src-tauri/src/suplementos.rs`, EXISTE) e, no navegador, por seletor de pasta/arquivo.
 
 ## 9. Exemplos
 ### 9.1 `manifest.json` declarativo (norma e verificação, sem código)
@@ -151,7 +157,7 @@ Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, ra
   "id": "dev.exemplo.norma-corrimao",
   "name": "Verificação de corrimão",
   "version": "1.0.0",
-  "hestiaApi": "2.0",
+  "hestiaApi": "1.0",
   "runtime": "declarative",
   "description": "Avisa quando a altura do guarda-corpo é menor que 1,05 m.",
   "capabilities": ["model.read", "checks.run", "ui.commands", "content.schedules"],
@@ -182,7 +188,7 @@ Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, ra
   "id": "dev.exemplo.grade-de-pilares",
   "name": "Grade de pilares",
   "version": "0.3.1",
-  "hestiaApi": "2.0",
+  "hestiaApi": "1.0",
   "runtime": "script",
   "entry": "main.js",
   "capabilities": ["model.read", "model.write", "ui.commands", "ui.ribbon", "ui.dialogs"],
@@ -204,31 +210,33 @@ Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, ra
 ```
 
 ### 9.3 `main.js` (script)
-O script roda num Worker sem DOM, sem `fetch`, sem `importScripts` externo. Recebe um `ctx` só com as portas concedidas (PROPOSTO):
+O script roda num Worker sem DOM, sem `fetch`, sem `importScripts` externo. Recebe um `ctx` só com as portas concedidas. **Toda porta é assíncrona** (mensagem ao host e resposta): use sempre `await` em `ctx.model.*` e `ctx.data.*`. O host confere a permissão a cada chamada (EXISTE, `scriptHost.ts`):
 ```js
 // Exporta handlers pelo nome usado em `ref`.
 export async function gerar(ctx, valores) {
   const nx = Math.floor(valores.nx), ny = Math.floor(valores.ny), vao = valores.vao; // vao em metro
-  const nivel = ctx.model.read().levels[0];                 // model.read (cópia imutável)
+  const projeto = await ctx.model.read();                    // model.read (cópia imutável; porta ASSÍNCRONA)
+  const nivel = projeto.levels[0];
   if (!nivel) { ctx.log.warn('Projeto sem nível.'); return; }
   const comandos = [];
   for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
     comandos.push({
       type: 'addGeneric',                                    // comando real de packages/model (commands.ts)
-      generic: { id: ctx.model.newId('gen'), levelId: nivel.id, name: `Pilar ${i + 1}-${j + 1}`,
+      // O host emite o id (`newId`); id inventado pelo script é recusado.
+      generic: { id: await ctx.model.newId('gen'), levelId: nivel.id, name: `Pilar ${i + 1}-${j + 1}`,
                  /* ...demais campos do tipo Generic... */ },
     });
   }
   // Um único passo de desfazer; atômico; validado pelo host.
-  const r = ctx.model.apply('Grade de pilares', comandos);   // model.write
+  const r = await ctx.model.apply('Grade de pilares', comandos); // model.write
   if (!r.ok) ctx.log.error(`Comando ${r.index} recusado: ${r.error}`);
-  else ctx.data.set('ultimaGrade', { nx, ny, vao });         // plugindata.rw (não pedida acima: seria recusada)
+  else await ctx.data.set('ultimaGrade', { nx, ny, vao });   // plugindata.rw (não pedida acima: seria recusada)
 }
 ```
 Nota: o exemplo grava em `ctx.data`, que exige `plugindata.rw`; como o manifesto 9.2 não a pede, a chamada falharia com `permission_denied` (de propósito: mostra o menor privilégio). O formato exato de `Generic` deve ser conferido em `packages/model/src/types.ts` na Fase C.
 
 ### 9.4 "IA desenha" (external ou script)
-Fluxo: o usuário digita um pedido; o suplemento envia o contexto mínimo (por `model.read`) ao seu serviço de IA; a IA devolve `commands[]` (JSON de `Command`); o suplemento chama `ctx.model.apply('IA: <pedido>', commands)` com `preview: true`; o host valida, aplica em transação, mostra, e o usuário confirma ou cancela. Comandos inválidos recusam o lote (resposta devolve `index` e `error` para a IA tentar de novo). A chave da IA é do usuário e nunca entra no `.hestiapkg` nem no projeto.
+Fluxo: o usuário digita um pedido; o suplemento envia o contexto mínimo (por `model.read`) ao seu serviço de IA; a IA devolve `commands[]` (JSON de `Command`); o suplemento chama `await ctx.model.apply('IA: <pedido>', commands)` com `preview: true`; o host valida, aplica em transação, mostra, e o usuário confirma ou cancela. Comandos inválidos recusam o lote (resposta devolve `index` e `error` para a IA tentar de novo). A chave da IA é do usuário e nunca entra no `.hestiapkg` nem no projeto.
 
 ## 10. Mapa: pacotes do repositório e pontos que tocam
 | Pacote / pasta | Papel | Pontos |

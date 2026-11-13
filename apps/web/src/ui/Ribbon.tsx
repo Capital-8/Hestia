@@ -12,7 +12,7 @@ import { FitRow, type FitItem } from './ribbon/FitRow.tsx';
 import { contextTab, pasteLevelsTab, perimeterTab } from './ribbon/context.ts';
 import { ConfirmCancelPanel } from './ribbon/ConfirmCancelPanel.tsx';
 import { TABS } from './ribbon/tabs.ts';
-import { usePluginRibbonPanels, withPluginPanels } from './ribbon/pluginRibbon.ts';
+import { usePluginRibbonPanels, suplementosTab } from './ribbon/pluginRibbon.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
 import { PerimeterRibbonPanels } from './perimeter/PerimeterRibbonPanels.tsx';
@@ -21,7 +21,7 @@ import './perimeter/perimeter.css';
 /** Aba fixa pelo id; na Suplementos acrescenta os painéis dos suplementos ativos. */
 function fixedTab(id: RibbonTabId, pluginPanels: RibbonPanel[]): RibbonTab | undefined {
   const tb = TABS.find((x) => x.id === id);
-  return tb && tb.id === 'suplementos' ? withPluginPanels(tb, pluginPanels) : tb;
+  return tb && tb.id === 'suplementos' ? suplementosTab(tb, pluginPanels) : tb;
 }
 
 /**

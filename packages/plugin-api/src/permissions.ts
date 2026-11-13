@@ -72,3 +72,11 @@ export const CAPABILITY_REQUIRES_V2: Readonly<Partial<Record<CapabilityV2, reado
   'checks.run': ['model.read'],
   'content.schedules': ['model.read'],
 };
+
+/**
+ * Constantes das permissões que o host confere a CADA chamada de porta (spec 08 §3). Fonte única: `modelPort.ts`,
+ * `scriptHost.ts` e `workerRuntime.ts` usam estas, nunca texto solto. O `satisfies` garante que o nome existe na tabela V2.
+ */
+export const CAP_MODEL_READ = 'model.read' satisfies CapabilityV2;
+export const CAP_MODEL_WRITE = 'model.write' satisfies CapabilityV2;
+export const CAP_PLUGINDATA = 'plugindata.rw' satisfies CapabilityV2;

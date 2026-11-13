@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.contador-portas",
+  "name": "Contador de portas",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "description": "Conta as portas e janelas do projeto e mostra o total numa caixa de diálogo. Só lê o modelo.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["model.read", "ui.commands", "ui.ribbon"],
+  "limits": { "timeoutMs": 2000, "memoryMiB": 64, "maxCommandsPerAction": 1 },
+  "contributes": {
+    "commands": [
+      {
+        "id": "contar",
+        "title": { "pt": "Contar portas", "en": "Count doors" },
+        "keywords": ["portas", "janelas", "doors", "windows", "contar", "count"],
+        "run": { "type": "handler", "ref": "contar" }
+      }
+    ],
+    "ribbon": {
+      "panels": [
+        {
+          "id": "contagem",
+          "title": { "pt": "Contagem", "en": "Count" },
+          "items": [{ "command": "contar", "size": "large", "icon": "door" }]
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { ContributionRegistry, PluginText } from '@hestia/plugin-api';
 import { pluginRegistry, usePluginRegistryVersion } from '../../plugins/registry.ts';
-import type { RibbonPanel, RibbonTab, Txt } from './model.ts';
+import { act, panel, t, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
 
 /**
  * Painéis que os suplementos acrescentam à aba Suplementos (spec 08 §4: o suplemento NUNCA escolhe a aba). Cada botão
@@ -20,6 +20,17 @@ export function pluginRibbonPanels(reg: ContributionRegistry = pluginRegistry): 
 /** A aba Suplementos fixa mais os painéis dos suplementos ativos (a aba fixa continua com "Ferramentas externas"). */
 export function withPluginPanels(tab: RibbonTab, extra: RibbonPanel[]): RibbonTab {
   return extra.length ? { ...tab, panels: [...tab.panels, ...extra] } : tab;
+}
+
+/** Painel "Suplementos" com o botão do gerenciador (instalar, revisar permissões). Sempre presente na faixa. */
+const PAINEL_GERENCIADOR: RibbonPanel = panel('sup-gerenciar', t('Suplementos', 'Add-Ins'), act('pluginManager'));
+
+/**
+ * Aba Suplementos como a faixa a desenha: fixos (`TABS`, que não mudam) + gerenciador + painéis dos suplementos ativos.
+ * O gerenciador entra aqui, e não em `TABS`, para a aba fixa continuar só com "Ferramentas externas".
+ */
+export function suplementosTab(tab: RibbonTab, extra: RibbonPanel[]): RibbonTab {
+  return { ...tab, panels: [...tab.panels, PAINEL_GERENCIADOR, ...extra] };
 }
 
 /** Hook da faixa: redesenha quando o registro muda. */

@@ -73,6 +73,9 @@ import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
 import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
 import { PluginDialog } from './plugins/pluginUi.tsx';
+import { SupplementsDialog } from './ui/dialogs/SupplementsDialog.tsx';
+import { PluginResultDialog } from './ui/dialogs/PluginResultDialog.tsx';
+import { startSupplements } from './plugins/supApp.ts';
 import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
 import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
 import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
@@ -209,6 +212,10 @@ function Dialogs(): ReactElement | null {
       return <ExternalToolsDialog />;
     case 'pluginDialog': // SUPLEMENTOS
       return <PluginDialog />;
+    case 'pluginManager': // SUPLEMENTOS
+      return <SupplementsDialog />;
+    case 'pluginResult': // SUPLEMENTOS
+      return <PluginResultDialog />;
     case 'updatePrompt':
       return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
@@ -291,6 +298,8 @@ export function App(): ReactElement {
 
   // Plugins que o usuário deixou habilitados reconectam ao abrir o app (nada é iniciado: só se conecta a porta local).
   useEffect(() => { pluginHost().start(); }, []);
+  // SUPLEMENTOS: carrega os suplementos habilitados depois da primeira pintura (cada um com try/catch; falha não impede abrir o app).
+  useEffect(() => { startSupplements(); }, []);
 
   // Retomada: só existe sessão quando a página foi recarregada (F5). Abrir a aba ou o programa de novo cai na tela de
   // projetos, que é onde o usuário escolhe o que abrir.

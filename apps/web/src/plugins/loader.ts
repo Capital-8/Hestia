@@ -87,8 +87,10 @@ export class PluginLoader {
       const pkg = await this.o.store.get(id);
       if (!pkg) return this.fail(id, 'pacote não encontrado');
       this.deactivateRuntime(id);
+      // Nada concedido (e algo pedido) = `needs-grant`. Concessão PARCIAL ativa só o concedido: o registro esconde as
+      // contribuições sem permissão e o host nega as portas não concedidas (spec 08 §3 regra 2 e §7.7).
       const missing = pkg.manifest.capabilities.filter((c) => !pkg.grants.includes(c));
-      if (missing.length > 0) {
+      if (missing.length > 0 && missing.length === pkg.manifest.capabilities.length) {
         this.set(id, 'needs-grant', missing.join(', '));
         return 'needs-grant';
       }

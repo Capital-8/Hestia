@@ -9,6 +9,7 @@
  * (registro/ModelPort); o host só confere a permissão e os limites de lote antes de repassar.
  */
 import { approxBytes, FAILURE_WINDOW_MS, MAX_BATCH_BYTES, MAX_FAILURES_IN_WINDOW, type ScriptLimits } from './limits.ts';
+import { CAPABILITY_REQUIRES_V2, CAP_MODEL_READ, CAP_MODEL_WRITE, CAP_PLUGINDATA, type CapabilityV2 } from './permissions.ts';
 import type { HostToWorker, PortMethod, WorkerToHost } from './workerRuntime.ts';
 
 const MIB = 1024 * 1024;
@@ -67,13 +68,13 @@ export interface ScriptHostOptions {
 }
 
 /** Permissão exigida por método de porta. */
-const PORT_PERMISSION: Record<PortMethod, string> = {
-  'model.read': 'model.read',
-  'model.apply': 'model.write',
-  'model.newId': 'model.write',
-  'data.get': 'plugindata.rw',
-  'data.set': 'plugindata.rw',
-  'data.delete': 'plugindata.rw',
+const PORT_PERMISSION: Record<PortMethod, CapabilityV2> = {
+  'model.read': CAP_MODEL_READ,
+  'model.apply': CAP_MODEL_WRITE,
+  'model.newId': CAP_MODEL_WRITE,
+  'data.get': CAP_PLUGINDATA,
+  'data.set': CAP_PLUGINDATA,
+  'data.delete': CAP_PLUGINDATA,
 };
 
 interface Active {
@@ -257,7 +258,10 @@ export class ScriptHost {
   private async runPort(method: PortMethod, a: unknown[]): Promise<unknown> {
     const need = PORT_PERMISSION[method];
     if (!need) throw new Error('permission_denied: método desconhecido');
-    if (!this.o.grants.includes(need)) throw new Error(`permission_denied: ${need}`);
+    // A permissão e as que ela exige (ex.: `model.write` exige `model.read`) valem a CADA chamada de porta.
+    for (const cap of [need, ...(CAPABILITY_REQUIRES_V2[need] ?? [])]) {
+      if (!this.o.grants.includes(cap)) throw new Error(`permission_denied: ${cap}`);
+    }
     const p = this.o.ports;
     const unavailable = (): never => {
       throw new Error(`unavailable: ${method}`);

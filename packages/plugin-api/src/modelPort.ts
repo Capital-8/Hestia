@@ -4,6 +4,8 @@
  * a porta (`apps/web/src/plugins/appModelPort.ts`); o plugin só enxerga cópias e devolve comandos como DADOS.
  */
 
+import { CAP_MODEL_READ as READ, CAP_MODEL_WRITE as WRITE, CAP_PLUGINDATA as DATA } from './permissions.ts';
+
 /** Cópia imutável do projeto (JSON). O tipo exato é o `Project` de `@hestia/model`; aqui fica opaco de propósito. */
 export type ProjectSnapshot = { readonly [key: string]: unknown };
 
@@ -40,10 +42,6 @@ export interface PluginDataPort {
 /** Limites de um lote de comandos (espelham `PLUGIN_BATCH_LIMITS` de `@hestia/model`; o host é quem os impõe). */
 export const MODEL_BATCH_LIMITS = { maxCommands: 5000, maxBytes: 8 * 1024 * 1024 } as const;
 
-/** Nomes das permissões (a tabela oficial entra em `permissions.ts` na Fase B; aqui só os textos usados no portão). */
-const READ = 'model.read';
-const WRITE = 'model.write';
-const DATA = 'plugindata.rw';
 
 /** Vista do plugin sobre o modelo: o que o script/processo recebe em `ctx.model`. */
 export interface PluginModelApi {

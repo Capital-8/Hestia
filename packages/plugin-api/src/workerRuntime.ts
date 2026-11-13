@@ -6,6 +6,8 @@
  * a permissão, aqui o `ctx` só esconde o que não foi concedido (conforto, não segurança).
  */
 
+import { CAP_MODEL_READ, CAP_MODEL_WRITE, CAP_PLUGINDATA } from './permissions.ts';
+
 /** Mensagens do host para o Worker. */
 export type HostToWorker =
   | { t: 'load'; code: string; pluginId: string; grants: string[] }
@@ -88,16 +90,16 @@ export function installWorkerRuntime(scope: WorkerScopeLike, opts: WorkerRuntime
 
   const buildCtx = (): Record<string, unknown> => {
     const ctx: Record<string, unknown> = { pluginId, log: { info: logger('info'), warn: logger('warn'), error: logger('error') } };
-    if (grants.has('model.read') || grants.has('model.write')) {
+    if (grants.has(CAP_MODEL_READ) || grants.has(CAP_MODEL_WRITE)) {
       const model: Record<string, unknown> = {};
-      if (grants.has('model.read')) model.read = () => port('model.read', []);
-      if (grants.has('model.write')) {
+      if (grants.has(CAP_MODEL_READ)) model.read = () => port('model.read', []);
+      if (grants.has(CAP_MODEL_WRITE)) {
         model.apply = (label: string, commands: unknown[]) => port('model.apply', [label, commands]);
         model.newId = (prefix: string) => port('model.newId', [prefix]);
       }
       ctx.model = model;
     }
-    if (grants.has('plugindata.rw')) {
+    if (grants.has(CAP_PLUGINDATA)) {
       ctx.data = {
         get: (key: string) => port('data.get', [key]),
         set: (key: string, value: unknown) => port('data.set', [key, value]),
