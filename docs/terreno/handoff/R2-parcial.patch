@@ -1,0 +1,1270 @@
+diff --git a/crates/geom-wasm/src/consultas.rs b/crates/geom-wasm/src/consultas.rs
+index 76cc15a9..9cedddda 100644
+--- a/crates/geom-wasm/src/consultas.rs
++++ b/crates/geom-wasm/src/consultas.rs
+@@ -308,14 +308,28 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
+             }
+             crate::terreno_avalia::consulta_terreno_cotas(cena, superficie)
+         }
+-        // Ids registrados no contrato (ficha M2); o cálculo entra nas fichas R2 e R3.
+-        esquema::CONSULTA_TERRENO_CURVAS
+-        | esquema::CONSULTA_TERRENO_PLANTA
+-        | esquema::CONSULTA_TERRENO_CORTE
+-        | esquema::CONSULTA_QUANT_TERRENO
+-        | esquema::CONSULTA_QUANT_TERRENO_REGIOES
+-        | esquema::CONSULTA_TERRENO_CORTE_ATERRO
+-        | esquema::CONSULTA_TERRENO_AVISOS => Err(NAO_IMPLEMENTADO),
++        // Terreno, ficha R2: curvas de nível, borda em planta, corte, quantidades e avisos.
++        esquema::CONSULTA_TERRENO_CURVAS | esquema::CONSULTA_TERRENO_PLANTA => {
++            let nivel = arg_nivel(args[0])?;
++            let superficie = arg_nivel(args[1])?;
++            if superficie > 1 {
++                return Err(ENTRADA);
++            }
++            if id == esquema::CONSULTA_TERRENO_CURVAS {
++                crate::terreno_curvas::consulta_terreno_curvas(cena, nivel, superficie)
++            } else {
++                crate::terreno_planta::consulta_terreno_planta(cena, nivel, superficie)
++            }
++        }
++        esquema::CONSULTA_TERRENO_CORTE => {
++            let nivel = arg_nivel(args[0])?;
++            let plano = [arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?, arg_finito(args[4])?];
++            crate::terreno_corte::consulta_terreno_corte(cena, nivel, plano, arg_finito(args[5])?)
++        }
++        esquema::CONSULTA_QUANT_TERRENO => crate::terreno_quant::consulta_quant_terreno(cena, arg_nivel(args[0])?),
++        esquema::CONSULTA_TERRENO_AVISOS => crate::terreno_avisos::consulta_terreno_avisos(cena, arg_nivel(args[0])?),
++        // Ids registrados no contrato (ficha M2); o cálculo entra na ficha R3.
++        esquema::CONSULTA_QUANT_TERRENO_REGIOES | esquema::CONSULTA_TERRENO_CORTE_ATERRO => Err(NAO_IMPLEMENTADO),
+         _ => Err(NAO_IMPLEMENTADO),
+     }
+ }
+diff --git a/crates/geom-wasm/src/lib.rs b/crates/geom-wasm/src/lib.rs
+index ec9334d2..eecc21cd 100644
+--- a/crates/geom-wasm/src/lib.rs
++++ b/crates/geom-wasm/src/lib.rs
+@@ -102,12 +102,21 @@ pub mod secoes_cortina;
+ pub mod secoes_terreno;
+ // Terreno (PLANO do terreno, fase 1).
+ pub mod terreno_avalia;
++pub mod terreno_avisos;
++pub mod terreno_corte;
++pub mod terreno_curvas;
+ #[cfg(test)]
+ mod terreno_fixture;
+ pub mod terreno_malha;
++pub mod terreno_planta;
++pub mod terreno_quant;
+ #[cfg(test)]
+ mod terreno_testes;
+ #[cfg(test)]
++mod terreno_testes_corte;
++#[cfg(test)]
++mod terreno_testes_curvas;
++#[cfg(test)]
+ mod terreno_testes_fuzz;
+ pub mod terreno_tin;
+ pub mod terreno_tipos;
+diff --git a/crates/geom-wasm/src/secoes_terreno.rs b/crates/geom-wasm/src/secoes_terreno.rs
+index f226fbb8..67c5e929 100644
+--- a/crates/geom-wasm/src/secoes_terreno.rs
++++ b/crates/geom-wasm/src/secoes_terreno.rs
+@@ -7,7 +7,8 @@
+ //! referência quebrada.
+ //!
+ //! O kernel só lê estas seções (não conhece o `Project`). As consultas 160 (`terreno_malha`) e 163 (`terreno_cotas`) estão em `terreno_malha.rs` e
+-//! `terreno_avalia.rs`; as demais ainda devolvem `NAO_IMPLEMENTADO`.
++//! `terreno_avalia.rs`; as 161, 162, 164, 165 e 168 (ficha R2), em `terreno_curvas.rs`, `terreno_planta.rs`, `terreno_corte.rs`, `terreno_quant.rs` e
++//! `terreno_avisos.rs`; as 166 e 167 (ficha R3) ainda devolvem `NAO_IMPLEMENTADO`.
+ 
+ use std::collections::BTreeMap;
+ 
+@@ -478,7 +479,15 @@ mod testes {
+         assert_eq!(cena.terreno.terrenos.len(), 2);
+         assert_eq!(cena.remover(SECAO_TERRENOS, &[1]), Ok(()));
+         assert_eq!(cena.terreno.terrenos.keys().copied().collect::<Vec<_>>(), vec![2]);
+-        let prontas = [esquema::CONSULTA_TERRENO_MALHA, esquema::CONSULTA_TERRENO_COTAS];
++        let prontas = [
++            esquema::CONSULTA_TERRENO_MALHA,
++            esquema::CONSULTA_TERRENO_COTAS,
++            esquema::CONSULTA_TERRENO_CURVAS,
++            esquema::CONSULTA_TERRENO_PLANTA,
++            esquema::CONSULTA_TERRENO_CORTE,
++            esquema::CONSULTA_QUANT_TERRENO,
++            esquema::CONSULTA_TERRENO_AVISOS,
++        ];
+         for def in esquema::CONSULTAS.iter().filter(|c| c.id >= 160) {
+             let args = vec![0.0; def.args.len()];
+             if prontas.contains(&def.id) {
+diff --git a/crates/geom-wasm/src/terreno_avisos.rs b/crates/geom-wasm/src/terreno_avisos.rs
+new file mode 100644
+index 00000000..d6d930b9
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_avisos.rs
+@@ -0,0 +1,45 @@
++//! Terreno (PLANO do terreno A.4 regra 14): avisos, consulta 168 (`terreno_avisos`).
++//!
++//! Os avisos 1 (pontos coincidentes com cotas diferentes), 2 (linha cruza outra, trecho ignorado) e 5 (terreno sem triângulos) são calculados junto com a
++//! triangulação e ficam em `Existente.avisos`; aqui só são expostos. Os avisos 3, 4 e 6 dependem das regiões (ficha R3).
++//!
++//! Saída: `avisos [terreno_num, codigo, regiao_num, indice]` e `valores [medido, limite, x, y, z]`, na ordem dos terrenos e, em cada um, na ordem em que os
++//! avisos foram gerados.
++
++use crate::cena::Cena;
++use crate::consultas::Saida;
++use crate::terreno_tipos::{existente, terrenos_do_nivel, AvisoTerreno};
++
++/// Acrescenta os avisos de um terreno às duas saídas da consulta 168.
++pub fn achatar_avisos(terreno: u32, avisos: &[AvisoTerreno], linhas: &mut Vec<u32>, valores: &mut Vec<f64>) {
++    for a in avisos {
++        linhas.extend_from_slice(&[terreno, a.codigo, a.regiao, a.indice]);
++        valores.extend_from_slice(&[a.medido, a.limite, a.x, a.y, a.z]);
++    }
++}
++
++/// Consulta 168 (`terreno_avisos`): terrenos do nível por `id_num` crescente.
++pub fn consulta_terreno_avisos(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
++    let (mut linhas, mut valores) = (Vec::new(), Vec::new());
++    for t in terrenos_do_nivel(&cena.terreno, nivel) {
++        achatar_avisos(t, &existente(cena, t)?.avisos, &mut linhas, &mut valores);
++    }
++    Ok(vec![Saida::U32(linhas), Saida::F64(valores)])
++}
++
++#[cfg(test)]
++mod testes {
++    use super::*;
++    use crate::esquema::ID_AUSENTE;
++    use crate::terreno_tipos::AVISO_LINHA_CRUZA;
++
++    #[test]
++    fn achata_nas_colunas_do_contrato() {
++        let a = AvisoTerreno { codigo: AVISO_LINHA_CRUZA, regiao: ID_AUSENTE, indice: 4, medido: 1.5, limite: 0.0, x: 2.0, y: 3.0, z: 4.0 };
++        let (mut l, mut v) = (vec![9], vec![9.0]);
++        achatar_avisos(7, &[a, a], &mut l, &mut v);
++        assert_eq!(l, vec![9, 7, 2, ID_AUSENTE, 4, 7, 2, ID_AUSENTE, 4]);
++        assert_eq!(v[..6], [9.0, 1.5, 0.0, 2.0, 3.0, 4.0]);
++        assert_eq!(v.len(), 11);
++    }
++}
+diff --git a/crates/geom-wasm/src/terreno_corte.rs b/crates/geom-wasm/src/terreno_corte.rs
+new file mode 100644
+index 00000000..ae753aca
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_corte.rs
+@@ -0,0 +1,277 @@
++//! Terreno (PLANO do terreno A.4 regra 11): corte vertical, consulta 164 (`terreno_corte`).
++//!
++//! Mesma convenção de `guarda_corte` (`gc_corte.rs`): plano vertical por `(ox, oy)` na direção `(dx, dy)`; saída em `(s, z)`, com `s` ao longo de `(dx, dy)`
++//! normalizada; enxerga-se para a normal esquerda `(-dy, dx)` até `profundidade`. Direção nula ou profundidade negativa não geram nada.
++//!
++//! - **papel 0, cortado**: a interseção do plano com a superfície, ordenada por `s`, fechada por baixo em `z_base = min(z) − espessura_base`. Um polígono
++//!   por trecho contínuo: os pontos do perfil em `s` crescente e, por fim, `(s_fim, z_base)` e `(s_início, z_base)`. Não repete o primeiro ponto.
++//! - **papel 1, perfil existente**: só existe quando há plataforma ou região nivelada (ficha R3). Aqui nunca é emitido.
++//! - **papel 2, silhueta**: envoltória superior da parte da superfície no lado visível até `profundidade`. `FAIXAS` faixas iguais de `s` na extensão do
++//!   terreno; cada aresta, recortada à faixa visível, atualiza o máximo das faixas que cobre; sai uma polilinha por trecho contínuo de faixas com dado, com
++//!   um ponto por faixa `(s do meio da faixa, z máximo)`. Trecho de uma faixa só não sai (não forma linha).
++//!
++//! Vértice exatamente sobre o plano conta como do lado visível (a mesma regra única das curvas de nível), e cada ponto do perfil é calculado sempre do
++//! vértice de trás para o da frente da aresta: os dois triângulos de uma aresta chegam ao mesmo ponto, bit a bit.
++
++use crate::cena::Cena;
++use crate::consultas::Saida;
++use crate::terreno_avalia::Malha;
++use crate::terreno_curvas::{QUANTO, SEGMENTO_MIN};
++use crate::terreno_tipos::{existente, terrenos_do_nivel};
++
++/// `papel` das linhas da consulta 164.
++pub const PAPEL_CORTADO: u32 = 0;
++pub const PAPEL_PERFIL_EXISTENTE: u32 = 1;
++pub const PAPEL_SILHUETA: u32 = 2;
++
++/// Número de faixas de `s` da silhueta.
++pub const FAIXAS: usize = 2048;
++
++/// Plano de corte, com a direção já normalizada.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub struct Plano {
++    ox: f64,
++    oy: f64,
++    ux: f64,
++    uy: f64,
++}
++
++impl Plano {
++    /// `None` se a direção é nula (menor que `1e-12`), como em `guarda_corte`.
++    pub fn novo(ox: f64, oy: f64, dx: f64, dy: f64) -> Option<Plano> {
++        let l = dx.hypot(dy);
++        if l < 1e-12 || !l.is_finite() {
++            return None;
++        }
++        Some(Plano { ox, oy, ux: dx / l, uy: dy / l })
++    }
++
++    /// `(s, t)`: posição ao longo do plano e distância com sinal a ele (positiva = lado visível).
++    pub fn st(&self, x: f64, y: f64) -> (f64, f64) {
++        let (rx, ry) = (x - self.ox, y - self.oy);
++        (rx * self.ux + ry * self.uy, -rx * self.uy + ry * self.ux)
++    }
++
++    /// `[s, t, z]` de um vértice.
++    fn stz(&self, p: [f64; 3]) -> [f64; 3] {
++        let (s, t) = self.st(p[0], p[1]);
++        [s, t, p[2]]
++    }
++}
++
++/// Ponto `(s, z)` em que a aresta de `tras` (`t < 0`) a `frente` (`t ≥ 0`) fura o plano.
++fn furo(tras: [f64; 3], frente: [f64; 3]) -> [f64; 2] {
++    let k = ((0.0 - tras[1]) / (frente[1] - tras[1])).clamp(0.0, 1.0);
++    if k >= 1.0 {
++        return [frente[0], frente[2]];
++    }
++    [tras[0] + (frente[0] - tras[0]) * k, tras[2] + (frente[2] - tras[2]) * k]
++}
++
++/// Perfil da malha no plano: um trecho contínuo por item, cada um com os pontos `(s, z)` em `s` crescente.
++pub fn perfil(m: &Malha, pl: &Plano) -> Vec<Vec<[f64; 2]>> {
++    let mut segs: Vec<([f64; 2], [f64; 2])> = Vec::new();
++    for t in &m.t {
++        let p = t.map(|i| pl.stz(m.v[i as usize]));
++        let frente = p.map(|q| q[1] >= 0.0);
++        if frente[0] == frente[1] && frente[1] == frente[2] {
++            continue;
++        }
++        let mut pontas = [[0.0; 2]; 2];
++        let mut n = 0;
++        for i in 0..3 {
++            let j = (i + 1) % 3;
++            if frente[i] != frente[j] && n < 2 {
++                pontas[n] = if frente[j] { furo(p[i], p[j]) } else { furo(p[j], p[i]) };
++                n += 1;
++            }
++        }
++        let (a, b) = if pontas[0][0] <= pontas[1][0] { (pontas[0], pontas[1]) } else { (pontas[1], pontas[0]) };
++        if n == 2 && b[0] - a[0] >= SEGMENTO_MIN {
++            segs.push((a, b));
++        }
++    }
++    segs.sort_by(|x, y| x.0[0].total_cmp(&y.0[0]).then(x.1[0].total_cmp(&y.1[0])));
++    let mut out: Vec<Vec<[f64; 2]>> = Vec::new();
++    for (a, b) in segs {
++        match out.last_mut() {
++            Some(trecho) if a[0] - trecho[trecho.len() - 1][0] <= QUANTO => {
++                let fim = trecho[trecho.len() - 1][0];
++                if a[0] > fim {
++                    trecho.push(a);
++                }
++                if b[0] > fim {
++                    trecho.push(b);
++                }
++            }
++            _ => out.push(vec![a, b]),
++        }
++    }
++    out
++}
++
++/// Silhueta (envoltória superior) da parte da malha com `0 ≤ t ≤ profundidade`: uma polilinha `(s, z)` por trecho contínuo de faixas com dado.
++pub fn silhueta(m: &Malha, pl: &Plano, profundidade: f64) -> Vec<Vec<[f64; 2]>> {
++    let (mut s_min, mut s_max) = (f64::INFINITY, f64::NEG_INFINITY);
++    for t in &m.t {
++        for &i in t {
++            let s = pl.st(m.v[i as usize][0], m.v[i as usize][1]).0;
++            s_min = s_min.min(s);
++            s_max = s_max.max(s);
++        }
++    }
++    let w = (s_max - s_min) / FAIXAS as f64;
++    if !(w > 0.0 && w.is_finite()) {
++        return Vec::new();
++    }
++    let faixa = |s: f64| (((s - s_min) / w).floor().max(0.0) as usize).min(FAIXAS - 1);
++    let mut topo = vec![f64::NEG_INFINITY; FAIXAS];
++    for t in &m.t {
++        let p = t.map(|i| pl.stz(m.v[i as usize]));
++        for i in 0..3 {
++            let Some((a, b)) = recortar(p[i], p[(i + 1) % 3], profundidade) else { continue };
++            let (a, b) = if a[0] <= b[0] { (a, b) } else { (b, a) };
++            let ds = b[0] - a[0];
++            let z_em = |s: f64| if ds > 0.0 { a[1] + (b[1] - a[1]) * ((s - a[0]) / ds).clamp(0.0, 1.0) } else { a[1].max(b[1]) };
++            for (j, z) in topo.iter_mut().enumerate().take(faixa(b[0]) + 1).skip(faixa(a[0])) {
++                let (esq, dir) = (s_min + j as f64 * w, s_min + (j + 1) as f64 * w);
++                *z = z.max(z_em(esq.max(a[0]))).max(z_em(dir.min(b[0])));
++            }
++        }
++    }
++    let mut out: Vec<Vec<[f64; 2]>> = Vec::new();
++    let mut atual: Vec<[f64; 2]> = Vec::new();
++    for (j, &z) in topo.iter().enumerate() {
++        if z > f64::NEG_INFINITY {
++            atual.push([s_min + (j as f64 + 0.5) * w, z]);
++        } else if !atual.is_empty() {
++            out.push(std::mem::take(&mut atual));
++        }
++    }
++    out.push(atual);
++    out.retain(|l| l.len() >= 2);
++    out
++}
++
++/// Recorta a aresta `a`–`b` (`[s, t, z]`) à faixa `0 ≤ t ≤ profundidade`. Devolve as pontas `(s, z)` do que sobra.
++fn recortar(a: [f64; 3], b: [f64; 3], profundidade: f64) -> Option<([f64; 2], [f64; 2])> {
++    let dt = b[1] - a[1];
++    let (u0, u1) = if dt == 0.0 {
++        if a[1] < 0.0 || a[1] > profundidade {
++            return None;
++        }
++        (0.0, 1.0)
++    } else {
++        let (x, y) = ((0.0 - a[1]) / dt, (profundidade - a[1]) / dt);
++        (x.min(y).max(0.0), x.max(y).min(1.0))
++    };
++    if u0 > u1 || u0.is_nan() || u1.is_nan() {
++        return None;
++    }
++    let em = |u: f64| [a[0] + (b[0] - a[0]) * u, a[2] + (b[2] - a[2]) * u];
++    Some((em(u0), em(u1)))
++}
++
++/// Linhas do corte de uma malha: `(papel, fechada, pontos)`, os polígonos cortados (por `s`) e depois as silhuetas.
++pub fn corte_da_malha(m: &Malha, pl: &Plano, profundidade: f64, espessura_base: f64) -> Vec<(u32, bool, Vec<[f64; 2]>)> {
++    let Some((z_min, _)) = m.z_min_max().filter(|_| !m.t.is_empty()) else { return Vec::new() };
++    let z_base = z_min - espessura_base;
++    let mut out = Vec::new();
++    for mut p in perfil(m, pl) {
++        let (s0, s1) = (p[0][0], p[p.len() - 1][0]);
++        p.push([s1, z_base]);
++        p.push([s0, z_base]);
++        out.push((PAPEL_CORTADO, true, p));
++    }
++    out.extend(silhueta(m, pl, profundidade).into_iter().map(|p| (PAPEL_SILHUETA, false, p)));
++    out
++}
++
++/// Consulta 164 (`terreno_corte`): terrenos do nível por `id_num` crescente.
++pub fn consulta_terreno_corte(cena: &Cena, nivel: u32, plano: [f64; 4], profundidade: f64) -> Result<Vec<Saida>, u32> {
++    let (mut linhas, mut pontos) = (Vec::new(), Vec::new());
++    if let Some(pl) = Plano::novo(plano[0], plano[1], plano[2], plano[3]).filter(|_| profundidade >= 0.0) {
++        for t in terrenos_do_nivel(&cena.terreno, nivel) {
++            let e = existente(cena, t)?;
++            let espessura = cena.terreno.terrenos.get(&t).map_or(0.0, |l| l.espessura_base);
++            for (papel, fechada, p) in corte_da_malha(&e.e, &pl, profundidade, espessura) {
++                linhas.extend_from_slice(&[t, papel, u32::from(fechada), p.len() as u32]);
++                pontos.extend(p.iter().flatten());
++            }
++        }
++    }
++    Ok(vec![Saida::U32(linhas), Saida::F64(pontos)])
++}
++
++#[cfg(test)]
++mod testes {
++    use super::*;
++
++    /// Quadrado 0..2 em dois triângulos, com z = x.
++    fn quadrado() -> Malha {
++        let v = vec![[0.0, 0.0, 0.0], [2.0, 0.0, 2.0], [2.0, 2.0, 2.0], [0.0, 2.0, 0.0]];
++        Malha::nova(v, vec![0, 1, 2, 3], vec![[0, 1, 2], [0, 2, 3]], Vec::new())
++    }
++
++    #[test]
++    fn plano_tem_a_convencao_de_guarda_corte() {
++        let pl = Plano::novo(1.0, 2.0, 0.0, 3.0).expect("plano");
++        assert_eq!(pl.st(1.0, 5.0), (3.0, 0.0), "s ao longo da direção normalizada");
++        assert_eq!(pl.st(0.0, 2.0), (0.0, 1.0), "a normal esquerda de +y é −x: lado visível");
++        assert_eq!(pl.st(4.0, 2.0).1, -3.0);
++        assert_eq!(Plano::novo(0.0, 0.0, 0.0, 0.0), None);
++        assert_eq!(Plano::novo(0.0, 0.0, 1e-13, 0.0), None);
++        assert_eq!(pl.stz([1.0, 5.0, 7.0]), [3.0, 0.0, 7.0]);
++    }
++
++    #[test]
++    fn furo_e_recorte() {
++        assert_eq!(furo([0.0, -1.0, 0.0], [4.0, 1.0, 8.0]), [2.0, 4.0]);
++        assert_eq!(furo([0.0, -1.0, 0.0], [4.0, 0.0, 8.0]), [4.0, 8.0], "vértice sobre o plano: o próprio vértice");
++        let (a, b) = ([0.0, -1.0, 0.0], [4.0, 3.0, 8.0]);
++        assert_eq!(recortar(a, b, 1.0), Some(([1.0, 2.0], [2.0, 4.0])));
++        assert_eq!(recortar(b, a, 1.0), Some(([2.0, 4.0], [1.0, 2.0])));
++        assert_eq!(recortar(a, b, 10.0), Some(([1.0, 2.0], [4.0, 8.0])));
++        assert_eq!(recortar([0.0, 2.0, 0.0], [1.0, 3.0, 0.0], 1.0), None, "além da profundidade");
++        assert_eq!(recortar([0.0, -2.0, 0.0], [1.0, -1.0, 0.0], 1.0), None, "atrás do plano");
++        assert_eq!(recortar([0.0, 0.5, 1.0], [1.0, 0.5, 2.0], 1.0), Some(([0.0, 1.0], [1.0, 2.0])), "paralela ao plano, dentro");
++        assert_eq!(recortar([0.0, 1.5, 1.0], [1.0, 1.5, 2.0], 1.0), None, "paralela ao plano, fora");
++    }
++
++    #[test]
++    fn perfil_e_poligono_do_quadrado() {
++        let m = quadrado();
++        let pl = Plano::novo(-1.0, 0.5, 1.0, 0.0).expect("plano");
++        assert_eq!(perfil(&m, &pl), vec![vec![[1.0, 0.0], [1.5, 0.5], [3.0, 2.0]]], "s = x + 1; quebra na diagonal");
++        let c = corte_da_malha(&m, &pl, 0.0, 1.0);
++        assert_eq!(c[0], (PAPEL_CORTADO, true, vec![[1.0, 0.0], [1.5, 0.5], [3.0, 2.0], [3.0, -1.0], [1.0, -1.0]]));
++        assert!(perfil(&m, &Plano::novo(0.0, 5.0, 1.0, 0.0).expect("plano")).is_empty(), "plano fora da malha");
++        assert!(corte_da_malha(&Malha::default(), &pl, 1.0, 1.0).is_empty());
++        // Dois triângulos separados na linha do corte: dois trechos.
++        let v = vec![[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 1.0], [5.0, 0.0, 2.0], [6.0, 0.0, 2.0], [5.0, 1.0, 2.0]];
++        let dois = Malha::nova(v, vec![0; 6], vec![[0, 1, 2], [3, 4, 5]], Vec::new());
++        let p = perfil(&dois, &Plano::novo(0.0, 0.5, 1.0, 0.0).expect("plano"));
++        assert_eq!(p, vec![vec![[0.0, 1.0], [0.5, 1.0]], vec![[5.0, 2.0], [5.5, 2.0]]]);
++    }
++
++    #[test]
++    fn silhueta_do_quadrado() {
++        let m = quadrado();
++        let pl = Plano::novo(0.0, -1.0, 1.0, 0.0).expect("plano");
++        let s = silhueta(&m, &pl, 10.0);
++        assert_eq!(s.len(), 1);
++        assert_eq!(s[0].len(), FAIXAS);
++        let w = 2.0 / FAIXAS as f64;
++        assert!((s[0][0][0] - w / 2.0).abs() < 1e-12 && (s[0][0][1] - w).abs() < 1e-12, "meio da faixa e o máximo dela");
++        assert!((s[0][FAIXAS - 1][1] - 2.0).abs() < 1e-12);
++        assert!(silhueta(&m, &pl, 0.5).is_empty(), "o terreno começa além da profundidade");
++        assert!(silhueta(&m, &Plano::novo(0.0, -1.0, -1.0, 0.0).expect("plano"), 10.0).is_empty(), "olhando para o outro lado");
++        assert!(silhueta(&Malha::default(), &pl, 10.0).is_empty());
++        // Profundidade que pega só a metade de baixo (y de 0 a 1): a envoltória é a mesma, porque z = x.
++        let meia = silhueta(&m, &pl, 2.0);
++        assert_eq!(meia.len(), 1);
++        assert!((meia[0][FAIXAS - 1][1] - 2.0).abs() < 1e-12);
++        let c = corte_da_malha(&m, &pl, 10.0, 1.0);
++        assert_eq!(c.iter().map(|l| (l.0, l.1)).collect::<Vec<_>>(), vec![(PAPEL_SILHUETA, false)]);
++    }
++}
+diff --git a/crates/geom-wasm/src/terreno_curvas.rs b/crates/geom-wasm/src/terreno_curvas.rs
+new file mode 100644
+index 00000000..50c0ad19
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_curvas.rs
+@@ -0,0 +1,258 @@
++//! Terreno (PLANO do terreno A.4 regra 10): curvas de nível, consulta 161 (`terreno_curvas`).
++//!
++//! Cotas `k · intervalo` (k inteiro) entre o mínimo e o máximo da superfície. Vértice com cota IGUAL à da curva conta como ACIMA (regra única): por isso não
++//! há curva na cota mínima, e na cota de um pico isolado os segmentos têm comprimento zero e são descartados. Cada triângulo atravessado dá um segmento, cujas
++//! pontas são calculadas sempre do vértice de baixo para o de cima da aresta: os dois triângulos de uma aresta chegam ao mesmo ponto, bit a bit. O segmento
++//! é orientado com o lado alto à esquerda. Segmento menor que `1e-9` é descartado; os demais são encadeados pela extremidade quantizada em `1e-7`.
++//!
++//! Saída: `linhas [terreno_num, mestra, fechada, n_pontos]`, `pontos [x, y]` e `cotas [z]` (uma por linha). Linha fechada NÃO repete o primeiro ponto.
++//! Ordem: terreno, cota crescente e, na mesma cota, as abertas e depois as fechadas, cada grupo pela ordem dos triângulos.
++
++use std::collections::HashMap;
++
++use crate::cena::Cena;
++use crate::consultas::Saida;
++use crate::esquema::{ENTRADA, LIMITE};
++use crate::terreno_avalia::Malha;
++use crate::terreno_tipos::{existente, terrenos_do_nivel};
++
++/// Máximo de cotas distintas por terreno (acima disso, `LIMITE`).
++pub const MAX_COTAS: f64 = 2000.0;
++/// Segmento mais curto que isto é descartado.
++pub const SEGMENTO_MIN: f64 = 1e-9;
++/// Passo da quantização das extremidades no encadeamento.
++pub const QUANTO: f64 = 1e-7;
++
++/// Uma curva de nível encadeada.
++#[derive(Clone, Debug, PartialEq)]
++pub struct Curva {
++    /// Índice da cota: `z = k · intervalo`.
++    pub k: i64,
++    pub z: f64,
++    pub mestra: bool,
++    pub fechada: bool,
++    /// Pontos em planta. Fechada: o último liga no primeiro (sem repetir).
++    pub pontos: Vec<[f64; 2]>,
++}
++
++/// Chave de encadeamento de um ponto (quantizado em `QUANTO`).
++pub fn chave_ponto(p: [f64; 2]) -> (i64, i64) {
++    ((p[0] / QUANTO).round() as i64, (p[1] / QUANTO).round() as i64)
++}
++
++/// Um segmento orientado, com as chaves das duas pontas.
++#[derive(Clone, Copy, Debug, PartialEq)]
++pub struct Segmento {
++    pub a: [f64; 2],
++    pub b: [f64; 2],
++}
++
++/// Encadeia segmentos orientados pela extremidade quantizada. Devolve `(pontos, fechada)` por cadeia: primeiro as abertas (começam onde saem mais segmentos
++/// do que chegam), depois as fechadas, cada grupo pela ordem dos segmentos. Em nó com mais de uma saída segue o segmento de menor índice ainda não usado.
++/// Segmento cujas duas pontas caem na mesma chave não liga nada e é descartado.
++pub fn encadear(segmentos: &[Segmento]) -> Vec<(Vec<[f64; 2]>, bool)> {
++    let chaves: Vec<((i64, i64), (i64, i64))> = segmentos.iter().map(|s| (chave_ponto(s.a), chave_ponto(s.b))).collect();
++    let mut saidas: HashMap<(i64, i64), Vec<u32>> = HashMap::with_capacity(segmentos.len());
++    let mut saldo: HashMap<(i64, i64), i32> = HashMap::with_capacity(segmentos.len());
++    let mut usado = vec![false; segmentos.len()];
++    for (i, &(ka, kb)) in chaves.iter().enumerate() {
++        if ka == kb {
++            usado[i] = true;
++            continue;
++        }
++        saidas.entry(ka).or_default().push(i as u32);
++        *saldo.entry(ka).or_insert(0) += 1;
++        *saldo.entry(kb).or_insert(0) -= 1;
++    }
++    // Próxima saída a tentar em cada nó (as listas estão em ordem crescente de índice).
++    let mut cursor: HashMap<(i64, i64), usize> = HashMap::with_capacity(saidas.len());
++    let mut out = Vec::new();
++    for abertas in [true, false] {
++        for inicio in 0..segmentos.len() {
++            if usado[inicio] {
++                continue;
++            }
++            let k0 = chaves[inicio].0;
++            if abertas {
++                match saldo.get_mut(&k0) {
++                    Some(s) if *s > 0 => *s -= 1,
++                    _ => continue,
++                }
++            }
++            let mut pontos = vec![segmentos[inicio].a];
++            let mut atual = inicio;
++            let fechada = loop {
++                usado[atual] = true;
++                let fim = chaves[atual].1;
++                if fim == k0 {
++                    break true;
++                }
++                pontos.push(segmentos[atual].b);
++                let lista = saidas.get(&fim).map_or(&[][..], |v| v.as_slice());
++                let c = cursor.entry(fim).or_insert(0);
++                while *c < lista.len() && usado[lista[*c] as usize] {
++                    *c += 1;
++                }
++                match lista.get(*c) {
++                    Some(&prox) => atual = prox as usize,
++                    None => break false,
++                }
++            };
++            out.push((pontos, fechada));
++        }
++    }
++    out
++}
++
++/// Ponto da curva de cota `z` na aresta que vai de `baixo` (cota menor que `z`) a `cima` (cota maior ou igual).
++fn cruzamento(baixo: [f64; 3], cima: [f64; 3], z: f64) -> [f64; 2] {
++    let t = ((z - baixo[2]) / (cima[2] - baixo[2])).clamp(0.0, 1.0);
++    if t >= 1.0 {
++        return [cima[0], cima[1]];
++    }
++    [baixo[0] + (cima[0] - baixo[0]) * t, baixo[1] + (cima[1] - baixo[1]) * t]
++}
++
++/// Segmento da curva de cota `z` no triângulo `p` (anti-horário), com o lado alto à esquerda. `None` se o triângulo não é atravessado ou o segmento é
++/// menor que `SEGMENTO_MIN`.
++pub fn segmento_no_triangulo(p: [[f64; 3]; 3], z: f64) -> Option<Segmento> {
++    let acima = p.map(|q| q[2] >= z);
++    let (mut entra, mut sai) = (None, None);
++    for i in 0..3 {
++        let j = (i + 1) % 3;
++        if !acima[i] && acima[j] {
++            entra = Some(cruzamento(p[i], p[j], z));
++        } else if acima[i] && !acima[j] {
++            sai = Some(cruzamento(p[j], p[i], z));
++        }
++    }
++    let (a, b) = (sai?, entra?);
++    if crate::geo2d::hipot(b[0] - a[0], b[1] - a[1]) < SEGMENTO_MIN {
++        return None;
++    }
++    Some(Segmento { a, b })
++}
++
++/// Curvas de nível de uma malha. `ENTRADA` se o intervalo não é positivo; `LIMITE` com mais de `MAX_COTAS` cotas entre o mínimo e o máximo.
++pub fn curvas_da_malha(m: &Malha, intervalo: f64, mestra_cada: u32) -> Result<Vec<Curva>, u32> {
++    let Some((z_min, z_max)) = m.z_min_max().filter(|_| !m.t.is_empty()) else { return Ok(Vec::new()) };
++    if !(intervalo > 0.0 && intervalo.is_finite()) {
++        return Err(ENTRADA);
++    }
++    let (k_min, k_max) = ((z_min / intervalo).ceil(), (z_max / intervalo).floor());
++    // O teto de 1e15 mantém `k` exato em `f64` e longe do estouro de `i64`.
++    if !(k_min.abs() <= 1e15 && k_max.abs() <= 1e15) || k_max - k_min + 1.0 > MAX_COTAS {
++        return Err(LIMITE);
++    }
++    if k_max < k_min {
++        return Ok(Vec::new());
++    }
++    let (k_min, n) = (k_min as i64, (k_max - k_min) as usize + 1);
++    let mut por_cota: Vec<Vec<Segmento>> = vec![Vec::new(); n];
++    for t in &m.t {
++        let p = t.map(|i| m.v[i as usize]);
++        let (lo, hi) = (p[0][2].min(p[1][2]).min(p[2][2]), p[0][2].max(p[1][2]).max(p[2][2]));
++        // Folga de uma cota para cada lado: quem decide é a comparação exata com `k · intervalo` em `segmento_no_triangulo`.
++        let de = (((lo / intervalo).floor() as i64) - 1).max(k_min);
++        let ate = (((hi / intervalo).ceil() as i64) + 1).min(k_min + n as i64 - 1);
++        for k in de..=ate {
++            if let Some(s) = segmento_no_triangulo(p, k as f64 * intervalo) {
++                por_cota[(k - k_min) as usize].push(s);
++            }
++        }
++    }
++    let mut out = Vec::new();
++    for (d, segs) in por_cota.iter().enumerate() {
++        let k = k_min + d as i64;
++        let mestra = mestra_cada > 0 && k.rem_euclid(i64::from(mestra_cada)) == 0;
++        for (pontos, fechada) in encadear(segs) {
++            out.push(Curva { k, z: k as f64 * intervalo, mestra, fechada, pontos });
++        }
++    }
++    Ok(out)
++}
++
++/// Consulta 161 (`terreno_curvas`): terrenos do nível por `id_num` crescente. Até a ficha R3 a superfície proposta devolve o mesmo que a existente.
++pub fn consulta_terreno_curvas(cena: &Cena, nivel: u32, _superficie: u32) -> Result<Vec<Saida>, u32> {
++    let (mut linhas, mut pontos, mut cotas) = (Vec::new(), Vec::new(), Vec::new());
++    for t in terrenos_do_nivel(&cena.terreno, nivel) {
++        let e = existente(cena, t)?;
++        let Some(def) = cena.terreno.terrenos.get(&t) else { continue };
++        for c in curvas_da_malha(&e.e, def.intervalo, def.mestra_cada)? {
++            linhas.extend_from_slice(&[t, u32::from(c.mestra), u32::from(c.fechada), c.pontos.len() as u32]);
++            pontos.extend(c.pontos.iter().flatten());
++            cotas.push(c.z);
++        }
++    }
++    Ok(vec![Saida::U32(linhas), Saida::F64(pontos), Saida::F64(cotas)])
++}
++
++#[cfg(test)]
++mod testes {
++    use super::*;
++
++    fn seg(a: [f64; 2], b: [f64; 2]) -> Segmento {
++        Segmento { a, b }
++    }
++
++    #[test]
++    fn chave_quantiza_em_1e_7() {
++        assert_eq!(chave_ponto([1.0, -2.0]), (10_000_000, -20_000_000));
++        assert_eq!(chave_ponto([1.0 + 4e-8, 0.0]), chave_ponto([1.0, 0.0]));
++        assert_ne!(chave_ponto([1.0 + 6e-8, 0.0]), chave_ponto([1.0, 0.0]));
++    }
++
++    #[test]
++    fn encadeia_aberta_e_fechada_fora_de_ordem() {
++        let p = [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]];
++        let q = [[0.0, 5.0], [1.0, 5.0], [1.0, 6.0]];
++        let segs = [seg(q[1], q[2]), seg(p[2], p[3]), seg(q[2], q[0]), seg(p[0], p[1]), seg(q[0], q[1]), seg(p[1], [2.0 + 3e-8, 0.0])];
++        let c = encadear(&segs);
++        assert_eq!(c.len(), 2);
++        assert_eq!(c[0], (vec![p[0], p[1], [2.0 + 3e-8, 0.0], p[3]], false), "a aberta primeiro, do começo ao fim, colada pela chave");
++        assert_eq!(c[1], (vec![q[1], q[2], q[0]], true), "a fechada não repete o primeiro ponto");
++        assert!(encadear(&[]).is_empty());
++        assert!(encadear(&[seg(p[0], [2e-8, 0.0])]).is_empty(), "pontas na mesma chave: descartado");
++    }
++
++    #[test]
++    fn no_com_duas_saidas_segue_o_menor_indice() {
++        // Dois laços que se tocam em O.
++        let o = [0.0, 0.0];
++        let segs = [seg(o, [1.0, 0.0]), seg([1.0, 0.0], o), seg(o, [-1.0, 0.0]), seg([-1.0, 0.0], o)];
++        let c = encadear(&segs);
++        assert_eq!(c, vec![(vec![o, [1.0, 0.0]], true), (vec![o, [-1.0, 0.0]], true)]);
++    }
++
++    #[test]
++    fn segmento_com_o_lado_alto_a_esquerda_e_cota_igual_conta_como_acima() {
++        let t = [[0.0, 0.0, 0.0], [2.0, 0.0, 2.0], [0.0, 2.0, 0.0]];
++        let s = segmento_no_triangulo(t, 1.0).expect("atravessado");
++        assert_eq!((s.a, s.b), ([1.0, 1.0], [1.0, 0.0]), "desce em y com o lado alto (x maior) à esquerda");
++        assert_eq!(segmento_no_triangulo(t, 0.0), None, "tudo acima ou igual: sem curva");
++        assert_eq!(segmento_no_triangulo(t, 2.0), None, "só um vértice na cota: segmento de comprimento zero");
++        assert_eq!(segmento_no_triangulo(t, 3.0), None);
++        // Aresta inteira na cota, com o terceiro vértice abaixo: a própria aresta.
++        let u = [[0.0, 0.0, 1.0], [2.0, 0.0, 1.0], [0.0, 2.0, 0.0]];
++        let s = segmento_no_triangulo(u, 1.0).expect("aresta");
++        assert_eq!((s.a, s.b), ([2.0, 0.0], [0.0, 0.0]));
++    }
++
++    #[test]
++    fn curvas_de_um_triangulo_intervalo_invalido_e_limite() {
++        let m = Malha::nova(vec![[0.0, 0.0, -1.0], [4.0, 0.0, 3.0], [0.0, 4.0, -1.0]], vec![0, 1, 2], vec![[0, 1, 2]], Vec::new());
++        let c = curvas_da_malha(&m, 1.0, 2).expect("curvas");
++        assert_eq!(c.iter().map(|c| (c.k, c.z, c.mestra, c.fechada, c.pontos.len())).collect::<Vec<_>>(), vec![(0, 0.0, true, false, 2), (1, 1.0, false, false, 2), (2, 2.0, true, false, 2)]);
++        assert_eq!(c[0].pontos, vec![[1.0, 3.0], [1.0, 0.0]]);
++        assert!(curvas_da_malha(&m, 1.0, 0).expect("curvas").iter().all(|c| !c.mestra), "mestra_cada 0: nenhuma mestra");
++        assert_eq!(curvas_da_malha(&m, 0.0, 5), Err(ENTRADA));
++        assert_eq!(curvas_da_malha(&m, -1.0, 5), Err(ENTRADA));
++        assert_eq!(curvas_da_malha(&m, f64::NAN, 5), Err(ENTRADA));
++        assert_eq!(curvas_da_malha(&m, 0.001, 5), Err(LIMITE));
++        assert_eq!(curvas_da_malha(&m, 1e-320, 5), Err(LIMITE));
++        assert_eq!(curvas_da_malha(&m, 0.002, 5), Err(LIMITE), "de −500 a 1500 são 2001 cotas");
++        assert!(curvas_da_malha(&m, 0.0025, 5).is_ok_and(|c| (1598..=1601).contains(&c.len())), "1601 cotas cabem");
++        assert_eq!(curvas_da_malha(&Malha::default(), 0.0, 5), Ok(Vec::new()), "sem triângulos não há o que conferir");
++        assert_eq!(curvas_da_malha(&m, 10.0, 5).map(|c| c.len()), Ok(1), "só a cota 0");
++    }
++}
+diff --git a/crates/geom-wasm/src/terreno_fixture.rs b/crates/geom-wasm/src/terreno_fixture.rs
+index cb038756..75c5d206 100644
+--- a/crates/geom-wasm/src/terreno_fixture.rs
++++ b/crates/geom-wasm/src/terreno_fixture.rs
+@@ -14,6 +14,8 @@ pub struct TerrenoFx {
+     pub nivel: u32,
+     pub espessura_base: f64,
+     pub intervalo: f64,
++    /// Uma curva mestra a cada N (padrão 5).
++    pub mestra_cada: u32,
+     pub pontos: Vec<[f64; 3]>,
+     /// `(z, xy, fechada)`.
+     pub curvas: Vec<(f64, Vec<[f64; 2]>, bool)>,
+@@ -23,7 +25,7 @@ pub struct TerrenoFx {
+ 
+ impl TerrenoFx {
+     pub fn novo(id: u32, pontos: Vec<[f64; 3]>) -> TerrenoFx {
+-        TerrenoFx { id, nivel: 0, espessura_base: 3.0, intervalo: 0.5, pontos, curvas: Vec::new(), quebras: Vec::new(), borda: None }
++        TerrenoFx { id, nivel: 0, espessura_base: 3.0, intervalo: 0.5, mestra_cada: 5, pontos, curvas: Vec::new(), quebras: Vec::new(), borda: None }
+     }
+ 
+     /// Todos os vértices de fonte (pontos, curvas e quebras), na ordem canônica.
+@@ -128,7 +130,7 @@ pub fn enviar(cena: &mut Cena, terrenos: &[TerrenoFx]) -> Result<(), u32> {
+     let mut c = Colunas::default();
+     let solto = f64::from(ID_AUSENTE);
+     for t in terrenos {
+-        for (col, x) in c.terrenos.iter_mut().zip([f64::from(t.id), f64::from(t.nivel), t.espessura_base, t.intervalo, 5.0]) {
++        for (col, x) in c.terrenos.iter_mut().zip([f64::from(t.id), f64::from(t.nivel), t.espessura_base, t.intervalo, f64::from(t.mestra_cada)]) {
+             col.push(x);
+         }
+         for (k, p) in t.pontos.iter().enumerate() {
+@@ -189,6 +191,7 @@ mod testes {
+         assert_eq!(cena.terreno.terrenos.keys().copied().collect::<Vec<_>>(), vec![3, 7]);
+         assert_eq!(cena.terreno.terrenos[&7].intervalo, 1.0);
+         assert_eq!(cena.terreno.terrenos[&7].espessura_base, 3.0);
++        assert_eq!(cena.terreno.terrenos[&7].mestra_cada, 5);
+         assert_eq!(cena.terreno.linhas.len(), 3, "quebra de T4, curva e borda do outro");
+         assert_eq!(cena.terreno.vertices.len(), 6 + 5 + 2 + 4);
+         let soltos = cena.terreno.vertices.values().filter(|v| v.linha == ID_AUSENTE).count();
+diff --git a/crates/geom-wasm/src/terreno_planta.rs b/crates/geom-wasm/src/terreno_planta.rs
+new file mode 100644
+index 00000000..6a7d6778
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_planta.rs
+@@ -0,0 +1,85 @@
++//! Terreno (PLANO do terreno A.5): a borda em planta, consulta 162 (`terreno_planta`).
++//!
++//! A borda é o contorno da malha: as arestas que pertencem a um triângulo só, encadeadas pelos vértices, com o interior à esquerda (laço externo
++//! anti-horário). Com `borda` no modelo é a borda adensada da regra 5; sem ela, a envoltória das fontes.
++//!
++//! Saída: `linhas [terreno_num, papel (0 borda), fechada, n_pontos]` e `pontos [x, y]`. Laço fechado NÃO repete o primeiro ponto. Ordem: terreno e, nele,
++//! a ordem das arestas de borda da malha.
++
++use std::collections::HashMap;
++
++use crate::cena::Cena;
++use crate::consultas::Saida;
++use crate::terreno_avalia::Malha;
++use crate::terreno_tipos::{existente, terrenos_do_nivel};
++
++/// `papel` das linhas da consulta 162.
++pub const PAPEL_BORDA: u32 = 0;
++
++/// Laços da borda da malha: `(pontos, fechado)`. Em vértice com mais de uma saída segue a aresta de menor índice ainda não usada.
++pub fn lacos_de_borda(m: &Malha) -> Vec<(Vec<[f64; 2]>, bool)> {
++    let arestas = m.arestas_de_borda();
++    let mut saidas: HashMap<u32, Vec<u32>> = HashMap::with_capacity(arestas.len());
++    for (i, a) in arestas.iter().enumerate() {
++        saidas.entry(a[0]).or_default().push(i as u32);
++    }
++    let mut usada = vec![false; arestas.len()];
++    let ponto = |i: u32| m.v.get(i as usize).map_or([0.0, 0.0], |p| [p[0], p[1]]);
++    let mut out = Vec::new();
++    for inicio in 0..arestas.len() {
++        if usada[inicio] {
++            continue;
++        }
++        let v0 = arestas[inicio][0];
++        let mut pontos = vec![ponto(v0)];
++        let mut atual = inicio;
++        let fechado = loop {
++            usada[atual] = true;
++            let fim = arestas[atual][1];
++            if fim == v0 {
++                break true;
++            }
++            pontos.push(ponto(fim));
++            let prox = saidas.get(&fim).and_then(|l| l.iter().find(|&&j| !usada[j as usize]));
++            match prox {
++                Some(&j) => atual = j as usize,
++                None => break false,
++            }
++        };
++        out.push((pontos, fechado));
++    }
++    out
++}
++
++/// Consulta 162 (`terreno_planta`): terrenos do nível por `id_num` crescente. Até a ficha R3 a superfície proposta devolve o mesmo que a existente.
++pub fn consulta_terreno_planta(cena: &Cena, nivel: u32, _superficie: u32) -> Result<Vec<Saida>, u32> {
++    let (mut linhas, mut pontos) = (Vec::new(), Vec::new());
++    for t in terrenos_do_nivel(&cena.terreno, nivel) {
++        let e = existente(cena, t)?;
++        for (p, fechado) in lacos_de_borda(&e.e) {
++            linhas.extend_from_slice(&[t, PAPEL_BORDA, u32::from(fechado), p.len() as u32]);
++            pontos.extend(p.iter().flatten());
++        }
++    }
++    Ok(vec![Saida::U32(linhas), Saida::F64(pontos)])
++}
++
++#[cfg(test)]
++mod testes {
++    use super::*;
++    use crate::esquema::ID_AUSENTE;
++
++    #[test]
++    fn laco_do_quadrado_e_dois_lacos_que_se_tocam() {
++        let v = vec![[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 2.0, 0.0], [0.0, 2.0, 0.0]];
++        let m = Malha::nova(v, vec![0, 1, 2, 3], vec![[0, 1, 2], [0, 2, 3]], Vec::new());
++        assert_eq!(lacos_de_borda(&m), vec![(vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]], true)]);
++        assert!(lacos_de_borda(&Malha::default()).is_empty());
++        // Dois triângulos que só se tocam no vértice 0: dois laços fechados.
++        let v = vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [-1.0, -1.0, 0.0]];
++        let m = Malha::nova(v, vec![ID_AUSENTE; 5], vec![[0, 1, 2], [0, 3, 4]], Vec::new());
++        let l = lacos_de_borda(&m);
++        assert_eq!(l.len(), 2);
++        assert!(l.iter().all(|(p, f)| *f && p.len() == 3));
++    }
++}
+diff --git a/crates/geom-wasm/src/terreno_quant.rs b/crates/geom-wasm/src/terreno_quant.rs
+new file mode 100644
+index 00000000..4a90017a
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_quant.rs
+@@ -0,0 +1,44 @@
++//! Terreno (PLANO do terreno A.4 regra 12): quantidades básicas, consulta 165 (`quant_terreno`).
++//!
++//! Por terreno: `valores [area_planta, area_sup_existente, area_sup_proposta, z_min, z_max, volume_corte, volume_aterro, n_triangulos]`. Até a ficha R3 não
++//! há regiões: a superfície proposta é a existente e os volumes são 0. Terreno sem triângulos sai com a linha toda em 0 (o aviso 5 diz por quê).
++
++use crate::cena::Cena;
++use crate::consultas::Saida;
++use crate::terreno_avalia::Malha;
++use crate::terreno_tipos::{existente, terrenos_do_nivel};
++
++/// Quantidades de uma malha: `[area_planta, area_superficie, z_min, z_max, n_triangulos]`. Malha sem triângulos: tudo 0.
++pub fn quantidades_da_malha(m: &Malha) -> [f64; 5] {
++    match m.z_min_max().filter(|_| !m.t.is_empty()) {
++        Some((z_min, z_max)) => [m.area_planta(), m.area_superficie(), z_min, z_max, m.t.len() as f64],
++        None => [0.0; 5],
++    }
++}
++
++/// Consulta 165 (`quant_terreno`): terrenos do nível por `id_num` crescente.
++pub fn consulta_quant_terreno(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32> {
++    let (mut linhas, mut valores) = (Vec::new(), Vec::new());
++    for t in terrenos_do_nivel(&cena.terreno, nivel) {
++        let e = existente(cena, t)?;
++        let q = quantidades_da_malha(&e.e);
++        linhas.push(t);
++        valores.extend_from_slice(&[q[0], q[1], q[1], q[2], q[3], 0.0, 0.0, q[4]]);
++    }
++    Ok(vec![Saida::U32(linhas), Saida::F64(valores)])
++}
++
++#[cfg(test)]
++mod testes {
++    use super::*;
++
++    #[test]
++    fn quantidades_do_quadrado_inclinado_e_da_malha_vazia() {
++        let v = vec![[0.0, 0.0, 0.0], [2.0, 0.0, 2.0], [2.0, 2.0, 2.0], [0.0, 2.0, 0.0]];
++        let m = Malha::nova(v, vec![0, 1, 2, 3], vec![[0, 1, 2], [0, 2, 3]], Vec::new());
++        let q = quantidades_da_malha(&m);
++        assert_eq!((q[0], q[2], q[3], q[4]), (4.0, 0.0, 2.0, 2.0));
++        assert!((q[1] - 4.0 * 2f64.sqrt()).abs() < 1e-12);
++        assert_eq!(quantidades_da_malha(&Malha::default()), [0.0; 5]);
++    }
++}
+diff --git a/crates/geom-wasm/src/terreno_testes_corte.rs b/crates/geom-wasm/src/terreno_testes_corte.rs
+new file mode 100644
+index 00000000..9cdb7fa5
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_testes_corte.rs
+@@ -0,0 +1,142 @@
++//! Testes de aceite da ficha R2 do terreno (PLANO do terreno A.4 regra 11 e A.10): o corte vertical, consulta 164 (`terreno_corte`).
++
++use crate::cena::Cena;
++use crate::consultas::executar;
++use crate::esquema::{CONSULTA_TERRENO_CORTE, ENTRADA, NIVEL_TODOS};
++use crate::terreno_corte::{FAIXAS, PAPEL_CORTADO, PAPEL_SILHUETA};
++use crate::terreno_fixture::{cena_com, t2, t3, t4, TerrenoFx};
++use crate::terreno_testes::cotas;
++use crate::terreno_testes_curvas::{ler_linhas, LinhaLida};
++use crate::teste_util::Xorshift;
++
++/// Linhas da consulta 164 (`marca` = papel; os pontos são `(s, z)`).
++pub fn corte(cena: &mut Cena, nivel: u32, plano: [f64; 4], profundidade: f64) -> Vec<LinhaLida> {
++    let args = [f64::from(nivel), plano[0], plano[1], plano[2], plano[3], profundidade];
++    let s = executar(cena, CONSULTA_TERRENO_CORTE, &args).expect("terreno_corte");
++    assert_eq!(s.len(), 2);
++    let l = ler_linhas(&s);
++    assert!(l.iter().all(|x| x.fechada == (x.marca == PAPEL_CORTADO) && (x.marca == PAPEL_CORTADO || x.marca == PAPEL_SILHUETA)), "cortado é fechado; silhueta é aberta");
++    l
++}
++
++fn cortados(l: &[LinhaLida]) -> Vec<&LinhaLida> {
++    l.iter().filter(|x| x.marca == PAPEL_CORTADO).collect()
++}
++
++/// z do perfil (os pontos do polígono menos os dois da base) em `s`, por interpolação linear.
++fn z_do_perfil(pol: &LinhaLida, s: f64) -> f64 {
++    let p = &pol.pontos[..pol.pontos.len() - 2];
++    let k = p.windows(2).position(|w| s >= w[0][0] && s <= w[1][0]).unwrap_or_else(|| panic!("s = {s} fora do perfil"));
++    let (a, b) = (p[k], p[k + 1]);
++    a[1] + (b[1] - a[1]) * (s - a[0]) / (b[0] - a[0])
++}
++
++#[test]
++fn t2_corte_perfil_reto() {
++    let mut cena = cena_com(&[t2(1)]);
++    let l = corte(&mut cena, 0, [0.0, 10.0, 1.0, 0.0], 0.0);
++    let c = cortados(&l);
++    assert_eq!(c.len(), 1, "um trecho contínuo");
++    let p = &c[0].pontos;
++    let perfil = &p[..p.len() - 2];
++    assert_eq!((perfil[0], perfil[perfil.len() - 1]), ([0.0, 10.25], [20.0, 12.25]), "de z = 10,25 a z = 12,25");
++    assert!(perfil.windows(2).all(|w| w[1][0] > w[0][0]), "ordenado por s");
++    assert!(perfil.iter().all(|q| (q[1] - (10.25 + 0.1 * q[0])).abs() < 1e-12), "reto: {perfil:?}");
++    assert_eq!(p[p.len() - 2..], [[20.0, 7.25], [0.0, 7.25]], "fechado em z_base = 10,25 − 3");
++    // A origem e o módulo da direção só deslocam s: com a origem em x = 5, o perfil vai de s = −5 a s = 15.
++    let d = corte(&mut cena, NIVEL_TODOS, [5.0, 10.0, 7.0, 0.0], 0.0);
++    let q = &cortados(&d)[0].pontos;
++    assert_eq!((q[0], q[q.len() - 3]), ([-5.0, 10.25], [15.0, 12.25]));
++    // No sentido −x o mesmo perfil sai espelhado.
++    let e = corte(&mut cena, 0, [20.0, 10.0, -1.0, 0.0], 0.0);
++    let r = &cortados(&e)[0].pontos;
++    assert_eq!((r[0], r[r.len() - 3]), ([0.0, 12.25], [20.0, 10.25]));
++    assert!(corte(&mut cena, 4, [0.0, 10.0, 1.0, 0.0], 0.0).is_empty(), "outro nível");
++}
++
++#[test]
++fn corte_bate_com_cotas() {
++    // Terreno aleatório de 300 pontos e um plano oblíquo.
++    let mut r = Xorshift::novo(164);
++    let pontos = (0..300).map(|_| [r.intervalo(0.0, 60.0), r.intervalo(0.0, 40.0), r.intervalo(-4.0, 9.0)]).collect();
++    for (fx, plano) in [(TerrenoFx::novo(1, pontos), [-3.0, 2.0, 2.0, 1.0]), (t4(1), [1.0, 19.0, 3.0, -2.0]), (t3(1), [0.0, 0.0, 1.0, 1.0])] {
++        let mut cena = cena_com(&[fx]);
++        let l = corte(&mut cena, 0, plano, 0.0);
++        let c = cortados(&l);
++        assert_eq!(c.len(), 1, "terreno convexo: um trecho só");
++        let p = &c[0].pontos;
++        let (s0, s1) = (p[0][0], p[p.len() - 3][0]);
++        assert!(s1 - s0 > 10.0);
++        let n = plano[2].hypot(plano[3]);
++        let (ux, uy) = (plano[2] / n, plano[3] / n);
++        let ss: Vec<f64> = (0..50).map(|k| s0 + (s1 - s0) * (k as f64 + 0.5) / 50.0).collect();
++        let sondas: Vec<[f64; 2]> = ss.iter().map(|s| [plano[0] + ux * s, plano[1] + uy * s]).collect();
++        for (s, cota) in ss.iter().zip(cotas(&mut cena, &sondas, 0)) {
++            assert_eq!(cota.0, 1, "s = {s} está no terreno");
++            let z = z_do_perfil(c[0], *s);
++            assert!((z - cota.1).abs() < 1e-9, "s = {s}: perfil {z}, consulta 163 {}", cota.1);
++        }
++    }
++}
++
++#[test]
++fn corte_fecha_na_base() {
++    let mut cena = cena_com(&[t3(1)]);
++    let l = corte(&mut cena, 0, [0.0, 10.0, 1.0, 0.0], 0.0);
++    let c = cortados(&l);
++    assert_eq!(c.len(), 1);
++    assert!(c[0].fechada, "polígono fechado");
++    assert_eq!(c[0].pontos, vec![[0.0, 0.0], [10.0, 5.0], [20.0, 0.0], [20.0, -3.0], [0.0, -3.0]], "perfil por s e, por fim, a base em z_base = −3");
++    // Triângulo de 20 × 5 sobre o retângulo de 20 × 3. O polígono sai no sentido horário em (s, z): perfil em s crescente por cima, base de volta.
++    assert!(c[0].area().abs() > 0.0);
++    assert!((c[0].area() + 110.0).abs() < 1e-9, "área {}", c[0].area());
++    // Com a espessura da base maior, só a base desce.
++    let mut cena = cena_com(&[TerrenoFx { espessura_base: 7.5, ..t3(1) }]);
++    let l = corte(&mut cena, 0, [0.0, 10.0, 1.0, 0.0], 0.0);
++    assert_eq!(cortados(&l)[0].pontos[3..], [[20.0, -7.5], [0.0, -7.5]]);
++}
++
++#[test]
++fn corte_fora_do_terreno_vazio() {
++    let mut cena = cena_com(&[t3(1)]);
++    assert!(corte(&mut cena, 0, [0.0, -5.0, 1.0, 0.0], 2.0).is_empty(), "plano fora e o terreno além da profundidade: nada");
++    assert!(corte(&mut cena, 0, [0.0, 25.0, 1.0, 0.0], 100.0).is_empty(), "plano fora olhando para o outro lado: nada");
++    let l = corte(&mut cena, 0, [0.0, -5.0, 1.0, 0.0], 100.0);
++    assert!(cortados(&l).is_empty() && !l.is_empty(), "plano fora olhando para o terreno: só silhueta");
++    // Como em guarda_corte: direção nula ou profundidade negativa não geram nada.
++    assert!(corte(&mut cena, 0, [0.0, 10.0, 0.0, 0.0], 5.0).is_empty());
++    assert!(corte(&mut cena, 0, [0.0, 10.0, 1.0, 0.0], -1.0).is_empty());
++    for k in 1..6 {
++        let mut args = [0.0, 0.0, 10.0, 1.0, 0.0, 5.0];
++        args[k] = f64::NAN;
++        assert_eq!(executar(&mut cena, CONSULTA_TERRENO_CORTE, &args).err(), Some(ENTRADA), "argumento {k}");
++    }
++    assert_eq!(executar(&mut cena, CONSULTA_TERRENO_CORTE, &[0.5, 0.0, 10.0, 1.0, 0.0, 5.0]).err(), Some(ENTRADA));
++    assert!(corte(&mut cena_com(&[TerrenoFx::novo(1, Vec::new())]), 0, [0.0, 10.0, 1.0, 0.0], 5.0).is_empty(), "terreno sem triângulos");
++}
++
++#[test]
++fn silhueta_t3() {
++    let mut cena = cena_com(&[t3(1)]);
++    // Plano em y = −5 na direção +x: a normal esquerda é +y, olhando para o terreno.
++    let l = corte(&mut cena, 0, [0.0, -5.0, 1.0, 0.0], 100.0);
++    assert_eq!(l.len(), 1, "só a silhueta, num trecho");
++    let s = &l[0];
++    assert_eq!((s.terreno, s.marca, s.fechada, s.pontos.len()), (1, PAPEL_SILHUETA, false, FAIXAS));
++    let pico = s.pontos.iter().map(|p| p[1]).fold(f64::NEG_INFINITY, f64::max);
++    assert_eq!(pico, 5.0, "pico em z = 5");
++    let w = 20.0 / FAIXAS as f64;
++    for (j, p) in s.pontos.iter().enumerate() {
++        assert!((p[0] - (j as f64 + 0.5) * w).abs() < 1e-9, "s no meio da faixa {j}");
++        // Envoltória da pirâmide: z = 5 · (1 − |s − 10| / 10); cada faixa guarda o seu máximo, que fica na ponta mais perto do pico.
++        let perto = if j < FAIXAS / 2 { (j + 1) as f64 * w } else { j as f64 * w };
++        assert!((p[1] - 5.0 * (1.0 - (perto - 10.0).abs() / 10.0)).abs() < 1e-9, "faixa {j}: {}", p[1]);
++    }
++    // Com o plano cortando o terreno em y = 10, a silhueta do que fica além é a mesma envoltória, e o cortado sai junto (primeiro).
++    let l = corte(&mut cena, 0, [0.0, 10.0, 1.0, 0.0], 100.0);
++    assert_eq!(l.iter().map(|x| x.marca).collect::<Vec<_>>(), vec![PAPEL_CORTADO, PAPEL_SILHUETA]);
++    assert_eq!(l[1].pontos.iter().map(|p| p[1]).fold(f64::NEG_INFINITY, f64::max), 5.0);
++    // Profundidade curta: de y = −5 até y = 0 só se vê a aresta da frente, em z = 0.
++    let l = corte(&mut cena, 0, [0.0, -5.0, 1.0, 0.0], 5.0);
++    assert!(l.len() == 1 && l[0].pontos.iter().all(|p| p[1] == 0.0));
++}
+diff --git a/crates/geom-wasm/src/terreno_testes_curvas.rs b/crates/geom-wasm/src/terreno_testes_curvas.rs
+new file mode 100644
+index 00000000..94ca5ecc
+--- /dev/null
++++ b/crates/geom-wasm/src/terreno_testes_curvas.rs
+@@ -0,0 +1,240 @@
++//! Testes de aceite da ficha R2 do terreno (PLANO do terreno A.10 e Parte D): curvas de nível (161), borda em planta (162), quantidades (165) e avisos (168).
++//! Os do corte (164) estão em `terreno_testes_corte.rs`. Também ficam aqui os leitores das saídas, usados pelos outros testes da ficha.
++
++use crate::cena::Cena;
++use crate::consultas::{executar, Saida};
++use crate::esquema::{
++    CONSULTA_QUANT_TERRENO, CONSULTA_TERRENO_AVISOS, CONSULTA_TERRENO_CURVAS, CONSULTA_TERRENO_PLANTA, ENTRADA, ID_AUSENTE, LIMITE, NIVEL_TODOS,
++};
++use crate::terreno_fixture::{cena_com, t1, t2, t3, t4, t8, t9, TerrenoFx};
++use crate::terreno_tipos::{AVISO_COTAS_DIFERENTES, AVISO_LINHA_CRUZA, AVISO_SEM_TRIANGULOS};
++
++pub fn u32s(s: &Saida) -> Vec<u32> {
++    match s {
++        Saida::U32(v) => v.clone(),
++        Saida::F64(_) => panic!("esperava u32"),
++    }
++}
++
++pub fn f64s(s: &Saida) -> Vec<f64> {
++    match s {
++        Saida::F64(v) => v.clone(),
++        Saida::U32(_) => panic!("esperava f64"),
++    }
++}
++
++/// Uma linha das consultas 161, 162 e 164. `marca` é a segunda coluna (`mestra` nas curvas, `papel` na planta e no corte); `z` só existe nas curvas.
++#[derive(Clone, Debug, PartialEq)]
++pub struct LinhaLida {
++    pub terreno: u32,
++    pub marca: u32,
++    pub fechada: bool,
++    pub pontos: Vec<[f64; 2]>,
++    pub z: f64,
++}
++
++impl LinhaLida {
++    /// Comprimento (com o trecho de fecho, se fechada).
++    pub fn comprimento(&self) -> f64 {
++        let n = self.pontos.len();
++        (0..if self.fechada { n } else { n - 1 }).map(|k| (self.pontos[k], self.pontos[(k + 1) % n])).map(|(a, b)| (b[0] - a[0]).hypot(b[1] - a[1])).sum()
++    }
++
++    /// Área assinada do polígono (positiva no sentido anti-horário).
++    pub fn area(&self) -> f64 {
++        let n = self.pontos.len();
++        (0..n).map(|k| (self.pontos[k], self.pontos[(k + 1) % n])).map(|(a, b)| (a[0] * b[1] - a[1] * b[0]) / 2.0).sum()
++    }
++}
++
++/// Monta as linhas a partir de `linhas [terreno, marca, fechada, n_pontos]`, `pontos` e, se houver, `cotas`. Confere que os tamanhos fecham.
++pub fn ler_linhas(s: &[Saida]) -> Vec<LinhaLida> {
++    let (l, p) = (u32s(&s[0]), f64s(&s[1]));
++    let z = s.get(2).map(f64s);
++    assert_eq!(l.len() % 4, 0);
++    let mut out = Vec::new();
++    let mut i = 0;
++    for (k, c) in l.chunks_exact(4).enumerate() {
++        assert!(c[2] <= 1, "fechada é 0 ou 1");
++        let n = c[3] as usize;
++        assert!(n >= 2, "linha com menos de 2 pontos");
++        let pontos = p[2 * i..2 * (i + n)].chunks_exact(2).map(|q| [q[0], q[1]]).collect();
++        i += n;
++        out.push(LinhaLida { terreno: c[0], marca: c[1], fechada: c[2] == 1, pontos, z: z.as_ref().map_or(0.0, |z| z[k]) });
++    }
++    assert_eq!(p.len(), 2 * i, "todos os pontos pertencem a alguma linha");
++    if let Some(z) = z {
++        assert_eq!(z.len(), out.len(), "uma cota por linha");
++    }
++    out
++}
++
++pub fn curvas(cena: &mut Cena, nivel: u32, superficie: u32) -> Vec<LinhaLida> {
++    let s = executar(cena, CONSULTA_TERRENO_CURVAS, &[f64::from(nivel), f64::from(superficie)]).expect("terreno_curvas");
++    assert_eq!(s.len(), 3);
++    ler_linhas(&s)
++}
++
++pub fn planta(cena: &mut Cena, nivel: u32, superficie: u32) -> Vec<LinhaLida> {
++    let s = executar(cena, CONSULTA_TERRENO_PLANTA, &[f64::from(nivel), f64::from(superficie)]).expect("terreno_planta");
++    assert_eq!(s.len(), 2);
++    ler_linhas(&s)
++}
++
++/// Consulta 165: `(terreno_num, valores)` por terreno.
++pub fn quant(cena: &mut Cena, nivel: u32) -> Vec<(u32, [f64; 8])> {
++    let s = executar(cena, CONSULTA_QUANT_TERRENO, &[f64::from(nivel)]).expect("quant_terreno");
++    let (l, v) = (u32s(&s[0]), f64s(&s[1]));
++    assert_eq!(v.len(), 8 * l.len());
++    l.iter().zip(v.chunks_exact(8)).map(|(&t, c)| (t, [c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]])).collect()
++}
++
++/// Consulta 168: `([terreno, codigo, regiao, indice], [medido, limite, x, y, z])` por aviso.
++pub fn avisos(cena: &mut Cena, nivel: u32) -> Vec<([u32; 4], [f64; 5])> {
++    let s = executar(cena, CONSULTA_TERRENO_AVISOS, &[f64::from(nivel)]).expect("terreno_avisos");
++    let (a, v) = (u32s(&s[0]), f64s(&s[1]));
++    assert_eq!((a.len() % 4, v.len() / 5), (0, a.len() / 4));
++    a.chunks_exact(4).zip(v.chunks_exact(5)).map(|(a, v)| ([a[0], a[1], a[2], a[3]], [v[0], v[1], v[2], v[3], v[4]])).collect()
++}
++
++#[test]
++fn t1_plano_sem_curvas() {
++    assert!(curvas(&mut cena_com(&[t1(1)]), 0, 0).is_empty(), "plano em z = 10: a cota 10 é a mínima e não gera curva");
++}
++
++#[test]
++fn t2_curvas_retas() {
++    let mut cena = cena_com(&[t2(1)]);
++    let c = curvas(&mut cena, 0, 0);
++    assert_eq!(c.iter().map(|l| l.z).collect::<Vec<_>>(), vec![10.5, 11.0, 11.5, 12.0], "4 curvas, em cota crescente");
++    for (l, x) in c.iter().zip([2.5, 7.5, 12.5, 17.5]) {
++        assert_eq!((l.terreno, l.marca, l.fechada), (1, 0, false));
++        assert!(l.pontos.iter().all(|p| (p[0] - x).abs() < 1e-9), "reta em x = {x}: {:?}", l.pontos);
++        assert!((l.comprimento() - 20.0).abs() < 1e-9, "20 m: {}", l.comprimento());
++        let ys: Vec<f64> = l.pontos.iter().map(|p| p[1]).collect();
++        assert!(ys.windows(2).all(|w| w[1] < w[0]), "com o lado alto (+x) à esquerda, a curva desce em y: {ys:?}");
++    }
++    assert_eq!(curvas(&mut cena, NIVEL_TODOS, 1), c, "a proposta é igual à existente até a R3");
++    assert!(curvas(&mut cena, 7, 0).is_empty(), "outro nível");
++}
++
++#[test]
++fn t3_curvas_quadradas() {
++    let c = curvas(&mut cena_com(&[t3(1)]), 0, 0);
++    assert_eq!(c.iter().map(|l| l.z).collect::<Vec<_>>(), vec![1.0, 2.0, 3.0, 4.0], "nenhuma curva em z = 0 nem em z = 5");
++    for (l, lado) in c.iter().zip([16.0, 12.0, 8.0, 4.0]) {
++        assert!(l.fechada, "curva fechada");
++        assert_eq!(l.pontos.len(), 4, "um canto por aresta da pirâmide, sem repetir o primeiro");
++        assert!((l.comprimento() - 4.0 * lado).abs() < 1e-9, "perímetro {}", l.comprimento());
++        assert!(l.pontos.iter().all(|p| ((p[0] - 10.0).abs() - lado / 2.0).abs() < 1e-9 && ((p[1] - 10.0).abs() - lado / 2.0).abs() < 1e-9), "{:?}", l.pontos);
++        assert!((l.area() - lado * lado).abs() < 1e-9, "anti-horária (o lado alto, de dentro, à esquerda)");
++    }
++}
++
++#[test]
++fn curva_mestra_a_cada_n() {
++    let mestras = |fx: TerrenoFx| curvas(&mut cena_com(&[fx]), 0, 0).iter().map(|l| (l.z, l.marca)).collect::<Vec<_>>();
++    assert_eq!(mestras(t2(1)), vec![(10.5, 0), (11.0, 0), (11.5, 0), (12.0, 0)], "k = 21 a 24, mestra a cada 5: nenhuma");
++    assert_eq!(mestras(TerrenoFx { mestra_cada: 2, ..t2(1) }), vec![(10.5, 0), (11.0, 1), (11.5, 0), (12.0, 1)], "k par");
++    assert_eq!(mestras(TerrenoFx { mestra_cada: 1, ..t3(1) }), vec![(1.0, 1), (2.0, 1), (3.0, 1), (4.0, 1)]);
++    assert_eq!(mestras(TerrenoFx { mestra_cada: 3, ..t3(1) }), vec![(1.0, 0), (2.0, 0), (3.0, 1), (4.0, 0)]);
++    assert_eq!(mestras(TerrenoFx { mestra_cada: 0, ..t3(1) }), vec![(1.0, 0), (2.0, 0), (3.0, 0), (4.0, 0)], "0 não divide: nenhuma mestra");
++    // Cotas negativas: k = −6 a −3; com mestra a cada 3, k = −6 e k = −3.
++    let mut negativo = TerrenoFx { mestra_cada: 3, ..t2(1) };
++    negativo.pontos.iter_mut().for_each(|p| p[2] -= 13.5);
++    assert_eq!(mestras(negativo), vec![(-3.0, 1), (-2.5, 0), (-2.0, 0), (-1.5, 1)]);
++}
++
++#[test]
++fn limite_de_cotas() {
++    // Rampa de z = 0 a z = 1200.
++    let rampa = |intervalo: f64| {
++        let mut fx = TerrenoFx { intervalo, ..t1(1) };
++        fx.pontos.iter_mut().for_each(|p| p[2] = 60.0 * p[0]);
++        cena_com(&[fx])
++    };
++    assert_eq!(executar(&mut rampa(0.5), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(LIMITE), "2401 cotas");
++    assert_eq!(executar(&mut rampa(0.6), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(LIMITE), "2001 cotas");
++    assert_eq!(curvas(&mut rampa(0.75), 0, 0).len(), 1600, "1601 cotas cabem (a de z = 0 é a mínima e não gera curva)");
++    assert_eq!(executar(&mut rampa(0.0), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(ENTRADA), "intervalo nulo");
++    let mut cena = rampa(0.5);
++    assert!(executar(&mut cena, CONSULTA_TERRENO_PLANTA, &[0.0, 0.0]).is_ok(), "o limite é só das curvas");
++    for args in [[0.0, 2.0], [f64::NAN, 0.0], [0.0, 0.5], [-1.0, 0.0]] {
++        assert_eq!(executar(&mut cena, CONSULTA_TERRENO_CURVAS, &args).err(), Some(ENTRADA), "{args:?}");
++        assert_eq!(executar(&mut cena, CONSULTA_TERRENO_PLANTA, &args).err(), Some(ENTRADA), "{args:?}");
++    }
++}
++
++#[test]
++fn planta_borda_t8() {
++    let mut cena = cena_com(&[t8(1)]);
++    let p = planta(&mut cena, 0, 0);
++    assert_eq!(p.len(), 1, "um laço");
++    assert_eq!((p[0].terreno, p[0].marca, p[0].fechada), (1, 0, true));
++    assert!((p[0].area() - 100.0).abs() < 1e-9, "área {} (anti-horário)", p[0].area());
++    assert_eq!(p[0].pontos.len(), 40, "a borda adensada de 1 em 1 m");
++    assert!((p[0].comprimento() - 40.0).abs() < 1e-9);
++    assert_eq!(planta(&mut cena, NIVEL_TODOS, 1), p);
++    // Sem borda no modelo: a envoltória das fontes.
++    let q = planta(&mut cena_com(&[t3(4), t1(9)]), 0, 0);
++    assert_eq!(q.iter().map(|l| (l.terreno, l.fechada, l.pontos.len())).collect::<Vec<_>>(), vec![(4, true, 4), (9, true, 4)]);
++    assert!(q.iter().all(|l| (l.area() - 400.0).abs() < 1e-9));
++    assert!(planta(&mut cena_com(&[TerrenoFx::novo(1, vec![[0.0, 0.0, 1.0], [5.0, 0.0, 2.0]])]), 0, 0).is_empty(), "sem triângulos, sem borda");
++}
++
++#[test]
++fn quant_t1_t2_t3_t4() {
++    let mut cena = cena_com(&[t1(1), t2(2), t3(3), t4(4), t8(8)]);
++    let q = quant(&mut cena, 0);
++    assert_eq!(q.iter().map(|x| x.0).collect::<Vec<_>>(), vec![1, 2, 3, 4, 8]);
++    // (área de superfície, tolerância, z_min, z_max, triângulos); área em planta 400 em todos menos T8.
++    let esperado = [(400.0, 1e-9, 10.0, 10.0, 2.0), (400.0 * 1.01f64.sqrt(), 1e-6, 10.25, 12.25, 2.0), (447.21360, 1e-5, 0.0, 5.0, 4.0), (407.92156, 1e-5, 0.0, 2.0, 4.0)];
++    for ((t, v), (sup, tol, z_min, z_max, n)) in q.iter().zip(esperado) {
++        assert!((v[0] - 400.0).abs() < 1e-9, "T{t}: área em planta {}", v[0]);
++        assert!((v[1] - sup).abs() < tol, "T{t}: área de superfície {}", v[1]);
++        assert_eq!(v[2], v[1], "T{t}: proposta = existente até a R3");
++        assert_eq!((v[3], v[4]), (z_min, z_max), "T{t}: z_min e z_max");
++        assert_eq!((v[5], v[6]), (0.0, 0.0), "T{t}: volumes ainda 0");
++        assert_eq!(v[7], n, "T{t}: triângulos");
++    }
++    let v = q[4].1;
++    assert!((v[0] - 100.0).abs() < 1e-9, "T8: área em planta {}", v[0]);
++    assert_eq!((v[3], v[4], v[7]), (2.5, 5.0, 40.0), "T8: a menor cota é a da borda");
++    assert!(quant(&mut cena, 5).is_empty(), "outro nível");
++    let vazio = quant(&mut cena_com(&[TerrenoFx::novo(6, Vec::new())]), NIVEL_TODOS);
++    assert_eq!(vazio, vec![(6, [0.0; 8])], "terreno sem triângulos: linha em 0");
++    assert_eq!(executar(&mut cena, CONSULTA_QUANT_TERRENO, &[f64::NAN]).err(), Some(ENTRADA));
++}
++
++#[test]
++fn aviso_cotas_diferentes() {
++    // Positivo: ponto a 0,2 mm do canto (0, 0), com cota 4 m acima.
++    let mut fx = t1(3);
++    fx.pontos.push([0.0002, 0.0, 14.0]);
++    let a = avisos(&mut cena_com(&[fx]), 0);
++    assert_eq!(a.len(), 1);
++    assert_eq!(a[0].0, [3, AVISO_COTAS_DIFERENTES, ID_AUSENTE, 4], "terreno, código 1, sem região, id_num do vértice descartado");
++    assert!((a[0].1[0] - 4.0).abs() < 1e-12, "medido = diferença de cota");
++    assert_eq!(a[0].1[1..], [0.001, 0.0, 0.0, 10.0], "limite e o ponto que ficou");
++    // Negativo: ponto coincidente com a cota dentro de 1 mm; e terreno sem pontos coincidentes.
++    let mut fx = t1(3);
++    fx.pontos.push([20.0004, 20.0003, 10.0005]);
++    assert!(avisos(&mut cena_com(&[fx]), 0).is_empty());
++    assert!(avisos(&mut cena_com(&[t3(1)]), 0).is_empty());
++}
++
++#[test]
++fn aviso_linha_cruzada() {
++    // Positivo: T9, duas quebras em X. Negativo: T4, uma quebra só.
++    let mut cena = cena_com(&[t4(2), t9(5)]);
++    let a = avisos(&mut cena, 0);
++    assert_eq!(a.len(), 1, "aviso 2 uma vez, só em T9");
++    assert_eq!(a[0].0, [5, AVISO_LINHA_CRUZA, ID_AUSENTE, 2], "id_num da linha pulada: a segunda quebra de T9 (a linha 0 é a quebra de T4)");
++    assert_eq!(a[0].1[2..], [10.0, 10.0, 10.0], "no ponto médio do trecho pulado");
++    assert!(avisos(&mut cena_com(&[t4(2)]), 0).is_empty());
++    assert!(avisos(&mut cena, 3).is_empty(), "outro nível");
++    // O aviso 5 (terreno sem triângulos) também sai pela consulta.
++    let sem = avisos(&mut cena_com(&[TerrenoFx::novo(7, vec![[0.0, 0.0, 1.0], [5.0, 0.0, 2.0]])]), NIVEL_TODOS);
++    assert_eq!(sem.iter().map(|x| x.0).collect::<Vec<_>>(), vec![[7, AVISO_SEM_TRIANGULOS, ID_AUSENTE, ID_AUSENTE]]);
++    assert_eq!(executar(&mut cena, CONSULTA_TERRENO_AVISOS, &[0.5]).err(), Some(ENTRADA));
++}
