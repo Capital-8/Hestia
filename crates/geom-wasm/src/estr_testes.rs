@@ -14,18 +14,18 @@ use crate::teste_util::Xorshift;
 
 const NAN: f64 = f64::NAN;
 
-fn perfil(forma: u8, x: &[f64]) -> PerfilLinha {
+pub(crate) fn perfil(forma: u8, x: &[f64]) -> PerfilLinha {
     let mut p = [NAN; 6];
     p[..x.len()].copy_from_slice(x);
     PerfilLinha { forma, p, perfil: ID_AUSENTE }
 }
 
-fn rel(a: f64, b: f64) -> f64 {
+pub(crate) fn rel(a: f64, b: f64) -> f64 {
     (a - b).abs() / b.abs().max(1e-300)
 }
 
 /// Fechada e orientada: cada aresta dirigida aparece uma vez e a inversa também (cada aresta em exatamente dois triângulos, sentidos opostos).
-fn fechada(p: &PecaMalha) -> bool {
+pub(crate) fn fechada(p: &PecaMalha) -> bool {
     let mut d: BTreeMap<(u32, u32), u32> = BTreeMap::new();
     for t in &p.triangulos {
         for k in 0..3 {
@@ -48,7 +48,7 @@ fn area_superficie(p: &PecaMalha) -> f64 {
 }
 
 /// Cena com os níveis 0 (cota 0) e 1 (cota 3).
-fn cena() -> Cena {
+pub(crate) fn cena() -> Cena {
     let mut c = Cena::novo();
     c.b.niveis.insert(1, (0, 0.0));
     c.b.niveis.insert(2, (1, 3.0));

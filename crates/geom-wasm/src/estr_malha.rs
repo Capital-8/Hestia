@@ -1,4 +1,4 @@
-//! Malha de pilares e vigas (docs/estrutura/PLANO.md, A.4.1; consulta 200 `estr_malha`; ficha K2). As fundações (A.4.2) entram na ficha K3.
+//! Malha de pilares e vigas (docs/estrutura/PLANO.md, A.4.1; consulta 200 `estr_malha`; ficha K2). As fundações (A.4.2) estão em `estr_fundacao.rs` (ficha K3).
 //!
 //! Pilar: prisma vertical do perfil do tipo, de `base = cota(nível) + deslocamento_base` a `topo = cota(nível de topo) + deslocamento_topo` (ou
 //! `base + altura`), com o X do perfil girado de `rotacao` em planta. Viga: prisma de `a` a `b`, com `z = cota(nível) + deslocamento_z` em cada ponta
@@ -205,6 +205,10 @@ pub fn montar(cena: &Cena, nivel: u32, lod: u32) -> Result<MalhaEstr, u32> {
         };
         let q = quadro_viga(cena, l, perfil.contorno.faixa_y())?;
         m.adicionar(id, CATEGORIA_VIGA, PARTE_CORPO, tipo.material, &perfil.extrudar(&q)?)?;
+    }
+    for (&id, l) in estr.fundacoes.iter().filter(|(_, l)| do_nivel(l.nivel)) {
+        let tipo = estr.tipos_fundacao.get(&l.tipo).ok_or(ENTRADA)?;
+        crate::estr_fundacao::adicionar_fundacao(&mut m, cena, id, l, tipo, lod)?;
     }
     Ok(m)
 }
