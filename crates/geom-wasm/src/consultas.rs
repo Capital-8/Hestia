@@ -292,18 +292,23 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
-        // Estrutura (ficha K1): declaradas no contrato v19; a 200 e a 205 vêm da ficha K2; as demais, das fichas K3 e K4 (201 a 204, 206, 207).
+        // Estrutura (ficha K1): declaradas no contrato v19; a 200 e a 205 vêm da ficha K2.
         esquema::CONSULTA_ESTR_MALHA => crate::estr_malha::consulta_estr_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
         esquema::CONSULTA_ESTR_PERFIL => {
             arg_nivel(args[0])?;
             crate::estr_perfil::consulta_estr_perfil(args)
         }
-        esquema::CONSULTA_ESTR_PLANTA
-        | esquema::CONSULTA_ESTR_CORTE
-        | esquema::CONSULTA_ESTR_QUANT
-        | esquema::CONSULTA_ESTR_AVISOS
-        | esquema::CONSULTA_ESTR_JUNCOES
-        | esquema::CONSULTA_ESTR_APOIO => Err(NAO_IMPLEMENTADO),
+        // Ficha K4: planta, corte, quantidades, avisos, junções e apoio.
+        esquema::CONSULTA_ESTR_PLANTA => crate::estr_planta::consulta_estr_planta(cena, arg_nivel(args[0])?, arg_finito(args[1])?, arg_nivel(args[2])?),
+        esquema::CONSULTA_ESTR_CORTE => {
+            let nivel = arg_nivel(args[0])?;
+            let (o, d) = ([arg_finito(args[1])?, arg_finito(args[2])?], [arg_finito(args[3])?, arg_finito(args[4])?]);
+            crate::estr_corte::consulta_estr_corte(cena, nivel, o, d, arg_finito(args[5])?)
+        }
+        esquema::CONSULTA_ESTR_QUANT => crate::estr_quant::consulta_estr_quant(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_ESTR_AVISOS => crate::estr_avisos::consulta_estr_avisos(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_ESTR_JUNCOES => crate::estr_juncoes::consulta_estr_juncoes(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_ESTR_APOIO => crate::estr_apoio::consulta_estr_apoio(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
@@ -545,15 +550,21 @@ mod testes {
     }
 
     #[test]
-    fn consultas_da_estrutura_estao_registradas_e_ainda_nao_implementadas() {
+    fn consultas_da_estrutura_estao_registradas_e_implementadas() {
         let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
         for id in 200..=207 {
             let def = esquema::consulta(id).expect("consulta registrada");
             assert!(def.nome.starts_with("estr_"), "{}", def.nome);
             let args = vec![NIVEL_TODOS as f64; def.args.len()];
-            // A 200 e a 205 são da ficha K2 (aqui com lod e forma fora do domínio).
-            let esperado = if id == 200 || id == 205 { ENTRADA } else { NAO_IMPLEMENTADO };
-            assert_eq!(executar(&mut c, id, &args), Err(esperado), "consulta {id}");
+            // A 200 e a 205 (ficha K2) recusam lod e forma fora do domínio; as da ficha K4 respondem (cena sem estrutura: listas vazias).
+            match executar(&mut c, id, &args) {
+                Err(e) => assert!((id == 200 || id == 205) && e == ENTRADA, "consulta {id}: {e}"),
+                Ok(s) => {
+                    assert!(id != 200 && id != 205, "consulta {id}");
+                    assert_eq!(s.len(), def.saidas.len(), "consulta {id}");
+                    assert!(s.iter().all(|x| x.is_empty()), "consulta {id}");
+                }
+            }
             assert_eq!(executar(&mut c, id, &args[..args.len() - 1]), Err(ENTRADA), "consulta {id} com argumento a menos");
         }
         assert!(esquema::consulta(208).is_none());
