@@ -861,3 +861,8 @@ Escopo fechado: a referência é **estado de interface** (salvo na sessão, não
 **E1 · 2026-11-13 · passo 0 (ajusta portões; não muda o escopo).**
 1. `cargo clippy -- -D warnings` já falha na linha de base (39 avisos em código existente de `consultas.rs`, `juncoes.rs`, `b2.rs`, `perfil_quant.rs`, `gc_montagem.rs`, `ops.rs`, `lib.rs`, `cena.rs`, `b3.rs`). Em B.3 e na Parte C item 10, onde se lê "`cargo clippy -- -D warnings`", vale: **rode `cargo clippy` sem `-D`; o total de avisos não pode passar de 39 e nenhum aviso pode apontar para arquivo novo desta frente** (`terreno_*.rs`, `secoes_terreno.rs`). Em arquivo existente alterado, nenhuma linha tocada por você pode gerar aviso novo.
 2. Paralelismo autorizado pelo fiscal: a ficha P1 (só `packages/engine`, arquivos novos) pode rodar junto com a M2 e com a cadeia R1 a R3, porque os arquivos são disjuntos. As demais seguem a ordem de B.4.
+
+**E2 · 2026-11-13 · ficha R1 (esclarece A.10 e B.1; não muda o escopo).**
+1. **T2:** a área de superfície de T2 é 400·√1,01 = 401,9950248. Onde A.10 diz "401,99502 (1e-6)", vale **400·√1,01 com tolerância 1e-6** (o literal arredondado fica a 4,8e-6 do valor exato).
+2. **Registro de testes WASM.** `vitest.wasm.config.ts` lista os testes por frente. Foi acrescentado `'tests/kernel-terreno*.wasm.test.ts'` ao `include` (única edição de config desta frente, aditiva: só inclui testes novos). Exceção a B.1 item 8, feita pelo fiscal.
+3. **Decisões da R1 confirmadas pelo fiscal:** `declividade` (consulta 163) = módulo do gradiente em fração; triângulo com área ≤ 0 em f64 é descartado; a assinatura de cache cobre só as seções 161 e 162; trecho de borda ou de T0 que cruza é pulado com aviso 2.
