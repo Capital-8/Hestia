@@ -81,6 +81,8 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyEstruturaCommand, transformarEstrutura } from './columnCommands.ts';
+import type { Beam, BeamType, Column, ColumnType, Footing, FootingType } from './estrTypes.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
 import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
 import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
@@ -136,6 +138,22 @@ export type Command =
   | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
   | { type: 'deletePerfilNorma'; id: Id }
   | { type: 'setNormaGuardaCorpo'; id: Id }
+  // Estrutura (A.3): tratados em columnCommands.ts, beamCommands.ts e footingCommands.ts; apagar usa `deleteElements`.
+  | { type: 'addColumn'; column: Omit<Column, 'order'> }
+  | { type: 'updateColumn'; id: Id; patch: Partial<Omit<Column, 'id' | 'kind' | 'order'>> }
+  | { type: 'setColumnType'; ids: Id[]; typeId: Id }
+  | { type: 'upsertColumnType'; columnType: ColumnType }
+  | { type: 'deleteColumnType'; id: Id }
+  | { type: 'addBeam'; beam: Omit<Beam, 'order'> }
+  | { type: 'updateBeam'; id: Id; patch: Partial<Omit<Beam, 'id' | 'kind' | 'order'>> }
+  | { type: 'setBeamType'; ids: Id[]; typeId: Id }
+  | { type: 'upsertBeamType'; beamType: BeamType }
+  | { type: 'deleteBeamType'; id: Id }
+  | { type: 'addFooting'; footing: Omit<Footing, 'order'> }
+  | { type: 'updateFooting'; id: Id; patch: Partial<Omit<Footing, 'id' | 'kind' | 'order'>> }
+  | { type: 'setFootingType'; ids: Id[]; typeId: Id }
+  | { type: 'upsertFootingType'; footingType: FootingType }
+  | { type: 'deleteFootingType'; id: Id }
   | { type: 'upsertSlabType'; slabType: SlabType }
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
@@ -286,6 +304,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
       : {}),
   }));
   transformarGuardaCorpos(p, c);
+  transformarEstrutura(p, c);
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
   const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {
@@ -345,7 +364,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyEstruturaCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
