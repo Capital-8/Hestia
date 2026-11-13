@@ -324,6 +324,8 @@ pub struct Cena {
     pub(crate) cortina: SecoesCortina,
     /// Seções do terreno (160 a 165); o kernel só as lê e elas não entram em nenhum cache das paredes.
     pub(crate) terreno: SecoesTerreno,
+    /// T0 e E por terreno (PLANO do terreno A.4 regra 16), pela assinatura das fontes daquele terreno. Nenhuma outra seção o esvazia.
+    pub(crate) cache_terreno: RefCell<crate::terreno_tipos::CacheTerreno>,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a

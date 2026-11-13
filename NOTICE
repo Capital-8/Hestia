@@ -28,6 +28,18 @@ iShape-Rust (https://github.com/iShape-Rust) sob a licença **MIT OR Apache-2.0*
 
 Além delas, `libm` (MIT OR Apache-2.0), usada pela camada de matemática.
 
+Terreno (triangulação de Delaunay com restrições). O mesmo binário contém também
+código de `spade` (https://github.com/Stoeoef/spade, MIT OR Apache-2.0) e das
+bibliotecas de que ela depende:
+
+- `robust` — predicados geométricos exatos (MIT OR Apache-2.0)
+- `num-traits` — traços numéricos (MIT OR Apache-2.0)
+- `smallvec` — vetores pequenos sem alocação (MIT OR Apache-2.0)
+- `hashbrown` — tabelas de dispersão (MIT OR Apache-2.0)
+- `foldhash` — função de dispersão (**Zlib**)
+- `equivalent` — traço de comparação de chaves (Apache-2.0 OR MIT)
+- `allocator-api2` — API de alocadores (MIT OR Apache-2.0)
+
 Essas licenças valem para esses componentes; o código do Hestia — inclusive o
 kernel em `crates/geom-wasm`, a ABI, a cola JavaScript e o restante do projeto —
 continua sob a MIT License (ver LICENSE). Os textos completos das licenças MIT e

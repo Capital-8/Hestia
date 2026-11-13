@@ -6,7 +6,8 @@
 //! inexistente) NÃO são checadas aqui, porque as seções chegam em qualquer ordem. `linha_num = ID_AUSENTE` em `terreno_vertices` é ponto solto, não
 //! referência quebrada.
 //!
-//! O kernel só lê estas seções (não conhece o `Project`). As consultas de terreno ainda devolvem `NAO_IMPLEMENTADO`.
+//! O kernel só lê estas seções (não conhece o `Project`). As consultas 160 (`terreno_malha`) e 163 (`terreno_cotas`) estão em `terreno_malha.rs` e
+//! `terreno_avalia.rs`; as demais ainda devolvem `NAO_IMPLEMENTADO`.
 
 use std::collections::BTreeMap;
 
@@ -89,6 +90,8 @@ macro_rules! tabelas {
         #[derive(Default)]
         pub struct SecoesTerreno {
             $(pub $campo: BTreeMap<u32, $ty>,)*
+            /// Sobe a cada escrita nas linhas (161) ou nos vértices (162): é por ela que o cache do terreno sabe que precisa reconferir as assinaturas.
+            geracao_fontes: u64,
         }
 
         #[allow(non_camel_case_types)]
@@ -139,6 +142,7 @@ macro_rules! tabelas {
 
             /// Remove pelas chaves (ausentes são ignoradas).
             pub fn remover(&mut self, secao: u32, ids: &[u32]) {
+                self.marcar(secao);
                 for k in ids {
                     match secao {
                         $($id => { self.$campo.remove(k); })*
@@ -293,9 +297,26 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
 }
 
 impl SecoesTerreno {
+    /// Geração das fontes (linhas e vértices). Quem escreve direto em `linhas` ou `vertices` (só testes) deve chamar `marcar_fontes`.
+    pub fn geracao_fontes(&self) -> u64 {
+        self.geracao_fontes
+    }
+
+    /// Avisa que as fontes mudaram (o cache do terreno reconfere as assinaturas na próxima consulta).
+    pub fn marcar_fontes(&mut self) {
+        self.geracao_fontes = self.geracao_fontes.wrapping_add(1);
+    }
+
+    fn marcar(&mut self, secao: u32) {
+        if matches!(secao, SECAO_TERRENO_LINHAS | SECAO_TERRENO_VERTICES) {
+            self.marcar_fontes();
+        }
+    }
+
     /// Substitui todas as linhas da seção (atômico: decodifica antes de tocar).
     pub fn definir(&mut self, secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<(), u32> {
         let lote = decodificar(secao, n_linhas, bytes)?;
+        self.marcar(secao);
         self.limpar(secao);
         self.aplicar(lote);
         Ok(())
@@ -308,6 +329,7 @@ impl SecoesTerreno {
         if self.tamanho(secao).saturating_add(novas) > LIMITE_LINHAS_POR_SECAO as usize {
             return Err(LIMITE);
         }
+        self.marcar(secao);
         self.aplicar(lote);
         Ok(())
     }
@@ -435,6 +457,11 @@ mod testes {
         assert_eq!(s.upsert(SECAO_TERRENO_SONDAS, 2, &nan), Err(ENTRADA));
         assert_eq!(s.sondas[&1].x, 3.0, "upsert inválido não muda nada");
         assert!(!s.sondas.contains_key(&5));
+        assert_eq!(s.geracao_fontes(), 0, "sondas não mexem na geração das fontes");
+        s.remover(SECAO_TERRENO_VERTICES, &[1]);
+        s.definir(SECAO_TERRENO_LINHAS, 0, &bytes(SECAO_TERRENO_LINHAS, 0, &[])).expect("linhas");
+        s.upsert(SECAO_TERRENO_VERTICES, 1, &bytes(SECAO_TERRENO_VERTICES, 1, &[("id_num", v(&[1.0]))])).expect("vértices");
+        assert_eq!(s.geracao_fontes(), 3, "cada escrita em linhas ou vértices sobe a geração");
         s.remover(SECAO_TERRENO_SONDAS, &[1, 77]);
         assert_eq!(s.sondas.keys().copied().collect::<Vec<_>>(), vec![2, 9]);
         s.definir(SECAO_TERRENO_SONDAS, 1, &bytes(SECAO_TERRENO_SONDAS, 1, &[("id_num", v(&[5.0]))])).expect("definir de novo");
@@ -442,7 +469,7 @@ mod testes {
     }
 
     #[test]
-    fn cena_roteia_as_secoes_e_as_consultas_ainda_nao_existem() {
+    fn cena_roteia_as_secoes_e_as_consultas_das_fichas_seguintes_ainda_nao_existem() {
         let mut cena = Cena::novo();
         let b = bytes(SECAO_TERRENOS, 1, &[("id_num", v(&[1.0])), ("intervalo", v(&[0.5]))]);
         assert_eq!(cena.definir_secao(SECAO_TERRENOS, 1, &b), Ok(()));
@@ -451,8 +478,13 @@ mod testes {
         assert_eq!(cena.terreno.terrenos.len(), 2);
         assert_eq!(cena.remover(SECAO_TERRENOS, &[1]), Ok(()));
         assert_eq!(cena.terreno.terrenos.keys().copied().collect::<Vec<_>>(), vec![2]);
+        let prontas = [esquema::CONSULTA_TERRENO_MALHA, esquema::CONSULTA_TERRENO_COTAS];
         for def in esquema::CONSULTAS.iter().filter(|c| c.id >= 160) {
             let args = vec![0.0; def.args.len()];
+            if prontas.contains(&def.id) {
+                assert!(crate::consultas::executar(&mut cena, def.id, &args).is_ok(), "consulta {}", def.id);
+                continue;
+            }
             assert_eq!(crate::consultas::executar(&mut cena, def.id, &args).err(), Some(NAO_IMPLEMENTADO), "consulta {}", def.id);
         }
     }
