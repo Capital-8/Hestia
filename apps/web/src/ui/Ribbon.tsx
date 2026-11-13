@@ -6,16 +6,23 @@ import { t, useI18n, type Lang } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { useUi, setRibbonMin } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
-import { txt, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
+import { txt, type RibbonPanel, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
 import { PanelView } from './ribbon/parts.tsx';
 import { FitRow, type FitItem } from './ribbon/FitRow.tsx';
 import { contextTab, pasteLevelsTab, perimeterTab } from './ribbon/context.ts';
 import { ConfirmCancelPanel } from './ribbon/ConfirmCancelPanel.tsx';
 import { TABS } from './ribbon/tabs.ts';
+import { usePluginRibbonPanels, withPluginPanels } from './ribbon/pluginRibbon.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
 import { PerimeterRibbonPanels } from './perimeter/PerimeterRibbonPanels.tsx';
 import './perimeter/perimeter.css';
+
+/** Aba fixa pelo id; na Suplementos acrescenta os painéis dos suplementos ativos. */
+function fixedTab(id: RibbonTabId, pluginPanels: RibbonPanel[]): RibbonTab | undefined {
+  const tb = TABS.find((x) => x.id === id);
+  return tb && tb.id === 'suplementos' ? withPluginPanels(tb, pluginPanels) : tb;
+}
 
 /**
  * Painel extra da aba contextual de Portas/Janelas: inverte a dobradiça e o sentido da instância selecionada e liga as
@@ -69,6 +76,8 @@ export function Ribbon(): ReactElement {
   const ribbonMin = useUi((st) => st.ribbonMin);
   const perim = usePerimeter();
   const pastePreview = useUi((st) => st.pastePreview);
+  // SUPLEMENTOS: painéis contribuídos pelos manifestos, sempre na aba Suplementos.
+  const pluginPanels = usePluginRibbonPanels();
   // A prévia do Colar alinhado manda na aba contextual: vale mais que o perímetro e que a seleção.
   const pasteTab = useMemo(() => (pastePreview ? pasteLevelsTab(pastePreview) : null), [pastePreview]);
   const pTab = useMemo(() => (pasteTab ? null : perim.active ? perimeterTab(perim.target, perim.editing) : null), [pasteTab, perim.active, perim.target, perim.editing]);
@@ -84,7 +93,7 @@ export function Ribbon(): ReactElement {
   }, [key]);
 
   const activeId: RibbonTabId = ribbon === 'ctx' && !key ? ribbonBack : ribbon;
-  const active: RibbonTab | undefined = activeId === 'ctx' ? (pasteTab?.tab ?? ctxTab?.tab) : TABS.find((tb) => tb.id === activeId);
+  const active: RibbonTab | undefined = activeId === 'ctx' ? (pasteTab?.tab ?? ctxTab?.tab) : fixedTab(activeId, pluginPanels);
   // Escolher uma aba com a faixa recolhida abre o corpo (como no Revit): o toque na aba também revela os painéis.
   const select = (id: RibbonTabId): void => {
     useUi.setState({ ribbon: id });

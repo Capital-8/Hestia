@@ -4,6 +4,7 @@ import { areaPlanToolAllowed, editor } from '../../editor/controller.ts';
 import { useAtalhos } from '../../editor/shortcutConfig.ts';
 import { t, toolLabel, type Lang } from '../../editor/i18n.ts';
 import { useUi, type ViewKind } from '../../editor/state.ts';
+import { runPluginCommand } from '../../plugins/registry.ts';
 import { Icon } from '../Icon.tsx';
 import { ACTIONS, type RibbonCtx } from './actions.ts';
 import { estadoNoEsboco } from './perimeterFace.ts';
@@ -96,6 +97,11 @@ function faceBase(item: RibbonItem, ctx: RibbonCtx, lang: Lang, view: ViewKind, 
           if (item.restart) editor.setTool(item.restart);
         },
       };
+    }
+    case 'plugin': {
+      // SUPLEMENTOS: o botão só chama o registro; a permissão e a existência do comando são conferidas lá.
+      const label = txt(item.label, lang);
+      return { icon: item.icon ?? 'component', label, title: label, on: false, soon: false, disabled: false, onClick: () => runPluginCommand(item.command) };
     }
     case 'soon': {
       const label = txt(item.label, lang);

@@ -3,6 +3,8 @@ import { editor } from '../../editor/controller.ts';
 import { ACTIONS, type RibbonCtx } from './actions.ts';
 import { txt, type RibbonItem } from './model.ts';
 import { TABS } from './tabs.ts';
+import { SUPLEMENTOS_TAB } from './tabsSoon.ts';
+import { pluginRegistry, runPluginCommand } from '../../plugins/registry.ts';
 
 /** Busca de comandos da faixa (campo de pesquisa do InfoCenter): acha ferramentas e ações que existem e as executa. */
 export interface Command {
@@ -37,6 +39,13 @@ export function allCommands(lang: Lang): Command[] {
         }
       }
     }
+  }
+  // SUPLEMENTOS: comandos contribuídos por manifestos (permissão `ui.commands` já conferida pelo registro).
+  for (const pc of pluginRegistry.commands()) {
+    const id = `plug:${pc.qid}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label: txt(pc.title, lang), where: `${txt(SUPLEMENTOS_TAB.label, lang)} › ${pc.pluginName}`, run: () => runPluginCommand(pc.qid) });
   }
   return out;
 }
