@@ -1,6 +1,6 @@
 # Estrutura: estado
 
-Passo 0 em andamento (2026-11-13). Retome da primeira ficha não mesclada.
+Passo 0 concluído (2026-11-13). Portão do clippy: total ≤ 39 e arquivo novo sem aviso. Retome da primeira ficha não mesclada.
 
 Linha de base (`main` em 236aa298, esquema 25, kernel v18): ver tabela abaixo (preenchida pelo fiscal).
 
@@ -8,9 +8,9 @@ Linha de base (`main` em 236aa298, esquema 25, kernel v18): ver tabela abaixo (p
 |---|---|
 | typecheck | passou |
 | lint | passou (avisos antigos de base, "não tem mais ocorrências") |
-| cargo test geom-wasm | pendente |
-| cargo clippy geom-wasm | pendente (nº de avisos) |
-| test:rapido | pendente |
+| cargo test geom-wasm | 468 + 6 passam (1 ignorado) |
+| cargo clippy geom-wasm | 39 avisos (componente clippy instalado com rustup) |
+| test:rapido | 969 arquivos / 11316 testes (1 todo), 452 s |
 
 Modo de execução: subagentes. Trabalho mecânico (i18n, registros, conferências, limpeza): **Haiku 5.5, esforço médio**. Fichas de lógica: modelo padrão. K2, K4 e V1: o mais forte disponível.
 
