@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeStair, migrateProject, openingFamilyOf, SCHEMA_VERSION, type Project } from './index.ts';
+import { DEFAULT_OPENING_TYPES, DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeLot, makeStair, makeTerrain, makeTerrainRegion, migrateProject, openingFamilyOf, SCHEMA_VERSION, type Project } from './index.ts';
 
 /** Projeto no formato da versão 5: sem os campos acrescentados em 6. */
 function legacyV5(): Record<string, unknown> {
@@ -151,7 +151,7 @@ describe('migração 12 → 13 (face inferior da escada)', () => {
   it('todo tipo de escada existente ganha face lisa', () => {
     const m = migrateProject(legacyV12());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(25);
+    expect(SCHEMA_VERSION).toBe(26);
     for (const t of Object.values(m.stairTypes)) expect(t.undersideStyle).toBe('smooth');
   });
 
@@ -252,7 +252,7 @@ describe('migração 15 → 16 (escada caracol)', () => {
   it('todo tipo existente ganha sobreposição e material do poste padrão', () => {
     const m = migrateProject(legacyV15());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(25);
+    expect(SCHEMA_VERSION).toBe(26);
     for (const id of ['stt_monolitica', 'stt_piso_espelho']) {
       expect(m.stairTypes[id]).toMatchObject({ treadOverlap: 0.025, postMaterialId: 'mat_aco' });
     }
@@ -376,5 +376,49 @@ describe('migração 20 → 21 (rampas)', () => {
     expect(m.rampTypes.rmt_nbr9050!.name).toBe('Custom');
     expect(m.rampTypes.rmt_extra).toBeDefined();
     expect(m.rampTypes.rmt_ada).toBeDefined();
+  });
+});
+
+describe('migração 25 → 26 (terreno, lote e localização)', () => {
+  /** Projeto no formato da versão 25, sem terreno, lote nem localização. */
+  function legacyV25(): Record<string, unknown> {
+    const p = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
+    p.schemaVersion = 25;
+    return p;
+  }
+
+  it('só avança a versão e não altera nenhum dado', () => {
+    const antigo = legacyV25();
+    const m = migrateProject(JSON.parse(JSON.stringify(antigo)));
+    expect(m.schemaVersion).toBe(26);
+    const { schemaVersion: _v, ...resto } = m as unknown as Record<string, unknown>;
+    const { schemaVersion: _a, ...restoAntigo } = antigo;
+    expect(resto).toEqual(restoAntigo);
+    expect(m.localizacao).toBeUndefined();
+  });
+
+  it('ida e volta: projeto com terreno, região, lote e localização salva e abre igual, com desfazer', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'setLocalizacao', localizacao: { origemE: 500000, origemN: 7400000, cotaZero: 760, norteVerdadeiro: 0.2, sistema: 'SIRGAS 2000 / UTM 23S' } });
+    s.exec({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [0, 0, 1, 10, 0, 2, 5, 8, 3], curvas: [{ z: 2, xy: [0, 0, 5, 5], fechada: false }], borda: [0, 0, 10, 0, 5, 8] }) });
+    s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', papel: 'plataforma', cota: 2, contorno: [{ x: 1, y: 1 }, { x: 4, y: 1 }, { x: 4, y: 4 }] }) });
+    s.exec({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 30 }, { x: 0, y: 30 }], lados: [{ papel: 'frente', recuo: 5 }, { papel: 'lateral', recuo: 1.5 }, { papel: 'fundo', recuo: 3 }, { papel: 'lateral', recuo: 1.5 }] }) });
+    const json = JSON.parse(JSON.stringify(s.project));
+    expect(json.schemaVersion).toBe(26);
+    const volta = migrateProject(json);
+    for (const id of ['tn1', 'tr1', 'lt1']) expect(volta.elements[id]).toEqual(s.project.elements[id]);
+    expect(volta.localizacao).toEqual(s.project.localizacao);
+    expect(migrateProject(JSON.parse(JSON.stringify(volta)))).toEqual(volta);
+    s.undo();
+    expect(s.project.elements['lt1']).toBeUndefined();
+    s.undo();
+    s.undo();
+    s.undo();
+    expect(s.project.elements['tn1']).toBeUndefined();
+    expect(s.project.localizacao).toBeUndefined();
+  });
+
+  it('arquivo mais novo que o programa continua recusado', () => {
+    expect(() => migrateProject({ ...legacyV25(), schemaVersion: 27 })).toThrow();
   });
 });

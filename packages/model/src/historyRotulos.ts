@@ -308,6 +308,26 @@ export function labelOf(c: Command): string {
       return 'Excluir perfil de norma';
     case 'setNormaGuardaCorpo':
       return 'Escolher norma do projeto';
+    case 'addTerrain':
+      return 'Adicionar terreno';
+    case 'updateTerrain':
+      return 'Editar terreno';
+    case 'editTerrainFontes':
+      return 'Editar pontos e curvas do terreno';
+    case 'addTerrainRegion':
+      return 'Adicionar região de terreno';
+    case 'updateTerrainRegion':
+      return 'Editar região de terreno';
+    case 'setTerrainRegionContorno':
+      return 'Editar contorno da região de terreno';
+    case 'addLot':
+      return 'Adicionar lote';
+    case 'updateLot':
+      return 'Editar lote';
+    case 'setLotContorno':
+      return 'Editar contorno do lote';
+    case 'setLocalizacao':
+      return 'Definir localização do projeto';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':

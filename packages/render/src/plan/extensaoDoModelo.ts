@@ -81,6 +81,9 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  terrain: { entra: false, motivo: 'terreno: ficha V2 (a extensão do terreno vem do kernel; a vista ainda não o desenha em corte nem em elevação).', pontos: nenhum },
+  terrainRegion: { entra: false, motivo: 'terreno: ficha V2 (a região segue o terreno; a vista ainda não a desenha em corte nem em elevação).', pontos: nenhum },
+  lot: { entra: false, motivo: 'lote: ficha P2 (o lote é só de planta e prancha; não aparece em corte nem em elevação).', pontos: nenhum },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,
