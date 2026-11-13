@@ -115,3 +115,8 @@ export * from './cortinaSubelementos.ts';
 export * from './cortinaEsquadrias.ts';
 export * from './curtainQuantities.ts';
 export * from './curtainSchedule.ts';
+// estrutura: ficha R1a (adaptador do kernel de pilar, viga e fundação)
+export * from './kernelEstr.ts';
+export * from './kernelEstrServico.ts';
+export * from './kernelEstrValidade.ts';
+export * from './estrIssues.ts';
