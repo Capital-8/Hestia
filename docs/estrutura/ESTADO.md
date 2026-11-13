@@ -17,7 +17,7 @@ Modo de execução: subagentes. Trabalho mecânico (i18n, registros, conferênci
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
 | M1 | mesclada | merge de estr/M1 | 0 | typecheck ✔, lint ✔, test:rapido 976 arq / 11392 testes; escopo e atalhos conferidos pelo fiscal; SCHEMA_VERSION 26. Pendências: espelhar pilar/fundação não reflete perfis assimétricos (L, personalizado) — decidir em T1/K4; COLETORES entram com `entra:false` (R1 troca para true); pesos de linha das categorias são palpite; camadas DXF HESTIA-* ficam para I1. |
-| K1 | pendente | | 0 | |
+| K1 | mesclada | merge de estr/K1 | 0 | contrato versão 19 (seções 200–206, consultas 200–207, CONGELADO); cargo test 477+6; clippy 39 (= base), nenhum aviso em secoes_estr.rs; binário WASM reproduzível; test:wasm 1334; test:rapido 976 arq / 11392. Emenda de escopo aceita: abi2.rs e 2 fixtures de paridade (só 18→19; mudam juntas na renumeração). Colunas no `$comentario` v19 do cena-v11.json. Pendências: `Cena::invalidar_caches` não conhece as seções 200–206 (K2 acrescenta `SecoesEstr::e_minha` ao retorno antecipado); peso = volume × densidade calculado no TS; camadas do pilar arq. viajam só como soma de espessuras. |
 | K2 | pendente | | 0 | |
 | K3 | pendente | | 0 | |
 | K4 | pendente | | 0 | |
