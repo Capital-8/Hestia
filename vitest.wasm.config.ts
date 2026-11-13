@@ -11,7 +11,7 @@ import { defineConfig } from 'vitest/config';
 // de retas a 60 paredes, que passam de 60 s de bloqueio, ficam no config pesado (vitest.wasm.pesado.config.ts, `test:wasm:pesado`).
 export default defineConfig({
   test: {
-    include: ['packages/geom/src/kernel/**/*.test.ts', 'tests/kernel-a*.wasm.test.ts', 'tests/kernel-b*.wasm.test.ts', 'tests/kernel-invariantes-*.wasm.test.ts', 'tests/kernel-v1-*.wasm.test.ts', 'tests/kernel-gc*.wasm.test.ts', 'tests/kernel-cortina*.wasm.test.ts'],
+    include: ['packages/geom/src/kernel/**/*.test.ts', 'tests/kernel-a*.wasm.test.ts', 'tests/kernel-b*.wasm.test.ts', 'tests/kernel-invariantes-*.wasm.test.ts', 'tests/kernel-v1-*.wasm.test.ts', 'tests/kernel-gc*.wasm.test.ts', 'tests/kernel-cortina*.wasm.test.ts', 'tests/kernel-terreno*.wasm.test.ts'],
     environment: 'node',
     setupFiles: ['tests/kernel-wasm.setup.ts'],
     testTimeout: 30_000,

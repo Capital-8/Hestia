@@ -292,11 +292,25 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
-        // Terreno (esquema v19, ficha M2): ids registrados no contrato; o cálculo entra nas fichas R1 a R3.
-        esquema::CONSULTA_TERRENO_MALHA
-        | esquema::CONSULTA_TERRENO_CURVAS
+        // Terreno (esquema v19): malha e cotas (ficha R1). `superficie`: 0 existente, 1 proposta.
+        esquema::CONSULTA_TERRENO_MALHA => {
+            let nivel = arg_nivel(args[0])?;
+            let superficie = arg_nivel(args[1])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            crate::terreno_malha::consulta_terreno_malha(cena, nivel, superficie)
+        }
+        esquema::CONSULTA_TERRENO_COTAS => {
+            let superficie = arg_nivel(args[0])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            crate::terreno_avalia::consulta_terreno_cotas(cena, superficie)
+        }
+        // Ids registrados no contrato (ficha M2); o cálculo entra nas fichas R2 e R3.
+        esquema::CONSULTA_TERRENO_CURVAS
         | esquema::CONSULTA_TERRENO_PLANTA
-        | esquema::CONSULTA_TERRENO_COTAS
         | esquema::CONSULTA_TERRENO_CORTE
         | esquema::CONSULTA_QUANT_TERRENO
         | esquema::CONSULTA_QUANT_TERRENO_REGIOES
