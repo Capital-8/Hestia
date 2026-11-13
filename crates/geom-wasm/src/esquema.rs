@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 18;
+pub const VERSAO_ESQUEMA: u32 = 19;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -130,6 +130,13 @@ pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
 /// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
 pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
 pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
+/// Terreno (esquema v19; PLANO do terreno A.5). Faixa reservada: seções 160 a 199.
+pub const SECAO_TERRENOS: u32 = 160;
+pub const SECAO_TERRENO_LINHAS: u32 = 161;
+pub const SECAO_TERRENO_VERTICES: u32 = 162;
+pub const SECAO_TERRENO_REGIOES: u32 = 163;
+pub const SECAO_TERRENO_REGIAO_PONTOS: u32 = 164;
+pub const SECAO_TERRENO_SONDAS: u32 = 165;
 
 const fn col(nome: &'static str, tipo: Tipo) -> Coluna {
     Coluna { nome, tipo }
@@ -983,6 +990,83 @@ pub const SECOES: &[Secao] = &[
             col("altura", Tipo::F64),
         ],
     },
+    Secao {
+        id: SECAO_TERRENOS,
+        nome: "terrenos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("nivel_num", Tipo::U32),
+            col("espessura_base", Tipo::F64),
+            col("intervalo", Tipo::F64),
+            col("mestra_cada", Tipo::U32),
+        ],
+    },
+    Secao {
+        id: SECAO_TERRENO_LINHAS,
+        nome: "terreno_linhas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("terreno_num", Tipo::U32),
+            col("tipo", Tipo::U8),
+            col("fechada", Tipo::U8),
+        ],
+    },
+    Secao {
+        id: SECAO_TERRENO_VERTICES,
+        nome: "terreno_vertices",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("terreno_num", Tipo::U32),
+            col("linha_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+            col("z", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TERRENO_REGIOES,
+        nome: "terreno_regioes",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("terreno_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("papel", Tipo::U8),
+            col("cota", Tipo::F64),
+            col("inclinacao", Tipo::F64),
+            col("direcao", Tipo::F64),
+            col("ref_x", Tipo::F64),
+            col("ref_y", Tipo::F64),
+            col("talude_corte", Tipo::F64),
+            col("talude_aterro", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TERRENO_REGIAO_PONTOS,
+        nome: "terreno_regiao_pontos",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("regiao_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_TERRENO_SONDAS,
+        nome: "terreno_sondas",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("x", Tipo::F64),
+            col("y", Tipo::F64),
+        ],
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1044,6 +1128,16 @@ pub const CONSULTA_CORTINA_AVISOS: u32 = 105;
 /// Fase 5 (esquema v17): recorte da cortina embutida no hospedeiro e vão virtual da esquadria na célula.
 pub const CONSULTA_CORTINA_RECORTE_HOSPEDEIRO: u32 = 106;
 pub const CONSULTA_CORTINA_CELULA_PORTA: u32 = 107;
+/// Terreno (esquema v19; PLANO do terreno A.5). Faixa reservada: consultas 160 a 199.
+pub const CONSULTA_TERRENO_MALHA: u32 = 160;
+pub const CONSULTA_TERRENO_CURVAS: u32 = 161;
+pub const CONSULTA_TERRENO_PLANTA: u32 = 162;
+pub const CONSULTA_TERRENO_COTAS: u32 = 163;
+pub const CONSULTA_TERRENO_CORTE: u32 = 164;
+pub const CONSULTA_QUANT_TERRENO: u32 = 165;
+pub const CONSULTA_QUANT_TERRENO_REGIOES: u32 = 166;
+pub const CONSULTA_TERRENO_CORTE_ATERRO: u32 = 167;
+pub const CONSULTA_TERRENO_AVISOS: u32 = 168;
 
 /// Códigos de `cortina_avisos.avisos[1]` (ADR 0056 §5.8): o TS decide o texto e a severidade.
 pub const AVISO_CORTINA_CELULA_PEQUENA: u32 = 1;
@@ -1428,6 +1522,98 @@ pub const CONSULTAS: &[Consulta] = &[
             SaidaDef { nome: "vaos", tipo: Tipo::F64, elementos: Elementos::Multiplo(10) },
             SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
             SaidaDef { nome: "linhas_pos", tipo: Tipo::F64, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_MALHA,
+        nome: "terreno_malha",
+        args: &["nivel_num", "superficie"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(5) },
+            SaidaDef { nome: "vertices", tipo: Tipo::F64, elementos: Elementos::Multiplo(3) },
+            SaidaDef { nome: "indices", tipo: Tipo::U32, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_CURVAS,
+        nome: "terreno_curvas",
+        args: &["nivel_num", "superficie"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+            SaidaDef { nome: "cotas", tipo: Tipo::F64, elementos: Elementos::N },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_PLANTA,
+        nome: "terreno_planta",
+        args: &["nivel_num", "superficie"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_COTAS,
+        nome: "terreno_cotas",
+        args: &["superficie"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_CORTE,
+        nome: "terreno_corte",
+        args: &["nivel_num", "ox", "oy", "dx", "dy", "profundidade"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_TERRENO,
+        nome: "quant_terreno",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::N },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(8) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_QUANT_TERRENO_REGIOES,
+        nome: "quant_terreno_regioes",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::DoisN },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(4) },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_CORTE_ATERRO,
+        nome: "terreno_corte_aterro",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "grupos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "pontos", tipo: Tipo::F64, elementos: Elementos::DoisN },
+        ],
+    },
+    Consulta {
+        id: CONSULTA_TERRENO_AVISOS,
+        nome: "terreno_avisos",
+        args: &["nivel_num"],
+        args_variaveis: false,
+        saidas: &[
+            SaidaDef { nome: "avisos", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
+            SaidaDef { nome: "valores", tipo: Tipo::F64, elementos: Elementos::Multiplo(5) },
         ],
     },
 ];

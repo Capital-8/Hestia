@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 18;
+export const ESQUEMA_VERSAO = 19;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2680,6 +2680,182 @@ export const SECOES = {
         "tipo": "f64"
       }
     ]
+  },
+  "terrenos": {
+    "id": 160,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "nivel_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "espessura_base",
+        "tipo": "f64"
+      },
+      {
+        "nome": "intervalo",
+        "tipo": "f64"
+      },
+      {
+        "nome": "mestra_cada",
+        "tipo": "u32"
+      }
+    ]
+  },
+  "terreno_linhas": {
+    "id": 161,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "terreno_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "tipo",
+        "tipo": "u8"
+      },
+      {
+        "nome": "fechada",
+        "tipo": "u8"
+      }
+    ]
+  },
+  "terreno_vertices": {
+    "id": 162,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "terreno_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "linha_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      },
+      {
+        "nome": "z",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "terreno_regioes": {
+    "id": 163,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "terreno_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "papel",
+        "tipo": "u8"
+      },
+      {
+        "nome": "cota",
+        "tipo": "f64"
+      },
+      {
+        "nome": "inclinacao",
+        "tipo": "f64"
+      },
+      {
+        "nome": "direcao",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ref_x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "ref_y",
+        "tipo": "f64"
+      },
+      {
+        "nome": "talude_corte",
+        "tipo": "f64"
+      },
+      {
+        "nome": "talude_aterro",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "terreno_regiao_pontos": {
+    "id": 164,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "regiao_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "terreno_sondas": {
+    "id": 165,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "x",
+        "tipo": "f64"
+      },
+      {
+        "nome": "y",
+        "tipo": "f64"
+      }
+    ]
   }
 } as const;
 
@@ -3637,6 +3813,186 @@ export const CONSULTAS = {
         "nome": "linhas_pos",
         "tipo": "f64",
         "elementos": "n"
+      }
+    ]
+  },
+  "terreno_malha": {
+    "id": 160,
+    "args": [
+      "nivel_num",
+      "superficie"
+    ],
+    "saidas": [
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "5n"
+      },
+      {
+        "nome": "vertices",
+        "tipo": "f64",
+        "elementos": "3n"
+      },
+      {
+        "nome": "indices",
+        "tipo": "u32",
+        "elementos": "n"
+      }
+    ]
+  },
+  "terreno_curvas": {
+    "id": 161,
+    "args": [
+      "nivel_num",
+      "superficie"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      },
+      {
+        "nome": "cotas",
+        "tipo": "f64",
+        "elementos": "n"
+      }
+    ]
+  },
+  "terreno_planta": {
+    "id": 162,
+    "args": [
+      "nivel_num",
+      "superficie"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "terreno_cotas": {
+    "id": 163,
+    "args": [
+      "superficie"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "terreno_corte": {
+    "id": 164,
+    "args": [
+      "nivel_num",
+      "ox",
+      "oy",
+      "dx",
+      "dy",
+      "profundidade"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "quant_terreno": {
+    "id": 165,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "8n"
+      }
+    ]
+  },
+  "quant_terreno_regioes": {
+    "id": 166,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "linhas",
+        "tipo": "u32",
+        "elementos": "2n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "4n"
+      }
+    ]
+  },
+  "terreno_corte_aterro": {
+    "id": 167,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "grupos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "pontos",
+        "tipo": "f64",
+        "elementos": "2n"
+      }
+    ]
+  },
+  "terreno_avisos": {
+    "id": 168,
+    "args": [
+      "nivel_num"
+    ],
+    "saidas": [
+      {
+        "nome": "avisos",
+        "tipo": "u32",
+        "elementos": "4n"
+      },
+      {
+        "nome": "valores",
+        "tipo": "f64",
+        "elementos": "5n"
       }
     ]
   }
