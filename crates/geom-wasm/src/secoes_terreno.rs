@@ -7,7 +7,8 @@
 //! referência quebrada.
 //!
 //! O kernel só lê estas seções (não conhece o `Project`). As consultas 160 (`terreno_malha`) e 163 (`terreno_cotas`) estão em `terreno_malha.rs` e
-//! `terreno_avalia.rs`; as demais ainda devolvem `NAO_IMPLEMENTADO`.
+//! `terreno_avalia.rs`; as 161, 162, 164, 165 e 168 (ficha R2), em `terreno_curvas.rs`, `terreno_planta.rs`, `terreno_corte.rs`, `terreno_quant.rs` e
+//! `terreno_avisos.rs`; as 166 e 167 (ficha R3) ainda devolvem `NAO_IMPLEMENTADO`.
 
 use std::collections::BTreeMap;
 
@@ -478,7 +479,15 @@ mod testes {
         assert_eq!(cena.terreno.terrenos.len(), 2);
         assert_eq!(cena.remover(SECAO_TERRENOS, &[1]), Ok(()));
         assert_eq!(cena.terreno.terrenos.keys().copied().collect::<Vec<_>>(), vec![2]);
-        let prontas = [esquema::CONSULTA_TERRENO_MALHA, esquema::CONSULTA_TERRENO_COTAS];
+        let prontas = [
+            esquema::CONSULTA_TERRENO_MALHA,
+            esquema::CONSULTA_TERRENO_COTAS,
+            esquema::CONSULTA_TERRENO_CURVAS,
+            esquema::CONSULTA_TERRENO_PLANTA,
+            esquema::CONSULTA_TERRENO_CORTE,
+            esquema::CONSULTA_QUANT_TERRENO,
+            esquema::CONSULTA_TERRENO_AVISOS,
+        ];
         for def in esquema::CONSULTAS.iter().filter(|c| c.id >= 160) {
             let args = vec![0.0; def.args.len()];
             if prontas.contains(&def.id) {

@@ -14,6 +14,8 @@ pub struct TerrenoFx {
     pub nivel: u32,
     pub espessura_base: f64,
     pub intervalo: f64,
+    /// Uma curva mestra a cada N (padrão 5).
+    pub mestra_cada: u32,
     pub pontos: Vec<[f64; 3]>,
     /// `(z, xy, fechada)`.
     pub curvas: Vec<(f64, Vec<[f64; 2]>, bool)>,
@@ -23,7 +25,7 @@ pub struct TerrenoFx {
 
 impl TerrenoFx {
     pub fn novo(id: u32, pontos: Vec<[f64; 3]>) -> TerrenoFx {
-        TerrenoFx { id, nivel: 0, espessura_base: 3.0, intervalo: 0.5, pontos, curvas: Vec::new(), quebras: Vec::new(), borda: None }
+        TerrenoFx { id, nivel: 0, espessura_base: 3.0, intervalo: 0.5, mestra_cada: 5, pontos, curvas: Vec::new(), quebras: Vec::new(), borda: None }
     }
 
     /// Todos os vértices de fonte (pontos, curvas e quebras), na ordem canônica.
@@ -128,7 +130,7 @@ pub fn enviar(cena: &mut Cena, terrenos: &[TerrenoFx]) -> Result<(), u32> {
     let mut c = Colunas::default();
     let solto = f64::from(ID_AUSENTE);
     for t in terrenos {
-        for (col, x) in c.terrenos.iter_mut().zip([f64::from(t.id), f64::from(t.nivel), t.espessura_base, t.intervalo, 5.0]) {
+        for (col, x) in c.terrenos.iter_mut().zip([f64::from(t.id), f64::from(t.nivel), t.espessura_base, t.intervalo, f64::from(t.mestra_cada)]) {
             col.push(x);
         }
         for (k, p) in t.pontos.iter().enumerate() {
@@ -189,6 +191,7 @@ mod testes {
         assert_eq!(cena.terreno.terrenos.keys().copied().collect::<Vec<_>>(), vec![3, 7]);
         assert_eq!(cena.terreno.terrenos[&7].intervalo, 1.0);
         assert_eq!(cena.terreno.terrenos[&7].espessura_base, 3.0);
+        assert_eq!(cena.terreno.terrenos[&7].mestra_cada, 5);
         assert_eq!(cena.terreno.linhas.len(), 3, "quebra de T4, curva e borda do outro");
         assert_eq!(cena.terreno.vertices.len(), 6 + 5 + 2 + 4);
         let soltos = cena.terreno.vertices.values().filter(|v| v.linha == ID_AUSENTE).count();

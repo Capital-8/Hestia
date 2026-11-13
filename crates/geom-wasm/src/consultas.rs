@@ -308,14 +308,28 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
             }
             crate::terreno_avalia::consulta_terreno_cotas(cena, superficie)
         }
-        // Ids registrados no contrato (ficha M2); o cálculo entra nas fichas R2 e R3.
-        esquema::CONSULTA_TERRENO_CURVAS
-        | esquema::CONSULTA_TERRENO_PLANTA
-        | esquema::CONSULTA_TERRENO_CORTE
-        | esquema::CONSULTA_QUANT_TERRENO
-        | esquema::CONSULTA_QUANT_TERRENO_REGIOES
-        | esquema::CONSULTA_TERRENO_CORTE_ATERRO
-        | esquema::CONSULTA_TERRENO_AVISOS => Err(NAO_IMPLEMENTADO),
+        // Terreno, ficha R2: curvas de nível, borda em planta, corte, quantidades e avisos.
+        esquema::CONSULTA_TERRENO_CURVAS | esquema::CONSULTA_TERRENO_PLANTA => {
+            let nivel = arg_nivel(args[0])?;
+            let superficie = arg_nivel(args[1])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            if id == esquema::CONSULTA_TERRENO_CURVAS {
+                crate::terreno_curvas::consulta_terreno_curvas(cena, nivel, superficie)
+            } else {
+                crate::terreno_planta::consulta_terreno_planta(cena, nivel, superficie)
+            }
+        }
+        esquema::CONSULTA_TERRENO_CORTE => {
+            let nivel = arg_nivel(args[0])?;
+            let plano = [arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?, arg_finito(args[4])?];
+            crate::terreno_corte::consulta_terreno_corte(cena, nivel, plano, arg_finito(args[5])?)
+        }
+        esquema::CONSULTA_QUANT_TERRENO => crate::terreno_quant::consulta_quant_terreno(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_TERRENO_AVISOS => crate::terreno_avisos::consulta_terreno_avisos(cena, arg_nivel(args[0])?),
+        // Ids registrados no contrato (ficha M2); o cálculo entra na ficha R3.
+        esquema::CONSULTA_QUANT_TERRENO_REGIOES | esquema::CONSULTA_TERRENO_CORTE_ATERRO => Err(NAO_IMPLEMENTADO),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
