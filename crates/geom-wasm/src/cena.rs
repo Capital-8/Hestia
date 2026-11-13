@@ -391,7 +391,8 @@ impl Cena {
         use esquema::{SECAO_FAIXAS_JUNCAO, SECAO_PAREDES_Z_JUNCAO, SECAO_PERFIS_Z_JUNCAO, SECAO_PONTOS_FAIXAS_JUNCAO};
         // As seções do guarda-corpo (60 a 81) não entram em nenhum cache de paredes, pisos, lajes ou forros.
         // Idem as da parede cortina (100 a 112); a 113 (`cortina_hospedes`) NÃO: ela recorta o hospedeiro no nível resolvido das paredes, como uma abertura.
-        if SecoesGC::e_minha(secao_id) || (SecoesCortina::e_minha(secao_id) && secao_id != esquema::SECAO_CORTINA_HOSPEDES) {
+        // Idem as da estrutura (200 a 206): as consultas da estrutura não usam caches da cena.
+        if SecoesGC::e_minha(secao_id) || (SecoesCortina::e_minha(secao_id) && secao_id != esquema::SECAO_CORTINA_HOSPEDES) || SecoesEstr::e_minha(secao_id) {
             return;
         }
         let so_b = SecoesB::e_minha(secao_id);

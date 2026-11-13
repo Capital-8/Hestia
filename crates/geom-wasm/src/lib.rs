@@ -101,6 +101,12 @@ pub mod cortina_tipos;
 pub mod secoes_cortina;
 // Estrutura: pilar, viga e fundação (docs/estrutura/PLANO.md, ficha K1).
 pub mod secoes_estr;
+// Ficha K2: perfis, prismas e malha de pilar e viga.
+pub mod estr_malha;
+pub mod estr_perfil;
+pub mod estr_prisma;
+#[cfg(test)]
+mod estr_testes;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;
