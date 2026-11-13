@@ -6,7 +6,7 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
-| M1 | em curso | | 0 | worktree criado da base errada; corrigido por ff-only |
+| M1 | mesclada | merge de massa/m1 | 0 | typecheck ✔, lint ✔ (8 avisos já existentes), test:rapido 971 arq / 11358 testes; escopo e atalhos conferidos pelo fiscal; emenda E1 no PLANO |
 | M2 | pendente | | 0 | |
 | R1 | pendente | | 0 | |
 | R2 | pendente | | 0 | |
@@ -25,6 +25,8 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 
 ## Lições de processo
 - O worktree de `isolation: "worktree"` nasce do `main` local, não da branch de trabalho. Todo prompt de ficha deve mandar o agente rodar `git merge --ff-only claude/youthful-dirac-l4egd1` antes de qualquer coisa e conferir `SCHEMA_VERSION` (esperado 25 antes da M1).
+
+- Isolamento de worktree: `isolation: "worktree"` não serve (base errada, e o worktree vazio é apagado). Usar worktree manual: `git worktree add /home/user/hestia-wt/<ficha> -b massa/<ficha> claude/youthful-dirac-l4egd1`, `npm ci` dentro dele (NUNCA symlink de node_modules: os pacotes @hestia apontariam para o checkout principal) e dar o caminho ao agente. Para fichas de Rust, o agente usa CARGO_TARGET_DIR=/tmp/hestia-target-massa.
 
 ## Decisões do dono durante a execução
 (nenhuma)

@@ -513,3 +513,15 @@ Moldes: `gc_tipos.rs`, `gc_malha.rs`, `gc_planta.rs`, `gc_corte.rs`, `gc_quant.r
 | Desempenho ruim com muitas cópias | Tempos de A.8 item 5 acima do dobro | Registrar; perguntar ao dono se bloqueia; sugestão já aprovada: `lod 0` durante o arraste |
 | Ambiente sem WASM ou sem navegador | Comando falha já na linha de base | Relatar ao dono antes da ficha que depende dele; não pular o portão em silêncio |
 | Sessão reinicia no meio | — | Ler `docs/massa/ESTADO.md`, conferir `git log`, retomar da primeira ficha não mesclada |
+
+---
+
+# Emendas (registradas pelo fiscal durante a execução)
+
+**E1 · 2026-11-13 · ficha M1 (esclarecem A.3 item 4 e A.4; não mudam o escopo).**
+1. **Espelho no `transform`.** "Inverte o sentido dos pontos e o sinal das rotações" vale só para espelho em torno de uma linha paralela a x. Para a linha de ângulo φ: perfil local espelhado em y (perfil livre com a ordem dos pontos invertida, para seguir anti-horário), `rotacao' = 2φ − rotacao`, `dx`/`dy` refletidos como vetor, e `arranjo.anguloTotal` troca de sinal. Para φ = 0 é exatamente a regra escrita. Implementado em `packages/model/src/mass.ts` (`transformMass`).
+2. **Fase do polígono regular (vale para o Rust, ficha R1).** O polígono regular tem um vértice no ângulo 0 local (+x), o que é compatível com a regra 1 de A.4 (o parâmetro `t = 0` é a interseção com +x). O espelho em y mantém o perfil simétrico.
+3. **`setMassArranjo(massaId, arranjo | null)`**: `null` remove o campo.
+4. **Validações extras** em `massIssue`: valores não finitos recusados; `lados` inteiro de 3 a 64; ponto repetido ou área nula no perfil livre conta como "não simples"; tolerância 1e-9 nas comparações de z e de rotação.
+5. **Estilo gráfico padrão da categoria `mass`:** peso de corte 2, peso de projeção 1; cor DXF ACI 8; camada DXF de corte `CORTE_MASSA`.
+6. `SCHEMA_VERSION` agora é **26**. A ficha M2 sobe a `versao` do contrato do kernel de 18 para 19.
