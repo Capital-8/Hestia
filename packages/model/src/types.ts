@@ -5,6 +5,7 @@ import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { Mass } from './massTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
@@ -23,12 +24,13 @@ import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 
 export type Id = string;
-/** v25: parede cortina (decisão 0056). Arquivo antigo não tem campos novos: a migração 24 → 25 só avança a versão. */
-export const SCHEMA_VERSION = 25;
+/** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
+export const SCHEMA_VERSION = 26;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+export type { Mass } from './massTypes.ts';
 export type * from './openingTypes.ts';
 
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
@@ -695,7 +697,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;

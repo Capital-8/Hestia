@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeStair, migrateProject, openingFamilyOf, SCHEMA_VERSION, type Project } from './index.ts';
+import { DEFAULT_OPENING_TYPES, DEFAULT_STAIR_TYPES, ProjectStore, createEmptyProject, makeMass, makeStair, secaoCirculo, migrateProject, openingFamilyOf, SCHEMA_VERSION, type Project } from './index.ts';
 
 /** Projeto no formato da versão 5: sem os campos acrescentados em 6. */
 function legacyV5(): Record<string, unknown> {
@@ -151,7 +151,7 @@ describe('migração 12 → 13 (face inferior da escada)', () => {
   it('todo tipo de escada existente ganha face lisa', () => {
     const m = migrateProject(legacyV12());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(25);
+    expect(SCHEMA_VERSION).toBe(26);
     for (const t of Object.values(m.stairTypes)) expect(t.undersideStyle).toBe('smooth');
   });
 
@@ -252,7 +252,7 @@ describe('migração 15 → 16 (escada caracol)', () => {
   it('todo tipo existente ganha sobreposição e material do poste padrão', () => {
     const m = migrateProject(legacyV15());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(25);
+    expect(SCHEMA_VERSION).toBe(26);
     for (const id of ['stt_monolitica', 'stt_piso_espelho']) {
       expect(m.stairTypes[id]).toMatchObject({ treadOverlap: 0.025, postMaterialId: 'mat_aco' });
     }
@@ -376,5 +376,40 @@ describe('migração 20 → 21 (rampas)', () => {
     expect(m.rampTypes.rmt_nbr9050!.name).toBe('Custom');
     expect(m.rampTypes.rmt_extra).toBeDefined();
     expect(m.rampTypes.rmt_ada).toBeDefined();
+  });
+});
+
+describe('migração 25 → 26 (massa conceitual)', () => {
+  /** Projeto no formato da versão 25, sem massas. */
+  function legacyV25(): Record<string, unknown> {
+    const p = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
+    p.schemaVersion = 25;
+    return p;
+  }
+
+  it('só avança a versão e não altera nenhum dado', () => {
+    const antigo = legacyV25();
+    const m = migrateProject(JSON.parse(JSON.stringify(antigo)));
+    expect(m.schemaVersion).toBe(26);
+    const { schemaVersion: _v, ...resto } = m as unknown as Record<string, unknown>;
+    const { schemaVersion: _a, ...restoAntigo } = antigo;
+    expect(resto).toEqual(restoAntigo);
+  });
+
+  it('ida e volta: projeto com massa salva e abre igual, com desfazer', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addMass', mass: makeMass({ id: 'm1', levelId: 'lv_0', secoes: [secaoCirculo(0, 3), secaoCirculo(12, 5)], interpolacao: 'suave', arranjo: { n: 3, cx: 1, cy: 2, anguloTotal: Math.PI } }) });
+    const json = JSON.parse(JSON.stringify(s.project));
+    expect(json.schemaVersion).toBe(26);
+    const volta = migrateProject(json);
+    expect(volta.elements['m1']).toEqual(s.project.elements['m1']);
+    const relido = migrateProject(JSON.parse(JSON.stringify(volta)));
+    expect(relido).toEqual(volta);
+    s.undo();
+    expect(s.project.elements['m1']).toBeUndefined();
+  });
+
+  it('arquivo mais novo que o programa continua recusado', () => {
+    expect(() => migrateProject({ ...legacyV25(), schemaVersion: 27 })).toThrow();
   });
 });

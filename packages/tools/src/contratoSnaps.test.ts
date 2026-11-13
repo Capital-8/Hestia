@@ -46,6 +46,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   ramp: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaRampa' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   railing: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDoGuarda' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   cad: { fonte: { arquivo: 'tools/src/snapCad.ts', simbolo: 'addCadSnaps' }, ligacao: { arquivo: 'tools/src/infer.ts', simbolo: 'addCadSnaps' } },
+  mass: { fonte: null, ligacao: null, motivo: 'massa: ficha V2 (os pontos de captura da massa vêm do kernel, na planta).' },
   ceiling: { fonte: null, ligacao: null, motivo: 'TODO: o forro não entra na captura de planta (só pisos e lajes têm vértices e arestas); o contorno do forro ainda não é ponto de snap.' },
   roof: { fonte: null, ligacao: null, motivo: 'TODO: o telhado não entra na captura de planta (beirais e cumeeiras ainda não são pontos de snap).' },
   room: { fonte: null, ligacao: null, motivo: 'TODO: o ambiente não tem geometria própria (o contorno é derivado das paredes, que já fornecem os pontos).' },
