@@ -21,7 +21,7 @@ Modo de execução: subagentes. Trabalho mecânico (i18n, registros, conferênci
 | K2 | pendente | | 0 | |
 | K3 | pendente | | 0 | |
 | K4 | pendente | | 0 | |
-| U1 | pendente | | 0 | |
+| U1 | mesclada | merge de estr/U1 | 0 | typecheck ✔, lint ✔, test:rapido 981 arq / 11461 testes; escopo e atalhos conferidos pelo fiscal. Pontos de ligação para o R1: `definirPerfilContorno(fn)` (consulta 205) e `definirLeituraEstr(fn)` (consulta 203). Pendências: navegador de projeto não lista os novos tipos (T1); es/de/fr/it/pl com texto em inglês até a I18; PerfilEditor/PerfilPreview em ui/dialogs/. |
 | R1 | pendente | | 0 | |
 | T1 | pendente | | 0 | |
 | I1 | pendente | | 0 | |
