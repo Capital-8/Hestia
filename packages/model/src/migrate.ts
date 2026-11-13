@@ -272,6 +272,10 @@ const migrations: Record<number, Migration> = {
   // `mullionTypes` nem `curtainPanelTypes`: ausente = parede básica e padrões por leitura. Nada a converter; a migração
   // só avança a versão, e assim um programa antigo recusa um arquivo com cortina.
   24: (raw) => ({ ...raw }),
+  // v25 → v26: pilar, viga e fundação (kinds 'column', 'beam', 'footing'; `columnTypes`, `beamTypes`, `footingTypes` e
+  // `SlabType.uso` opcionais). Ausente = padrões por leitura; nada a converter. A migração só avança a versão, e assim
+  // um programa antigo recusa um arquivo com estrutura.
+  25: (raw) => ({ ...raw }),
 };
 
 export class SchemaError extends Error {}

@@ -81,6 +81,10 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  // estrutura: ficha R1 (a extensão de pilar, viga e fundação vem do kernel; a vista ainda não os desenha).
+  column: { entra: false, motivo: 'estrutura: ficha R1 (o pilar ainda não é desenhado pela vista).', pontos: nenhum },
+  beam: { entra: false, motivo: 'estrutura: ficha R1 (a viga ainda não é desenhada pela vista).', pontos: nenhum },
+  footing: { entra: false, motivo: 'estrutura: ficha R1 (a fundação ainda não é desenhada pela vista).', pontos: nenhum },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,

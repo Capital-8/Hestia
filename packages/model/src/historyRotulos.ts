@@ -308,6 +308,36 @@ export function labelOf(c: Command): string {
       return 'Excluir perfil de norma';
     case 'setNormaGuardaCorpo':
       return 'Escolher norma do projeto';
+    case 'addColumn':
+      return 'Adicionar pilar';
+    case 'updateColumn':
+      return 'Editar pilar';
+    case 'setColumnType':
+      return 'Trocar tipo de pilar';
+    case 'upsertColumnType':
+      return 'Editar tipo de pilar';
+    case 'deleteColumnType':
+      return 'Excluir tipo de pilar';
+    case 'addBeam':
+      return 'Adicionar viga';
+    case 'updateBeam':
+      return 'Editar viga';
+    case 'setBeamType':
+      return 'Trocar tipo de viga';
+    case 'upsertBeamType':
+      return 'Editar tipo de viga';
+    case 'deleteBeamType':
+      return 'Excluir tipo de viga';
+    case 'addFooting':
+      return 'Adicionar fundação';
+    case 'updateFooting':
+      return 'Editar fundação';
+    case 'setFootingType':
+      return 'Trocar tipo de fundação';
+    case 'upsertFootingType':
+      return 'Editar tipo de fundação';
+    case 'deleteFootingType':
+      return 'Excluir tipo de fundação';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':

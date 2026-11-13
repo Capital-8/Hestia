@@ -63,6 +63,10 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   stair: ['stair'],
   ramp: ['ramp'],
   railing: ['railing'],
+  // Pilar, viga e fundação: a importação IFC não entra na frente de estrutura; estrutura: ficha I1 (saída IFC e prefixos).
+  column: [],
+  beam: [],
+  footing: [],
   room: ['space', 'room', 'ifcspace'],
   generic: ['generic'],
   // O CAD importado não vira produto IFC (é desenho de referência, como no Revit).

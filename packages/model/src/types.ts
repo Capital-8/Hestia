@@ -5,6 +5,7 @@ import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { Beam, BeamType, Column, ColumnType, Footing, FootingType } from './estrTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
@@ -23,12 +24,13 @@ import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 
 export type Id = string;
-/** v25: parede cortina (decisão 0056). Arquivo antigo não tem campos novos: a migração 24 → 25 só avança a versão. */
-export const SCHEMA_VERSION = 25;
+/** v26: pilar, viga e fundação (kinds 'column', 'beam', 'footing'). Arquivo antigo não os tem: a migração 25 → 26 só avança a versão. */
+export const SCHEMA_VERSION = 26;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+export type { Beam, BeamType, Column, ColumnType, Footing, FootingType } from './estrTypes.ts';
 export type * from './openingTypes.ts';
 
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
@@ -432,6 +434,8 @@ export interface SlabType {
   description: string;
   layers: Layer[];
   cost: number;
+  /** Uso da laje: `fundacao` é o radier (estrutura). Ausente = `piso`. */
+  uso?: 'piso' | 'fundacao';
 }
 
 /** Inclinação da face superior: cota = topZ + percent/100 × distância de `origin` ao longo de `dir` (unitário). */
@@ -695,7 +699,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Column | Beam | Footing | Room | Generic | CadDrawing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -833,6 +837,10 @@ export interface Project {
   mullionTypes?: Record<Id, MullionType>;
   /** Tipos de painel da parede cortina (decisão 0056, §4.5). Mesmo regime de `mullionTypes` (`curtainPanelTypesOf`). */
   curtainPanelTypes?: Record<Id, CurtainPanelType>;
+  /** Tipos de pilar, viga e fundação (estrutura). Ausente = os padrões por leitura (`columnTypesOf` etc.); a primeira escrita grava o conjunto completo. */
+  columnTypes?: Record<Id, ColumnType>;
+  beamTypes?: Record<Id, BeamType>;
+  footingTypes?: Record<Id, FootingType>;
   elements: Record<Id, Element>;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
