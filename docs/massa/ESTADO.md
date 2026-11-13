@@ -7,7 +7,7 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
 | M1 | mesclada | merge de massa/m1 | 0 | typecheck ✔, lint ✔ (8 avisos já existentes), test:rapido 971 arq / 11358 testes; escopo e atalhos conferidos pelo fiscal; emenda E1 no PLANO |
-| M2 | pendente | | 0 | |
+| M2 | mesclada | merge de massa/m2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 477, test:wasm 1335, clippy sem erro novo; reiniciou o contêiner no meio (agente refeito); emenda E2 |
 | R1 | pendente | | 0 | |
 | R2 | pendente | | 0 | |
 | R3 | pendente | | 0 | |
@@ -28,8 +28,12 @@ Modelo dos subagentes: padrão nas fichas comuns; modelo mais forte (fable) em R
 
 - Isolamento de worktree: `isolation: "worktree"` não serve (base errada, e o worktree vazio é apagado). Usar worktree manual: `git worktree add /home/user/hestia-wt/<ficha> -b massa/<ficha> claude/youthful-dirac-l4egd1`, `npm ci` dentro dele (NUNCA symlink de node_modules: os pacotes @hestia apontariam para o checkout principal) e dar o caminho ao agente. Para fichas de Rust, o agente usa CARGO_TARGET_DIR=/tmp/hestia-target-massa.
 
+- **Clippy:** o portão `cargo clippy -p geom-wasm -- -D warnings` JÁ FALHA na linha de base (39 erros em código antigo, medido em c1d30ac1+). O portão passa a ser: **nenhum erro novo** (mesmo número, mesmos locais) e **zero erro em arquivo novo ou linha tocada**. O fiscal compara com `/tmp/claude-0/clippy-base.log` (grep `-->`, sem linha/coluna).
+- **Artefatos WASM:** todo merge que traz `.rs` exige `npm run build:wasm` depois da última alteração e commit dos 3 arquivos de `packages/geom/assets`; o `hash-fontes.test.ts` (dentro de `test:rapido`) confere. Duas fichas de Rust em paralelo conflitam nesses binários: por isso a fase 1 é sequencial.
+- Contrato do kernel: **congelado** desde a M2 (versao 19, ids 140–142 e 140–145).
+
 ## Decisões do dono durante a execução
-(nenhuma)
+- 2026-11-13: "sempre que possível seguir sem esperar nada" (o fiscal só para para perguntar se uma decisão de projeto bloquear).
 
 ## Pendências conhecidas
 (nenhuma)
