@@ -12,7 +12,7 @@ import { apiSupports, parseVersion } from './version.ts';
 export type SuplementoRuntime = 'declarative' | 'script' | 'external';
 export const SUPLEMENTO_RUNTIMES: readonly SuplementoRuntime[] = ['declarative', 'script', 'external'];
 
-export interface ScriptLimits { timeoutMs: number; memoryMiB: number; maxCommandsPerAction: number }
+import type { ScriptLimits } from './limits.ts'; // tipo único (Fase D); a Fase B usava cópia idêntica
 /** Padrão e teto dos limites do runtime de script (o host limita ao teto, nunca amplia). */
 export const SCRIPT_LIMITS_DEFAULT: Readonly<ScriptLimits> = { timeoutMs: 2000, memoryMiB: 64, maxCommandsPerAction: 5000 };
 export const SCRIPT_LIMITS_MAX: Readonly<ScriptLimits> = { timeoutMs: 30000, memoryMiB: 256, maxCommandsPerAction: 50000 };
