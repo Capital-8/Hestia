@@ -33,6 +33,8 @@ export type RibbonItem =
   | { kind: 'action'; action: ActionId; size: Size; label?: Txt }
   /** Alternador de opção da ferramenta (modo de desenho): aparece pressionado quando `test` vale. */
   | { kind: 'option'; label: Txt; icon: string; size: Size; test: (o: ToolOptions) => boolean; patch: Partial<ToolOptions>; restart?: ToolId }
+  /** SUPLEMENTOS: botão contribuído por um suplemento (só na aba Suplementos). `command` é o id qualificado `<pluginId>:<id>`. */
+  | { kind: 'plugin'; command: string; label: Txt; size: Size; icon?: string }
   /** Ainda não existe: aparece esmaecido, com tooltip. É o roteiro da interface. */
   | { kind: 'soon'; label: Txt; icon?: string; size: Size }
   /** Botão dividido: clicar no ícone roda `main`; o rótulo com ▾ abre `menu`. */

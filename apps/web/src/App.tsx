@@ -72,6 +72,7 @@ import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
 import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
+import { PluginDialog } from './plugins/pluginUi.tsx';
 import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
 import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
 import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
@@ -206,6 +207,8 @@ function Dialogs(): ReactElement | null {
       return <SobreDialog />;
     case 'externalTools':
       return <ExternalToolsDialog />;
+    case 'pluginDialog': // SUPLEMENTOS
+      return <PluginDialog />;
     case 'updatePrompt':
       return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
