@@ -15,3 +15,7 @@ export * from './contributes.ts';
 export * from './manifestV2.ts';
 export * from './registry.ts';
 export * from './modelPort.ts'; // SUPLEMENTOS:
+// SUPLEMENTOS (Fase D): limites, host do script e runtime do Worker. `scriptWorker.ts` NÃO é exportado (só roda dentro do Worker).
+export * from './limits.ts';
+export * from './scriptHost.ts';
+export * from './workerRuntime.ts';
