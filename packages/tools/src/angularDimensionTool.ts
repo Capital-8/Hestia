@@ -257,7 +257,7 @@ export class AngularDimensionTool extends ToolBase {
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
     const c = this.geometry()?.center;
     const to = this.inf?.point;
-    return this.placing && c && to && dist(c, to) > 1e-6 ? [segmentLengthDim(c, to)] : [];
+    return this.placing && c && to && dist(c, to) > 1e-6 ? [{ ...segmentLengthDim(c, to), conversivel: false }] : [];
   }
 
   override inputPrompt(): string | null {

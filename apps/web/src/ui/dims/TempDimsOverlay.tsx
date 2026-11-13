@@ -10,7 +10,7 @@ import { INVALID_FLASH_MS, resolveDimEdit, suspensionAfterConversion } from './d
 import { larguraDoCampo } from './dimsBox.ts';
 import { capturaCota, holdsLastPreview, rectAround, swallowsPointerButton, type ScreenRect } from './dimsHit.ts';
 import { placeConvertButton, valueRect } from './dimsLayout.ts';
-import { dimAcionavel, dimText, ehPermanente, ocultaDesenhoPermanente, viewOfDim } from './dimsView.ts';
+import { dimAcionavel, dimText, ocultaDesenhoPermanente, podeConverter, viewOfDim } from './dimsView.ts';
 import { toolDims, useDimContext, useSelectionDims } from './useSelectionDims.ts';
 
 const DANGER = 'var(--danger, #d33)';
@@ -150,7 +150,7 @@ export function TempDimsOverlay(): ReactElement | null {
 
   const makePermanent = (): void => {
     const st = useUi.getState();
-    const cmds = toPermanent(ctx.levelId, dims, st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined);
+    const cmds = toPermanent(ctx.levelId, dims.filter(podeConverter), st.planKind === 'area' ? st.areaPlanId ?? undefined : undefined);
     const before = editor.store.version;
     editor.store.transaction(t('cvv_dim_undo_make_permanent'), () => cmds.forEach((c) => editor.store.exec(c)));
     const suspended = suspensionAfterConversion(before, editor.store.version);
@@ -256,7 +256,7 @@ export function TempDimsOverlay(): ReactElement | null {
         );
       })}
       {/* Cota permanente já é permanente: o "I" só converte cotas dinâmicas (parede, porta...). */}
-      {!views.every(({ dim }) => ehPermanente(dim)) && (
+      {views.some(({ dim }) => podeConverter(dim)) && (
       <button
         type="button"
         className="btn"

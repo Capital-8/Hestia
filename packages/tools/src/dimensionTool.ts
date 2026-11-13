@@ -5,6 +5,7 @@ import {
   dimRefAt,
   dimensionFormatStyle,
   dimensionGeometry,
+  dimensionPoints,
   dimensionStyleFor,
   dimensionValue,
   formatDimension,
@@ -42,6 +43,8 @@ function refsOf(a: AnyRef | undefined, b: AnyRef | undefined): Pick<Dimension, '
 const REF_TOL = 0.005;
 /** Afastamento (mm de papel) em que a cota nova "encosta" numa linha de cota existente: cadeias alinhadas como no Revit. */
 const SNAP_OFFSET_MM = 3;
+/** Folga máxima (px de tela) do encaixe: o menor entre ela e `SNAP_OFFSET_MM` vale. */
+const SNAP_OFFSET_PX = 8;
 
 type DimMode = 'aligned' | 'horizontal' | 'vertical';
 
@@ -128,24 +131,47 @@ export class DimensionTool extends ToolBase {
     return { a, b };
   }
 
-  /** Afastamentos das cotas que já existem na vista ativa (a cota nova encosta nelas) mais o último afastamento usado. */
+  /**
+   * Afastamentos (da cota nova) em que ela cairia exatamente sobre uma linha de cota que já existe na vista ativa. Só
+   * conta linha PARALELA à da cota nova, e o afastamento é medido pela posição real dela no desenho: comparar o número
+   * do afastamento com o de qualquer outra cota (como antes) puxava a cota nova para uma linha que não estava ali.
+   */
   private existingOffsets(): number[] {
+    const { a, b } = this.referenceLine();
+    const length = dist(a, b);
+    if (length < 1e-9) return [];
+    const u: Vec2 = { x: (b.x - a.x) / length, y: (b.y - a.y) / length };
+    const n: Vec2 = { x: -u.y, y: u.x };
     const sec = this.env.section?.();
     const dims = sec
       ? sec.annotations().dimensions
       : viewAnnotationsOf(this.env.project(), this.env.levelId(), viewPlanId(this.env)).dimensions;
-    const out = dims.map((d) => d.offset).filter((o) => Number.isFinite(o) && Math.abs(o) > 1e-6);
-    const last = this.env.options().dimensionOffset;
-    if (last !== undefined && Number.isFinite(last) && Math.abs(last) > 1e-6) out.push(last);
+    const out: number[] = [];
+    for (const d of dims) {
+      if (d.angular) continue;
+      const m = dimensionPoints(this.env.project(), d);
+      const l = dist(m.a, m.b);
+      if (l < 1e-9) continue;
+      const du: Vec2 = { x: (m.b.x - m.a.x) / l, y: (m.b.y - m.a.y) / l };
+      if (Math.abs(u.x * du.y - u.y * du.x) > 1e-3) continue;
+      // Ponto da linha de cota existente (normal esquerda de a→b da cota existente, vezes o afastamento dela).
+      const line: Vec2 = { x: m.a.x - du.y * d.offset, y: m.a.y + du.x * d.offset };
+      const o = (line.x - a.x) * n.x + (line.y - a.y) * n.y;
+      if (Number.isFinite(o) && Math.abs(o) > 1e-6) out.push(o);
+    }
     return out;
   }
 
   /**
-   * Afastamento com encaixe: se o cursor fica a poucos mm de papel de uma linha de cota existente, a cota nova nasce
-   * alinhada com ela (é o que faz a "família de cotas" parecer desenho de arquiteto, em vez de linhas soltas).
+   * Afastamento com encaixe: se o cursor fica perto de uma linha de cota existente (e paralela), a cota nova nasce
+   * alinhada com ela (é o que faz a "família de cotas" parecer desenho de arquiteto, em vez de linhas soltas). "Perto" é
+   * o menor entre 3 mm de papel e 8 px de tela: em escala grande (1:100 = 30 cm) o encaixe só pelo papel tomava a decisão
+   * pelo usuário a dezenas de pixels do clique.
    */
   private snapOffset(offset: number): number {
-    const tol = Math.max(0.005, (SNAP_OFFSET_MM * this.scale()) / 1000);
+    const tolPapel = (SNAP_OFFSET_MM * this.scale()) / 1000;
+    const tolTela = SNAP_OFFSET_PX * this.env.metersPerPixel();
+    const tol = Math.max(0.005, Math.min(tolPapel, tolTela));
     let best = offset;
     let bestDistance = tol;
     for (const candidate of this.existingOffsets()) {
@@ -259,7 +285,7 @@ export class DimensionTool extends ToolBase {
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
     const from = this.pontoDeTraco();
     const to = this.inf?.point;
-    return from && to && !this.offsetStage && !(this.a && this.b) && dist(from, to) > 1e-6 ? [segmentLengthDim(from, to)] : [];
+    return from && to && !this.offsetStage && !(this.a && this.b) && dist(from, to) > 1e-6 ? [{ ...segmentLengthDim(from, to), conversivel: false }] : [];
   }
 
   /** Último ponto de referência já confirmado (origem do próximo trecho), ou null. */

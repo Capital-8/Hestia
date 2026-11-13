@@ -52,6 +52,8 @@ export interface SectionToolContext {
   inferContext(extra?: Partial<InferContext>): InferContext;
   /** Resultado cacheado da seção ativa (geometria já ocluída/visível), em (t,z). */
   result(): SectionResult;
+  /** Elementos ocultos nesta vista (Hide in View, isolar, categorias): não são alvo de clique nem de alinhamento. Ausente = nenhum. */
+  hidden?(): ReadonlySet<Id>;
 }
 
 export interface ToolEnv {

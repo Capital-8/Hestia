@@ -1,6 +1,6 @@
 import { boxOf, type Box, type Vec2 } from '@hestia/geom';
 import type { SectionResult } from '@hestia/engine';
-import { ownerOf, sectionDimensionPoints, sectionItems, type SectionItem, type SectionPick } from '@hestia/render';
+import { guardaCorpoNaCaixaDoCorte, guardaCorposVisiveisNoCorte, ownerOf, sectionDimensionPoints, sectionItems, type SectionItem, type SectionPick } from '@hestia/render';
 import { angularDimensionGeometry, dimensionGeometry, type Id, type Project, type SectionAnnotations } from '@hestia/model';
 import { annotationIdsInBoxOf } from '@hestia/tools';
 
@@ -70,6 +70,11 @@ export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2, hidden?: R
   return [...new Set([...porDono.values()].filter((v) => v.ok).map((v) => v.id))];
 }
 
+/** Guarda-corpos que a caixa pega (as mesmas linhas que o corte desenha; ficam fora do `SectionResult`). Mesma regra de janela e cruzamento. */
+export function guardaCorposNaCaixaDoCorteDoProjeto(p: Project, s: SectionResult, a: Vec2, b: Vec2, hidden?: ReadonlySet<Id>): Id[] {
+  return guardaCorpoNaCaixaDoCorte(p, s, hidden, a, b);
+}
+
 /** Seleção depois da caixa: Shift/Ctrl somam à seleção atual; sem eles, a caixa substitui (como na planta). */
 export function selecaoComCaixa(atual: readonly Id[], ids: readonly Id[], somar: boolean): Id[] {
   return somar ? [...new Set([...atual, ...ids])] : [...ids];
@@ -96,5 +101,6 @@ export function anotacoesNaCaixaDoCorte(an: SectionAnnotations, a: Vec2, b: Vec2
 export function idsVisiveisDoTipoNoCorte(p: Project, s: SectionResult, typeId: Id, hidden?: ReadonlySet<Id>): Id[] {
   const vistos = new Set<Id>();
   for (const item of sectionItems(s, hidden)) for (const c of candidatosDoItem(item)) vistos.add(c.dono.id);
+  for (const id of guardaCorposVisiveisNoCorte(p, s, hidden)) vistos.add(id);
   return [...vistos].filter((id) => (p.elements[id] as { typeId?: Id } | undefined)?.typeId === typeId);
 }

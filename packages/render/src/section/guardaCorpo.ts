@@ -1,4 +1,4 @@
-import { guardaCorpoNoPonto, planoDaSecao, servicoGuardaCorpo, ServicoGuardaCorpo, type SectionResult } from '@hestia/engine';
+import { guardaCorpoNoPonto, guardaCorposNaCaixa, linhasVisiveisGC, planoDaSecao, servicoGuardaCorpo, ServicoGuardaCorpo, type SectionResult } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import type { PlanPaint } from '../plan/style.ts';
@@ -20,6 +20,8 @@ export function guardaCorpoCorteOps(
   fills: FillOp[],
   strokes: StrokeOp[],
   reveal?: { revelados: ReadonlySet<Id> | undefined; contorno: (pts: Pt[]) => void },
+  /** Seleção e cursor da vista: o guarda-corpo selecionado leva a cor de seleção, como parede e escada (decisão 0016). */
+  highlight?: { selection: readonly Id[]; hover: Id | null },
 ): void {
   if (!paint.visible || !ServicoGuardaCorpo.temGuardaCorpo(p)) return;
   const plano = planoDaSecao(s);
@@ -31,6 +33,10 @@ export function guardaCorpoCorteOps(
   const base = dark ? theme.bg : '#ffffff';
   const cor = paint.color ?? theme.ink;
   const fraco = mix(cor, base, 0.45);
+  // Realce por cima de todas as linhas do guarda-corpo (as peças dele são muitas: o realce sai depois do laço).
+  const selecionados = new Set<Id>(highlight?.selection ?? []);
+  const realceFills: FillOp[] = [];
+  const realceStrokes: StrokeOp[] = [];
   for (const l of r.linhas) {
     if (hidden?.has(l.guardaId) || l.pontos.length < 2) continue;
     const pts = l.pontos.map((q) => ({ x: q.x, y: q.y }));
@@ -42,7 +48,33 @@ export function guardaCorpoCorteOps(
     }
     // Reveal: o contorno azul do guarda-corpo revelado sai por cima (o desenho normal continua).
     if (reveal?.revelados?.has(l.guardaId)) reveal.contorno(pts);
+    if (selecionados.has(l.guardaId)) {
+      if (pts.length >= 3 && l.papel !== 255) realceFills.push({ polygons: [[pts]], color: theme.select, alpha: 0.25 });
+      realceStrokes.push({ pts, closed: l.papel !== 255, widthPx: 2, color: theme.select, alpha: 1 });
+    } else if (highlight?.hover === l.guardaId) {
+      realceStrokes.push({ pts, closed: l.papel !== 255, widthPx: 1.5, color: theme.select, alpha: 0.55 });
+    }
   }
+  fills.push(...realceFills);
+  strokes.push(...realceStrokes);
+}
+
+/** Guarda-corpos que aparecem no desenho do corte ou da elevação (visíveis, fora os ocultos da vista). */
+export function guardaCorposVisiveisNoCorte(p: Project, s: SectionResult, hidden: ReadonlySet<Id> | undefined): Id[] {
+  if (!ServicoGuardaCorpo.temGuardaCorpo(p)) return [];
+  const plano = planoDaSecao(s);
+  if (!plano) return [];
+  const r = servicoGuardaCorpo().corte(p, null, plano.a.x, plano.a.y, plano.b.x - plano.a.x, plano.b.y - plano.a.y, plano.depth);
+  return r ? [...new Set(linhasVisiveisGC(r.linhas, hidden ?? new Set<Id>()).map((l) => l.guardaId))] : [];
+}
+
+/** Guarda-corpos que a caixa de seleção do corte pega (coordenadas (t,z)): janela = todas as peças dentro; cruzamento = alguma peça toca a caixa. */
+export function guardaCorpoNaCaixaDoCorte(p: Project, s: SectionResult, hidden: ReadonlySet<Id> | undefined, a: Pt, b: Pt): Id[] {
+  if (!ServicoGuardaCorpo.temGuardaCorpo(p)) return [];
+  const plano = planoDaSecao(s);
+  if (!plano) return [];
+  const r = servicoGuardaCorpo().corte(p, null, plano.a.x, plano.a.y, plano.b.x - plano.a.x, plano.b.y - plano.a.y, plano.depth);
+  return r ? guardaCorposNaCaixa(r.linhas, hidden ?? new Set<Id>(), a, b) : [];
 }
 
 /**

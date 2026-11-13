@@ -73,3 +73,49 @@ export function guardaCorpoNoPonto(linhas: readonly LinhaVistaGC[], hidden: Read
   }
   return melhor?.id ?? null;
 }
+
+type Pt = { x: number; y: number };
+
+/** Os dois segmentos se cruzam ou se tocam? (orientação com tolerância zero: basta para a caixa de seleção). */
+function segmentosSeCruzam(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+  const o = (p: Pt, q: Pt, r: Pt): number => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  const noSeg = (p: Pt, q: Pt, r: Pt): boolean => Math.min(p.x, q.x) <= r.x && r.x <= Math.max(p.x, q.x) && Math.min(p.y, q.y) <= r.y && r.y <= Math.max(p.y, q.y);
+  const o1 = o(a, b, c), o2 = o(a, b, d), o3 = o(c, d, a), o4 = o(c, d, b);
+  if (o1 !== o2 && o3 !== o4) return true;
+  return (o1 === 0 && noSeg(a, b, c)) || (o2 === 0 && noSeg(a, b, d)) || (o3 === 0 && noSeg(c, d, a)) || (o4 === 0 && noSeg(c, d, b));
+}
+
+/** A linha (contorno de peça ou polilinha) toca a caixa: vértice dentro, aresta cruzando a borda, ou caixa inteira dentro da peça. */
+function linhaTocaCaixa(l: LinhaVistaGC, min: Pt, max: Pt): boolean {
+  const dentroCaixa = (q: Pt): boolean => q.x >= min.x && q.x <= max.x && q.y >= min.y && q.y <= max.y;
+  if (l.pontos.some(dentroCaixa)) return true;
+  const cantos: Pt[] = [min, { x: max.x, y: min.y }, max, { x: min.x, y: max.y }];
+  const fechada = l.papel !== 255 && l.pontos.length >= 3;
+  const n = l.pontos.length;
+  for (let i = 0; i < (fechada ? n : n - 1); i++) {
+    const a = l.pontos[i]!;
+    const b = l.pontos[(i + 1) % n]!;
+    for (let k = 0; k < 4; k++) if (segmentosSeCruzam(a, b, cantos[k]!, cantos[(k + 1) % 4]!)) return true;
+  }
+  return fechada && dentro({ x: (min.x + max.x) / 2, y: (min.y + max.y) / 2 }, l.pontos);
+}
+
+/**
+ * Guarda-corpos que a caixa de seleção do corte ou da elevação pega, nas mesmas linhas que a vista desenha (`guarda_corte`).
+ * Janela (`b.x >= a.x`): o guarda-corpo vale se TODAS as peças visíveis dele ficam inteiras dentro da caixa.
+ * Cruzamento: vale se alguma peça toca a caixa. Oculto ou fora do isolamento não entra. Ordem da primeira aparição.
+ */
+export function guardaCorposNaCaixa(linhas: readonly LinhaVistaGC[], hidden: ReadonlySet<Id>, a: Pt, b: Pt): Id[] {
+  const min = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) };
+  const max = { x: Math.max(a.x, b.x), y: Math.max(a.y, b.y) };
+  const janela = b.x >= a.x;
+  const dentroCaixa = (q: Pt): boolean => q.x >= min.x && q.x <= max.x && q.y >= min.y && q.y <= max.y;
+  const porId = new Map<Id, boolean>();
+  for (const l of linhasVisiveisGC(linhas, hidden)) {
+    if (l.papel === 255 || l.pontos.length < 2) continue;
+    const ok = janela ? l.pontos.every(dentroCaixa) : linhaTocaCaixa(l, min, max);
+    const atual = porId.get(l.guardaId);
+    porId.set(l.guardaId, atual === undefined ? ok : janela ? atual && ok : atual || ok);
+  }
+  return [...porId].filter(([, ok]) => ok).map(([id]) => id);
+}

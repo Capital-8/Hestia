@@ -1,15 +1,17 @@
 /* eslint-disable max-lines -- o Alinhar do corte concentra pick, features, guias e patches; dividir depois. */
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { formatQuantity, hospedeiroDoGuardaCorpo, isGuardaCorpo, isOpening, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import { formatQuantity, hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isOpening, isRamp, isSlab, isStair, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
 import { alignFeatureItems } from './alignTool.ts';
 import { ToolBase } from './base.ts';
-import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
+import { avisaGuardaCorpoHospedado } from './guardaCorpoEdicao.ts';
+import { comandosMoverNoCorte } from './sectionMoverElementos.ts';
+import { corteGuardaCorpoDaSecao } from './sectionSnapComGuardaCorpo.ts';
 import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
 /** Direção da linha do corte ativo em planta. */
-function sectionDirection(env: ToolEnv): Vec2 | null {
+export function sectionDirection(env: ToolEnv): Vec2 | null {
   const sec = env.section?.();
   const view = sec ? env.project().views.find((v) => v.id === sec.id) : null;
   if (!view) return null;
@@ -17,13 +19,13 @@ function sectionDirection(env: ToolEnv): Vec2 | null {
   return Math.hypot(d.x, d.y) < 1e-9 ? null : norm(d);
 }
 
-function selectedOpenings(env: ToolEnv, walls: readonly string[]): Opening[] {
+export function selectedOpenings(env: ToolEnv, walls: readonly string[]): Opening[] {
   const p = env.project();
   return env.selection().map((id) => p.elements[id]).filter((e): e is Opening => isOpening(e) && !walls.includes(e.hostId));
 }
 
 /** Move as anotações selecionadas da vista em `(dt, dz)` (translação no plano da vista): cota, texto, detalhe e etiqueta. */
-function moveSectionAnnotations(env: ToolEnv, selection: readonly string[], dt: number, dz: number): Command[] {
+export function moveSectionAnnotations(env: ToolEnv, selection: readonly string[], dt: number, dz: number): Command[] {
   const sec = env.section?.();
   if (!sec) return [];
   const a = sec.annotations();
@@ -54,86 +56,6 @@ function moveSectionAnnotations(env: ToolEnv, selection: readonly string[], dt: 
     out.push({ type: 'updateTag', levelId, sectionId, id: tag.id, patch: { at: move(tag.at) } });
   }
   return out;
-}
-
-/**
- * Mover no corte: horizontal anda ao longo da linha do corte (parede inteira) ou ao longo da parede (abertura);
- * vertical move o peitoril da abertura. Anotações selecionadas (cota, texto, detalhe e etiqueta) andam no plano da vista.
- * É um gesto único com um só undo.
- */
-export class SectionMoveTool extends ToolBase {
-  readonly id = 'move';
-  readonly label = 'Mover';
-  override get hint(): string {
-    return this.t('tl_hint_move_section');
-  }
-  private startPoint: Vec2 | null = null;
-
-  protected reset(): void { this.startPoint = null; this.items = []; this.inf = null; }
-  protected busy(): boolean { return this.startPoint !== null; }
-
-  down(p: PointerInfo): void {
-    this.startPoint = { ...p.raw };
-    this.items = [];
-    this.env.say('Arraste para mover; Esc cancela.');
-  }
-
-  drag(p: PointerInfo): void {
-    if (!this.startPoint) return;
-    this.items = [
-      { kind: 'line', a: this.startPoint, b: p.raw, dashed: true },
-      { kind: 'label', at: p.raw, text: `${formatQuantity(unitsOf(this.env.project()), 'length', p.raw.x - this.startPoint.x)} · ${formatQuantity(unitsOf(this.env.project()), 'length', p.raw.y - this.startPoint.y)}` },
-    ];
-  }
-
-  up(p: PointerInfo): void {
-    const start = this.startPoint;
-    this.startPoint = null;
-    this.items = [];
-    if (!start) return;
-    const dt = p.raw.x - start.x;
-    const dz = p.raw.y - start.y;
-    if (Math.abs(dt) < 1e-6 && Math.abs(dz) < 1e-6) return;
-    const u = sectionDirection(this.env);
-    if (!u) { this.env.say('Não foi possível ler a direção do corte.'); return; }
-    const p0 = this.env.project();
-    const selection = this.env.selection();
-    const wallIds = selection.filter((id) => isWall(p0.elements[id]));
-    const openings = selectedOpenings(this.env, wallIds);
-    const commands: Command[] = [];
-    const notes = moveSectionAnnotations(this.env, selection, dt, dz);
-    if (wallIds.length && Math.abs(dt) > 1e-6) {
-      commands.push({ type: 'transform', ids: wallIds, transform: { kind: 'translate', d: { x: u.x * dt, y: u.y * dt } } });
-    }
-    // Guarda-corpo manual: anda ao longo do corte (planta) e sobe ou desce pela cota base. O hospedado segue a escada ou rampa.
-    const railings = selection.filter((id) => { const e = p0.elements[id]; return isGuardaCorpo(e) && hospedeiroDoGuardaCorpo(e) === null; });
-    const hospedados = guardaCorposBloqueados(p0, selection);
-    if (railings.length && Math.abs(dt) > 1e-6) commands.push({ type: 'transform', ids: railings, transform: { kind: 'translate', d: { x: u.x * dt, y: u.y * dt } } });
-    if (Math.abs(dz) > 1e-6) {
-      for (const id of railings) {
-        const g = p0.elements[id];
-        if (isGuardaCorpo(g)) commands.push({ type: 'updateGuardaCorpo', id, patch: { cotaBase: g.cotaBase + dz } });
-      }
-    }
-    for (const o of openings) {
-      const f = frameOfWall(p0, o.hostId);
-      if (!f) continue;
-      const patch: Partial<Opening> = {};
-      if (Math.abs(dt) > 1e-6) patch.offset = o.offset + dot({ x: u.x * dt, y: u.y * dt }, f.u);
-      if (Math.abs(dz) > 1e-6) patch.sillOverride = Math.max(0, openingSill(openingType(p0, o), o) + dz);
-      if (Object.keys(patch).length) commands.push({ type: 'updateElements', ids: [o.id], patch });
-    }
-    commands.push(...notes);
-    if (!commands.length && hospedados.length) { avisaGuardaCorpoHospedado(this.env); return; }
-    if (!commands.length) {
-      this.env.say(wallIds.length ? this.t('tl_msg_section_move_vertical') : 'Selecione uma parede, abertura ou anotação para mover.');
-      return;
-    }
-    this.env.transaction('Mover no corte', () => { for (const c of commands) this.env.exec(c); });
-    this.env.say(notes.length > 0 && commands.length === notes.length ? 'Anotações movidas no corte. Ctrl+Z desfaz.' : 'Movido no corte. Ctrl+Z desfaz.');
-  }
-
-  override click(): void { /* o gesto é arrastado; clique sem arrasto não move */ }
 }
 
 const round3 = (v: number): number => Math.round(v * 1000) / 1000;
@@ -204,7 +126,7 @@ const NO_RESULT = 'Esta vista não tem resultado de corte/elevação; o Alinhar 
 type SectionWithResult = SectionToolContext & { result?: () => SectionResult };
 
 /** Geometria da vista. Sem resultado a ferramenta avisa e não altera nada. */
-function sectionResult(env: ToolEnv): SectionResult | null {
+export function sectionResult(env: ToolEnv): SectionResult | null {
   const sec = env.section?.() as SectionWithResult | null | undefined;
   if (!sec || typeof sec.result !== 'function') return null;
   try { return sec.result() ?? null; } catch { return null; }
@@ -222,7 +144,7 @@ type FeatureLine = { feature: string; label: string; axis: 'h' | 'v' | null; val
 type AlignRef = { hostId?: Id; elementKind: PieceKind; feature: string; label: string; axis: Axis; z: number; t: number; value: number; point: Vec2; line: { a: Vec2; b: Vec2 } | null; guide: Guide | null; snap: SnapKind };
 /** Alvo descoberto pelo segundo clique. */
 type AlignTarget = { hostId: Id; kind: PieceKind; feature: string; label: string; axis: Axis; value: number; line: { a: Vec2; b: Vec2 }; point: Vec2 };
-type Piece = { hostId: Id; depth: number; polygons: MultiPolygon };
+export type Piece = { hostId: Id; depth: number; polygons: MultiPolygon };
 type Pick = { kind: PieceKind; hostId: Id; opening?: SectionOpening; lines: FeatureLine[]; line: FeatureLine };
 
 const LINE_EPS = 1e-7;
@@ -331,7 +253,7 @@ function hitOpening(result: SectionResult, at: Vec2, tol: number, prefer: 'h' | 
 }
 
 /** Peças da vista com dono: cortes por origem (profundidade 0) e o que está além do plano. */
-function resultPieces(result: SectionResult): Piece[] {
+export function resultPieces(result: SectionResult): Piece[] {
   let hit = piecesCache.get(result);
   if (!hit) { hit = buildResultPieces(result); piecesCache.set(result, hit); }
   return hit;
@@ -384,16 +306,54 @@ function hitPiece(pieces: Piece[], at: Vec2, tol: number, prefer: 'h' | 'v' | nu
   return best;
 }
 
-/** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível. */
-function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie = tol / 10): Pick | null {
+const guardaCorpoPiecesCache = new WeakMap<object, Piece[]>();
+
+/** Ocultos da vista, quando o ambiente informa (o desenho já os tira; o alvo do clique também não pode ser um deles). */
+const ocultosDaVista = (env: ToolEnv): ReadonlySet<Id> | undefined => (env.section?.() as { hidden?: () => ReadonlySet<Id> } | null | undefined)?.hidden?.();
+
+/**
+ * Peças do guarda-corpo na vista, com dono. Ele fica fora do `SectionResult` (o motor de seção roda no worker; o guarda-corpo é
+ * desenhado pelo kernel): as linhas são as MESMAS que a vista desenha (`guarda_corte`). Cada guarda-corpo vira uma peça só, com
+ * todos os contornos dele (poste, trilho, corrimão, painel), para topo, base e faces serem os do guarda-corpo inteiro.
+ */
+export function guardaCorpoPieces(env: ToolEnv, result: SectionResult): Piece[] {
+  const corte = corteGuardaCorpoDaSecao(env.project(), result);
+  if (!corte) return [];
+  let hit = guardaCorpoPiecesCache.get(corte);
+  if (!hit) {
+    const porId = new Map<Id, MultiPolygon>();
+    for (const l of corte.linhas) {
+      if (l.papel === 255 || l.pontos.length < 3) continue;
+      let polys = porId.get(l.guardaId);
+      if (!polys) { polys = []; porId.set(l.guardaId, polys); }
+      polys.push([l.pontos.map((q) => ({ x: q.x, y: q.y }))]);
+    }
+    hit = [...porId].map(([hostId, polygons]) => ({ hostId, depth: 0, polygons }));
+    guardaCorpoPiecesCache.set(corte, hit);
+  }
+  const hidden = ocultosDaVista(env);
+  return hidden && hidden.size > 0 ? hit.filter((q) => !hidden.has(q.hostId)) : hit;
+}
+
+/** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível (guarda-corpo incluído). */
+function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie = tol / 10, extra: Piece[] = [], hidden?: ReadonlySet<Id>): Pick | null {
   const op = hitOpening(result, at, tol, prefer, tie);
-  if (op) return { kind: 'opening', hostId: op.opening.openingId, opening: op.opening, lines: op.lines, line: op.line };
-  const all = resultPieces(result);
+  if (op && !hidden?.has(op.opening.openingId)) return { kind: 'opening', hostId: op.opening.openingId, opening: op.opening, lines: op.lines, line: op.line };
+  const all = hidden && hidden.size > 0 ? resultPieces(result).filter((q) => !hidden.has(q.hostId)) : resultPieces(result);
   const wall = hitPiece(all.filter((p) => isWall(project.elements[p.hostId])), at, tol, prefer, tie);
   if (wall) return { kind: 'wall', hostId: wall.piece.hostId, lines: wall.lines, line: wall.line };
-  const other = hitPiece(all.filter((p) => !isWall(project.elements[p.hostId])), at, tol, prefer, tie);
+  // O guarda-corpo vai primeiro: é desenhado por cima de tudo, e num empate o que se vê por cima vence.
+  const other = hitPiece([...extra, ...all.filter((p) => !isWall(project.elements[p.hostId]))], at, tol, prefer, tie);
   if (other) return { kind: 'other', hostId: other.piece.hostId, lines: other.lines, line: other.line };
   return null;
+}
+
+/** Elemento sob o ponto do corte (clique de Mover ou Copiar sem seleção). Anotações não entram; oculto na vista também não. */
+export function pickSectionElement(env: ToolEnv, at: Vec2): Id | null {
+  const result = sectionResult(env);
+  if (!result) return null;
+  const tol = Math.max(1e-6, env.metersPerPixel() * 4);
+  return pickAt(result, env.project(), at, tol, null, tol / 10, guardaCorpoPieces(env, result), ocultosDaVista(env))?.hostId ?? null;
 }
 
 /** Guia persistente: h/v atravessam a vista inteira; a inclinada usa a própria reta. */
@@ -491,11 +451,15 @@ export class SectionAlignTool extends ToolBase {
   /** Empate entre linhas vizinhas: 1,5 px da tela. */
   private tie(): number { return Math.max(1e-7, this.env.metersPerPixel() * 1.5); }
 
+  private pickAt(result: SectionResult, at: Vec2, prefer: 'h' | 'v' | null): Pick | null {
+    return pickAt(result, this.env.project(), at, this.tolerance(), prefer, this.tie(), guardaCorpoPieces(this.env, result), ocultosDaVista(this.env));
+  }
+
   private findTarget(at: Vec2): AlignTarget | null {
     const result = sectionResult(this.env);
     if (!result) return null;
     const prefer = this.ref?.axis === 'h' || this.ref?.axis === 'v' ? this.ref.axis : null;
-    const pick = pickAt(result, this.env.project(), at, this.tolerance(), prefer, this.tie());
+    const pick = this.pickAt(result, at, prefer);
     if (!pick) return null;
     const line = pick.line;
     return { hostId: pick.hostId, kind: pick.kind, feature: line.feature, label: line.label, axis: line.axis ?? 'point', value: line.value, line: { a: line.a, b: line.b }, point: closestOnSegment(at, line.a, line.b) };
@@ -505,7 +469,7 @@ export class SectionAlignTool extends ToolBase {
     const result = sectionResult(this.env);
     if (!result) { this.env.say(NO_RESULT); return; }
     const p0 = this.env.project();
-    const pick = pickAt(result, p0, raw, this.tolerance(), null, this.tie());
+    const pick = this.pickAt(result, raw, null);
     if (!pick) {
       this.ref = { elementKind: 'other', feature: 'point', label: 'ponto', axis: 'point', z: inf.point.y, t: inf.point.x, value: inf.point.y, point: { ...inf.point }, line: null, guide: null, snap: inf.kind };
       this.items = [];
@@ -547,7 +511,34 @@ export class SectionAlignTool extends ToolBase {
     }
     if (target.kind === 'opening') this.applyOpening(ref, target);
     else if (target.kind === 'wall') this.applyWall(ref, target);
-    else this.env.say(this.t('tl_msg_align_target_invalid'));
+    else this.applyElemento(ref, target);
+  }
+
+  /**
+   * Escada, rampa, laje, telhado e guarda-corpo: o mesmo mecanismo do Mover no corte (`comandosMoverNoCorte`). Linha horizontal
+   * leva o elemento na vertical até a referência; linha vertical leva ao longo do corte. Aresta inclinada não alinha. O
+   * guarda-corpo hospedado só segue o hospedeiro: a barra de status explica.
+   */
+  private applyElemento(ref: AlignRef, target: AlignTarget): void {
+    const p0 = this.env.project();
+    const el = p0.elements[target.hostId];
+    if (isGuardaCorpo(el) && hospedeiroDoGuardaCorpo(el) !== null) { avisaGuardaCorpoHospedado(this.env); return; }
+    if (!el || !(isStair(el) || isRamp(el) || isFloor(el) || isSlab(el) || isGuardaCorpo(el))) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
+    let dt = 0;
+    let dz = 0;
+    if (target.axis === 'h') {
+      if (ref.axis === 'v') { this.env.say('Alinhamento incompatível: referência vertical não alinha uma linha horizontal. Nada foi alterado.'); return; }
+      dz = ref.z - target.value;
+    } else if (target.axis === 'v') {
+      if (ref.axis === 'h') { this.env.say('Alinhamento incompatível: referência horizontal não alinha uma linha vertical. Nada foi alterado.'); return; }
+      dt = ref.t - target.value;
+    } else { this.env.say(this.t('tl_msg_edge_sloped_element')); return; }
+    if (Math.abs(dt) < 1e-6 && Math.abs(dz) < 1e-6) { this.env.say('O elemento já está alinhado; nada foi alterado.'); return; }
+    const u = sectionDirection(this.env);
+    if (!u) { this.env.say('Não foi possível ler a direção do corte; nada foi alterado.'); return; }
+    const mover = comandosMoverNoCorte(p0, [el.id], u, dt, dz);
+    if (!mover.commands.length) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
+    this.commit(mover.commands, dz !== 0 ? `Elemento alinhado em ${cotaText(this.env, ref.z)}` : `Elemento alinhado em ${formatQuantity(unitsOf(p0), 'length', ref.t)}`);
   }
 
   private applyOpening(ref: AlignRef, target: AlignTarget): void {
@@ -650,8 +641,8 @@ export class SectionAlignTool extends ToolBase {
   }
 
   /** Um comando, uma transação: o alinhamento inteiro é um único passo de desfazer. */
-  private commit(cmd: Command, message: string): void {
-    this.env.transaction('Alinhar no corte', () => this.env.exec(cmd));
+  private commit(cmd: Command | Command[], message: string): void {
+    this.env.transaction('Alinhar no corte', () => { for (const c of Array.isArray(cmd) ? cmd : [cmd]) this.env.exec(c); });
     this.env.say(`${message}. Ctrl+Z desfaz; Esc sai.`);
     this.reset();
   }
