@@ -42,6 +42,12 @@ function servirDist() {
       res.writeHead(403).end();
       return;
     }
+    // O app não declara ícone (achado conhecido, fora da massa): o servidor de teste responde 204 ao pedido automático do
+    // navegador, para o 404 do favicon não mascarar erros de verdade.
+    if (rel === '/favicon.ico') {
+      res.writeHead(204).end();
+      return;
+    }
     let corpo;
     try {
       corpo = await readFile(arq);
