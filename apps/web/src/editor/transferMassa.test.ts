@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, isMass, makeLevel, makeMass, secaoCirculo, type Id, type Mass } from '@hestia/model';
 import { Transfer } from './transfer.ts';
 import { useUi } from './state.ts';
+import { useI18n } from './i18n.ts';
 
 /**
  * Transferência com a MASSA (ficha T1c, item c): copiar e colar alinhado leva a massa, a seleção pós-colar a inclui e a origem da cópia
- * (nível) e a contagem do buffer a conhecem. A frase de contagem ainda não cita a massa (falta a chave de i18n; ver `transfer.ts`).
+ * (nível) e a contagem do buffer a conhecem. A frase de cópia conta a massa (ficha U2: "1 massa" e "1 mass").
  */
 function setup() {
   const s = new ProjectStore(createEmptyProject());
@@ -45,5 +46,17 @@ describe('transferência do editor: massa', () => {
     const [copia] = massasDoNivel(s, 'lv_1');
     expect(useUi.getState().selection).toContain(copia!.id);
     expect(useUi.getState().selection).toHaveLength(1);
+  });
+
+  it('a frase de cópia conta só a massa: "1 massa" em pt e "1 mass" em en', () => {
+    const s = setup();
+    const t = new Transfer();
+    useI18n.setState({ lang: 'pt' });
+    t.copy(s.project, ['m1']);
+    expect(useUi.getState().status).toEqual({ key: 'edc_copied', args: { description: '1 massa' } });
+    useI18n.setState({ lang: 'en' });
+    t.copy(s.project, ['m1']);
+    expect(useUi.getState().status).toEqual({ key: 'edc_copied', args: { description: '1 mass' } });
+    useI18n.setState({ lang: 'pt' });
   });
 });
