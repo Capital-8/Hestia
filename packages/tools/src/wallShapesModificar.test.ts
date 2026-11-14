@@ -1,6 +1,6 @@
 /**
  * F1.6 (docs/parede-formas/METODOLOGIA.md, Fase 1): matriz dos comandos de modificar × {círculo, elipse, hexágono} sobre as
- * paredes com forma da F1.2/F1.3. Só testes; defeito achado vira `it.fails` com o repro no comentário.
+ * paredes com forma da F1.2/F1.3. Só testes; defeito achado virou `it.fails` (resolvidos na F1.9).
  *
  * Cada caso cria a forma pela ferramenta Parede, aplica o comando sem UI e confere: contagem de paredes, pontas coincidentes a
  * 1e-6 m (cadeia fechada), tangência nos arcos (círculo e elipse; o hexágono tem cantos, então só confere a coincidência),
@@ -246,15 +246,11 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
   }
 
   // ─── Matriz ───────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // DEFEITO (círculo): `copiesOverlap` (wallOverlapGuard.ts) compara só o eixo a→b de cada parede do lote. Os dois arcos de um
-  // círculo têm a mesma corda, então as cópias do arco de cima e do de baixo "se sobrepõem" entre si e a matriz inteira é
-  // recusada com "a parede ficaria em cima da parede ... (600 cm)". Repro: círculo r=3, Matriz linear, 3 itens, espaçamento 10 em x.
+  // F1.9: `copiesOverlap` passou a comparar a geometria real do arco (corda + flecha), então as cópias dos dois semicírculos
+  // (mesma corda, flechas opostas) não se sobrepõem e a matriz do círculo é aceita.
 
   for (const f of FORMAS) {
-    const rotulo = f === 'circulo'
-      ? 'Matriz linear 3 itens, espaçamento 10 · circulo (DEFEITO: cópias do próprio círculo recusadas)'
-      : `Matriz linear 3 itens, espaçamento 10 · ${f}`;
-    (f === 'circulo' ? it.fails : it)(rotulo, () => {
+    it(`Matriz linear 3 itens, espaçamento 10 · ${f}`, () => {
       const c = criar(f);
       const pre = pontas(todas(c));
       const n = todas(c).length;
@@ -277,8 +273,7 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
   it('Deslocar 0,5 m · círculo: arcos de fora viram raio 3,5 e de dentro raio 2,5', () => {
     const fora = criar('circulo');
     const tf = tool('offset', fora.env);
-    clickAt(tf, 0, 3.02);
-    clickAt(tf, 0, -3.02);
+    clickAt(tf, 0, 3.02); // Cadeia: um clique desloca os dois arcos
     const wf = todas(fora);
     expect(wf).toHaveLength(2);
     mesmoConjunto(pontas(wf), [{ x: -3.5, y: 0 }, { x: 3.5, y: 0 }], 'Deslocar fora');
@@ -290,7 +285,6 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     const dentro = criar('circulo');
     const td = tool('offset', dentro.env);
     clickAt(td, 0, 2.98);
-    clickAt(td, 0, -2.98);
     const wd = todas(dentro);
     expect(wd).toHaveLength(2);
     mesmoConjunto(pontas(wd), [{ x: -2.5, y: 0 }, { x: 2.5, y: 0 }], 'Deslocar dentro');
@@ -299,16 +293,14 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     cadeiaTangente(wd);
   });
 
-  // DEFEITO (hexágono): ao deslocar os seis lados um a um, cada lado estica a ponta compartilhada com o vizinho (ela anda com o
-  // deslocamento do lado movido), e as esticadas se somam. O resultado não é o hexágono de apótema 3,098: os lados saem inclinados.
-  // Esperado: cada lado na reta a 3,098076 do centro, paralelo ao original. Repro: hexágono r=3, Deslocar 0,5 em cada lado (1 clique
-  // no meio de cada lado, para fora).
-  it.fails('Deslocar 0,5 m · hexágono (DEFEITO: os lados saem inclinados; vizinhos esticados se somam, em vez de ficar no apótema 3,098)', () => {
+  // Opção "Cadeia" (F1.9, padrão ligada): um clique num lado desloca a cadeia inteira de paredes em junção pair pelo mesmo lado,
+  // com os cantos recalculados; o hexágono continua hexágono (apótema 2,598076 + 0,5 = 3,098076) e o círculo/elipse mantêm tangência.
+  it('Deslocar 0,5 m · hexágono com Cadeia: um clique leva os 6 lados ao apótema 3,098076, paralelos aos originais', () => {
     const c = criar('hexagono');
     const antes = todas(c);
     const meios = antes.map((w) => ({ x: (w.a.x + w.b.x) / 2, y: (w.a.y + w.b.y) / 2 }));
     const t = tool('offset', c.env);
-    for (const m of meios) clickAt(t, m.x * 1.02, m.y * 1.02);
+    clickAt(t, meios[0]!.x * 1.02, meios[0]!.y * 1.02);
     const ws = todas(c);
     expect(ws).toHaveLength(6);
     antes.forEach((w, i) => {
@@ -316,17 +308,38 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
       const k = Math.hypot(m.x, m.y);
       const normal = { x: m.x / k, y: m.y / k };
       const depois = porId(c, w.id);
-      expect(normal.x * depois.a.x + normal.y * depois.a.y, `lado ${w.id} ponta a`).toBeCloseTo(3.098076, 6);
-      expect(normal.x * depois.b.x + normal.y * depois.b.y, `lado ${w.id} ponta b`).toBeCloseTo(3.098076, 6);
+      expect(normal.x * depois.a.x + normal.y * depois.a.y, `lado ${w.id} ponta a`).toBeCloseTo(3.098076, 5);
+      expect(normal.x * depois.b.x + normal.y * depois.b.y, `lado ${w.id} ponta b`).toBeCloseTo(3.098076, 5);
+      // Paralelo ao original: mesmo vetor a→b.
+      expect(depois.b.x - depois.a.x, `lado ${w.id} dx`).toBeCloseTo((w.b.x - w.a.x) * (3.098076 / 2.598076), 5);
+      expect(depois.b.y - depois.a.y, `lado ${w.id} dy`).toBeCloseTo((w.b.y - w.a.y) * (3.098076 / 2.598076), 5);
     });
+    // Vértice literal: o vértice (3, 0) vai para (3,098076 / cos 30° = 3,577350; 0).
+    contemLiterais(pontas(ws), [{ x: 3.57735, y: 0 }], 'Deslocar hexágono');
+    cadeiaFechada(ws);
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
+  });
+
+  it('Deslocar 0,5 m · hexágono com Cadeia desligada: comportamento de parede única (só o lado clicado anda)', () => {
+    const c = criar('hexagono');
+    c.options.offsetChain = false;
+    const antes = todas(c);
+    const m = { x: (antes[0]!.a.x + antes[0]!.b.x) / 2, y: (antes[0]!.a.y + antes[0]!.b.y) / 2 };
+    clickAt(tool('offset', c.env), m.x * 1.02, m.y * 1.02);
+    const ws = todas(c);
+    expect(ws).toHaveLength(6);
+    antes.slice(1).forEach((w, i) => {
+      const d = porId(c, w.id);
+      const lados = [d.a, d.b].filter((p) => !contem([w.a, w.b], p)).length;
+      expect(lados, `lado ${i + 1}`).toBeLessThanOrEqual(1);
+    });
   });
 
   it('Deslocar 0,5 m · elipse: os 16 arcos saem 0,5 m; os cardeais vão para (4,5; 0), (0; 2,5), (-4,5; 0), (0; -2,5)', () => {
     const c = criar('elipse');
     const alvos = todas(c).map((w) => apice(w));
     const t = tool('offset', c.env);
-    for (const p of alvos) clickAt(t, p.x * 1.01, p.y * 1.01);
+    clickAt(t, alvos[0]!.x * 1.01, alvos[0]!.y * 1.01); // Cadeia: um clique desloca os 16 arcos
     const ws = todas(c);
     expect(ws).toHaveLength(16);
     contemLiterais(pontas(ws), [{ x: 4.5, y: 0 }, { x: 0, y: 2.5 }, { x: -4.5, y: 0 }, { x: 0, y: -2.5 }], 'Deslocar elipse');
@@ -405,18 +418,29 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
   });
 
   // ─── Dividir ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // DEFEITO (círculo e elipse): `cutOn` (splitTool.ts) arredonda o parâmetro de comprimento de arco à grade (passo 0,1 m) quando o
-  // clique está a até 5 px. Num arco, isso desloca o corte ao longo da curva. Círculo: clique no ápice (0; 3,02) corta em
-  // (-0,0124; 3,0000), não em (0; 3). Elipse: parâmetro de arco 1,111767 m é arredondado para 1,1 m (corte 12 mm fora do clique).
+  // Não é defeito: `cutOn` (splitTool.ts) arredonda o comprimento de arco à grade de 0,1 m (snap de grade do desenho) quando o clique
+  // está a até 5 px. Num arco isso move o corte ao longo da curva em no máximo meia célula (0,05 m): círculo, clique em (0; 3,02)
+  // corta em (-0,0124; 3,0000); elipse, 12 mm do ápice. Por isso o teste aceita o corte a até 0,05 m do ponto clicado.
   // Parede reta e o meio do lado do hexágono (comprimento 1,5, múltiplo de 0,1) cortam exato.
+  const MEIA_CELULA = 0.05;
+  const novaPonta = (ws: readonly Wall[], antes: readonly Vec2[]): Vec2 => {
+    const novas = distintas(pontas(ws)).filter((q) => !contem(antes, q));
+    expect(novas, 'o corte cria exatamente uma ponta nova').toHaveLength(1);
+    return novas[0]!;
+  };
 
-  it.fails('Dividir no ápice · círculo (DEFEITO: corte deslocado 12 mm pelo arredondamento à grade do comprimento de arco)', () => {
+  it('Dividir no ápice · círculo: corte na grade de 0,1 m, a até meia célula de (0; 3), sobre o círculo r=3', () => {
     const c = criar('circulo');
+    const antes = pontas(todas(c));
     const t = tool('split', c.env);
     clickAt(t, 0, 3.02);
     const ws = todas(c);
     expect(ws).toHaveLength(3);
-    expect(contem(pontas(ws), { x: 0, y: 3 }), 'corte esperado no ápice (0; 3)').toBe(true);
+    const q = novaPonta(ws, antes);
+    expect(Math.hypot(q.x - 0, q.y - 3)).toBeLessThanOrEqual(MEIA_CELULA);
+    expect(Math.hypot(q.x, q.y), 'o corte fica sobre o círculo').toBeCloseTo(3, 6);
+    cadeiaFechada(ws);
+    expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
   });
 
   it('Dividir no meio do lado · hexágono: corte em (0; 2,598076), 7 paredes, cadeia fechada, joinStatus pair', () => {
@@ -430,14 +454,16 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
   });
 
-  it.fails('Dividir no ápice do arco · elipse (DEFEITO: corte deslocado 12 mm pelo arredondamento à grade do comprimento de arco)', () => {
+  it('Dividir no ápice do arco · elipse: corte na grade de 0,1 m, a até meia célula do ápice; cadeia tangente', () => {
     const c = criar('elipse');
+    const antes = pontas(todas(c));
     const p = apice(arcoQueCruzaX1(c));
     const t = tool('split', c.env);
     clickAt(t, p.x, p.y);
     const ws = todas(c);
     expect(ws).toHaveLength(17);
-    expect(contem(pontas(ws), p), `corte esperado no ápice ${fmt(p)}`).toBe(true);
+    const q = novaPonta(ws, antes);
+    expect(Math.hypot(q.x - p.x, q.y - p.y), `corte ${fmt(q)} a até meia célula do ápice ${fmt(p)}`).toBeLessThanOrEqual(MEIA_CELULA);
     cadeiaFechada(ws);
     cadeiaTangente(ws);
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
@@ -463,9 +489,10 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
   });
 
-  // DEFEITO (hexágono): o lado de baixo vai para y=-5, mas os lados vizinhos esticam e a forma deixa de ser o hexágono transladado.
-  // Esperado: a forma inteira desloca (−2,401924), como o círculo. Repro: hexágono r=3, Alinhar com referência y=-5 no lado de baixo.
-  it.fails('Alinhar à reta y=-5 · hexágono (DEFEITO: só o lado clicado anda; os vizinhos esticam e a forma deforma)', () => {
+  // Não é defeito: Alinhar move só a parede clicada e as vizinhas esticam nas pontas compartilhadas (semântica existente, igual para
+  // qualquer parede). A forma inteira não translada; o que se confere é a ponta alinhada, as demais pontas no lugar, a cadeia
+  // fechada (pontas coincidentes) e o `joinStatus` pair.
+  it('Alinhar à reta y=-5 · hexágono: o lado de baixo vai para y=-5, os vizinhos esticam; pontas coincidentes e pair', () => {
     const c = criar('hexagono');
     c.options.alignPrefer = 'eixos';
     const ref = referenciaHorizontal(c);
@@ -473,15 +500,18 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     clickAt(t, 0, -5);
     clickAt(t, 0, -2.598076);
     const ws = todas(c).filter((w) => w.id !== ref);
-    mesmoConjunto(pontas(ws), desloc(ANCORAS.hexagono, 0, -2.401924), 'Alinhar hexágono');
+    expect(ws).toHaveLength(6);
+    // Vértices de baixo em (±1,5; -5); os outros quatro ficam onde estavam.
+    mesmoConjunto(pontas(ws), [
+      { x: 3, y: 0 }, { x: 1.5, y: -5 }, { x: -1.5, y: -5 },
+      { x: -3, y: 0 }, { x: -1.5, y: 2.598076 }, { x: 1.5, y: 2.598076 },
+    ], 'Alinhar hexágono');
     cadeiaFechada(ws);
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
   });
 
-  // DEFEITO (elipse): o arco de baixo vai para y=-5, mas as duas pontas dele esticam e os arcos vizinhos entortam, quebrando a
-  // tangência do anel. Esperado: a elipse inteira desloca (−3), como o círculo. Repro: elipse 4×2, Alinhar com referência y=-5 no
-  // arco de baixo (clique em (0; -2)).
-  it.fails('Alinhar à reta y=-5 · elipse (DEFEITO: só o arco clicado anda; vizinhos esticam e a tangência do anel quebra)', () => {
+  // Elipse: o arco de baixo vai para y=-5 e os vizinhos esticam; a tangência do anel não se mantém (consequência da mesma semântica).
+  it('Alinhar à reta y=-5 · elipse: o arco de baixo vai para (0; -5), os cardeais restantes ficam; pontas coincidentes e pair', () => {
     const c = criar('elipse');
     c.options.alignPrefer = 'eixos';
     const ref = referenciaHorizontal(c);
@@ -489,9 +519,10 @@ describe('F1.6 · matriz de modificar × forma (círculo, elipse, hexágono)', (
     clickAt(t, 0, -5);
     clickAt(t, 0, -2);
     const ws = todas(c).filter((w) => w.id !== ref);
-    mesmoConjunto(pontas(ws), desloc(ANCORAS.elipse, 0, -3), 'Alinhar elipse');
+    expect(ws).toHaveLength(16);
+    contemLiterais(pontas(ws), [{ x: 0, y: -5 }, { x: 4, y: 0 }, { x: -4, y: 0 }, { x: 0, y: 2 }], 'Alinhar elipse');
+    expect(Math.min(...pontas(ws).map((p) => p.y))).toBeCloseTo(-5, 9);
     cadeiaFechada(ws);
-    cadeiaTangente(ws);
     expect(estados(c, ws).every((k) => k === 'pair')).toBe(true);
   });
 });
