@@ -1,7 +1,8 @@
-import { makeWall, mullionTypesOf, curtainPanelTypesOf, CURTAIN_LIMITS, type CurtainPanelType, type CurtainSpec, type GridAxisSpec, type Id, type MullionType, type WallType } from '@hestia/model';
+import { makeWall, mullionTypesOf, curtainPanelTypesOf, CURTAIN_LIMITS, type CurtainPanelType, type CurtainSpec, type GridAxisSpec, type Id, type MullionType, type Wall, type WallType } from '@hestia/model';
 import { materialIdOfStyle, slug, styleOfWithMaterial } from './elementTypes.ts';
 import { hull2, rectangleAxis, type Body } from './geometry.ts';
 import { bodyFor, levelAt } from './genericImport.ts';
+import { attachCurtainOpenings } from './curtainOpenings.ts';
 import { aggregateIndex, withoutHestiaProperties } from './hestia.ts';
 import type { Pt2 } from './ifc.ts';
 import { propertiesOf } from './psets.ts';
@@ -288,7 +289,11 @@ function convert(ctx: Ctx, cw: StepEntity, agg: Map<number, number[]>): boolean 
   };
   ctx.walls.set(cw.id, id);
   ctx.handled.add(cw.id);
+  // Portas/janelas filhas viram esquadria de célula quando cabem na grade; as demais seguem para o fallback genérico.
+  const wall = ctx.p.elements[id] as Wall;
+  const placed = new Set(attachCurtainOpenings(ctx, wall, all, { wallId: id, a: rect.a, dx, dy, length, height, zMin, u, v }));
   for (const e of all) {
+    if ((e.type === 'IFCDOOR' || e.type === 'IFCWINDOW') && !placed.has(e.id)) continue;
     ctx.handled.add(e.id);
     ctx.bodies.delete(e.id);
   }

@@ -6,19 +6,21 @@ import {
   makeSlab,
   makeWall,
   type Id,
-  type IfcProperty,
-  type Opening,
   type Project,
 } from '@hestia/model';
-import { bodyPoints, cleanLoop, interiorPoint, prismFromMesh, rectangleAxis, segment, type Body, type Prism } from './geometry.ts';
+import { bodyPoints, cleanLoop, interiorPoint, prismFromMesh, rectangleAxis, type Body, type Prism } from './geometry.ts';
+import { addOpening } from './openingImport.ts';
+import { guid, noteGeometry, psetOf } from './mappingUtil.ts';
+import { addGuardaCorpos } from './guardaCorpoImport.ts';
+import { addStairs } from './escadaImport.ts';
+import { addRoofs } from './telhadoImport.ts';
 import { addCurtainWalls } from './curtainImport.ts';
 import { minZOf } from './genericElement.ts';
 import { addGenericObjects, bodyFor, countUnhandledProducts, isSpatialOrVoid, toGeneric } from './genericImport.ts';
-import { applyHestiaElements, applyHestiaLevels, applyHestiaProject, readHestia, withoutHestiaProperties } from './hestia.ts';
-import { materialIdOfStyle, openingType, operationOf, slabLikeType, styleOfWithMaterial, wallType } from './elementTypes.ts';
+import { applyHestiaElements, applyHestiaLevels, applyHestiaProject, readHestia } from './hestia.ts';
+import { materialIdOfStyle, slabLikeType, styleOfWithMaterial, wallType } from './elementTypes.ts';
 import { IfcFile, projectName, type Pt2 } from './ifc.ts';
 import { readLevels, type LevelRef } from './levels.ts';
-import { propertiesOf } from './psets.ts';
 import { readRelations } from './relations.ts';
 import type { StepEntity } from './step.ts';
 import { t, type Lang } from '../i18n.ts';
@@ -84,13 +86,6 @@ const emptyReport = (f: IfcFile): ImportReport => ({
   warnings: [],
 });
 
-const guid = (f: IfcFile, e: StepEntity | undefined): string => f.text(e, 0) || `#${e?.id ?? 0}`;
-
-/** Campo opcional `ifcProperties`: só entra no elemento quando há propriedade lida (instância + tipo). */
-function psetOf(ctx: Ctx, e: StepEntity): { ifcProperties?: IfcProperty[] } {
-  const props = withoutHestiaProperties(propertiesOf(ctx.f, e, ctx.typeOf.get(e.id)));
-  return props.length ? { ifcProperties: props } : {};
-}
 
 /** Produtos de uma família (`IFCWALL` inclui StandardCase/ElementedCase), sem os tipos/estilos. */
 function products(f: IfcFile, prefix: string): StepEntity[] {
@@ -100,11 +95,6 @@ function products(f: IfcFile, prefix: string): StepEntity[] {
     .filter((e) => f.ent(e, 6)?.type === 'IFCPRODUCTDEFINITIONSHAPE');
 }
 
-/** Soma ao relatório os itens de geometria que o leitor não representou (corte, extrusão inclinada...). */
-function noteGeometry(ctx: Ctx, body: Body | null): void {
-  if (!body) return;
-  for (const motivo of body.unsupported) ctx.report.geometry[motivo] = (ctx.report.geometry[motivo] ?? 0) + 1;
-}
 
 /** Nível mais próximo abaixo de uma cota `z` (1 cm de folga). */
 function levelAt(ctx: Ctx, z: number): LevelRef {
@@ -159,67 +149,6 @@ function placeWall(ctx: Ctx, e: StepEntity, prism: Prism, rect: { a: Pt2; b: Pt2
   ctx.count('paredes');
 }
 
-/** Porta/janela que não coube no modelo nativo: vira objeto genérico; só fica de fora se não tiver corpo. */
-function fallbackOpening(ctx: Ctx, filler: StepEntity, reason: string): void {
-  if (toGeneric(ctx, filler, bodyFor(ctx, filler))) return;
-  ctx.warn(reason);
-  ctx.skip(filler.type);
-}
-
-function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'): void {
-  if (ctx.handled.has(filler.id)) return;
-  const f = ctx.f;
-  const openingId = ctx.openingOf.get(filler.id);
-  if (openingId == null) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_fill'));
-  const hostIfc = ctx.hostOf.get(openingId);
-  const hostId = hostIfc == null ? undefined : ctx.walls.get(hostIfc);
-  if (!hostId) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_host'));
-  const wall = ctx.p.elements[hostId];
-  if (!wall || wall.kind !== 'wall') return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_host'));
-  const opening = f.entity(openingId);
-  const body = opening ? bodyFor(ctx, opening) : null;
-  noteGeometry(ctx, body);
-  if (!body) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_no_void'));
-  const prism = body.prisms[0];
-  const loop = prism?.loops[0] ?? [];
-  const cloud = prism ? loop.map((p) => ({ x: p.x, y: p.y, z: prism.z0 })) : bodyPoints(body);
-  if (cloud.length < 3) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_few_points'));
-  const { dir, len } = segment([wall.a, wall.b]);
-  let min = Infinity;
-  let max = -Infinity;
-  let z0 = Infinity;
-  let z1 = -Infinity;
-  for (const p of cloud) {
-    const t = (p.x - wall.a.x) * dir.x + (p.y - wall.a.y) * dir.y;
-    min = Math.min(min, t);
-    max = Math.max(max, t);
-    z0 = Math.min(z0, prism ? prism.z0 : p.z);
-    z1 = Math.max(z1, prism ? prism.z1 : p.z);
-  }
-  const width = Math.max(0.3, max - min);
-  const center = (min + max) / 2;
-  const height = Math.max(0.3, z1 - z0);
-  const baseZ = ctx.p.levels.find((l) => l.id === wall.levelId)?.elevation ?? 0;
-  const sill = z0 - (baseZ + wall.baseOffset);
-  const typeId = openingType(ctx, filler, kind, width, height, sill);
-  const offset = Math.max(0, Math.min(len - width / 2, center));
-  const id = `o_${guid(f, filler)}`;
-  const op: Opening = {
-    id,
-    kind,
-    typeId,
-    hostId,
-    offset,
-    flipHand: /RIGHT/.test(operationOf(ctx.typeOf.get(filler.id))),
-    flipFacing: false,
-    sillOverride: null,
-    mark: f.text(filler, 7),
-    ...psetOf(ctx, filler),
-  };
-  ctx.p.elements[id] = op;
-  ctx.handled.add(filler.id);
-  ctx.count(kind === 'door' ? 'portas' : 'janelas');
-}
 
 function slabKind(f: IfcFile, e: StepEntity): 'floor' | 'slab' | 'ceiling' | null {
   const pre = f.enum(e, 8);
@@ -485,17 +414,21 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
   ctx.order = Math.max(ctx.order, applyHestiaElements(ctx, hestia.elements) + 1);
   const paredes = products(file, 'IFCWALL');
   emLotes(paredes, 'walls', 0, paredes.length, aviso, (e) => addWall(ctx, e, bodyFor(ctx, e)));
+  // Cortinas antes das esquadrias: portas/janelas filhas da cortina viram esquadria de célula dela.
+  addCurtainWalls(ctx);
   const portas = products(file, 'IFCDOOR');
   const janelas = products(file, 'IFCWINDOW');
   emLotes(portas, 'openings', 0, portas.length + janelas.length, aviso, (e) => addOpening(ctx, e, 'door'));
   emLotes(janelas, 'openings', portas.length, portas.length + janelas.length, aviso, (e) => addOpening(ctx, e, 'window'));
+  addRoofs(ctx);
   const lajes = [...products(file, 'IFCSLAB'), ...products(file, 'IFCCOVERING')];
   const ambientes = file.byType('IFCSPACE');
   emLotes(lajes, 'slabs', 0, lajes.length + ambientes.length, aviso, (e) => addSlab(ctx, e));
   emLotes(ambientes, 'slabs', lajes.length, lajes.length + ambientes.length, aviso, (e) => addRoom(ctx, e));
   // Com `GridsJSON`, os eixos voltam do registro do projeto; sem ele, valem os `IFCGRID` do arquivo.
   if (hestia.project?.grids === undefined) addGrids(ctx);
-  addCurtainWalls(ctx);
+  addStairs(ctx);
+  addGuardaCorpos(ctx);
   addGenericObjects(file, ctx, aviso);
   countUnhandledProducts(file, report, ctx.handled);
   p.name = projectName(file, p);
