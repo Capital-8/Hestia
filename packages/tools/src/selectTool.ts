@@ -9,6 +9,7 @@ import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, 
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { massIdsInBox, pickMassAt } from './massPick.ts';
+import { massHandlePreview } from './massHandles.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -268,7 +269,7 @@ export class SelectTool extends ToolBase {
     if (this.mode === 'idle') {
       this.items.push(...ringHandlePreview(pr, this.env.selection(), this.focus, !this.somenteLeitura));
       for (const previa of previasDeAlcas) this.items.push(...previa(this.env));
-      if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()));
+      if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()), ...massHandlePreview(pr, this.env.selection()));
     }
     // Alça da cota selecionada: sob o cursor, a cota destaca-se (arrastar muda o deslocamento).
     const dgHover = this.mode === 'idle' ? dimGripAt(pr, this.env.levelId(), this.env.selection(), p.raw, this.env.metersPerPixel(), this.planId()) : null;
