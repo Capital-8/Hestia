@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GraphicsCategory, Id, Material } from '@hestia/model';
 import type { EntradaNivel } from '../model3d/cacheMalhas3d.ts';
-import type { SolidBatch } from '../model3d/solids.ts';
+import type { LoteSolido } from '../model3d/solids.ts';
 import { InstanciasGpu } from './instanciasGpu.ts';
 import { LoteGeometriaGpu, mesclarLotes } from './loteGeometria.ts';
 import { LoteLinhasGpu } from './loteLinhas.ts';
@@ -155,7 +155,7 @@ export class GestorRecursosGpu {
 
   private aplicarNivel(nivel: EntradaNivel, op: OpcoesAtualizacao): void {
     const lotesAtuais = new Set<string>();
-    const porChave = new Map<string, { categoria: GraphicsCategory; materialId: Id; extras?: Material; lotes: SolidBatch[] }>();
+    const porChave = new Map<string, { categoria: GraphicsCategory; materialId: Id; extras?: Material; lotes: LoteSolido[] }>();
     for (const b of nivel.lotes ?? []) {
       if (!b.indices.length) continue;
       const extras = nivel.materiais?.[b.materialId];

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GraphicsCategory, Id } from '@hestia/model';
-import type { SolidBatch } from './solids.ts';
+import type { LoteSolido, SolidBatch } from './solids.ts';
 import { arestasPorAngulo } from './arestasRapidas3d.ts';
 
 /**
@@ -11,16 +11,16 @@ import { arestasPorAngulo } from './arestasRapidas3d.ts';
  */
 
 /** Chave do grupo: a categoria (visibilidade e substituição, decisão 0015) e o material. */
-export function chaveDoLote(b: SolidBatch): string {
+export function chaveDoLote(b: LoteSolido): string {
   return `${b.category}|${b.materialId}`;
 }
 
 /** Lote sem triângulo não gera malha nem arestas. */
-const comTriangulos = (b: SolidBatch): boolean => b.indices.length > 0;
+const comTriangulos = (b: LoteSolido): boolean => b.indices.length > 0;
 
 /** Agrupa os lotes com triângulos pela chave, na ordem da primeira aparição. */
-export function agruparLotes(lotes: readonly SolidBatch[]): Map<string, SolidBatch[]> {
-  const grupos = new Map<string, SolidBatch[]>();
+export function agruparLotes<T extends LoteSolido>(lotes: readonly T[]): Map<string, T[]> {
+  const grupos = new Map<string, T[]>();
   for (const b of lotes) {
     if (!comTriangulos(b)) continue;
     const k = chaveDoLote(b);
@@ -35,18 +35,22 @@ export function agruparLotes(lotes: readonly SolidBatch[]): Map<string, SolidBat
  * Um lote só com os lotes dados (mesma categoria e material). Os índices de vértice saem deslocados pelos vértices já
  * juntados, e as faixas de elemento pelos índices já juntados (as faixas contam índices, não triângulos).
  */
-export function juntarLote(fontes: readonly SolidBatch[]): SolidBatch {
+export function juntarLote(fontes: readonly SolidBatch[]): SolidBatch;
+export function juntarLote(fontes: readonly LoteSolido[]): LoteSolido;
+export function juntarLote(fontes: readonly LoteSolido[]): LoteSolido {
   // Vetores do tamanho final e preenchidos por posição: milhões de `push` um a um (guarda-corpos, escadas) eram o maior custo da juntada.
   let nPos = 0;
   let nNor = 0;
   let nIdx = 0;
   for (const f of fontes) {
     nPos += f.positions.length;
-    nNor += f.normals.length;
+    nNor += f.normals?.length ?? 0;
     nIdx += f.indices.length;
   }
+  // Sem normais em alguma fonte (genéricos, sombreamento chapado no shader), o lote juntado também não tem.
+  const comNormais = fontes.every((f) => f.normals);
   const positions = new Array<number>(nPos);
-  const normals = new Array<number>(nNor);
+  const normals = new Array<number>(comNormais ? nNor : 0);
   const indices = new Array<number>(nIdx);
   const ids: SolidBatch['ids'] = [];
   let p = 0;
@@ -56,24 +60,26 @@ export function juntarLote(fontes: readonly SolidBatch[]): SolidBatch {
     const vBase = p / 3;
     const iBase = k;
     for (let j = 0; j < f.positions.length; j++) positions[p++] = f.positions[j]!;
-    for (let j = 0; j < f.normals.length; j++) normals[n++] = f.normals[j]!;
+    if (comNormais) for (let j = 0; j < f.normals!.length; j++) normals[n++] = f.normals![j]!;
     for (let j = 0; j < f.indices.length; j++) indices[k++] = f.indices[j]! + vBase;
     for (const r of f.ids) ids.push({ id: r.id, start: r.start + iBase, count: r.count });
   }
-  return { materialId: fontes[0]!.materialId, category: fontes[0]!.category, positions, normals, indices, ids };
+  return { materialId: fontes[0]!.materialId, category: fontes[0]!.category, positions, ...(comNormais ? { normals } : {}), indices, ids };
 }
 
 /** Os lotes juntados por chave: um lote por grupo (ver `agruparLotes`). Lotes vazios saem. */
-export function juntarLotes(lotes: readonly SolidBatch[]): SolidBatch[] {
+export function juntarLotes(lotes: readonly SolidBatch[]): SolidBatch[];
+export function juntarLotes(lotes: readonly LoteSolido[]): LoteSolido[];
+export function juntarLotes(lotes: readonly LoteSolido[]): LoteSolido[] {
   return [...agruparLotes(lotes).values()].map((g) => juntarLote(g));
 }
 
 /** Geometria de um lote (posições, normais e índices), pronta para a malha. */
-export function geometriaDoLote(b: SolidBatch): THREE.BufferGeometry {
+export function geometriaDoLote(b: LoteSolido): THREE.BufferGeometry {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
-  g.setIndex(b.indices);
+  if (b.normals) g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
+  g.setIndex(Array.from(b.indices));
   return g;
 }
 
@@ -81,7 +87,7 @@ export function geometriaDoLote(b: SolidBatch): THREE.BufferGeometry {
  * Arestas dos lotes dados, numa geometria só. Cada lote gera as arestas da sua própria geometria (com o mesmo ângulo de
  * antes), para que as juntas entre peças continuem desenhadas. Sem triângulos, devolve null.
  */
-export function arestasDosLotes(lotes: readonly SolidBatch[], angulo: number): THREE.BufferGeometry | null {
+export function arestasDosLotes(lotes: readonly LoteSolido[], angulo: number): THREE.BufferGeometry | null {
   const pos: number[] = [];
   for (const b of lotes) {
     if (!comTriangulos(b)) continue;

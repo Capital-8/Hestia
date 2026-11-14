@@ -28,6 +28,21 @@ export interface SolidBatch {
   group?: string;
 }
 
+/**
+ * Lote só para leitura (consumidores: GPU, arestas, fantasma, picking). `SolidBatch` é atribuível a ele. Aceita arrays
+ * tipados e, sem `normals`, o lote é de sombreamento chapado por derivadas no shader (`flatShading`): malha indexada
+ * soldada, sem normais por vértice (objetos genéricos importados, `buildGenericSolids`).
+ */
+export interface LoteSolido {
+  materialId: Id;
+  category: GraphicsCategory;
+  positions: ArrayLike<number>;
+  normals?: ArrayLike<number>;
+  indices: ArrayLike<number>;
+  ids: ElementRange[];
+  group?: string;
+}
+
 /** Registra as faixas de `indices` que `fn` acrescenta ao lote `b` como pertencentes ao elemento `id`. */
 export function ofElement(b: SolidBatch, id: Id, fn: () => void): void {
   const start = b.indices.length;
