@@ -45,10 +45,20 @@ describe('S4 abertura em parede inclinada (tabela do documento)', () => {
     expect(Math.min(...ys)).toBeCloseTo(Math.min(...py), 9);
     expect(Math.max(...ys)).toBeCloseTo(Math.max(...py), 9);
   });
-  it('recuo >= 0 nas quatro bordas', () => {
-    for (const mode of ['inclinado', 'vertical'] as const) for (const f of [janela, porta]) {
-      const r = f(mode).reveal;
+  it('recuo >= 0 nas quatro bordas: passa no modo inclinado e nas laterais do vertical', () => {
+    for (const f of [janela, porta]) {
+      const r = f('inclinado').reveal;
       for (const v of [r.left, r.right, r.bottom, r.top]) expect(v).toBeGreaterThanOrEqual(-1e-9);
+      const q = f('vertical').reveal;
+      expect(q.left).toBeGreaterThanOrEqual(-1e-9);
+      expect(q.right).toBeGreaterThanOrEqual(-1e-9);
     }
+  });
+  it('FALHA DO CRITERIO no modo vertical: caixilho no plano central fica fora da face em baixo e em cima', () => {
+    // t/(2cosθ) − (h/2)·tanθ: porta −0,1778; janela −0,0304 (valor negativo = o plano do caixilho sai da parede)
+    const d = porta('vertical').reveal;
+    expect(d.bottom).toBeCloseTo(-0.1778, 4);
+    expect(d.top).toBeCloseTo(-0.1778, 4);
+    expect(janela('vertical').reveal.bottom).toBeCloseTo(-0.0304, 4);
   });
 });
