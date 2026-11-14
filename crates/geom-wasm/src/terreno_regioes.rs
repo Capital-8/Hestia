@@ -14,6 +14,8 @@ use crate::terreno_avalia::Malha;
 use crate::terreno_tin::adensar;
 use crate::terreno_tipos::{area_assinada, chave, misturar, ponto_no_poligono, Assinatura, SEMENTE};
 
+/// Quanto os gêmeos ficam para fora (m).
+const GEMEO: f64 = 0.01;
 /// Alcance (m) de uma região plana sem talude: só a faixa dos "gêmeos".
 pub const ALCANCE_MIN: f64 = 0.02;
 /// Teto do alcance (m).
@@ -211,6 +213,74 @@ pub fn zp(regioes: &[Regiao], e: &Malha, p: V) -> Option<f64> {
     e.cota(p.x, p.y).map(|z| aplicar(regioes, p, z))
 }
 
+/// Ponto de cruzamento próprio (as duas retas se cortam no interior dos dois trechos) de `a1`–`a2` com `b1`–`b2`.
+fn cruzamento(a1: V, a2: V, b1: V, b2: V) -> Option<V> {
+    let (ra, rb) = (v(a2.x - a1.x, a2.y - a1.y), v(b2.x - b1.x, b2.y - b1.y));
+    let (o1, o2) = (ra.x * (b1.y - a1.y) - ra.y * (b1.x - a1.x), ra.x * (b2.y - a1.y) - ra.y * (b2.x - a1.x));
+    let (o3, o4) = (rb.x * (a1.y - b1.y) - rb.y * (a1.x - b1.x), rb.x * (a2.y - b1.y) - rb.y * (a2.x - b1.x));
+    if o1 * o2 < 0.0 && o3 * o4 < 0.0 {
+        let t = o3 / (o3 - o4);
+        return Some(v(a1.x + ra.x * t, a1.y + ra.y * t));
+    }
+    None
+}
+
+/// Um ponto onde os contornos de `a` e `b` se sobrepõem (aviso 3), ou `None` se só se tocam ou não se encontram. Lados que se cruzam, vértice de um
+/// estritamente dentro do outro; e, para contornos que coincidem, pontos médios de lados e o centroide.
+pub fn sobreposicao(a: &Regiao, b: &Regiao) -> Option<V> {
+    let (ca, cb) = (a.caixa(), b.caixa());
+    if ca[0] >= cb[2] || cb[0] >= ca[2] || ca[1] >= cb[3] || cb[1] >= ca[3] {
+        return None;
+    }
+    let (na, nb) = (a.contorno.len(), b.contorno.len());
+    for i in 0..na {
+        for j in 0..nb {
+            if let Some(p) = cruzamento(a.contorno[i], a.contorno[(i + 1) % na], b.contorno[j], b.contorno[(j + 1) % nb]) {
+                return Some(p);
+            }
+        }
+    }
+    let meios = |r: &Regiao| -> Vec<V> { (0..r.contorno.len()).map(|k| (r.contorno[k], r.contorno[(k + 1) % r.contorno.len()])).map(|(p, q)| v((p.x + q.x) / 2.0, (p.y + q.y) / 2.0)).collect() };
+    let centroide = |r: &Regiao| -> V {
+        let n = r.contorno.len() as f64;
+        v(r.contorno.iter().map(|p| p.x).sum::<f64>() / n, r.contorno.iter().map(|p| p.y).sum::<f64>() / n)
+    };
+    let dentro_do_outro = |x: &Regiao, y: &Regiao| -> Option<V> {
+        let na_fronteira = x.contorno.iter().copied().chain(meios(x));
+        na_fronteira.chain([centroide(x)].into_iter().filter(|&c| x.dentro(c))).find(|&p| y.estritamente_dentro(p))
+    };
+    dentro_do_outro(a, b).or_else(|| dentro_do_outro(b, a))
+}
+
+/// Gêmeo de cada ponto de um anel anti-horário: 0,01 m para fora, na normal do trecho ou, nos cantos, na soma normalizada das normais dos dois trechos.
+pub fn gemeos(anel: &[V]) -> Vec<V> {
+    let n = anel.len();
+    let normal = |a: V, b: V| -> Option<V> {
+        let l = crate::geo2d::hipot(b.x - a.x, b.y - a.y);
+        (l > 0.0).then(|| v((b.y - a.y) / l, -(b.x - a.x) / l))
+    };
+    let mut out = Vec::with_capacity(n);
+    for k in 0..n {
+        let (a, p, b) = (anel[(k + n - 1) % n], anel[k], anel[(k + 1) % n]);
+        let (n1, n2) = (normal(a, p), normal(p, b));
+        let soma = match (n1, n2) {
+            (Some(x), Some(y)) => v(x.x + y.x, x.y + y.y),
+            (Some(x), None) | (None, Some(x)) => x,
+            (None, None) => continue,
+        };
+        let l = crate::geo2d::hipot(soma.x, soma.y);
+        let dir = if l > 1e-9 {
+            v(soma.x / l, soma.y / l)
+        } else if let Some(y) = n2.or(n1) {
+            y
+        } else {
+            continue;
+        };
+        out.push(v(p.x + dir.x * GEMEO, p.y + dir.y * GEMEO));
+    }
+    out
+}
+
 /// Assinatura das regiões (seções 163 e 164) de cada terreno. Terreno sem região não aparece.
 pub fn assinaturas_regioes(s: &SecoesTerreno) -> BTreeMap<u32, Assinatura> {
     let mut m: BTreeMap<u32, Assinatura> = BTreeMap::new();
@@ -287,5 +357,46 @@ mod testes {
     fn assinatura_so_de_quem_tem_regiao() {
         let s = SecoesTerreno::default();
         assert!(assinaturas_regioes(&s).is_empty());
+    }
+
+    fn quadrado_em(id: u32, ordem: u32, papel: u8, x0: f64, y0: f64, lado: f64) -> Regiao {
+        let c = [v(x0, y0), v(x0 + lado, y0), v(x0 + lado, y0 + lado), v(x0, y0 + lado)];
+        let mut s = crate::secoes_terreno::SecoesTerreno::default();
+        s.regioes.insert(id, crate::secoes_terreno::RegiaoTerrenoLinha { terreno: 1, ordem, papel, cota: 0.0, inclinacao: 0.0, direcao: 0.0, ref_xy: [0.0; 2], talude_corte: 0.0, talude_aterro: 0.0 });
+        for (k, p) in c.iter().enumerate() {
+            s.regiao_pontos.insert(k as u32, crate::secoes_terreno::RegiaoPontoLinha { regiao: id, ordem: k as u32, x: p.x, y: p.y });
+        }
+        regioes_do_terreno(&s, 1).remove(0)
+    }
+
+    #[test]
+    fn sobreposicao_cruza_contem_coincide_e_so_toca() {
+        let a = quadrado_em(1, 0, 1, 0.0, 0.0, 10.0);
+        assert!(sobreposicao(&a, &quadrado_em(2, 1, 1, 5.0, 5.0, 10.0)).is_some(), "lados que se cruzam");
+        assert!(sobreposicao(&a, &quadrado_em(2, 1, 1, 2.0, 2.0, 3.0)).is_some(), "um dentro do outro");
+        assert!(sobreposicao(&quadrado_em(2, 1, 1, 2.0, 2.0, 3.0), &a).is_some());
+        assert!(sobreposicao(&a, &quadrado_em(2, 1, 1, 0.0, 0.0, 10.0)).is_some(), "contornos idênticos");
+        assert!(sobreposicao(&a, &quadrado_em(2, 1, 1, 10.0, 0.0, 10.0)).is_none(), "só dividem um lado");
+        assert!(sobreposicao(&a, &quadrado_em(2, 1, 1, 20.0, 20.0, 5.0)).is_none(), "longe");
+    }
+
+    #[test]
+    fn gemeos_ficam_a_um_centimetro_para_fora() {
+        let q = [v(0.0, 0.0), v(2.0, 0.0), v(2.0, 2.0), v(0.0, 2.0)];
+        let g = gemeos(&q);
+        assert_eq!(g.len(), 4);
+        let s = 0.01 / 2f64.sqrt();
+        assert!((g[0].x + s).abs() < 1e-12 && (g[0].y + s).abs() < 1e-12, "no canto, na diagonal para fora");
+        let denso = crate::terreno_tin::adensar(&q, 1.0);
+        let g = gemeos(&denso);
+        assert!((g[1].x - 1.0).abs() < 1e-12 && (g[1].y + 0.01).abs() < 1e-12, "no meio do lado, na normal do trecho");
+    }
+
+    #[test]
+    fn cruzamento_so_no_interior_dos_dois_trechos() {
+        let p = cruzamento(v(0.0, 0.0), v(2.0, 2.0), v(0.0, 2.0), v(2.0, 0.0)).expect("cruza");
+        assert!((p.x - 1.0).abs() < 1e-12 && (p.y - 1.0).abs() < 1e-12);
+        assert!(cruzamento(v(0.0, 0.0), v(1.0, 0.0), v(0.0, 1.0), v(1.0, 1.0)).is_none());
+        assert!(cruzamento(v(0.0, 0.0), v(2.0, 0.0), v(1.0, 0.0), v(1.0, 2.0)).is_none(), "encosta num extremo: não é cruzamento próprio");
     }
 }
