@@ -113,6 +113,7 @@ export const I18N = {
     // Modificadores
     tool_move: 'Mover',
     tool_copy: 'Copiar',
+    tool_chain: 'Cadeia',
     tool_paste: 'Colar',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
@@ -466,6 +467,7 @@ export const I18N = {
     // Modifiers
     tool_move: 'Move',
     tool_copy: 'Copy',
+    tool_chain: 'Chain',
     tool_paste: 'Paste',
     tool_rotate: 'Rotate',
     tool_mirror: 'Mirror',
