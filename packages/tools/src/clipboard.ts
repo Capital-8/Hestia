@@ -1,4 +1,4 @@
-import { guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isCad, isCeiling, isFloor, isGeneric, isGuardaCorpo, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, type CadDrawing, type Ceiling, type Command, type Element, type Floor, type Generic, type GuardaCorpo, type Id, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Wall } from '@hestia/model';
+import { guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isCad, isCeiling, isFloor, isGeneric, isGuardaCorpo, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, newId, type CadDrawing, type Ceiling, type Command, type Element, type Floor, type Generic, type GuardaCorpo, type Id, type Mass, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Wall } from '@hestia/model';
 import { pasteAlignedToLevelsCommand } from './pasteLevels/command.ts';
 import type { PasteIds } from './pasteLevels/types.ts';
 
@@ -29,6 +29,8 @@ export interface ClipBuffer {
    * copiadas. Hospedado sem o hospedeiro no buffer não entra (o caminho dele vem da escada ou rampa).
    */
   railings?: GuardaCorpo[];
+  /** Massas (ausente em buffers antigos = nenhuma). A cópia nasce com id novo e mantém seções e `arranjo`. */
+  masses?: Mass[];
 }
 
 /** Gerador de identificadores; injetável para teste. */
@@ -50,6 +52,7 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
   const rooms = ids.map((id) => p.elements[id]).filter(isRoom).map((r) => structuredClone(r));
   const generics = ids.map((id) => p.elements[id]).filter(isGeneric).map((g) => structuredClone(g));
   const cad = ids.map((id) => p.elements[id]).filter(isCad).map((c) => structuredClone(c));
+  const masses = ids.map((id) => p.elements[id]).filter(isMass).map((m) => structuredClone(m));
   const railings = guardaCorposDaCopia(p, ids).map((id) => structuredClone(p.elements[id] as GuardaCorpo));
   if (
     hostIds.size === 0 &&
@@ -62,19 +65,20 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
     rooms.length === 0 &&
     generics.length === 0 &&
     cad.length === 0 &&
-    railings.length === 0
+    railings.length === 0 &&
+    masses.length === 0
   ) return null;
   const walls = [...hostIds].map((id) => structuredClone(p.elements[id] as Wall));
   const openings = Object.values(p.elements)
     .filter(isOpening)
     .filter((o) => hostIds.has(o.hostId))
     .map((o) => structuredClone(o));
-  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, railings };
+  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, railings, masses };
 }
 
 /** Elemento que `clipboardFrom` leva por si só: parede, piso, laje, forro, telhado, escada, rampa, ambiente, genérico ou CAD. */
 const isCopyableElement = (e: Element | undefined): boolean =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e);
+  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e) || isMass(e);
 
 /** Guarda-corpo que `clipboardFrom` leva: o manual ou o hospedado cujo hospedeiro também está na seleção. */
 const copyableRailing = (ids: readonly Id[], e: Element | undefined): boolean => {
@@ -121,6 +125,7 @@ export interface PasteAlignedResult {
   genericIds: Id[];
   cadIds: Id[];
   railingIds: Id[];
+  massIds: Id[];
 }
 
 /**
@@ -153,6 +158,7 @@ export function pasteAlignedCommand(
     genericIds: ids.generics,
     cadIds: ids.cad,
     railingIds: ids.railings,
+    massIds: ids.masses,
   };
 }
 
@@ -160,6 +166,6 @@ export function pasteAlignedCommand(
 function idsInPaste(ids: PasteIds): number {
   return (
     ids.walls.length + ids.openings.length + ids.floors.length + ids.slabs.length + ids.ceilings.length + ids.roofs.length +
-    ids.stairs.length + ids.ramps.length + ids.rooms.length + ids.generics.length + ids.cad.length + ids.railings.length
+    ids.stairs.length + ids.ramps.length + ids.rooms.length + ids.generics.length + ids.cad.length + ids.railings.length + ids.masses.length
   );
 }

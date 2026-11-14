@@ -63,6 +63,12 @@ describe('contrato: todo kind de elemento está classificado na captura (snap) d
     });
   }
 
+  it('massa: `geometryOfLevel` (componentSnap.ts) percorre os elementos `mass` do nível pela fonte única `apoioDoElemento`', () => {
+    const codigo = ler('tools/src/componentSnap.ts');
+    expect(codigo).toContain('isMass(e)');
+    expect(codigo).toMatch(/isMass\(e\)[\s\S]{0,200}apoioDoElemento\(p, e\)/);
+  });
+
   it('o motor único serve a todas as ferramentas: a fonte dos pontos é montada em `ToolBase.ctx`, não em cada ferramenta', () => {
     // Nenhuma ferramenta consulta a geometria de escada/guarda-corpo por conta própria: só `base.ts` chama o fornecedor.
     const base = ler('tools/src/base.ts');

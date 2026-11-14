@@ -46,7 +46,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   stair: { mover: 'selectedStairs', colar: 'stairs', alinhar: 'stairRampFeatures' },
   ramp: { mover: 'selectedRamps', colar: 'ramps', alinhar: 'stairRampFeatures' },
   railing: { mover: 'selectedGuardaCorpos', colar: 'railings', alinhar: 'railingFeatures' },
-  mass: { mover: null, colar: null, alinhar: null, motivo: 'massa: ficha T1 (mover, copiar, colar e alinhar a massa pelo mecanismo genérico; o `transform` do modelo já a leva).' },
+  mass: { mover: 'selectedMasses', colar: 'masses', alinhar: 'massFeatures' },
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
   cad: { mover: 'selectedCads', colar: 'cad', alinhar: null, motivo: 'TODO: o desenho CAD é um objeto só; alinhar pelas linhas dele ainda não existe.' },
@@ -75,10 +75,18 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   stair: { mover: 'isStair', alinhar: 'isStair', previa: 'movidos' },
   ramp: { mover: 'isRamp', alinhar: 'isRamp', previa: 'movidos' },
   railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces', previa: 'isGuardaCorpo' },
-  mass: { mover: null, alinhar: null, previa: null, motivo: 'massa: ficha V2 (a massa ainda não aparece no corte nem na elevação).' },
+  mass: { mover: 'isMass', alinhar: null, previa: null, motivo: 'TODO: a massa é desenhada pelo kernel fora do resultado do corte (como o guarda-corpo); o alvo do Alinhar (`guardaCorpoPieces` em `sectionEditTools.ts`) e o fantasma (`sectionMoverPrevia.ts`) ainda não recebem as linhas dela. Mover e Copiar já a levam (`comandosMoverNoCorte`: horizontal vira `transform`, vertical vira `baseOffset`); o Alinhar e a prévia ficam para uma ficha que toque esses dois arquivos.' },
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
   cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
+};
+
+/**
+ * Ferramentas que só fazem sentido para elemento LINEAR (parede, borda de piso...): Aparar, Estender, Dividir e Deslocar. Um kind que não é
+ * linear marca `null` com o motivo escrito; o teste abaixo confere que nenhuma delas recebe o kind pelo mecanismo genérico (`selectedMovables`).
+ */
+const FERRAMENTAS_LINEARES: Partial<Record<Element['kind'], { aparar: null; estender: null; dividir: null; deslocar: null; motivo: string }>> = {
+  mass: { aparar: null, estender: null, dividir: null, deslocar: null, motivo: 'massa não é elemento linear' },
 };
 
 const CODIGO_MOVER = ['edit.ts', 'arrayRadial.ts'].map(lerTools).join('\n');
@@ -133,11 +141,18 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     expect(corte).not.toMatch(/\bdown\(|\bdrag\(|\bup\(/);
   });
 
+  it('Aparar, Estender, Dividir e Deslocar: a massa não é elemento linear (null com motivo escrito)', () => {
+    const m = FERRAMENTAS_LINEARES.mass!;
+    expect(m.motivo).toBe('massa não é elemento linear');
+    // As ferramentas lineares não escolhem alvo por `selectedMovables`/`selectedMasses`: a massa não entra nelas.
+    for (const arq of ['trimTool.ts', 'splitTool.ts', 'offsetTool.ts']) expect(lerTools(arq), `${arq} não deve levar a massa`).not.toContain('selectedMasses');
+  });
+
   it('o comando `transform` do modelo trata os kinds marcados como móveis', () => {
     const cmd = lerModel('commands.ts') + lerModel('guardaCorpoTransform.ts');
     for (const [kind, m] of Object.entries(CLASSIFICACAO)) {
       if (!m.mover || kind === 'door' || kind === 'window') continue; // aberturas seguem a parede anfitriã
-      const guarda = { wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad' }[kind];
+      const guarda = { wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad', mass: 'transformMass' }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);
     }

@@ -1,4 +1,4 @@
-import { applyCommand, makeCopyLink, newId, type Command, type Element, type Floor, type Id, type Opening, type Project, type Room, type Roof, type Slab, type Wall } from '@hestia/model';
+import { applyCommand, makeCopyLink, newId, type Command, type Element, type Floor, type Id, type Mass, type Opening, type Project, type Room, type Roof, type Slab, type Wall } from '@hestia/model';
 import { roomRegionAt } from '@hestia/engine';
 import { rampTypeId } from '../rampCommands.ts';
 import { stairTypeId } from '../stairCommands.ts';
@@ -11,11 +11,11 @@ import type { PasteIds, PasteLevelsOptions, PasteLevelsResult, PasteWarning, Pas
 const CATEGORY_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad'];
 
 function emptyIds(): PasteIds {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [], masses: [] };
 }
 
 function emptySources(): Record<keyof PasteIds, Id[]> {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [], masses: [] };
 }
 
 /** Ids de um nível na ordem canônica (é a ordem de `sourceIds`/`members` do vínculo). */
@@ -36,7 +36,8 @@ function hasContent(c: ClipBuffer): boolean {
     (c.rooms?.length ?? 0) > 0 ||
     (c.generics?.length ?? 0) > 0 ||
     (c.cad?.length ?? 0) > 0 ||
-    (c.railings?.length ?? 0) > 0
+    (c.railings?.length ?? 0) > 0 ||
+    (c.masses?.length ?? 0) > 0
   );
 }
 
@@ -54,6 +55,7 @@ function sourceLevelOf(p: Project, c: ClipBuffer): Id {
     ...(c.generics ?? []).map((e) => e.levelId),
     ...(c.cad ?? []).map((e) => e.levelId),
     ...(c.railings ?? []).map((e) => e.levelId),
+    ...(c.masses ?? []).map((e) => e.levelId),
   ];
   return candidates.find((id) => p.levels.some((l) => l.id === id)) ?? p.levels[0]?.id ?? '';
 }
@@ -279,6 +281,16 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
     const id = mint('gc');
     ids.railings.push(id);
     commands.push({ type: 'addGuardaCorpo', guardaCorpo: { ...rest, id, levelId, typeId, hospedeiro } });
+  }
+
+  // Massas: id novo e nível de destino; seções, `arranjo` e `baseOffset` seguem como estavam (a base acompanha a cota do nível).
+  for (const m of clip.masses ?? []) {
+    const { order: _order, ...rest } = m;
+    const id = mint('ms');
+    ids.masses.push(id);
+    sources.masses.push(m.id);
+    const massa: Omit<Mass, 'order'> = { ...structuredClone(rest), id, levelId };
+    commands.push({ type: 'addMass', mass: massa });
   }
 
   // Aberturas sempre na parede copiada do MESMO nível de destino.
