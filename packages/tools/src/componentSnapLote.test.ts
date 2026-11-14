@@ -7,7 +7,8 @@ describe('captura do lote no motor das ferramentas', () => {
     const p = projetoLote();
     const g = componentSnapGeometry(p, 'lv_0');
     // Contorno 12 x 30: os quatro vértices do lote estão entre os pontos de captura.
-    for (const [x, y] of [[0, 0], [12, 0], [12, 30], [0, 30]]) {
+    const cantos: Array<[number, number]> = [[0, 0], [12, 0], [12, 30], [0, 30]];
+    for (const [x, y] of cantos) {
       expect(g.points.some((q) => Math.abs(q.x - x) < 1e-9 && Math.abs(q.y - y) < 1e-9), `vértice ${x},${y}`).toBe(true);
     }
     // Área edificável (recuos 5 / 1,5 / 3 / 1,5): o canto (1,5; 5) também captura.
