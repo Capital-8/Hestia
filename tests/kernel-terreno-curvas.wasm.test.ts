@@ -229,15 +229,13 @@ describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela AB
     cena.destruir();
   });
 
-  it.skipIf(!bytes)('limite de cotas e argumento inválido viram erro leve, e a cena continua de pé; 166 e 167 seguem sem implementação', () => {
+  it.skipIf(!bytes)('limite de cotas e argumento inválido viram erro leve, e a cena continua de pé', () => {
     const ingreme: TerrenoDeTeste = { id: 1, intervalo: 0.5, pontos: cantos((x) => 60 * x) };
     const cena = cenaCom([ingreme]);
     expect(() => cena.consultar('terreno_curvas', [0, 0])).toThrow(ErroKernelLeve);
     expect(() => cena.consultar('terreno_curvas', [0, 2])).toThrow(ErroKernelLeve);
     expect(() => cena.consultar('terreno_planta', [0, 2])).toThrow(ErroKernelLeve);
     expect(() => cena.consultar('terreno_corte', [0, 0, 10, Number.NaN, 0, 1])).toThrow(ErroKernelLeve);
-    expect(() => cena.consultar('quant_terreno_regioes', [0])).toThrow(ErroKernelLeve);
-    expect(() => cena.consultar('terreno_corte_aterro', [0])).toThrow(ErroKernelLeve);
     expect(cena.consultar('terreno_planta', [0, 0])['linhas']!.length).toBe(4);
     expect(cena.consultar('quant_terreno', [0])['valores']![7]).toBe(2);
     cena.destruir();
