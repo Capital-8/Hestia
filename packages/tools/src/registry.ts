@@ -44,7 +44,7 @@ import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'plugin';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
@@ -74,6 +74,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new SelectTool(env);
     case 'paste':
       return new PasteTool(env);
+    case 'plugin': // SUPLEMENTOS: a ferramenta de suplemento é criada pelo app (`PluginTool`, com a ponte do handler); aqui só o reserva.
+      return new SelectTool(env);
     case 'perimeter':
       return new PerimeterTool(env, perimeterTarget);
     case 'wall':
@@ -168,6 +170,7 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
 export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
+  plugin: 'Suplemento',
   wall: 'Parede',
   floor: 'Piso',
   slab: 'Laje',

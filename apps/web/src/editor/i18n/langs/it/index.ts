@@ -26,11 +26,13 @@ import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { IT_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { IT_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 
 export const IT_ALL = {
   ...IT_GUARDA_CORPO,
   ...IT_SUPLEMENTOS,
+  ...IT_SUPUI,
   ...IT_PAREDE_CORTINA,
   ...IT_SHELL_RIBBON,
   ...IT_MISC_UI,

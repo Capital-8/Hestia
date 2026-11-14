@@ -73,6 +73,7 @@ import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
 import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
 import { PluginDialog } from './plugins/pluginUi.tsx';
+import { PluginPanels } from './ui/PluginPanel.tsx'; // SUPLEMENTOS (fase H)
 import { SupplementsDialog } from './ui/dialogs/SupplementsDialog.tsx';
 import { PluginResultDialog } from './ui/dialogs/PluginResultDialog.tsx';
 import { startSupplements } from './plugins/supApp.ts';
@@ -414,6 +415,7 @@ export function App(): ReactElement {
         )}
       </div>
       <StatusBar />
+      <PluginPanels /> {/* SUPLEMENTOS (fase H): painéis laterais persistentes */}
       <Dialogs />
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />

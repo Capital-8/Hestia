@@ -25,7 +25,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
@@ -536,6 +536,7 @@ export class Editor {
 
   private activate(id: ToolId, tool: Tool = createTool(id, this.env)): void {
     this.limparArrasteRotulo();
+    (this.tool as { dispose?: () => void }).dispose?.(); // SUPLEMENTOS: ferramenta de suplemento descarta respostas atrasadas
     this.tool = tool;
     useUi.setState({ tool: id, typed: '', prompt: null, hover: null });
     this.tool.start();
@@ -561,6 +562,14 @@ export class Editor {
     }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
     this.activate(id);
+  }
+
+  /** SUPLEMENTOS (fase H): ativa a ferramenta interativa de um suplemento; respeita as mesmas restrições de vista de `setTool`. */
+  startPluginTool(spec: Omit<PluginToolSpec, 'redraw'>, bridge: PluginToolBridge): boolean {
+    const st = useUi.getState();
+    if (st.view === 'section' || (st.planKind === 'area' && st.view !== '3d')) { useUi.setState({ status: { key: 'supui_tool_busy' } }); return false; }
+    this.activate('plugin', new PluginTool(this.env, { ...spec, redraw: () => this.bump() }, bridge));
+    return true;
   }
 
   bump(): void {

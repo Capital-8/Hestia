@@ -1,4 +1,4 @@
-import type { DialogContribution, PluginAction, PluginText } from './contributesTypes.ts';
+import type { DialogContribution, PanelContribution, PluginAction, PluginText, ToolContribution } from './contributesTypes.ts';
 import { POINT_CAPABILITY } from './contributesTypes.ts';
 import type { PluginManifestV2 } from './manifestV2.ts';
 import type { CapabilityV2 } from './permissions.ts';
@@ -18,6 +18,9 @@ export interface RegisteredCommand {
 export interface RegisteredRibbonItem { commandQid: string; title: PluginText; size: 'large' | 'small'; icon?: string }
 export interface RegisteredRibbonPanel { qid: string; pluginId: string; pluginName: string; id: string; title: PluginText; items: RegisteredRibbonItem[] }
 export interface RegisteredDialog extends Omit<DialogContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+
+export interface RegisteredTool extends Omit<ToolContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredPanel extends Omit<PanelContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 
 interface Entry { manifest: PluginManifestV2; grants: Set<CapabilityV2> }
 
@@ -105,4 +108,28 @@ export class ContributionRegistry {
   }
 
   dialog(qid: string): RegisteredDialog | undefined { return this.dialogs().find((d) => d.qid === qid); }
+
+  // SUPLEMENTOS (fase H): ferramentas e painéis laterais.
+  tools(): RegisteredTool[] {
+    const out: RegisteredTool[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'tools')) continue;
+      for (const t of e.manifest.contributes.tools ?? []) out.push({ ...t, qid: qualifiedId(e.manifest.id, t.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  tool(qid: string): RegisteredTool | undefined { return this.tools().find((t) => t.qid === qid); }
+
+  panels(): RegisteredPanel[] {
+    const out: RegisteredPanel[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'panels')) continue;
+      for (const p of e.manifest.contributes.panels ?? []) out.push({ ...p, qid: qualifiedId(e.manifest.id, p.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  /** O suplemento registrado tem esta permissão concedida? */
+  hasGrant(pluginId: string, cap: CapabilityV2): boolean { return this.entries.get(pluginId)?.grants.has(cap) ?? false; }
 }

@@ -10,7 +10,9 @@ import {
   CAPABILITY_REQUIRES_V2,
   type ContributionRegistry,
   type PluginText,
+  resolveLimits,
   type ModelPort,
+  type ScriptLimits,
   type PluginDataPort,
   type WorkerLike,
 } from '@hestia/plugin-api';
@@ -21,6 +23,7 @@ import { PluginLoader, type SupState } from './loader.ts';
 import { PluginLog } from './pluginLog.ts';
 import { setPluginActionExecutor, type PluginActionExecutor } from './registry.ts';
 import { registrySink, scriptPortsFactory, validateManifestForInstall } from './supSink.ts';
+import { openPluginTool, type ToolBridgeDeps } from './toolBridge.ts'; // SUPLEMENTOS (fase H)
 
 /** O que o usuário escolheu instalar. */
 export type InstallSource = { kind: 'package'; bytes: Uint8Array } | { kind: 'folder'; files: readonly ZipEntryData[] };
@@ -70,6 +73,8 @@ export interface SupplementRuntimeOptions {
   defer?: (fn: () => void) => void;
   showResult?: (r: HandlerResult) => void;
   notify?: (n: SupNotice) => void;
+  /** Fase H: liga as ferramentas interativas ao editor e traduz os textos delas. Ausente = ferramenta vira `unsupported`. */
+  tools?: Pick<ToolBridgeDeps, 'start' | 'text' | 'message'>;
 }
 
 export type ApproveResult = { ok: true; state: SupState } | { ok: false; code: 'unknown' | 'missing_dependency' | 'not_requested' | 'activation_failed'; detail?: string };
@@ -247,8 +252,32 @@ export class SupplementRuntime {
     }
   }
 
+  /** Ferramenta interativa (fase H): ativa `PluginTool` no editor; os eventos vão ao handler `onCommit`. Nunca lança. */
+  private async openTool(pluginId: string, toolId: string, values?: Record<string, unknown>): Promise<void> {
+    const tools = this.o.tools;
+    const name = this.infos.get(pluginId)?.name ?? pluginId;
+    try {
+      const pkg = await this.o.store.get(pluginId);
+      const r = tools && openPluginTool({
+        registry: this.o.registry, call: (id, h, a) => this.loader.call(id, h, a), model: this.o.model, pluginName: (id) => this.infos.get(id)?.name ?? id,
+        log: this.log, ...tools,
+        onFailure: () => { this.o.notify?.({ kind: 'handler-error', pluginName: name }); void this.refresh(); },
+      }, pluginId, toolId, values, resolveLimits(pkg?.manifest.limits as Partial<ScriptLimits> | undefined).maxCommandsPerAction);
+      if (!r?.ok) this.o.notify?.({ kind: 'unsupported', pluginName: name });
+    } catch (e) {
+      this.log.append(pluginId, 'error', `ferramenta "${toolId}" não abriu: ${e instanceof Error ? e.message : String(e)}`);
+      this.o.notify?.({ kind: 'handler-error', pluginName: name });
+    }
+  }
+
   /** Executor registrado em `setPluginActionExecutor`: só `handler` roda aqui; as demais ações são das fases E a H. */
   readonly executor: PluginActionExecutor = ({ pluginId, action, values }) => {
+    if (action.type === 'tool' && this.o.tools) {
+      const p = this.openTool(pluginId, action.ref, values);
+      this.pending.add(p);
+      void p.finally(() => this.pending.delete(p));
+      return;
+    }
     if (action.type !== 'handler') {
       this.o.notify?.({ kind: 'unsupported', pluginName: this.infos.get(pluginId)?.name ?? pluginId });
       return;
