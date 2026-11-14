@@ -150,6 +150,10 @@ export interface OpeningLineConvention {
   dashed: 'toward' | 'away';
 }
 
+export type OpeningPlane = 'vertical' | 'inclinado';
+
+export type OpeningPlane = 'vertical' | 'inclinado';
+
 export interface Opening {
   id: Id;
   kind: 'door' | 'window';
@@ -164,6 +168,11 @@ export interface Opening {
   sillOverride: number | null;
   /** Altura por instância; ausente/null usa `OpeningType.height`. */
   heightOverride?: number | null;
+  /**
+   * Plano do vão numa parede inclinada (F2.8): 'inclinado' corta perpendicular às faces; 'vertical' mantém o plano do caixilho
+   * em prumo. Ausente = padrão do tipo (janela inclinado, porta vertical). Só importa com a parede hospedeira com tilt ≠ 0.
+   */
+  plano?: OpeningPlane;
   mark: string;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];

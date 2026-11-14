@@ -1,4 +1,5 @@
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
+import type { TiltCut } from './openingTilt.ts';
 import type { Id, PlanSymbol, ProfilePoint } from '@hestia/model';
 
 export interface ResolvedLayer {
@@ -57,6 +58,8 @@ export interface ResolvedWall {
   /** Inclinação em graus (+ = topo à esquerda de a→b), só quando não nula, com a flecha `sag` do eixo (arco). */
   tilt?: number;
   sag?: number;
+  /** Vãos cortados perpendicular às faces (F2.8, modo 'inclinado'); só em parede inclinada, ausente sem eles. */
+  tiltCuts?: TiltCut[];
   layers: ResolvedLayer[];
   /** Camadas de espessura zero (membranas, barreiras): linhas no limite entre camadas, em planta e nos quantitativos. */
   membranes: Membrane[];
@@ -124,4 +127,6 @@ export interface OpeningGeometry {
    * da face nas ombreiras (o furo é reto pela tangente no centro; a face se afasta dele ao longo da corda do vão).
    */
   cutHalf?: number;
+  /** Plano efetivo do vão na parede inclinada (F2.8): presente só quando é 'inclinado' e o vão cabe (arco: w² ≤ 0,4·R). */
+  tiltPlane?: 'inclinado';
 }

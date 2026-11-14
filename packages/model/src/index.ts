@@ -29,6 +29,7 @@ export * from './migrate.ts';
 export * from './templates.ts';
 export * from './wall.ts';
 export * from './wallTilt.ts';
+export * from './openingPlane.ts';
 export * from './wallOverlap.ts';
 export * from './validate.ts';
 export { STAIR_MIN_HEIGHT } from './validateStairs.ts';

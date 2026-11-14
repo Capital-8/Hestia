@@ -1,5 +1,5 @@
 import { arcFromSagitta, difference, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import type { JunctionLevel, LayerBand, ResolvedWall, WallTiltJoin, WallTiltJoinLayer } from '@hestia/engine';
+import { tiltCutZ, type JunctionLevel, type LayerBand, type ResolvedWall, type WallTiltJoin, type WallTiltJoinLayer } from '@hestia/engine';
 import { weldBands } from './layerTopology.ts';
 import type { SolidBatch } from './solids.ts';
 
@@ -79,6 +79,9 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const { push, emitFace, oriented, unionAll, zEps: Z_EPS } = h;
   const generic = tiltMap(rw, tiltDeg);
   const map = join ? joinedMap(generic, join.all, join.layer) : generic;
+  // Vãos 'inclinado' (F2.8): os vértices do furo na cota do peitoril/topo escorregam ao longo do plano da face (cota pré-mapa).
+  const cuts = rw.tiltCuts ?? [];
+  const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
   const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: union(x.poly) })));
   const tops: Array<{ z: number; poly: MultiPolygon }> = [];
   const bottoms: Array<{ z: number; poly: MultiPolygon }> = [];
@@ -94,7 +97,7 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
           const p = ring[i]!;
           const q = ring[(i + 1) % ring.length]!;
           if (Math.hypot(q.x - p.x, q.y - p.y) < 1e-9) continue;
-          const at = (v: Vec2, z: number): [number, number, number] => [...map(v.x, v.y, z), rw.baseZ + z] as [number, number, number];
+          const at = (v: Vec2, z: number): [number, number, number] => { const zz = zOf(v, z); return [...map(v.x, v.y, zz), rw.baseZ + zz] as [number, number, number]; };
           const p0 = at(p, band.z0);
           const q0 = at(q, band.z0);
           const p1 = at(p, band.z1);
@@ -115,8 +118,15 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
     const tp = unionAll(tops.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly));
     const bt = unionAll(bottoms.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly));
     // Triangula o polígono JÁ deslocado: o mapa é não linear no arco, e a triangulação da planta poderia inverter triângulos.
-    const lift = (m: MultiPolygon): MultiPolygon => m.map((pl) => pl.map((r) => r.map((v) => { const [x, y] = map(v.x, v.y, Z); return { x, y }; })));
-    const to3 = (x: number, y: number): [number, number, number] => [x, y, rw.baseZ + Z];
+    const zAt = new Map<string, number>();
+    const key = (x: number, y: number): string => `${x.toFixed(9)},${y.toFixed(9)}`;
+    const lift = (m: MultiPolygon): MultiPolygon => m.map((pl) => pl.map((r) => r.map((v) => {
+      const zz = zOf(v, Z);
+      const [x, y] = map(v.x, v.y, zz);
+      if (zz !== Z) zAt.set(key(x, y), zz);
+      return { x, y };
+    })));
+    const to3 = (x: number, y: number): [number, number, number] => [x, y, rw.baseZ + (cuts.length ? (zAt.get(key(x, y)) ?? Z) : Z)];
     emitFace(b, lift(tp.length && bt.length ? difference(tp, bt) : tp), to3, [0, 0, 1]);
     emitFace(b, lift(bt.length && tp.length ? difference(bt, tp) : bt), to3, [0, 0, -1]);
   }
