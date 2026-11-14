@@ -30,6 +30,7 @@ import { SheetView } from './ui/SheetView.tsx';
 import { SheetDialog } from './ui/dialogs/SheetDialog.tsx';
 import { AddViewDialog } from './ui/dialogs/AddViewDialog.tsx';
 import { RenumberSheetsDialog } from './ui/dialogs/RenumberSheetsDialog.tsx';
+import { WallTiltDialog } from './ui/dialogs/WallTiltDialog.tsx';
 import { RevisionDialog } from './ui/dialogs/RevisionDialog.tsx';
 import { PublishDialog } from './ui/dialogs/PublishDialog.tsx';
 import { AutoCotaDialog } from './ui/dialogs/AutoCotaDialog.tsx';
@@ -206,6 +207,8 @@ function Dialogs(): ReactElement | null {
       return arg ? <AddViewDialog sheetId={arg} /> : null;
     case 'renumberSheets':
       return <RenumberSheetsDialog />;
+    case 'wallTilt':
+      return <WallTiltDialog />;
     case 'publish':
       return <PublishDialog />;
     case 'revision':

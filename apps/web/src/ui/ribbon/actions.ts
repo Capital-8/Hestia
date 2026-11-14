@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
 import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, type PerimeterModifyKind, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
@@ -117,6 +117,7 @@ const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
       );
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
+const wallsIn = (c: RibbonCtx): Wall[] => c.selection.map((id) => c.p.elements[id]).filter(isWall);
 
 function thinTarget(): { levelId: Id } | 'section' {
   const ui = useUi.getState();
@@ -479,6 +480,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if (r) useUi.setState({ dialog: 'rampType', dialogArg: r.typeId });
     },
     disabled: (c) => (rampsIn(c).length > 0 ? false : t('Selecione uma rampa.', 'Select a ramp.')),
+  },
+  wallTilt: {
+    label: t('Inclinar', 'Tilt'),
+    icon: 'slope',
+    hint: t('Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).', 'Tilts the selected walls by the typed angle (positive: top to the left of a→b).'),
+    run: openDialog('wallTilt'),
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
   },
   railingForHost: {
     label: t('Guarda-corpo da escada ou rampa', 'Railing for stair or ramp'),
