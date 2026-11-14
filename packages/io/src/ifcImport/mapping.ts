@@ -11,6 +11,7 @@ import {
   type Project,
 } from '@hestia/model';
 import { bodyPoints, cleanLoop, interiorPoint, prismFromMesh, rectangleAxis, segment, type Body, type Prism } from './geometry.ts';
+import { addCurtainWalls } from './curtainImport.ts';
 import { minZOf } from './genericElement.ts';
 import { addGenericObjects, bodyFor, countUnhandledProducts, isSpatialOrVoid, toGeneric } from './genericImport.ts';
 import { applyHestiaElements, applyHestiaLevels, applyHestiaProject, readHestia, withoutHestiaProperties } from './hestia.ts';
@@ -494,6 +495,7 @@ export function importIfc(text: string, base?: Project, onProgress?: IfcProgress
   emLotes(ambientes, 'slabs', lajes.length, lajes.length + ambientes.length, aviso, (e) => addRoom(ctx, e));
   // Com `GridsJSON`, os eixos voltam do registro do projeto; sem ele, valem os `IFCGRID` do arquivo.
   if (hestia.project?.grids === undefined) addGrids(ctx);
+  addCurtainWalls(ctx);
   addGenericObjects(file, ctx, aviso);
   countUnhandledProducts(file, report, ctx.handled);
   p.name = projectName(file, p);
