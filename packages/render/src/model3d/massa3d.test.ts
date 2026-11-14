@@ -4,6 +4,7 @@ import { resolveLevel, servicoMassa, type MalhaMassaProjeto } from '@hestia/engi
 import { massaM1, massaM2, massaM3 } from '@hestia/engine/src/fixtureMassa.ts';
 import { ProjectStore, createEmptyProject, defaultOverrides, makeLevel, view3dOf, type Id, type Mass, type Project } from '@hestia/model';
 import { ModelScene } from './scene3d.ts';
+import { caixaDaSelecao } from './selecao3d.ts';
 import { CacheDeMassas3d, contornoDaBase, montarLoteDeMassas, pecaDaMassa } from './massa3d.ts';
 import { chavesDeMassaCor, chavesDeMassaGeometria } from './chaveNivel3d.ts';
 import { Materiais3D } from './materiais3d.ts';
@@ -213,6 +214,25 @@ describe('visibilidade e reserva na cena 3D', () => {
     const ms = cena(projetoCom(massaM1(), massaM2()).project);
     expect(malhasDeMassa(ms)).toHaveLength(0);
     expect(reservas(ms)).toHaveLength(2);
+  });
+
+  it('massa oculta na vista (Hide in View) sai do lote; a outra continua', () => {
+    kernelFalso(MALHA_M1_M3);
+    const p = projetoCom(massaM1(), massaM3()).project;
+    const ms = new ModelScene({ instanciar: false });
+    ms.update(p, p.levels.map((l) => resolveLevel(p, l.id)), { edges: false, shadows: false, dark: false, hidden: new Set<Id>(['m1']) });
+    expect(malhasDeMassa(ms)[0]!.userData.ranges.map((r: { id: Id }) => r.id)).toEqual(['m3']);
+  });
+
+  it('seleção: a caixa da massa selecionada cobre só a faixa dela (decisão 0016)', () => {
+    kernelFalso(MALHA_M1_M3);
+    const ms = cena(projetoCom(massaM1(), massaM3()).project);
+    const caixaM1 = caixaDaSelecao(ms.scene, ['m1'])!;
+    expect(caixaM1.min.x).toBeCloseTo(0, 6);
+    expect(caixaM1.max.x).toBeCloseTo(10, 6);
+    const caixaM3 = caixaDaSelecao(ms.scene, ['m3'])!;
+    expect(caixaM3.min.x).toBeCloseTo(20, 6);
+    expect(caixaM3.max.x).toBeCloseTo(32, 6);
   });
 
   it('kernel pronto mas com malha nula (erro do kernel): cai na reserva, sem lançar', () => {
