@@ -6,6 +6,7 @@ import { SourceError, pickFolder, pickPackage } from '../../plugins/supSources.t
 import type { InstallSource, SupplementRow } from '../../plugins/supRuntime.ts';
 import { Dialog } from './Dialog.tsx';
 import { SupplementReview } from './SupplementReview.tsx';
+import { SupplementContent } from './SupplementContent.tsx'; // SUPLEMENTOS: fase G
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
 const COR: Record<string, string> = { active: '#2e7d32', failed: '#c62828', 'needs-grant': '#b26a00', installed: '#b26a00', disabled: '#757575' };
@@ -13,7 +14,7 @@ const COR: Record<string, string> = { active: '#2e7d32', failed: '#c62828', 'nee
 /** Em revisão: o suplemento, os avisos de origem e o `README.md` do pacote recém-instalado. */
 interface Revisao { id: string; warnings: Array<'unsigned' | 'folder' | 'replace'>; readme?: string }
 
-function Linha({ r, onReview }: { r: SupplementRow; onReview: () => void }): ReactElement {
+function Linha({ r, onReview, onContent }: { r: SupplementRow; onReview: () => void; onContent: () => void }): ReactElement {
   const { t } = useT();
   const rt = supplementRuntime();
   const [confirmar, setConfirmar] = useState(false);
@@ -30,6 +31,7 @@ function Linha({ r, onReview }: { r: SupplementRow; onReview: () => void }): Rea
       {r.state === 'failed' && r.detail ? <div role="alert" style={{ color: '#c62828' }}>{t('sup_err_activate', { detail: r.detail })}</div> : null}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
         <button className="btn" onClick={onReview}>{t('sup_btn_review')}</button>
+        {r.state === 'active' && r.grants.some((g) => g === 'content.families' || g === 'content.materials') ? <button className="btn" onClick={onContent}>{t('sup_content_btn')}</button> : null}
         {r.enabled && r.state !== 'disabled'
           ? <button className="btn" onClick={() => void rt.setEnabled(r.id, false)}>{t('sup_btn_disable')}</button>
           : <button className="btn" onClick={() => void rt.setEnabled(r.id, true)}>{t('sup_btn_enable')}</button>}
@@ -60,6 +62,7 @@ export function SupplementsDialog(): ReactElement {
   const [msg, setMsg] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [conteudo, setConteudo] = useState<string | null>(null);
   useEffect(() => { void rt.refresh(); }, [rt]);
 
   const instalar = async (pick: () => Promise<InstallSource | null>): Promise<void> => {
@@ -109,7 +112,8 @@ export function SupplementsDialog(): ReactElement {
         <SupplementReview key={emRevisao.id} row={emRevisao} warnings={rev.warnings} {...(rev.readme ? { readme: rev.readme } : {})} busy={busy} error={erro}
           onGrant={(g) => void conceder(emRevisao.id, g)} onLater={() => { setRev(null); setErro(null); }} />
       ) : null}
-      {rows.length === 0 ? <p className="hint">{t('sup_none')}</p> : rows.map((r) => <Linha key={r.id} r={r} onReview={() => { setErro(null); setRev({ id: r.id, warnings: [] }); }} />)}
+      {conteudo ? <SupplementContent key={conteudo} pluginId={conteudo} onClose={() => setConteudo(null)} /> : null}
+      {rows.length === 0 ? <p className="hint">{t('sup_none')}</p> : rows.map((r) => <Linha key={r.id} r={r} onReview={() => { setErro(null); setRev({ id: r.id, warnings: [] }); }} onContent={() => setConteudo(r.id)} />)}
     </Dialog>
   );
 }

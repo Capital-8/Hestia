@@ -19,6 +19,8 @@ import type { PluginInfo } from './appModelPort.ts';
 import { Installer, type InstallResult, type PackageStore } from './installer.ts';
 import { PluginLoader, type SupState } from './loader.ts';
 import { PluginLog } from './pluginLog.ts';
+import type { ContentOffer } from '@hestia/model'; // SUPLEMENTOS: fase G
+import { contentOffers } from './contentBridge.ts'; // SUPLEMENTOS: fase G
 import { setPluginActionExecutor, type PluginActionExecutor } from './registry.ts';
 import { registrySink, scriptPortsFactory, validateManifestForInstall } from './supSink.ts';
 
@@ -213,6 +215,16 @@ export class SupplementRuntime {
     } catch (e) {
       return { ok: false, code: 'activation_failed', detail: e instanceof Error ? e.message : String(e) };
     }
+  }
+
+  /** Conteúdo (famílias e materiais) que os suplementos ativos oferecem (fase G); só é carregado por ação do usuário. */
+  contentOffers(): Promise<ContentOffer[]> {
+    return contentOffers(this.o.store);
+  }
+
+  /** Porta de escrita do modelo (a mesma das ações de suplemento), para carregar e remover conteúdo. */
+  get modelPort(): ModelPort {
+    return this.o.model;
   }
 
   async setEnabled(id: string, on: boolean): Promise<void> {
