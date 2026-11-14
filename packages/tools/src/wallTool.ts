@@ -9,9 +9,12 @@ import type { InferContext } from './infer.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
+import { arcCenterEnds, arcTangent } from './sketchShapesArc.ts';
 import { circleSegments, ellipseSegments, polygonSegments, splineSegments, type WallSegment } from './wallShapes.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
 import type { DictKey } from './i18n.ts';
+
+type PointShape = 'polygon' | 'circle' | 'ellipse' | 'spline' | 'arc-center' | 'arc-tangent';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
 
@@ -56,9 +59,9 @@ export class WallTool extends ToolBase {
   }
 
   /** Modo de forma por pontos ativo, ou null (reta, arco e retângulo têm caminho próprio). */
-  private pointShape(): 'polygon' | 'circle' | 'ellipse' | 'spline' | null {
+  private pointShape(): PointShape | null {
     const s = this.env.options().wallShape;
-    return s === 'polygon' || s === 'circle' || s === 'ellipse' || s === 'spline' ? s : null;
+    return s === 'polygon' || s === 'circle' || s === 'ellipse' || s === 'spline' || s === 'arc-center' || s === 'arc-tangent' ? s : null;
   }
 
   /** Segmentos da forma com o cursor em `c` (null: ainda faltam pontos). `closeSpline`: o cursor fecha a spline. */
@@ -68,6 +71,16 @@ export class WallTool extends ToolBase {
     const k = this.pointShape();
     const p0 = this.pts[0];
     if (!k || !p0) return null;
+    if (k === 'arc-center' || k === 'arc-tangent') {
+      const p1 = this.pts[1];
+      // Antes do segundo ponto não há arco; a prévia fica só com os pontos (raio / tangente).
+      if (!p1) return null;
+      const segs = k === 'arc-center'
+        // Percurso para o lado do cursor em relação ao raio inicial (arco de até 180°).
+        ? arcCenterEnds(p0, p1, c, cross(sub(p1, p0), sub(c, p0)) > 0)
+        : arcTangent(p0, sub(p1, p0), c);
+      return segs.map((s) => ({ a: s.a, b: s.b, sag: s.sag ?? 0 }));
+    }
     if (k === 'polygon') return polygonSegments(p0, c, o.wallPolygonSides ?? 6, o.wallPolygonCircumscribed ?? false);
     if (k === 'circle') return circleSegments(p0, dist(p0, c), Math.atan2(c.y - p0.y, c.x - p0.x));
     if (k === 'ellipse') {
@@ -94,15 +107,24 @@ export class WallTool extends ToolBase {
     this.items = [];
     if (this.pts.length === 0) {
       this.items.push({ kind: 'point', at: inf.point });
-      this.env.say(this.hint);
+      this.env.say(this.pointShape() === 'arc-center' ? this.t('tl_msg_arc_center_c') : this.hint);
       return;
     }
     const segs = this.shapeSegments(inf.point, true);
     const { thickness, sMid } = this.band();
+    const arcK = this.pointShape();
+    if ((arcK === 'arc-center' || arcK === 'arc-tangent') && this.pts.length === 1) {
+      // Segundo ponto ainda por clicar: mostra o raio (centro→cursor) ou a direção da tangente (início→cursor).
+      this.items.push({ kind: 'point', at: this.pts[0]! }, { kind: 'wallBand', a: this.pts[0]!, b: inf.point, thickness, sMid });
+      this.env.say(arcK === 'arc-center' ? this.t('tl_msg_arc_center_s') : this.t('tl_msg_arc_tan_t'));
+      return;
+    }
     for (const s of segs ?? []) this.items.push({ kind: 'wallBand', a: s.a, b: s.b, thickness, sMid, sag: s.sag });
     const k = this.pointShape();
     this.env.say(
-      k === 'spline' ? this.t('tl_msg_shape_spline')
+      k === 'arc-center' ? this.t('tl_msg_arc_center_e')
+        : k === 'arc-tangent' ? this.t('tl_msg_arc_tan_e')
+        : k === 'spline' ? this.t('tl_msg_shape_spline')
         : k === 'ellipse' ? (this.pts.length === 1 ? this.t('tl_msg_shape_axis_tip') : this.t('tl_msg_shape_axis_second'))
         : this.t('tl_msg_shape_radius'),
     );
@@ -123,7 +145,7 @@ export class WallTool extends ToolBase {
       this.pts = [...this.pts, c];
       return;
     }
-    if (k === 'ellipse' && this.pts.length === 1) {
+    if ((k === 'arc-center' || k === 'arc-tangent' || k === 'ellipse') && this.pts.length === 1) {
       if (dist(last, c) < 0.02) return;
       this.pts = [last, c];
       return;
@@ -141,7 +163,7 @@ export class WallTool extends ToolBase {
     const walls = segs.map((s) => this.wallAt(s.a, s.b, s.sag));
     if (walls.some((w) => refuseWallOverlap(this.env, w))) return;
     const k = this.pointShape();
-    const desfazer: Record<'polygon' | 'circle' | 'ellipse' | 'spline', DictKey> = { polygon: 'tl_undo_wall_polygon', circle: 'tl_undo_wall_circle', ellipse: 'tl_undo_wall_ellipse', spline: 'tl_undo_wall_spline' };
+    const desfazer: Record<PointShape, DictKey> = { 'arc-center': 'tl_undo_wall_arc_center', 'arc-tangent': 'tl_undo_wall_arc_tangent', polygon: 'tl_undo_wall_polygon', circle: 'tl_undo_wall_circle', ellipse: 'tl_undo_wall_ellipse', spline: 'tl_undo_wall_spline' };
     this.env.transaction(this.t(desfazer[k!]), () => {
       for (const wall of walls) this.env.exec({ type: 'addWall', wall });
     });

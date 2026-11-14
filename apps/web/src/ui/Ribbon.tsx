@@ -15,6 +15,7 @@ import { TABS } from './ribbon/tabs.ts';
 import { usePluginRibbonPanels, suplementosTab } from './ribbon/pluginRibbon.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
+import { WallDrawPanel } from './WallDrawPanel.tsx';
 import { PerimeterRibbonPanels } from './perimeter/PerimeterRibbonPanels.tsx';
 import './perimeter/perimeter.css';
 
@@ -125,6 +126,10 @@ export function Ribbon(): ReactElement {
       // Com uma porta/janela selecionada, a aba contextual ganha os controles de inversão e o alternador de etiquetas.
       const only = activeId === 'ctx' && ctx.selection.length === 1 ? ctx.p.elements[ctx.selection[0]!] : undefined;
       if (only && (only.kind === 'door' || only.kind === 'window')) items.push({ key: 'abertura', priority: 2, node: <OpeningActions opening={only} p={ctx.p} lang={lang} /> });
+      // Parede: a galeria "Desenhar" é a do modo de perímetro, ligada à opção wallShape.
+      if (activeId === 'ctx' && ctx.tool === 'wall' && ctxTab?.key === 'tool:wall') {
+        items.push({ key: 'desenhar', priority: 2, node: <WallDrawPanel options={ctx.options} onPatch={(patch) => useUi.setState((s) => ({ options: { ...s.options, ...patch } }))} /> });
+      }
       return items;
     }
     return pTab.slots.map((slot) => slot.kind === 'panel'
