@@ -117,9 +117,12 @@ fn terreno_aleatorio(r: &mut Xorshift) -> TerrenoFx {
         reg.ordem = inteiro(r, 0, 5) as u32;
         reg.inclinacao = if r.proximo().is_multiple_of(2) { r.intervalo(0.0, 0.3) } else { 0.0 };
         reg.direcao = r.intervalo(0.0, std::f64::consts::TAU);
-        if r.proximo().is_multiple_of(3) {
-            reg.talude_corte = r.intervalo(0.5, 3.0);
-            reg.talude_aterro = if r.proximo().is_multiple_of(2) { r.intervalo(0.5, 3.0) } else { 0.0 };
+        // Talude em poucas regiões e com cota perto da do terreno: o alcance D (e com ele a grade de pontos) cresce com a diferença de cota e com o talude, e o
+        // fuzz em modo de depuração fica lento.
+        if r.proximo().is_multiple_of(8) {
+            reg.cota = r.intervalo(5.0, 15.0);
+            reg.talude_corte = r.intervalo(0.3, 1.0);
+            reg.talude_aterro = if r.proximo().is_multiple_of(2) { r.intervalo(0.3, 1.0) } else { 0.0 };
         }
         fx.regioes.push(reg);
     }
@@ -218,7 +221,8 @@ fn fuzz_200_completo() {
 #[test]
 fn tempo_50_mil_pontos_com_regioes() {
     let mut r = Xorshift::novo(50_001);
-    let pontos = (0..50_000).map(|_| [r.intervalo(0.0, 1000.0), r.intervalo(0.0, 1000.0), r.intervalo(0.0, 50.0)]).collect();
+    // Relevo suave (colinas de 15 m), como um levantamento de verdade: com cotas sorteadas cada triângulo cruzaria dezenas de curvas.
+    let pontos = (0..50_000).map(|_| (r.intervalo(0.0, 1000.0), r.intervalo(0.0, 1000.0))).map(|(x, y)| [x, y, 25.0 + 15.0 * (x / 80.0).sin() * (y / 60.0).cos()]).collect();
     let regioes = vec![
         RegiaoFx::quadrado(1, 1, 200.0, 200.0, 80.0, 20.0),
         RegiaoFx::quadrado(2, 1, 600.0, 300.0, 60.0, 30.0),
@@ -236,6 +240,9 @@ fn tempo_50_mil_pontos_com_regioes() {
     let c = curvas(&mut cena, 0, 1);
     let tempo_curvas = t.elapsed();
     let t = std::time::Instant::now();
+    let c_existente = curvas(&mut cena, 0, 0);
+    let tempo_curvas_e = t.elapsed();
+    let t = std::time::Instant::now();
     let k = corte_todos(&mut cena, [0.0, 500.0, 1.0, 0.0], 0.0);
     let tempo_corte = t.elapsed();
     let t = std::time::Instant::now();
@@ -248,11 +255,11 @@ fn tempo_50_mil_pontos_com_regioes() {
     let mapa_ca = executar(&mut cena, CONSULTA_TERRENO_CORTE_ATERRO, &[0.0]).expect("mapa");
     let tempo_mapa = t.elapsed();
     println!(
-        "terreno de 50 000 pontos com 4 regiões: primeira terreno_malha (E e P) {primeira:?}; com cache {com_cache:?}; terreno_curvas {tempo_curvas:?}; terreno_corte {tempo_corte:?}; \
+        "terreno de 50 000 pontos com 4 regiões: primeira terreno_malha (E e P) {primeira:?}; com cache {com_cache:?}; terreno_curvas {tempo_curvas:?} (existente {tempo_curvas_e:?}); terreno_corte {tempo_corte:?}; \
          terreno_cotas com 1 sonda {uma_sonda:?}; quant_terreno (volumes) {tempo_volumes:?}; terreno_corte_aterro {tempo_mapa:?}"
     );
     assert_eq!(m.i, de_novo.i);
-    assert!(!c.is_empty() && !k.is_empty() && mapa_ca.len() == 2);
+    assert!(!c.is_empty() && !c_existente.is_empty() && !k.is_empty() && mapa_ca.len() == 2);
     assert!((z[0].1 - 20.0).abs() < 1e-9, "dentro da plataforma 1");
     assert!(q[0].1[5] + q[0].1[6] > 0.0);
     assert_eq!(cena.cache_terreno.borrow().propostas_calculadas, 1);

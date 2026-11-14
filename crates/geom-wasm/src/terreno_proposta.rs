@@ -390,7 +390,7 @@ mod testes {
     use super::*;
 
     fn quadrado(id: u32, ordem: u32, papel: u8, x0: f64, y0: f64, lado: f64) -> Regiao {
-        let c = vec![v(x0, y0), v(x0 + lado, y0), v(x0 + lado, y0 + lado), v(x0, y0 + lado)];
+        let c = [v(x0, y0), v(x0 + lado, y0), v(x0 + lado, y0 + lado), v(x0, y0 + lado)];
         let mut s = crate::secoes_terreno::SecoesTerreno::default();
         s.regioes.insert(id, crate::secoes_terreno::RegiaoTerrenoLinha { terreno: 1, ordem, papel, cota: 0.0, inclinacao: 0.0, direcao: 0.0, ref_xy: [0.0; 2], talude_corte: 0.0, talude_aterro: 0.0 });
         for (k, p) in c.iter().enumerate() {

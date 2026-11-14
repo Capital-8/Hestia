@@ -14,6 +14,8 @@ use crate::terreno_testes_curvas::{curvas, f64s, ler_linhas, planta, quant, u32s
 use crate::terreno_tipos::existente;
 use crate::teste_util::Xorshift;
 
+type Bits = Vec<u64>;
+
 /// Regiões do terreno prontas para `zp` (com o alcance definido a partir de E).
 pub fn regioes_prontas(cena: &Cena, terreno: u32) -> Vec<Regiao> {
     let e = existente(cena, terreno).expect("existente");
@@ -36,8 +38,11 @@ pub fn quant_regioes(cena: &mut Cena, nivel: u32) -> Vec<(u32, u32, [f64; 4])> {
     l.chunks_exact(2).zip(v.chunks_exact(4)).map(|(l, v)| (l[0], l[1], [v[0], v[1], v[2], v[3]])).collect()
 }
 
-/// Consulta 167: `(terreno_num, tipo, triângulos)` por grupo; cada triângulo são 3 pontos `[x, y]`.
-pub fn mapa(cena: &mut Cena, nivel: u32) -> Vec<(u32, u32, Vec<[[f64; 2]; 3]>)> {
+/// Grupo da consulta 167: `(terreno_num, tipo, triângulos)`; cada triângulo são 3 pontos `[x, y]`.
+pub type GrupoDoMapa = (u32, u32, Vec<[[f64; 2]; 3]>);
+
+/// Consulta 167 lida em grupos.
+pub fn mapa(cena: &mut Cena, nivel: u32) -> Vec<GrupoDoMapa> {
     let s = executar(cena, CONSULTA_TERRENO_CORTE_ATERRO, &[f64::from(nivel)]).expect("terreno_corte_aterro");
     let (g, p) = (u32s(&s[0]), f64s(&s[1]));
     assert_eq!(g.len() % 4, 0);
@@ -229,7 +234,7 @@ fn sem_regiao_proposta_igual_existente() {
     let mut cena = cena_com(&[t1(1), t2(2), TerrenoFx { borda: Some(vec![[1.0, 1.0], [9.0, 1.0], [9.0, 9.0], [1.0, 9.0]]), ..t2(3) }]);
     let bits = |m: &MalhaLida| (m.grupos.clone(), m.i.clone(), m.v.iter().flatten().map(|x| x.to_bits()).collect::<Vec<_>>());
     assert_eq!(bits(&malha(&mut cena, NIVEL_TODOS, 0)), bits(&malha(&mut cena, NIVEL_TODOS, 1)), "consulta 160");
-    let bl = |l: Vec<LinhaLida>| -> Vec<(u32, u32, bool, Vec<[u64; 2]>, u64)> { l.iter().map(|x| (x.terreno, x.marca, x.fechada, x.pontos.iter().map(|p| p.map(f64::to_bits)).collect(), x.z.to_bits())).collect() };
+    let bl = |l: Vec<LinhaLida>| -> Vec<Bits> { l.iter().map(|x| x.pontos.iter().flatten().chain([&x.z]).map(|v| v.to_bits()).chain([u64::from(x.terreno), u64::from(x.marca), u64::from(x.fechada)]).collect()).collect() };
     assert_eq!(bl(curvas(&mut cena, NIVEL_TODOS, 0)), bl(curvas(&mut cena, NIVEL_TODOS, 1)), "consulta 161");
     assert_eq!(bl(planta(&mut cena, NIVEL_TODOS, 0)), bl(planta(&mut cena, NIVEL_TODOS, 1)), "consulta 162");
     let pts = [[10.0, 10.0], [3.0, 17.0], [5.0, 5.0], [50.0, 50.0]];
@@ -268,11 +273,11 @@ fn mapa_corte_aterro_t5() {
     let mut cena = cena_com(&[t5(1)]);
     let m = mapa(&mut cena, 0);
     assert_eq!(m.iter().map(|g| (g.0, g.1)).collect::<Vec<_>>(), vec![(1, 0)], "só um grupo, o de corte do terreno 1; nenhum de aterro");
-    let area: f64 = m[0].2.iter().map(|t| area_tri(t)).sum();
+    let area: f64 = m[0].2.iter().map(area_tri).sum();
     assert!(m[0].2.iter().all(|t| area_tri(t) > 0.0), "anti-horários");
     assert!((100.0..=101.0).contains(&area), "área em corte {area}");
     assert!(mapa(&mut cena_com(&[t7(1)]), 0).iter().all(|g| g.1 == 1), "T7 só tem aterro");
-    let a7: f64 = mapa(&mut cena_com(&[t7(1)]), 0)[0].2.iter().map(|t| area_tri(t)).sum();
+    let a7: f64 = mapa(&mut cena_com(&[t7(1)]), 0)[0].2.iter().map(area_tri).sum();
     assert!((100.0..=101.0).contains(&a7), "área em aterro {a7}");
     assert!(mapa(&mut cena, 5).is_empty(), "outro nível");
 }

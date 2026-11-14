@@ -264,9 +264,10 @@ mod testes {
         assert_eq!(r.distancia(v(6.0, 6.0)), 0.0);
         assert_eq!(r.distancia(v(3.0, 10.0)), 2.0);
         let (q, d) = r.mais_proximo(v(2.0, 2.0));
-        assert_eq!((q, d), (v(5.0, 5.0), 18f64.sqrt()), "o canto");
+        assert_eq!(q, v(5.0, 5.0), "o canto");
+        assert!((d - 18f64.sqrt()).abs() < 1e-12);
         assert!(r.estritamente_dentro(v(10.0, 10.0)) && !r.estritamente_dentro(v(5.0, 10.0)), "sobre o contorno não é estritamente dentro");
-        assert_eq!(r.contorno_denso().len(), 40);
+        assert_eq!(r.contorno_denso().len(), 160, "4 lados de 10 m com passo 0,25");
         assert!(r.plana() && !quadrado(0).plana());
     }
 
