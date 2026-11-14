@@ -229,6 +229,40 @@ function slabKind(f: IfcFile, e: StepEntity): 'floor' | 'slab' | 'ceiling' | nul
   return 'floor';
 }
 
+/** Ponto dentro do polígono (regra par-ímpar). */
+function insideLoop(p: Pt2, loop: Pt2[]): boolean {
+  let inside = false;
+  for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const a = loop[i]!;
+    const b = loop[j]!;
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Vãos (`IfcOpeningElement` ligado por `IfcRelVoidsElement`, sem porta/janela dentro) do piso/laje/forro: o Revit e
+ * outros não recortam a geometria do host, então a escada, o shaft e a claraboia só existem como vão. Cada vão vira
+ * um furo (contorno em planta), desde que o centro caia dentro do limite e o furo ainda não exista na geometria.
+ */
+function voidLoops(ctx: Ctx, host: StepEntity, boundary: Pt2[]): Pt2[][] {
+  const out: Pt2[][] = [];
+  for (const [openingId, hostId] of ctx.hostOf) {
+    if (hostId !== host.id || ctx.fillerOf.has(openingId)) continue;
+    const opening = ctx.f.entity(openingId);
+    if (!opening) continue;
+    const body = bodyFor(ctx, opening);
+    const prism = body.prisms[0];
+    const raw = prism ? cleanLoop(prism.loops[0] ?? []) : body.tris.length ? prismFromMesh(bodyPoints(body))?.loops[0] ?? [] : [];
+    const loop = cleanLoop(raw);
+    ctx.bodies.delete(openingId);
+    if (loop.length < 3 || !insideLoop(interiorPoint(loop), boundary)) continue;
+    out.push(loop);
+    ctx.handled.add(openingId);
+  }
+  return out;
+}
+
 function addSlab(ctx: Ctx, e: StepEntity): void {
   if (ctx.handled.has(e.id)) return;
   const f = ctx.f;
@@ -251,6 +285,7 @@ function addSlab(ctx: Ctx, e: StepEntity): void {
     return ctx.skip(e.type);
   }
   const holes = prism.loops.slice(1).map(cleanLoop).filter((l) => l.length >= 3);
+  for (const v of voidLoops(ctx, e, boundary)) if (!holes.some((h) => insideLoop(interiorPoint(h), v) || insideLoop(interiorPoint(v), h))) holes.push(v);
   const thickness = Math.max(0.05, prism.z1 - prism.z0);
   const xs = boundary.map((p) => p.x);
   const ys = boundary.map((p) => p.y);
