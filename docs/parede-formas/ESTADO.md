@@ -136,3 +136,6 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - `wallTool.ts`: toda cadeia (reta, arco, inclinada) usa a sessão de transação: um desfazer por cadeia; antes só a inclinada. Teste novo em `wallTiltModificar.test.ts`.
 - Testes novos: `engine/src/wallTiltQuantities.test.ts` (5), `tools/src/wallTiltModificar.test.ts` (matriz 10 comandos × {reta, arco} × ±15°, aceite geométrico em z=0, 1,5, 3 a 1e-9; 50 casos).
 - Teste existente alterado (1): `tools/src/wallTilt.test.ts` "cadeia reta segue um desfazer por trecho" virou "cadeia reta é um só desfazer" (pedido da ficha).
+
+## Fase 2 (parede inclinada): estado em 2026-11-14
+Mescladas: F2.1 a F2.8, F2.10, F2.11. Portões na árvore combinada: typecheck ok, lint 0 erros, check:ribbon-i18n 0 faltando, test:rapido 12236 ok (11 falhas só de timeout sob carga, 9 arquivos passam isolados: 88 testes). Pendentes: F2.9 (campo "plano" da abertura na interface), F2.12 (IFC/DXF), revisão da regra do semicírculo a 60° (wallTiltIssue), portão visual com capturas. Dívidas: D1 junção exata em arco inclinado; D2 porte do tilt para o Rust; nó de 3+ paredes inclinadas e bases em cotas diferentes sem junção inclinada; membranas verticais na planta/corte; não existe comando que troque a↔b (regra coberta por teste de propriedade).
