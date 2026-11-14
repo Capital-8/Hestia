@@ -98,7 +98,7 @@ export const TAB_VISTA: RibbonTab = {
       soon(t('Legendas', 'Legends'), 'soon'),
       split(act('schedWalls', 'large', t('Tabelas', 'Schedules')), [
         act('schedWalls', 'small'), act('schedFloors', 'small'), act('schedSlabs', 'small'), act('schedCeilings', 'small'),
-        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'),
+        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), act('schedMass', 'small'),
       ]),
     ),
     panel(

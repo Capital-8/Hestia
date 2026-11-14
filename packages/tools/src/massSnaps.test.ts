@@ -108,6 +108,5 @@ describe('massa: snaps de planta (Cota e Medir por clique)', () => {
     near(pts.b, v(-5, -3));
   });
 
-  // A cota ASSOCIATIVA à massa (a ponta acompanhar a massa ao movê-la) depende de `dimRefAt` (packages/model/src/dimensionRefs.ts) listar
-  // a massa entre os elementos de apoio; isso é do modelo e fica fora desta ficha (relatado). Aqui só a captura de posição.
+  // A cota ASSOCIATIVA à massa (a ponta acompanhar a massa ao movê-la) é testada em massaCotaAssociativa.test.ts; aqui só a captura de posição.
 });

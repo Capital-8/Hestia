@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { cortinaAvisosDeGeometria, cortinaAvisosSemKernel, guardaCorpoAvisosDeGeometria, servicoCortina, servicoGuardaCorpo, temCortina } from '@hestia/engine';
-import { isGuardaCorpo, type Project, type ValidationIssue } from '@hestia/model';
+import { cortinaAvisosDeGeometria, cortinaAvisosSemKernel, guardaCorpoAvisosDeGeometria, massaAvisosDoProjeto, servicoCortina, servicoGuardaCorpo, servicoMassa, temCortina } from '@hestia/engine';
+import { isGuardaCorpo, isMass, type Project, type ValidationIssue } from '@hestia/model';
 import { useProject } from './controller.ts';
 import { useI18n } from './i18n.ts';
 import { agendarAvisos } from './avisosProjeto.ts';
@@ -25,10 +25,19 @@ export function avisosGeometriaCortina(p: Project, lang = useI18n.getState().lan
 }
 
 /**
+ * Avisos da massa (plano de massa, A.5; ficha U2): as medidas vêm do kernel (consulta 145) e `massaAvisosDoProjeto` monta o texto, com o
+ * "Ir para" pela massa. Sem massa no projeto, vazio. Sem kernel, cada massa ganha `massa-sem-kernel`; massa recusada, `massa-invalida`.
+ */
+export function avisosGeometriaMassa(p: Project, lang = useI18n.getState().lang): ValidationIssue[] {
+  if (!Object.values(p.elements).some(isMass)) return [];
+  return massaAvisosDoProjeto(p, servicoMassa(), lang);
+}
+
+/**
  * Avisos de validação do projeto atual. Todo modelo é validado depois de SETTLE_MS sem novas mudanças (até lá, mostra o
  * resultado anterior; na abertura, lista vazia). Antes, modelos com até 2000 elementos eram validados na mesma renderização,
  * o que somava o custo dos avisos à abertura. O resultado final é o mesmo: `agendarAvisos` usa `avisosDoProjeto`.
- * Os avisos de geometria do guarda-corpo (kernel) entram depois, no mesmo tempo de silêncio, e são refeitos quando o kernel fica pronto.
+ * Os avisos de geometria do guarda-corpo, da cortina e da massa (kernel) entram depois, no mesmo tempo de silêncio, e são refeitos quando o kernel fica pronto.
  */
 export function useIssues(): ValidationIssue[] {
   const project = useProject();
@@ -36,8 +45,12 @@ export function useIssues(): ValidationIssue[] {
   const [kernelPronto, setKernelPronto] = useState(0);
   useEffect(() => servicoGuardaCorpo().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(() => servicoCortina().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
+  useEffect(() => servicoMassa().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(
-    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project)])),
+    () =>
+      agendarAvisos(project, (a) =>
+        setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project), ...avisosGeometriaMassa(project)]),
+      ),
     // `kernelPronto` refaz a lista quando o kernel carrega ou é trocado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, kernelPronto],

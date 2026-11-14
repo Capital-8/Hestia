@@ -435,6 +435,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   schedRamps: sched(t('Tabela de rampas', 'Ramp Schedule'), 'rampSchedule'),
   schedRooms: sched(t('Tabela de ambientes', 'Room Schedule'), 'roomSchedule'),
   schedOpenings: sched(t('Tabela de portas e janelas', 'Door/Window Schedule'), 'openingSchedule'),
+  schedMass: sched(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
   stairSketch: {
     label: t('Editar croqui', 'Edit Sketch'),
     icon: 'stair',

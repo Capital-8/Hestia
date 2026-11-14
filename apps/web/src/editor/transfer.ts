@@ -44,11 +44,8 @@ interface Counts {
   masses: number;
 }
 
-/**
- * Chaves do singular/plural de cada categoria na frase de cópia. A massa ainda não tem chave (`edc_count_mass_*` ficaria em
- * `editor/i18n/areas/editor-context.ts`, fora da ficha T1c): até lá ela conta nos totais e na seleção, mas não entra na frase.
- */
-const COUNT_KEYS: Record<Exclude<keyof Counts, 'masses'>, readonly [keyof Dict, keyof Dict]> = {
+/** Chaves do singular/plural de cada categoria na frase de cópia (a massa entra na frase desde a ficha U2). */
+const COUNT_KEYS: Record<keyof Counts, readonly [keyof Dict, keyof Dict]> = {
   walls: ['edc_count_wall_one', 'edc_count_wall_many'],
   floors: ['edc_count_floor_one', 'edc_count_floor_many'],
   slabs: ['edc_count_slab_one', 'edc_count_slab_many'],
@@ -60,6 +57,7 @@ const COUNT_KEYS: Record<Exclude<keyof Counts, 'masses'>, readonly [keyof Dict, 
   generics: ['edc_count_generic_one', 'edc_count_generic_many'],
   cad: ['edc_count_cad_one', 'edc_count_cad_many'],
   railings: ['edc_count_railing_one', 'edc_count_railing_many'],
+  masses: ['edc_count_mass_one', 'edc_count_mass_many'],
 };
 
 /** "2 paredes, 1 piso, 1 laje e 1 escada": frase do status para o que foi copiado ou colado. */
