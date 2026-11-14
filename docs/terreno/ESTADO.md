@@ -24,7 +24,7 @@ Modo de execução: A (subagentes). Modelo: **SOMENTE Sonnet e Haiku** (ordem do
 | T3 | pendente | | 0 | |
 | U2 | pendente | | 0 | |
 | P1 | mesclada | merge de terreno/P1 | 0 | engine: loteGeometria/Indices/Rumos/Issues e fixture; test:rapido do agente 980 arq / 11440 (uma rodada com falha sob carga concorrente, a seguinte limpa; nome do teste nao identificado). PENDENCIA: sinal do norte verdadeiro, ver abaixo |
-| P2 | pendente | | 0 | |
+| P2 | mesclada | merge de terreno/P2 | 0 | Sonnet. test:rapido 984 arq / 11472; lint 0 erros. Fiscal ligou o snap do lote em tools/src/componentSnap.ts (B.1 item 9a) e provou em componentSnapLote.test.ts. PENDENCIAS: (1) textos frente/lateral/fundo estao num dicionario local pt/en em render/plan/lote.ts porque o agente teve a edicao de packages/model/src/i18n.ts negada; mover para chaves md_lt_lado_* (ficha U1 ou Q1); (2) contorno do lote sai tracejado longo, nao traço-dois-pontos (StrokeOp.dash so aceita [traço, vão]); (3) seleção por clique/caixa (loteNoPonto, lotesNaCaixa) pronta mas sem ligar ao selectTool: ficha P3 |
 | P3 | pendente | | 0 | |
 | P4 | pendente | | 0 | |
 | P5 | pendente | | 0 | condicional: só com a massa na branch |
