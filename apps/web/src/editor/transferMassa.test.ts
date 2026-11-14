@@ -10,7 +10,7 @@ import { useUi } from './state.ts';
 function setup() {
   const s = new ProjectStore(createEmptyProject());
   s.exec({ type: 'upsertLevel', level: makeLevel({ id: 'lv_1', name: 'Pav. 1', elevation: 3 }) });
-  s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: 'lv_0', name: 'Torre', origem: { x: 2, y: 1 }, secoes: [secaoCirculo(0, 2), secaoCirculo(9, 2)] }), order: 1 } });
+  s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: 'lv_0', name: 'Torre', origem: { x: 2, y: 1 }, secoes: [secaoCirculo(0, 2), secaoCirculo(9, 2)] }) } });
   useUi.setState({ selection: ['m1'], levelId: 'lv_0' });
   return s;
 }

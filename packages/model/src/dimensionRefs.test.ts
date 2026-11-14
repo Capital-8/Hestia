@@ -138,7 +138,7 @@ describe('dimRefAt: massa como apoio `part` (vértices do anel cortado, pelo pro
   it('o vértice da massa vira referência `part` com chave estável; mover a massa leva a ponta', () => {
     provedorDaMassa();
     const s = cena();
-    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }), order: 1 } });
+    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }) } });
     const achado = dimRefAt(s.project, LV, { x: 15.01, y: 3.01 }, 0.05);
     expect(achado?.ref).toEqual({ elementId: 'm1', feature: 'part', key: 'm0.l0.v2' });
     near(achado!.point, 15, 3);
@@ -148,7 +148,7 @@ describe('dimRefAt: massa como apoio `part` (vértices do anel cortado, pelo pro
 
   it('sem provedor (sem kernel) a massa não é apoio: nenhum ponto perto dela', () => {
     const s = cena();
-    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }), order: 1 } });
+    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }) } });
     expect(dimRefAt(s.project, LV, { x: 15.01, y: 3.01 }, 0.05)).toBeNull();
   });
 });
