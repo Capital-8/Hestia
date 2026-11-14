@@ -9,6 +9,7 @@ import type { InferContext } from './infer.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
+import { circleSegments, ellipseSegments, polygonSegments, splineSegments, type WallSegment } from './wallShapes.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -33,7 +34,11 @@ export class WallTool extends ToolBase {
   private lastPointer: PointerInfo | null = null;
   private lastPoint: Vec2 | null = null;
 
+  /** Formas por pontos (polígono, círculo, elipse, spline): centro/pontos já clicados. */
+  private pts: Vec2[] = [];
+
   protected reset(): void {
+    this.pts = [];
     this.startPt = null;
     this.chordEnd = null;
     this.first = null;
@@ -46,7 +51,109 @@ export class WallTool extends ToolBase {
   }
 
   protected busy(): boolean {
-    return this.startPt !== null;
+    return this.startPt !== null || this.pts.length > 0;
+  }
+
+  /** Modo de forma por pontos ativo, ou null (reta, arco e retângulo têm caminho próprio). */
+  private pointShape(): 'polygon' | 'circle' | 'ellipse' | 'spline' | null {
+    const s = this.env.options().wallShape;
+    return s === 'polygon' || s === 'circle' || s === 'ellipse' || s === 'spline' ? s : null;
+  }
+
+  /** Segmentos da forma com o cursor em `c` (null: ainda faltam pontos). `closeSpline`: o cursor fecha a spline. */
+  private shapeSegments(c: Vec2, preview: boolean): WallSegment[] | null {
+    const o = this.env.options();
+    const tol = o.wallFitTol ?? 0.005;
+    const k = this.pointShape();
+    const p0 = this.pts[0];
+    if (!k || !p0) return null;
+    if (k === 'polygon') return polygonSegments(p0, c, o.wallPolygonSides ?? 6, o.wallPolygonCircumscribed ?? false);
+    if (k === 'circle') return circleSegments(p0, dist(p0, c), Math.atan2(c.y - p0.y, c.x - p0.x));
+    if (k === 'ellipse') {
+      const p1 = this.pts[1];
+      // Segundo ponto: semieixo e rotação. Antes dele, a prévia é o círculo pelo cursor.
+      if (!p1) return circleSegments(p0, dist(p0, c), Math.atan2(c.y - p0.y, c.x - p0.x));
+      const rx = dist(p0, p1);
+      const u = norm(sub(p1, p0));
+      const ry = Math.abs((c.x - p0.x) * -u.y + (c.y - p0.y) * u.x);
+      return ellipseSegments(p0, rx, ry, Math.atan2(u.y, u.x), tol);
+    }
+    const closed = this.pts.length >= 3 && this.splineCloses(c);
+    const pts = closed || dist(this.pts[this.pts.length - 1]!, c) < 1e-6 ? this.pts : [...this.pts, c];
+    return splineSegments(pts, closed, preview ? Math.max(tol, 0.02) : tol, preview ? 16 : undefined);
+  }
+
+  private splineCloses(c: Vec2): boolean {
+    return this.pts.length >= 3 && dist(c, this.pts[0]!) < Math.max(0.02, this.env.metersPerPixel() * 8);
+  }
+
+  private movePointShape(p: PointerInfo): void {
+    const inf = this.snapWall(p, { from: this.pts[this.pts.length - 1] });
+    this.lastPoint = inf.point;
+    this.items = [];
+    if (this.pts.length === 0) {
+      this.items.push({ kind: 'point', at: inf.point });
+      this.env.say(this.hint);
+      return;
+    }
+    const segs = this.shapeSegments(inf.point, true);
+    const { thickness, sMid } = this.band();
+    for (const s of segs ?? []) this.items.push({ kind: 'wallBand', a: s.a, b: s.b, thickness, sMid, sag: s.sag });
+    const k = this.pointShape();
+    this.env.say(
+      k === 'spline' ? 'Clique para os próximos pontos; Enter termina aberta, clique no primeiro ponto fecha.'
+        : k === 'ellipse' ? (this.pts.length === 1 ? 'Clique na ponta do primeiro semieixo.' : 'Clique para definir o segundo semieixo.')
+        : 'Clique para definir o raio.',
+    );
+  }
+
+  private clickPointShape(p: PointerInfo): void {
+    const inf = this.snapWall(p, { from: this.pts[this.pts.length - 1] });
+    const c = inf.point;
+    const k = this.pointShape()!;
+    const last = this.pts[this.pts.length - 1];
+    if (!last) {
+      this.pts = [c];
+      return;
+    }
+    if (k === 'spline') {
+      if (this.splineCloses(c)) return this.commitShape(c);
+      if (dist(last, c) < 0.02) return;
+      this.pts = [...this.pts, c];
+      return;
+    }
+    if (k === 'ellipse' && this.pts.length === 1) {
+      if (dist(last, c) < 0.02) return;
+      this.pts = [last, c];
+      return;
+    }
+    this.commitShape(c);
+  }
+
+  /** Cria todas as paredes da forma em UMA transação (um desfazer). Qualquer lado sobreposto ou curto recusa a forma inteira. */
+  private commitShape(c: Vec2): void {
+    const segs = this.shapeSegments(c, false);
+    if (!segs || segs.length === 0 || segs.some((s) => dist(s.a, s.b) < 0.01)) {
+      this.env.say('Forma pequena demais ou inválida.');
+      return;
+    }
+    const walls = segs.map((s) => this.wallAt(s.a, s.b, s.sag));
+    if (walls.some((w) => refuseWallOverlap(this.env, w))) return;
+    const k = this.pointShape();
+    this.env.transaction(k === 'spline' ? 'Parede em spline' : `Parede ${k === 'polygon' ? 'poligonal' : k === 'circle' ? 'circular' : 'elíptica'}`, () => {
+      for (const wall of walls) this.env.exec({ type: 'addWall', wall });
+    });
+    this.reset();
+    this.env.say(this.hint);
+  }
+
+  override confirm(): void {
+    // Enter na spline: termina aberta, se já há pontos suficientes.
+    if (this.pointShape() === 'spline' && this.pts.length >= 2) {
+      this.commitShape(this.pts[this.pts.length - 1]!);
+      return;
+    }
+    super.confirm();
   }
 
   private isArc(): boolean {
@@ -66,7 +173,7 @@ export class WallTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
-    if (!this.startPt || this.isRect()) return null;
+    if (!this.startPt || this.pointShape() || this.isRect()) return null;
     return this.chordEnd ? 'Flecha do arco' : this.isArc() ? 'Comprimento da corda' : this.t('tl_inp_length');
   }
 
@@ -150,12 +257,16 @@ export class WallTool extends ToolBase {
   }
 
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
-    if (!this.startPt || !this.lastPoint || this.isRect()) return [];
+    if (!this.startPt || !this.lastPoint || this.pointShape() || this.isRect()) return [];
     return [segmentLengthDim(this.startPt, this.lastPoint)];
   }
 
   override move(p: PointerInfo): void {
     this.lastPointer = p;
+    if (this.pointShape()) {
+      this.movePointShape(p);
+      return;
+    }
     if (this.isRect()) {
       this.moveRect(p);
       return;
@@ -237,6 +348,10 @@ export class WallTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (this.pointShape()) {
+      this.clickPointShape(p);
+      return;
+    }
     if (this.isRect()) {
       this.clickRect(p);
       return;
@@ -265,7 +380,7 @@ export class WallTool extends ToolBase {
   }
 
   override type(text: string): boolean {
-    if (this.isRect() || !this.startPt) return false;
+    if (this.pointShape() || this.isRect() || !this.startPt) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {
       this.env.say(`Valor inválido. Digite um número em ${lengthUnitName(unitsOf(this.env.project()))}.`);

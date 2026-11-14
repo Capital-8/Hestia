@@ -326,7 +326,7 @@ export function fitArcs(
   }
 
   if (estourou) {
-    avisos.push({ codigo: 'max-arcos', mensagem: `limite de ${maxArcos} arcos atingido; desvio ${(desvio * 1000).toFixed(2)} mm` });
+    avisos.push({ codigo: 'max-arcos', mensagem: `limite de ${maxArcos} arcos atingido; desvio ${Math.round(desvio * 100000) / 100} mm` });
   }
   if (opcoes.espessura !== undefined) {
     const lim = opcoes.espessura / 2 + 0.01;
@@ -335,7 +335,7 @@ export function fitArcs(
       if (h < 1e-9) return;
       const c = ptDist(s.a, s.b);
       const raio = (c * c) / 4 / (2 * h) + h / 2;
-      if (raio < lim) avisos.push({ codigo: 'raio-pequeno', mensagem: `arco ${i}: raio ${raio.toFixed(3)} m menor que t/2 + 1 cm` });
+      if (raio < lim) avisos.push({ codigo: 'raio-pequeno', mensagem: `arco ${i}: raio ${Math.round(raio * 1000) / 1000} m menor que t/2 + 1 cm` });
     });
   }
   return { arcos, avisos, desvio };

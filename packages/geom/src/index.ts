@@ -30,3 +30,4 @@ export { CenaV2 } from './kernel/v2/cena.ts';
 export { fonteDeSecoes } from './kernel/v2/quadros.ts';
 export { ErroKernelLeve, ErroKernelGrave } from './kernel/v2/erros.ts';
 export { baixarAsset as baixarAssetDoWasm } from './kernel/carregador.ts';
+export * from './curveFit.ts';
