@@ -21,6 +21,7 @@ import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
+import { loteOpsDaPlanta } from './loteCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -375,6 +376,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Lotes do nível (ficha P2): contorno, área edificável e texto dos lados, no estilo da categoria `lot`; só de planta (não entram em corte nem 3D).
+  if (!areaPlan) addOps(loteOpsDaPlanta(input, paint.lot, scale), paint.lot, !rp);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
   if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).

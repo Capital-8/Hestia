@@ -131,6 +131,10 @@ describe('contrato: todo kind de elemento está classificado na extensão do mod
     });
   }
 
+  it('lot: fora da extensão, com o motivo "lote não aparece em corte nem em elevação"', () => {
+    expect(KINDS_NA_EXTENSAO.lot).toEqual({ entra: false, motivo: 'lote não aparece em corte nem em elevação' });
+  });
+
   it('ramp: entra na caixa e a caixa cobre a pegada da rampa', () => {
     expect(KINDS_NA_EXTENSAO.ramp.entra).toBe(true);
     const s = new ProjectStore(createEmptyProject());
