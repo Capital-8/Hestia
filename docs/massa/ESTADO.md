@@ -14,6 +14,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | E1 | mesclada | merge de massa/e1 | 0 | haiku high; o agente terminou sem relatório, o fiscal conferiu o worktree e o aceite pelos testes: typecheck ✔, lint ✔, test:rapido 976/11383, test:wasm 58/1356; emenda E7 |
 | V1 | mesclada | merge de massa/v1 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 977/11398, test:wasm 58/1356; emenda E8 |
 | V2 | mesclada | merge de massa/v2 | 0 | haiku high; árvore combinada V1+V2: typecheck ✔, lint ✔, test:rapido 980/11422, test:wasm 58/1356 (1 teste de tempo do guarda-corpo falhou sob carga na rodada do agente e passou sem carga); pendências para T1/U2/Q1 na E8 |
+| G2 (portão visual) | mesclada | merge de massa/g2 | 0 | haiku high; script massa-visual.mjs sai 0, 0 erros de console; capturas olhadas pelo fiscal; achados na E10 |
+| V1b (névoa do 3D) | pendente | | 0 | |
 | V3 | mesclada | merge de massa/v3 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 982/11453, test:wasm 59/1359 (inclui kernel-massa-vista); emenda E9 |
 | T1 | pendente | | 0 | |
 | U1 | pendente | | 0 | |
@@ -39,6 +41,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 
 - O fiscal apagou `crates/geom-wasm/target` do checkout principal (criado por `npm run build:wasm` rodado no passo 0 sem `CARGO_TARGET_DIR`). Rode SEMPRE `CARGO_TARGET_DIR=/tmp/hestia-target-massa` com build:wasm; `check-lixo` pega.
 - Testes de tempo do guarda-corpo (`kernel-gc-estabilidade`) oscilam com carga alta do sistema; repetir sem outros processos antes de devolver ficha.
+
+- **Fase 2 em código concluída em 2026-11-14; portão visual feito** (capturas e script na E10). Aberto: correção da névoa do 3D (ficha V1b).
 
 ## Decisões do dono durante a execução
 - 2026-11-13: "sempre que possível seguir sem esperar nada" (o fiscal só para para perguntar se uma decisão de projeto bloquear).
