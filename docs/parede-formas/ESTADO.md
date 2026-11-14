@@ -22,7 +22,7 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 | F1.1 `fitArcs` | feita (spike S3 mesclado) |
 | F1.2 formas → paredes | feita |
 | F1.3 modos no `wallTool` | feita |
-| F1.4 barra de opções, faixa, i18n | |
+| F1.4 barra de opções, faixa, i18n | feita |
 | F1.6 matriz de modificar | |
 | F1.7 portas, IFC, e2e | |
 
@@ -32,3 +32,10 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - Cada forma = UMA transação (um desfazer); qualquer lado curto (<1 cm) ou sobreposto recusa a forma inteira (decisão 0044). Esc cancela; elipse = centro, ponta do semieixo, ponto do outro semieixo; spline = cliques, Enter termina aberta, clique no 1º ponto fecha.
 - Prévia de spline usa tol >= 2 cm e 16 arcos (o ajuste final custa ~1 s); mensagens novas em português literal, sem chaves i18n (F1.4).
 - Fora do escopo: `packages/geom/src/index.ts` ganhou `export * from './curveFit.ts'` (fitArcs não era exportado).
+
+## F1.4
+- Faixa: "Desenhar" da Parede com os oito modos (reta, arco, retângulo, polígono inscrito e circunscrito, círculo, elipse, spline) em três pilhas. Ícones reaproveitados sem arte nova (aproximações): inscrito `roomsep`, circunscrito `filledRegion`, círculo `materialSphere`, elipse `eye`, spline `roofextrusion`.
+- Números: lados 3 a 64 (polígono) e tolerância 1 a 50 mm, padrão 5 mm (elipse e spline), na barra de opções e nas Propriedades (mesmos campos; `wallModes.ts` é a fonte única do modo).
+- i18n: 9 chaves novas de `wallTool` em `packages/tools/src/i18n.ts` (7 idiomas, sem literal); rótulos em `props-options.ts` (7 idiomas) e `ribbon-i18n-2.json` (5 linhas). Sem atalhos novos.
+- Decisão: a barra da parede continua só indicando "Configurações em Propriedades" e ganhou só os campos de modo, para não duplicar a configuração. O bloco `tool === 'wall'` mais abaixo no `OptionsBar` é inalcançável (dívida: remover numa limpeza).
+- Testes: 4 arquivos novos (`wallModes`, `ribbon/wallModes`, `WallShapeFields`, `wallShapesI18n`); nenhum teste existente editado.

@@ -11,6 +11,7 @@ import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
 import { circleSegments, ellipseSegments, polygonSegments, splineSegments, type WallSegment } from './wallShapes.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
+import type { DictKey } from './i18n.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
 
@@ -101,9 +102,9 @@ export class WallTool extends ToolBase {
     for (const s of segs ?? []) this.items.push({ kind: 'wallBand', a: s.a, b: s.b, thickness, sMid, sag: s.sag });
     const k = this.pointShape();
     this.env.say(
-      k === 'spline' ? 'Clique para os próximos pontos; Enter termina aberta, clique no primeiro ponto fecha.'
-        : k === 'ellipse' ? (this.pts.length === 1 ? 'Clique na ponta do primeiro semieixo.' : 'Clique para definir o segundo semieixo.')
-        : 'Clique para definir o raio.',
+      k === 'spline' ? this.t('tl_msg_shape_spline')
+        : k === 'ellipse' ? (this.pts.length === 1 ? this.t('tl_msg_shape_axis_tip') : this.t('tl_msg_shape_axis_second'))
+        : this.t('tl_msg_shape_radius'),
     );
   }
 
@@ -134,13 +135,14 @@ export class WallTool extends ToolBase {
   private commitShape(c: Vec2): void {
     const segs = this.shapeSegments(c, false);
     if (!segs || segs.length === 0 || segs.some((s) => dist(s.a, s.b) < 0.01)) {
-      this.env.say('Forma pequena demais ou inválida.');
+      this.env.say(this.t('tl_msg_shape_invalid'));
       return;
     }
     const walls = segs.map((s) => this.wallAt(s.a, s.b, s.sag));
     if (walls.some((w) => refuseWallOverlap(this.env, w))) return;
     const k = this.pointShape();
-    this.env.transaction(k === 'spline' ? 'Parede em spline' : `Parede ${k === 'polygon' ? 'poligonal' : k === 'circle' ? 'circular' : 'elíptica'}`, () => {
+    const desfazer: Record<'polygon' | 'circle' | 'ellipse' | 'spline', DictKey> = { polygon: 'tl_undo_wall_polygon', circle: 'tl_undo_wall_circle', ellipse: 'tl_undo_wall_ellipse', spline: 'tl_undo_wall_spline' };
+    this.env.transaction(this.t(desfazer[k!]), () => {
       for (const wall of walls) this.env.exec({ type: 'addWall', wall });
     });
     this.reset();
@@ -185,7 +187,7 @@ export class WallTool extends ToolBase {
   override space(): void {
     this.flip = !this.flip;
     if (this.lastPointer) this.move(this.lastPointer);
-    this.env.say(this.sideFlip() ? this.t('tl_msg_wall_side_right') : 'Lado externo à esquerda do sentido de desenho.');
+    this.env.say(this.sideFlip() ? this.t('tl_msg_wall_side_right') : this.t('tl_msg_wall_side_left'));
   }
 
   private snapWall(p: PointerInfo, extra: Partial<InferContext> = {}) {
