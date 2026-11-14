@@ -58,6 +58,7 @@ import { WallTypeDialog } from './ui/dialogs/WallTypeDialog.tsx';
 import { StairTypeDialog } from './ui/dialogs/StairTypeDialog.tsx';
 import { StairScheduleDialog } from './ui/dialogs/StairScheduleDialog.tsx';
 import { RampTypeDialog } from './ui/dialogs/RampTypeDialog.tsx';
+import { MassSecoesDialog } from './ui/dialogs/MassSecoesDialog.tsx';
 import { GuardaCorpoTypeDialog } from './ui/dialogs/guardaCorpoType/index.tsx';
 import { NormaGuardaCorpoDialog } from './ui/dialogs/normaGuardaCorpo/index.tsx';
 import { RampScheduleDialog } from './ui/dialogs/RampScheduleDialog.tsx';
@@ -144,6 +145,8 @@ function Dialogs(): ReactElement | null {
       return arg ? <RampTypeDialog typeId={arg} /> : null;
     case 'guardaCorpoType':
       return arg ? <GuardaCorpoTypeDialog typeId={arg} /> : null;
+    case 'massSecoes':
+      return arg ? <MassSecoesDialog massaId={arg} /> : null;
     case 'normaGuardaCorpo':
       return <NormaGuardaCorpoDialog />;
     case 'rampSchedule':

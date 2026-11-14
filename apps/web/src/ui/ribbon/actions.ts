@@ -15,6 +15,7 @@ import { addSheetAction } from '../../editor/sheetActions.ts';
 import { sheetsPerLevelAction } from '../../editor/sheetInsert.ts';
 import { setSnap, toggleRoofProjection, useUi, type DialogKind, type UiState } from '../../editor/state.ts';
 import { transfer } from '../../editor/transfer.ts';
+import { alternarMassaNaVista, massaVisivelNaVista } from '../../editor/viewVisibility.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
@@ -324,6 +325,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },
   underlay: { label: t('Subpavimento', 'Underlay'), icon: 'layers', hint: t('Mostra o pavimento abaixo, apagado.', 'Show the level below, faded.'), run: () => useUi.setState((s) => ({ showUnderlay: !s.showUnderlay })), pressed: (c) => c.showUnderlay },
   roofProjection: { label: t('Projeção da cobertura', 'Roof Projection'), icon: 'roof', run: toggleRoofProjection, pressed: (c) => c.showRoofProjection },
+  showMass: {
+    label: t('Mostrar massa', 'Show Mass'),
+    icon: 'cube',
+    run: alternarMassaNaVista,
+    pressed: (c) => massaVisivelNaVista(c.p),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Does not apply to sheets.') : false),
+  },
   graphicsVisibility: {
     label: t('Visibilidade/Gráficos', 'Visibility/Graphics'),
     icon: 'layers',

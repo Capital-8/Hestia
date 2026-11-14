@@ -271,6 +271,19 @@ export function toggleRevealHidden(): void {
   useUi.setState({ status: !atual ? { key: 'eds_msg_reveal_on' } : { key: 'eds_msg_reveal_off' } });
 }
 
+/** A categoria 'mass' está visível na vista ativa? (ocultação permanente por categoria; na prancha, não.) */
+export function massaVisivelNaVista(p: Project, st: ViewState = useUi.getState()): boolean {
+  const target = viewHiddenTargetOf(st);
+  if (!target) return false;
+  return !(permanentHiddenOf(p, target).categories ?? []).includes('mass');
+}
+
+/** "Mostrar massa": liga e desliga a categoria 'mass' na vista ativa, pelo mesmo mecanismo do Ocultar categoria. */
+export function alternarMassaNaVista(): void {
+  if (massaVisivelNaVista(editor.project)) hideInView([], ['mass']);
+  else unhideInView([], ['mass']);
+}
+
 /** Limpa o temporário ao trocar/abrir projeto. */
 export function resetAllTemporary(): void {
   useUi.setState({ viewTemp: {} });
