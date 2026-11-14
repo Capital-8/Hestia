@@ -1,10 +1,13 @@
-import { ALTURA_PADRAO, LADOS_PADRAO, type ModoMassa } from '@hestia/tools';
+import { ALTURA_PADRAO, LADOS_PADRAO, type ModoMassa, type ToolOptions } from '@hestia/tools';
+import { useUi } from '../../editor/state.ts';
 import { act, panel, soon, soonS, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
- * Abas do Revit que o Hestia ainda não tem. Existem para manter a sequência e o roteiro: cada botão é `soon`
- * (esmaecido, tooltip "ainda não disponível"). Quando uma ferramenta nascer, troque o `soon` pela ferramenta.
- * Os nomes de painel destas abas são aproximados; confira com o Revit antes de implementar.
+ * Abas do Revit que o Hestia ainda não tem por inteiro. Existem para manter a sequência e o roteiro: o que ainda não
+ * existe é `soon` (esmaecido, tooltip "ainda não disponível"); quando uma ferramenta nascer, troque o `soon` pela
+ * ferramenta. Já têm botões reais: Massa e terreno (ferramenta Massa, os quatro modos e "Mostrar massa"), alguns
+ * botões que reaproveitam ferramentas do Arquitetura (parede, laje, nível, grade...) e Suplementos (ferramentas
+ * externas). Os nomes de painel destas abas são aproximados; confira com o Revit antes de implementar.
  */
 
 const tab = (id: RibbonTabId, label: Txt, ...panels: RibbonPanel[]): RibbonTab => ({ id, label, panels });
@@ -13,7 +16,9 @@ const p = (id: string, title: Txt, ...names: Array<[Txt, string?]>): RibbonPanel
 
 /**
  * Botão de modo da massa (ficha T1a, E11): liga a ferramenta `mass` já no modo, pelo mesmo `kind: 'option'` dos modos
- * do telhado. O patch grava o modo com os padrões de perfil, altura e lados (a barra de opções ajusta depois).
+ * do telhado. O patch grava SÓ o modo e preserva o perfil, a altura e os lados que o usuário escolheu na barra de
+ * opções (ficha U1): `mass` é um getter, lido na hora do clique (o clique espalha o patch sobre as opções atuais),
+ * e sem escolha anterior valem os padrões (círculo, 9 m, 6 lados).
  */
 const modoMassa = (modo: ModoMassa, label: Txt, icon: string): RibbonItem => ({
   kind: 'option',
@@ -21,7 +26,12 @@ const modoMassa = (modo: ModoMassa, label: Txt, icon: string): RibbonItem => ({
   icon,
   size: 'small',
   test: (o) => (o.mass?.modo ?? 'extrusao') === modo,
-  patch: { mass: { modo, perfil: 'circulo', altura: ALTURA_PADRAO, lados: LADOS_PADRAO } },
+  patch: {
+    get mass(): NonNullable<ToolOptions['mass']> {
+      const atual = useUi.getState().options.mass;
+      return { perfil: 'circulo', altura: ALTURA_PADRAO, lados: LADOS_PADRAO, ...atual, modo };
+    },
+  },
   restart: 'mass',
 });
 
@@ -62,7 +72,7 @@ export const TABS_SOON: RibbonTab[] = [
       modoMassa('mistura', t('Mistura', 'Blend'), 'attachroof'),
       modoMassa('loft', t('Loft', 'Loft'), 'roofarrow'),
       modoMassa('bulbo', t('Bulbo', 'Bulb'), 'slope'),
-      soon(t('Mostrar massa', 'Show Mass')),
+      act('showMass'),
       soon(t('Massa no local', 'In-Place Mass')),
       soon(t('Colocar massa', 'Place Mass')),
     ),

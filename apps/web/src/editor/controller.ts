@@ -59,6 +59,7 @@ import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
 import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
+import { ligarMassa } from './massaLigacao.ts';
 import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra no select)
 
 
@@ -536,7 +537,7 @@ export class Editor {
 
   private activate(id: ToolId, tool: Tool = createTool(id, this.env)): void {
     this.limparArrasteRotulo();
-    this.tool = tool;
+    this.tool = ligarMassa(tool);
     useUi.setState({ tool: id, typed: '', prompt: null, hover: null });
     this.tool.start();
     this.bump();

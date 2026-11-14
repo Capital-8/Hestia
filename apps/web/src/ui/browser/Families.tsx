@@ -7,6 +7,7 @@ import type { Lang } from '../../editor/i18n/tipos.ts';
 import { useUi } from '../../editor/state.ts';
 import { TypeRow } from '../TypeRow.tsx';
 import { FAMILY } from '../typeFamilies.ts';
+import { MassasCategory } from './Massas.tsx';
 import { Node } from './Tree.tsx';
 
 /** Seção "Famílias": Categoria ▸ Família ▸ Tipo, em ordem alfabética como no Revit. */
@@ -100,6 +101,7 @@ export function FamiliesTree(): ReactElement {
           ))}
         </Node>
       </Category>
+      <MassasCategory />
     </Node>
   );
 }

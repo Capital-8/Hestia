@@ -758,5 +758,45 @@
     "fr": "De l'escalier ou de la rampe sélectionné",
     "it": "Dalla scala o rampa selezionata",
     "pl": "Z wybranych schodów lub rampy"
+  },
+  {
+    "pt": "Massa",
+    "es": "Masa",
+    "de": "Masse",
+    "fr": "Masse",
+    "it": "Massa",
+    "pl": "Bryła"
+  },
+  {
+    "pt": "Extrusão",
+    "es": "Extrusión",
+    "de": "Extrusion",
+    "fr": "Extrusion",
+    "it": "Estrusione",
+    "pl": "Wyciągnięcie"
+  },
+  {
+    "pt": "Mistura",
+    "es": "Mezcla",
+    "de": "Überblendung",
+    "fr": "Fusion",
+    "it": "Fusione",
+    "pl": "Mieszanie"
+  },
+  {
+    "pt": "Loft",
+    "es": "Loft",
+    "de": "Loft",
+    "fr": "Loft",
+    "it": "Loft",
+    "pl": "Loft"
+  },
+  {
+    "pt": "Bulbo",
+    "es": "Bulbo",
+    "de": "Zwiebel",
+    "fr": "Bulbe",
+    "it": "Bulbo",
+    "pl": "Bulwa"
   }
 ]
