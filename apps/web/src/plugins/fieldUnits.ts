@@ -14,6 +14,7 @@ export const isQuantityField = (f: Pick<DialogField, 'type'>): boolean => f.type
 /** Texto de um número sem unidade: até 6 casas, sem zeros à direita, com o separador decimal do projeto. */
 export function plainNumberText(v: number, u: ResolvedUnits): string {
   const t = String(Math.round(v * 1e6) / 1e6);
+  // units-ok: campo `number` não é grandeza (sem unidade); só troca o separador decimal pelo do projeto
   return u.decimalSymbol === ',' ? t.replace('.', ',') : t;
 }
 

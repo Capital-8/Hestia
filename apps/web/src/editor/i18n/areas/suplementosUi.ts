@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- tabela de tradução (7 idiomas); a paridade é garantida pelo tipo. */
 /* Textos das ferramentas, diálogos e painéis de suplementos (ADR 0057, fase H). Chaves supui_*. */
 export const PT_SUPUI = {
+  'tool_plugin': 'Suplemento',
   'supui_tool_failed': 'A ferramenta do suplemento "{name}" falhou e foi encerrada; o Hestia continua normal.',
   'supui_tool_nothing_to_pick': 'Clique sobre um elemento.',
   'supui_tool_no_write': 'O suplemento "{name}" não tem permissão para alterar o modelo.',
@@ -20,6 +21,7 @@ export const PT_SUPUI = {
 };
 
 export const EN_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Add-in',
   'supui_tool_failed': 'The add-in tool "{name}" failed and was stopped; Hestia keeps working normally.',
   'supui_tool_nothing_to_pick': 'Click on an element.',
   'supui_tool_no_write': 'The add-in "{name}" is not allowed to change the model.',
@@ -39,6 +41,7 @@ export const EN_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
 };
 
 export const ES_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Complemento',
   'supui_tool_failed': 'La herramienta del complemento "{name}" falló y se cerró; Hestia sigue funcionando con normalidad.',
   'supui_tool_nothing_to_pick': 'Haga clic sobre un elemento.',
   'supui_tool_no_write': 'El complemento "{name}" no tiene permiso para modificar el modelo.',
@@ -58,6 +61,7 @@ export const ES_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
 };
 
 export const DE_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Add-in',
   'supui_tool_failed': 'Das Werkzeug des Add-ins "{name}" ist fehlgeschlagen und wurde beendet; Hestia läuft normal weiter.',
   'supui_tool_nothing_to_pick': 'Klicken Sie auf ein Element.',
   'supui_tool_no_write': 'Das Add-in "{name}" darf das Modell nicht ändern.',
@@ -77,6 +81,7 @@ export const DE_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
 };
 
 export const FR_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Complément',
   'supui_tool_failed': 'L\'outil du complément "{name}" a échoué et a été arrêté ; Hestia continue normalement.',
   'supui_tool_nothing_to_pick': 'Cliquez sur un élément.',
   'supui_tool_no_write': 'Le complément "{name}" n\'a pas le droit de modifier le modèle.',
@@ -96,6 +101,7 @@ export const FR_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
 };
 
 export const IT_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Componente',
   'supui_tool_failed': 'Lo strumento del componente "{name}" ha avuto un errore ed è stato chiuso; Hestia continua normalmente.',
   'supui_tool_nothing_to_pick': 'Fai clic su un elemento.',
   'supui_tool_no_write': 'Il componente "{name}" non ha il permesso di modificare il modello.',
@@ -115,6 +121,7 @@ export const IT_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
 };
 
 export const PL_SUPUI: Record<keyof typeof PT_SUPUI, string> = {
+  'tool_plugin': 'Dodatek',
   'supui_tool_failed': 'Narzędzie dodatku "{name}" zawiodło i zostało zamknięte; Hestia działa dalej normalnie.',
   'supui_tool_nothing_to_pick': 'Kliknij element.',
   'supui_tool_no_write': 'Dodatek "{name}" nie ma uprawnień do zmiany modelu.',

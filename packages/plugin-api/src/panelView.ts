@@ -31,7 +31,8 @@ function txt(v: unknown): PluginText | null {
   if (isObj(v) && typeof v.pt === 'string' && typeof v.en === 'string' && v.pt.length <= VIEW_LIMITS.textChars && v.en.length <= VIEW_LIMITS.textChars) return { pt: v.pt, en: v.en };
   return null;
 }
-const path = (v: unknown): string | null => (typeof v === 'string' && v.length <= VIEW_LIMITS.fieldPathChars && PATH_RE.test(v) ? v : null);
+const path = (v: unknown): string | null =>
+  typeof v === 'string' && v.length <= VIEW_LIMITS.fieldPathChars && PATH_RE.test(v) && !v.split('.').some((k) => FORBIDDEN.has(k)) ? v : null;
 const quantity = (v: unknown): ViewQuantity | undefined | null => (v === undefined ? undefined : v === 'length' || v === 'angle' ? v : null);
 const num = (x: unknown): number | undefined | null => (x === undefined ? undefined : typeof x === 'number' && Number.isFinite(x) ? x : null);
 
