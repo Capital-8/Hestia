@@ -3,9 +3,9 @@ import { createEmptyProject, makeWall, type JoinKind, type Wall } from '@hestia/
 import type { Vec2 } from '@hestia/geom';
 import { buildFrame, computeEnds } from './index.ts';
 import { miterPoint } from './joinSides.ts';
-import { isFail, joinFaceDeviation, meshVolume, polyArea, wallTiltJoin, wallTiltJoinPlanoB, type Mesh, type TiltWall } from './wallTiltJoin.spike.ts';
+import { isFail, meshVolume, polyArea, wallTiltJoin, wallTiltJoinPlanoB, type Mesh, type TiltWall } from './wallTiltJoin.ts';
 
-/** SPIKE S1 · critérios da METODOLOGIA.md §2 (S1) com valores literais (§4). */
+/** F2.4 · critérios do S1 (METODOLOGIA.md §2) sobre as funções de PRODUÇÃO, com valores literais (§4). O arco com junção exata é a dívida D1 (`it.fails`). */
 
 const baseType = createEmptyProject().wallTypes.wt_alv14!;
 const typeOf = (t: number) => ({ ...baseType, layers: [{ ...baseType.layers[0]!, function: 'structure' as const, thickness: t }] });
@@ -272,8 +272,8 @@ describe('S1 · fuzz de 500 pares (semente fixa)', { timeout: 120000 }, () => {
     expect(porPar).toBeLessThan(2);
   });
 
-  // S1 NÃO PASSOU em arco (relatório docs/parede-formas/spike-s1.md): estes testes descrevem o critério e FALHAM de propósito
-  // (`it.fails`); se um dia passarem, o vitest avisa e o plano B pode ser retirado.
+  // Dívida D1 (arco: junção exata cone×plano; docs/parede-formas/spike-s1.md): este teste descreve o critério e FALHA de propósito
+  // (`it.fails`); se um dia passar, o vitest avisa e o plano B pode ser retirado.
   it.fails('arco: (d) erro de volume < 1e-3 em todos os pares viáveis e nenhum par inviável', () => {
     const { cat } = dados();
     expect(cat.arco).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
@@ -294,34 +294,5 @@ describe('S1 · fuzz de 500 pares (semente fixa)', { timeout: 120000 }, () => {
     }
     console.log(`PLANOB arco: ok=${n} comAviso=${comAviso} coneInvertido=${inviavel}`);
     expect(n).toBeGreaterThan(300);
-  });
-
-  it.fails('arco: menor N (níveis intermediários) com desvio da face de junção < 1 mm, nos pares com arco', () => {
-    const arcos = cases.filter((c) => c.arc);
-    const res: Record<number, number> = {};
-    let minN = -1;
-    let continuos = 0, quebras = 0, inviaveis = 0;
-    for (const N of [1, 2, 4, 8, 16, 32]) {
-      let worst = 0;
-      continuos = quebras = inviaveis = 0;
-      for (const c of arcos) {
-        const d = joinFaceDeviation(c.A, c.B, c.H, N);
-        if (d === null) { inviaveis++; continue; }
-        if (d.quebra) { quebras++; continue; }
-        continuos++;
-        worst = Math.max(worst, d.dev);
-      }
-      res[N] = worst;
-      if (minN < 0 && worst < 1e-3) minN = N;
-    }
-    console.log(`ARCO pares=${arcos.length} inviaveis=${inviaveis} quebraDeCorte=${quebras} continuos=${continuos} desvioMax(m) nos continuos por N=${JSON.stringify(res)} menorN=${minN}`);
-    expect(minN).toBeGreaterThan(0);
-    for (const c of cases.filter((x) => !x.arc)) {
-      const d = joinFaceDeviation(c.A, c.B, c.H, 1);
-      if (d !== null) {
-        expect(d.dev).toBeLessThan(1e-9);
-        expect(d.quebra).toBe(false);
-      }
-    }
   });
 });
