@@ -7,7 +7,7 @@ import { useUi } from './state.ts';
 import { annotationIdsOfType, annotationTypeOf, selectedAnnotations } from './viewAnnotations.ts';
 
 /** Ordem canônica de exibição/seleção das categorias coladas (a mesma do motor). */
-const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad', 'railings'];
+const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad', 'railings', 'masses'];
 
 /** Achata os ids de um nível na ordem canônica. */
 const idsOfPaste = (ids: PasteIds): Id[] => PASTE_ORDER.flatMap((key) => ids[key]);
@@ -25,6 +25,7 @@ const counts = (c: ClipBuffer): Counts => ({
   generics: c.generics?.length ?? 0,
   cad: c.cad?.length ?? 0,
   railings: c.railings?.length ?? 0,
+  masses: c.masses?.length ?? 0,
 });
 
 /** Contagem por categoria do que foi copiado ou colado. */
@@ -40,10 +41,14 @@ interface Counts {
   generics: number;
   cad: number;
   railings: number;
+  masses: number;
 }
 
-/** Chaves do singular/plural de cada categoria na frase de cópia. */
-const COUNT_KEYS: Record<keyof Counts, readonly [keyof Dict, keyof Dict]> = {
+/**
+ * Chaves do singular/plural de cada categoria na frase de cópia. A massa ainda não tem chave (`edc_count_mass_*` ficaria em
+ * `editor/i18n/areas/editor-context.ts`, fora da ficha T1c): até lá ela conta nos totais e na seleção, mas não entra na frase.
+ */
+const COUNT_KEYS: Record<Exclude<keyof Counts, 'masses'>, readonly [keyof Dict, keyof Dict]> = {
   walls: ['edc_count_wall_one', 'edc_count_wall_many'],
   floors: ['edc_count_floor_one', 'edc_count_floor_many'],
   slabs: ['edc_count_slab_one', 'edc_count_slab_many'],
@@ -83,6 +88,7 @@ function originLevelIdsOf(c: ClipBuffer): Id[] {
     ...(c.generics ?? []),
     ...(c.cad ?? []),
     ...(c.railings ?? []),
+    ...(c.masses ?? []),
   ];
   return [...new Set(elements.map((e) => e.levelId))];
 }
@@ -101,7 +107,8 @@ function elementCountOf(c: ClipBuffer): number {
     (c.rooms?.length ?? 0) +
     (c.generics?.length ?? 0) +
     (c.cad?.length ?? 0) +
-    (c.railings?.length ?? 0)
+    (c.railings?.length ?? 0) +
+    (c.masses?.length ?? 0)
   );
 }
 
@@ -184,8 +191,9 @@ export class Transfer {
       generics: r.genericIds.length,
       cad: r.cadIds.length,
       railings: r.railingIds.length,
+      masses: r.massIds.length,
     };
-    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds];
+    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds, ...r.massIds];
     useUi.setState({ selection: ids, status: { key: 'edc_pasted_in_place', args: { description: describe(pasted, lang) } } });
     return true;
   }
