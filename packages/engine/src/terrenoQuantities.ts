@@ -2,7 +2,7 @@ import type { Id } from '@hestia/model';
 
 /**
  * Quantidades do terreno (A.4 regra 12; consultas 165 e 166). O Rust calcula tudo; aqui só se decodifica e se soma para os totais da tabela
- * "Terreno: corte e aterro". Áreas em m², volumes em m³, cotas em m (absolutas no projeto).
+ * "Terreno: corte e aterro". Áreas em metros quadrados, volumes em metros cúbicos, cotas em metros (absolutas no projeto).
  */
 export interface QuantidadesTerreno {
   terrenoId: Id;
