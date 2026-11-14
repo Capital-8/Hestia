@@ -22,7 +22,7 @@ export function MassScheduleDialog(): ReactElement {
   // O kernel pode ficar pronto depois de abrir o diálogo: a tabela é refeita quando isso acontece.
   const [, refazer] = useState(0);
   useEffect(() => servicoMassa().aoMudarPronto(() => refazer((n) => n + 1)), []);
-  // Sem memo próprio: o serviço já guarda as respostas por projeto, e o rerender por `versao` refaz só o que mudou.
+  // Sem memo próprio: o serviço já guarda as respostas por projeto, então o rerender por `refazer` custa pouco.
   const sch = buildMassSchedule(p, servicoMassa());
   const [msg, setMsg] = useState<TextLike>('');
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
