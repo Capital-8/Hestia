@@ -1,0 +1,44 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.csv-paredes",
+  "name": "CSV de paredes",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "description": "Exporta as paredes do projeto para CSV (por código ou por modelo declarativo) e importa um CSV simples de paredes (x1, y1, x2, y2 em metros).",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["model.read", "model.write", "io.import", "io.export"],
+  "limits": { "timeoutMs": 5000, "memoryMiB": 64, "maxCommandsPerAction": 5000 },
+  "contributes": {
+    "exporters": [
+      {
+        "id": "paredes-csv",
+        "title": { "pt": "Paredes em CSV (suplemento)", "en": "Walls as CSV (add-in)" },
+        "extension": "csv",
+        "mime": "text/csv",
+        "handler": "exportarParedes"
+      },
+      {
+        "id": "paredes-modelo",
+        "title": { "pt": "Paredes em CSV (modelo declarativo)", "en": "Walls as CSV (declarative template)" },
+        "extension": "csv",
+        "mime": "text/csv",
+        "template": {
+          "header": "id;x1;y1;x2;y2\n",
+          "each": { "kind": "wall", "line": "{{id}};{{a.x}};{{a.y}};{{b.x}};{{b.y}}\n" },
+          "escape": "csv"
+        }
+      }
+    ],
+    "importers": [
+      {
+        "id": "paredes-csv",
+        "title": { "pt": "Paredes de um CSV", "en": "Walls from a CSV" },
+        "extensions": ["csv"],
+        "handler": "importarParedes"
+      }
+    ]
+  }
+}

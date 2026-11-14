@@ -16,6 +16,7 @@ import {
 } from '@hestia/plugin-api';
 import type { ZipEntryData } from '@hestia/io';
 import type { PluginInfo } from './appModelPort.ts';
+import { IoBridge, type IoOutcome } from './ioBridge.ts';
 import { Installer, type InstallResult, type PackageStore } from './installer.ts';
 import { PluginLoader, type SupState } from './loader.ts';
 import { PluginLog } from './pluginLog.ts';
@@ -70,6 +71,12 @@ export interface SupplementRuntimeOptions {
   defer?: (fn: () => void) => void;
   showResult?: (r: HandlerResult) => void;
   notify?: (n: SupNotice) => void;
+  /** Fase F: entrega o arquivo exportado (download/salvar) e devolve a frase de status. Ausente = exportar falha. */
+  deliver?: (fileName: string, bytes: Uint8Array, mime: string) => Promise<string>;
+  /** Fase F: seletor de arquivo da interface, para a ação `importer` (faixa/busca). */
+  pickFile?: (extensions: readonly string[]) => Promise<{ name: string; bytes: Uint8Array } | null>;
+  /** Fase F: resultado de cada importação/exportação (barra de estado). */
+  onIo?: (o: IoOutcome) => void;
 }
 
 export type ApproveResult = { ok: true; state: SupState } | { ok: false; code: 'unknown' | 'missing_dependency' | 'not_requested' | 'activation_failed'; detail?: string };
@@ -101,6 +108,8 @@ export class SupplementRuntime {
   readonly log: PluginLog;
   readonly loader: PluginLoader;
   readonly installer: Installer;
+  /** Importar e exportar de suplementos (fase F). */
+  readonly io: IoBridge;
   private rows: SupplementRow[] = [];
   private readonly subs = new Set<() => void>();
   private readonly infos = new Map<string, PluginInfo>();
@@ -121,6 +130,16 @@ export class SupplementRuntime {
       ports: scriptPortsFactory(o.model, o.data),
       ...(o.defer ? { defer: o.defer } : {}),
       onChange: (id, state, detail) => this.onState(id, state, detail),
+    });
+    this.io = new IoBridge({
+      registry: o.registry,
+      call: (id, handler, args) => this.loader.call(id, handler, args),
+      model: o.model,
+      deliver: o.deliver ?? (() => Promise.reject(new Error('entrega de arquivo indisponível'))),
+      nameOf: (id) => this.infos.get(id)?.name ?? id,
+      log: (id, level, text) => this.log.append(id, level, text),
+      ...(o.onIo ? { onOutcome: o.onIo } : {}),
+      onHandlerError: (id) => this.o.notify?.({ kind: 'handler-error', pluginName: this.infos.get(id)?.name ?? id }),
     });
     this.installer = new Installer({ store: o.store, validateManifest: validateManifestForInstall });
   }
@@ -249,6 +268,12 @@ export class SupplementRuntime {
 
   /** Executor registrado em `setPluginActionExecutor`: só `handler` roda aqui; as demais ações são das fases E a H. */
   readonly executor: PluginActionExecutor = ({ pluginId, action, values }) => {
+    if (action.type === 'exporter' || action.type === 'importer') {
+      const p = this.io.run(pluginId, action, this.o.pickFile);
+      this.pending.add(p);
+      void p.finally(() => this.pending.delete(p));
+      return;
+    }
     if (action.type !== 'handler') {
       this.o.notify?.({ kind: 'unsupported', pluginName: this.infos.get(pluginId)?.name ?? pluginId });
       return;

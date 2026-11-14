@@ -10,6 +10,9 @@ import { setPluginResult } from './pluginResult.ts';
 import { createAppPackageStore } from './supStore.ts';
 import { SupplementRuntime, type SupNotice } from './supRuntime.ts';
 import { useUi } from '../editor/state.ts';
+import { saveBytes } from '../editor/saveBytes.ts';
+import { pickFileForImport } from './ioPick.ts';
+import type { IoOutcome } from './ioBridge.ts';
 // O Worker de script vai embutido no arquivo único do app (sem rede, sem DOM; ver `workerRuntime.ts`).
 import ScriptWorker from '@hestia/plugin-api/src/scriptWorker.ts?worker&inline';
 
@@ -18,6 +21,18 @@ const AVISO: Record<SupNotice['kind'], 'sup_status_handler_error' | 'sup_status_
   failed: 'sup_status_failed',
   unsupported: 'sup_status_action_unsupported',
 };
+
+/** Resultado de importar/exportar na barra de estado (frases em `supio_*`). Importação preparada abre o menu Arquivo para a prévia. */
+function ioStatus(o: IoOutcome): void {
+  const name = o.pluginName;
+  switch (o.kind) {
+    case 'exported': useUi.setState({ status: o.text }); return;
+    case 'prepared': useUi.setState({ fileMenu: true, status: { key: 'supio_status_prepared', args: { name, n: o.created } } }); return;
+    case 'imported': useUi.setState({ status: { key: 'supio_status_imported', args: { name, n: o.created } } }); return;
+    case 'cancelled': useUi.setState({ status: { key: 'supio_status_cancelled', args: { name } } }); return;
+    case 'error': useUi.setState({ status: { key: 'supio_status_error', args: { name, detail: o.detail } } }); return;
+  }
+}
 
 let runtime: SupplementRuntime | null = null;
 
@@ -42,6 +57,9 @@ export function supplementRuntime(): SupplementRuntime {
       setPluginResult(r);
       useUi.setState({ dialog: 'pluginResult', dialogArg: null });
     },
+    deliver: (fileName, bytes) => saveBytes(fileName, bytes),
+    pickFile: pickFileForImport,
+    onIo: ioStatus,
     notify: (n) => useUi.setState({ status: { key: AVISO[n.kind], args: { name: n.pluginName ?? '' } } }),
   });
   return runtime;
