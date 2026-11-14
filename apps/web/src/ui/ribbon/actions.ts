@@ -15,7 +15,9 @@ import { addSheetAction } from '../../editor/sheetActions.ts';
 import { sheetsPerLevelAction } from '../../editor/sheetInsert.ts';
 import { setSnap, toggleRoofProjection, useUi, type DialogKind, type UiState } from '../../editor/state.ts';
 import { transfer } from '../../editor/transfer.ts';
+import { alternarMassaNaVista, massaVisivelNaVista } from '../../editor/viewVisibility.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
+import { massaUnicaSelecionada } from '../dialogs/massPisosForm.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
@@ -324,6 +326,25 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },
   underlay: { label: t('Subpavimento', 'Underlay'), icon: 'layers', hint: t('Mostra o pavimento abaixo, apagado.', 'Show the level below, faded.'), run: () => useUi.setState((s) => ({ showUnderlay: !s.showUnderlay })), pressed: (c) => c.showUnderlay },
   roofProjection: { label: t('Projeção da cobertura', 'Roof Projection'), icon: 'roof', run: toggleRoofProjection, pressed: (c) => c.showRoofProjection },
+  showMass: {
+    label: t('Mostrar massa', 'Show Mass'),
+    icon: 'cube',
+    run: alternarMassaNaVista,
+    pressed: (c) => massaVisivelNaVista(c.p),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Does not apply to sheets.') : false),
+  },
+  pisosDaMassa: {
+    label: t('Pisos da massa', 'Floors from Mass'),
+    icon: 'floor',
+    run: openDialog('massPisos'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
+  paredesDaMassa: {
+    label: t('Paredes da massa', 'Walls from Mass'),
+    icon: 'wall',
+    run: openDialog('massParedes'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
   graphicsVisibility: {
     label: t('Visibilidade/Gráficos', 'Visibility/Graphics'),
     icon: 'layers',
@@ -427,6 +448,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   schedRamps: sched(t('Tabela de rampas', 'Ramp Schedule'), 'rampSchedule'),
   schedRooms: sched(t('Tabela de ambientes', 'Room Schedule'), 'roomSchedule'),
   schedOpenings: sched(t('Tabela de portas e janelas', 'Door/Window Schedule'), 'openingSchedule'),
+  schedMass: sched(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
   stairSketch: {
     label: t('Editar croqui', 'Edit Sketch'),
     icon: 'stair',

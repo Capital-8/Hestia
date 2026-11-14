@@ -43,6 +43,7 @@ import {
   type IfcWallGeo,
 } from '@hestia/io';
 import { isOpening, isRamp, mullionTypesOf, openingSill, openingType, wallBaseElevation, wallHeight, type Id, type Opening, type OpeningType, type Project, type Wall } from '@hestia/model';
+import { massesOf } from './ifcExportMassa.ts';
 import { saveText } from './saveText.ts';
 import { useI18n, type Lang } from './i18n.ts';
 
@@ -344,6 +345,7 @@ export function ifcGeometryOf(p: Project): IfcGeometry {
     .filter((c) => c.prisms.length > 0);
   const ramps = resolveRamps(p).map((r) => rampOf(p, r));
   const railings = railingsOf(p);
+  const masses = massesOf(p);
   return {
     walls,
     openings: openingsOf(p),
@@ -355,6 +357,7 @@ export function ifcGeometryOf(p: Project): IfcGeometry {
     ramps,
     ...(railings ? { railings } : {}),
     ...(curtains ? { curtains } : {}),
+    ...(masses ? { masses } : {}),
   };
 }
 

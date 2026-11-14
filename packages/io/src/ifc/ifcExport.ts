@@ -16,8 +16,9 @@ import {
   type WallType,
 } from '@hestia/model';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
-import { addCurtainWalls, avisoCortinaSemKernel } from './ifcCurtainWall.ts';
+import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './ifcCurtainWall.ts';
 import { addRailings } from './ifcGuardaCorpo.ts';
+import { addMasses } from './ifcMassa.ts';
 import { addGenerics } from './ifcGeneric.ts';
 import { addHestiaPsets } from './ifcHestia.ts';
 import { addPropertySet, type PropValue } from './ifcProperties.ts';
@@ -444,10 +445,6 @@ function registerTypeMaterials(c: IfcCtx): void {
 /** Exporta o projeto como IFC4 (texto STEP): IfcProject > IfcSite > IfcBuilding > IfcBuildingStorey (um por nível) e os elementos. */
 export { externalWalls } from './ifcExterior.ts';
 
-/** Contorno das cortinas do kernel para decidir a face externa: as paredes comuns e as cortinas entram juntas no teste de vizinhança. */
-const footprintsDaCortina = (geo: IfcGeometry): IfcWallGeo[] =>
-  (geo.curtains?.walls ?? []).map((w) => ({ wallId: w.wallId, footprints: [w.footprint], baseZ: 0, height: 0 }));
-
 export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions = {}): string {
   const lang = opts.lang ?? 'pt';
   const w = new StepWriter();
@@ -500,6 +497,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addStairs(c, geo);
   addRamps(c, geo);
   addRailings(c, geo);
+  addMasses(c, geo);
   addGenerics(c);
   addSpaces(c);
   addGrids(c);

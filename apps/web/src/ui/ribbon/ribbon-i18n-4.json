@@ -758,5 +758,77 @@
     "fr": "De l'escalier ou de la rampe sélectionné",
     "it": "Dalla scala o rampa selezionata",
     "pl": "Z wybranych schodów lub rampy"
+  },
+  {
+    "pt": "Massa",
+    "es": "Masa",
+    "de": "Masse",
+    "fr": "Masse",
+    "it": "Massa",
+    "pl": "Bryła"
+  },
+  {
+    "pt": "Extrusão",
+    "es": "Extrusión",
+    "de": "Extrusion",
+    "fr": "Extrusion",
+    "it": "Estrusione",
+    "pl": "Wyciągnięcie"
+  },
+  {
+    "pt": "Mistura",
+    "es": "Mezcla",
+    "de": "Überblendung",
+    "fr": "Fusion",
+    "it": "Fusione",
+    "pl": "Mieszanie"
+  },
+  {
+    "pt": "Loft",
+    "es": "Loft",
+    "de": "Loft",
+    "fr": "Loft",
+    "it": "Loft",
+    "pl": "Loft"
+  },
+  {
+    "pt": "Bulbo",
+    "es": "Bulbo",
+    "de": "Zwiebel",
+    "fr": "Bulbe",
+    "it": "Bulbo",
+    "pl": "Bulwa"
+  },
+  {
+    "pt": "Massas por pavimento",
+    "es": "Masas por planta",
+    "de": "Massen je Geschoss",
+    "fr": "Masses par étage",
+    "it": "Masse per piano",
+    "pl": "Bryły według kondygnacji"
+  },
+  {
+    "pt": "Pisos da massa",
+    "es": "Pisos de la masa",
+    "de": "Massenböden",
+    "fr": "Planchers de la masse",
+    "it": "Solai della massa",
+    "pl": "Stropy z bryły"
+  },
+  {
+    "pt": "Paredes da massa",
+    "es": "Muros de la masa",
+    "de": "Wände aus Masse",
+    "fr": "Murs de la masse",
+    "it": "Pareti della massa",
+    "pl": "Ściany z bryły"
+  },
+  {
+    "pt": "Selecione uma massa.",
+    "es": "Seleccione una masa.",
+    "de": "Masse auswählen.",
+    "fr": "Sélectionnez une masse.",
+    "it": "Seleziona una massa.",
+    "pl": "Wybierz bryłę."
   }
 ]

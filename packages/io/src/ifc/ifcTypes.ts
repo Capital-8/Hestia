@@ -144,6 +144,22 @@ export interface IfcGeometry {
    * genérica (`IFCWALL`, em `walls`) e o exportador registra o aviso.
    */
   curtains?: IfcCurtainGeo;
+  /**
+   * Massas conceituais resolvidas pelo kernel (ficha X1): a malha `lod 2` de cada massa, uma casca por cópia do arranjo. Ausente (ou massa que não
+   * está na lista, por exemplo sem kernel) = a massa não é exportada e o exportador registra o aviso.
+   */
+  masses?: IfcMassaGeo[];
+}
+
+/** Massa conceitual resolvida pelo kernel: a malha `massa_malha` (lod 2) já separada por massa, com as quantidades de `quant_massa` quando existem. */
+export interface IfcMassaGeo {
+  massaId: Id;
+  /** Posições (x, y, z de mundo) e índices de triângulos; as cascas das cópias do arranjo vão na mesma malha, uma depois da outra. */
+  mesh: { positions: number[]; indices: number[] };
+  /** Número de cascas (cópias do arranjo) na malha. */
+  copias: number;
+  /** Volume, áreas e altura somados sobre as cópias; ausente = sem `Pset_Hestia_Massa` de quantidades. */
+  quantidades?: { volume: number; areaLateral: number; areaBase: number; areaTopo: number; altura: number };
 }
 
 /** Protótipo de montante ou de painel do kernel: uma geometria de comprimento unitário, compartilhada por todas as instâncias dele. */

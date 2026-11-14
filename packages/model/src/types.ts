@@ -5,6 +5,7 @@ import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { Mass } from './massTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
@@ -23,12 +24,13 @@ import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 
 export type Id = string;
-/** v25: parede cortina (decisão 0056). Arquivo antigo não tem campos novos: a migração 24 → 25 só avança a versão. */
-export const SCHEMA_VERSION = 25;
+/** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
+export const SCHEMA_VERSION = 26;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+export type { Mass } from './massTypes.ts';
 export type * from './openingTypes.ts';
 
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
@@ -365,6 +367,8 @@ export interface Wall {
   topProfile: ProfilePoint[] | null;
   /** Instância da parede cortina (decisão 0056, §4.3): só intenções (sobrescritas), nunca geometria. Ausente = parede comum. */
   curtain?: CurtainInstance;
+  /** Massa e nível de que veio a parede (ficha D2); ausente em parede comum. Some ao copiar (a cópia é parede comum). */
+  origemMassa?: OrigemMassa;
   mark: string;
   comments: string;
   /** Ordem de criação: desempata junções (docs/05 §1, ordem de junção). */
@@ -404,6 +408,16 @@ export interface OutlineSource {
 }
 
 /**
+ * Origem de piso ou laje gerado pela massa (ficha D1, plano de massa A.7): a massa e o nível cuja fatia deu o contorno.
+ * Opcional: arquivo antigo e elemento desenhado à mão não têm o campo. Não há vínculo automático: é a chave para que
+ * rodar a derivação de novo substitua os gerados antes pela mesma massa e nível.
+ */
+export interface OrigemMassa {
+  massaId: Id;
+  nivelId: Id;
+}
+
+/**
  * Piso (Revit: Floor). Contorno fechado em planta (sentido qualquer) com furos. O topo do piso fica na cota do
  * nível mais `heightOffset`; as camadas descem a partir dele (a primeira camada é a de cima).
  */
@@ -416,6 +430,8 @@ export interface Floor {
   holes: Vec2[][];
   /** Origem do contorno quando criado por paredes/perímetro; ausente = estático (arquivo antigo). */
   outlineSource?: OutlineSource;
+  /** Massa e nível de que veio o contorno (ficha D1); ausente em piso comum. */
+  origemMassa?: OrigemMassa;
   heightOffset: number;
   mark: string;
   comments: string;
@@ -454,6 +470,8 @@ export interface Slab {
   holes: Vec2[][];
   /** Origem do contorno quando criado por paredes/perímetro; ausente = estático (arquivo antigo). */
   outlineSource?: OutlineSource;
+  /** Massa e nível de que veio o contorno (ficha D1); ausente em laje comum. */
+  origemMassa?: OrigemMassa;
   heightOffset: number;
   slope: SlabSlope | null;
   mark: string;
@@ -695,7 +713,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;

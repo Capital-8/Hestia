@@ -21,6 +21,7 @@ import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
+import { massaOps, ocultosDaMassa } from './massa.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -78,6 +79,8 @@ export interface PlanInput {
    * ver `buildPlanGuardaCorpo`, em guardaCorpoCamada.ts); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
    */
   guardaCorpo?: 'sem';
+  /** Massas (plano de massa, A.4 regra 10) têm camada própria na planta (`buildPlanMassa`, em massaCamada.ts); `'sem'` tira-as da geometria do nível. */
+  massa?: 'sem';
   /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Ambiente cujo rótulo está sendo arrastado: a geometria não o desenha (o fantasma desenha). */
@@ -375,6 +378,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
+  if (profile.stairs && input.massa !== 'sem' && !rp) addOps(massaOps(p, input.levelId, ocultosDaMassa(p, input.hidden, input.revealed, paint.mass.visible), theme, input.dark, paint.mass, view?.cutZ), paint.mass, true);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
   if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).

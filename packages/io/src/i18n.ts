@@ -91,6 +91,7 @@ const PT = {
   // Nomes e propriedades do IFC exportado.
   io_ifc_material_undefined: 'Material não definido',
   io_ifc_curtain_without_kernel: 'Parede cortina {name} sem geometria do kernel: exportada como parede genérica (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Massa {name} sem geometria do kernel: não exportada.',
   io_dxf_layer_curtain_mullion: 'CORTINA-MONTANTE',
   io_dxf_layer_curtain_glass: 'CORTINA-VIDRO',
   io_dxf_layer_curtain_solid: 'CORTINA-SOLIDO',
@@ -258,6 +259,7 @@ const EN: Record<IoKey, string> = {
 
   io_ifc_material_undefined: 'Undefined material',
   io_ifc_curtain_without_kernel: 'Curtain wall {name} has no kernel geometry: exported as a generic wall (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Mass {name} has no kernel geometry: not exported.',
   io_dxf_layer_curtain_mullion: 'CURTAIN_MULLION',
   io_dxf_layer_curtain_glass: 'CURTAIN_GLASS',
   io_dxf_layer_curtain_solid: 'CURTAIN_SOLID',
@@ -424,6 +426,7 @@ const ES: Record<IoKey, string> = {
   // Nomes e propriedades do IFC exportado.
   io_ifc_material_undefined: 'Material no definido',
   io_ifc_curtain_without_kernel: 'Muro cortina {name} sin geometría del kernel: exportado como muro genérico (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Masa {name} sin geometría del kernel: no exportada.',
   io_dxf_layer_curtain_mullion: 'CORTINA_MONTANTE',
   io_dxf_layer_curtain_glass: 'CORTINA_VIDRIO',
   io_dxf_layer_curtain_solid: 'CORTINA_SOLIDO',
@@ -589,6 +592,7 @@ const DE: Record<IoKey, string> = {
 
   io_ifc_material_undefined: 'Material nicht definiert',
   io_ifc_curtain_without_kernel: 'Vorhangfassade {name} ohne Kernel-Geometrie: als allgemeine Wand (IFCWALL) exportiert.',
+  io_ifc_mass_without_kernel: 'Baukörper {name} ohne Kernel-Geometrie: nicht exportiert.',
   io_dxf_layer_curtain_mullion: 'VORHANG_PFOSTEN',
   io_dxf_layer_curtain_glass: 'VORHANG_GLAS',
   io_dxf_layer_curtain_solid: 'VORHANG_VOLL',
@@ -750,6 +754,7 @@ const FR: Record<IoKey, string> = {
 
   io_ifc_material_undefined: 'Matériau non défini',
   io_ifc_curtain_without_kernel: 'Mur-rideau {name} sans géométrie du noyau : exporté comme mur générique (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Masse {name} sans géométrie du noyau : non exportée.',
   io_dxf_layer_curtain_mullion: 'RIDEAU_MONTANT',
   io_dxf_layer_curtain_glass: 'RIDEAU_VERRE',
   io_dxf_layer_curtain_solid: 'RIDEAU_PLEIN',
@@ -911,6 +916,7 @@ const IT: Record<IoKey, string> = {
 
   io_ifc_material_undefined: 'Materiale non definito',
   io_ifc_curtain_without_kernel: 'Parete continua {name} senza geometria del kernel: esportata come parete generica (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Massa {name} senza geometria del kernel: non esportata.',
   io_dxf_layer_curtain_mullion: 'FACCIATA_MONTANTE',
   io_dxf_layer_curtain_glass: 'FACCIATA_VETRO',
   io_dxf_layer_curtain_solid: 'FACCIATA_PIENO',
@@ -1072,6 +1078,7 @@ const PL: Record<IoKey, string> = {
 
   io_ifc_material_undefined: 'Materiał niezdefiniowany',
   io_ifc_curtain_without_kernel: 'Ściana osłonowa {name} bez geometrii jądra: wyeksportowana jako ściana ogólna (IFCWALL).',
+  io_ifc_mass_without_kernel: 'Bryła {name} bez geometrii jądra: nie wyeksportowana.',
   io_dxf_layer_curtain_mullion: 'SCIANA_SLUPEK',
   io_dxf_layer_curtain_glass: 'SCIANA_SZKLO',
   io_dxf_layer_curtain_solid: 'SCIANA_PELNA',

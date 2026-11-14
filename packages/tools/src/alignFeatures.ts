@@ -36,6 +36,7 @@ import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts'
 import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
 import { gridPath } from './gridGeom.ts';
+import { massFeatures } from './massAlinhar.ts';
 import type { AlignPrefer } from './types.ts';
 
 /** Feições que o Alinhar reconhece sob o cursor. */
@@ -51,6 +52,7 @@ export type AlignKind =
   | 'arestaEscada'
   | 'arestaRampa'
   | 'caminhoGuardaCorpo'
+  | 'arestaMassa'
   | 'linhaGrade'
   | 'linhaDetalhe'
   | 'separador';
@@ -67,7 +69,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'massa'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -469,6 +471,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...massFeatures(q.project, q.levelId, q.at, q.metersPerPixel, TOL_PX, q.hidden));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);

@@ -46,6 +46,11 @@
       "id": "pranchas",
       "arquivo": "pranchas.md",
       "status": "concluido"
+    },
+    {
+      "id": "massas",
+      "arquivo": "massas.md",
+      "status": "concluido"
     }
   ]
 }

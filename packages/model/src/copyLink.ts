@@ -182,6 +182,9 @@ function syncOne(
     // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
     case 'railing':
       return null;
+    // massa: ficha T1 (copiar/colar e vínculo de andar-tipo da massa); a cópia fica sem sincronização.
+    case 'mass':
+      return null;
     case 'wall': {
       if (!isWall(target)) return null;
       const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;

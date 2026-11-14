@@ -11,7 +11,7 @@ import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, mon
 import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, guardaCorposNaCaixaDoCorteDoProjeto, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, guardaCorposNaCaixaDoCorteDoProjeto, idsNaCaixaDoCorte, massasNaCaixaDoCorteDoProjeto, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
@@ -611,6 +611,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       ...idsNaCaixaDoCorte(result, wa, wb, hidden),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
       ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
+      // Massa também é do kernel (consulta 143), fora do resultado do corte: mesma caixa.
+      ...massasNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
       // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
       ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
     ];

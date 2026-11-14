@@ -41,6 +41,9 @@ IFC de entrada e saída, importador do Hestia 1, salvar na nuvem, link de compar
 ## Plugins de integração (priorizado em 2026-11-07)
 A decisão [0047](decisoes/0047-plugins-de-integracao.md) tira *plugins* de "Fora da v1": fundação de API, protocolo e gerenciador (Suplementos › Ferramentas externas) em `docs/plugins/`. Falta o plugin do renderizador Rust.
 
+## Massa conceitual (concluída em 2026-11-14)
+A decisão [0057](decisoes/0057-massa-conceitual.md) e o plano `docs/massa/PLANO.md` entregam o elemento `Mass` (pilha de seções, extrusão, mistura, loft, bulbo, torção e arranjo polar), com o kernel Rust, 3D, planta, corte, elevação, tabela, derivação de pisos e paredes por pavimento, IFC, DXF e prancha. Próxima frente prevista: **terreno e lote** (briefing em `docs/terreno/BRIEFING-PARA-PLANEJAR.md`).
+
 ## Fora da v1
 Scripting, famílias paramétricas gerais, colaboração em tempo real, IA generativa de layout,
 instalações (hidráulica/elétrica), renderização fotorrealista.

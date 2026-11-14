@@ -21,6 +21,8 @@ const LINEARES: Record<string, string> = {
   filledRegion: 'detailRegionTool.ts',
   dimension: 'dimensionTool.ts',
   grid: 'gridTool.ts',
+  // Massa (ficha T1a): extrusão, mistura, loft e bulbo criam por perfil; o perfil livre traça pelo núcleo comum.
+  mass: 'massTool.ts',
   // Piso, laje, forro e telhado traçam o contorno pela sessão de perímetro (a faixa desvia a escolha para ela).
   perimeter: 'perimeterTool.ts',
   floor: 'perimeterTool.ts',
