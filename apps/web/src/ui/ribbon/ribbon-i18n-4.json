@@ -846,5 +846,13 @@
     "fr": "Installe des compléments (.hestiapkg ou dossier), examine les autorisations et les active ou désactive.",
     "it": "Installa componenti aggiuntivi (.hestiapkg o cartella), esamina le autorizzazioni e li attiva o disattiva.",
     "pl": "Instaluje dodatki (.hestiapkg lub folder), przegląda uprawnienia oraz włącza lub wyłącza dodatki."
+  },
+  {
+    "pt": "Lista todos os suplementos: instala, atualiza, ajusta permissões, mostra o registro e os dados. Atalho: Alt+Shift+P.",
+    "es": "Lista todos los complementos: instala, actualiza, ajusta permisos, muestra el registro y los datos. Atajo: Alt+Shift+P.",
+    "de": "Listet alle Add-ins auf: installieren, aktualisieren, Berechtigungen anpassen, Protokoll und Daten anzeigen. Kurzbefehl: Alt+Shift+P.",
+    "fr": "Liste tous les compléments : installer, mettre à jour, ajuster les autorisations, afficher le journal et les données. Raccourci : Alt+Maj+P.",
+    "it": "Elenca tutti i componenti aggiuntivi: installa, aggiorna, regola le autorizzazioni, mostra il registro e i dati. Scorciatoia: Alt+Maiusc+P.",
+    "pl": "Wyświetla wszystkie dodatki: instalacja, aktualizacja, uprawnienia, podgląd dziennika i danych. Skrót: Alt+Shift+P."
   }
 ]
