@@ -4,13 +4,18 @@ import {
   ProjectStore,
   createEmptyProject,
   defaultStairTypeId,
+  isMass,
   makeGuardaCorpo,
+  makeMass,
   makeStair,
   type HospedeiroManual,
+  type Mass,
   type Project,
   type StairType,
 } from '@hestia/model';
 import { apoioDoElemento, pontoDeApoio, type ApoioDoElemento } from './apoioDeSnap.ts';
+import { ESTILO_PLANTA_MASSA } from './kernelMassa.ts';
+import { servicoMassa, type LinhaPlantaMassaProjeto } from './massaServico.ts';
 import { projetoGuardaCorpo, straight } from './fixtureGuardaCorpo.ts';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
@@ -191,5 +196,61 @@ describe('apoio do guarda-corpo', () => {
     const { p } = projetoGuardaCorpo();
     expect(apoioDoElemento(p, undefined)).toBeNull();
     expect(apoioDoElemento(p, { ...p.elements['gc_m']!, kind: 'wall' } as never)).toBeNull();
+  });
+});
+
+describe('massa: vértice, meio e aresta do anel cortado com chave estável', () => {
+  /** Quadrado de lado 4 (anti-horário), na origem da massa. */
+  const quadrado = [{ x: -2, y: -2 }, { x: 2, y: -2 }, { x: 2, y: 2 }, { x: -2, y: 2 }];
+
+  /** Projeto com a massa `mq` (origem (10, 10)) e uma irmã `mr` cuja origem é `origemIrma`. */
+  function projetoComIrma(origemIrma: number): Project {
+    const s = new ProjectStore(createEmptyProject());
+    const prismatica = (id: string, origem: { x: number; y: number }): Omit<Mass, 'order'> =>
+      makeMass({ id, levelId: 'lv_0', name: id, origem, secoes: [{ z: 0, perfil: { forma: 'livre', pontos: quadrado }, rotacao: 0, escala: 1, dx: 0, dy: 0 }, { z: 5, perfil: { forma: 'livre', pontos: quadrado }, rotacao: 0, escala: 1, dx: 0, dy: 0 }] });
+    s.exec({ type: 'addMass', mass: prismatica('mq', { x: 10, y: 10 }) });
+    s.exec({ type: 'addMass', mass: prismatica('mr', { x: origemIrma, y: 0 }) });
+    return s.project;
+  }
+
+  /** Kernel simulado: o anel cortado de cada massa do projeto (quadrado na origem da massa, repetindo o primeiro ponto). */
+  function kernelSimulado(): void {
+    vi.spyOn(servicoMassa(), 'pronto').mockReturnValue(true);
+    vi.spyOn(servicoMassa(), 'planta').mockImplementation((proj: Project): LinhaPlantaMassaProjeto[] =>
+      Object.values(proj.elements)
+        .filter(isMass)
+        .map((m) => ({ massaId: m.id, copia: 0, estilo: ESTILO_PLANTA_MASSA.cortado, pontos: [...quadrado.map((q) => ({ x: m.origem.x + q.x, y: m.origem.y + q.y })), { x: m.origem.x + quadrado[0]!.x, y: m.origem.y + quadrado[0]!.y }] })),
+    );
+  }
+
+  it('vértice em cada quina, meio em cada aresta e uma aresta por lado, com chaves m<cópia>.l<laço>', () => {
+    kernelSimulado();
+    const p = projetoComIrma(40);
+    const apoio = apoioDoElemento(p, p.elements['mq'])!;
+    const vertices = apoio.pontos.filter((q) => q.tipo === 'endpoint');
+    expect(vertices.map((q) => q.chave)).toEqual(['m0.l0.v0', 'm0.l0.v1', 'm0.l0.v2', 'm0.l0.v3']);
+    expect(pontoDeApoio(p, 'mq', 'm0.l0.v2')).toEqual({ x: 12, y: 12 });
+    const meios = apoio.pontos.filter((q) => q.tipo === 'midpoint');
+    expect(meios.map((q) => q.chave)).toEqual(['m0.l0.m0', 'm0.l0.m1', 'm0.l0.m2', 'm0.l0.m3']);
+    expect(pontoDeApoio(p, 'mq', 'm0.l0.m0')).toEqual({ x: 10, y: 8 });
+    expect(apoio.segmentos.map((e) => e.chave)).toEqual(['m0.l0.s0', 'm0.l0.s1', 'm0.l0.s2', 'm0.l0.s3']);
+  });
+
+  it('a mesma chave e a mesma posição antes e depois de editar uma massa irmã', () => {
+    kernelSimulado();
+    const antes = apoioDoElemento(projetoComIrma(40), projetoComIrma(40).elements['mq'])!;
+    const depois = projetoComIrma(-25);
+    const apoioDepois = apoioDoElemento(depois, depois.elements['mq'])!;
+    const assinatura = (a: ApoioDoElemento): string[] => a.pontos.map((q) => `${q.chave}@${q.x},${q.y}`);
+    expect(assinatura(apoioDepois)).toEqual(assinatura(antes));
+  });
+
+  it('sem kernel pronto o apoio sai vazio, sem lançar', () => {
+    vi.spyOn(servicoMassa(), 'pronto').mockReturnValue(false);
+    const p = projetoComIrma(40);
+    const apoio = apoioDoElemento(p, p.elements['mq']);
+    expect(apoio).not.toBeNull();
+    expect(apoio!.pontos).toEqual([]);
+    expect(apoio!.segmentos).toEqual([]);
   });
 });

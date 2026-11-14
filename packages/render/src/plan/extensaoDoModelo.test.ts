@@ -96,7 +96,7 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
-  mass: { entra: false, projeto: () => com({ type: 'addMass', mass: makeMass({ id: 'ms1', levelId: 'lv_0', secoes: [secaoCirculo(0, 3), secaoCirculo(9, 3)], origem: v(70, 70) }) }) },
+  mass: { entra: true, projeto: () => com({ type: 'addMass', mass: makeMass({ id: 'ms1', levelId: 'lv_0', secoes: [secaoCirculo(0, 3), secaoCirculo(9, 3)], origem: v(70, 70) }) }), alvo: [v(67, 70), v(73, 70)] },
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
   cad: { entra: false, projeto: () => com({ type: 'addCadDrawing', cad }) },
