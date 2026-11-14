@@ -262,8 +262,8 @@ function meshOf(levels: Vec2[][], zs: number[], idx: WallSolid['endIdx']): Mesh 
  * Junção das duas paredes inclinadas. `intermediate` = N níveis intermediários entre base e topo da malha
  * (N+2 níveis). As plantas em z=0, H/2 e z=H são calculadas à parte (não dependem de N).
  */
-export function wallTiltJoin(A: TiltWall, B: TiltWall, H: number, intermediate = 4): TiltJoinResult | TiltJoinFail {
-  const topo = baseTopology(A, B);
+export function wallTiltJoin(A: TiltWall, B: TiltWall, H: number, intermediate = 4, topoOverride?: Topology): TiltJoinResult | TiltJoinFail {
+  const topo = topoOverride ?? baseTopology(A, B);
   const S = intermediate + 1;
   const zs = Array.from({ length: S + 1 }, (_, i) => (H * i) / S);
   const lv = zs.map((z) => levelPolys(A, B, topo, z));
@@ -329,4 +329,14 @@ export function meshVolume(m: Mesh): number {
     s += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
   }
   return s;
+}
+
+/**
+ * PLANO B (METODOLOGIA S1 "Não passou"): reta×reta usa a junção exata; com arco inclinado cada parede recebe corte de
+ * topo simples (`noJoin` geométrico: pontas retas, sem junção) e o aviso `arcoInclinadoSemJuncao`.
+ */
+export function wallTiltJoinPlanoB(A: TiltWall, B: TiltWall, H: number, intermediate = 4): { r: TiltJoinResult | TiltJoinFail; aviso: string | null } {
+  const comArco = !!(A.frame.arc || B.frame.arc) && (A.tiltDeg !== 0 || B.tiltDeg !== 0);
+  if (!comArco) return { r: wallTiltJoin(A, B, H, intermediate), aviso: null };
+  return { r: wallTiltJoin(A, B, H, intermediate, { pair: null, tee: [] }), aviso: 'arcoInclinadoSemJuncao' };
 }

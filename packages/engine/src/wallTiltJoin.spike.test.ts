@@ -3,7 +3,7 @@ import { createEmptyProject, makeWall, type JoinKind, type Wall } from '@hestia/
 import type { Vec2 } from '@hestia/geom';
 import { buildFrame, computeEnds } from './index.ts';
 import { miterPoint } from './joinSides.ts';
-import { isFail, joinFaceDeviation, meshVolume, polyArea, wallTiltJoin, type Mesh, type TiltWall } from './wallTiltJoin.spike.ts';
+import { isFail, joinFaceDeviation, meshVolume, polyArea, wallTiltJoin, wallTiltJoinPlanoB, type Mesh, type TiltWall } from './wallTiltJoin.spike.ts';
 
 /** SPIKE S1 · critérios da METODOLOGIA.md §2 (S1) com valores literais (§4). */
 
@@ -232,7 +232,7 @@ describe('S1 · fuzz de 500 pares (semente fixa)', () => {
   };
   const novo = () => ({ n: 0, ok: 0, falha: {} as Record<string, number>, malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0, maxErr: 0 });
 
-  it('propriedades (c),(d), sem NaN, sem triângulo < 1e-12, < 2 ms por par', () => {
+  const medir = () => {
     const cat = { reta: novo(), arco: novo() };
     let tempo = 0, tN = 0;
     for (const c of cases) {
@@ -258,15 +258,45 @@ describe('S1 · fuzz de 500 pares (semente fixa)', () => {
         if (err >= (c.arc ? 1e-3 : 1e-9)) g.vol++;
       }
     }
-    const porPar = tempo / tN;
-    console.log(`FUZZ ${JSON.stringify(cat)} ms/par=${porPar.toFixed(3)}`);
-    // reta×reta: todo par viável tem de ser exato
+    console.log(`FUZZ ${JSON.stringify(cat)} ms/par=${(tempo / tN).toFixed(3)}`);
+    return { cat, porPar: tempo / tN };
+  };
+  let memo: ReturnType<typeof medir> | null = null;
+  const dados = () => (memo ??= medir());
+
+  it('reta×reta: (c),(d) exatos, sem NaN, sem triângulo < 1e-12, < 2 ms por par (pares viáveis; os demais são limite geométrico relatado)', () => {
+    const { cat, porPar } = dados();
     expect(cat.reta).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
-    expect(cat.arco).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
+    expect(cat.reta.ok).toBeGreaterThan(80);
+    expect(Object.keys(cat.reta.falha)).toEqual(['no-fora-da-parede']); // única causa: o cruzamento dos eixos sai da parede
     expect(porPar).toBeLessThan(2);
   });
 
-  it('menor N (níveis intermediários) com desvio da face de junção < 1 mm, nos pares com arco', () => {
+  // S1 NÃO PASSOU em arco (relatório docs/parede-formas/spike-s1.md): estes testes descrevem o critério e FALHAM de propósito
+  // (`it.fails`); se um dia passarem, o vitest avisa e o plano B pode ser retirado.
+  it.fails('arco: (d) erro de volume < 1e-3 em todos os pares viáveis e nenhum par inviável', () => {
+    const { cat } = dados();
+    expect(cat.arco).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
+    expect(cat.arco.falha).toEqual({});
+  });
+
+  it('PLANO B: com arco inclinado, corte de topo simples com aviso; malha fechada e volume > 0', () => {
+    let n = 0, comAviso = 0, inviavel = 0;
+    for (const c of cases.filter((x) => x.arc)) {
+      const { r, aviso } = wallTiltJoinPlanoB(c.A, c.B, c.H, 4);
+      if (isFail(r)) { inviavel++; expect(r.fail).toBe('cone-invertido'); continue; }
+      n++;
+      if (aviso) comAviso++;
+      for (const s of [r.A, r.B]) {
+        expect(meshReport(s.mesh)).toEqual({ open: 0, bad: 0, tiny: 0, nan: 0 });
+        expect(meshVolume(s.mesh)).toBeGreaterThan(0);
+      }
+    }
+    console.log(`PLANOB arco: ok=${n} comAviso=${comAviso} coneInvertido=${inviavel}`);
+    expect(n).toBeGreaterThan(300);
+  });
+
+  it.fails('arco: menor N (níveis intermediários) com desvio da face de junção < 1 mm, nos pares com arco', () => {
     const arcos = cases.filter((c) => c.arc);
     const res: Record<number, number> = {};
     let minN = -1;
