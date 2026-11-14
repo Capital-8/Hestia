@@ -197,8 +197,16 @@ export interface ToolOptions {
   wallTopOffset?: number;
   wallFlipped?: boolean;
   chain: boolean;
-  /** Forma da parede ao desenhar: reta, arco por três pontos ou retângulo por dois cantos opostos. */
-  wallShape: 'line' | 'arc' | 'rect';
+  /**
+   * Forma da parede ao desenhar: reta, arco por três pontos, retângulo por dois cantos opostos, polígono regular
+   * (centro + raio), círculo (centro + raio), elipse (centro, semieixo, ponto do outro semieixo) ou spline (pontos).
+   */
+  wallShape: 'line' | 'arc' | 'rect' | 'polygon' | 'circle' | 'ellipse' | 'spline';
+  /** Polígono: número de lados (3 a 64; padrão 6) e se é circunscrito ao raio (padrão: inscrito). */
+  wallPolygonSides?: number;
+  wallPolygonCircumscribed?: boolean;
+  /** Elipse e spline: tolerância do ajuste a arcos, em metros (padrão 0,005). */
+  wallFitTol?: number;
   doorTypeId: Id;
   windowTypeId: Id;
   /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */

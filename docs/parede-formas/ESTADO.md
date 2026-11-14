@@ -19,8 +19,15 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 | Ficha | Estado |
 |---|---|
 | F1.1 `fitArcs` | feita (spike S3 mesclado) |
-| F1.2 formas → paredes | |
-| F1.3 modos no `wallTool` | |
+| F1.2 formas → paredes | feita |
+| F1.3 modos no `wallTool` | feita |
 | F1.4 barra de opções, faixa, i18n | |
 | F1.6 matriz de modificar | |
 | F1.7 portas, IFC, e2e | |
+
+## F1.2/F1.3
+- `wallShapes.ts` (puro): polígono (3 a 64 lados, inscrito/circunscrito), círculo (2 arcos, |sag|=r), elipse e spline via `fitArcs`; contornos fechados saem HORÁRIOS (face externa à esquerda de a→b, `flipped=false`), diferente do retângulo (anti-horário + `flipped`). Degenerado devolve `[]`.
+- Modos `polygon|circle|ellipse|spline` em `wallShape`; opções novas opcionais `wallPolygonSides` (6), `wallPolygonCircumscribed` (false), `wallFitTol` (0,005); a F1.4 liga a barra a elas.
+- Cada forma = UMA transação (um desfazer); qualquer lado curto (<1 cm) ou sobreposto recusa a forma inteira (decisão 0044). Esc cancela; elipse = centro, ponta do semieixo, ponto do outro semieixo; spline = cliques, Enter termina aberta, clique no 1º ponto fecha.
+- Prévia de spline usa tol >= 2 cm e 16 arcos (o ajuste final custa ~1 s); mensagens novas em português literal, sem chaves i18n (F1.4).
+- Fora do escopo: `packages/geom/src/index.ts` ganhou `export * from './curveFit.ts'` (fitArcs não era exportado).
