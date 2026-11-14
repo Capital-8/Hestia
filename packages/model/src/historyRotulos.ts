@@ -138,6 +138,10 @@ export function labelOf(c: Command): string {
       return 'Editar material';
     case 'upsertOpeningType':
       return 'Editar tipo de abertura';
+    case 'deleteOpeningType': // SUPLEMENTOS:
+      return 'Excluir tipo de abertura';
+    case 'deleteMaterial': // SUPLEMENTOS:
+      return 'Excluir material';
     case 'upsertLevel':
       return 'Editar nível';
     case 'deleteLevel':

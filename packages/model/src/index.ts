@@ -80,6 +80,8 @@ export * from './sheetCommands.ts';
 export * from './view3dPoints.ts';
 export * from './pluginData.ts';
 export * from './pluginCommands.ts'; // SUPLEMENTOS:
+export * from './pluginContent.ts'; // SUPLEMENTOS:
+export { materialReferences } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';

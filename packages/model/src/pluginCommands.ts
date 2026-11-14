@@ -45,6 +45,7 @@ const UPSERT_TYPE: Record<string, string> = {
 const DELETE_TYPE = new Set([
   'deleteWallType', 'deleteCeilingType', 'deleteRoofType', 'deleteStairType', 'deleteRampType', 'deleteSlabType',
   'deleteFloorType', 'deleteTipoGuardaCorpo', 'deleteMullionType', 'deleteCurtainPanelType',
+  'deleteOpeningType', 'deleteMaterial', // SUPLEMENTOS:
 ]);
 const PROTECTED_KEYS = ['id', 'kind', 'order'] as const;
 
