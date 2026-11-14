@@ -10,6 +10,8 @@ import { setPluginResult } from './pluginResult.ts';
 import { createAppPackageStore } from './supStore.ts';
 import { SupplementRuntime, type SupNotice } from './supRuntime.ts';
 import { useUi } from '../editor/state.ts';
+import { runPluginCheckAction } from './pluginChecks.ts';
+import { setCheckHandlerRunner } from './pluginChecksRun.ts';
 // O Worker de script vai embutido no arquivo único do app (sem rede, sem DOM; ver `workerRuntime.ts`).
 import ScriptWorker from '@hestia/plugin-api/src/scriptWorker.ts?worker&inline';
 
@@ -42,6 +44,7 @@ export function supplementRuntime(): SupplementRuntime {
       setPluginResult(r);
       useUi.setState({ dialog: 'pluginResult', dialogArg: null });
     },
+    runCheck: runPluginCheckAction,
     notify: (n) => useUi.setState({ status: { key: AVISO[n.kind], args: { name: n.pluginName ?? '' } } }),
   });
   return runtime;
@@ -56,6 +59,7 @@ export function startSupplements(): void {
   try {
     const rt = supplementRuntime();
     rt.attachExecutor();
+    setCheckHandlerRunner((id, handler) => rt.loader.call(id, handler, []));
     void rt.boot().catch((e) => pluginLog.append('hestia', 'error', `carga dos suplementos falhou: ${e instanceof Error ? e.message : String(e)}`));
   } catch (e) {
     pluginLog.append('hestia', 'error', `suplementos indisponíveis: ${e instanceof Error ? e.message : String(e)}`);

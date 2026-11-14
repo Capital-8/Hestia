@@ -9,7 +9,7 @@ export type PluginText = string | { pt: string; en: string };
 /** JSON puro (sem `undefined`, funções, `NaN`). Usado nos blocos que outras fases interpretam (visão, expressão, tipo). */
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
-export type PluginActionType = 'dialog' | 'tool' | 'exporter' | 'importer' | 'handler';
+export type PluginActionType = 'dialog' | 'tool' | 'exporter' | 'importer' | 'handler' | 'schedule' | 'check';
 /** O que um comando faz: abre um diálogo/ferramenta/exportador/importador do próprio suplemento ou chama um handler. */
 export interface PluginAction { type: PluginActionType; ref: string }
 

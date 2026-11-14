@@ -9,7 +9,8 @@
 import { polygonArea } from '@hestia/geom';
 import type { ExprValue, ExprVars } from './pluginExpr.ts';
 import { openingTypeById } from './openingNominal.ts';
-import { wallThicknessOf } from './wallType.ts';
+import { layerMaterials } from './pluginLayerMaterials.ts';
+import { isCurtainType, wallThicknessOf } from './wallType.ts';
 import { isOpening, isWall, type Element, type Project } from './types.ts';
 
 /** Campos consultáveis por origem, para a documentação e para a tela de ajuda (a ordem é a de exibição). */
@@ -28,14 +29,6 @@ export function matchesSource(e: Element, source: string): boolean {
 }
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
-
-const materialName = (p: Project, id: string): string => p.materials[id]?.name ?? id;
-
-/** Nome do material do miolo (primeira camada estrutural; senão a primeira camada) e de todas as camadas. */
-function layerMaterials(p: Project, layers: ReadonlyArray<{ function: string; materialId: string }>): { material: ExprValue; materials: ExprValue } {
-  const core = layers.find((l) => l.function === 'structure') ?? layers[0];
-  return { material: core ? materialName(p, core.materialId) : null, materials: layers.map((l) => materialName(p, l.materialId)) };
-}
 
 function levelOf(p: Project, e: Element): { levelId: ExprValue; levelName: ExprValue } {
   const id = 'levelId' in e && typeof e.levelId === 'string' ? e.levelId : null;
@@ -57,7 +50,7 @@ export function pluginFieldsOf(p: Project, e: Element): ExprVars {
     Object.assign(out, {
       typeId: e.typeId, typeName: t?.name ?? null, length: round6(length), height: e.height, thickness,
       area: round6(length * e.height), volume: thickness === null ? null : round6(length * e.height * thickness),
-      ...(t ? layerMaterials(p, t.layers) : { material: null, materials: [] }),
+      ...layerMaterials(p, isCurtainType(t) ? undefined : t), // cortina: a camada-sombra não é fonte de verdade (decisão 0056)
       cost: t?.cost ?? null, thermalU: t?.thermalU ?? null, acousticRw: t?.acousticRw ?? null,
     });
   } else if (isOpening(e)) {
@@ -72,7 +65,7 @@ export function pluginFieldsOf(p: Project, e: Element): ExprVars {
     const t = p.floorTypes[e.typeId];
     Object.assign(out, {
       typeId: e.typeId, typeName: t?.name ?? null, area: round6(polygonArea([e.boundary, ...e.holes])),
-      ...(t ? layerMaterials(p, t.layers) : { material: null, materials: [] }),
+      ...layerMaterials(p, t),
     });
   } else if (e.kind === 'room') {
     Object.assign(out, { name: e.name, number: e.number });

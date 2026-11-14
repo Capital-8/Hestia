@@ -70,6 +70,8 @@ export interface SupplementRuntimeOptions {
   defer?: (fn: () => void) => void;
   showResult?: (r: HandlerResult) => void;
   notify?: (n: SupNotice) => void;
+  /** Ação `check` (fase E): reavalia a verificação e avisa o resultado. Ligado pelo app (`supApp.ts`). */
+  runCheck?: (pluginId: string, checkId: string) => void;
 }
 
 export type ApproveResult = { ok: true; state: SupState } | { ok: false; code: 'unknown' | 'missing_dependency' | 'not_requested' | 'activation_failed'; detail?: string };
@@ -249,6 +251,10 @@ export class SupplementRuntime {
 
   /** Executor registrado em `setPluginActionExecutor`: só `handler` roda aqui; as demais ações são das fases E a H. */
   readonly executor: PluginActionExecutor = ({ pluginId, action, values }) => {
+    if (action.type === 'check' && this.o.runCheck) {
+      this.o.runCheck(pluginId, action.ref);
+      return;
+    }
     if (action.type !== 'handler') {
       this.o.notify?.({ kind: 'unsupported', pluginName: this.infos.get(pluginId)?.name ?? pluginId });
       return;

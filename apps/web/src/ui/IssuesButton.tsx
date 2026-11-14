@@ -1,14 +1,17 @@
-import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { ValidationIssue } from '@hestia/model';
 import { goToIssue } from '../editor/goToIssue.ts';
 import { useT } from '../editor/i18n.ts';
 import { groupIssues, summarize, worstSeverity } from '../editor/issuesView.ts';
 import { useIssues } from '../editor/useIssues.ts';
+import { usePluginIssues } from '../plugins/pluginChecks.ts'; // SUPLEMENTOS: verificações de suplementos
 
 /** Botão de avisos da barra de status, com popover de lista agrupada por severidade. */
 export function IssuesButton(): ReactElement {
   const { t } = useT();
-  const issues = useIssues();
+  const coreIssues = useIssues();
+  const pluginIssues = usePluginIssues();
+  const issues = useMemo(() => (pluginIssues.length ? [...coreIssues, ...pluginIssues] : coreIssues), [coreIssues, pluginIssues]);
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);

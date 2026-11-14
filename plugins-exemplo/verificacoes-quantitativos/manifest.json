@@ -1,0 +1,64 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.verificacoes-quantitativos",
+  "name": "Verificações e quantitativos",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "declarative",
+  "description": "Suplemento declarativo (só JSON, sem código): avisa portas com menos de 0,80 m de largura e lista as paredes por material com comprimento e área. Só lê o modelo.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["model.read", "checks.run", "content.schedules", "ui.commands", "ui.ribbon"],
+  "contributes": {
+    "checks": [
+      {
+        "id": "porta-largura-minima",
+        "title": { "pt": "Largura mínima de porta", "en": "Minimum door width" },
+        "severity": "warning",
+        "applyTo": "door",
+        "rule": { ">=": [{ "var": "width" }, 0.8] },
+        "message": {
+          "pt": "Porta {mark} ({typeName}) com {width} m de largura; o mínimo é 0,80 m.",
+          "en": "Door {mark} ({typeName}) is {width} m wide; the minimum is 0.80 m."
+        }
+      }
+    ],
+    "schedules": [
+      {
+        "id": "paredes-por-material",
+        "title": { "pt": "Paredes por material", "en": "Walls by material" },
+        "source": "wall",
+        "groupBy": ["material"],
+        "columns": [
+          { "key": "material", "title": { "pt": "Material do miolo", "en": "Core material" }, "expr": { "var": "material" } },
+          { "key": "qtd", "title": { "pt": "Paredes", "en": "Walls" }, "expr": 1, "total": "count" },
+          { "key": "comprimento", "title": { "pt": "Comprimento", "en": "Length" }, "expr": { "round": [{ "var": "length" }, 3] }, "unit": "m", "total": "sum" },
+          { "key": "area", "title": { "pt": "Área (uma face)", "en": "Area (one face)" }, "expr": { "round": [{ "var": "area" }, 3] }, "unit": "m²", "total": "sum" }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "id": "verificar-portas",
+        "title": { "pt": "Verificar largura das portas", "en": "Check door widths" },
+        "keywords": ["porta", "largura", "norma", "door", "width"],
+        "run": { "type": "check", "ref": "porta-largura-minima" }
+      },
+      {
+        "id": "paredes-material",
+        "title": { "pt": "Quantitativo de paredes por material", "en": "Walls by material schedule" },
+        "keywords": ["quantitativo", "paredes", "material", "schedule", "walls"],
+        "run": { "type": "schedule", "ref": "paredes-por-material" }
+      }
+    ],
+    "ribbon": {
+      "panels": [
+        {
+          "id": "verificacoes",
+          "title": { "pt": "Verificações", "en": "Checks" },
+          "items": [{ "command": "verificar-portas", "size": "large" }, { "command": "paredes-material", "size": "large" }]
+        }
+      ]
+    }
+  }
+}

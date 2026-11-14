@@ -1,4 +1,4 @@
-import type { DialogContribution, PluginAction, PluginText } from './contributesTypes.ts';
+import type { CheckContribution, DialogContribution, PluginAction, PluginText, ScheduleContribution } from './contributesTypes.ts';
 import { POINT_CAPABILITY } from './contributesTypes.ts';
 import type { PluginManifestV2 } from './manifestV2.ts';
 import type { CapabilityV2 } from './permissions.ts';
@@ -18,6 +18,9 @@ export interface RegisteredCommand {
 export interface RegisteredRibbonItem { commandQid: string; title: PluginText; size: 'large' | 'small'; icon?: string }
 export interface RegisteredRibbonPanel { qid: string; pluginId: string; pluginName: string; id: string; title: PluginText; items: RegisteredRibbonItem[] }
 export interface RegisteredDialog extends Omit<DialogContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+
+export interface RegisteredCheck extends Omit<CheckContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredSchedule extends Omit<ScheduleContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 
 interface Entry { manifest: PluginManifestV2; grants: Set<CapabilityV2> }
 
@@ -105,4 +108,26 @@ export class ContributionRegistry {
   }
 
   dialog(qid: string): RegisteredDialog | undefined { return this.dialogs().find((d) => d.qid === qid); }
+
+  /** Verificações (exige `checks.run` concedida). */
+  checks(): RegisteredCheck[] {
+    const out: RegisteredCheck[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'checks')) continue;
+      for (const c of e.manifest.contributes.checks ?? []) out.push({ ...c, qid: qualifiedId(e.manifest.id, c.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  /** Quantitativos (exige `content.schedules` concedida). */
+  schedules(): RegisteredSchedule[] {
+    const out: RegisteredSchedule[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'schedules')) continue;
+      for (const s of e.manifest.contributes.schedules ?? []) out.push({ ...s, qid: qualifiedId(e.manifest.id, s.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  schedule(qid: string): RegisteredSchedule | undefined { return this.schedules().find((s) => s.qid === qid); }
 }
