@@ -95,3 +95,46 @@ describe('parseStep', () => {
     expect(args(10)[8]).toEqual({ k: 'enum', v: 'T' });
   });
 });
+
+describe('parseStep preguiçoso', () => {
+  const T = `DATA;
+#1 = IFCA('a;b ''c'' ;',(#2,#3),$,*,.ENUM.,IFCLEN(2.5),-3,1.E2);
+#2 = IFCB(
+  'multi;
+linha' ,
+  ((1.,2.),(3.,4.)), IFCNEST(IFCINNER('x;')) );
+#3 = IFCC();
+#4 = IFCC('\\X2\\00E9\\X0\\;');
+ENDSEC;`;
+  const f = parseStep(T);
+  it('lê strings com ; e aspas duplicadas, listas, $, *, enum, refs e tipos', () => {
+    expect(f.broken).toBe(0);
+    expect(f.entities.get(1)!.args).toEqual([
+      { k: 'str', v: "a;b 'c' ;" },
+      { k: 'list', items: [{ k: 'ref', id: 2 }, { k: 'ref', id: 3 }] },
+      { k: 'null' },
+      { k: 'derived' },
+      { k: 'enum', v: 'ENUM' },
+      { k: 'type', name: 'IFCLEN', arg: { k: 'num', v: 2.5 } },
+      { k: 'num', v: -3 },
+      { k: 'num', v: 100 },
+    ]);
+  });
+  it('entidade multilinha e tipo aninhado', () => {
+    const a = f.entities.get(2)!.args;
+    expect(a[0]).toEqual({ k: 'str', v: 'multi;\nlinha' });
+    expect(a[2]).toEqual({ k: 'type', name: 'IFCNEST', arg: { k: 'type', name: 'IFCINNER', arg: { k: 'str', v: 'x;' } } });
+    expect(f.entities.get(3)!.args).toEqual([]);
+    expect(f.entities.get(4)!.args).toEqual([{ k: 'str', v: 'é;' }]);
+  });
+  it('mantém ordem do arquivo, contagem e agrupamento por tipo sob demanda', () => {
+    expect(f.entities.size).toBe(4);
+    expect([...f.entities.values()].map((e) => e.id)).toEqual([1, 2, 3, 4]);
+    expect([...f.entities.entries()].map(([id, e]) => [id, e.type])).toEqual([[1, 'IFCA'], [2, 'IFCB'], [3, 'IFCC'], [4, 'IFCC']]);
+    expect(f.types.get('IFCC')!.map((e) => e.id)).toEqual([3, 4]);
+    expect(f.types.get('NADA')).toBeUndefined();
+    expect([...f.types.keys()]).toEqual(['IFCA', 'IFCB', 'IFCC']);
+    expect(f.entities.get(1)!.type).toBe(f.entities.get(1)!.type);
+    expect(f.entities.get(99)).toBeUndefined();
+  });
+});
