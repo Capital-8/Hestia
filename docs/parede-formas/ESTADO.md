@@ -86,3 +86,10 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - Sem o tipo da parede no projeto a regra do arco é pulada; `makeWall` apenas aceita o campo, a validação roda em `addWall`, `updateElements` (tilt/topProfile/sag) e `setWallTilt`.
 - `setWallTilt {ids, tilt}`: um passo de desfazer, atômico (valida todas antes de gravar); tilt 0 remove o campo. Chaves `md_cmd_tilt_*` nos 7 idiomas; rótulo "Inclinar parede(s)".
 - Testes de versão 26→27 ajustados em 10 arquivos de `packages/model/src`; plugins: `setWallTilt` não foi liberado para plugin (fora de `PLUGIN_ALLOWED_COMMANDS`).
+
+## F2.3
+- Sólido de parede inclinada em `solids.ts` (`extrudeLayerTilted`, `tiltMap`); `tilt=0`/ausente segue `extrudeLayer` sem mudança (testado: mesmos vértices e índices). Faixa com topo em perfil (`slope`) também cai no caminho vertical (tilt e `topProfile` não coexistem).
+- Mapa de planta por cota z: reta desloca pela normal esquerda `e·(1/cosθ − 1) + z·tanθ`; arco: raio `R + k·z·tanθ + (ρ−R)/cosθ` no mesmo centro (k de `arcFromSagitta`). Faces laterais = quadriláteros em 2 triângulos; topo/base planos triangulados DEPOIS do deslocamento (triangular antes inverte triângulos no arco).
+- `ResolvedWall` ganhou `tilt?` e `sag?` (só quando tilt ≠ 0; `types.ts` tocado só para o tipo); chave de cache ganha `|tilt=..|sag` apenas com tilt. Junções e vãos seguem o corte vertical na base (F2.4/F2.8).
+- Achado F2.2: `axisAtLevel` e `arcTiltSide` (wallTilt.ts) põem o centro do arco do lado do `sag`, mas `arcFromSagitta` e `wallTiltIssue` o põem do lado oposto (sag>0: centro à direita); o sinal de s fica invertido em arco. A F2.3 usa `arcFromSagitta`; corrigir o F2.2 antes de F2.4/F2.7 usarem `s`.
+- Testes `wallTiltSolid.test.ts`: reta 2,4847 e 2,7713 (1e-4; fórmula 1e-6), arco 5,2708 e 4,4865 (1e-3), 2 camadas, malha fechada, cache.

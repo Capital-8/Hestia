@@ -54,6 +54,9 @@ export interface ResolvedWall {
   /** Faixa de cota da parede sem anexar a piso/laje (base do modelo até a altura máxima): é a que o término por camada usa. */
   nominalZ0?: number;
   nominalZ1?: number;
+  /** Inclinação em graus (+ = topo à esquerda de a→b), só quando não nula, com a flecha `sag` do eixo (arco). */
+  tilt?: number;
+  sag?: number;
   layers: ResolvedLayer[];
   /** Camadas de espessura zero (membranas, barreiras): linhas no limite entre camadas, em planta e nos quantitativos. */
   membranes: Membrane[];
