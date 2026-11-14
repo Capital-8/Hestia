@@ -42,6 +42,12 @@ export interface TiltJoinResult {
   /** Motivo de degeneração (cone invertido, eixos sem cruzamento); null = tudo certo. */
   warn: string | null;
 }
+/** Falha de um nível: o modelo de dois níveis não se aplica a esta combinação (limite geométrico, não erro de cálculo). */
+export interface TiltJoinFail {
+  fail: 'cone-invertido' | 'sem-cruzamento' | 'no-fora-da-parede' | 'corte-nulo';
+  z: number;
+}
+export const isFail = (r: TiltJoinResult | TiltJoinFail): r is TiltJoinFail => 'fail' in r;
 export interface Topology {
   pair: { a: 'a' | 'b'; b: 'a' | 'b' } | null; // extremidade da parede A e da B que formam o canto
   tee: Array<{ branch: 0 | 1; end: 'a' | 'b'; host: 0 | 1 }>;
@@ -105,6 +111,27 @@ export function baseTopology(A: TiltWall, B: TiltWall): Topology {
   return topo;
 }
 
+/** Quadro com a extremidade `which` movida para o ponto `x` do eixo (a outra ponta não sai do lugar); null se a parede some. */
+function retarget(f: WallFrame, which: 'a' | 'b', x: Vec2): WallFrame | null {
+  const tx = toLocal(f, x).t;
+  const start = which === 'a' ? tx : 0;
+  const length = which === 'a' ? f.length - tx : tx;
+  if (length < 1e-3) return null;
+  const g: WallFrame = { ...f, length };
+  if (f.arc) {
+    const dir = f.arc.sweep < 0 ? -1 : 1;
+    g.arc = { ...f.arc, a0: f.arc.a0 + (dir * start) / f.arc.radius, sweep: (dir * length) / f.arc.radius, length };
+    g.a = arcPointAt(g.arc, 0, 0);
+    g.b = arcPointAt(g.arc, length, 0);
+    g.u = arcTangentAt(g.arc, 0);
+    g.n = perp(g.u);
+  } else {
+    g.a = which === 'a' ? x : f.a;
+    g.b = which === 'a' ? f.b : x;
+  }
+  return g;
+}
+
 const endPoint = (f: WallFrame, which: 'a' | 'b'): Vec2 => pointAt(f, which === 'a' ? 0 : f.length, 0);
 const dirFrom = (f: WallFrame, which: 'a' | 'b', at: Vec2): Vec2 => {
   const t = tangentAt(f, toLocal(f, at).t);
@@ -155,22 +182,32 @@ function loopOf(f: WallFrame, e: WallEnds, nodeNear: { a: Vec2; b: Vec2 }): { po
   return { poly: [...lo, ...hi], idx: { a: [0, 2 * SAMPLES + 1], b: [SAMPLES, SAMPLES + 1] } };
 }
 
-function levelPolys(A: TiltWall, B: TiltWall, topo: Topology, z: number): LevelPolys | null {
-  const fa = levelFrame(A, z), fb = levelFrame(B, z);
-  if (!fa || !fb) return null;
+type LevelFail = Pick<TiltJoinFail, 'fail'>;
+const failed = (r: LevelPolys | LevelFail): r is LevelFail => 'fail' in r;
+
+function levelPolys(A: TiltWall, B: TiltWall, topo: Topology, z: number): LevelPolys | LevelFail {
+  let fa = levelFrame(A, z), fb = levelFrame(B, z);
+  if (!fa || !fb) return { fail: 'cone-invertido' };
+  let node: Vec2 | null = null;
+  let warn: string | null = null;
+  if (topo.pair) {
+    // O nó do nível é o cruzamento dos eixos deslocados; a ponta do par passa a ser esse ponto (a topologia é a da base).
+    const x = intersectCurves(faceCurve(fa, 0), faceCurve(fb, 0), endPoint(fa, topo.pair.a));
+    if (!x) return { fail: 'sem-cruzamento' };
+    node = x;
+    fa = retarget(fa, topo.pair.a, x);
+    fb = retarget(fb, topo.pair.b, x);
+    if (!fa || !fb) return { fail: 'no-fora-da-parede' }; // o cruzamento caiu fora de uma das paredes (o canto "foge" da parede)
+  }
   const fr = [fa, fb];
   const out = new Map<string, WallEnds>([
     [fa.wall.id, { a: flatEnd(0), b: flatEnd(fa.length) }],
     [fb.wall.id, { a: flatEnd(0), b: flatEnd(fb.length) }],
   ]);
   const near = { A: { a: fa.a, b: fa.b }, B: { a: fb.a, b: fb.b } };
-  let node: Vec2 | null = null;
-  let warn: string | null = null;
   if (topo.pair) {
-    const x = intersectCurves(faceCurve(fa, 0), faceCurve(fb, 0), endPoint(fa, topo.pair.a));
-    if (!x) warn = 'eixos deslocados sem cruzamento';
-    else {
-      node = x;
+    const x = node!;
+    {
       const ra: EndRef = { f: fa, which: topo.pair.a, o: x, dir: dirFrom(fa, topo.pair.a, x) };
       const rb: EndRef = { f: fb, which: topo.pair.b, o: x, dir: dirFrom(fb, topo.pair.b, x) };
       joinPair(out, ra, rb);
@@ -185,7 +222,7 @@ function levelPolys(A: TiltWall, B: TiltWall, topo: Topology, z: number): LevelP
   }
   const la = loopOf(fa, out.get(fa.wall.id)!, near.A);
   const lb = loopOf(fb, out.get(fb.wall.id)!, near.B);
-  if (!la || !lb) return null;
+  if (!la || !lb) return { fail: 'corte-nulo' };
   return { A: la.poly, B: lb.poly, node, idx: { A: la.idx, B: lb.idx }, warn };
 }
 
@@ -225,35 +262,45 @@ function meshOf(levels: Vec2[][], zs: number[], idx: WallSolid['endIdx']): Mesh 
  * Junção das duas paredes inclinadas. `intermediate` = N níveis intermediários entre base e topo da malha
  * (N+2 níveis). As plantas em z=0, H/2 e z=H são calculadas à parte (não dependem de N).
  */
-export function wallTiltJoin(A: TiltWall, B: TiltWall, H: number, intermediate = 4): TiltJoinResult | null {
+export function wallTiltJoin(A: TiltWall, B: TiltWall, H: number, intermediate = 4): TiltJoinResult | TiltJoinFail {
   const topo = baseTopology(A, B);
   const S = intermediate + 1;
   const zs = Array.from({ length: S + 1 }, (_, i) => (H * i) / S);
-  const ls = zs.map((z) => levelPolys(A, B, topo, z));
-  if (ls.some((l) => !l)) return null;
+  const lv = zs.map((z) => levelPolys(A, B, topo, z));
+  const bad = lv.findIndex(failed);
+  if (bad >= 0) return { fail: (lv[bad] as LevelFail).fail, z: zs[bad]! };
+  const ls = lv as LevelPolys[];
   const mk = (k: 'A' | 'B'): WallSolid => {
     const levels = ls.map((l) => l![k]);
     return { levels, mesh: meshOf(levels, zs, ls[0]!.idx[k]), endIdx: ls[0]!.idx[k] };
   };
-  const p0 = levelPolys(A, B, topo, 0)!, pm = levelPolys(A, B, topo, H / 2), pH = levelPolys(A, B, topo, H);
-  if (!pm || !pH) return null;
+  const p0 = ls[0]!, pm = levelPolys(A, B, topo, H / 2), pH = levelPolys(A, B, topo, H);
+  if (failed(pm)) return { fail: pm.fail, z: H / 2 };
+  if (failed(pH)) return { fail: pH.fail, z: H };
   return {
     H, zs, A: mk('A'), B: mk('B'),
     plan: { z0: [p0.A, p0.B], zMid: [pm.A, pm.B], zH: [pH.A, pH.B] },
-    nodes: ls.map((l) => l!.node), topology: topo, warn: ls.find((l) => l!.warn)?.warn ?? null,
+    nodes: ls.map((l) => l.node), topology: topo, warn: ls.find((l) => l.warn)?.warn ?? null,
   };
 }
 
-/** Maior desvio (m) entre os vértices da face de junção interpolados linearmente entre níveis e os exatos em z intermediários. */
-export function joinFaceDeviation(A: TiltWall, B: TiltWall, H: number, intermediate: number, perSegment = 8): number | null {
+/**
+ * Maior desvio (m) entre os vértices da face de junção interpolados linearmente entre os níveis da malha e os exatos
+ * em z intermediários. `quebra` = em algum z as duas paredes deixaram de compartilhar a face de junção (o corte do par
+ * caiu no limite de esquadria/nó de joinPair e trocou de tipo): descontinuidade que nenhum N conserta.
+ */
+export function joinFaceDeviation(A: TiltWall, B: TiltWall, H: number, intermediate: number, perSegment = 8): { dev: number; quebra: boolean } | null {
   const topo = baseTopology(A, B);
-  if (!topo.pair) return 0;
+  if (!topo.pair) return { dev: 0, quebra: false };
   const S = intermediate + 1;
+  let quebra = false;
   const at = (z: number): Vec2[] | null => {
     const l = levelPolys(A, B, topo, z);
-    if (!l) return null;
-    const p = [[l.A, l.idx.A[topo.pair!.a]], [l.B, l.idx.B[topo.pair!.b]]] as const;
-    return p.flatMap(([poly, ix]) => ix.map((i) => poly[i]!));
+    if (failed(l)) return null;
+    const a = l.idx.A[topo.pair!.a].map((i) => l.A[i]!);
+    const b = l.idx.B[topo.pair!.b].map((i) => l.B[i]!);
+    if (a.some((p) => Math.min(...b.map((q) => Math.hypot(p.x - q.x, p.y - q.y))) > 1e-9)) quebra = true;
+    return [...a, ...b];
   };
   let worst = 0;
   for (let s = 0; s < S; s++) {
@@ -270,7 +317,7 @@ export function joinFaceDeviation(A: TiltWall, B: TiltWall, H: number, intermedi
       });
     }
   }
-  return worst;
+  return { dev: worst, quebra };
 }
 
 export const polyArea = (p: Vec2[]): number => p.reduce((s, q, i) => s + (q.x * p[(i + 1) % p.length]!.y - p[(i + 1) % p.length]!.x * q.y), 0) / 2;

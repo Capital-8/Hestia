@@ -3,7 +3,7 @@ import { createEmptyProject, makeWall, type JoinKind, type Wall } from '@hestia/
 import type { Vec2 } from '@hestia/geom';
 import { buildFrame, computeEnds } from './index.ts';
 import { miterPoint } from './joinSides.ts';
-import { joinFaceDeviation, meshVolume, polyArea, wallTiltJoin, type Mesh, type TiltWall } from './wallTiltJoin.spike.ts';
+import { isFail, joinFaceDeviation, meshVolume, polyArea, wallTiltJoin, type Mesh, type TiltWall } from './wallTiltJoin.spike.ts';
 
 /** SPIKE S1 · critérios da METODOLOGIA.md §2 (S1) com valores literais (§4). */
 
@@ -14,6 +14,11 @@ function wall(id: string, order: number, a: Vec2, b: Vec2, kind: JoinKind, sag =
   const j = { kind, flip: false };
   return { ...makeWall({ id, typeId: 'x', levelId: 'lv_0', a, b, sag, joinStart: j, joinEnd: j }), order };
 }
+const join = (A: TiltWall, B: TiltWall, H: number, N = 4) => {
+  const r = wallTiltJoin(A, B, H, N);
+  if (isFail(r)) throw new Error(`falha ${r.fail} em z=${r.z}`);
+  return r;
+};
 const tw = (w: Wall, t: number, tiltDeg: number): TiltWall => ({ frame: buildFrame(w, typeOf(t))!, tiltDeg });
 
 /** Canto da referência: A vai de (4,0) a (0,0) (esquerda = −y); B vai de (0,0) a (0,4) (esquerda = −x). */
@@ -62,7 +67,7 @@ describe('S1 · reta×reta, canto (exato)', () => {
   for (const c of CASES) {
     it(`(a) cantos em z=0, H/2, H batem com a tabela a 1e-6 e são colineares · ${c.nome}`, () => {
       const [A, B] = cornerPair(c.tA, c.tB);
-      const r = wallTiltJoin(A, B, 3, 4)!;
+      const r = join(A, B, 3, 4);
       expect(r).not.toBeNull();
       const p0 = cornerOf(r.plan.z0[0]), p1 = cornerOf(r.plan.zMid[0]), p2 = cornerOf(r.plan.zH[0]);
       expect(p0.x).toBeCloseTo(0, 6);
@@ -84,7 +89,7 @@ describe('S1 · reta×reta, canto (exato)', () => {
 
     it(`(b) vértices da face de junção a <1e-9 dos dois planos de face (de A e de B) · ${c.nome}`, () => {
       const [A, B] = cornerPair(c.tA, c.tB);
-      const r = wallTiltJoin(A, B, 3, 4)!;
+      const r = join(A, B, 3, 4);
       const cA = Math.cos((c.tA * Math.PI) / 180), sA = Math.sin((c.tA * Math.PI) / 180);
       const cB = Math.cos((c.tB * Math.PI) / 180), sB = Math.sin((c.tB * Math.PI) / 180);
       // faces de A: y·cosθ + z·senθ = ±0,1 ; de B: x·cosθ + z·senθ = ±0,1 (espessura 0,2 perpendicular à face)
@@ -112,7 +117,7 @@ describe('S1 · reta×reta, canto (exato)', () => {
 
     it(`(c) malha fechada, normais para fora · ${c.nome}`, () => {
       const [A, B] = cornerPair(c.tA, c.tB);
-      const r = wallTiltJoin(A, B, 3, 4)!;
+      const r = join(A, B, 3, 4);
       for (const s of [r.A, r.B]) {
         const rep = meshReport(s.mesh);
         expect(rep).toEqual({ open: 0, bad: 0, tiny: 0, nan: 0 });
@@ -122,7 +127,7 @@ describe('S1 · reta×reta, canto (exato)', () => {
 
     it(`(d) volume = H/6·(A0+4Am+AH), erro relativo < 1e-9 · ${c.nome}`, () => {
       const [A, B] = cornerPair(c.tA, c.tB);
-      const r = wallTiltJoin(A, B, 3, 4)!;
+      const r = join(A, B, 3, 4);
       for (const [k, s] of [[0, r.A], [1, r.B]] as const) {
         const simpson = (3 / 6) * (polyArea(r.plan.z0[k]) + 4 * polyArea(r.plan.zMid[k]) + polyArea(r.plan.zH[k]));
         const v = meshVolume(s.mesh);
@@ -135,14 +140,14 @@ describe('S1 · reta×reta, canto (exato)', () => {
     // Parede isolada (B longe): volume = L·H·t/cosθ = 4·3·0,2/cos15° = 2,4847
     const A = tw(wall('A', 1, { x: 0, y: 0 }, { x: 4, y: 0 }, 'miter'), 0.2, 15);
     const B = tw(wall('B', 2, { x: 0, y: 20 }, { x: 4, y: 20 }, 'miter'), 0.2, 0);
-    const r = wallTiltJoin(A, B, 3, 4)!;
+    const r = join(A, B, 3, 4);
     expect(meshVolume(r.A.mesh)).toBeCloseTo(2.4847, 4);
     expect(r.nodes.every((n) => n === null)).toBe(true);
   });
 
   it('(e) tilt 0/0 idêntico ao resultado atual de computeEnds (miter) e aos valores literais da planta', () => {
     const [A, B] = cornerPair(0, 0);
-    const r = wallTiltJoin(A, B, 3, 4)!;
+    const r = join(A, B, 3, 4);
     const ends = computeEnds([A.frame, B.frame]);
     const eA = ends.get('A')!.b.hi;
     expect(eA.kind).toBe('miter');
@@ -165,6 +170,23 @@ describe('S1 · reta×reta, canto (exato)', () => {
     // sem inclinação, o topo é igual à base
     expect(r.plan.zH[0]).toEqual(r.plan.z0[0]);
     expect(r.plan.zH[1]).toEqual(r.plan.z0[1]);
+  });
+});
+
+describe('S1 · reta×arco e arco×arco (aproximado) · literais §4.2', () => {
+  // R=5, φ=90°: corda 5·√2, flecha 5·(1−cos45°). Sag>0 abaula à esquerda (centro à direita): tilt>0 afasta do centro.
+  const arcWall = (id: string, tilt: number, sag: number) => tw(wall(id, 1, { x: 0, y: 0 }, { x: 5 * Math.SQRT2, y: 0 }, 'miter', sag), 0.2, tilt);
+  const far = { x: 0, y: 50 }, far2 = { x: 4, y: 50 };
+  const away = (w: TiltWall) => ({ A: w, B: tw(wall('B', 2, far, far2, 'miter'), 0.2, 0) });
+  const SAG = 5 * (1 - Math.SQRT1_2);
+  it('volume do arco isolado, afastando: 5,2708 (1e-3)', () => {
+    const { A, B } = away(arcWall('A', 15, SAG));
+    expect(meshVolume(join(A, B, 3, 16).A.mesh)).toBeCloseTo(5.2708, 2);
+    expect(Math.abs(meshVolume(join(A, B, 3, 16).A.mesh) / 5.2708 - 1)).toBeLessThan(1e-3);
+  });
+  it('volume do arco isolado, aproximando: 4,4865 (1e-3)', () => {
+    const { A, B } = away(arcWall('A', -15, SAG));
+    expect(Math.abs(meshVolume(join(A, B, 3, 16).A.mesh) / 4.4865 - 1)).toBeLessThan(1e-3);
   });
 });
 
@@ -198,33 +220,49 @@ describe('S1 · fuzz de 500 pares (semente fixa)', () => {
     const A = mk('A', 1, ang0), B = mk('B', 2, ang0 + between);
     cases.push({ A, B, H: span(2, 6), arc: !!A.frame.arc || !!B.frame.arc });
   }
+  /** Volume de referência: Simpson composto (64 faixas) sobre as plantas exatas de cada nível. */
+  const refVolume = (c: Case, k: 0 | 1): number | null => {
+    const r = wallTiltJoin(c.A, c.B, c.H, 63);
+    if (isFail(r)) return null;
+    const lv = (k === 0 ? r.A : r.B).levels.map(polyArea);
+    const h = c.H / 64;
+    let sum = lv[0]! + lv[64]!;
+    for (let i = 1; i < 64; i++) sum += (i % 2 ? 4 : 2) * lv[i]!;
+    return (h / 3) * sum;
+  };
+  const novo = () => ({ n: 0, ok: 0, falha: {} as Record<string, number>, malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0, maxErr: 0 });
 
   it('propriedades (c),(d), sem NaN, sem triângulo < 1e-12, < 2 ms por par', () => {
-    let nulos = 0, avisos = 0, retaN = 0, arcoN = 0, maxErrReta = 0, maxErrArco = 0, retaFalhaTopo = 0;
-    let tempo = 0;
+    const cat = { reta: novo(), arco: novo() };
+    let tempo = 0, tN = 0;
     for (const c of cases) {
+      const g = c.arc ? cat.arco : cat.reta;
+      g.n++;
       const t0 = performance.now();
       const r = wallTiltJoin(c.A, c.B, c.H, 4);
       tempo += performance.now() - t0;
-      if (!r) { nulos++; continue; }
-      if (r.warn) avisos++;
+      tN++;
+      if (isFail(r)) { g.falha[r.fail] = (g.falha[r.fail] ?? 0) + 1; continue; }
+      g.ok++;
       for (const [k, s] of [[0, r.A], [1, r.B]] as const) {
         const rep = meshReport(s.mesh);
-        expect(rep.nan).toBe(0);
-        expect(rep.tiny).toBe(0);
-        expect(rep.open).toBe(0);
-        expect(rep.bad).toBe(0);
-        expect(meshVolume(s.mesh)).toBeGreaterThan(0);
-        const simpson = (c.H / 6) * (polyArea(r.plan.z0[k]) + 4 * polyArea(r.plan.zMid[k]) + polyArea(r.plan.zH[k]));
-        const err = Math.abs(meshVolume(s.mesh) - simpson) / simpson;
-        const isArc = !!(k === 0 ? c.A : c.B).frame.arc || c.arc;
-        if (isArc) { arcoN++; maxErrArco = Math.max(maxErrArco, err); } else { retaN++; maxErrReta = Math.max(maxErrReta, err); if (err >= 1e-9) retaFalhaTopo++; }
+        g.nan += rep.nan;
+        g.tiny += rep.tiny;
+        if (rep.open || rep.bad) g.malha++;
+        const v = meshVolume(s.mesh);
+        if (v <= 0) g.volNeg++;
+        // reta: fórmula de Simpson de 3 níveis (exata); arco: Simpson composto de 64 faixas (a de 3 níveis não é exata)
+        const ref = c.arc ? refVolume(c, k) : (c.H / 6) * (polyArea(r.plan.z0[k]) + 4 * polyArea(r.plan.zMid[k]) + polyArea(r.plan.zH[k]));
+        const err = ref ? Math.abs(v - ref) / Math.abs(ref) : 1;
+        g.maxErr = Math.max(g.maxErr, err);
+        if (err >= (c.arc ? 1e-3 : 1e-9)) g.vol++;
       }
     }
-    const porPar = tempo / cases.length;
-    console.log(`FUZZ nulos(cone invertido)=${nulos} avisos=${avisos} reta=${retaN} maxErrReta=${maxErrReta} arco=${arcoN} maxErrArco=${maxErrArco} ms/par=${porPar.toFixed(3)}`);
-    expect(retaFalhaTopo).toBe(0);
-    expect(maxErrArco).toBeLessThan(1e-3);
+    const porPar = tempo / tN;
+    console.log(`FUZZ ${JSON.stringify(cat)} ms/par=${porPar.toFixed(3)}`);
+    // reta×reta: todo par viável tem de ser exato
+    expect(cat.reta).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
+    expect(cat.arco).toMatchObject({ malha: 0, vol: 0, volNeg: 0, tiny: 0, nan: 0 });
     expect(porPar).toBeLessThan(2);
   });
 
@@ -232,19 +270,28 @@ describe('S1 · fuzz de 500 pares (semente fixa)', () => {
     const arcos = cases.filter((c) => c.arc);
     const res: Record<number, number> = {};
     let minN = -1;
+    let continuos = 0, quebras = 0, inviaveis = 0;
     for (const N of [1, 2, 4, 8, 16, 32]) {
       let worst = 0;
+      continuos = quebras = inviaveis = 0;
       for (const c of arcos) {
         const d = joinFaceDeviation(c.A, c.B, c.H, N);
-        if (d !== null) worst = Math.max(worst, d);
+        if (d === null) { inviaveis++; continue; }
+        if (d.quebra) { quebras++; continue; }
+        continuos++;
+        worst = Math.max(worst, d.dev);
       }
       res[N] = worst;
       if (minN < 0 && worst < 1e-3) minN = N;
     }
-    console.log(`ARCO pares=${arcos.length} desvioMax(m) por N=${JSON.stringify(res)} menorN=${minN}`);
+    console.log(`ARCO pares=${arcos.length} inviaveis=${inviaveis} quebraDeCorte=${quebras} continuos=${continuos} desvioMax(m) nos continuos por N=${JSON.stringify(res)} menorN=${minN}`);
     expect(minN).toBeGreaterThan(0);
-    // também para reta×reta o desvio é nulo (face plana)
-    const retas = cases.filter((c) => !c.arc);
-    for (const c of retas.slice(0, 50)) expect(joinFaceDeviation(c.A, c.B, c.H, 1)!).toBeLessThan(1e-9);
+    for (const c of cases.filter((x) => !x.arc)) {
+      const d = joinFaceDeviation(c.A, c.B, c.H, 1);
+      if (d !== null) {
+        expect(d.dev).toBeLessThan(1e-9);
+        expect(d.quebra).toBe(false);
+      }
+    }
   });
 });
