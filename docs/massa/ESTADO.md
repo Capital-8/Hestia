@@ -22,7 +22,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | **Árvore combinada T1a+T1b** | verde | | | typecheck ✔, lint ✔, test:rapido 990/11537, test:wasm 59/1359 |
 | T1c (pendências da T1b) | mesclada | merge de massa/t1c | 0 | haiku high; conferida; dívida de tamanho de sectionEditTools/alignFeatures anotada (E13) |
 | U1 (interface) | mesclada | merge de massa/u1 | 0 | sonnet medium; conferida. **Árvore combinada T1c+U1: typecheck ✔, lint ✔, test:rapido 1001/11607, test:wasm 59/1359, check:ribbon-i18n 0 faltando** |
-| U2 | pendente | | 0 | |
+| U2 | mesclada | merge de massa/u2 | 0 | haiku high; conferida na árvore combinada: typecheck ✔, lint ✔, test:rapido 1004/11622, test:wasm 60/1363, check:ribbon-i18n 0 faltando; test:i18n não roda (Chromium 1248 ausente); emenda E14. **Fase 3 concluída em código** |
+| G3 (teste de interface no navegador) | pendente | | 0 | |
 | D1 | pendente | | 0 | |
 | D2 | pendente | | 0 | |
 | X1 | pendente | | 0 | |
