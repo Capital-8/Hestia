@@ -17,7 +17,10 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | G2 (portão visual) | mesclada | merge de massa/g2 | 0 | haiku high; script massa-visual.mjs sai 0, 0 erros de console; capturas olhadas pelo fiscal; achados na E10 |
 | V1b (névoa do 3D) | mesclada | merge de massa/v1b | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 983/11465; captura 3d-enquadrar-tudo.png agora mostra todas as massas (antes vazia) |
 | V3 | mesclada | merge de massa/v3 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 982/11453, test:wasm 59/1359 (inclui kernel-massa-vista); emenda E9 |
-| T1 | pendente | | 0 | |
+| T1a (criação) | mesclada | merge de massa/t1a | 0 | haiku high; 2 ampliações de escopo autorizadas (shortcutDefaults.ts, types.ts) e ligação mínima em apps/web (E11); conferida |
+| T1b (modificação) | mesclada | merge de massa/t1b | 0 | sonnet medium; pendências → T1c (E12); conferida |
+| **Árvore combinada T1a+T1b** | verde | | | typecheck ✔, lint ✔, test:rapido 990/11537, test:wasm 59/1359 |
+| T1c (pendências da T1b) | pendente | | 0 | |
 | U1 | pendente | | 0 | |
 | U2 | pendente | | 0 | |
 | D1 | pendente | | 0 | |
@@ -43,6 +46,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 - Testes de tempo do guarda-corpo (`kernel-gc-estabilidade`) oscilam com carga alta do sistema; repetir sem outros processos antes de devolver ficha.
 
 - **Fase 2 em código concluída em 2026-11-14; portão visual feito** (capturas e script na E10). Névoa do 3D corrigida (V1b).
+
+- O `test:rapido` estoura o `timeout` do fiscal e o `kernel-gc-estabilidade` oscila quando 2 ou 3 suítes rodam ao mesmo tempo (carga > 8). Não rodar portão do fiscal enquanto agentes rodam testes; se falhar por tempo, repetir com a máquina livre.
 
 ## Decisões do dono durante a execução
 - 2026-11-13: "sempre que possível seguir sem esperar nada" (o fiscal só para para perguntar se uma decisão de projeto bloquear).
