@@ -122,3 +122,4 @@ export * from './massaIssues.ts';
 export * from './massaQuantities.ts';
 export * from './massaVista.ts';
 export * from './massaPlanta.ts';
+export * from './massaSchedule.ts';
