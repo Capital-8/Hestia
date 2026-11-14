@@ -66,3 +66,8 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 
 ## Fase 1: concluída (2026-11-14)
 Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, test:rapido 12153 ok; 6 a 8 arquivos falham por timeout sob carga (a máquina é compartilhada com outra sessão) e passam isolados. Interface conferida por captura de tela (Chrome do sistema): aba "Modificar | Colocar Parede" com a galeria Desenhar compartilhada com o perímetro. Dívidas: filete de parede; arco centro-extremidades só até 180° por clique; capturas automáticas por script ficam para o portão final da frente. Branch `frente/parede-formas` vive no worktree isolado `~/hestia-wt/frente`.
+
+## Fase 2: decisões após o P0 (E5 a E7)
+- **E5:** sólido, planta, corte, quantitativos e junção de produção são TS; o Rust só espelha atrás de `kernelFatiaLigada` (padrão TS, `packages/geom/src/kernel/v2/fatias.ts:79`). Logo `tilt` NÃO sobe o contrato do kernel (versão 19 intacta; o contrato é colunar `schema/cena-v11.json` e ignora campo opcional). Projeto com parede inclinada força o caminho TS das junções mesmo com a flag ligada; porte Rust do tilt fica como dívida D2 (só se a flag virar padrão).
+- **E6:** `SCHEMA_VERSION` 26 → 27 na F2.1 (migração 26→27 só sobe o número). A chave de cache do sólido (`solids.ts:349`) passa a incluir `tilt` (F2.3).
+- **E7:** ferramentas de modificar usam `transform`/`updateElements`/`splitWall` com spread: `tilt` é preservado de graça; Espelhar (`commands.ts:237`) e troca a↔b precisam inverter o sinal (F2.11).
