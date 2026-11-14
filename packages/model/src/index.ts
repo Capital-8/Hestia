@@ -26,6 +26,7 @@ export * from './copyLinkCommands.ts';
 export * from './history.ts';
 export * from './outlineCommands.ts';
 export * from './migrate.ts';
+export * from './meshArrays.ts';
 export * from './templates.ts';
 export * from './wall.ts';
 export * from './wallOverlap.ts';

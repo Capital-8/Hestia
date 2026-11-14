@@ -13,6 +13,7 @@ import {
   buildTemplate,
   createEmptyProject,
   migrateProject,
+  serializeProject,
   newId,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
@@ -1163,7 +1164,7 @@ export class Editor {
     this.pastaDaBiblioteca = null;
     this.perimetro.encerrar(); this.store.load(p);
     // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
-    safeSet(AUTOSAVE_KEY, JSON.stringify(p, null, 1));
+    safeSet(AUTOSAVE_KEY, serializeProject(p, 1));
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
     if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
@@ -1213,7 +1214,7 @@ export class Editor {
 
   /** Caminho de quem não tem pasta (navegador sem acesso a arquivos): baixa o `.hestia.json`. */
   private async baixarArquivo(): Promise<void> {
-    const text = JSON.stringify(this.project, null, 1);
+    const text = serializeProject(this.project, 1);
     const name = safeFilename(`${this.project.name.trim() || 'projeto'}.hestia.json`);
     safeSet(AUTOSAVE_KEY, text);
     const entrega = await entregarArquivo({ nome: name, conteudo: text });
@@ -1282,7 +1283,7 @@ export class Editor {
     const lang = useI18n.getState().lang;
     const miniatura = capturarMiniatura3d();
     const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
-    const conteudo = JSON.stringify(documento, null, 1);
+    const conteudo = serializeProject(documento, 1);
     safeSet(AUTOSAVE_KEY, conteudo);
     try {
       const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
@@ -1299,7 +1300,7 @@ export class Editor {
 
   private scheduleAutosave(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-    this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, JSON.stringify(this.project, null, 1)), 800);
+    this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, serializeProject(this.project, 1)), 800);
   }
 
   /**

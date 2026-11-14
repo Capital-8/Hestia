@@ -274,6 +274,8 @@ const migrations: Record<number, Migration> = {
   24: (raw) => ({ ...raw }),
 };
 
+import { normalizeProjectMeshes } from './meshArrays.ts';
+
 export class SchemaError extends Error {}
 
 /** Valida e migra um JSON qualquer para o esquema atual. Lança SchemaError se inválido. */
@@ -304,5 +306,6 @@ export function migrateProject(raw: unknown): Project {
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');
-  return { ...base, ...p, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
+  const out = { ...base, ...p, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
+  return normalizeProjectMeshes(out);
 }

@@ -52,11 +52,14 @@ describe('malha genérica: soldagem de vértices', () => {
     const tris = [0, 0, 0, 1, 0, 0, 0, 1, 0, 4e-10, 0, 0, 1, 1e-7, 0, 0, 1, 0];
     const { positions, indices } = weldTris(tris);
     expect(positions.length / 3).toBe(3);
-    expect(positions.slice(0, 3)).toEqual([0, 0, 0]);
-    expect(indices).toEqual([0, 1, 2, 0, 1, 2]);
+    expect(Array.from(positions.slice(0, 3))).toEqual([0, 0, 0]);
+    expect(Array.from(indices)).toEqual([0, 1, 2, 0, 1, 2]);
   });
 
   it('corpo sem triângulo não gera malha', () => {
-    expect(weldTris([])).toEqual({ positions: [], indices: [] });
+    const w = weldTris([]);
+    expect(w.positions).toHaveLength(0);
+    expect(w.indices).toHaveLength(0);
+    expect(w.positions).toBeInstanceOf(Float32Array);
   });
 });

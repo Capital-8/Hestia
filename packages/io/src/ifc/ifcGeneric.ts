@@ -17,7 +17,7 @@ function ifcValue(v: IfcProperty['value']): string {
 }
 
 /** Triplas 1-based da malha; tripla com índice fora da faixa dos vértices sai. */
-function coordIndexTriples(indices: readonly number[], vertices: number): string[] {
+function coordIndexTriples(indices: ArrayLike<number>, vertices: number): string[] {
   const out: string[] = [];
   for (let i = 0; i + 2 < indices.length; i += 3) {
     const tri = [indices[i]!, indices[i + 1]!, indices[i + 2]!];
@@ -28,16 +28,21 @@ function coordIndexTriples(indices: readonly number[], vertices: number): string
 }
 
 /** Coordenadas de um vértice em cota local do nível: `z` absoluto menos a elevação do pavimento. */
-const localPoint = (positions: readonly number[], i: number, elev: number): string =>
+const localPoint = (positions: ArrayLike<number>, i: number, elev: number): string =>
   list([num(positions[i]!), num(positions[i + 1]!), num(positions[i + 2]! - elev)]);
 
 /**
  * `IFCTRIANGULATEDFACESET` (IFC4) da malha do genérico, com a lista de pontos em metros e cota local do nível. A malha
  * é a do modelo (mundo); `CoordIndex` são triplas 1-based. Malha vazia ou inválida devolve `null` (produto sem forma).
  */
-export function faceSetOf(w: StepWriter, mesh: { positions: readonly number[]; indices: readonly number[] }, elev: number): number | null {
+function todasFinitas(v: ArrayLike<number>): boolean {
+  for (let i = 0; i < v.length; i++) if (!Number.isFinite(v[i])) return false;
+  return true;
+}
+
+export function faceSetOf(w: StepWriter, mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> }, elev: number): number | null {
   const { positions, indices } = mesh;
-  if (positions.length < 9 || positions.length % 3 !== 0 || !positions.every(Number.isFinite)) return null;
+  if (positions.length < 9 || positions.length % 3 !== 0 || !todasFinitas(positions)) return null;
   const vertices = positions.length / 3;
   const triples = coordIndexTriples(indices, vertices);
   if (triples.length === 0) return null;

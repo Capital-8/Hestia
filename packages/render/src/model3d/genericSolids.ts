@@ -29,7 +29,7 @@ function materialOf(e: Generic): string {
 }
 
 /** Triângulos com vértices próprios e normal plana por face. */
-function pushMesh(batch: SolidBatch, positions: readonly number[], indices: readonly number[]): void {
+function pushMesh(batch: SolidBatch, positions: ArrayLike<number>, indices: ArrayLike<number>): void {
   for (let i = 0; i + 2 < indices.length; i += 3) {
     const a = (indices[i] ?? 0) * 3;
     const b = (indices[i + 1] ?? 0) * 3;

@@ -1,4 +1,4 @@
-import { levelElevation, type Ceiling, type Command, type Generic, type Id, type Project } from '@hestia/model';
+import { levelElevation, type Ceiling, type Command, type Generic, type Id, type Project, meshShiftedZ } from '@hestia/model';
 import type { ClipBuffer, MintId } from '../clipboard.ts';
 import type { PasteIds, PasteWarning } from './types.ts';
 
@@ -112,11 +112,7 @@ function genericCopy(g: Generic, levelId: Id, dz: number, mint: MintId): Omit<Ge
 }
 
 /** Desloca o Z (terceira coordenada) de uma lista x, y, z... sem tocar na origem. */
-function translatedZ(positions: readonly number[], dz: number): number[] {
-  const out = positions.slice();
-  for (let i = 2; i < out.length; i += 3) out[i] = out[i]! + dz;
-  return out;
-}
+const translatedZ = meshShiftedZ;
 
 /** Monta o comando de inserção do objeto importado (IFC). */
 function addGenericCommand(generic: Omit<Generic, 'order'>): Command {
