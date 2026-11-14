@@ -26,7 +26,7 @@ export function bodyFor(ctx: Ctx, e: StepEntity): Body {
 }
 
 /** Nível mais próximo abaixo de uma cota `z` (1 cm de folga). */
-function levelAt(ctx: Ctx, z: number): LevelRef {
+export function levelAt(ctx: Ctx, z: number): LevelRef {
   let best = ctx.levels[0]!;
   for (const l of ctx.levels) if (l.elevation <= z + 0.01) best = l;
   return best;
