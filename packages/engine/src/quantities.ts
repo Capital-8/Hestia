@@ -84,13 +84,13 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
         const esp = (l.layerIndex >= 0 ? wtl?.layers[l.layerIndex]?.thickness : wtl?.strips[-l.layerIndex - 1]?.thickness) ?? 0;
         for (const o of furos) {
           const t = openingType(p, o);
-          ajusteVao += (tf.volume - 1) * t.width * Math.max(0, Math.min(openingHeight(t, o), H - openingSill(t, o))) * esp;
+          ajusteVao += (tf.layer(l.fragment) - 1) * t.width * Math.max(0, Math.min(openingHeight(t, o), H - openingSill(t, o))) * esp;
         }
-        grossVol = grossVol * tf.volume + ajusteVao;
+        grossVol = grossVol * tf.layer(l.fragment) + ajusteVao;
       }
       // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
       // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
-      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (tf?.volume ?? 1);
+      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (tf ? tf.layer(l.fragment) : 1);
       const vol = q ? q.liquido : Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
