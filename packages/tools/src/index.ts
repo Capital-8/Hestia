@@ -11,6 +11,7 @@ export * from './alignSolve.ts';
 export * from './alignApply.ts';
 export { AlignTool } from './alignTool.ts';
 export * from './registry.ts';
+export * from './pluginTool.ts'; // SUPLEMENTOS (fase H)
 export * from './guardaCorpoTool.ts';
 export * from './guardaCorpoGrips.ts';
 export * from './railingPick.ts';

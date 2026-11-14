@@ -1,4 +1,4 @@
-import type { CheckContribution, DialogContribution, ExporterContribution, ImporterContribution, PluginAction, PluginText, ScheduleContribution } from './contributesTypes.ts';
+import type { CheckContribution, DialogContribution, ExporterContribution, ImporterContribution, PanelContribution, PluginAction, PluginText, ScheduleContribution, ToolContribution } from './contributesTypes.ts';
 import { POINT_CAPABILITY } from './contributesTypes.ts';
 import type { PluginManifestV2 } from './manifestV2.ts';
 import type { CapabilityV2 } from './permissions.ts';
@@ -23,6 +23,8 @@ export interface RegisteredImporter extends Omit<ImporterContribution, 'id'> { q
 export interface RegisteredExporter extends Omit<ExporterContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 export interface RegisteredCheck extends Omit<CheckContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 export interface RegisteredSchedule extends Omit<ScheduleContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredTool extends Omit<ToolContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredPanel extends Omit<PanelContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 
 interface Entry { manifest: PluginManifestV2; grants: Set<CapabilityV2> }
 
@@ -121,12 +123,33 @@ export class ContributionRegistry {
     return out;
   }
 
+  // SUPLEMENTOS (fase H): ferramentas e painéis laterais.
+  tools(): RegisteredTool[] {
+    const out: RegisteredTool[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'tools')) continue;
+      for (const t of e.manifest.contributes.tools ?? []) out.push({ ...t, qid: qualifiedId(e.manifest.id, t.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  tool(qid: string): RegisteredTool | undefined { return this.tools().find((t) => t.qid === qid); }
+
   /** Verificações (exige `checks.run` concedida). */
   checks(): RegisteredCheck[] {
     const out: RegisteredCheck[] = [];
     for (const e of this.entries.values()) {
       if (!this.granted(e, 'checks')) continue;
       for (const c of e.manifest.contributes.checks ?? []) out.push({ ...c, qid: qualifiedId(e.manifest.id, c.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  panels(): RegisteredPanel[] {
+    const out: RegisteredPanel[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'panels')) continue;
+      for (const p of e.manifest.contributes.panels ?? []) out.push({ ...p, qid: qualifiedId(e.manifest.id, p.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
     }
     return out;
   }
@@ -154,4 +177,7 @@ export class ContributionRegistry {
   /** O suplemento tem esta permissão concedida agora? (o host confere a cada uso). */
   isGranted(pluginId: string, cap: CapabilityV2): boolean { return this.entries.get(pluginId)?.grants.has(cap) ?? false; }
   schedule(qid: string): RegisteredSchedule | undefined { return this.schedules().find((s) => s.qid === qid); }
+
+  /** O suplemento registrado tem esta permissão concedida? */
+  hasGrant(pluginId: string, cap: CapabilityV2): boolean { return this.entries.get(pluginId)?.grants.has(cap) ?? false; }
 }

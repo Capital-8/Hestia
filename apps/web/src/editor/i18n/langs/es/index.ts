@@ -27,12 +27,14 @@ import { ES_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { ES_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { ES_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { ES_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { ES_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { ES_PAREDE_CORTINA } from '../../areas/parede-cortina-1.ts';
 
 export const ES_ALL = {
   ...ES_GUARDA_CORPO,
   ...ES_SUPLEMENTOS,
   ...ES_SUPLEMENTOS_IO,
+  ...ES_SUPUI,
   ...ES_PAREDE_CORTINA,
   ...ES_SHELL_RIBBON,
   ...ES_MISC_UI,

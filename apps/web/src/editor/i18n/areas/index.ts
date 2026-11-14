@@ -42,11 +42,13 @@ import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
 import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
 import { PT_SUPLEMENTOS, EN_SUPLEMENTOS } from './suplementos.ts';
 import { PT_SUPLEMENTOS_IO, EN_SUPLEMENTOS_IO } from './suplementos-io.ts';
+import { PT_SUPUI, EN_SUPUI } from './suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
   ...PT_SUPLEMENTOS,
   ...PT_SUPLEMENTOS_IO,
+  ...PT_SUPUI,
   ...PT_GUARDA_CORPO,
   ...PT_PAREDE_CORTINA,
   ...PT_BIBLIOTECA,
@@ -94,6 +96,7 @@ export const PT_ALL = {
 export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_SUPLEMENTOS,
   ...EN_SUPLEMENTOS_IO,
+  ...EN_SUPUI,
   ...EN_GUARDA_CORPO,
   ...EN_PAREDE_CORTINA,
   ...EN_BIBLIOTECA,

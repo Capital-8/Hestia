@@ -19,3 +19,7 @@ export * from './modelPort.ts'; // SUPLEMENTOS:
 export * from './limits.ts';
 export * from './scriptHost.ts';
 export * from './workerRuntime.ts';
+// SUPLEMENTOS (Fase H): campos validados de diálogo, visão declarativa de painel e protocolo de ferramentas.
+export * from './dialogValues.ts';
+export * from './panelView.ts';
+export * from './toolReply.ts';

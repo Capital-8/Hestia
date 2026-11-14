@@ -4,6 +4,7 @@ import {
   type ExporterContribution, type FamilyContribution, type ImporterContribution, type JsonValue, type MaterialContribution, type PanelContribution,
   type PluginAction, type PluginActionType, type PluginText, type RibbonContribution, type ScheduleContribution, type ToolContribution,
 } from './contributesTypes.ts';
+import { parseView } from './panelView.ts';
 
 /** Problema achado em `contributes` (ou no manifesto 2.0). `path` aponta o campo, ex.: `contributes.commands[0].id`. */
 export type ContributesIssue =
@@ -147,6 +148,7 @@ const panelOf = (cx: Cx) => (o: Record<string, unknown>, p: string): PanelContri
   const id = cx.id(o.id, `${p}.id`), title = cx.text(o.title, `${p}.title`);
   const dock = o.dock === 'properties' || o.dock === 'browser' ? o.dock : cx.bad(`${p}.dock`);
   const view = cx.json(o.view, `${p}.view`);
+  if (view !== undefined && !parseView(view).ok) cx.bad(`${p}.view`); // SUPLEMENTOS (fase H): blocos conhecidos e limites da visão
   let when: PanelContribution['when'];
   if (o.when !== undefined) {
     const w = o.when;
@@ -154,7 +156,7 @@ const panelOf = (cx: Cx) => (o: Record<string, unknown>, p: string): PanelContri
     const min = isObj(w) && w.minSelected !== undefined ? (Number.isInteger(w.minSelected) && (w.minSelected as number) >= 0 && (w.minSelected as number) <= 1000 ? (w.minSelected as number) : cx.bad(`${p}.when.minSelected`)) : undefined;
     if (kind) when = { kind, ...(min !== undefined ? { minSelected: min } : {}) };
   }
-  return id && title && dock && view !== undefined ? { id, title, dock, view, ...(when ? { when } : {}) } : undefined;
+  return id && title && dock && view !== undefined && parseView(view).ok ? { id, title, dock, view, ...(when ? { when } : {}) } : undefined;
 };
 
 const importerOf = (cx: Cx) => (o: Record<string, unknown>, p: string): ImporterContribution | undefined => {

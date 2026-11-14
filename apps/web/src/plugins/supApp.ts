@@ -15,6 +15,9 @@ import { pickFileForImport } from './ioPick.ts';
 import type { IoOutcome } from './ioBridge.ts';
 import { runPluginCheckAction } from './pluginChecks.ts';
 import { setCheckHandlerRunner } from './pluginChecksRun.ts';
+import { editor } from '../editor/controller.ts';
+import { t as translate, useI18n } from '../editor/i18n.ts';
+import { txt } from '../ui/ribbon/model.ts';
 // O Worker de script vai embutido no arquivo único do app (sem rede, sem DOM; ver `workerRuntime.ts`).
 import ScriptWorker from '@hestia/plugin-api/src/scriptWorker.ts?worker&inline';
 
@@ -63,6 +66,12 @@ export function supplementRuntime(): SupplementRuntime {
     pickFile: pickFileForImport,
     onIo: ioStatus,
     runCheck: runPluginCheckAction,
+    // Ferramentas interativas (fase H): o editor ativa `PluginTool`; textos no idioma da interface.
+    tools: {
+      start: (spec, bridge) => void editor.startPluginTool(spec, bridge),
+      text: (t) => txt(t, useI18n.getState().lang),
+      message: (key, args) => translate(useI18n.getState().lang, key, args),
+    },
     notify: (n) => useUi.setState({ status: { key: AVISO[n.kind], args: { name: n.pluginName ?? '' } } }),
   });
   return runtime;
