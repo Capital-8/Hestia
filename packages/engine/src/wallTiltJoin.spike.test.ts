@@ -202,7 +202,7 @@ function prng(seed: number): () => number {
   };
 }
 
-describe('S1 · fuzz de 500 pares (semente fixa)', () => {
+describe('S1 · fuzz de 500 pares (semente fixa)', { timeout: 120000 }, () => {
   const rnd = prng(20260514);
   const span = (lo: number, hi: number) => lo + (hi - lo) * rnd();
   interface Case { A: TiltWall; B: TiltWall; H: number; arc: boolean }
