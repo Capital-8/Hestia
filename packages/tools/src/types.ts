@@ -205,6 +205,8 @@ export interface ToolOptions {
   /** Polígono: número de lados (3 a 64; padrão 6) e se é circunscrito ao raio (padrão: inscrito). */
   wallPolygonSides?: number;
   wallPolygonCircumscribed?: boolean;
+  /** Inclinação (graus, + = topo à esquerda de a→b) das paredes criadas; ausente = 0 (vertical). Limite e validação no modelo. */
+  wallTilt?: number;
   /** Elipse e spline: tolerância do ajuste a arcos, em metros (padrão 0,005). */
   wallFitTol?: number;
   doorTypeId: Id;

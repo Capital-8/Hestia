@@ -854,5 +854,29 @@
     "fr": "Liste tous les compléments : installer, mettre à jour, ajuster les autorisations, afficher le journal et les données. Raccourci : Alt+Maj+P.",
     "it": "Elenca tutti i componenti aggiuntivi: installa, aggiorna, regola le autorizzazioni, mostra il registro e i dati. Scorciatoia: Alt+Maiusc+P.",
     "pl": "Wyświetla wszystkie dodatki: instalacja, aktualizacja, uprawnienia, podgląd dziennika i danych. Skrót: Alt+Shift+P."
+  },
+  {
+    "pt": "Inclinar",
+    "es": "Inclinar",
+    "de": "Neigen",
+    "fr": "Incliner",
+    "it": "Inclina",
+    "pl": "Pochyl"
+  },
+  {
+    "pt": "Selecione paredes primeiro.",
+    "es": "Seleccione primero muros.",
+    "de": "Wände zuerst auswählen.",
+    "fr": "Sélectionnez d’abord des murs.",
+    "it": "Seleziona prima dei muri.",
+    "pl": "Najpierw zaznacz ściany."
+  },
+  {
+    "pt": "Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).",
+    "es": "Inclina los muros seleccionados según el ángulo indicado (positivo: parte superior a la izquierda de a→b).",
+    "de": "Neigt die gewählten Wände um den eingegebenen Winkel (positiv: Oberkante links von a→b).",
+    "fr": "Incline les murs sélectionnés de l’angle saisi (positif : haut à gauche de a→b).",
+    "it": "Inclina i muri selezionati dell’angolo indicato (positivo: sommità a sinistra di a→b).",
+    "pl": "Pochyla zaznaczone ściany o podany kąt (dodatni: góra po lewej stronie a→b)."
   }
 ]

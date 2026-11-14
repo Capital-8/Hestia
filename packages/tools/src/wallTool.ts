@@ -1,6 +1,6 @@
 import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
-import { formatQuantity, makeWall, wallThicknessOf, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
+import { formatQuantity, makeWall, wallThicknessOf, wallTiltIssue, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
@@ -37,6 +37,8 @@ export class WallTool extends ToolBase {
   private alignmentCycle = 0;
   private lastPointer: PointerInfo | null = null;
   private lastPoint: Vec2 | null = null;
+  /** Cadeia inclinada: chave de sessão do desfazer (uma cadeia = um passo). Zera ao terminar a cadeia. */
+  private tiltSession: object | null = null;
 
   /** Formas por pontos (polígono, círculo, elipse, spline): centro/pontos já clicados. */
   private pts: Vec2[] = [];
@@ -52,6 +54,7 @@ export class WallTool extends ToolBase {
     this.alignmentCycle = 0;
     this.lastPointer = null;
     this.lastPoint = null;
+    this.tiltSession = null;
   }
 
   protected busy(): boolean {
@@ -162,6 +165,7 @@ export class WallTool extends ToolBase {
     }
     const walls = segs.map((s) => this.wallAt(s.a, s.b, s.sag));
     if (walls.some((w) => refuseWallOverlap(this.env, w))) return;
+    if (this.tiltRefused(walls)) return;
     const k = this.pointShape();
     const desfazer: Record<PointShape, DictKey> = { 'arc-center': 'tl_undo_wall_arc_center', 'arc-tangent': 'tl_undo_wall_arc_tangent', polygon: 'tl_undo_wall_polygon', circle: 'tl_undo_wall_circle', ellipse: 'tl_undo_wall_ellipse', spline: 'tl_undo_wall_spline' };
     this.env.transaction(this.t(desfazer[k!]), () => {
@@ -273,6 +277,7 @@ export class WallTool extends ToolBase {
     // recusado — nada é criado —, e o primeiro canto continua valendo para escolher outro canto oposto.
     const lados = [0, 1, 2, 3].map((i) => this.wallAt(pts[i]!, pts[(i + 1) % 4]!));
     if (lados.some((wall) => refuseWallOverlap(this.env, wall))) return;
+    if (this.tiltRefused(lados)) return;
     this.env.transaction('Parede retangular', () => {
       for (const wall of lados) this.env.exec({ type: 'addWall', wall });
     });
@@ -345,7 +350,25 @@ export class WallTool extends ToolBase {
       locationLine: o.locationLine,
       flipped: (o.wallFlipped ?? false) !== this.sideFlip(),
       sag,
+      ...(o.wallTilt ? { tilt: o.wallTilt } : {}),
     });
+  }
+
+  /**
+   * Motivo (traduzido, na barra de status) pelo qual alguma das paredes não aceita a inclinação da opção; a forma
+   * ou a cadeia inteira é recusada, como na sobreposição. Sem inclinação, nunca recusa.
+   */
+  private tiltRefused(walls: Omit<Wall, 'order'>[]): boolean {
+    const tilt = this.env.options().wallTilt ?? 0;
+    if (tilt === 0) return false;
+    for (const w of walls) {
+      const motivo = wallTiltIssue(this.env.project(), w, tilt, this.uiLang());
+      if (motivo) {
+        this.env.say(motivo);
+        return true;
+      }
+    }
+    return false;
   }
 
   private commit(a: Vec2, b: Vec2, sag = 0): void {
@@ -353,9 +376,12 @@ export class WallTool extends ToolBase {
     const wall = this.wallAt(a, b, sag);
     // Decisão 0044: não cria parede em cima de outra (mesmo critério do aviso C14).
     if (refuseWallOverlap(this.env, wall)) return;
+    if (this.tiltRefused([wall])) return;
+    // Com inclinação, a cadeia inteira vira um só desfazer (a sessão junta os passos seguidos).
+    const session = this.env.options().wallTilt ? (this.tiltSession ??= {}) : undefined;
     this.env.transaction('Criar parede', () => {
       this.env.exec({ type: 'addWall', wall });
-    });
+    }, session);
     this.count += 1;
   }
 

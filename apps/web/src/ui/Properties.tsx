@@ -31,11 +31,13 @@ import {
   type ViewRange,
   type Wall,
   wallArc,
+  wallTiltOf,
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
+import { avisoLimiteInclinacao, grauDeRad, inclinarParedes, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -163,6 +165,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
   const noS = common(walls, (w) => w.noJoinStart);
   const noE = common(walls, (w) => w.noJoinEnd);
   const sag = common(walls, (w) => w.sag);
+  const tilt = common(walls, (w) => wallTiltOf(w));
   const mark = common(walls, (w) => w.mark);
   const comments = common(walls, (w) => w.comments);
   const single = walls.length === 1 ? walls[0]! : null;
@@ -218,6 +221,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
           </select>
         </Row>
         <Row label={t('prc_fld_arc_sag')} htmlFor="p-sag"><NumField id="p-sag" value={sag.value} mixed={sag.mixed} onCommit={(v) => patch(ids, { sag: v })} quantity="length" /></Row>
+        <Row label={t('prc_fld_tilt')} htmlFor="p-tilt"><NumField id="p-tilt" value={radDeGrau(tilt.value)} mixed={tilt.mixed} quantity="angle" min={-TILT_MAX_RAD} max={TILT_MAX_RAD} strictRange onInvalid={avisoLimiteInclinacao} onCommit={(v) => { const erro = inclinarParedes(editor.store, ids, grauDeRad(v)); if (erro) useUi.setState({ status: erro }); }} /></Row>
         <Row label={t('prc_fld_flip_exterior')}><Check id="p-flip" checked={flipped.value} mixed={flipped.mixed} onChange={(v) => patch(ids, { flipped: v })} /></Row>
         <Row label={t('prc_fld_no_join_start')}><Check id="p-nos" checked={noS.value} mixed={noS.mixed} onChange={(v) => patch(ids, { noJoinStart: v })} /></Row>
         <Row label={t('prc_fld_no_join_end')}><Check id="p-noe" checked={noE.value} mixed={noE.mixed} onChange={(v) => patch(ids, { noJoinEnd: v })} /></Row>
