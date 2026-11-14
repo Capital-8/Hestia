@@ -17,7 +17,6 @@ type Forma = 'reta' | 'arco';
 const FORMAS: readonly Forma[] = ['reta', 'arco'];
 const TILTS = [15, -15] as const;
 const ZS = [0, 1.5, 3] as const;
-const TOL = 1e-9;
 
 /** Pontos de conferência de um eixo: extremos e ápice (meio da corda deslocado pela flecha, + = esquerda de a→b). */
 const pts = (a: Vec2, b: Vec2, sag: number): Vec2[] => {
@@ -41,11 +40,11 @@ function confere(w: Wall, esp: { a: Vec2; b: Vec2; sag: number; tilt: number }, 
   for (const z of ZS) perto(nivel(w, z), nivel(esp, z), `${rot} z=${z}`);
 }
 /** Idem, para uma imagem T dos pontos de nível da parede original `o`. */
-function conferePorImagem(w: Wall, o: Wall, T: (p: Vec2) => Vec2, rot: string): void {
+function conferePorImagem(w: Wall, o: Pick<Wall, 'a' | 'b' | 'sag' | 'tilt'>, T: (p: Vec2) => Vec2, rot: string): void {
   for (const z of ZS) perto(nivel(w, z), nivel(o, z).map(T), `${rot} z=${z}`);
 }
 
-function criar(forma: Forma, tilt: number): { c: Ctx; w: Wall } {
+function criar(forma: Forma, tilt: number): { c: Ctx; w: Omit<Wall, 'order'> } {
   const c = makeEnv();
   Object.assign(c.options, { offsetCopy: false, mirrorCopy: false, rotateCopy: false, snap: { ...DEFAULT_SNAP, enabled: false }, alignPrefer: 'eixos' });
   const wall = makeWall({ id: 'W', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, height: 3, sag: forma === 'arco' ? 1.5 : 0, tilt });
