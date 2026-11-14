@@ -32,3 +32,10 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - Cada forma = UMA transação (um desfazer); qualquer lado curto (<1 cm) ou sobreposto recusa a forma inteira (decisão 0044). Esc cancela; elipse = centro, ponta do semieixo, ponto do outro semieixo; spline = cliques, Enter termina aberta, clique no 1º ponto fecha.
 - Prévia de spline usa tol >= 2 cm e 16 arcos (o ajuste final custa ~1 s); mensagens novas em português literal, sem chaves i18n (F1.4).
 - Fora do escopo: `packages/geom/src/index.ts` ganhou `export * from './curveFit.ts'` (fitArcs não era exportado).
+
+## F1.8
+- Custo estava em `distPoli` (128 segmentos por ponto de arco, ~66 pontos por candidato q, ~17 q por avaliação).
+- Mudanças só em `curveFit.ts`: `distPoli` com distâncias ao quadrado e saída antecipada; `avaliarQ` aborta ao igualar o melhor erro; 2ª metade da bisseção dispensada se a 1ª já perde.
+- Saída idêntica (mesmos 40 arcos/16 arcos, desvio igual até 1e-16); nenhum teste existente editado.
+- Medido em Node, máquina livre: spline fechada de 12 pontos, tol 5 mm, ~1050 ms para ~47 ms; elipse 4x2 ~125 ms para ~6 ms.
+- Testes de tempo em `curveFit.test.ts` com limite 5x a meta (500 ms e 250 ms).
