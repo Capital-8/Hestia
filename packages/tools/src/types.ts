@@ -277,6 +277,8 @@ export interface ToolOptions {
   rotateCopy: boolean;
   mirrorCopy: boolean;
   offsetCopy: boolean;
+  /** Deslocar: "Cadeia" desloca todas as paredes ligadas (junção pair) à clicada, pelo mesmo lado, recalculando os cantos. Ausente = verdadeiro. */
+  offsetChain?: boolean;
   /** Mover: "Desconectar" solta a ponta das vizinhas em vez de esticá-las. Ausente = falso (padrão do Revit). */
   moveDisjoin?: boolean;
   /** Rotacionar: "Desconectar" solta a ponta das vizinhas. Ausente = verdadeiro (giro livre). */

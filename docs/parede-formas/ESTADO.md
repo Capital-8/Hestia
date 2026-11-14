@@ -45,3 +45,11 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - i18n: 9 chaves novas de `wallTool` em `packages/tools/src/i18n.ts` (7 idiomas, sem literal); rótulos em `props-options.ts` (7 idiomas) e `ribbon-i18n-2.json` (5 linhas). Sem atalhos novos.
 - Decisão: a barra da parede continua só indicando "Configurações em Propriedades" e ganhou só os campos de modo, para não duplicar a configuração. O bloco `tool === 'wall'` mais abaixo no `OptionsBar` é inalcançável (dívida: remover numa limpeza).
 - Testes: 4 arquivos novos (`wallModes`, `ribbon/wallModes`, `WallShapeFields`, `wallShapesI18n`); nenhum teste existente editado.
+
+## F1.9
+- Matriz: `copiesOverlap`/`moveOverlap` (wallOverlapGuard.ts) agora comparam a geometria real do arco via `realOverlap` (corda + flecha, mesma corda e flecha a menos de 1 cm; sinal da flecha invertido se as cordas têm sentidos opostos); reta contra reta segue o critério C14. O círculo passa. Testes novos em `wallOverlapArcs.test.ts`.
+- Deslocar: opção `offsetChain` (padrão ligada; só age quando há vizinha em junção pair com ponta coincidente) em `offsetChain.ts`/`offsetTool.ts`: desloca a cadeia pelo mesmo lado, cantos por interseção das curvas, junção tangente mantida, arcos concêntricos (flecha recalculada). Desligada, comportamento antigo idêntico. Cópia (`offsetCopy`) copia a cadeia inteira.
+- UI: caixa "Cadeia" na barra de opções do Deslocar (`tool_chain`, 7 idiomas); `check:ribbon-i18n` sem mudança (não há rótulo de faixa).
+- Dividir no ápice: não é defeito (grade de 0,1 m do comprimento de arco); testes aceitam o corte a até meia célula (0,05 m) e conferem que fica sobre a curva.
+- Alinhar: não é defeito (só a parede clicada anda, vizinhas esticam); testes do hexágono e da elipse passam a conferir esse resultado literal, pontas coincidentes e `joinStatus` pair (sem tangência na elipse).
+- Em `wallShapesModificar.test.ts` os 6 `it.fails` viraram testes normais; os de Deslocar do círculo e da elipse agora usam um clique (Cadeia). Nenhum teste fora dele alterado.
