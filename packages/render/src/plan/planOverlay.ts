@@ -17,6 +17,7 @@ import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
 import type { PlanInput } from './build.ts';
 import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
+import { massaSelectionOps } from './massa.ts';
 import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
@@ -225,6 +226,8 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, null, theme, input.viewport, alcasDeModelo));
+  // Massas selecionadas: o anel cortado (ou o contorno da base, sem kernel) na cor de seleção. Oculta na vista não se realça.
+  if (selection.length) out.strokes.push(...massaSelectionOps(p, input.levelId, selection.filter((id) => !hidden?.has(id)), theme, view?.cutZ));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
     for (const id of selection) {

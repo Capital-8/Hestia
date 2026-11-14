@@ -8,6 +8,8 @@ import { effectiveGridStep, gridCovers, gridLayer, type GridLayer } from './grid
 import type { PlanSlot, PlanScene } from './gpuPlan.ts';
 import { buildPlanGeometry, buildPlanHoverOverlay, buildPlanLiveOverlay, buildPlanScreenOverlay, planBelowOf, planGeometrySelection } from './build.ts';
 import { buildPlanGuardaCorpo } from './guardaCorpoCamada.ts';
+import { buildPlanMassa } from './massaCamada.ts';
+import { temMassaNoProjeto } from './massa.ts';
 import { telhadosDoNivel } from './resolucao.ts';
 import { assinaturaDeZoom } from './limiares.ts';
 import { resolverRotulos, resolverZoom } from './zoomOps.ts';
@@ -16,7 +18,7 @@ import { sketchOps, type SketchSelectionBox } from './sketch.ts';
 import type { FillOp, LabelOp, PlanDrawList, PlanOps, PlanTheme, StrokeOp } from './types.ts';
 import type { Lang } from '../i18n.ts';
 import { contadores } from '../perf/registro.ts';
-import { servicoCortina, servicoGuardaCorpo, ServicoGuardaCorpo, temCortina } from '@hestia/engine';
+import { servicoCortina, servicoGuardaCorpo, servicoMassa, ServicoGuardaCorpo, temCortina } from '@hestia/engine';
 import { versoesDaPlanta } from './versoesPlanta.ts';
 
 /** Esboço do perímetro em edição (só na planta): o rascunho, a validação dele, a linha sob o cursor e a caixa de seleção. */
@@ -95,17 +97,21 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
   const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
-  // Guarda-corpo tem camada e chave próprias: os ocultos/revelados dele ficam fora da chave do resto da planta, e a versão do projeto que a
-  // geometria vê não muda quando só um guarda-corpo muda (ver `versoesDaPlanta`).
+  // Guarda-corpo e massa têm camada e chave próprias: os ocultos/revelados deles ficam fora da chave do resto da planta, e a versão do projeto
+  // que a geometria vê não muda quando só um deles muda (ver `versoesDaPlanta`).
   const ehGuarda = (id: Id): boolean => p.elements[id]?.kind === 'railing';
-  const idsDe = (c: ReadonlySet<Id> | undefined, guarda: boolean): string => (c?.size ? [...c].filter((id) => ehGuarda(id) === guarda).sort().join(',') : '');
-  const par = (guarda: boolean): string => { const h = idsDe(s.hidden, guarda); const r = idsDe(s.revealed, guarda); return h || r ? `${h}|${r}` : ''; };
-  const visKey = par(false);
-  const visGuarda = par(true);
+  const ehMassa = (id: Id): boolean => p.elements[id]?.kind === 'mass';
+  const idsDe = (c: ReadonlySet<Id> | undefined, filtro: (id: Id) => boolean): string => (c?.size ? [...c].filter(filtro).sort().join(',') : '');
+  const par = (filtro: (id: Id) => boolean): string => { const h = idsDe(s.hidden, filtro); const r = idsDe(s.revealed, filtro); return h || r ? `${h}|${r}` : ''; };
+  const visKey = par((id) => !ehGuarda(id));
+  const visGuarda = par(ehGuarda);
+  const visMassa = par(ehMassa);
   const versoes = versoesDaPlanta(p);
   const temGuarda = ServicoGuardaCorpo.temGuardaCorpo(p);
   // Sem guarda-corpo no projeto a camada é vazia e a chave não muda (nem a prontidão do kernel entra).
   const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${visGuarda}` : `vazio|${levelId}|${modo0(rp)}`;
+  // Massas: camada própria. Sem massa no projeto a chave não muda (nem a prontidão do kernel entra); com massa, muda com elas, com a vista e com o kernel.
+  const massaKey = temMassaNoProjeto(p) ? `${versoes.massa}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoMassa().pronto()}|${s.areaPlan ? 'area' : ''}|${visMassa}` : `vazio|${levelId}|${modo0(rp)}`;
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
   const resolvido = (): ResolvedLevel => (rp ? (resolvida ??= s.resolve(levelId)) : resolucaoVazia(levelId));
@@ -118,6 +124,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     showGrid: s.showGrid,
     geometryKey: `${versoes.resto}|${temCortina(p) ? servicoCortina().pronto() : '-'}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
     guardaKey,
+    massaKey,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e
     // pré-visualização não refazem os destaques da seleção, e o hover não refaz a geometria do nível.
     overlayKey: `${s.version}|${levelId}|${modo}|${dark}|${lang}|${s.selection.join(',')}|${areaKey}|${visKey}|${JSON.stringify(s.subelemento ?? null)}|${s.subelemento ? servicoCortina().pronto() : ''}`,
@@ -130,7 +137,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
       const abaixo = planBelowOf(p, levelId, s.resolve, showUnderlay, s.underlayLevel);
       // Cobertura: os telhados de todos os níveis abaixo (`planBelowOf` só dá os do pavimento de referência).
       const telhados = rp ? { belowRoofs: telhadosDosNiveisAbaixo(p, levelId) } : {};
-      const g = buildPlanGeometry({ ...base, guardaCorpo: 'sem', hideLabelRoomId: s.tagGhost?.roomId, resolved: resolvido(), ...abaixo, ...telhados, selection: geoSel, hover: null, preview: [], inference: null });
+      const g = buildPlanGeometry({ ...base, guardaCorpo: 'sem', massa: 'sem', hideLabelRoomId: s.tagGhost?.roomId, resolved: resolvido(), ...abaixo, ...telhados, selection: geoSel, hover: null, preview: [], inference: null });
       // Com o esboço de perímetro aberto, o resto do desenho fica em cinza bem claro e as linhas do esboço se destacam.
       return s.sketch ? dimPlanOps(g, theme.bg) : g;
     },
@@ -138,6 +145,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
       const g = buildPlanGuardaCorpo({ ...base, resolved: resolucaoVazia(levelId), below: null, selection: [], hover: null, preview: [], inference: null });
       return s.sketch ? dimPlanOps(g, theme.bg) : g;
     },
+    massa: () => buildPlanMassa({ ...base, resolved: resolucaoVazia(levelId), below: null, selection: [], hover: null, preview: [], inference: null }),
     overlay: () => buildPlanScreenOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: [], inference: null }),
     hover: () => buildPlanHoverOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: s.hover, aviso: s.aviso ?? null, preview: [], inference: null }),
     live: () => comEsboco(buildPlanLiveOverlay({ ...base, resolved: resolvido(), below: null, selection: s.selection, hover: null, preview: s.preview, inference: s.inference }), s.sketch, theme, v, unitsOf(p)),
@@ -185,6 +193,8 @@ export interface PlanFrameUpdate {
    * nível, as escadas e rampas hospedeiras, a vista, a visibilidade deles e a prontidão do kernel. Editar paredes não a muda.
    */
   guardaKey?: string;
+  /** Chave da camada das massas (própria): as massas do projeto, a vista delas e a prontidão do kernel. Editar paredes não a muda. */
+  massaKey?: string;
   /**
    * Chave da sobreposição de seleção: projeto, nível, tema e seleção. Pan, zoom, cursor, prévia e ferramenta ficam fora
    * dela. Hover tem chave própria (`hoverKey`) e a camada viva (cursor, prévia, captura) tem `liveKey`.
@@ -196,6 +206,7 @@ export interface PlanFrameUpdate {
   liveKey?: string;
   geometry: () => PlanOps;
   guarda?: () => PlanOps;
+  massa?: () => PlanOps;
   overlay: () => PlanOps;
   hover?: () => PlanOps;
   live?: () => PlanOps;
@@ -241,6 +252,9 @@ export function sameLabels(a: readonly LabelOp[], b: readonly LabelOp[]): boolea
 export class PlanFrame {
   private geomKey: string | null = null;
   private guardKey: string | null = null;
+  private massaKey: string | null = null;
+  private guardaLinhas: PlanOps = EMPTY;
+  private massaLinhas: PlanOps = EMPTY;
   private ovKey: string | null = null;
   private hovKey: string | null = null;
   private livKey: string | null = null;
@@ -336,12 +350,23 @@ export class PlanFrame {
       contadores.contarRebuild('geometria');
       labelsChanged = true;
     }
-    // Guarda-corpos: camada e chave próprias. Só linhas (sem rótulos), então não mexem nos rótulos.
+    // Guarda-corpos e massas: camadas e chaves próprias, só linhas (sem rótulos). Dividem o slot de linhas acima da geometria; `this.guard` é a
+    // união das duas listas (o modo CPU também a lê).
+    let linhasAcima = false;
     if (u.guardaKey !== undefined && u.guardaKey !== this.guardKey) {
       this.guardKey = u.guardaKey;
-      this.guard = u.guarda?.() ?? EMPTY;
-      this.setSlot(sink, 'strokesGuarda', [], this.guard.strokes, v);
+      this.guardaLinhas = u.guarda?.() ?? EMPTY;
+      linhasAcima = true;
       contadores.contarRebuild('guardaCorpo');
+    }
+    if (u.massaKey !== undefined && u.massaKey !== this.massaKey) {
+      this.massaKey = u.massaKey;
+      this.massaLinhas = u.massa?.() ?? EMPTY;
+      linhasAcima = true;
+    }
+    if (linhasAcima) {
+      this.guard = { fills: [...this.guardaLinhas.fills, ...this.massaLinhas.fills], strokes: [...this.guardaLinhas.strokes, ...this.massaLinhas.strokes], labels: [...this.guardaLinhas.labels, ...this.massaLinhas.labels] };
+      this.setSlot(sink, 'strokesGuarda', [], this.guard.strokes, v);
     }
     // Seleção, hover e camada viva: três chaves e três pares de lotes. Rótulos iguais aos de antes mantêm a referência.
     if (u.overlayKey !== this.ovKey) {

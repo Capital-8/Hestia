@@ -8,10 +8,12 @@ import type { Id, Project } from '@hestia/model';
  * - `resto`: muda quando qualquer coisa que NÃO é guarda-corpo muda (paredes, lajes, escadas, níveis, vistas...).
  * - `global`: muda quando algo que o guarda-corpo lê fora dele muda (escadas e rampas hospedeiras, níveis, vistas, configurações).
  * - `porNivel`: muda quando um guarda-corpo do nível muda.
+ * - `massa`: muda quando uma massa muda (ou algo do projeto que a camada lê: níveis, vistas, configurações). Massa não muda `resto`.
  */
 export interface VersoesPlanta {
   resto: number;
   global: number;
+  massa: number;
   porNivel: ReadonlyMap<Id, number>;
 }
 
@@ -19,7 +21,7 @@ export interface VersoesPlanta {
 const IGNORADAS = new Set<string>(['elements', 'nextOrder']);
 
 let ultimoProjeto: Project | null = null;
-let ultimo: VersoesPlanta = { resto: 0, global: 0, porNivel: new Map() };
+let ultimo: VersoesPlanta = { resto: 0, global: 0, massa: 0, porNivel: new Map() };
 let contador = 0;
 
 export function versoesDaPlanta(p: Project): VersoesPlanta {
@@ -27,7 +29,7 @@ export function versoesDaPlanta(p: Project): VersoesPlanta {
   const antes = ultimoProjeto;
   if (antes === null) {
     ultimoProjeto = p;
-    ultimo = { resto: ++contador, global: ++contador, porNivel: new Map() };
+    ultimo = { resto: ++contador, global: ++contador, massa: ++contador, porNivel: new Map() };
     return ultimo;
   }
   const a = antes as unknown as Record<string, unknown>;
@@ -42,6 +44,7 @@ export function versoesDaPlanta(p: Project): VersoesPlanta {
   }
   let resto = outras;
   let global = outras;
+  let massa = outras;
   const porNivel = new Map(ultimo.porNivel);
   const ids = new Set([...Object.keys(antes.elements), ...Object.keys(p.elements)]);
   for (const id of ids) {
@@ -52,15 +55,19 @@ export function versoesDaPlanta(p: Project): VersoesPlanta {
       for (const e of [x, y]) if (e?.kind === 'railing') porNivel.set(e.levelId, ++contador);
       continue;
     }
+    if ((x === undefined || x.kind === 'mass') && (y === undefined || y.kind === 'mass')) {
+      massa = true;
+      continue;
+    }
     resto = true;
     if ((x ?? y)!.kind === 'stair' || (x ?? y)!.kind === 'ramp') global = true;
   }
   ultimoProjeto = p;
-  ultimo = { resto: resto ? ++contador : ultimo.resto, global: global ? ++contador : ultimo.global, porNivel };
+  ultimo = { resto: resto ? ++contador : ultimo.resto, global: global ? ++contador : ultimo.global, massa: massa ? ++contador : ultimo.massa, porNivel };
   return ultimo;
 }
 
-/** Os dois projetos diferem só em guarda-corpos (e no contador de ordem)? */
+/** Os dois projetos diferem só em guarda-corpos e massas (e no contador de ordem)? A vista da planta não lê nenhum dos dois. */
 export function mesmoSemGuardaCorpo(a: Project, b: Project): boolean {
   if (a === b) return true;
   const x = a as unknown as Record<string, unknown>;
@@ -73,7 +80,7 @@ export function mesmoSemGuardaCorpo(a: Project, b: Project): boolean {
     const e = a.elements[id];
     const f = b.elements[id];
     if (e === f) continue;
-    if ((e === undefined || e.kind === 'railing') && (f === undefined || f.kind === 'railing')) continue;
+    if ((e === undefined || e.kind === 'railing' || e.kind === 'mass') && (f === undefined || f.kind === 'railing' || f.kind === 'mass')) continue;
     return false;
   }
   return true;
