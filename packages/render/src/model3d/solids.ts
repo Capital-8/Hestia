@@ -1,7 +1,7 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
-import { extrudeLayerTilted } from './wallTiltSolid.ts';
+import { extrudeLayerTilted, tiltJoinOf } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 import { emendaDaAgua } from './roofEmendas3d.ts';
 
@@ -350,7 +350,8 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  * mudou (sem anexo de telhado, sem edição) dá a mesma chave e reaproveita o sólido, em vez de refazer as uniões.
  */
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
-  const tilt = rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '';
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}` : '');
   return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
 }
 
@@ -367,8 +368,9 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   wallLayerStats.misses++;
   const local: SolidBatch = { materialId: l.materialId, category: 'wall', positions: [], normals: [], indices: [], ids: [] };
   const fused = fuseBands(wallLayerBandsAfterJunction(jl, rw, l));
-  const tilted = !!rw.tilt && !fused.some((x) => x.slope);
-  ofElement(local, rw.wallId, () => (tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt!, { push, emitFace, oriented, unionAll, zEps: Z_EPS }) : extrudeLayer(local, fused, rw.baseZ)));
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilted = (!!rw.tilt || !!tj) && !fused.some((x) => x.slope);
+  ofElement(local, rw.wallId, () => (tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt ?? 0, { push, emitFace, oriented, unionAll, zEps: Z_EPS }, tj) : extrudeLayer(local, fused, rw.baseZ)));
   const bytes = estimatedCacheEntryBytes(key, local);
   if (bytes > WALL_CACHE_BYTES_MAX) return local;
   while (wallLayerCache.size && wallLayerCacheBytes + bytes > WALL_CACHE_BYTES_MAX) {

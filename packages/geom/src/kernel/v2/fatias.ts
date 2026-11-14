@@ -79,3 +79,12 @@ export function fatiasLigadas(ambiente: AmbienteFatias = ambientePadrao()): Set<
 export function kernelFatiaLigada(fatia: Fatia, ambiente?: AmbienteFatias): boolean {
   return fatiasLigadas(ambiente).has(fatia);
 }
+
+/**
+ * Guarda da parede inclinada (F2.4, E5): o contrato do kernel (v19) não leva `tilt` e o Rust ignora o campo, então um
+ * projeto com parede inclinada resolve SEMPRE no TypeScript, mesmo com a fatia ligada. `temParedeInclinada` vem do
+ * projeto (`projetoTemParedeInclinada` do engine); sem parede inclinada o resultado é o de `kernelFatiaLigada`.
+ */
+export function fatiaEfetiva(ligada: boolean, temParedeInclinada: boolean): boolean {
+  return ligada && !temParedeInclinada;
+}

@@ -31,6 +31,7 @@ export * from './cachesDeConteudo.ts';
 export * from './outlineIssues.ts';
 export * from './wallZ.ts';
 export * from './wallFloorIssues.ts';
+export { analyzeLevelTilt, projetoTemParedeInclinada, wallTiltJoinIssues, type LevelTiltAnalysis, type TiltAviso, type TiltAvisoCode, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
 export * from './faces.ts';
 export * from './slabs.ts';
 export * from './slabQuantities.ts';

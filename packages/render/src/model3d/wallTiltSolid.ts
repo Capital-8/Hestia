@@ -1,5 +1,5 @@
 import { arcFromSagitta, difference, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import type { LayerBand, ResolvedWall } from '@hestia/engine';
+import type { JunctionLevel, LayerBand, ResolvedWall, WallTiltJoin, WallTiltJoinLayer } from '@hestia/engine';
 import { weldBands } from './layerTopology.ts';
 import type { SolidBatch } from './solids.ts';
 
@@ -41,14 +41,44 @@ function tiltMap(rw: ResolvedWall, tiltDeg: number): (x: number, y: number, z: n
   };
 }
 
+/** Junção inclinada (F2.4) da camada: só quando a junção do nível a traz (parede ligada a outra com tilt). */
+export function tiltJoinOf(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): { all: WallTiltJoin; layer: WallTiltJoinLayer } | undefined {
+  const all = jl?.walls.get(rw.wallId)?.tilt;
+  const layer = all?.layers.find((x) => x.layerIndex === l.layerIndex);
+  return all && layer ? { all, layer } : undefined;
+}
+
+/** Casamento de vértice da faixa com o anel `raw` da junção (m): as faixas passam por solda de 0,1 mm. */
+const MATCH = 5e-4;
+
 /**
- * Sólido de uma camada de parede inclinada, sem junção inclinada (F2.4): cada faixa liga o polígono de planta em z0 ao
- * deslocado em z1 (faces regradas; em reta é exato, em arco cada quadrilátero vira dois triângulos). Topo e base planos.
- * Junções e vãos seguem o corte vertical sobre a base, como nas paredes retas.
+ * Mapa com a junção inclinada (F2.4): vértice da faixa que coincide com um vértice do anel vertical `raw` da camada vai
+ * para a interpolação p0 + (pH − p0)·z/H (cantos e encostos exatos); os demais seguem o mapa geral da parede, cujas
+ * faces estão nos mesmos planos.
  */
-export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: ResolvedWall, tiltDeg: number, h: TiltHelpers): void {
+function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer): (x: number, y: number, z: number) => [number, number] {
+  return (x, y, z) => {
+    for (let i = 0; i < layer.raw.length; i++) {
+      const r = layer.raw[i]!;
+      if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) {
+        const k = z / join.H;
+        const a = layer.p0[i]!, c = layer.pH[i]!;
+        return [a.x + (c.x - a.x) * k, a.y + (c.y - a.y) * k];
+      }
+    }
+    return base(x, y, z);
+  };
+}
+
+/**
+ * Sólido de uma camada de parede inclinada: cada faixa liga o polígono de planta em z0 ao deslocado em z1 (faces
+ * regradas; em reta é exato, em arco cada quadrilátero vira dois triângulos). Topo e base planos. Com `join` (F2.4)
+ * os cantos e encostos usam as faixas de junção inclinadas; sem ela, o corte vertical sobre a base é deslocado.
+ */
+export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: ResolvedWall, tiltDeg: number, h: TiltHelpers, join?: { all: WallTiltJoin; layer: WallTiltJoinLayer }): void {
   const { push, emitFace, oriented, unionAll, zEps: Z_EPS } = h;
-  const map = tiltMap(rw, tiltDeg);
+  const generic = tiltMap(rw, tiltDeg);
+  const map = join ? joinedMap(generic, join.all, join.layer) : generic;
   const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: union(x.poly) })));
   const tops: Array<{ z: number; poly: MultiPolygon }> = [];
   const bottoms: Array<{ z: number; poly: MultiPolygon }> = [];
