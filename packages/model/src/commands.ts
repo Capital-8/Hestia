@@ -41,6 +41,7 @@ import {
   type Wall,
   type WallType,
 } from './types.ts';
+import { wallTiltIssue, wallTiltOf } from './wallTilt.ts';
 import { splitWall } from './splitWall.ts';
 import { setOpeningHost } from './openingHost.ts';
 import { changesWallEnds, clampOffset, rehostOpenings, wallEndsPatchOf, type WallEndsPatch } from './hostedOffset.ts';
@@ -156,6 +157,8 @@ export type Command =
   | { type: 'detachCeilingRoom'; id: Id }
   | { type: 'relinkCeilingRoom'; id: Id; roomId: Id }
   | { type: 'setWallEnds'; id: Id; a?: Vec2; b?: Vec2 }
+  /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
+  | { type: 'setWallTilt'; ids: Id[]; tilt: number }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
   | { type: 'transform'; ids: Id[]; transform: Transform; copy?: { idMap: Record<Id, Id> } }
   | { type: 'splitWall'; id: Id; newId: Id; t: number; gap?: number; idMap?: Record<Id, Id> }
@@ -361,9 +364,14 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
   if (applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
-    case 'addWall':
+    case 'addWall': {
+      if (c.wall.tilt !== undefined) {
+        const issue = wallTiltIssue(p, c.wall, c.wall.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
       break;
+    }
     case 'addCadDrawing':
       p.elements[c.cad.id] = { ...c.cad, order: p.nextOrder++ };
       break;
@@ -458,7 +466,29 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       p.elements[c.opening.id] = { ...c.opening, offset: clampOffset(p, c.opening, host) };
       break;
     }
+    case 'setWallTilt': {
+      const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
+      for (const w of walls) {
+        const issue = wallTiltIssue(p, w, c.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const w of walls) {
+        if (c.tilt === 0) delete w.tilt;
+        else w.tilt = c.tilt;
+      }
+      break;
+    }
     case 'updateElements': {
+      const patchW = c.patch as Partial<Wall>;
+      if ('tilt' in patchW || 'topProfile' in patchW || 'sag' in patchW) {
+        for (const id of c.ids) {
+          const e = p.elements[id];
+          if (!isWall(e)) continue;
+          const next = { ...e, ...patchW };
+          const issue = wallTiltIssue(p, next, wallTiltOf(next), lang);
+          if (issue) throw new Error(issue);
+        }
+      }
       const ends = wallEndsPatchOf(c.patch as Partial<Wall>);
       const movesEnds = changesWallEnds(c.patch as Partial<Wall>);
       for (const id of c.ids) {
