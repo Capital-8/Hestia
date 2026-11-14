@@ -27,7 +27,7 @@ import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -423,15 +423,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         for (const ring of ringsOf(c.silhouette)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.cut, color: theme.ink, alpha: 1 });
       }
       // Paredes fora do corte (decisão 0013 §4): contorno; projeção acima tracejada, abaixo e "além" em linha clara.
-      if (view) wallOps.strokes.push(...wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)));
+      wallOps.strokes.push(...(view ? wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)) : []), ...tiltProjectionStrokes(geo.walls, view, hidden, theme, paint.wall.proj)); // F2.5: base e topo inclinados
 
-      // Parede inclinada (F2.5): projeção da base (abaixo do corte, linha clara) e do topo (acima, tracejada); a hachura
-      // já está deslocada por d(zCorte). Só paredes com `tiltPlan`: sem inclinação nada é acrescentado.
-      for (const [id, rw] of Object.entries(geo.walls)) {
-        if (!rw.tiltPlan || hidden?.has(id) || (view && view.cls.get(id) !== 'cut')) continue;
-        for (const ring of ringsOf(rw.tiltPlan.base)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.proj, color: theme.inkSoft, alpha: 0.8 });
-        for (const ring of ringsOf(rw.tiltPlan.top)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.proj, color: theme.inkSoft, alpha: 0.8, dash: [6, 3] });
-      }
       // Membranas (camadas de espessura zero): linha fina tracejada no limite entre camadas (só no fino, paredes cortadas).
       if (fine && !rp) {
         for (const [id, rw] of Object.entries(geo.walls)) {

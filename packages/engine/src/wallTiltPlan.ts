@@ -1,7 +1,8 @@
 import { arcFromSagitta, closeGapsSafe, unionClipper, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import type { Region, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
-import type { WallTiltJoin } from './wallTiltJoinLevel.ts';
+import { analyzeLevelTilt, type WallTiltJoin } from './wallTiltJoinLevel.ts';
+import type { WallFrame } from './frame.ts';
 
 /**
  * Planta e seção da parede inclinada (F2.5/F2.6). Mapa de planta (x, y) da cota z, relativa à base: o mesmo da F2.3 (sólido
@@ -92,4 +93,12 @@ export function applyTiltToPlan(level: ResolvedLevel, planZ: ReadonlyMap<Id, num
     const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: closeGapsSafe(unionClipper(...parts)) }));
     return { ...c, regions, silhouette: closeGapsSafe(unionClipper(...regions.map((r) => r.polygons))) };
   });
+}
+
+/** Atalho do resolvedor: cota de corte absoluta `cutZ` ou `PLAN_CUT` acima da base de cada parede; junções por `analyzeLevelTilt`. */
+export function applyTiltToLevelPlan(level: ResolvedLevel, frames: readonly WallFrame[], cutZ: number | undefined, planCut: number, tol?: number): void {
+  if (!frames.some((f) => f.wall.tilt)) return;
+  const heights = new Map(Object.entries(level.walls).map(([id, w]) => [id, w.height] as const));
+  const planZ = new Map(Object.entries(level.walls).map(([id, w]) => [id, (cutZ ?? w.baseZ + planCut) - w.baseZ] as const));
+  applyTiltToPlan(level, planZ, analyzeLevelTilt(frames, heights, tol).joins);
 }
