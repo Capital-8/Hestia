@@ -71,6 +71,8 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   const horizontais: string[] = [];
   for (const id of Object.keys(elements)) {
     const e = elements[id]!;
+    // O lote é só de planta e prancha: não entra na malha 3D nem no corte, então editá-lo não muda a chave de nenhum nível.
+    if (e.kind === 'lot') continue;
     const linha = `${id}:${JSON.stringify(e)}`;
     const nivel = nivelDoElemento(elements, e);
     if (e.kind === 'floor' || e.kind === 'slab' || e.kind === 'stair' || e.kind === 'ramp' || e.kind === 'roof') horizontais.push(linha);

@@ -123,6 +123,12 @@ function geometryOfLevel(p: Project, levelId: Id): ComponentSnapGeometry {
     const apoio = apoioDoElemento(p, e);
     if (apoio) parts.push(geometryOfApoio(e.id, apoio));
   }
+  // Lote do nível (contorno e área edificável): vértices, meios e arestas, pelo mesmo apoio do guarda-corpo.
+  for (const e of Object.values(p.elements)) {
+    if (e.kind !== 'lot' || e.levelId !== levelId) continue;
+    const apoio = apoioDoElemento(p, e);
+    if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+  }
   return { points: parts.flatMap((g) => g.points), segments: parts.flatMap((g) => g.segments) };
 }
 

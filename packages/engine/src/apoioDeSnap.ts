@@ -1,5 +1,5 @@
 /**
- * Pontos de apoio em planta de escada, rampa e guarda-corpo: a UMA fonte dos pontos que a captura (snap) oferece e a que as
+ * Pontos de apoio em planta de escada, rampa, guarda-corpo e lote: a UMA fonte dos pontos que a captura (snap) oferece e a que as
  * cotas associativas se prendem (`DimensionElementRef` com `feature: 'part'`). É a mesma geometria que a planta desenha.
  *
  * Cada ponto leva uma chave de texto que nomeia a peça e o vértice (`d0.t3.v1` = vértice 1 do degrau 3 do lance 0), então a
@@ -12,14 +12,17 @@
  * - Escada: degraus e patamares, contorno externo (pegada), espelhos, chegada, eixo da subida e, com acabamento ligado,
  *   o piso acabado (quando difere do degrau), o bocel (faixa à frente do degrau) e a faixa do espelho acabado.
  * - Rampa: lances (com as bordas de início e fim), patamares, contorno externo e eixo dos lances.
+ * - Lote: contorno (`c.v`, `c.s`, `c.m`: vértices, arestas e pontos médios) e, com `mostrarEdificavel`, o contorno da área edificável
+ *   (`e{polígono}.{anel}`, mesmas marcas). O lote é só de planta; o clique no interior não é captura.
  * - Guarda-corpo: eixo (o caminho no manual; o eixo que o kernel desenha no hospedado) e os contornos que o kernel desenha
  *   em planta para poste (cantos e centro), trilho, corrimão e painel. Balaústres, cabos, travessas e suportes ficam de fora
  *   (peças repetidas e minúsculas só poluiriam a captura). Sem o kernel pronto, só o eixo do guarda-corpo manual.
  */
 import { dist, ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Project, type Ramp, type Stair } from '@hestia/model';
+import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Lot, type Project, type Ramp, type Stair } from '@hestia/model';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
+import { areaEdificavel } from './loteGeometria.ts';
 import { resolveRampOne } from './ramps.ts';
 import { stairArrivalTop } from './stairArrival.ts';
 import { stairArrivalFrame } from './stairBody.ts';
@@ -323,15 +326,37 @@ function apoioDoGuarda(p: Project, g: GuardaCorpo): ApoioDoElemento {
   return apoio;
 }
 
+const lotes = new WeakMap<Lot, ApoioDoElemento>();
+
+/**
+ * Lote: o contorno do modelo (chaves estáveis `c.*`) e, quando a área edificável é desenhada, os anéis dela. A área edificável vem de
+ * operação booleana: cada anel ganha o sentido anti-horário e começa no vértice mais próximo de `contorno[0]` (`canonico`), então o
+ * mesmo lote tem sempre as mesmas chaves. Guardado pelo próprio lote: editar outro elemento não refaz nada.
+ */
+function apoioDoLote(l: Lot): ApoioDoElemento {
+  const guardado = lotes.get(l);
+  if (guardado) return guardado;
+  const m = new Montador();
+  m.anel('c', l.contorno.map((q) => ({ x: q.x, y: q.y })));
+  if (l.mostrarEdificavel && l.contorno.length >= 3) {
+    const ancora = l.contorno[0]!;
+    areaEdificavel(l.contorno, l.lados).forEach((poly, pi) => poly.forEach((ring, ri) => m.anel(`e${pi}.${ri}`, canonico(ring, ancora, ri === 0 ? 1 : -1))));
+  }
+  const apoio = m.fim();
+  lotes.set(l, apoio);
+  return apoio;
+}
+
 /** Cache por projeto (escada e rampa): uma edição cria outro projeto, e o que depende só do elemento reaproveita o cálculo (caches acima). */
 const porProjeto = new WeakMap<Project, Map<string, ApoioDoElemento | null>>();
 
 /**
- * Pontos de apoio em planta da escada, rampa ou guarda-corpo, ou `null` quando o elemento não é um deles ou não tem
+ * Pontos de apoio em planta da escada, rampa, guarda-corpo ou lote, ou `null` quando o elemento não é um deles ou não tem
  * geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
  */
 export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoElemento | null {
-  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing')) return null;
+  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'lot')) return null;
+  if (el.kind === 'lot') return apoioDoLote(el);
   // O guarda-corpo depende do kernel, que pode ficar pronto sem o projeto mudar: ele tem cache próprio (por elemento e pelas linhas do kernel).
   if (el.kind === 'railing') return apoioDoGuarda(p, el);
   let mapa = porProjeto.get(p);
