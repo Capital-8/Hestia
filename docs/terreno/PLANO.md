@@ -866,3 +866,5 @@ Escopo fechado: a referência é **estado de interface** (salvo na sessão, não
 1. **T2:** a área de superfície de T2 é 400·√1,01 = 401,9950248. Onde A.10 diz "401,99502 (1e-6)", vale **400·√1,01 com tolerância 1e-6** (o literal arredondado fica a 4,8e-6 do valor exato).
 2. **Registro de testes WASM.** `vitest.wasm.config.ts` lista os testes por frente. Foi acrescentado `'tests/kernel-terreno*.wasm.test.ts'` ao `include` (única edição de config desta frente, aditiva: só inclui testes novos). Exceção a B.1 item 8, feita pelo fiscal.
 3. **Decisões da R1 confirmadas pelo fiscal:** `declividade` (consulta 163) = módulo do gradiente em fração; triângulo com área ≤ 0 em f64 é descartado; a assinatura de cache cobre só as seções 161 e 162; trecho de borda ou de T0 que cruza é pulado com aviso 2.
+
+**E3 · 2026-11-14 · modelo dos subagentes (ordem do dono).** Em B.2 passo 4 e nas fichas R1, R2, R3 e V3, onde se lê "modelo mais forte", vale: **somente Sonnet ou Haiku**. Fable e Opus ficam proibidos. Haiku só em fichas pequenas e mecânicas (por exemplo P2, P4, U2, F1, F2) e sempre com o portão completo do fiscal; as de geometria pesada (R3, V3) usam Sonnet.

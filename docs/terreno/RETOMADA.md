@@ -23,6 +23,9 @@ O `rust-toolchain.toml` já fixa 1.97.1; o componente `clippy` não vem junto e 
 
 Linha de base (2026-11-13): typecheck ✔, lint ✔ (8 avisos antigos), `test:rapido` 980 arquivos / 11441 testes, `cargo test -p geom-wasm` 510, **clippy já falha na base com 39 avisos** (portão: total não sobe de 39 e arquivo novo da frente não tem nenhum; emenda E1), `test:wasm` 55 arquivos / 1339. Em Windows o contrato de lixo pede `CARGO_TARGET_DIR` fora do repositório (ex.: `E:\hestia-target-terreno`).
 
+## Regra de modelo (ordem do dono)
+Subagentes **somente Sonnet ou Haiku**. Nunca passe `model: fable` nem `opus`. A recomendação de "modelo mais forte" em R3 e V3 no plano foi revogada.
+
 ## Como continuar com um assistente
 Abra o Claude Code na pasta, na branch acima, e diga: "leia `docs/terreno/RETOMADA.md`, `ESTADO.md` e `PLANO.md` e continue de onde parou". O plano é o manual do fiscal: uma ficha por vez, conferir sozinho com os comandos de B.3, mesclar e enviar.
 

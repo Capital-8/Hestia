@@ -4,7 +4,7 @@ Passo 0 concluído em 2026-11-13. Execução em andamento; retome da primeira fi
 
 Linha de base (2026-11-13, commit 159184a7, `main` em 236aa298): typecheck ✔ | lint ✔ (avisos de base antigos de rampTool/stairRun*, já existentes) | test:rapido 969 arquivos / 11316 testes (1 todo) | cargo test geom-wasm 468+6 testes | **clippy ✘ já na base: 39 avisos em código existente** | build:wasm ✔ | wasm:check ✔ | test:wasm 1334 testes (5 ignorados).
 Portão do clippy adaptado (emenda E1 do PLANO): o total de avisos não pode passar de 39 e arquivo novo ou alterado por esta frente não pode ter nenhum aviso. O componente clippy teve de ser instalado: `rustup component add --toolchain 1.97.1-x86_64-unknown-linux-gnu clippy`.
-Modo de execução: A (subagentes). Modelo: padrão nas fichas comuns; o mais forte disponível em R1, R2, R3 e V3.
+Modo de execução: A (subagentes). Modelo: **SOMENTE Sonnet e Haiku** (ordem do dono em 2026-11-14; nada de Fable ou Opus em subagentes). R1 e R2 foram feitas em Fable antes dessa ordem.
 
 | Ficha | Estado | Commit de mescla | Devoluções | Observações |
 |---|---|---|---|---|
@@ -35,6 +35,7 @@ Modo de execução: A (subagentes). Modelo: padrão nas fichas comuns; o mais fo
 | F2 | pendente | | 0 | opcional |
 
 ## Decisões do dono (data, pergunta, resposta)
+- 2026-11-14, "para tudo! só pode usar sonnet e haiku!": subagentes só podem usar Sonnet ou Haiku. Revoga a recomendação de modelo mais forte em R1, R2, R3 e V3. R3 estava rodando em Fable e foi parada sem nenhum arquivo salvo. Nas fichas de Rust difíceis (R3, V3) usar Sonnet com devoluções ao agente; Haiku só em fichas pequenas e mecânicas, sempre com o portão do fiscal.
 - 2026-11-13, "agora implemente! utilize subagentes para concluir mais rápido": o dono mandou executar o plano com subagentes. Registrado como confirmação de D1 a D11 (incluída a `spade`) e autorização de subagentes. A resposta sobre modelo e sobre parar por fase não foi dada: assumido o modelo mais forte em R1, R2, R3 e V3, e execução contínua, parando só em bloqueio ou na Fase 7 (que exige o "pode" do dono, D9).
 
 ## Sincronizações com a main (data, commit da main, conflitos, o que foi renumerado)
