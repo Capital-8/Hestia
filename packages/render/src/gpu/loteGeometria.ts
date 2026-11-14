@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { GraphicsCategory } from '@hestia/model';
-import type { ElementRange, SolidBatch } from '../model3d/solids.ts';
+import type { ElementRange, LoteSolido } from '../model3d/solids.ts';
 import type { OrcamentoVram } from './orcamento.ts';
 
 /**
@@ -19,7 +19,8 @@ export type Caixa = readonly [number, number, number, number, number, number];
 /** Dados de um nível para o lote (porções já no mundo, como o `SolidBatch`). */
 export interface DadosLote {
   positions: ArrayLike<number>;
-  normals: ArrayLike<number>;
+  /** Sem normais: lote de sombreamento chapado por derivadas no shader (sem atributo `normal`). */
+  normals?: ArrayLike<number>;
   indices: ArrayLike<number>;
   ids: readonly ElementRange[];
 }
@@ -64,20 +65,36 @@ export function unirCaixas(a: Caixa | null, b: Caixa | null): Caixa | null {
 }
 
 /** Junta lotes de mesma categoria e material num só (índices e faixas deslocados). Não altera as entradas. */
-export function mesclarLotes(lotes: readonly SolidBatch[]): DadosLote {
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-  const ids: ElementRange[] = [];
-  for (const b of lotes) {
-    const vBase = positions.length / 3;
-    const iBase = indices.length;
-    for (const x of b.positions) positions.push(x);
-    for (const n of b.normals) normals.push(n);
-    for (const i of b.indices) indices.push(i + vBase);
-    for (const r of b.ids) ids.push({ id: r.id, start: r.start + iBase, count: r.count });
+export function mesclarLotes(lotes: readonly LoteSolido[]): DadosLote {
+  // Um lote só: usa os vetores dele sem copiar (genéricos, milhões de triângulos). Vários: vetores do tamanho final.
+  if (lotes.length === 1) {
+    const b = lotes[0]!;
+    return { positions: b.positions, ...(b.normals ? { normals: b.normals } : {}), indices: b.indices, ids: b.ids };
   }
-  return { positions, normals, indices, ids };
+  const comNormais = lotes.every((b) => b.normals);
+  let nP = 0;
+  let nI = 0;
+  for (const b of lotes) {
+    nP += b.positions.length;
+    nI += b.indices.length;
+  }
+  const positions = new Float32Array(nP);
+  const normals = new Float32Array(comNormais ? nP : 0);
+  const indices = new Uint32Array(nI);
+  const ids: ElementRange[] = [];
+  let p = 0;
+  let k = 0;
+  for (const b of lotes) {
+    const vBase = p / 3;
+    const iBase = k;
+    for (let i = 0; i < b.positions.length; i++) positions[p + i] = b.positions[i]!;
+    if (comNormais) for (let i = 0; i < b.positions.length; i++) normals[p + i] = b.normals![i]!;
+    for (let i = 0; i < b.indices.length; i++) indices[k + i] = b.indices[i]! + vBase;
+    for (const r of b.ids) ids.push({ id: r.id, start: r.start + iBase, count: r.count });
+    p += b.positions.length;
+    k += b.indices.length;
+  }
+  return { positions, ...(comNormais ? { normals } : {}), indices, ids };
 }
 
 /** Geometria de um lote global (categoria e material), com segmentos por nível e atualização parcial. */
@@ -86,6 +103,8 @@ export class LoteGeometriaGpu {
   private segmentos = new Map<string, Segmento>();
   private posicoes = new Float32Array(0);
   private normais = new Float32Array(0);
+  /** Categoria de sombreamento chapado por derivadas (genéricos): sem atributo `normal`, sem array de normais. */
+  private readonly chapado: boolean;
   private indices = new Uint32Array(0);
   private capV = 0;
   private capI = 0;
@@ -106,6 +125,7 @@ export class LoteGeometriaGpu {
     private readonly orcamento: OrcamentoVram,
   ) {
     this.chaveOrcamento = `lote:${chave}`;
+    this.chapado = categoria === 'generic';
     this.geometria = this.criarGeometria();
     this.malha = new THREE.Mesh(this.geometria, material);
     this.malha.matrixAutoUpdate = false;
@@ -178,7 +198,7 @@ export class LoteGeometriaGpu {
     const totalV = this.nV;
     const totalI = this.nI;
     const pos = new Float32Array(totalV * 3);
-    const nor = new Float32Array(totalV * 3);
+    const nor = new Float32Array(this.chapado ? 0 : totalV * 3);
     const idx = new Uint32Array(totalI);
     const antiga = this.geometria;
     this.posicoes = pos;
@@ -241,15 +261,15 @@ export class LoteGeometriaGpu {
     this.malha.visible = this.nI > 0;
     this.atualizarCaixa();
     const pos = this.geometria.getAttribute('position') as THREE.BufferAttribute;
-    const nor = this.geometria.getAttribute('normal') as THREE.BufferAttribute;
+    const nor = this.geometria.getAttribute('normal') as THREE.BufferAttribute | undefined;
     const idx = this.geometria.getIndex()!;
     if (this.completo) {
       pos.clearUpdateRanges();
-      nor.clearUpdateRanges();
+      nor?.clearUpdateRanges();
       idx.clearUpdateRanges();
     }
     pos.needsUpdate = true;
-    nor.needsUpdate = true;
+    if (nor) nor.needsUpdate = true;
     idx.needsUpdate = true;
     this.geometria.userData.versao = ++this.versao;
     this.orcamento.definir(this.chaveOrcamento, this.bytes);
@@ -267,7 +287,7 @@ export class LoteGeometriaGpu {
   private criarGeometria(): THREE.BufferGeometry {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.posicoes, 3));
-    g.setAttribute('normal', new THREE.BufferAttribute(this.normais, 3));
+    if (!this.chapado) g.setAttribute('normal', new THREE.BufferAttribute(this.normais, 3));
     g.setIndex(new THREE.BufferAttribute(this.indices, 1));
     g.setDrawRange(0, this.nI);
     return g;
@@ -279,7 +299,7 @@ export class LoteGeometriaGpu {
     const capV = Math.max(necessarioV, Math.ceil(this.capV * 1.5), 1024);
     const capI = Math.max(necessarioI, Math.ceil(this.capI * 1.5), 1024);
     const pos = new Float32Array(capV * 3);
-    const nor = new Float32Array(capV * 3);
+    const nor = new Float32Array(this.chapado ? 0 : capV * 3);
     const idx = new Uint32Array(capI);
     pos.set(this.posicoes.subarray(0, this.nV * 3));
     nor.set(this.normais.subarray(0, this.nV * 3));
@@ -301,7 +321,7 @@ export class LoteGeometriaGpu {
     const p = dados.positions;
     const n = dados.normals;
     for (let i = 0; i < p.length; i++) this.posicoes[inicioV * 3 + i] = p[i]!;
-    for (let i = 0; i < n.length; i++) this.normais[inicioV * 3 + i] = n[i]!;
+    if (!this.chapado && n) for (let i = 0; i < n.length; i++) this.normais[inicioV * 3 + i] = n[i]!;
     const ix = dados.indices;
     for (let i = 0; i < ix.length; i++) this.indices[inicioI + i] = ix[i]! + inicioV;
   }
@@ -309,11 +329,11 @@ export class LoteGeometriaGpu {
   /** Faixas de atualização parcial (posições, normais e índices), em elementos das arrays. */
   private faixasParciais(inicioV: number, nV: number, inicioI: number, nI: number): void {
     const pos = this.geometria.getAttribute('position') as THREE.BufferAttribute;
-    const nor = this.geometria.getAttribute('normal') as THREE.BufferAttribute;
+    const nor = this.geometria.getAttribute('normal') as THREE.BufferAttribute | undefined;
     const idx = this.geometria.getIndex()!;
     if (nV > 0) {
       pos.addUpdateRange(inicioV * 3, nV * 3);
-      nor.addUpdateRange(inicioV * 3, nV * 3);
+      nor?.addUpdateRange(inicioV * 3, nV * 3);
     }
     if (nI > 0) idx.addUpdateRange(inicioI, nI);
   }

@@ -25,6 +25,7 @@ import {
   buildRoofSolids,
   buildSlabSolids,
   filtrarParedesDoNivel,
+  type LoteSolido,
   type SolidBatch,
 } from './solids.ts';
 import { buildStairSolids } from './stairSolids.ts';
@@ -143,7 +144,7 @@ export class CamadaFantasmas {
     let escadas: ReturnType<typeof resolveStairs> | null = null;
     let rampas: ReturnType<typeof resolveRamps> | null = null;
     const resolvidos = new Map<Id, ResolvedLevel>();
-    const lotes: SolidBatch[] = [];
+    const lotes: LoteSolido[] = [];
     for (const nivelId of niveis) {
       if (!previa.levels.some((l) => l.id === nivelId)) continue;
       const lv = resolveLevel(previa, nivelId);
@@ -165,7 +166,7 @@ export class CamadaFantasmas {
       );
     }
 
-    const filtrados: SolidBatch[] = [];
+    const filtrados: LoteSolido[] = [];
     for (const b of lotes) {
       const f = filtrarLote(b, novos);
       if (f) filtrados.push(f);
@@ -270,7 +271,7 @@ function soComElementos(p: Project, ids: ReadonlySet<Id>): Project {
  * Lote só com os triângulos dos elementos novos: os índices e as faixas são remontados, de modo que o fantasma
  * não carregue o original. Sem triângulo de elemento novo, null.
  */
-function filtrarLote(b: SolidBatch, manter: ReadonlySet<Id>): SolidBatch | null {
+function filtrarLote(b: LoteSolido, manter: ReadonlySet<Id>): LoteSolido | null {
   const out: SolidBatch = { materialId: b.materialId, category: b.category, positions: [], normals: [], indices: [], ids: [] };
   for (const faixa of b.ids) {
     if (!manter.has(faixa.id)) continue;
@@ -280,11 +281,12 @@ function filtrarLote(b: SolidBatch, manter: ReadonlySet<Id>): SolidBatch | null 
       if (v === undefined) continue;
       out.indices.push(out.positions.length / 3);
       out.positions.push(b.positions[v * 3] ?? 0, b.positions[v * 3 + 1] ?? 0, b.positions[v * 3 + 2] ?? 0);
-      out.normals.push(b.normals[v * 3] ?? 0, b.normals[v * 3 + 1] ?? 0, b.normals[v * 3 + 2] ?? 1);
+      if (b.normals) out.normals.push(b.normals[v * 3] ?? 0, b.normals[v * 3 + 1] ?? 0, b.normals[v * 3 + 2] ?? 1);
     }
     const count = out.indices.length - inicio;
     if (count > 0) out.ids.push({ id: faixa.id, start: inicio, count });
   }
+  if (!b.normals) return out.indices.length ? { materialId: out.materialId, category: out.category, positions: out.positions, indices: out.indices, ids: out.ids } : null;
   return out.indices.length ? out : null;
 }
 

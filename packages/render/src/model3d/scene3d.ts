@@ -29,7 +29,7 @@ import { GRUPO_DE_REALCE_VAZIO, RealceDaCortina, type GrupoDeRealceCortina } fro
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
 import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from './caixasDoNivel3d.ts';
 import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
-import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
+import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type LoteSolido, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeMassaCor, chavesDeMassaGeometria, chavesDeNivel } from './chaveNivel3d.ts';
@@ -1255,7 +1255,7 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
-    const batches: SolidBatch[] = [
+    const batches: LoteSolido[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
       ...buildCeilingSolids(ceilings),
@@ -1269,7 +1269,7 @@ export class ModelScene {
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
     const bordas: number[] = [];
-    const arestasDe = (lotes: readonly SolidBatch[]): void => {
+    const arestasDe = (lotes: readonly LoteSolido[]): void => {
       const g = arestasDosLotes(lotes, EDGE_ANGLE);
       if (!g) return;
       for (const x of g.getAttribute('position').array) bordas.push(x);
@@ -1303,9 +1303,9 @@ export class ModelScene {
     const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os
     // lotes globais por categoria/material (o gestor de GPU os junta e atualiza por faixa).
-    const lotes: SolidBatch[] = [];
+    const lotes: LoteSolido[] = [];
     // Prismas das esquadrias (batente em L): como as caixas das esquadrias, só têm arestas nos estilos de linhas (igual ao caminho de geometria).
-    const prismasSemArestas = new Set<SolidBatch>();
+    const prismasSemArestas = new Set<LoteSolido>();
     if (!this.instanciar) {
       // Lotes do nível juntados por categoria e material: uma malha por grupo (ver `lotesMalha3d.ts`).
       this.desenharLotes(grupo, batches, this.frame.edges, materialOf);
@@ -1445,7 +1445,7 @@ export class ModelScene {
    * elemento deslocadas (picking e realce continuam por triângulo). As arestas de todos os lotes saem numa linha só, com o
    * mesmo ângulo de antes, e só quando `edges`.
    */
-  private desenharLotes(parent: THREE.Object3D, lotes: SolidBatch[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = []): void {
+  private desenharLotes(parent: THREE.Object3D, lotes: LoteSolido[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = []): void {
     for (const b of juntarLotes(lotes)) this.draw(parent, geometriaDoLote(b), materialOf(b.materialId), b.category, false, b.ids);
     // Peças de um grupo físico desenham uma silhueta só: as arestas internas do grupo não entram na linha.
     const arestas = edges ? arestasDosLotes(lotes.filter((b) => !b.group), EDGE_ANGLE) : null;
