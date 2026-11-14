@@ -1,7 +1,6 @@
 /* eslint-disable max-lines */
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import {
-  isOpening,
   isCeiling,
   isFloor,
   isSlab,
@@ -163,8 +162,6 @@ export type Command =
   /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
   | { type: 'setWallTilt'; ids: Id[]; tilt: number }
   /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se o valor for inválido. */
-  | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
-  /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se algum valor for inválido. */
   | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
   | { type: 'transform'; ids: Id[]; transform: Transform; copy?: { idMap: Record<Id, Id> } }
@@ -482,17 +479,6 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       for (const w of walls) {
         if (c.tilt === 0) delete w.tilt;
         else w.tilt = c.tilt;
-      }
-      break;
-    }
-    case 'setOpeningPlane': {
-      if (c.plano !== null && !isOpeningPlane(c.plano)) throw new Error(t(lang, 'md_cmd_plane_invalid'));
-      for (const id of c.ids) {
-        const o = p.elements[id];
-        if (!o || o.kind === 'wall' || !('hostId' in o) || !('typeId' in o) || !('flipHand' in o)) continue;
-        const op = o as Opening;
-        if (c.plano === null) delete op.plano;
-        else op.plano = c.plano;
       }
       break;
     }

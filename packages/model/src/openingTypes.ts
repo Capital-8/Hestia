@@ -152,8 +152,6 @@ export interface OpeningLineConvention {
 
 export type OpeningPlane = 'vertical' | 'inclinado';
 
-export type OpeningPlane = 'vertical' | 'inclinado';
-
 export interface Opening {
   id: Id;
   kind: 'door' | 'window';

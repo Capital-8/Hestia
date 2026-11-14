@@ -48,6 +48,8 @@ export function tiltJoinOf(rw: ResolvedWall, l: ResolvedWall['layers'][number], 
   return all && layer ? { all, layer } : undefined;
 }
 
+type Pt = [number, number, number];
+
 /** Casamento de vértice da faixa com o anel `raw` da junção (m): as faixas passam por solda de 0,1 mm. */
 const MATCH = 5e-4;
 
@@ -83,6 +85,12 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const cuts = rw.tiltCuts ?? [];
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
   const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: union(x.poly) })));
+  const vertsAt = (z: number): Vec2[] => {
+    const out: Vec2[] = [];
+    for (const x of cleaned) if (Math.abs(x.z0 - z) < Z_EPS || Math.abs(x.z1 - z) < Z_EPS) for (const pl of x.poly) for (const r of pl) out.push(...r);
+    return out;
+  };
+  const segs: Array<{ p: Vec2; q: Vec2; z0: number; z1: number }> = [];
   const tops: Array<{ z: number; poly: MultiPolygon }> = [];
   const bottoms: Array<{ z: number; poly: MultiPolygon }> = [];
   const zs: number[] = [];
@@ -97,26 +105,83 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
           const p = ring[i]!;
           const q = ring[(i + 1) % ring.length]!;
           if (Math.hypot(q.x - p.x, q.y - p.y) < 1e-9) continue;
-          const at = (v: Vec2, z: number): [number, number, number] => { const zz = zOf(v, z); return [...map(v.x, v.y, zz), rw.baseZ + zz] as [number, number, number]; };
-          const p0 = at(p, band.z0);
-          const q0 = at(q, band.z0);
-          const p1 = at(p, band.z1);
-          const q1 = at(q, band.z1);
-          for (const t of [[p0, q0, q1], [p0, q1, p1]] as const) {
-            const u = [t[1][0] - t[0][0], t[1][1] - t[0][1], t[1][2] - t[0][2]];
-            const w = [t[2][0] - t[0][0], t[2][1] - t[0][1], t[2][2] - t[0][2]];
-            const n: [number, number, number] = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
-            const l = Math.hypot(...n);
-            if (l < 1e-14) continue;
-            push(b, [...t[0], ...t[1], ...t[2]], [n[0] / l, n[1] / l, n[2] / l], [0, 1, 2]);
-          }
+          segs.push({ p, q, z0: band.z0, z1: band.z1 });
         }
       }
     }
   }
+  // Faces laterais. Duas faixas vizinhas dividem uma face interna (arestas opostas coincidentes): o trecho de cota em comum some
+  // dos dois lados. Vértices de faixas vizinhas que caem sobre as bordas (cantos de vão, degraus) entram na face (T-junctions).
+  const at = (v: Vec2, z: number): [number, number, number] => {
+    const zz = zOf(v, z);
+    return [...map(v.x, v.y, zz), rw.baseZ + zz] as [number, number, number];
+  };
+  const pk = (v: Vec2): string => `${v.x.toFixed(7)},${v.y.toFixed(7)}`;
+  const byKey = new Map<string, Array<[number, number]>>();
+  for (const sg of segs) byKey.set(`${pk(sg.p)}>${pk(sg.q)}`, [...(byKey.get(`${pk(sg.p)}>${pk(sg.q)}`) ?? []), [sg.z0, sg.z1]]);
+  const levelsAt = new Map<string, number[]>();
+  for (const band of cleaned) for (const pl of band.poly) for (const r of pl) for (const v of r) levelsAt.set(pk(v), [...(levelsAt.get(pk(v)) ?? []), band.z0, band.z1]);
+  const onEdge = (p: Vec2, q: Vec2, z: number): Vec2[] => {
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const l2 = dx * dx + dy * dy;
+    const hits: Array<{ t: number; v: Vec2 }> = [];
+    for (const v of vertsAt(z)) {
+      const tt = ((v.x - p.x) * dx + (v.y - p.y) * dy) / l2;
+      if (tt <= 1e-9 || tt >= 1 - 1e-9) continue;
+      if (Math.hypot(p.x + dx * tt - v.x, p.y + dy * tt - v.y) > 5e-7) continue;
+      if (!hits.some((h) => Math.abs(h.t - tt) < 1e-9)) hits.push({ t: tt, v });
+    }
+    return hits.sort((m, n) => m.t - n.t).map((h) => h.v);
+  };
+  const between = (v: Vec2, z0: number, z1: number): number[] => [...new Set((levelsAt.get(pk(v)) ?? []).filter((z) => z > z0 + Z_EPS && z < z1 - Z_EPS).map((z) => Math.round(z / Z_EPS) * Z_EPS))].sort((m, n) => m - n);
+  for (const sg of segs) {
+    const opp = byKey.get(`${pk(sg.q)}>${pk(sg.p)}`) ?? [];
+    let pieces: Array<[number, number]> = [[sg.z0, sg.z1]];
+    for (const [o0, o1] of opp) {
+      pieces = pieces.flatMap(([a0, a1]) => {
+        if (o1 <= a0 + Z_EPS || o0 >= a1 - Z_EPS) return [[a0, a1] as [number, number]];
+        const out: Array<[number, number]> = [];
+        if (o0 > a0 + Z_EPS) out.push([a0, o0]);
+        if (o1 < a1 - Z_EPS) out.push([o1, a1]);
+        return out;
+      });
+    }
+    for (const [z0, z1] of pieces) {
+      const { p, q } = sg;
+      const loop = [
+        at(p, z0),
+        ...onEdge(p, q, z0).map((v) => at(v, z0)),
+        at(q, z0),
+        ...between(q, z0, z1).map((z) => at(q, z)),
+        at(q, z1),
+        ...onEdge(p, q, z1).reverse().map((v) => at(v, z1)),
+        at(p, z1),
+        ...between(p, z0, z1).reverse().map((z) => at(p, z)),
+      ];
+      // Quadrilátero comum: as duas diagonais de sempre. Com vértices extras nas bordas, leque a partir do centro (um leque a
+      // partir de um canto degeneraria nas bordas com vértices alinhados).
+      const tris: Array<[Pt, Pt, Pt]> = [];
+      if (loop.length === 4) tris.push([loop[0]!, loop[1]!, loop[2]!], [loop[0]!, loop[2]!, loop[3]!]);
+      else {
+        const c = [0, 1, 2].map((j) => loop.reduce((a, v) => a + v[j]!, 0) / loop.length) as Pt;
+        for (let k = 0; k < loop.length; k++) tris.push([c, loop[k]!, loop[(k + 1) % loop.length]!]);
+      }
+      for (const t of tris) {
+        const u = [t[1][0] - t[0][0], t[1][1] - t[0][1], t[1][2] - t[0][2]];
+        const w = [t[2][0] - t[0][0], t[2][1] - t[0][1], t[2][2] - t[0][2]];
+        const n: [number, number, number] = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+        const l = Math.hypot(...n);
+        if (l < 1e-14) continue;
+        push(b, [...t[0], ...t[1], ...t[2]], [n[0] / l, n[1] / l, n[2] / l], [0, 1, 2]);
+      }
+    }
+  }
   for (const Z of zs) {
-    const tp = unionAll(tops.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly));
-    const bt = unionAll(bottoms.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly));
+    const tl = tops.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly);
+    const bl = bottoms.filter((f) => Math.abs(f.z - Z) < Z_EPS).map((f) => f.poly);
+    const tp = unionAll(tl);
+    const bt = unionAll(bl);
     // Triangula o polígono JÁ deslocado: o mapa é não linear no arco, e a triangulação da planta poderia inverter triângulos.
     const zAt = new Map<string, number>();
     const key = (x: number, y: number): string => `${x.toFixed(9)},${y.toFixed(9)}`;
@@ -127,7 +192,10 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
       return { x, y };
     })));
     const to3 = (x: number, y: number): [number, number, number] => [x, y, rw.baseZ + (cuts.length ? (zAt.get(key(x, y)) ?? Z) : Z)];
-    emitFace(b, lift(tp.length && bt.length ? difference(tp, bt) : tp), to3, [0, 0, 1]);
-    emitFace(b, lift(bt.length && tp.length ? difference(bt, tp) : bt), to3, [0, 0, -1]);
+    // Sem face oposta na cota, cada faixa emite o seu polígono (a união apagaria os vértices que as faces laterais usam);
+    // com face oposta, só o que sobra da diferença.
+    const both = tp.length > 0 && bt.length > 0;
+    for (const m of both ? [difference(tp, bt)] : tl) emitFace(b, lift(m), to3, [0, 0, 1]);
+    for (const m of both ? [difference(bt, tp)] : bl) emitFace(b, lift(m), to3, [0, 0, -1]);
   }
 }
