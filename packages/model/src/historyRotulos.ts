@@ -80,6 +80,8 @@ export function labelOf(c: Command): string {
       return 'Soltar forro do ambiente';
     case 'relinkCeilingRoom':
       return 'Revincular forro ao ambiente';
+    case 'setWallTilt':
+      return c.ids.length === 1 ? 'Inclinar parede' : 'Inclinar paredes';
     case 'setWallEnds':
       return 'Ajustar parede';
     case 'setJoin':

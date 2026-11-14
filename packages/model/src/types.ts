@@ -24,8 +24,9 @@ import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 
 export type Id = string;
+/** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 27;
 
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
@@ -365,6 +366,12 @@ export interface Wall {
    * topo se mantém na altura do ponto mais próximo. `null` = topo reto por `height`/nível. Só em parede reta.
    */
   topProfile: ProfilePoint[] | null;
+  /**
+   * Inclinação em graus a partir da vertical; positivo = o topo desloca para a ESQUERDA de a→b (mesma convenção do sinal
+   * de `sag`). Ausente = 0 = parede vertical. A rotação é em torno da LINHA DE BASE (a base não se move). Até a Fase 3 não
+   * pode coexistir com `topProfile`. Validação em `wallTiltIssue` (|tilt| ≤ 60, arco inclinado para o centro).
+   */
+  tilt?: number;
   /** Instância da parede cortina (decisão 0056, §4.3): só intenções (sobrescritas), nunca geometria. Ausente = parede comum. */
   curtain?: CurtainInstance;
   /** Massa e nível de que veio a parede (ficha D2); ausente em parede comum. Some ao copiar (a cópia é parede comum). */

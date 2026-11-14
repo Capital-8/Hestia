@@ -78,3 +78,11 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - Arco no nível z: centro e φ constantes, R_z = R − sign(sag)·d(z), extremos escalados radialmente, `sag_z = sign(sag)·R_z·(1−cos(φ/2))`; reta desloca a e b pela normal esquerda.
 - `tiltValid({tiltDeg,H,t,R?})`: finito, |tilt| ≤ 60 e, com R, R − H·tan|θ| > t/(2cosθ) + 0,01 (aplicado nos dois sentidos, conservador); R omitido = reta.
 - Volume/área do arco recebem `s` explícito (o chamador usa `arcTiltSide`); `axisLengthAtLevel` tem sobrecarga reta (L,z,tilt) e arco (R,φ,z,tilt,s).
+
+## F2.1
+- `Wall.tilt?` (graus, positivo = topo à esquerda de a→b, em torno da linha de base); `SCHEMA_VERSION` 27, migração 26→27 só sobe o número.
+- Validação central em `packages/model/src/wallTilt.ts` (`wallTiltIssue`): finito, |tilt| ≤ 60, sem `topProfile` (recusa, nunca apaga), arco inclinado para o centro com R − H·tan|θ| > t/(2cosθ) + 0,01.
+- H = nível de topo + topOffset − base se resolvível no modelo; senão `height` nominal. Topo anexado a piso/telhado depende do motor: não resolvido aqui (a F2.4 deve revalidar com a altura real).
+- Sem o tipo da parede no projeto a regra do arco é pulada; `makeWall` apenas aceita o campo, a validação roda em `addWall`, `updateElements` (tilt/topProfile/sag) e `setWallTilt`.
+- `setWallTilt {ids, tilt}`: um passo de desfazer, atômico (valida todas antes de gravar); tilt 0 remove o campo. Chaves `md_cmd_tilt_*` nos 7 idiomas; rótulo "Inclinar parede(s)".
+- Testes de versão 26→27 ajustados em 10 arquivos de `packages/model/src`; plugins: `setWallTilt` não foi liberado para plugin (fora de `PLUGIN_ALLOWED_COMMANDS`).
