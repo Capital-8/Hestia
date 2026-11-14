@@ -8,7 +8,7 @@
 //!
 //! O kernel só lê estas seções (não conhece o `Project`). As consultas 160 (`terreno_malha`) e 163 (`terreno_cotas`) estão em `terreno_malha.rs` e
 //! `terreno_avalia.rs`; as 161, 162, 164, 165 e 168 (ficha R2), em `terreno_curvas.rs`, `terreno_planta.rs`, `terreno_corte.rs`, `terreno_quant.rs` e
-//! `terreno_avisos.rs`; as 166 e 167 (ficha R3) ainda devolvem `NAO_IMPLEMENTADO`.
+//! `terreno_avisos.rs`; as 166 e 167 (ficha R3), em `terreno_volumes.rs`.
 
 use std::collections::BTreeMap;
 
@@ -93,6 +93,8 @@ macro_rules! tabelas {
             $(pub $campo: BTreeMap<u32, $ty>,)*
             /// Sobe a cada escrita nas linhas (161) ou nos vértices (162): é por ela que o cache do terreno sabe que precisa reconferir as assinaturas.
             geracao_fontes: u64,
+            /// Idem para as regiões (163) e os seus pontos (164), de que depende a assinatura da superfície proposta.
+            geracao_regioes: u64,
         }
 
         #[allow(non_camel_case_types)]
@@ -308,9 +310,21 @@ impl SecoesTerreno {
         self.geracao_fontes = self.geracao_fontes.wrapping_add(1);
     }
 
+    /// Geração das regiões e dos seus pontos.
+    pub fn geracao_regioes(&self) -> u64 {
+        self.geracao_regioes
+    }
+
+    /// Avisa que as regiões mudaram (o cache de P reconfere as assinaturas na próxima consulta).
+    pub fn marcar_regioes(&mut self) {
+        self.geracao_regioes = self.geracao_regioes.wrapping_add(1);
+    }
+
     fn marcar(&mut self, secao: u32) {
         if matches!(secao, SECAO_TERRENO_LINHAS | SECAO_TERRENO_VERTICES) {
             self.marcar_fontes();
+        } else if matches!(secao, SECAO_TERRENO_REGIOES | SECAO_TERRENO_REGIAO_PONTOS) {
+            self.marcar_regioes();
         }
     }
 
@@ -470,7 +484,7 @@ mod testes {
     }
 
     #[test]
-    fn cena_roteia_as_secoes_e_as_consultas_das_fichas_seguintes_ainda_nao_existem() {
+    fn cena_roteia_as_secoes_e_toda_consulta_do_terreno_responde() {
         let mut cena = Cena::novo();
         let b = bytes(SECAO_TERRENOS, 1, &[("id_num", v(&[1.0])), ("intervalo", v(&[0.5]))]);
         assert_eq!(cena.definir_secao(SECAO_TERRENOS, 1, &b), Ok(()));
@@ -487,6 +501,8 @@ mod testes {
             esquema::CONSULTA_TERRENO_CORTE,
             esquema::CONSULTA_QUANT_TERRENO,
             esquema::CONSULTA_TERRENO_AVISOS,
+            esquema::CONSULTA_QUANT_TERRENO_REGIOES,
+            esquema::CONSULTA_TERRENO_CORTE_ATERRO,
         ];
         for def in esquema::CONSULTAS.iter().filter(|c| c.id >= 160) {
             let args = vec![0.0; def.args.len()];

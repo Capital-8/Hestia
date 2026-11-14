@@ -5,7 +5,8 @@
 //!
 //! - **papel 0, cortado**: a interseção do plano com a superfície, ordenada por `s`, fechada por baixo em `z_base = min(z) − espessura_base`. Um polígono
 //!   por trecho contínuo: os pontos do perfil em `s` crescente e, por fim, `(s_fim, z_base)` e `(s_início, z_base)`. Não repete o primeiro ponto.
-//! - **papel 1, perfil existente**: só existe quando há plataforma ou região nivelada (ficha R3). Aqui nunca é emitido.
+//! - **papel 1, perfil existente**: a interseção do plano com E, polilinha aberta em `s` crescente. Só é emitido quando o terreno tem plataforma ou região
+//!   nivelada. Os papéis 0 e 2 são da superfície pedida (P); `z_base` é a menor cota de E e de P menos a espessura.
 //! - **papel 2, silhueta**: envoltória superior da parte da superfície no lado visível até `profundidade`. `FAIXAS` faixas iguais de `s` na extensão do
 //!   terreno; cada aresta, recortada à faixa visível, atualiza o máximo das faixas que cobre; sai uma polilinha por trecho contínuo de faixas com dado, com
 //!   um ponto por faixa `(s do meio da faixa, z máximo)`. Trecho de uma faixa só não sai (não forma linha).
@@ -17,7 +18,8 @@ use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::terreno_avalia::Malha;
 use crate::terreno_curvas::{QUANTO, SEGMENTO_MIN};
-use crate::terreno_tipos::{existente, terrenos_do_nivel};
+use crate::terreno_proposta::{proposta, Proposta};
+use crate::terreno_tipos::terrenos_do_nivel;
 
 /// `papel` das linhas da consulta 164.
 pub const PAPEL_CORTADO: u32 = 0;
@@ -177,7 +179,14 @@ fn recortar(a: [f64; 3], b: [f64; 3], profundidade: f64) -> Option<([f64; 2], [f
 /// Linhas do corte de uma malha: `(papel, fechada, pontos)`, os polígonos cortados (por `s`) e depois as silhuetas.
 pub fn corte_da_malha(m: &Malha, pl: &Plano, profundidade: f64, espessura_base: f64) -> Vec<(u32, bool, Vec<[f64; 2]>)> {
     let Some((z_min, _)) = m.z_min_max().filter(|_| !m.t.is_empty()) else { return Vec::new() };
-    let z_base = z_min - espessura_base;
+    corte_com_base(m, pl, profundidade, z_min - espessura_base)
+}
+
+/// Corte de uma malha fechado por baixo em `z_base`.
+pub fn corte_com_base(m: &Malha, pl: &Plano, profundidade: f64, z_base: f64) -> Vec<(u32, bool, Vec<[f64; 2]>)> {
+    if m.t.is_empty() {
+        return Vec::new();
+    }
     let mut out = Vec::new();
     for mut p in perfil(m, pl) {
         let (s0, s1) = (p[0][0], p[p.len() - 1][0]);
@@ -189,14 +198,23 @@ pub fn corte_da_malha(m: &Malha, pl: &Plano, profundidade: f64, espessura_base: 
     out
 }
 
+/// Linhas do corte de um terreno: cortados (papel 0) e silhuetas (papel 2) de P, e entre eles o perfil existente (papel 1) se há plataforma ou nivelada.
+pub fn corte_do_terreno(p: &Proposta, pl: &Plano, profundidade: f64, espessura_base: f64) -> Vec<(u32, bool, Vec<[f64; 2]>)> {
+    let Some((z_min, _)) = p.z_min_max() else { return Vec::new() };
+    let todas = corte_com_base(&p.malha, pl, profundidade, z_min - espessura_base);
+    let (cortados, silhuetas): (Vec<_>, Vec<_>) = todas.into_iter().partition(|l| l.0 == PAPEL_CORTADO);
+    let existente = if p.tem_plano() { perfil(&p.e, pl) } else { Vec::new() };
+    cortados.into_iter().chain(existente.into_iter().map(|l| (PAPEL_PERFIL_EXISTENTE, false, l))).chain(silhuetas).collect()
+}
+
 /// Consulta 164 (`terreno_corte`): terrenos do nível por `id_num` crescente.
 pub fn consulta_terreno_corte(cena: &Cena, nivel: u32, plano: [f64; 4], profundidade: f64) -> Result<Vec<Saida>, u32> {
     let (mut linhas, mut pontos) = (Vec::new(), Vec::new());
     if let Some(pl) = Plano::novo(plano[0], plano[1], plano[2], plano[3]).filter(|_| profundidade >= 0.0) {
         for t in terrenos_do_nivel(&cena.terreno, nivel) {
-            let e = existente(cena, t)?;
+            let prop = proposta(cena, t)?;
             let espessura = cena.terreno.terrenos.get(&t).map_or(0.0, |l| l.espessura_base);
-            for (papel, fechada, p) in corte_da_malha(&e.e, &pl, profundidade, espessura) {
+            for (papel, fechada, p) in corte_do_terreno(&prop, &pl, profundidade, espessura) {
                 linhas.extend_from_slice(&[t, papel, u32::from(fechada), p.len() as u32]);
                 pontos.extend(p.iter().flatten());
             }

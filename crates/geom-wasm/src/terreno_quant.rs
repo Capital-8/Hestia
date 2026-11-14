@@ -1,11 +1,12 @@
 //! Terreno (PLANO do terreno A.4 regra 12): quantidades básicas, consulta 165 (`quant_terreno`).
 //!
-//! Por terreno: `valores [area_planta, area_sup_existente, area_sup_proposta, z_min, z_max, volume_corte, volume_aterro, n_triangulos]`. Até a ficha R3 não
-//! há regiões: a superfície proposta é a existente e os volumes são 0. Terreno sem triângulos sai com a linha toda em 0 (o aviso 5 diz por quê).
+//! Por terreno: `valores [area_planta, area_sup_existente, area_sup_proposta, z_min, z_max, volume_corte, volume_aterro, n_triangulos]`. `area_planta` e
+//! `n_triangulos` são de E; `z_min` e `z_max` cobrem E e P juntas; os volumes vêm da regra 12 (`terreno_volumes`). Sem região, P é E e os volumes são 0. Terreno sem triângulos sai com a linha toda em 0 (o aviso 5 diz por quê).
 
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::terreno_avalia::Malha;
+use crate::terreno_proposta::proposta;
 use crate::terreno_tipos::{existente, terrenos_do_nivel};
 
 /// Quantidades de uma malha: `[area_planta, area_superficie, z_min, z_max, n_triangulos]`. Malha sem triângulos: tudo 0.
@@ -21,9 +22,12 @@ pub fn consulta_quant_terreno(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u32
     let (mut linhas, mut valores) = (Vec::new(), Vec::new());
     for t in terrenos_do_nivel(&cena.terreno, nivel) {
         let e = existente(cena, t)?;
-        let q = quantidades_da_malha(&e.e);
+        let p = proposta(cena, t)?;
+        let (q, qp) = (quantidades_da_malha(&e.e), quantidades_da_malha(&p.malha));
+        let (z_min, z_max) = p.z_min_max().unwrap_or((0.0, 0.0));
+        let vol = p.volumes();
         linhas.push(t);
-        valores.extend_from_slice(&[q[0], q[1], q[1], q[2], q[3], 0.0, 0.0, q[4]]);
+        valores.extend_from_slice(&[q[0], q[1], qp[1], z_min, z_max, vol.corte, vol.aterro, q[4]]);
     }
     Ok(vec![Saida::U32(linhas), Saida::F64(valores)])
 }
