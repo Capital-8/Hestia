@@ -10,7 +10,7 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | M2 | mesclada | merge de massa/m2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 477, test:wasm 1335, clippy sem erro novo; reiniciou o contêiner no meio (agente refeito); emenda E2 |
 | R1 | mesclada | merge de massa/r1 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 502, test:wasm 55 arq/1338 (agora inclui kernel-massa), clippy 39 = base, mesmos locais; agente interrompido pelo limite de uso e retomado; emenda E3 |
 | R2 | mesclada | merge de massa/r2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 508, test:wasm 56 arq/1343 (inclui kernel-massa-planta), clippy 39 = base; interrompida pelo limite e retomada; emenda E4 |
-| R3 | pendente | | 0 | |
+| R3 | mesclada | merge de massa/r3 | 0 | sonnet medium; conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 518, test:wasm 57 arq/1347, clippy 39 = base; o fiscal corrigiu 2 linhas do teste da R2 (emenda E6) |
 | E1 | pendente | | 0 | |
 | V1 | pendente | | 0 | |
 | V2 | pendente | | 0 | |
@@ -35,6 +35,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 - **Limite de uso:** o modelo forte (R1) bateu o limite de 5 h; o agente deixa commit `wip` e é retomado por SendMessage. Em R2 e R3 pedir `wip` antes de cada comando longo.
 - Pendência de limpeza (fiscal, no fim): `/tmp/hestia-target-massa` e worktrees `/home/user/hestia-wt/*`.
 
+- **Fase 1 (kernel) concluída em 2026-11-14.** Portão da fase: valores de A.10 batem nos testes Rust (R1/R2/R3) e o fuzz de 200 massas passa em malha, fatias/planta/quantidades/avisos e corte.
+
 ## Decisões do dono durante a execução
 - 2026-11-13: "sempre que possível seguir sem esperar nada" (o fiscal só para para perguntar se uma decisão de projeto bloquear).
 
@@ -42,4 +44,4 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 (nenhuma)
 
 ## Tempos medidos (A.8 item 5)
-(a medir em R3/Q1)
+- Consulta 143 em M5 (flor, 12 pétalas), WASM release: 8,2 ms na 1ª chamada, 1,7 a 2,6 ms nas seguintes (alvo 50 ms). Demais tempos (massa_malha lod 1, massa_planta) a medir em Q1.
