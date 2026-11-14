@@ -1,4 +1,4 @@
-import { add, arcCenterEnds, arcFromSagitta, arcTangent, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
+import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
 import { formatQuantity, makeWall, wallThicknessOf, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
@@ -9,6 +9,7 @@ import type { InferContext } from './infer.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
+import { arcCenterEnds, arcTangent } from './sketchShapesArc.ts';
 import { circleSegments, ellipseSegments, polygonSegments, splineSegments, type WallSegment } from './wallShapes.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
 import type { DictKey } from './i18n.ts';

@@ -1,38 +1,54 @@
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { createEmptyProject } from '@hestia/model';
 import { DEFAULT_OPTIONS } from '../../editor/state.ts';
-import { wallModeOf, type WallMode } from '../wallModes.ts';
+import { wallGalleryOf, wallGalleryPatch, wallModeOf, type WallGalleryId } from '../wallModes.ts';
+import { WALL_SHAPES, WallDrawPanel } from '../WallDrawPanel.tsx';
+import { perimeterShapesFor } from '../perimeter/PerimeterRibbonPanels.tsx';
 import { contextTab } from './context.ts';
-import { txt, type RibbonItem } from './model.ts';
 
-type Botao = Extract<RibbonItem, { kind: 'option' }>;
+const IDS: WallGalleryId[] = ['line', 'rect', 'poly-inscribed', 'poly-circumscribed', 'circle', 'arc-3pt', 'arc-center', 'arc-tangent', 'ellipse', 'spline'];
 
-/** Botões de modo do painel "Desenhar" da ferramenta Parede (as pilhas da faixa, achatadas). */
-const botoes = (): Botao[] => {
-  const tab = contextTab('wall', [], createEmptyProject('vazio'))!.tab;
-  const painel = tab.panels.find((p) => p.id === 'desenhar')!;
-  return painel.items.flatMap((it) => (it.kind === 'stack' ? it.items : [it])).filter((it): it is Botao => it.kind === 'option');
-};
-
-describe('faixa: modos da ferramenta Parede', () => {
-  it('oferece os oito modos, em pilhas de três no painel Desenhar', () => {
+describe('faixa: galeria Desenhar da ferramenta Parede (a mesma do perímetro)', () => {
+  it('a aba da Parede não tem mais painel Desenhar próprio, e mantém Modificar', () => {
     const tab = contextTab('wall', [], createEmptyProject('vazio'))!.tab;
-    const painel = tab.panels.find((p) => p.id === 'desenhar')!;
-    expect(painel.items.every((it) => it.kind === 'stack')).toBe(true);
-    expect(painel.items.map((it) => (it.kind === 'stack' ? it.items.length : 0))).toEqual([3, 3, 2]);
-    expect(botoes().map((b) => txt(b.label, 'pt'))).toEqual([
-      'Linha', 'Arco (3 pontos)', 'Retângulo', 'Polígono inscrito', 'Polígono circunscrito', 'Círculo', 'Elipse', 'Spline',
-    ]);
+    expect(tab.panels.some((p) => p.id === 'desenhar')).toBe(false);
+    expect(tab.panels.some((p) => p.id === 'modificar')).toBe(true);
   });
 
-  it('cada botão, ao ser clicado (patch sobre as opções), fica pressionado sozinho', () => {
-    const modos: WallMode[] = ['line', 'arc', 'rect', 'polygonIn', 'polygonOut', 'circle', 'ellipse', 'spline'];
-    botoes().forEach((b, i) => {
-      const depois = { ...DEFAULT_OPTIONS, ...b.patch };
-      expect(wallModeOf(depois)).toBe(modos[i]);
-      const pressionados = botoes().filter((x) => x.test(depois));
-      expect(pressionados).toHaveLength(1);
-      expect(txt(pressionados[0]!.label, 'pt')).toBe(txt(b.label, 'pt'));
-    });
+  it('oferece dez formas, sem filete, face, perímetro e ambiente; spline é nova', () => {
+    expect(WALL_SHAPES.map((s) => s.id)).toEqual(IDS);
+    expect(WALL_SHAPES.find((s) => s.id === 'spline')!.isNew).toBe(true);
+    const doPerimetro = perimeterShapesFor('floor').map((s) => s.id as string);
+    for (const s of WALL_SHAPES) if (s.id !== 'spline') expect(doPerimetro).toContain(s.id);
+  });
+
+  it('cada forma seleciona o wallShape certo e fica marcada sozinha', () => {
+    const esperado: Record<WallGalleryId, Partial<typeof DEFAULT_OPTIONS>> = {
+      line: { wallShape: 'line' },
+      rect: { wallShape: 'rect' },
+      'poly-inscribed': { wallShape: 'polygon', wallPolygonCircumscribed: false },
+      'poly-circumscribed': { wallShape: 'polygon', wallPolygonCircumscribed: true },
+      circle: { wallShape: 'circle' },
+      'arc-3pt': { wallShape: 'arc' },
+      'arc-center': { wallShape: 'arc-center' },
+      'arc-tangent': { wallShape: 'arc-tangent' },
+      ellipse: { wallShape: 'ellipse' },
+      spline: { wallShape: 'spline' },
+    };
+    for (const id of IDS) {
+      expect(wallGalleryPatch(id), id).toEqual(esperado[id]);
+      const o = { ...DEFAULT_OPTIONS, ...wallGalleryPatch(id) };
+      expect(wallGalleryOf(o), id).toBe(id);
+      expect(wallModeOf(o)).toBeDefined();
+    }
+  });
+
+  it('o painel desenha a galeria com um botão por forma e só o da opção atual pressionado', () => {
+    const html = renderToStaticMarkup(createElement(WallDrawPanel, { options: { ...DEFAULT_OPTIONS, ...wallGalleryPatch('arc-tangent') }, onPatch: () => {} }));
+    expect(html.match(/class="pm-gi/g)).toHaveLength(10);
+    expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(html).toContain('pm-galbox');
   });
 });

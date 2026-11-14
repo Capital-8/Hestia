@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import type { ToolOptions } from '@hestia/tools';
 import { t, useT } from '../editor/i18n.ts';
 import { PERIMETER_SHAPES } from './perimeter/PerimeterRibbonPanels.tsx';
-import { Ic, ShapeGallery, type ShapeDef } from './perimeter/ShapeGallery.tsx';
+import { ShapeGallery, type ShapeDef } from './perimeter/ShapeGallery.tsx';
 import { wallGalleryOf, wallGalleryPatch, type WallGalleryId } from './wallModes.ts';
 
 const fromPerimeter = (id: Exclude<WallGalleryId, 'spline'>): ShapeDef<WallGalleryId> => {
