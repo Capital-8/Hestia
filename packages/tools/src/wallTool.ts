@@ -377,8 +377,8 @@ export class WallTool extends ToolBase {
     // Decisão 0044: não cria parede em cima de outra (mesmo critério do aviso C14).
     if (refuseWallOverlap(this.env, wall)) return;
     if (this.tiltRefused([wall])) return;
-    // Com inclinação, a cadeia inteira vira um só desfazer (a sessão junta os passos seguidos).
-    const session = this.env.options().wallTilt ? (this.tiltSession ??= {}) : undefined;
+    // A cadeia inteira (reta, arco ou inclinada) vira um só desfazer: a sessão junta os passos seguidos até reset().
+    const session = (this.tiltSession ??= {});
     this.env.transaction('Criar parede', () => {
       this.env.exec({ type: 'addWall', wall });
     }, session);

@@ -51,14 +51,21 @@ describe('wallTool: inclinação da opção ao desenhar (F2.10)', () => {
     expect(walls(c.store)).toHaveLength(0);
   });
 
-  it('cadeia reta (sem inclinação) segue um desfazer por trecho, como antes', () => {
+  it('cadeia reta (sem inclinação) é um só desfazer (F2.11); uma nova cadeia é outro desfazer', () => {
     const c = setup('line');
     clickAt(c.t, 0, 0);
     clickAt(c.t, 4, 0);
     clickAt(c.t, 4, 3);
-    expect(walls(c.store)).toHaveLength(2);
+    clickAt(c.t, 0, 3);
+    expect(walls(c.store)).toHaveLength(3);
+    c.t.cancel();
+    clickAt(c.t, 10, 10);
+    clickAt(c.t, 14, 10);
+    expect(walls(c.store)).toHaveLength(4);
     c.store.undo();
-    expect(walls(c.store)).toHaveLength(1);
+    expect(walls(c.store)).toHaveLength(3);
+    c.store.undo();
+    expect(walls(c.store)).toHaveLength(0);
   });
 
   it('recusa: arco de 3 pontos que se fecha para o centro com -60° não cria a parede; o lado oposto (+60°) cria', () => {
