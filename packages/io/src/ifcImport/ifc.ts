@@ -144,7 +144,7 @@ export class IfcFile {
   /** Entidades cujo tipo começa pelo prefixo (ex.: `IFCWALL` pega as três variantes), na ordem do arquivo. */
   byPrefix(prefix: string): StepEntity[] {
     const out: StepEntity[] = [];
-    for (const [type, list] of this.step.types) if (type.startsWith(prefix)) out.push(...list);
+    for (const type of this.step.types.keys()) if (type.startsWith(prefix)) for (const e of this.step.types.get(type) ?? []) out.push(e);
     return out.length > 1 ? out.sort((a, b) => a.id - b.id) : out;
   }
 

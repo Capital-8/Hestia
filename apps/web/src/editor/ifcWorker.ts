@@ -12,9 +12,10 @@ import { empacotarProjetoIfc, type ProjetoIfcEmpacotado } from './ifcMalha.ts';
  * própria importação.
  */
 
-/** O que a janela manda: o texto do arquivo já lido do disco. */
+/** O que a janela manda: o `File` (lido aqui dentro, sem copiar os bytes pela janela) ou, em último caso, o texto. */
 interface Pedido {
-  text: string;
+  file?: File;
+  text?: string;
   lang?: Lang;
 }
 
@@ -37,8 +38,9 @@ const escopo = self as unknown as {
   postMessage: (mensagem: Resposta, transferir?: Transferable[]) => void;
 };
 
-escopo.onmessage = (evento) => {
+escopo.onmessage = async (evento) => {
   try {
+    let text: string | undefined = evento.data.file ? await evento.data.file.text() : (evento.data.text ?? '');
     // A barra não precisa de um aviso por parede: manda no máximo ~20 por segundo, mas nunca perde a troca de fase.
     let ultimoEnvio = 0;
     let ultimaFase = '';
@@ -50,7 +52,9 @@ escopo.onmessage = (evento) => {
         escopo.postMessage({ progress });
       }
     };
-    const { project, report } = importIfc(evento.data.text, undefined, progresso, evento.data.lang ?? 'pt');
+    const { project, report } = importIfc(text, undefined, progresso, evento.data.lang ?? 'pt');
+    // O parse preguiçoso lia o texto até aqui; solta-o antes de empacotar o resultado.
+    text = undefined;
     const empacotado = empacotarProjetoIfc(project);
     escopo.postMessage({ result: { ...empacotado, report } }, [empacotado.posicoes.buffer, empacotado.indices.buffer]);
   } catch (erro) {
