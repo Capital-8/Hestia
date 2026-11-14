@@ -71,3 +71,10 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - **E5:** sólido, planta, corte, quantitativos e junção de produção são TS; o Rust só espelha atrás de `kernelFatiaLigada` (padrão TS, `packages/geom/src/kernel/v2/fatias.ts:79`). Logo `tilt` NÃO sobe o contrato do kernel (versão 19 intacta; o contrato é colunar `schema/cena-v11.json` e ignora campo opcional). Projeto com parede inclinada força o caminho TS das junções mesmo com a flag ligada; porte Rust do tilt fica como dívida D2 (só se a flag virar padrão).
 - **E6:** `SCHEMA_VERSION` 26 → 27 na F2.1 (migração 26→27 só sobe o número). A chave de cache do sólido (`solids.ts:349`) passa a incluir `tilt` (F2.3).
 - **E7:** ferramentas de modificar usam `transform`/`updateElements`/`splitWall` com spread: `tilt` é preservado de graça; Espelhar (`commands.ts:237`) e troca a↔b precisam inverter o sinal (F2.11).
+
+## F2.2: funções puras de parede inclinada
+- `packages/engine/src/wallTilt.ts` (sem store/ids) e `wallTilt.test.ts` (11 testes, valores literais da tabela 4.2 a 1e-4).
+- Convenção: `tilt` em graus, + = topo à esquerda de a→b; `d(z)=z·tan(tilt)` assinado; volume/área/comprimento usam |tilt|; `arcTiltSide(sag,tilt)` dá s (centro do lado do `sag`: sag>0 e tilt>0 aproxima, s=-1).
+- Arco no nível z: centro e φ constantes, R_z = R − sign(sag)·d(z), extremos escalados radialmente, `sag_z = sign(sag)·R_z·(1−cos(φ/2))`; reta desloca a e b pela normal esquerda.
+- `tiltValid({tiltDeg,H,t,R?})`: finito, |tilt| ≤ 60 e, com R, R − H·tan|θ| > t/(2cosθ) + 0,01 (aplicado nos dois sentidos, conservador); R omitido = reta.
+- Volume/área do arco recebem `s` explícito (o chamador usa `arcTiltSide`); `axisLengthAtLevel` tem sobrecarga reta (L,z,tilt) e arco (R,φ,z,tilt,s).
