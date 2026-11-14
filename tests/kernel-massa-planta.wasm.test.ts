@@ -321,7 +321,7 @@ describe("massa, ficha R2: consultas 141, 142, 144 e 145 pela ABI real", () => {
   );
 
   it.skipIf(!bytes)(
-    "erros: massa inválida dá ENTRADA nas quatro consultas; a 143 segue sem implementação",
+    "erros: massa inválida dá ENTRADA nas quatro consultas (e na 143, da ficha R3)",
     () => {
       const cena = CenaV2.criar(ger!);
       enviarM1eM3(cena);
@@ -357,7 +357,7 @@ describe("massa, ficha R2: consultas 141, 142, 144 e 145 pela ABI real", () => {
         );
       expect(
         codigoDe(() => cena.consultar("massa_corte", [0, 0, 0, 1, 0, 100])),
-      ).toBe(CODIGOS.NAO_IMPLEMENTADO);
+      ).toBe(CODIGOS.ENTRADA);
       cena.destruir();
     },
   );
