@@ -308,6 +308,7 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   rotateCopy: false,
   mirrorCopy: true,
   offsetCopy: true,
+  offsetChain: true,
   moveDisjoin: DEFAULT_DISJOIN.move,
   rotateDisjoin: DEFAULT_DISJOIN.rotate,
   mirrorDisjoin: DEFAULT_DISJOIN.mirror,

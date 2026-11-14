@@ -405,6 +405,7 @@ export function OptionsBar(): ReactElement {
             />
           </label>
           <Check id="opt-ocopy" checked={o.offsetCopy} onChange={(v) => set({ offsetCopy: v })}>{t('tool_copy')}</Check>
+          <Check id="opt-ochain" checked={o.offsetChain ?? true} onChange={(v) => set({ offsetChain: v })}>{t('tool_chain')}</Check>
         </>
       )}
       {tool === 'parallel' && (
