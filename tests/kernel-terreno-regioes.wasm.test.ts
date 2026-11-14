@@ -47,8 +47,8 @@ interface TerrenoDeTeste {
 }
 
 const T5: TerrenoDeTeste = { id: 5, z: () => 10, regioes: [{ id: 1, papel: 1, quadrado: [5, 5, 10], cota: 8 }] };
-const T6: TerrenoDeTeste = { id: 6, z: () => 10, regioes: [{ id: 1, papel: 2, quadrado: [5, 5, 10], cota: 8, taludeCorte: 1 }] };
-const T7: TerrenoDeTeste = { id: 7, z: (x) => 10.25 + 0.1 * x, regioes: [{ id: 1, papel: 1, quadrado: [5, 5, 10], cota: 12.25 }] };
+const T6: TerrenoDeTeste = { id: 6, z: () => 10, regioes: [{ id: 2, papel: 2, quadrado: [5, 5, 10], cota: 8, taludeCorte: 1 }] };
+const T7: TerrenoDeTeste = { id: 7, z: (x) => 10.25 + 0.1 * x, regioes: [{ id: 3, papel: 1, quadrado: [5, 5, 10], cota: 12.25 }] };
 
 /** Envia as seções 160, 161, 162, 163 e 164 (pontos soltos nos cantos; sem curvas, quebras nem borda). */
 function enviar(cena: CenaV2, terrenos: TerrenoDeTeste[]): void {
@@ -146,7 +146,7 @@ describe('terreno, ficha R3: superfície proposta, corte e aterro pela ABI real'
     expect(aterro(2)).toBeLessThanOrEqual(100.4);
     expect(corte(2)).toBeLessThan(1e-6);
     const r = cena.consultar('quant_terreno_regioes', [0]);
-    expect(Array.from(r['linhas']!)).toEqual([1, 5, 1, 6, 1, 7]);
+    expect(Array.from(r['linhas']!)).toEqual([1, 5, 2, 6, 3, 7]);
     const rv = r['valores']!;
     for (let k = 0; k < 3; k++) {
       expect(Math.abs(rv[4 * k]! - 100)).toBeLessThan(1e-9);
@@ -201,12 +201,12 @@ describe('terreno, ficha R3: superfície proposta, corte e aterro pela ABI real'
 
   it.skipIf(!bytes)('terreno_corte: o perfil existente (papel 1) só aparece com plataforma ou nivelada', () => {
     const cena = cenaCom([T5]);
-    const l = cena.consultar('terreno_corte', [0, -1, 10, 1, 0, 0]);
-    const linhas = Array.from(l['linhas']!);
-    expect(linhas.filter((_, k) => k % 4 === 1)).toEqual([0, 1]);
+    // Plano em y = 10,123 (sem vértice em cima dele); a silhueta (papel 2) com profundidade 0 não interessa aqui.
+    const papeis = (r: Record<string, ArrayLike<number> | undefined>): number[] => Array.from(r['linhas']!).filter((_, k) => k % 4 === 1 && r['linhas']![k]! !== 2);
+    expect(papeis(cena.consultar('terreno_corte', [0, -1, 10.123, 1, 0, 0]))).toEqual([0, 1]);
     cena.destruir();
     const rampa = cenaCom([{ id: 2, z: (x) => 10.25 + 0.1 * x }]);
-    expect(Array.from(rampa.consultar('terreno_corte', [0, -1, 10, 1, 0, 0])['linhas']!).filter((_, k) => k % 4 === 1)).toEqual([0]);
+    expect(papeis(rampa.consultar('terreno_corte', [0, -1, 10.123, 1, 0, 0]))).toEqual([0]);
     rampa.destruir();
   });
 
@@ -237,14 +237,14 @@ describe('terreno, ficha R3: superfície proposta, corte e aterro pela ABI real'
       id: 3,
       z: () => 10,
       regioes: [
-        { id: 1, papel: 1, quadrado: [5, 5, 10], cota: 8 },
-        { id: 2, papel: 1, quadrado: [10, 10, 9], cota: 9 },
-        { id: 3, papel: 0, quadrado: [30, 30, 5], cota: 0 },
+        { id: 11, papel: 1, quadrado: [5, 5, 10], cota: 8 },
+        { id: 12, papel: 1, quadrado: [10, 10, 9], cota: 9 },
+        { id: 13, papel: 0, quadrado: [30, 30, 5], cota: 0 },
       ],
     };
     const cena = cenaCom([T5, cruzadas]);
     const r = cena.consultar('terreno_avisos', [0]);
-    expect(Array.from(r['avisos']!)).toEqual([3, 3, 2, 1, 3, 6, 3, ID_AUSENTE]);
+    expect(Array.from(r['avisos']!)).toEqual([3, 3, 12, 11, 3, 6, 13, ID_AUSENTE]);
     cena.destruir();
   });
 
