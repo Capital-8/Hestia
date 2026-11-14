@@ -203,7 +203,7 @@ function pontoArco(arc: ArcoAjustado, f: number): Vec2 {
 const QS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.45, 0.55, 0.35, 0.65, 0.25, 0.75];
 const QS_FINO = [-0.025, 0.025, -0.0125, 0.0125];
 
-function avaliarQ(curva: Curva, s0: Amostra, s1: Amostra, poly: Vec2[], q: number): { b: Biarco; err: number } | null {
+function avaliarQ(s0: Amostra, s1: Amostra, poly: Vec2[], q: number): { b: Biarco; err: number } | null {
   const b = biarco(s0, s1, q);
   if (!b) return null;
   let err = 0;
@@ -224,7 +224,7 @@ function avaliar(curva: Curva, u0: number, u1: number): Seg {
   let melhor: Seg = { u0, u1, b: null, err: Infinity };
   let qm = 0.5;
   const tentar = (q: number) => {
-    const r = avaliarQ(curva, s0, s1, poly, q);
+    const r = avaliarQ(s0, s1, poly, q);
     if (r && r.err < melhor.err - 1e-12) {
       melhor = { u0, u1, b: r.b, err: r.err };
       qm = q;
