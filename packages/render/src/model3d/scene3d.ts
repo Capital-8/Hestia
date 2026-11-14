@@ -7,6 +7,7 @@ import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance } from './pick3d.ts';
+import { faixaDaNevoa } from './nevoa3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
 import { arestasDosLotes, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
@@ -516,7 +517,8 @@ export class ModelScene {
     this.ground.visible = view.style !== 'wireframe';
     this.ground.receiveShadow = this.frame.shadows;
     this.scene.background = bg;
-    this.scene.fog = new THREE.Fog(bg, 60, 170);
+    const nevoa = faixaDaNevoa(this.orbit.camera.position, this.caixaEnquadramento);
+    this.scene.fog = new THREE.Fog(bg, nevoa.near, nevoa.far);
     this.sun.castShadow = this.frame.shadows;
     this.direcaoSol.copy(sunDirection(view.sunAzimuth, view.sunElevation));
     if (!this.boxCache.isEmpty()) {
@@ -1079,6 +1081,7 @@ export class ModelScene {
    */
   private antesDeDesenhar(renderer: RendererDeQuadro): void {
     this.layoutNiveis();
+    this.atualizarNevoa();
     if (!this.frame.shadows) return;
     prepararSombraDoQuadro({
       renderer,
@@ -1092,6 +1095,15 @@ export class ModelScene {
       teto: this.sombraMaxTriangulos,
       tamanhoTela: this.tamanhoTela,
     });
+  }
+
+  /** Névoa pela câmera atual e a caixa de enquadramento (`faixaDaNevoa`). Só escreve quando a faixa muda. */
+  private atualizarNevoa(): void {
+    const fog = this.scene.fog;
+    if (!(fog instanceof THREE.Fog)) return;
+    const { near, far } = faixaDaNevoa(this.orbit.camera.position, this.caixaEnquadramento);
+    if (fog.near !== near) fog.near = near;
+    if (fog.far !== far) fog.far = far;
   }
 
   /**
