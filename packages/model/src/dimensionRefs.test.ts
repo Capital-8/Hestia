@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_DIMENSION_STYLE,
   ProjectStore,
   createEmptyProject,
   defaultStairTypeId,
+  definirProvedorDeApoio,
   dimRefAt,
   dimensionGeometry,
   dimensionPoints,
@@ -11,13 +12,17 @@ import {
   dimensionValue,
   effectiveDimStyle,
   formatDimension,
+  isMass,
   makeFloor,
+  makeMass,
   makeStair,
   makeWall,
   openingType,
   resolveDimRef,
+  secaoCirculo,
   type Dimension,
   type DimensionElementRef,
+  type Mass,
 } from './index.ts';
 
 const LV = 'lv_0';
@@ -111,6 +116,40 @@ describe('dimRefAt', () => {
     expect(dimRefAt(p, LV, { x: 2.0, y: 0.0 }, 0.05)?.ref).toEqual(ref('d1', 'opening-center'));
     expect(dimRefAt(p, LV, { x: 3, y: 5 }, 0.05)).toBeNull();
     expect(dimRefAt(p, 'outro', { x: 4, y: 0 }, 0.05)).toBeNull();
+  });
+});
+
+describe('dimRefAt: massa como apoio `part` (vértices do anel cortado, pelo provedor do motor)', () => {
+  afterEach(() => definirProvedorDeApoio(null));
+
+  /** Provedor de teste: os 4 cantos de um retângulo 10 x 6 centrado na origem da massa (no app o anel vem do kernel). */
+  function provedorDaMassa(): void {
+    const cantos = [{ x: -5, y: -3 }, { x: 5, y: -3 }, { x: 5, y: 3 }, { x: -5, y: 3 }];
+    const pontosDe = (m: Mass) => cantos.map((c, i) => ({ key: `m0.l0.v${i}`, point: { x: m.origem.x + c.x, y: m.origem.y + c.y } }));
+    definirProvedorDeApoio({
+      ponto: (p, id, key) => {
+        const m = p.elements[id];
+        return isMass(m) ? (pontosDe(m).find((q) => q.key === key)?.point ?? null) : null;
+      },
+      candidatos: (_p, el) => (isMass(el) ? pontosDe(el) : []),
+    });
+  }
+
+  it('o vértice da massa vira referência `part` com chave estável; mover a massa leva a ponta', () => {
+    provedorDaMassa();
+    const s = cena();
+    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }) } });
+    const achado = dimRefAt(s.project, LV, { x: 15.01, y: 3.01 }, 0.05);
+    expect(achado?.ref).toEqual({ elementId: 'm1', feature: 'part', key: 'm0.l0.v2' });
+    near(achado!.point, 15, 3);
+    s.exec({ type: 'transform', ids: ['m1'], transform: { kind: 'translate', d: { x: 3, y: 1 } } });
+    near(resolveDimRef(s.project, achado!.ref as DimensionElementRef), 18, 4);
+  });
+
+  it('sem provedor (sem kernel) a massa não é apoio: nenhum ponto perto dela', () => {
+    const s = cena();
+    s.exec({ type: 'addMass', mass: { ...makeMass({ id: 'm1', levelId: LV, origem: { x: 10, y: 0 }, secoes: [secaoCirculo(0, 2), secaoCirculo(3, 2)] }) } });
+    expect(dimRefAt(s.project, LV, { x: 15.01, y: 3.01 }, 0.05)).toBeNull();
   });
 });
 
