@@ -2,6 +2,9 @@ import { boxOf, closestOnSegment, pointInMulti, type Box, type MultiPolygon, typ
 import type { SectionOrigin, SectionPart, SectionResult } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
 
+// Clique e caixa da massa no corte (ficha V3): reexportados aqui porque o barrel do render exporta este módulo por inteiro.
+export { massasNaCaixaDoCorte, pickMassaNoCorte } from './massa.ts';
+
 /**
  * Seleção nos cortes e elevações (decisão 0016, seção "Seleção em cortes e elevações"). Trabalha só com o resultado
  * do motor: os polígonos visíveis (linha oculta já aplicada) e a origem de cada item. Não recalcula geometria.

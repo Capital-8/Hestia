@@ -120,3 +120,4 @@ export * from './massaProjeto.ts';
 export * from './massaServico.ts';
 export * from './massaIssues.ts';
 export * from './massaQuantities.ts';
+export * from './massaVista.ts';

@@ -1,5 +1,6 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
+import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
@@ -361,6 +362,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   if (revealStrokes.length > 0) strokes.push(...revealStrokes);
   // Guarda-corpo revelado: a borda azul sai depois do desenho dele (como as outras reveladas, sem o `thinStrokes`).
   const revealGC: StrokeOp[] = [];
+  // Massas (ficha V3): pelo mesmo caminho do guarda-corpo, antes dele; a categoria 'mass' e a ocultação da vista valem dentro de `massaCorteOps`.
+  massaCorteOps(p, s, theme, input.dark, hidden, paint.mass, fills, strokes, input.highlight);
   guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
