@@ -116,7 +116,7 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
     const zz = zOf(v, z);
     return [...map(v.x, v.y, zz), rw.baseZ + zz] as [number, number, number];
   };
-  const pk = (v: Vec2): string => `${v.x.toFixed(7)},${v.y.toFixed(7)}`;
+  const pk = (v: Vec2): string => `${v.x.toFixed(7)},${v.y.toFixed(7)}`; // units-ok: chave interna de vértice
   const byKey = new Map<string, Array<[number, number]>>();
   for (const sg of segs) byKey.set(`${pk(sg.p)}>${pk(sg.q)}`, [...(byKey.get(`${pk(sg.p)}>${pk(sg.q)}`) ?? []), [sg.z0, sg.z1]]);
   const levelsAt = new Map<string, number[]>();
@@ -184,7 +184,7 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
     const bt = unionAll(bl);
     // Triangula o polígono JÁ deslocado: o mapa é não linear no arco, e a triangulação da planta poderia inverter triângulos.
     const zAt = new Map<string, number>();
-    const key = (x: number, y: number): string => `${x.toFixed(9)},${y.toFixed(9)}`;
+    const key = (x: number, y: number): string => `${x.toFixed(9)},${y.toFixed(9)}`; // units-ok: chave interna de vértice
     const lift = (m: MultiPolygon): MultiPolygon => m.map((pl) => pl.map((r) => r.map((v) => {
       const zz = zOf(v, Z);
       const [x, y] = map(v.x, v.y, zz);
