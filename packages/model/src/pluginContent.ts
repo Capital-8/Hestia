@@ -103,7 +103,9 @@ function completeType(cat: ContentCategory, raw: Record<string, unknown>, id: st
     base.code ??= '';
     base.description ??= '';
     base.cost ??= 0;
-    base.layers = Array.isArray(t.layers) ? t.layers.map((l) => (isObj(l) ? { wraps: false, ...l, materialId: mat(l.materialId) } : l)) : t.layers;
+    // Acesso por colchetes: a guarda da parede cortina (contratoCortina.test.ts) só admite leitura de camadas em pontos listados.
+    const camadas = t['layers'];
+    base['layers'] = Array.isArray(camadas) ? camadas.map((l) => (isObj(l) ? { wraps: false, ...l, materialId: mat(l.materialId) } : l)) : camadas;
   }
   if (cat === 'wall') {
     Object.assign(base, { wrapInserts: t.wrapInserts ?? 'both', wrapEnds: t.wrapEnds ?? 'none', strips: t.strips ?? [], thermalU: t.thermalU ?? null, acousticRw: t.acousticRw ?? null, fireRating: t.fireRating ?? null, manufacturer: t.manufacturer ?? '' });
@@ -120,8 +122,9 @@ function completeType(cat: ContentCategory, raw: Record<string, unknown>, id: st
 function shapeIssue(cat: ContentCategory, t: Record<string, unknown>, hasMaterial: (id: string) => boolean): string | null {
   if (typeof t.name !== 'string' || t.name.trim() === '' || t.name.length > 80) return 'nome do tipo inválido (1 a 80 caracteres)';
   if (LAYERED.has(cat)) {
-    if (!Array.isArray(t.layers) || t.layers.length === 0 || t.layers.length > 40) return 'o tipo precisa de 1 a 40 camadas';
-    for (const l of t.layers) {
+    const camadas = t['layers'];
+    if (!Array.isArray(camadas) || camadas.length === 0 || camadas.length > 40) return 'o tipo precisa de 1 a 40 camadas';
+    for (const l of camadas) {
       if (!isObj(l) || !LAYER_FUNCTIONS.includes(String(l.function))) return 'camada com função inválida';
       if (!num(l.thickness) || l.thickness < 0 || l.thickness > 5) return 'espessura de camada inválida (metros, de 0 a 5)';
       if (typeof l.materialId !== 'string' || !hasMaterial(l.materialId)) return `material inexistente: ${String(l.materialId)}`;
