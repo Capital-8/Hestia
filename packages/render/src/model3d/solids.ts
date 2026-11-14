@@ -351,7 +351,7 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  */
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
   const tj = tiltJoinOf(rw, l, jl);
-  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}` : '');
+  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
   return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
 }
 

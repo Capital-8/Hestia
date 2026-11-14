@@ -1,13 +1,13 @@
 /* eslint-disable max-lines */
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import {
-  isOpening,
   isCeiling,
   isFloor,
   isSlab,
   isRoof,
   isStair,
   isRamp,
+  isOpening,
   isWall,
   isRoom,
   isGeneric,
@@ -34,6 +34,7 @@ import {
   type Mass,
   type Material,
   type Opening,
+  type OpeningPlane,
   type OpeningType,
   type Project,
   type SectionView,
@@ -44,6 +45,7 @@ import {
 import { wallTiltIssue, wallTiltOf } from './wallTilt.ts';
 import { splitWall } from './splitWall.ts';
 import { setOpeningHost } from './openingHost.ts';
+import { isOpeningPlane } from './openingPlane.ts';
 import { changesWallEnds, clampOffset, rehostOpenings, wallEndsPatchOf, type WallEndsPatch } from './hostedOffset.ts';
 import { applyElementLevel, hasLevel, type SetElementLevel } from './elementLevel.ts';
 import { transformStair } from './stairTransform.ts';
@@ -159,6 +161,8 @@ export type Command =
   | { type: 'setWallEnds'; id: Id; a?: Vec2; b?: Vec2 }
   /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
   | { type: 'setWallTilt'; ids: Id[]; tilt: number }
+  /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se o valor for inválido. */
+  | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
   | { type: 'transform'; ids: Id[]; transform: Transform; copy?: { idMap: Record<Id, Id> } }
   | { type: 'splitWall'; id: Id; newId: Id; t: number; gap?: number; idMap?: Record<Id, Id> }
@@ -475,6 +479,16 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       for (const w of walls) {
         if (c.tilt === 0) delete w.tilt;
         else w.tilt = c.tilt;
+      }
+      break;
+    }
+    case 'setOpeningPlane': {
+      if (c.plano !== null && !isOpeningPlane(c.plano)) throw new Error(t(lang, 'md_cmd_plane_invalid'));
+      for (const id of c.ids) {
+        const o = p.elements[id];
+        if (!isOpening(o)) continue;
+        if (c.plano === null) delete o.plano;
+        else o.plano = c.plano;
       }
       break;
     }

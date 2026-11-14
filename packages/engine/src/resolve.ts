@@ -37,7 +37,7 @@ import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
-import { cutHalfOf, openingRect } from './openingCut.ts';
+import { cutHalfOf, openingRect, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -251,7 +251,7 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipHand: o.flipHand,
     flipFacing: o.flipFacing,
     offset: o.offset,
-    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}),
+    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}), ...openingTiltPlane(o, f, rough.width),
   };
 }
 
@@ -478,7 +478,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         height: heights.get(f.wall.id)!,
         nominalZ0: wallBaseElevation(p, f.wall),
         nominalZ1: wallBaseElevation(p, f.wall) + wallMaxHeight(p, f.wall),
-        ...(f.wall.tilt ? { tilt: f.wall.tilt, sag: f.wall.sag } : {}),
+        ...(f.wall.tilt ? { tilt: f.wall.tilt, sag: f.wall.sag } : {}), ...openingTiltCuts(opens, f.wall.id, f.wall.tilt),
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
         membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),

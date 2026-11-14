@@ -31,6 +31,8 @@ export * from './cachesDeConteudo.ts';
 export * from './outlineIssues.ts';
 export * from './wallZ.ts';
 export * from './wallFloorIssues.ts';
+export { ARC_PLANE_RATIO, inclinedFitsArc, openingTiltGeom, tiltCutZ, type OpeningTiltInput, type OpeningTiltResult, type TiltCut } from './openingTilt.ts';
+export { openingPlaneIssues } from './openingPlaneIssues.ts';
 export { analyzeLevelTilt, projetoTemParedeInclinada, wallTiltJoinIssues, type LevelTiltAnalysis, type TiltAviso, type TiltAvisoCode, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
 export * from './faces.ts';
 export * from './slabs.ts';
