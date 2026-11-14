@@ -1,4 +1,5 @@
-import { act, panel, soon, soonS, stack, t, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
+import { ALTURA_PADRAO, LADOS_PADRAO, type ModoMassa } from '@hestia/tools';
+import { act, panel, soon, soonS, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
  * Abas do Revit que o Hestia ainda não tem. Existem para manter a sequência e o roteiro: cada botão é `soon`
@@ -9,6 +10,20 @@ import { act, panel, soon, soonS, stack, t, type RibbonPanel, type RibbonTab, ty
 const tab = (id: RibbonTabId, label: Txt, ...panels: RibbonPanel[]): RibbonTab => ({ id, label, panels });
 const p = (id: string, title: Txt, ...names: Array<[Txt, string?]>): RibbonPanel =>
   panel(id, title, ...names.map(([n, icon]) => soon(n, icon)));
+
+/**
+ * Botão de modo da massa (ficha T1a, E11): liga a ferramenta `mass` já no modo, pelo mesmo `kind: 'option'` dos modos
+ * do telhado. O patch grava o modo com os padrões de perfil, altura e lados (a barra de opções ajusta depois).
+ */
+const modoMassa = (modo: ModoMassa, label: Txt, icon: string): RibbonItem => ({
+  kind: 'option',
+  label,
+  icon,
+  size: 'small',
+  test: (o) => (o.mass?.modo ?? 'extrusao') === modo,
+  patch: { mass: { modo, perfil: 'circulo', altura: ALTURA_PADRAO, lados: LADOS_PADRAO } },
+  restart: 'mass',
+});
 
 export const TABS_SOON: RibbonTab[] = [
   tab('estrutura', t('Estrutura', 'Structure'),
@@ -41,7 +56,16 @@ export const TABS_SOON: RibbonTab[] = [
     p('ana-verificacao', t('Verificação', 'Check'), [t('Verificar sistemas', 'Check Systems')]),
   ),
   tab('massa', t('Massa e terreno', 'Massing & Site'),
-    p('mas-massa', t('Modelo de massa', 'Conceptual Mass'), [t('Mostrar massa', 'Show Mass')], [t('Massa no local', 'In-Place Mass')], [t('Colocar massa', 'Place Mass')]),
+    panel('mas-massa', t('Modelo de massa', 'Conceptual Mass'),
+      tool('mass', 'large', { label: t('Massa', 'Mass'), icon: 'roof' }),
+      modoMassa('extrusao', t('Extrusão', 'Extrusion'), 'roofextrusion'),
+      modoMassa('mistura', t('Mistura', 'Blend'), 'attachroof'),
+      modoMassa('loft', t('Loft', 'Loft'), 'roofarrow'),
+      modoMassa('bulbo', t('Bulbo', 'Bulb'), 'slope'),
+      soon(t('Mostrar massa', 'Show Mass')),
+      soon(t('Massa no local', 'In-Place Mass')),
+      soon(t('Colocar massa', 'Place Mass')),
+    ),
     p('mas-por-massa', t('Modelo por massa', 'Model by Face'), [t('Telhado por face', 'Roof by Face'), 'roof'], [t('Parede por face', 'Wall by Face'), 'wall'], [t('Forro por face', 'Ceiling by Face'), 'ceiling'], [t('Piso por face', 'Floor by Face'), 'floor']),
     p('mas-terreno', t('Terreno', 'Site Modeling'), [t('Topografia', 'Toposurface')], [t('Subdivisão', 'Subregion')], [t('Plataforma', 'Building Pad')], [t('Componente de terreno', 'Site Component')], [t('Linhas de propriedade', 'Property Line')]),
   ),
