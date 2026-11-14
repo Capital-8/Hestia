@@ -1,4 +1,4 @@
-import type { DialogContribution, PluginAction, PluginText } from './contributesTypes.ts';
+import type { DialogContribution, ExporterContribution, ImporterContribution, PluginAction, PluginText } from './contributesTypes.ts';
 import { POINT_CAPABILITY } from './contributesTypes.ts';
 import type { PluginManifestV2 } from './manifestV2.ts';
 import type { CapabilityV2 } from './permissions.ts';
@@ -18,6 +18,9 @@ export interface RegisteredCommand {
 export interface RegisteredRibbonItem { commandQid: string; title: PluginText; size: 'large' | 'small'; icon?: string }
 export interface RegisteredRibbonPanel { qid: string; pluginId: string; pluginName: string; id: string; title: PluginText; items: RegisteredRibbonItem[] }
 export interface RegisteredDialog extends Omit<DialogContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+
+export interface RegisteredImporter extends Omit<ImporterContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredExporter extends Omit<ExporterContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 
 interface Entry { manifest: PluginManifestV2; grants: Set<CapabilityV2> }
 
@@ -105,4 +108,27 @@ export class ContributionRegistry {
   }
 
   dialog(qid: string): RegisteredDialog | undefined { return this.dialogs().find((d) => d.qid === qid); }
+
+  /** Importadores (permissão `io.import`; só chegam ao registro os de runtime script/external, pelo validador do manifesto). */
+  importers(): RegisteredImporter[] {
+    const out: RegisteredImporter[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'importers')) continue;
+      for (const i of e.manifest.contributes.importers ?? []) out.push({ ...i, qid: qualifiedId(e.manifest.id, i.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  /** Exportadores (permissão `io.export`; handler de script/external ou `template` declarativo). */
+  exporters(): RegisteredExporter[] {
+    const out: RegisteredExporter[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'exporters')) continue;
+      for (const x of e.manifest.contributes.exporters ?? []) out.push({ ...x, qid: qualifiedId(e.manifest.id, x.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
+  /** O suplemento tem esta permissão concedida agora? (o host confere a cada uso). */
+  isGranted(pluginId: string, cap: CapabilityV2): boolean { return this.entries.get(pluginId)?.grants.has(cap) ?? false; }
 }

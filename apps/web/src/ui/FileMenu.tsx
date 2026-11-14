@@ -5,9 +5,10 @@ import { useI18n, useT, type Lang } from '../editor/i18n.ts';
 import { importIfcFile, resumoImportacao, type ResumoImportacao } from '../editor/ifcImport.ts';
 import { useUi } from '../editor/state.ts';
 import { openPublish } from './dialogs/PublishDialog.tsx';
+import { PluginExportCards, PluginImportPreview, PluginImportSection, useHasPluginImporters } from './PluginIoMenu.tsx';
 import { carregarBiblioteca, useBiblioteca } from '../editor/biblioteca/aoVivo.ts';
 
-type Section = 'export' | 'info' | 'options' | 'abrir';
+type Section = 'export' | 'info' | 'options' | 'abrir' | 'import';
 
 /** Idiomas no seletor do menu Arquivo, com o nome nativo de cada um. */
 const LANG_OPTIONS: ReadonlyArray<readonly [Lang, string]> = [
@@ -33,6 +34,7 @@ export function FileMenu(): ReactElement | null {
   const project = useProject();
   const [section, setSection] = useState<Section>('export');
   const ifcRef = useRef<HTMLInputElement>(null);
+  const hasPluginImporters = useHasPluginImporters();
   const [resumo, setResumo] = useState<(ResumoImportacao & { nome: string }) | null>(null);
   const [erroIfc, setErroIfc] = useState<string | null>(null);
   const close = (): void => useUi.setState({ fileMenu: false });
@@ -119,6 +121,7 @@ export function FileMenu(): ReactElement | null {
           {item(t('btn_open'), () => setSection('abrir'), { on: section === 'abrir', arrow: true })}
           {item(t('shc_file_import_ifc'), () => ifcRef.current?.click(), { title: t('shc_file_import_ifc_tip') })}
           {item(t('shc_file_import_cad'), () => go(() => useUi.setState({ dialog: 'importCad' })), { title: t('shc_file_import_cad_tip') })}
+          {hasPluginImporters && item(t('supio_menu_import'), () => setSection('import'), { on: section === 'import', arrow: true })}
           {item(t('btn_save'), () => go(() => void editor.save()), { title: 'Ctrl+S' })}
           {item(t('bib_save_as'), () => go(() => void editor.salvarComo()))}
           {item(t('bib_back_home'), () => go(() => useUi.setState({ tela: 'home' })))}
@@ -130,6 +133,7 @@ export function FileMenu(): ReactElement | null {
           {item(t('shc_file_close_menu'), close)}
         </nav>
         <div className="fm-pane">
+          <PluginImportPreview />
           {resumo && (
             <div className="fm-hint" role="status">
               <p><b>{resumo.nome}</b> — {resumo.texto}</p>
@@ -164,6 +168,7 @@ export function FileMenu(): ReactElement | null {
               </div>
             </>
           )}
+          {section === 'import' && <PluginImportSection />}
           {section === 'export' && (
             <>
               <h3>{t('shc_file_export')}</h3>
@@ -172,6 +177,7 @@ export function FileMenu(): ReactElement | null {
                 {card('PDF', t('shc_file_export_hint_pdf'), exportPdf)}
                 {card(t('shc_file_publish'), t('shc_file_publish_hint'), async () => openPublish())}
                 {card('IFC', t('shc_file_export_hint_ifc'), exportIfc)}
+                <PluginExportCards onRun={close} />
               </div>
             </>
           )}
