@@ -17,7 +17,7 @@ Modo de execução: A (subagentes). Modelo: **SOMENTE Sonnet e Haiku** (ordem do
 | V1 | pendente | | 0 | |
 | V2 | pendente | | 0 | |
 | V3 | pendente | | 0 | |
-| I1 | pendente | | 0 | |
+| I1 | mesclada | merge de terreno/I1 | 0 | Sonnet. test:rapido 990 arq / 11532; test:i18n 31 OK (o fiscal criou o symlink /opt/pw-browsers/chromium-1248 -> chromium existente e subiu o vite em :5173, so ambiente). Para a ficha U1: renderizar <ImportTerrenoDialog /> no App e chamar abrirImportTerreno() no botao Topografia > Importar. Limites: INSERT (blocos) so avisa; CSV sem coluna de unidade; com localizacao ja existente, coordenadas entram cruas |
 | T1 | pendente | | 0 | |
 | T2 | pendente | | 0 | |
 | U1 | pendente | | 0 | |
@@ -50,5 +50,6 @@ Modo de execução: A (subagentes). Modelo: **SOMENTE Sonnet e Haiku** (ordem do
 (a medir em R1, R3 e Q1)
 
 ## Lições de processo
+- `npm run test:i18n` precisa de servidor em :5173 (`npm run dev -w @hestia/web -- --port 5173`) e do Chromium na revisão que o playwright-core espera; neste ambiente: `mkdir -p /opt/pw-browsers/chromium-1248/chrome-linux64 && ln -sf /opt/pw-browsers/chromium /opt/pw-browsers/chromium-1248/chrome-linux64/chrome`. Derrubar o servidor depois.
 - Herdadas da massa: `isolation: "worktree"` parte da `main` local e não serve; criar o worktree à mão e rodar `npm ci` dentro dele (nunca symlink de `node_modules`). `npm run build:wasm` regrava `packages/geom/assets/`; em ficha que não é de Rust, desfazer com `git checkout packages/geom/assets`.
 - Conferido em 2026-11-13: `spade 2.15.1` compila para `wasm32-unknown-unknown` com o toolchain do repositório (1.97.1). Um crate de teste fora do repositório precisa de uma cópia de `rust-toolchain.toml`, senão usa outro toolchain sem o alvo WASM.
