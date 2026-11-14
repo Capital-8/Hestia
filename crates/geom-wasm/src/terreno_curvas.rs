@@ -14,7 +14,8 @@ use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, LIMITE};
 use crate::terreno_avalia::Malha;
-use crate::terreno_tipos::{existente, terrenos_do_nivel};
+use crate::terreno_proposta::superficie_do_terreno;
+use crate::terreno_tipos::terrenos_do_nivel;
 
 /// Máximo de cotas distintas por terreno (acima disso, `LIMITE`).
 pub const MAX_COTAS: f64 = 2000.0;
@@ -172,13 +173,13 @@ pub fn curvas_da_malha(m: &Malha, intervalo: f64, mestra_cada: u32) -> Result<Ve
     Ok(out)
 }
 
-/// Consulta 161 (`terreno_curvas`): terrenos do nível por `id_num` crescente. Até a ficha R3 a superfície proposta devolve o mesmo que a existente.
-pub fn consulta_terreno_curvas(cena: &Cena, nivel: u32, _superficie: u32) -> Result<Vec<Saida>, u32> {
+/// Consulta 161 (`terreno_curvas`): terrenos do nível por `id_num` crescente. `superficie` 1 devolve as curvas da superfície proposta.
+pub fn consulta_terreno_curvas(cena: &Cena, nivel: u32, superficie: u32) -> Result<Vec<Saida>, u32> {
     let (mut linhas, mut pontos, mut cotas) = (Vec::new(), Vec::new(), Vec::new());
     for t in terrenos_do_nivel(&cena.terreno, nivel) {
-        let e = existente(cena, t)?;
+        let m = superficie_do_terreno(cena, t, superficie)?;
         let Some(def) = cena.terreno.terrenos.get(&t) else { continue };
-        for c in curvas_da_malha(&e.e, def.intervalo, def.mestra_cada)? {
+        for c in curvas_da_malha(&m, def.intervalo, def.mestra_cada)? {
             linhas.extend_from_slice(&[t, u32::from(c.mestra), u32::from(c.fechada), c.pontos.len() as u32]);
             pontos.extend(c.pontos.iter().flatten());
             cotas.push(c.z);

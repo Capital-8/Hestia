@@ -11,7 +11,8 @@ use std::collections::HashMap;
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::terreno_avalia::Malha;
-use crate::terreno_tipos::{existente, terrenos_do_nivel};
+use crate::terreno_proposta::superficie_do_terreno;
+use crate::terreno_tipos::terrenos_do_nivel;
 
 /// `papel` das linhas da consulta 162.
 pub const PAPEL_BORDA: u32 = 0;
@@ -51,12 +52,12 @@ pub fn lacos_de_borda(m: &Malha) -> Vec<(Vec<[f64; 2]>, bool)> {
     out
 }
 
-/// Consulta 162 (`terreno_planta`): terrenos do nível por `id_num` crescente. Até a ficha R3 a superfície proposta devolve o mesmo que a existente.
-pub fn consulta_terreno_planta(cena: &Cena, nivel: u32, _superficie: u32) -> Result<Vec<Saida>, u32> {
+/// Consulta 162 (`terreno_planta`): terrenos do nível por `id_num` crescente. `superficie` 1 devolve a borda da superfície proposta.
+pub fn consulta_terreno_planta(cena: &Cena, nivel: u32, superficie: u32) -> Result<Vec<Saida>, u32> {
     let (mut linhas, mut pontos) = (Vec::new(), Vec::new());
     for t in terrenos_do_nivel(&cena.terreno, nivel) {
-        let e = existente(cena, t)?;
-        for (p, fechado) in lacos_de_borda(&e.e) {
+        let m = superficie_do_terreno(cena, t, superficie)?;
+        for (p, fechado) in lacos_de_borda(&m) {
             linhas.extend_from_slice(&[t, PAPEL_BORDA, u32::from(fechado), p.len() as u32]);
             pontos.extend(p.iter().flatten());
         }

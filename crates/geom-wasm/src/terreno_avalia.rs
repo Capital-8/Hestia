@@ -1,13 +1,13 @@
 //! Terreno (PLANO do terreno A.4 regra 4): a malha de triângulos em planta com cota por vértice, a localização de um ponto e a consulta 163 (`terreno_cotas`).
 //!
 //! A localização usa uma grade uniforme sobre a caixa da malha (lista de triângulos por célula, em ordem crescente de índice), independente da biblioteca de
-//! triangulação: serve igual para T0, E e, na ficha R3, P. Um ponto conta como dentro de um triângulo até `TOL_DENTRO` além da aresta, para que pontos sobre
+//! triangulação: serve igual para T0, E e P. Um ponto conta como dentro de um triângulo até `TOL_DENTRO` além da aresta, para que pontos sobre
 //! a borda da malha não caiam fora por arredondamento.
 
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::ID_AUSENTE;
-use crate::terreno_tipos::existente;
+use crate::terreno_proposta::superficie_do_terreno;
 
 /// Folga (m) da pertinência de um ponto a um triângulo.
 pub const TOL_DENTRO: f64 = 1e-9;
@@ -216,9 +216,15 @@ impl Malha {
         (0..self.t.len()).map(|k| self.area2(k) / 2.0).sum()
     }
 
+    /// Área 3D do triângulo `k`.
+    pub fn area_triangulo(&self, k: usize) -> f64 {
+        let n = self.normal(k);
+        (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt() / 2.0
+    }
+
     /// Área de superfície (soma das áreas 3D dos triângulos).
     pub fn area_superficie(&self) -> f64 {
-        (0..self.t.len()).map(|k| self.normal(k)).map(|n| (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt() / 2.0).sum()
+        (0..self.t.len()).map(|k| self.area_triangulo(k)).sum()
     }
 
     /// Menor e maior cota dos vértices. `None` na malha vazia.
@@ -251,18 +257,18 @@ impl Malha {
 }
 
 /// Consulta 163 (`terreno_cotas`): para cada sonda (por `id_num`), o terreno de menor `id_num` que a contém, a cota e a declividade ali. Fora de todo terreno:
-/// `terreno_num = ID_AUSENTE` e valores 0. Até a ficha R3 a superfície proposta devolve o mesmo que a existente.
-pub fn consulta_terreno_cotas(cena: &Cena, _superficie: u32) -> Result<Vec<Saida>, u32> {
+/// `terreno_num = ID_AUSENTE` e valores 0. `superficie` 1 interpola a malha da superfície proposta (a mesma de `terreno_corte` e `terreno_curvas`).
+pub fn consulta_terreno_cotas(cena: &Cena, superficie: u32) -> Result<Vec<Saida>, u32> {
     let mut malhas = Vec::with_capacity(cena.terreno.terrenos.len());
     if !cena.terreno.sondas.is_empty() {
         for &t in cena.terreno.terrenos.keys() {
-            malhas.push((t, existente(cena, t)?));
+            malhas.push((t, superficie_do_terreno(cena, t, superficie)?));
         }
     }
     let mut linhas = Vec::with_capacity(cena.terreno.sondas.len() * 2);
     let mut valores = Vec::with_capacity(cena.terreno.sondas.len() * 2);
     for (&sonda, p) in &cena.terreno.sondas {
-        let achado = malhas.iter().find_map(|(t, e)| e.e.localizar(p.x, p.y).map(|l| (*t, e.e.cota_em(&l), e.e.declividade(l.triangulo))));
+        let achado = malhas.iter().find_map(|(t, m)| m.localizar(p.x, p.y).map(|l| (*t, m.cota_em(&l), m.declividade(l.triangulo))));
         let (terreno, z, decl) = achado.unwrap_or((ID_AUSENTE, 0.0, 0.0));
         linhas.extend_from_slice(&[sonda, terreno]);
         valores.extend_from_slice(&[z, decl]);

@@ -1,13 +1,14 @@
 //! Terreno (PLANO do terreno A.4 regra 14): avisos, consulta 168 (`terreno_avisos`).
 //!
 //! Os avisos 1 (pontos coincidentes com cotas diferentes), 2 (linha cruza outra, trecho ignorado) e 5 (terreno sem triângulos) são calculados junto com a
-//! triangulação e ficam em `Existente.avisos`; aqui só são expostos. Os avisos 3, 4 e 6 dependem das regiões (ficha R3).
+//! triangulação e ficam em `Existente.avisos`; aqui só são expostos. Os avisos 3 (regiões planas sobrepostas), 4 (precisão reduzida) e 6 (região fora do terreno) vêm da superfície proposta e saem depois dos de E.
 //!
 //! Saída: `avisos [terreno_num, codigo, regiao_num, indice]` e `valores [medido, limite, x, y, z]`, na ordem dos terrenos e, em cada um, na ordem em que os
 //! avisos foram gerados.
 
 use crate::cena::Cena;
 use crate::consultas::Saida;
+use crate::terreno_proposta::proposta;
 use crate::terreno_tipos::{existente, terrenos_do_nivel, AvisoTerreno};
 
 /// Acrescenta os avisos de um terreno às duas saídas da consulta 168.
@@ -23,6 +24,7 @@ pub fn consulta_terreno_avisos(cena: &Cena, nivel: u32) -> Result<Vec<Saida>, u3
     let (mut linhas, mut valores) = (Vec::new(), Vec::new());
     for t in terrenos_do_nivel(&cena.terreno, nivel) {
         achatar_avisos(t, &existente(cena, t)?.avisos, &mut linhas, &mut valores);
+        achatar_avisos(t, &proposta(cena, t)?.avisos, &mut linhas, &mut valores);
     }
     Ok(vec![Saida::U32(linhas), Saida::F64(valores)])
 }

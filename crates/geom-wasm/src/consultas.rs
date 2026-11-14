@@ -328,8 +328,9 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         }
         esquema::CONSULTA_QUANT_TERRENO => crate::terreno_quant::consulta_quant_terreno(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_TERRENO_AVISOS => crate::terreno_avisos::consulta_terreno_avisos(cena, arg_nivel(args[0])?),
-        // Ids registrados no contrato (ficha M2); o cálculo entra na ficha R3.
-        esquema::CONSULTA_QUANT_TERRENO_REGIOES | esquema::CONSULTA_TERRENO_CORTE_ATERRO => Err(NAO_IMPLEMENTADO),
+        // Terreno, ficha R3: quantidades por região e mapa de corte e aterro.
+        esquema::CONSULTA_QUANT_TERRENO_REGIOES => crate::terreno_volumes::consulta_quant_terreno_regioes(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_TERRENO_CORTE_ATERRO => crate::terreno_volumes::consulta_terreno_corte_aterro(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }

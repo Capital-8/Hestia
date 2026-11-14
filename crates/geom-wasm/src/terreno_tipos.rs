@@ -18,7 +18,10 @@ use crate::terreno_avalia::Malha;
 /// Códigos de aviso do terreno (A.4 regra 14).
 pub const AVISO_COTAS_DIFERENTES: u32 = 1;
 pub const AVISO_LINHA_CRUZA: u32 = 2;
+pub const AVISO_REGIOES_SOBREPOSTAS: u32 = 3;
+pub const AVISO_PRECISAO_REDUZIDA: u32 = 4;
 pub const AVISO_SEM_TRIANGULOS: u32 = 5;
+pub const AVISO_REGIAO_FORA: u32 = 6;
 
 /// Diferença de cota (m) acima da qual dois vértices fundidos geram o aviso 1.
 pub const TOL_COTA_FUSAO: f64 = 0.001;
@@ -179,9 +182,9 @@ pub fn dentro_ou_sobre(q: V, p: &[V], tol: f64) -> bool {
 /// Assinatura de 128 bits das fontes de um terreno.
 pub type Assinatura = (u64, u64);
 
-const SEMENTE: Assinatura = (0xcbf2_9ce4_8422_2325, 0x9e37_79b9_7f4a_7c15);
+pub(crate) const SEMENTE: Assinatura = (0xcbf2_9ce4_8422_2325, 0x9e37_79b9_7f4a_7c15);
 
-fn misturar(h: &mut Assinatura, x: u64) {
+pub(crate) fn misturar(h: &mut Assinatura, x: u64) {
     h.0 = (h.0 ^ x).wrapping_mul(0x0000_0100_0000_01b3).rotate_left(5);
     h.1 = (h.1 ^ x.rotate_left(31)).wrapping_mul(0xff51_afd7_ed55_8ccd).rotate_left(27);
 }
@@ -211,9 +214,17 @@ pub struct CacheTerreno {
     geracao: Option<u64>,
     assinaturas: BTreeMap<u32, Assinatura>,
     existentes: BTreeMap<u32, (Assinatura, Rc<Existente>)>,
+    /// Geração das regiões (`SecoesTerreno::geracao_regioes`) a que `assinaturas_regioes` se refere.
+    pub(crate) geracao_regioes: Option<u64>,
+    pub(crate) assinaturas_regioes: BTreeMap<u32, Assinatura>,
+    /// P por terreno (regra 16): vale enquanto E é o mesmo objeto do cache e a assinatura das regiões não muda.
+    pub(crate) propostas: BTreeMap<u32, (Rc<Existente>, Assinatura, Rc<crate::terreno_proposta::Proposta>)>,
     /// Quantas vezes T0 e E foram calculadas (só nos testes).
     #[cfg(test)]
     pub(crate) triangulacoes: u32,
+    /// Quantas vezes P foi calculada (só nos testes).
+    #[cfg(test)]
+    pub(crate) propostas_calculadas: u32,
 }
 
 /// T0 e E do terreno, do cache ou calculadas agora. Erro (`ENTRADA`) não fica no cache.
