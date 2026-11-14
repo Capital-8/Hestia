@@ -44,6 +44,8 @@ import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
+import { applyTiltToPlan } from './wallTiltPlan.ts';
+import { analyzeLevelTilt } from './wallTiltJoinLevel.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
 const MIN_AREA = 1e-9;
@@ -489,6 +491,12 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
       };
       out.walls[f.wall.id] = rw;
     }
+  }
+  // Parede inclinada (F2.5): a planta do plano de corte sai deslocada por d(zCorte); sem parede inclinada, nada muda.
+  if (frames.some((f) => f.wall.tilt)) {
+    const heights = new Map(Object.entries(out.walls).map(([id, w]) => [id, w.height] as const));
+    const planZ = new Map(Object.entries(out.walls).map(([id, w]) => [id, (opts.cutZ ?? w.baseZ + PLAN_CUT) - w.baseZ] as const));
+    applyTiltToPlan(out, planZ, analyzeLevelTilt(frames, heights, p.settings?.joinTolerance).joins);
   }
   return out;
 }
