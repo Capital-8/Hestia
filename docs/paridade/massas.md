@@ -1,7 +1,7 @@
 # Paridade · Massas (massa conceitual: extrusão, mistura, loft, bulbo, torção, arranjo polar)
 
 Legenda: `[x]` feito e testado · `[ ]` pendente · `[-]` fora de escopo, com o motivo na própria linha.
-Fonte: o plano [docs/massa/PLANO.md](../massa/PLANO.md) (Parte A, emendas E1 a E18) e a decisão [0057](../decisoes/0057-massa-conceitual.md). Não há pasta de pesquisa própria:
+Fonte: o plano [docs/massa/PLANO.md](../massa/PLANO.md) (Parte A, emendas E1 a E18) e a decisão [0058](../decisoes/0058-massa-conceitual.md). Não há pasta de pesquisa própria:
 a referência é o conceito de "massa conceitual" do Revit (Conceptual Mass) e do ArchiCAD (Morph), reduzido a uma única primitiva, a pilha de seções horizontais.
 Nenhum item `[ ]` está pendente: o que ficou de fora está em `[-]`, com o motivo. O fiscal registra o elemento em `ORDEM.json` depois.
 

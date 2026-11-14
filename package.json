@@ -38,7 +38,9 @@
     "wasm:check": "node scripts/verificar-wasm.mjs",
     "test:wasm": "vitest run --config vitest.wasm.config.ts",
     "test:wasm:pesado": "vitest run --config vitest.wasm.pesado.config.ts",
-    "kernel:harness": "vite-node scripts/kernel-harness.mts --"
+    "kernel:harness": "vite-node scripts/kernel-harness.mts --",
+    "suplementos:empacotar": "vite-node scripts/empacotar-suplementos.mts --",
+    "suplementos:novo": "vite-node scripts/suplementos-novo.mts --"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

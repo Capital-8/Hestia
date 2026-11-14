@@ -1,6 +1,9 @@
-//! Lado do plugin do protocolo 1.0 (docs/plugins/02-protocolo.md): `hello`, `ack`, heartbeat, snapshot e deltas,
-//! câmera, modo de câmera e substituições. Uma conexão por vez; o estado da cena sobrevive entre conexões para a retomada.
+//! Lado do plugin do protocolo 1.1 (docs/plugins/02-protocolo.md): `hello`, pareamento por token (`auth`/`auth.ok`),
+//! `ack`, heartbeat, snapshot e deltas, câmera, modo de câmera e substituições. Uma conexão por vez; o estado da cena
+//! sobrevive entre conexões para a retomada. Com token exigido, nada além de `ack`/`ping`/`pong`/`bye`/`error` é
+//! processado antes de o host provar que conhece o token.
 
+use crate::auth::{self, AuthMode, Lockout};
 use crate::state::State;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -36,6 +39,7 @@ const NUMBERED_FROM_HOST: &[&str] = &[
     "camera.update",
     "camera.mode",
     "overrides.state",
+    "auth",
 ];
 const NUMBERED_TO_HOST: &[&str] = &[
     "hello",
@@ -45,6 +49,7 @@ const NUMBERED_TO_HOST: &[&str] = &[
     "overrides.set",
     "overrides.clear",
     "cancel",
+    "auth.ok",
 ];
 
 pub enum End {
@@ -64,6 +69,10 @@ struct Peer {
     cam_rev: u64,
     req_n: u64,
     last_report: Instant,
+    /// Token exigido e o host ainda não provou que o conhece.
+    auth_required: bool,
+    authed: bool,
+    nonce_plugin: String,
 }
 
 impl Peer {
@@ -96,7 +105,15 @@ fn manifest() -> Value {
 }
 
 /// Trata uma conexão até ela terminar. Escreve o relatório de estado depois de cada mensagem e de cada comando.
-pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mut Retained, cmds: &Receiver<Cmd>, report: &dyn Fn(&State)) -> End {
+pub fn run_connection(
+    ws: WebSocket<TcpStream>,
+    state: &mut State,
+    retained: &mut Retained,
+    mode: &AuthMode,
+    lockout: &mut Lockout,
+    cmds: &Receiver<Cmd>,
+    report: &dyn Fn(&State),
+) -> End {
     let mut p = Peer {
         ws,
         next_seq: 1,
@@ -109,17 +126,23 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
         cam_rev: 0,
         req_n: 0,
         last_report: Instant::now(),
+        auth_required: mode.token.is_some(),
+        authed: false,
+        nonce_plugin: auth::novo_nonce(),
     };
+    state.auth_required = p.auth_required;
+    state.authenticated = false;
     state.connections += 1;
     state.connected = true;
     state.last_close.clear();
     state.session_id = None;
 
-    let mut hello = json!({
-        "t": "hello",
-        "protocol": { "min": "1.0", "max": "1.0" },
-        "manifest": manifest(),
-    });
+    // Com token: só fala 1.1 (um host 1.0 não sabe autenticar e é recusado). Sem token (desenvolvimento): 1.0 legado.
+    let mut hello = if p.auth_required {
+        json!({ "t": "hello", "protocol": { "min": "1.1", "max": "1.1" }, "manifest": manifest(), "auth": { "nonce": p.nonce_plugin } })
+    } else {
+        json!({ "t": "hello", "protocol": { "min": "1.0", "max": "1.0" }, "manifest": manifest() })
+    };
     if let Some(sid) = &retained.session_id {
         hello["resume"] = json!({ "sessionId": sid, "lastRevision": state.scene.revision });
     }
@@ -147,7 +170,7 @@ pub fn run_connection(ws: WebSocket<TcpStream>, state: &mut State, retained: &mu
         match p.ws.read() {
             Ok(Message::Text(txt)) => {
                 p.last_seen = Instant::now();
-                match handle(&mut p, state, retained, &txt) {
+                match handle(&mut p, state, retained, mode, lockout, &txt) {
                     Ok(true) => report(state),
                     Ok(false) => return finish(state, report, "encerrado pelo host".into()),
                     Err(e) => return finish(state, report, format!("falha: {e}")),
@@ -210,7 +233,7 @@ fn run_cmd(p: &mut Peer, cmd: Cmd) -> Result<(), WsError> {
 }
 
 /// Trata um quadro do host. `Ok(false)` = encerrar a conexão.
-fn handle(p: &mut Peer, state: &mut State, retained: &mut Retained, txt: &str) -> Result<bool, WsError> {
+fn handle(p: &mut Peer, state: &mut State, retained: &mut Retained, mode: &AuthMode, lockout: &mut Lockout, txt: &str) -> Result<bool, WsError> {
     let Ok(m) = serde_json::from_str::<Value>(txt) else {
         state.errors.push(json!({ "code": "bad_frame", "message": "JSON inválido recebido do host" }));
         return Ok(true);
@@ -234,6 +257,18 @@ fn handle(p: &mut Peer, state: &mut State, retained: &mut Retained, txt: &str) -
         }
         p.last_rx = seq;
         p.ws.send(Message::text(json!({ "t": "ack", "ack": seq }).to_string()))?;
+    }
+
+    // Antes da autenticação, nenhuma mensagem de cena, câmera ou substituição é processada.
+    if p.auth_required && !p.authed {
+        match t.as_str() {
+            "ack" | "ping" | "pong" | "bye" | "error" => {}
+            "auth" => return on_auth(p, state, mode, lockout, &m),
+            other => {
+                let msg = format!("mensagem \"{other}\" antes da autenticação");
+                return auth_fail(p, state, &msg).map(|_| false);
+            }
+        }
     }
 
     match t.as_str() {
@@ -297,4 +332,28 @@ fn strings(v: &Value) -> Vec<String> {
     v.as_array()
         .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect())
         .unwrap_or_default()
+}
+
+/// Registra e envia `error auth_failed` (fatal). O chamador encerra a conexão.
+fn auth_fail(p: &mut Peer, state: &mut State, message: &str) -> Result<(), WsError> {
+    let error = json!({ "code": "auth_failed", "message": message, "fatal": true });
+    state.errors.push(error.clone());
+    p.send(json!({ "t": "error", "error": error }))
+}
+
+/// Confere a prova do host (`auth`) e responde com a nossa (`auth.ok`). Prova errada conta para o bloqueio.
+fn on_auth(p: &mut Peer, state: &mut State, mode: &AuthMode, lockout: &mut Lockout, m: &Value) -> Result<bool, WsError> {
+    let token = mode.token.as_deref().unwrap_or_default();
+    let (nonce_host, proof) = (m["nonce"].as_str().unwrap_or_default(), m["proof"].as_str().unwrap_or_default());
+    if nonce_host.is_empty() || !auth::confere(token, "hestia-host", &p.nonce_plugin, nonce_host, proof) {
+        lockout.record_failure(Instant::now());
+        auth_fail(p, state, "o host não provou conhecer o token de pareamento")?;
+        return Ok(false);
+    }
+    p.authed = true;
+    state.authenticated = true;
+    lockout.record_success();
+    let proof = auth::prova(token, "hestia-plugin", &p.nonce_plugin, nonce_host);
+    p.send(json!({ "t": "auth.ok", "proof": proof }))?;
+    Ok(true)
 }

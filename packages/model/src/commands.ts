@@ -81,6 +81,7 @@ import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
+import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
 import { applyMassCommand } from './massCommands.ts';
 import { isMass, transformMass } from './mass.ts';
@@ -191,6 +192,7 @@ export type Command =
   | SheetCommand
   | View3DPointCommand
   | PluginDataCommand
+  | PluginContentCommand // SUPLEMENTOS:
   | GridCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
@@ -357,7 +359,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -575,6 +577,8 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'ensurePluginProjectUid':
     case 'setPluginViewOverride':
     case 'clearPluginViewOverride':
+    case 'setPluginData': // SUPLEMENTOS:
+    case 'deletePluginData': // SUPLEMENTOS:
       applyPluginDataCommand(p, c);
       break;
     case 'addView3DPoint':

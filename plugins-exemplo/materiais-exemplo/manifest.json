@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.materiais-exemplo",
+  "name": "Materiais de exemplo",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "declarative",
+  "description": "Suplemento declarativo (só JSON, sem código): contribui três materiais de acabamento.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["content.materials"],
+  "contributes": {
+    "materials": [
+      { "id": "reboco-claro", "name": "Reboco claro", "color": "#e8e2d6", "gloss": 0.1, "opacity": 1 },
+      { "id": "porcelanato-grafite", "name": "Porcelanato grafite", "color": "#4a4d52", "gloss": 0.7, "opacity": 1 },
+      { "id": "vidro-verde", "name": "Vidro verde", "color": "#a8d5c4", "gloss": 0.9, "opacity": 0.35 }
+    ]
+  }
+}

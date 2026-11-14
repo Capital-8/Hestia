@@ -35,6 +35,9 @@ const modoMassa = (modo: ModoMassa, label: Txt, icon: string): RibbonItem => ({
   restart: 'mass',
 });
 
+/** Base da aba Suplementos: o renderizador e demais processos externos continuam acessíveis por aqui. */
+export const SUPLEMENTOS_TAB: RibbonTab = tab('suplementos', t('Suplementos', 'Add-Ins'), panel('sup-externas', t('Ferramentas externas', 'External Tools'), act('externalTools')));
+
 export const TABS_SOON: RibbonTab[] = [
   tab('estrutura', t('Estrutura', 'Structure'),
     p('est-conexao', t('Conexão', 'Connection'), [t('Conexão', 'Connection')]),
@@ -85,6 +88,8 @@ export const TABS_SOON: RibbonTab[] = [
     p('col-gerenciar', t('Gerenciar colaboração', 'Manage Collaboration'), [t('Conjuntos de trabalho', 'Worksets')], [t('Opções de design', 'Design Options')]),
     p('col-coordenar', t('Coordenar', 'Coordinate'), [t('Copiar/monitorar', 'Copy/Monitor')], [t('Verificar interferências', 'Interference Check')]),
   ),
-  // Única entrada habilitada de Suplementos: gerenciador de plugins de integração (docs/plugins).
-  tab('suplementos', t('Suplementos', 'Add-Ins'), panel('sup-externas', t('Ferramentas externas', 'External Tools'), act('externalTools'))),
+  // Aba Suplementos: parte FIXA (gerenciador de plugins de integração, docs/plugins) + painéis contribuídos por manifestos
+  // (ADR 0057). Os painéis dos suplementos ativos entram em tempo de execução via `withPluginPanels` (`pluginRibbon.ts`);
+  // sem nenhum suplemento ativa, a aba é só "Ferramentas externas", como antes.
+  SUPLEMENTOS_TAB,
 ];

@@ -115,7 +115,7 @@ decisão 0039 e 3D vetorial na 0040.
 - **Exportar PDF**: PDF 1.4 vetorial sem dependências, uma página por prancha; **Publicar** escolhe pranchas, ordem e
   um arquivo por prancha (`tests/e2e/prancha-editor.mjs`).
 
-**Massa conceitual** — 80 feitos, 16 fora de escopo, 0 pendentes (`docs/paridade/massas.md`; decisão 0057; plano e emendas em `docs/massa/PLANO.md`).
+**Massa conceitual** — 80 feitos, 16 fora de escopo, 0 pendentes (`docs/paridade/massas.md`; decisão 0058; plano e emendas em `docs/massa/PLANO.md`).
 - Elemento novo `Mass`: **pilha de 2 a 64 seções horizontais** (círculo, elipse, polígono regular ou perfil livre; rotação, escala e deslocamento por seção; interpolação linear ou suave) com **arranjo polar** de até 64 cópias. Extrusão, mistura, loft e bulbo são atalhos que montam a pilha; torção é rotação por seção.
 - **Toda a geometria vem do kernel Rust** (seções 140–142, consultas 140–145, `versao` 19): malha fechada, fatias por pavimento, planta, corte e elevação, quantidades e quatro avisos. Sem kernel a massa fica no modelo, com contorno de reserva na planta e no 3D e aviso no painel; nunca há geometria da massa em TypeScript.
 - 3D (lote transparente, seleção e realce), planta (cortado, projetado e acima), corte e elevação, snaps, cota associativa; ferramenta `mass` (atalho `MA` ou `VM`), alças, mover, copiar, girar, espelhar, matriz, alinhar, colar e colar por níveis; painel de propriedades (torção total em graus, arranjo polar), diálogo "Seções da massa", categoria "Massas" no navegador, 'Mostrar massa', tabela "Massas por pavimento" com CSV e avisos no painel.

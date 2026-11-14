@@ -1,4 +1,4 @@
-# Decisão 0057 — Massa conceitual (pilha de seções, kernel Rust, derivação de pisos e paredes)
+# Decisão 0058 — Massa conceitual (pilha de seções, kernel Rust, derivação de pisos e paredes)
 
 Data: 2026-11-14. Estado: **implementada** (fichas M1 a Q1, branch `massa/*`, mescladas em `claude/youthful-dirac-l4egd1`; `SCHEMA_VERSION` 26, contrato do kernel `versao` 19, `abi` 2).
 Fonte de trabalho: [docs/massa/PLANO.md](../massa/PLANO.md) (Parte A e emendas E1 a E18) e [docs/massa/ESTADO.md](../massa/ESTADO.md). Este texto resume a decisão e não copia o plano: onde houver diferença, vale o plano com as emendas.

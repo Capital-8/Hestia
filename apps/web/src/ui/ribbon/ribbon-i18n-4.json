@@ -830,5 +830,21 @@
     "fr": "Sélectionnez une masse.",
     "it": "Seleziona una massa.",
     "pl": "Wybierz bryłę."
+  },
+  {
+    "pt": "Gerenciar suplementos",
+    "es": "Gestionar complementos",
+    "de": "Add-ins verwalten",
+    "fr": "Gérer les compléments",
+    "it": "Gestisci i componenti aggiuntivi",
+    "pl": "Zarządzaj dodatkami"
+  },
+  {
+    "pt": "Instala suplementos (.hestiapkg ou pasta), revisa as permissões e os ativa ou desativa.",
+    "es": "Instala complementos (.hestiapkg o carpeta), revisa los permisos y los activa o desactiva.",
+    "de": "Installiert Add-ins (.hestiapkg oder Ordner), prüft die Berechtigungen und aktiviert oder deaktiviert sie.",
+    "fr": "Installe des compléments (.hestiapkg ou dossier), examine les autorisations et les active ou désactive.",
+    "it": "Installa componenti aggiuntivi (.hestiapkg o cartella), esamina le autorizzazioni e li attiva o disattiva.",
+    "pl": "Instaluje dodatki (.hestiapkg lub folder), przegląda uprawnienia oraz włącza lub wyłącza dodatki."
   }
 ]

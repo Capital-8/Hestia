@@ -415,6 +415,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Conecta programas externos (como o renderizador) ao modelo.', 'Connect external programs (such as the renderer) to the model.'),
     run: openDialog('externalTools'),
   },
+  pluginManager: {
+    label: t('Gerenciar suplementos', 'Manage Add-Ins'),
+    icon: 'component',
+    hint: t('Lista todos os suplementos: instala, atualiza, ajusta permissões, mostra o registro e os dados. Atalho: Alt+Shift+P.', 'Lists every add-in: install, update, adjust permissions, view the log and the data. Shortcut: Alt+Shift+P.'),
+    run: openDialog('pluginManager'),
+  },
   importCad: {
     label: t('Importar CAD (DXF)', 'Import CAD'),
     icon: 'open',

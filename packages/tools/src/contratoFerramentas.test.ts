@@ -37,6 +37,8 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
+  plugin: 'pluginTool.ts',
 };
 
 /**

@@ -1,0 +1,8 @@
+{
+  "name": "@hestia/plugin-sdk",
+  "version": "0.1.0",
+  "description": "Tipos, modelo de suplemento e testkit para escrever suplementos do Hestia.",
+  "license": "MIT",
+  "types": "hestia-plugin.d.ts",
+  "files": ["hestia-plugin.d.ts", "template", "LEIA-ME.md"]
+}

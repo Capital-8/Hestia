@@ -25,6 +25,7 @@ export { exportSheetsPdf } from './pdf/sheetsPdf.ts';
 export { buildPdf, type PdfPageSpec } from './pdf/pdfWriter.ts';
 export * from './dxfCheck.ts';
 export * from './zip.ts';
+export * from './pluginIo.ts';
 export {
   PT_IO_PACKAGE,
   EN_IO_PACKAGE,
@@ -36,3 +37,6 @@ export {
   dxfLayerName,
   dxfLayerCanonical,
 } from './i18n.ts';
+// SUPLEMENTOS (Fase D): leitor de zip com limites e pacote `.hestiapkg`.
+export * from './zipRead.ts';
+export * from './pkg.ts';

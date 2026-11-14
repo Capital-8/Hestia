@@ -75,7 +75,15 @@ import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
+import { PluginBatchPreviewDialog } from './ui/dialogs/PluginBatchPreviewDialog.tsx';
 import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
+import { PluginDialog } from './plugins/pluginUi.tsx';
+import { PluginPanels } from './ui/PluginPanel.tsx'; // SUPLEMENTOS (fase H)
+import { SupplementsDialog } from './ui/dialogs/SupplementsDialog.tsx';
+import { isManagerShortcut } from './plugins/supShortcut.ts'; // SUPLEMENTOS: fase J
+import { PluginResultDialog } from './ui/dialogs/PluginResultDialog.tsx';
+import { PluginSchedule } from './ui/PluginSchedule.tsx';
+import { startSupplements } from './plugins/supApp.ts';
 import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
 import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
 import { definirAtualizacaoPendente } from './editor/atualizacao/ponte.ts';
@@ -218,6 +226,16 @@ function Dialogs(): ReactElement | null {
       return <SobreDialog />;
     case 'externalTools':
       return <ExternalToolsDialog />;
+    case 'pluginDialog': // SUPLEMENTOS
+      return <PluginDialog />;
+    case 'pluginManager': // SUPLEMENTOS
+      return <SupplementsDialog />;
+    case 'pluginResult': // SUPLEMENTOS
+      return <PluginResultDialog />;
+    case 'pluginBatchPreview': // SUPLEMENTOS (fase I)
+      return <PluginBatchPreviewDialog />;
+    case 'pluginSchedule': // SUPLEMENTOS
+      return <PluginSchedule />;
     case 'updatePrompt':
       return <AvisoAtualizacaoDialog />;
     case 'moveLevel':
@@ -300,6 +318,8 @@ export function App(): ReactElement {
 
   // Plugins que o usuário deixou habilitados reconectam ao abrir o app (nada é iniciado: só se conecta a porta local).
   useEffect(() => { pluginHost().start(); }, []);
+  // SUPLEMENTOS: carrega os suplementos habilitados depois da primeira pintura (cada um com try/catch; falha não impede abrir o app).
+  useEffect(() => { startSupplements(); }, []);
 
   // Retomada: só existe sessão quando a página foi recarregada (F5). Abrir a aba ou o programa de novo cai na tela de
   // projetos, que é onde o usuário escolhe o que abrir.
@@ -361,6 +381,12 @@ export function App(): ReactElement {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // SUPLEMENTOS (fase J): Alt+Shift+P abre o gerenciador (vale até com o foco num campo, mas não sobre outro diálogo).
+      if (isManagerShortcut(e) && useUi.getState().tela !== 'home' && !dialog) {
+        e.preventDefault();
+        useUi.setState({ dialog: 'pluginManager', dialogArg: null });
+        return;
+      }
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
       // Na tela de projetos não há documento aberto: nenhum atalho do editor vale ali.
@@ -414,6 +440,7 @@ export function App(): ReactElement {
         )}
       </div>
       <StatusBar />
+      <PluginPanels /> {/* SUPLEMENTOS (fase H): painéis laterais persistentes */}
       <Dialogs />
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />

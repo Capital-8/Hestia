@@ -55,7 +55,8 @@ describe('faixa guiada por dados', () => {
     const ctx = ['wall', 'roofarrow', 'slope', 'attachroof', 'detachroof', 'rehost', 'roomsep'] as const;
     // Pendente: o modo de perímetro não tem botão de criação na faixa (abre por `perimeterActions.begin`).
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
-    const pendente = ['perimeter', 'paste'] as const;
+    // A ferramenta de suplemento ('plugin') é aberta pelos botões que o próprio suplemento contribui (aba Suplementos).
+    const pendente = ['perimeter', 'paste', 'plugin'] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);

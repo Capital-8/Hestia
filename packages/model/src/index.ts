@@ -83,6 +83,9 @@ export * from './sheet.ts';
 export * from './sheetCommands.ts';
 export * from './view3dPoints.ts';
 export * from './pluginData.ts';
+export * from './pluginCommands.ts'; // SUPLEMENTOS:
+export * from './pluginContent.ts'; // SUPLEMENTOS:
+export { materialReferences } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';
@@ -95,3 +98,8 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
+// SUPLEMENTOS (fase E): expressões JSONLogic restritas, campos, verificações e quantitativos.
+export * from './pluginExpr.ts';
+export * from './pluginFields.ts';
+export * from './pluginChecks.ts';
+export * from './pluginSchedules.ts';
