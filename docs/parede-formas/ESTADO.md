@@ -93,3 +93,5 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - `ResolvedWall` ganhou `tilt?` e `sag?` (só quando tilt ≠ 0; `types.ts` tocado só para o tipo); chave de cache ganha `|tilt=..|sag` apenas com tilt. Junções e vãos seguem o corte vertical na base (F2.4/F2.8).
 - Achado F2.2: `axisAtLevel` e `arcTiltSide` (wallTilt.ts) põem o centro do arco do lado do `sag`, mas `arcFromSagitta` e `wallTiltIssue` o põem do lado oposto (sag>0: centro à direita); o sinal de s fica invertido em arco. A F2.3 usa `arcFromSagitta`; corrigir o F2.2 antes de F2.4/F2.7 usarem `s`.
 - Testes `wallTiltSolid.test.ts`: reta 2,4847 e 2,7713 (1e-4; fórmula 1e-6), arco 5,2708 e 4,4865 (1e-3), 2 camadas, malha fechada, cache.
+
+- **Correção do fiscal (pós-F2.3):** `arcTiltSide`/`axisAtLevel` (engine/wallTilt.ts) tinham o sinal do arco invertido (centro posto do lado da flecha). Convenção correta, igual a `arcFromSagitta`: sag>0 abaula à ESQUERDA e o centro fica à DIREITA; tilt>0 leva o topo à esquerda, logo sag>0 e tilt>0 AFASTAM do centro (s=+1). Testes de eixo reescritos com essa convenção; o sólido da F2.3 (usa `arc.k`) já estava certo.

@@ -22,8 +22,9 @@ export function thicknessHorizontal(t: number, tiltDeg: number): number {
 /** s = +1 se o topo se afasta do centro do arco, −1 se se aproxima, 0 sem inclinação ou sem arco. */
 export function arcTiltSide(sag: number, tiltDeg: number): -1 | 0 | 1 {
   if (!(sag !== 0) || !(tiltDeg !== 0)) return 0;
-  // Centro do lado de `sag`; o topo vai para a esquerda quando tilt > 0.
-  return Math.sign(sag) * Math.sign(tiltDeg) > 0 ? -1 : 1;
+  // Como em arcFromSagitta: sag > 0 abaula à esquerda e o centro fica à DIREITA. Tilt > 0 leva o topo à esquerda,
+  // isto é, para longe do centro quando sag > 0.
+  return Math.sign(sag) * Math.sign(tiltDeg) > 0 ? 1 : -1;
 }
 
 /** Raio do eixo a partir da corda c e da flecha |sag| (4.1). */
@@ -45,8 +46,8 @@ export function axisAtLevel(a: Pt, b: Pt, sag: number, z: number, tiltDeg: numbe
   const sg = Math.sign(sag);
   const cosH = (R - Math.abs(sag)) / R; // cos(φ/2); ≤ 0 quando o arco passa de 180° (não ocorre: |sag| ≤ c/2)
   const nx = -dy / c, ny = dx / c;
-  const cen = { x: (a.x + b.x) / 2 + sg * nx * R * cosH, y: (a.y + b.y) / 2 + sg * ny * R * cosH };
-  const Rz = R - sg * d; // topo à esquerda aproxima o centro quando o centro está à esquerda
+  const cen = { x: (a.x + b.x) / 2 - sg * nx * R * cosH, y: (a.y + b.y) / 2 - sg * ny * R * cosH };
+  const Rz = R + sg * d; // centro à direita (sag > 0): topo à esquerda (d > 0) afasta do centro
   const k = Rz / R;
   return {
     a: { x: cen.x + (a.x - cen.x) * k, y: cen.y + (a.y - cen.y) * k },
