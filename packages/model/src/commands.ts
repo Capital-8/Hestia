@@ -247,6 +247,8 @@ function transformWall(w: Wall, t: Transform, copy = false): Wall {
   // Espelhar inverte o lado externo: sem trocar `flipped` a pilha de camadas sairia do lado errado.
   // Espelhar também inverte o lado para o qual o arco abaulava.
   const movida = { ...w, a, b, flipped: t.kind === 'mirror' ? !w.flipped : w.flipped, sag: t.kind === 'mirror' ? -w.sag : w.sag };
+  // Espelhar também troca o lado para o qual o topo se inclina (F2.11): o sinal do tilt acompanha o do sag.
+  if (t.kind === 'mirror' && w.tilt) movida.tilt = -w.tilt;
   // Cópia de parede gerada pela massa não carrega `origemMassa` (ficha D2, emenda E16 item 3).
   return copy ? semOrigemMassa(movida) : movida;
 }
