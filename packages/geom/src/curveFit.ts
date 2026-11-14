@@ -116,23 +116,31 @@ function arcoTangente(a: Vec2, b: Vec2, t0: Vec2): ArcoAjustado | null {
   return { a, b, sag: -(c / 2) * Math.tan(alfa / 2) };
 }
 
-function biarco(s0: Amostra, s1: Amostra): Biarco | null {
+/** Biarco de p0 a p1 com tangentes dadas; `q` (0..1) posiciona o ponto de junção entre os dois arcos. */
+function biarco(s0: Amostra, s1: Amostra, q: number): Biarco | null {
   const { p: p0, t: t0 } = s0;
   const { p: p1, t: t1 } = s1;
   const v = { x: p1.x - p0.x, y: p1.y - p0.y };
-  const tt = { x: t0.x + t1.x, y: t0.y + t1.y };
-  const vv = v.x * v.x + v.y * v.y;
-  const vt = v.x * tt.x + v.y * tt.y;
-  const k = 1 - (t0.x * t1.x + t0.y * t1.y);
-  let d: number;
-  if (k < 1e-12) {
-    if (vt <= 0) return null;
-    d = vv / (2 * vt);
+  const u = { x: q * t0.x + (1 - q) * t1.x, y: q * t0.y + (1 - q) * t1.y };
+  // |v - L u|^2 = L^2  =>  (|u|^2 - 1) L^2 - 2 (v.u) L + v.v = 0, com L = d1 + d2.
+  const qa = u.x * u.x + u.y * u.y - 1;
+  const qb = -2 * (v.x * u.x + v.y * u.y);
+  const qc = v.x * v.x + v.y * v.y;
+  let L: number;
+  if (Math.abs(qa) < 1e-14) {
+    if (qb >= 0) return null;
+    L = -qc / qb;
   } else {
-    d = (-vt + Math.sqrt(vt * vt + 2 * k * vv)) / (2 * k);
+    const disc = qb * qb - 4 * qa * qc;
+    if (disc < 0) return null;
+    const sq = Math.sqrt(disc);
+    const r1 = (-qb + sq) / (2 * qa), r2 = (-qb - sq) / (2 * qa);
+    L = Math.min(...[r1, r2].filter((x) => x > 0));
   }
-  if (!(d > 0) || !Number.isFinite(d)) return null;
-  const j = { x: (p0.x + p1.x + d * (t0.x - t1.x)) / 2, y: (p0.y + p1.y + d * (t0.y - t1.y)) / 2 };
+  if (!(L > 0) || !Number.isFinite(L)) return null;
+  const pa = { x: p0.x + q * L * t0.x, y: p0.y + q * L * t0.y };
+  const pb = { x: p1.x - (1 - q) * L * t1.x, y: p1.y - (1 - q) * L * t1.y };
+  const j = { x: pa.x + q * (pb.x - pa.x), y: pa.y + q * (pb.y - pa.y) };
   const a1 = arcoTangente(p0, j, t0);
   // O segundo arco, percorrido ao contrário, sai de p1 com tangente -t1.
   const a2r = arcoTangente(p1, j, { x: -t1.x, y: -t1.y });
@@ -192,21 +200,44 @@ function pontoArco(arc: ArcoAjustado, f: number): Vec2 {
   return { x: ctr.x + r * Math.cos(th), y: ctr.y + r * Math.sin(th) };
 }
 
-function avaliar(curva: Curva, u0: number, u1: number): Seg {
-  const b = biarco(curva.at(u0), curva.at(u1));
-  if (!b) return { u0, u1, b: null, err: Infinity };
-  const poly: Vec2[] = [];
-  for (let i = 0; i <= 128; i++) poly.push(curva.at(u0 + ((u1 - u0) * i) / 128).p);
+const QS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.45, 0.55, 0.35, 0.65, 0.25, 0.75];
+const QS_FINO = [-0.025, 0.025, -0.0125, 0.0125];
+
+function avaliarQ(curva: Curva, s0: Amostra, s1: Amostra, poly: Vec2[], q: number): { b: Biarco; err: number } | null {
+  const b = biarco(s0, s1, q);
+  if (!b) return null;
   let err = 0;
   for (let i = 1; i < 32; i++) {
-    const q = poly[i * 4]!;
-    err = Math.max(err, Math.min(distArco(q, b.arcos[0]), distArco(q, b.arcos[1])));
+    const p = poly[i * 4]!;
+    err = Math.max(err, Math.min(distArco(p, b.arcos[0]), distArco(p, b.arcos[1])));
   }
   for (const arc of b.arcos) {
     for (let i = 0; i <= 32; i++) err = Math.max(err, distPoli(pontoArco(arc, i / 32), poly));
   }
-  return { u0, u1, b, err };
+  return { b, err };
 }
+
+function avaliar(curva: Curva, u0: number, u1: number): Seg {
+  const s0 = curva.at(u0), s1 = curva.at(u1);
+  const poly: Vec2[] = [];
+  for (let i = 0; i <= 128; i++) poly.push(curva.at(u0 + ((u1 - u0) * i) / 128).p);
+  let melhor: Seg = { u0, u1, b: null, err: Infinity };
+  let qm = 0.5;
+  const tentar = (q: number) => {
+    const r = avaliarQ(curva, s0, s1, poly, q);
+    if (r && r.err < melhor.err - 1e-12) {
+      melhor = { u0, u1, b: r.b, err: r.err };
+      qm = q;
+    }
+  };
+  for (const q of QS) tentar(q);
+  const q0 = qm;
+  for (const dq of QS_FINO) tentar(q0 + dq);
+  return melhor;
+}
+
+const FRACOES = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8];
+const FRACOES_FINO = [-0.04, 0.04, -0.02, 0.02];
 
 /** Refina por bisseção do pior segmento até atingir `tol` ou o limite de segmentos. */
 function ajustarVaos(curva: Curva, u0: number, u1: number, tol: number, maxSeg: number): { segs: Seg[]; estourou: boolean } {
@@ -225,8 +256,23 @@ function ajustarVaos(curva: Curva, u0: number, u1: number, tol: number, maxSeg: 
       break;
     }
     const s = segs[wi]!;
-    const m = (s.u0 + s.u1) / 2;
-    segs.splice(wi, 1, avaliar(curva, s.u0, m), avaliar(curva, m, s.u1));
+    let par: [Seg, Seg] | null = null;
+    let pior = Infinity;
+    let fm = 0.5;
+    const tentar = (f: number) => {
+      const m = s.u0 + (s.u1 - s.u0) * f;
+      const c: [Seg, Seg] = [avaliar(curva, s.u0, m), avaliar(curva, m, s.u1)];
+      const e = Math.max(c[0].err, c[1].err);
+      if (e < pior - 1e-12) {
+        pior = e;
+        par = c;
+        fm = f;
+      }
+    };
+    for (const f of FRACOES) tentar(f);
+    const f0 = fm;
+    for (const df of FRACOES_FINO) tentar(f0 + df);
+    segs.splice(wi, 1, ...par!);
   }
   return { segs, estourou };
 }
