@@ -23,6 +23,7 @@ import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclu
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
+import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
 export { type SectionPart } from './sectionParts.ts';
@@ -304,7 +305,16 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
         const z0 = rw.baseZ + band.z0;
         const z1 = rw.baseZ + band.z1;
+        // Parede inclinada (F2.6): a seção é o paralelogramo regrado; vertical sem junção inclinada segue o caminho abaixo.
+        const tm = band.slope ? undefined : tiltSectionMap(rw, layer.layerIndex, jl.walls.get(w.id)?.tilt);
         for (const poly of band.poly) {
+          if (tm) {
+            for (const ring of tiltBandCut(rw, tm, poly, { a: line.a, d, n, length }, band.z0, band.z1)) {
+              addCut(layer.materialId, [ring], { wallId: w.id });
+              grow(z0, z1);
+            }
+            continue;
+          }
           for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
             const lo = Math.max(0, t0);
             const hi = Math.min(length, t1);
@@ -313,6 +323,13 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
             addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
             grow(z0, z1);
           }
+        }
+        if (tm) {
+          for (const bp of tiltBandBeyond(rw, tm, band.poly, slab, { a: line.a, d, n, length }, band.z0, band.z1)) {
+            beyond.push({ wallId: w.id, materialId: layer.materialId, layerIndex: layer.layerIndex, depth: bp.depth, polygons: bp.polygons });
+            grow(z0, z1);
+          }
+          continue;
         }
         for (const sp of intersection(band.poly, slab)) {
           const outer = sp[0];

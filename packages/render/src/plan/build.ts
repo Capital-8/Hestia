@@ -27,7 +27,7 @@ import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -423,7 +423,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         for (const ring of ringsOf(c.silhouette)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.cut, color: theme.ink, alpha: 1 });
       }
       // Paredes fora do corte (decisão 0013 §4): contorno; projeção acima tracejada, abaixo e "além" em linha clara.
-      if (view) wallOps.strokes.push(...wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)));
+      wallOps.strokes.push(...(view ? wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)) : []), ...tiltProjectionStrokes(geo.walls, view, hidden, theme, paint.wall.proj)); // F2.5: base e topo inclinados
 
       // Membranas (camadas de espessura zero): linha fina tracejada no limite entre camadas (só no fino, paredes cortadas).
       if (fine && !rp) {

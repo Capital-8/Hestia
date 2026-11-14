@@ -44,6 +44,7 @@ import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
+import { applyTiltToLevelPlan } from './wallTiltPlan.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
 const MIN_AREA = 1e-9;
@@ -453,12 +454,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     }
     const opens = group.flatMap((f) => openingsOfWall(p, f.wall.id).map((o) => openingGeometry(p, o, f)));
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
-    const zr = new Map(
-      group.map((f) => {
-        const { z0, height } = wz.get(f.wall.id)!;
-        return [f.wall.id, { z0, z1: z0 + height }] as const;
-      }),
-    );
+    const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
     const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}`;
     let core = cache.get(key);
@@ -490,5 +486,6 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
       out.walls[f.wall.id] = rw;
     }
   }
+  applyTiltToLevelPlan(out, frames, opts.cutZ, PLAN_CUT, p.settings?.joinTolerance); // F2.5: parede inclinada
   return out;
 }
