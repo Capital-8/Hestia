@@ -115,3 +115,8 @@ export * from './cortinaSubelementos.ts';
 export * from './cortinaEsquadrias.ts';
 export * from './curtainQuantities.ts';
 export * from './curtainSchedule.ts';
+export * from './kernelMassa.ts';
+export * from './massaProjeto.ts';
+export * from './massaServico.ts';
+export * from './massaIssues.ts';
+export * from './massaQuantities.ts';
