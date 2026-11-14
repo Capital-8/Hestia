@@ -19,7 +19,7 @@ export interface MassScheduleRow {
   massaName: string;
   levelId: Id;
   levelName: string;
-  /** Área da fatia no pavimento, somada sobre as cópias (m²). */
+  /** Área da fatia no pavimento, somada sobre as cópias (metros quadrados). */
   area: number;
   /** Perímetro da fatia, somado sobre as cópias (m). */
   perimeter: number;
@@ -30,12 +30,12 @@ export interface MassScheduleRow {
 }
 
 export interface MassScheduleTotals {
-  /** Volume total das massas (m³), da consulta 144. */
+  /** Volume total das massas (metros cúbicos), da consulta 144. */
   volume: number;
   areaLateral: number;
   areaBase: number;
   areaTopo: number;
-  /** Soma das áreas da coluna de linhas (m²). */
+  /** Soma das áreas da coluna de linhas (metros quadrados). */
   area: number;
   /** Soma dos perímetros da coluna de linhas (m). */
   perimeter: number;

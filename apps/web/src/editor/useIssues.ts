@@ -52,7 +52,6 @@ export function useIssues(): ValidationIssue[] {
         setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project), ...avisosGeometriaMassa(project)]),
       ),
     // `kernelPronto` refaz a lista quando o kernel carrega ou é trocado.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, kernelPronto],
   );
   return settled;

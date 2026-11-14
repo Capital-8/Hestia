@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { buildMassSchedule, massScheduleToCsv, servicoMassa, type MassScheduleRow } from '@hestia/engine';
 import { formatQuantity, type Quantity } from '@hestia/model';
 import { useProject } from '../../editor/controller.ts';
@@ -20,9 +20,10 @@ export function MassScheduleDialog(): ReactElement {
   const units = useUnits();
   const t = dictOf(lang);
   // O kernel pode ficar pronto depois de abrir o diálogo: a tabela é refeita quando isso acontece.
-  const [versao, setVersao] = useState(0);
-  useEffect(() => servicoMassa().aoMudarPronto(() => setVersao((n) => n + 1)), []);
-  const sch = useMemo(() => buildMassSchedule(p, servicoMassa()), [p, versao]);
+  const [, refazer] = useState(0);
+  useEffect(() => servicoMassa().aoMudarPronto(() => refazer((n) => n + 1)), []);
+  // Sem memo próprio: o serviço já guarda as respostas por projeto, e o rerender por `versao` refaz só o que mudou.
+  const sch = buildMassSchedule(p, servicoMassa());
   const [msg, setMsg] = useState<TextLike>('');
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const f = (si: number, q: Quantity, decimals?: number): string => scheduleCell(units, q, si, decimals);
