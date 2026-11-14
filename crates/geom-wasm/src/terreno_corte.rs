@@ -132,7 +132,9 @@ pub fn silhueta(m: &Malha, pl: &Plano, profundidade: f64) -> Vec<Vec<[f64; 2]>> 
             let Some((a, b)) = recortar(p[i], p[(i + 1) % 3], profundidade) else { continue };
             let (a, b) = if a[0] <= b[0] { (a, b) } else { (b, a) };
             let ds = b[0] - a[0];
-            let z_em = |s: f64| if ds > 0.0 { a[1] + (b[1] - a[1]) * ((s - a[0]) / ds).clamp(0.0, 1.0) } else { a[1].max(b[1]) };
+            // A interpolação é presa entre as cotas das pontas: o arredondamento não cria cota acima da maior do terreno.
+            let (z_lo, z_hi) = (a[1].min(b[1]), a[1].max(b[1]));
+            let z_em = |s: f64| if ds > 0.0 { (a[1] + (b[1] - a[1]) * ((s - a[0]) / ds).clamp(0.0, 1.0)).clamp(z_lo, z_hi) } else { z_hi };
             for (j, z) in topo.iter_mut().enumerate().take(faixa(b[0]) + 1).skip(faixa(a[0])) {
                 let (esq, dir) = (s_min + j as f64 * w, s_min + (j + 1) as f64 * w);
                 *z = z.max(z_em(esq.max(a[0]))).max(z_em(dir.min(b[0])));
@@ -168,7 +170,7 @@ fn recortar(a: [f64; 3], b: [f64; 3], profundidade: f64) -> Option<([f64; 2], [f
     if u0 > u1 || u0.is_nan() || u1.is_nan() {
         return None;
     }
-    let em = |u: f64| [a[0] + (b[0] - a[0]) * u, a[2] + (b[2] - a[2]) * u];
+    let em = |u: f64| [a[0] + (b[0] - a[0]) * u, (a[2] + (b[2] - a[2]) * u).clamp(a[2].min(b[2]), a[2].max(b[2]))];
     Some((em(u0), em(u1)))
 }
 

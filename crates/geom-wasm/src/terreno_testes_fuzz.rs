@@ -1,4 +1,4 @@
-//! Fuzz e tempo da ficha R1 do terreno (PLANO do terreno A.8 itens 2 e 5), no que se aplica à superfície existente.
+//! Fuzz e tempo das fichas R1 e R2 do terreno (PLANO do terreno A.8 itens 2 e 5), no que se aplica à superfície existente.
 
 use crate::cena::Cena;
 use crate::esquema::ID_AUSENTE;
@@ -126,4 +126,72 @@ fn fuzz_borda() {
         let outra = malha(&mut cena_com(std::slice::from_ref(&fx)), 0, 0);
         assert_eq!((m.grupos, m.v, m.i), (outra.grupos, outra.v, outra.i), "caso {caso}");
     }
+}
+
+/// Ficha R2: as consultas 161, 162, 164, 165 e 168 sobre 200 terrenos aleatórios. Saídas finitas e iguais, bit a bit, em duas execuções; toda curva de nível
+/// com os pontos na sua cota (1e-9) e dentro do domínio; todo ponto do perfil cortado na cota do terreno; a borda fecha com a área em planta da malha.
+#[test]
+fn fuzz_200_consultas_r2() {
+    use crate::terreno_testes_corte::corte;
+    use crate::terreno_testes_curvas::{avisos, curvas, planta, quant};
+    let bits = |l: &[crate::terreno_testes_curvas::LinhaLida]| -> Vec<(u32, u32, bool, Vec<[u64; 2]>, u64)> {
+        l.iter().map(|x| (x.terreno, x.marca, x.fechada, x.pontos.iter().map(|p| p.map(f64::to_bits)).collect(), x.z.to_bits())).collect()
+    };
+    let mut r = Xorshift::novo(20_261_114);
+    let (mut n_curvas, mut n_fechadas, mut n_cortes) = (0, 0, 0);
+    for caso in 0..200 {
+        let mut fx = terreno_aleatorio(&mut r);
+        fx.intervalo = r.intervalo(0.3, 2.0);
+        fx.mestra_cada = 1 + (r.proximo() % 7) as u32;
+        let a = r.intervalo(0.0, std::f64::consts::TAU);
+        let plano = [r.intervalo(20.0, 80.0), r.intervalo(20.0, 80.0), a.cos(), a.sin()];
+        let profundidade = r.intervalo(0.0, 120.0);
+        let rodar = |cena: &mut Cena| (curvas(cena, 0, 0), planta(cena, 0, 0), corte(cena, 0, plano, profundidade), quant(cena, 0), avisos(cena, 0));
+        let mut cena = cena_com(std::slice::from_ref(&fx));
+        let (c, p, k, q, av) = rodar(&mut cena);
+        let (c2, p2, k2, q2, av2) = rodar(&mut cena_com(std::slice::from_ref(&fx)));
+        assert_eq!((bits(&c), bits(&p), bits(&k)), (bits(&c2), bits(&p2), bits(&k2)), "caso {caso}: mesmos bytes em duas execuções");
+        assert_eq!((&q, &av), (&q2, &av2), "caso {caso}");
+        for l in c.iter().chain(&p).chain(&k) {
+            assert!(l.z.is_finite() && l.pontos.iter().flatten().all(|x| x.is_finite()), "caso {caso}: saída não finita");
+        }
+        assert!(q.iter().flat_map(|x| x.1).chain(av.iter().flat_map(|x| x.1)).all(f64::is_finite), "caso {caso}");
+        // Curvas: cada ponto na cota da curva e dentro do domínio, pela consulta 163.
+        assert!(!c.is_empty(), "caso {caso}");
+        for l in &c {
+            let k_cota = (l.z / fx.intervalo).round();
+            assert!((k_cota * fx.intervalo - l.z).abs() < 1e-12, "caso {caso}: cota múltipla do intervalo");
+            assert_eq!(l.marca == 1, (k_cota as i64).rem_euclid(i64::from(fx.mestra_cada)) == 0, "caso {caso}: mestra");
+            for (pt, cota) in l.pontos.iter().zip(cotas(&mut cena, &l.pontos, 0)) {
+                assert_eq!(cota.0, 1, "caso {caso}: ponto {pt:?} da curva {} fora do domínio", l.z);
+                assert!((cota.1 - l.z).abs() < 1e-9, "caso {caso}: ponto {pt:?} na cota {} e não em {}", cota.1, l.z);
+            }
+            n_fechadas += usize::from(l.fechada);
+        }
+        n_curvas += c.len();
+        // Borda: laços fechados cuja área soma a área em planta; quantidades coerentes com a malha da consulta 160.
+        assert!(p.iter().all(|l| l.fechada), "caso {caso}");
+        let m = malha(&mut cena, 0, 0);
+        let area: f64 = p.iter().map(|l| l.area()).sum();
+        assert!((area - q[0].1[0]).abs() < 1e-6 && (m.area_planta(1) - q[0].1[0]).abs() < 1e-6, "caso {caso}: área em planta");
+        assert!((m.area_superficie(1) - q[0].1[1]).abs() < 1e-6, "caso {caso}");
+        assert_eq!(q[0].1[7] as usize, m.triangulos(1, 0).len(), "caso {caso}");
+        assert!(q[0].1[3] <= q[0].1[4] && q[0].1[5] == 0.0 && q[0].1[6] == 0.0, "caso {caso}");
+        // Corte: perfil em s crescente, na cota do terreno; base em z_base.
+        let n = plano[2].hypot(plano[3]);
+        for l in k.iter().filter(|l| l.marca == 0) {
+            let perfil = &l.pontos[..l.pontos.len() - 2];
+            assert!(perfil.windows(2).all(|w| w[1][0] > w[0][0]), "caso {caso}: perfil ordenado por s");
+            assert!(l.pontos[l.pontos.len() - 2..].iter().all(|b| b[1] == q[0].1[3] - fx.espessura_base), "caso {caso}: base");
+            let sondas: Vec<[f64; 2]> = perfil.iter().map(|b| [plano[0] + plano[2] / n * b[0], plano[1] + plano[3] / n * b[0]]).collect();
+            for (b, cota) in perfil.iter().zip(cotas(&mut cena, &sondas, 0)) {
+                assert!(cota.0 == 1 && (cota.1 - b[1]).abs() < 1e-9, "caso {caso}: perfil em s = {} com z = {} e o terreno com {:?}", b[0], b[1], cota);
+            }
+            n_cortes += 1;
+        }
+        for l in k.iter().filter(|l| l.marca == 2) {
+            assert!(l.pontos.windows(2).all(|w| w[1][0] > w[0][0]) && l.pontos.iter().all(|b| b[1] >= q[0].1[3] && b[1] <= q[0].1[4]), "caso {caso}: silhueta");
+        }
+    }
+    assert!(n_curvas > 2000 && n_fechadas > 200 && n_cortes >= 200, "o gerador cobre curvas abertas, fechadas e cortes: {n_curvas}, {n_fechadas}, {n_cortes}");
 }
