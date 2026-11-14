@@ -75,7 +75,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   stair: { mover: 'isStair', alinhar: 'isStair', previa: 'movidos' },
   ramp: { mover: 'isRamp', alinhar: 'isRamp', previa: 'movidos' },
   railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces', previa: 'isGuardaCorpo' },
-  mass: { mover: 'isMass', alinhar: null, previa: null, motivo: 'TODO: a massa é desenhada pelo kernel fora do resultado do corte (como o guarda-corpo); o alvo do Alinhar (`guardaCorpoPieces` em `sectionEditTools.ts`) e o fantasma (`sectionMoverPrevia.ts`) ainda não recebem as linhas dela. Mover e Copiar já a levam (`comandosMoverNoCorte`: horizontal vira `transform`, vertical vira `baseOffset`); o Alinhar e a prévia ficam para uma ficha que toque esses dois arquivos.' },
+  mass: { mover: 'isMass', alinhar: 'massaCortePieces', previa: 'massaCortePieces' },
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
   cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },

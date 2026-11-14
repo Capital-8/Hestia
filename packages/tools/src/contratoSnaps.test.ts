@@ -69,6 +69,11 @@ describe('contrato: todo kind de elemento está classificado na captura (snap) d
     expect(codigo).toMatch(/isMass\(e\)[\s\S]{0,200}apoioDoElemento\(p, e\)/);
   });
 
+  it('massa: a cota associativa (`dimRefAt`, model) lista a massa entre os apoios `part`, como escada, rampa e guarda-corpo', () => {
+    const codigo = ler('model/src/dimensionRefs.ts');
+    expect(codigo).toMatch(/dimRefAt[\s\S]*el\.kind !== 'mass'/);
+  });
+
   it('o motor único serve a todas as ferramentas: a fonte dos pontos é montada em `ToolBase.ctx`, não em cada ferramenta', () => {
     // Nenhuma ferramenta consulta a geometria de escada/guarda-corpo por conta própria: só `base.ts` chama o fornecedor.
     const base = ler('tools/src/base.ts');
