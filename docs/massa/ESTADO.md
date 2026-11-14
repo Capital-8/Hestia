@@ -14,7 +14,7 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | E1 | mesclada | merge de massa/e1 | 0 | haiku high; o agente terminou sem relatório, o fiscal conferiu o worktree e o aceite pelos testes: typecheck ✔, lint ✔, test:rapido 976/11383, test:wasm 58/1356; emenda E7 |
 | V1 | mesclada | merge de massa/v1 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 977/11398, test:wasm 58/1356; emenda E8 |
 | V2 | mesclada | merge de massa/v2 | 0 | haiku high; árvore combinada V1+V2: typecheck ✔, lint ✔, test:rapido 980/11422, test:wasm 58/1356 (1 teste de tempo do guarda-corpo falhou sob carga na rodada do agente e passou sem carga); pendências para T1/U2/Q1 na E8 |
-| V3 | pendente | | 0 | |
+| V3 | mesclada | merge de massa/v3 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 982/11453, test:wasm 59/1359 (inclui kernel-massa-vista); emenda E9 |
 | T1 | pendente | | 0 | |
 | U1 | pendente | | 0 | |
 | U2 | pendente | | 0 | |
