@@ -11,7 +11,7 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | R1 | mesclada | merge de massa/r1 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 502, test:wasm 55 arq/1338 (agora inclui kernel-massa), clippy 39 = base, mesmos locais; agente interrompido pelo limite de uso e retomado; emenda E3 |
 | R2 | mesclada | merge de massa/r2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 508, test:wasm 56 arq/1343 (inclui kernel-massa-planta), clippy 39 = base; interrompida pelo limite e retomada; emenda E4 |
 | R3 | mesclada | merge de massa/r3 | 0 | sonnet medium; conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 518, test:wasm 57 arq/1347, clippy 39 = base; o fiscal corrigiu 2 linhas do teste da R2 (emenda E6) |
-| E1 | pendente | | 0 | |
+| E1 | mesclada | merge de massa/e1 | 0 | haiku high; o agente terminou sem relatório, o fiscal conferiu o worktree e o aceite pelos testes: typecheck ✔, lint ✔, test:rapido 976/11383, test:wasm 58/1356; emenda E7 |
 | V1 | pendente | | 0 | |
 | V2 | pendente | | 0 | |
 | V3 | pendente | | 0 | |
