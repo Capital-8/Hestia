@@ -22,7 +22,7 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 | F1.1 `fitArcs` | feita (spike S3 mesclado) |
 | F1.2 formas → paredes | feita |
 | F1.3 modos no `wallTool` | feita |
-| F1.4 barra de opções, faixa, i18n | |
+| F1.4 barra de opções, faixa, i18n | feita |
 | F1.6 matriz de modificar | |
 | F1.7 portas, IFC, e2e | |
 
@@ -39,3 +39,9 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - Saída idêntica (mesmos 40 arcos/16 arcos, desvio igual até 1e-16); nenhum teste existente editado.
 - Medido em Node, máquina livre: spline fechada de 12 pontos, tol 5 mm, ~1050 ms para ~47 ms; elipse 4x2 ~125 ms para ~6 ms.
 - Testes de tempo em `curveFit.test.ts` com limite 5x a meta (500 ms e 250 ms).
+## F1.4
+- Faixa: "Desenhar" da Parede com os oito modos (reta, arco, retângulo, polígono inscrito e circunscrito, círculo, elipse, spline) em três pilhas. Ícones reaproveitados sem arte nova (aproximações): inscrito `roomsep`, circunscrito `filledRegion`, círculo `materialSphere`, elipse `eye`, spline `roofextrusion`.
+- Números: lados 3 a 64 (polígono) e tolerância 1 a 50 mm, padrão 5 mm (elipse e spline), na barra de opções e nas Propriedades (mesmos campos; `wallModes.ts` é a fonte única do modo).
+- i18n: 9 chaves novas de `wallTool` em `packages/tools/src/i18n.ts` (7 idiomas, sem literal); rótulos em `props-options.ts` (7 idiomas) e `ribbon-i18n-2.json` (5 linhas). Sem atalhos novos.
+- Decisão: a barra da parede continua só indicando "Configurações em Propriedades" e ganhou só os campos de modo, para não duplicar a configuração. O bloco `tool === 'wall'` mais abaixo no `OptionsBar` é inalcançável (dívida: remover numa limpeza).
+- Testes: 4 arquivos novos (`wallModes`, `ribbon/wallModes`, `WallShapeFields`, `wallShapesI18n`); nenhum teste existente editado.

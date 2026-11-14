@@ -1,10 +1,11 @@
 import type { Project, Id } from '@hestia/model';
-import type { ToolId, ToolOptions } from '@hestia/tools';
+import type { ToolId } from '@hestia/tools';
 import type { SketchTarget } from '@hestia/geom';
 import { toolLabel } from '../../editor/i18n.ts';
 import type { PastePreviewState } from '../../editor/pasteLevels/types.ts';
 import { perimeterContextTab, type PerimeterContextTab } from '../perimeter/PerimeterRibbonPanels.tsx';
-import { act, option, panel, soonS, stack, t, tool, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
+import { act, option, panel, soonS, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
+import { wallModeOf, wallModePatch, type WallMode } from '../wallModes.ts';
 import { P_CLIPBOARD, P_CREATE, P_GEOMETRY, P_MEASURE, P_MODIFY, P_PROPS, P_SELECT, P_SELECTION_EXTRA, P_VIEW_MOD } from './panelsShared.ts';
 
 /**
@@ -19,17 +20,26 @@ export interface ContextTab {
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
 const PLACE: ReadonlySet<ToolId> = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag']);
 
-const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;
-
 /** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". */
 function drawPanel(id: ToolId): RibbonPanel | null {
-  const mk = (...items: ReturnType<typeof option>[]): RibbonPanel => panel('desenhar', t('Desenhar', 'Draw'), stack(...items.slice(0, 3)), ...(items.length > 3 ? [stack(...items.slice(3, 6))] : []));
+  // Pilhas de três botões (limite da faixa): o painel ganha uma pilha a cada três modos.
+  const mk = (...items: RibbonItem[]): RibbonPanel => {
+    const pilhas: RibbonItem[] = [];
+    for (let i = 0; i < items.length; i += 3) pilhas.push(stack(...items.slice(i, i + 3)));
+    return panel('desenhar', t('Desenhar', 'Draw'), ...pilhas);
+  };
+  const modo = (m: WallMode, label: Txt, icon: string): RibbonItem => option(label, icon, (o) => wallModeOf(o) === m, wallModePatch(m));
   switch (id) {
     case 'wall':
       return mk(
-        option(t('Linha', 'Line'), 'wall', same('wallShape', 'line'), { wallShape: 'line' }),
-        option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
-        option(t('Retângulo', 'Rectangle'), 'plan', same('wallShape', 'rect'), { wallShape: 'rect' }),
+        modo('line', t('Linha', 'Line'), 'wall'),
+        modo('arc', t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine'),
+        modo('rect', t('Retângulo', 'Rectangle'), 'plan'),
+        modo('polygonIn', t('Polígono inscrito', 'Inscribed polygon'), 'roomsep'),
+        modo('polygonOut', t('Polígono circunscrito', 'Circumscribed polygon'), 'filledRegion'),
+        modo('circle', t('Círculo', 'Circle'), 'materialSphere'),
+        modo('ellipse', t('Elipse', 'Ellipse'), 'eye'),
+        modo('spline', t('Spline', 'Spline'), 'roofextrusion'),
       );
     default:
       return null;

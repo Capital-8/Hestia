@@ -63,6 +63,13 @@ export const PT_PROPS_OPTIONS = {
   pro_shape_u: 'Em U',
   pro_shape_winder: 'Com leque',
   pro_shape_spiral: 'Caracol',
+  pro_shape_poly_in: 'Polígono inscrito',
+  pro_shape_poly_out: 'Polígono circunscrito',
+  pro_shape_circle: 'Círculo',
+  pro_shape_ellipse: 'Elipse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Lados',
+  pro_fit_tol: 'Tolerância do ajuste',
 
   // Ambientes
   pro_rooms_all_title: 'Cria um ambiente em cada circuito fechado que ainda não tem um; um só Ctrl+Z desfaz tudo',
@@ -398,6 +405,13 @@ export const EN_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'U-Shape',
   pro_shape_winder: 'Winder',
   pro_shape_spiral: 'Spiral',
+  pro_shape_poly_in: 'Inscribed polygon',
+  pro_shape_poly_out: 'Circumscribed polygon',
+  pro_shape_circle: 'Circle',
+  pro_shape_ellipse: 'Ellipse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Sides',
+  pro_fit_tol: 'Fit tolerance',
 
   // Rooms
   pro_rooms_all_title: 'Creates a room in every closed loop that does not have one yet; a single Ctrl+Z undoes it all',
@@ -733,6 +747,13 @@ export const ES_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'En U',
   pro_shape_winder: 'Con abanico',
   pro_shape_spiral: 'Caracol',
+  pro_shape_poly_in: 'Polígono inscrito',
+  pro_shape_poly_out: 'Polígono circunscrito',
+  pro_shape_circle: 'Círculo',
+  pro_shape_ellipse: 'Elipse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Lados',
+  pro_fit_tol: 'Tolerancia del ajuste',
 
   // Ambientes
   pro_rooms_all_title: 'Crea un ambiente en cada circuito cerrado que aún no tiene uno; un solo Ctrl+Z lo deshace todo',
@@ -1068,6 +1089,13 @@ export const DE_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'U-Form',
   pro_shape_winder: 'Mit Wender',
   pro_shape_spiral: 'Spirale',
+  pro_shape_poly_in: 'Einbeschriebenes Polygon',
+  pro_shape_poly_out: 'Umschriebenes Polygon',
+  pro_shape_circle: 'Kreis',
+  pro_shape_ellipse: 'Ellipse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Seiten',
+  pro_fit_tol: 'Anpassungstoleranz',
 
   // Räume
   pro_rooms_all_title: 'Erstellt in jeder geschlossenen Schleife, die noch keinen Raum hat, einen Raum; ein einziges Strg+Z macht alles rückgängig',
@@ -1403,6 +1431,13 @@ export const FR_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'En U',
   pro_shape_winder: 'Avec marches rayonnantes',
   pro_shape_spiral: 'En colimaçon',
+  pro_shape_poly_in: 'Polygone inscrit',
+  pro_shape_poly_out: 'Polygone circonscrit',
+  pro_shape_circle: 'Cercle',
+  pro_shape_ellipse: 'Ellipse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Côtés',
+  pro_fit_tol: 'Tolérance d\'ajustement',
 
   // Pièces
   pro_rooms_all_title: "Crée une pièce dans chaque boucle fermée qui n'en a pas encore ; un seul Ctrl+Z annule tout",
@@ -1738,6 +1773,13 @@ export const IT_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'A U',
   pro_shape_winder: 'Con gradini a ventaglio',
   pro_shape_spiral: 'A chiocciola',
+  pro_shape_poly_in: 'Poligono inscritto',
+  pro_shape_poly_out: 'Poligono circoscritto',
+  pro_shape_circle: 'Cerchio',
+  pro_shape_ellipse: 'Ellisse',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Lati',
+  pro_fit_tol: 'Tolleranza di adattamento',
 
   // Ambienti
   pro_rooms_all_title: 'Crea un ambiente in ogni circuito chiuso che non ne ha ancora uno; un solo Ctrl+Z annulla tutto',
@@ -2073,6 +2115,13 @@ export const PL_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_shape_u: 'W kształcie U',
   pro_shape_winder: 'Z wachlarzem stopni',
   pro_shape_spiral: 'Spiralne',
+  pro_shape_poly_in: 'Wielokąt wpisany',
+  pro_shape_poly_out: 'Wielokąt opisany',
+  pro_shape_circle: 'Okrąg',
+  pro_shape_ellipse: 'Elipsa',
+  pro_shape_spline: 'Spline',
+  pro_poly_sides: 'Boki',
+  pro_fit_tol: 'Tolerancja dopasowania',
 
   // Pomieszczenia
   pro_rooms_all_title: 'Tworzy pomieszczenie w każdym zamkniętym obwodzie, który go jeszcze nie ma; jedno Ctrl+Z cofa wszystko',

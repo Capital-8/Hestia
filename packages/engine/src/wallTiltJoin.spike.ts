@@ -189,7 +189,7 @@ function levelPolys(A: TiltWall, B: TiltWall, topo: Topology, z: number): LevelP
   let fa = levelFrame(A, z), fb = levelFrame(B, z);
   if (!fa || !fb) return { fail: 'cone-invertido' };
   let node: Vec2 | null = null;
-  let warn: string | null = null;
+  const warn: string | null = null;
   if (topo.pair) {
     // O nó do nível é o cruzamento dos eixos deslocados; a ponta do par passa a ser esse ponto (a topologia é a da base).
     const x = intersectCurves(faceCurve(fa, 0), faceCurve(fb, 0), endPoint(fa, topo.pair.a));

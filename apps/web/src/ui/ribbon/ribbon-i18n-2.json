@@ -184,6 +184,46 @@
     "pl": "Prostokąt"
   },
   {
+    "pt": "Polígono inscrito",
+    "es": "Polígono inscrito",
+    "de": "Einbeschriebenes Polygon",
+    "fr": "Polygone inscrit",
+    "it": "Poligono inscritto",
+    "pl": "Wielokąt wpisany"
+  },
+  {
+    "pt": "Polígono circunscrito",
+    "es": "Polígono circunscrito",
+    "de": "Umschriebenes Polygon",
+    "fr": "Polygone circonscrit",
+    "it": "Poligono circoscritto",
+    "pl": "Wielokąt opisany"
+  },
+  {
+    "pt": "Círculo",
+    "es": "Círculo",
+    "de": "Kreis",
+    "fr": "Cercle",
+    "it": "Cerchio",
+    "pl": "Okrąg"
+  },
+  {
+    "pt": "Elipse",
+    "es": "Elipse",
+    "de": "Ellipse",
+    "fr": "Ellipse",
+    "it": "Ellisse",
+    "pl": "Elipsa"
+  },
+  {
+    "pt": "Spline",
+    "es": "Spline",
+    "de": "Spline",
+    "fr": "Spline",
+    "it": "Spline",
+    "pl": "Spline"
+  },
+  {
     "pt": "Perímetro",
     "es": "Perímetro",
     "de": "Umfang",
