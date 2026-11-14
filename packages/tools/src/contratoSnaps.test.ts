@@ -48,7 +48,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   cad: { fonte: { arquivo: 'tools/src/snapCad.ts', simbolo: 'addCadSnaps' }, ligacao: { arquivo: 'tools/src/infer.ts', simbolo: 'addCadSnaps' } },
   terrain: { fonte: null, ligacao: null, motivo: 'terreno: ficha V2 (os pontos de captura do terreno vêm das fontes e da borda, na planta).' },
   terrainRegion: { fonte: null, ligacao: null, motivo: 'terreno: ficha V2 (os vértices do contorno da região viram pontos de captura na planta).' },
-  lot: { fonte: null, ligacao: null, motivo: 'TODO: `apoioDoLote` (engine/src/apoioDeSnap.ts, via `apoioDoElemento`) já fornece vértices, meios e arestas do contorno e da área edificável; falta só ligá-lo ao motor em `tools/src/componentSnap.ts` (`geometryOfLevel`), arquivo fora da lista da ficha P2.' },
+  lot: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDoLote' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   ceiling: { fonte: null, ligacao: null, motivo: 'TODO: o forro não entra na captura de planta (só pisos e lajes têm vértices e arestas); o contorno do forro ainda não é ponto de snap.' },
   roof: { fonte: null, ligacao: null, motivo: 'TODO: o telhado não entra na captura de planta (beirais e cumeeiras ainda não são pontos de snap).' },
   room: { fonte: null, ligacao: null, motivo: 'TODO: o ambiente não tem geometria própria (o contorno é derivado das paredes, que já fornecem os pontos).' },
