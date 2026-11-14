@@ -1,6 +1,9 @@
 /* eslint-disable max-lines -- tabela de tradução (7 idiomas); a paridade é garantida pelo tipo. */
 /* Textos do gerenciador de suplementos (ADR 0057, fase de integração). Chaves sup_*. */
+import { PT_SUP_E, EN_SUP_E, ES_SUP_E, DE_SUP_E, FR_SUP_E, IT_SUP_E, PL_SUP_E } from './suplementos-e.ts';
+
 export const PT_SUPLEMENTOS = {
+  ...PT_SUP_E,
   'sup_title': 'Gerenciar suplementos',
   'sup_sub': 'Suplementos instalados',
   'sup_hint': 'Instalar um suplemento não executa nada e não concede nenhuma permissão. Você revisa o que ele pede e decide, permissão por permissão. O suplemento só altera o projeto por lotes que o Hestia valida, e cada lote é um único passo de Desfazer.',
@@ -72,6 +75,7 @@ export const PT_SUPLEMENTOS = {
 };
 
 export const EN_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...EN_SUP_E,
   'sup_title': 'Manage add-ins',
   'sup_sub': 'Installed add-ins',
   'sup_hint': 'Installing an add-in runs nothing and grants no permission. You review what it asks for and decide, permission by permission. An add-in only changes the project through batches that Hestia validates, and each batch is a single Undo step.',
@@ -143,6 +147,7 @@ export const EN_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
 };
 
 export const ES_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...ES_SUP_E,
   'sup_title': 'Gestionar complementos',
   'sup_sub': 'Complementos instalados',
   'sup_hint': 'Instalar un complemento no ejecuta nada ni concede ningún permiso. Usted revisa lo que pide y decide, permiso por permiso. El complemento solo modifica el proyecto mediante lotes que Hestia valida, y cada lote es un único paso de Deshacer.',
@@ -214,6 +219,7 @@ export const ES_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
 };
 
 export const DE_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...DE_SUP_E,
   'sup_title': 'Add-ins verwalten',
   'sup_sub': 'Installierte Add-ins',
   'sup_hint': 'Das Installieren eines Add-ins führt nichts aus und erteilt keine Berechtigung. Sie prüfen, was es anfordert, und entscheiden Berechtigung für Berechtigung. Ein Add-in ändert das Projekt nur über Stapel, die Hestia prüft, und jeder Stapel ist ein einziger Rückgängig-Schritt.',
@@ -285,6 +291,7 @@ export const DE_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
 };
 
 export const FR_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...FR_SUP_E,
   'sup_title': 'Gérer les compléments',
   'sup_sub': 'Compléments installés',
   'sup_hint': 'Installer un complément n\'exécute rien et n\'accorde aucune autorisation. Vous examinez ce qu\'il demande et décidez, autorisation par autorisation. Un complément ne modifie le projet que par des lots validés par Hestia, et chaque lot est une seule étape d\'Annulation.',
@@ -356,6 +363,7 @@ export const FR_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
 };
 
 export const IT_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...IT_SUP_E,
   'sup_title': 'Gestisci i componenti aggiuntivi',
   'sup_sub': 'Componenti aggiuntivi installati',
   'sup_hint': 'Installare un componente aggiuntivo non esegue nulla e non concede alcuna autorizzazione. Esamini ciò che richiede e decida, autorizzazione per autorizzazione. Il componente modifica il progetto solo con lotti convalidati da Hestia e ogni lotto è un unico passaggio di Annulla.',
@@ -427,6 +435,7 @@ export const IT_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
 };
 
 export const PL_SUPLEMENTOS: Record<keyof typeof PT_SUPLEMENTOS, string> = {
+  ...PL_SUP_E,
   'sup_title': 'Zarządzaj dodatkami',
   'sup_sub': 'Zainstalowane dodatki',
   'sup_hint': 'Instalacja dodatku niczego nie uruchamia i nie nadaje żadnych uprawnień. Przeglądasz, o co prosi, i decydujesz uprawnienie po uprawnieniu. Dodatek zmienia projekt tylko przez partie sprawdzane przez Hestię, a każda partia to jeden krok Cofnij.',

@@ -77,6 +77,8 @@ export interface SupplementRuntimeOptions {
   pickFile?: (extensions: readonly string[]) => Promise<{ name: string; bytes: Uint8Array } | null>;
   /** Fase F: resultado de cada importação/exportação (barra de estado). */
   onIo?: (o: IoOutcome) => void;
+  /** Ação `check` (fase E): reavalia a verificação e avisa o resultado. Ligado pelo app (`supApp.ts`). */
+  runCheck?: (pluginId: string, checkId: string) => void;
 }
 
 export type ApproveResult = { ok: true; state: SupState } | { ok: false; code: 'unknown' | 'missing_dependency' | 'not_requested' | 'activation_failed'; detail?: string };
@@ -272,6 +274,10 @@ export class SupplementRuntime {
       const p = this.io.run(pluginId, action, this.o.pickFile);
       this.pending.add(p);
       void p.finally(() => this.pending.delete(p));
+      return;
+    }
+    if (action.type === 'check' && this.o.runCheck) {
+      this.o.runCheck(pluginId, action.ref);
       return;
     }
     if (action.type !== 'handler') {

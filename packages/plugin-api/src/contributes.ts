@@ -23,7 +23,7 @@ const ICON_RE = /^[a-z][A-Za-z0-9-]{0,39}$/;
 const EXT_RE = /^[a-z0-9]{1,10}$/;
 const MIME_RE = /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i;
 const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
-const ACTION_TYPES: readonly PluginActionType[] = ['dialog', 'tool', 'exporter', 'importer', 'handler'];
+const ACTION_TYPES: readonly PluginActionType[] = ['dialog', 'tool', 'exporter', 'importer', 'handler', 'schedule', 'check'];
 const FIELD_TYPES: readonly DialogFieldType[] = ['number', 'text', 'choice', 'bool', 'length', 'angle'];
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -288,6 +288,8 @@ function crossRules(cx: Cx, c: Contributes, chk: ContributesCheck): void {
       case 'tool': return has(c.tools, a.ref);
       case 'exporter': return has(c.exporters, a.ref);
       case 'importer': return has(c.importers, a.ref);
+      case 'schedule': return has(c.schedules, a.ref);
+      case 'check': return has(c.checks, a.ref);
       case 'handler': return !declarative;
     }
   };

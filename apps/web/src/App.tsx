@@ -75,6 +75,7 @@ import { ExternalToolsDialog } from './ui/dialogs/ExternalToolsDialog.tsx';
 import { PluginDialog } from './plugins/pluginUi.tsx';
 import { SupplementsDialog } from './ui/dialogs/SupplementsDialog.tsx';
 import { PluginResultDialog } from './ui/dialogs/PluginResultDialog.tsx';
+import { PluginSchedule } from './ui/PluginSchedule.tsx';
 import { startSupplements } from './plugins/supApp.ts';
 import { AvisoAtualizacaoDialog } from './ui/dialogs/AvisoAtualizacaoDialog.tsx';
 import { verificarAvisoAoAbrir } from './editor/atualizacao/auto.ts';
@@ -216,6 +217,8 @@ function Dialogs(): ReactElement | null {
       return <SupplementsDialog />;
     case 'pluginResult': // SUPLEMENTOS
       return <PluginResultDialog />;
+    case 'pluginSchedule': // SUPLEMENTOS
+      return <PluginSchedule />;
     case 'updatePrompt':
       return <AvisoAtualizacaoDialog />;
     case 'moveLevel':

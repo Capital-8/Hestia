@@ -92,3 +92,8 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
+// SUPLEMENTOS (fase E): expressões JSONLogic restritas, campos, verificações e quantitativos.
+export * from './pluginExpr.ts';
+export * from './pluginFields.ts';
+export * from './pluginChecks.ts';
+export * from './pluginSchedules.ts';

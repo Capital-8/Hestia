@@ -33,6 +33,10 @@ export function runPluginAction(pluginId: string, action: PluginAction, values?:
     useUi.setState({ dialog: 'pluginDialog', dialogArg: qid(pluginId, action.ref) });
     return;
   }
+  if (action.type === 'schedule') {
+    useUi.setState({ dialog: 'pluginSchedule', dialogArg: qid(pluginId, action.ref) });
+    return;
+  }
   if (!executor) {
     useUi.setState({ status: 'Suplemento: esta ação ainda não está disponível / This add-in action is not available yet' });
     return;

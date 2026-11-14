@@ -1,4 +1,4 @@
-import type { DialogContribution, ExporterContribution, ImporterContribution, PluginAction, PluginText } from './contributesTypes.ts';
+import type { CheckContribution, DialogContribution, ExporterContribution, ImporterContribution, PluginAction, PluginText, ScheduleContribution } from './contributesTypes.ts';
 import { POINT_CAPABILITY } from './contributesTypes.ts';
 import type { PluginManifestV2 } from './manifestV2.ts';
 import type { CapabilityV2 } from './permissions.ts';
@@ -21,6 +21,8 @@ export interface RegisteredDialog extends Omit<DialogContribution, 'id'> { qid: 
 
 export interface RegisteredImporter extends Omit<ImporterContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 export interface RegisteredExporter extends Omit<ExporterContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredCheck extends Omit<CheckContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
+export interface RegisteredSchedule extends Omit<ScheduleContribution, 'id'> { qid: string; pluginId: string; pluginName: string; id: string }
 
 interface Entry { manifest: PluginManifestV2; grants: Set<CapabilityV2> }
 
@@ -119,6 +121,16 @@ export class ContributionRegistry {
     return out;
   }
 
+  /** Verificações (exige `checks.run` concedida). */
+  checks(): RegisteredCheck[] {
+    const out: RegisteredCheck[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'checks')) continue;
+      for (const c of e.manifest.contributes.checks ?? []) out.push({ ...c, qid: qualifiedId(e.manifest.id, c.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
   /** Exportadores (permissão `io.export`; handler de script/external ou `template` declarativo). */
   exporters(): RegisteredExporter[] {
     const out: RegisteredExporter[] = [];
@@ -129,6 +141,17 @@ export class ContributionRegistry {
     return out;
   }
 
+  /** Quantitativos (exige `content.schedules` concedida). */
+  schedules(): RegisteredSchedule[] {
+    const out: RegisteredSchedule[] = [];
+    for (const e of this.entries.values()) {
+      if (!this.granted(e, 'schedules')) continue;
+      for (const s of e.manifest.contributes.schedules ?? []) out.push({ ...s, qid: qualifiedId(e.manifest.id, s.id), pluginId: e.manifest.id, pluginName: e.manifest.name });
+    }
+    return out;
+  }
+
   /** O suplemento tem esta permissão concedida agora? (o host confere a cada uso). */
   isGranted(pluginId: string, cap: CapabilityV2): boolean { return this.entries.get(pluginId)?.grants.has(cap) ?? false; }
+  schedule(qid: string): RegisteredSchedule | undefined { return this.schedules().find((s) => s.qid === qid); }
 }
