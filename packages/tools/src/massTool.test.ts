@@ -381,3 +381,32 @@ describe('ferramenta Massa: vista, prévia, barra e idioma', () => {
     expect(ultimaMensagem(mensagens)).toMatch(/^Mass: click/);
   });
 });
+
+describe('ferramenta Massa: opções da barra (options.mass, ficha E11)', () => {
+  it('ao ligar, lê options.mass: modo, perfil, altura e lados vêm da barra', () => {
+    const { env, options } = makeEnv();
+    options.mass = { modo: 'mistura', perfil: 'poligono', altura: 5, lados: 8 };
+    const t = new MassTool(env);
+    t.start();
+    expect(t.modo).toBe('mistura');
+    expect(t.perfil).toBe('poligono');
+    expect(t.altura).toBe(5);
+    expect(t.lados).toBe(8);
+  });
+
+  it('sem options.mass, o padrão é extrusão, círculo, 9 m e 6 lados', () => {
+    const { env } = makeEnv();
+    const t = new MassTool(env);
+    t.start();
+    expect([t.modo, t.perfil, t.altura, t.lados]).toEqual(['extrusao', 'circulo', 9, 6]);
+  });
+
+  it('options.mass com altura inválida mantém a altura padrão (o setter valida)', () => {
+    const { env, options } = makeEnv();
+    options.mass = { modo: 'bulbo', perfil: 'circulo', altura: -1, lados: 6 };
+    const t = new MassTool(env);
+    t.start();
+    expect(t.modo).toBe('bulbo');
+    expect(t.altura).toBe(9);
+  });
+});

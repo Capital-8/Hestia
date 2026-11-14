@@ -8,6 +8,7 @@ import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
 import type { RampToolOptions } from './rampOptions.ts';
 import type { Lang } from './i18n.ts';
+import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
 export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'none';
 
@@ -302,6 +303,8 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
+  /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
+  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
 }
 
 export interface PointerInfo {

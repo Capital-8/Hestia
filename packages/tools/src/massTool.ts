@@ -63,6 +63,18 @@ export class MassTool extends ToolBase {
     if (Number.isFinite(n)) this.ladosAtual = Math.min(LADOS_MAX, Math.max(LADOS_MIN, Math.round(n)));
   }
 
+  /** Ao ligar a ferramenta, aplica as opções da barra (`options.mass`, E11) pelos setters, que validam; ausentes = padrões. */
+  override start(): void {
+    const m = this.env.options().mass;
+    if (m) {
+      this.modo = m.modo;
+      this.perfil = m.perfil;
+      this.altura = m.altura;
+      this.lados = m.lados;
+    }
+    super.start();
+  }
+
   protected reset(): void {
     this.r.limpar();
     this.centro = null;

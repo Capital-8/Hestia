@@ -4,7 +4,8 @@ import { SHEET_TOOL_IDS, toolDisabledOnSheet } from './sheetTools.ts';
 
 /** Os ids de `TOOL_GROUPS` mais os que só aparecem em abas contextuais (a lista cobre o registro inteiro). */
 const IDS_DOS_GRUPOS: readonly ToolId[] = TOOL_GROUPS.flatMap((g) => g.tools);
-const FORA_DOS_GRUPOS: readonly ToolId[] = ['select', 'section', 'grid', 'roofarrow', 'roofextrusion', 'roomsep', 'perimeter', 'paste'];
+// 'mass' (ficha T1a) está na aba Massa e terreno, não em TOOL_GROUPS: por isso a conta da prancha passou de 46 para 47.
+const FORA_DOS_GRUPOS: readonly ToolId[] = ['select', 'section', 'grid', 'roofarrow', 'roofextrusion', 'roomsep', 'perimeter', 'paste', 'mass'];
 const TODAS: readonly ToolId[] = [...IDS_DOS_GRUPOS, ...FORA_DOS_GRUPOS];
 
 describe('ferramentas com a prancha aberta', () => {
