@@ -53,3 +53,13 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - Dividir no ápice: não é defeito (grade de 0,1 m do comprimento de arco); testes aceitam o corte a até meia célula (0,05 m) e conferem que fica sobre a curva.
 - Alinhar: não é defeito (só a parede clicada anda, vizinhas esticam); testes do hexágono e da elipse passam a conferir esse resultado literal, pontas coincidentes e `joinStatus` pair (sem tangência na elipse).
 - Em `wallShapesModificar.test.ts` os 6 `it.fails` viraram testes normais; os de Deslocar do círculo e da elipse agora usam um clique (Cadeia). Nenhum teste fora dele alterado.
+
+## F1.10
+- Galeria extraída para `ui/perimeter/ShapeGallery.tsx` (`ShapeGallery`, `ShapeDef`, `SHAPE_KEY`, `Ic`); o perímetro a usa sem mudança de comportamento ou aparência.
+- Parede: `drawPanel` e os 8 botões de modo removidos de `ribbon/context.ts`; a aba "Modificar | Colocar Parede" ganha `WallDrawPanel` (Ribbon.tsx) com 10 formas: linha, retângulo, polígono inscrito/circunscrito, círculo, arco 3 pontos, arco centro-extremidades, arco tangente, elipse e spline (nova, ponto azul, ícone próprio, chave `pro_pm_shape_spline`).
+- `wallModes.ts` virou só o mapeamento id da galeria -> `wallShape` (`wallGalleryPatch/Of`); `wallShape` ganhou `arc-center` e `arc-tangent` (também na lista da paleta Propriedades).
+- `wallTool`: arco centro-extremidades (centro, início, fim; sentido pelo lado do cursor, até 180° por clique) e arco tangente (início, ponto da tangente, fim), via `arcCenterEnds`/`arcTangent` sem alterá-los; arcos exatos `{a,b,sag}`, prévia, Esc cancela, 1 desfazer; mensagens `tl_msg_arc_*` e `tl_undo_wall_arc_*` nos 7 idiomas.
+- Dívida: filete de parede não existe (a galeria da Parede não o oferece); face/perímetro/ambiente não se aplicam à parede.
+- Painel Modificar: a Parede usa o mesmo `P_MODIFY` do perímetro, então nada falta em relação a ele; Escala, Fixar e Desafixar continuam "em breve" nos dois.
+- Testes: `ribbon/wallModes.test.ts` reescrito (cada forma -> `wallShape` certo, painel renderiza 10 botões); 2 testes novos dos arcos em `wallShapesTool.test.ts`.
+- Opção do sentido do arco centro-extremidades (>180°) e Cadeia do arco ficam como pendência.
