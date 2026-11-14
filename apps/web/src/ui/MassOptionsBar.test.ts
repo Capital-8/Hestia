@@ -9,6 +9,9 @@ import { ajustarOpcoesMassa, MassOptionsFields, opcoesDaMassa } from './MassOpti
 import { TABS } from './ribbon/tabs.ts';
 import type { RibbonItem } from './ribbon/model.ts';
 
+/** Faz o que o loft faz ao criar a massa (o parâmetro não herda o estreitamento de tipo do teste). */
+const dispara = (t: MassTool, id: string): void => t.aoCriar?.(id);
+
 const opcoesIniciais = useUi.getState().options;
 afterEach(() => {
   useUi.setState({ options: opcoesIniciais, dialog: null, dialogArg: null });
@@ -92,7 +95,7 @@ describe('aoCriar do loft abre o diálogo "Seções da massa"', () => {
     if (!(tool instanceof MassTool)) return;
     tool.aoCriar = null;
     expect(ligarMassa(tool)).toBe(tool);
-    tool.aoCriar?.('ms_loft1');
+    dispara(tool, 'ms_loft1');
     expect(useUi.getState()).toMatchObject({ dialog: 'massSecoes', dialogArg: 'ms_loft1' });
   });
 
@@ -101,7 +104,7 @@ describe('aoCriar do loft abre o diálogo "Seções da massa"', () => {
     editor.setTool('mass');
     const tool = editor.activeTool;
     expect(tool instanceof MassTool && tool.aoCriar !== null).toBe(true);
-    if (tool instanceof MassTool) tool.aoCriar?.('ms_loft2');
+    if (tool instanceof MassTool) dispara(tool, 'ms_loft2');
     expect(useUi.getState().dialogArg).toBe('ms_loft2');
   });
 });
