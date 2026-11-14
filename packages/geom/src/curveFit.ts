@@ -174,16 +174,24 @@ function distArco(p: Vec2, arc: ArcoAjustado): number {
   return Math.min(ptDist(p, arc.a), ptDist(p, arc.b));
 }
 
-function distPoli(p: Vec2, poly: Vec2[]): number {
-  let best = Infinity;
+/** Distância ponto×polilinha; `piso`: se a distância já cair abaixo dele, devolve cedo (não alteraria um máximo). */
+function distPoli(p: Vec2, poly: Vec2[], piso = 0): number {
+  let best2 = Infinity;
+  const piso2 = piso * piso;
   for (let i = 0; i + 1 < poly.length; i++) {
     const a = poly[i]!, b = poly[i + 1]!;
+    const px = p.x - a.x, py = p.y - a.y;
     const dx = b.x - a.x, dy = b.y - a.y;
     const l2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
-    best = Math.min(best, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy));
+    const t = Math.max(0, Math.min(1, (px * dx + py * dy) / l2));
+    const ex = px - t * dx, ey = py - t * dy;
+    const d2 = ex * ex + ey * ey;
+    if (d2 < best2) {
+      best2 = d2;
+      if (best2 <= piso2) break;
+    }
   }
-  return best;
+  return Math.sqrt(best2);
 }
 
 function pontoArco(arc: ArcoAjustado, f: number): Vec2 {
@@ -203,16 +211,21 @@ function pontoArco(arc: ArcoAjustado, f: number): Vec2 {
 const QS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.45, 0.55, 0.35, 0.65, 0.25, 0.75];
 const QS_FINO = [-0.025, 0.025, -0.0125, 0.0125];
 
-function avaliarQ(s0: Amostra, s1: Amostra, poly: Vec2[], q: number): { b: Biarco; err: number } | null {
+/** `corte`: ao ultrapassar o erro já é pior que o melhor atual, aborta (o chamador o descartaria de qualquer modo). */
+function avaliarQ(s0: Amostra, s1: Amostra, poly: Vec2[], q: number, corte = Infinity): { b: Biarco; err: number } | null {
   const b = biarco(s0, s1, q);
   if (!b) return null;
   let err = 0;
   for (let i = 1; i < 32; i++) {
     const p = poly[i * 4]!;
     err = Math.max(err, Math.min(distArco(p, b.arcos[0]), distArco(p, b.arcos[1])));
+    if (err >= corte) return null;
   }
   for (const arc of b.arcos) {
-    for (let i = 0; i <= 32; i++) err = Math.max(err, distPoli(pontoArco(arc, i / 32), poly));
+    for (let i = 0; i <= 32; i++) {
+      err = Math.max(err, distPoli(pontoArco(arc, i / 32), poly, err));
+      if (err >= corte) return null;
+    }
   }
   return { b, err };
 }
@@ -224,7 +237,7 @@ function avaliar(curva: Curva, u0: number, u1: number): Seg {
   let melhor: Seg = { u0, u1, b: null, err: Infinity };
   let qm = 0.5;
   const tentar = (q: number) => {
-    const r = avaliarQ(s0, s1, poly, q);
+    const r = avaliarQ(s0, s1, poly, q, melhor.err - 1e-12);
     if (r && r.err < melhor.err - 1e-12) {
       melhor = { u0, u1, b: r.b, err: r.err };
       qm = q;
@@ -261,7 +274,9 @@ function ajustarVaos(curva: Curva, u0: number, u1: number, tol: number, maxSeg: 
     let fm = 0.5;
     const tentar = (f: number) => {
       const m = s.u0 + (s.u1 - s.u0) * f;
-      const c: [Seg, Seg] = [avaliar(curva, s.u0, m), avaliar(curva, m, s.u1)];
+      const c0 = avaliar(curva, s.u0, m);
+      if (!(c0.err < pior - 1e-12)) return; // já não bate o melhor par: poupa a 2ª metade
+      const c: [Seg, Seg] = [c0, avaliar(curva, m, s.u1)];
       const e = Math.max(c[0].err, c[1].err);
       if (e < pior - 1e-12) {
         pior = e;

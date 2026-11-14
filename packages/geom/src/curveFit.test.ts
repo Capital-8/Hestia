@@ -128,3 +128,23 @@ describe('fitArcs S3', { timeout: 60000 }, () => {
     checarTangencia(c.arcos, true);
   });
 });
+
+describe('fitArcs: tempo (F1.8)', () => {
+  // Metas: spline fechada de 12 pontos <= 100 ms e elipse <= 50 ms; limite 5x para não oscilar sob carga.
+  const SPLINE12: Vec2[] = Array.from({ length: 12 }, (_, i) => ({
+    x: 3 * Math.cos((i * Math.PI) / 6) * (1 + 0.2 * Math.sin(3 * i)),
+    y: 2 * Math.sin((i * Math.PI) / 6),
+  }));
+  it('spline fechada de 12 pontos, tol 5 mm, em até 500 ms', () => {
+    const t = performance.now();
+    const r = fitArcs({ tipo: 'spline', pontos: SPLINE12, fechada: true }, 0.005);
+    expect(performance.now() - t).toBeLessThan(500);
+    expect(r.desvio).toBeLessThanOrEqual(0.005);
+  });
+  it('elipse 4x2, tol 5 mm, em até 250 ms', () => {
+    const t = performance.now();
+    const r = fitArcs(ELIPSE, 0.005);
+    expect(performance.now() - t).toBeLessThan(250);
+    expect(r.arcos).toHaveLength(16);
+  });
+});
