@@ -63,3 +63,6 @@ Branch `frente/parede-formas` (sobre `integracao/massa-suplementos`). Manual: [M
 - Painel Modificar: a Parede usa o mesmo `P_MODIFY` do perímetro, então nada falta em relação a ele; Escala, Fixar e Desafixar continuam "em breve" nos dois.
 - Testes: `ribbon/wallModes.test.ts` reescrito (cada forma -> `wallShape` certo, painel renderiza 10 botões); 2 testes novos dos arcos em `wallShapesTool.test.ts`.
 - Opção do sentido do arco centro-extremidades (>180°) e Cadeia do arco ficam como pendência.
+
+## Fase 1: concluída (2026-11-14)
+Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, test:rapido 12153 ok; 6 a 8 arquivos falham por timeout sob carga (a máquina é compartilhada com outra sessão) e passam isolados. Interface conferida por captura de tela (Chrome do sistema): aba "Modificar | Colocar Parede" com a galeria Desenhar compartilhada com o perímetro. Dívidas: filete de parede; arco centro-extremidades só até 180° por clique; capturas automáticas por script ficam para o portão final da frente. Branch `frente/parede-formas` vive no worktree isolado `~/hestia-wt/frente`.
