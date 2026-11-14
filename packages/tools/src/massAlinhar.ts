@@ -5,9 +5,8 @@ import type { AlignFeature } from './alignFeatures.ts';
 
 /**
  * Arestas do anel cortado da massa (o do kernel; sem kernel, o contorno da base), segmento a segmento, como feições do Alinhar. A massa é
- * feição que se move (política `transladar`, o mesmo `transform` da planta). O alvo `'guardaCorpo'` só diz "elemento avulso que o `transform`
- * translada": o Alinhar só distingue a parede dos demais alvos (`applyAlign` executa o `transform` do id), então a massa usa o mesmo caminho
- * (um alvo `'massa'` pediria mexer em `alignSolve.ts`, fora da lista desta ficha). O rótulo é o nome da massa.
+ * feição que se move (política `transladar`, o mesmo `transform` da planta). O alvo é `'massa'` (ficha T1c): `applyAlign` só trata a parede
+ * de forma especial, então qualquer alvo que não seja parede executa o `transform` do id, que é o que a massa precisa. O rótulo é o nome da massa.
  */
 export function massFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, tolPx: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
   const tol = tolPx * mpp;
@@ -21,7 +20,7 @@ export function massFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, tol
         if (dist(a, b) < 1e-9) return;
         const d = dist(at, closestOnSegment(at, a, b));
         if (d > tol) return;
-        out.push({ key: `${id}:massa:${k}:${i}`, kind: 'arestaMassa', label: m.name, ownerId: id, line: { p: a, d: norm(sub(b, a)) }, move: { policy: 'transladar', target: 'guardaCorpo', id }, distance: d, seg: { a, b } });
+        out.push({ key: `${id}:massa:${k}:${i}`, kind: 'arestaMassa', label: m.name, ownerId: id, line: { p: a, d: norm(sub(b, a)) }, move: { policy: 'transladar', target: 'massa', id }, distance: d, seg: { a, b } });
       });
     });
   }
