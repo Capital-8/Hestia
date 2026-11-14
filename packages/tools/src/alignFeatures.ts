@@ -10,7 +10,7 @@ import {
   type SketchDraft,
   type Vec2,
 } from '@hestia/geom';
-import { aneisDaMassaNoNivel, ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
+import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import { t as translate, type Lang } from './i18n.ts';
 import {
   areaPlanOf,
@@ -36,6 +36,7 @@ import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts'
 import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
 import { gridPath } from './gridGeom.ts';
+import { massFeatures } from './massAlinhar.ts';
 import type { AlignPrefer } from './types.ts';
 
 /** Feições que o Alinhar reconhece sob o cursor. */
@@ -396,32 +397,6 @@ function railingFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?
   return out;
 }
 
-/**
- * Arestas do anel cortado da massa (o do kernel; sem kernel, o contorno da base), segmento a segmento. A massa é feição que se move
- * (política `transladar`, o mesmo `transform` da planta). O alvo `'guardaCorpo'` só diz "elemento avulso que o `transform` translada":
- * o Alinhar só distingue a parede dos demais alvos (`applyAlign` executa o `transform` do id), então a massa usa o mesmo caminho.
- * O rótulo é o nome da massa.
- */
-function massFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>): AlignFeature[] {
-  const tol = TOL_PX * mpp;
-  const out: AlignFeature[] = [];
-  for (const [id, aneis] of aneisDaMassaNoNivel(p, levelId)) {
-    const m = p.elements[id];
-    if (!m || m.kind !== 'mass' || hidden?.has(id)) continue;
-    aneis.forEach((anel, k) => {
-      for (let i = 0; i < anel.length; i++) {
-        const a = anel[i]!;
-        const b = anel[(i + 1) % anel.length]!;
-        if (degenerate(a, b)) continue;
-        const d = segmentDistance(at, a, b);
-        if (d > tol) continue;
-        out.push(feature(`${id}:massa:${k}:${i}`, 'arestaMassa', m.name, id, line(a, sub(b, a)), { policy: 'transladar', target: 'guardaCorpo', id }, d, { a, b }));
-      }
-    });
-  }
-  return out;
-}
-
 /** Linhas do esboço do perímetro em edição (retas; arcos ficam de fora do Alinhar). */
 function draftFeatures(draft: SketchDraft | undefined, at: Vec2, mpp: number): AlignFeature[] {
   if (!draft) return [];
@@ -496,7 +471,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
-  out.push(...massFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden));
+  out.push(...massFeatures(q.project, q.levelId, q.at, q.metersPerPixel, TOL_PX, q.hidden));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);
