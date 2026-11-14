@@ -9,7 +9,7 @@ export type PluginContentCommand = { type: 'deleteOpeningType'; id: Id } | { typ
 
 /** Quantas vezes o id aparece entre as referências do projeto (fora do próprio cadastro de materiais e dos dados de plugin). */
 export function materialReferences(p: Project, id: Id): number {
-  const rest = JSON.stringify({ ...p, materials: undefined, plugins: undefined });
+  const rest = JSON.stringify({ ...p, materials: undefined, plugins: undefined }, (_k, v) => (ArrayBuffer.isView(v) ? undefined : v));
   return rest.split(`"${id}"`).length - 1;
 }
 

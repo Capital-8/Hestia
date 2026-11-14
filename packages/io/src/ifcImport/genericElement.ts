@@ -30,17 +30,22 @@ const WELD_SCALE = 1e6;
  * degenerados (dois vértices soldados iguais) saem da lista. Os vértices de triângulos descartados continuam em
  * `positions`, para o contorno em planta não mudar.
  */
-export function weldTris(tris: number[]): { positions: number[]; indices: number[] } {
-  const positions: number[] = [];
-  const indices: number[] = [];
+export function weldTris(tris: number[]): { positions: Float32Array; indices: Uint32Array } {
+  // Pior caso: todo vértice é novo (tris.length / 3 vértices). Aloca uma vez e apara no fim, sem number[] gigante.
+  const buf = new Float32Array(tris.length);
+  const idx = new Uint32Array(Math.floor(tris.length / 9) * 3);
+  let nv = 0;
+  let ni = 0;
   const seen = new Map<string, number>();
   const vertex = (x: number, y: number, z: number): number => {
     const key = `${Math.round(x * WELD_SCALE)},${Math.round(y * WELD_SCALE)},${Math.round(z * WELD_SCALE)}`;
     let i = seen.get(key);
     if (i === undefined) {
-      i = positions.length / 3;
+      i = nv++;
       seen.set(key, i);
-      positions.push(x, y, z);
+      buf[i * 3] = x;
+      buf[i * 3 + 1] = y;
+      buf[i * 3 + 2] = z;
     }
     return i;
   };
@@ -49,13 +54,15 @@ export function weldTris(tris: number[]): { positions: number[]; indices: number
     const b = vertex(tris[t + 3]!, tris[t + 4]!, tris[t + 5]!);
     const c = vertex(tris[t + 6]!, tris[t + 7]!, tris[t + 8]!);
     if (a === b || b === c || a === c) continue;
-    indices.push(a, b, c);
+    idx[ni++] = a;
+    idx[ni++] = b;
+    idx[ni++] = c;
   }
-  return { positions, indices };
+  return { positions: buf.slice(0, nv * 3), indices: idx.slice(0, ni) };
 }
 
 /** Contorno em planta (hull convexo) a partir dos vértices soldados, achatados em x, y, z. */
-export function outlineOf(positions: number[]): Pt2[] {
+export function outlineOf(positions: ArrayLike<number>): Pt2[] {
   const pts: Pt2[] = [];
   for (let i = 0; i + 2 < positions.length; i += 3) pts.push({ x: positions[i]!, y: positions[i + 1]! });
   return hull2(pts);

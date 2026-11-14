@@ -5,9 +5,10 @@ import type { Project } from '@hestia/model';
  *
  * Um IFC de 50 MB vira um projeto com milhões de coordenadas (o arquivo de teste dá ~6,7 milhões de números). Mandar
  * isso por `postMessage` como objetos custa segundos de *structured clone* na thread principal. Aqui as malhas viram
- * dois buffers (`Float64Array` das posições e `Uint32Array` dos índices) transferidos sem cópia, e cada elemento fica
- * com uma referência `{ p0, p1, i0, i1 }` no lugar do `mesh`. Na janela o `mesh` é remontado como array comum, que é
- * o formato que o modelo e o Salvar já usam.
+ * dois buffers (`Float32Array` das posições e `Uint32Array` dos índices) transferidos sem cópia, e cada elemento fica
+ * com uma referência `{ p0, p1, i0, i1 }` no lugar do `mesh`. Na janela o `mesh` é remontado com arrays tipados
+ * (o formato em memória do modelo; o Salvar converte para array JSON). Cada malha é uma cópia própria (`slice`), e não
+ * um `subarray`: o `structuredClone` de uma visão copiaria o buffer inteiro do projeto a cada undo/copiar/postMessage.
  */
 
 /** Faixa de uma malha dentro dos buffers empacotados. */
@@ -20,20 +21,20 @@ export interface FaixaMalha {
 
 export interface ProjetoIfcEmpacotado {
   projeto: Project;
-  posicoes: Float64Array;
+  posicoes: Float32Array;
   indices: Uint32Array;
 }
 
 interface Malha {
-  positions: number[];
-  indices: number[];
+  positions: ArrayLike<number>;
+  indices: ArrayLike<number>;
 }
 
 const malhaDe = (elemento: unknown): Malha | undefined => {
   const mesh = (elemento as { mesh?: unknown }).mesh;
   if (!mesh || typeof mesh !== 'object') return undefined;
   const { positions, indices } = mesh as Partial<Malha>;
-  return Array.isArray(positions) && Array.isArray(indices) ? { positions, indices } : undefined;
+  return positions && indices && typeof positions.length === 'number' && typeof indices.length === 'number' ? { positions, indices } : undefined;
 };
 
 /** Troca cada malha por uma faixa nos buffers, prontos para `postMessage(..., [buffers])`. */
@@ -48,7 +49,7 @@ export function empacotarProjetoIfc(projeto: Project): ProjetoIfcEmpacotado {
     totalIndices += malha.indices.length;
   }
 
-  const posicoes = new Float64Array(totalPosicoes);
+  const posicoes = new Float32Array(totalPosicoes);
   const indices = new Uint32Array(totalIndices);
   const elementos: Record<string, unknown> = {};
   let p = 0;
@@ -69,7 +70,7 @@ export function empacotarProjetoIfc(projeto: Project): ProjetoIfcEmpacotado {
   return { projeto: { ...projeto, elements: elementos as Project['elements'] }, posicoes, indices };
 }
 
-/** Remonta os arrays comuns de cada malha a partir dos buffers recebidos. */
+/** Remonta os arrays tipados de cada malha a partir dos buffers recebidos. */
 export function desempacotarProjetoIfc(empacotado: ProjetoIfcEmpacotado): Project {
   const { projeto, posicoes, indices } = empacotado;
   const elementos: Record<string, unknown> = {};
@@ -80,8 +81,8 @@ export function desempacotarProjetoIfc(empacotado: ProjetoIfcEmpacotado): Projec
       elementos[id] = {
         ...elemento,
         mesh: {
-          positions: Array.from(posicoes.subarray(faixa.p0, faixa.p1)),
-          indices: Array.from(indices.subarray(faixa.i0, faixa.i1)),
+          positions: posicoes.slice(faixa.p0, faixa.p1),
+          indices: indices.slice(faixa.i0, faixa.i1),
         },
       };
       continue;

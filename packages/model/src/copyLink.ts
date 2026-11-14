@@ -1,3 +1,4 @@
+import { meshShiftedZ } from './meshArrays.ts';
 import { isCad } from './cad.ts';
 import type { Command } from './commands.ts';
 import { hasLevel } from './elementLevel.ts';
@@ -145,11 +146,7 @@ function remapLinkedId(link: CopyLink, targetMember: CopyLinkMember, sourceId: I
 }
 
 /** Desloca o Z (terceira coordenada) de uma lista x, y, z... sem tocar nas demais coordenadas. */
-function shiftZ(positions: readonly number[], dz: number): number[] {
-  const out = positions.slice();
-  for (let i = 2; i < out.length; i += 3) out[i] = out[i]! + dz;
-  return out;
-}
+const shiftZ = meshShiftedZ;
 
 /**
  * Vínculo do forro com o ambiente. Só remapeia quando o ambiente também está no vínculo; sem ele, o

@@ -692,6 +692,13 @@ export interface IfcProperty {
  * Guarda a classe de origem, a malha triangular em coordenadas de mundo (m), o contorno em planta e as propriedades do IFC.
  * Entra no 3D, no DXF e nos quantitativos (volume/área por triângulos) e volta no IFC como `IfcBuildingElementProxy`.
  */
+export type MeshPositions = Float32Array | readonly number[];
+export type MeshIndices = Uint32Array | readonly number[];
+export interface GenericMesh {
+  positions: MeshPositions;
+  indices: MeshIndices;
+}
+
 export interface Generic {
   id: Id;
   kind: 'generic';
@@ -701,8 +708,14 @@ export interface Generic {
   sourceClass: string;
   predefinedType?: string;
   objectType?: string;
-  /** Malha triangular em coordenadas de mundo: `positions` = x, y, z...; `indices` = triplas. */
-  mesh: { positions: number[]; indices: number[] };
+  /**
+   * Malha triangular em coordenadas de mundo: `positions` = x, y, z...; `indices` = triplas. Em memória fica em
+   * `Float32Array`/`Uint32Array` (4x menos RAM que `number[]`); arquivos antigos e testes ainda podem trazer arrays
+   * comuns (`migrateProject` normaliza). No arquivo salvo continua sendo array JSON (ver `serializeProject`).
+   * Precisão Float32: ~0,1 mm a 1 km da origem; para coordenadas na casa de centenas de km (UTM) a resolução cai
+   * para centímetros (limitação conhecida, sem origem local por elemento para não mudar o esquema).
+   */
+  mesh: GenericMesh;
   /** Contorno em planta (hull da malha) para as vistas 2D; ausente = sem desenho em planta. */
   outline?: Vec2[];
   color?: string;

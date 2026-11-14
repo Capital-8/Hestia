@@ -209,7 +209,7 @@ export class PasteTool extends ToolBase {
     for (const id of ids) {
       const g = this.env.project().elements[id];
       if (!isGeneric(g)) continue;
-      const positions = g.mesh.positions.slice();
+      const positions = Float32Array.from(g.mesh.positions);
       for (let i = 0; i < positions.length; i += 3) {
         positions[i] = positions[i]! + d.x;
         positions[i + 1] = positions[i + 1]! + d.y;

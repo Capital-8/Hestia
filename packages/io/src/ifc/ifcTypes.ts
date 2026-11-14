@@ -174,7 +174,7 @@ export interface IfcCurtainPrototypeGeo {
   shape?: string;
   materialId: Id | null;
   /** Malha do protótipo em coordenadas locais (metros, comprimento unitário): posições em triplas x, y, z e índices de triângulos. */
-  mesh: { positions: readonly number[]; indices: readonly number[] };
+  mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> };
 }
 
 /** Instância de um protótipo: a matriz 3 × 4 (12 números, linha-maior, `[r0 r1 r2 t]`) que leva o protótipo ao mundo (cota absoluta). */
@@ -219,7 +219,7 @@ export type IfcPapelGC = 'poste' | 'balaustre' | 'trilho' | 'corrimao' | 'suport
 export interface IfcParteGC {
   papel: IfcPapelGC;
   materialId: Id;
-  mesh: { positions: readonly number[]; indices: readonly number[] };
+  mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> };
   /** Painel de vidro (`CURTAIN_PANEL`); os demais painéis saem `SHEET`. */
   vidro?: boolean;
   /** Número de peças no grupo (balaústres, painéis...), só para o nome. */

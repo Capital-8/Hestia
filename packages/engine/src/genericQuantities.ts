@@ -22,7 +22,7 @@ export interface GenericQuantity {
 }
 
 /** Número de vértices completos (x, y, z) da lista de posições. */
-const vertexCount = (positions: readonly number[]): number => Math.floor(positions.length / 3);
+const vertexCount = (positions: ArrayLike<number>): number => Math.floor(positions.length / 3);
 
 /** Índice inteiro e dentro do intervalo de vértices. */
 const validIndex = (i: number | undefined, count: number): i is number => i !== undefined && Number.isInteger(i) && i >= 0 && i < count;
