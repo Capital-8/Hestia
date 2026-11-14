@@ -59,7 +59,7 @@ export function axisAtLevel(a: Pt, b: Pt, sag: number, z: number, tiltDeg: numbe
 export function axisLengthAtLevel(L: number, z: number, tiltDeg: number): number;
 export function axisLengthAtLevel(R: number, phi: number, z: number, tiltDeg: number, s: -1 | 0 | 1): number;
 export function axisLengthAtLevel(...args: number[]): number {
-  if (args.length === 3) return args[0];
+  if (args.length === 3) return args[0] ?? 0;
   const [R = 0, phi = 0, z = 0, tiltDeg = 0, s = 0] = args;
   return phi * (R + s * z * Math.tan(rad(Math.abs(tiltDeg))));
 }
