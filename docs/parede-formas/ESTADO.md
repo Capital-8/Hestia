@@ -135,4 +135,4 @@ Portões: typecheck, lint (0 erros), check-units, check:ribbon-i18n 0 faltando, 
 - Não há comando que troque a↔b numa parede existente (`flipped` só vira a pilha de camadas); a regra (inverter tilt com sag) fica como teste de propriedade e vale para quem criar a operação. Decisão: o tilt da opção de desenho de formas fica como o dono digitou em cada parede (F2.10), sem inverter quando `clockwise` reverte o percurso.
 - `wallTool.ts`: toda cadeia (reta, arco, inclinada) usa a sessão de transação: um desfazer por cadeia; antes só a inclinada. Teste novo em `wallTiltModificar.test.ts`.
 - Testes novos: `engine/src/wallTiltQuantities.test.ts` (5), `tools/src/wallTiltModificar.test.ts` (matriz 10 comandos × {reta, arco} × ±15°, aceite geométrico em z=0, 1,5, 3 a 1e-9; 50 casos).
-- Testes existentes alterados: ver relatório de commit (os que contavam um desfazer por trecho reto, se houver).
+- Teste existente alterado (1): `tools/src/wallTilt.test.ts` "cadeia reta segue um desfazer por trecho" virou "cadeia reta é um só desfazer" (pedido da ficha).
