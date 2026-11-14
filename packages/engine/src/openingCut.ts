@@ -1,6 +1,7 @@
 import { orientedRect, type MultiPolygon } from '@hestia/geom';
 import type { WallFrame } from './frame.ts';
-import type { TiltCut } from './openingTilt.ts';
+import { openingPlaneOf, type Opening } from '@hestia/model';
+import { inclinedFitsArc, type TiltCut } from './openingTilt.ts';
 import type { OpeningGeometry } from './types.ts';
 
 /** Folga do furo além das faces (m). */
@@ -34,4 +35,16 @@ export function openingTiltCut(g: OpeningGeometry, tiltDeg: number): TiltCut {
     halfW: g.roughWidth / 2, halfD: openingCutHalf(g),
     z0: g.sill, z1: g.sill + g.roughHeight, sn: Math.sin(th), cs: Math.cos(th),
   };
+}
+
+/** Plano efetivo do vão na parede inclinada (F2.8): `{ tiltPlane: 'inclinado' }` só quando vale o corte inclinado e ele cabe. */
+export function openingTiltPlane(o: Opening, f: WallFrame, roughWidth: number): { tiltPlane?: 'inclinado' } {
+  return f.wall.tilt && openingPlaneOf(o) === 'inclinado' && inclinedFitsArc(roughWidth, f.arc?.radius) ? { tiltPlane: 'inclinado' } : {};
+}
+
+/** Vãos 'inclinado' da parede inclinada para o sólido; objeto vazio quando não há. */
+export function openingTiltCuts(opens: OpeningGeometry[], wallId: string, tilt: number | undefined): { tiltCuts?: TiltCut[] } {
+  if (!tilt) return {};
+  const cuts = opens.filter((g) => g.hostId === wallId && g.tiltPlane).map((g) => openingTiltCut(g, tilt));
+  return cuts.length ? { tiltCuts: cuts } : {};
 }

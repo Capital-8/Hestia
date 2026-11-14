@@ -27,7 +27,6 @@ import {
   type Id,
   type Opening,
   type Project,
-  openingPlaneOf,
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
@@ -38,8 +37,7 @@ import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
-import { cutHalfOf, openingRect, openingTiltCut } from './openingCut.ts';
-import { inclinedFitsArc, type TiltCut } from './openingTilt.ts';
+import { cutHalfOf, openingRect, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -252,16 +250,8 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipHand: o.flipHand,
     flipFacing: o.flipFacing,
     offset: o.offset,
-    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}),
-    ...(f.wall.tilt && openingPlaneOf(o) === 'inclinado' && inclinedFitsArc(rough.width, f.arc?.radius) ? { tiltPlane: 'inclinado' as const } : {}),
+    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}), ...openingTiltPlane(o, f, rough.width),
   };
-}
-
-/** Vãos 'inclinado' da parede inclinada (F2.8) para o sólido; objeto vazio quando não há. */
-function tiltCutsOf(opens: OpeningGeometry[], wallId: Id, tilt: number | undefined): { tiltCuts?: TiltCut[] } {
-  if (!tilt) return {};
-  const cuts = opens.filter((g) => g.hostId === wallId && g.tiltPlane).map((g) => openingTiltCut(g, tilt));
-  return cuts.length ? { tiltCuts: cuts } : {};
 }
 
 function clusterKey(items: Item[], opens: OpeningGeometry[]): string {
@@ -492,8 +482,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         height: heights.get(f.wall.id)!,
         nominalZ0: wallBaseElevation(p, f.wall),
         nominalZ1: wallBaseElevation(p, f.wall) + wallMaxHeight(p, f.wall),
-        ...(f.wall.tilt ? { tilt: f.wall.tilt, sag: f.wall.sag } : {}),
-        ...tiltCutsOf(opens, f.wall.id, f.wall.tilt),
+        ...(f.wall.tilt ? { tilt: f.wall.tilt, sag: f.wall.sag } : {}), ...openingTiltCuts(opens, f.wall.id, f.wall.tilt),
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
         membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),
