@@ -4,8 +4,8 @@ import { decodificarAvisosMassa, decodificarFatiasMassa, decodificarPlantaMassa,
 import { massaAvisosDoProjeto } from './massaIssues.ts';
 import { massaM2, projetoComMassas } from './fixtureMassa.ts';
 
-/** Resolve só a massa 'm1' (as demais saem das decodificações, como uma massa que o projeto não tem). */
-const apenasM1 = (id: string): string | undefined => (id === 'm1' ? 'm1' : undefined);
+/** Resolve só o `massa_num` 1 (para 'm1'); os demais números saem das decodificações, como massa que o projeto não tem. */
+const apenasM1 = (n: number): string | undefined => (n === 1 ? 'm1' : undefined);
 
 describe('massa: kernel desligado ou com erro (A.5)', () => {
   it('sem kernel, todas as consultas devolvem null e não lançam', () => {
