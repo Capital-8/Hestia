@@ -12,8 +12,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | R2 | mesclada | merge de massa/r2 | 0 | conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 508, test:wasm 56 arq/1343 (inclui kernel-massa-planta), clippy 39 = base; interrompida pelo limite e retomada; emenda E4 |
 | R3 | mesclada | merge de massa/r3 | 0 | sonnet medium; conferida pelo fiscal: typecheck ✔, lint ✔, test:rapido 971/11359, cargo test 518, test:wasm 57 arq/1347, clippy 39 = base; o fiscal corrigiu 2 linhas do teste da R2 (emenda E6) |
 | E1 | mesclada | merge de massa/e1 | 0 | haiku high; o agente terminou sem relatório, o fiscal conferiu o worktree e o aceite pelos testes: typecheck ✔, lint ✔, test:rapido 976/11383, test:wasm 58/1356; emenda E7 |
-| V1 | pendente | | 0 | |
-| V2 | pendente | | 0 | |
+| V1 | mesclada | merge de massa/v1 | 0 | haiku high; conferida: typecheck ✔, lint ✔, test:rapido 977/11398, test:wasm 58/1356; emenda E8 |
+| V2 | mesclada | merge de massa/v2 | 0 | haiku high; árvore combinada V1+V2: typecheck ✔, lint ✔, test:rapido 980/11422, test:wasm 58/1356 (1 teste de tempo do guarda-corpo falhou sob carga na rodada do agente e passou sem carga); pendências para T1/U2/Q1 na E8 |
 | V3 | pendente | | 0 | |
 | T1 | pendente | | 0 | |
 | U1 | pendente | | 0 | |
@@ -36,6 +36,9 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 - Pendência de limpeza (fiscal, no fim): `/tmp/hestia-target-massa` e worktrees `/home/user/hestia-wt/*`.
 
 - **Fase 1 (kernel) concluída em 2026-11-14.** Portão da fase: valores de A.10 batem nos testes Rust (R1/R2/R3) e o fuzz de 200 massas passa em malha, fatias/planta/quantidades/avisos e corte.
+
+- O fiscal apagou `crates/geom-wasm/target` do checkout principal (criado por `npm run build:wasm` rodado no passo 0 sem `CARGO_TARGET_DIR`). Rode SEMPRE `CARGO_TARGET_DIR=/tmp/hestia-target-massa` com build:wasm; `check-lixo` pega.
+- Testes de tempo do guarda-corpo (`kernel-gc-estabilidade`) oscilam com carga alta do sistema; repetir sem outros processos antes de devolver ficha.
 
 ## Decisões do dono durante a execução
 - 2026-11-13: "sempre que possível seguir sem esperar nada" (o fiscal só para para perguntar se uma decisão de projeto bloquear).
