@@ -20,8 +20,8 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 | T1a (criação) | mesclada | merge de massa/t1a | 0 | haiku high; 2 ampliações de escopo autorizadas (shortcutDefaults.ts, types.ts) e ligação mínima em apps/web (E11); conferida |
 | T1b (modificação) | mesclada | merge de massa/t1b | 0 | sonnet medium; pendências → T1c (E12); conferida |
 | **Árvore combinada T1a+T1b** | verde | | | typecheck ✔, lint ✔, test:rapido 990/11537, test:wasm 59/1359 |
-| T1c (pendências da T1b) | pendente | | 0 | |
-| U1 | pendente | | 0 | |
+| T1c (pendências da T1b) | mesclada | merge de massa/t1c | 0 | haiku high; conferida; dívida de tamanho de sectionEditTools/alignFeatures anotada (E13) |
+| U1 (interface) | mesclada | merge de massa/u1 | 0 | sonnet medium; conferida. **Árvore combinada T1c+U1: typecheck ✔, lint ✔, test:rapido 1001/11607, test:wasm 59/1359, check:ribbon-i18n 0 faltando** |
 | U2 | pendente | | 0 | |
 | D1 | pendente | | 0 | |
 | D2 | pendente | | 0 | |
