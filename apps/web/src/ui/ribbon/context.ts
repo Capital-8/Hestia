@@ -24,7 +24,7 @@ const PERIMETRO = panel('perimetro', t('Perímetro', 'Perimeter'), act('editPeri
 
 /** Painéis do assunto de cada categoria selecionada. */
 const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
-  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')), act('wallTilt'))] },
+  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')), act('wallTilt'), stack(act('tiltFollow', 'small'), act('tiltWedge', 'small')))] },
   door: { label: t('Portas', 'Doors'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   window: { label: t('Janelas', 'Windows'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   floor: { label: t('Pisos', 'Floors'), panels: [PERIMETRO] },

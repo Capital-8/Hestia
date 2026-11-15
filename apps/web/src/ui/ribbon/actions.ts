@@ -21,6 +21,7 @@ import { massaUnicaSelecionada } from '../dialogs/massPisosForm.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
@@ -486,6 +487,29 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'slope',
     hint: t('Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).', 'Tilts the selected walls by the typed angle (positive: top to the left of a→b).'),
     run: openDialog('wallTilt'),
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltFollow: {
+    label: t('Acompanhar inclinação', 'Follow tilt'),
+    icon: 'slope',
+    hint: t('Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.', 'Applies the first selected wall tilt to its whole chain of continuous walls (sign per a→b direction), in a single undo.'),
+    run: () => {
+      const erro = acompanharInclinacao(editor.store, useUi.getState().selection);
+      if (erro) useUi.setState({ status: erro });
+    },
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltWedge: {
+    label: t('Cunha', 'Wedge'),
+    icon: 'slope',
+    hint: t('Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).', 'Closes with a prism the step between continuous walls of different tilts (toggles with the open step).'),
+    run: () => {
+      const sel = useUi.getState().selection;
+      const ref = editor.project.elements[sel.find((id) => isWall(editor.project.elements[id])) ?? ''];
+      const j = isWall(ref) ? ref.joinEnd : undefined;
+      const erro = definirTransicaoDaCadeia(editor.store, sel, !(j?.transicao === 'cunha'));
+      if (erro) useUi.setState({ status: erro });
+    },
     disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
   },
   railingForHost: {

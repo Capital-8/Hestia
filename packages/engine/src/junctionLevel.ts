@@ -4,7 +4,7 @@ import type { LayerBand, ResolvedLayer, ResolvedWall } from './types.ts';
 import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { resolveJunction, type PlanarPiece, type ResolvedPrism } from './junctionPlanar.ts';
 import { despachanteDeJuncao } from './resolveDespacho.ts';
-import { analyzeLevelTilt, projetoTemParedeInclinada, type WallTiltJoin } from './wallTiltJoinLevel.ts';
+import { analyzeLevelTilt, projetoTemParedeInclinada, type Cunha, type LevelTiltAnalysis, type WallTiltJoin } from './wallTiltJoinLevel.ts';
 import { levelFrames } from './resolveFrames.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { resolveLevel } from './resolve.ts';
@@ -47,6 +47,8 @@ export interface JunctionLevel {
   levelId: Id;
   elements: ReadonlyMap<Id, ElementJunction>;
   walls: ReadonlyMap<Id, WallJunction>;
+  /** Cunhas de transição entre paredes inclinadas em continuação (etapa R); ausente = nenhuma. */
+  cunhas?: readonly Cunha[];
 }
 
 /** Chave de uma faixa dentro de uma parede: camada e faixa de altura, como vêm de `ResolvedWall`. */
@@ -105,15 +107,18 @@ const projectLevelCache = new WeakMap<Project, Map<Id, JunctionLevel>>();
 const cutterSetResultCache = new WeakMap<LevelCutters, { value: JunctionLevel; tj: ReadonlyMap<Id, WallTiltJoin> | undefined }>();
 
 /** Junções inclinadas das paredes do nível (F2.4), ou `undefined` sem parede inclinada. A altura é a resolvida (anexo a piso/telhado). */
-function tiltJoinsOfLevel(p: Project, levelId: Id): ReadonlyMap<Id, WallTiltJoin> | undefined {
+function tiltJoinsOfLevel(p: Project, levelId: Id): LevelTiltAnalysis | undefined {
   if (!projetoTemParedeInclinada(p)) return undefined;
   const frames = levelFrames(p, levelId).filter((f) => semCortina(p, [f.wall]).length > 0);
   if (!frames.some((f) => f.wall.tilt)) return undefined;
   const walls = resolveLevel(p, levelId).walls;
   const heights = new Map(Object.values(walls).map((w) => [w.wallId, w.height] as const));
   // `analyzeLevelTilt` guarda o resultado por conteúdo: o Map é o MESMO enquanto as paredes do nível não mudam (identidade serve de chave).
-  return analyzeLevelTilt(frames, heights, p.settings?.joinTolerance).joins;
+  return analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
 }
+
+/** Cunhas de transição do nível (etapa R); vazio sem parede inclinada. */
+export const cunhasDoNivel = (p: Project, levelId: Id): readonly Cunha[] => tiltJoinsOfLevel(p, levelId)?.cunhas ?? [];
 
 /** Volume (metros cúbicos) das partes de uma camada: área em planta vezes a altura de cada parte. */
 const volumeOfParts = (parts: readonly ResolvedPrism[]): number => parts.reduce((s, x) => s + multiArea(x.poly) * (x.z1 - x.z0), 0);
@@ -158,7 +163,8 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
   };
   const cutters = levelCutterSet(p, levelId);
   // Junção inclinada (F2.4): só quando o nível tem parede inclinada; sem ela nada muda (caminho idêntico ao de antes).
-  const tiltJoins = tiltJoinsOfLevel(p, levelId);
+  const tiltAnalysis = tiltJoinsOfLevel(p, levelId);
+  const tiltJoins = tiltAnalysis?.joins;
   const cutterResult = cutterSetResultCache.get(cutters);
   if (cutterResult && cutterResult.tj === tiltJoins) return remember(cutterResult.value);
   // Cortadores do nível e dos níveis que o alcançam (F1b). Laje com caimento fica de fora da junção.
@@ -216,7 +222,7 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
     wj.tilt = tilt;
     walls.set(id, wj);
   }
-  const value: JunctionLevel = { levelId, elements, walls };
+  const value: JunctionLevel = tiltAnalysis?.cunhas.length ? { levelId, elements, walls, cunhas: tiltAnalysis.cunhas } : { levelId, elements, walls };
   levelCache.set(levelId, { sig, value, tj: tiltJoins });
   cutterSetResultCache.set(cutters, { value, tj: tiltJoins });
   return remember(value);

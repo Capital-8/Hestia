@@ -3,7 +3,7 @@ import type { Id } from '@hestia/model';
 import { arestasDasCaixas, folgaEntreCaixas, matrizDaCaixa, retanguloDoAnel, TOLERANCIA_CAIXA, type CaixaPlanta, type MatrizCaixa } from './caixas3d.ts';
 import { arestasDaUniao } from './arestasDaUniao3d.ts';
 import { tiltJoinOf } from './wallTiltSolid.ts';
-import { appendSolid, batchOf, wallLayerSolid, type SolidBatch } from './solids.ts';
+import { appendCunhas, appendSolid, batchOf, wallLayerSolid, type SolidBatch } from './solids.ts';
 
 /**
  * Paredes retas como caixas parametrizadas (desempenho 3D). A camada de parede que, depois da junção, é só prismas
@@ -99,5 +99,6 @@ export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | 
       } else appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
     }
   }
+  appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()], caixas, arestas, arestasPorParede };
 }

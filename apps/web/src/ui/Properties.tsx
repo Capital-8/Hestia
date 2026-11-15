@@ -126,7 +126,8 @@ function JoinRows({ wall }: { wall: Wall }): ReactElement {
       const srcEnd = firstIsMe ? end : partnerEnd;
       const cfg = srcEnd === 'a' ? src.joinStart : src.joinEnd;
       const ends = [{ wallId: wall.id, end }, ...st.partners];
-      const set = (kind: JoinKind, flip: boolean): void => editor.store.exec({ type: 'setJoin', ends, config: { kind, flip } });
+      const set = (kind: JoinKind, flip: boolean, transicao: 'degrau' | 'cunha' | undefined = cfg.transicao): void => editor.store.exec({ type: 'setJoin', ends, config: transicao === 'cunha' ? { kind, flip, transicao } : { kind, flip } });
+      const inclinada = !!wall.tilt || (isWall(partner) && !!partner.tilt);
       return (
         <div key={end}>
           <Row label={t('prc_fld_join_at', { label })} htmlFor={`p-join-${end}`}>
@@ -134,6 +135,14 @@ function JoinRows({ wall }: { wall: Wall }): ReactElement {
               {(['butt', 'miter'] as JoinKind[]).map((k) => <option key={k} value={k}>{t(k === 'butt' ? 'prc_join_butt' : 'prc_join_miter')}</option>)}
             </select>
           </Row>
+          {inclinada && (
+            <Row label={t('prc_fld_join_transition')} htmlFor={`p-jointr-${end}`}>
+              <select id={`p-jointr-${end}`} className="select" value={cfg.transicao ?? 'degrau'} onChange={(e) => set(cfg.kind, cfg.flip, e.target.value as 'degrau' | 'cunha')}>
+                <option value="degrau">{t('prc_join_tr_step')}</option>
+                <option value="cunha">{t('prc_join_tr_wedge')}</option>
+              </select>
+            </Row>
+          )}
           {cfg.kind !== 'miter' && (
             <Row label={t('prc_fld_flip_order')}><Check id={`p-joinflip-${end}`} checked={cfg.flip} onChange={(v) => set(cfg.kind, v)} /></Row>
           )}

@@ -1,6 +1,7 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
+import { cunhasDoNivel3d } from './cunhaSolid.ts';
 import { extrudeLayerTilted, tiltJoinOf } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 import { emendaDaAgua } from './roofEmendas3d.ts';
@@ -384,6 +385,9 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   return local;
 }
 
+/** Cunhas de transição (etapa R) do nível, nos lotes do material da camada principal da parede dona. */
+export const appendCunhas = (byMat: Map<Id, SolidBatch>, r: ResolvedLevel, jl?: JunctionLevel): void => cunhasDoNivel3d(r, jl).forEach((c) => appendSolid(batchOf(byMat, c.materialId, 'wall'), c));
+
 /** Acrescenta o sólido local `f` ao lote `b`, deslocando vértices, índices e faixas (cópia: `f` fica intacto). */
 export function appendSolid(b: SolidBatch, f: SolidBatch): void {
   const v0 = b.positions.length / 3;
@@ -417,6 +421,7 @@ export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel): LevelSol
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
   }
+  appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()] };
 }
 

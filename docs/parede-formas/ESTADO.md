@@ -207,3 +207,12 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Vão na seção/elevação (`section.ts`, via `openingTiltGeom`): parede inclinada, modo 'inclinado': z1 = peitoril + h·cosθ (janela 1,2×1,0, peitoril 1,0, 15°: topo 1,9659; deslocamento do caixilho 0,3974 deslocando também a profundidade); modo 'vertical': a prumo, z1 = peitoril + h (porta 0,9×2,1: profundidade horizontal 0,7697). Parede vertical: resultado idêntico (teste).
 - Testes novos: `engine/sectionVaoInclinado.test.ts`, `web/editor/aquecimentoCorte.test.ts`. Nenhum teste existente alterado; `tests/e2e/parede-inclinada.mjs` ganhou só o toggle SEM_AQUEC.
 - Limite: o desenho das peças do modelo (OpeningModel) na vista ainda usa a altura h; só o retângulo/oclusão do vão segue h·cosθ.
+
+## Etapa R: continuação com inclinações diferentes (ações D e B)
+- Padrão mantido: aceitar e avisar; correção só por ação explícita, nunca automática. Aviso corrigido: o degrau usa as inclinações no mesmo referencial (parede b→a troca o sinal), sem falso positivo.
+- Ação D: comando `alignTiltOfChain {items:[{id,tilt}]}` (atômico, valida `wallTiltIssue`, um desfazer). A cadeia e o sinal por sentido a→b vêm do motor (`cadeiaContinua`, mesmo critério `emContinuacao` do aviso); a referência é a primeira parede selecionada.
+- Ação B: `JoinConfig.transicao?: 'degrau'|'cunha'` (ausente = degrau; SCHEMA_VERSION intacto). Cunha = prisma triangular (0,0),(offA,H),(offB,H) no plano perpendicular, extrudado por t centrado no nó; volume exato t·H·|offA−offB|/2 (−20°/−15°, H=3, t=0,2: 0,0864189 m³). Soma em quantitativos (camada de maior área da parede dona) e no 3D (`cunhaSolid.ts`).
+- Só reta×reta. D1 (dívida): arcos tangentes seguem só com aviso; a cunha ocupa t em torno do nó e sobrepõe uma faixa fina junto à base dentro dos corpos das paredes (o volume somado é o do prisma inteiro); refinar recortando o prisma pelos corpos.
+- Interface reaproveitada: o painel de avisos não tem infraestrutura de ação, então "Acompanhar inclinação" e "Cunha" estão no painel 'modificar-parede' da aba das paredes; o campo "Transição de inclinação" fica nas linhas de junção da paleta de propriedades (parede inclinada).
+- Gancho para a ação C (transição por extremidade, superfície regrada): ainda não existe; `transicao` é string-union extensível (ex.: 'regrada').
+- Testes: wallTiltTransicao.test.ts (motor), cunhaTransicao.test.ts (render: 8 triângulos, volume assinado), wallTiltCadeia.test.ts (web).
