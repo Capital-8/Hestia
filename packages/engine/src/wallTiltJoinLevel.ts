@@ -220,7 +220,7 @@ function runsOf(poly: readonly Vec2[], c: Vec2): Run[] {
  * angular entre os cantos dela (cantos mantidos), as correntes entre faces casam por ordem (ou pelo vértice mais próximo)
  * e, sem faces de arco, vale o vértice mais próximo (como `alinhar`). null se o anel resultante é degenerado ou invertido.
  */
-function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: number[]; m?: number }): Vec2[] | null {
+function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: number[]; m?: number }, ancoras?: ReadonlyArray<{ raw: Vec2; nivel: Vec2 }>): Vec2[] | null {
   const n = raw.length, m = ring.length;
   const sg = Math.sign(ringArea(raw));
   const nearest = (p: Vec2, from: number, count: number): Vec2 => {
@@ -230,7 +230,7 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: 
   };
   let out: Vec2[];
   const rr = c ? runsOf(raw, c) : [], lr = c ? runsOf(ring, c) : [];
-  if (m === n) out = ring;
+  if (m === n && !ancoras?.length) out = ring;
   else if (c && rr.length > 0 && rr.length === lr.length) {
     out = new Array<Vec2>(n);
     for (let k = 0; k < rr.length; k++) {
@@ -244,10 +244,30 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: 
       const ca = cum(raw, A), cb = cum(ring, B);
       const ta = ca[A.len - 1]!, tb = cb[B.len - 1]!;
       const phi0 = ang(ring, B.s), rho = Math.hypot(ring[B.s % m]!.x - c.x, ring[B.s % m]!.y - c.y);
-      for (let j = 0; j < A.len; j++) {
-        const lam = Math.abs(ta) < 1e-12 ? (A.len > 1 ? j / (A.len - 1) : 0) : ca[j]! / ta;
-        const i = (A.s + j) % n;
-        out[i] = j === 0 ? ring[B.s % m]! : j === A.len - 1 ? ring[(B.s + B.len - 1) % m]! : { x: c.x + rho * Math.cos(phi0 + lam * tb), y: c.y + rho * Math.sin(phi0 + lam * tb) };
+      // Âncoras (X1): cantos da face e pontas de corda (corte do ramo sobre a face), cada uma com a posição que tem NO nível. Entre duas âncoras a
+      // reamostragem é por fração angular; sem âncora interna é a de sempre (de canto a canto).
+      const anc: Array<{ j: number; p: Vec2 }> = [{ j: 0, p: ring[B.s % m]! }];
+      for (let j = 1; j < A.len - 1; j++) {
+        const rv = raw[(A.s + j) % n]!;
+        const a = ancoras?.find((q) => Math.hypot(q.raw.x - rv.x, q.raw.y - rv.y) < 1e-6);
+        if (a) anc.push({ j, p: a.nivel });
+      }
+      anc.push({ j: A.len - 1, p: ring[(B.s + B.len - 1) % m]! });
+      for (let g = 0; g + 1 < anc.length; g++) {
+        const a0 = anc[g]!, a1 = anc[g + 1]!;
+        const interna = anc.length > 2;
+        const f0 = Math.atan2(a0.p.y - c.y, a0.p.x - c.x);
+        const span = interna ? wrapPi(Math.atan2(a1.p.y - c.y, a1.p.x - c.x) - f0) : tb;
+        const base0 = interna ? f0 : phi0;
+        const r0 = interna ? Math.hypot(a0.p.x - c.x, a0.p.y - c.y) : rho;
+        const dca = ca[a1.j]! - ca[a0.j]!;
+        for (let j = a0.j; j <= a1.j; j++) {
+          const i = (A.s + j) % n;
+          if (j === a0.j) { out[i] = a0.p; continue; }
+          if (j === a1.j) { out[i] = a1.p; continue; }
+          const lam = Math.abs(interna ? dca : ta) < 1e-12 ? (j - a0.j) / (a1.j - a0.j) : interna ? (ca[j]! - ca[a0.j]!) / dca : ca[j]! / ta;
+          out[i] = { x: c.x + r0 * Math.cos(base0 + lam * span), y: c.y + r0 * Math.sin(base0 + lam * span) };
+        }
       }
       // Corrente entre esta face e a seguinte (vértices fora de qualquer face).
       const An = rr[(k + 1) % rr.length]!, Bn = lr[(k + 1) % lr.length]!;
@@ -258,32 +278,14 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: 
       }
     }
     if (out.some((q) => !q)) return null;
-  } else if (memo) {
+  } else if (m === n) out = ring;
+  else if (memo) {
     // Sem faces de arco: casamento monótono feito na base (anel ≈ raw) e reaproveitado nos níveis acima (mesma contagem).
     if (!memo.idx || memo.m !== m) { memo.idx = casarMonotono(raw, ring); memo.m = m; }
     out = memo.idx.map((j) => ring[j]!);
   } else out = raw.map((r) => nearest(r, 0, m));
   const a = ringArea(out);
   return Number.isFinite(a) && Math.sign(a) === sg && Math.abs(a) > 1e-9 && out.every((q) => Number.isFinite(q.x) && Number.isFinite(q.y)) ? out : null;
-}
-
-/**
- * Cordas (X1): o vértice do anel vertical que é ponta de uma corda (corte do ramo sobre a face de arco da hospedeira) vai, em cada nível,
- * para a mesma ponta da corda NAQUELE nível. A reamostragem por fração angular de `alinharNivel` o deixaria quase parado sobre a face
- * enquanto o ramo desliza ao longo dela (o entalhe do acabamento da hospedeira sai do corpo do ramo: bolsão de até a espessura do acabamento).
- */
-function seguirCordas(raw: Vec2[], al: Vec2[], base: ReadonlyArray<{ p: Vec2; q: Vec2 }> | undefined, nivel: ReadonlyArray<{ p: Vec2; q: Vec2 }> | undefined): Vec2[] {
-  if (!base?.length || !nivel || base.length !== nivel.length) return al;
-  let out = al;
-  base.forEach((c, k) => {
-    for (const key of ['p', 'q'] as const) {
-      const i = raw.findIndex((v) => Math.hypot(v.x - c[key].x, v.y - c[key].y) < 1e-6);
-      if (i < 0) continue;
-      if (out === al) out = al.slice();
-      out[i] = nivel[k]![key];
-    }
-  });
-  return out;
 }
 
 /**
@@ -425,11 +427,13 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         for (const [layerIndex, r0] of raw) {
           const rs: Vec2[][] = [];
           const memo: { idx?: number[]; m?: number } = {};
+          const cb = rawSet.ends.get(id)?.cordas;
           for (const [ni, m] of per.entries()) {
             const q = m.get(layerIndex);
-            let al = q ? alinharNivel(r0, q, centro, memo) : null;
+            const cn = ad.sets[ni]!.ends.get(id)?.cordas;
+            const ancoras = cb?.length && cn?.length === cb.length ? cb.flatMap((c, k) => [{ raw: c.p, nivel: cn[k]!.p }, { raw: c.q, nivel: cn[k]!.q }]) : undefined;
+            const al = q ? alinharNivel(r0, q, centro, memo, ancoras) : null;
             if (!al) return null;
-            al = seguirCordas(r0, al, rawSet.ends.get(id)?.cordas, ad.sets[ni]!.ends.get(id)?.cordas);
             rs.push(al);
           }
           layers.push({ layerIndex, raw: r0, p0: rs[0]!, pH: rs[rs.length - 1]! });
