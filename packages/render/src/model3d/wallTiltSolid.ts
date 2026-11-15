@@ -1,5 +1,5 @@
 import { arcFromSagitta, difference, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { casadorDeVertices, tiltCutZ, type JunctionLevel, type LayerBand, type ResolvedWall, type WallTiltJoin, type WallTiltJoinLayer } from '@hestia/engine';
+import { casadorDeVertices, tiltCutZ, type JunctionLevel, type NodeWarp, type LayerBand, type ResolvedWall, type WallTiltJoin, type WallTiltJoinLayer } from '@hestia/engine';
 import { weldBands } from './layerTopology.ts';
 import type { SolidBatch } from './solids.ts';
 
@@ -100,19 +100,126 @@ export function tiltLevelsSignature(join: { all: WallTiltJoin; layer: WallTiltJo
  * para o anel do nível (interpolação linear entre os dois níveis vizinhos de z; com 2 níveis é p0 + (pH − p0)·z/H); os demais
  * seguem o mapa geral da parede, cujas faces estão nos mesmos planos/cones.
  */
-function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[]): (x: number, y: number, z: number) => [number, number] {
-  void join;
+function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[], wallId: string): (x: number, y: number, z: number) => [number, number] {
+  const nodes = join.nodes ?? [];
   const casa = casadorDeVertices(layer.raw);
   return (x, y, z) => {
+    if (nodes.length) {
+      const w = warpNos(nodes, wallId, x, y, z, base);
+      if (w) return w;
+    }
     const i = casa(x, y);
-    if (i < 0) return base(x, y, z);
-    let k = 0;
-    while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
-    const l0 = levels[k]!, l1 = levels[k + 1]!;
-    const t = (z - l0.z) / (l1.z - l0.z);
-    const a = l0.ring[i]!, c = l1.ring[i]!;
-    return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
+    if (i >= 0) {
+      let k = 0;
+      while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
+      const l0 = levels[k]!, l1 = levels[k + 1]!;
+      const t = (z - l0.z) / (l1.z - l0.z);
+      const a = l0.ring[i]!, c = l1.ring[i]!;
+      return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
+    }
+    return base(x, y, z);
   };
+}
+
+const EPS_NO = 1e-7;
+
+/**
+ * Segmentos onde o mapa do nó muda de peça (arestas dos triângulos do miolo e borda do nó de cada faixa), na planta vertical.
+ * A aresta de uma faixa de parede que os cruza ganha ali um vértice (a imagem de cada trecho fica numa só peça, e as duas paredes
+ * vizinhas, que dividem a aresta, inserem o mesmo ponto).
+ */
+function fronteirasDoNo(nodes: readonly NodeWarp[]): Array<[Vec2, Vec2]> {
+  const segs: Array<[Vec2, Vec2]> = [];
+  for (const nd of nodes) {
+    for (const w of nd.walls) segs.push([w.Rv, w.Lv]);
+    for (const h of nd.hubs) for (const [i, j, k] of h.tri) segs.push([h.vert[i]!, h.vert[j]!], [h.vert[j]!, h.vert[k]!], [h.vert[k]!, h.vert[i]!]);
+  }
+  return segs;
+}
+function refinaNo(poly: MultiPolygon, segs: ReadonlyArray<[Vec2, Vec2]>): MultiPolygon {
+  if (!segs.length) return poly;
+  return poly.map((pl) => pl.map((ring) => {
+    const out: Vec2[] = [];
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i]!, q = ring[(i + 1) % ring.length]!;
+      out.push(p);
+      const dx = q.x - p.x, dy = q.y - p.y;
+      const hits: number[] = [];
+      for (const [a, b] of segs) {
+        const ex = b.x - a.x, ey = b.y - a.y;
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-14) continue;
+        const t = ((a.x - p.x) * ey - (a.y - p.y) * ex) / den;
+        const u = ((a.x - p.x) * dy - (a.y - p.y) * dx) / den;
+        if (t > 1e-9 && t < 1 - 1e-9 && u > -1e-9 && u < 1 + 1e-9) hits.push(t);
+      }
+      hits.sort((m, n) => m - n);
+      let last = -1;
+      for (const t of hits) if (t - last > 1e-9) { out.push({ x: p.x + dx * t, y: p.y + dy * t }); last = t; }
+    }
+    return out;
+  }));
+}
+/**
+ * Deformação do nó de 3+ paredes (N1): ponto da planta vertical (x, y) na cota z, ou null fora da zona do nó.
+ * Miolo: afim por triângulo (mesmos triângulos na planta vertical e na da cota). Faixa de uma parede: o mapa geral da parede (`tiltMap`)
+ * mais um deslizamento ao longo do eixo que leva a borda do nó da faixa ao canto da cota (linear em λ, que vai da face direita à esquerda)
+ * e cai linearmente a zero até a ponta longe; a face fica no plano, a ordem dos vértices se mantém (o deslizamento é menor que o comprimento).
+ * O ponto na faixa de OUTRA parede do nó usa o mapa dela (o corte do resolvedor vertical na zona do nó é arbitrário, e todas as paredes
+ * precisam do mesmo mapa nesse ponto: fresta 0, sobreposição 0). A ponta longe (w = 0) cai no casamento por `raw` do outro extremo.
+ */
+function warpNos(nodes: NodeWarp[], wallId: string, x: number, y: number, z: number, own: (x: number, y: number, z: number) => [number, number]): [number, number] | null {
+  let slide: { u: Vec2; d: number } | null = null;
+  let outro: [number, number] | null = null;
+  for (const nd of nodes) {
+    for (const h of nd.hubs) {
+      for (const [i, j, k] of h.tri) {
+        const a = h.vert[i]!, b = h.vert[j]!, c = h.vert[k]!;
+        const den = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+        const l1 = ((b.y - c.y) * (x - c.x) + (c.x - b.x) * (y - c.y)) / den;
+        const l2 = ((c.y - a.y) * (x - c.x) + (a.x - c.x) * (y - c.y)) / den;
+        const l3 = 1 - l1 - l2;
+        if (l1 < -EPS_NO || l2 < -EPS_NO || l3 < -EPS_NO) continue;
+        const P = (q: number): Vec2 => ({ x: h.p0[q]!.x + h.dp[q]!.x * z, y: h.p0[q]!.y + h.dp[q]!.y * z });
+        const pa = P(i), pb = P(j), pc = P(k);
+        return [l1 * pa.x + l2 * pb.x + l3 * pc.x, l1 * pa.y + l2 * pb.y + l3 * pc.y];
+      }
+    }
+  }
+  for (const nd of nodes) {
+    for (const w of nd.walls) {
+      const n = { x: -w.u.y, y: w.u.x };
+      const dx = x - w.o.x, dy = y - w.o.y;
+      const t = dx * w.u.x + dy * w.u.y, s = dx * n.x + dy * n.y;
+      const lam = (s - w.lo) / (w.hi - w.lo);
+      if (lam < -EPS_NO || lam > 1 + EPS_NO || t > w.len + EPS_NO) continue;
+      const tR = (w.Rv.x - w.o.x) * w.u.x + (w.Rv.y - w.o.y) * w.u.y, tL = (w.Lv.x - w.o.x) * w.u.x + (w.Lv.y - w.o.y) * w.u.y;
+      const edge = tR + lam * (tL - tR);
+      if (t < edge - EPS_NO) continue;
+      // Mapa geral dessa parede e deslizamento do canto.
+      const T = (px: number, py: number): Vec2 => {
+        const e = (px - w.o.x) * n.x + (py - w.o.y) * n.y;
+        const m = e * (w.inv - 1) + z * w.tan;
+        return { x: px + n.x * m, y: py + n.y * m };
+      };
+      const slideAt = (c0: Vec2, dc: Vec2, cv: Vec2): number => {
+        const q = T(cv.x, cv.y);
+        return (c0.x + dc.x * z - q.x) * w.u.x + (c0.y + dc.y * z - q.y) * w.u.y;
+      };
+      const dR = slideAt(w.R0, w.dR, w.Rv), dL = slideAt(w.L0, w.dL, w.Lv);
+      const wt = w.len - edge > 1e-9 ? Math.max(0, 1 - (t - edge) / (w.len - edge)) : 0;
+      const d = (dR + lam * (dL - dR)) * wt;
+      if (w.id !== wallId) {
+        // Ponto na borda de duas faixas (canto sobre a face da barra): vale a da própria parede, se houver; senão a da outra.
+        if (!outro) { const q = T(x, y); outro = [q.x + w.u.x * d, q.y + w.u.y * d]; }
+        continue;
+      }
+      if (wt > 1e-12) slide = slide ? { u: slide.u, d: slide.d + d } : { u: w.u, d };
+    }
+  }
+  if (!slide) return outro;
+  const q = own(x, y, z);
+  return [q[0] + slide.u.x * slide.d, q[1] + slide.u.y * slide.d];
 }
 
 /**
@@ -124,13 +231,14 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const { push, emitFace, oriented, unionAll, zEps: Z_EPS } = h;
   const generic = tiltMap(rw, tiltDeg);
   const jLevels = join ? tiltLevelsOf(join, !!rw.sag) : [];
-  const map = join ? joinedMap(generic, join.all, join.layer, jLevels) : generic;
+  const map = join ? joinedMap(generic, join.all, join.layer, jLevels, rw.wallId) : generic;
   // Cotas intermediárias da junção (J3): as faces laterais se partem nelas (faixas regradas entre níveis consecutivos).
   const splitZ = jLevels.slice(1, -1).map((l) => l.z);
   // Vãos 'inclinado' (F2.8): os vértices do furo na cota do peitoril/topo escorregam ao longo do plano da face (cota pré-mapa).
   const cuts = rw.tiltCuts ?? [];
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
-  const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: union(x.poly) })));
+  const fronteiras = join?.all.nodes ? fronteirasDoNo(join.all.nodes) : [];
+  const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: refinaNo(union(x.poly), fronteiras) })));
   // `onEdge` pede os vértices da mesma cota para cada aresta lateral: montar a lista uma vez por cota (antes: a cada aresta).
   const vertsMemo = new Map<number, Vec2[]>();
   const vertsAt = (z: number): Vec2[] => {
