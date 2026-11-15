@@ -43,6 +43,7 @@ export const PT_PACKAGES_ENGINE = {
   egb_issue_wall_roof_partial: 'Parede "{id}" está anexada ao telhado, mas {length} do eixo estão fora dele; esse trecho fica na altura normal.',
   egb_issue_tilt_arc_nojoin: 'Parede inclinada "{id}" em arco ou ligada a arco: sem junção exata no topo (corte de topo simples).',
   egb_issue_tilt_infeasible: 'Parede inclinada "{id}": a inclinação não cabe na junção com a altura real (o canto sai da parede); o topo usa corte simples.',
+  egb_issue_tilt_continuation: 'Inclinações diferentes em parede contínua "{id}": degrau de {valor} no topo.',
   egb_issue_opening_plane_arc: 'Abertura "{id}" em parede de arco inclinada: o vão é largo demais para o plano inclinado; o corte usa o plano vertical.',
   egb_issue_wall_roof_over: 'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
@@ -231,6 +232,7 @@ export const EN_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'Wall "{id}" is attached to the roof, but {length} of the axis lies outside it; that stretch stays at the normal height.',
   egb_issue_tilt_arc_nojoin: 'Tilted wall "{id}" is curved or joined to a curved wall: no exact joint at the top (simple top cut).',
   egb_issue_tilt_infeasible: 'Tilted wall "{id}": the tilt does not fit the joint at the real height (the corner leaves the wall); the top uses a simple cut.',
+  egb_issue_tilt_continuation: 'Different tilts in a continuous wall "{id}": {valor} step at the top.',
   egb_issue_opening_plane_arc: 'Opening "{id}" in a tilted curved wall: the opening is too wide for the inclined plane; the cut uses the vertical plane.',
   egb_issue_wall_roof_over: 'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:
@@ -419,6 +421,7 @@ export const ES_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'El muro "{id}" está vinculado al tejado, pero {length} del eje están fuera de él; ese tramo queda a la altura normal.',
   egb_issue_tilt_arc_nojoin: 'Muro inclinado "{id}" en arco o unido a un arco: sin unión exacta en la parte superior (corte superior simple).',
   egb_issue_tilt_infeasible: 'Muro inclinado "{id}": la inclinación no cabe en la unión con la altura real (la esquina sale del muro); la parte superior usa corte simple.',
+  egb_issue_tilt_continuation: 'Inclinaciones distintas en muro continuo "{id}": escalón de {valor} en la parte superior.',
   egb_issue_opening_plane_arc: 'Abertura "{id}" en muro curvo inclinado: el vano es demasiado ancho para el plano inclinado; el corte usa el plano vertical.',
   egb_issue_wall_roof_over: 'El muro "{id}" sobresale {length} de la cara inferior del tejado; active la parte superior ajustada al tejado o baje el muro.',
   egb_issue_termino_camada_sem_funcao:
@@ -607,6 +610,7 @@ export const DE_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'Wand "{id}" ist am Dach verknüpft, aber {length} der Achse liegen außerhalb; dieser Abschnitt bleibt auf normaler Höhe.',
   egb_issue_tilt_arc_nojoin: 'Geneigte Wand "{id}" ist gebogen oder an eine gebogene Wand angeschlossen: keine exakte Verbindung an der Oberkante (einfacher Oberkantenschnitt).',
   egb_issue_tilt_infeasible: 'Geneigte Wand "{id}": Die Neigung passt bei der tatsächlichen Höhe nicht in die Verbindung (die Ecke verlässt die Wand); die Oberkante verwendet einen einfachen Schnitt.',
+  egb_issue_tilt_continuation: 'Unterschiedliche Neigungen in durchgehender Wand "{id}": Stufe von {valor} an der Oberkante.',
   egb_issue_opening_plane_arc: 'Öffnung "{id}" in geneigter gebogener Wand: Die Öffnung ist für die geneigte Ebene zu breit; der Schnitt verwendet die vertikale Ebene.',
   egb_issue_wall_roof_over: 'Wand "{id}" ragt {length} über die Dachunterseite hinaus; aktivieren Sie die dachangepasste Oberkante oder senken Sie die Wand.',
   egb_issue_termino_camada_sem_funcao:
@@ -795,6 +799,7 @@ export const FR_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'Le mur "{id}" est lié au toit, mais {length} de l\'axe sont en dehors ; ce tronçon reste à la hauteur normale.',
   egb_issue_tilt_arc_nojoin: 'Le mur incliné "{id}" est courbe ou lié à un mur courbe : pas de jonction exacte au sommet (coupe de sommet simple).',
   egb_issue_tilt_infeasible: 'Le mur incliné "{id}" : l\'inclinaison ne tient pas dans la jonction à la hauteur réelle (l\'angle sort du mur) ; le sommet utilise une coupe simple.',
+  egb_issue_tilt_continuation: 'Inclinaisons différentes dans un mur continu "{id}" : décrochement de {valor} au sommet.',
   egb_issue_opening_plane_arc: 'Ouverture "{id}" dans un mur courbe incliné : la baie est trop large pour le plan incliné ; la coupe utilise le plan vertical.',
   egb_issue_wall_roof_over: 'Le mur "{id}" dépasse de {length} sous la face inférieure du toit ; activez le sommet ajusté au toit ou abaissez le mur.',
   egb_issue_termino_camada_sem_funcao:
@@ -983,6 +988,7 @@ export const IT_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'La parete "{id}" è collegata al tetto, ma {length} dell\'asse sono fuori; quel tratto resta all\'altezza normale.',
   egb_issue_tilt_arc_nojoin: 'Parete inclinata "{id}" ad arco o collegata a un arco: nessuna giunzione esatta in sommità (taglio di sommità semplice).',
   egb_issue_tilt_infeasible: 'Parete inclinata "{id}": l\'inclinazione non rientra nella giunzione all\'altezza reale (l\'angolo esce dalla parete); la sommità usa un taglio semplice.',
+  egb_issue_tilt_continuation: 'Inclinazioni diverse in parete continua "{id}": gradino di {valor} in sommità.',
   egb_issue_opening_plane_arc: 'Apertura "{id}" in parete curva inclinata: il vano è troppo largo per il piano inclinato; il taglio usa il piano verticale.',
   egb_issue_wall_roof_over: 'La parete "{id}" sporge di {length} sotto la faccia inferiore del tetto; attiva la sommità adattata al tetto o abbassa la parete.',
   egb_issue_termino_camada_sem_funcao:
@@ -1171,6 +1177,7 @@ export const PL_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_wall_roof_partial: 'Ściana "{id}" jest powiązana z dachem, ale {length} osi znajduje się poza nim; ten odcinek pozostaje na normalnej wysokości.',
   egb_issue_tilt_arc_nojoin: 'Ściana pochylona "{id}" jest łukowa lub połączona z łukiem: brak dokładnego połączenia na górze (proste cięcie górne).',
   egb_issue_tilt_infeasible: 'Ściana pochylona "{id}": pochylenie nie mieści się w połączeniu przy rzeczywistej wysokości (narożnik wychodzi poza ścianę); góra używa prostego cięcia.',
+  egb_issue_tilt_continuation: 'Różne nachylenia w ciągłej ścianie "{id}": uskok {valor} na górze.',
   egb_issue_opening_plane_arc: 'Otwór "{id}" w pochylonej ścianie łukowej: otwór jest zbyt szeroki dla płaszczyzny pochylonej; cięcie używa płaszczyzny pionowej.',
   egb_issue_wall_roof_over: 'Ściana "{id}" wystaje {length} poza spód dachu; włącz górę dopasowaną do dachu lub obniż ścianę.',
   egb_issue_termino_camada_sem_funcao:

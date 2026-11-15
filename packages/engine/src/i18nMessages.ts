@@ -74,6 +74,7 @@ const PT = {
     'Parede "{id}" está anexada ao telhado, mas {length} do eixo estão fora dele; esse trecho fica na altura normal.',
   egb_issue_tilt_arc_nojoin: 'Parede inclinada "{id}" em arco ou ligada a arco: sem junção exata no topo (corte de topo simples).',
   egb_issue_tilt_infeasible: 'Parede inclinada "{id}": a inclinação não cabe na junção com a altura real (o canto sai da parede); o topo usa corte simples.',
+  egb_issue_tilt_continuation: 'Inclinações diferentes em parede contínua "{id}": degrau de {valor} no topo.',
   egb_issue_opening_plane_arc: 'Abertura "{id}" em parede de arco inclinada: o vão é largo demais para o plano inclinado; o corte usa o plano vertical.',
   egb_issue_wall_roof_over:
     'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
@@ -344,6 +345,7 @@ const EN: Record<DictKey, string> = {
     'Wall "{id}" is attached to the roof, but {length} of the axis lies outside it; that stretch stays at the normal height.',
   egb_issue_tilt_arc_nojoin: 'Tilted wall "{id}" is curved or joined to a curved wall: no exact joint at the top (simple top cut).',
   egb_issue_tilt_infeasible: 'Tilted wall "{id}": the tilt does not fit the joint at the real height (the corner leaves the wall); the top uses a simple cut.',
+  egb_issue_tilt_continuation: 'Different tilts in a continuous wall "{id}": {valor} step at the top.',
   egb_issue_opening_plane_arc: 'Opening "{id}" in a tilted curved wall: the opening is too wide for the inclined plane; the cut uses the vertical plane.',
   egb_issue_wall_roof_over:
     'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
