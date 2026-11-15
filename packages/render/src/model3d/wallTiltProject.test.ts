@@ -52,10 +52,10 @@ describe('parede inclinada no caminho do app (projeto -> motor -> sólido)', () 
     expect(c.z0).toBeCloseTo(1, 6);
     expect(c.z1).toBeCloseTo(2, 6);
   });
-  it('porta (padrão) e janela com plano vertical: sem corte inclinado', () => {
-    expect(resolveLevel(proj(15, 'door'), 'lv_0').walls.w1!.tiltCuts).toBeUndefined();
+  it('porta e janela com plano vertical explícito: sem corte inclinado; porta padrão: inclinada (P1)', () => {
+    expect(resolveLevel(proj(15, 'door', 'vertical'), 'lv_0').walls.w1!.tiltCuts).toBeUndefined();
     expect(resolveLevel(proj(15, 'window', 'vertical'), 'lv_0').walls.w1!.tiltCuts).toBeUndefined();
-    expect(resolveLevel(proj(15, 'door', 'inclinado'), 'lv_0').walls.w1!.tiltCuts).toHaveLength(1);
+    expect(resolveLevel(proj(15, 'door'), 'lv_0').walls.w1!.tiltCuts).toHaveLength(1);
   });
   it('parede isolada com tilt 20: os vértices do topo saem deslocados H·tan20 no sólido do app', () => {
     const r = buildLevelSolidsComCaixas(resolveLevel(proj(20), 'lv_0'), undefined, false);
