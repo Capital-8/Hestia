@@ -18,6 +18,8 @@
 import type { Vec2 } from '@hestia/geom';
 import type { Mesh, Vec3 } from './wallTiltJoin.ts';
 
+export type { Mesh };
+
 /** Área com sinal (positiva = anti-horário) de um laço. */
 export const polyArea = (p: readonly Vec2[]): number => p.reduce((s, q, i) => s + (q.x * p[(i + 1) % p.length]!.y - p[(i + 1) % p.length]!.x * q.y), 0) / 2;
 /** Volume com sinal de uma malha fechada (tetraedros com a origem). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
-import { meshVolume, noFailed, noWallMesh, polyArea, wallTiltNo, type Mesh, type NoResult, type NoWall } from './wallTiltNo.ts';
+import { meshVolume, noFailed, type NoFail, noWallMesh, polyArea, wallTiltNo, type Mesh, type NoResult, type NoWall } from './wallTiltNo.ts';
 
 /**
  * S5 / N1 · nó de N >= 3 paredes inclinadas. H = 3, t = 0,2, comprimento 4 m. Valores de referência calculados à mão
@@ -8,7 +8,7 @@ import { meshVolume, noFailed, noWallMesh, polyArea, wallTiltNo, type Mesh, type
  * direção que sai do nó.
  */
 const W = (id: string, angleDeg: number, tiltDeg: number, extra: Partial<NoWall> = {}): NoWall => ({ id, angleDeg, tiltDeg, thickness: 0.2, length: 4, ...extra });
-const ok = (r: NoResult | { fail: string }): NoResult => {
+const ok = (r: NoResult | NoFail): NoResult => {
   if (noFailed(r)) throw new Error(`falhou: ${JSON.stringify(r)}`);
   return r;
 };
@@ -21,7 +21,7 @@ const near = (p: Vec2, x: number, y: number): void => {
 function closed(m: Mesh): boolean {
   const id = new Map<string, number>();
   const vid = (k: number): number => {
-    const key = m.v[k]!.map((x) => x.toFixed(6)).join(',');
+    const key = m.v[k]!.map((x: number) => x.toFixed(6)).join(',');
     if (!id.has(key)) id.set(key, id.size);
     return id.get(key)!;
   };
@@ -255,7 +255,6 @@ describe('S5 · fuzz de 300 nós (semente 20261115)', () => {
     });
     expect(viaveis).toBeGreaterThan(60);
     expect(ms).toBeLessThan(3);
-    // eslint-disable-next-line no-console
     console.info(`S5 fuzz: ${viaveis} viáveis de 300; falhas ${JSON.stringify(Object.fromEntries(falhas))}; ${ms.toFixed(2)} ms/nó (análise)`);
   });
 });

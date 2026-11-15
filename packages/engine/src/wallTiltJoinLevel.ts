@@ -451,11 +451,11 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
   for (const crel0 of comps.values()) {
     let crel = crel0;
     // Nó inviável (parede curta, cone agudo, miolo inválido): degrada SÓ aquele nó, com aviso; o resto da componente segue.
-    const nos = crel.filter((r) => r.kind === 'node');
+    const nos = crel.filter((r): r is Relation & { kind: 'node' } => r.kind === 'node');
     if (nos.length) {
       const ruins = nos.filter((r) => !evalRels([r]));
       for (const r of ruins) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id);
-      crel = crel.filter((r) => !ruins.includes(r));
+      crel = crel.filter((r) => !(ruins as Relation[]).includes(r));
       if (!crel.length) continue;
     }
     let joins = evalRels(crel);
