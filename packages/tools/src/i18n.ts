@@ -841,6 +841,25 @@ const PT = {
   tl_msg_slope_positive: 'Inclinação do telhado precisa ser maior que zero.',
   tl_msg_slope_above_limit: 'Inclinação acima de {limit} %: confira o valor.',
   tl_msg_sketch_line_perimeter_tool: 'Linha do esboço: use o comando Alinhar do perímetro.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topografia (pontos): clique para colocar um ponto na cota {cota}; Enter cria o terreno; Esc cancela.',
+  tl_tn_hint_curvas: 'Topografia (curvas): clique nos vértices da curva na cota {cota}; Enter conclui a curva (a cota avança {passo}); C fecha; Enter de novo cria o terreno; Esc cancela.',
+  tl_tn_msg_ponto: 'Ponto {n} na cota {cota}. Enter cria o terreno.',
+  tl_tn_msg_curva_ponto: 'Curva: {n} ponto(s). Enter conclui a curva; C fecha.',
+  tl_tn_msg_curva_min: 'A curva precisa de pelo menos dois pontos.',
+  tl_tn_msg_curva_feita: 'Curva na cota {cota} concluída (a próxima fica na cota {proxima}). Enter de novo cria o terreno.',
+  tl_tn_msg_vazio: 'Nada a criar: coloque pontos ou desenhe curvas antes.',
+  tl_tn_msg_limite: 'O terreno aceita até {max} vértices.',
+  tl_tn_msg_criado: 'Terreno criado com {pontos} ponto(s) e {curvas} curva(s). Ctrl+Z desfaz.',
+  tl_tn_msg_acrescentado: 'Fontes acrescentadas ao terreno selecionado: {pontos} ponto(s) e {curvas} curva(s). Ctrl+Z desfaz.',
+  tl_tn_msg_cancelado: 'Topografia cancelada: as fontes pendentes foram descartadas.',
+  tl_tn_msg_cota_invalida: 'Cota inválida: digite um número dentro do limite.',
+  tl_tn_msg_passo_invalido: 'Passo inválido: digite um número diferente de zero.',
+  tl_tn_cota_rotulo: 'cota {cota}',
+  tl_tn_undo_criar: 'Criar terreno',
+  tl_tn_undo_acrescentar: 'Acrescentar ao terreno',
+  tl_tn_undo_copiar: 'Copiar terreno',
 } as const;
 
 export type Dict = typeof PT;
@@ -1653,6 +1672,25 @@ const EN: Record<DictKey, string> = {
   tl_msg_slope_positive: 'The roof slope must be greater than zero.',
   tl_msg_slope_above_limit: 'Slope above {limit} %: check the value.',
   tl_msg_sketch_line_perimeter_tool: 'Sketch line: use the perimeter Align command.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topography (points): click to place a point at elevation {cota}; Enter creates the terrain; Esc cancels.',
+  tl_tn_hint_curvas: 'Topography (contours): click the contour vertices at elevation {cota}; Enter finishes the contour (the elevation advances {passo}); C closes; Enter again creates the terrain; Esc cancels.',
+  tl_tn_msg_ponto: 'Point {n} at elevation {cota}. Enter creates the terrain.',
+  tl_tn_msg_curva_ponto: 'Contour: {n} point(s). Enter finishes the contour; C closes.',
+  tl_tn_msg_curva_min: 'A contour needs at least two points.',
+  tl_tn_msg_curva_feita: 'Contour at elevation {cota} finished (the next one is at {proxima}). Enter again creates the terrain.',
+  tl_tn_msg_vazio: 'Nothing to create: place points or draw contours first.',
+  tl_tn_msg_limite: 'The terrain accepts up to {max} vertices.',
+  tl_tn_msg_criado: 'Terrain created with {pontos} point(s) and {curvas} contour(s). Ctrl+Z undoes.',
+  tl_tn_msg_acrescentado: 'Sources added to the selected terrain: {pontos} point(s) and {curvas} contour(s). Ctrl+Z undoes.',
+  tl_tn_msg_cancelado: 'Topography cancelled: the pending sources were discarded.',
+  tl_tn_msg_cota_invalida: 'Invalid elevation: type a number within the limit.',
+  tl_tn_msg_passo_invalido: 'Invalid step: type a non-zero number.',
+  tl_tn_cota_rotulo: 'elev. {cota}',
+  tl_tn_undo_criar: 'Create terrain',
+  tl_tn_undo_acrescentar: 'Add to terrain',
+  tl_tn_undo_copiar: 'Copy terrain',
 };
 
 /** Texto da chave no idioma pedido, com interpolação `{nome}`. EN ausente cai em PT; nunca devolve `undefined`. */
@@ -1718,6 +1756,7 @@ export const TOOL_LABEL_EN: Record<string, string> = {
   filledRegion: 'Filled Region',
   tag: 'Tag',
   perimeter: 'Perimeter',
+  terrain: 'Topography',
   curtainDoor: 'Door in curtain wall',
   curtainWindow: 'Window in curtain wall',
   curtainGridLine: 'Grid line in curtain wall',
@@ -2530,6 +2569,25 @@ const ES: Record<DictKey, string> = {
   tl_msg_slope_positive: 'La pendiente del tejado debe ser mayor que cero.',
   tl_msg_slope_above_limit: 'Pendiente superior al {limit} %: compruebe el valor.',
   tl_msg_sketch_line_perimeter_tool: 'Línea del boceto: use el comando Alinear del perímetro.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topografía (puntos): haga clic para colocar un punto en la cota {cota}; Enter crea el terreno; Esc cancela.',
+  tl_tn_hint_curvas: 'Topografía (curvas): haga clic en los vértices de la curva en la cota {cota}; Enter termina la curva (la cota avanza {passo}); C cierra; Enter otra vez crea el terreno; Esc cancela.',
+  tl_tn_msg_ponto: 'Punto {n} en la cota {cota}. Enter crea el terreno.',
+  tl_tn_msg_curva_ponto: 'Curva: {n} punto(s). Enter termina la curva; C cierra.',
+  tl_tn_msg_curva_min: 'La curva necesita al menos dos puntos.',
+  tl_tn_msg_curva_feita: 'Curva en la cota {cota} terminada (la siguiente queda en la cota {proxima}). Enter otra vez crea el terreno.',
+  tl_tn_msg_vazio: 'Nada que crear: coloque puntos o dibuje curvas antes.',
+  tl_tn_msg_limite: 'El terreno admite hasta {max} vértices.',
+  tl_tn_msg_criado: 'Terreno creado con {pontos} punto(s) y {curvas} curva(s). Ctrl+Z deshace.',
+  tl_tn_msg_acrescentado: 'Fuentes añadidas al terreno seleccionado: {pontos} punto(s) y {curvas} curva(s). Ctrl+Z deshace.',
+  tl_tn_msg_cancelado: 'Topografía cancelada: se descartaron las fuentes pendientes.',
+  tl_tn_msg_cota_invalida: 'Cota no válida: escriba un número dentro del límite.',
+  tl_tn_msg_passo_invalido: 'Paso no válido: escriba un número distinto de cero.',
+  tl_tn_cota_rotulo: 'cota {cota}',
+  tl_tn_undo_criar: 'Crear terreno',
+  tl_tn_undo_acrescentar: 'Añadir al terreno',
+  tl_tn_undo_copiar: 'Copiar terreno',
 };
 
 const DE: Record<DictKey, string> = {
@@ -3339,6 +3397,25 @@ const DE: Record<DictKey, string> = {
   tl_msg_slope_positive: 'Die Dachneigung muss größer als null sein.',
   tl_msg_slope_above_limit: 'Neigung über {limit} %: Prüfen Sie den Wert.',
   tl_msg_sketch_line_perimeter_tool: 'Skizzenlinie: Verwenden Sie den Befehl Ausrichten des Umfangs.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topografie (Punkte): Klicken Sie, um einen Punkt auf Höhe {cota} zu setzen; Enter erstellt das Gelände; Esc bricht ab.',
+  tl_tn_hint_curvas: 'Topografie (Höhenlinien): Klicken Sie die Eckpunkte der Linie auf Höhe {cota}; Enter beendet die Linie (die Höhe steigt um {passo}); C schließt; erneut Enter erstellt das Gelände; Esc bricht ab.',
+  tl_tn_msg_ponto: 'Punkt {n} auf Höhe {cota}. Enter erstellt das Gelände.',
+  tl_tn_msg_curva_ponto: 'Höhenlinie: {n} Punkt(e). Enter beendet die Linie; C schließt.',
+  tl_tn_msg_curva_min: 'Eine Höhenlinie braucht mindestens zwei Punkte.',
+  tl_tn_msg_curva_feita: 'Höhenlinie auf Höhe {cota} beendet (die nächste liegt auf {proxima}). Erneut Enter erstellt das Gelände.',
+  tl_tn_msg_vazio: 'Nichts zu erstellen: Setzen Sie zuerst Punkte oder zeichnen Sie Höhenlinien.',
+  tl_tn_msg_limite: 'Das Gelände akzeptiert bis zu {max} Scheitelpunkte.',
+  tl_tn_msg_criado: 'Gelände mit {pontos} Punkt(en) und {curvas} Höhenlinie(n) erstellt. Strg+Z macht rückgängig.',
+  tl_tn_msg_acrescentado: 'Quellen zum gewählten Gelände hinzugefügt: {pontos} Punkt(e) und {curvas} Höhenlinie(n). Strg+Z macht rückgängig.',
+  tl_tn_msg_cancelado: 'Topografie abgebrochen: Die ausstehenden Quellen wurden verworfen.',
+  tl_tn_msg_cota_invalida: 'Ungültige Höhe: Geben Sie eine Zahl innerhalb der Grenze ein.',
+  tl_tn_msg_passo_invalido: 'Ungültige Schrittweite: Geben Sie eine Zahl ungleich null ein.',
+  tl_tn_cota_rotulo: 'Höhe {cota}',
+  tl_tn_undo_criar: 'Gelände erstellen',
+  tl_tn_undo_acrescentar: 'Zum Gelände hinzufügen',
+  tl_tn_undo_copiar: 'Gelände kopieren',
 };
 
 /** Dicionário do idioma, com fallback EN→PT aplicado em 	. */
@@ -4187,6 +4264,25 @@ const FR: Record<DictKey, string> = {
   tl_msg_slope_positive: 'La pente du toit doit être supérieure à zéro.',
   tl_msg_slope_above_limit: 'Pente supérieure à {limit} % : vérifiez la valeur.',
   tl_msg_sketch_line_perimeter_tool: 'Ligne de l\'esquisse : utilisez la commande Aligner du périmètre.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topographie (points) : cliquez pour placer un point à la cote {cota} ; Entrée crée le terrain ; Échap annule.',
+  tl_tn_hint_curvas: 'Topographie (courbes) : cliquez sur les sommets de la courbe à la cote {cota} ; Entrée termine la courbe (la cote avance de {passo}) ; C ferme ; Entrée de nouveau crée le terrain ; Échap annule.',
+  tl_tn_msg_ponto: 'Point {n} à la cote {cota}. Entrée crée le terrain.',
+  tl_tn_msg_curva_ponto: 'Courbe : {n} point(s). Entrée termine la courbe ; C ferme.',
+  tl_tn_msg_curva_min: 'La courbe a besoin d\'au moins deux points.',
+  tl_tn_msg_curva_feita: 'Courbe à la cote {cota} terminée (la suivante sera à la cote {proxima}). Entrée de nouveau crée le terrain.',
+  tl_tn_msg_vazio: 'Rien à créer : placez des points ou dessinez des courbes d\'abord.',
+  tl_tn_msg_limite: 'Le terrain accepte jusqu\'à {max} sommets.',
+  tl_tn_msg_criado: 'Terrain créé avec {pontos} point(s) et {curvas} courbe(s). Ctrl+Z annule.',
+  tl_tn_msg_acrescentado: 'Sources ajoutées au terrain sélectionné : {pontos} point(s) et {curvas} courbe(s). Ctrl+Z annule.',
+  tl_tn_msg_cancelado: 'Topographie annulée : les sources en attente ont été supprimées.',
+  tl_tn_msg_cota_invalida: 'Cote invalide : saisissez un nombre dans la limite.',
+  tl_tn_msg_passo_invalido: 'Pas invalide : saisissez un nombre différent de zéro.',
+  tl_tn_cota_rotulo: 'cote {cota}',
+  tl_tn_undo_criar: 'Créer le terrain',
+  tl_tn_undo_acrescentar: 'Ajouter au terrain',
+  tl_tn_undo_copiar: 'Copier le terrain',
 };
 
 const IT: Record<DictKey, string> = {
@@ -5022,6 +5118,25 @@ const IT: Record<DictKey, string> = {
   tl_msg_slope_positive: 'La pendenza del tetto deve essere maggiore di zero.',
   tl_msg_slope_above_limit: 'Pendenza superiore a {limit} %: verificare il valore.',
   tl_msg_sketch_line_perimeter_tool: 'Linea dello schizzo: usare il comando Allinea del perimetro.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topografia (punti): fai clic per inserire un punto alla quota {cota}; Invio crea il terreno; Esc annulla.',
+  tl_tn_hint_curvas: 'Topografia (curve): fai clic sui vertici della curva alla quota {cota}; Invio termina la curva (la quota avanza di {passo}); C chiude; Invio di nuovo crea il terreno; Esc annulla.',
+  tl_tn_msg_ponto: 'Punto {n} alla quota {cota}. Invio crea il terreno.',
+  tl_tn_msg_curva_ponto: 'Curva: {n} punto/i. Invio termina la curva; C chiude.',
+  tl_tn_msg_curva_min: 'La curva richiede almeno due punti.',
+  tl_tn_msg_curva_feita: 'Curva alla quota {cota} terminata (la prossima sarà alla quota {proxima}). Invio di nuovo crea il terreno.',
+  tl_tn_msg_vazio: 'Niente da creare: inserisci prima dei punti o disegna delle curve.',
+  tl_tn_msg_limite: 'Il terreno accetta fino a {max} vertici.',
+  tl_tn_msg_criado: 'Terreno creato con {pontos} punto/i e {curvas} curva/e. Ctrl+Z annulla.',
+  tl_tn_msg_acrescentado: 'Fonti aggiunte al terreno selezionato: {pontos} punto/i e {curvas} curva/e. Ctrl+Z annulla.',
+  tl_tn_msg_cancelado: 'Topografia annullata: le fonti in sospeso sono state scartate.',
+  tl_tn_msg_cota_invalida: 'Quota non valida: digita un numero entro il limite.',
+  tl_tn_msg_passo_invalido: 'Passo non valido: digita un numero diverso da zero.',
+  tl_tn_cota_rotulo: 'quota {cota}',
+  tl_tn_undo_criar: 'Crea terreno',
+  tl_tn_undo_acrescentar: 'Aggiungi al terreno',
+  tl_tn_undo_copiar: 'Copia terreno',
 };
 
 const PL: Record<DictKey, string> = {
@@ -5857,4 +5972,23 @@ const PL: Record<DictKey, string> = {
   tl_msg_slope_positive: 'Nachylenie dachu musi być większe od zera.',
   tl_msg_slope_above_limit: 'Nachylenie powyżej {limit} %: sprawdź wartość.',
   tl_msg_sketch_line_perimeter_tool: 'Linia szkicu: użyj polecenia Wyrównaj obwodu.',
+
+  // ---- topografia (terreno) ----
+  tl_tn_hint_pontos: 'Topografia (punkty): kliknij, aby umieścić punkt na rzędnej {cota}; Enter tworzy teren; Esc anuluje.',
+  tl_tn_hint_curvas: 'Topografia (warstwice): klikaj wierzchołki warstwicy na rzędnej {cota}; Enter kończy warstwicę (rzędna rośnie o {passo}); C zamyka; ponowny Enter tworzy teren; Esc anuluje.',
+  tl_tn_msg_ponto: 'Punkt {n} na rzędnej {cota}. Enter tworzy teren.',
+  tl_tn_msg_curva_ponto: 'Warstwica: {n} pkt. Enter kończy warstwicę; C zamyka.',
+  tl_tn_msg_curva_min: 'Warstwica wymaga co najmniej dwóch punktów.',
+  tl_tn_msg_curva_feita: 'Warstwica na rzędnej {cota} zakończona (następna będzie na rzędnej {proxima}). Ponowny Enter tworzy teren.',
+  tl_tn_msg_vazio: 'Nie ma czego tworzyć: najpierw umieść punkty lub narysuj warstwice.',
+  tl_tn_msg_limite: 'Teren przyjmuje do {max} wierzchołków.',
+  tl_tn_msg_criado: 'Utworzono teren z {pontos} pkt i {curvas} warstwicami. Ctrl+Z cofa.',
+  tl_tn_msg_acrescentado: 'Dodano źródła do wybranego terenu: {pontos} pkt i {curvas} warstwic. Ctrl+Z cofa.',
+  tl_tn_msg_cancelado: 'Topografia anulowana: oczekujące źródła zostały odrzucone.',
+  tl_tn_msg_cota_invalida: 'Nieprawidłowa rzędna: wpisz liczbę w dozwolonym zakresie.',
+  tl_tn_msg_passo_invalido: 'Nieprawidłowy krok: wpisz liczbę różną od zera.',
+  tl_tn_cota_rotulo: 'rzędna {cota}',
+  tl_tn_undo_criar: 'Utwórz teren',
+  tl_tn_undo_acrescentar: 'Dodaj do terenu',
+  tl_tn_undo_copiar: 'Kopiuj teren',
 };

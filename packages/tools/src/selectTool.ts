@@ -8,6 +8,7 @@ import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
+import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -39,7 +40,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'terrain' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -51,7 +52,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'generic', 'room', 'grid']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'terrain', 'generic', 'room', 'grid']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -226,6 +227,9 @@ export class SelectTool extends ToolBase {
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
     const gn = genericAt(pr, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
+    // Terreno e região de terreno: pela borda, curva de nível ou contorno (o interior NÃO seleciona; A.8 item 7).
+    const tn = pickTerrenoAt(pr, lv, at, 6 * mpp, this.env.hiddenInView?.());
+    if (tn) return { id: tn, kind: 'terrain' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(pr, lv, at);
     if (rm) return { id: rm, kind: 'room' };
@@ -563,6 +567,7 @@ export class SelectTool extends ToolBase {
           ...stairIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roomIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
+          ...pickTerrenosInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
           ...cadIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
