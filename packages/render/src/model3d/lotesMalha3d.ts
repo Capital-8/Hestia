@@ -84,13 +84,30 @@ export function geometriaDoLote(b: LoteSolido): THREE.BufferGeometry {
 }
 
 /**
+ * Orçamento de arestas dos objetos genéricos (malhas importadas, ex.: IFC): acima deste total de triângulos genéricos numa chamada,
+ * os genéricos ficam SEM arestas por ângulo (sombreamento chapado continua). Modelos importados de dezenas de milhões de triângulos
+ * gastavam segundos na thread principal só nas arestas; paredes, lajes, escadas e demais categorias não são afetadas, e modelos
+ * abaixo do limite saem idênticos.
+ */
+export const ORCAMENTO_TRIANGULOS_GENERICOS = 1_500_000;
+
+/** Triângulos dos lotes da categoria genérico. */
+export function trianguloDosGenericos(lotes: readonly LoteSolido[]): number {
+  let n = 0;
+  for (const b of lotes) if (b.category === 'generic') n += Math.floor(b.indices.length / 3);
+  return n;
+}
+
+/**
  * Arestas dos lotes dados, numa geometria só. Cada lote gera as arestas da sua própria geometria (com o mesmo ângulo de
  * antes), para que as juntas entre peças continuem desenhadas. Sem triângulos, devolve null.
  */
 export function arestasDosLotes(lotes: readonly LoteSolido[], angulo: number): THREE.BufferGeometry | null {
   const pos: number[] = [];
+  const semGenericos = trianguloDosGenericos(lotes) > ORCAMENTO_TRIANGULOS_GENERICOS;
   for (const b of lotes) {
     if (!comTriangulos(b)) continue;
+    if (semGenericos && b.category === 'generic') continue;
     // Mesmo critério e mesma saída do `THREE.EdgesGeometry`, sem o texto por vértice (ver `arestasRapidas3d.ts`).
     for (const x of arestasPorAngulo(b.positions, b.indices, angulo)) pos.push(x);
   }

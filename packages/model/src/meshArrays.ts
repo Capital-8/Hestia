@@ -189,3 +189,23 @@ export function serializeProject(p: Project, space?: number): string {
   out.push(text.slice(last));
   return out.join('');
 }
+
+/** Bytes médios por número de malha no JSON salvo (dígitos curtos do float32 + vírgula) e por elemento (objeto JSON comum). */
+const BYTES_POR_NUMERO = 10;
+const BYTES_POR_ELEMENTO = 700;
+
+/**
+ * Estimativa BARATA (sem serializar) do tamanho em caracteres do JSON do projeto: números das malhas dos genéricos x ~10 +
+ * elementos x tamanho médio. Serve para decidir se vale gerar o texto (autosave no localStorage, de ~5 MB) antes de gastar
+ * segundos e centenas de MB para descartá-lo.
+ */
+export function estimarTamanhoSerializado(p: Pick<Project, 'elements'>): number {
+  let numeros = 0;
+  let n = 0;
+  for (const e of Object.values(p.elements)) {
+    n++;
+    const m = e?.kind === 'generic' ? (e as Generic).mesh : undefined;
+    if (m) numeros += m.positions.length + m.indices.length;
+  }
+  return numeros * BYTES_POR_NUMERO + n * BYTES_POR_ELEMENTO;
+}
