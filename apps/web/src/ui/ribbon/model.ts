@@ -26,7 +26,8 @@ export type ActionId =
   | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
   | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'railingForHost'
   | 'terrenoPontos' | 'terrenoCurvas' | 'importTerreno' | 'editTerreno' | 'localizacao'
-  | 'regiaoSubdivisao' | 'regiaoPlataforma' | 'regiaoPlataformaElemento' | 'regiaoNivelada';
+  | 'regiaoSubdivisao' | 'regiaoPlataforma' | 'regiaoPlataformaElemento' | 'regiaoNivelada'
+  | 'corteAterro' | 'mapaCorteAterro';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

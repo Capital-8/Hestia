@@ -1,8 +1,9 @@
-import { servicoTerreno, ServicoTerreno } from '@hestia/engine';
+import { mapaCorteAterroLigado, servicoTerreno, ServicoTerreno } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
 import type { PlanInput } from './build.ts';
 import type { FloorOps } from './floors.ts';
 import type { PlanPaint } from './style.ts';
+import { mapaCorteAterroOps } from './terrenoMapa.ts';
 import { regiaoOps, terrenoSelectionOps, terrenoOps, terrenosDoNivel, regioesDoNivel, type DadosTerreno } from './terreno.ts';
 
 /**
@@ -16,10 +17,11 @@ export function ocultosDoTerreno(p: Project, levelId: Id, hidden: ReadonlySet<Id
   return out.size > 0 ? out : undefined;
 }
 
-/** Dados do kernel para o nível: superfície proposta (1) e, se algum terreno pede, a existente (0). `null` em tudo sem kernel. */
-export function dadosDoKernel(p: Project, levelId: Id, comExistente: boolean): DadosTerreno {
+/** Dados do kernel para o nível: superfície proposta (1) e, se algum terreno pede, a existente (0); com `comMapa`, também o mapa de corte e aterro. `null` em tudo sem kernel. */
+export function dadosDoKernel(p: Project, levelId: Id, comExistente: boolean, comMapa = false): DadosTerreno {
   const s = servicoTerreno();
   return {
+    ...(comMapa ? { mapa: s.mapaCorteAterro(p, levelId) } : {}),
     propostas: s.curvas(p, 1, levelId),
     existentes: comExistente ? s.curvas(p, 0, levelId) : null,
     bordas: s.planta(p, 1, levelId),
@@ -39,12 +41,15 @@ export function terrenoOpsDaPlanta(input: PlanInput, paint: PlanPaint, scale: nu
   const terrenos = terrenosDoNivel(p, levelId, ocultos);
   const regioes = regioesDoNivel(p, levelId, ocultos);
   if (terrenos.length === 0 && regioes.length === 0) return out;
-  const d = dados ?? dadosDoKernel(p, levelId, terrenos.some((t) => t.mostrarExistente));
+  const mapaLigado = mapaCorteAterroLigado();
+  const d = dados ?? dadosDoKernel(p, levelId, terrenos.some((t) => t.mostrarExistente), mapaLigado);
   for (const r of regioes) {
     const o = regiaoOps(p, r, input.dark, paint);
     out.fills.push(...o.fills);
     out.strokes.push(...o.strokes);
   }
+  // Mapa de corte e aterro (A.4 regra 13): por cima das regiões e por baixo das curvas, só dos terrenos visíveis do nível.
+  if (mapaLigado) out.fills.push(...mapaCorteAterroOps(d.mapa, new Set(terrenos.map((t) => t.id))).fills);
   for (const t of terrenos) {
     const o = terrenoOps(p, t, d, input.theme, input.dark, paint, scale);
     out.strokes.push(...o.strokes);

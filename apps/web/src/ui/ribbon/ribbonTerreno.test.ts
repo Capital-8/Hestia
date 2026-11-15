@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEmptyProject, ProjectStore } from '@hestia/model';
-import { adicionarFixtureTerreno } from '@hestia/engine';
+import { adicionarFixtureTerreno, mapaCorteAterroLigado, definirMapaCorteAterro } from '@hestia/engine';
 import { editor } from '../../editor/controller.ts';
 import { fecharImportTerreno, importTerrenoAberto } from '../../editor/terrenoImport.ts';
 import { useUi } from '../../editor/state.ts';
 import { fecharLocalizacao, localizacaoAberta } from '../dialogs/localizacaoAberta.ts';
-import { ACTIONS } from './actions.ts';
+import { fecharTerrenoSchedule, terrenoScheduleAberta } from '../dialogs/terrenoScheduleAberta.ts';
+import { ACTIONS, ctxNow } from './actions.ts';
 import { txt, type RibbonItem, type RibbonPanel } from './model.ts';
 import { TABS } from './tabs.ts';
 
@@ -22,6 +23,9 @@ function setup(): void {
   useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, selection: [], tool: 'select', terrenoEdicao: null, dialog: null, dialogArg: null });
   fecharImportTerreno();
   fecharLocalizacao();
+  fecharTerrenoSchedule();
+  definirMapaCorteAterro(false);
+  useUi.setState({ mapaCorteAterro: false });
 }
 
 describe('faixa: botões da fase 3 do terreno', () => {
@@ -43,9 +47,10 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(nomes(pn.items)).toEqual(['Linhas de propriedade', 'Índices do lote', 'Envelope legal']);
   });
 
-  it('painel Análise: Corte e aterro soon (fase 4); Rótulo de curva e Cota de ponto ativos', () => {
+  it('painel Análise: Corte e aterro e Mapa ativos (ficha U2), Rótulo de curva e Cota de ponto ativos; nenhum soon', () => {
     const pn = painel('massa', 'mas-analise');
-    expect(nomes(pn.items)).toEqual(['Corte e aterro']);
+    expect(nomes(pn.items)).toEqual([]);
+    expect(folhas(pn.items).flatMap((it) => (it.kind === 'action' ? [it.action] : []))).toEqual(['corteAterro', 'mapaCorteAterro']);
     const ferramentas = folhas(pn.items).flatMap((it) => (it.kind === 'tool' ? [it.tool] : []));
     expect(ferramentas).toEqual(['terrainLabel', 'terrainSpot']);
   });
@@ -98,5 +103,29 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(useUi.getState().tool).toBe('terrainLabel');
     editor.setTool('terrainSpot');
     expect(useUi.getState().tool).toBe('terrainSpot');
+  });
+
+  it('Corte e aterro está ativo (sem motivo para desligar) e abre a tabela', () => {
+    const ctx = ctxNow();
+    expect(ACTIONS.corteAterro.disabled?.(ctx) ?? false).toBe(false);
+    expect(terrenoScheduleAberta()).toBe(false);
+    ACTIONS.corteAterro.run();
+    expect(terrenoScheduleAberta()).toBe(true);
+  });
+
+  it('Mapa liga e desliga o mapa de corte e aterro (estado da interface e camada da planta) e fica pressionado', () => {
+    expect(mapaCorteAterroLigado()).toBe(false);
+    expect(ACTIONS.mapaCorteAterro.pressed?.(ctxNow())).toBe(false);
+    ACTIONS.mapaCorteAterro.run();
+    expect(useUi.getState().mapaCorteAterro).toBe(true);
+    expect(mapaCorteAterroLigado()).toBe(true);
+    expect(ACTIONS.mapaCorteAterro.pressed?.(ctxNow())).toBe(true);
+    ACTIONS.mapaCorteAterro.run();
+    expect(useUi.getState().mapaCorteAterro).toBe(false);
+    expect(mapaCorteAterroLigado()).toBe(false);
+  });
+
+  it('Índices do lote e Envelope legal seguem soon (são de outras fichas)', () => {
+    expect(nomes(painel('massa', 'mas-lote').items)).toEqual(expect.arrayContaining(['Índices do lote', 'Envelope legal']));
   });
 });

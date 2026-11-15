@@ -46,6 +46,8 @@ export interface UiState {
   selection: Id[];
   /** Modo "Editar terreno" (T2): terreno em edição, ou null fora do modo. Vale só com a ferramenta `terrainEdit` ativa (ver `terrenoEdicao.ts`). */
   terrenoEdicao: { terrenoId: Id } | null;
+  /** Mapa de corte e aterro ligado na planta (U2): corte em vermelho e aterro em azul sobre o terreno. Desligado por padrão. */
+  mapaCorteAterro: boolean;
   /** Prévia do colar alinhado a vários níveis; null fora do modo de conferência. */
   pastePreview: PastePreviewState | null;
   /** Nível selecionado no 3D (a seleção de elementos fica vazia quando há um). */
@@ -357,6 +359,7 @@ export const useUi = create<UiState>(() => ({
   sheetId: null,
   selection: [],
   terrenoEdicao: null,
+  mapaCorteAterro: false,
   pastePreview: null,
   selectedLevel: null,
   hover: null,

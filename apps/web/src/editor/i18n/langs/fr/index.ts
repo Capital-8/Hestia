@@ -28,6 +28,7 @@ import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { FR_TERRENO } from '../../areas/terreno.ts';
 import { FR_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { FR_GRAVIDADE } from '../../areas/gravidade.ts';
+import { FR_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { FR_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 
 export const FR_ALL = {
@@ -35,6 +36,7 @@ export const FR_ALL = {
   ...FR_TERRENO,
   ...FR_TERRENO_VISTA,
   ...FR_GRAVIDADE,
+  ...FR_TERRENO_TABELA,
   ...FR_PAREDE_CORTINA,
   ...FR_SHELL_RIBBON,
   ...FR_MISC_UI,

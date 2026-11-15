@@ -125,4 +125,5 @@ export * from './kernelTerrenoServico.ts';
 export * from './terrenoVista.ts';
 export * from './terrenoIssues.ts';
 export * from './terrenoQuantities.ts';
+export * from './terrenoSchedule.ts';
 export * from './fixtureTerreno.ts';
