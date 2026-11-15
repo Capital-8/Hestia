@@ -356,7 +356,7 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
     comps.set(k, [...(comps.get(k) ?? []), r]);
   }
   /** Junções do conjunto de ligações (anéis por camada e parede), ou null quando alguma cota/camada é inviável. */
-  const evalRels = (crel: readonly Relation[]): Map<string, WallTiltJoin> | null => {
+  const evalRelsRaw = (crel: readonly Relation[]): Map<string, WallTiltJoin> | null => {
     const wallIds = [...new Set(crel.flatMap(ids))];
     const mk = (tilted: boolean): Map<string, TiltWall> =>
       new Map(wallIds.map((id) => [id, { frame: byId.get(id)!, tiltDeg: tilted ? tiltOf(byId.get(id)!) : 0 }] as const));
@@ -418,6 +418,17 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }] });
     }
     return joins;
+  };
+  // D4: o plano B reavalia os mesmos conjuntos de ligações várias vezes (componente, cada par isolado, cada variante em encosto,
+  // plano inteiro com e sem `force`); o resultado só depende das ligações, então fica em memo por assinatura curta das ligações.
+  const memoRels = new Map<string, Map<string, WallTiltJoin> | null>();
+  const relKey = (r: Relation): string => (r.kind === 'pair' ? `p:${r.a.id}.${r.a.end}:${r.b.id}.${r.b.end}` : `t:${r.branch.id}.${r.branch.end}:${r.host}`);
+  const evalRels = (crel: readonly Relation[]): Map<string, WallTiltJoin> | null => {
+    const k = crel.map(relKey).join('|');
+    if (memoRels.has(k)) return memoRels.get(k)!;
+    const v = evalRelsRaw(crel);
+    memoRels.set(k, v);
+    return v;
   };
   for (const crel of comps.values()) {
     let joins = evalRels(crel);

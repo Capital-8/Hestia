@@ -302,7 +302,7 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
-function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean): ClusterCore {
+function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false): ClusterCore {
   const compartilhadas = pinturasDoCluster(items);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
@@ -375,6 +375,8 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     layers.set(it.wallId, arr);
     if (cut.length) byMaterial.set(it.materialId, [...(byMaterial.get(it.materialId) ?? []), cut]);
   }
+  // D4: cluster inclinado: `applyTiltToPlan` refaz regiões e silhueta (cortes deslocados); as verticais (~250 ms) seriam descartadas.
+  if (semRegioes) { for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex); return { layers, regions: [], silhouette: [] }; }
   const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: closeGapsSafe(unionClipper(...parts)) }));
   // Silhueta pela união das regiões por material. Unir todos os cortes numa só operação do Clipper foi tentado (semente 18
   // dos testes de propriedade: um bolsão fechado de 0,029 metros quadrados entre três paredes que se cruzam fica preenchido nesta união),
@@ -456,10 +458,11 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
     const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
-    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}`;
+    const semRegioes = group.some((f) => !!f.wall.tilt);
+    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}`;
     let core = cache.get(key);
     if (!core) {
-      core = solveCluster(items, opens, zr, returns, planOpen);
+      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes);
       if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
       cache.set(key, core);
     }
