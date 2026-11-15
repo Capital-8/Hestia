@@ -52,8 +52,7 @@ export type AlignKind =
   | 'arestaAnel'
   | 'linhaEsboco'
   | 'bordaTerreno'
-  | 'bordaRegiao'
-  | 'bordaLote'
+  | 'bordaRegiao' | 'bordaLote'
   | 'arestaEscada'
   | 'arestaRampa'
   | 'caminhoGuardaCorpo'
@@ -467,14 +466,9 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
  * andam sós). O rótulo reusa "aresta do {type}".
  */
 function bordasDoSitio(q: AlignQuery): AlignFeature[] {
-  const tol = TOL_PX * q.metersPerPixel;
-  const mk = (id: Id, i: number, nome: string, a: Vec2, b: Vec2, d: number, kind: AlignKind, target: 'terreno' | 'regiao' | 'lote'): AlignFeature =>
+  const tol = TOL_PX * q.metersPerPixel; const mk = (id: Id, i: number, nome: string, a: Vec2, b: Vec2, d: number, kind: AlignKind, target: 'terreno' | 'regiao' | 'lote'): AlignFeature =>
     feature(`${id}:borda:${i}`, kind, translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: nome }), id, line(a, sub(b, a)), { policy: 'transladar', target, id }, d, { a, b });
-  return [
-    ...bordasDeTerreno(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.terrenoId, r.i, r.nome, r.a, r.b, r.d, 'bordaTerreno', 'terreno')),
-    ...bordasDeRegiao(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.regiaoId, r.i, r.nome, r.a, r.b, r.d, 'bordaRegiao', 'regiao')),
-    ...bordasDoLote(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.loteId, r.i, r.nome, r.a, r.b, r.d, 'bordaLote', 'lote')),
-  ];
+  return [...bordasDeTerreno(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.terrenoId, r.i, r.nome, r.a, r.b, r.d, 'bordaTerreno', 'terreno')), ...bordasDeRegiao(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.regiaoId, r.i, r.nome, r.a, r.b, r.d, 'bordaRegiao', 'regiao')), ...bordasDoLote(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.loteId, r.i, r.nome, r.a, r.b, r.d, 'bordaLote', 'lote'))];
 }
 
 export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
@@ -489,8 +483,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   }
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
-  out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
-  out.push(...bordasDoSitio(q));
+  out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang), ...bordasDoSitio(q));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);
