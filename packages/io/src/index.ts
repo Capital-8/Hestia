@@ -2,6 +2,7 @@ export * from './dxf.ts';
 export * from './dxfDoc.ts';
 export { parseDxfText, METROS_POR_UNIDADE, type DxfImportResult } from './dxfImport.ts';
 export * from './dxfTerreno.ts';
+export * from './dxfPlantaTerreno.ts';
 export * from './csvPontos.ts';
 export * from './simplificarPolilinha.ts';
 export * from './dxfGeneric.ts';

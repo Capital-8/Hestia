@@ -44,6 +44,18 @@ export interface DxfSectionGeometry {
   notes?: DxfNotes;
   /** Unidade de saída do arquivo; ausente = metros. A geometria (t, z) continua em metros. */
   units?: DxfUnit;
+  /**
+   * Terreno no corte (ficha X1): as linhas de `terreno_corte` do kernel em `(s, z)`, todas na camada `CORTE_TERRENO`. O solo cortado é fechado;
+   * o perfil existente sai tracejado e a silhueta, aberta. Ausente = sem terreno (sem kernel pronto ou categoria oculta).
+   */
+  terrain?: DxfSectionPath[];
+}
+
+/** Polilinha do terreno no corte: pontos em `(s, z)` metros; fechada no solo cortado; `dashed` no perfil do terreno existente. */
+export interface DxfSectionPath {
+  pts: DxfPoint[];
+  closed: boolean;
+  dashed?: boolean;
 }
 
 /** Camadas de anotação do corte/elevação (as mesmas da planta); são anotação para o peso de linha (0). */
@@ -110,6 +122,9 @@ function openRing(ring: DxfPoint[]): DxfPoint[] | null {
 interface Shape {
   layer: string;
   pts: DxfPoint[];
+  /** Fechada (padrão); o terreno do corte traz também linhas abertas. */
+  closed?: boolean;
+  dashed?: boolean;
 }
 
 /** Polilinhas fechadas do desenho, na ordem de pintura (projeção antes do corte). */
@@ -127,6 +142,9 @@ function shapesOf(geo: DxfSectionGeometry): Shape[] {
   for (const o of geo.openings ?? []) push(dxfSectionLayerOf(o.category, o.cut ? 'cut' : 'projection'), o.polygons);
   for (const c of geo.cut) push(dxfSectionLayerOf(c.category), c.polygons);
   if (geo.silhouette) push(DXF_SECTION_LAYER_SILHOUETTE, geo.silhouette);
+  for (const tn of geo.terrain ?? []) {
+    if (tn.pts.length >= 2) out.push({ layer: dxfSectionLayerOf('site'), pts: tn.pts, closed: tn.closed, ...(tn.dashed === true ? { dashed: true } : {}) });
+  }
   return out;
 }
 
@@ -161,7 +179,7 @@ export function sectionDxfDocOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): Dxf
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
-    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: true })),
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: s.closed !== false, ...(s.dashed === true ? { dashed: true } : {}) })),
     ...noteRegions,
     ...noteLines,
     ...noteLeaders,
