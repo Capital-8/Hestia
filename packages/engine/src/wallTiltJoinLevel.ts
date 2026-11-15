@@ -268,6 +268,25 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: 
 }
 
 /**
+ * Cordas (X1): o vértice do anel vertical que é ponta de uma corda (corte do ramo sobre a face de arco da hospedeira) vai, em cada nível,
+ * para a mesma ponta da corda NAQUELE nível. A reamostragem por fração angular de `alinharNivel` o deixaria quase parado sobre a face
+ * enquanto o ramo desliza ao longo dela (o entalhe do acabamento da hospedeira sai do corpo do ramo: bolsão de até a espessura do acabamento).
+ */
+function seguirCordas(raw: Vec2[], al: Vec2[], base: ReadonlyArray<{ p: Vec2; q: Vec2 }> | undefined, nivel: ReadonlyArray<{ p: Vec2; q: Vec2 }> | undefined): Vec2[] {
+  if (!base?.length || !nivel || base.length !== nivel.length) return al;
+  let out = al;
+  base.forEach((c, k) => {
+    for (const key of ['p', 'q'] as const) {
+      const i = raw.findIndex((v) => Math.hypot(v.x - c[key].x, v.y - c[key].y) < 1e-6);
+      if (i < 0) continue;
+      if (out === al) out = al.slice();
+      out[i] = nivel[k]![key];
+    }
+  });
+  return out;
+}
+
+/**
  * Cadeia contínua da parede `refId` (ação D): paredes ligadas em continuação (em linha ou arcos tangentes), com o fator de
  * sinal de cada uma em relação à referência (+1 = mesmo sentido a→b ao longo da cadeia, −1 = sentido oposto). A inclinação
  * que acompanha a da referência é `tiltRef · sinal`. Sem continuação devolve só a referência.
@@ -406,10 +425,11 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         for (const [layerIndex, r0] of raw) {
           const rs: Vec2[][] = [];
           const memo: { idx?: number[]; m?: number } = {};
-          for (const m of per) {
+          for (const [ni, m] of per.entries()) {
             const q = m.get(layerIndex);
-            const al = q ? alinharNivel(r0, q, centro, memo) : null;
+            let al = q ? alinharNivel(r0, q, centro, memo) : null;
             if (!al) return null;
+            al = seguirCordas(r0, al, rawSet.ends.get(id)?.cordas, ad.sets[ni]!.ends.get(id)?.cordas);
             rs.push(al);
           }
           layers.push({ layerIndex, raw: r0, p0: rs[0]!, pH: rs[rs.length - 1]! });

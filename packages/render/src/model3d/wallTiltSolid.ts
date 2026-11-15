@@ -41,6 +41,9 @@ function tiltMap(rw: ResolvedWall, tiltDeg: number): (x: number, y: number, z: n
   };
 }
 
+/** Cruzamento da face da hospedeira (pelo ponto `p0` na cota) com a reta A→B; o mais perto de A. */
+export type FaceHit = (p0: [number, number], a: Vec2, b: Vec2) => [number, number] | null;
+
 /** Junção inclinada (F2.4) da camada: só quando a junção do nível a traz (parede ligada a outra com tilt). */
 export function tiltJoinOf(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): { all: WallTiltJoin; layer: WallTiltJoinLayer } | undefined {
   const all = jl?.walls.get(rw.wallId)?.tilt;
@@ -107,11 +110,12 @@ export function tiltLevelsSignature(join: { all: WallTiltJoin; layer: WallTiltJo
  * para o anel do nível (interpolação linear entre os dois níveis vizinhos de z; com 2 níveis é p0 + (pH − p0)·z/H); os demais
  * seguem o mapa geral da parede, cujas faces estão nos mesmos planos/cones.
  */
-function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[], wallId: string): (x: number, y: number, z: number) => [number, number] {
+function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[], wallId: string, faceHit?: FaceHit): (x: number, y: number, z: number) => [number, number] {
   const nodes = join.nodes ?? [];
   const casa = casadorDeVertices(layer.raw);
   /** Anéis das vizinhas (J5-D3): ver `WallTiltJoin.vizinhas`; montados só se algum vértice da faixa não casar com o `raw` próprio. */
   let vizinhas: Array<{ casa: (x: number, y: number) => number; levels: TiltLevel[] }> | undefined;
+  const entalhes = new Map<string, { v: number; i: number; j: number } | null>();
   const noDe = (levels: TiltLevel[], i: number, z: number): [number, number] => {
     let k = 0;
     while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
@@ -134,6 +138,38 @@ function joinedMap(base: (x: number, y: number, z: number) => [number, number], 
       for (const v of vizinhas) {
         const j = v.casa(x, y);
         if (j >= 0) return noDe(v.levels, j, z);
+      }
+    }
+    // X1: vértice do corte da hospedeira pelo corpo do ramo (o ramo de núcleo mais forte atravessa o acabamento da hospedeira até o núcleo dela):
+    // está sobre uma aresta lateral do anel da vizinha, na face da hospedeira. Na cota z fica no cruzamento da aresta da vizinha (corda entre os
+    // vértices do nível) com a face da hospedeira (mesmo cone/plano que o mapa geral dá ao ponto).
+    if (join.vizinhas?.length && faceHit) {
+      const k = `${x.toFixed(7)},${y.toFixed(7)}`; // units-ok: chave interna de vértice
+      let e = entalhes.get(k);
+      if (e === undefined) {
+        e = null;
+        vizinhas ??= join.vizinhas.flatMap((nj) => nj.layers.map((nl) => ({ casa: casadorDeVertices(nl.raw), levels: tiltLevelsOf({ all: nj, layer: nl }, true) })));
+        const lists = join.vizinhas.flatMap((nj) => nj.layers.map((nl) => nl.raw));
+        search: for (let li = 0; li < lists.length; li++) {
+          const r = lists[li]!;
+          for (let i = 0; i < r.length; i++) {
+            const a = r[i]!, b = r[(i + 1) % r.length]!;
+            const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+            if (l2 < 1e-12) continue;
+            const t = ((x - a.x) * dx + (y - a.y) * dy) / l2;
+            if (t <= 1e-6 || t >= 1 - 1e-6) continue;
+            if (Math.hypot(a.x + dx * t - x, a.y + dy * t - y) > 1e-6) continue;
+            e = { v: li, i, j: (i + 1) % r.length };
+            break search;
+          }
+        }
+        entalhes.set(k, e);
+      }
+      if (e) {
+        const v = vizinhas![e.v]!;
+        const A = noDe(v.levels, e.i, z), B = noDe(v.levels, e.j, z);
+        const hit = faceHit(base(x, y, z), { x: A[0], y: A[1] }, { x: B[0], y: B[1] });
+        if (hit) return hit;
       }
     }
     return base(x, y, z);
@@ -250,9 +286,32 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const { push, emitFace, oriented, unionAll, zEps: Z_EPS } = h;
   const generic = tiltMap(rw, tiltDeg);
   const jLevels = join ? tiltLevelsOf(join, !!rw.sag) : [];
-  const map = join ? joinedMap(generic, join.all, join.layer, jLevels, rw.wallId) : generic;
+  const arcH = arcFromSagitta(rw.a, rw.b, rw.sag ?? 0);
+  const faceHit: FaceHit = (p0, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    if (arcH) {
+      // círculo do centro da hospedeira com o raio do ponto mapeado ∩ reta A→B
+      const fx = a.x - arcH.center.x, fy = a.y - arcH.center.y, r = Math.hypot(p0[0] - arcH.center.x, p0[1] - arcH.center.y);
+      const qa = dx * dx + dy * dy, qb = 2 * (fx * dx + fy * dy), qc = fx * fx + fy * fy - r * r;
+      const disc = qb * qb - 4 * qa * qc;
+      if (qa < 1e-18 || disc < 0) return null;
+      const sq = Math.sqrt(disc);
+      const ts = [(-qb - sq) / (2 * qa), (-qb + sq) / (2 * qa)];
+      const t = Math.abs(ts[0]!) < Math.abs(ts[1]!) ? ts[0]! : ts[1]!;
+      return [a.x + dx * t, a.y + dy * t];
+    }
+    // reta: face paralela ao eixo da hospedeira pelo ponto mapeado
+    const ux = rw.b.x - rw.a.x, uy = rw.b.y - rw.a.y;
+    const den = dx * uy - dy * ux;
+    if (Math.abs(den) < 1e-12) return null;
+    const t = ((p0[0] - a.x) * uy - (p0[1] - a.y) * ux) / den;
+    return [a.x + dx * t, a.y + dy * t];
+  };
+  const map = join ? joinedMap(generic, join.all, join.layer, jLevels, rw.wallId, faceHit) : generic;
   // Cotas intermediárias da junção (J3): as faces laterais se partem nelas (faixas regradas entre níveis consecutivos).
-  const splitZ = jLevels.slice(1, -1).map((l) => l.z);
+  // X1: os vértices que seguem o anel de uma VIZINHA (corte da hospedeira pelo ramo em arco) se movem nos níveis dela; a face parte também nessas cotas.
+  const splitZ = [...jLevels.slice(1, -1).map((l) => l.z), ...(join?.all.vizinhas ?? []).flatMap((nj) => nj.layers.flatMap((nl) => tiltLevelsOf({ all: nj, layer: nl }, true).slice(1, -1).map((l) => l.z)))]
+    .sort((a, b) => a - b).filter((z, i, arr) => i === 0 || z - arr[i - 1]! > 1e-7);
   // Vãos 'inclinado' (F2.8): os vértices do furo na cota do peitoril/topo escorregam ao longo do plano da face (cota pré-mapa).
   const cuts = rw.tiltCuts ?? [];
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);

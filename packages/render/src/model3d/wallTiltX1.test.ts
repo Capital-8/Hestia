@@ -26,25 +26,43 @@ const CASOS_T: CasoT[] = [
 const TILTS: Array<[number, number]> = [[15, 15], [-10, -10], [15, -10], [-20, 30], [0, 15], [15, 0], [0, 0]];
 const ZS = [0.01, H * 0.4973, H - 0.01];
 
-interface Linha { caso: string; camadas: string; tilts: string; m: Array<{ fresta: number; sobrep: number; frestaG: number; sobrepG: number }>; cob: Array<{ vazio: number; excesso: number; maiorVazio: number }>; avisos: string[] }
-function coberturaDe(p: ReturnType<typeof build>, ids: Array<[string, W]>, cam: number[] | 'padrao', no: P, z: number) {
+/** Lado do ramo em relação ao eixo da hospedeira na cota z (a parte do ramo sozinho além do eixo não existe na junção). */
+function ladoDoRamo(c: CasoT, th: number, z: number): (x: number, y: number) => boolean {
+  const t = Math.tan((th * Math.PI) / 180);
+  const h = c.host;
+  if (!h.sag) {
+    const ux = h.b.x - h.a.x, uy = h.b.y - h.a.y, l = Math.hypot(ux, uy), nx = -uy / l, ny = ux / l;
+    const sd = (x: number, y: number): number => (x - h.a.x) * nx + (y - h.a.y) * ny - z * t;
+    const lado = Math.sign(sd(c.ramo.a.x, c.ramo.a.y));
+    return (x, y) => sd(x, y) * lado >= 0;
+  }
+  // arco do host: centro (4,0), R = 5, centro à direita de a→b (k = +1): raio do eixo na cota z = 5 + z·tan
+  const R = 5 + z * t;
+  const sd = (x: number, y: number): number => Math.hypot(x - 4, y) - R;
+  const lado = Math.sign(sd(c.ramo.a.x, c.ramo.a.y));
+  return (x, y) => sd(x, y) * lado >= 0;
+}
+interface Linha { caso: string; camadas: string; tilts: string; m: Array<{ fresta: number; sobrep: number; frestaG: number; sobrepG: number; onde: string }>; cob: Array<{ vazio: number; excesso: number; maiorVazio: number; centro?: P }>; avisos: string[] }
+function coberturaDe(p: ReturnType<typeof build>, ids: Array<[string, W]>, cam: number[] | 'padrao', no: P, z: number, mascara?: (x: number, y: number) => boolean) {
   const real = ids.map(([id]) => secaoPorCamada(p, id, z));
   const ideal = ids.map(([id, w]) => { limparCachesDeConteudo(); return secaoPorCamada(build([w], H, cam), id, z); });
   limparCachesDeConteudo();
-  return cobertura(real, ideal, no);
+  return cobertura(real, ideal, no, 2.0, 0.025, mascara);
 }
 function medirTodosT(): Linha[] {
   const out: Linha[] = [];
   for (const c of CASOS_T) for (const [th, tr] of TILTS) for (const cam of [[0.2], 'padrao'] as const) {
+    if (process.env.HESTIA_X1_FILTRO && !`${c.nome} ${th}/${tr} ${cam === 'padrao' ? 'alv14' : '0,2'}`.includes(process.env.HESTIA_X1_FILTRO)) continue;
     limparCachesDeConteudo();
     const p = build([{ ...c.host, tilt: th }, { ...c.ramo, tilt: tr }], H, cam as number[] | 'padrao');
     const m = ZS.map((z) => medirT(p, 'R', 'b', 'H', c.no, z));
-    const cob = ZS.map((z) => coberturaDe(p, [['H', { ...c.host, tilt: th }], ['R', { ...c.ramo, tilt: tr }]], cam as number[] | 'padrao', c.no, z));
+    const cob = ZS.map((z) => coberturaDe(p, [['H', { ...c.host, tilt: th }], ['R', { ...c.ramo, tilt: tr }]], cam as number[] | 'padrao', c.no, z, ladoDoRamo(c, th, z)));
+    if (process.env.HESTIA_X1_FILTRO) console.log('DBG', m.map((x) => x.onde).join(' ; '), JSON.stringify(cob.map((q) => [q.vazio, q.maiorVazio, q.centro])));
     out.push({ caso: c.nome, camadas: cam === 'padrao' ? 'alv14' : '0,2', tilts: `${th}/${tr}`, m, cob, avisos: avisosDe(p, H, ['H', 'R']) });
   }
   return out;
 }
-const linhaT = (l: Linha): string => `| ${l.caso} | ${l.camadas} | ${l.tilts} | ${l.m.map((x, i) => `${mm(x.fresta)} / ${mm(x.sobrep)} (vazio ${(l.cob[i]!.vazio * 1e4).toFixed(0)} cm², exc ${(l.cob[i]!.excesso * 1e4).toFixed(0)})`).join(' | ')} | ${l.avisos.join(', ') || '-'} |`;
+const linhaT = (l: Linha): string => `| ${l.caso} | ${l.camadas} | ${l.tilts} | ${l.m.map((x, i) => `${mm(x.frestaG)} / ${mm(x.sobrepG)} [tudo ${mm(x.fresta)} / ${mm(x.sobrep)}] vazio ${(l.cob[i]!.vazio * 1e4).toFixed(0)} exc ${(l.cob[i]!.excesso * 1e4).toFixed(0)} cm²`).join(' | ')} | ${l.avisos.join(', ') || '-'} |`;
 
 interface CasoX { nome: string; a: W; b: W }
 const CASOS_X: CasoX[] = [
@@ -52,10 +70,10 @@ const CASOS_X: CasoX[] = [
   { nome: 'X1 reta×arco', a: HOST_ARCO, b: { id: 'R', a: { x: -5, y: 0 }, b: { x: 3, y: 0 } } },
   { nome: 'X arco×arco', a: HOST_ARCO, b: { id: 'R', a: { x: -5, y: -1 }, b: { x: 3, y: -1 }, sag: 1 } },
 ];
-interface LinhaX { caso: string; camadas: string; tilts: string; dVol: number; fechadas: boolean; cob: Array<{ vazio: number; excesso: number; maiorVazio: number }>; avisos: string[] }
+interface LinhaX { caso: string; camadas: string; tilts: string; dVol: number; fechadas: boolean; cob: Array<{ vazio: number; excesso: number; maiorVazio: number; centro?: P }>; avisos: string[] }
 function medirTodosX(): LinhaX[] {
   const out: LinhaX[] = [];
-  for (const c of CASOS_X) for (const [ta, tb] of TILTS) for (const cam of [[0.2], 'padrao'] as const) {
+  for (const c of process.env.HESTIA_X1_FILTRO ? [] : CASOS_X) for (const [ta, tb] of TILTS) for (const cam of [[0.2], 'padrao'] as const) {
     limparCachesDeConteudo();
     const pa = { ...c.a, tilt: ta }, pb = { ...c.b, tilt: tb };
     const par = build([pa, pb], H, cam as number[] | 'padrao');

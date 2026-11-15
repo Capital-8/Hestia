@@ -77,7 +77,7 @@ export function tampas(A: Seg[][], g: WallFrame, w: 'a' | 'b', no: P, raio = 0.9
   return out;
 }
 
-export interface MedidaT { fresta: number; sobrep: number; frestaG: number; sobrepG: number }
+export interface MedidaT { fresta: number; sobrep: number; frestaG: number; sobrepG: number; onde: string }
 
 /**
  * T: a tampa do ramo (ponta `w` perto de `no`) contra a seção da hospedeira. Fresta = distância da tampa ao corpo da hospedeira (união das camadas)
@@ -88,7 +88,7 @@ export function medirT(p: Project, ramo: string, w: 'a' | 'b', host: string, no:
   const R = secaoPorCamada(p, ramo, z, rl, jl), H = secaoPorCamada(p, host, z, rl, jl);
   const tr = p.wallTypes[(p.elements[ramo] as Wall).typeId]!, th = p.wallTypes[(p.elements[host] as Wall).typeId]!;
   const lay = (id: string, tipo: typeof tr, li: number): Layer => tipo.layers[rl.walls[id]!.layers[li]!.layerIndex]!;
-  let fresta = 0, sobrep = 0, frestaG = 0, sobrepG = 0;
+  let fresta = 0, sobrep = 0, frestaG = 0, sobrepG = 0, onde = '';
   for (const [x, y, li] of tampas(R, fr.get(ramo)!, w, no)) {
     const lr = lay(ramo, tr, li);
     const grossa = lr.thickness >= 0.005;
@@ -101,11 +101,12 @@ export function medirT(p: Project, ramo: string, w: 'a' | 'b', host: string, no:
     }
     if (!emAlguma(H, x, y)) {
       const d = distAlguma(H, x, y);
+      if (d > fresta) onde = `fresta camada ${li} (${x.toFixed(4)}, ${y.toFixed(4)})`;
       fresta = Math.max(fresta, d);
       if (grossa) frestaG = Math.max(frestaG, d);
     }
   }
-  return { fresta, sobrep, frestaG, sobrepG };
+  return { fresta, sobrep, frestaG, sobrepG, onde };
 }
 
 /** Volume do sólido (malha fechada). */
@@ -147,16 +148,18 @@ export const avisosDe = (p: Project, H: number, ids: string[]): string[] => {
 };
 
 /** Área (m²) em que a união das seções difere da união das seções "ideais" (cada parede sozinha), numa janela em torno de `c`. `vazio` = ideal e não real (abertura); `excesso` = real e não ideal. */
-export function cobertura(real: Seg[][][], ideal: Seg[][][], c: P, meio = 2.0, passo = 0.025): { vazio: number; excesso: number; maiorVazio: number } {
-  const emU = (U: Seg[][][], x: number, y: number): boolean => U.some((w) => w.some((l) => dentro(l, x, y)));
+export function cobertura(real: Seg[][][], ideal: Seg[][][], c: P, meio = 2.0, passo = 0.025, mascara?: (x: number, y: number) => boolean): { vazio: number; excesso: number; maiorVazio: number; centro?: P } {
+  /** `mascara` (T): só vale para a 2ª parede (o ramo) do conjunto ideal: a parte dele além do eixo da hospedeira não existe. */
+  const emU = (U: Seg[][][], x: number, y: number, ideal2 = false): boolean => U.some((w, i) => (!ideal2 || i === 0 || !mascara || mascara(x, y)) && w.some((l) => dentro(l, x, y)));
   let vazio = 0, excesso = 0;
   const pontosVazios: P[] = [];
   for (let x = c.x - meio; x <= c.x + meio; x += passo) for (let y = c.y - meio; y <= c.y + meio; y += passo) {
-    const a = emU(real, x, y), b = emU(ideal, x, y);
+    const a = emU(real, x, y), b = emU(ideal, x, y, true);
     if (b && !a) { vazio += passo * passo; pontosVazios.push({ x, y }); }
     if (a && !b) excesso += passo * passo;
   }
   let maior = 0;
   for (const p of pontosVazios) for (const q of pontosVazios) maior = Math.max(maior, Math.hypot(p.x - q.x, p.y - q.y));
-  return { vazio, excesso, maiorVazio: maior };
+  const centro = pontosVazios.length ? { x: pontosVazios.reduce((a, q) => a + q.x, 0) / pontosVazios.length, y: pontosVazios.reduce((a, q) => a + q.y, 0) / pontosVazios.length } : undefined;
+  return { vazio, excesso, maiorVazio: maior, ...(centro ? { centro } : {}) };
 }
