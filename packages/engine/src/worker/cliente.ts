@@ -151,6 +151,7 @@ export class ClienteResolucao {
     if (this.worker) {
       const repetido = this.enviado?.projeto === p.projeto && this.enviado.versao === p.versao;
       const mensagem: PedidoResolucao = { id: p.id, tipo: p.tipo, nivel: p.nivel, projeto: repetido ? { versao: p.versao } : { versao: p.versao, estrutura: p.projeto }, base: p.base };
+      if ((globalThis as { __vperf?: unknown }).__vperf) mensagem.medir = true;
       const v2 = typeof this.opcoes.kernelV2 === 'function' ? this.opcoes.kernelV2() : this.opcoes.kernelV2;
       if (v2?.fatiaA === true || v2?.fatiaB === true) mensagem.kernelV2 = v2;
       try {

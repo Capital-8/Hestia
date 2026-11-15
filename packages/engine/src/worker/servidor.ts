@@ -51,7 +51,8 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
     try {
       const ini = agora();
       const resultado = executor(pedido.tipo, pedido.projeto.estrutura, pedido.nivel, { versao: pedido.projeto.versao, base: pedido.base ?? null });
-      const resposta: RespostaResolucao = { id, resultado, erro: null, tw: [pedido.recebidoEm ?? ini, ini, agora()] };
+      const resposta: RespostaResolucao = { id, resultado, erro: null };
+      if (pedido.medir) resposta.tw = [pedido.recebidoEm ?? ini, ini, agora()];
       const diag = diagnosticoLocalDoDespacho();
       if (diag) resposta.kernelDiag = diag;
       escopo.postMessage(resposta, colherBuffers(resultado));

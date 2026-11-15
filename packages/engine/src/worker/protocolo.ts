@@ -45,6 +45,8 @@ export interface PedidoResolucao {
    * pedido. Ausente: o worker não instala nada e o caminho é o de sempre.
    */
   kernelV2?: ConfigDespacho;
+  /** Medição da vista (D5, só com `?debug=1`): o worker devolve os instantes em `tw`. */
+  medir?: boolean;
 }
 
 /** Cancelamento de um pedido pelo id (vale se o pedido ainda não começou no worker). */

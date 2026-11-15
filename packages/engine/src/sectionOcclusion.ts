@@ -189,7 +189,7 @@ function caixaDe(m: MultiPolygon): Box {
  * A região resultante é a mesma (a diferença não depende da ordem nem do agrupamento); só a ordem dos vértices pode mudar. Oclusor cuja caixa não encosta no
  * resto da peça é pulado. Para quando a peça some. Poucos vértices (até `VERTICES_LEVES`): como antes (uma passada, ou lotes de 4 acima de 8 oclusores).
  */
-function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
+export function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
   const tamanhos = oclusores.map(verticesDe);
   if (tamanhos.reduce((s, n) => s + n, 0) <= VERTICES_LEVES || Math.max(0, ...tamanhos) < OCLUSOR_COMPLEXO) {
     if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
