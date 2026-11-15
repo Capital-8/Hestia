@@ -117,6 +117,9 @@ function tiltJoinsOfLevel(p: Project, levelId: Id): LevelTiltAnalysis | undefine
   return analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
 }
 
+/** Junção inclinada (análise por nível, em cache) de uma parede; `undefined` sem parede inclinada no nível ou sem ligação. */
+export const juncaoInclinadaDaParede = (p: Project, levelId: Id, wallId: Id): WallTiltJoin | undefined => tiltJoinsOfLevel(p, levelId)?.joins.get(wallId);
+
 /** Cunhas de transição do nível (etapa R); vazio sem parede inclinada. */
 export const cunhasDoNivel = (p: Project, levelId: Id): readonly Cunha[] => tiltJoinsOfLevel(p, levelId)?.cunhas ?? [];
 

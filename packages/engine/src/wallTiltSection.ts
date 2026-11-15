@@ -1,6 +1,6 @@
 import { intersection, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import { EPS_T, lineIntervals, rect } from './sectionGeom.ts';
-import { layerPlanMap, mapMulti, type PlanMap } from './wallTiltPlan.ts';
+import { layerPlanMap, mapMulti, type JoinedPlanMap, type PlanMap } from './wallTiltPlan.ts';
 import type { ResolvedWall } from './types.ts';
 import type { WallTiltJoin } from './wallTiltJoinLevel.ts';
 
@@ -15,18 +15,27 @@ export interface SectionBasis { a: Vec2; d: Vec2; n: Vec2; length: number }
 const ARC_STEPS = 8;
 
 /** Mapa da camada se a parede é inclinada ou tem junção inclinada; senão `undefined` (resultado de hoje). */
-export function tiltSectionMap(rw: ResolvedWall, layerIndex: number, join?: WallTiltJoin): PlanMap | undefined {
+export function tiltSectionMap(rw: ResolvedWall, layerIndex: number, join?: WallTiltJoin): JoinedPlanMap | undefined {
   return rw.tilt || join ? layerPlanMap(rw, layerIndex, join) : undefined;
 }
 
-const stepsOf = (rw: ResolvedWall, z0: number, z1: number): number[] => {
+/**
+ * Cotas (relativas à base) em que a faixa z0..z1 é amostrada: degraus uniformes (arco: 8; reta: 2) mais as cotas dos níveis
+ * da junção exata (J4) que caem dentro dela, para o canto seguir o mesmo anel por nível do sólido 3D.
+ */
+const stepsOf = (rw: ResolvedWall, map: PlanMap, z0: number, z1: number): number[] => {
   const n = rw.sag ? ARC_STEPS : 1;
-  return Array.from({ length: n + 1 }, (_, i) => z0 + ((z1 - z0) * i) / n);
+  const base = Array.from({ length: n + 1 }, (_, i) => z0 + ((z1 - z0) * i) / n);
+  const lz = (map as JoinedPlanMap).levelZs;
+  if (!lz?.length) return base;
+  const eps = 1e-6;
+  const extra = lz.filter((z) => z > z0 + eps && z < z1 - eps && !base.some((b) => Math.abs(b - z) < eps));
+  return extra.length ? [...base, ...extra].sort((a, b) => a - b) : base;
 };
 
 /** Polígonos (t, z absoluta) do corte de uma faixa pelo plano; `z0`, `z1` relativas à base. */
 export function tiltBandCut(rw: ResolvedWall, map: PlanMap, poly: Polygon, bas: SectionBasis, z0: number, z1: number): Ring[] {
-  const zs = stepsOf(rw, z0, z1);
+  const zs = stepsOf(rw, map, z0, z1);
   const spans = zs.map((z) => lineIntervals(mapMulti([poly], map, z)[0]!, bas.a, bas.d, bas.n));
   const k = spans[0]!.length;
   const out: Ring[] = [];
@@ -58,7 +67,7 @@ function clipT(r: Ring, length: number): Ring[] {
  * distância ao plano nas cotas z0 e z1.
  */
 export function tiltBandBeyond(rw: ResolvedWall, map: PlanMap, poly: MultiPolygon, slab: MultiPolygon, bas: SectionBasis, z0: number, z1: number): Array<{ depth: number; polygons: MultiPolygon }> {
-  const zs = stepsOf(rw, z0, z1);
+  const zs = stepsOf(rw, map, z0, z1);
   const dist = (v: Vec2): number => (v.x - bas.a.x) * bas.n.x + (v.y - bas.a.y) * bas.n.y;
   const alongOf = (v: Vec2): number => (v.x - bas.a.x) * bas.d.x + (v.y - bas.a.y) * bas.d.y;
   const out: Array<{ depth: number; polygons: MultiPolygon }> = [];
