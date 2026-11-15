@@ -103,6 +103,10 @@ export interface NoLevel {
   order: string[];
   corners: Map<string, NoCorner>;
   loops: Map<string, Vec2[]>;
+  /** Linhas das paredes na cota, na ordem angular (`order`). */
+  lines: NoLine[];
+  /** Miolo de cada dona: [R, L, ...vértices extras] (laço sem a parte longe da parede). */
+  hubs: Array<{ owner: string; poly: Vec2[] }>;
 }
 /** Estrutura do nó (só depende dos ângulos): ordem, barra e quem recebe o miolo. */
 export interface NoTopology {
@@ -235,6 +239,7 @@ export function noLevel(lines: readonly NoLine[], topo: NoTopology, z?: number):
   const cx = L.reduce((s, w) => s + w.o.x, 0) / n, cy = L.reduce((s, w) => s + w.o.y, 0) / n;
   const corners = new Map<string, NoCorner>();
   const loops = new Map<string, Vec2[]>();
+  const hubs: NoLevel['hubs'] = [];
   for (let p = 0; p < n; p++) {
     const w = L[p]!;
     const r = R[p]!, l = Lc[p]!;
@@ -253,8 +258,9 @@ export function noLevel(lines: readonly NoLine[], topo: NoTopology, z?: number):
     for (const e of topo.fills.get(p) ?? []) loop.push(e.side === 'l' ? Lc[e.wall]! : R[e.wall]!);
     if (!(polyArea(loop) > 1e-9) || !simple(loop)) return { fail: 'nucleo-invalido', z, wallId: w.id };
     loops.set(w.id, loop);
+    if (loop.length > 4) hubs.push({ owner: w.id, poly: [loop[0]!, loop[3]!, ...loop.slice(4)] });
   }
-  return { order: L.map((w) => w.id), corners, loops };
+  return { order: L.map((w) => w.id), corners, loops, lines: L, hubs };
 }
 
 /** Polígono sem arestas que se cruzam (arestas não adjacentes; toque em vértice conta como cruzamento só se atravessar). */
@@ -274,6 +280,47 @@ function simple(p: readonly Vec2[]): boolean {
     }
   }
   return true;
+}
+
+/** Triangulação por orelhas (índices) de um laço, qualquer sentido; vazio se a área é nula. */
+export function triangulaMiolo(poly: readonly Vec2[]): Array<[number, number, number]> {
+  const a = polyArea(poly);
+  if (Math.abs(a) < 1e-9) return [];
+  if (a > 0) return earClip(poly);
+  const rev = [...poly].reverse();
+  const n = poly.length;
+  return earClip(rev).map(([i, j, k]) => [n - 1 - i, n - 1 - j, n - 1 - k]);
+}
+
+/**
+ * Deformação contínua do nó (N1): leva um ponto da planta VERTICAL do nó (zona de cada parede + miolo) à planta na cota z.
+ * Cada parede tem a sua faixa (R, L, longe), o miolo é triangulado. Tudo é LINEAR em z (retas): guarda-se z=0 e a inclinação por metro.
+ */
+export interface NodeWarp {
+  walls: Array<{
+    id: string; o: Vec2; u: Vec2; len: number; lo: number; hi: number; tan: number; inv: number;
+    /** Cantos verticais (base, sem inclinação) e cantos inclinados em z=0 com a variação por metro de cota. */
+    Rv: Vec2; Lv: Vec2; R0: Vec2; L0: Vec2; dR: Vec2; dL: Vec2;
+  }>;
+  hubs: Array<{ vert: Vec2[]; p0: Vec2[]; dp: Vec2[]; tri: Array<[number, number, number]> }>;
+}
+export function nodeWarp(vert: NoLevel, t0: NoLevel, t1: NoLevel, zr: number, tiltDeg: ReadonlyMap<string, number>): NodeWarp {
+  const walls = vert.lines.map((w) => {
+    const th = (tiltDeg.get(w.id) ?? 0) * RAD;
+    const c0 = t0.corners.get(w.id)!, c1 = t1.corners.get(w.id)!, cv = vert.corners.get(w.id)!;
+    return {
+      id: w.id, o: w.o, u: w.u, len: w.len, lo: w.lo, hi: w.hi, tan: Math.tan(th), inv: 1 / Math.cos(th),
+      Rv: cv.r, Lv: cv.l, R0: c0.r, L0: c0.l,
+      dR: { x: (c1.r.x - c0.r.x) / zr, y: (c1.r.y - c0.r.y) / zr }, dL: { x: (c1.l.x - c0.l.x) / zr, y: (c1.l.y - c0.l.y) / zr },
+    };
+  });
+  const hubs = vert.hubs.flatMap((h, i) => {
+    const tri = triangulaMiolo(h.poly);
+    if (!tri.length) return [];
+    const a = t0.hubs[i]!.poly, b = t1.hubs[i]!.poly;
+    return [{ vert: h.poly, p0: a, dp: a.map((q, k) => ({ x: (b[k]!.x - q.x) / zr, y: (b[k]!.y - q.y) / zr })), tri }];
+  });
+  return { walls, hubs };
 }
 
 export interface NoResult {

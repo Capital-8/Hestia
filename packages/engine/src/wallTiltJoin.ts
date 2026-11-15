@@ -12,7 +12,7 @@ import { buttAgainst, both, flatEnd, setEnd, sOfDepth, miterPoint } from './join
 import { joinPair, toCenterline } from './joinPair.ts';
 import { endPoint as layerEndPoint, layerQuad } from './layerGeom.ts';
 import type { EndRef, SideSpec, WallEnds } from './joinTypes.ts';
-import { noFailed, noLevel, noTopology, type NoLine } from './wallTiltNo.ts';
+import { noFailed, noLevel, noTopology, type NoLevel, type NoLine } from './wallTiltNo.ts';
 
 export interface TiltWall {
   frame: WallFrame;
@@ -201,6 +201,8 @@ export interface LevelSet {
   ends: Map<string, WallEnds>;
   /** Ponto do nó de cada ponta de canto (chave `id|a` ou `id|b`). */
   nodes: Map<string, Vec2>;
+  /** Resultado de cada relação `node` (na ordem de `rels`, só as de nó) nesta cota (N1). */
+  nodeLevels?: NoLevel[];
 }
 
 /**
@@ -260,16 +262,11 @@ export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Re
     if (!spec) return { fail: 'corte-nulo', z };
     setEnd(ends, ref, both(spec));
   }
+  const nodeLevels: NoLevel[] = [];
   for (const r of rels) {
     if (r.kind !== 'node') continue;
-    // Nó de N paredes (N1). Com `rawEnds` (nível vertical da base) a ponta é a do resolvedor; sem ele, o cruzamento das faces vizinhas.
-    if (rawEnds) {
-      for (const e of r.ends) {
-        const w = rawEnds.get(e.id);
-        if (w) ends.get(e.id)![e.end] = w[e.end];
-      }
-      continue;
-    }
+    // Nó de N paredes (N1): cantos = cruzamento das faces vizinhas. Com `rawEnds` (nível vertical da base) a ponta
+    // da parede é a do resolvedor (corte reto no nó etc.); os cantos seguem calculados (alimentam `nodeWarp`).
     const lines: NoLine[] = [];
     for (const e of r.ends) {
       const g = frames.get(e.id)!;
@@ -282,13 +279,15 @@ export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Re
     if (noFailed(topo)) return { fail: 'no-inviavel', z };
     const lv = noLevel(lines, topo, z);
     if (noFailed(lv)) return { fail: 'no-inviavel', z };
+    nodeLevels.push(lv);
     for (const e of r.ends) {
       const c = lv.corners.get(e.id)!;
-      ends.get(e.id)![e.end] = both({ kind: 'plane', p: c.r, q: c.l, pts: [] });
+      const w = rawEnds?.get(e.id);
+      ends.get(e.id)![e.end] = w ? w[e.end] : both({ kind: 'plane', p: c.r, q: c.l, pts: [] });
       nodes.set(`${e.id}|${e.end}`, { x: (c.r.x + c.l.x) / 2, y: (c.r.y + c.l.y) / 2 });
     }
   }
-  return { frames, ends, nodes };
+  return { frames, ends, nodes, nodeLevels };
 }
 
 function levelPolys(A: TiltWall, B: TiltWall, topo: Topology, z: number): LevelPolys | LevelFail {

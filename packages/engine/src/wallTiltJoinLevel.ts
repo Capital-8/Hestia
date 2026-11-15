@@ -8,6 +8,7 @@ import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
 import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
+import { nodeWarp, type NodeWarp } from './wallTiltNo.ts';
 import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
 /** Junção inclinada de um nível (F2.4): análise por camada, avisos e guarda do kernel. Núcleo geométrico em `wallTiltJoin.ts`. */
@@ -47,6 +48,12 @@ export interface WallTiltJoin {
    */
   zs?: number[];
   levels?: Array<{ z: number; rings: Vec2[][] }>;
+  /**
+   * Nó de 3+ paredes retas (N1): deformação contínua da planta vertical do nó para a planta em cada cota (faixas das paredes e miolo).
+   * O sólido a usa para o vértice de faixa que cai na zona do nó (o corte do resolvedor vertical é arbitrário nesta zona).
+   * Ausente fora de nó.
+   */
+  nodes?: NodeWarp[];
 }
 /**
  * Cunha de transição (etapa R, ação B): prisma triangular que fecha o degrau de uma continuação reta×reta com inclinações
@@ -389,6 +396,16 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       if (!r) adaptativos.set(H, (r = levelSetAdaptive(tilted, crel, H)));
       return r;
     };
+    const nodeRels = crel.filter((r): r is Relation & { kind: 'node' } => r.kind === 'node');
+    const warps = nodeRels.length ? nodeRels.map((r, i) => {
+      const ids2 = r.ends.map((e) => e.id);
+      const zr = Math.min(...ids2.map((id) => heightOf(byId.get(id)!)));
+      const tz = top(zr);
+      if (failed(tz)) return null;
+      return nodeWarp(rawSet.nodeLevels![i]!, baseSet.nodeLevels![i]!, tz.nodeLevels![i]!, zr, new Map(ids2.map((id) => [id, tiltOf(byId.get(id)!)] as const)));
+    }) : [];
+    if (warps.some((w) => !w)) return null;
+    const nodesOf = (id: string): NodeWarp[] => nodeRels.flatMap((r, i) => (r.ends.some((e) => e.id === id) ? [warps[i]!] : []));
     for (const id of wallIds) {
       const f = byId.get(id)!;
       const H = heightOf(f);
@@ -413,7 +430,8 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
           layers.push({ layerIndex, raw: r0, p0: rs[0]!, pH: rs[rs.length - 1]! });
           aligned.push(rs);
         }
-        joins.set(id, { H, layers, zs: ad.zs, levels: ad.zs.map((z, i) => ({ z, rings: aligned.map((rs) => rs[i]!) })) });
+        const ndA = nodesOf(id);
+        joins.set(id, { H, layers, zs: ad.zs, levels: ad.zs.map((z, i) => ({ z, rings: aligned.map((rs) => rs[i]!) })), ...(ndA.length ? { nodes: ndA } : {}) });
         continue;
       }
       const ts = top(H);
@@ -425,7 +443,8 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         layers.push({ layerIndex, raw: r0, p0: al.p0, pH: al.pH });
       }
       const mid = layers.map((l) => l.p0.map((a, k) => ({ x: (a.x + l.pH[k]!.x) / 2, y: (a.y + l.pH[k]!.y) / 2 })));
-      joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }] });
+      const nd = nodesOf(id);
+      joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }], ...(nd.length ? { nodes: nd } : {}) });
     }
     return joins;
   };
