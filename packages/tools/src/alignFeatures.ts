@@ -44,6 +44,8 @@ export type AlignKind =
   | 'faceParede'
   | 'eixoParede'
   | 'nucleoParede'
+  | 'faceSuperior'
+  | 'nucleoSuperior'
   | 'extremidadeParede'
   | 'ombreiraAbertura'
   | 'centroAbertura'
