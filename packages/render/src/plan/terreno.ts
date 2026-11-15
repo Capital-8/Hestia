@@ -1,4 +1,4 @@
-import { envoltoriaDasFontes, type CotaDoTerreno, type CurvaNivelTN, type LinhaPlantaTN } from '@hestia/engine';
+import { envoltoriaDasFontes, type CotaDoTerreno, type CurvaNivelTN, type LinhaPlantaTN, type MapaCorteAterroTN } from '@hestia/engine';
 import type { Id, Project, Terrain, TerrainRegion } from '@hestia/model';
 import { mix } from './color.ts';
 import type { FloorOps } from './floors.ts';
@@ -24,6 +24,8 @@ export interface DadosTerreno {
   bordas: LinhaPlantaTN[] | null;
   /** Cota proposta em cada ponto, na ordem recebida. */
   cotas: (pontos: Array<{ x: number; y: number }>) => Array<CotaDoTerreno | null> | null;
+  /** Triângulos do mapa de corte e aterro (ficha U2); só lidos com o mapa ligado. Ausente ou `null` = sem mapa. */
+  mapa?: MapaCorteAterroTN[] | null;
 }
 
 /** [traço, vão] da curva do terreno existente e da reserva sem kernel (px). */
