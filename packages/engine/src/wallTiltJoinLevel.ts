@@ -98,6 +98,26 @@ const ids = (r: Relation): string[] => (r.kind === 'pair' ? [r.a.id, r.b.id] : [
  * Sem parede inclinada devolve vazio sem custo (caminho idêntico ao de hoje).
  */
 export function analyzeLevelTilt(frames: readonly WallFrame[], heights: ReadonlyMap<string, number> = new Map(), tol?: number): LevelTiltAnalysis {
+  if (!frames.some((f) => tiltOf(f) !== 0)) return { joins: new Map(), avisos: [] };
+  // Resolver, junção e avisos pedem a mesma análise do mesmo nível: guardada por conteúdo (identidade de parede, tipo, cotas e alturas),
+  // com chave barata e estável. O resultado devolvido é compartilhado e não deve ser alterado.
+  const chave = `${frames[0]!.wall.levelId}|${frames.length}`;
+  const fontes: unknown[] = [tol];
+  for (const f of frames) fontes.push(f.wall, f.type, f.z?.z0, f.z?.top, heights.get(f.wall.id));
+  const antes = analiseMemo.get(chave);
+  if (antes && antes.fontes.length === fontes.length && antes.fontes.every((x, i) => x === fontes[i])) return antes.valor;
+  const valor = analyzeLevelTiltRaw(frames, heights, tol);
+  if (analiseMemo.size >= 64) analiseMemo.delete(analiseMemo.keys().next().value as string);
+  analiseMemo.set(chave, { fontes, valor });
+  return valor;
+}
+const analiseMemo = new Map<string, { fontes: readonly unknown[]; valor: LevelTiltAnalysis }>();
+/** Esvazia a memória da análise por nível; ver `cachesDeConteudo.ts`. */
+export function esvaziarAnaliseInclinada(): void {
+  analiseMemo.clear();
+}
+
+function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<string, number>, tol?: number): LevelTiltAnalysis {
   const out: LevelTiltAnalysis = { joins: new Map(), avisos: [] };
   if (!frames.some((f) => tiltOf(f) !== 0)) return out;
   const byId = new Map(frames.map((f) => [f.wall.id, f] as const));

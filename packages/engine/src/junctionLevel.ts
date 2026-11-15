@@ -94,7 +94,7 @@ function signature(tagged: readonly Tagged[]): string {
 }
 
 /** Cache por nível e por conteúdo (como o circuito de ambientes, decisão 0023 §11): nível não editado = mesmo resultado. */
-const levelCache = new Map<Id, { sig: string; value: JunctionLevel }>();
+const levelCache = new Map<Id, { sig: string; value: JunctionLevel; tj: ReadonlyMap<Id, WallTiltJoin> | undefined }>();
 /** Esvazia o cache de junção por nível e conteúdo; ver `cachesDeConteudo.ts`. */
 export function esvaziarCacheDeJuncao(): void {
   levelCache.clear();
@@ -102,7 +102,7 @@ export function esvaziarCacheDeJuncao(): void {
 /** Atalho por snapshot imutável: evita reconstruir assinatura e cortadores quando o mesmo nível é consultado de novo. */
 const projectLevelCache = new WeakMap<Project, Map<Id, JunctionLevel>>();
 /** Conteúdo de cortadores compartilhado entre snapshots também compartilha a junção e sua assinatura. */
-const cutterSetResultCache = new WeakMap<LevelCutters, JunctionLevel>();
+const cutterSetResultCache = new WeakMap<LevelCutters, { value: JunctionLevel; tj: ReadonlyMap<Id, WallTiltJoin> | undefined }>();
 
 /** Junções inclinadas das paredes do nível (F2.4), ou `undefined` sem parede inclinada. A altura é a resolvida (anexo a piso/telhado). */
 function tiltJoinsOfLevel(p: Project, levelId: Id): ReadonlyMap<Id, WallTiltJoin> | undefined {
@@ -111,6 +111,7 @@ function tiltJoinsOfLevel(p: Project, levelId: Id): ReadonlyMap<Id, WallTiltJoin
   if (!frames.some((f) => f.wall.tilt)) return undefined;
   const walls = resolveLevel(p, levelId).walls;
   const heights = new Map(Object.values(walls).map((w) => [w.wallId, w.height] as const));
+  // `analyzeLevelTilt` guarda o resultado por conteúdo: o Map é o MESMO enquanto as paredes do nível não mudam (identidade serve de chave).
   return analyzeLevelTilt(frames, heights, p.settings?.joinTolerance).joins;
 }
 
@@ -158,8 +159,8 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
   const cutters = levelCutterSet(p, levelId);
   // Junção inclinada (F2.4): só quando o nível tem parede inclinada; sem ela nada muda (caminho idêntico ao de antes).
   const tiltJoins = tiltJoinsOfLevel(p, levelId);
-  const cutterResult = tiltJoins ? undefined : cutterSetResultCache.get(cutters);
-  if (cutterResult) return remember(cutterResult);
+  const cutterResult = cutterSetResultCache.get(cutters);
+  if (cutterResult && cutterResult.tj === tiltJoins) return remember(cutterResult.value);
   // Cortadores do nível e dos níveis que o alcançam (F1b). Laje com caimento fica de fora da junção.
   const tagged: Tagged[] = [];
   for (const sp of [...cutters.floors, ...cutters.slabs, ...cutters.walls].flatMap((c) => c.pieces)) {
@@ -175,10 +176,11 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
     );
   }
 
-  const sig = signature(tagged) + (tiltJoins ? `\n--tilt--\n${JSON.stringify([...tiltJoins])}` : '');
+  const sig = signature(tagged);
   const hit = levelCache.get(levelId);
-  if (hit && hit.sig === sig) {
-    if (!tiltJoins) cutterSetResultCache.set(cutters, hit.value);
+  // As junções inclinadas entram por identidade (o Map é estável enquanto a chave de `tiltJoinsOfLevel` vale).
+  if (hit && hit.sig === sig && hit.tj === tiltJoins) {
+    cutterSetResultCache.set(cutters, { value: hit.value, tj: tiltJoins });
     return remember(hit.value);
   }
 
@@ -215,8 +217,8 @@ export function junctionLevelTs(p: Project, levelId: Id): JunctionLevel {
     walls.set(id, wj);
   }
   const value: JunctionLevel = { levelId, elements, walls };
-  levelCache.set(levelId, { sig, value });
-  if (!tiltJoins) cutterSetResultCache.set(cutters, value);
+  levelCache.set(levelId, { sig, value, tj: tiltJoins });
+  cutterSetResultCache.set(cutters, { value, tj: tiltJoins });
   return remember(value);
 }
 
