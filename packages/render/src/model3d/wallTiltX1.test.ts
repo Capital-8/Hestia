@@ -1,8 +1,7 @@
 import { writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { limparCachesDeConteudo } from '@hestia/engine';
+import { junctionLevel, limparCachesDeConteudo, resolveLevel } from '@hestia/engine';
+import { wallLayerSolid } from './solids.ts';
 import { avisosDe, build, cobertura, medirT, secaoPorCamada, volumeParede, type P, type W } from './x1Medida.ts';
 
 /** X1 · encontro no MEIO do eixo (T) e cruzamento (X) com arco inclinado. Diagnóstico e aceite (docs/parede-formas/diagnostico-x1.md). */
@@ -88,20 +87,128 @@ function medirTodosX(): LinhaX[] {
 }
 const linhaX = (l: LinhaX): string => `| ${l.caso} | ${l.camadas} | ${l.tilts} | ${(l.dVol * 1e6).toFixed(1)} cm³ | ${l.fechadas ? 'sim' : 'NÃO'} | ${l.cob.map((c) => `vazio ${(c.vazio * 1e4).toFixed(0)} cm² exc ${(c.excesso * 1e4).toFixed(0)}`).join(' / ')} | ${l.avisos.join(', ') || '-'} |`;
 
-describe('X1 · diagnóstico T e X', () => {
-  it('tabela', () => {
-    const t = medirTodosT(), x = medirTodosX();
+describe('X1 · diagnóstico T e X (tabela completa: HESTIA_X1_TABELA=1, ~2 min)', () => {
+  it.skipIf(!process.env.HESTIA_X1_TABELA && !process.env.HESTIA_X1_FILTRO)('tabela', () => {
+    const t = medirTodosT(), x = process.env.HESTIA_X1_FILTRO ? [] : medirTodosX();
     const texto = [
-      '## T (fresta / sobreposição em mm; z = 0,01 | 0,497·H | H−0,01)',
+      '## T (fresta / sobreposição em mm nas camadas de 5 mm ou mais, [todas as camadas]; z = 0,01 | 0,497·H | H−0,01; vazio e excesso em cm² contra a soma das paredes sozinhas)',
       '| Caso | Camadas | Tilts hosp/ramo | z baixo | z meio | z topo | Avisos |', '|---|---|---|---|---|---|---|',
       ...t.map(linhaT),
-      '', '## X (diferença de volume com e sem a outra parede; malhas fechadas)',
+      '', '## X (diferença de volume com e sem a outra parede; malhas fechadas; cobertura contra as paredes sozinhas)',
       '| Caso | Camadas | Tilts | Δ volume | Fechadas | Cobertura z baixo / meio / topo | Avisos |', '|---|---|---|---|---|---|---|',
       ...x.map(linhaX),
     ].join('\n');
     console.log(texto);
     if (process.env.HESTIA_X1_SAIDA) writeFileSync(process.env.HESTIA_X1_SAIDA, texto);
     expect(t.length).toBeGreaterThan(0);
-  }, 600000);
+  }, 900000);
 });
-void dirname; void resolve; void fileURLToPath;
+
+/** Vértices do sólido de uma camada na cota z (relativa à base) que passam no filtro. */
+function vertsEm(p: ReturnType<typeof build>, id: string, z: number, f: (x: number, y: number) => boolean): Array<[number, number]> {
+  const rl = resolveLevel(p, 'lv_0'), jl = junctionLevel(p, 'lv_0');
+  const rw = rl.walls[id]!;
+  const b = wallLayerSolid(rw, rw.layers[0]!, jl);
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < b.positions.length / 3; i++) {
+    const x = b.positions[i * 3]!, y = b.positions[i * 3 + 1]!;
+    if (Math.abs(b.positions[i * 3 + 2]! - z) < 1e-6 && f(x, y) && !out.some((q) => Math.hypot(q[0] - x, q[1] - y) < 1e-7)) out.push([x, y]);
+  }
+  return out;
+}
+
+describe('X1 · T no meio do eixo de um arco (valores à mão, 1e-6)', () => {
+  // Hospedeira: arco R=5, centro (4,0), meio do eixo em (-1,0), 0,2 de espessura. Ramo: reta vertical de (-4,0) a (-1,0), 0,2 (faces em y = ±0,1).
+  // O ramo para na face externa da hospedeira, que em cada cota é o cone de raio R_f(z) = 5 + z·tanθ + 0,1/cosθ (centro fixo).
+  const caso = (th: number): ReturnType<typeof build> => build([{ ...HOST_ARCO, tilt: th }, { id: 'R', a: { x: -4, y: 0 }, b: NO_ARCO }], H, [0.2]);
+  const cap = (x: number, y: number): boolean => x < -0.9 && Math.hypot(x - 4, y) < 7;
+  it('0°: o ramo termina no cilindro de raio 5,1 em todas as cotas (x = 4 − √26 = −1,0990195136)', () => {
+    limparCachesDeConteudo();
+    const p = caso(0);
+    for (const z of [0, 3]) {
+      const v = vertsEm(p, 'R', z, cap);
+      expect(v.length).toBe(2);
+      for (const [x, y] of v) { expect(Math.hypot(x - 4, y)).toBeCloseTo(5.1, 6); expect(x).toBeCloseTo(-1.0990195136, 6); expect(Math.abs(y)).toBeCloseTo(0.1, 6); }
+    }
+  });
+  it('15°: o ramo termina no cone de raio R_f(z) em z = 0, 1,5 e 3 (5,1035276180 / 5,5054514057 / 5,9073751953)', () => {
+    limparCachesDeConteudo();
+    const p = caso(15);
+    const lit: Array<[number, number, number]> = [[0, 5.1035276180, -1.1025478095], [1.5, 5.5054514057, -1.5045431411], [3, 5.9073751953, -1.9065287361]];
+    for (const [z, Rf, x0] of lit) {
+      const v = vertsEm(p, 'R', z, cap);
+      expect(v.length).toBeGreaterThanOrEqual(2);
+      for (const [x, y] of v) { expect(Math.hypot(x - 4, y)).toBeCloseTo(Rf, 6); expect(x).toBeCloseTo(x0, 6); expect(Math.abs(y)).toBeCloseTo(0.1, 6); }
+    }
+  });
+  it('T1/T3 de camada única com tilts variados: fresta e sobreposição < 1 mm e sem vazio (cobertura) em z baixo, meio e topo', () => {
+    for (const [c, th, tr] of [[CASOS_T[0]!, 15, 15], [CASOS_T[1]!, -10, -10], [CASOS_T[4]!, 15, -10], [CASOS_T[5]!, -20, 30]] as const) {
+      limparCachesDeConteudo();
+      const p = build([{ ...c.host, tilt: th }, { ...c.ramo, tilt: tr }], H, [0.2]);
+      for (const z of ZS) {
+        const m = medirT(p, 'R', 'b', 'H', c.no, z);
+        expect(m.fresta, `${c.nome} ${th}/${tr} z=${z}`).toBeLessThan(1e-3);
+        expect(m.sobrep, `${c.nome} ${th}/${tr} z=${z}`).toBeLessThan(1e-3);
+      }
+      const cob = coberturaDe(p, [['H', { ...c.host, tilt: th }], ['R', { ...c.ramo, tilt: tr }]], [0.2], c.no, ZS[2]!, ladoDoRamo(c, th, ZS[2]!));
+      expect(cob.vazio, `${c.nome} ${th}/${tr}`).toBeLessThan(0.0015);
+    }
+  }, 120000);
+  it('multicamada padrão, ramo em arco sobre arco com a hospedeira a 15°: sem bolsão no acabamento da hospedeira (era 21 mm)', () => {
+    limparCachesDeConteudo();
+    const c = CASOS_T[4]!;
+    const p = build([{ ...c.host, tilt: 15 }, { ...c.ramo, tilt: 0 }], H, 'padrao');
+    for (const z of ZS) {
+      const m = medirT(p, 'R', 'b', 'H', c.no, z);
+      expect(m.frestaG, `z=${z}`).toBeLessThan(1e-3);
+    }
+    expect(coberturaDe(p, [['H', { ...c.host, tilt: 15 }], ['R', { ...c.ramo, tilt: 0 }]], 'padrao', c.no, ZS[1]!, ladoDoRamo(c, 15, ZS[1]!)).vazio).toBeLessThan(0.0015);
+  }, 120000);
+  it('vertical (0°/0°): a mesma medição dá fresta 0 e sobreposição 0 (comportamento de hoje)', () => {
+    for (const c of CASOS_T) {
+      limparCachesDeConteudo();
+      const p = build([{ ...c.host }, { ...c.ramo }], H, [0.2]);
+      const m = medirT(p, 'R', 'b', 'H', c.no, ZS[1]!);
+      expect(m.fresta).toBeLessThan(1e-6);
+      expect(m.sobrep).toBeLessThan(1e-6);
+    }
+  }, 120000);
+});
+
+describe('X1 · X (cruzamento): os corpos se interpenetram, sem abertura', () => {
+  it.each([
+    ['reta×reta 15°/15° (camada única)', 0, [15, 15], [0.2]],
+    ['reta×arco 15°/−10° (camada única)', 1, [15, -10], [0.2]],
+    ['arco×arco −20°/30° (camada única)', 2, [-20, 30], [0.2]],
+    ['reta×arco 15°/−10° (multicamada padrão)', 1, [15, -10], 'padrao'],
+  ] as const)('%s', (_n, k, [ta, tb], cam) => {
+    const c = CASOS_X[k]!;
+    limparCachesDeConteudo();
+    const pa = { ...c.a, tilt: ta }, pb = { ...c.b, tilt: tb };
+    const par = build([pa, pb], H, cam as number[] | 'padrao');
+    const A = volumeParede(par, 'H'), B = volumeParede(par, 'R');
+    limparCachesDeConteudo();
+    const sa = volumeParede(build([pa], H, cam as number[] | 'padrao'), 'H');
+    limparCachesDeConteudo();
+    const sb = volumeParede(build([pb], H, cam as number[] | 'padrao'), 'R');
+    // cada parede com a outra presente tem o volume de quando está sozinha (nenhuma cede o cruzamento à outra)
+    expect(A.vol).toBeCloseTo(sa.vol, 6);
+    expect(B.vol).toBeCloseTo(sb.vol, 6);
+    expect(A.fechada && B.fechada).toBe(true);
+    for (const z of ZS) {
+      const cob = coberturaDe(par, [['H', pa], ['R', pb]], cam as number[] | 'padrao', { x: -1, y: 0 }, z);
+      expect(cob.vazio, `z=${z}`).toBeLessThan(1e-4);
+    }
+  }, 180000);
+  it('reta×reta 15°/15°: cada camada única tem o volume de uma laje inclinada, L·H·t/cosθ = 3,7269942495 (6 × 3 × 0,2 / cos 15°)', () => {
+    limparCachesDeConteudo();
+    const par = build([{ ...CASOS_X[0]!.a, tilt: 15 }, { ...CASOS_X[0]!.b, tilt: 15 }], H, [0.2]);
+    expect(volumeParede(par, 'H').vol).toBeCloseTo(3.7269942495, 6);
+    expect(volumeParede(par, 'R').vol).toBeCloseTo(3.7269942495, 6);
+  });
+  it('vertical (0°/0°) idêntico ao de hoje: uma das paredes cede o quadrado 0,2×0,2 do cruzamento (0,12 m³ no total)', () => {
+    limparCachesDeConteudo();
+    const par = build([CASOS_X[0]!.a, CASOS_X[0]!.b], H, [0.2]);
+    expect(volumeParede(par, 'H').vol + volumeParede(par, 'R').vol).toBeCloseTo(3.6 * 2 - 0.12, 6);
+  });
+});

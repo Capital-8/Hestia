@@ -11,6 +11,9 @@ import type { JoinStatus } from './joins.ts';
  */
 const AMOSTRA = 0.1;
 
+/** Chave `idMenor|idMaior` de um par de paredes. */
+export const chaveDoPar = (x: string, y: string): string => (x < y ? `${x}|${y}` : `${y}|${x}`);
+
 /** Eixo da parede como polilinha (reta: 2 pontos; arco: amostras a cada ~10 cm). */
 function eixo(f: WallFrame): Vec2[] {
   const n = f.arc ? Math.max(2, Math.ceil(f.length / AMOSTRA)) : 1;
@@ -58,7 +61,7 @@ export function paresQueSeCruzam(group: readonly WallFrame[], status: (id: strin
   });
   for (const f of inclinadas) for (const g of group) {
     if (g === f) continue;
-    const chave = f.wall.id < g.wall.id ? `${f.wall.id}|${g.wall.id}` : `${g.wall.id}|${f.wall.id}`;
+    const chave = chaveDoPar(f.wall.id, g.wall.id);
     if (out.has(chave) || ligadas(f, g) || ligadas(g, f)) continue;
     if (f.z && g.z && !(f.z.z0 < g.z.top - 1e-6 && g.z.z0 < f.z.top - 1e-6)) continue;
     const xs = cruza(eixoDe(f), eixoDe(g));

@@ -31,7 +31,7 @@ import {
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
-import { paresQueSeCruzam } from './wallTiltCruzamento.ts';
+import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -176,8 +176,6 @@ export function paint(items: Item[], isentos?: ReadonlySet<string>): Map<Item, M
   const sorted = [...items].sort((x, y) => x.priority - y.priority || Number(y.through) - Number(x.through) || y.coreT - x.coreT || x.order - y.order || x.layerIndex - y.layerIndex);
   const result = new Map<Item, MultiPolygon>();
   const higher: Item[] = [];
-  /** X1: paredes que se cruzam sem junção (ao menos uma inclinada) não se cortam: os corpos se interpenetram. */
-  const isento = (x: Item, y: Item): boolean => !!isentos && x.wallId !== y.wallId && isentos.has(x.wallId < y.wallId ? `${x.wallId}|${y.wallId}` : `${y.wallId}|${x.wallId}`);
   let i = 0;
   while (i < sorted.length) {
     let j = i;
@@ -186,9 +184,9 @@ export function paint(items: Item[], isentos?: ReadonlySet<string>): Map<Item, M
     const accepted: Item[] = [];
     for (const it of group) {
       const subs: MultiPolygon[] = [];
-      for (const h of higher) if (boxesOverlap(h.box, it.box) && !isento(h, it)) subs.push(h.shape);
+      for (const h of higher) if (boxesOverlap(h.box, it.box) && !isentos?.has(chaveDoPar(h.wallId, it.wallId))) subs.push(h.shape);
       // Mesma prioridade: o mais antigo vence, então a camada nova não duplica a área do canto.
-      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box) && !isento(g, it)) subs.push(g.shape);
+      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box) && !isentos?.has(chaveDoPar(g.wallId, it.wallId))) subs.push(g.shape);
       const vis = subs.length ? difference(it.shape, ...subs) : it.shape;
       result.set(it, vis.filter((p) => multiArea([p]) > MIN_AREA));
       accepted.push(it);
@@ -306,8 +304,7 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
 function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false, isentos?: ReadonlySet<string>): ClusterCore {
-  const compartilhadas = pinturasDoCluster(items, isentos?.size ? [...isentos].sort().join(',') : '');
-  const pintar = (its: Item[]): Map<Item, MultiPolygon> => paint(its, isentos);
+  const compartilhadas = pinturasDoCluster(items, isentos?.size ? [...isentos].sort().join(',') : ''), pintar = (its: Item[]): Map<Item, MultiPolygon> => paint(its, isentos);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
     const key = active.map((i) => i.uid).sort((x, y) => x - y).join(',');
@@ -462,8 +459,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
     const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
-    const semRegioes = group.some((f) => !!f.wall.tilt);
-    const isentos = paresQueSeCruzam(group, estrutura.status);
+    const semRegioes = group.some((f) => !!f.wall.tilt), isentos = paresQueSeCruzam(group, estrutura.status);
     const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}`;
     let core = cache.get(key);
     if (!core) {
