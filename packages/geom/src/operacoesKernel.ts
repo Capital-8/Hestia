@@ -153,9 +153,25 @@ export function intersection(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
   return noKernel('intersection', (k) => k.interseccao(a, b), () => ts.intersection(a, b));
 }
 
+const verticesDe = (m: MultiPolygon): number => m.reduce((s, p) => s + p.reduce((t, r) => t + r.length, 0), 0);
+/** Operando a partir do qual a união de 3 ou mais vai dobrada, do menor para o maior (ver `unionClipper`). */
+const UNIAO_PESADA_VERTICES = 500;
+
 export function unionClipper(...ms: MultiPolygon[]): MultiPolygon {
   const parts = ms.filter((m) => m.length > 0);
   if (parts.length === 0) return [];
+  if (parts.length >= 3) {
+    const tamanhos = parts.map(verticesDe);
+    if (Math.max(...tamanhos) >= UNIAO_PESADA_VERTICES) {
+      // Uma passada só com um operando grande e cheio de lascas que se sobrepõem (silhueta do corte de paredes em arco inclinadas) paga as interseções de
+      // todos contra todos e devolve milhares de vértices colineares (no projeto do dono: 17 operandos, 1,4 mil vértices -> 0,95 s e 22,8 mil vértices). Dobrar
+      // do menor para o maior dá a mesma região em 0,19 s e 4,4 mil vértices.
+      const ordem = parts.map((_, i) => i).sort((i, j) => tamanhos[i]! - tamanhos[j]! || i - j);
+      let acc: MultiPolygon = [];
+      for (const i of ordem) acc = acc.length === 0 ? parts[i]! : noKernel('unionClipper', (k) => k.uniao([acc, parts[i]!]), () => ts.unionClipper(acc, parts[i]!));
+      return acc;
+    }
+  }
   return noKernel('unionClipper', (k) => k.uniao(parts), () => ts.unionClipper(...parts));
 }
 
