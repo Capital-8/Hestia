@@ -177,9 +177,20 @@ export function poligonoDeReserva(t: Terrain): Vec2[] | null {
 export function cotaDeReserva(t: Terrain): number {
   let soma = 0;
   let n = 0;
-  for (let k = 2; k < t.pontos.length; k += 3) (soma += t.pontos[k]!), n++;
-  for (const c of t.curvas) (soma += c.z * (c.xy.length / 2)), (n += c.xy.length / 2);
-  for (const q of t.quebras) for (let k = 2; k < q.xyz.length; k += 3) (soma += q.xyz[k]!), n++;
+  for (let k = 2; k < t.pontos.length; k += 3) {
+    soma += t.pontos[k]!;
+    n++;
+  }
+  for (const c of t.curvas) {
+    soma += c.z * (c.xy.length / 2);
+    n += c.xy.length / 2;
+  }
+  for (const q of t.quebras) {
+    for (let k = 2; k < q.xyz.length; k += 3) {
+      soma += q.xyz[k]!;
+      n++;
+    }
+  }
   return n ? soma / n : 0;
 }
 
