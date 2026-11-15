@@ -53,19 +53,68 @@ type Pt = [number, number, number];
 /** Casamento de vértice da faixa com o anel `raw` da junção (m): as faixas passam por solda de 0,1 mm. */
 const MATCH = 5e-4;
 
+/** Nível de junção efetivo de uma camada: cota e anel (um ponto por vértice de `raw`). */
+export interface TiltLevel { z: number; ring: Vec2[] }
+
 /**
- * Mapa com a junção inclinada (F2.4): vértice da faixa que coincide com um vértice do anel vertical `raw` da camada vai
- * para a interpolação p0 + (pH − p0)·z/H (cantos e encostos exatos); os demais seguem o mapa geral da parede, cujas
- * faces estão nos mesmos planos.
+ * Níveis efetivos (J3) da camada: os níveis da junção (J2) sem os que são só interpolação linear dos vizinhos (1e-9 m).
+ * Reta×reta ([0, H/2, H], meio interpolado) cai em 2 níveis, isto é, na interpolação p0→pH de sempre (malha idêntica).
+ * `keepAll` (parede em arco): mantém todos os níveis, para os vértices coincidirem com os da vizinha em cada cota.
+ * Sem `levels` (junção montada à mão): p0 e pH.
  */
-function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer): (x: number, y: number, z: number) => [number, number] {
+export function tiltLevelsOf(join: { all: WallTiltJoin; layer: WallTiltJoinLayer }, keepAll = false): TiltLevel[] {
+  const { all, layer } = join;
+  const idx = all.layers.indexOf(layer);
+  const lv = all.levels;
+  const ends: TiltLevel[] = [{ z: 0, ring: layer.p0 }, { z: all.H, ring: layer.pH }];
+  if (!lv || idx < 0 || lv.length < 3 || lv.some((x) => !x.rings[idx] || x.rings[idx]!.length !== layer.raw.length)) return ends;
+  const all3: TiltLevel[] = lv.map((x) => ({ z: x.z, ring: x.rings[idx]! }));
+  const out: TiltLevel[] = [all3[0]!];
+  for (let k = 1; k < all3.length - 1; k++) {
+    const a = out[out.length - 1]!, c = all3[k + 1]!, m = all3[k]!;
+    const t = (m.z - a.z) / (c.z - a.z);
+    let lin = true;
+    for (let i = 0; i < m.ring.length && lin; i++) {
+      const pa = a.ring[i]!, pc = c.ring[i]!, pm = m.ring[i]!;
+      if (Math.abs(pa.x + (pc.x - pa.x) * t - pm.x) > 1e-9 || Math.abs(pa.y + (pc.y - pa.y) * t - pm.y) > 1e-9) lin = false;
+    }
+    if (!lin || keepAll) out.push(m);
+  }
+  out.push(all3[all3.length - 1]!);
+  return out.length > 2 ? out : ends;
+}
+
+/** Assinatura numérica estável (FNV-1a de 32 bits sobre valores em nm) dos níveis intermediários; '' quando só há p0/pH. */
+export function tiltLevelsSignature(join: { all: WallTiltJoin; layer: WallTiltJoinLayer }, keepAll = false): string {
+  const lv = tiltLevelsOf(join, keepAll);
+  if (lv.length <= 2) return '';
+  let h = 0x811c9dc5;
+  const mix = (v: number): void => {
+    const q = Math.round(v * 1e9);
+    h = Math.imul(h ^ (q % 0x100000000), 0x01000193) >>> 0;
+    h = Math.imul(h ^ Math.floor(q / 0x100000000), 0x01000193) >>> 0;
+  };
+  for (const l of lv) { mix(l.z); for (const p of l.ring) { mix(p.x); mix(p.y); } }
+  return `${lv.length}:${h.toString(36)}`;
+}
+
+/**
+ * Mapa com a junção inclinada (F2.4/J3): vértice da faixa que coincide com um vértice do anel vertical `raw` da camada vai
+ * para o anel do nível (interpolação linear entre os dois níveis vizinhos de z; com 2 níveis é p0 + (pH − p0)·z/H); os demais
+ * seguem o mapa geral da parede, cujas faces estão nos mesmos planos/cones.
+ */
+function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[]): (x: number, y: number, z: number) => [number, number] {
+  void join;
   return (x, y, z) => {
     for (let i = 0; i < layer.raw.length; i++) {
       const r = layer.raw[i]!;
       if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) {
-        const k = z / join.H;
-        const a = layer.p0[i]!, c = layer.pH[i]!;
-        return [a.x + (c.x - a.x) * k, a.y + (c.y - a.y) * k];
+        let k = 0;
+        while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
+        const l0 = levels[k]!, l1 = levels[k + 1]!;
+        const t = (z - l0.z) / (l1.z - l0.z);
+        const a = l0.ring[i]!, c = l1.ring[i]!;
+        return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
       }
     }
     return base(x, y, z);
@@ -80,7 +129,10 @@ function joinedMap(base: (x: number, y: number, z: number) => [number, number], 
 export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: ResolvedWall, tiltDeg: number, h: TiltHelpers, join?: { all: WallTiltJoin; layer: WallTiltJoinLayer }): void {
   const { push, emitFace, oriented, unionAll, zEps: Z_EPS } = h;
   const generic = tiltMap(rw, tiltDeg);
-  const map = join ? joinedMap(generic, join.all, join.layer) : generic;
+  const jLevels = join ? tiltLevelsOf(join, !!rw.sag) : [];
+  const map = join ? joinedMap(generic, join.all, join.layer, jLevels) : generic;
+  // Cotas intermediárias da junção (J3): as faces laterais se partem nelas (faixas regradas entre níveis consecutivos).
+  const splitZ = jLevels.slice(1, -1).map((l) => l.z);
   // Vãos 'inclinado' (F2.8): os vértices do furo na cota do peitoril/topo escorregam ao longo do plano da face (cota pré-mapa).
   const cuts = rw.tiltCuts ?? [];
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
@@ -145,6 +197,13 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
         if (o0 > a0 + Z_EPS) out.push([a0, o0]);
         if (o1 < a1 - Z_EPS) out.push([o1, a1]);
         return out;
+      });
+    }
+    if (splitZ.length) {
+      pieces = pieces.flatMap(([a0, a1]) => {
+        const cuts2 = splitZ.filter((z) => z > a0 + Z_EPS && z < a1 - Z_EPS);
+        const edges = [a0, ...cuts2, a1];
+        return edges.slice(0, -1).map((e, i) => [e, edges[i + 1]!] as [number, number]);
       });
     }
     for (const [z0, z1] of pieces) {
