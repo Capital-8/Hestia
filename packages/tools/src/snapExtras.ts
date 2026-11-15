@@ -7,6 +7,10 @@ import type { Guide, SnapKind, SnapOptions } from './types.ts';
 /** Assinatura do registrador de candidatos do motor de captura. */
 export type AddCandidate = (point: Vec2, kind: SnapKind, guides?: Guide[], hostId?: Id, weight?: number) => void;
 
+/** Pesos da face superior da seção nas ferramentas de topo (vence a ponta e a aresta comuns no mesmo ponto). */
+const TOP_TOOL_VERTEX = -0.05;
+const TOP_TOOL_EDGE = 0.05;
+
 /** Distância ao quadrado (evita a raiz em filtros que só comparam com a tolerância). */
 const dist2 = (a: Vec2, b: Vec2): number => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
 
@@ -26,8 +30,9 @@ export function addExtraPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec2,
   for (const q of pontosPerto(ctx.extraPoints, cursor, tol)) {
     if (q.hostId !== undefined && ctx.ignore?.has(q.hostId)) continue;
     const kind = q.kind ?? 'endpoint';
+    if (kind === 'topFace' && (sn.topFaces === false || !sn.faces)) continue;
     if ((kind === 'endpoint' && sn.endpoint === false) || ((kind === 'center' || kind === 'midpoint') && sn.midpoint === false) || (kind === 'face' && !sn.faces)) continue;
-    if (dist2(cursor, q) <= reach) add(v2(q.x, q.y), kind, [], q.hostId);
+    if (dist2(cursor, q) <= reach) add(v2(q.x, q.y), kind, [], q.hostId, kind === 'topFace' && ctx.topFaceTool ? TOP_TOOL_VERTEX : undefined);
   }
 }
 
@@ -45,8 +50,9 @@ export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec
     if (!boxNear(e.a, e.b, cursor, tol)) continue;
     if (dist2(e.a, e.b) < 1e-18) continue;
     const kind = e.kind ?? 'nearest';
+    if (kind === 'topFace' && sn.topFaces === false) continue;
     const foot = closestOnSegment(cursor, e.a, e.b);
-    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
+    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId, kind === 'topFace' && ctx.topFaceTool ? TOP_TOOL_EDGE : undefined);
     if (sn.perpendicular && ctx.from) {
       const pf = closestOnSegment(ctx.from, e.a, e.b);
       if (dist2(cursor, pf) <= reach && dist2(pf, ctx.from) > 1e-12) add(pf, 'perpendicular', [{ from: ctx.from, to: pf, kind: 'perpendicular' }], e.hostId);

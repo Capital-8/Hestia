@@ -149,6 +149,28 @@ function addPolygons(draft: Draft, polys: ReadonlyArray<ReadonlyArray<readonly V
   for (const poly of polys ?? []) for (const ring of poly) addRing(draft, ring, hostId);
 }
 
+/**
+ * Aresta superior de uma parede cortada ou vista: a(s) aresta(s) horizontal(is) na cota mais alta do contorno (z = topo).
+ * Vira captura `topFace` (cantos e reta da aresta) além das capturas comuns do contorno.
+ */
+function addWallTop(draft: Draft, polys: ReadonlyArray<ReadonlyArray<readonly Vec2[]>> | undefined, hostId: Id | undefined): void {
+  if (hostId === undefined) return;
+  for (const poly of polys ?? []) {
+    for (const ring of poly) {
+      if (ring.length < 2 || !ring.every(finite)) continue;
+      const top = Math.max(...ring.map((q) => q.y));
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i]!;
+        const b = ring[(i + 1) % ring.length]!;
+        if (Math.abs(a.y - top) > AXIS_EPS || Math.abs(b.y - top) > AXIS_EPS || Math.hypot(b.x - a.x, b.y - a.y) < EPS) continue;
+        addPoint(draft, a, 'topFace', hostId, true);
+        addPoint(draft, b, 'topFace', hostId, true);
+        addSegment(draft, a, b, hostId, 'topFace');
+      }
+    }
+  }
+}
+
 function newDraft(): Draft {
   return { points: [], seenPoints: new Set(), segments: [], seenSegments: new Set(), tracks: [], seenTracks: new Set(), byHost: new Map() };
 }
@@ -202,9 +224,14 @@ export function buildSectionSnapIndex(section: SectionResult): SectionSnapIndex 
   for (const region of section.cut) {
     const host = region.sources.length === 1 ? sectionOriginId(region.sources[0]!) : undefined;
     addPolygons(draft, region.polygons, host);
+    if (host !== undefined && region.sources[0]!.wallId === host) addWallTop(draft, region.polygons, host);
   }
   // Além do plano: elevação visível de paredes, pisos, lajes, telhados, escadas e rampas.
-  for (const item of section.beyond) addPolygons(draft, item.polygons, sectionOriginId(item));
+  for (const item of section.beyond) {
+    const host = sectionOriginId(item);
+    addPolygons(draft, item.polygons, host);
+    if (host !== undefined && item.wallId === host) addWallTop(draft, item.polygons, host);
+  }
   // Escadas e rampas: aneis de degraus, espelhos, patamares e pecas antes da uniao/envoltoria (vertices concavos).
   for (const sr of section.snapRings ?? []) addRing(draft, sr.ring, sr.hostId);
   // Vãos: a caixa (peitoril, topo e ombreiras) e as peças visíveis da esquadria.
