@@ -237,3 +237,10 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Corte/elevação: `sectionSnapIndex` marca a aresta horizontal mais alta de cada contorno de parede (corte e além) como pontos e segmento `topFace`; no canto a ponta (peso 0) continua vencendo, salvo ferramenta de topo (-0,05). Pé na aresta: 0,5 (0,05 nas ferramentas de topo), vence `nearest` (0,7) mas não a ponta/meio perto do canto (teste existente de Mover no corte exigiu).
 - Símbolo: quadrado do `face` mais traço superior (`render/plan/overlay.ts`), tooltip `rn_snap_top_face` nos 7 idiomas (`render/i18n.ts`). Os rótulos `_edge_ext/_int/_core/_corner` seguem sem uso (o resultado não diz qual aresta): pendência.
 - Testes: `tools/snapTopFace.test.ts` (vertical, tilt ±15 com 0,9073752 / 0,7003200, arco, corte z=3, desempenho 100 paredes < 25 ms por consulta). Nenhum teste existente editado.
+
+## T-D (Alinhar à face superior, pf/ft)
+- `alignFeatures.ts`: `AlignQuery.topFaces` (a `AlignTool` liga) oferece `faceSuperior` (aresta superior externa/interna) e `nucleoSuperior`, vindas de `wallTopFacesCached`, na posição em planta do TOPO (parede a 15°: externa y=0,9073752, interna 0,7003200). Rótulos `tl_snap_top_edge_ext/int/core`; mesma política `transladar parede` da base, então servem de referência e de feição móvel (alinhar a parede ao topo de outra).
+- Fusão: se a aresta de topo coincide (≤ 0,005 m, em `toLocal.s`) com uma linha da base, não duplica: some a de topo. `AlignQuery.topLabel` inverte: fica a de topo com rótulo "Face superior" e a da base some. A `AlignTool` não liga `topLabel` (mantém "face da parede" em parede vertical).
+- Arco: ponto mais próximo da polilinha amostrada e direção do trecho (tangente aproximada), sem `seg`; o Alinhar continua exigindo paralelismo (como já faz com arco na base).
+- Aresta de piso/laje/telhado/forro já era feição móvel (`anel`): move a aresta (2 vértices), NÃO translada o elemento inteiro; mantido, confirmado por teste com desfazer. Translação do elemento inteiro ficou como decisão aberta.
+- Testes: `alignTopFace.test.ts` (8), valores literais de wallTopFaces.test.ts. Nenhum teste existente editado.
