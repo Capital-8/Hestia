@@ -44,8 +44,10 @@ import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
 import { TerrainTool } from './terrainTool.ts';
+import { TerrainEditTool } from './terrainEditTool.ts';
+import { TerrainLabelTool, TerrainSpotTool } from './terrainLabelTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'terrain';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
@@ -77,6 +79,12 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new PasteTool(env);
     case 'terrain':
       return new TerrainTool(env);
+    case 'terrainEdit':
+      return new TerrainEditTool(env);
+    case 'terrainLabel':
+      return new TerrainLabelTool(env);
+    case 'terrainSpot':
+      return new TerrainSpotTool(env);
     case 'perimeter':
       return new PerimeterTool(env, perimeterTarget);
     case 'wall':
@@ -216,6 +224,9 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   tag: 'Etiqueta',
   perimeter: 'Perímetro',
   terrain: 'Topografia',
+  terrainEdit: 'Editar terreno',
+  terrainLabel: 'Rótulo de curva',
+  terrainSpot: 'Cota de ponto',
 };
 
 /** Rótulo da ferramenta no idioma pedido (PT de `TOOL_LABEL` é o fallback). */
