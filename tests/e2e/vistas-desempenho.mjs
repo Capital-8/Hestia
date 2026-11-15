@@ -57,9 +57,12 @@ function abrir(page, modelo, nova) {
     const { editor, model, useUi } = window.__hestia;
     const raf = () => new Promise((r) => requestAnimationFrame(() => r()));
     let id = modelo.id;
-    if (nova) { id = model.newId('v'); const { id: _i, ...resto } = modelo; editor.applyCommand({ type: 'addView', view: { ...resto, id, name: `${resto.name} ${id}` } }); }
-    else { editor.closeSection(); await raf(); await raf(); }
-    await new Promise((r) => setTimeout(r, 150)); // deixa o app ocioso
+    // nova: vista recem-criada e aberta 150 ms depois (pior caso, sem pre-calculo); preparada: vista criada e aguardada ate o pre-calculo em ociosidade
+    // terminar (o que o app faz depois de abrir/editar o projeto); existente: vista que ja esta no projeto; reabrir: a mesma vista de novo.
+    if (nova === 'nova' || nova === 'preparada') { id = model.newId('v'); const { id: _i, ...resto } = modelo; editor.applyCommand({ type: 'addView', view: { ...resto, id, name: `${resto.name} ${id}` } }); }
+    if (nova === 'preparada' || nova === 'existente') { for (let g = 0; g < 400 && !editor.sectionFresh(id); g++) await new Promise((r) => setTimeout(r, 50)); }
+    editor.closeSection(); await raf(); await raf();
+    await new Promise((r) => setTimeout(r, nova === 'preparada' || nova === 'existente' ? 400 : 150)); // deixa o app ocioso
     const vp = window.__vperf; vp.reset();
     const t0 = performance.now(); editor.openSection(id);
     let fim = null;
@@ -92,12 +95,13 @@ for (const [cen, rotulo] of cenarios) {
   await page.waitForTimeout(2500);
   for (const [tipo, mod] of [['corte', modelos.section], ['elevacao', modelos.elevation]]) {
     if (!mod) continue;
-    const primeira = await abrir(page, mod, true);
-    const seg = []; for (let k = 0; k < RODADAS; k++) seg.push(await abrir(page, mod, true));
-    const reab = []; const idReab = seg[0].id; for (let k = 0; k < RODADAS; k++) reab.push(await abrir(page, { ...mod, id: idReab }, false));
+    const primeira = cen === 'dono' ? await abrir(page, mod, 'existente') : await abrir(page, mod, 'preparada');
+    const sem = await abrir(page, mod, 'nova');
+    const seg = []; for (let k = 0; k < RODADAS; k++) seg.push(await abrir(page, mod, 'preparada'));
+    const reab = []; const idReab = seg[0].id; for (let k = 0; k < RODADAS; k++) reab.push(await abrir(page, { ...mod, id: idReab }, 'reabrir'));
     const med = (xs) => mediana(xs.map((x) => x.total));
     const fasesSeg = {}; for (const k of Object.keys(seg[0].fases)) fasesSeg[k] = mediana(seg.map((x) => x.fases[k]));
-    linhas.push({ rotulo, tipo, primeira: primeira.total, seg: med(seg), reab: med(reab), f1: primeira.fases, fs: fasesSeg });
+    linhas.push({ rotulo, tipo, sem: sem.total, primeira: primeira.total, seg: med(seg), reab: med(reab), f1: primeira.fases, fs: fasesSeg });
     if (primeira.total > META_1A * FOLGA || med(seg) > META_SEG * FOLGA) falhou = true;
   }
   if (erros.length) console.log(`erros de pagina em ${rotulo}: ${erros.slice(0, 2).join(' | ').slice(0, 300)}`);
@@ -105,8 +109,8 @@ for (const [cen, rotulo] of cenarios) {
 }
 await browser.close();
 const f = (x) => (Number.isFinite(x) ? x.toFixed(1).padStart(7) : '    n/d');
-console.log('\n== Tempos totais (ms, ate a apresentacao): 1a abertura | seguintes (mediana) | reabrir c/ cache');
-for (const l of linhas) console.log(`${l.rotulo.padEnd(24)} ${l.tipo.padEnd(9)} ${f(l.primeira)} ${f(l.seg)} ${f(l.reab)}`);
+console.log('\n== Tempos totais (ms, ate a apresentacao): 1a abertura | seguintes (mediana) | reabrir c/ cache | vista recem-criada (sem pre-calculo)');
+for (const l of linhas) console.log(`${l.rotulo.padEnd(24)} ${l.tipo.padEnd(9)} ${f(l.primeira)} ${f(l.seg)} ${f(l.reab)} ${f(l.sem)}`);
 console.log('\n== Fases (ms): 1a abertura | seguintes (mediana)');
 for (const l of linhas) { console.log(`-- ${l.rotulo} / ${l.tipo}`); for (const k of Object.keys(l.f1)) console.log(`   ${k.padEnd(38)} ${f(l.f1[k])} ${f(l.fs[k])}`); }
 console.log(`\nMetas: 1a < ${META_1A} ms, seguintes < ${META_SEG} ms (limite do script com folga ${FOLGA}x: ${META_1A * FOLGA}/${META_SEG * FOLGA}). ${falhou ? 'ESTOUROU' : 'dentro do limite'}`);

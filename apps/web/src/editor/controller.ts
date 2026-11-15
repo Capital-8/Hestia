@@ -30,7 +30,7 @@ import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
 import { vperf } from './vperf.ts';
-import { aquecerCorteNoWorker, temParedeInclinada } from './aquecimentoCorte.ts';
+import { aquecerCorteNoWorker, emOciosidade, temParedeInclinada } from './aquecimentoCorte.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
@@ -173,11 +173,38 @@ export class Editor {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
       this.aquecerCorteSeInclinada();
+      this.agendarPrecalculoDeVistas();
       useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
     });
   }
 
   private corteAquecido = false;
+
+  private precalculoTimer: ReturnType<typeof setTimeout> | null = null;
+  private precalculando = false;
+  /** Máximo de vistas calculadas em segundo plano por projeto (as primeiras da lista). */
+  private static readonly MAX_PRECALCULO = 12;
+
+  /**
+   * D5: depois que o projeto assenta (600 ms sem edição) e o navegador está ocioso, o worker calcula, uma vista por vez, os cortes e elevações que ainda não estão
+   * prontos para o projeto atual. Abrir a vista passa a ler o resultado do cache (o cálculo no projeto do dono leva 0,4 a 1,1 s e o pedido na hora de abrir esperava por ele).
+   */
+  private agendarPrecalculoDeVistas(): void {
+    if (typeof Worker === 'undefined') return;
+    if (this.precalculoTimer) clearTimeout(this.precalculoTimer);
+    this.precalculoTimer = setTimeout(() => {
+      this.precalculoTimer = null;
+      emOciosidade(() => this.precalcularProximaVista());
+    }, 600);
+  }
+
+  private precalcularProximaVista(): void {
+    const p = this.project;
+    const alvo = p.views.slice(0, Editor.MAX_PRECALCULO).find((v) => !this.sectionFresh(v.id) && this.sectionPending.get(v.id) !== p);
+    if (!alvo) { this.precalculando = false; return; }
+    this.precalculando = true;
+    this.sectionOf(alvo.id);
+  }
 
   /**
    * Etapa W: compila no worker (JIT) os caminhos do corte/elevação inclinados, em ociosidade, uma vez por sessão do
@@ -437,10 +464,12 @@ export class Editor {
         const st = useUi.getState();
         if (st.view === 'section' && st.sectionId === id) this.tool.refreshPreviewAtPointer?.();
         this.bump();
+        if (this.precalculando) emOciosidade(() => this.precalcularProximaVista());
       },
       (e: unknown) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!(e instanceof ResolucaoCancelada)) console.error('corte', e);
+        else if (this.precalculando) this.agendarPrecalculoDeVistas();
       },
     );
   }
