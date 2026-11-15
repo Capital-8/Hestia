@@ -1,4 +1,4 @@
-import { type Transform, type Vec2 } from '@hestia/geom';
+import { closestOnSegment, dist, type Transform, type Vec2 } from '@hestia/geom';
 import { envoltoriaDasFontes } from '@hestia/engine';
 import { copiarTerreno, isTerrain, isTerrainRegion, newId, transformTerrain, transformTerrainRegion, type Command, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
 import type { PreviewItem } from './types.ts';
@@ -110,4 +110,32 @@ export function comandosVerticalTerreno(p: Project, id: Id, dz: number): Command
   if (!isTerrain(e)) return [];
   const f = fontesComCotaSomada(e, dz);
   return [{ type: 'editTerrainFontes', terrenoId: id, ops: [{ op: 'substituirFontes', ...f }] }];
+}
+
+/** Aresta da borda do terreno (Alinhar): `i` é a posição do vértice inicial no anel; `d`, a distância ao cursor. */
+export interface BordaDeTerreno {
+  terrenoId: Id;
+  nome: string;
+  i: number;
+  a: Vec2;
+  b: Vec2;
+  d: number;
+}
+
+/**
+ * Arestas da borda do terreno no nível, a até `tol` do cursor. A borda é a do modelo; sem ela, a envoltória das fontes
+ * (a mesma borda de captura de reserva). Terreno com menos de 3 pontos não tem aresta.
+ */
+export function bordasDeTerreno(p: Project, levelId: Id, at: Vec2, tol: number, hidden?: ReadonlySet<Id>): BordaDeTerreno[] {
+  const out: BordaDeTerreno[] = [];
+  for (const e of Object.values(p.elements)) {
+    if (e.kind !== 'terrain' || e.levelId !== levelId || hidden?.has(e.id)) continue;
+    const anel = e.borda && e.borda.length >= 6 ? pares(e.borda, 2) : envoltoriaDasFontes(e);
+    anel.forEach((a, i) => {
+      const b = anel[(i + 1) % anel.length]!;
+      const d = dist(at, closestOnSegment(at, a, b));
+      if (dist(a, b) > 1e-9 && d <= tol) out.push({ terrenoId: e.id, nome: e.name, i, a, b, d });
+    });
+  }
+  return out;
 }
