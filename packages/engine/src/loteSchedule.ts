@@ -32,13 +32,13 @@ export interface IndiceLote {
 export interface LoteScheduleRow {
   loteId: Id;
   nome: string;
-  /** Área do lote (m²). */
+  /** Área do lote (metros quadrados). */
   area: number;
-  /** Área edificável, lote menos os recuos (m²). */
+  /** Área edificável, lote menos os recuos (metros quadrados). */
   areaEdificavel: number;
-  /** Área da projeção da edificação dentro do lote (m²). */
+  /** Área da projeção da edificação dentro do lote (metros quadrados). */
   areaProjecao: number;
-  /** Soma das áreas construídas por nível dentro do lote (m²). */
+  /** Soma das áreas construídas por nível dentro do lote (metros quadrados). */
   areaConstruida: number;
   taxaOcupacao: IndiceLote;
   coefAproveitamento: IndiceLote;
