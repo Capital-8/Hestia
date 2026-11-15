@@ -1,5 +1,8 @@
+import { PT_TERRENO_PROPS, EN_TERRENO_PROPS, ES_TERRENO_PROPS, DE_TERRENO_PROPS, FR_TERRENO_PROPS, IT_TERRENO_PROPS, PL_TERRENO_PROPS } from './terreno-props.ts';
+import { PT_TERRENO_UI, EN_TERRENO_UI, ES_TERRENO_UI, DE_TERRENO_UI, FR_TERRENO_UI, IT_TERRENO_UI, PL_TERRENO_UI } from './terreno-ui.ts';
+
 /* Textos da importação de levantamento do terreno (ficha I1). Chaves ui_tn_imp_*. Sete idiomas; a paridade é garantida pelo tipo. */
-export const PT_TERRENO = {
+const PT_IMP = {
   ui_tn_imp_titulo: 'Importar levantamento',
   ui_tn_imp_sub: 'DXF com cotas ou CSV de pontos. A importação cria as fontes do terreno: pontos, curvas de nível e linhas de quebra.',
   ui_tn_imp_arquivo: 'Arquivo (.dxf ou .csv)',
@@ -43,7 +46,7 @@ export const PT_TERRENO = {
   ui_tn_imp_status: 'Levantamento importado: {n} vértices.',
 } as const;
 
-export const EN_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const EN_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Import survey',
   ui_tn_imp_sub: 'DXF with elevations or a CSV of points. The import creates the terrain sources: points, contour lines and breaklines.',
   ui_tn_imp_arquivo: 'File (.dxf or .csv)',
@@ -87,7 +90,7 @@ export const EN_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_status: 'Survey imported: {n} vertices.',
 };
 
-export const ES_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const ES_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Importar levantamiento',
   ui_tn_imp_sub: 'DXF con cotas o CSV de puntos. La importación crea las fuentes del terreno: puntos, curvas de nivel y líneas de quiebre.',
   ui_tn_imp_arquivo: 'Archivo (.dxf o .csv)',
@@ -131,7 +134,7 @@ export const ES_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_status: 'Levantamiento importado: {n} vértices.',
 };
 
-export const DE_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const DE_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Vermessung importieren',
   ui_tn_imp_sub: 'DXF mit Höhen oder CSV mit Punkten. Der Import erzeugt die Quellen des Geländes: Punkte, Höhenlinien und Bruchkanten.',
   ui_tn_imp_arquivo: 'Datei (.dxf oder .csv)',
@@ -175,7 +178,7 @@ export const DE_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_status: 'Vermessung importiert: {n} Knoten.',
 };
 
-export const FR_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const FR_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Importer un levé',
   ui_tn_imp_sub: 'DXF avec cotes ou CSV de points. L\'importation crée les sources du terrain : points, courbes de niveau et lignes de rupture.',
   ui_tn_imp_arquivo: 'Fichier (.dxf ou .csv)',
@@ -219,7 +222,7 @@ export const FR_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_status: 'Levé importé : {n} sommets.',
 };
 
-export const IT_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const IT_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Importa rilievo',
   ui_tn_imp_sub: 'DXF con quote o CSV di punti. L\'importazione crea le fonti del terreno: punti, curve di livello e linee di rottura.',
   ui_tn_imp_arquivo: 'File (.dxf o .csv)',
@@ -263,7 +266,7 @@ export const IT_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_status: 'Rilievo importato: {n} vertici.',
 };
 
-export const PL_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
+const PL_IMP: Record<keyof typeof PT_IMP, string> = {
   ui_tn_imp_titulo: 'Importuj pomiar',
   ui_tn_imp_sub: 'DXF z rzędnymi lub CSV z punktami. Import tworzy źródła terenu: punkty, warstwice i linie załamania.',
   ui_tn_imp_arquivo: 'Plik (.dxf lub .csv)',
@@ -306,3 +309,12 @@ export const PL_TERRENO: Record<keyof typeof PT_TERRENO, string> = {
   ui_tn_imp_rotulo_undo: 'Importuj pomiar',
   ui_tn_imp_status: 'Zaimportowano pomiar: {n} wierzchołków.',
 };
+
+/** Dicionário do terreno: importação (acima), propriedades (`terreno-props.ts`) e localização, opções e navegador (`terreno-ui.ts`). */
+export const PT_TERRENO = { ...PT_IMP, ...PT_TERRENO_PROPS, ...PT_TERRENO_UI } as const;
+export const EN_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...EN_IMP, ...EN_TERRENO_PROPS, ...EN_TERRENO_UI };
+export const ES_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...ES_IMP, ...ES_TERRENO_PROPS, ...ES_TERRENO_UI };
+export const DE_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...DE_IMP, ...DE_TERRENO_PROPS, ...DE_TERRENO_UI };
+export const FR_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...FR_IMP, ...FR_TERRENO_PROPS, ...FR_TERRENO_UI };
+export const IT_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...IT_IMP, ...IT_TERRENO_PROPS, ...IT_TERRENO_UI };
+export const PL_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...PL_IMP, ...PL_TERRENO_PROPS, ...PL_TERRENO_UI };

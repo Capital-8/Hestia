@@ -67,6 +67,8 @@ import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
+import { ImportTerrenoDialog } from './ui/dialogs/ImportTerrenoDialog.tsx';
+import { LocalizacaoDialog } from './ui/dialogs/LocalizacaoDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
@@ -405,6 +407,9 @@ export function App(): ReactElement {
       <Dialogs />
       {/* A caixa de texto tem store próprio (não entra no DialogKind): aberta pela aba Anotar/painel do Texto. */}
       <TextDialog />
+      {/* Diálogos do terreno têm mini-store próprio (não entram no DialogKind): abertos pela faixa e pelas propriedades. */}
+      <ImportTerrenoDialog />
+      <LocalizacaoDialog />
       <FileMenu />
       <IfcImportOverlay />
     </div>
