@@ -62,7 +62,7 @@ export function TerrainRegionProperties({ regions }: { regions: TerrainRegion[] 
   const perm = comum(regions, (r) => r.permeavel);
   const material = comum(regions, (r) => r.materialId ?? '');
   const cor = comum(regions, (r) => r.color ?? '');
-  const leituras = useMemo(() => regions.map((r) => leiturasDaRegiao(p, r, servicoTerreno())), [p, regions, kernel]);
+  const leituras = useMemo(() => (void kernel, regions.map((r) => leiturasDaRegiao(p, r, servicoTerreno()))), [p, regions, kernel]);
   const nomeDoTerreno = (id: string): string => {
     const e = p.elements[id];
     return isTerrain(e) ? e.name : id;

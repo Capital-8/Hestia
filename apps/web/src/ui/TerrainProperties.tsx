@@ -44,7 +44,7 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
   const levelId = useUi((s) => s.levelId);
   const ids = terrains.map((x) => x.id);
   const patch = (campos: PatchTerreno): void =>
-    aplicarEmTodos(ids, t('ui_tn_p_rotulo_undo'), (id) => ({ type: 'updateTerrain', id, patch: campos }));
+    aplicarEmTodos(ids, t('ui_tn_p_editar'), (id) => ({ type: 'updateTerrain', id, patch: campos }));
   const nome = comum(terrains, (x) => x.name);
   const nivel = comum(terrains, (x) => x.levelId);
   const intervalo = comum(terrains, (x) => x.intervaloCurvas);
@@ -53,7 +53,7 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
   const existente = comum(terrains, (x) => x.mostrarExistente);
   const material = comum(terrains, (x) => x.materialId ?? '');
   const cor = comum(terrains, (x) => x.color ?? '');
-  const leituras = useMemo(() => terrains.map((x) => leiturasDoTerreno(p, x, servicoTerreno())), [p, terrains, kernel]);
+  const leituras = useMemo(() => (void kernel, terrains.map((x) => leiturasDoTerreno(p, x, servicoTerreno()))), [p, terrains, kernel]);
   return (
     <>
       <Group title={t('prc_pgrp_identity')} stateKey="terreno-id">
