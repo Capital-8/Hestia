@@ -39,15 +39,13 @@ describe('face superior em planta: parede vertical', () => {
     expect(r.point.x).toBeCloseTo(0, 9);
     expect(r.point.y).toBeCloseTo(0.1, 9);
     expect(r.z).toBe(3);
-    // Sem duplicar: no ciclo (Tab) o mesmo ponto de topo aparece uma vez só (uma entrada por tipo e ponto).
-    let n = 0;
-    for (let c = 0; c < 8; c++) {
+    // Sem duplicar: a lista do ciclo (Tab) é cíclica; as entradas distintas por (tipo, ponto) têm um único topFace neste canto.
+    const seen = new Set<string>();
+    for (let c = 0; c < 20; c++) {
       const q = at(reta(), 0.01, 0.1, { topFaceTool: true, cycle: c });
-      if (q.kind === 'topFace' && Math.abs(q.point.x) < 1e-9 && Math.abs(q.point.y - 0.1) < 1e-9) n++;
+      seen.add(`${q.kind}|${q.point.x.toFixed(6)}|${q.point.y.toFixed(6)}`);
     }
-    const total = new Set(Array.from({ length: 20 }, (_, c) => at(reta(), 0.01, 0.1, { topFaceTool: true, cycle: c }).kind + JSON.stringify(at(reta(), 0.01, 0.1, { topFaceTool: true, cycle: c }).point))).size;
-    expect(n).toBeGreaterThanOrEqual(1);
-    expect(total).toBeLessThanOrEqual(8);
+    expect([...seen].filter((k) => k === 'topFace|0.000000|0.100000')).toHaveLength(1);
   });
   it('ferramenta comum: nada de face superior (a base vale); o canto continua sendo face, sem z', () => {
     const r = at(reta(), 0.01, 0.1);
