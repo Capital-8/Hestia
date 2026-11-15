@@ -22,6 +22,7 @@ import { guardaCorpoOps } from './guardaCorpo.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { loteOpsDaPlanta } from './loteCamada.ts';
+import { terrenoOpsDaPlanta } from './terrenoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
@@ -354,10 +355,10 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     }
   }
 
+  // Terreno do nível (ficha V2): regiões, curvas, borda, rótulos e cotas, na categoria `site`; vai atrás de tudo o que é do edifício.
+  if (!areaPlan) addOps(terrenoOpsDaPlanta(input, paint.site, scale), paint.site, !rp);
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
-  if (profile.floors) {
-    for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
-  }
+  if (profile.floors) for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
   // Ambientes sobre os pisos (preenchimento leve e etiqueta com nome, número e área) e sob as paredes (decisão 0018).
   if (profile.rooms) {
     if (areaPlan) {
