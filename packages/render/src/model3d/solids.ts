@@ -2,7 +2,7 @@ import { difference, ringArea, triangulate, union, type MultiPolygon, type Polyg
 import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
 import { cunhasDoNivel3d } from './cunhaSolid.ts';
-import { extrudeLayerTilted, tiltJoinOf } from './wallTiltSolid.ts';
+import { extrudeLayerTilted, tiltJoinOf, tiltLevelsSignature } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 import { emendaDaAgua } from './roofEmendas3d.ts';
 
@@ -352,7 +352,7 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  */
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
   const tj = tiltJoinOf(rw, l, jl);
-  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
+  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}:${tiltLevelsSignature(tj, !!rw.sag)}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
   return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
 }
 
