@@ -16,6 +16,7 @@ import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, s
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { comEdicaoDoTerreno, edicaoParaAVista, entrarPorDuploClique } from '../editor/terrenoEdicao.ts';
 import { ligarRepinturaDoTerreno } from '../editor/terrenoVista.ts';
+import { ponteiroEmControle } from './controlesDaVista.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
@@ -790,6 +791,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onDown = (e: RPointerEvent): void => {
+    if (ponteiroEmControle(e.target)) return;
     host.current?.setPointerCapture(e.pointerId);
     const s = local(e);
     pointers.current.set(e.pointerId, s);
@@ -1030,6 +1032,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onUp = (e: RPointerEvent): void => {
+    if (ponteiroEmControle(e.target)) return;
     encerrarGesto();
     const s = local(e);
     pointers.current.delete(e.pointerId);

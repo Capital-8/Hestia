@@ -38,11 +38,15 @@ export function rotulosDeCurva(p: Project, t: Terrain, mestras: readonly CurvaNi
     for (const c of mestras) {
       const n = c.pontos.length;
       const ate = c.fechada ? n : n - 1;
+      // Cruzamento exatamente num vértice da curva acerta os dois segmentos vizinhos: um rótulo só (E2E Q1b: apareciam dois, um sobre o outro).
+      const vistos: Pt[] = [];
       for (let i = 0; i < ate; i++) {
         const q0 = c.pontos[i]!;
         const q1 = c.pontos[(i + 1) % n]!;
         const x = intersectSegments(a, b, q0, q1);
         if (!x) continue;
+        if (vistos.some((v) => Math.hypot(v.x - x.x, v.y - x.y) < 1e-6)) continue;
+        vistos.push(x);
         out.push({ at: x, text: textoDaCota(p, c.z), center: true, rotation: anguloLegivel(q1.x - q0.x, q1.y - q0.y), tone: 'soft', papel: { escala, fontMm: COTA_TEXTO_MM } });
       }
     }
