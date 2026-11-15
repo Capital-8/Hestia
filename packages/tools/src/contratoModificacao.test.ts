@@ -51,8 +51,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   terrain: {
     mover: 'selectedTerrenosComRegioes',
     colar: 'terrains',
-    alinhar: null,
-    motivo: 'PENDENTE (ficha T1): o Alinhar do terreno (feição: borda, política `transladar`) precisa de `alignSolve.ts` e `alignApply.ts`, fora da lista da ficha; relatado ao fiscal.',
+    alinhar: 'bordasDeTerreno',
     semOperacao: {
       aparar: 'terreno não é linear',
       estender: 'terreno não é linear',
