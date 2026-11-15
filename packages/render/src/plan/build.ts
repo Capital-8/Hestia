@@ -223,7 +223,8 @@ interface ContextoSimbolo {
  * Traços do símbolo de UMA abertura (comum ou virtual de cortina), no estilo da categoria dela. `baseZ` é a cota absoluta da base da parede que a hospeda
  * (o corte é absoluto na vista; o modelo usa z local: soleira = 0).
  */
-function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: OpeningModel, baseZ: number, cls: ViewClass | undefined, c: ContextoSimbolo): StrokeOp[] {
+function tracosDaAbertura(p: Project, o: Opening, g0: OpeningGeometry, model: OpeningModel, baseZ: number, cls: ViewClass | undefined, c: ContextoSimbolo): StrokeOp[] {
+  let g = g0;
   const { paint, theme, fillBase, zoom, limiares, view } = c;
   const type = openingTypeById(p, o.typeId);
   if (!type) return [];
@@ -234,6 +235,15 @@ function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: Ope
   // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
   // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
   const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
+  // Parede inclinada (C3): a planta corta a parede na cota do corte, onde o eixo saiu de z·tanθ ao longo de n; o símbolo
+  // acompanha o vão (no corte, na cota do corte; fora dele, na meia altura do vão).
+  const host = p.elements[g.hostId];
+  const tilt = host && host.kind === 'wall' ? host.tilt : undefined;
+  if (tilt) {
+    const zRel = cls === undefined || cls === 'cut' ? (view ? view.cutZ - baseZ : 1.2) : g.sill + model.height / 2;
+    const d = zRel * Math.tan((tilt * Math.PI) / 180);
+    g = { ...g, center: { x: g.center.x + g.n.x * d, y: g.center.y + g.n.y * d } };
+  }
   const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
     model,
     detail: detail2d,
