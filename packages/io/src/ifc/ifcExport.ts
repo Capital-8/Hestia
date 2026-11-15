@@ -28,7 +28,7 @@ import { addQuantities } from './ifcQuantities.ts';
 import { addSpaces } from './ifcSpaces.ts';
 import { addItemStyles, addStyles } from './ifcStyles.ts';
 import { gid, langOf, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
-import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf } from './ifcSolids.ts';
+import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf, tiltBrepSolid, tiltExtrudeSolid } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, StepWriter, stepString } from './ifcStep.ts';
 import type { IfcGeometry, IfcOpeningGeo, IfcOpeningPartGeo, IfcPoint, IfcPolygon, IfcWallGeo } from './ifcTypes.ts';
 import { t, type Lang } from '../i18n.ts';
@@ -161,9 +161,14 @@ function topProfileSolid(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo, fo
 
 /** Corpo da parede: perfil superior quando há `topProfile` em parede reta; senão a extrusão de altura constante. */
 function wallSolids(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo): number[] {
-  if (wall.topProfile && wall.sag === 0) {
+  if (!g.tilt && wall.topProfile && wall.sag === 0) {
     const profiled = g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null);
     if (profiled.length > 0) return profiled;
+  }
+  const tilt = g.tilt;
+  if (tilt) {
+    const z = g.baseZ - st.elev;
+    return g.footprints.map((f) => (tilt.straight ? tiltExtrudeSolid(c.w, f, tilt.map, z, g.height) : tiltBrepSolid(c.w, f, tilt.map, z, g.height, langOf(c))));
   }
   return g.footprints.map((f) => extrudeSolid(c.w, f, g.baseZ - st.elev, g.height));
 }
@@ -181,7 +186,7 @@ function addWalls(c: IfcCtx, walls: readonly IfcWallGeo[]): void {
     const name = stepString(type?.name ?? t(langOf(c), 'io_ifc_default_wall'));
     const solids = wallSolids(c, st, wall, g);
     if (solids.length === 0) continue;
-    const shape = bodyShape(c.w, c.ctx, 'SweptSolid', solids);
+    const shape = bodyShape(c.w, c.ctx, g.tilt && !g.tilt.straight ? 'Brep' : 'SweptSolid', solids);
     const place = localPlacement(c.w, st.place, [0, 0, 0]);
     const id = c.w.add('IFCWALL', [gid(`wall:${g.wallId}`), OMIT, name, OMIT, name, ref(place), ref(shape), optStr(wall.mark), en('STANDARD')]);
     c.walls.set(g.wallId, id);
