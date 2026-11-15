@@ -144,6 +144,17 @@ export interface IfcGeometry {
    * genérica (`IFCWALL`, em `walls`) e o exportador registra o aviso.
    */
   curtains?: IfcCurtainGeo;
+  /**
+   * Terrenos resolvidos pelo kernel (ficha X1): a malha da superfície PROPOSTA de cada terreno (só o papel de superfície, sem saia nem base), em cota
+   * absoluta do projeto. Ausente = o kernel não está pronto: o terreno não sai e o exportador registra o aviso.
+   */
+  terrenos?: IfcTerrenoGeo[];
+}
+
+/** Malha da superfície proposta de um terreno (`positions` x, y, z em metros; `indices` de três em três). */
+export interface IfcTerrenoGeo {
+  terrenoId: Id;
+  mesh: { positions: number[]; indices: number[] };
 }
 
 /** Protótipo de montante ou de painel do kernel: uma geometria de comprimento unitário, compartilhada por todas as instâncias dele. */

@@ -19,6 +19,7 @@ import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
 import { addCurtainWalls, avisoCortinaSemKernel } from './ifcCurtainWall.ts';
 import { addRailings } from './ifcGuardaCorpo.ts';
 import { addGenerics } from './ifcGeneric.ts';
+import { addTerrenos } from './ifcTerreno.ts';
 import { addHestiaPsets } from './ifcHestia.ts';
 import { addPropertySet, type PropValue } from './ifcProperties.ts';
 import { externalWalls, outwardNormal, wallAxis } from './ifcExterior.ts';
@@ -462,7 +463,9 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   const context = w.add('IFCGEOMETRICREPRESENTATIONCONTEXT', [OMIT, "'Model'", '3', num(1e-5), ref(world), ref(trueNorth)]);
   const project = w.add('IFCPROJECT', [gid('project'), OMIT, stepString(p.name), OMIT, OMIT, OMIT, OMIT, list([ref(context)]), ref(units)]);
   const sitePlace = localPlacement(w, null, [0, 0, 0]);
-  const site = w.add('IFCSITE', [gid('site'), OMIT, stepString(p.name), OMIT, OMIT, ref(sitePlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, OMIT, OMIT, OMIT]);
+  // RefElevation: a altitude real da cota 0 do projeto (`localizacao.cotaZero`); sem localização fica omitida.
+  const refElevation = p.localizacao ? num(p.localizacao.cotaZero) : OMIT;
+  const site = w.add('IFCSITE', [gid('site'), OMIT, stepString(p.name), OMIT, OMIT, ref(sitePlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, refElevation, OMIT, OMIT]);
   const buildingPlace = localPlacement(w, sitePlace, [0, 0, 0]);
   const building = w.add('IFCBUILDING', [gid('building'), OMIT, stepString(p.name), OMIT, OMIT, ref(buildingPlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, OMIT]);
   const c: IfcCtx = {
@@ -476,6 +479,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
     layerSets: new Map(),
     openingTypes: new Map(),
     openingTypeMembers: new Map(),
+    site: { id: site, place: sitePlace },
     external: externalWalls(p, [...geo.walls, ...footprintsDaCortina(geo)]),
     styles: new Map(),
     itemStyles: [],
@@ -501,6 +505,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addRamps(c, geo);
   addRailings(c, geo);
   addGenerics(c);
+  addTerrenos(c, geo);
   addSpaces(c);
   addGrids(c);
   addQuantities(c, geo);
