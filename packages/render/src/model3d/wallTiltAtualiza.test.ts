@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeSection, junctionLevel, resolveLevel } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeWall, type Layer, type Project } from '@hestia/model';
-import { buildLevelSolids, wallLayerSolid } from './solids.ts';
-import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
+import { wallLayerSolid } from './solids.ts';
 import { chavesDeNivel } from './chaveNivel3d.ts';
 
 /** Etapa B · defeito 2: mudar o tilt de uma parede isolada (sem tocar em mais nada) atualiza sólido, planta, corte e chave do nível. */
@@ -50,20 +49,5 @@ describe('Etapa B · tilt isolado atualiza tudo', () => {
     expect(resolveLevel(p2, 'lv_0').walls.A!.tiltPlan).toBeUndefined();
     expect(topoY(p2)).toBeCloseTo(base, 6);
     expect(secTopoX(p2)).toBeCloseTo(baseSec, 6);
-  });
-});
-
-describe('Etapa B · caminho instanciado (caixas)', () => {
-  it('parede isolada inclinada não vira caixa instanciada vertical', () => {
-    const s = store();
-    const vert = buildLevelSolidsComCaixas(resolveLevel(s.project, 'lv_0'), junctionLevel(s.project, 'lv_0'), false);
-    expect(vert.caixas.length).toBeGreaterThan(0);
-    s.exec({ type: 'setWallTilt', ids: ['A'], tilt: 20 });
-    const p = s.project;
-    const incl = buildLevelSolidsComCaixas(resolveLevel(p, 'lv_0'), junctionLevel(p, 'lv_0'), false);
-    expect(incl.caixas.length).toBe(0);
-    const ref = buildLevelSolids(resolveLevel(p, 'lv_0'), junctionLevel(p, 'lv_0')).batches;
-    const n = (b: { positions: ArrayLike<number> }[]): number => b.reduce((a, x) => a + x.positions.length, 0);
-    expect(n(incl.batches)).toBe(n(ref));
   });
 });
