@@ -26,7 +26,7 @@ describe('C1 · junção inclinada exata (cenários P1/P3 do navegador)', () => 
       const r = an(L(a, b));
       expect(r.avisos).toEqual([]);
       expect([...r.joins.keys()].sort()).toEqual(['A', 'B']);
-      for (const j of r.joins.values()) for (const l of j.layers) expect(l.p0.length).toBe(l.raw.length), expect(l.pH.length).toBe(l.raw.length);
+      for (const j of r.joins.values()) for (const l of j.layers) { expect(l.p0.length).toBe(l.raw.length); expect(l.pH.length).toBe(l.raw.length); }
       expect(wallTiltJoinIssues(L(a, b))).toEqual([]);
     });
   }

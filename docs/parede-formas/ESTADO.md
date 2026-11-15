@@ -166,3 +166,12 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - **E9:** a meta de desempenho de corte/elevação vira RELATIVA e absoluta: parede inclinada ≤ 1,5× a mesma cena vertical, e a base vertical (155 ms/100 ms para 30 paredes) entra numa etapa própria de otimização (cache por nível e por parede).
 - **E10:** continuação com inclinações diferentes (degrau de H·(tan a − tan b)): aviso próprio `inclinacoesDiferentesEmContinuacao` (hoje sai `inclinacaoInviavelNaJuncao`, código errado); correções por ação explícita: D acompanhar, B cunha, C transição por extremidade (ver sondagem).
 - **E11:** esquadria (batente/folha) em parede inclinada segue o plano da abertura: inclinada = no plano da face; vertical = ancorada na face.
+
+## C1 (junção de paredes inclinadas)
+- Causa real: `analyzeLevelTilt` exigia que os anéis de cada camada (raw vertical, p0, pH) tivessem a MESMA contagem de vértices. Em parede multicamada (wt_conc15) a inclinação escala as espessuras por 1/cosθ de cada parede: as camadas deixam de coincidir na linha de corte e ganham quebras (4 vs 6/10 vértices). Caso viável rejeitado; a sondagem (1 camada, 4 vértices) nunca viu.
+- Correção: `alinhar()` casa raw com p0/pH pelo vértice mais próximo da base quando a contagem difere; só anel degenerado, invertido ou p0/pH incompatíveis reprova.
+- Plano B: componente inviável degrada só o par problemático para encosto (ponta de uma parede cortada pela face da outra em toda a altura; fresta ≤ espessura) e avisa `inclinacaoInviavelNaJuncao`; só se ainda falhar volta ao corte simples da componente.
+- Aviso novo `inclinacoesDiferentesEmContinuacao` (chave `egb_issue_tilt_continuation`, 7 idiomas, valor via `formatQuantity`) para paredes em linha / arcos tangentes com degrau H·|tan a − tan b| > 5 mm; mesma inclinação em linha: sem aviso. Arco tangente mantém também `arcoInclinadoSemJuncao`. Degrau não corrigido (outra etapa).
+- Ajuste em teste antigo: `wallTiltJoinLevel.test.ts` (-45°/-45°, L=2, H=6) agora espera `joins.size` 2 (plano B), avisos iguais.
+- Testes: `wallTiltJoinExato.test.ts` (engine) e `wallTiltJuncaoExata.test.ts` (render, cantos z=0/meio/topo a 1e-6 m com junção em esquadro).
+- Decisão: junção padrão `butt` do navegador não gera vértices coincidentes; o portão de navegador mede por fresta/saliência.
