@@ -142,3 +142,20 @@ describe('J2 · junção inclinada com arco na análise', () => {
     void reamostrados;
   });
 });
+
+describe('J5-D3 · junções vizinhas na análise (sólido leva as faces da vizinha)', () => {
+  it('arcos concêntricos tangentes: cada junção aponta para a da outra parede; reta×reta não leva `vizinhas`', () => {
+    const sag = -(5 - Math.sqrt(25 - 12.5));
+    const p = build([{ id: 'A', a: { x: 5, y: 0 }, b: { x: 0, y: 5 }, sag, tilt: -10 }, { id: 'B', a: { x: 0, y: 5 }, b: { x: -5, y: 0 }, sag, tilt: -10 }], 2.8);
+    const an = analyse(p, 2.8);
+    const A = an.joins.get('A')!, B = an.joins.get('B')!;
+    expect(A.vizinhas).toEqual([B]);
+    expect(B.vizinhas).toEqual([A]);
+    expect(A.vizinhas![0]).toBe(B); // mesma referência, sem cópia
+    const q = build([{ id: 'A', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, tilt: 10 }, { id: 'B', a: { x: 0, y: 0 }, b: { x: 0, y: 4 }, tilt: 10 }], 2.8);
+    const r = analyse(q, 2.8);
+    expect(r.joins.get('A')!.vizinhas).toBeUndefined();
+    expect(r.joins.get('B')!.vizinhas).toBeUndefined();
+  });
+});
+
