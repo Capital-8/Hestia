@@ -317,12 +317,13 @@ async function medir(page, rotulo, tilt) {
   const pts = []; const NP = Number(process.env.NP ?? 30); for (let i = 0; i <= NP; i++) pts.push({ x: i * 3, y: i % 2 ? 2 : 0 });
   await page.evaluate(([pts, tilt]) => { const { editor, model } = window.__hestia; for (let i = 0; i < pts.length - 1; i++) editor.applyCommand({ type: 'addWall', wall: model.makeWall({ id: model.newId('wall'), typeId: 'wt_conc15', levelId: 'lv_0', a: pts[i], b: pts[i + 1], ...(tilt ? { tilt } : {}) }) }); }, [pts, tilt]);
   const n = await page.evaluate(() => Object.values(window.__hestia.editor.project.elements).filter((e) => e.kind === 'wall').length);
-  const tempos = await page.evaluate(async () => {
+  const tempos = await page.evaluate(async (semAquec) => {
     const { editor, model } = window.__hestia;
     const raf = () => new Promise((r) => requestAnimationFrame(() => r()));
     const mk = (kind, name, a, b, depth) => { const id = model.newId('v'); editor.applyCommand({ type: 'addView', view: { id, name, kind, a, b, depth } }); return id; };
     // aquecimento do worker do corte, numa vista vazia
-    const w = mk('section', 'aquec', { x: 500, y: 500 }, { x: 510, y: 500 }, 2); editor.openSection(w); { let g = 0; while (!editor.sectionFresh(w) && g++ < 2000) { editor.sectionOf(w); await new Promise((r) => setTimeout(r, 5)); } }
+    // SEM_AQUEC=1: sem o aquecimento do harness; vale só o aquecimento do app (etapa W), com 2,5 s de ociosidade.
+    if (semAquec) await new Promise((r) => setTimeout(r, 2500)); else { const w = mk('section', 'aquec', { x: 500, y: 500 }, { x: 510, y: 500 }, 2); editor.openSection(w); { let g = 0; while (!editor.sectionFresh(w) && g++ < 2000) { editor.sectionOf(w); await new Promise((r) => setTimeout(r, 5)); } } }
     const med = async (kind, a, b, depth) => {
       const xs = [];
       for (let k = 0; k < 3; k++) {
@@ -336,7 +337,7 @@ async function medir(page, rotulo, tilt) {
     const corte = await med('section', { x: -2, y: 1 }, { x: 92, y: 1 }, 6);
     const elev = await med('elevation', { x: -2, y: -3 }, { x: 92, y: -3 }, 12);
     return { corte, elev };
-  });
+  }, process.env.SEM_AQUEC === '1');
   const mediana = (a) => [...a].sort((x, y) => x - y)[1];
   return { rotulo, n, corte: tempos.corte, elev: tempos.elev, mc: mediana(tempos.corte), me: mediana(tempos.elev) };
 }
