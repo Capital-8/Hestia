@@ -1,5 +1,5 @@
 import { ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import { layerSpans, type Project, type ValidationIssue } from '@hestia/model';
+import { formatQuantity, layerSpans, unitsOf, type Project, type ValidationIssue } from '@hestia/model';
 import { t as tr, type Lang } from './i18nMessages.ts';
 import { tiltValid } from './wallTilt.ts';
 import { levelFrames } from './resolveFrames.ts';
@@ -7,18 +7,22 @@ import { semCortina } from './cortinaProjeto.ts';
 import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
 import { joinStatus } from './joins.ts';
-import { sAtDepth, type WallFrame } from './frame.ts';
+import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
 import { levelSet, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
 /** Junção inclinada de um nível (F2.4): análise por camada, avisos e guarda do kernel. Núcleo geométrico em `wallTiltJoin.ts`. */
 const failed = (r: object): r is Pick<TiltJoinFail, 'fail'> => 'fail' in r;
 
 /** Avisos da junção inclinada (códigos de `ValidationIssue`, textos nos 7 idiomas do `egb_issue_tilt_*`). */
-export type TiltAvisoCode = 'arcoInclinadoSemJuncao' | 'inclinacaoInviavelNaJuncao';
+export type TiltAvisoCode = 'arcoInclinadoSemJuncao' | 'inclinacaoInviavelNaJuncao' | 'inclinacoesDiferentesEmContinuacao';
 export interface TiltAviso {
   code: TiltAvisoCode;
   wallId: string;
+  /** `inclinacoesDiferentesEmContinuacao`: degrau no topo H·|tan a − tan b|, em metros. */
+  valor?: number;
 }
+/** Degrau mínimo (m) que justifica o aviso de continuação com inclinações diferentes. */
+export const DEGRAU_MIN = 0.005;
 
 /**
  * Anel de planta de uma camada em três situações: `raw` = junção vertical sobre a base (o que o resolvedor de planta
@@ -117,19 +121,57 @@ export function esvaziarAnaliseInclinada(): void {
   analiseMemo.clear();
 }
 
+/**
+ * Casa o anel vertical `raw` (vértices do resolvedor) com os anéis inclinados da mesma camada. A inclinação escala as
+ * espessuras por 1/cosθ de cada parede, então camadas que na vertical coincidem sobre a linha de corte passam a ter
+ * quebras próprias (mais vértices): a contagem NÃO é critério de viabilidade. Mesma contagem: índice a índice. Contagem
+ * diferente: cada vértice de `raw` leva o vértice mais próximo da base (p0 ≈ raw na cota 0) e `pH` o de mesmo índice.
+ * null só quando os anéis inclinados são degenerados, de sentido trocado ou de contagens incompatíveis entre si.
+ */
+function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): { p0: Vec2[]; pH: Vec2[] } | null {
+  if (!p0 || !pH || p0.length !== pH.length) return null;
+  const sg = Math.sign(ringArea(raw));
+  let a = p0, b = pH;
+  if (p0.length !== raw.length) {
+    const idx = raw.map((r) => {
+      let best = 0, d = Infinity;
+      p0.forEach((q, j) => { const e = Math.hypot(q.x - r.x, q.y - r.y); if (e < d) { d = e; best = j; } });
+      return best;
+    });
+    a = idx.map((j) => p0[j]!);
+    b = idx.map((j) => pH[j]!);
+  }
+  // O anel completo (todos os vértices) é que não pode inverter nem degenerar.
+  const ok = Math.sign(ringArea(p0)) === sg && Math.sign(ringArea(pH)) === sg && Math.abs(ringArea(pH)) > 1e-9;
+  return ok ? { p0: a, pH: b } : null;
+}
+
 function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<string, number>, tol?: number): LevelTiltAnalysis {
   const out: LevelTiltAnalysis = { joins: new Map(), avisos: [] };
   if (!frames.some((f) => tiltOf(f) !== 0)) return out;
   const byId = new Map(frames.map((f) => [f.wall.id, f] as const));
   const hasTilt = (r: Relation): boolean => ids(r).some((id) => tiltOf(byId.get(id)!) !== 0);
   const avisoOnce = new Set<string>();
-  const warn = (code: TiltAvisoCode, wallId: string): void => {
+  const warn = (code: TiltAvisoCode, wallId: string, valor?: number): void => {
     if (avisoOnce.has(`${code}|${wallId}`)) return;
     avisoOnce.add(`${code}|${wallId}`);
-    out.avisos.push({ code, wallId });
+    out.avisos.push(valor === undefined ? { code, wallId } : { code, wallId, valor });
   };
+  const heightOf = (f: WallFrame): number => heights.get(f.wall.id) ?? (f.z ? f.z.top - f.z.z0 : 3);
   const rels: Relation[] = [];
   for (const r of tiltRelations(frames, tol).filter(hasTilt)) {
+    if (r.kind === 'pair') {
+      // Continuação (paredes em linha ou arcos tangentes): não há cruzamento de eixos; com inclinações diferentes o topo faz degrau.
+      const fa = byId.get(r.a.id)!, fb = byId.get(r.b.id)!;
+      const ua = tangentAt(fa, r.a.end === 'a' ? 0 : fa.length), ub = tangentAt(fb, r.b.end === 'a' ? 0 : fb.length);
+      const sa = r.a.end === 'a' ? 1 : -1, sb = r.b.end === 'a' ? 1 : -1; // sentido do eixo saindo do nó
+      const dot = (ua.x * ub.x + ua.y * ub.y) * sa * sb; // < 0: os eixos saem do nó em sentidos opostos (continuação)
+      if (Math.abs(ua.x * ub.y - ua.y * ub.x) < 1e-4 && dot < 0) {
+        const step = Math.max(heightOf(fa), heightOf(fb)) * Math.abs(Math.tan((tiltOf(fa) * Math.PI) / 180) - Math.tan((tiltOf(fb) * Math.PI) / 180));
+        if (step > DEGRAU_MIN) { warn('inclinacoesDiferentesEmContinuacao', r.a.id, step); continue; }
+        if (!fa.arc && !fb.arc) continue; // mesma inclinação em linha: corte plano exato
+      }
+    }
     if (ids(r).some((id) => byId.get(id)!.arc)) {
       for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('arcoInclinadoSemJuncao', id);
     } else rels.push(r);
@@ -155,14 +197,15 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
     const k = find(ids(r)[0]!);
     comps.set(k, [...(comps.get(k) ?? []), r]);
   }
-  const heightOf = (f: WallFrame): number => heights.get(f.wall.id) ?? (f.z ? f.z.top - f.z.z0 : 3);
-  for (const crel of comps.values()) {
+  /** Junções do conjunto de ligações (anéis por camada e parede), ou null quando alguma cota/camada é inviável. */
+  const evalRels = (crel: readonly Relation[]): Map<string, WallTiltJoin> | null => {
     const wallIds = [...new Set(crel.flatMap(ids))];
     const mk = (tilted: boolean): Map<string, TiltWall> =>
       new Map(wallIds.map((id) => [id, { frame: byId.get(id)!, tiltDeg: tilted ? tiltOf(byId.get(id)!) : 0 }] as const));
     const tilted = mk(true);
     const rawSet = levelSet(mk(false), crel, 0);
     const baseSet = levelSet(tilted, crel, 0);
+    if (failed(rawSet) || failed(baseSet)) return null;
     const topSets = new Map<number, LevelSet | TiltJoinFail>();
     const top = (H: number): LevelSet | TiltJoinFail => {
       let t = topSets.get(H);
@@ -170,28 +213,43 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       return t;
     };
     const joins = new Map<string, WallTiltJoin>();
-    let bad = failed(rawSet) || failed(baseSet);
-    if (!bad) {
-      for (const id of wallIds) {
-        const H = heightOf(byId.get(id)!);
-        const ts = top(H);
-        if (failed(ts) || !(H > 0)) { bad = true; break; }
-        const raw = ringsOf(rawSet as LevelSet, id)!, p0 = ringsOf(baseSet as LevelSet, id)!, pH = ringsOf(ts, id)!;
-        const layers: WallTiltJoinLayer[] = [];
-        for (const [layerIndex, r0] of raw) {
-          const a = p0.get(layerIndex), b = pH.get(layerIndex);
-          const sg = Math.sign(ringArea(r0));
-          const ok = a && b && a.length === r0.length && b.length === r0.length && Math.sign(ringArea(a)) === sg && Math.sign(ringArea(b)) === sg && Math.abs(ringArea(b)) > 1e-9;
-          if (!ok) { bad = true; break; }
-          layers.push({ layerIndex, raw: r0, p0: a!, pH: b! });
-        }
-        if (bad) break;
-        joins.set(id, { H, layers });
+    for (const id of wallIds) {
+      const H = heightOf(byId.get(id)!);
+      const ts = top(H);
+      if (failed(ts) || !(H > 0)) return null;
+      const raw = ringsOf(rawSet, id)!, p0 = ringsOf(baseSet, id)!, pH = ringsOf(ts, id)!;
+      const layers: WallTiltJoinLayer[] = [];
+      for (const [layerIndex, r0] of raw) {
+        const al = alinhar(r0, p0.get(layerIndex), pH.get(layerIndex));
+        if (!al) return null;
+        layers.push({ layerIndex, raw: r0, p0: al.p0, pH: al.pH });
       }
+      joins.set(id, { H, layers });
     }
-    if (bad) {
-      for (const id of wallIds) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id);
-      continue;
+    return joins;
+  };
+  for (const crel of comps.values()) {
+    let joins = evalRels(crel);
+    if (!joins) {
+      // Plano B: só o par problemático (ou todos, se o conjunto ainda falhar) vira encosto, com a ponta de uma parede cortada
+      // pelo plano da face da outra em toda a altura; sobra no máximo a espessura da hospedeira. Ver S1 "Não passou".
+      const tee = (r: Relation & { kind: 'pair' }, flip: boolean): Relation => (flip ? { kind: 'tee', branch: r.b, host: r.a.id } : { kind: 'tee', branch: r.a, host: r.b.id });
+      const asTee = (r: Relation, force: boolean): Relation => {
+        if (r.kind !== 'pair' || (!force && evalRels([r]))) return r;
+        return [tee(r, false), tee(r, true)].find((c) => evalRels([c])) ?? r;
+      };
+      for (const force of [false, true]) {
+        const plano = crel.map((r) => asTee(r, force));
+        joins = evalRels(plano);
+        if (joins) {
+          crel.forEach((r, i) => { if (plano[i] !== r) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id); });
+          break;
+        }
+      }
+      if (!joins) {
+        for (const id of new Set(crel.flatMap(ids))) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id);
+        continue;
+      }
     }
     for (const [id, j] of joins) out.joins.set(id, j);
   }
@@ -214,13 +272,14 @@ export function wallTiltJoinIssues(p: Project, lang: Lang = 'pt'): ValidationIss
     const heights = new Map(Object.values(rl.walls).map((w) => [w.wallId, w.height] as const));
     const an = analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
     const seen = new Set<string>();
-    const push = (code: TiltAvisoCode, id: string): void => {
+    const push = (code: TiltAvisoCode, id: string, valor?: number): void => {
       if (seen.has(`${code}|${id}`)) return;
       seen.add(`${code}|${id}`);
-      const key = code === 'arcoInclinadoSemJuncao' ? 'egb_issue_tilt_arc_nojoin' : 'egb_issue_tilt_infeasible';
-      out.push({ severity: 'warning', code, message: tr(lang, key, { id }), elementId: id });
+      const key = code === 'arcoInclinadoSemJuncao' ? 'egb_issue_tilt_arc_nojoin' : code === 'inclinacoesDiferentesEmContinuacao' ? 'egb_issue_tilt_continuation' : 'egb_issue_tilt_infeasible';
+      const args: Record<string, string> = valor === undefined ? { id } : { id, valor: formatQuantity(unitsOf(p), 'length', valor) };
+      out.push({ severity: 'warning', code, message: tr(lang, key, args), elementId: id });
     };
-    for (const a of an.avisos) push(a.code, a.wallId);
+    for (const a of an.avisos) push(a.code, a.wallId, a.valor);
     for (const f of frames) {
       const tilt = tiltOf(f);
       const h = heights.get(f.wall.id);
