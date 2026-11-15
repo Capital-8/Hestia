@@ -2,6 +2,7 @@
 import { aba, botao, clicar, digitar, menuDividido, paraTela, shot } from './terreno-base.mjs';
 import { perimetroPorPontos, pressTool } from './helpers.mjs';
 import { enquadrar, nPontos } from './terreno-passos-b.mjs';
+import { abrirPlanta } from './terreno-passos-a.mjs';
 
 const lote = (page) => page.evaluate(() => {
   const l = Object.values(window.__hestia.editor.project.elements).find((e) => e.kind === 'lot');
@@ -99,9 +100,19 @@ export async function passo9(rep, { page }) {
     rep.check('uma parede foi criada', w.length === 1, String(w.length));
     const esperado = exibida - 740;
     rep.check('baseOffset = cota do terreno no 1º clique (tolerância 2 cm)', w.length === 1 && Math.abs(w[0].baseOffset - esperado) < 0.02, `baseOffset ${w[0]?.baseOffset}, terreno ${esperado}`);
+    // A parede (base a ~7 m, acima do plano de corte da planta) não aparece na planta: mostra-se o painel de propriedades dela e o 3D.
+    const idParede = await page.evaluate(() => Object.values(window.__hestia.editor.project.elements).find((e) => e.kind === 'wall').id);
+    await page.evaluate((id) => window.__hestia.useUi.setState({ selection: [id] }), idParede);
     await enquadrar(page, { minX: 66, minY: 15, maxX: 90, maxY: 29 });
-    await page.waitForTimeout(800);
+    await page.waitForTimeout(900);
     await shot(page, '09-gravidade.png');
+    await page.getByRole('treeitem', { name: /Modelo 3D/ }).first().dblclick();
+    await page.waitForTimeout(1500);
+    await page.locator('.navbar button[aria-label="Enquadrar tudo"]').click();
+    await page.waitForTimeout(1500);
+    await shot(page, '09-gravidade-3d.png');
+    await abrirPlanta(page);
+    await page.waitForTimeout(500);
     await page.getByRole('button', { name: /^Gravidade/ }).click();
   });
 }

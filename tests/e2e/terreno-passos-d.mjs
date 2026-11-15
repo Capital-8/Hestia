@@ -38,6 +38,8 @@ export async function passo10(rep, { page, errors }) {
     rep.check('a prancha desenhou traços nas vistas', svg.paths > 40, `${svg.paths} caminhos em ${svg.camadas} vistas`);
     await shot(page, '10-prancha.png');
     await page.locator('.sheet-stage').screenshot({ path: path.join(FINAL, '10-prancha-folha.png') });
+    const porVista = await page.evaluate(() => [...document.querySelectorAll('[data-vp-layer]')].map((g) => g.querySelectorAll('path').length));
+    rep.check('cada uma das três vistas da folha tem traços (planta, corte e 3D)', porVista.length === 3 && porVista.every((n) => n >= 5), porVista.join(' / '));
   });
 
   let antes;
