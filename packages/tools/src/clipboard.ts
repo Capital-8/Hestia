@@ -1,4 +1,4 @@
-import { guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isCad, isCeiling, isFloor, isGeneric, isGuardaCorpo, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, newId, type CadDrawing, type Ceiling, type Command, type Element, type Floor, type Generic, type GuardaCorpo, type Id, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Terrain, type TerrainRegion, type Wall } from '@hestia/model';
+import { guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isCad, isCeiling, isFloor, isGeneric, isGuardaCorpo, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall, newId, type CadDrawing, type Ceiling, type Command, type Element, type Floor, type Generic, type GuardaCorpo, type Id, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair, type Terrain, type TerrainRegion, type Wall } from '@hestia/model';
 import { pasteAlignedToLevelsCommand, type PasteIdsTerreno } from './pasteLevels/command.ts';
 import { regioesDoTerreno } from './terrainHandles.ts';
 
@@ -56,7 +56,10 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
   const cad = ids.map((id) => p.elements[id]).filter(isCad).map((c) => structuredClone(c));
   const railings = guardaCorposDaCopia(p, ids).map((id) => structuredClone(p.elements[id] as GuardaCorpo));
   const terrains = ids.map((id) => p.elements[id]).filter(isTerrain).map((t) => structuredClone(t));
-  const terrainRegions = terrains.flatMap((t) => regioesDoTerreno(p, t.id)).map((r) => structuredClone(r));
+  // Regiões do terreno copiado e as regiões SOZINHAS na seleção (essas ficam no terreno original ao colar).
+  const regioesDosTerrenos = terrains.flatMap((t) => regioesDoTerreno(p, t.id));
+  const regioesSoltas = ids.map((id) => p.elements[id]).filter(isTerrainRegion).filter((r) => !regioesDosTerrenos.some((x) => x.id === r.id));
+  const terrainRegions = [...regioesDosTerrenos, ...regioesSoltas].map((r) => structuredClone(r));
   if (
     hostIds.size === 0 &&
     floors.length === 0 &&
@@ -69,7 +72,8 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
     generics.length === 0 &&
     cad.length === 0 &&
     railings.length === 0 &&
-    terrains.length === 0
+    terrains.length === 0 &&
+    terrainRegions.length === 0
   ) return null;
   const walls = [...hostIds].map((id) => structuredClone(p.elements[id] as Wall));
   const openings = Object.values(p.elements)
@@ -81,7 +85,7 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
 
 /** Elemento que `clipboardFrom` leva por si só: parede, piso, laje, forro, telhado, escada, rampa, ambiente, genérico ou CAD. */
 const isCopyableElement = (e: Element | undefined): boolean =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e) || isTerrain(e);
+  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e) || isTerrain(e) || isTerrainRegion(e);
 
 /** Guarda-corpo que `clipboardFrom` leva: o manual ou o hospedado cujo hospedeiro também está na seleção. */
 const copyableRailing = (ids: readonly Id[], e: Element | undefined): boolean => {
@@ -174,6 +178,6 @@ export function pasteAlignedCommand(
 function idsInPaste(ids: PasteIdsTerreno): number {
   return (
     ids.walls.length + ids.openings.length + ids.floors.length + ids.slabs.length + ids.ceilings.length + ids.roofs.length +
-    ids.stairs.length + ids.ramps.length + ids.rooms.length + ids.generics.length + ids.cad.length + ids.railings.length + ids.terrains.length
+    ids.stairs.length + ids.ramps.length + ids.rooms.length + ids.generics.length + ids.cad.length + ids.railings.length + ids.terrains.length + ids.terrainRegions.length
   );
 }

@@ -24,10 +24,10 @@ const rg = (p: Project, id = RG): TerrainRegion => p.elements[id] as TerrainRegi
 const foto = (p: Project): unknown => structuredClone({ t: terrenos(p), r: regioes(p) });
 
 describe('seleção do terreno leva as regiões', () => {
-  it('selectedMovables: terreno e regiões dele; região sozinha não entra (é da ficha T3)', () => {
+  it('selectedMovables: terreno e regiões dele; a região sozinha também entra (ficha T3)', () => {
     const { store } = cena();
     expect(selectedMovables(store.project, [TN])).toEqual([TN, RG]);
-    expect(selectedMovables(store.project, [RG])).toEqual([]);
+    expect(selectedMovables(store.project, [RG])).toEqual([RG]);
     expect(selectedMovables(store.project, [TN, RG])).toEqual([TN, RG]);
   });
 });

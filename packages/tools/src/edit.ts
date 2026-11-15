@@ -14,6 +14,7 @@ import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
 import { ghostGuardaCorpos, selectedGuardaCorpos } from './guardaCorpoEdicao.ts';
 import { comandosCopiaTerreno, ghostTerreno, selectedTerrenosComRegioes } from './terrainHandles.ts';
+import { comandosCopiaRegioes, regioesSozinhas } from './terrainRegionHandles.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 import { langOf, t as translate } from './i18n.ts';
 
@@ -22,8 +23,8 @@ export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) =>
 export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isOpening(p.elements[id]));
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
-/** Paredes, pisos, lajes, telhados, terreno (com as suas regiões) e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
-export const selectedMovables = (p: Project, ids: Id[]): Id[] => [...selectedWalls(p, ids), ...selectedFloors(p, ids), ...selectedSlabs(p, ids), ...selectedRoofs(p, ids), ...selectedStairs(p, ids), ...selectedRamps(p, ids), ...selectedRooms(p, ids), ...selectedCads(p, ids), ...selectedGuardaCorpos(p, ids), ...selectedTerrenosComRegioes(p, ids)];
+/** Paredes, pisos, lajes, telhados, terreno (com as suas regiões; a região sozinha também) e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
+export const selectedMovables = (p: Project, ids: Id[]): Id[] => [...selectedWalls(p, ids), ...selectedFloors(p, ids), ...selectedSlabs(p, ids), ...selectedRoofs(p, ids), ...selectedStairs(p, ids), ...selectedRamps(p, ids), ...selectedRooms(p, ids), ...selectedCads(p, ids), ...selectedGuardaCorpos(p, ids), ...selectedTerrenosComRegioes(p, ids), ...regioesSozinhas(p, ids)];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */
 export const selectedViews = (p: Project, ids: Id[]): Id[] => viewIdsIn(p, ids);
@@ -213,13 +214,16 @@ export function copyWalls(env: ToolEnv, ids: Id[], t: Transform): Id[] {
   const outros = ids.filter((id) => !isTerrain(p.elements[id]) && !isTerrainRegion(p.elements[id]));
   const idMap = makeIdMap(p, outros);
   const terreno = comandosCopiaTerreno(p, ids, t);
+  // A região SOZINHA na seleção copia-se no mesmo terreno (o `terrenoId` da cópia é o do terreno original).
+  const regioes = comandosCopiaRegioes(p, ids, t);
+  const extras = [...terreno.commands, ...regioes.commands];
   const copiar = (): void => {
-    if (outros.length || !terreno.commands.length) env.exec({ type: 'transform', ids: outros, transform: t, copy: { idMap } });
-    for (const c of terreno.commands) env.exec(c);
+    if (outros.length || !extras.length) env.exec({ type: 'transform', ids: outros, transform: t, copy: { idMap } });
+    for (const c of extras) env.exec(c);
   };
-  if (terreno.commands.length) env.transaction(translate(langOf(env), 'tl_tn_undo_copiar'), copiar);
+  if (extras.length) env.transaction(translate(langOf(env), 'tl_tn_undo_copiar'), copiar);
   else copiar();
-  return ids.map((id) => idMap[id] ?? terreno.idMap[id]!).filter(Boolean);
+  return ids.map((id) => idMap[id] ?? terreno.idMap[id] ?? regioes.idMap[id]!).filter(Boolean);
 }
 
 export const lengthOf = (a: Vec2, b: Vec2): number => dist(a, b);

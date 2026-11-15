@@ -1,8 +1,9 @@
 import type { Vec2 } from '@hestia/geom';
-import { hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isRamp, isRoof, isSlab, isStair, isTerrain, isTerrainRegion, isWall, type Command, type Id, type Project } from '@hestia/model';
+import { hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isRamp, isRoof, isSlab, isStair, isTerrain, isTerrainRegion, isWall, type Command, type Id, type Project, type TerrainRegion } from '@hestia/model';
 import { guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { makeIdMap, selectedMovables } from './edit.ts';
 import { comandosCopiaTerreno, comandosVerticalTerreno } from './terrainHandles.ts';
+import { comandosCopiaRegioes } from './terrainRegionHandles.ts';
 
 /**
  * Mover e Alinhar nos cortes e elevações levam o elemento por (dt, dz) no plano da vista (decisão 0055 §25, contrato regra 3).
@@ -67,12 +68,17 @@ export function comandosMoverNoCorte(p: Project, ids: readonly Id[], u: Vec2, dt
     commands.push({ type: 'transform', ids: aMover, transform: { kind: 'translate', d }, ...(idMap ? { copy: { idMap } } : {}) });
   }
   if (idMap) for (const id of aMover) if (idMap[id]) copias.push(idMap[id]!);
+  const semVertical: Id[] = [];
   if (copiar) {
     const terreno = comandosCopiaTerreno(p, movidos, { kind: 'translate', d }, Math.abs(dz) > 1e-6 ? dz : 0);
     commands.push(...terreno.commands);
     for (const id of movidos) if (isTerrain(p.elements[id]) && terreno.idMap[id]) copias.push(terreno.idMap[id]!);
+    // Região sozinha: a cópia fica no mesmo terreno, com a cota somada (a subdivisão não tem cota).
+    const regioes = comandosCopiaRegioes(p, movidos, { kind: 'translate', d }, Math.abs(dz) > 1e-6 ? dz : 0);
+    commands.push(...regioes.commands);
+    for (const id of movidos) if (regioes.idMap[id]) copias.push(regioes.idMap[id]!);
+    if (Math.abs(dz) > 1e-6) for (const id of Object.keys(regioes.idMap)) if ((p.elements[id] as TerrainRegion).papel === 'subdivisao') semVertical.push(id);
   }
-  const semVertical: Id[] = [];
   if (Math.abs(dz) > 1e-6) {
     for (const id of aMover) {
       // Hospedado cujo hospedeiro anda junto: ele segue sozinho, sem comando próprio.
@@ -80,6 +86,8 @@ export function comandosMoverNoCorte(p: Project, ids: readonly Id[], u: Vec2, dt
       if (isGuardaCorpo(e) && hospedeiroDoGuardaCorpo(e) !== null) continue;
       if (isTerrain(e) || isTerrainRegion(e)) {
         commands.push(...comandosVerticalTerreno(p, id, dz));
+        // A subdivisão não tem cota: não anda na vertical (a barra de status diz o porquê).
+        if (isTerrainRegion(e) && e.papel === 'subdivisao') semVertical.push(id);
         continue;
       }
       const cmd = comandoVertical(p, id, idMap?.[id] ?? id, dz);
