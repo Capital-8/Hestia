@@ -73,7 +73,8 @@ describe('leituras do lote (motor)', () => {
     p.localizacao = { origemE: 0, origemN: 0, cotaZero: 0, norteVerdadeiro: Math.PI / 2, sistema: undefined };
     const sem = ladosDoLote(createEmptyProject(), lote()).map((l) => l.azimute);
     const com = ladosDoLote(p, lote()).map((l) => l.azimute);
-    expect(com[0]).toBeCloseTo((sem[0]! + 90) % 360, 6);
+    // Emenda E4: azimute = direção a partir de +y (horário) − norte verdadeiro.
+    expect(com[0]).toBeCloseTo(((sem[0]! - 90) % 360 + 360) % 360, 6);
   });
 });
 
