@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cortinaAvisosDeGeometria, cortinaAvisosSemKernel, guardaCorpoAvisosDeGeometria, servicoCortina, servicoGuardaCorpo, temCortina } from '@hestia/engine';
+import { cortinaAvisosDeGeometria, cortinaAvisosSemKernel, guardaCorpoAvisosDeGeometria, servicoCortina, servicoGuardaCorpo, servicoTerreno, temCortina } from '@hestia/engine';
 import { isGuardaCorpo, type Project, type ValidationIssue } from '@hestia/model';
 import { useProject } from './controller.ts';
 import { useI18n } from './i18n.ts';
@@ -25,10 +25,19 @@ export function avisosGeometriaCortina(p: Project, lang = useI18n.getState().lan
 }
 
 /**
+ * Avisos do terreno (A.6): os seis do kernel (pontos de mesmo lugar com cotas diferentes, linha que cruza, regiões sobrepostas, precisão reduzida, sem
+ * triângulos, região fora do terreno) e, sem o kernel pronto, `terreno-sem-kernel` (ou `terreno-invalido` se ele recusou os dados). Cada um aponta para
+ * o terreno ou para a região (o "Ir para" de `goToIssue`). Vazio sem terreno no projeto.
+ */
+export function avisosGeometriaTerreno(p: Project, lang = useI18n.getState().lang): ValidationIssue[] {
+  return servicoTerreno().avisosDoPainel(p, lang);
+}
+
+/**
  * Avisos de validação do projeto atual. Todo modelo é validado depois de SETTLE_MS sem novas mudanças (até lá, mostra o
  * resultado anterior; na abertura, lista vazia). Antes, modelos com até 2000 elementos eram validados na mesma renderização,
  * o que somava o custo dos avisos à abertura. O resultado final é o mesmo: `agendarAvisos` usa `avisosDoProjeto`.
- * Os avisos de geometria do guarda-corpo (kernel) entram depois, no mesmo tempo de silêncio, e são refeitos quando o kernel fica pronto.
+ * Os avisos de geometria do guarda-corpo, da cortina e do terreno (kernel) entram depois, no mesmo tempo de silêncio, e são refeitos quando o kernel fica pronto.
  */
 export function useIssues(): ValidationIssue[] {
   const project = useProject();
@@ -36,8 +45,9 @@ export function useIssues(): ValidationIssue[] {
   const [kernelPronto, setKernelPronto] = useState(0);
   useEffect(() => servicoGuardaCorpo().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(() => servicoCortina().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
+  useEffect(() => servicoTerreno().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(
-    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project)])),
+    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project), ...avisosGeometriaTerreno(project)])),
     // `kernelPronto` refaz a lista quando o kernel carrega ou é trocado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, kernelPronto],

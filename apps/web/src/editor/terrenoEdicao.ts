@@ -1,6 +1,8 @@
 import type { Vec2 } from '@hestia/geom';
+import type { ResolvedLevel } from '@hestia/engine';
 import { isTerrain, isTerrainRegion, type Id, type Project } from '@hestia/model';
-import { pickTerrenoAt, type ToolId } from '@hestia/tools';
+import { janelaDaVista, terrenoEdicaoOps, type PlanOps, type PlanTheme, type TerrenoEdicaoVista, type Viewport } from '@hestia/render';
+import { pickTerrenoAt, TerrainEditTool, type Tool, type ToolId } from '@hestia/tools';
 import { useUi, type UiState } from './state.ts';
 
 /**
@@ -64,4 +66,66 @@ export function ligarSincroniaDaEdicao(): () => void {
   return useUi.subscribe((ui, antes) => {
     if (ui.tool !== antes.tool && ui.tool !== 'terrainEdit' && ui.terrenoEdicao) useUi.setState({ terrenoEdicao: null });
   });
+}
+
+/** Quem trata a tecla Delete (ou Backspace) com a ferramenta ativa. */
+export type DestinoDoDelete = 'ferramenta' | 'selecao' | 'nada';
+
+/**
+ * Roteia o Delete: a ferramenta ativa, se ela tratou a tecla (`deleteKey()` devolveu true); senão, com `terrainEdit`, NADA (a seleção é o próprio terreno
+ * em edição e o Delete sem vértice escolhido não pode apagá-lo); nas demais ferramentas, a exclusão da seleção, como sempre.
+ */
+export function destinoDoDelete(ferramenta: string, ferramentaTratou: boolean): DestinoDoDelete {
+  if (ferramentaTratou) return 'ferramenta';
+  return ferramenta === 'terrainEdit' ? 'nada' : 'selecao';
+}
+
+/**
+ * Estado do modo Editar terreno para o desenho da planta (`input.terrenoEdicao`): o terreno em edição, o item escolhido e a mensagem de "aproxime para
+ * editar pontos" que a ferramenta devolve (já no idioma da interface). Também entrega à ferramenta a janela da vista (`definirJanela`), que decide o limite
+ * de 500 alças, e o terreno em edição (`definirTerreno`). Null com o modo desligado, com outra ferramenta ativa ou sem a ferramenta de edição.
+ */
+export function edicaoParaAVista(ui: Pick<UiState, 'tool' | 'terrenoEdicao'>, tool: Pick<Tool, 'id'>, viewport: Viewport | null): TerrenoEdicaoVista | null {
+  const terrenoId = terrenoEmEdicao(ui);
+  if (!terrenoId || !(tool instanceof TerrainEditTool)) return null;
+  tool.definirTerreno(terrenoId);
+  tool.definirJanela(viewport ? janelaDaVista(viewport) : null);
+  return { terrenoId, selecionado: tool.selecionado, mensagem: tool.alcas().mensagem };
+}
+
+/** Contexto mínimo que o desenho das alças lê da planta. */
+export interface ContextoDaEdicao {
+  project: Project;
+  levelId: Id;
+  v: Viewport;
+  theme: PlanTheme;
+  dark: boolean;
+  hidden?: ReadonlySet<Id>;
+}
+
+type AtualizacaoDoQuadro = { liveKey?: string; live?: () => PlanOps };
+
+/**
+ * Acrescenta o modo Editar terreno à camada viva do quadro da planta: as alças e o destaque saem de `terrenoEdicaoOps` com `input.terrenoEdicao`
+ * preenchido. A chave da camada ganha o estado do modo e a vista (as alças dependem da janela), senão pan e zoom não as refariam. Sem `ed`, devolve a
+ * atualização como veio.
+ */
+export function comEdicaoDoTerreno<T extends AtualizacaoDoQuadro>(upd: T, ctx: ContextoDaEdicao, ed: TerrenoEdicaoVista | null): T {
+  if (!ed) return upd;
+  const { v } = ctx;
+  const resolved: ResolvedLevel = { levelId: ctx.levelId, walls: {}, clusters: [] };
+  const entrada = {
+    project: ctx.project, levelId: ctx.levelId, resolved, below: null, viewport: v, theme: ctx.theme, dark: ctx.dark, selection: [], hover: null, preview: [], inference: null,
+    showGrid: false, ...(ctx.hidden ? { hidden: ctx.hidden } : {}), terrenoEdicao: ed,
+  };
+  const base = upd.live;
+  return {
+    ...upd,
+    liveKey: `${upd.liveKey ?? ''}|ed:${JSON.stringify(ed)}|${v.cx},${v.cy},${v.zoom},${v.width},${v.height}`,
+    live: () => {
+      const o = base ? base() : { fills: [], strokes: [], labels: [] };
+      const a = terrenoEdicaoOps(entrada);
+      return { fills: [...o.fills, ...a.fills], strokes: [...o.strokes, ...a.strokes], labels: [...o.labels, ...a.labels] };
+    },
+  };
 }

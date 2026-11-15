@@ -3,10 +3,12 @@ import type { ValidationIssue } from '@hestia/model';
 import { editor } from './controller.ts';
 import { issueTarget } from './issuesView.ts';
 import { useUi } from './state.ts';
+import { alvoDoAvisoDeTerreno } from './terrenoVista.ts';
 
 /** Seleciona o elemento do aviso e leva a vista até ele. Troca de nível só quando preciso. */
 export function goToIssue(issue: ValidationIssue): void {
-  const t = issueTarget(editor.project, issue);
+  // Terreno e região: o nível e a caixa vêm do modelo (`alvoDoAvisoDeTerreno`); os demais elementos seguem o caminho comum.
+  const t = alvoDoAvisoDeTerreno(editor.project, issue) ?? issueTarget(editor.project, issue);
   if (!t) {
     useUi.setState({ status: { key: 'edc_element_gone' } });
     return;
