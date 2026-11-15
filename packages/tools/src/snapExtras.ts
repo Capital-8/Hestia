@@ -10,6 +10,8 @@ export type AddCandidate = (point: Vec2, kind: SnapKind, guides?: Guide[], hostI
 /** Pesos da face superior da seção nas ferramentas de topo (vence a ponta e a aresta comuns no mesmo ponto). */
 const TOP_TOOL_VERTEX = -0.05;
 const TOP_TOOL_EDGE = 0.05;
+/** Pé na aresta superior nas demais ferramentas: abaixo da aresta comum (0,7) e acima das pontas e meios, que continuam vencendo perto do canto. */
+const TOP_EDGE = 0.5;
 
 /** Distância ao quadrado (evita a raiz em filtros que só comparam com a tolerância). */
 const dist2 = (a: Vec2, b: Vec2): number => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
@@ -52,7 +54,7 @@ export function addExtraSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec
     const kind = e.kind ?? 'nearest';
     if (kind === 'topFace' && sn.topFaces === false) continue;
     const foot = closestOnSegment(cursor, e.a, e.b);
-    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId, kind === 'topFace' && ctx.topFaceTool ? TOP_TOOL_EDGE : undefined);
+    if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId, kind === 'topFace' ? (ctx.topFaceTool ? TOP_TOOL_EDGE : TOP_EDGE) : undefined);
     if (sn.perpendicular && ctx.from) {
       const pf = closestOnSegment(ctx.from, e.a, e.b);
       if (dist2(cursor, pf) <= reach && dist2(pf, ctx.from) > 1e-12) add(pf, 'perpendicular', [{ from: ctx.from, to: pf, kind: 'perpendicular' }], e.hostId);
