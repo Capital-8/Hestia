@@ -18,6 +18,9 @@ import { transfer } from '../../editor/transfer.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
+import { abrirLocalizacao } from '../dialogs/localizacaoAberta.ts';
+import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
+import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
@@ -471,6 +474,39 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if ('error' in r) pedirAlerta(r.error);
     },
     disabled: (c) => (c.selection.some((id) => isStair(c.p.elements[id]) || isRamp(c.p.elements[id])) ? false : t('Selecione uma escada ou uma rampa.', 'Select a stair or a ramp.')),
+  },
+  terrenoPontos: {
+    label: t('Colocar pontos', 'Place Points'),
+    icon: 'dimension',
+    hint: t('Cada clique coloca um ponto do terreno na cota do campo "Cota".', 'Each click places a terrain point at the elevation of the "Elevation" field.'),
+    run: () => void ativarTopografia('pontos', editor),
+  },
+  terrenoCurvas: {
+    label: t('Desenhar curvas', 'Draw Contours'),
+    icon: 'detailLine',
+    hint: t('Desenha curvas de nível; Enter conclui a curva e a cota avança pelo "Passo".', 'Draws contour lines; Enter finishes the curve and the elevation advances by the "Step".'),
+    run: () => void ativarTopografia('curvas', editor),
+  },
+  importTerreno: {
+    label: t('Importar levantamento…', 'Import Survey…'),
+    icon: 'open',
+    hint: t('Cria o terreno a partir de um levantamento DXF ou CSV.', 'Creates the terrain from a DXF or CSV survey.'),
+    run: abrirImportTerreno,
+  },
+  editTerreno: {
+    label: t('Editar terreno', 'Edit Terrain'),
+    icon: 'editperimeter',
+    hint: t('Edita pontos, curvas, linhas de quebra e borda do terreno selecionado.', 'Edits points, contours, breaklines and boundary of the selected terrain.'),
+    run: () => {
+      const c = ctxNow();
+      editarTerreno(c.p, c.selection, c.levelId, (id) => editor.setTool(id));
+    },
+  },
+  localizacao: {
+    label: t('Localização', 'Location'),
+    icon: 'nav',
+    hint: t('Coordenadas reais da origem, altitude da cota zero e norte verdadeiro do projeto.', 'Real coordinates of the origin, ground-zero altitude and true north of the project.'),
+    run: abrirLocalizacao,
   },
 };
 

@@ -1,4 +1,4 @@
-import { act, panel, soon, soonS, stack, t, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
+import { act, panel, soon, soonS, split, stack, t, tool, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
  * Abas do Revit que o Hestia ainda não tem. Existem para manter a sequência e o roteiro: cada botão é `soon`
@@ -43,7 +43,16 @@ export const TABS_SOON: RibbonTab[] = [
   tab('massa', t('Massa e terreno', 'Massing & Site'),
     p('mas-massa', t('Modelo de massa', 'Conceptual Mass'), [t('Mostrar massa', 'Show Mass')], [t('Massa no local', 'In-Place Mass')], [t('Colocar massa', 'Place Mass')]),
     p('mas-por-massa', t('Modelo por massa', 'Model by Face'), [t('Telhado por face', 'Roof by Face'), 'roof'], [t('Parede por face', 'Wall by Face'), 'wall'], [t('Forro por face', 'Ceiling by Face'), 'ceiling'], [t('Piso por face', 'Floor by Face'), 'floor']),
-    p('mas-terreno', t('Terreno', 'Site Modeling'), [t('Topografia', 'Toposurface')], [t('Subdivisão', 'Subregion')], [t('Plataforma', 'Building Pad')], [t('Componente de terreno', 'Site Component')], [t('Linhas de propriedade', 'Property Line')]),
+    // Terreno, lote e análise (frente do terreno): Topografia e Editar terreno, Rótulo de curva e Cota de ponto já funcionam; o resto é das fichas T3, P3 a P5 e U2.
+    panel('mas-terreno', t('Terreno', 'Site Modeling'),
+      split(tool('terrain', 'large', { label: t('Topografia', 'Toposurface'), icon: 'slope' }), [act('terrenoPontos', 'small'), act('terrenoCurvas', 'small'), act('importTerreno', 'small')], t('Topografia', 'Toposurface')),
+      act('editTerreno'),
+      soon(t('Subdivisão', 'Subregion')), soon(t('Plataforma', 'Building Pad')), soon(t('Região nivelada', 'Graded Region')), soon(t('Componente de terreno', 'Site Component'))),
+    panel('mas-lote', t('Lote', 'Lot'), soon(t('Linhas de propriedade', 'Property Line')), soon(t('Índices do lote', 'Lot Indices')), soon(t('Envelope legal', 'Legal Envelope'))),
+    panel('mas-analise', t('Análise do terreno', 'Site Analysis'),
+      soon(t('Corte e aterro', 'Cut and Fill')),
+      tool('terrainLabel', 'large', { label: t('Rótulo de curva', 'Contour Label'), icon: 'tag' }),
+      tool('terrainSpot', 'large', { label: t('Cota de ponto', 'Spot Elevation'), icon: 'dimension' })),
   ),
   tab('colaborar', t('Colaborar', 'Collaborate'),
     p('col-comunicar', t('Comunicar', 'Communicate'), [t('Colaborar', 'Collaborate')]),
