@@ -1,6 +1,6 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
-import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, type PerimeterModifyKind, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
+import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
@@ -23,6 +23,25 @@ import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
 import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { t, type ActionId, type Txt } from './model.ts';
+
+/** Liga a ferramenta Região de terreno numa predefinição (Subdivisão, Plataforma ou Região nivelada); `porElemento` só vale na plataforma. */
+function ativarRegiao(predef: PredefinicaoRegiao, porElemento = false): void {
+  editor.setTool('terrainRegion');
+  const ativa = editor.activeTool;
+  if (!(ativa instanceof TerrainRegionTool)) return;
+  ativa.definirPredefinicao(predef);
+  if (porElemento) ativa.definirPorElemento(true);
+}
+
+/** A ferramenta Região de terreno está ativa nesta predefinição (e, na plataforma, neste modo "Por elemento")? */
+const regiaoAtiva = (predef: PredefinicaoRegiao, porElemento = false) => (c: RibbonCtx): boolean => {
+  const ativa = editor.activeTool;
+  return c.tool === 'terrainRegion' && ativa instanceof TerrainRegionTool && ativa.predefinicao === predef && ativa.porElemento === porElemento;
+};
+
+/** A região nasce sobre um terreno: sem terreno no projeto, o botão explica o que fazer antes. */
+const semTerrenoNoProjeto = (c: RibbonCtx): Txt | false =>
+  Object.values(c.p.elements).some(isTerrain) ? false : t('Crie um terreno antes (Topografia).', 'Create a terrain first (Toposurface).');
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
 function flipSide(panel: DockPanel): void {
@@ -486,6 +505,38 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'detailLine',
     hint: t('Desenha curvas de nível; Enter conclui a curva e a cota avança pelo "Passo".', 'Draws contour lines; Enter finishes the curve and the elevation advances by the "Step".'),
     run: () => void ativarTopografia('curvas', editor),
+  },
+  regiaoSubdivisao: {
+    label: t('Subdivisão', 'Subregion'),
+    icon: 'filledRegion',
+    hint: t('Desenha um polígono sobre o terreno: divide a superfície e define o material e a permeabilidade.', 'Draws a polygon over the terrain: splits the surface and sets its material and permeability.'),
+    run: () => ativarRegiao('subdivisao'),
+    pressed: regiaoAtiva('subdivisao'),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoPlataforma: {
+    label: t('Plataforma', 'Building Pad'),
+    icon: 'slab',
+    hint: t('Desenha um plano de cota fixa sobre o terreno (bordas verticais); corta e aterra o terreno existente.', 'Draws a flat pad at a fixed elevation over the terrain (vertical edges); cuts and fills the existing terrain.'),
+    run: () => ativarRegiao('plataforma'),
+    pressed: regiaoAtiva('plataforma'),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoPlataformaElemento: {
+    label: t('Plataforma por elemento', 'Building Pad by Element'),
+    icon: 'slab',
+    hint: t('Clique numa laje ou piso: copia o contorno e usa a face inferior como cota da plataforma.', 'Click a slab or floor: copies its outline and uses its bottom face as the pad elevation.'),
+    run: () => ativarRegiao('plataforma', true),
+    pressed: regiaoAtiva('plataforma', true),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoNivelada: {
+    label: t('Região nivelada', 'Graded Region'),
+    icon: 'slope',
+    hint: t('Desenha um plano de cota fixa com taludes (1,5 de corte e 2 de aterro por padrão) sobre o terreno.', 'Draws a flat region at a fixed elevation with side slopes (1.5 cut and 2 fill by default) over the terrain.'),
+    run: () => ativarRegiao('nivelada'),
+    pressed: regiaoAtiva('nivelada'),
+    disabled: semTerrenoNoProjeto,
   },
   importTerreno: {
     label: t('Importar levantamento…', 'Import Survey…'),

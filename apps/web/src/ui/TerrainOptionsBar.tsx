@@ -1,10 +1,13 @@
 import { useReducer, type ReactElement } from 'react';
-import type { TerrainEditTool, TerrainTool } from '@hestia/tools';
+import { TERRENO_LIMITES, type PapelRegiaoTerreno } from '@hestia/model';
+import { TerrainRegionTool, type TerrainEditTool, type TerrainTool } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { sairEdicaoTerreno } from '../editor/terrenoEdicao.ts';
-import { NumField } from './fields.tsx';
+import { Check, NumField } from './fields.tsx';
+import { grausParaRad, radParaGraus } from './dialogs/localizacaoForm.ts';
+import { fracaoParaPercentual, percentualParaFracao } from './terrainPropsModel.ts';
 import { editorDeTerreno, topografiaAtiva, type ModoEdicaoTerreno, type ModoTopografia } from './terrainActions.ts';
 
 const MODOS_TOPOGRAFIA: ReadonlyArray<{ value: ModoTopografia; chave: keyof Dict }> = [
@@ -66,14 +69,70 @@ export function EdicaoOpcoes({ tool, onChange, onConcluir }: { tool: TerrainEdit
   );
 }
 
-/** Barra de opções da Topografia e do Editar terreno: lê a ferramenta ativa do editor. */
-export function TerrainOptionsBar({ tool }: { tool: 'terrain' | 'terrainEdit' }): ReactElement | null {
+const PAPEIS_REGIAO: ReadonlyArray<{ value: PapelRegiaoTerreno; chave: keyof Dict }> = [
+  { value: 'subdivisao', chave: 'ui_tn_r_papel_subdivisao' },
+  { value: 'plataforma', chave: 'ui_tn_r_papel_plataforma' },
+  { value: 'nivelada', chave: 'ui_tn_r_papel_nivelada' },
+];
+
+/** A ferramenta Região de terreno ativa, ou null. */
+const regiaoDoEditor = (ed: { readonly activeTool: unknown }): TerrainRegionTool | null => (ed.activeTool instanceof TerrainRegionTool ? ed.activeTool : null);
+
+/**
+ * Campos da Região de terreno: papel (as três predefinições), "Por elemento" (só plataforma), Cota, Inclinação (%), Direção de subida (graus),
+ * taludes de corte e aterro e Área permeável. A subdivisão não tem plano nem taludes: só o papel e a permeabilidade.
+ */
+export function RegiaoOpcoes({ tool, onChange }: { tool: TerrainRegionTool; onChange: () => void }): ReactElement {
+  const { t } = useT();
+  const plano = tool.predefinicao !== 'subdivisao';
+  return (
+    <>
+      <label>
+        {t('ui_tn_r_papel')}
+        <select id="opt-rg-papel" className="select" value={tool.predefinicao} onChange={(e) => { tool.definirPredefinicao(e.target.value as PapelRegiaoTerreno); onChange(); }}>
+          {PAPEIS_REGIAO.map((o) => <option key={o.value} value={o.value}>{t(o.chave)}</option>)}
+        </select>
+      </label>
+      {tool.predefinicao === 'plataforma' ? <Check id="opt-rg-elemento" checked={tool.porElemento} onChange={(v) => { tool.definirPorElemento(v); onChange(); }}>{t('ui_tn_o_por_elemento')}</Check> : null}
+      {plano ? (
+        <>
+          <label>
+            {t('ui_tn_o_cota')}
+            <NumField id="opt-rg-cota" quantity="length" value={tool.cotaDoCampo} onCommit={(v) => { tool.definirCotaDoCampo(v); onChange(); }} />
+          </label>
+          <label>
+            {t('ui_tn_r_inclinacao')}
+            <NumField id="opt-rg-incl" suffix="%" decimals={2} min={0} max={TERRENO_LIMITES.inclinacaoMax * 100} value={fracaoParaPercentual(tool.inclinacao)} onCommit={(v) => { tool.definirInclinacao(percentualParaFracao(v)); onChange(); }} />
+          </label>
+          <label>
+            {t('ui_tn_r_direcao')}
+            <NumField id="opt-rg-dir" suffix="°" decimals={2} value={radParaGraus(tool.direcao)} onCommit={(v) => { tool.definirDirecao(grausParaRad(v)); onChange(); }} />
+          </label>
+          <label>
+            {t('ui_tn_r_talude_corte')}
+            <NumField id="opt-rg-tcorte" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={tool.taludeCorte} onCommit={(v) => { tool.definirTalude('corte', v); onChange(); }} />
+          </label>
+          <label>
+            {t('ui_tn_r_talude_aterro')}
+            <NumField id="opt-rg-taterro" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={tool.taludeAterro} onCommit={(v) => { tool.definirTalude('aterro', v); onChange(); }} />
+          </label>
+        </>
+      ) : null}
+      <Check id="opt-rg-perm" checked={tool.permeavel} onChange={(v) => { tool.definirPermeavel(v); onChange(); }}>{t('ui_tn_r_permeavel')}</Check>
+    </>
+  );
+}
+
+/** Barra de opções da Topografia, do Editar terreno e da Região de terreno: lê a ferramenta ativa do editor. */
+export function TerrainOptionsBar({ tool }: { tool: 'terrain' | 'terrainEdit' | 'terrainRegion' }): ReactElement | null {
   // O estado vive na ferramenta (fora do React): `previewTick` e o `force` refazem a leitura depois de cada gesto ou de cada campo.
   useUi((s) => s.previewTick);
   const [, force] = useReducer((n: number) => n + 1, 0);
   const topografia = tool === 'terrain' ? topografiaAtiva(editor) : null;
   const edicao = tool === 'terrainEdit' ? editorDeTerreno(editor) : null;
+  const regiao = tool === 'terrainRegion' ? regiaoDoEditor(editor) : null;
   if (topografia) return <TopografiaOpcoes tool={topografia} onChange={force} />;
+  if (regiao) return <RegiaoOpcoes tool={regiao} onChange={force} />;
   if (edicao) return <EdicaoOpcoes tool={edicao} onChange={force} onConcluir={() => sairEdicaoTerreno((id) => editor.setTool(id))} />;
   return null;
 }

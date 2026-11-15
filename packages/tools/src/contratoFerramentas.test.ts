@@ -40,6 +40,8 @@ const LINEARES: Record<string, string> = {
   // Editar terreno: curva, linha de quebra e borda são polilinhas do núcleo comum. Rótulo de curva: linha de 2 pontos pelo mesmo núcleo.
   terrainEdit: 'terrainEditTool.ts',
   terrainLabel: 'terrainLabelTool.ts',
+  // Região de terreno (Subdivisão, Plataforma e Região nivelada): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
+  terrainRegion: 'terrainRegionTool.ts',
 };
 
 /**

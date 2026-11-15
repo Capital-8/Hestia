@@ -35,7 +35,7 @@ function idsInOrder(ids: PasteIds): Id[] {
 /** Há algo colável? Aberturas sozinhas não entram: sem a parede anfitriã não há como colá-las. */
 function hasContent(c: ClipBuffer, comTerreno: boolean): boolean {
   return (
-    (comTerreno && (c.terrains?.length ?? 0) > 0) ||
+    (comTerreno && ((c.terrains?.length ?? 0) > 0 || (c.terrainRegions?.length ?? 0) > 0)) ||
     c.walls.length > 0 ||
     c.floors.length > 0 ||
     c.slabs.length > 0 ||
@@ -65,6 +65,7 @@ function sourceLevelOf(p: Project, c: ClipBuffer): Id {
     ...(c.cad ?? []).map((e) => e.levelId),
     ...(c.railings ?? []).map((e) => e.levelId),
     ...(c.terrains ?? []).map((e) => e.levelId),
+    ...(c.terrainRegions ?? []).map((e) => e.levelId),
   ];
   return candidates.find((id) => p.levels.some((l) => l.id === id)) ?? p.levels[0]?.id ?? '';
 }
@@ -292,7 +293,7 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
     commands.push({ type: 'addGuardaCorpo', guardaCorpo: { ...rest, id, levelId, typeId, hospedeiro } });
   }
 
-  // Terreno e regiões (só no colar de um nível): cada região vai para o terreno NOVO; região sem o terreno no buffer não entra.
+  // Terreno e regiões (só no colar de um nível): cada região vai para o terreno NOVO; região sem o terreno no buffer fica no original.
   if (comTerreno) {
     const terrenoMap = new Map<Id, Id>();
     for (const tn of clip.terrains ?? []) {
@@ -303,12 +304,18 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
       commands.push({ type: 'addTerrain', terrain: { ...copiarTerreno(rest), id, levelId } });
     }
     for (const r of clip.terrainRegions ?? []) {
+      // Região do terreno colado: vai para o terreno NOVO. Região colada SEM o terreno no buffer: fica no terreno original (se ainda existir),
+      // no nível dele (o terreno é um só para todos os níveis).
       const novoTerreno = terrenoMap.get(r.terrenoId);
-      if (!novoTerreno) continue;
+      const dono = p.elements[r.terrenoId];
+      const donoTerreno = dono?.kind === 'terrain' ? dono : null;
+      const terrenoId = novoTerreno ?? donoTerreno?.id;
+      const nivel = novoTerreno ? levelId : donoTerreno?.levelId;
+      if (!terrenoId || !nivel) continue;
       const { order: _order, ...rest } = r;
       const id = mint('rg');
       ids.terrainRegions.push(id);
-      commands.push({ type: 'addTerrainRegion', regiao: { ...rest, id, levelId, terrenoId: novoTerreno, contorno: rest.contorno.map((q) => ({ ...q })) } });
+      commands.push({ type: 'addTerrainRegion', regiao: { ...rest, id, levelId: nivel, terrenoId, contorno: rest.contorno.map((q) => ({ ...q })) } });
     }
   }
 

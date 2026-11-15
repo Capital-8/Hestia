@@ -9,6 +9,7 @@ import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, 
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
+import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -34,6 +35,9 @@ import { stairFreeHandlePreview } from './stairFreeGrips.ts';
 import { spiralHandlePreview } from './stairSpiralGrips.ts';
 import { rampHandlePreview } from './rampGrips.ts';
 import type { PointerInfo } from './types.ts';
+
+// As alças de vértice da região de terreno entram na seleção (uma vez só; ver `terrainRegionHandles.ts`).
+registrarAlcasDaRegiao();
 
 type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove';
 
@@ -325,6 +329,14 @@ export class SelectTool extends ToolBase {
   /** Delete com vértice de piso em foco: remove o vértice (mantendo ao menos 3). Senão, o Delete exclui a seleção. */
   deleteKey(): boolean {
     const pr = this.env.project();
+    // Vértice de região de terreno em foco: remove o vértice (a região mantém ao menos 3).
+    if (this.focus) {
+      const r = removerVerticeDaRegiao(this.env, this.focus);
+      if (r !== null) {
+        if (r) this.focus = r;
+        return true;
+      }
+    }
     const f = this.focus ? pr.elements[this.focus.id] : undefined;
     const ring0 = f && (isFloor(f) || isSlab(f) || isRoof(f) || isCeiling(f)) ? (isCeiling(f) ? ceilingOutline(pr, f).boundary : f.boundary) : null;
     if (!this.focus || !f || ring0 === null || !this.env.selection().includes(f.id) || this.focus.index >= ring0.length) {

@@ -60,7 +60,18 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
       colarEntrePavimentos: 'cotas absolutas: o terreno é um só para todos os níveis (só o colar de um nível o leva).',
     },
   },
-  terrainRegion: { mover: null, colar: null, alinhar: null, motivo: 'terreno: ficha T3 (mover, copiar, colar e alinhar a região pelo mecanismo genérico; o `transform` do modelo já a leva).' },
+  terrainRegion: {
+    mover: 'regioesSozinhas',
+    colar: 'terrainRegions',
+    alinhar: 'bordasDeRegiao',
+    semOperacao: {
+      aparar: 'região é polígono fechado',
+      estender: 'região é polígono fechado',
+      dividir: 'região é polígono fechado',
+      deslocar: 'região é polígono fechado',
+      colarEntrePavimentos: 'cotas absolutas: o terreno é um só para todos os níveis (só o colar de um nível leva a região).',
+    },
+  },
   lot: { mover: null, colar: null, alinhar: null, motivo: 'lote: ficha P3 (mover, copiar, colar e alinhar o lote pelo mecanismo genérico; o `transform` do modelo já o leva).' },
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
@@ -96,7 +107,12 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
     previa: null,
     motivo: 'terreno: o Alinhar da vista escolhe o alvo pelo desenho do corte (ficha V3) e o fantasma do corte sai das peças da vista (`sectionMoverPrevia.ts`, fora da lista da T1); mover e copiar valem (horizontal é `transform`, vertical soma a todas as cotas).',
   },
-  terrainRegion: { mover: null, alinhar: null, previa: null, motivo: 'terreno: ficha T3 (mover e alinhar a região no corte; ela ainda não aparece no corte nem na elevação).' },
+  terrainRegion: {
+    mover: 'isTerrainRegion',
+    alinhar: null,
+    previa: 'isTerrainRegion',
+    motivo: 'terreno: o Alinhar da vista escolhe o alvo pelo desenho do corte e a região é um polígono em planta que o corte não desenha (o terreno sim); mover e copiar valem (horizontal é `transform`, vertical muda a `cota` da plataforma e da nivelada; a subdivisão não tem cota e não anda na vertical).',
+  },
   lot: { mover: null, alinhar: null, previa: null, motivo: 'lote: ficha P3 (o lote é só de planta e prancha; não aparece no corte nem na elevação, então mover no corte fica null).' },
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
@@ -155,17 +171,19 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     expect(corte).not.toMatch(/\bdown\(|\bdrag\(|\bup\(/);
   });
 
-  it('terrain: operações que não se aplicam trazem o motivo escrito e o colar entre pavimentos deixa o terreno de fora', () => {
-    const m = CLASSIFICACAO.terrain;
-    for (const op of ['aparar', 'estender', 'dividir', 'deslocar', 'colarEntrePavimentos']) expect(m.semOperacao?.[op], `terrain: ${op} sem motivo`).toBeTruthy();
-    expect(lerTools('pasteLevels/command.ts')).toContain('comTerreno');
-  });
+  for (const kind of ['terrain', 'terrainRegion'] as const) {
+    it(`${kind}: operações que não se aplicam trazem o motivo escrito e o colar entre pavimentos o deixa de fora`, () => {
+      const m = CLASSIFICACAO[kind];
+      for (const op of ['aparar', 'estender', 'dividir', 'deslocar', 'colarEntrePavimentos']) expect(m.semOperacao?.[op], `${kind}: ${op} sem motivo`).toBeTruthy();
+      expect(lerTools('pasteLevels/command.ts')).toContain('comTerreno');
+    });
+  }
 
   it('o comando `transform` do modelo trata os kinds marcados como móveis', () => {
     const cmd = lerModel('commands.ts') + lerModel('guardaCorpoTransform.ts');
     for (const [kind, m] of Object.entries(CLASSIFICACAO)) {
       if (!m.mover || kind === 'door' || kind === 'window') continue; // aberturas seguem a parede anfitriã
-      const guarda = { terrain: 'transformTerrain', wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad' }[kind];
+      const guarda = { terrain: 'transformTerrain', terrainRegion: 'transformTerrainRegion', wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad' }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);
     }
