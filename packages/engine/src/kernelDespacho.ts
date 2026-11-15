@@ -21,6 +21,7 @@ import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/mod
 import { montarCenaA1 } from './kernelA1.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { projetoTemParedeInclinada } from './wallTiltJoinLevel.ts';
+import { projetoTemContornoNoTopo } from './outlineBound.ts';
 import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
@@ -149,12 +150,12 @@ export class DespachoKernel {
 
   /** O despachante de `resolveFloors` (fatia B). */
   resolverPisos(p: Project, levelId: Id, ts: () => ResolvedFloor[]): ResolvedFloor[] {
-    return fatiaEfetiva(true, projetoTemParedeInclinada(p)) ? this.b.resolverPisos(p, levelId, ts) : ts();
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.resolverPisos(p, levelId, ts) : ts();
   }
 
   /** O despachante de `resolveSlabs` (fatia B). */
   resolverLajes(p: Project, levelId: Id, ts: () => ResolvedSlab[]): ResolvedSlab[] {
-    return fatiaEfetiva(true, projetoTemParedeInclinada(p)) ? this.b.resolverLajes(p, levelId, ts) : ts();
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.resolverLajes(p, levelId, ts) : ts();
   }
 
   /** O despachante de `junctionLevel` (fatia B): só o modo sombra consulta a B3. */
@@ -164,7 +165,7 @@ export class DespachoKernel {
 
   /** O despachante das quantidades (fatia B, esquema v12). */
   quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
-    return fatiaEfetiva(true, projetoTemParedeInclinada(p)) ? this.b.quantificar(p, levelId, tipo) : null;
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.quantificar(p, levelId, tipo) : null;
   }
 
   /** O despachante de `resolveLevel`. */
