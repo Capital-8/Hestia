@@ -20,6 +20,7 @@ async function novoApp() {
   const page = await ctx.newPage();
   const erros = [];
   page.on('pageerror', (e) => erros.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error' || process.env.VERBOSO) erros.push(`[console] ${m.text()}`); });
   await page.goto(`${URL_APP}?debug=1&gl=1`);
   await page.waitForFunction(() => window.__hestia, null, { timeout: 120000 });
   await page.waitForTimeout(1200);
@@ -76,7 +77,7 @@ function abrir(page, modelo, nova) {
     const fases = {
       '1 pedido (abrir->postMessage)': ped - abre, '2 clone/postagem': pos - ped, '3 ida ao worker': wr - pos, '4 calculo no worker': wf - wi + (wi - wr),
       '5 volta (clone do resultado)': rsp - wf, '6 promessa->cache': cache - rsp, '7 espera do quadro (React/layout)': bi - cache,
-      '8 primitivas (build)': bf - bi, '9 setDrawList (malhas)': dl - bf, '10 render GL (submissao)': rf - dl, '11 apresentacao (rAF)': (apres - base) - (rf - base),
+      '8 primitivas (build)': bf - bi, '9 setDrawList (malhas)': dl - bf, '10 render GL (submissao)': rf - dl, '11 apresentacao (rAF)': performance.timeOrigin + apres - rf,
     };
     return { id, total: apres - t0, ate_render: fim - t0, fases };
   }, [modelo, nova]);
