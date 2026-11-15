@@ -11,7 +11,7 @@ import type { QuantidadesRegiaoTN, QuantidadesTerreno } from './terrenoQuantitie
  * Sem kernel a tabela vem vazia, com a mensagem do aviso `terreno-sem-kernel` (ou `terreno-invalido`); nunca lança e nunca mostra número de TypeScript.
  */
 
-/** Uma linha da tabela: de uma região (`tipo` `regiao`) ou o total de um terreno (`tipo` `terreno`, sem região nem papel). Áreas em m², volumes em m³ (SI). */
+/** Uma linha da tabela: de uma região (`tipo` `regiao`) ou o total de um terreno (`tipo` `terreno`, sem região nem papel). Valores em unidades SI (a unidade do projeto só entra ao exibir). */
 export interface TerrenoScheduleRow {
   tipo: 'regiao' | 'terreno';
   terrenoId: Id;
