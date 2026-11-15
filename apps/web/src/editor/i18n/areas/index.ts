@@ -43,11 +43,13 @@ import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 import { PT_TERRENO, EN_TERRENO } from './terreno.ts';
 import { PT_TERRENO_VISTA, EN_TERRENO_VISTA } from './terreno-vista.ts';
+import { PT_GRAVIDADE, EN_GRAVIDADE } from './gravidade.ts';
 
 export const PT_ALL = {
   ...PT_GUARDA_CORPO,
   ...PT_TERRENO,
   ...PT_TERRENO_VISTA,
+  ...PT_GRAVIDADE,
   ...PT_PAREDE_CORTINA,
   ...PT_BIBLIOTECA,
   ...PT_CANVAS,
@@ -95,6 +97,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_GUARDA_CORPO,
   ...EN_TERRENO,
   ...EN_TERRENO_VISTA,
+  ...EN_GRAVIDADE,
   ...EN_PAREDE_CORTINA,
   ...EN_BIBLIOTECA,
   ...EN_CANVAS,
