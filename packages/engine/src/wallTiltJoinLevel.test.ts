@@ -73,13 +73,13 @@ describe('F2.4 · analyzeLevelTilt', () => {
     expect(junctionLevel(p, 'lv_0').walls.get('A')?.tilt).toBeUndefined();
   });
 
-  it('cruzamento fora da parede (-45°/-45°, L=2, H=6): degrada para corte simples e avisa inclinacaoInviavelNaJuncao', () => {
+  it('cruzamento fora da parede (-45°/-45°, L=2, H=6): plano B (encosto, sem degradar o conjunto) e avisa inclinacaoInviavelNaJuncao', () => {
     const p = build([
       { id: 'A', a: { x: 2, y: 0 }, b: { x: 0, y: 0 }, tilt: -45 },
       { id: 'B', a: { x: 0, y: 0 }, b: { x: 0, y: 2 }, tilt: -45 },
     ], 6);
     const an = analyzeLevelTilt(levelFrames(p, 'lv_0'), new Map([['A', 6], ['B', 6]]));
-    expect(an.joins.size).toBe(0);
+    expect(an.joins.size).toBe(2); // C1: o par vira encosto (face da vizinha em toda a altura), não corte vertical na base
     expect(an.avisos).toEqual([{ code: 'inclinacaoInviavelNaJuncao', wallId: 'A' }, { code: 'inclinacaoInviavelNaJuncao', wallId: 'B' }]);
     expect(wallTiltJoinIssues(p).map((i) => i.code)).toEqual(['inclinacaoInviavelNaJuncao', 'inclinacaoInviavelNaJuncao']);
     // a mesma geometria com H=1 cabe: a inviabilidade depende da altura REAL (topo anexado a piso/telhado)

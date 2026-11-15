@@ -168,8 +168,10 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       const dot = (ua.x * ub.x + ua.y * ub.y) * sa * sb; // < 0: os eixos saem do nó em sentidos opostos (continuação)
       if (Math.abs(ua.x * ub.y - ua.y * ub.x) < 1e-4 && dot < 0) {
         const step = Math.max(heightOf(fa), heightOf(fb)) * Math.abs(Math.tan((tiltOf(fa) * Math.PI) / 180) - Math.tan((tiltOf(fb) * Math.PI) / 180));
-        if (step > DEGRAU_MIN) { warn('inclinacoesDiferentesEmContinuacao', r.a.id, step); continue; }
-        if (!fa.arc && !fb.arc) continue; // mesma inclinação em linha: corte plano exato
+        if (step > DEGRAU_MIN) {
+          warn('inclinacoesDiferentesEmContinuacao', r.a.id, step);
+          if (!fa.arc && !fb.arc) continue; // arco tangente segue também o aviso de arco sem junção
+        } else if (!fa.arc && !fb.arc) continue; // mesma inclinação em linha: corte plano exato
       }
     }
     if (ids(r).some((id) => byId.get(id)!.arc)) {
