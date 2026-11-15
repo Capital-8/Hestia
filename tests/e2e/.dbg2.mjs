@@ -19,7 +19,7 @@ const r = await page.evaluate(async (t) => {
   for (const lv of p.levels) { const t0 = performance.now(); try { resolveLevel(p, lv.id); } catch (e) { out['err'+lv.id] = String(e).slice(0,80); } out['lv_' + lv.id] = Math.round(performance.now() - t0); }
   const sec = p.views.find((v) => v.kind === 'section');
   const t0 = performance.now(); try { ex('corte', p, sec.id); } catch (e) { out.errcorte = String(e).slice(0, 200); } out.corte = Math.round(performance.now() - t0);
-  out.len = JSON.stringify(globalThis.__lentas); return out;
+  out.med = window.__hestiaKernel.medicao().porOp.differenceClipper; return out;
 }, t);
 console.log(JSON.stringify(r));
 const profile = { nodes: [], samples: [], timeDeltas: [] };
