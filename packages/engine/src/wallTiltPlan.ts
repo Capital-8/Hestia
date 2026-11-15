@@ -68,6 +68,36 @@ export function layerPlanMap(rw: Pick<ResolvedWall, 'a' | 'b' | 'n' | 'sag' | 't
 }
 
 /**
+ * Memo da planta inclinada (Etapa P). O resolvedor refaz `applyTiltToPlan` a cada chamada (corte, elevação, junção e planta
+ * resolvem o mesmo nível), e o custo está nas uniões do Clipper. As entradas vêm do cache de conteúdo do aglomerado, então as
+ * identidades de `cut`/`bands` por camada e a da junção (memo de `analyzeLevelTilt`) são chaves baratas e estáveis; o que
+ * não é objeto entra numa assinatura curta. Qualquer mudança de forma, tilt, junção ou cota gera objetos novos e erra o memo.
+ */
+interface MemoParede { cuts: readonly MultiPolygon[]; bands: readonly unknown[]; join: WallTiltJoin | undefined; sig: string; layers: MultiPolygon[]; tiltPlan: ResolvedWall['tiltPlan'] }
+const memoParede = new WeakMap<object, MemoParede>();
+interface MemoAglomerado { cuts: readonly MultiPolygon[]; regions: Region[]; silhouette: MultiPolygon }
+const memoAglomerado = new WeakMap<object, MemoAglomerado>();
+const mesmas = (a: readonly unknown[], b: readonly unknown[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+
+function plantaDaParede(rw: ResolvedWall, join: WallTiltJoin | undefined, zc: number): { layers: MultiPolygon[]; tiltPlan: ResolvedWall['tiltPlan'] } {
+  const H = join?.H ?? rw.height;
+  const sig = [rw.tilt ?? 0, rw.sag ?? 0, rw.a.x, rw.a.y, rw.b.x, rw.b.y, rw.n.x, rw.n.y, zc, H].join(',');
+  const cuts = rw.layers.map((l) => l.cut);
+  const bands = rw.layers.map((l) => l.bands);
+  const chave = rw.layers[0]?.bands;
+  const hit = chave ? memoParede.get(chave) : undefined;
+  if (hit && hit.sig === sig && hit.join === join && mesmas(hit.cuts, cuts) && mesmas(hit.bands, bands)) return hit;
+  const layers = rw.layers.map((l) => mapMulti(l.cut, layerPlanMap(rw, l.layerIndex, join), zc));
+  // Só a existência da pegada importa (o antigo `unionClipper` só alimentava `.length`): sem faixa com polígono, sem projeção.
+  const temPegada = rw.layers.some((l) => l.bands.some((b) => b.poly.length > 0));
+  const at = (z: number): MultiPolygon => unionClipper(...rw.layers.map((l) => mapMulti(l.bands.flatMap((b) => b.poly), layerPlanMap(rw, l.layerIndex, join), z)));
+  const tiltPlan = temPegada ? { z: zc, base: at(0), top: at(H) } : undefined;
+  const novo: MemoParede = { cuts, bands, join, sig, layers, tiltPlan };
+  if (chave) memoParede.set(chave, novo);
+  return novo;
+}
+
+/**
  * Leva a planta resolvida de um nível ao plano de corte: nas paredes inclinadas (ou ligadas a uma inclinada por junção
  * de dois níveis) o polígono de cada camada é mapeado na cota `planZ` (relativa à base), as regiões e a silhueta dos
  * grupos afetados são refeitos e `tiltPlan` recebe a projeção da base (z=0) e do topo (z=H). Sem parede afetada nada
@@ -79,19 +109,23 @@ export function applyTiltToPlan(level: ResolvedLevel, planZ: ReadonlyMap<Id, num
   for (const rw of Object.values(level.walls)) {
     if (!touched(rw)) continue;
     const join = joins?.get(rw.wallId);
-    const zc = planZ.get(rw.wallId) ?? 0;
-    const layers: ResolvedLayer[] = rw.layers.map((l) => ({ ...l, cut: mapMulti(l.cut, layerPlanMap(rw, l.layerIndex, join), zc) }));
-    const foot = unionClipper(...rw.layers.flatMap((l) => l.bands.map((b) => b.poly)));
-    const at = (z: number): MultiPolygon => unionClipper(...rw.layers.map((l) => mapMulti(l.bands.flatMap((b) => b.poly), layerPlanMap(rw, l.layerIndex, join), z)));
-    rw.layers = layers;
-    if (foot.length) rw.tiltPlan = { z: zc, base: at(0), top: at(join?.H ?? rw.height) };
+    const r = plantaDaParede(rw, join, planZ.get(rw.wallId) ?? 0);
+    const mapeadas = r.layers;
+    rw.layers = rw.layers.map((l, i) => ({ ...l, cut: mapeadas[i]! }));
+    if (r.tiltPlan) rw.tiltPlan = r.tiltPlan;
   }
   level.clusters = level.clusters.map((c) => {
     if (!c.wallIds.some((id) => touched(level.walls[id]!))) return c;
+    const cuts: MultiPolygon[] = [];
     const byMaterial = new Map<Id, MultiPolygon[]>();
-    for (const id of c.wallIds) for (const l of level.walls[id]?.layers ?? []) if (l.cut.length) byMaterial.set(l.materialId, [...(byMaterial.get(l.materialId) ?? []), l.cut]);
+    for (const id of c.wallIds) for (const l of level.walls[id]?.layers ?? []) if (l.cut.length) { cuts.push(l.cut); byMaterial.set(l.materialId, [...(byMaterial.get(l.materialId) ?? []), l.cut]); }
+    const chave = cuts[0];
+    const hit = chave ? memoAglomerado.get(chave) : undefined;
+    if (hit && mesmas(hit.cuts, cuts)) return { ...c, regions: hit.regions, silhouette: hit.silhouette };
     const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: closeGapsSafe(unionClipper(...parts)) }));
-    return { ...c, regions, silhouette: closeGapsSafe(unionClipper(...regions.map((r) => r.polygons))) };
+    const silhouette = closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
+    if (chave) memoAglomerado.set(chave, { cuts, regions, silhouette });
+    return { ...c, regions, silhouette };
   });
 }
 

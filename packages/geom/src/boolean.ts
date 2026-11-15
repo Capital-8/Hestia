@@ -162,12 +162,35 @@ export function intersection(a: MultiPolygon, b: MultiPolygon): MultiPolygon {
 
 const CLIP_SCALE = 1e6;
 
+/** Limite do Clipper em `Number` (`ClipperBase.loRange`): acima dele cada produto vira Int128/BigInteger (muito mais lento). */
+const CLIP_LO_RANGE = 47453132;
+type ClipPath = Array<{ X: number; Y: number }>;
+
+/**
+ * Cena grande (linha de corte/elevação de dezenas de metros a 1 µm passa de 47 m em inteiros): translada os caminhos, em
+ * lugar, por um inteiro para centrar a caixa. Só age quando alguma coordenada passa do limite; com a caixa cabendo, o
+ * Clipper fica na aritmética rápida. A translação é inteira, o resultado volta somando o mesmo deslocamento.
+ */
+function centrarCaminhos(grupos: ReadonlyArray<readonly ClipPath[]>): { ox: number; oy: number } {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const g of grupos) for (const path of g) for (const q of path) {
+    if (q.X < x0) x0 = q.X;
+    if (q.X > x1) x1 = q.X;
+    if (q.Y < y0) y0 = q.Y;
+    if (q.Y > y1) y1 = q.Y;
+  }
+  if (!(Math.max(Math.abs(x0), Math.abs(x1), Math.abs(y0), Math.abs(y1)) > CLIP_LO_RANGE)) return { ox: 0, oy: 0 };
+  const ox = Math.round((x0 + x1) / 2), oy = Math.round((y0 + y1) / 2);
+  for (const g of grupos) for (const path of g) for (const q of path) { q.X -= ox; q.Y -= oy; }
+  return { ox, oy };
+}
+
 const toClipPath = (r: Ring): Array<{ X: number; Y: number }> => r.map((v) => ({ X: Math.round(v.x * CLIP_SCALE), Y: Math.round(v.y * CLIP_SCALE) }));
 
 /** Resultado do Clipper (árvore) como multipolígono com furos. */
-function fromTree(tree: ClipperLib.PolyTree): MultiPolygon {
+function fromTree(tree: ClipperLib.PolyTree, ox = 0, oy = 0): MultiPolygon {
   const out: MultiPolygon = [];
-  const toRing = (path: Array<{ X: number; Y: number }>): Ring => path.map((q) => ({ x: q.X / CLIP_SCALE, y: q.Y / CLIP_SCALE }));
+  const toRing = (path: Array<{ X: number; Y: number }>): Ring => path.map((q) => ({ x: (q.X + ox) / CLIP_SCALE, y: (q.Y + oy) / CLIP_SCALE }));
   const walk = (node: ClipperLib.PolyNode): void => {
     for (const child of node.Childs()) {
       if (child.IsHole()) continue;
@@ -207,21 +230,26 @@ function operandPaths(m: MultiPolygon): Array<Array<{ X: number; Y: number }>> {
 export function unionClipper(...ms: MultiPolygon[]): MultiPolygon {
   const parts = ms.filter((m) => m.length > 0);
   if (parts.length === 0) return [];
+  const paths = parts.flatMap(operandPaths);
+  const { ox, oy } = centrarCaminhos([paths]);
   const clip = new ClipperLib.Clipper();
-  clip.AddPaths(parts.flatMap(operandPaths), ClipperLib.PolyType.ptSubject, true);
+  clip.AddPaths(paths, ClipperLib.PolyType.ptSubject, true);
   const tree = new ClipperLib.PolyTree();
   clip.Execute(ClipperLib.ClipType.ctUnion, tree, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-  return fromTree(tree);
+  return fromTree(tree, ox, oy);
 }
 
 /** Operação booleana binária com Clipper (inteiros, não lança). */
 function clipperBinary(a: MultiPolygon, b: MultiPolygon, type: ClipperLib.ClipType): MultiPolygon {
+  const pa = operandPaths(a);
+  const pb = operandPaths(b);
+  const { ox, oy } = centrarCaminhos([pa, pb]);
   const clip = new ClipperLib.Clipper();
-  clip.AddPaths(operandPaths(a), ClipperLib.PolyType.ptSubject, true);
-  clip.AddPaths(operandPaths(b), ClipperLib.PolyType.ptClip, true);
+  clip.AddPaths(pa, ClipperLib.PolyType.ptSubject, true);
+  clip.AddPaths(pb, ClipperLib.PolyType.ptClip, true);
   const tree = new ClipperLib.PolyTree();
   clip.Execute(type, tree, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
-  return fromTree(tree);
+  return fromTree(tree, ox, oy);
 }
 
 /**
@@ -233,6 +261,7 @@ export function closeGaps(m: MultiPolygon, eps = 3e-6): MultiPolygon {
   if (m.length === 0) return m;
   const toPath = (r: Ring): Array<{ X: number; Y: number }> => r.map((v) => ({ X: Math.round(v.x * CLIP_SCALE), Y: Math.round(v.y * CLIP_SCALE) }));
   const paths = m.flatMap((p) => p.map(toPath));
+  const { ox, oy } = centrarCaminhos([paths]);
   const up: ClipperLib.Paths = [];
   const co = new ClipperLib.ClipperOffset(2, 0.25 * CLIP_SCALE * eps);
   co.AddPaths(paths, ClipperLib.JoinType.jtMiter, ClipperLib.EndType.etClosedPolygon);
@@ -251,7 +280,7 @@ export function closeGaps(m: MultiPolygon, eps = 3e-6): MultiPolygon {
   clip2.AddPaths(down, ClipperLib.PolyType.ptSubject, true);
   clip2.Execute(ClipperLib.ClipType.ctUnion, tree, ClipperLib.PolyFillType.pftNonZero, ClipperLib.PolyFillType.pftNonZero);
   const out: MultiPolygon = [];
-  const toRing = (path: Array<{ X: number; Y: number }>): Ring => path.map((q) => ({ x: q.X / CLIP_SCALE, y: q.Y / CLIP_SCALE }));
+  const toRing = (path: Array<{ X: number; Y: number }>): Ring => path.map((q) => ({ x: (q.X + ox) / CLIP_SCALE, y: (q.Y + oy) / CLIP_SCALE }));
   const walk = (node: ClipperLib.PolyNode): void => {
     for (const child of node.Childs()) {
       if (!child.IsHole()) {
