@@ -182,12 +182,20 @@ nível com topos diferentes) e `parede-dentro-da-laje` (parede cruzando camada d
   perpendicular e cruzamento entre traços, com índice espacial de 1 m por desenho e a opção `cad` no Snap, ligada por
   padrão.
 
+**Terreno e lote (2026-11-15; esquema 26, contrato do kernel 19)** — decisão [0058](decisoes/0058-terreno-e-lote.md), plano e estado em `docs/terreno/`.
+- Terreno em TIN calculado no kernel Rust (biblioteca `spade`): curvas de nível, corte, regiões plataforma, nivelada e subdivisão, superfície proposta e volumes de corte e aterro. Aparece em planta, 3D, corte e elevação, e sai em IFC (`IFCGEOGRAPHICELEMENT`), DXF e prancha.
+- Entrada e edição: importar DXF e CSV de levantamento, colocar pontos, desenhar curvas, editar pontos e cotas, linha de quebra, borda, rótulos de curva e pontos cotados; gravidade; localização do projeto e norte verdadeiro.
+- Lote: linhas de propriedade por desenho ou por tabela de rumos e distâncias, recuos por lado, área edificável, índices (taxa de ocupação, coeficiente de aproveitamento, permeabilidade), tabela com CSV e avisos.
+- Verificado em navegador (E2E `tests/e2e/terreno.mjs`, 10 passos, sem erro de console; relatório em `docs/terreno/evidencias/final/RELATORIO-E2E.md`). Com 50 mil vértices: primeiro desenho da planta em cerca de 0,9 s e abertura do 3D em cerca de 1,9 s (SwiftShader).
+- Limites conhecidos: o solo no corte é cor sólida, sem hachura (a biblioteca não tem material de terra); rótulos HTML da planta às vezes ficam escondidos depois de um zoom até mexer o mouse (defeito genérico de `PlanLabels`); a coluna Saldo da tabela de corte e aterro fica fora da área visível sem rolar; sem o kernel WASM o app não abre projeto (decisão do kernel obrigatório); o sinal do norte verdadeiro (`azimute + norte`) foi decidido pelo fiscal e aguarda a confirmação do dono.
+
 ## O que ainda não existe
 
 - **Interoperabilidade e nuvem**: mapeamento nativo completo de todas as classes IFC (telhados, escadas e rampas
   podem entrar como geometria genérica), importador do Hestia 1 (J3), nuvem e link de compartilhamento (Fase 8). O CAD
   importado é DXF e entra como referência por nível; não há DWG nem CAD vinculado (link), e o desenho não vira elemento
   BIM.
+- **Terreno e lote**: envelope legal (depende da massa conceitual), Rastreamento e Referência (opcional), componentes de terreno (árvore, poste, vaga), vínculo persistente da parede ao terreno, terreno em camadas e furos na borda.
 - **Guarda-corpo e corrimão** (escadas C4, decisão do dono de 2026-10-21); **escada de vários andares** (C6).
 - **Pilares, vigas, sapatas e cortina de vidro**: o modelo não tem esses elementos.
 - **Aberturas**: vão em arco e formas não retangulares (0017 §8); verga e peitoril na planta quando o corte passa por

@@ -50,7 +50,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 ## F · Vistas
 - [x] F1 Planta com curvas de nível e borda (V2). Nota: sem captura visual da planta.
 - [x] F2 Snaps no terreno em planta (V2)
-- [ ] F3 Terreno no 3D, com seleção e realce. Pendente: a V1 montou a cena com malha falsa; o ESTADO não registra teste com malha real do kernel no 3D.
+- [x] F3 Terreno no 3D, com seleção e realce (V1). Verificado no navegador com o kernel real: disco de terreno com saia no 3D do levantamento importado (E2E, passo 2; `docs/terreno/evidencias/final/02-importado-3d.png`). O E2E também achou e corrigiu um defeito grave: com qualquer terreno no projeto o 3D ficava todo em branco, por causa da neblina fixa (Q1b, D2).
 - [ ] F4 Sem tremor entre plataforma e laje no 3D (A.8, item 6). Pendente: a V1 não conferiu.
 - [x] F5 Corte com solo cortado em hachura (V3). Nota: sem capturas de corte e elevação; traços do terreno atrás do edifício podem aparecer sobre a hachura.
 - [x] F6 Perfil existente tracejado no corte, só quando há plataforma ou região nivelada (V3; `section/terreno.test.ts` e o teste de kernel real `kernel-terreno-corte-vista`).

@@ -22,7 +22,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: linhas de proprieda
 - [x] C1 Desenhar o polígono pelo núcleo comum de desenho (P3)
 - [x] C2 Por tabela de rumos e distâncias: ponto inicial, linhas e erro de fechamento (P3)
 - [x] C3 Alças de vértice; mover um vértice mantém os lados (P3)
-- [ ] C4 Inserir vértice num lado duplica o papel e o recuo; remover vértice funde os dois lados. Pendente: o ESTADO não confirma essas regras.
+- [x] C4 Inserir vértice num lado duplica o papel e o recuo; remover vértice funde os dois lados e fica o primeiro (P3; `lotHandles.test.ts`).
 - [x] C5 Seleção pelo contorno, sem selecionar pelo interior (P3)
 - [x] C6 Mover, copiar, girar, espelhar, matriz, alinhar, apagar, copiar e colar, e colar entre pavimentos (P3). Nota: sem conferência visual.
 - [-] C7 Aparar, estender, dividir e deslocar: não se aplicam, o lote é polígono fechado (contrato da P3)
@@ -32,7 +32,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: linhas de proprieda
 - [x] D1 Contorno do lote na planta, com estilo de lote (P2). Nota: sai tracejado longo, ver F5.
 - [x] D2 Snap do lote na ferramenta de componentes (P2)
 - [x] D3 Seleção por clique e por caixa (P2, P3)
-- [ ] D4 Área edificável desenhada na planta (`mostrarEdificavel`). Pendente: o ESTADO não confirma o desenho na planta; só a camada DXF LOTE_EDIFICAVEL (X1).
+- [x] D4 Área edificável desenhada tracejada na planta quando `mostrarEdificavel` está ligado (P2; testes de `plan/lote.test.ts` e `loteCamada.test.ts`).
 - [ ] D5 Lote na prancha. Pendente: a X1 não cita o lote na prancha.
 
 ## E · Saídas e avisos
@@ -49,4 +49,4 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: linhas de proprieda
 - [ ] F5 Traço-dois-pontos no contorno do lote. Pendente: sai tracejado longo, porque `StrokeOp.dash` só aceita traço e vão (P2; decisão 0058, §3).
 - [ ] F6 Textos frente, lateral e fundo em dicionário local pt e en (`render/plan/lote.ts`), no lugar das chaves `md_lt_lado_*` do i18n. Pendente: a edição de `packages/model/src/i18n.ts` foi negada ao agente (P2); o ESTADO manda mover para `md_lt_lado_*` na U1 ou na Q1.
 - [ ] F7 Sinal do norte verdadeiro confirmado pelo dono. Pendente: foi decidido pelo fiscal (E4), o dono não respondeu; reverter se ele discordar.
-- [ ] F8 Verificação no navegador do lote: desenho, tabela de rumos, alças e índices. Pendente: P3 e P4 registram "não verificado em navegador".
+- [x] F8 Verificação no navegador do lote: tabela de rumos com fechamento zero e primeiro lado a 120° (azimute 90 + norte 30, regra E4), recuos gravados, área edificável de 198 m² e a tabela de índices com 25,00 % (E2E, passos 7 e 8; `docs/terreno/evidencias/final/07-lote.png` e `08-indices.png`). Alças do lote e o lote na prancha não foram exercitados.

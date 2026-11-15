@@ -1,15 +1,18 @@
 # Retomada no computador local
 
-Estado em 2026-11-13. Leia também `docs/terreno/ESTADO.md` (tabela das fichas) e `docs/terreno/PLANO.md` (a lei: Parte A, manual do fiscal em B, fichas em D, emendas E1 e E2 no fim).
+Estado em 2026-11-15. O **plano obrigatório está concluído**. Leia `docs/terreno/ESTADO.md` (tabela das fichas e pendências), `docs/terreno/PLANO.md` (Parte A é a lei; emendas E1 a E4 no fim) e `docs/decisoes/0058-terreno-e-lote.md`.
 
 ## Onde está o trabalho
-- Branch única de trabalho no GitHub: `claude/happy-einstein-sgyixh`. **Nada de pull request**; o dono não pediu.
-- **Mescladas e verificadas:** M1 (modelo, `SCHEMA_VERSION` 26), M2 (contrato do kernel, `versao` 19, ids 160 a 199), P1 (motor do lote), R1 (triangulação com `spade`, consultas 160 e 163), R2 (consultas 161, 162, 164, 165, 168).
-- **R2 mesclada** (curvas de nível, planta, corte, quantidades, avisos). O patch parcial foi removido.
-- **Próxima: R3** (regiões, superfície proposta, corte e aterro), depois E1, V1, V2, V3, I1, T1, T2, U1, T3, U2, P2 a P4, P5 (condicional), G1, X1, Q1; fase 7 opcional. Ordem completa em B.4 do plano.
+- Branch única no GitHub: `claude/happy-einstein-sgyixh`. **Nada de pull request** (o dono não pediu). Tudo o que está lá passou no portão do fiscal.
+- **Entregue:** modelo, kernel Rust (TIN com `spade`), motor, planta, 3D, corte e elevação, importação DXF e CSV, edição, regiões, tabela e mapa de corte e aterro, lote (desenho, rumos, índices, avisos), gravidade, IFC, DXF e prancha, E2E em navegador.
+- **Verificação em navegador:** `docs/terreno/evidencias/final/` (21 capturas e `RELATORIO-E2E.md`); rode `npm run build && node tests/e2e/terreno.mjs`.
 
-## Decisão do dono que continua aberta
-**Sinal do norte verdadeiro** (ESTADO, "Pendências"). O plano diz direção = azimute − norte; o texto de `Localizacao.norteVerdadeiro` sugere azimute + norte. Resolver antes da ficha P3 (sinal em `rumosParaPoligono` e `poligonoParaRumos`, `packages/engine/src/loteRumos.ts`, e no teste `rumos_com_norte_verdadeiro`).
+## O que ainda falta (nada bloqueia o uso)
+1. **P5, envelope legal** e "incluir massas" nos índices: dependem da massa conceitual (`docs/massa/`, branch `claude/youthful-dirac-l4egd1`), que não está nesta branch. Quando a massa entrar na `main`, rode o protocolo de B.7 do plano e depois a ficha P5.
+2. **Fase 7, Rastreamento e Referência (F1 e F2):** opcional; **só com o aceite do dono**, porque mexe no estado das vistas.
+3. **Defeitos conhecidos não corrigidos** (ver a linha da Q1 no ESTADO): D6 rótulos HTML da planta escondidos após zoom; D7 sem WASM o app não abre projeto (kernel obrigatório); D8 solo do corte sem hachura (a biblioteca não tem material de terra); D9 coluna Saldo fora da área visível sem rolar.
+4. **Pendências menores:** contorno do lote tracejado longo em vez de traço-dois-pontos; textos frente, lateral e fundo em dicionário local (`render/plan/lote.ts`) em vez do i18n; 3D: tremor entre plataforma e laje não verificado; comentário `lote: ficha P3` em `copyLink.ts`.
+5. **Decisão do dono ainda aberta:** o sinal do norte verdadeiro foi decidido pelo fiscal (emenda E4: `azimute + norteVerdadeiro`); reverter se discordar (um sinal em `packages/engine/src/loteRumos.ts` e nos testes).
 
 ## Preparar a máquina
 ```bash
@@ -19,17 +22,13 @@ git checkout claude/happy-einstein-sgyixh
 npm ci
 rustup toolchain install 1.97.1 --profile minimal --target wasm32-unknown-unknown --component clippy
 ```
-O `rust-toolchain.toml` já fixa 1.97.1; o componente `clippy` não vem junto e precisa ser instalado, senão `cargo clippy` falha.
+Linha de base: typecheck, lint (8 avisos antigos), `test:rapido` verde, `test:wasm` verde, `test:ifc-export` verde; **clippy já falha na base com 39 avisos** (o portão é: não sobe de 39 e arquivo novo da frente não tem nenhum). Para o E2E e `test:i18n` o ambiente precisa do Chromium (no Linux de nuvem: `mkdir -p /opt/pw-browsers/chromium-1248/chrome-linux64 && ln -sf /opt/pw-browsers/chromium /opt/pw-browsers/chromium-1248/chrome-linux64/chrome`) e de um servidor em `:5173` para o `test:i18n` (`npm run dev -w @hestia/web -- --port 5173`).
 
-Linha de base (2026-11-13): typecheck ✔, lint ✔ (8 avisos antigos), `test:rapido` 980 arquivos / 11441 testes, `cargo test -p geom-wasm` 510, **clippy já falha na base com 39 avisos** (portão: total não sobe de 39 e arquivo novo da frente não tem nenhum; emenda E1), `test:wasm` 55 arquivos / 1339. Em Windows o contrato de lixo pede `CARGO_TARGET_DIR` fora do repositório (ex.: `E:\hestia-target-terreno`).
-
-## Regra de modelo (ordem do dono)
-Subagentes **somente Sonnet ou Haiku**. Nunca passe `model: fable` nem `opus`. A recomendação de "modelo mais forte" em R3 e V3 no plano foi revogada.
+## Regras desta frente
+- Subagentes **somente Sonnet ou Haiku** (ordem do dono); Haiku para fichas mecânicas com molde próximo.
+- Uma suíte de testes por vez (duas em paralelo geram falhas espúrias de tempo).
+- `reports/i18n/hardcoded-pt.json` (saída do `npm run audit:i18n`) não pode ser commitado.
+- O worktree é a unidade de trabalho: `git worktree add /home/user/hestia-wt/<ficha> -b terreno/<ficha> claude/happy-einstein-sgyixh` e `npm ci` dentro dele. Só a branch de trabalho vai ao GitHub.
 
 ## Como continuar com um assistente
-Abra o Claude Code na pasta, na branch acima, e diga: "leia `docs/terreno/RETOMADA.md`, `ESTADO.md` e `PLANO.md` e continue de onde parou". O plano é o manual do fiscal: uma ficha por vez, conferir sozinho com os comandos de B.3, mesclar e enviar.
-
-## Lições desta execução
-- Rode **uma suíte por vez**: duas rodadas de vitest em paralelo já causaram uma falha espúria.
-- Limite de uso do agente interrompe fichas grandes: peça `wip:` a cada marco e, na retomada, confira `git status` do worktree antes de refazer.
-- Worktrees ficam em `/home/user/hestia-wt/<ficha>` e **não** vão para o GitHub; só a branch de trabalho vai.
+Abra o Claude Code na pasta, na branch acima, e diga: "leia `docs/terreno/RETOMADA.md`, `ESTADO.md` e `PLANO.md` e me diga o que falta".

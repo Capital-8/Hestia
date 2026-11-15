@@ -46,6 +46,16 @@
       "id": "pranchas",
       "arquivo": "pranchas.md",
       "status": "concluido"
+    },
+    {
+      "id": "terrenos",
+      "arquivo": "terrenos.md",
+      "status": "concluido"
+    },
+    {
+      "id": "lotes",
+      "arquivo": "lotes.md",
+      "status": "em-curso"
     }
   ]
 }
