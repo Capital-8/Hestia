@@ -414,8 +414,12 @@ export function parFuzz(r: () => number, k: number): { project: Project; H: numb
   return { project: s.project, H };
 }
 describe('J5 · fuzz de junções arco×arco e arco×reta (300 pares, semente 20261115)', () => {
-  /** Pares viáveis com defeito conhecido (J5-D3): fresta de 1,8 a 130 mm. Devem sair desta lista quando o motor for corrigido. */
-  const CONHECIDOS = new Set([132, 188, 198, 251]);
+  /**
+   * Pares viáveis com defeito conhecido (J5-D3). Os pares 132 e 198 foram corrigidos (solda, diagonal da tampa e faces da vizinha);
+   * restam 188 (tilts 0/0, caminho vertical) e 251: a medição de 100 mm é o canto externo do encosto 'butt' de arco em V agudo
+   * (ESTADO.md, seção D3/D1).
+   */
+  const CONHECIDOS = new Set([188, 251]);
   let cache: { viaveis: number; inviaveis: number; arcoArcoViaveis: number; falhas: Array<{ k: number; texto: string }>; pior: number } | null = null;
   const rodar = (): NonNullable<typeof cache> => {
     if (cache) return cache;
@@ -445,7 +449,7 @@ describe('J5 · fuzz de junções arco×arco e arco×reta (300 pares, semente 20
     expect(r.viaveis + r.inviaveis).toBe(300);
     expect(unicos.filter((k) => !CONHECIDOS.has(k))).toEqual([]);
   }, 300000);
-  it.fails('nenhum par viável com fresta >= 1 mm (defeito J5-D3: pares 132, 188, 198 e 251)', () => {
+  it.fails('nenhum par viável com fresta >= 1 mm (defeito J5-D3 restante: pares 188 e 251, canto externo do encosto de arco em V agudo)', () => {
     expect([...new Set(rodar().falhas.map((f) => f.k))]).toEqual([]);
   }, 300000);
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SolidBatch } from './solids.ts';
-import { splitTJunctions } from './layerTopology.ts';
+import { splitTJunctions, weldBands } from './layerTopology.ts';
 
 const meshWithTJunction = (): SolidBatch => ({
   materialId: 'mat',
@@ -95,5 +95,18 @@ describe('divisão de T-junctions na malha 3D', () => {
 
     expect(mesh.indices.length).toBeGreaterThan(6);
     expect(noVertexOnAnyEdge(mesh)).toBe(true);
+  });
+});
+
+describe('weldBands · tolerância de soldagem', () => {
+  // Anel com dois vértices a 0,0007 m (a ponta de uma face de arco e o canto da tampa, J5-D3).
+  const banda = (): Parameters<typeof weldBands>[0] => [{ z0: 0, z1: 1, poly: [[[{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 0.0007 }, { x: 0, y: 1 }]]] } as never];
+  it('tolerância padrão (1,5 mm) funde os dois vértices (anel de 3)', () => {
+    expect(weldBands(banda())[0]!.poly[0]![0]!.length).toBe(3);
+  });
+  it('tolerância de 0,2 mm (parede inclinada) mantém os quatro vértices em suas posições', () => {
+    const r = weldBands(banda(), 2e-4)[0]!.poly[0]![0]!;
+    expect(r.length).toBe(4);
+    expect(r[2]!.y).toBeCloseTo(0.0007, 12);
   });
 });

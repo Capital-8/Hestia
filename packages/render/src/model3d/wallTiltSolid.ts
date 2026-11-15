@@ -50,6 +50,13 @@ export function tiltJoinOf(rw: ResolvedWall, l: ResolvedWall['layers'][number], 
 
 type Pt = [number, number, number];
 
+/**
+ * Tolerância de soldagem das faixas da parede inclinada (m). A da parede vertical (1,5 mm) funde cantos de camada fina e a
+ * ponta de uma face de arco (vértices a 0,7 mm), e o canto soldado deixa de casar com o anel do nível (J5-D3: fresta de 4 mm);
+ * aqui basta cobrir o recorte do mesmo arco em cotas diferentes (~0,1 mm).
+ */
+const SOLDA_INCLINADA = 2e-4;
+
 /** Nível de junção efetivo de uma camada: cota e anel (um ponto por vértice de `raw`). */
 export interface TiltLevel { z: number; ring: Vec2[] }
 
@@ -103,19 +110,31 @@ export function tiltLevelsSignature(join: { all: WallTiltJoin; layer: WallTiltJo
 function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[], wallId: string): (x: number, y: number, z: number) => [number, number] {
   const nodes = join.nodes ?? [];
   const casa = casadorDeVertices(layer.raw);
+  /** Anéis das vizinhas (J5-D3): ver `WallTiltJoin.vizinhas`; montados só se algum vértice da faixa não casar com o `raw` próprio. */
+  let vizinhas: Array<{ casa: (x: number, y: number) => number; levels: TiltLevel[] }> | undefined;
+  const noDe = (levels: TiltLevel[], i: number, z: number): [number, number] => {
+    let k = 0;
+    while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
+    const l0 = levels[k]!, l1 = levels[k + 1]!;
+    const t = (z - l0.z) / (l1.z - l0.z);
+    const a = l0.ring[i]!, c = l1.ring[i]!;
+    return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
+  };
   return (x, y, z) => {
     if (nodes.length) {
       const w = warpNos(nodes, wallId, x, y, z, base);
       if (w) return w;
     }
     const i = casa(x, y);
-    if (i >= 0) {
-      let k = 0;
-      while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
-      const l0 = levels[k]!, l1 = levels[k + 1]!;
-      const t = (z - l0.z) / (l1.z - l0.z);
-      const a = l0.ring[i]!, c = l1.ring[i]!;
-      return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
+    if (i >= 0) return noDe(levels, i, z);
+    // Vértice de uma face da VIZINHA (a faixa vertical foi recortada pelo corpo dela: paredes sobrepostas em V agudo): a face
+    // se move com o mapa da vizinha, não com o desta parede; o mapa geral o tiraria da face (J5-D3: fresta/sobreposição de 2 cm).
+    if (join.vizinhas?.length) {
+      vizinhas ??= join.vizinhas.flatMap((nj) => nj.layers.map((nl) => ({ casa: casadorDeVertices(nl.raw), levels: tiltLevelsOf({ all: nj, layer: nl }, true) })));
+      for (const v of vizinhas) {
+        const j = v.casa(x, y);
+        if (j >= 0) return noDe(v.levels, j, z);
+      }
     }
     return base(x, y, z);
   };
@@ -238,7 +257,7 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const cuts = rw.tiltCuts ?? [];
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
   const fronteiras = join?.all.nodes ? fronteirasDoNo(join.all.nodes) : [];
-  const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: refinaNo(union(x.poly), fronteiras) })));
+  const cleaned = weldBands(weldBands(bands, SOLDA_INCLINADA).map((x) => ({ ...x, poly: refinaNo(union(x.poly), fronteiras) })), SOLDA_INCLINADA);
   // `onEdge` pede os vértices da mesma cota para cada aresta lateral: montar a lista uma vez por cota (antes: a cada aresta).
   const vertsMemo = new Map<number, Vec2[]>();
   const vertsAt = (z: number): Vec2[] => {
@@ -328,7 +347,14 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
       // Quadrilátero comum: as duas diagonais de sempre. Com vértices extras nas bordas, leque a partir do centro (um leque a
       // partir de um canto degeneraria nas bordas com vértices alinhados).
       const tris: Array<[Pt, Pt, Pt]> = [];
-      if (loop.length === 4) tris.push([loop[0]!, loop[1]!, loop[2]!], [loop[0]!, loop[2]!, loop[3]!]);
+      if (loop.length === 4) {
+        // Diagonal canônica: a MAIS CURTA em 3D, que não depende da ordem dos vértices. Duas paredes vizinhas dividem a mesma tampa
+        // (quadrilátero empenado entre dois níveis, com vértices idênticos) e precisam cortá-la pela mesma diagonal; com a diagonal
+        // de sempre (a que sai do 1º vértice) cada uma dobrava a tampa num ponto e a seção abria fresta de ~2 mm (J5-D3).
+        const d = (a: Pt, c: Pt): number => Math.hypot(a[0] - c[0], a[1] - c[1], a[2] - c[2]);
+        if (d(loop[1]!, loop[3]!) < d(loop[0]!, loop[2]!) - 1e-9) tris.push([loop[0]!, loop[1]!, loop[3]!], [loop[1]!, loop[2]!, loop[3]!]);
+        else tris.push([loop[0]!, loop[1]!, loop[2]!], [loop[0]!, loop[2]!, loop[3]!]);
+      }
       else {
         const c = [0, 1, 2].map((j) => loop.reduce((a, v) => a + v[j]!, 0) / loop.length) as Pt;
         for (let k = 0; k < loop.length; k++) tris.push([c, loop[k]!, loop[(k + 1) % loop.length]!]);
