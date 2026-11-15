@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
+import { definirMapaCorteAterro } from '@hestia/engine';
 import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
@@ -19,6 +20,7 @@ import { activateView } from '../../editor/viewTabActions.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { abrirLocalizacao } from '../dialogs/localizacaoAberta.ts';
+import { abrirTerrenoSchedule } from '../dialogs/terrenoScheduleAberta.ts';
 import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
 import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
@@ -61,6 +63,8 @@ export interface RibbonCtx {
   showGrid: boolean;
   showUnderlay: boolean;
   showRoofProjection: boolean;
+  /** Mapa de corte e aterro ligado na planta (U2). */
+  mapaCorteAterro: boolean;
   propsOpen: boolean;
   browserOpen: boolean;
   /** Dock de cada painel (Propriedades e Navegador). */
@@ -559,6 +563,23 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Coordenadas reais da origem, altitude da cota zero e norte verdadeiro do projeto.', 'Real coordinates of the origin, ground-zero altitude and true north of the project.'),
     run: abrirLocalizacao,
   },
+  corteAterro: {
+    label: t('Corte e aterro', 'Cut and Fill'),
+    icon: 'schedule',
+    hint: t('Abre a tabela de volumes de corte e aterro por região e por terreno, com exportação em CSV.', 'Opens the cut and fill volume table per region and per terrain, with CSV export.'),
+    run: abrirTerrenoSchedule,
+  },
+  mapaCorteAterro: {
+    label: t('Mapa de corte e aterro', 'Cut and Fill Map'),
+    icon: 'filledRegion',
+    hint: t('Pinta na planta o corte de vermelho e o aterro de azul.', 'Paints cut red and fill blue on the plan.'),
+    run: () => {
+      const ligar = !useUi.getState().mapaCorteAterro;
+      definirMapaCorteAterro(ligar);
+      useUi.setState((x) => ({ mapaCorteAterro: ligar, previewTick: x.previewTick + 1 }));
+    },
+    pressed: (c) => c.mapaCorteAterro,
+  },
 };
 
 /** Contexto lido na hora do clique (os `run` nunca usam o valor de um render antigo). */
@@ -568,7 +589,7 @@ export function ctxNow(): RibbonCtx {
   return {
     tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
-    showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
+    showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,
   };
 }
