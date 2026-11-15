@@ -8,7 +8,7 @@ import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
-import type { PointerInfo } from './types.ts';
+import type { PointerInfo, PreviewItem } from './types.ts';
 import { arcCenterEnds, arcTangent } from './sketchShapesArc.ts';
 import { circleSegments, ellipseSegments, polygonSegments, splineSegments, type WallSegment } from './wallShapes.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
@@ -253,7 +253,7 @@ export class WallTool extends ToolBase {
     const c = inf.point;
     const pts = this.rectCorners(c);
     const { thickness, sMid } = this.band();
-    for (let i = 0; i < 4; i++) this.items.push({ kind: 'wallBand', a: pts[i]!, b: pts[(i + 1) % 4]!, thickness, sMid });
+    for (let i = 0; i < 4; i++) this.items.push({ kind: 'wallBand', a: pts[i]!, b: pts[(i + 1) % 4]!, thickness, sMid }, ...this.tiltTopItems(pts[i]!, pts[(i + 1) % 4]!));
     this.items.push({ kind: 'label', at: c, text: `${fmt(unitsOf(this.env.project()), Math.abs(c.x - a.x))} × ${fmt(unitsOf(this.env.project()), Math.abs(c.y - a.y))}` });
     this.env.say('Clique no canto oposto do retângulo.');
   }
@@ -313,7 +313,7 @@ export class WallTool extends ToolBase {
     if (this.chordEnd) {
       // Terceiro ponto: o arco passa pelo cursor.
       const sag = sagFromThreePoints(a, inf.point, this.chordEnd);
-      this.items.push({ kind: 'wallBand', a, b: this.chordEnd, thickness, sMid, sag });
+      this.items.push({ kind: 'wallBand', a, b: this.chordEnd, thickness, sMid, sag }, ...this.tiltTopItems(a, this.chordEnd));
       const arc = arcFromSagitta(a, this.chordEnd, sag);
       this.items.push({ kind: 'label', at: inf.point, text: arc ? `R ${fmt(unitsOf(this.env.project()), arc.radius)}  arco ${fmt(unitsOf(this.env.project()), arc.length)}` : 'reta' });
       this.env.say('Clique no ponto do arco, ou digite a flecha e Enter.');
@@ -322,7 +322,7 @@ export class WallTool extends ToolBase {
     const b = inf.point;
     const l = dist(a, b);
     if (l < 1e-6) return;
-    this.items.push({ kind: 'wallBand', a, b, thickness, sMid });
+    this.items.push({ kind: 'wallBand', a, b, thickness, sMid }, ...this.tiltTopItems(a, b));
     const axis = norm(sub(b, a));
     const axisOffset = mul(v2(-axis.y, axis.x), sMid);
     this.items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), a, b, this.env.metersPerPixel(), unitsOf(this.env.project()), {
@@ -330,6 +330,26 @@ export class WallTool extends ToolBase {
     }));
     // Trecho reto: a cota dinâmica (`tempDims`) é a única leitura, só comprimento — sem rótulo duplicado nem ângulo.
     this.env.say(this.isArc() ? 'Clique no ponto final da corda.' : 'Clique para terminar a parede, ou digite o comprimento e Enter.');
+  }
+
+  /**
+   * Prévia da inclinação (F-D): a linha projetada do topo na planta (tracejada) e as ligações da base ao topo. Vazia sem
+   * inclinação ou quando o topo vem de um pavimento (altura só conhecida depois).
+   */
+  private tiltTopItems(a: Vec2, b: Vec2): PreviewItem[] {
+    const o = this.env.options();
+    const tilt = o.wallTilt ?? 0;
+    const len = dist(a, b);
+    if (!tilt || o.wallTopLevelId || len < 1e-9) return [];
+    const d = o.wallHeight * Math.tan((tilt * Math.PI) / 180); // = tiltOffset do motor: + = esquerda de a→b
+    const off = mul(v2(-(b.y - a.y) / len, (b.x - a.x) / len), d);
+    const ta = add(a, off);
+    const tb = add(b, off);
+    return [
+      { kind: 'line', a: ta, b: tb, dashed: true },
+      { kind: 'line', a, b: ta, dashed: true },
+      { kind: 'line', a: b, b: tb, dashed: true },
+    ];
   }
 
   /** Parede montada a partir do gesto (ainda fora do projeto), com as opções atuais da barra. */
