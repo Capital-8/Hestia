@@ -56,7 +56,7 @@ function abrir(page, modelo, nova) {
     const { editor, model, useUi } = window.__hestia;
     const raf = () => new Promise((r) => requestAnimationFrame(() => r()));
     let id = modelo.id;
-    if (nova) { id = model.newId('v'); const { id: _i, ...resto } = modelo; editor.applyCommand({ type: 'addView', view: { ...resto, id } }); }
+    if (nova) { id = model.newId('v'); const { id: _i, ...resto } = modelo; editor.applyCommand({ type: 'addView', view: { ...resto, id, name: `${resto.name} ${id}` } }); }
     else { editor.closeSection(); await raf(); await raf(); }
     await new Promise((r) => setTimeout(r, 150)); // deixa o app ocioso
     const vp = window.__vperf; vp.reset();
