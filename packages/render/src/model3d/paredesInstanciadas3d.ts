@@ -2,6 +2,7 @@ import { fuseBands, wallLayerBandsAfterJunction, type JunctionLevel, type LayerB
 import type { Id } from '@hestia/model';
 import { arestasDasCaixas, folgaEntreCaixas, matrizDaCaixa, retanguloDoAnel, TOLERANCIA_CAIXA, type CaixaPlanta, type MatrizCaixa } from './caixas3d.ts';
 import { arestasDaUniao } from './arestasDaUniao3d.ts';
+import { tiltJoinOf } from './wallTiltSolid.ts';
 import { appendSolid, batchOf, wallLayerSolid, type SolidBatch } from './solids.ts';
 
 /**
@@ -85,7 +86,8 @@ export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | 
   const arestasPorParede = new Map<Id, number[]>();
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) {
-      const camada = caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
+      // Parede inclinada (ou com faixa de junção inclinada) nunca vira caixa vertical: o sólido inclinado e os vãos 'inclinado' (F2.8) vêm da geometria.
+      const camada = rw.tilt || rw.tiltCuts || tiltJoinOf(rw, l, jl) ? null : caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
       if (camada) {
         for (const matriz of camada.matrizes) caixas.push({ wallId: rw.wallId, materialId: l.materialId, matriz });
         for (const x of camada.arestas) arestas.push(x);
