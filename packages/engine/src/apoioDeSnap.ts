@@ -14,14 +14,17 @@
  * - Rampa: lances (com as bordas de início e fim), patamares, contorno externo e eixo dos lances.
  * - Lote: contorno (`c.v`, `c.s`, `c.m`: vértices, arestas e pontos médios) e, com `mostrarEdificavel`, o contorno da área edificável
  *   (`e{polígono}.{anel}`, mesmas marcas). O lote é só de planta; o clique no interior não é captura.
+ * - Terreno: borda (a do modelo, ou a do kernel, ou a envoltória das fontes sem kernel: `b.v`, `b.s`, `b.m`) e as fontes como extremidade
+ *   (`p{i}` pontos soltos, `c{i}.v{j}` vértices de curva, `q{i}.v{j}` vértices de quebra). Região de terreno: contorno (`c.v`, `c.s`, `c.m`).
  * - Guarda-corpo: eixo (o caminho no manual; o eixo que o kernel desenha no hospedado) e os contornos que o kernel desenha
  *   em planta para poste (cantos e centro), trilho, corrimão e painel. Balaústres, cabos, travessas e suportes ficam de fora
  *   (peças repetidas e minúsculas só poluiriam a captura). Sem o kernel pronto, só o eixo do guarda-corpo manual.
  */
-import { dist, ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Lot, type Project, type Ramp, type Stair } from '@hestia/model';
+import { convexHull, dist, ringArea, type Ring, type Vec2 } from '@hestia/geom';
+import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Lot, type Project, type Ramp, type Stair, type Terrain, type TerrainRegion } from '@hestia/model';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
+import { servicoTerreno, ServicoTerreno } from './kernelTerrenoServico.ts';
 import { areaEdificavel } from './loteGeometria.ts';
 import { resolveRampOne } from './ramps.ts';
 import { stairArrivalTop } from './stairArrival.ts';
@@ -347,16 +350,69 @@ function apoioDoLote(l: Lot): ApoioDoElemento {
   return apoio;
 }
 
+/** Envoltória convexa das fontes do terreno (pontos, curvas e quebras): a borda de reserva sem kernel e sem borda do modelo. [] com menos de 3 pontos. */
+export function envoltoriaDasFontes(t: Terrain): Vec2[] {
+  const pts: Vec2[] = [];
+  for (let i = 0; i + 2 < t.pontos.length; i += 3) pts.push({ x: t.pontos[i]!, y: t.pontos[i + 1]! });
+  for (const c of t.curvas) for (let i = 0; i + 1 < c.xy.length; i += 2) pts.push({ x: c.xy[i]!, y: c.xy[i + 1]! });
+  for (const q of t.quebras) for (let i = 0; i + 2 < q.xyz.length; i += 3) pts.push({ x: q.xyz[i]!, y: q.xyz[i + 1]! });
+  const h = convexHull(pts);
+  return h.length >= 3 ? h.map((q) => ({ x: q.x, y: q.y })) : [];
+}
+
+/** Borda de captura do terreno: a do modelo, senão a do kernel (envoltória calculada por ele), senão a de reserva. */
+function bordaDeCaptura(p: Project, t: Terrain): Vec2[] {
+  if (t.borda && t.borda.length >= 6) return t.borda.reduce<Vec2[]>((o, v, i) => (i % 2 === 0 ? [...o, { x: v, y: t.borda![i + 1]! }] : o), []);
+  const linha = servicoTerreno().planta(p, 1, t.levelId)?.find((l) => l.terrenoId === t.id && l.pontos.length >= 3);
+  return linha ? linha.pontos.map((q) => ({ x: q.x, y: q.y })) : envoltoriaDasFontes(t);
+}
+
+const terrenos = new WeakMap<Terrain, { chave: string; apoio: ApoioDoElemento }>();
+
+/**
+ * Terreno: borda (vértices, arestas, meios) e as fontes como extremidade, com chaves estáveis. Guardado pelo próprio terreno e pela borda de
+ * captura (que muda quando o kernel responde): editar outro elemento, ou outro terreno, não refaz nada (índice montado uma vez por assinatura).
+ */
+function apoioDoTerreno(p: Project, t: Terrain): ApoioDoElemento {
+  const borda = bordaDeCaptura(p, t);
+  const chave = borda.map((q) => `${q.x},${q.y}`).join(';');
+  const guardado = terrenos.get(t);
+  if (guardado?.chave === chave) return guardado.apoio;
+  const m = new Montador();
+  if (borda.length >= 3) m.anel('b', borda);
+  for (let i = 0; i + 2 < t.pontos.length; i += 3) m.ponto(`p${i / 3}`, { x: t.pontos[i]!, y: t.pontos[i + 1]! }, 'endpoint');
+  t.curvas.forEach((c, i) => { for (let j = 0; j + 1 < c.xy.length; j += 2) m.ponto(`c${i}.v${j / 2}`, { x: c.xy[j]!, y: c.xy[j + 1]! }, 'endpoint'); });
+  t.quebras.forEach((q, i) => { for (let j = 0; j + 2 < q.xyz.length; j += 3) m.ponto(`q${i}.v${j / 3}`, { x: q.xyz[j]!, y: q.xyz[j + 1]! }, 'endpoint'); });
+  const apoio = m.fim();
+  terrenos.set(t, { chave, apoio });
+  return apoio;
+}
+
+const regioes = new WeakMap<TerrainRegion, ApoioDoElemento>();
+
+/** Região de terreno: vértices, arestas e meios do contorno (`c.*`), guardados pela própria região. */
+function apoioDaRegiao(r: TerrainRegion): ApoioDoElemento {
+  const guardado = regioes.get(r);
+  if (guardado) return guardado;
+  const m = new Montador();
+  m.anel('c', r.contorno.map((q) => ({ x: q.x, y: q.y })));
+  const apoio = m.fim();
+  regioes.set(r, apoio);
+  return apoio;
+}
+
 /** Cache por projeto (escada e rampa): uma edição cria outro projeto, e o que depende só do elemento reaproveita o cálculo (caches acima). */
 const porProjeto = new WeakMap<Project, Map<string, ApoioDoElemento | null>>();
 
 /**
- * Pontos de apoio em planta da escada, rampa, guarda-corpo ou lote, ou `null` quando o elemento não é um deles ou não tem
+ * Pontos de apoio em planta da escada, rampa, guarda-corpo, lote, terreno ou região de terreno, ou `null` quando o elemento não é um deles ou não tem
  * geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
  */
 export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoElemento | null {
-  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'lot')) return null;
+  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'lot' && el.kind !== 'terrain' && el.kind !== 'terrainRegion')) return null;
   if (el.kind === 'lot') return apoioDoLote(el);
+  if (el.kind === 'terrain') return ServicoTerreno.temTerreno(p) ? apoioDoTerreno(p, el) : null;
+  if (el.kind === 'terrainRegion') return apoioDaRegiao(el);
   // O guarda-corpo depende do kernel, que pode ficar pronto sem o projeto mudar: ele tem cache próprio (por elemento e pelas linhas do kernel).
   if (el.kind === 'railing') return apoioDoGuarda(p, el);
   let mapa = porProjeto.get(p);

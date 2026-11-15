@@ -97,9 +97,10 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
-  terrain: { entra: false, projeto: () => com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [80, 80, 1, 90, 80, 2, 85, 90, 3] }) }) },
+  terrain: { entra: true, projeto: () => com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [80, 80, 1, 90, 80, 2, 85, 90, 3] }) }), alvo: [v(80, 80), v(90, 80), v(85, 90)] },
   terrainRegion: {
-    entra: false,
+    entra: true,
+    alvo: [v(80, 80), v(90, 80), v(85, 90)],
     projeto: () =>
       com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0' }) }, { type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: [v(80, 80), v(90, 80), v(85, 90)] }) }),
   },

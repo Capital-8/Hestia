@@ -19,6 +19,7 @@ import type { PlanInput } from './build.ts';
 import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
 import { loteSelectionOps } from './lote.ts';
 import { ocultosDoLote } from './loteCamada.ts';
+import { terrenoSelecaoDaPlanta } from './terrenoCamada.ts';
 import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
@@ -225,6 +226,7 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   add(loteSelectionOps(p, input.levelId, selection, null, theme, ocultosDoLote(p, input.levelId, input.hidden, input.revealed, style.paint.lot.visible)));
+  add(terrenoSelecaoDaPlanta(input, selection, null, style.paint.site.visible));
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, null, theme, input.viewport, alcasDeModelo));
@@ -277,6 +279,7 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, [], hover, theme, input.viewport, hidden, alcasDeModelo));
   add(loteSelectionOps(p, input.levelId, [], hover, theme, ocultosDoLote(p, input.levelId, input.hidden, input.revealed, style.paint.lot.visible)));
+  add(terrenoSelecaoDaPlanta(input, [], hover, style.paint.site.visible));
   if (up) add(ceilingSelectionOps(p, input.levelId, [], hover, theme, input.viewport, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, [], hover, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, [], hover, theme, input.viewport, alcasDeModelo));
@@ -335,6 +338,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   out.strokes.push(...rmsel.strokes);
   add(slabSelectionOps(p, input.levelId, selection, hover, theme, v, hidden, alcasDeModelo));
   add(loteSelectionOps(p, input.levelId, selection, hover, theme, ocultosDoLote(p, input.levelId, input.hidden, input.revealed, style.paint.lot.visible)));
+  add(terrenoSelecaoDaPlanta(input, selection, hover, style.paint.site.visible));
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, hover, theme, v, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, selection, hover, theme, v, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, hover, theme, v, alcasDeModelo));

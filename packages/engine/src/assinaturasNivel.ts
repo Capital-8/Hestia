@@ -72,7 +72,8 @@ export function assinaturasDoProjeto(p: Project): AssinaturasProjeto {
   for (const id of Object.keys(elements)) {
     const e = elements[id]!;
     // O lote é só de planta e prancha: não entra na malha 3D nem no corte, então editá-lo não muda a chave de nenhum nível.
-    if (e.kind === 'lot') continue;
+    // Terreno e região de terreno (ficha V2) também ficam de fora: o terreno tem malha, chave e cache próprios (kernel, por assinatura) e não é parte do edifício.
+    if (e.kind === 'lot' || e.kind === 'terrain' || e.kind === 'terrainRegion') continue;
     const linha = `${id}:${JSON.stringify(e)}`;
     const nivel = nivelDoElemento(elements, e);
     if (e.kind === 'floor' || e.kind === 'slab' || e.kind === 'stair' || e.kind === 'ramp' || e.kind === 'roof') horizontais.push(linha);
