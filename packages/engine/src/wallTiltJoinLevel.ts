@@ -6,8 +6,9 @@ import { levelFrames } from './resolveFrames.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
-import { joinStatus } from './joins.ts';
+import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
+import { nodeWarp, type NodeWarp } from './wallTiltNo.ts';
 import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
 /** Junção inclinada de um nível (F2.4): análise por camada, avisos e guarda do kernel. Núcleo geométrico em `wallTiltJoin.ts`. */
@@ -47,6 +48,12 @@ export interface WallTiltJoin {
    */
   zs?: number[];
   levels?: Array<{ z: number; rings: Vec2[][] }>;
+  /**
+   * Nó de 3+ paredes retas (N1): deformação contínua da planta vertical do nó para a planta em cada cota (faixas das paredes e miolo).
+   * O sólido a usa para o vértice de faixa que cai na zona do nó (o corte do resolvedor vertical é arbitrário nesta zona).
+   * Ausente fora de nó.
+   */
+  nodes?: NodeWarp[];
 }
 /**
  * Cunha de transição (etapa R, ação B): prisma triangular que fecha o degrau de uma continuação reta×reta com inclinações
@@ -97,7 +104,7 @@ function ringsOf(ls: LevelSet, id: string): Map<number, Ring> | null {
   return out;
 }
 
-/** Ligações da base (só pair e tee) em que há parede inclinada; nó de 3+ paredes e pontas livres ficam como estão. */
+/** Ligações da base (pair, tee e nó de 3+ paredes retas) em que há parede inclinada; pontas livres ficam como estão. */
 export function tiltRelations(frames: readonly WallFrame[], tol?: number): Relation[] {
   const list = [...frames];
   const rels: Relation[] = [];
@@ -113,13 +120,20 @@ export function tiltRelations(frames: readonly WallFrame[], tol?: number): Relat
         rels.push({ kind: 'pair', a: { id: f.wall.id, end: which }, b: { id: p.wallId, end: p.end } });
       } else if (st.kind === 'tee') {
         rels.push({ kind: 'tee', branch: { id: f.wall.id, end: which }, host: st.hostId });
+      } else if (st.kind === 'node') {
+        // Nó de 3+ paredes retas (N1). Com arco no nó, segue sem junção inclinada (como antes).
+        const ends = [{ id: f.wall.id, end: which }, ...st.partners.map((p) => ({ id: p.wallId, end: p.end }))];
+        const key = ends.map((e) => `${e.id}|${e.end}`).sort().join('~');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (ends.every((e) => !list.find((x) => x.wall.id === e.id)!.arc)) rels.push({ kind: 'node', ends });
       }
     }
   }
   return rels;
 }
 
-const ids = (r: Relation): string[] => (r.kind === 'pair' ? [r.a.id, r.b.id] : [r.branch.id, r.host]);
+const ids = (r: Relation): string[] => (r.kind === 'pair' ? [r.a.id, r.b.id] : r.kind === 'node' ? r.ends.map((e) => e.id) : [r.branch.id, r.host]);
 
 /**
  * Junção inclinada de um nível (F2.4). A topologia vem SÓ dos eixos da base (`joinStatus`); o topo reaplica a mesma
@@ -355,13 +369,16 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
     const k = find(ids(r)[0]!);
     comps.set(k, [...(comps.get(k) ?? []), r]);
   }
+  let rawEndsMemo: ReturnType<typeof computeEnds> | undefined;
   /** Junções do conjunto de ligações (anéis por camada e parede), ou null quando alguma cota/camada é inviável. */
   const evalRels = (crel: readonly Relation[]): Map<string, WallTiltJoin> | null => {
     const wallIds = [...new Set(crel.flatMap(ids))];
     const mk = (tilted: boolean): Map<string, TiltWall> =>
       new Map(wallIds.map((id) => [id, { frame: byId.get(id)!, tiltDeg: tilted ? tiltOf(byId.get(id)!) : 0 }] as const));
     const tilted = mk(true);
-    const rawSet = levelSet(mk(false), crel, 0);
+    // Nó de N paredes: a base vertical do resolvedor (corte reto no nó etc.) é o anel `raw`; os níveis vêm do cruzamento das faces (N1).
+    const rawEnds = crel.some((r) => r.kind === 'node') ? (rawEndsMemo ??= computeEnds([...frames], tol)) : undefined;
+    const rawSet = levelSet(mk(false), crel, 0, undefined, rawEnds);
     const baseSet = levelSet(tilted, crel, 0);
     if (failed(rawSet) || failed(baseSet)) return null;
     const topSets = new Map<number, LevelSet | TiltJoinFail>();
@@ -379,6 +396,16 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       if (!r) adaptativos.set(H, (r = levelSetAdaptive(tilted, crel, H)));
       return r;
     };
+    const nodeRels = crel.filter((r): r is Relation & { kind: 'node' } => r.kind === 'node');
+    const warps = nodeRels.length ? nodeRels.map((r, i) => {
+      const ids2 = r.ends.map((e) => e.id);
+      const zr = Math.min(...ids2.map((id) => heightOf(byId.get(id)!)));
+      const tz = top(zr);
+      if (failed(tz)) return null;
+      return nodeWarp(rawSet.nodeLevels![i]!, baseSet.nodeLevels![i]!, tz.nodeLevels![i]!, zr, new Map(ids2.map((id) => [id, tiltOf(byId.get(id)!)] as const)));
+    }) : [];
+    if (warps.some((w) => !w)) return null;
+    const nodesOf = (id: string): NodeWarp[] => nodeRels.flatMap((r, i) => (r.ends.some((e) => e.id === id) ? [warps[i]!] : []));
     for (const id of wallIds) {
       const f = byId.get(id)!;
       const H = heightOf(f);
@@ -403,7 +430,8 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
           layers.push({ layerIndex, raw: r0, p0: rs[0]!, pH: rs[rs.length - 1]! });
           aligned.push(rs);
         }
-        joins.set(id, { H, layers, zs: ad.zs, levels: ad.zs.map((z, i) => ({ z, rings: aligned.map((rs) => rs[i]!) })) });
+        const ndA = nodesOf(id);
+        joins.set(id, { H, layers, zs: ad.zs, levels: ad.zs.map((z, i) => ({ z, rings: aligned.map((rs) => rs[i]!) })), ...(ndA.length ? { nodes: ndA } : {}) });
         continue;
       }
       const ts = top(H);
@@ -415,11 +443,21 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         layers.push({ layerIndex, raw: r0, p0: al.p0, pH: al.pH });
       }
       const mid = layers.map((l) => l.p0.map((a, k) => ({ x: (a.x + l.pH[k]!.x) / 2, y: (a.y + l.pH[k]!.y) / 2 })));
-      joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }] });
+      const nd = nodesOf(id);
+      joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }], ...(nd.length ? { nodes: nd } : {}) });
     }
     return joins;
   };
-  for (const crel of comps.values()) {
+  for (const crel0 of comps.values()) {
+    let crel = crel0;
+    // Nó inviável (parede curta, cone agudo, miolo inválido): degrada SÓ aquele nó, com aviso; o resto da componente segue.
+    const nos = crel.filter((r): r is Relation & { kind: 'node' } => r.kind === 'node');
+    if (nos.length) {
+      const ruins = nos.filter((r) => !evalRels([r]));
+      for (const r of ruins) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id);
+      crel = crel.filter((r) => !(ruins as Relation[]).includes(r));
+      if (!crel.length) continue;
+    }
     let joins = evalRels(crel);
     if (!joins) {
       // Plano B: só o par problemático (ou todos, se o conjunto ainda falhar) vira encosto, com a ponta de uma parede cortada
