@@ -145,7 +145,7 @@ const camera = async (page, v) => { await page.evaluate((v) => {
 async function captura(page, nome) {
   await page.mouse.move(2, 2); await page.waitForTimeout(500);
   let ant = null; let atual = null;
-  for (let i = 0; i < 12; i++) { atual = await page.screenshot({ type: 'png' }); if (ant && atual.equals(ant)) break; ant = atual; await page.waitForTimeout(500); }
+  for (let i = 0; i < 12; i++) { atual = await page.screenshot({ type: 'png', timeout: 120000 }); if (ant && atual.equals(ant)) break; ant = atual; await page.waitForTimeout(500); }
   writeFileSync(path.join(EVID, nome), atual);
   return nome;
 }
@@ -161,7 +161,7 @@ async function ponto(id, nome, fn) {
 }
 const ocupado = (erros, check) => check('sem erro de console', erros.length === 0, erros.slice(0, 2).join(' | '));
 const TOL = 0.002;
-const cantoVal = (res) => res.map((c) => `z=${fmt(c.z)} ext=${fmt(c.ext)} int=${fmt(c.int)} sobra=${fmt(c.sobra)}`).join('; ');
+const cantoVal = (res) => res.map((c) => `z=${fmt(c.z)} ext=${fmt(c.ext)} int=${fmt(c.int)} sobra=${fmt(c.sobra)} Pext=(${fmt(c.extP?.x)},${fmt(c.extP?.y)}) Pint=(${fmt(c.intP?.x)},${fmt(c.intP?.y)})`).join('; ');
 const cantoOk = (res) => res.every((c) => c.ext <= TOL && c.int <= TOL && c.sobra <= TOL);
 const ZS = [0.05, 1.4, 2.75];
 
