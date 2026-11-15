@@ -174,4 +174,4 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Aviso novo `inclinacoesDiferentesEmContinuacao` (chave `egb_issue_tilt_continuation`, 7 idiomas, valor via `formatQuantity`) para paredes em linha / arcos tangentes com degrau H·|tan a − tan b| > 5 mm; mesma inclinação em linha: sem aviso. Arco tangente mantém também `arcoInclinadoSemJuncao`. Degrau não corrigido (outra etapa).
 - Ajuste em teste antigo: `wallTiltJoinLevel.test.ts` (-45°/-45°, L=2, H=6) agora espera `joins.size` 2 (plano B), avisos iguais.
 - Testes: `wallTiltJoinExato.test.ts` (engine) e `wallTiltJuncaoExata.test.ts` (render, cantos z=0/meio/topo a 1e-6 m com junção em esquadro).
-- Decisão: junção padrão `butt` do navegador não gera vértices coincidentes; o portão de navegador mede por fresta/saliência.
+- Navegador (build própria, porta 4187; a 4177 estava ocupada por outro executor): P1 e P3 PASS, sobra/fresta 0 em z=0,05/1,4/2,75, sem avisos.
