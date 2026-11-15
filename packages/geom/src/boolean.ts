@@ -1,6 +1,9 @@
 import polygonClipping from 'polygon-clipping';
 import * as ClipperLib from 'clipper-lib';
+import { instalarClipperRapido } from './clipperRapido.ts';
 import { multiArea, ringArea, type MultiPolygon, type Polygon, type Ring } from './polygon.ts';
+
+instalarClipperRapido();
 
 type Pair = [number, number];
 type PcRing = Pair[];

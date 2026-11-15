@@ -1,5 +1,5 @@
 import { arcFromSagitta, difference, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { tiltCutZ, type JunctionLevel, type NodeWarp, type LayerBand, type ResolvedWall, type WallTiltJoin, type WallTiltJoinLayer } from '@hestia/engine';
+import { casadorDeVertices, tiltCutZ, type JunctionLevel, type NodeWarp, type LayerBand, type ResolvedWall, type WallTiltJoin, type WallTiltJoinLayer } from '@hestia/engine';
 import { weldBands } from './layerTopology.ts';
 import type { SolidBatch } from './solids.ts';
 
@@ -49,9 +49,6 @@ export function tiltJoinOf(rw: ResolvedWall, l: ResolvedWall['layers'][number], 
 }
 
 type Pt = [number, number, number];
-
-/** Casamento de vértice da faixa com o anel `raw` da junção (m): as faixas passam por solda de 0,1 mm. */
-const MATCH = 5e-4;
 
 /** Nível de junção efetivo de uma camada: cota e anel (um ponto por vértice de `raw`). */
 export interface TiltLevel { z: number; ring: Vec2[] }
@@ -105,21 +102,20 @@ export function tiltLevelsSignature(join: { all: WallTiltJoin; layer: WallTiltJo
  */
 function joinedMap(base: (x: number, y: number, z: number) => [number, number], join: WallTiltJoin, layer: WallTiltJoinLayer, levels: TiltLevel[], wallId: string): (x: number, y: number, z: number) => [number, number] {
   const nodes = join.nodes ?? [];
+  const casa = casadorDeVertices(layer.raw);
   return (x, y, z) => {
     if (nodes.length) {
       const w = warpNos(nodes, wallId, x, y, z, base);
       if (w) return w;
     }
-    for (let i = 0; i < layer.raw.length; i++) {
-      const r = layer.raw[i]!;
-      if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) {
-        let k = 0;
-        while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
-        const l0 = levels[k]!, l1 = levels[k + 1]!;
-        const t = (z - l0.z) / (l1.z - l0.z);
-        const a = l0.ring[i]!, c = l1.ring[i]!;
-        return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
-      }
+    const i = casa(x, y);
+    if (i >= 0) {
+      let k = 0;
+      while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
+      const l0 = levels[k]!, l1 = levels[k + 1]!;
+      const t = (z - l0.z) / (l1.z - l0.z);
+      const a = l0.ring[i]!, c = l1.ring[i]!;
+      return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
     }
     return base(x, y, z);
   };
@@ -243,9 +239,14 @@ export function extrudeLayerTilted(b: SolidBatch, bands: LayerBand[], rw: Resolv
   const zOf = (v: Vec2, z: number): number => (cuts.length ? tiltCutZ(cuts, v.x, v.y, z) : z);
   const fronteiras = join?.all.nodes ? fronteirasDoNo(join.all.nodes) : [];
   const cleaned = weldBands(weldBands(bands).map((x) => ({ ...x, poly: refinaNo(union(x.poly), fronteiras) })));
+  // `onEdge` pede os vértices da mesma cota para cada aresta lateral: montar a lista uma vez por cota (antes: a cada aresta).
+  const vertsMemo = new Map<number, Vec2[]>();
   const vertsAt = (z: number): Vec2[] => {
+    const hit = vertsMemo.get(z);
+    if (hit) return hit;
     const out: Vec2[] = [];
     for (const x of cleaned) if (Math.abs(x.z0 - z) < Z_EPS || Math.abs(x.z1 - z) < Z_EPS) for (const pl of x.poly) for (const r of pl) out.push(...r);
+    vertsMemo.set(z, out);
     return out;
   };
   const segs: Array<{ p: Vec2; q: Vec2; z0: number; z1: number }> = [];

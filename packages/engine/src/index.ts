@@ -35,7 +35,7 @@ export { ARC_PLANE_RATIO, inclinedFitsArc, openingTiltGeom, tiltCutZ, type Openi
 export { openingPlaneIssues } from './openingPlaneIssues.ts';
 export type { NodeWarp } from './wallTiltNo.ts';
 export { analyzeLevelTilt, cadeiaContinua, projetoTemParedeInclinada, type Cunha, wallTiltJoinIssues, type LevelTiltAnalysis, type TiltAviso, type TiltAvisoCode, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
-export { tiltPlanMap, wallJoinPlanMap, type PlanMap } from './wallTiltPlan.ts';
+export { casadorDeVertices, tiltPlanMap, wallJoinPlanMap, type PlanMap } from './wallTiltPlan.ts';
 export * from './faces.ts';
 export * from './wallTopFaces.ts';
 export * from './slabs.ts';

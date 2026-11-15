@@ -40,6 +40,43 @@ export function tiltPlanMap(w: TiltAxis, tiltDeg: number): PlanMap {
 /** Casamento de vértice com o anel `raw` da junção (m), igual ao do sólido. */
 const MATCH = 5e-4;
 
+/**
+ * Índice do primeiro vértice de `raw` a menos de `MATCH` (em x e em y) de (x, y), ou -1: o mesmo que varrer `raw` em ordem,
+ * mas por grade de células de lado `MATCH` (cada consulta olha 3×3 células). O sólido, a planta e o IFC chamam o casamento
+ * por vértice mapeado (centenas de milhares de vezes em arcos), e a varredura linear de `raw` (centenas de vértices) dominava.
+ */
+const casadores = new WeakMap<readonly Vec2[], (x: number, y: number) => number>();
+export function casadorDeVertices(raw: readonly Vec2[]): (x: number, y: number) => number {
+  const feito = casadores.get(raw);
+  if (feito) return feito;
+  const TAM = 4096;
+  const grade: Array<number[] | undefined> = new Array(TAM);
+  const cel = (v: number): number => Math.floor(v / MATCH);
+  // chave numérica da célula (inteira e curta); colisão só junta listas, e todo candidato é conferido com a regra exata
+  const chave = (cx: number, cy: number): number => (Math.imul(cx | 0, 73856093) ^ Math.imul(cy | 0, 19349663)) & (TAM - 1);
+  raw.forEach((r, i) => {
+    const k = chave(cel(r.x), cel(r.y));
+    const l = grade[k];
+    if (l) l.push(i); else grade[k] = [i];
+  });
+  const casa = (x: number, y: number): number => {
+    const cx = cel(x), cy = cel(y);
+    let melhor = -1;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      const l = grade[chave(cx + dx, cy + dy)];
+      if (!l) continue;
+      for (const i of l) {
+        if (melhor >= 0 && i >= melhor) continue;
+        const r = raw[i]!;
+        if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) melhor = i;
+      }
+    }
+    return melhor;
+  };
+  casadores.set(raw, casa);
+  return casa;
+}
+
 /** Nível de junção de uma camada: cota (relativa à base) e anel (um ponto por vértice de `raw`). */
 export interface JoinPlanLevel { z: number; ring: Vec2[] }
 
@@ -89,12 +126,10 @@ export function joinedPlanMap(base: PlanMap, join: WallTiltJoin | undefined, lay
   const layer = join?.layers.find((l) => l.layerIndex === layerIndex);
   if (!join || !layer) return base;
   const levels = joinLevelsOf(join, layer);
+  const casa = casadorDeVertices(layer.raw);
   const f: JoinedPlanMap = (x, y, z) => {
-    for (let i = 0; i < layer.raw.length; i++) {
-      const r = layer.raw[i]!;
-      if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) return levelPoint(levels, i, z);
-    }
-    return base(x, y, z);
+    const i = casa(x, y);
+    return i >= 0 ? levelPoint(levels, i, z) : base(x, y, z);
   };
   if (levels.length > 2) f.levelZs = levels.slice(1, -1).map((l) => l.z);
   return f;
@@ -112,12 +147,11 @@ export function wallJoinPlanMap(rw: Pick<ResolvedWall, 'a' | 'b' | 'n' | 'sag' |
   if (!exato) return undefined;
   const base = tiltPlanMap(rw, rw.tilt ?? 0);
   const zs = [...new Set(per.flatMap((x) => x.levels.slice(1, -1).map((l) => l.z)))].sort((a, b) => a - b);
+  const casas = per.map((x) => casadorDeVertices(x.layer.raw));
   const map: PlanMap = (x, y, z) => {
-    for (const { layer, levels } of per) {
-      for (let i = 0; i < layer.raw.length; i++) {
-        const r = layer.raw[i]!;
-        if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) return levelPoint(levels, i, z);
-      }
+    for (let k = 0; k < per.length; k++) {
+      const i = casas[k]!(x, y);
+      if (i >= 0) return levelPoint(per[k]!.levels, i, z);
     }
     return base(x, y, z);
   };
@@ -146,6 +180,21 @@ interface MemoAglomerado { cuts: readonly MultiPolygon[]; regions: Region[]; sil
 const memoAglomerado = new WeakMap<object, MemoAglomerado>();
 const mesmas = (a: readonly unknown[], b: readonly unknown[]): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
 
+interface MemoPegada { bands: readonly unknown[]; join: WallTiltJoin | undefined; sig: string; base?: MultiPolygon; top?: MultiPolygon }
+const memoPegada = new WeakMap<object, MemoPegada>();
+function pegadaPreguicosa(rw: ResolvedWall, join: WallTiltJoin | undefined, zc: number, H: number, bands: readonly unknown[], chave: object | undefined): NonNullable<ResolvedWall['tiltPlan']> {
+  const sig = [rw.tilt ?? 0, rw.sag ?? 0, rw.a.x, rw.a.y, rw.b.x, rw.b.y, rw.n.x, rw.n.y, H].join(',');
+  const prev = chave ? memoPegada.get(chave) : undefined;
+  const m: MemoPegada = prev && prev.sig === sig && prev.join === join && mesmas(prev.bands, bands) ? prev : { bands, join, sig };
+  if (chave && m !== prev) memoPegada.set(chave, m);
+  const capt = rw.layers.map((l) => ({ layerIndex: l.layerIndex, poly: l.bands.flatMap((b) => b.poly) }));
+  const at = (z: number): MultiPolygon => unionClipper(...capt.map((l) => mapMulti(l.poly, layerPlanMap(rw, l.layerIndex, join), z)));
+  const out = { z: zc } as { z: number; base: MultiPolygon; top: MultiPolygon };
+  Object.defineProperty(out, 'base', { enumerable: true, configurable: true, get: () => (m.base ??= at(0)) });
+  Object.defineProperty(out, 'top', { enumerable: true, configurable: true, get: () => (m.top ??= at(H)) });
+  return out;
+}
+
 function plantaDaParede(rw: ResolvedWall, join: WallTiltJoin | undefined, zc: number): { layers: MultiPolygon[]; tiltPlan: ResolvedWall['tiltPlan'] } {
   const H = join?.H ?? rw.height;
   const sig = [rw.tilt ?? 0, rw.sag ?? 0, rw.a.x, rw.a.y, rw.b.x, rw.b.y, rw.n.x, rw.n.y, zc, H].join(',');
@@ -155,10 +204,10 @@ function plantaDaParede(rw: ResolvedWall, join: WallTiltJoin | undefined, zc: nu
   const hit = chave ? memoParede.get(chave) : undefined;
   if (hit && hit.sig === sig && hit.join === join && mesmas(hit.cuts, cuts) && mesmas(hit.bands, bands)) return hit;
   const layers = rw.layers.map((l) => mapMulti(l.cut, layerPlanMap(rw, l.layerIndex, join), zc));
-  // Só a existência da pegada importa (o antigo `unionClipper` só alimentava `.length`): sem faixa com polígono, sem projeção.
+  // Só a existência da pegada importa para decidir se há `tiltPlan`; a projeção (base e topo, uniões do Clipper) é preguiçosa
+  // (só a planta com marcação de inclinação e o IFC a leem) e não depende da cota de corte `zc`: memo próprio sem `zc`.
   const temPegada = rw.layers.some((l) => l.bands.some((b) => b.poly.length > 0));
-  const at = (z: number): MultiPolygon => unionClipper(...rw.layers.map((l) => mapMulti(l.bands.flatMap((b) => b.poly), layerPlanMap(rw, l.layerIndex, join), z)));
-  const tiltPlan = temPegada ? { z: zc, base: at(0), top: at(H) } : undefined;
+  const tiltPlan = temPegada ? pegadaPreguicosa(rw, join, zc, H, bands, chave) : undefined;
   const novo: MemoParede = { cuts, bands, join, sig, layers, tiltPlan };
   if (chave) memoParede.set(chave, novo);
   return novo;
