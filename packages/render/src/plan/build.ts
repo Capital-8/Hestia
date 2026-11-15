@@ -27,7 +27,7 @@ import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, simboloNaCotaDoCorte, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -234,7 +234,7 @@ function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: Ope
   // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
   // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
   const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
-  const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
+  const sym = openingViewOps(simboloNaCotaDoCorte(p, g, cls === undefined || cls === 'cut' ? (view ? view.cutZ - baseZ : 1.2) : g.sill + model.height / 2), cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
     model,
     detail: detail2d,
     angle: (openingAngle2d(type) * Math.PI) / 180,
