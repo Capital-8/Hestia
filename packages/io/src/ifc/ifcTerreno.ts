@@ -1,8 +1,8 @@
-import { isTerrain, type Terrain } from '@hestia/model';
+import { isTerrain, type Project, type Terrain } from '@hestia/model';
 import { gid, langOf, type IfcCtx } from './ifcCtx.ts';
 import { faceSetOf, tessellatedShape } from './ifcGeneric.ts';
 import { localPlacement } from './ifcSolids.ts';
-import { en, list, OMIT, ref, stepString } from './ifcStep.ts';
+import { en, list, num, OMIT, ref, stepString } from './ifcStep.ts';
 import type { IfcGeometry } from './ifcTypes.ts';
 import { t } from '../i18n.ts';
 
@@ -20,17 +20,19 @@ export function avisoTerrenoSemKernel(c: IfcCtx, nome: string): void {
 
 const porOrdemEId = (a: Terrain, b: Terrain): number => a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-/** Terrenos do projeto como `IFCGEOGRAPHICELEMENT` (`TERRAIN`) sob o `IFCSITE`; sem malha do kernel, só o aviso. */
-export function addTerrenos(c: IfcCtx, geo: IfcGeometry): void {
+/** `RefElevation` do `IFCSITE`: a altitude real da cota 0 do projeto (`localizacao.cotaZero`); sem localização fica omitida. */
+export const refElevationDoSitio = (p: Project): string => (p.localizacao ? num(p.localizacao.cotaZero) : OMIT);
+
+/** Terrenos do projeto como `IFCGEOGRAPHICELEMENT` (`TERRAIN`) sob o `IFCSITE` (`site`: id e colocação); sem malha do kernel, só o aviso. */
+export function addTerrenos(c: IfcCtx, geo: IfcGeometry, site: { id: number; place: number }): void {
   const terrenos = Object.values(c.p.elements).filter(isTerrain).sort(porOrdemEId);
   if (terrenos.length === 0) return;
-  const site = c.site;
   const malhas = new Map((geo.terrenos ?? []).map((m) => [m.terrenoId, m.mesh] as const));
   const escritos: number[] = [];
   for (const tn of terrenos) {
     const mesh = malhas.get(tn.id);
-    const faceSet = site && mesh ? faceSetOf(c.w, mesh, 0) : null;
-    if (!site || faceSet === null) {
+    const faceSet = mesh ? faceSetOf(c.w, mesh, 0) : null;
+    if (faceSet === null) {
       avisoTerrenoSemKernel(c, tn.name || tn.id);
       continue;
     }
@@ -40,7 +42,7 @@ export function addTerrenos(c: IfcCtx, geo: IfcGeometry): void {
     c.products?.set(tn.id, produto);
     escritos.push(produto);
   }
-  if (site && escritos.length > 0) {
+  if (escritos.length > 0) {
     c.w.add('IFCRELCONTAINEDINSPATIALSTRUCTURE', [gid('contain:site:terreno'), OMIT, OMIT, OMIT, list(escritos.map(ref)), ref(site.id)]);
   }
 }

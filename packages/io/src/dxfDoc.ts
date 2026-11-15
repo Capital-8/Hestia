@@ -368,14 +368,8 @@ export function writeDxf2000(doc: DxfDoc): string {
       common(h(), 'LWPOLYLINE');
       if (e.color !== undefined) rec(62, e.color);
       if (e.dashed === true) rec(6, 'DASHED');
-      rec(100, 'AcDbPolyline');
-      rec(90, e.points.length);
-      rec(70, e.closed === true ? 1 : 0);
-      rec(38, len(e.elevation));
-      for (const p of e.points) {
-        rec(10, len(p.x));
-        rec(20, len(p.y));
-      }
+      for (const [c, v] of [[100, 'AcDbPolyline'], [90, e.points.length], [70, e.closed === true ? 1 : 0], [38, len(e.elevation)]] as const) rec(c, v);
+      for (const p of e.points) { rec(10, len(p.x)); rec(20, len(p.y)); }
     } else if (e.kind === 'polyline') {
       const handle = h();
       common(handle, 'POLYLINE');
