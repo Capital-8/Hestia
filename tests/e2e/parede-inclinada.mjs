@@ -74,6 +74,7 @@ const LIB = () => {
   };
   /** Fresta no canto entre duas paredes retas que compartem a ponta: distância dos cantos externo e interno (da fatia z) à união das fatias. */
   window.__pi = {
+    fatias,
     canto(A, B, zs) {
       const turn = Math.sign((A.b.x - A.a.x) * (B.b.y - B.a.y) - (A.b.y - A.a.y) * (B.b.x - B.a.x));
       const out = [];
@@ -173,6 +174,10 @@ async function cantoL(check, r, rotulo, tA, tB, prefixo, principal) {
   await abre3d(page);
   const res = await page.evaluate(([A, B, zs]) => window.__pi.canto(A, B, zs), [A, B, ZS]);
   const av = await page.evaluate(() => (document.querySelector('.statusbar, footer')?.innerText ?? '').match(/\d+ avisos?/)?.[0] ?? 'sem avisos');
+  // a malha precisa INCLINAR de fato: deslocamento da face (z=2,75 menos z=0,05) = 2,7*tan(tilt)
+  const lean = await page.evaluate(([ws, z0, z1]) => ws.map((w) => { const L = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y); const f = (z) => { let hi = -Infinity; const n = { x: -(w.b.y - w.a.y) / L, y: (w.b.x - w.a.x) / L }; for (const segs of window.__pi.fatias(w.id, z)) for (const s of segs) for (const [x, y] of [[s[0], s[1]], [s[2], s[3]]]) hi = Math.max(hi, (x - w.a.x) * n.x + (y - w.a.y) * n.y); return hi; }; return f(z1) - f(z0); }), [[A, B], ZS[0], ZS[2]]);
+  const lerro = [tA, tB].map((t, i) => Math.abs(lean[i] - (ZS[2] - ZS[0]) * Math.tan((t * Math.PI) / 180)));
+  check(`${rotulo}: malha 3D inclina (desvio do deslocamento esperado, m)`, lerro.every((e) => e < 0.01), lerro.map((e, i) => `${['A', 'B'][i]} medido ${fmt(lean[i])} erro ${fmt(e)}`).join('; '));
   const ok = cantoOk(res);
   check(`${rotulo}: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [${av}]`, ok, cantoVal(res));
   if (principal || !ok) {
@@ -292,9 +297,10 @@ await ponto('P6', 'Criação: opção Inclinação visível e aplicada ao desenh
   await page.locator('#place-wall-tilt').fill('15'); await page.keyboard.press('Enter'); await page.waitForTimeout(200);
   const opt = await page.evaluate(() => window.__hestia.useUi.getState().options.wallTilt);
   check('opção wallTilt guardada (graus) = 15', opt !== undefined && Math.abs(opt - 15) < 1e-6, opt);
-  await page.evaluate(() => window.__hestia.editor.ensureViewport(innerWidth, innerHeight));
+  await page.evaluate(() => { const rc = document.querySelector('.canvas-wrap').getBoundingClientRect(); const e = window.__hestia.editor; const v = e.ensureViewport(rc.width, rc.height); e.setViewport({ ...v, width: rc.width, height: rc.height, cx: 1.5, cy: 0, zoom: 100 }); });
   const mundo = async (x, y) => page.evaluate(([x, y]) => { const rc = document.querySelector('.canvas-wrap').getBoundingClientRect(); const v = window.__hestia.editor.viewport(); return { x: rc.x + v.width / 2 + (x - v.cx) * v.zoom, y: rc.y + v.height / 2 - (y - v.cy) * v.zoom }; }, [x, y]);
   const clica = async (x, y) => { const p = await mundo(x, y); await page.mouse.move(p.x, p.y); await page.mouse.click(p.x, p.y); await page.waitForTimeout(150); };
+  console.log('  viewport', JSON.stringify(await page.evaluate(() => window.__hestia.editor.viewport())), 'tool', await page.evaluate(() => window.__hestia.useUi.getState().tool));
   await clica(0, 0); await page.mouse.move((await mundo(3, 0)).x, (await mundo(3, 0)).y); await clica(3, 0);
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   const paredes = await page.evaluate(() => Object.values(window.__hestia.editor.project.elements).filter((e) => e.kind === 'wall').map((w) => ({ tilt: w.tilt ?? 0, a: w.a, b: w.b })));
@@ -316,14 +322,14 @@ async function medir(page, rotulo, tilt) {
     const raf = () => new Promise((r) => requestAnimationFrame(() => r()));
     const mk = (kind, name, a, b, depth) => { const id = model.newId('v'); editor.applyCommand({ type: 'addView', view: { id, name, kind, a, b, depth } }); return id; };
     // aquecimento do worker do corte, numa vista vazia
-    const w = mk('section', 'aquec', { x: 500, y: 500 }, { x: 510, y: 500 }, 2); editor.openSection(w); await editor.sectionReady(w);
+    const w = mk('section', 'aquec', { x: 500, y: 500 }, { x: 510, y: 500 }, 2); editor.openSection(w); { let g = 0; while (!editor.sectionFresh(w) && g++ < 2000) { editor.sectionOf(w); await new Promise((r) => setTimeout(r, 5)); } }
     const med = async (kind, a, b, depth) => {
       const xs = [];
       for (let k = 0; k < 3; k++) {
         if (k > 0) { const t0 = editor.project.elements; } // cada rodada usa uma vista nova (sem cache)
         const id = mk(kind, `${kind}${k}`, a, b, depth);
-        const t0 = performance.now(); editor.openSection(id); await raf(); await raf(); const s = await editor.sectionReady(id); await raf(); xs.push(performance.now() - t0);
-        if (!s) throw new Error('sem resultado');
+        const t0 = performance.now(); editor.openSection(id); await raf(); await raf(); let guard = 0; while (!editor.sectionFresh(id) && guard++ < 2000) { editor.sectionOf(id); await new Promise((r) => setTimeout(r, 1)); } await raf(); xs.push(performance.now() - t0);
+        if (!editor.sectionLast(id)) throw new Error('sem resultado em ' + kind);
       }
       return xs;
     };

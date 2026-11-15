@@ -1,42 +1,32 @@
 [
  {
-  "id": "P3",
-  "nome": "Misto: parede inclinada 20° + vertical numa ponta",
+  "id": "P6",
+  "nome": "Criação: opção Inclinação visível e aplicada ao desenhar",
   "checks": [
    {
-    "nm": "L 20°+vertical: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
-    "ok": true,
-    "val": "z=0.05 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=1.4 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=2.75 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092)"
-   },
-   {
-    "nm": "sem erro de console",
+    "nm": "campo #place-wall-tilt existe no DOM",
     "ok": true,
     "val": ""
    },
    {
-    "nm": "L -20°+vertical: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "nm": "visível na viewport sem rolar (ratio >= 0,99, rolagem 0)",
     "ok": true,
-    "val": "z=0.05 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=1.4 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=2.75 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092)"
+    "val": "ratio=1 y=324 rolagem=0"
    },
    {
-    "nm": "sem erro de console",
+    "nm": "opção wallTilt guardada (graus) = 15",
     "ok": true,
-    "val": ""
+    "val": "15"
    },
    {
-    "nm": "L vertical+20°: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "nm": "desenhou 1 parede por cliques",
     "ok": true,
-    "val": "z=0.05 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=1.4 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=2.75 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092)"
+    "val": "1"
    },
    {
-    "nm": "sem erro de console",
+    "nm": "a parede nasce com tilt 15",
     "ok": true,
-    "val": ""
-   },
-   {
-    "nm": "L vertical+-20°: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
-    "ok": true,
-    "val": "z=0.05 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=1.4 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092); z=2.75 ext=0 int=0 sobra=0 Pext=(4.092,-0.092) Pint=(3.908,0.092)"
+    "val": "15"
    },
    {
     "nm": "sem erro de console",
@@ -46,8 +36,8 @@
   ],
   "pass": true,
   "shots": [
-   "P3-L20-0-externo.png",
-   "P3-L20-0-interno.png"
+   "P6-painel-colocacao.png",
+   "P6-parede-desenhada-3d.png"
   ]
  }
 ]
