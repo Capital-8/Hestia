@@ -10,7 +10,7 @@ import { firstSurfaceDistance, prepararPicking } from './pick3d.ts';
 import { faixaDaNevoa } from './nevoa3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
-import { arestasDosLotes, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
+import { arestasDosLotes, genericosAcimaDoOrcamento, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
 import { SombrasDaCena, SOMBRA_MAX_TRIANGULOS, prepararSombraDoQuadro, type FaixaDeSombra } from './sombras3d.ts';
 import { LotesPorFaixa, type Faixa3D } from './faixas3d.ts';
 import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type DiagnosticoOrigem, type DiagnosticoProfundidade } from './precisao3d.ts';
@@ -436,6 +436,8 @@ export class ModelScene {
         this.frame.edges,
         this.frame.shadows,
         view.style,
+        // Decisão do projeto sobre as arestas dos genéricos: mudá-la refaz todos os níveis (senão um nível cacheado manteria as arestas).
+        genericosAcimaDoOrcamento(p.elements),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
@@ -1003,7 +1005,7 @@ export class ModelScene {
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements)]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
   }
 
   /**
@@ -1277,8 +1279,10 @@ export class ModelScene {
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
     const bordas: number[] = [];
+    // Orçamento de arestas dos genéricos decidido pelo projeto inteiro (não por nível): igual em todos os níveis.
+    const semGenericos = genericosAcimaDoOrcamento(p.elements);
     const arestasDe = (lotes: readonly LoteSolido[]): void => {
-      const g = arestasDosLotes(lotes, EDGE_ANGLE);
+      const g = arestasDosLotes(lotes, EDGE_ANGLE, semGenericos);
       if (!g) return;
       for (const x of g.getAttribute('position').array) bordas.push(x);
       g.dispose();
@@ -1316,7 +1320,7 @@ export class ModelScene {
     const prismasSemArestas = new Set<LoteSolido>();
     if (!this.instanciar) {
       // Lotes do nível juntados por categoria e material: uma malha por grupo (ver `lotesMalha3d.ts`).
-      this.desenharLotes(grupo, batches, this.frame.edges, materialOf);
+      this.desenharLotes(grupo, batches, this.frame.edges, materialOf, [], semGenericos);
     } else {
       lotes.push(...batches);
       for (const b of batches) this.mats.face(materialOf(b.materialId), b.category);
@@ -1394,7 +1398,7 @@ export class ModelScene {
       if (this.frame.edges) {
         this.mats.edge();
         if (lotes.length) {
-          const g = arestasDosLotes(prismasSemArestas.size ? lotes.filter((l) => !prismasSemArestas.has(l)) : lotes, EDGE_ANGLE);
+          const g = arestasDosLotes(prismasSemArestas.size ? lotes.filter((l) => !prismasSemArestas.has(l)) : lotes, EDGE_ANGLE, semGenericos);
           if (g) {
             arestasSolidas = Float32Array.from(g.getAttribute('position').array);
             g.dispose();
@@ -1453,10 +1457,10 @@ export class ModelScene {
    * elemento deslocadas (picking e realce continuam por triângulo). As arestas de todos os lotes saem numa linha só, com o
    * mesmo ângulo de antes, e só quando `edges`.
    */
-  private desenharLotes(parent: THREE.Object3D, lotes: LoteSolido[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = []): void {
+  private desenharLotes(parent: THREE.Object3D, lotes: LoteSolido[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = [], semGenericos?: boolean): void {
     for (const b of juntarLotes(lotes)) this.draw(parent, geometriaDoLote(b), materialOf(b.materialId), b.category, false, b.ids);
     // Peças de um grupo físico desenham uma silhueta só: as arestas internas do grupo não entram na linha.
-    const arestas = edges ? arestasDosLotes(lotes.filter((b) => !b.group), EDGE_ANGLE) : null;
+    const arestas = edges ? arestasDosLotes(lotes.filter((b) => !b.group), EDGE_ANGLE, semGenericos) : null;
     if (arestas) parent.add(new THREE.LineSegments(arestas, this.mats.edge()));
     if (edges && arestasGrupos.length) {
       const g = new THREE.BufferGeometry();
