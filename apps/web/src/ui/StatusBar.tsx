@@ -9,6 +9,9 @@ import { IssuesButton } from './IssuesButton.tsx';
 import { SnapButton } from './SnapButton.tsx';
 import { OrthoButton } from './OrthoButton.tsx';
 import { useUnits } from './useUnits.ts';
+import { useCotaDoTerreno } from './useCotaDoTerreno.ts';
+import { editor } from '../editor/controller.ts';
+import { textoDaCotaDoTerreno } from '../editor/terrenoVista.ts';
 
 const SNAP: Record<string, keyof Dict> = {
   endpoint: 'shc_snap_endpoint',
@@ -39,11 +42,13 @@ export function StatusBar(): ReactElement {
   const gpu = useUi((s) => s.gpu);
   const engine = gpu === 'pending' ? '…' : gpu === 'cpu' ? 'CPU' : gpu === 'webgpu' ? 'WebGPU' : 'WebGL2';
   const snapKey = snap ? SNAP[snap] : undefined;
+  const zTerreno = useCotaDoTerreno(() => editor.ocultosDaPlanta());
   return (
     <footer className="statusbar" role="status">
       <span className="msg" title={statusText}>{statusText}</span>
       {pendente ? <span className="mono" aria-label={t('shc_sb_shortcut_pending')}>{pendente}…</span> : null}
       {view === 'plan' && cursor ? <span className="mono sb-coords">x {formatQuantity(units, 'length', cursor.x, { lang })}  y {formatQuantity(units, 'length', cursor.y, { lang })}</span> : null}
+      {zTerreno !== null ? <span className="mono sb-coords" title={t('ui_tn_sb_z_tip')}>{t('ui_tn_sb_z', { v: textoDaCotaDoTerreno(editor.project, units, zTerreno, lang) })}</span> : null}
       {/* Corte/elevação trabalham em (t,z): t é a distância ao longo da linha e z a cota. Não são x/y de planta. */}
       {view === 'section' && cursor ? <span className="mono sb-coords">t {formatQuantity(units, 'length', cursor.x, { lang })}  z {formatQuantity(units, 'length', cursor.y, { lang })}</span> : null}
       <span className="mono sb-snap">{snapKey ? t(snapKey) : view === 'section' && snap ? snap : ''}</span>
