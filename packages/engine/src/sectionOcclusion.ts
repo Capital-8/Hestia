@@ -164,8 +164,13 @@ class GradeDeCaixas<T extends { box: Box }> {
   }
 }
 
-/** Até tantos vértices de oclusores a subtração vai numa passada só (como sempre foi). */
-const VERTICES_PASSADA_UNICA = 160;
+/** Até tantos vértices de oclusores, vale a subtração de sempre (passada única ou lotes de 4 na ordem de entrada). */
+const VERTICES_LEVES = 400;
+/** Também vale o de sempre quando nenhum oclusor tem tantos vértices (muitos retângulos, p. ex.): só oclusores complexos pedem lotes por vértices. */
+const OCLUSOR_COMPLEXO = 500;
+/** Acima de tantos oclusores, a subtração leve vai em lotes de `LOTE_DE_OCLUSORES` (comportamento de antes). */
+const MAX_OCLUSORES_POR_PASSADA = 8;
+const LOTE_DE_OCLUSORES = 4;
 /** Acima disso, os oclusores entram em lotes de até tantos vértices (um oclusor maior que o orçamento vai sozinho). */
 const VERTICES_POR_LOTE = 96;
 
@@ -182,11 +187,16 @@ function caixaDe(m: MultiPolygon): Box {
  * mesmo longe da peça): no projeto do dono (paredes em arco inclinadas, ~120 lascas por oclusor, 3,6 mil vértices) uma peça de 4 vértices menos 8 oclusores
  * levava 2,5 a 5 s numa só passada, e os mesmos oclusores em lotes de ~100 vértices, do menor para o maior, levam poucos ms (a peça costuma sumir nos primeiros).
  * A região resultante é a mesma (a diferença não depende da ordem nem do agrupamento); só a ordem dos vértices pode mudar. Oclusor cuja caixa não encosta no
- * resto da peça é pulado. Para quando a peça some. Poucos vértices: uma passada só, como antes.
+ * resto da peça é pulado. Para quando a peça some. Poucos vértices (até `VERTICES_LEVES`): como antes (uma passada, ou lotes de 4 acima de 8 oclusores).
  */
 function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
   const tamanhos = oclusores.map(verticesDe);
-  if (tamanhos.reduce((s, n) => s + n, 0) <= VERTICES_PASSADA_UNICA && oclusores.length <= 8) return differenceClipper(poligonos, ...oclusores);
+  if (tamanhos.reduce((s, n) => s + n, 0) <= VERTICES_LEVES || Math.max(0, ...tamanhos) < OCLUSOR_COMPLEXO) {
+    if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+    let resto = poligonos;
+    for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+    return resto;
+  }
   const ordem = oclusores.map((_, i) => i).sort((i, j) => tamanhos[i]! - tamanhos[j]! || i - j);
   let resto = poligonos;
   let lote: MultiPolygon[] = [];
