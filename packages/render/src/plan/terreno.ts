@@ -1,5 +1,4 @@
-import { convexHull } from '@hestia/geom';
-import type { CotaDoTerreno, CurvaNivelTN, LinhaPlantaTN } from '@hestia/engine';
+import { envoltoriaDasFontes, type CotaDoTerreno, type CurvaNivelTN, type LinhaPlantaTN } from '@hestia/engine';
 import type { Id, Project, Terrain, TerrainRegion } from '@hestia/model';
 import { mix } from './color.ts';
 import type { FloorOps } from './floors.ts';
@@ -63,19 +62,14 @@ export function espessuraMestra(paint: PlanPaint): Pick<StrokeOp, 'widthPx' | 'p
 
 const par = (q: Pt): Pt => ({ x: q.x, y: q.y });
 
-/** Pontos do terreno que fazem parte do desenho de reserva: a borda do modelo, ou a envoltória convexa de todas as fontes. */
+/** Borda de reserva (sem kernel): a borda do modelo, ou a envoltória convexa das fontes. */
 export function bordaDeReserva(t: Terrain): Pt[] {
   if (t.borda && t.borda.length >= 6) {
     const out: Pt[] = [];
     for (let i = 0; i + 1 < t.borda.length; i += 2) out.push({ x: t.borda[i]!, y: t.borda[i + 1]! });
     return out;
   }
-  const pts: Pt[] = [];
-  for (let i = 0; i + 2 < t.pontos.length; i += 3) pts.push({ x: t.pontos[i]!, y: t.pontos[i + 1]! });
-  for (const c of t.curvas) for (let i = 0; i + 1 < c.xy.length; i += 2) pts.push({ x: c.xy[i]!, y: c.xy[i + 1]! });
-  for (const q of t.quebras) for (let i = 0; i + 2 < q.xyz.length; i += 3) pts.push({ x: q.xyz[i]!, y: q.xyz[i + 1]! });
-  const h = convexHull(pts);
-  return h.length >= 3 ? h.map(par) : [];
+  return envoltoriaDasFontes(t);
 }
 
 /** Cor de uma região: material, depois a própria, depois uma por papel. */

@@ -1,4 +1,5 @@
 import { planFootprint } from './stairs.ts';
+import { bordaDeReserva } from './terreno.ts';
 import { resolveRampOne, resolveStairOne } from '@hestia/engine';
 import { isOpening, isRamp, isStair, isWall, type Element, type Id, type Project } from '@hestia/model';
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
@@ -81,8 +82,9 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
-  terrain: { entra: false, motivo: 'terreno: ficha V2 (a extensão do terreno vem do kernel; a vista ainda não o desenha em corte nem em elevação).', pontos: nenhum },
-  terrainRegion: { entra: false, motivo: 'terreno: ficha V2 (a região segue o terreno; a vista ainda não a desenha em corte nem em elevação).', pontos: nenhum },
+  // Terreno e região (ficha V2): entram pela planta (a borda do modelo, ou a envoltória das fontes; o contorno da região).
+  terrain: { entra: true, pontos: (e) => bordaDeReserva(e) },
+  terrainRegion: { entra: true, pontos: (e) => e.contorno },
   lot: { entra: false, motivo: 'lote não aparece em corte nem em elevação', pontos: nenhum },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {

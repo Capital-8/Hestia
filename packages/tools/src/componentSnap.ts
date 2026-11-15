@@ -1,4 +1,4 @@
-import { apoioDoElemento, servicoGuardaCorpo, type ApoioDoElemento } from '@hestia/engine';
+import { apoioDoElemento, servicoGuardaCorpo, servicoTerreno, type ApoioDoElemento } from '@hestia/engine';
 import { dist, type Vec2 } from '@hestia/geom';
 import { isGuardaCorpo, type Id, type Project, type Ramp, type Stair } from '@hestia/model';
 import { planComponentsInLevel } from './componentLevels.ts';
@@ -113,7 +113,7 @@ function geometryOfComponent(p: Project, e: Stair | Ramp): ComponentSnapGeometry
   return e.kind === 'stair' ? geometryOfSketch(e.id, stairEndpoints(e), stairPolylines(e)) : geometryOfSketch(e.id, rampEndpoints(e), rampPolylines(e));
 }
 
-function geometryOfLevel(p: Project, levelId: Id): ComponentSnapGeometry {
+function partsOfLevel(p: Project, levelId: Id): ComponentSnapGeometry[] {
   const parts: ComponentSnapGeometry[] = [];
   // A planta mostra a escada/rampa que nasce, a que chega e a que atravessa a cota do nível (helper componentLevels).
   for (const e of planComponentsInLevel(p, levelId)) parts.push(geometryOfComponent(p, e));
@@ -129,7 +129,25 @@ function geometryOfLevel(p: Project, levelId: Id): ComponentSnapGeometry {
     const apoio = apoioDoElemento(p, e);
     if (apoio) parts.push(geometryOfApoio(e.id, apoio));
   }
-  return { points: parts.flatMap((g) => g.points), segments: parts.flatMap((g) => g.segments) };
+  // Terreno e região de terreno do nível (ficha V2): borda, fontes e contorno, pelo mesmo apoio.
+  for (const e of Object.values(p.elements)) {
+    if ((e.kind !== 'terrain' && e.kind !== 'terrainRegion') || e.levelId !== levelId) continue;
+    const apoio = apoioDoElemento(p, e);
+    if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+  }
+  return parts;
+}
+
+/** Última entrada de cada nível, com as partes que a formaram: se as partes são as mesmas (identidade), a geometria e o índice são reaproveitados. */
+const ultimaPorNivel = new Map<Id, { partes: ComponentSnapGeometry[]; kernel: boolean; entrada: Entrada }>();
+
+function entradaNova(p: Project, levelId: Id, kernel: boolean): Entrada {
+  const partes = partsOfLevel(p, levelId);
+  const antes = ultimaPorNivel.get(levelId);
+  if (antes && antes.kernel === kernel && antes.partes.length === partes.length && antes.partes.every((g, i) => g === partes[i])) return antes.entrada;
+  const entrada: Entrada = { kernel, geometry: { points: partes.flatMap((g) => g.points), segments: partes.flatMap((g) => g.segments) } };
+  ultimaPorNivel.set(levelId, { partes, kernel, entrada });
+  return entrada;
 }
 
 function entradaDoNivel(p: Project, levelId: Id): Entrada {
@@ -138,10 +156,10 @@ function entradaDoNivel(p: Project, levelId: Id): Entrada {
     byLevel = new Map();
     cache.set(p, byLevel);
   }
-  const kernel = servicoGuardaCorpo().pronto();
+  const kernel = servicoGuardaCorpo().pronto() && servicoTerreno().pronto();
   let all = byLevel.get(levelId);
   if (!all || all.kernel !== kernel) {
-    all = { kernel, geometry: geometryOfLevel(p, levelId) };
+    all = entradaNova(p, levelId, kernel);
     byLevel.set(levelId, all);
   }
   return all;
