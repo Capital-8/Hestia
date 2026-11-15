@@ -8,6 +8,7 @@ import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
 import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
+import { casarMonotono } from './wallTiltCasar.ts';
 import { nodeWarp, type NodeWarp } from './wallTiltNo.ts';
 import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
@@ -176,11 +177,7 @@ function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): {
   const sg = Math.sign(ringArea(raw));
   let a = p0, b = pH;
   if (p0.length !== raw.length) {
-    const idx = raw.map((r) => {
-      let best = 0, d = Infinity;
-      p0.forEach((q, j) => { const e = Math.hypot(q.x - r.x, q.y - r.y); if (e < d) { d = e; best = j; } });
-      return best;
-    });
+    const idx = casarMonotono(raw, p0);
     a = idx.map((j) => p0[j]!);
     b = idx.map((j) => pH[j]!);
   }
@@ -216,7 +213,7 @@ function runsOf(poly: readonly Vec2[], c: Vec2): Run[] {
  * angular entre os cantos dela (cantos mantidos), as correntes entre faces casam por ordem (ou pelo vértice mais próximo)
  * e, sem faces de arco, vale o vértice mais próximo (como `alinhar`). null se o anel resultante é degenerado ou invertido.
  */
-function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null): Vec2[] | null {
+function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: number[]; m?: number }): Vec2[] | null {
   const n = raw.length, m = ring.length;
   const sg = Math.sign(ringArea(raw));
   const nearest = (p: Vec2, from: number, count: number): Vec2 => {
@@ -254,6 +251,10 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null): Vec2[] | null 
       }
     }
     if (out.some((q) => !q)) return null;
+  } else if (memo) {
+    // Sem faces de arco: casamento monótono feito na base (anel ≈ raw) e reaproveitado nos níveis acima (mesma contagem).
+    if (!memo.idx || memo.m !== m) { memo.idx = casarMonotono(raw, ring); memo.m = m; }
+    out = memo.idx.map((j) => ring[j]!);
   } else out = raw.map((r) => nearest(r, 0, m));
   const a = ringArea(out);
   return Number.isFinite(a) && Math.sign(a) === sg && Math.abs(a) > 1e-9 && out.every((q) => Number.isFinite(q.x) && Number.isFinite(q.y)) ? out : null;
@@ -421,9 +422,10 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         const aligned: Vec2[][][] = [];
         for (const [layerIndex, r0] of raw) {
           const rs: Vec2[][] = [];
+          const memo: { idx?: number[]; m?: number } = {};
           for (const m of per) {
             const q = m.get(layerIndex);
-            const al = q ? alinharNivel(r0, q, centro) : null;
+            const al = q ? alinharNivel(r0, q, centro, memo) : null;
             if (!al) return null;
             rs.push(al);
           }
@@ -475,22 +477,22 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       // Plano B: só o par problemático (ou todos, se o conjunto ainda falhar) vira encosto, com a ponta de uma parede cortada
       // pelo plano da face da outra em toda a altura; sobra no máximo a espessura da hospedeira. Ver S1 "Não passou".
       const tee = (r: Relation & { kind: 'pair' }, flip: boolean): Relation => (flip ? { kind: 'tee', branch: r.b, host: r.a.id } : { kind: 'tee', branch: r.a, host: r.b.id });
-      const asTee = (r: Relation, force: boolean): Relation => {
-        if (r.kind !== 'pair' || (!force && evalRels([r]))) return r;
-        return [tee(r, false), tee(r, true)].find((c) => evalRels([c])) ?? r;
-      };
+      const comoTee = (r: Relation & { kind: 'pair' }): Relation | null => [tee(r, false), tee(r, true)].find((c) => evalRels([c])) ?? null;
+      // D2: decisão por PAR: entra no conjunto aceito só se o conjunto segue viável com ele; o que reprova vira encosto local.
+      const aceitos: Relation[] = [];
+      const asTee = (r: Relation, force: boolean): Relation | null => (r.kind === 'pair' && (force || !evalRels([...aceitos, r])) ? comoTee(r) : (aceitos.push(r), r));
+      const avisar = (r: Relation): void => { for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id); };
       for (const force of [false, true]) {
+        aceitos.length = 0;
         const plano = crel.map((r) => asTee(r, force));
-        joins = evalRels(plano);
+        const mant = plano.filter((r): r is Relation => !!r);
+        joins = mant.length ? evalRels(mant) : new Map<string, WallTiltJoin>();
         if (joins) {
-          crel.forEach((r, i) => { if (plano[i] !== r) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id); });
+          crel.forEach((r, i) => { if (plano[i] !== r) avisar(r); });
           break;
         }
       }
-      if (!joins) {
-        for (const r of crel) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id);
-        continue;
-      }
+      if (!joins) { crel.forEach(avisar); continue; }
     }
     for (const [id, j] of joins) out.joins.set(id, j);
   }
