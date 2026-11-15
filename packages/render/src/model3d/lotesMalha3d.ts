@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { GraphicsCategory, Id } from '@hestia/model';
+import type { GraphicsCategory, Id, Project } from '@hestia/model';
 import type { LoteSolido, SolidBatch } from './solids.ts';
 import { arestasPorAngulo } from './arestasRapidas3d.ts';
 
@@ -98,16 +98,38 @@ export function trianguloDosGenericos(lotes: readonly LoteSolido[]): number {
   return n;
 }
 
+/** Triângulos dos elementos genéricos do projeto inteiro (todos os níveis). Resultado em cache por referência de `elements`. */
+const trianguloDosGenericosDoProjeto = new WeakMap<object, number>();
+
+/**
+ * Decide o orçamento de arestas dos genéricos do PROJETO (não de um nível): `true` quando a soma dos triângulos dos genéricos
+ * de todos os níveis passa de `ORCAMENTO_TRIANGULOS_GENERICOS`. Nesse caso nenhum lote genérico ganha arestas por ângulo, em
+ * nenhum nível. Custa O(n) só na primeira vez para cada `elements`; as chamadas seguintes com a mesma referência são O(1).
+ */
+export function genericosAcimaDoOrcamento(elements: Project['elements']): boolean {
+  let total = trianguloDosGenericosDoProjeto.get(elements);
+  if (total === undefined) {
+    total = 0;
+    for (const e of Object.values(elements)) if (e.kind === 'generic') total += Math.floor(e.mesh.indices.length / 3);
+    trianguloDosGenericosDoProjeto.set(elements, total);
+  }
+  return total > ORCAMENTO_TRIANGULOS_GENERICOS;
+}
+
 /**
  * Arestas dos lotes dados, numa geometria só. Cada lote gera as arestas da sua própria geometria (com o mesmo ângulo de
  * antes), para que as juntas entre peças continuem desenhadas. Sem triângulos, devolve null.
+ *
+ * `semGenericos` (opcional): quando definido, manda — `true` pula todos os lotes genéricos, `false` os mantém (a cena passa
+ * a decisão do PROJETO, `genericosAcimaDoOrcamento`). Quando omitido, a decisão é por chamada, pelo total de `lotes` (o
+ * comportamento de antes, para quem chama com um conjunto só).
  */
-export function arestasDosLotes(lotes: readonly LoteSolido[], angulo: number): THREE.BufferGeometry | null {
+export function arestasDosLotes(lotes: readonly LoteSolido[], angulo: number, semGenericos?: boolean): THREE.BufferGeometry | null {
   const pos: number[] = [];
-  const semGenericos = trianguloDosGenericos(lotes) > ORCAMENTO_TRIANGULOS_GENERICOS;
+  const pularGenericos = semGenericos ?? trianguloDosGenericos(lotes) > ORCAMENTO_TRIANGULOS_GENERICOS;
   for (const b of lotes) {
     if (!comTriangulos(b)) continue;
-    if (semGenericos && b.category === 'generic') continue;
+    if (pularGenericos && b.category === 'generic') continue;
     // Mesmo critério e mesma saída do `THREE.EdgesGeometry`, sem o texto por vértice (ver `arestasRapidas3d.ts`).
     for (const x of arestasPorAngulo(b.positions, b.indices, angulo)) pos.push(x);
   }
