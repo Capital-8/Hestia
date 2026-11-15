@@ -1,6 +1,6 @@
 import { arcFromSagitta, closeGapsSafe, unionClipper, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
-import type { Region, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
+import type { Region, ResolvedLevel, ResolvedWall } from './types.ts';
 import { analyzeLevelTilt, type WallTiltJoin } from './wallTiltJoinLevel.ts';
 import type { WallFrame } from './frame.ts';
 
