@@ -161,16 +161,10 @@ function topProfileSolid(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo, fo
 
 /** Corpo da parede: perfil superior quando há `topProfile` em parede reta; senão a extrusão de altura constante. */
 function wallSolids(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo): number[] {
-  if (!g.tilt && wall.topProfile && wall.sag === 0) {
-    const profiled = g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null);
-    if (profiled.length > 0) return profiled;
-  }
-  const tilt = g.tilt;
-  if (tilt) {
-    const z = g.baseZ - st.elev;
-    return g.footprints.map((f) => (tilt.straight ? tiltExtrudeSolid(c.w, f, tilt.map, z, g.height) : tiltBrepSolid(c.w, f, tilt.map, z, g.height, langOf(c))));
-  }
-  return g.footprints.map((f) => extrudeSolid(c.w, f, g.baseZ - st.elev, g.height));
+  const profiled = !g.tilt && wall.topProfile && wall.sag === 0 ? g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null) : [];
+  if (profiled.length > 0) return profiled;
+  const [z, k] = [g.baseZ - st.elev, g.tilt];
+  return g.footprints.map((f) => (!k ? extrudeSolid(c.w, f, z, g.height) : k.straight ? tiltExtrudeSolid(c.w, f, k.map, z, g.height) : tiltBrepSolid(c.w, f, k.map, z, g.height, langOf(c))));
 }
 
 /** Paredes: IFCWALL com contorno extrudado, camadas do tipo (`IFCMATERIALLAYERSETUSAGE`) e `Pset_WallCommon`. */
