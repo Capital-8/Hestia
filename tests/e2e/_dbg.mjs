@@ -1,0 +1,16 @@
+import { chromium } from 'playwright-core';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await b.newPage({ viewport: { width: 1440, height: 860 } });
+await page.goto('http://127.0.0.1:4174/?debug=1&gl=1');
+await page.waitForFunction(() => window.__hestia, null, { timeout: 60000 });
+await page.waitForTimeout(1500);
+await page.getByRole('button', { name: /Novo projeto/ }).first().click();
+await page.waitForFunction(()=>window.__hestia.useUi.getState().tela==='editor');
+await page.evaluate(() => { const { editor, model } = window.__hestia;
+  const mk=(a,b,tilt)=>editor.applyCommand({type:'addWall', wall: model.makeWall({id: model.newId('wall'), typeId:'wt_conc15', levelId:'lv_0', a, b, tilt})});
+  mk({x:0,y:0},{x:4,y:0},15); mk({x:4,y:0},{x:4,y:4},30); });
+await page.getByText(/avisos/).first().click();
+await page.waitForTimeout(800);
+console.log(await page.evaluate(()=>document.body.innerText.split('\n').filter(l=>/aviso|incl|junç|tilt/i.test(l)).join(' | ')));
+await page.screenshot({path:'/tmp/claude-1000/dbg.png'});
+await b.close();

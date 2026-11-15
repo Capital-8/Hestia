@@ -1,0 +1,43 @@
+[
+ {
+  "id": "P1",
+  "nome": "Junção em toda a altura (L 15° + 30°)",
+  "checks": [
+   {
+    "nm": "P1 cantos externo e interno dentro da união em z=0,05/1,4/2,75 (fresta <= 2 mm)",
+    "ok": true,
+    "val": "z=0.05 ext=0 int=0 sobra=0; z=1.4 ext=0 int=0 sobra=0; z=2.75 ext=0 int=0 sobra=0"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": true,
+  "shots": [
+   "P1-canto-L.png",
+   "P1-canto-L-b.png"
+  ]
+ },
+ {
+  "id": "P3",
+  "nome": "Misto: parede inclinada 20° + vertical numa ponta",
+  "checks": [
+   {
+    "nm": "P3 cantos externo e interno dentro da união (fresta <= 2 mm)",
+    "ok": true,
+    "val": "z=0.05 ext=0 int=0 sobra=0; z=1.4 ext=0 int=0 sobra=0; z=2.75 ext=0 int=0 sobra=0"
+   },
+   {
+    "nm": "sem exceção",
+    "ok": false,
+    "val": "page.screenshot: Timeout 30000ms exceeded."
+   }
+  ],
+  "pass": false,
+  "shots": [
+   "P3-canto-misto.png"
+  ]
+ }
+]

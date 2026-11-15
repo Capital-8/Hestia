@@ -81,7 +81,16 @@ const LIB = () => {
         const fa = faces(A, z); const fb = faces(B, z);
         const lados = turn > 0 ? { ext: ['lo', 'lo'], int: ['hi', 'hi'] } : { ext: ['hi', 'hi'], int: ['lo', 'lo'] };
         const lista = [...fatias(A.id, z), ...fatias(B.id, z)];
-        const r = { z };
+        const r = { z, sobra: 0 };
+        // saliência: vértice de uma fatia além da face externa da OUTRA parede (corte simples faz a ponta atravessar a face)
+        for (const [W, F] of [[A, fb], [B, fa]]) {
+          const o = lados.ext[0];
+          const signo = o === 'lo' ? -1 : 1;
+          for (const segs of fatias(W.id, z)) for (const s of segs) for (const [x, y] of [[s[0], s[1]], [s[2], s[3]]]) {
+            const off = (x - F.a.x) * F.n.x + (y - F.a.y) * F.n.y;
+            r.sobra = Math.max(r.sobra, signo * (off - F[o]));
+          }
+        }
         for (const [nome, [la, lb]] of Object.entries(lados)) {
           const P = inter({ ...fa, off: fa[la] }, { ...fb, off: fb[lb] });
           r[nome] = P ? distUniao(P.x, P.y, lista) : NaN;
@@ -128,10 +137,11 @@ const abre3d = async (page) => {
   await page.waitForFunction(() => window.__hestia3dModel?.scene, null, { timeout: 30000 });
   await page.waitForTimeout(1500);
 };
-const camera = (page, v) => page.evaluate((v) => {
+const camera = async (page, v) => { await page.evaluate((v) => {
   const o = window.__hestia3d; const T = o.target.constructor;
-  o.animateTo({ azimuth: v.az, elevation: v.el, distance: v.d, target: new T(v.t[0], v.t[1], v.t[2]) }, 1);
-}, v);
+  o.cancelAnimation?.(); o.azimuth = v.az; o.elevation = v.el; o.distance = v.d; o.target.set(v.t[0], v.t[1], v.t[2]); o.apply();
+  window.__hestia.editor.bump();
+}, v); await page.waitForTimeout(500); };
 async function captura(page, nome) {
   await page.mouse.move(2, 2); await page.waitForTimeout(500);
   let ant = null; let atual = null;
@@ -142,6 +152,7 @@ async function captura(page, nome) {
 const espera3d = (page, fn, arg, ms = 8000) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true, () => false);
 
 async function ponto(id, nome, fn) {
+  if (process.env.SO && !process.env.SO.split(',').includes(id)) return;
   const r = { id, nome, checks: [], pass: true, shots: [] };
   rows.push(r);
   const check = (nm, ok, val = '') => { r.checks.push({ nm, ok: !!ok, val: fmt(val) }); if (!ok) r.pass = false; console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${id} ${nm}${val !== '' ? ` -> ${fmt(val)}` : ''}`); };
@@ -150,23 +161,32 @@ async function ponto(id, nome, fn) {
 }
 const ocupado = (erros, check) => check('sem erro de console', erros.length === 0, erros.slice(0, 2).join(' | '));
 const TOL = 0.002;
-const cantoVal = (res) => res.map((c) => `z=${fmt(c.z)} ext=${fmt(c.ext)} int=${fmt(c.int)}`).join('; ');
+const cantoVal = (res) => res.map((c) => `z=${fmt(c.z)} ext=${fmt(c.ext)} int=${fmt(c.int)} sobra=${fmt(c.sobra)}`).join('; ');
+const cantoOk = (res) => res.every((c) => c.ext <= TOL && c.int <= TOL && c.sobra <= TOL);
 const ZS = [0.05, 1.4, 2.75];
 
-// ---------- P1 ----------
-await ponto('P1', 'Junção em toda a altura (L 15° + 30°)', async ({ check, r }) => {
+/** Um L (a→b→c, canto em (4,0)) com tilts dados: confere fresta/saliência no canto e captura de dois ângulos. */
+async function cantoL(check, r, rotulo, tA, tB, prefixo, principal) {
   const { page, erros, ctx } = await novoApp();
-  const A = { a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, tilt: 15 }; const B = { a: { x: 4, y: 0 }, b: { x: 4, y: 4 }, tilt: 30 };
+  const A = { a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, tilt: tA }; const B = { a: { x: 4, y: 0 }, b: { x: 4, y: 4 }, tilt: tB };
   A.id = await addWall(page, A); B.id = await addWall(page, B);
   await abre3d(page);
   const res = await page.evaluate(([A, B, zs]) => window.__pi.canto(A, B, zs), [A, B, ZS]);
-  console.log('  ' + cantoVal(res));
-  check('P1 cantos externo e interno dentro da união em z=0,05/1,4/2,75 (fresta <= 2 mm)', res.every((c) => c.ext <= TOL && c.int <= TOL), cantoVal(res));
-  await camera(page, { az: -2.2, el: 0.5, d: 7, t: [4, 0, 1.4] });
-  r.shots.push(await captura(page, 'P1-canto-L.png'));
-  await camera(page, { az: -0.8, el: 0.25, d: 6, t: [4, 0, 1.4] });
-  r.shots.push(await captura(page, 'P1-canto-L-b.png'));
+  const av = await page.evaluate(() => (document.querySelector('.statusbar, footer')?.innerText ?? '').match(/\d+ avisos?/)?.[0] ?? 'sem avisos');
+  const ok = cantoOk(res);
+  check(`${rotulo}: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [${av}]`, ok, cantoVal(res));
+  if (principal || !ok) {
+    await camera(page, { az: -2.2, el: 0.5, d: 7, t: [4, 0, 1.4] }); r.shots.push(await captura(page, `${prefixo}-externo.png`));
+    await camera(page, { az: 0.9, el: 0.45, d: 6, t: [4, 0, 1.4] }); r.shots.push(await captura(page, `${prefixo}-interno.png`));
+  }
   ocupado(erros, check); await ctx.close();
+}
+
+// ---------- P1 ----------
+await ponto('P1', 'Junção em toda a altura (L 15° + 30°)', async ({ check, r }) => {
+  await cantoL(check, r, 'L 15°+30° (ambas inclinam para dentro)', 15, 30, 'P1-L15-30', true);
+  await cantoL(check, r, 'L -15°+-30° (inclinam para fora)', -15, -30, 'P1-L-15-30', false);
+  await cantoL(check, r, 'L 15°+-30° (mista de sinal)', 15, -30, 'P1-L15--30', false);
 });
 
 // ---------- P2 ----------
@@ -210,17 +230,10 @@ await ponto('P2', 'Cache: mudar o tilt de UMA parede isolada', async ({ check, r
 
 // ---------- P3 ----------
 await ponto('P3', 'Misto: parede inclinada 20° + vertical numa ponta', async ({ check, r }) => {
-  const { page, erros, ctx } = await novoApp();
-  const A = { a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, tilt: 20 }; const B = { a: { x: 4, y: 0 }, b: { x: 4, y: 4 } };
-  A.id = await addWall(page, A); B.id = await addWall(page, B);
-  await abre3d(page);
-  const res = await page.evaluate(([A, B, zs]) => window.__pi.canto(A, B, zs), [A, B, ZS]);
-  check('P3 cantos externo e interno dentro da união (fresta <= 2 mm)', res.every((c) => c.ext <= TOL && c.int <= TOL), cantoVal(res));
-  await camera(page, { az: -2.2, el: 0.5, d: 7, t: [4, 0, 1.4] });
-  r.shots.push(await captura(page, 'P3-canto-misto.png'));
-  await camera(page, { az: -0.8, el: 0.25, d: 6, t: [4, 0, 1.4] });
-  r.shots.push(await captura(page, 'P3-canto-misto-b.png'));
-  ocupado(erros, check); await ctx.close();
+  await cantoL(check, r, 'L 20°+vertical', 20, 0, 'P3-L20-0', true);
+  await cantoL(check, r, 'L -20°+vertical', -20, 0, 'P3-L-20-0', false);
+  await cantoL(check, r, 'L vertical+20°', 0, 20, 'P3-L0-20', false);
+  await cantoL(check, r, 'L vertical+-20°', 0, -20, 'P3-L0--20', false);
 });
 
 // ---------- P5 ----------
@@ -278,7 +291,7 @@ await ponto('P6', 'Criação: opção Inclinação visível e aplicada ao desenh
   // digita 15 ANTES do primeiro clique e desenha uma parede com cliques reais
   await page.locator('#place-wall-tilt').fill('15'); await page.keyboard.press('Enter'); await page.waitForTimeout(200);
   const opt = await page.evaluate(() => window.__hestia.useUi.getState().options.wallTilt);
-  check('opção wallTilt guardada (rad) = 15°', opt !== undefined && Math.abs(opt - (15 * Math.PI) / 180) < 1e-6, opt);
+  check('opção wallTilt guardada (graus) = 15', opt !== undefined && Math.abs(opt - 15) < 1e-6, opt);
   await page.evaluate(() => window.__hestia.editor.ensureViewport(innerWidth, innerHeight));
   const mundo = async (x, y) => page.evaluate(([x, y]) => { const rc = document.querySelector('.canvas-wrap').getBoundingClientRect(); const v = window.__hestia.editor.viewport(); return { x: rc.x + v.width / 2 + (x - v.cx) * v.zoom, y: rc.y + v.height / 2 - (y - v.cy) * v.zoom }; }, [x, y]);
   const clica = async (x, y) => { const p = await mundo(x, y); await page.mouse.move(p.x, p.y); await page.mouse.click(p.x, p.y); await page.waitForTimeout(150); };
