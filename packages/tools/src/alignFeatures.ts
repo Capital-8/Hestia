@@ -35,6 +35,7 @@ import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
 import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts';
 import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
+import { bordasDeTerreno } from './terrainHandles.ts';
 import { gridPath } from './gridGeom.ts';
 import type { AlignPrefer } from './types.ts';
 
@@ -48,6 +49,7 @@ export type AlignKind =
   | 'centroAbertura'
   | 'arestaAnel'
   | 'linhaEsboco'
+  | 'bordaTerreno'
   | 'arestaEscada'
   | 'arestaRampa'
   | 'caminhoGuardaCorpo'
@@ -67,7 +69,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'terreno'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -469,6 +471,10 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  // Borda do terreno: move o terreno inteiro (e as regiões junto, no applyAlign); o rótulo reusa "aresta do {type}".
+  for (const r of bordasDeTerreno(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
+    out.push(feature(`${r.terrenoId}:borda:${r.i}`, 'bordaTerreno', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.terrenoId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'terreno', id: r.terrenoId }, r.d, { a: r.a, b: r.b }));
+  }
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);
