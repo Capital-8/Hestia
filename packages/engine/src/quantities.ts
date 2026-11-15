@@ -5,6 +5,7 @@ import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, 
 import type { ResolvedLevel } from './types.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
+import { cunhasDoNivel } from './junctionLevel.ts';
 import { openingIsTilted, tiltFactors } from './wallTiltQuantities.ts';
 
 export interface LayerQuantity {
@@ -49,6 +50,10 @@ export interface Quantities {
 export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
   return quantifyLevelCom(p, r, despachanteDeQuantidades()?.(p, r.levelId, 'paredes') ?? null);
 }
+
+/** Camada que recebe o volume da cunha de transição (a de maior área em planta): quantitativos e 3D usam a mesma. */
+export const camadaDaCunha = (rw: ResolvedLevel['walls'][Id]): ResolvedLevel['walls'][Id]['layers'][number] | undefined =>
+  rw.layers.reduce<ResolvedLevel['walls'][Id]['layers'][number] | undefined>((m, l) => (!m || multiArea(l.cut) > multiArea(m.cut) ? l : m), undefined);
 
 /** O motor TypeScript das quantidades de parede, sem despacho: só a referência (oráculo) dos testes do Rust. */
 export const quantifyLevelTs = (p: Project, r: ResolvedLevel): Quantities => quantifyLevelCom(p, r, null);
@@ -122,6 +127,16 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
       volume: total,
       grossVolume: grossTotal,
     });
+  }
+  // Cunhas de transição (etapa R): o volume do prisma entra na parede dona e no material da camada mais espessa.
+  for (const c of cunhasDoNivel(p, r.levelId)) {
+    const wq = walls.find((x) => x.wallId === c.wallId);
+    const rw = r.walls[c.wallId];
+    const main = rw && camadaDaCunha(rw);
+    if (!wq || !main) continue;
+    wq.volume += c.volume;
+    wq.grossVolume += c.volume;
+    volumeByMaterial[main.materialId] = (volumeByMaterial[main.materialId] ?? 0) + c.volume;
   }
   return { layers, walls, volumeByMaterial, faceAreaByMaterial };
 }

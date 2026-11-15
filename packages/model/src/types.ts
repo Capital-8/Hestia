@@ -172,6 +172,11 @@ export interface JoinConfig {
   kind: JoinKind;
   /** Inverte qual parede domina (quem atravessa no encosto). Padrão: a mais antiga domina. */
   flip: boolean;
+  /**
+   * Parede inclinada em continuação com inclinação diferente (etapa R): 'degrau' (ausente) = o topo faz degrau e o aviso
+   * `inclinacoesDiferentesEmContinuacao` aponta; 'cunha' = um prisma triangular fecha o degrau. Campo opcional, sem migração.
+   */
+  transicao?: 'degrau' | 'cunha';
 }
 
 export interface Level {

@@ -1,5 +1,5 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
-import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
+import { bandTopAt, camadaDaCunha, type Cunha, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
 import { extrudeLayerTilted, tiltJoinOf } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
@@ -384,6 +384,50 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   return local;
 }
 
+/** Prisma triangular da cunha de transição (etapa R): 2 tampas e 3 faces laterais, malha fechada. `baseZ` = cota da base da parede. */
+export function cunhaSolid(c: Cunha, baseZ: number, materialId: Id): SolidBatch {
+  const b: SolidBatch = { materialId, category: 'wall', positions: [], normals: [], indices: [], ids: [] };
+  const at = (side: number, lat: number, z: number): [number, number, number] => {
+    const k = (side * c.t) / 2;
+    return [c.node.x + c.u.x * k + c.n.x * lat, c.node.y + c.u.y * k + c.n.y * lat, baseZ + z];
+  };
+  const tri = (p: [number, number, number], q: [number, number, number], r: [number, number, number], ref: [number, number, number]): void => {
+    // Normal para fora: aponta para longe do centro de massa `ref`.
+    const u = [q[0] - p[0], q[1] - p[1], q[2] - p[2]], w = [r[0] - p[0], r[1] - p[1], r[2] - p[2]];
+    let n: [number, number, number] = [u[1]! * w[2]! - u[2]! * w[1]!, u[2]! * w[0]! - u[0]! * w[2]!, u[0]! * w[1]! - u[1]! * w[0]!];
+    const l = Math.hypot(...n);
+    if (l < 1e-14) return;
+    n = [n[0] / l, n[1] / l, n[2] / l];
+    const out = n[0] * (p[0] - ref[0]) + n[1] * (p[1] - ref[1]) + n[2] * (p[2] - ref[2]) >= 0;
+    push(b, out ? [...p, ...q, ...r] : [...p, ...r, ...q], out ? n : [-n[0], -n[1], -n[2]], [0, 1, 2]);
+  };
+  const lo = [at(-1, 0, 0), at(-1, c.offA, c.H), at(-1, c.offB, c.H)] as const;
+  const hi = [at(1, 0, 0), at(1, c.offA, c.H), at(1, c.offB, c.H)] as const;
+  const ref: [number, number, number] = [0, 1, 2].map((j) => ([...lo, ...hi].reduce((s, v) => s + v[j]!, 0)) / 6) as [number, number, number];
+  tri(lo[0], lo[1], lo[2], ref);
+  tri(hi[0], hi[1], hi[2], ref);
+  for (let i = 0; i < 3; i++) {
+    const j = (i + 1) % 3;
+    tri(lo[i]!, lo[j]!, hi[j]!, ref);
+    tri(lo[i]!, hi[j]!, hi[i]!, ref);
+  }
+  return b;
+}
+
+/** Acrescenta ao material da camada principal da parede dona as cunhas de transição da junção do nível. */
+export function appendCunhas(byMat: Map<Id, SolidBatch>, r: ResolvedLevel, jl?: JunctionLevel): void {
+  for (const c of jl?.cunhas ?? []) {
+    const rw = r.walls[c.wallId];
+    const main = rw && camadaDaCunha(rw);
+    if (!rw || !main) continue;
+    const dest = batchOf(byMat, main.materialId, 'wall');
+    const local = cunhaSolid(c, rw.baseZ, main.materialId);
+    ofElement(local, c.wallId, () => undefined);
+    if (local.ids.length === 0) local.ids.push({ id: c.wallId, start: 0, count: local.indices.length });
+    appendSolid(dest, local);
+  }
+}
+
 /** Acrescenta o sólido local `f` ao lote `b`, deslocando vértices, índices e faixas (cópia: `f` fica intacto). */
 export function appendSolid(b: SolidBatch, f: SolidBatch): void {
   const v0 = b.positions.length / 3;
@@ -417,6 +461,7 @@ export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel): LevelSol
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
   }
+  appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()] };
 }
 

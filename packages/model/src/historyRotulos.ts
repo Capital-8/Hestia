@@ -82,6 +82,8 @@ export function labelOf(c: Command): string {
       return 'Revincular forro ao ambiente';
     case 'setWallTilt':
       return c.ids.length === 1 ? 'Inclinar parede' : 'Inclinar paredes';
+    case 'alignTiltOfChain':
+      return 'Acompanhar inclinação da cadeia';
     case 'setOpeningPlane':
       return c.ids.length === 1 ? 'Mudar plano da abertura' : 'Mudar plano das aberturas';
     case 'setWallEnds':

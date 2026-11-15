@@ -161,6 +161,8 @@ export type Command =
   | { type: 'setWallEnds'; id: Id; a?: Vec2; b?: Vec2 }
   /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
   | { type: 'setWallTilt'; ids: Id[]; tilt: number }
+  /** Ação D (etapa R): inclinação própria por parede (a cadeia contínua vem do motor, com o sinal por sentido a→b), atômica. */
+  | { type: 'alignTiltOfChain'; items: Array<{ id: Id; tilt: number }> }
   /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se o valor for inválido. */
   | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
@@ -481,6 +483,19 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       for (const w of walls) {
         if (c.tilt === 0) delete w.tilt;
         else w.tilt = c.tilt;
+      }
+      break;
+    }
+    case 'alignTiltOfChain': {
+      const walls = c.items.map((i) => ({ w: p.elements[i.id], tilt: i.tilt })).filter((x): x is { w: Wall; tilt: number } => isWall(x.w));
+      if (walls.length === 0) throw new Error(t(lang, 'md_cmd_tilt_invalid'));
+      for (const { w, tilt } of walls) {
+        const issue = wallTiltIssue(p, w, tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const { w, tilt } of walls) {
+        if (tilt === 0) delete w.tilt;
+        else w.tilt = tilt;
       }
       break;
     }

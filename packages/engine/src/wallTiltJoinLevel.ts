@@ -39,9 +39,28 @@ export interface WallTiltJoin {
   H: number;
   layers: WallTiltJoinLayer[];
 }
+/**
+ * Cunha de transição (etapa R, ação B): prisma triangular que fecha o degrau de uma continuação reta×reta com inclinações
+ * diferentes. Triângulo no plano perpendicular ao eixo, pelo nó: (0,0), (offA,H), (offB,H) (lateral à esquerda de `u`, cota z),
+ * extrudado por `t` ao longo de `u`, centrado no nó. Volume exato = t · H · |offA − offB| / 2.
+ */
+export interface Cunha {
+  /** Parede dona da junção (a mais antiga), que guarda `transicao: 'cunha'`. */
+  wallId: string;
+  node: Vec2;
+  /** Eixo da continuação (unitário) e normal à esquerda. */
+  u: Vec2;
+  n: Vec2;
+  H: number;
+  t: number;
+  offA: number;
+  offB: number;
+  volume: number;
+}
 export interface LevelTiltAnalysis {
   joins: Map<string, WallTiltJoin>;
   avisos: TiltAviso[];
+  cunhas: Cunha[];
 }
 
 const tiltOf = (f: WallFrame): number => (f.wall.tilt && Number.isFinite(f.wall.tilt) ? f.wall.tilt : 0);
@@ -102,7 +121,7 @@ const ids = (r: Relation): string[] => (r.kind === 'pair' ? [r.a.id, r.b.id] : [
  * Sem parede inclinada devolve vazio sem custo (caminho idêntico ao de hoje).
  */
 export function analyzeLevelTilt(frames: readonly WallFrame[], heights: ReadonlyMap<string, number> = new Map(), tol?: number): LevelTiltAnalysis {
-  if (!frames.some((f) => tiltOf(f) !== 0)) return { joins: new Map(), avisos: [] };
+  if (!frames.some((f) => tiltOf(f) !== 0)) return { joins: new Map(), avisos: [], cunhas: [] };
   // Resolver, junção e avisos pedem a mesma análise do mesmo nível: guardada por conteúdo (identidade de parede, tipo, cotas e alturas),
   // com chave barata e estável. O resultado devolvido é compartilhado e não deve ser alterado.
   const chave = `${frames[0]!.wall.levelId}|${frames.length}`;
@@ -146,8 +165,62 @@ function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): {
   return ok ? { p0: a, pH: b } : null;
 }
 
+type Par = Relation & { kind: 'pair' };
+/** Continuação: eixos tangentes no nó e saindo em sentidos opostos (paredes em linha ou arcos tangentes). */
+function emContinuacao(fa: WallFrame, fb: WallFrame, r: Par): boolean {
+  const ua = tangentAt(fa, r.a.end === 'a' ? 0 : fa.length), ub = tangentAt(fb, r.b.end === 'a' ? 0 : fb.length);
+  const sa = r.a.end === 'a' ? 1 : -1, sb = r.b.end === 'a' ? 1 : -1; // sentido do eixo saindo do nó
+  const dot = (ua.x * ub.x + ua.y * ub.y) * sa * sb; // < 0: os eixos saem do nó em sentidos opostos (continuação)
+  return Math.abs(ua.x * ub.y - ua.y * ub.x) < 1e-4 && dot < 0;
+}
+
+/** Cunha da junção reta×reta quando a parede dona (a mais antiga) pede `transicao: 'cunha'` na ponta ligada; senão null. */
+function cunhaDe(fa: WallFrame, fb: WallFrame, r: Par, H: number): Cunha | null {
+  const dona = fa.wall.order <= fb.wall.order ? { f: fa, end: r.a.end } : { f: fb, end: r.b.end };
+  const cfg = dona.end === 'a' ? dona.f.wall.joinStart : dona.f.wall.joinEnd;
+  if (cfg?.transicao !== 'cunha') return null;
+  const sa = r.a.end === 'b' ? 1 : -1, sb = r.b.end === 'a' ? 1 : -1; // +1: a→b da parede acompanha o eixo da continuação
+  const u = { x: fa.u.x * sa, y: fa.u.y * sa };
+  const n = { x: -u.y, y: u.x };
+  const tan = (f: WallFrame, s: number): number => s * H * Math.tan(((f.wall.tilt ?? 0) * Math.PI) / 180);
+  const offA = tan(fa, sa), offB = tan(fb, sb);
+  const t = Math.max(fa.thickness, fb.thickness);
+  const node = r.a.end === 'a' ? fa.a : fa.b;
+  return { wallId: dona.f.wall.id, node, u, n, H, t, offA, offB, volume: (t * H * Math.abs(offA - offB)) / 2 };
+}
+
+/**
+ * Cadeia contínua da parede `refId` (ação D): paredes ligadas em continuação (em linha ou arcos tangentes), com o fator de
+ * sinal de cada uma em relação à referência (+1 = mesmo sentido a→b ao longo da cadeia, −1 = sentido oposto). A inclinação
+ * que acompanha a da referência é `tiltRef · sinal`. Sem continuação devolve só a referência.
+ */
+export function cadeiaContinua(frames: readonly WallFrame[], refId: string, tol?: number): Array<{ id: string; sinal: 1 | -1 }> {
+  const byId = new Map(frames.map((f) => [f.wall.id, f] as const));
+  if (!byId.has(refId)) return [];
+  const viz = new Map<string, Array<{ id: string; endA: 'a' | 'b'; endB: 'a' | 'b' }>>();
+  const liga = (x: string, y: string, endX: 'a' | 'b', endY: 'a' | 'b'): void => { viz.set(x, [...(viz.get(x) ?? []), { id: y, endA: endX, endB: endY }]); };
+  for (const r of tiltRelations(frames, tol)) {
+    if (r.kind !== 'pair' || !emContinuacao(byId.get(r.a.id)!, byId.get(r.b.id)!, r)) continue;
+    liga(r.a.id, r.b.id, r.a.end, r.b.end);
+    liga(r.b.id, r.a.id, r.b.end, r.a.end);
+  }
+  // s(w): +1 se a→b de w segue o sentido g da cadeia. Chegando ao nó por X (sentido g se s·(fim b ? 1 : −1) = +1), Y sai do nó.
+  const s = new Map<string, 1 | -1>([[refId, 1]]);
+  const fila = [refId];
+  while (fila.length) {
+    const x = fila.shift()!;
+    for (const v of viz.get(x) ?? []) {
+      if (s.has(v.id)) continue;
+      const d = s.get(x)! * (v.endA === 'b' ? 1 : -1);
+      s.set(v.id, (d * (v.endB === 'a' ? 1 : -1)) as 1 | -1);
+      fila.push(v.id);
+    }
+  }
+  return [...s.entries()].map(([id, sinal]) => ({ id, sinal }));
+}
+
 function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<string, number>, tol?: number): LevelTiltAnalysis {
-  const out: LevelTiltAnalysis = { joins: new Map(), avisos: [] };
+  const out: LevelTiltAnalysis = { joins: new Map(), avisos: [], cunhas: [] };
   if (!frames.some((f) => tiltOf(f) !== 0)) return out;
   const byId = new Map(frames.map((f) => [f.wall.id, f] as const));
   const hasTilt = (r: Relation): boolean => ids(r).some((id) => tiltOf(byId.get(id)!) !== 0);
@@ -163,14 +236,15 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
     if (r.kind === 'pair') {
       // Continuação (paredes em linha ou arcos tangentes): não há cruzamento de eixos; com inclinações diferentes o topo faz degrau.
       const fa = byId.get(r.a.id)!, fb = byId.get(r.b.id)!;
-      const ua = tangentAt(fa, r.a.end === 'a' ? 0 : fa.length), ub = tangentAt(fb, r.b.end === 'a' ? 0 : fb.length);
-      const sa = r.a.end === 'a' ? 1 : -1, sb = r.b.end === 'a' ? 1 : -1; // sentido do eixo saindo do nó
-      const dot = (ua.x * ub.x + ua.y * ub.y) * sa * sb; // < 0: os eixos saem do nó em sentidos opostos (continuação)
-      if (Math.abs(ua.x * ub.y - ua.y * ub.x) < 1e-4 && dot < 0) {
+      if (emContinuacao(fa, fb, r)) {
         const step = Math.max(heightOf(fa), heightOf(fb)) * Math.abs(Math.tan((tiltOf(fa) * Math.PI) / 180) - Math.tan((tiltOf(fb) * Math.PI) / 180));
         if (step > DEGRAU_MIN) {
           warn('inclinacoesDiferentesEmContinuacao', r.a.id, step);
-          if (!fa.arc && !fb.arc) continue; // arco tangente segue também o aviso de arco sem junção
+          if (!fa.arc && !fb.arc) {
+            const c = cunhaDe(fa, fb, r, Math.max(heightOf(fa), heightOf(fb)));
+            if (c) out.cunhas.push(c);
+            continue;
+          }
         } else if (!fa.arc && !fb.arc) continue; // mesma inclinação em linha: corte plano exato
       }
     }
