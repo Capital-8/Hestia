@@ -119,6 +119,8 @@ const WEIGHT: Record<SnapKind, number> = {
   grid: 1.5,
   center: 0.2,
   tangent: 0.3,
+  // Face superior (T-B): só o tipo; a captura é ligada em T-C. Mesmo custo da face de base.
+  topFace: 0.1,
   none: 9,
 };
 /** Cruzamento de duas restrições (x × y, x × face, face × face): o ponto que o usuário mira. */
