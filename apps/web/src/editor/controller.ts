@@ -29,6 +29,7 @@ import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, 
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
+import { aquecerCorteNoWorker, temParedeInclinada } from './aquecimentoCorte.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
@@ -170,8 +171,27 @@ export class Editor {
     this.store.subscribe(() => {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
+      this.aquecerCorteSeInclinada();
       useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
     });
+  }
+
+  private corteAquecido = false;
+
+  /**
+   * Etapa W: compila no worker (JIT) os caminhos do corte/elevação inclinados, em ociosidade, uma vez por sessão do
+   * worker; e, com vista de corte aberta, calcula-a em segundo plano. Chamado ao carregar e quando surge parede inclinada.
+   */
+  aquecerCorteSeInclinada(forcar = false): void {
+    if (typeof Worker === 'undefined') return;
+    if (!this.corteAquecido && (forcar || temParedeInclinada(this.project))) {
+      this.corteAquecido = true;
+      this.sectionClient ??= criarClienteResolucao({ usarWorker: true });
+      void aquecerCorteNoWorker(this.sectionClient, undefined, () => {
+        const st = useUi.getState();
+        if (st.view === 'section' && st.sectionId) this.sectionOf(st.sectionId);
+      });
+    }
   }
 
   // ---------- ambiente entregue às ferramentas ----------
@@ -1185,6 +1205,7 @@ export class Editor {
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
     useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
+    this.aquecerCorteSeInclinada(true);
   }
 
   openFromText(text: string, name: string): { ok: true } | { ok: false; error: string } {
