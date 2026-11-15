@@ -503,12 +503,16 @@ export class ModelScene {
     this.ground.visible = view.style !== 'wireframe';
     this.ground.receiveShadow = this.frame.shadows;
     this.scene.background = bg;
-    this.scene.fog = new THREE.Fog(bg, 60, 170);
+    const neblina = new THREE.Fog(bg, 60, 170);
+    this.scene.fog = neblina;
     this.sun.castShadow = this.frame.shadows;
     this.direcaoSol.copy(sunDirection(view.sunAzimuth, view.sunElevation));
     if (!this.boxCache.isEmpty()) {
       const c = this.boxCache.getCenter(new THREE.Vector3());
       const r = Math.max(8, this.boxCache.getSize(new THREE.Vector3()).length());
+      // A neblina de 60 a 170 m serve a uma casa; um terreno de 100 m é enquadrado a ~300 m e a cena inteira sumia no fundo (E2E Q1b).
+      neblina.near = Math.max(60, 2.5 * r);
+      neblina.far = Math.max(170, 6 * r);
       this.sun.target.position.copy(c);
       this.sun.position.copy(c).addScaledVector(this.direcaoSol, r * SUN_DISTANCE);
       // Enquadramento de partida (cobre o modelo inteiro). O enquadramento justo, com o orçamento de sombra, é feito em
