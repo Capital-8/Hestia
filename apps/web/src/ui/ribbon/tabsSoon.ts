@@ -52,7 +52,8 @@ export const TABS_SOON: RibbonTab[] = [
       split(act('regiaoPlataforma'), [act('regiaoPlataformaElemento')], t('Plataforma', 'Building Pad')),
       act('regiaoNivelada'),
       soon(t('Componente de terreno', 'Site Component'))),
-    panel('mas-lote', t('Lote', 'Lot'), soon(t('Linhas de propriedade', 'Property Line')), soon(t('Índices do lote', 'Lot Indices')), soon(t('Envelope legal', 'Legal Envelope'))),
+    // Linhas de propriedade (ficha P3): a ferramenta `lot` (Desenhar) e o diálogo Por tabela…; Índices do lote (P4) e Envelope legal (P5) seguem `soon`.
+    panel('mas-lote', t('Lote', 'Lot'), split(tool('lot', 'large', { label: t('Linhas de propriedade', 'Property Line'), icon: 'detailLine' }), [act('loteDesenhar', 'small'), act('lotePorTabela', 'small')], t('Linhas de propriedade', 'Property Line')), soon(t('Índices do lote', 'Lot Indices')), soon(t('Envelope legal', 'Legal Envelope'))),
     panel('mas-analise', t('Análise do terreno', 'Site Analysis'),
       soon(t('Corte e aterro', 'Cut and Fill')),
       tool('terrainLabel', 'large', { label: t('Rótulo de curva', 'Contour Label'), icon: 'tag' }),

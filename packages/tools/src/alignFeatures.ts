@@ -462,6 +462,21 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
   return out;
 }
 
+/**
+ * Contorno de terreno, região de terreno e lote: a aresta translada o elemento (o terreno leva as regiões, no `applyAlign`; região e lote
+ * andam sós). O rótulo reusa "aresta do {type}".
+ */
+function bordasDoSitio(q: AlignQuery): AlignFeature[] {
+  const tol = TOL_PX * q.metersPerPixel;
+  const mk = (id: Id, i: number, nome: string, a: Vec2, b: Vec2, d: number, kind: AlignKind, target: 'terreno' | 'regiao' | 'lote'): AlignFeature =>
+    feature(`${id}:borda:${i}`, kind, translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: nome }), id, line(a, sub(b, a)), { policy: 'transladar', target, id }, d, { a, b });
+  return [
+    ...bordasDeTerreno(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.terrenoId, r.i, r.nome, r.a, r.b, r.d, 'bordaTerreno', 'terreno')),
+    ...bordasDeRegiao(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.regiaoId, r.i, r.nome, r.a, r.b, r.d, 'bordaRegiao', 'regiao')),
+    ...bordasDoLote(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.loteId, r.i, r.nome, r.a, r.b, r.d, 'bordaLote', 'lote')),
+  ];
+}
+
 export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   const prefer = q.prefer ?? 'faces';
   const out: AlignFeature[] = [];
@@ -475,18 +490,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
-  // Borda do terreno: move o terreno inteiro (e as regiões junto, no applyAlign); o rótulo reusa "aresta do {type}".
-  for (const r of bordasDeTerreno(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
-    out.push(feature(`${r.terrenoId}:borda:${r.i}`, 'bordaTerreno', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.terrenoId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'terreno', id: r.terrenoId }, r.d, { a: r.a, b: r.b }));
-  }
-  // Contorno da região de terreno: move só a região (o terreno não anda); mesmo rótulo "aresta do {type}".
-  for (const r of bordasDeRegiao(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
-    out.push(feature(`${r.regiaoId}:borda:${r.i}`, 'bordaRegiao', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.regiaoId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'regiao', id: r.regiaoId }, r.d, { a: r.a, b: r.b }));
-  }
-  // Contorno do lote: move só o lote (o polígono fechado inteiro, na perpendicular); mesmo rótulo "aresta do {type}".
-  for (const r of bordasDoLote(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
-    out.push(feature(`${r.loteId}:borda:${r.i}`, 'bordaLote', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.loteId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'lote', id: r.loteId }, r.d, { a: r.a, b: r.b }));
-  }
+  out.push(...bordasDoSitio(q));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
   return out.sort((a, b) => a.distance - b.distance);
