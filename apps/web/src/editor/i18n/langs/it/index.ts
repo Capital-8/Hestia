@@ -27,12 +27,14 @@ import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { IT_TERRENO } from '../../areas/terreno.ts';
 import { IT_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { IT_GRAVIDADE } from '../../areas/gravidade.ts';
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 
 export const IT_ALL = {
   ...IT_GUARDA_CORPO,
   ...IT_TERRENO,
   ...IT_TERRENO_VISTA,
+  ...IT_GRAVIDADE,
   ...IT_PAREDE_CORTINA,
   ...IT_SHELL_RIBBON,
   ...IT_MISC_UI,

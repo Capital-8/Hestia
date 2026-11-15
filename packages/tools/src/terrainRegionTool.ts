@@ -16,6 +16,7 @@ import {
   type TerrainRegion,
 } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { cotaAbsolutaSobPonto } from './gravidade.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
@@ -254,6 +255,9 @@ export class TerrainRegionTool extends ToolBase {
         return;
       }
       this.terrenoId = id;
+      // Gravidade (G1): a cota inicial do plano é a do terreno proposto sob o primeiro clique (absoluta, como a da região). Sem vínculo.
+      const zTerreno = this.predef === 'subdivisao' ? null : cotaAbsolutaSobPonto(this.env, q.x, q.y);
+      if (zTerreno !== null && Math.abs(zTerreno) <= TERRENO_LIMITES.cotaMax) this.cotaZ = zTerreno;
     }
     if (this.r.pts.length >= TERRENO_LIMITES.regiaoPontos) {
       this.env.say(this.t('tl_tn_rg_limite', { max: TERRENO_LIMITES.regiaoPontos }));

@@ -6,6 +6,7 @@ import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
+import { deslocamentoDoTerreno } from './gravidade.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo } from './types.ts';
@@ -27,6 +28,8 @@ export class WallTool extends ToolBase {
   /** Arco: ponto final da corda, já definido; falta o ponto sobre o arco. */
   private chordEnd: Vec2 | null = null;
   private first: Vec2 | null = null;
+  /** Gravidade: `baseOffset` inicial (cota do terreno sob o primeiro clique menos a elevação do nível), ou null. Vale para a cadeia inteira. */
+  private baseDoTerreno: number | null = null;
   private count = 0;
   private flip = false;
   private alignmentCycle = 0;
@@ -37,6 +40,7 @@ export class WallTool extends ToolBase {
     this.startPt = null;
     this.chordEnd = null;
     this.first = null;
+    this.baseDoTerreno = null;
     this.count = 0;
     this.items = [];
     this.inf = null;
@@ -128,6 +132,7 @@ export class WallTool extends ToolBase {
     if (!this.startPt) {
       this.startPt = inf.point;
       this.first = inf.point;
+      this.baseDoTerreno = deslocamentoDoTerreno(this.env, this.env.project(), this.env.levelId(), inf.point.x, inf.point.y);
       this.count = 0;
       return;
     }
@@ -201,7 +206,8 @@ export class WallTool extends ToolBase {
       levelId: this.env.levelId(),
       a,
       b,
-      baseOffset: o.wallBaseOffset ?? 0,
+      // Gravidade: só quando a barra não traz um deslocamento próprio (0 ou ausente).
+      baseOffset: o.wallBaseOffset ? o.wallBaseOffset : (this.baseDoTerreno ?? 0),
       topLevelId: o.wallTopLevelId ?? null,
       topOffset: o.wallTopLevelId ? (o.wallTopOffset ?? 0) : 0,
       height: o.wallHeight,
@@ -245,6 +251,7 @@ export class WallTool extends ToolBase {
     if (!this.startPt) {
       this.startPt = inf.point;
       this.first = inf.point;
+      this.baseDoTerreno = deslocamentoDoTerreno(this.env, this.env.project(), this.env.levelId(), inf.point.x, inf.point.y);
       this.count = 0;
       return;
     }

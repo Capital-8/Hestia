@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
-import { cotasAutomaticas, LevelResolveCache, resolveRooms, subelementosDaCortina, temTerreno, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
+import { cotasAutomaticas, LevelResolveCache, resolveRooms, servicoTerreno, subelementosDaCortina, temTerreno, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
@@ -218,6 +218,8 @@ export class Editor {
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
+    // Gravidade (G1): a cota do terreno proposto vem do serviço do kernel; sem botão ligado, null.
+    cotaDoTerreno: (x, y) => (useUi.getState().gravidade ? servicoTerreno().cotaDoTerreno(this.store.project, [{ x, y }], 1)?.[0]?.z ?? null : null),
     viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),

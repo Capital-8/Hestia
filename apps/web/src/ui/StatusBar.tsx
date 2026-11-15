@@ -8,6 +8,7 @@ import { Icon } from './Icon.tsx';
 import { IssuesButton } from './IssuesButton.tsx';
 import { SnapButton } from './SnapButton.tsx';
 import { OrthoButton } from './OrthoButton.tsx';
+import { GravidadeButton } from './GravidadeButton.tsx';
 import { useUnits } from './useUnits.ts';
 import { useCotaDoTerreno } from './useCotaDoTerreno.ts';
 import { editor } from '../editor/controller.ts';
@@ -54,6 +55,7 @@ export function StatusBar(): ReactElement {
       <span className="mono sb-snap">{snapKey ? t(snapKey) : view === 'section' && snap ? snap : ''}</span>
       <SnapButton />
       <OrthoButton />
+      <GravidadeButton />
       <span className="sb-filter" title={t(nSel === 1 ? 'shc_sb_filter_one' : 'shc_sb_filter_many', { n: nSel })}>
         <Icon name="funnel" size={12} />
         <span className="mono">:{nSel}</span>
