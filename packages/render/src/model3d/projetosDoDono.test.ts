@@ -209,9 +209,8 @@ describe.skipIf(!TEM_PASTA || projetos.length === 0)('J5 · projetos do dono: ca
     console.log(`[J5] desempenho (ms)\n  a frio (1ª rodada, JIT frio): ${fmt(rodadas[0]!)}\n  aquecido (2ª rodada, caches de conteúdo vazios): ${fmt(rodadas[1]!)}`);
     expect(rodadas[1]!.total).toBeLessThan(30000); // só detecta regressão grosseira; o limite do aceite (2 s) está no it.fails abaixo
   }, 120000);
-  // DEFEITO J5-D4: o pipeline leva ~4,4 s a frio e ~3,8 s aquecido (não é JIT): resolveLevel gasta ~1,8 s só nas 5 paredes em arco inclinado
-  // (com tilt e sem arco: 44 ms; com arco e sem tilt: 356 ms) e a planta ~1,6 s. Vira it normal quando o total ficar < 2 s.
-  it.fails('(5) projeto principal inteiro a frio < 2 s (defeito J5-D4: ~4,4 s)', () => {
+  // D4 (corrigido): o pipeline caía de 4,4 s para ~1,6 s a frio (Clipper, casamento de vértices, tiltPlan preguiçoso); limite do aceite: 2 s.
+  it('(5) projeto principal inteiro a frio < 2 s (J5-D4)', () => {
     if (!PRINCIPAL) throw new Error('sem projeto');
     expect(rodadas[0]!.total).toBeLessThan(2000);
   });
