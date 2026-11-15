@@ -37,6 +37,9 @@ const LINEARES: Record<string, string> = {
   angularDimension: 'angularDimensionTool.ts',
   // Topografia: as curvas de nível são polilinhas desenhadas pelo núcleo comum (os pontos soltos são cliques únicos).
   terrain: 'terrainTool.ts',
+  // Editar terreno: curva, linha de quebra e borda são polilinhas do núcleo comum. Rótulo de curva: linha de 2 pontos pelo mesmo núcleo.
+  terrainEdit: 'terrainEditTool.ts',
+  terrainLabel: 'terrainLabelTool.ts',
 };
 
 /**
@@ -50,6 +53,8 @@ const EXCECOES_TODO: Record<string, string> = {
 const SEM_TRACADO = new Set([
   'select', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'move', 'copy', 'rotate', 'mirror', 'array',
   'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste',
+  // Cota de ponto: um clique, sem traçado.
+  'terrainSpot',
 ]);
 
 function idsDoRegistro(): string[] {

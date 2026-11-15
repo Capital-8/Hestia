@@ -20,6 +20,7 @@ import { linhasGuardaCorpoPlanta } from './guardaCorpo.ts';
 import { loteSelectionOps } from './lote.ts';
 import { ocultosDoLote } from './loteCamada.ts';
 import { terrenoSelecaoDaPlanta } from './terrenoCamada.ts';
+import { terrenoEdicaoOps } from './terrenoEdicaoOverlay.ts';
 import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
@@ -298,6 +299,11 @@ export function buildPlanLiveOverlay(input: PlanInput): PlanOps {
   out.fills.push(...previa.fills);
   out.strokes.push(...previa.strokes);
   out.labels.push(...previa.labels);
+  // Modo "Editar terreno": alças das fontes (vazio com o modo desligado).
+  const edicao = terrenoEdicaoOps(input);
+  out.fills.push(...edicao.fills);
+  out.strokes.push(...edicao.strokes);
+  out.labels.push(...edicao.labels);
   if (input.inference) {
     out.strokes.push(...guideStrokes(input.inference.guides, theme));
     out.strokes.push(...snapMarker(input.inference, theme));
@@ -370,6 +376,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
 
   // Pré-visualização, guias e marcador de captura.
   add(previewOverlay(input.preview, theme, (ids) => elementHighlight(p, geo, ids, theme.accent, 0.2, view)));
+  add(terrenoEdicaoOps(input));
   if (input.inference) {
     out.strokes.push(...guideStrokes(input.inference.guides, theme));
     out.strokes.push(...snapMarker(input.inference, theme));

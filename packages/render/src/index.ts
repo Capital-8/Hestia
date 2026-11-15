@@ -66,3 +66,4 @@ export * from './plan/sketch.ts';
 export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, roomSeparatorStrokes, textBlockModel, type NoteLook, type NoteOps, type NoteTarget, type TextBlockModel } from './plan/notes.ts';
 export * from './section/guardaCorpo.ts';
 export * from './section/terreno.ts';
+export * from './plan/terrenoEdicaoOverlay.ts';

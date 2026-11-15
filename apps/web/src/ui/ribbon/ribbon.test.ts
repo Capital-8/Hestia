@@ -56,7 +56,7 @@ describe('faixa guiada por dados', () => {
     // Pendente: o modo de perímetro não tem botão de criação na faixa (abre por `perimeterActions.begin`).
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
     // `terrain`: o botão Topografia entra na faixa na ficha U1 (a ferramenta já existe e tem atalho).
-    const pendente = ['perimeter', 'paste', 'terrain'] as const;
+    const pendente = ['perimeter', 'paste', 'terrain', 'terrainEdit', 'terrainLabel', 'terrainSpot'] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);
