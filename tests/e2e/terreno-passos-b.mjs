@@ -20,6 +20,11 @@ export async function passo4(rep, { page }) {
     rep.check('a linha de rótulo foi gravada', t.linhasRotulo.length === 4, JSON.stringify(t.linhasRotulo));
     await enquadrar(page, { minX: 28, minY: 31, maxX: 42, maxY: 39 });
     await page.waitForTimeout(700);
+    // Os rótulos HTML só são realinhados no quadro seguinte ao zoom (defeito do PlanLabels, ver o relatório): um movimento do mouse repinta.
+    await page.mouse.move(900, 400);
+    await page.waitForTimeout(300);
+    await page.mouse.move(905, 405);
+    await page.locator('.labels .plan-note:visible').first().waitFor({ timeout: 5000 }).catch(() => {});
     const textos = await page.locator('.labels .plan-note:visible').allTextContents();
     const vals = textos.map((s) => nPontos(s.replace(/\s*m$/, '')));
     const zs = (await ARQ(page)).elements;
@@ -69,6 +74,13 @@ export async function passo5(rep, { page }) {
     // Reabre o corte: agora mostra o degrau da plataforma e o perfil existente tracejado.
     await page.getByRole('tab', { name: /Corte A/ }).click();
     await page.waitForTimeout(2500);
+    await shot(page, '05-plataforma-corte-geral.png');
+    // Aproxima do degrau (coordenadas do corte: s ao longo da linha, z do projeto).
+    await enquadrar(page, { minX: 36, minY: 8, maxX: 64, maxY: 14 });
+    await page.waitForTimeout(1200);
+    await page.mouse.move(900, 400);
+    await page.mouse.move(905, 405);
+    await page.waitForTimeout(500);
     await shot(page, '05-plataforma-corte.png');
   });
 }
