@@ -244,3 +244,5 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Arco: ponto mais próximo da polilinha amostrada e direção do trecho (tangente aproximada), sem `seg`; o Alinhar continua exigindo paralelismo (como já faz com arco na base).
 - Aresta de piso/laje/telhado/forro já era feição móvel (`anel`): move a aresta (2 vértices), NÃO translada o elemento inteiro; mantido, confirmado por teste com desfazer. Translação do elemento inteiro ficou como decisão aberta.
 - Testes: `alignTopFace.test.ts` (8), valores literais de wallTopFaces.test.ts. Nenhum teste existente editado.
+
+- **E12 (T-D):** alinhar a aresta de contorno de telhado, piso, laje ou forro a uma face superior move só aquela aresta (política `anel`, dois vértices) e remodela o contorno, sem transladar o elemento inteiro (igual ao Revit). Mantido.
