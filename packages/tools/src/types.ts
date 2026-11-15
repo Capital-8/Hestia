@@ -24,6 +24,8 @@ export interface Inference {
   guides: Guide[];
   /** Parede sobre a qual o cursor está (para portas e janelas). */
   hostId?: Id;
+  /** Cota z absoluta (m) do ponto capturado, quando a captura vem da face superior da parede (`topFace` em planta). */
+  z?: number;
 }
 
 /** Tom da prévia: os da escada e o de erro (abertura sem espaço, em vermelho). */
@@ -151,6 +153,8 @@ export interface SnapOptions {
   midpoint?: boolean;
   /** Captura nos desenhos CAD importados (DXF): vértices, meios, pontos e cruzamentos das linhas. */
   cad?: boolean;
+  /** Face superior das paredes (arestas e cantos do topo, com a cota z). Padrão: ligada; depende de Faces (e de Núcleo para o núcleo). */
+  topFaces?: boolean;
 }
 
 export const DEFAULT_SNAP: SnapOptions = {
@@ -167,6 +171,7 @@ export const DEFAULT_SNAP: SnapOptions = {
   midpoint: true,
   // O DXF importado serve de referência por padrão: é para isso que ele entra no projeto.
   cad: true,
+  topFaces: true,
 };
 
 /** Padrões do "Desconectar": Mover e Espelhar acompanham a vizinha (falso) e Rotacionar é livre (verdadeiro). */

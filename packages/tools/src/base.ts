@@ -5,6 +5,7 @@ import { floorEdges, floorVertices } from './floorPick.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapIndex } from './componentSnap.ts';
 import { cadSnapIndexes } from './snapCad.ts';
+import { TOP_FACE_TOOLS } from './snapTopFace.ts';
 import type { Vec2 } from '@hestia/geom';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
@@ -95,6 +96,7 @@ export abstract class ToolBase implements Tool {
         orthoLock: options.orthoLock || angle?.ortho === true,
         polar: angle?.polar === true,
         polarIncrementDeg: angle?.polarIncrementDeg,
+        topFaceTool: TOP_FACE_TOOLS.has(this.id),
         ...extra,
       });
     }
@@ -122,6 +124,7 @@ export abstract class ToolBase implements Tool {
       polar: angle?.polar === true,
       polarIncrementDeg: angle?.polarIncrementDeg,
       snap: options.snap,
+      topFaceTool: TOP_FACE_TOOLS.has(this.id),
       ...extra,
       indexed: components,
       ...(hidden ? { hiddenIds: hidden } : {}),
