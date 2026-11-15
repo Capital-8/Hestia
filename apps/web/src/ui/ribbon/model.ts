@@ -22,6 +22,7 @@ export type ActionId =
   | 'zoomFit' | 'thinLines' | 'grid' | 'underlay' | 'roofProjection' | 'graphicsVisibility' | 'view3d' | 'genElevations' | 'newSheet'
   | 'materials' | 'levels' | 'levelTool' | 'lineWeights' | 'units' | 'shortcutsConfig' | 'shortcuts' | 'importCad' | 'manageCad'
   | 'schedWalls' | 'schedFloors' | 'schedSlabs' | 'schedCeilings' | 'schedRoofs' | 'schedStairs' | 'schedRooms' | 'schedOpenings'
+  | 'schedColumns' | 'schedBeams' | 'schedFootings' | 'column' | 'beam' | 'footing' | 'structuralEditType' | 'structuralRotate90' | 'footingAtColumns'
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
   | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
   | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'railingForHost';

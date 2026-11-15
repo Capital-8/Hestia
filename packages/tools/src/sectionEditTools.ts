@@ -1,7 +1,11 @@
 /* eslint-disable max-lines -- o Alinhar do corte concentra pick, features, guias e patches; dividir depois. */
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { formatQuantity, hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isOpening, isRamp, isSlab, isStair, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import {
+  formatQuantity, hospedeiroDoGuardaCorpo, isBeam, isColumn, isFloor, isFooting, isGuardaCorpo, isOpening, isRamp,
+  isSlab, isStair, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation,
+  wallLength, wallTopElevation, type Command, type Id, type Opening, type Project,
+} from '@hestia/model';
 import { alignFeatureItems } from './alignTool.ts';
 import { ToolBase } from './base.ts';
 import { avisaGuardaCorpoHospedado } from './guardaCorpoEdicao.ts';
@@ -262,7 +266,7 @@ export function resultPieces(result: SectionResult): Piece[] {
 function buildResultPieces(result: SectionResult): Piece[] {
   const out: Piece[] = [];
   const push = (origin: SectionOrigin, polygons: MultiPolygon, depth: number): void => {
-    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId;
+    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId ?? origin.columnId ?? origin.beamId ?? origin.footingId;
     if (hostId !== undefined) out.push({ hostId, depth, polygons });
   };
   for (const r of result.cut ?? []) {
@@ -523,7 +527,7 @@ export class SectionAlignTool extends ToolBase {
     const p0 = this.env.project();
     const el = p0.elements[target.hostId];
     if (isGuardaCorpo(el) && hospedeiroDoGuardaCorpo(el) !== null) { avisaGuardaCorpoHospedado(this.env); return; }
-    if (!el || !(isStair(el) || isRamp(el) || isFloor(el) || isSlab(el) || isGuardaCorpo(el))) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
+    if (!el || !(isStair(el) || isRamp(el) || isFloor(el) || isSlab(el) || isGuardaCorpo(el) || isColumn(el) || isBeam(el) || isFooting(el))) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
     let dt = 0;
     let dz = 0;
     if (target.axis === 'h') {

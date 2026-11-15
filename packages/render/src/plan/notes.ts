@@ -1,4 +1,4 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
@@ -212,9 +212,13 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   const projecao = espessuraDeProjecao(pt);
   // Disposição das cotas da vista: o texto que não cabe sai com linha de chamada e os rótulos não se sobrepõem.
   const layouts = layoutDimensions(dimensionItems(p, levelId, dimensions, look.dimStyle), { scale, style: look.dimStyle, v });
+  const refTargets = (r: NonNullable<Dimension['refs']>['a'], targetId: Id): boolean =>
+    !!r && (isElementRef(r) ? r.elementId === targetId : r.wallId === targetId);
+  const singleSelectedId = look.selection.length === 1 ? look.selection[0]! : null;
   for (const l of layouts) {
     const id = l.item.d.id;
-    const sel = picked(id);
+    const attached = singleSelectedId !== null && (refTargets(l.item.d.refs?.a, singleSelectedId) !== refTargets(l.item.d.refs?.b, singleSelectedId));
+    const sel = picked(id) || attached;
     const hov = !sel && look.hover === id;
     const estado = sel || hov;
     const c = sel ? look.select : hov ? (look.hoverColor ?? look.select) : color;

@@ -39,7 +39,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { elevationFrameBox, fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -201,7 +201,7 @@ export class Editor {
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
-    hiddenInView: () => planViewOf(this.store.project, useUi.getState().levelId).hidden,
+    hiddenInView: () => visibilityOf(this.store.project, useUi.getState()).hidden,
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -671,11 +671,12 @@ export class Editor {
       this.save();
       return true;
     }
-    if (mod && ui.view === 'plan' && /^[cvx]$/i.test(k) && !this.perimetro.ativo) {
+    if (mod && (ui.view === 'plan' || ui.view === '3d' || ui.view === 'section') && /^[cvx]$/i.test(k) && !this.perimetro.ativo) {
       const tecla = k.toLowerCase();
       if (tecla === 'c') return this.copySelection();
       if (tecla === 'x') return this.cutSelection();
-      return this.pasteAligned();
+      if (ui.view === 'plan') return this.pasteAligned();
+      return this.openPasteLevelsDialog();
     }
     if (mod) return /^a$/i.test(k) && this.perimetro.selecionarTudo();
     if (k === 'F3') {
@@ -770,7 +771,20 @@ export class Editor {
       this.bump();
       return true;
     }
-    if (k === ' ' && this.tool.id === 'wall') {
+    if (
+      k === ' '
+      && !(this.tool.freeText && this.tool.inputPrompt())
+      && (
+        this.tool.id === 'wall'
+        || this.tool.id === 'door'
+        || this.tool.id === 'window'
+        || this.tool.id === 'curtainDoor'
+        || this.tool.id === 'curtainWindow'
+        || this.tool.id === 'column'
+        || this.tool.id === 'beam'
+        || this.tool.id === 'footing'
+      )
+    ) {
       this.tool.space?.();
       this.bump();
       return true;
@@ -780,12 +794,12 @@ export class Editor {
       useUi.setState({ typed: ui.typed + k });
       return true;
     }
-    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window' || this.tool.id === 'curtainDoor' || this.tool.id === 'curtainWindow')) {
-      this.tool.space?.(); this.bump();
+    // Atalho por sequência (ex.: WA) e teclas específicas da ferramenta (ex.: 1–9 em sapatas/pilares/vigas).
+    if (e.altKey || ui.typed || this.tool.freeText) return false;
+    if (!this.tool.inputPrompt() && this.tool.onKey?.(k)) {
+      this.bump();
       return true;
     }
-    // Atalho por sequência (ex.: WA). Alt não dispara; digitação ativa ou ferramenta de texto (freeText, sem ponto) não deixa letras virarem atalho.
-    if (e.altKey || ui.typed || this.tool.freeText) return false;
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });

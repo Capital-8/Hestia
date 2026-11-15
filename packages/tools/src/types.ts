@@ -2,11 +2,12 @@ import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { ParedeSubelementos, SectionResult } from '@hestia/engine';
-import type { Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
+import type { BeamJustify, Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
 import type { RampToolOptions } from './rampOptions.ts';
+import type { StructuralAnchorPreset } from './structuralPresets.ts';
 import type { Lang } from './i18n.ts';
 
 export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'none';
@@ -184,6 +185,19 @@ export interface AngleMode {
   polarIncrementDeg: number;
 }
 
+export type BeamDrawShape =
+  | 'line'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc'
+  | 'arc-3pt'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse'
+  | 'pick-face';
+
 export interface ToolOptions {
   /** Capturas ligadas; ausente = padrão. */
   snap?: SnapOptions;
@@ -248,6 +262,27 @@ export interface ToolOptions {
   regionMask?: boolean;
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
+  columnTypeId?: Id;
+  columnMode?: 'vertical' | 'slanted';
+  columnDepthMode?: 'depth' | 'height';
+  columnTopLevelId?: Id | null;
+  columnBaseOffset?: number;
+  columnTopOffset?: number;
+  columnHeight?: number;
+  columnRotation?: number;
+  /** Ponto de ancoragem/lançamento em planta para colocação de pilares (centrado por padrão). */
+  columnAnchor?: StructuralAnchorPreset;
+  beamTypeId?: Id;
+  beamJustify?: BeamJustify;
+  beamZOffset?: number;
+  beamShape?: BeamDrawShape;
+  footingTypeId?: Id;
+  footingMode?: 'free' | 'atColumns';
+  footingRotation?: number;
+  footingHeightOffset?: number;
+  footingEccentric?: boolean;
+  footingEccentricityX?: number;
+  footingEccentricityY?: number;
   /** Guarda-corpo: tipo usado pela ferramenta ao criar. Ausente = o padrão do projeto. */
   railingTypeId?: Id;
   orthoLock: boolean;
@@ -349,6 +384,8 @@ export interface Tool {
   tab(reverso?: boolean): void;
   /** Espaço alterna uma opção secundária quando a ferramenta declara suporte. */
   space?(): void;
+  /** Tecla avulsa tratada pela ferramenta antes dos atalhos globais; retorne `true` se consumida. */
+  onKey?(key: string): boolean | void;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
   cancel(): void;
   confirm(): void;

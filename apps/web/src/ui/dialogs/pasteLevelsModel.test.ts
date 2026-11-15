@@ -201,6 +201,16 @@ describe('summary', () => {
     expect(summary(model({ initialSelected: ['lv_1'], elementCount: 1 }))).toBe('1 nível • 1 cópia');
     expect(summary(model())).toBe('0 níveis • 0 cópias');
   });
+  it('bloqueia só a origem base em seleções multi-nível e libera o nível intermediário como destino', () => {
+    const m = model({ originLevelIds: ['lv_0', 'lv_1'] });
+    expect(isOriginLevel(m, 'lv_0')).toBe(true);
+    expect(isOriginLevel(m, 'lv_1')).toBe(false);
+    expect(toggleLevel(m, 'lv_0')).toBe(m);
+    const picked = toggleLevel(m, 'lv_1');
+    expect(picked.selected).toEqual(['lv_1']);
+    expect(validate(picked)).toBeNull();
+    expect(selectAllAbove(m).selected).toEqual(['lv_1', 'lv_2', 'lv_3']);
+  });
 });
 
 describe('validate', () => {

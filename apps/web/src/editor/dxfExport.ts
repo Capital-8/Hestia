@@ -41,6 +41,7 @@ import { rampDxf, stairDxf } from './dxfEscadas.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
 export { arrowOfPath, rampDxf, stairArrow, stairDxf } from './dxfEscadas.ts';
 export { cadDxfLayerName } from './dxfCad.ts';
+export { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING } from '@hestia/io';
 
 /** Idioma ativo (fora do React): quem chama pode fixar outro `lang`. */
 const activeLang = (): Lang => useI18n.getState().lang;

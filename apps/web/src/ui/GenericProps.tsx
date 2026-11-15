@@ -62,6 +62,9 @@ export interface SelectionLabelInput {
   generics: number;
   /** Desenhos CAD importados (opcional para não quebrar os chamadores antigos). */
   cads?: number;
+  columns?: number;
+  beams?: number;
+  footings?: number;
   grade: { name: string } | null | undefined;
   view: { kind: string; name: string } | null;
 }
@@ -81,6 +84,9 @@ export function selectionLabel(c: SelectionLabelInput, lang: Lang = useI18n.getS
   if (c.ramps) return plural(c.ramps, t(lang, 'prc_sel_ramp_one'), t(lang, 'prc_sel_ramp_many'));
   if (c.rooms) return plural(c.rooms, t(lang, 'prc_sel_room_one'), t(lang, 'prc_sel_room_many'));
   if (c.cads) return plural(c.cads, t(lang, 'prc_sel_cad_one'), t(lang, 'prc_sel_cad_many'));
+  if (c.columns) return plural(c.columns, t(lang, 'str_sel_column_one'), t(lang, 'str_sel_column_many'));
+  if (c.beams) return plural(c.beams, t(lang, 'str_sel_beam_one'), t(lang, 'str_sel_beam_many'));
+  if (c.footings) return plural(c.footings, t(lang, 'str_sel_footing_one'), t(lang, 'str_sel_footing_many'));
   if (c.generics) return plural(c.generics, t(lang, 'prc_sel_generic_one'), t(lang, 'prc_sel_generic_many'));
   if (c.view) return `${c.view.kind === 'elevation' ? t(lang, 'prc_sel_view_elevation') : t(lang, 'prc_sel_view_section')} ${c.view.name}`;
   return t(lang, 'prc_sel_view');

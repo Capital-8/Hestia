@@ -19,6 +19,7 @@ import { sectionOfStairs } from './sectionStairs.ts';
 import { resolveRampsOnLevel } from './ramps.ts';
 import type { SectionSnapRing } from './sectionSnapRings.ts';
 import { sectionOfRamps } from './sectionRamps.ts';
+import { sectionOfStructural } from './sectionStructural.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
@@ -52,6 +53,9 @@ export interface SectionOrigin {
   stairId?: Id;
   rampId?: Id;
   openingId?: Id;
+  columnId?: Id;
+  beamId?: Id;
+  footingId?: Id;
 }
 
 /**
@@ -295,6 +299,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   beyond.push(...rk.beyond);
   snapRings.push(...rk.snapRings);
   grow(rk.zMin, rk.zMax);
+  // Elementos estruturais: pilares, vigas e sapatas (corte e elevação).
+  const st = sectionOfStructural(p, levelId, line);
+  for (const c of st.cut) addCut(c.materialId, c.polygon, c.origin);
+  beyond.push(...st.beyond);
+  grow(st.zMin, st.zMax);
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;

@@ -1,18 +1,23 @@
 import { mul, type Vec2 } from '@hestia/geom';
-import { frameOfWall, pointAt, type WallFrame } from '@hestia/engine';
+import { frameOfWall, pointAt, wallPlaneAt, wallPlanes, type WallFrame } from '@hestia/engine';
 import {
   WALL_DIM_REFS,
   isWall,
-  isWallDimRef,
   type Id,
   type Project,
-  type WallDimRef,
 } from '@hestia/model';
+import {
+  applyCustomTargetToGap,
+  customTargetOf,
+  customTargetTranslation,
+  dimOverrideRef,
+  type DimCustomTarget,
+} from '../customRef.ts';
 import { matchDimRef, tempRefs } from '../permanent.ts';
 import { translateWallsJoined } from '../../wallFollow.ts';
-import { axisGaps, type AxisGap } from './wallAxisGaps.ts';
+import { axisGaps } from './wallAxisGaps.ts';
 import { wallLateralGaps } from './wallLateral.ts';
-import { NON_POSITIVE_MSG, gapTranslation, type ParallelGap } from '../parallel.ts';
+import { NON_POSITIVE_MSG, gapTranslation } from '../parallel.ts';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 
 /** Parede a cotar: distância lateral até as paralelas vizinhas (ou, sem elas, vão axial até a perpendicular). */
@@ -26,12 +31,11 @@ const DIM_OFFSET = 0.25;
 /** Chave global (troca rápida): vale para todas as pontas de parede. */
 export const WALL_REF_KEY = `${PROVIDER_ID}:wall`;
 
-const slotKey = (slot: string): string => `${PROVIDER_ID}:${slot}`;
-
-function wallRefFor(ctx: DimContext, slot: string): WallDimRef {
-  const v = ctx.overrides[slotKey(slot)] ?? ctx.overrides[WALL_REF_KEY];
-  return isWallDimRef(v) ? v : ctx.settings.wallRef;
-}
+const customRefs = (project: Project, a: Vec2, hostId: Id, custom: DimCustomTarget): Pick<TempDim, 'refs'> => {
+  const hostRef = matchDimRef(project, a, [hostId]);
+  const bRef = custom.kind === 'element' ? custom.ref : undefined;
+  return tempRefs(hostRef, bRef);
+};
 
 const lengthEnd = (at: Vec2, slot: string): DimEnd => ({
   at,
@@ -42,9 +46,37 @@ const lengthEnd = (at: Vec2, slot: string): DimEnd => ({
 });
 
 /** Cota da ponta da parede até a perpendicular mais próxima: editar translada a parede ao longo do eixo (hospedados acompanham). */
-function axisDim(project: Project, frame: WallFrame, gap: AxisGap, ref: WallDimRef): TempDim {
-  const atEnd = gap.end === 'b' ? frame.length : 0;
+function axisDimForEnd(ctx: DimContext, frame: WallFrame, end: 'a' | 'b'): TempDim | null {
+  const project = ctx.project;
+  const slot = end === 'b' ? 'axisB' : 'axisA';
+  const key = `${PROVIDER_ID}:${frame.wall.id}:${slot}`;
+  const targetRef = dimOverrideRef(ctx, key, slot, [WALL_REF_KEY], ctx.settings.wallRef);
+  const atEnd = end === 'b' ? frame.length : 0;
   const a = pointAt(frame, atEnd, frame.sMid);
+  const custom = customTargetOf(ctx, key);
+  if (custom) {
+    const res = applyCustomTargetToGap(project, custom, a, frame.u);
+    if (res) {
+      return {
+        key,
+        a,
+        b: res.b,
+        offset: DIM_OFFSET,
+        value: res.distance,
+        ends: [
+          { at: a, slot: `${slot}Self`, kind: 'wall', current: targetRef, options: [targetRef] },
+          { at: res.b, slot, kind: 'wall', current: targetRef, options: [targetRef], targetRef: true },
+        ],
+        ...customRefs(project, a, frame.wall.id, custom),
+        edit: (value: number): DimEditResult => {
+          if (!(value > 0)) return { error: NON_POSITIVE_MSG };
+          return translateWallsJoined(project, frame.wall.levelId, [frame.wall.id], customTargetTranslation(frame.u, res.signedDelta, value));
+        },
+      };
+    }
+  }
+  const gap = axisGaps(project, frame, targetRef).find((g) => g.end === end);
+  if (!gap) return null;
   const b = pointAt(frame, gap.targetT, frame.sMid);
   const edit = (value: number): DimEditResult => {
     if (!(value > 0)) return { error: NON_POSITIVE_MSG };
@@ -52,25 +84,56 @@ function axisDim(project: Project, frame: WallFrame, gap: AxisGap, ref: WallDimR
     const shift = (gap.end === 'b' ? 1 : -1) * (gap.distance - value);
     return translateWallsJoined(project, frame.wall.levelId, [frame.wall.id], mul(frame.u, shift));
   };
-  const slot = gap.end === 'b' ? 'axisB' : 'axisA';
   return {
-    key: `${PROVIDER_ID}:${frame.wall.id}:${slot}`,
+    key,
     a,
     b,
     offset: DIM_OFFSET,
     value: gap.distance,
     // A ponta da parede cotada não depende da referência: só o plano da perpendicular a usa.
     ends: [
-      { at: a, slot: `${slot}Self`, kind: 'wall', current: ref, options: [ref] },
-      { at: b, slot, kind: 'wall', current: ref, options: WALL_DIM_REFS },
+      { at: a, slot: `${slot}Self`, kind: 'wall', current: targetRef, options: [targetRef] },
+      { at: b, slot, kind: 'wall', current: targetRef, options: WALL_DIM_REFS, targetRef: true },
     ],
-    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), undefined),
+    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), matchDimRef(project, b, [gap.ownerId])),
     edit,
   };
 }
 
-/** Cota lateral (perpendicular ao eixo) até a paralela vizinha: editar translada a parede (hospedados acompanham). */
-function gapDim(project: Project, frame: WallFrame, gap: ParallelGap, ref: WallDimRef): TempDim {
+/** Cota lateral (perpendicular ao eixo) de um dos lados (`right` ou `left`) da parede. */
+function gapDimForSide(ctx: DimContext, frame: WallFrame, side: 1 | -1): TempDim | null {
+  const project = ctx.project;
+  const sideName = side > 0 ? 'right' : 'left';
+  const key = `${PROVIDER_ID}:${frame.wall.id}:${sideName}`;
+  const hostSlot = side > 0 ? 'gapRightA' : 'gapLeftA';
+  const targetSlot = side > 0 ? 'gapRightB' : 'gapLeftB';
+  const hostRef = dimOverrideRef(ctx, key, hostSlot, [WALL_REF_KEY], ctx.settings.wallRef);
+  const targetRef = dimOverrideRef(ctx, key, targetSlot, [WALL_REF_KEY], ctx.settings.wallRef);
+  const custom = customTargetOf(ctx, key);
+  if (custom) {
+    const a = pointAt(frame, frame.length / 2, wallPlaneAt(wallPlanes(frame), hostRef, side));
+    const res = applyCustomTargetToGap(project, custom, a, frame.n);
+    if (res) {
+      return {
+        key,
+        a,
+        b: res.b,
+        offset: DIM_OFFSET * side,
+        value: res.distance,
+        ends: [
+          { at: a, slot: hostSlot, kind: 'wall', current: hostRef, options: WALL_DIM_REFS },
+          { at: res.b, slot: targetSlot, kind: 'wall', current: targetRef, options: [targetRef], targetRef: true },
+        ],
+        ...customRefs(project, a, frame.wall.id, custom),
+        edit: (value: number): DimEditResult => {
+          if (!(value > 0)) return { error: NON_POSITIVE_MSG };
+          return translateWallsJoined(project, frame.wall.levelId, [frame.wall.id], customTargetTranslation(frame.n, res.signedDelta, value));
+        },
+      };
+    }
+  }
+  const gap = wallLateralGaps(project, frame, hostRef, targetRef).find((g) => g.side === side);
+  if (!gap) return null;
   const a = pointAt(frame, gap.t, gap.hostS);
   const b = pointAt(frame, gap.t, gap.s);
   const edit = (value: number): DimEditResult => {
@@ -78,16 +141,16 @@ function gapDim(project: Project, frame: WallFrame, gap: ParallelGap, ref: WallD
     return translateWallsJoined(project, frame.wall.levelId, [frame.wall.id], gapTranslation(frame.n, gap, value));
   };
   return {
-    key: `${PROVIDER_ID}:${frame.wall.id}:${gap.side > 0 ? 'right' : 'left'}`,
+    key,
     a,
     b,
-    offset: DIM_OFFSET * (gap.side > 0 ? 1 : -1),
+    offset: DIM_OFFSET * side,
     value: gap.distance,
     ends: [
-      { at: a, slot: gap.side > 0 ? 'gapRightA' : 'gapLeftA', kind: 'wall', current: ref, options: WALL_DIM_REFS },
-      { at: b, slot: gap.side > 0 ? 'gapRightB' : 'gapLeftB', kind: 'wall', current: ref, options: WALL_DIM_REFS },
+      { at: a, slot: hostSlot, kind: 'wall', current: hostRef, options: WALL_DIM_REFS },
+      { at: b, slot: targetSlot, kind: 'wall', current: targetRef, options: WALL_DIM_REFS, targetRef: true },
     ],
-    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), matchDimRef(project, b, [frame.wall.id])),
+    ...tempRefs(matchDimRef(project, a, [frame.wall.id]), matchDimRef(project, b, [gap.id])),
     edit,
   };
 }
@@ -102,10 +165,13 @@ export const wallDimProvider: DimProvider<WallDimSubject> = {
   compute(ctx, subject) {
     const frame = frameOfWall(ctx.project, subject.wallId);
     if (!frame) return [];
-    const ref = wallRefFor(ctx, 'wall');
-    const lateral = wallLateralGaps(ctx.project, frame, ref);
-    if (lateral.length > 0) return lateral.map((g) => gapDim(ctx.project, frame, g, ref));
-    return axisGaps(ctx.project, frame, ref).map((g) => axisDim(ctx.project, frame, g, ref));
+    const lateral = ([1, -1] as const)
+      .map((side) => gapDimForSide(ctx, frame, side))
+      .filter((d): d is TempDim => d !== null);
+    if (lateral.length > 0) return lateral;
+    return (['b', 'a'] as const)
+      .map((end) => axisDimForEnd(ctx, frame, end))
+      .filter((d): d is TempDim => d !== null);
   },
   selectionSubject(project, id) {
     const w = project.elements[id];

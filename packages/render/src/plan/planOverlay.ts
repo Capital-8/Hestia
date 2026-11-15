@@ -9,6 +9,7 @@ import { ceilingSelectionOps } from './ceilings.ts';
 import { roofFootprint, roofSelectionOps } from './roofs.ts';
 import { planFootprint, stairSelectionOps } from './stairs.ts';
 import { rampFootprint, rampSelectionOps } from './ramps.ts';
+import { structuralPegadas, structuralSelectionOps } from './structural.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
 import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
 import { planContext, type PlanContext } from './planContext.ts';
@@ -108,6 +109,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
   for (const s of stairs) pegadas.set(s.id, planFootprint(s));
   for (const r of ramps) pegadas.set(r.id, rampFootprint(r));
   for (const r of ambientesDoNivel(p, levelId)) if (r.polygon) pegadas.set(r.roomId, [r.polygon]);
+  for (const [id, poly] of structuralPegadas(p, levelId)) pegadas.set(id, poly);
   for (const id of ids) {
     const e = p.elements[id];
     if (!e) continue;
@@ -225,6 +227,7 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, null, theme, input.viewport, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, selection, null, theme, input.viewport));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
     for (const id of selection) {
@@ -277,6 +280,7 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   add(roofSelectionOps(p, input.levelId, [], hover, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, [], hover, theme, input.viewport, alcasDeModelo));
   add(rampSelectionOps(p, ramps, [], hover, theme, input.viewport, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, [], hover, theme, input.viewport));
   out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
   comAnotacoes(out, input, style.scale, { selection: [], hover });
   return out;
@@ -334,6 +338,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   add(roofSelectionOps(p, input.levelId, selection, hover, theme, v, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, hover, theme, v, alcasDeModelo));
   add(rampSelectionOps(p, ramps, selection, hover, theme, v, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, selection, hover, theme, v));
   if (hover && !selection.includes(hover)) out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));

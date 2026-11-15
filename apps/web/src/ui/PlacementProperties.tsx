@@ -1,17 +1,18 @@
 import type { ReactElement } from 'react';
-import { areaPlanOf, isOpeningDimRef, isWallDimRef, type LocationLine } from '@hestia/model';
+import { areaPlanOf, DEFAULT_FOOTING_TYPES, isOpeningDimRef, isWallDimRef, type LocationLine } from '@hestia/model';
 import { DEFAULT_RAMP_OPTIONS, roofAutoOffset, stairTypeForShape, type ToolId } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { clearDimOverride, setDimOverride, useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
+import { FootingEccentricityRows, StructuralAnchorCard, footingPresetOffset, matchingFootingPreset } from './footingEccentricity.tsx';
 import { useFormat } from './useUnits.ts';
 import { OPENING_OPTIONS, WALL_OPTIONS, sessionChoice } from './dialogs/dimensionSettingsModel.ts';
 import { RampLevelsFields, rampLevelsValue } from './RampLevelsFields.tsx';
 import { abrirCaixaDeTexto } from './dialogs/TextDialog.tsx';
 import { stairRunFields, stairShapeOptions } from './stairRunFields.ts';
 
-const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'section']);
+const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'section', 'column', 'beam', 'footing']);
 
 /** Linha de localização da parede: mesma lista de `LOCATION_LABEL`, traduzida pelo dicionário. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -130,6 +131,112 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
       {tool === 'ramp' && (
         <Group title={t('pra_pgrp_placement_ramp')}>
           <RampLevelsFields project={p} levelId={levelId} idPrefix="place-ramp" value={rampLevelsValue(o.ramp ?? DEFAULT_RAMP_OPTIONS)} onChange={setRamp} Field={Row} />
+        </Group>
+      )}
+      {tool === 'column' && (
+        <Group title={t('tool_column')}>
+          <Row label={t('str_opt_col_mode')} htmlFor="place-col-mode">
+            <select id="place-col-mode" className="select" value={o.columnMode ?? 'vertical'} onChange={(e) => set({ columnMode: e.target.value as 'vertical' | 'slanted' })}>
+              <option value="vertical">{t('str_opt_col_vertical')}</option>
+              <option value="slanted">{t('str_opt_col_slanted')}</option>
+            </select>
+          </Row>
+          <Row label={t('str_opt_col_height')} htmlFor="place-col-depth-mode">
+            <select id="place-col-depth-mode" className="select" value={o.columnDepthMode ?? 'height'} onChange={(e) => set({ columnDepthMode: e.target.value as 'depth' | 'height' })}>
+              <option value="height">{t('str_opt_col_height')}</option>
+              <option value="depth">{t('str_opt_col_depth')}</option>
+            </select>
+          </Row>
+          <Row label={t('pra_fld_base_offset')} htmlFor="place-col-base">
+            <NumField id="place-col-base" value={o.columnBaseOffset ?? 0} quantity="length" onCommit={(v) => set({ columnBaseOffset: v })} />
+          </Row>
+          <Row label={t('pra_fld_top_level')} htmlFor="place-col-top">
+            <select id="place-col-top" className="select" value={o.columnTopLevelId ?? ''} onChange={(e) => set({ columnTopLevelId: e.target.value || null })}>
+              <option value="">{t('pra_opt_by_height')}</option>
+              {p.levels.filter((l) => l.id !== levelId).map((l) => <option key={l.id} value={l.id}>{t('pra_opt_up_to', { name: l.name })}</option>)}
+            </select>
+          </Row>
+          {o.columnTopLevelId ? (
+            <Row label={t('pra_fld_top_offset')} htmlFor="place-col-topoff">
+              <NumField id="place-col-topoff" value={o.columnTopOffset ?? 0} quantity="length" onCommit={(v) => set({ columnTopOffset: v })} />
+            </Row>
+          ) : (
+            <Row label={t('pra_fld_height')} htmlFor="place-col-height">
+              <NumField id="place-col-height" value={o.columnHeight ?? 2.8} quantity="length" min={0.1} onCommit={(v) => set({ columnHeight: v })} />
+            </Row>
+          )}
+          <Row label={t('str_fld_rotation')} htmlFor="place-col-rot">
+            <NumField id="place-col-rot" value={o.columnRotation ?? 0} quantity="angle" onCommit={(v) => set({ columnRotation: v })} />
+          </Row>
+          <Row label={t('str_fld_anchor_point')}>
+            <StructuralAnchorCard
+              kind="column"
+              activePreset={o.columnAnchor ?? 'center'}
+              onSelect={(preset) => set({ columnAnchor: preset })}
+            />
+          </Row>
+        </Group>
+      )}
+      {tool === 'beam' && (
+        <Group title={t('tool_beam')}>
+          <Row label={t('str_fld_justify')} htmlFor="place-beam-just">
+            <select id="place-beam-just" className="select" title={t('str_hint_beam_space')} value={o.beamJustify ?? 'center'} onChange={(e) => set({ beamJustify: e.target.value as typeof o.beamJustify })}>
+              <option value="center">{t('str_just_center')}</option>
+              <option value="left">{t('str_just_left')}</option>
+              <option value="right">{t('str_just_right')}</option>
+            </select>
+          </Row>
+          <div style={{ fontSize: 10.5, color: 'var(--fg-soft)', margin: '2px 0 4px' }}>{t('str_hint_beam_space')}</div>
+          <Row label={t('str_fld_z_offset')} htmlFor="place-beam-zoff">
+            <NumField id="place-beam-zoff" value={o.beamZOffset ?? 0} quantity="length" onCommit={(v) => set({ beamZOffset: v })} />
+          </Row>
+          <Row label={t('pra_fld_chain')} htmlFor="place-beam-chain">
+            <Check id="place-beam-chain" checked={o.chain} onChange={(v) => set({ chain: v })} />
+          </Row>
+        </Group>
+      )}
+      {tool === 'footing' && (
+        <Group title={t('tool_footing')}>
+          <Row label={t('str_opt_foot_mode')} htmlFor="place-ft-mode">
+            <select id="place-ft-mode" className="select" value={o.footingMode ?? 'free'} onChange={(e) => set({ footingMode: e.target.value as 'free' | 'atColumns' })}>
+              <option value="free">{t('str_opt_foot_free')}</option>
+              <option value="atColumns">{t('str_opt_foot_at_cols')}</option>
+            </select>
+          </Row>
+          <Row label={t('str_fld_height_offset')} htmlFor="place-ft-offset">
+            <NumField id="place-ft-offset" value={o.footingHeightOffset ?? 0} quantity="length" onCommit={(v) => set({ footingHeightOffset: v })} />
+          </Row>
+          <Row label={t('str_fld_rotation')} htmlFor="place-ft-rot">
+            <NumField id="place-ft-rot" value={o.footingRotation ?? 0} quantity="angle" onCommit={(v) => set({ footingRotation: v })} />
+          </Row>
+          <FootingEccentricityRows
+            idPrefix="place-ft"
+            eccentric={Boolean(o.footingEccentric)}
+            ex={o.footingEccentricityX ?? 0}
+            ey={o.footingEccentricityY ?? 0}
+            activePreset={o.footingEccentric
+              ? matchingFootingPreset(
+                p,
+                o.footingTypeId ?? DEFAULT_FOOTING_TYPES[0]!.id,
+                null,
+                o.footingRotation ?? 0,
+                o.footingEccentricityX ?? 0,
+                o.footingEccentricityY ?? 0,
+              )
+              : 'center'}
+            onModeChange={(ecc) => set(ecc ? { footingEccentric: true } : { footingEccentric: false, footingEccentricityX: 0, footingEccentricityY: 0 })}
+            onExChange={(v) => set({ footingEccentric: Math.hypot(v, o.footingEccentricityY ?? 0) > 1e-6 || Boolean(o.footingEccentric), footingEccentricityX: v })}
+            onEyChange={(v) => set({ footingEccentric: Math.hypot(o.footingEccentricityX ?? 0, v) > 1e-6 || Boolean(o.footingEccentric), footingEccentricityY: v })}
+            onPreset={(preset) => {
+              const ftId = o.footingTypeId ?? DEFAULT_FOOTING_TYPES[0]!.id;
+              const off = footingPresetOffset(p, ftId, null, o.footingRotation ?? 0, preset);
+              set({
+                footingEccentric: preset !== 'center',
+                footingEccentricityX: off.eccentricityX,
+                footingEccentricityY: off.eccentricityY,
+              });
+            }}
+          />
         </Group>
       )}
       {tool === 'room' && (

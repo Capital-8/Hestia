@@ -312,6 +312,24 @@ export function labelOf(c: Command): string {
       return 'Editar esquema de cores';
     case 'removeColorScheme':
       return 'Excluir esquema de cores';
+    case 'addColumn':
+      return 'Criar pilar';
+    case 'upsertColumnType':
+      return 'Editar tipo de pilar';
+    case 'deleteColumnType':
+      return 'Excluir tipo de pilar';
+    case 'addBeam':
+      return 'Criar viga';
+    case 'upsertBeamType':
+      return 'Editar tipo de viga';
+    case 'deleteBeamType':
+      return 'Excluir tipo de viga';
+    case 'addFooting':
+      return 'Criar sapata';
+    case 'upsertFootingType':
+      return 'Editar tipo de sapata';
+    case 'deleteFootingType':
+      return 'Excluir tipo de sapata';
     default: {
       const _nunca: never = c;
       return _nunca;

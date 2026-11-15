@@ -1,7 +1,9 @@
 import { add, dist, sagFromThreePoints, sub, type Vec2 } from '@hestia/geom';
-import { frameOfWall } from '@hestia/engine';
-import { ceilingOutline } from '@hestia/engine';
-import { formatQuantity, isCeiling, isFloor, isRoof, isSlab, isWall, levelRoomSeparators, roomSeparatorIssue, unitsOf, type Command, type Id, type Project } from '@hestia/model';
+import { ceilingOutline, frameOfWall } from '@hestia/engine';
+import {
+  beamMidPoint, findColumnType, findFootingType, formatQuantity, isBeam, isCeiling, isColumn, isFloor, isFooting, isRoof, isSlab,
+  isWall, levelRoomSeparators, roomSeparatorIssue, unitsOf, type Command, type Id, type Project,
+} from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import { followingEnds, gripAt, MIN_WALL_LENGTH, type Grip } from './pick.ts';
 import { langOf, t as translate } from './i18n.ts';
@@ -306,8 +308,10 @@ const railingGrip: GripProvider = (env, at) => {
   return g ? railingHold(env, g) : null;
 };
 
+import { beamGrip, columnGrip, columnRotationHandle, footingGrip, footingRotationHandle } from './structuralPick.ts';
+
 /** Registro de provedores de alça, em ordem de prioridade (o primeiro que acerta vence). */
-export const gripProviders: GripProvider[] = [roomSeparatorGrip, gridGripProvider, wallGrip, spiralGrip, stairFreeGrip, stairGrip, rampGrip, railingGrip, floorGrip, slabGrip, roofGrip, ceilingGrip];
+export const gripProviders: GripProvider[] = [roomSeparatorGrip, gridGripProvider, wallGrip, columnGrip, beamGrip, footingGrip, spiralGrip, stairFreeGrip, stairGrip, rampGrip, railingGrip, floorGrip, slabGrip, roofGrip, ceilingGrip];
 
 /** Prévias extras das alças (cada uma devolve os itens desenhados quando a seleção está ociosa), acrescentadas pelo app. */
 export const previasDeAlcas: Array<(env: ToolEnv) => PreviewItem[]> = [];
@@ -335,7 +339,7 @@ export function annotationGripHoldAt(env: ToolEnv, at: Vec2): GripHold | null {
   return roomSeparatorGrip(env, at);
 }
 
-/** Alças desenhadas no piso, laje ou telhado selecionado (vértices e meio das arestas), com o foco e a seta de caimento. */
+/** Alças desenhadas no elemento selecionado, com o foco e a seta de caimento. */
 export function ringHandlePreview(p: Project, sel: Id[], focus: GripFocus | null, grips = true): PreviewItem[] {
   // Extremidades das linhas de separação selecionadas (uma alça em cada ponta). Elas são anotação: continuam na planta
   // de área, mesmo quando as alças de modelo estão desligadas.
@@ -348,6 +352,25 @@ export function ringHandlePreview(p: Project, sel: Id[], focus: GripFocus | null
   if (!grips) return items;
   items.push(...railingHandlePreview(p, sel, grips));
   const f = sel.length === 1 ? p.elements[sel[0]!] : undefined;
+  if (isColumn(f)) {
+    const type = findColumnType(p, f.typeId);
+    const r = Math.max(0.4, ((type?.depth ?? 0.4) / 2) + 0.3);
+    const rotPt = columnRotationHandle(f, r);
+    items.push({ kind: 'point', at: f.at }, { kind: 'point', at: rotPt }, { kind: 'line', a: f.at, b: rotPt, dashed: true });
+    return items;
+  }
+  if (isBeam(f)) {
+    const mid = beamMidPoint(f);
+    items.push({ kind: 'point', at: f.a }, { kind: 'point', at: f.b }, { kind: 'point', at: mid });
+    return items;
+  }
+  if (isFooting(f)) {
+    const type = findFootingType(p, f.typeId);
+    const r = Math.max(0.6, ((type?.length ?? 1.0) / 2) + 0.3);
+    const rotPt = footingRotationHandle(f, r);
+    items.push({ kind: 'point', at: f.at }, { kind: 'point', at: rotPt }, { kind: 'line', a: f.at, b: rotPt, dashed: true });
+    return items;
+  }
   if (!(isFloor(f) || isSlab(f) || isRoof(f))) return items;
   const n = f.boundary.length;
   for (let i = 0; i < n; i++) {

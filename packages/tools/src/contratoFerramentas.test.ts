@@ -35,6 +35,7 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  beam: 'beamTool.ts',
 };
 
 /**
@@ -47,7 +48,7 @@ const EXCECOES_TODO: Record<string, string> = {
 /** Ferramentas que não traçam elemento linear (seleção, edição, inserção por clique único, anotação pontual). */
 const SEM_TRACADO = new Set([
   'select', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'move', 'copy', 'rotate', 'mirror', 'array',
-  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste',
+  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste', 'column', 'footing',
 ]);
 
 function idsDoRegistro(): string[] {

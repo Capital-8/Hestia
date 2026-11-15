@@ -11,6 +11,7 @@ import { PanelView } from './ribbon/parts.tsx';
 import { FitRow, type FitItem } from './ribbon/FitRow.tsx';
 import { contextTab, pasteLevelsTab, perimeterTab } from './ribbon/context.ts';
 import { ConfirmCancelPanel } from './ribbon/ConfirmCancelPanel.tsx';
+import { DrawGalleryPanel, isGalleryDrawTool } from './ribbon/DrawGalleryPanel.tsx';
 import { TABS } from './ribbon/tabs.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
@@ -112,7 +113,13 @@ export function Ribbon(): ReactElement {
       return items;
     }
     if (activeId !== 'ctx' || !pTab) {
-      const items: FitItem[] = active?.panels.map((panel) => ({ key: panel.id, priority: prioridadeDoPainel(panel.id), node: <PanelView panel={panel} ctx={ctx} lang={lang} /> })) ?? [];
+      const items: FitItem[] = active?.panels.map((panel) => ({
+        key: panel.id,
+        priority: prioridadeDoPainel(panel.id),
+        node: activeId === 'ctx' && panel.id === 'desenhar' && isGalleryDrawTool(ctx.tool)
+          ? <DrawGalleryPanel tool={ctx.tool} />
+          : <PanelView panel={panel} ctx={ctx} lang={lang} />,
+      })) ?? [];
       // Com uma porta/janela selecionada, a aba contextual ganha os controles de inversão e o alternador de etiquetas.
       const only = activeId === 'ctx' && ctx.selection.length === 1 ? ctx.p.elements[ctx.selection[0]!] : undefined;
       if (only && (only.kind === 'door' || only.kind === 'window')) items.push({ key: 'abertura', priority: 2, node: <OpeningActions opening={only} p={ctx.p} lang={lang} /> });

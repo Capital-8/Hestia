@@ -49,6 +49,9 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
   cad: { mover: 'selectedCads', colar: 'cad', alinhar: null, motivo: 'TODO: o desenho CAD é um objeto só; alinhar pelas linhas dele ainda não existe.' },
+  column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
+  beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
+  footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
 };
 
 /**
@@ -77,6 +80,9 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
   cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
+  column: { mover: 'isColumn', alinhar: 'isColumn', previa: 'movidos' },
+  beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
+  footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
 };
 
 const CODIGO_MOVER = ['edit.ts', 'arrayRadial.ts'].map(lerTools).join('\n');
@@ -135,7 +141,21 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     const cmd = lerModel('commands.ts') + lerModel('guardaCorpoTransform.ts');
     for (const [kind, m] of Object.entries(CLASSIFICACAO)) {
       if (!m.mover || kind === 'door' || kind === 'window') continue; // aberturas seguem a parede anfitriã
-      const guarda = { wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad' }[kind];
+      const guarda = {
+        wall: 'transformWall',
+        floor: 'isFloor',
+        slab: 'isSlab',
+        ceiling: 'isCeiling',
+        roof: 'isRoof',
+        stair: 'isStair',
+        ramp: 'isRamp',
+        railing: 'transformarGuardaCorpos',
+        room: 'isRoom',
+        cad: 'isCad',
+        column: 'isColumn',
+        beam: 'isBeam',
+        footing: 'isFooting',
+      }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);
     }

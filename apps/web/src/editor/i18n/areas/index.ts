@@ -40,9 +40,11 @@ import { PT_SHELL, EN_SHELL } from './shell.ts';
 import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
 import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
+import { PT_STRUCTURAL, EN_STRUCTURAL } from './structural.ts';
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
+  ...PT_STRUCTURAL,
   ...PT_GUARDA_CORPO,
   ...PT_PAREDE_CORTINA,
   ...PT_BIBLIOTECA,
@@ -88,6 +90,7 @@ export const PT_ALL = {
 } as const;
 
 export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
+  ...EN_STRUCTURAL,
   ...EN_GUARDA_CORPO,
   ...EN_PAREDE_CORTINA,
   ...EN_BIBLIOTECA,

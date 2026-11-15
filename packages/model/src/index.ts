@@ -91,3 +91,7 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
+export * from './column.ts';
+export * from './beam.ts';
+export * from './footing.ts';
+export * from './structuralCommands.ts';

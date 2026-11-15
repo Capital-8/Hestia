@@ -99,6 +99,7 @@ export const TAB_VISTA: RibbonTab = {
       split(act('schedWalls', 'large', t('Tabelas', 'Schedules')), [
         act('schedWalls', 'small'), act('schedFloors', 'small'), act('schedSlabs', 'small'), act('schedCeilings', 'small'),
         act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'),
+        act('schedColumns', 'small'), act('schedBeams', 'small'), act('schedFootings', 'small'),
       ]),
     ),
     panel(

@@ -7,6 +7,9 @@ import { stairTypes } from './stair.ts';
 import { rampTypes } from './ramp.ts';
 import { tiposGuardaCorpo } from './guardaCorpo.ts';
 import { curtainWallTypes } from './wallCurtainPresets.ts';
+import { columnTypes } from './column.ts';
+import { beamTypes } from './beam.ts';
+import { footingTypes } from './footing.ts';
 import { makeLevel } from './level.ts';
 import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
@@ -215,6 +218,9 @@ export function createEmptyProject(nameOrLang?: string | Lang, lang: Lang = 'pt'
     rampTypes: toRecord(rampTypes(activeLang)),
     tiposGuardaCorpo: toRecord(tiposGuardaCorpo(activeLang)),
     openingTypes: toRecord(openingTypeCatalog(activeLang)),
+    columnTypes: toRecord(columnTypes(activeLang)),
+    beamTypes: toRecord(beamTypes(activeLang)),
+    footingTypes: toRecord(footingTypes(activeLang)),
     elements: {},
     nextOrder: 1,
     settings: { joinTolerance: 0.02, showTags: false, debugJoins: false, detail: 'medium' },

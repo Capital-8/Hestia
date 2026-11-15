@@ -57,8 +57,11 @@ function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
     case 'door': return 'door';
     case 'window': return 'window';
     case 'floor': return 'floor';
-    case 'slab': return 'slab';
+    case 'slab':
+    case 'beam':
+    case 'footing': return 'slab';
     case 'ceiling': return 'floor';
+    case 'column': return 'wall';
     case 'roof': return 'roof';
     case 'stair':
     case 'ramp': return 'stair';
@@ -154,6 +157,15 @@ function setTemp(patch: Partial<TempViewVisibility> | null): void {
   useUi.setState((s) => ({ viewTemp: next, previewTick: s.previewTick + 1 }));
 }
 
+/** Remove da seleção os elementos que passaram a ficar ocultos na vista ativa. */
+function pruneHiddenSelection(status: ReturnType<typeof useUi.getState>['status']): void {
+  const cur = useUi.getState();
+  const vis = visibilityOf(editor.project, cur);
+  const nextSel = cur.selection.filter((id) => !vis.hidden.has(id));
+  const nextSub = cur.subElemento && vis.hidden.has(cur.subElemento.wallId) ? null : cur.subElemento;
+  useUi.setState({ selection: nextSel, subElemento: nextSub, status });
+}
+
 /** Ocultação permanente (Hide in View) dos elementos/categorias na vista ativa. */
 export function hideInView(elements: readonly Id[], categories: readonly GraphicsCategory[] = []): void {
   if (elements.length === 0 && categories.length === 0) {
@@ -170,7 +182,7 @@ export function hideInView(elements: readonly Id[], categories: readonly Graphic
   });
   editor.store.exec({ type: 'setViewHidden', target, hidden }, 'eds_undo_hide_view');
   redesenhar();
-  useUi.setState({ status: { key: 'eds_msg_hidden_done' } });
+  pruneHiddenSelection({ key: 'eds_msg_hidden_done' });
 }
 
 /** Reexibe elementos/categorias na vista ativa (modo Reveal). */
@@ -224,7 +236,7 @@ export function temporaryHide(elements: readonly Id[], categories: readonly Grap
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   }), isolated: undefined });
-  useUi.setState({ status: { key: 'eds_msg_temp_hidden' } });
+  pruneHiddenSelection({ key: 'eds_msg_temp_hidden' });
 }
 
 /** Isolate temporário (HI/IC): só a seleção/categoria fica visível até HR. */
@@ -240,7 +252,7 @@ export function temporaryIsolate(elements: readonly Id[], categories: readonly G
     ...(elements.length ? { elements: [...elements] } : {}),
     ...(categories.length ? { categories: [...categories] } : {}),
   }, hidden: undefined });
-  useUi.setState({ status: { key: 'eds_msg_temp_isolated' } });
+  pruneHiddenSelection({ key: 'eds_msg_temp_isolated' });
 }
 
 /** Reexibe tudo da vista: ocultação permanente e temporária (não mexe no modo Reveal). */

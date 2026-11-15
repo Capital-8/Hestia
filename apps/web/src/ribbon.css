@@ -124,6 +124,9 @@
 .bnode.bold .blabel { font-weight: 700; }
 .bnode svg { flex: none; }
 .blabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bnode-menu-btn { margin-left: auto; flex: none; width: 18px; height: 16px; padding: 0; line-height: 14px; font-size: 12px; color: var(--fg-soft); background: transparent; border: 1px solid transparent; border-radius: 2px; opacity: 0; cursor: pointer; }
+.bnode:hover .bnode-menu-btn, .bnode.sel .bnode-menu-btn, .bnode:focus-within .bnode-menu-btn { opacity: 1; }
+.bnode-menu-btn:hover { color: var(--fg); background: var(--sheet); border-color: var(--line-strong); }
 .bbox { flex: none; width: 11px; height: 11px; margin-left: 4px; display: inline-grid; place-items: center; font: 9px/9px var(--font-mono); color: var(--fg-soft); background: var(--sheet); border: 1px solid var(--line-strong); }
 .bbox.none { visibility: hidden; }
 .bkids { padding-left: 15px; }

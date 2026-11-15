@@ -11,8 +11,14 @@ import {
   isWall,
   isRoom,
   isGeneric,
+  isColumn,
+  isBeam,
+  isFooting,
   type Ceiling,
   type CeilingType,
+  type Column,
+  type Beam,
+  type Footing,
   type Element,
   type Floor,
   type FloorType,
@@ -78,6 +84,7 @@ import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './she
 import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
+import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
@@ -140,7 +147,7 @@ export type Command =
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
   | { type: 'deleteFloorType'; id: Id }
-  | { type: 'updateElements'; ids: Id[]; patch: Partial<Wall> | Partial<Opening> | Partial<Floor> | Partial<Slab> | Partial<Ceiling> | Partial<Roof> | Partial<Stair> | Partial<Ramp> | Partial<Room> }
+  | { type: 'updateElements'; ids: Id[]; patch: Partial<Wall> | Partial<Opening> | Partial<Floor> | Partial<Slab> | Partial<Ceiling> | Partial<Roof> | Partial<Stair> | Partial<Ramp> | Partial<Room> | Partial<Column> | Partial<Beam> | Partial<Footing> }
   | { type: 'detachOutline'; id: Id }
   | { type: 'relinkOutline'; id: Id }
   | { type: 'detachCeilingRoom'; id: Id }
@@ -222,7 +229,8 @@ export type Command =
   | { type: 'removeRoomCategory'; id: Id }
   | { type: 'upsertColorScheme'; scheme: ColorScheme }
   | { type: 'removeColorScheme'; id: Id }
-  | ({ type: 'setElementLevel' } & SetElementLevel);
+  | ({ type: 'setElementLevel' } & SetElementLevel)
+  | StructuralCommand;
 function transformWall(w: Wall, t: Transform): Wall {
   const a = applyTransform(t, w.a);
   const b = applyTransform(t, w.b);
@@ -234,6 +242,7 @@ function transformWall(w: Wall, t: Transform): Wall {
 function removeIds(p: Project, ids: Id[]): void {
   const doomed = new Set(ids);
   for (const e of Object.values(p.elements)) if (isOpening(e) && doomed.has(e.hostId)) doomed.add(e.id);
+  unlinkFootingsOfDeletedColumns(p, doomed);
   for (const id of doomed) delete p.elements[id];
 }
 /**
@@ -276,6 +285,16 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
+  transformEach(p, c, isColumn, transformColumn);
+  transformEach(p, c, isBeam, transformBeam);
+  transformEach(
+    p,
+    c,
+    isFooting,
+    transformFooting,
+    idMap ? (f) => ({ ...f, columnId: f.columnId && idMap[f.columnId] ? idMap[f.columnId] : f.columnId }) : undefined,
+  );
+  syncLinkedFootingsOnTransform(p, c);
   transformEach(p, c, isRoom, (r, t) => ({
     ...r,
     point: applyTransform(t, r.point),
@@ -345,7 +364,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyStructuralCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
@@ -447,9 +466,12 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'updateElements': {
       const ends = wallEndsPatchOf(c.patch as Partial<Wall>);
       const movesEnds = changesWallEnds(c.patch as Partial<Wall>);
+      const colMoves = 'at' in c.patch || 'rotation' in c.patch;
+      const prevCols = new Map<Id, { at: Vec2; rotation: number }>();
       for (const id of c.ids) {
         const e = p.elements[id];
         if (!e) continue;
+        if (colMoves && isColumn(e)) prevCols.set(id, { at: { ...e.at }, rotation: e.rotation });
         if (movesEnds && isWall(e)) {
           const next = { ...e, ...c.patch } as Wall;
           rehostOpenings(p, e, next, ends);
@@ -458,6 +480,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
         }
         p.elements[id] = { ...e, ...c.patch } as Element;
       }
+      syncLinkedFootingsOnColumnPatch(p, c.ids, prevCols);
       for (const id of c.ids) {
         const e = p.elements[id];
         if (isOpening(e)) {
@@ -531,7 +554,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'deleteLevel': {
       if (p.levels.length <= 1) throw new Error(t(lang, 'md_cmd_last_level'));
       // Escada também conta pelo nível de topo explícito; o topo automático segue o nível acima e não prende o nível.
-      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
+      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id) || (isColumn(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
       p.levels = p.levels.filter((l) => l.id !== c.id);
       dropAreaPlansOfLevel(p, c.id);
       dropOrphanViewports(p);

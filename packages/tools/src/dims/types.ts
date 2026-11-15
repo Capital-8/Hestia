@@ -1,5 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import type { Command, DimensionElementRef, Element, Id, OpeningDimRef, Project, Quantity, ResolvedDimensionSettings, WallDimRef } from '@hestia/model';
+import type { DimCustomTarget } from './customRef.ts';
 import type { Lang } from '../i18n.ts';
 
 /** Tipo de elemento ao qual um provedor de cotas se liga (o campo `kind` do elemento). */
@@ -30,8 +31,10 @@ export interface DimEnd {
   current: DimRef;
   /** As referências que esta ponta aceita, na ordem em que a alça as percorre. */
   options: ReadonlyArray<DimRef>;
+  /** Aceita arrastar a alça para escolher outro elemento ou eixo/grade de referência na planta. */
+  targetRef?: boolean;
   /**
-   * Troca de referência de uma ponta de cota permanente: as feições do elemento (`options`), a atual (índice em
+   * Troca de referência de uma ponta permanente: as feições do elemento (`options`), a atual (índice em
    * `options`) e os comandos que gravam a escolha em `Dimension.refs` (a cota re-resolve a ponta a partir dali).
    */
   alt?: {
@@ -71,6 +74,8 @@ export interface TempDim {
   refs?: { a?: DimensionElementRef; b?: DimensionElementRef };
   /** Pontas na ordem de `a` e `b`. */
   ends: [DimEnd, DimEnd];
+  /** Posição personalizada do texto da cota (quando arrastado pelo usuário em cotas permanentes). */
+  textAt?: Vec2;
   tone?: 'valid' | 'invalid';
   /**
    * `false` = rascunho de ferramenta que já cria a cota permanente por conta própria (Cota, Cota angular): sem botão
@@ -88,6 +93,8 @@ export interface DimContext {
   settings: ResolvedDimensionSettings;
   /** `${providerId}:${slot}` (ou chave global do provedor) → referência escolhida na sessão. */
   overrides: Readonly<Record<string, DimRef>>;
+  /** `${dimKey}` → alvo personalizado arrastado pela alça azul da cota temporária. */
+  customTargets?: Readonly<Record<string, DimCustomTarget>>;
   /** Idioma das mensagens do provedor (ausente = português). */
   lang?: Lang;
 }

@@ -21,11 +21,17 @@ import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
+import type { Column, ColumnType } from './column.ts';
+import type { Beam, BeamType } from './beam.ts';
+import type { Footing, FootingType } from './footing.ts';
 
 export type Id = string;
-/** v25: parede cortina (decisão 0056). Arquivo antigo não tem campos novos: a migração 24 → 25 só avança a versão. */
-export const SCHEMA_VERSION = 25;
+/** v26: tríade estrutural (pilar, viga, sapata). */
+export const SCHEMA_VERSION = 26;
 
+export type { Column, ColumnType, ColumnShape } from './column.ts';
+export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
+export type { Footing, FootingType } from './footing.ts';
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
@@ -695,7 +701,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing | Column | Beam | Footing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -833,6 +839,12 @@ export interface Project {
   mullionTypes?: Record<Id, MullionType>;
   /** Tipos de painel da parede cortina (decisão 0056, §4.5). Mesmo regime de `mullionTypes` (`curtainPanelTypesOf`). */
   curtainPanelTypes?: Record<Id, CurtainPanelType>;
+  /** Catálogo de tipos de pilar (decisão estrutural). */
+  columnTypes?: Record<Id, ColumnType>;
+  /** Catálogo de tipos de viga (decisão estrutural). */
+  beamTypes?: Record<Id, BeamType>;
+  /** Catálogo de tipos de sapata/bloco de fundação (decisão estrutural). */
+  footingTypes?: Record<Id, FootingType>;
   elements: Record<Id, Element>;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
@@ -893,3 +905,6 @@ export const isRamp = (e: Element | undefined): e is Ramp => e?.kind === 'ramp';
 export const isGuardaCorpo = (e: Element | undefined): e is GuardaCorpo => e?.kind === 'railing';
 export const isRoom = (e: Element | undefined): e is Room => e?.kind === 'room';
 export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === 'generic';
+export const isColumn = (e: Element | undefined): e is Column => e?.kind === 'column';
+export const isBeam = (e: Element | undefined): e is Beam => e?.kind === 'beam';
+export const isFooting = (e: Element | undefined): e is Footing => e?.kind === 'footing';

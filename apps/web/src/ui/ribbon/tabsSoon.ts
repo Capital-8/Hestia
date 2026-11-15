@@ -11,14 +11,6 @@ const p = (id: string, title: Txt, ...names: Array<[Txt, string?]>): RibbonPanel
   panel(id, title, ...names.map(([n, icon]) => soon(n, icon)));
 
 export const TABS_SOON: RibbonTab[] = [
-  tab('estrutura', t('Estrutura', 'Structure'),
-    p('est-conexao', t('Conexão', 'Connection'), [t('Conexão', 'Connection')]),
-    panel('est-estrutura', t('Estrutura', 'Structure'), soon(t('Pilar', 'Column'), 'column'), soon(t('Viga', 'Beam'), 'beam'), soon(t('Contraventamento', 'Brace'), 'soon'), stack(soonS(t('Sistema de vigas', 'Beam System'), 'beam'), soonS(t('Treliça', 'Truss'), 'soon'), soonS(t('Emenda', 'Splice'), 'soon'))),
-    p('est-fundacao', t('Fundação', 'Foundation'), [t('Parede', 'Wall'), 'wall'], [t('Isolada', 'Isolated'), 'soon'], [t('Laje', 'Slab'), 'slab']),
-    panel('est-reforco', t('Reforço', 'Reinforcement'), soon(t('Armadura', 'Rebar'), 'soon'), stack(soonS(t('Cobrimento', 'Cover'), 'soon'), soonS(t('Área', 'Area'), 'soon'), soonS(t('Malha', 'Fabric'), 'soon'))),
-    p('est-analitico', t('Modelo analítico', 'Analytical Model'), [t('Cargas', 'Loads')], [t('Condições de contorno', 'Boundary Conditions')]),
-    p('est-referencia', t('Referência', 'Datum'), [t('Nível', 'Level'), 'level'], [t('Grade', 'Grid'), 'grid']),
-  ),
   tab('aco', t('Aço', 'Steel'),
     p('aco-conexoes', t('Conexões', 'Connections'), [t('Conexão', 'Connection')], [t('Chapa', 'Plate')], [t('Ancoragem', 'Anchor')]),
     p('aco-elementos', t('Elementos de aço', 'Steel Elements'), [t('Parafuso', 'Bolt')], [t('Solda', 'Weld')], [t('Pino', 'Stud')]),

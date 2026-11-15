@@ -1003,6 +1003,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     }
     const v = editor.viewport();
     if (!v) return;
+    blurFocusedControl();
     const inf = info(e, s);
     useUi.setState({ cursor: inf.raw, snapKind: editor.activeTool.inference()?.kind ?? '' });
     if (d.mode === 'tool') {
@@ -1195,6 +1196,12 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Retira o foco de menus `<select>`/`<button>` ao entrar no canvas para que Espaço não os reabra. */
+  const blurFocusedControl = (): void => {
+    const el = document.activeElement;
+    if (el instanceof HTMLElement && (el.tagName === 'SELECT' || el.tagName === 'BUTTON')) el.blur();
+  };
+
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
   const onLeave = (): void => { if (['3d', 'section'].includes(useUi.getState().view) && useUi.getState().hover) useUi.setState({ hover: null }); };
 
@@ -1215,6 +1222,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       ref={host}
       className={revealing ? 'canvas-wrap revealing' : 'canvas-wrap'}
       style={{ cursor: cursorCss }}
+      onPointerEnter={blurFocusedControl}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}

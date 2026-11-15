@@ -1,10 +1,10 @@
 import type { ReactElement, ReactNode } from 'react';
-import { openingFamilies, openingFamilyOf, type OpeningType } from '@hestia/model';
+import { beamTypeMap, columnTypeMap, footingTypeMap, openingFamilies, openingFamilyOf, type OpeningType } from '@hestia/model';
 import { DEFAULT_RAMP_OPTIONS } from '@hestia/tools';
 import { useProject } from '../../editor/controller.ts';
 import { cmpTexto, t, useT } from '../../editor/i18n.ts';
 import type { Lang } from '../../editor/i18n/tipos.ts';
-import { useUi } from '../../editor/state.ts';
+import { useUi, type DialogKind } from '../../editor/state.ts';
 import { TypeRow } from '../TypeRow.tsx';
 import { FAMILY } from '../typeFamilies.ts';
 import { Node } from './Tree.tsx';
@@ -34,7 +34,7 @@ export function FamiliesTree(): ReactElement {
   const p = useProject();
   const o = useUi((s) => s.options);
   const set = (patch: Partial<typeof o>): void => useUi.setState((st) => ({ options: { ...st.options, ...patch } }));
-  const dialog = (d: 'wallType' | 'floorType' | 'slabType' | 'ceilingType' | 'roofType' | 'stairType' | 'rampType' | 'openingType', id: string): void => useUi.setState({ dialog: d, dialogArg: id });
+  const dialog = (d: DialogKind, id: string): void => useUi.setState({ dialog: d, dialogArg: id });
   const doors = Object.values(p.openingTypes).filter((t) => t.kind === 'door');
   const windows = Object.values(p.openingTypes).filter((t) => t.kind === 'window');
 
@@ -97,6 +97,54 @@ export function FamiliesTree(): ReactElement {
         <Node id="fam:roof" label={FAMILY.roof} group>
           {Object.values(p.roofTypes).map((tipo) => (
             <TypeRow key={tipo.id} kind="roof" typeId={tipo.id} name={tipo.name} icon="roof" active={o.roofTypeId === tipo.id} onUse={() => set({ roofTypeId: tipo.id })} onEdit={() => dialog('roofType', tipo.id)} />
+          ))}
+        </Node>
+      </Category>
+      <Category id="column" name={t('str_cat_columns')} open>
+        <Node id="fam:column" label={FAMILY.column} group open>
+          {Object.values(columnTypeMap(p)).map((tipo) => (
+            <TypeRow
+              key={tipo.id}
+              kind="column"
+              typeId={tipo.id}
+              name={tipo.name}
+              icon="column"
+              active={o.columnTypeId === tipo.id}
+              onUse={() => set({ columnTypeId: tipo.id })}
+              onEdit={() => dialog('columnType', tipo.id)}
+            />
+          ))}
+        </Node>
+      </Category>
+      <Category id="beam" name={t('str_cat_beams')} open>
+        <Node id="fam:beam" label={FAMILY.beam} group open>
+          {Object.values(beamTypeMap(p)).map((tipo) => (
+            <TypeRow
+              key={tipo.id}
+              kind="beam"
+              typeId={tipo.id}
+              name={tipo.name}
+              icon="beam"
+              active={o.beamTypeId === tipo.id}
+              onUse={() => set({ beamTypeId: tipo.id })}
+              onEdit={() => dialog('beamType', tipo.id)}
+            />
+          ))}
+        </Node>
+      </Category>
+      <Category id="footing" name={t('str_cat_footings')} open>
+        <Node id="fam:footing" label={FAMILY.footing} group open>
+          {Object.values(footingTypeMap(p)).map((tipo) => (
+            <TypeRow
+              key={tipo.id}
+              kind="footing"
+              typeId={tipo.id}
+              name={tipo.name}
+              icon="footing"
+              active={o.footingTypeId === tipo.id}
+              onUse={() => set({ footingTypeId: tipo.id })}
+              onEdit={() => dialog('footingType', tipo.id)}
+            />
           ))}
         </Node>
       </Category>

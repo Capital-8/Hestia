@@ -6,9 +6,12 @@ import {
   roofTypeThickness,
   slabTypeThickness,
   wallThicknessOf,
+  type BeamType,
   type CeilingType,
+  type ColumnType,
   type DimensionStyle,
   type FloorType,
+  type FootingType,
   type Material,
   type OpeningType,
   type RampType,
@@ -41,7 +44,10 @@ export type PreviewSubject =
   /** Tipo de guarda-corpo: a miniatura desenha a elevação do tipo (altura, trilhos, corrimãos e preenchimento). */
   | { kind: 'railing'; type: TipoGuardaCorpo }
   /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
-  | { kind: 'dimension'; style: DimensionStyle };
+  | { kind: 'dimension'; style: DimensionStyle }
+  | { kind: 'column'; type: ColumnType }
+  | { kind: 'beam'; type: BeamType }
+  | { kind: 'footing'; type: FootingType };
 
 
 
@@ -68,6 +74,15 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
       return formatQuantity(units, 'smallLength', ceilingTypeThickness(s.type));
     case 'roof':
       return formatQuantity(units, 'smallLength', roofTypeThickness(s.type));
+    case 'column':
+      if (s.type.shape === 'round') {
+        return `Ø ${formatQuantity(units, 'smallLength', s.type.width)}`;
+      }
+      return `${formatQuantity(units, 'smallLength', s.type.width, { withUnit: false })} × ${formatQuantity(units, 'smallLength', s.type.depth)}`;
+    case 'beam':
+      return `${formatQuantity(units, 'smallLength', s.type.width, { withUnit: false })} × ${formatQuantity(units, 'smallLength', s.type.depth)}`;
+    case 'footing':
+      return `${formatQuantity(units, 'length', s.type.width, { withUnit: false })} × ${formatQuantity(units, 'length', s.type.length, { withUnit: false })} × ${formatQuantity(units, 'smallLength', s.type.thickness)}`;
     case 'stair':
     case 'ramp':
     case 'railing':
@@ -99,6 +114,12 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <RailingThumb type={subject.type} />;
     case 'dimension':
       return <DimensionStylePreview style={subject.style} />;
+    case 'column':
+      return <ColumnDrawing t={subject.type} />;
+    case 'beam':
+      return <BeamDrawing t={subject.type} />;
+    case 'footing':
+      return <FootingDrawing t={subject.type} />;
     case 'door':
       return <DoorDrawing t={subject.type} uid={uid} />;
     case 'window':
@@ -275,6 +296,104 @@ function WindowDrawing({ t, uid }: { t: OpeningType; uid: string }): ReactElemen
       {leaves}
       <rect x={x0} y={y0} width={W} height={H} fill="none" stroke="#6c7782" strokeWidth={fw} />
       <rect x={x0 - 3} y={y0 + H + fw / 2} width={W + 6} height={3} fill="#8d98a3" stroke="#4a5568" strokeWidth={0.5} />
+    </svg>
+  );
+}
+
+function ColumnDrawing({ t }: { t: ColumnType }): ReactElement {
+  const maxDim = Math.max(t.width, t.depth, 0.05);
+  const s = 64 / maxDim;
+  const w = t.width * s;
+  const d = t.depth * s;
+  const x0 = 100 - w / 2;
+  const y0 = 60 - d / 2;
+  if (t.shape === 'round') {
+    return (
+      <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+        <circle cx={100} cy={60} r={Math.max(4, w / 2)} fill="#94a3b8" stroke="#334155" strokeWidth={1.5} />
+      </svg>
+    );
+  }
+  if (t.shape === 'i-section') {
+    const tf = (t.flangeThickness ?? t.depth * 0.1) * s;
+    const tw = (t.webThickness ?? t.width * 0.1) * s;
+    const hw = w / 2;
+    const hd = d / 2;
+    const htw = tw / 2;
+    const path = `M${100 - hw},${60 - hd} H${100 + hw} V${60 - hd + tf} H${100 + htw} V${60 + hd - tf} H${100 + hw} V${60 + hd} H${100 - hw} V${60 + hd - tf} H${100 - htw} V${60 - hd + tf} H${100 - hw} Z`;
+    return (
+      <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+        <path d={path} fill="#64748b" stroke="#1e293b" strokeWidth={1.5} />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+      <rect x={x0} y={y0} width={w} height={d} fill="#94a3b8" stroke="#334155" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function BeamDrawing({ t }: { t: BeamType }): ReactElement {
+  const maxDim = Math.max(t.width, t.depth, 0.05);
+  const s = 64 / maxDim;
+  const w = t.width * s;
+  const d = t.depth * s;
+  const x0 = 100 - w / 2;
+  const y0 = 60 - d / 2;
+  if (t.shape === 'i-section') {
+    const tf = (t.flangeThickness ?? t.depth * 0.1) * s;
+    const tw = (t.webThickness ?? t.width * 0.1) * s;
+    const hw = w / 2;
+    const hd = d / 2;
+    const htw = tw / 2;
+    const path = `M${100 - hw},${60 - hd} H${100 + hw} V${60 - hd + tf} H${100 + htw} V${60 + hd - tf} H${100 + hw} V${60 + hd} H${100 - hw} V${60 + hd - tf} H${100 - htw} V${60 - hd + tf} H${100 - hw} Z`;
+    return (
+      <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+        <path d={path} fill="#64748b" stroke="#1e293b" strokeWidth={1.5} />
+      </svg>
+    );
+  }
+  if (t.shape === 't-section') {
+    const fw = (t.flangeWidth ?? t.width) * s;
+    const tf = (t.flangeThickness ?? t.depth * 0.2) * s;
+    const tw = (t.webThickness ?? t.width * 0.3) * s;
+    const hfw = fw / 2;
+    const htw = tw / 2;
+    const hd = d / 2;
+    const path = `M${100 - hfw},${60 - hd} H${100 + hfw} V${60 - hd + tf} H${100 + htw} V${60 + hd} H${100 - htw} V${60 - hd + tf} H${100 - hfw} Z`;
+    return (
+      <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+        <path d={path} fill="#94a3b8" stroke="#334155" strokeWidth={1.5} />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+      <rect x={x0} y={y0} width={w} height={d} fill="#94a3b8" stroke="#334155" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function FootingDrawing({ t }: { t: FootingType }): ReactElement {
+  const maxDim = Math.max(t.width, t.length, 0.1);
+  const s = 64 / maxDim;
+  const w = t.width * s;
+  const l = t.length * s;
+  const x0 = 100 - w / 2;
+  const y0 = 60 - l / 2;
+  const pw = w * 0.35;
+  const pl = l * 0.35;
+  const px0 = 100 - pw / 2;
+  const py0 = 60 - pl / 2;
+  return (
+    <svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid meet" role="img">
+      <rect x={x0} y={y0} width={w} height={l} fill="#e2e8f0" stroke="#475569" strokeWidth={1.5} />
+      <rect x={px0} y={py0} width={pw} height={pl} fill="#94a3b8" stroke="#334155" strokeWidth={1} />
+      <line x1={x0} y1={y0} x2={px0} y2={py0} stroke="#64748b" strokeWidth={0.8} strokeDasharray="3 2" />
+      <line x1={x0 + w} y1={y0} x2={px0 + pw} y2={py0} stroke="#64748b" strokeWidth={0.8} strokeDasharray="3 2" />
+      <line x1={x0 + w} y1={y0 + l} x2={px0 + pw} y2={py0 + pl} stroke="#64748b" strokeWidth={0.8} strokeDasharray="3 2" />
+      <line x1={x0} y1={y0 + l} x2={px0} y2={py0 + pl} stroke="#64748b" strokeWidth={0.8} strokeDasharray="3 2" />
     </svg>
   );
 }

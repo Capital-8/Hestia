@@ -8,6 +8,7 @@ import {
   createPasteLevelsModel,
   deltaOf,
   groupLevels,
+  isOriginLevel,
   search,
   selectAllAbove,
   selectAllBelow,
@@ -186,7 +187,7 @@ export function SelectLevelsDialog({
                     </td>
                   </tr>
                   {visible.map((level) => {
-                    const origin = model.originLevelIds.includes(level.id);
+                    const origin = isOriginLevel(model, level.id);
                     return (
                       <tr key={level.id}>
                         <td>

@@ -178,3 +178,16 @@ function ringArea(ring: readonly Vec2[]): number {
   return s / 2;
 }
 
+export {
+  pickColumnAt,
+  pickBeamAt,
+  pickFootingAt,
+  columnIdsInBox,
+  beamIdsInBox,
+  footingIdsInBox,
+  selectedColumns,
+  selectedBeams,
+  selectedFootings,
+} from './structuralPick.ts';
+
+

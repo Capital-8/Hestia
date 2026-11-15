@@ -32,6 +32,9 @@ const MIGRADOS = [
   'CeilingTypeDialog.tsx',
   'RoofTypeDialog.tsx',
   'guardaCorpoType/index.tsx',
+  'ColumnTypeDialog.tsx',
+  'BeamTypeDialog.tsx',
+  'FootingTypeDialog.tsx',
 ];
 
 /** Peças internas dos diálogos migrados: também não podem ter seção/linha própria. */

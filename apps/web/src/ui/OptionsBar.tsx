@@ -19,6 +19,7 @@ import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
+import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
 
 /** Chave do dicionário de cada linha de localização da parede. */
@@ -332,6 +333,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'array' && <ArrayOptionsBar />}
       {tool === 'grid' && <GridOptionsBar />}
+      {(tool === 'column' || tool === 'beam' || tool === 'footing') && <StructuralOptionsBar tool={tool} />}
       {tool === 'align' && (
         <label>
           {t('pro_align_prefer')}

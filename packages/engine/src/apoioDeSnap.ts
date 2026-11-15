@@ -17,7 +17,24 @@
  *   (peças repetidas e minúsculas só poluiriam a captura). Sem o kernel pronto, só o eixo do guarda-corpo manual.
  */
 import { dist, ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Project, type Ramp, type Stair } from '@hestia/model';
+import {
+  beamMidPoint,
+  beamPolygon,
+  columnPolygon,
+  definirProvedorDeApoio,
+  findBeamType,
+  findColumnType,
+  findFootingType,
+  footingPolygon,
+  type Beam,
+  type Column,
+  type Element,
+  type Footing,
+  type GuardaCorpo,
+  type Project,
+  type Ramp,
+  type Stair,
+} from '@hestia/model';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
 import { resolveRampOne } from './ramps.ts';
@@ -77,8 +94,10 @@ class Montador {
   private readonly segmentos: SegmentoApoio[] = [];
   private readonly vistos = new Set<string>();
   private readonly arestas = new Set<string>();
+  private readonly chaves = new Map<string, Vec2>();
 
   ponto(chave: string, q: Vec2, tipo: TipoApoio): void {
+    this.chaves.set(chave, { x: q.x, y: q.y });
     const k = `${tipo}|${posKey(q)}`;
     if (this.vistos.has(k)) return;
     this.vistos.add(k);
@@ -130,7 +149,7 @@ class Montador {
   }
 
   fim(): ApoioDoElemento {
-    const porChave = new Map<string, Vec2>();
+    const porChave = new Map<string, Vec2>(this.chaves);
     for (const q of this.pontos) porChave.set(q.chave, { x: q.x, y: q.y });
     return { pontos: this.pontos, segmentos: this.segmentos, porChave };
   }
@@ -323,15 +342,43 @@ function apoioDoGuarda(p: Project, g: GuardaCorpo): ApoioDoElemento {
   return apoio;
 }
 
-/** Cache por projeto (escada e rampa): uma edição cria outro projeto, e o que depende só do elemento reaproveita o cálculo (caches acima). */
+export function apoioDoPilar(p: Project, el: Column): ApoioDoElemento {
+  const m = new Montador();
+  const type = findColumnType(p, el.typeId);
+  m.anel('col', columnPolygon(el, type), true, type.shape === 'round');
+  m.ponto('col.c', el.at, 'center');
+  return m.fim();
+}
+
+export function apoioDaViga(p: Project, el: Beam): ApoioDoElemento {
+  const m = new Montador();
+  const type = findBeamType(p, el.typeId);
+  const curvo = Boolean(el.sag && Math.abs(el.sag) > 1e-6);
+  m.anel('beam', beamPolygon(el, type), true, curvo);
+  if (!curvo) m.linha('eixo', [el.a, el.b]);
+  m.ponto('eixo.m', beamMidPoint(el), 'midpoint');
+  m.ponto('eixo.a', el.a, 'endpoint');
+  m.ponto('eixo.b', el.b, 'endpoint');
+  return m.fim();
+}
+
+export function apoioDaSapata(p: Project, el: Footing): ApoioDoElemento {
+  const m = new Montador();
+  const type = findFootingType(p, el.typeId);
+  m.anel('foot', footingPolygon(el, type), true);
+  m.ponto('foot.c', el.at, 'center');
+  return m.fim();
+}
+
+/** Cache por projeto (escada, rampa e estrutural): uma edição cria outro projeto, e o que depende só do elemento reaproveita o cálculo (caches acima). */
 const porProjeto = new WeakMap<Project, Map<string, ApoioDoElemento | null>>();
 
 /**
- * Pontos de apoio em planta da escada, rampa ou guarda-corpo, ou `null` quando o elemento não é um deles ou não tem
- * geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
+ * Pontos de apoio em planta da escada, rampa, guarda-corpo, pilar, viga ou sapata, ou `null` quando o elemento não é um
+ * deles ou não tem geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
  */
 export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoElemento | null {
-  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing')) return null;
+  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'column' && el.kind !== 'beam' && el.kind !== 'footing')) return null;
   // O guarda-corpo depende do kernel, que pode ficar pronto sem o projeto mudar: ele tem cache próprio (por elemento e pelas linhas do kernel).
   if (el.kind === 'railing') return apoioDoGuarda(p, el);
   let mapa = porProjeto.get(p);
@@ -340,7 +387,12 @@ export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoEle
     porProjeto.set(p, mapa);
   }
   if (mapa.has(el.id)) return mapa.get(el.id)!;
-  const apoio = el.kind === 'stair' ? apoioDaEscada(p, el) : apoioDaRampa(p, el);
+  let apoio: ApoioDoElemento | null = null;
+  if (el.kind === 'stair') apoio = apoioDaEscada(p, el);
+  else if (el.kind === 'ramp') apoio = apoioDaRampa(p, el);
+  else if (el.kind === 'column') apoio = apoioDoPilar(p, el);
+  else if (el.kind === 'beam') apoio = apoioDaViga(p, el);
+  else if (el.kind === 'footing') apoio = apoioDaSapata(p, el);
   mapa.set(el.id, apoio);
   return apoio;
 }

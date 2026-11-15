@@ -26,8 +26,10 @@ import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
+import { IT_STRUCTURAL } from '../../areas/structural.ts';
 
 export const IT_ALL = {
+  ...IT_STRUCTURAL,
   ...IT_GUARDA_CORPO,
   ...IT_PAREDE_CORTINA,
   ...IT_SHELL_RIBBON,

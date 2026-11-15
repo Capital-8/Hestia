@@ -13,8 +13,11 @@ import {
   ProjectStore,
   createEmptyProject,
   defaultStairTypeId,
+  makeBeam,
   makeCeiling,
+  makeColumn,
   makeFloor,
+  makeFooting,
   makeGuardaCorpo,
   makeRamp,
   makeRoof,
@@ -97,6 +100,21 @@ const CASOS: Record<Element['kind'], Caso> = {
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
   cad: { entra: false, projeto: () => com({ type: 'addCadDrawing', cad }) },
+  column: {
+    entra: true,
+    projeto: () => com({ type: 'addColumn', column: makeColumn({ id: 'col1', typeId: 'ct_conc_20x40', levelId: 'lv_0', at: v(15, 15) }) }),
+    alvo: [v(15, 15)],
+  },
+  beam: {
+    entra: true,
+    projeto: () => com({ type: 'addBeam', beam: makeBeam({ id: 'bm1', typeId: 'bt_conc_15x40', levelId: 'lv_0', a: v(25, 0), b: v(28, 0) }) }),
+    alvo: [v(25, 0), v(28, 0)],
+  },
+  footing: {
+    entra: true,
+    projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'ft_iso_100x100', levelId: 'lv_0', at: v(35, 35) }) }),
+    alvo: [v(35, 35)],
+  },
 };
 
 const contem = (b: CaixaPlano, pts: Vec2[]): boolean => pts.every((q) => q.x >= b.minX - 1e-9 && q.x <= b.maxX + 1e-9 && q.y >= b.minY - 1e-9 && q.y <= b.maxY + 1e-9);

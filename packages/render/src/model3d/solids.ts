@@ -40,7 +40,7 @@ function oriented(r: Ring, ccw: boolean): Ring {
   return (a > 0) === ccw ? r : [...r].reverse();
 }
 
-function push(b: SolidBatch, v: number[], n: [number, number, number], tris: number[]): void {
+export function push(b: SolidBatch, v: number[], n: [number, number, number], tris: number[]): void {
   const base = b.positions.length / 3;
   for (let i = 0; i < v.length; i += 3) {
     b.positions.push(v[i]!, v[i + 1]!, v[i + 2]!);
@@ -141,7 +141,7 @@ const LINE_EPS = 3e-7;
 const Z_EPS = 1e-9;
 
 /** Triângulos com a normal voltada para `n` (a ordem dos vértices é corrigida pelo produto vetorial). */
-function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
+export function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
   for (const p of poly) {
     if (!p[0]) continue;
     const m = triangulate(p);

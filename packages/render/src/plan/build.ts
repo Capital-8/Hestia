@@ -19,6 +19,7 @@ import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
+import { structuralPlanOps } from './structural.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
@@ -354,17 +355,13 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   }
 
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
-  if (profile.floors) {
-    for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
-  }
+  if (profile.floors) for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
   // Ambientes sobre os pisos (preenchimento leve e etiqueta com nome, número e área) e sob as paredes (decisão 0018).
   if (profile.rooms) {
     if (areaPlan) {
       const roomPlan: AreaPlan = profile.referenceLines ? areaPlan : { ...areaPlan, graphics: { ...areaPlan.graphics, referenceLines: 'never' } };
       const room = areaPlanRoomOps(p, roomPlan, theme, input.dark, scale, hidden, paint.room, resolveRooms(p, input.levelId), new Set(input.selection));
-      fills.push(...room.fills);
-      strokes.push(...room.strokes);
-      labels.push(...room.labels);
+      fills.push(...room.fills); strokes.push(...room.strokes); labels.push(...room.labels);
     } else {
       addOps(roomOps(p, input.levelId, theme, input.dark, detail, style.scale, hidden, paint.room, input.hideLabelRoomId, input.lang), paint.room, !rp);
     }
@@ -375,6 +372,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Elementos estruturais do nível (sapatas, vigas, pilares): sapatas antes das paredes, pilares em corte.
+  if (!rp) addOps(structuralPlanOps(p, input.levelId, theme, input.dark, detail, hidden, paint.wall, paint.slab, scale), paint.wall, true);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
   if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).

@@ -17,7 +17,10 @@ export interface ContextTab {
 }
 
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
-const PLACE: ReadonlySet<ToolId> = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag']);
+const PLACE: ReadonlySet<ToolId> = new Set<ToolId>([
+  'wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag',
+  'column', 'beam', 'footing',
+]);
 
 const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;
 
@@ -30,6 +33,11 @@ function drawPanel(id: ToolId): RibbonPanel | null {
         option(t('Linha', 'Line'), 'wall', same('wallShape', 'line'), { wallShape: 'line' }),
         option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
         option(t('Retângulo', 'Rectangle'), 'plan', same('wallShape', 'rect'), { wallShape: 'rect' }),
+      );
+    case 'beam':
+      return mk(
+        option(t('Linha', 'Line'), 'beam', (o) => (o.beamShape ?? 'line') === 'line', { beamShape: 'line' }),
+        option(t('Retângulo', 'Rectangle'), 'plan', same('beamShape', 'rect'), { beamShape: 'rect' }),
       );
     default:
       return null;
@@ -51,6 +59,24 @@ const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
   stair: { label: t('Escadas', 'Stairs'), panels: [panel('escada', t('Escada', 'Stair'), act('stairSketch'), act('stairTypes'), act('schedStairs', 'large', t('Tabela de escadas', 'Stair Schedule')))] },
   ramp: { label: t('Rampas', 'Ramps'), panels: [panel('rampa', t('Rampa', 'Ramp'), act('rampTypes'), act('schedRamps', 'large', t('Tabela de rampas', 'Ramp Schedule')))] },
   room: { label: t('Ambientes', 'Rooms'), panels: [panel('ambiente', t('Ambiente', 'Room'), tool('roomsep'))] },
+  column: {
+    label: t('Pilares estruturais', 'Structural Columns'),
+    panels: [
+      panel('modificar-pilar', t('Pilar', 'Column'), act('structuralRotate90'), act('structuralEditType'), act('schedColumns', 'large', t('Tabela de pilares', 'Column Schedule'))),
+    ],
+  },
+  beam: {
+    label: t('Quadro estrutural (Vigas)', 'Structural Framing (Beams)'),
+    panels: [
+      panel('modificar-viga', t('Viga', 'Beam'), act('structuralEditType'), act('schedBeams', 'large', t('Tabela de vigas', 'Beam Schedule'))),
+    ],
+  },
+  footing: {
+    label: t('Fundações estruturais', 'Structural Foundations'),
+    panels: [
+      panel('modificar-sapata', t('Fundação', 'Foundation'), act('structuralRotate90'), act('footingAtColumns'), act('structuralEditType'), act('schedFootings', 'large', t('Tabela de sapatas', 'Footing Schedule'))),
+    ],
+  },
 };
 
 /** Base dos painéis de uma aba contextual, na ordem do Revit. */

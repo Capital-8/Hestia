@@ -81,6 +81,9 @@ import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
 import { SelectLevelsDialog } from './ui/dialogs/SelectLevelsDialog.tsx';
 import { SalvarSemPastaDialog } from './ui/dialogs/SalvarSemPastaDialog.tsx';
+import { BeamScheduleDialog } from './ui/dialogs/BeamScheduleDialog.tsx'; import { BeamTypeDialog } from './ui/dialogs/BeamTypeDialog.tsx';
+import { ColumnScheduleDialog } from './ui/dialogs/ColumnScheduleDialog.tsx'; import { ColumnTypeDialog } from './ui/dialogs/ColumnTypeDialog.tsx';
+import { FootingScheduleDialog } from './ui/dialogs/FootingScheduleDialog.tsx'; import { FootingTypeDialog } from './ui/dialogs/FootingTypeDialog.tsx';
 
 /**
  * Host do diálogo "Selecionar níveis": lê o projeto e o buffer da área de transferência fora do switch de diálogos
@@ -218,6 +221,18 @@ function Dialogs(): ReactElement | null {
       return <SelectLevelsHost />;
     case 'salvarSemPasta':
       return <SalvarSemPastaDialog />;
+    case 'columnType':
+      return <ColumnTypeDialog typeId={arg ?? undefined} />;
+    case 'beamType':
+      return <BeamTypeDialog typeId={arg ?? undefined} />;
+    case 'footingType':
+      return <FootingTypeDialog typeId={arg ?? undefined} />;
+    case 'columnSchedule':
+      return <ColumnScheduleDialog />;
+    case 'beamSchedule':
+      return <BeamScheduleDialog />;
+    case 'footingSchedule':
+      return <FootingScheduleDialog />;
     default:
       return null;
   }
@@ -350,9 +365,14 @@ export function App(): ReactElement {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const t = e.target as HTMLElement | null;
-      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
       // Na tela de projetos não há documento aberto: nenhum atalho do editor vale ali.
       if (useUi.getState().tela === 'home' || dialog || caixaTextoAberta || typing) return;
+      if (t?.tagName === 'BUTTON' && e.key === 'Enter') return;
+      if (t?.tagName === 'SELECT' || t?.tagName === 'BUTTON') {
+        t.blur();
+        if (e.key === ' ') e.preventDefault();
+      }
       if (editor.key(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);

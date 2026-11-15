@@ -335,3 +335,33 @@ describe('previewPasteLevels', () => {
     expect(draft.elements).toEqual(store.project.elements);
   });
 });
+
+describe('colar alinhado preservando offset relativo entre níveis', () => {
+  it('mantém diferença relativa de andares quando seleção vem de múltiplos níveis', () => {
+    const store = buildProject();
+    wall(store, 'w0', 'lv_0', [0, 0], [4, 0]);
+    wall(store, 'w1', 'lv_1', [0, 2], [4, 2]);
+    const clip = clipboardFrom(store.project, ['w0', 'w1'])!;
+    const res = pasteAlignedToLevelsCommand(store.project, clip, ['lv_2'], { mint: counterMint() })!;
+    store.exec(res.command);
+
+    const onLv2 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_2');
+    const onLv3 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_3');
+    expect(onLv2).toHaveLength(1);
+    expect(onLv3).toHaveLength(1);
+    expect((onLv2[0] as { a: { y: number } }).a.y).toBe(0);
+    expect((onLv3[0] as { a: { y: number } }).a.y).toBe(2);
+  });
+
+  it('quando o deslocamento relativo ultrapassa o último nível, fixa no topo com aviso top-overflow', () => {
+    const store = buildProject();
+    wall(store, 'w0', 'lv_0', [0, 0], [4, 0]);
+    wall(store, 'w1', 'lv_1', [0, 2], [4, 2]);
+    const clip = clipboardFrom(store.project, ['w0', 'w1'])!;
+    const res = pasteAlignedToLevelsCommand(store.project, clip, ['lv_3'], { mint: counterMint() })!;
+    expect(res.warnings.some((w) => w.kind === 'top-overflow')).toBe(true);
+    store.exec(res.command);
+    const onLv3 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_3');
+    expect(onLv3.length).toBeGreaterThanOrEqual(2);
+  });
+});

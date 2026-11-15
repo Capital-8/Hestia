@@ -4,11 +4,11 @@ import { useT, type Dict } from '../editor/i18n.ts';
 import { DEFAULT_RAMP_OPTIONS, DEFAULT_STAIR_RUN_OPTIONS, stairTypeForShape, stairTypeId, stairTypesForShape } from '@hestia/tools';
 import type { ReactElement } from 'react';
 import { TypeSelector } from './TypeSelector.tsx';
-import { floorOptions, ceilingOptions, openingOptions, openingOptionsDaCortina, rampOptions, roofOptions, slabOptions, stairOptions, wallOptions } from './typeOptions.ts';
+import { beamOptions, ceilingOptions, columnOptions, floorOptions, footingOptions, openingOptions, openingOptionsDaCortina, rampOptions, roofOptions, slabOptions, stairOptions, wallOptions } from './typeOptions.ts';
 import { setStairOpt } from './StairOptionsBar.tsx';
 
 /** Ferramentas de colocação com tipo: a paleta mostra o tipo escolhido antes de desenhar (o mesmo valor da barra de opções). */
-export type ToolTypeKind = 'wall' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp';
+export type ToolTypeKind = 'wall' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp' | 'column' | 'beam' | 'footing';
 const TOOL_TYPE_LABEL = {
   wall: 'prb_place_wall',
   door: 'prb_place_door',
@@ -24,6 +24,9 @@ const TOOL_TYPE_LABEL = {
   stair: 'prb_place_stair_sketch',
   stairrun: 'prb_place_stair',
   ramp: 'prb_place_ramp',
+  column: 'tool_column',
+  beam: 'tool_beam',
+  footing: 'tool_footing',
 } as const satisfies Record<ToolTypeKind, keyof Dict>;
 
 export function isToolTypeKind(tool: string): tool is ToolTypeKind {
@@ -112,6 +115,21 @@ export function ToolTypeProps({ tool }: { tool: ToolTypeKind }): ReactElement {
           onSelect={(id) => setOpt({ ramp: { ...current, typeId: id } })} onEdit={() => edit('rampType', rid)} />
       );
     }
+    case 'column':
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-columntype" label={t('str_prop_type_column')} options={columnOptions(p)} selectedId={o.columnTypeId ?? null}
+          onSelect={(id) => setOpt({ columnTypeId: id })} onEdit={() => edit('columnType', o.columnTypeId)} />
+      );
+    case 'beam':
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-beamtype" label={t('str_prop_type_beam')} options={beamOptions(p)} selectedId={o.beamTypeId ?? null}
+          onSelect={(id) => setOpt({ beamTypeId: id })} onEdit={() => edit('beamType', o.beamTypeId)} />
+      );
+    case 'footing':
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-footingtype" label={t('str_prop_type_footing')} options={footingOptions(p)} selectedId={o.footingTypeId ?? null}
+          onSelect={(id) => setOpt({ footingTypeId: id })} onEdit={() => edit('footingType', o.footingTypeId)} />
+      );
   }
 }
 

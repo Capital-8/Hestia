@@ -139,6 +139,28 @@ export function extrudeSolid(w: StepWriter, polygon: IfcPolygon, zBase: number, 
   return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, 0, 0, 1)), num(depth)]);
 }
 
+/**
+ * Sólido por extrusão ao longo de um eixo 3D arbitrário (usado para vigas I/T no eixo longitudinal).
+ */
+export function extrudeHorizontalProfile(
+  w: StepWriter,
+  profileRing: IfcRing,
+  origin: readonly [number, number, number],
+  axisDir: readonly [number, number, number],
+  refDir: readonly [number, number, number],
+  depth: number,
+): number {
+  const poly = normalizePolygon([profileRing]);
+  const profile = profileOf(w, poly);
+  const p = w.add('IFCCARTESIANPOINT', [list([num(origin[0]), num(origin[1]), num(origin[2])])]);
+  const pos = w.add('IFCAXIS2PLACEMENT3D', [
+    ref(p),
+    ref(direction(w, axisDir[0], axisDir[1], axisDir[2])),
+    ref(direction(w, refDir[0], refDir[1], refDir[2])),
+  ]);
+  return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, 0, 0, 1)), num(depth)]);
+}
+
 /** Ponto 3D, com a cota já calculada no plano. */
 interface P3 {
   x: number;

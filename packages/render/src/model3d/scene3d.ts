@@ -23,6 +23,7 @@ import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
 import { buildRampSolids } from './rampSolids.ts';
+import { buildStructuralSolids } from './structuralSolids.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
 import { GRUPO_DE_REALCE_VAZIO, RealceDaCortina, type GrupoDeRealceCortina } from './realceCortina3d.ts';
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
@@ -1126,6 +1127,7 @@ export class ModelScene {
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),
       ...buildRampSolids(rampasNivel),
       ...genericos,
+      ...buildStructuralSolids(p, lv.levelId, oculto),
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
@@ -1160,6 +1162,8 @@ export class ModelScene {
       const revRampas = rampasNivel.filter((r) => revelado(r.id));
       if (revRampas.length) arestasDe(buildRampSolids(revRampas));
       if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
+      const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id));
+      if (revEstrutural.length) arestasDe(revEstrutural);
     }
     const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os

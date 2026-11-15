@@ -1,12 +1,17 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
-import { add, boxOf, dist, dot, sub, type Vec2 } from '@hestia/geom';
+import { add, boxOf, dist, dot, mul, norm, sub, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall } from '@hestia/engine';
-import { angularDimensionGeometry, areaPlanOf, formatQuantity, isCeiling, isFloor,isGuardaCorpo, isOpening, isRamp, isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project, type ResolvedUnits, type SubelementoCortina } from '@hestia/model';
+import {
+  angularDimensionGeometry, areaPlanOf, beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType,
+  footingPolygon, formatQuantity, isBeam, isCeiling, isColumn, isFloor, isFooting, isGuardaCorpo, isOpening, isRamp,
+  isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project,
+  type ResolvedUnits, type SubelementoCortina,
+} from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import { cotaDeCorteCortina, proximoSubelemento, sNaParede, subelementoEmPonto, type ParedeSubelementos } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
+import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
@@ -39,7 +44,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -51,7 +56,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'generic', 'room', 'grid']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -99,18 +104,21 @@ export class SelectTool extends ToolBase {
   private visibleProject(): Project {
     const pr = this.env.project();
     const ly = this.layers();
-    if (!ly || (ly.walls !== 'hidden' && ly.openings && ly.floors)) return pr;
-    const key = `${ly.walls}|${ly.openings}|${ly.floors}`;
-    if (this.viewCache && this.viewCache.pr === pr && this.viewCache.key === key) return this.viewCache.view;
+    const hidden = this.env.hiddenInView?.();
+    const hasHidden = (hidden?.size ?? 0) > 0;
+    if (!hasHidden && (!ly || (ly.walls !== 'hidden' && ly.openings && ly.floors))) return pr;
+    const key = `${ly?.walls ?? ''}|${ly?.openings ?? ''}|${ly?.floors ?? ''}`;
+    if (!hasHidden && this.viewCache && this.viewCache.pr === pr && this.viewCache.key === key) return this.viewCache.view;
     const elements: Project['elements'] = {};
     for (const [id, e] of Object.entries(pr.elements)) {
-      if (ly.walls === 'hidden' && isWall(e)) continue;
-      if (!ly.openings && isOpening(e)) continue;
-      if (!ly.floors && isFloor(e)) continue;
+      if (hidden?.has(id)) continue;
+      if (ly?.walls === 'hidden' && isWall(e)) continue;
+      if (ly && !ly.openings && isOpening(e)) continue;
+      if (ly && !ly.floors && isFloor(e)) continue;
       elements[id] = e;
     }
     const view = { ...pr, elements };
-    this.viewCache = { pr, key, view };
+    if (!hasHidden) this.viewCache = { pr, key, view };
     return view;
   }
 
@@ -120,10 +128,12 @@ export class SelectTool extends ToolBase {
    */
   private wallPickProject(): Project {
     const ly = this.layers();
+    const hidden = this.env.hiddenInView?.();
     if (!ly || ly.walls !== 'hidden' || !ly.openings) return this.visibleProject();
     const pr = this.env.project();
     const elements: Project['elements'] = {};
     for (const [id, e] of Object.entries(pr.elements)) {
+      if (hidden?.has(id) && !isWall(e)) continue;
       if (!ly.floors && isFloor(e)) continue;
       elements[id] = e;
     }
@@ -184,57 +194,64 @@ export class SelectTool extends ToolBase {
     const mpp = this.env.metersPerPixel();
     const planId = this.planId();
     const ly = this.layers();
+    const hidden = this.env.hiddenInView?.();
     const vp = this.visibleProject();
     const detail = detailItemAt(pr, lv, at, mpp, planId);
-    if (detail) return { id: detail, kind: 'annotation' };
+    if (detail && !hidden?.has(detail)) return { id: detail, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
     if (planId) {
       const an = annotationAt(pr, lv, at, mpp, planId);
-      if (an) return { id: an.id, kind: 'annotation' };
+      if (an && !hidden?.has(an.id)) return { id: an.id, kind: 'annotation' };
       const rt = roomTagAt(pr, at, mpp, planId);
-      if (rt) return { id: rt, kind: 'annotation' };
+      if (rt && !hidden?.has(rt)) return { id: rt, kind: 'annotation' };
     }
     const hit = pickAt(this.wallPickProject(), lv, at, mpp);
-    if (hit && !(ly?.walls === 'hidden' && hit.kind === 'wall')) return hit;
+    if (hit && !(ly?.walls === 'hidden' && hit.kind === 'wall') && !hidden?.has(hit.id)) return hit;
     // Linha de separação de ambiente (guardada no nível, fora de project.elements): tem prioridade sobre piso, laje, forro,
     // telhado e escada que estejam embaixo dela, como no Revit. Parede e abertura continuam ganhando o clique.
     const rs = pickRoomSeparatorAt(pr, lv, at, mpp);
-    if (rs) return { id: rs.id, kind: 'roomSeparator' };
+    if (rs && !hidden?.has(rs.id)) return { id: rs.id, kind: 'roomSeparator' };
     // Grade (do projeto, fora de project.elements): acima de escada, piso e demais áreas; abaixo de parede e abertura.
     const gr = ly && !ly.grids ? null : pickGridAt(pr, at, mpp);
-    if (gr) return { id: gr, kind: 'grid' };
+    if (gr && !hidden?.has(gr)) return { id: gr, kind: 'grid' };
     // Desenho CAD importado: clicar na linha do DXF seleciona o desenho (Propriedades, ocultar, mover e excluir).
-    const cd = cadAt(pr, lv, at, mpp);
+    const cd = cadAt(vp, lv, at, mpp);
     if (cd) return { id: cd, kind: 'generic' };
     // Guarda-corpo (antes da escada e da rampa que o hospedam, que estão por baixo do desenho dele): a planta só o acha pelo caminho desenhado (manual) ou pelo gancho do hospedado; oculto não é alvo.
-    const rl = pickRailingAt(pr, lv, at, mpp, this.env.hiddenInView?.());
+    const rl = pickRailingAt(vp, lv, at, mpp, hidden);
     if (rl) return { id: rl, kind: 'railing' };
+    const col = pickColumnAt(vp, lv, at, mpp);
+    if (col) return { id: col, kind: 'column' };
+    const bm = pickBeamAt(vp, lv, at, mpp);
+    if (bm) return { id: bm, kind: 'beam' };
     const st = pickStairAt(vp, lv, at, mpp);
     if (st) return { id: st, kind: 'stair' };
-    const rp = pickRampAt(pr, lv, at, mpp);
+    const rp = pickRampAt(vp, lv, at, mpp);
     if (rp) return { id: rp, kind: 'ramp' };
     const f = pickFloorAt(vp, lv, at, mpp);
     if (f) return { id: f, kind: 'floor' };
-    const sl = pickSlabAt(pr, lv, at, mpp);
+    const sl = pickSlabAt(vp, lv, at, mpp);
     if (sl) return { id: sl, kind: 'slab' };
-    const cl = pickCeilingAt(pr, lv, at, mpp);
+    const cl = pickCeilingAt(vp, lv, at, mpp);
     if (cl) return { id: cl, kind: 'ceiling' };
-    const rf = pickRoofAt(pr, lv, at, mpp);
+    const rf = pickRoofAt(vp, lv, at, mpp);
     if (rf) return { id: rf, kind: 'roof' };
+    const ft = pickFootingAt(vp, lv, at, mpp);
+    if (ft) return { id: ft, kind: 'footing' };
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
-    const gn = genericAt(pr, lv, at, mpp);
+    const gn = genericAt(vp, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
-    const rm = pickRoomAt(pr, lv, at);
+    const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };
     // Cotas e textos de anotação (decisão 0019) e marcas de corte/elevação: por último, para não roubar o clique de um
     // elemento. A marca é uma anotação de primeira classe e também pode ser selecionada e transformada.
     const an = annotationAt(pr, lv, at, mpp, planId);
-    if (an) return { id: an.id, kind: 'annotation' };
+    if (an && !hidden?.has(an.id)) return { id: an.id, kind: 'annotation' };
     const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp);
-    return vm ? { id: vm, kind: 'view' } : null;
+    return vm && !hidden?.has(vm) ? { id: vm, kind: 'view' } : null;
   }
 
   override move(p: PointerInfo): void {
@@ -279,31 +296,52 @@ export class SelectTool extends ToolBase {
     return isWall(w) ? w : null;
   }
 
+  private singleBeam() {
+    const sel = this.env.selection();
+    if (sel.length !== 1) return null;
+    const b = this.env.project().elements[sel[0]!];
+    return isBeam(b) ? b : null;
+  }
+
   override inputPrompt(): string | null {
     if (this.mode !== 'idle') return null;
-    if (!this.singleWall()) return null;
-    return this.t('tl_inp_wall_length');
+    if (this.singleWall()) return this.t('tl_inp_wall_length');
+    if (this.singleBeam()) return this.t('tl_inp_beam_length');
+    return null;
   }
 
   /** Enter sem valor digitado: abre o campo de cota (a mensagem indica como digitar). */
   override confirm(): void {
-    if (this.mode === 'idle' && this.singleWall()) {
+    if (this.mode === 'idle' && (this.singleWall() || this.singleBeam())) {
       this.env.say(this.t('tl_msg_length_prompt', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return;
     }
     super.confirm();
   }
 
-  /** Digitar o comprimento: mantém a extremidade `a` e move `b` ao longo do eixo; vizinhas em `b` acompanham. */
+  /** Digitar o comprimento: mantém a extremidade `a` e move `b` ao longo do eixo; para paredes, vizinhas em `b` acompanham. */
   override type(text: string): boolean {
     const w = this.singleWall();
-    if (!w) return false;
+    const beam = w ? null : this.singleBeam();
+    if (!w && !beam) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {
       this.env.say(this.t('tl_msg_invalid_number', { unit: lengthUnitName(unitsOf(this.env.project()), this.uiLang()) }));
       return false;
     }
-    const r = resizeWallCommands(this.env.project(), this.env.levelId(), w.id, v);
+    if (beam) {
+      if (v < 0.05 || dist(beam.a, beam.b) < 1e-9) {
+        this.env.say(this.t('tl_msg_beam_zero_length'));
+        return false;
+      }
+      const nextB = add(beam.a, mul(norm(sub(beam.b, beam.a)), v));
+      this.env.transaction('Alterar comprimento', () => {
+        this.env.exec({ type: 'updateElements', ids: [beam.id], patch: { b: nextB } });
+      });
+      this.env.say(`Comprimento alterado para ${fmtLen(unitsOf(this.env.project()), v)}. Ctrl+Z desfaz.`);
+      return true;
+    }
+    const r = resizeWallCommands(this.env.project(), this.env.levelId(), w!.id, v);
     if ('error' in r) {
       this.env.say(r.error);
       return false;
@@ -555,6 +593,7 @@ export class SelectTool extends ToolBase {
       case 'window': {
         const vp = this.visibleProject();
         const ly = this.layers();
+        const hidden = this.env.hiddenInView?.();
         const ids = [
           ...idsInBox(this.wallPickProject(), this.env.levelId(), this.downPt, p.raw).filter((id) => !(ly?.walls === 'hidden' && isWall(pr.elements[id]))),
           ...floorIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
@@ -562,13 +601,16 @@ export class SelectTool extends ToolBase {
           ...roofIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...stairIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
-          ...roomIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
-          ...cadIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
+          ...roomIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...cadIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...columnIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...beamIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...footingIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
-        ];
+        ].filter((id) => !hidden?.has(id));
         const cur = this.env.selection();
         this.env.setSelection(soma(p) ? [...new Set([...cur, ...ids])] : ids);
         break;
@@ -607,6 +649,9 @@ export class SelectTool extends ToolBase {
       else if (isStair(e)) pts.push(...stairEndpoints(e));
       else if (isRamp(e)) pts.push(...rampEndpoints(e));
       else if (isFloor(e) || isSlab(e) || isRoof(e)) pts.push(...e.boundary);
+      else if (isColumn(e)) pts.push(...columnPolygon(e, findColumnType(pr, e.typeId)));
+      else if (isBeam(e)) pts.push(...beamPolygon(e, findBeamType(pr, e.typeId)));
+      else if (isFooting(e)) pts.push(...footingPolygon(e, findFootingType(pr, e.typeId)));
       else {
         const v = pr.views.find((x) => x.id === id);
         if (v) {

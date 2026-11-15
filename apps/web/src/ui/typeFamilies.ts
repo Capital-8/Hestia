@@ -1,7 +1,7 @@
 import { openingFamilyOf, type OpeningType } from '@hestia/model';
 import { t, useI18n, type Lang } from '../editor/i18n.ts';
 
-export type FamilyKind = 'wall' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair';
+export type FamilyKind = 'wall' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'column' | 'beam' | 'footing';
 
 const FAMILY_KEY = {
   wall: 'prc_fam_wall',
@@ -10,6 +10,9 @@ const FAMILY_KEY = {
   ceiling: 'prc_fam_ceiling',
   roof: 'prc_fam_roof',
   stair: 'prc_fam_stair',
+  column: 'str_prop_type_column',
+  beam: 'str_prop_type_beam',
+  footing: 'str_prop_type_footing',
 } as const;
 
 /** Família exibida no seletor de tipo e no cabeçalho do diálogo: cada categoria tem uma família única. */
@@ -28,6 +31,9 @@ export const FAMILY: Record<FamilyKind, string> = {
   get ceiling() { return familyName('ceiling', useI18n.getState().lang); },
   get roof() { return familyName('roof', useI18n.getState().lang); },
   get stair() { return familyName('stair', useI18n.getState().lang); },
+  get column() { return familyName('column', useI18n.getState().lang); },
+  get beam() { return familyName('beam', useI18n.getState().lang); },
+  get footing() { return familyName('footing', useI18n.getState().lang); },
 };
 
 /** Família de uma abertura (Porta de giro, Janela de correr…); tipo sem família válida cai em "Outros". */

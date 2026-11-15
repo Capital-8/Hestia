@@ -5,6 +5,9 @@
 import { refitStairToHeight, regenRamp, riserCountOf, stairWallOverlapIssues, treadFor, treadRuleOf } from '@hestia/engine';
 import {
   ProjectStore,
+  isBeam,
+  isColumn,
+  isFooting,
   isRamp,
   isStair,
   levelAbove,
@@ -12,6 +15,9 @@ import {
   rampTopZ,
   stairBaseZ,
   stairTopZ,
+  type Beam,
+  type Column,
+  type Footing,
   type Id,
   type Project,
   type Ramp,
@@ -53,6 +59,19 @@ export function affectedByLevel(p: Project, levelId: Id): Array<Stair | Ramp> {
     if (e.levelId === levelId) return true;
     if (e.topLevelId === levelId) return true;
     return e.topLevelId === null && levelAbove(p, e.levelId)?.id === levelId;
+  });
+}
+
+/** Elementos estruturais (pilares, vigas, sapatas) cuja base ou topo dependem do nível. */
+export function affectedStructuralByLevel(p: Project, levelId: Id): Array<Column | Beam | Footing> {
+  return Object.values(p.elements).filter((e): e is Column | Beam | Footing => {
+    if (isColumn(e)) {
+      return e.levelId === levelId || e.topLevelId === levelId;
+    }
+    if (isBeam(e) || isFooting(e)) {
+      return e.levelId === levelId;
+    }
+    return false;
   });
 }
 

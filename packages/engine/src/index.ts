@@ -115,3 +115,6 @@ export * from './cortinaSubelementos.ts';
 export * from './cortinaEsquadrias.ts';
 export * from './curtainQuantities.ts';
 export * from './curtainSchedule.ts';
+export * from './structural.ts';
+export * from './sectionStructural.ts';
+export * from './structuralSchedule.ts';
