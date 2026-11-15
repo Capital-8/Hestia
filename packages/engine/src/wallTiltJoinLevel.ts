@@ -237,7 +237,9 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       // Continuação (paredes em linha ou arcos tangentes): não há cruzamento de eixos; com inclinações diferentes o topo faz degrau.
       const fa = byId.get(r.a.id)!, fb = byId.get(r.b.id)!;
       if (emContinuacao(fa, fb, r)) {
-        const step = Math.max(heightOf(fa), heightOf(fb)) * Math.abs(Math.tan((tiltOf(fa) * Math.PI) / 180) - Math.tan((tiltOf(fb) * Math.PI) / 180));
+        // Inclinações no mesmo referencial: parede com a→b contrário ao eixo da continuação troca o sinal (esquerda de a→b).
+        const ka = r.a.end === 'b' ? 1 : -1, kb = r.b.end === 'a' ? 1 : -1;
+        const step = Math.max(heightOf(fa), heightOf(fb)) * Math.abs(ka * Math.tan((tiltOf(fa) * Math.PI) / 180) - kb * Math.tan((tiltOf(fb) * Math.PI) / 180));
         if (step > DEGRAU_MIN) {
           warn('inclinacoesDiferentesEmContinuacao', r.a.id, step);
           if (!fa.arc && !fb.arc) {
