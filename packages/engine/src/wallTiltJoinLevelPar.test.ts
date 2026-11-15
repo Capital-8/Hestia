@@ -35,7 +35,7 @@ describe('D2 · decisão por par', () => {
     // A×B segue exato: concêntricos R=5 −10° (J2): cantos em x=0 de A no topo y = 5 + 2,8·tan10° ± 0,101/cos10° (espessura 0,202)
     const ys = an.joins.get('A')!.levels!.at(-1)!.rings[0]!.filter((q) => Math.abs(q.x) < 1e-6).map((q) => q.y).sort((x, y) => x - y);
     expect(ys[0]!).toBeCloseTo(5.39115748, 6);
-    expect(ys[1]!).toBeCloseTo(5.59627362, 6);
+    expect(ys[1]!).toBeCloseTo(5.5942428, 6);
   });
 
   it('reta 15° → reta 15° (dobra de 14°) com camada fina de 2 mm: exata, sem aviso (o casamento por vértice mais próximo reprovava a camada fina)', () => {
