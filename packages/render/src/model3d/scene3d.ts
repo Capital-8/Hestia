@@ -6,7 +6,7 @@ import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
-import { firstSurfaceDistance } from './pick3d.ts';
+import { firstSurfaceDistance, prepararPicking } from './pick3d.ts';
 import { faixaDaNevoa } from './nevoa3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
@@ -207,6 +207,14 @@ export class ModelScene {
   private niveisAssinatura: string | null = null;
   /** Caixa do "Enquadrar": modelo + datum dos níveis (com a margem do texto/bolha em X). */
   private caixaEnquadramento = new THREE.Box3();
+  /**
+   * Prepara a seleção 3D em fatias (ver `prepararPicking`): o primeiro raio sobre o modelo não paga a construção das
+   * estruturas de picking. Chamada repetida até `feitas === total`; cada chamada gasta no máximo ~`orcamentoMs`.
+   */
+  prepararSelecao(orcamentoMs: number): { feitas: number; total: number } {
+    return prepararPicking(this.model, orcamentoMs);
+  }
+
   /** Peças de picking do nível que se monta agora (no wireframe a malha não entra na cena: vai para cá). */
   private picks: PickSource[] = [];
   private caixaUnitaria = criarCaixaUnitaria();
