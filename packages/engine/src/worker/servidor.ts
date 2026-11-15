@@ -27,7 +27,9 @@ function criarExecutorPadrao(): Executor {
 }
 
 /** Pedido na fila: o projeto já está resolvido (o da mensagem ou o último recebido por inteiro). */
-type PedidoNaFila = PedidoResolucao & { projeto: { versao: number; estrutura: Project } };
+type PedidoNaFila = PedidoResolucao & { projeto: { versao: number; estrutura: Project }; recebidoEm?: number };
+
+const agora = (): number => (typeof performance !== 'undefined' ? performance.timeOrigin + performance.now() : Date.now());
 
 /** Mensagem de erro legível para o cliente. */
 const textoDoErro = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -47,8 +49,9 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
   const executar = (pedido: PedidoNaFila, jaEsperou = false): void => {
     const { id } = pedido;
     try {
+      const ini = agora();
       const resultado = executor(pedido.tipo, pedido.projeto.estrutura, pedido.nivel, { versao: pedido.projeto.versao, base: pedido.base ?? null });
-      const resposta: RespostaResolucao = { id, resultado, erro: null };
+      const resposta: RespostaResolucao = { id, resultado, erro: null, tw: [pedido.recebidoEm ?? ini, ini, agora()] };
       const diag = diagnosticoLocalDoDespacho();
       if (diag) resposta.kernelDiag = diag;
       escopo.postMessage(resposta, colherBuffers(resultado));
@@ -97,7 +100,7 @@ export function instalarServidor(escopo: EscopoServidor, executor: Executor = cr
       const antigo = fila[i]!;
       if (chaveDoPedido(antigo.tipo, antigo.nivel) === chave) fila.splice(i, 1);
     }
-    fila.push({ ...mensagem, projeto: { versao, estrutura: estrutura ?? ultimo!.estrutura } });
+    fila.push({ ...mensagem, projeto: { versao, estrutura: estrutura ?? ultimo!.estrutura }, recebidoEm: agora() });
     agendar();
   };
 

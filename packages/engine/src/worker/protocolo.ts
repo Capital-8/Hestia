@@ -62,6 +62,8 @@ export interface RespostaResolucao {
   erro: string | null;
   /** Diagnóstico do despacho do kernel v2 neste worker (só quando instalado): a interface soma ao da thread principal. */
   kernelDiag?: DiagnosticoDespacho;
+  /** Instantes (ms, época) em que o worker recebeu o pedido, começou e terminou o cálculo (medição da vista, D5). */
+  tw?: [number, number, number];
 }
 
 /** Motivo pelo qual um pedido foi encerrado sem resultado: cancelado pelo chamador, ou substituído por um mais recente. */

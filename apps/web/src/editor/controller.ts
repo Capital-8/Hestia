@@ -29,6 +29,7 @@ import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, 
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
+import { vperf } from './vperf.ts';
 import { aquecerCorteNoWorker, temParedeInclinada } from './aquecimentoCorte.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
@@ -422,6 +423,7 @@ export class Editor {
       (value) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!value) return;
+        vperf?.mark('cache');
         const first = !this.sectionCache.has(id);
         this.sectionCache.set(id, { project, value: value as SectionResult });
         if (first && this.sectionToFrame.delete(id)) {
@@ -846,6 +848,7 @@ export class Editor {
   // ---------- cortes e elevações ----------
   /** Abre um corte ou elevação na área central, com viewport próprio. */
   openSection(id: Id): void {
+    vperf?.mark('abrir');
     if (this.perimetro.bloqueiaNavegacao() || !this.project.views.some((v) => v.id === id)) return;
     // Ao abrir, enquadra de novo: descarta o viewport guardado desta vista.
     this.viewports.delete(`sec:${id}`);

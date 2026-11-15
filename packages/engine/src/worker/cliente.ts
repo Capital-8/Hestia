@@ -154,7 +154,10 @@ export class ClienteResolucao {
       const v2 = typeof this.opcoes.kernelV2 === 'function' ? this.opcoes.kernelV2() : this.opcoes.kernelV2;
       if (v2?.fatiaA === true || v2?.fatiaB === true) mensagem.kernelV2 = v2;
       try {
+        const vp = (globalThis as { __vperf?: { mark(n: string, t?: number): void } }).__vperf;
+        vp?.mark('pedido');
         this.worker.postMessage(mensagem);
+        vp?.mark('postado');
         if (!repetido) this.enviado = { projeto: p.projeto, versao: p.versao };
         return;
       } catch (e) {
@@ -184,6 +187,9 @@ export class ClienteResolucao {
 
   private receber(resposta: RespostaResolucao): void {
     registrarDiagnosticoRemoto(resposta.kernelDiag);
+    const vp = (globalThis as { __vperf?: { mark(n: string, t?: number): void } }).__vperf;
+    if (vp && resposta.tw) { vp.mark('w_recebido', resposta.tw[0]); vp.mark('w_inicio', resposta.tw[1]); vp.mark('w_fim', resposta.tw[2]); }
+    vp?.mark('resposta');
     const p = this.pendentes.get(resposta.id);
     if (!p) return; // cancelada, substituída ou já respondida: descarta
     this.pendentes.delete(p.id);
