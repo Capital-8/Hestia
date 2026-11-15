@@ -37,6 +37,7 @@ import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
 import { bordasDeTerreno } from './terrainHandles.ts';
 import { bordasDeRegiao } from './terrainRegionHandles.ts';
+import { bordasDoLote } from './lotHandles.ts';
 import { gridPath } from './gridGeom.ts';
 import type { AlignPrefer } from './types.ts';
 
@@ -52,6 +53,7 @@ export type AlignKind =
   | 'linhaEsboco'
   | 'bordaTerreno'
   | 'bordaRegiao'
+  | 'bordaLote'
   | 'arestaEscada'
   | 'arestaRampa'
   | 'caminhoGuardaCorpo'
@@ -71,7 +73,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'terreno' | 'regiao'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'terreno' | 'regiao' | 'lote'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
@@ -480,6 +482,10 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   // Contorno da região de terreno: move só a região (o terreno não anda); mesmo rótulo "aresta do {type}".
   for (const r of bordasDeRegiao(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
     out.push(feature(`${r.regiaoId}:borda:${r.i}`, 'bordaRegiao', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.regiaoId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'regiao', id: r.regiaoId }, r.d, { a: r.a, b: r.b }));
+  }
+  // Contorno do lote: move só o lote (o polígono fechado inteiro, na perpendicular); mesmo rótulo "aresta do {type}".
+  for (const r of bordasDoLote(q.project, q.levelId, q.at, TOL_PX * q.metersPerPixel, q.hidden)) {
+    out.push(feature(`${r.loteId}:borda:${r.i}`, 'bordaLote', translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: r.nome }), r.loteId, line(r.a, sub(r.b, r.a)), { policy: 'transladar', target: 'lote', id: r.loteId }, r.d, { a: r.a, b: r.b }));
   }
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));

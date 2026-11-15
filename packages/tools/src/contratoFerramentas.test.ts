@@ -42,6 +42,8 @@ const LINEARES: Record<string, string> = {
   terrainLabel: 'terrainLabelTool.ts',
   // Região de terreno (Subdivisão, Plataforma e Região nivelada): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
   terrainRegion: 'terrainRegionTool.ts',
+  // Linhas de propriedade (lote): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
+  lot: 'lotTool.ts',
 };
 
 /**
