@@ -878,5 +878,37 @@
     "fr": "Incline les murs sélectionnés de l’angle saisi (positif : haut à gauche de a→b).",
     "it": "Inclina i muri selezionati dell’angolo indicato (positivo: sommità a sinistra di a→b).",
     "pl": "Pochyla zaznaczone ściany o podany kąt (dodatni: góra po lewej stronie a→b)."
+  },
+  {
+    "pt": "Acompanhar inclinação",
+    "es": "Seguir inclinación",
+    "de": "Neigung folgen",
+    "fr": "Suivre l'inclinaison",
+    "it": "Segui inclinazione",
+    "pl": "Podążaj za nachyleniem"
+  },
+  {
+    "pt": "Cunha",
+    "es": "Cuña",
+    "de": "Keil",
+    "fr": "Coin",
+    "it": "Cuneo",
+    "pl": "Klin"
+  },
+  {
+    "pt": "Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.",
+    "es": "Aplica la inclinación de la primera pared seleccionada a toda la cadena de paredes continuas (signo según el sentido a→b), en un solo deshacer.",
+    "de": "Überträgt die Neigung der ersten gewählten Wand auf die ganze Kette durchgehender Wände (Vorzeichen je Richtung a→b), in einem Rückgängig-Schritt.",
+    "fr": "Applique l'inclinaison du premier mur sélectionné à toute la chaîne de murs continus (signe selon le sens a→b), en une seule annulation.",
+    "it": "Applica l'inclinazione della prima parete selezionata a tutta la catena di pareti continue (segno secondo il verso a→b), in un solo annullamento.",
+    "pl": "Stosuje nachylenie pierwszej zaznaczonej ściany do całego łańcucha ścian ciągłych (znak zależny od kierunku a→b), w jednym cofnięciu."
+  },
+  {
+    "pt": "Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).",
+    "es": "Cierra con un prisma el escalón entre paredes continuas de inclinaciones distintas (alterna con el escalón abierto).",
+    "de": "Schließt die Stufe zwischen durchgehenden Wänden verschiedener Neigung mit einem Prisma (wechselt mit der offenen Stufe).",
+    "fr": "Ferme par un prisme la marche entre murs continus d'inclinaisons différentes (alterne avec la marche ouverte).",
+    "it": "Chiude con un prisma il gradino tra pareti continue di inclinazioni diverse (alterna con il gradino aperto).",
+    "pl": "Zamyka graniastosłupem uskok między ścianami ciągłymi o różnych nachyleniach (przełącza z otwartym uskokiem)."
   }
 ]
