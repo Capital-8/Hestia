@@ -29,6 +29,7 @@ import { DE_TERRENO } from '../../areas/terreno.ts';
 import { DE_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { DE_GRAVIDADE } from '../../areas/gravidade.ts';
 import { DE_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { DE_LOTE_UI } from '../../areas/lote-ui.ts';
 import { DE_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 
 export const DE_ALL = {
@@ -37,6 +38,7 @@ export const DE_ALL = {
   ...DE_TERRENO_VISTA,
   ...DE_GRAVIDADE,
   ...DE_TERRENO_TABELA,
+  ...DE_LOTE_UI,
   ...DE_PAREDE_CORTINA,
   ...DE_SHELL_RIBBON,
   ...DE_MISC_UI,

@@ -21,7 +21,7 @@ export interface PoligonoDeRumos {
 }
 
 /**
- * Tabela de rumos → polígono (A.4 regra 19). Direção no projeto: ângulo a partir de +y, sentido horário, igual a `azimute − norteVerdadeiro`
+ * Tabela de rumos → polígono (A.4 regra 19). Direção no projeto: ângulo a partir de +y, sentido horário, igual a `azimute + norteVerdadeiro` (emenda E4)
  * (`norteVerdadeiro` em radianos, como em `Localizacao`). Com n linhas saem n pontos; o erro de fechamento mede o quanto a n-ésima linha
  * erra o primeiro ponto.
  */
@@ -29,7 +29,7 @@ export function rumosParaPoligono(inicio: Vec2, linhas: readonly LinhaRumo[], no
   const pontos: Vec2[] = [{ ...inicio }];
   let atual: Vec2 = { ...inicio };
   for (const l of linhas) {
-    const ang = l.azimute * GRAU - norteVerdadeiro;
+    const ang = l.azimute * GRAU + norteVerdadeiro;
     atual = { x: atual.x + l.distancia * Math.sin(ang), y: atual.y + l.distancia * Math.cos(ang) };
     pontos.push(atual);
   }
@@ -50,7 +50,7 @@ export function poligonoParaRumos(contorno: readonly Vec2[], norteVerdadeiro = 0
     const b = contorno[(i + 1) % contorno.length]!;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
-    const graus = (Math.atan2(dx, dy) + norteVerdadeiro) / GRAU;
+    const graus = (Math.atan2(dx, dy) - norteVerdadeiro) / GRAU;
     return { azimute: ((graus % 360) + 360) % 360, distancia: Math.hypot(dx, dy) };
   });
 }

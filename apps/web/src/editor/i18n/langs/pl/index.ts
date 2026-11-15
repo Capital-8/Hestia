@@ -29,6 +29,7 @@ import { PL_TERRENO } from '../../areas/terreno.ts';
 import { PL_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { PL_GRAVIDADE } from '../../areas/gravidade.ts';
 import { PL_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { PL_LOTE_UI } from '../../areas/lote-ui.ts';
 import { PL_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 
 export const PL_ALL = {
@@ -37,6 +38,7 @@ export const PL_ALL = {
   ...PL_TERRENO_VISTA,
   ...PL_GRAVIDADE,
   ...PL_TERRENO_TABELA,
+  ...PL_LOTE_UI,
   ...PL_PAREDE_CORTINA,
   ...PL_SHELL_RIBBON,
   ...PL_MISC_UI,

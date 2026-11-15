@@ -27,7 +27,8 @@ export type ActionId =
   | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'railingForHost'
   | 'terrenoPontos' | 'terrenoCurvas' | 'importTerreno' | 'editTerreno' | 'localizacao'
   | 'regiaoSubdivisao' | 'regiaoPlataforma' | 'regiaoPlataformaElemento' | 'regiaoNivelada'
-  | 'corteAterro' | 'mapaCorteAterro';
+  | 'corteAterro' | 'mapaCorteAterro'
+  | 'loteDesenhar' | 'lotePorTabela';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

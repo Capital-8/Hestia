@@ -72,7 +72,17 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
       colarEntrePavimentos: 'cotas absolutas: o terreno é um só para todos os níveis (só o colar de um nível leva a região).',
     },
   },
-  lot: { mover: null, colar: null, alinhar: null, motivo: 'lote: ficha P3 (mover, copiar, colar e alinhar o lote pelo mecanismo genérico; o `transform` do modelo já o leva).' },
+  lot: {
+    mover: 'selectedLots',
+    colar: 'lots',
+    alinhar: 'bordasDoLote',
+    semOperacao: {
+      aparar: 'lote é polígono fechado',
+      estender: 'lote é polígono fechado',
+      dividir: 'lote é polígono fechado',
+      deslocar: 'lote é polígono fechado',
+    },
+  },
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
   cad: { mover: 'selectedCads', colar: 'cad', alinhar: null, motivo: 'TODO: o desenho CAD é um objeto só; alinhar pelas linhas dele ainda não existe.' },
@@ -113,7 +123,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
     previa: 'isTerrainRegion',
     motivo: 'terreno: o Alinhar da vista escolhe o alvo pelo desenho do corte e a região é um polígono em planta que o corte não desenha (o terreno sim); mover e copiar valem (horizontal é `transform`, vertical muda a `cota` da plataforma e da nivelada; a subdivisão não tem cota e não anda na vertical).',
   },
-  lot: { mover: null, alinhar: null, previa: null, motivo: 'lote: ficha P3 (o lote é só de planta e prancha; não aparece no corte nem na elevação, então mover no corte fica null).' },
+  lot: { mover: null, alinhar: null, previa: null, motivo: 'lote não aparece no corte (o lote é só de planta e prancha); mover, copiar e alinhar na vista de corte ou elevação não se aplicam.' },
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
   cad: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o desenho CAD não aparece no corte nem na elevação.' },
@@ -179,11 +189,18 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     });
   }
 
+  it('lot: operações que não se aplicam trazem o motivo escrito e o colar entre pavimentos leva o lote (o lote é 2D)', () => {
+    const m = CLASSIFICACAO.lot;
+    for (const op of ['aparar', 'estender', 'dividir', 'deslocar']) expect(m.semOperacao?.[op], `lot: ${op} sem motivo`).toBeTruthy();
+    expect(m.semOperacao?.colarEntrePavimentos, 'o lote cola entre pavimentos').toBeUndefined();
+    expect(lerTools('pasteLevels/command.ts')).toContain('clip.lots');
+  });
+
   it('o comando `transform` do modelo trata os kinds marcados como móveis', () => {
     const cmd = lerModel('commands.ts') + lerModel('guardaCorpoTransform.ts');
     for (const [kind, m] of Object.entries(CLASSIFICACAO)) {
       if (!m.mover || kind === 'door' || kind === 'window') continue; // aberturas seguem a parede anfitriã
-      const guarda = { terrain: 'transformTerrain', terrainRegion: 'transformTerrainRegion', wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', room: 'isRoom', cad: 'isCad' }[kind];
+      const guarda = { terrain: 'transformTerrain', terrainRegion: 'transformTerrainRegion', wall: 'transformWall', floor: 'isFloor', slab: 'isSlab', ceiling: 'isCeiling', roof: 'isRoof', stair: 'isStair', ramp: 'isRamp', railing: 'transformarGuardaCorpos', lot: 'transformLot', room: 'isRoom', cad: 'isCad' }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);
     }

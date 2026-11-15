@@ -41,10 +41,10 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(nomes(pn.items)).toEqual(['Componente de terreno']);
   });
 
-  it('painel Lote: tudo soon por enquanto (fase 5)', () => {
+  it('painel Lote: Linhas de propriedade ativo (ficha P3); Índices do lote e Envelope legal seguem soon (P4 e P5)', () => {
     const pn = painel('massa', 'mas-lote');
-    expect(folhas(pn.items).every((it) => it.kind === 'soon')).toBe(true);
-    expect(nomes(pn.items)).toEqual(['Linhas de propriedade', 'Índices do lote', 'Envelope legal']);
+    expect(nomes(pn.items)).toEqual(['Índices do lote', 'Envelope legal']);
+    expect(folhas(pn.items).some((it) => it.kind === 'tool' && it.tool === 'lot')).toBe(true);
   });
 
   it('painel Análise: Corte e aterro e Mapa ativos (ficha U2), Rótulo de curva e Cota de ponto ativos; nenhum soon', () => {

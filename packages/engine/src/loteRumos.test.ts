@@ -17,13 +17,22 @@ describe('rumos e distâncias', () => {
     const norte = 30 * (Math.PI / 180);
     const girado = rumosParaPoligono({ x: 0, y: 0 }, retangulo, norte);
     expect(girado.erroFechamento).toBeLessThan(1e-9);
-    // Cada ponto é o original girado 30° em torno do ponto inicial (azimute − norte: sentido anti-horário no plano).
+    // Cada ponto é o original girado 30° no sentido horário em torno do ponto inicial (azimute + norte, E4).
     base.pontos.forEach((q, i) => {
-      const x = q.x * Math.cos(norte) - q.y * Math.sin(norte);
-      const y = q.x * Math.sin(norte) + q.y * Math.cos(norte);
+      const x = q.x * Math.cos(norte) + q.y * Math.sin(norte);
+      const y = -q.x * Math.sin(norte) + q.y * Math.cos(norte);
       expect(girado.pontos[i]!.x).toBeCloseTo(x, 9);
       expect(girado.pontos[i]!.y).toBeCloseTo(y, 9);
     });
+  });
+
+  it('rumos_norte_a_30_graus_horario', () => {
+    const norte = 30 * (Math.PI / 180);
+    const r = rumosParaPoligono({ x: 0, y: 0 }, [{ azimute: 0, distancia: 10 }, { azimute: 180, distancia: 10 }], norte);
+    expect(r.pontos[1]!.x).toBeCloseTo(10 * Math.sin(norte), 9);
+    expect(r.pontos[1]!.y).toBeCloseTo(10 * Math.cos(norte), 9);
+    const volta = poligonoParaRumos([{ x: 0, y: 0 }, { x: 10 * Math.sin(norte), y: 10 * Math.cos(norte) }], norte);
+    expect(volta[0]!.azimute).toBeCloseTo(0, 9);
   });
 
   it('rumos_ida_e_volta', () => {

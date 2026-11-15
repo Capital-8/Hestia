@@ -17,10 +17,12 @@ const CATEGORY_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floor
 export interface PasteIdsTerreno extends PasteIds {
   terrains: Id[];
   terrainRegions: Id[];
+  /** Lotes colados: o lote é 2D e vai a qualquer nível; fica fora da ordem canônica e do vínculo de andar-tipo (a cópia não sincroniza). */
+  lots: Id[];
 }
 
 function emptyIds(): PasteIdsTerreno {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [], terrains: [], terrainRegions: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [], terrains: [], terrainRegions: [], lots: [] };
 }
 
 function emptySources(): Record<keyof PasteIds, Id[]> {
@@ -36,6 +38,7 @@ function idsInOrder(ids: PasteIds): Id[] {
 function hasContent(c: ClipBuffer, comTerreno: boolean): boolean {
   return (
     (comTerreno && ((c.terrains?.length ?? 0) > 0 || (c.terrainRegions?.length ?? 0) > 0)) ||
+    (c.lots?.length ?? 0) > 0 ||
     c.walls.length > 0 ||
     c.floors.length > 0 ||
     c.slabs.length > 0 ||
@@ -66,6 +69,7 @@ function sourceLevelOf(p: Project, c: ClipBuffer): Id {
     ...(c.railings ?? []).map((e) => e.levelId),
     ...(c.terrains ?? []).map((e) => e.levelId),
     ...(c.terrainRegions ?? []).map((e) => e.levelId),
+    ...(c.lots ?? []).map((e) => e.levelId),
   ];
   return candidates.find((id) => p.levels.some((l) => l.id === id)) ?? p.levels[0]?.id ?? '';
 }
@@ -317,6 +321,14 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
       ids.terrainRegions.push(id);
       commands.push({ type: 'addTerrainRegion', regiao: { ...rest, id, levelId: nivel, terrenoId, contorno: rest.contorno.map((q) => ({ ...q })) } });
     }
+  }
+
+  // Lotes: 2D, vão a todo nível de destino com os mesmos lados (papel e recuo), cada um com id novo.
+  for (const l of clip.lots ?? []) {
+    const { order: _order, ...rest } = l;
+    const id = mint('lt');
+    ids.lots.push(id);
+    commands.push({ type: 'addLot', lot: { ...rest, id, levelId, contorno: rest.contorno.map((q) => ({ ...q })), lados: rest.lados.map((x) => ({ ...x })), limites: { ...rest.limites } } });
   }
 
   // Aberturas sempre na parede copiada do MESMO nível de destino.

@@ -10,6 +10,8 @@ import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
+import { registrarAlcasDoLote, removerVerticeDoFocoDoLote } from './lotHandles.ts';
+import { lotIdsInBox, pickLoteAt } from './lotPick.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -38,13 +40,15 @@ import type { PointerInfo } from './types.ts';
 
 // As alças de vértice da região de terreno entram na seleção (uma vez só; ver `terrainRegionHandles.ts`).
 registrarAlcasDaRegiao();
+// As alças de vértice do lote (mover, inserir e remover vértice) entram na seleção do mesmo jeito.
+registrarAlcasDoLote();
 
 type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove';
 
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'terrain' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'terrain' | 'lot' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -56,7 +60,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'terrain', 'generic', 'room', 'grid']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'terrain', 'lot', 'generic', 'room', 'grid']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -234,6 +238,9 @@ export class SelectTool extends ToolBase {
     // Terreno e região de terreno: pela borda, curva de nível ou contorno (o interior NÃO seleciona; A.8 item 7).
     const tn = pickTerrenoAt(pr, lv, at, 6 * mpp, this.env.hiddenInView?.());
     if (tn) return { id: tn, kind: 'terrain' };
+    // Lote: pelo contorno (o interior NÃO seleciona; A.8 item 7).
+    const lt = pickLoteAt(pr, lv, at, 6 * mpp, this.env.hiddenInView?.());
+    if (lt) return { id: lt, kind: 'lot' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(pr, lv, at);
     if (rm) return { id: rm, kind: 'room' };
@@ -334,6 +341,12 @@ export class SelectTool extends ToolBase {
       const r = removerVerticeDaRegiao(this.env, this.focus);
       if (r !== null) {
         if (r) this.focus = r;
+        return true;
+      }
+      // Vértice de lote em foco: remove o vértice e funde os dois lados (o lote mantém ao menos 3).
+      const lt = removerVerticeDoFocoDoLote(this.env, this.focus);
+      if (lt !== null) {
+        if (lt) this.focus = lt;
         return true;
       }
     }
@@ -580,6 +593,7 @@ export class SelectTool extends ToolBase {
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roomIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...pickTerrenosInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
+          ...lotIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
           ...cadIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
