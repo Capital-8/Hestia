@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GraphicsCategory, Id } from '@hestia/model';
 import type { ElementRange } from './solids.ts';
-import { buildTriBvh, raycastTriBvh, type TriBvh } from './triBvh.ts';
+import { buildBlocosBvh, raycastBlocosBvh, type BlocosBvh } from './triBvhBlocos.ts';
 
 // Objetos reaproveitados entre chamadas: o picking roda a cada quadro de hover e a cada roda do zoom. A cena é de um
 // thread só e as funções não se chamam de dentro uma da outra, então um só conjunto basta.
@@ -123,7 +123,7 @@ function firstSurface(root: THREE.Object3D, ray: THREE.Raycaster): SurfaceHit | 
     }
     inv.copy(m.matrixWorld).invert();
     local.copy(ray.ray).applyMatrix4(inv);
-    const hit = raycastTriBvh(bvh, local, Infinity, (m.material as THREE.Material).side);
+    const hit = raycastBlocosBvh(bvh, local, Infinity, (m.material as THREE.Material).side);
     if (!hit) return;
     const point = hit.point.applyMatrix4(m.matrixWorld);
     const distance = ray.ray.origin.distanceTo(point);
@@ -250,7 +250,7 @@ function pickElementNoBvh(root: THREE.Object3D, camera: THREE.Camera, ndc: { x: 
     inv.copy(m.matrixWorld).invert();
     local.copy(rc.ray).applyMatrix4(inv);
     const side = Array.isArray(m.material) ? THREE.DoubleSide : (m.material?.side ?? THREE.FrontSide);
-    const hit = raycastTriBvh(bvh, local, Infinity, side, (face) => rangeAt(ranges, face) !== undefined);
+    const hit = raycastBlocosBvh(bvh, local, Infinity, side, (face) => rangeAt(ranges, face) !== undefined);
     if (!hit) continue;
     const r = rangeAt(ranges, hit.faceIndex);
     if (!r) continue;
@@ -263,14 +263,14 @@ function pickElementNoBvh(root: THREE.Object3D, camera: THREE.Camera, ndc: { x: 
   return best ? { id: best.id, point: best.point, kind: best.kind } : null;
 }
 
-const bvhs = new WeakMap<THREE.BufferGeometry, { bvh: TriBvh | null; versao: number }>();
+const bvhs = new WeakMap<THREE.BufferGeometry, { bvh: BlocosBvh | null; versao: number }>();
 
 /**
  * BVH da geometria da malha, montado uma vez por versão da geometria. Os lotes globais da cena 3D são atualizados no
  * mesmo `BufferGeometry` (envio parcial); `geometry.userData.versao` diz quando o BVH ficou velho. O BVH cobre só o que
  * o `drawRange` desenha, não a capacidade inteira do buffer.
  */
-function bvhOf(m: THREE.Mesh): TriBvh | null {
+function bvhOf(m: THREE.Mesh): BlocosBvh | null {
   const g = m.geometry;
   const versao = Number(g.userData.versao ?? 0);
   const emCache = bvhs.get(g);
@@ -278,11 +278,11 @@ function bvhOf(m: THREE.Mesh): TriBvh | null {
   const pos = g.getAttribute('position');
   const idx = g.getIndex();
   const limite = Number.isFinite(g.drawRange.count) ? Math.min(g.drawRange.count, idx?.count ?? 0) : idx?.count ?? 0;
-  let bvh: TriBvh | null = null;
+  let bvh: BlocosBvh | null = null;
   if (pos && idx && !(pos instanceof THREE.InterleavedBufferAttribute) && limite > 0) {
     const todos = idx.array as Uint16Array | Uint32Array;
     const indices = limite === todos.length ? todos : todos.subarray(0, limite);
-    bvh = buildTriBvh(pos.array, indices);
+    bvh = buildBlocosBvh(pos.array, indices);
   }
   bvhs.set(g, { bvh, versao });
   return bvh;
@@ -313,4 +313,33 @@ function rangeAt(ranges: ElementRange[], face: number): ElementRange | undefined
     else return x;
   }
   return undefined;
+}
+
+/**
+ * Prepara o picking em segundo plano: monta as caixas de bloco (a única parte do BVH que custa por malha inteira) das
+ * malhas que ainda não as têm, parando quando `orcamentoMs` se esgota (uma malha por vez, no mínimo uma). Devolve
+ * `{ feitas, total }` das malhas que entram no picking nesta passada: `feitas === total` quando não sobra nada. O
+ * resultado do picking é o mesmo com ou sem este preparo; ele só tira o custo do primeiro raio.
+ */
+export function prepararPicking(root: THREE.Object3D, orcamentoMs: number, agora: () => number = () => performance.now()): { feitas: number; total: number } {
+  const alvos: THREE.Mesh[] = [];
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && m.geometry.type !== 'PlaneGeometry' && m.userData.semPick !== true && m.material && !Array.isArray(m.material)) alvos.push(m);
+  });
+  const inicio = agora();
+  let feitas = 0;
+  let construidas = 0;
+  for (const m of alvos) {
+    const g = m.geometry;
+    const emCache = bvhs.get(g);
+    if (!emCache || emCache.versao !== Number(g.userData.versao ?? 0)) {
+      if (construidas > 0 && agora() - inicio >= orcamentoMs) break;
+      bvhOf(m);
+      construidas++;
+    }
+    feitas++;
+  }
+  // `feitas` conta os já prontos mais os feitos agora; o laço parou no primeiro que estourou o orçamento.
+  return { feitas, total: alvos.length };
 }

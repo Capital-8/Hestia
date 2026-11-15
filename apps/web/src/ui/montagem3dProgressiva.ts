@@ -5,7 +5,7 @@ import { interacaoAtiva, quandoLivre } from '../editor/interacaoAtiva.ts';
 import { useUi } from '../editor/state.ts';
 import { criarFonteNiveisWorker } from './montagem3dNiveis.ts';
 import { edicaoSoDeEsquadrias } from './edicaoDeEsquadrias.ts';
-import { publicarProgresso3d } from './progresso3d.ts';
+import { fracaoProgresso3d, publicarProgresso3d, type PreparoSelecao } from './progresso3d.ts';
 
 /** Lote da primeira fatia: o nível visível e os dois vizinhos mais próximos, na mesma montagem síncrona. */
 export const LOTE_INICIAL = 3;
@@ -200,6 +200,33 @@ export class Montagem3dProgressiva {
   /** Quantos níveis o projeto tem (denominador do progresso). */
   get total(): number {
     return this.ordemProjeto.length;
+  }
+
+  /** Peso de cada nível na barra: o nº de elementos dele (o trabalho de montar a malha cresce com isso); mínimo 1. */
+  private pesosCache: { ref: Project['elements']; niveis: readonly Id[]; pesos: number[] } | null = null;
+
+  private pesos(): number[] {
+    const p = this.projeto;
+    if (!p) return [];
+    const c = this.pesosCache;
+    if (c && c.ref === p.elements && c.niveis.length === this.ordemProjeto.length && c.niveis.every((id, i) => id === this.ordemProjeto[i])) return c.pesos;
+    const porNivel = new Map<Id, number>();
+    for (const e of Object.values(p.elements)) {
+      const lv = (e as { levelId?: Id }).levelId;
+      if (lv !== undefined) porNivel.set(lv, (porNivel.get(lv) ?? 0) + 1);
+    }
+    const pesos = this.ordemProjeto.map((id) => Math.max(1, porNivel.get(id) ?? 0));
+    this.pesosCache = { ref: p.elements, niveis: [...this.ordemProjeto], pesos };
+    return pesos;
+  }
+
+  /** Fração 0..1 da barra: pavimentos ponderados pelo trabalho de cada um e, no fim, o preparo da seleção. */
+  fracao(preparo: PreparoSelecao | null): number {
+    const feitos = new Set<number>();
+    this.ordemProjeto.forEach((id, i) => {
+      if (this.prontos.has(id)) feitos.add(i);
+    });
+    return fracaoProgresso3d(this.pesos(), feitos, preparo);
   }
 
   /** Todos os níveis já estavam resolvidos ao iniciar: a montagem segue só em fatias síncronas, sem worker. */
@@ -566,7 +593,12 @@ export class Montagem3dProgressiva {
 /** Cena da vista 3D: o contrato da montagem mais o enquadramento inicial (`ModelScene`). */
 export interface CenaVista3d extends CenaMontagem {
   fit(): void;
+  /** Prepara a seleção (estruturas de picking) em fatias de `orcamentoMs`; devolve o andamento. Opcional: sem ela não há fase de preparo. */
+  prepararSelecao?(orcamentoMs: number): PreparoSelecao;
 }
+
+/** Orçamento de cada fatia do preparo da seleção (ms): bem abaixo de um quadro, para a tela seguir respondendo. */
+export const ORCAMENTO_PREPARO_MS = 8;
 
 /**
  * Montagem da vista 3D do canvas: a interface redesenha a cada fatia, e a primeira vez que o modelo fica pronto a câmera
@@ -581,16 +613,38 @@ export function criarMontagemVista3d(
   resolver: (id: Id) => ResolvedLevel,
   pronto?: (id: Id) => ResolvedLevel | null,
 ): Montagem3dProgressiva {
+  // Preparo da seleção em segundo plano: a barra só some quando ele termina. Uma nova atualização invalida o preparo em curso.
+  let preparoGeracao = 0;
+  const preparar = (): void => {
+    const geracao = ++preparoGeracao;
+    if (!cena.prepararSelecao) {
+      publicarProgresso3d(montagem.total, montagem.total);
+      return;
+    }
+    const passo = (): void => {
+      if (geracao !== preparoGeracao) return;
+      const andamento = cena.prepararSelecao!(ORCAMENTO_PREPARO_MS);
+      const fim = andamento.feitas >= andamento.total;
+      publicarProgresso3d(montagem.total, montagem.total, { fracao: fim ? 1 : montagem.fracao(andamento), fase: 'selecao' });
+      if (!fim) agendarPadrao(passo);
+    };
+    publicarProgresso3d(montagem.total, montagem.total, { fracao: montagem.fracao({ feitas: 0, total: 1 }), fase: 'selecao' });
+    agendarPadrao(passo);
+  };
   const montagem: Montagem3dProgressiva = new Montagem3dProgressiva({
     cena,
     fonte: { resolver, pronto },
     aoAtualizar: () => {
-      // Barra de progresso da montagem (ver `Progresso3D`): some quando todos os pavimentos estão na cena.
-      publicarProgresso3d(montagem.montados, montagem.total);
+      // Barra de progresso (ver `Progresso3D`): pavimentos ponderados pelo trabalho; some quando a seleção também está pronta.
+      if (montagem.montados >= montagem.total) preparar();
+      else {
+        preparoGeracao++;
+        publicarProgresso3d(montagem.montados, montagem.total, { fracao: montagem.fracao(null), fase: 'montagem' });
+      }
       useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
     },
     aoConcluir: () => {
-      publicarProgresso3d(montagem.total, montagem.total);
+      preparar();
       // Montagem adiantada em segundo plano, com a planta na tela: o enquadramento fica para a primeira vez que a aba 3D aparece.
       if (useUi.getState().seen3d || useUi.getState().view !== '3d') return;
       cena.fit();

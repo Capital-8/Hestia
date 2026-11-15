@@ -22,6 +22,7 @@ export const PT_CANVAS_VIEWPORT = {
   // Montagem 3D
   cvv_prog_3d_aria: 'Montando o modelo 3D',
   cvv_prog_3d_text: 'Montando o modelo 3D… {n} de {total} pavimentos',
+  cvv_prog_3d_sel: 'Preparando a seleção…',
   // Abertura do projeto
   cvv_prog_open_aria: 'Abrindo o projeto',
   cvv_prog_phase_reading: 'Lendo arquivo',
@@ -78,6 +79,7 @@ export const EN_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // 3D assembly
   cvv_prog_3d_aria: 'Building 3D model',
   cvv_prog_3d_text: 'Building 3D model… {n} of {total} levels',
+  cvv_prog_3d_sel: 'Preparing selection…',
   // Project opening
   cvv_prog_open_aria: 'Opening project',
   cvv_prog_phase_reading: 'Reading file',
@@ -134,6 +136,7 @@ export const ES_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // Montaje 3D
   cvv_prog_3d_aria: 'Montando el modelo 3D',
   cvv_prog_3d_text: 'Montando el modelo 3D… {n} de {total} niveles',
+  cvv_prog_3d_sel: 'Preparando la selección…',
   // Apertura del proyecto
   cvv_prog_open_aria: 'Abriendo el proyecto',
   cvv_prog_phase_reading: 'Leyendo archivo',
@@ -190,6 +193,7 @@ export const DE_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // 3D-Zusammenbau
   cvv_prog_3d_aria: '3D-Modell wird aufgebaut',
   cvv_prog_3d_text: '3D-Modell wird aufgebaut… {n} von {total} Ebenen',
+  cvv_prog_3d_sel: 'Auswahl wird vorbereitet…',
   // Projektöffnung
   cvv_prog_open_aria: 'Projekt wird geöffnet',
   cvv_prog_phase_reading: 'Datei wird gelesen',
@@ -246,6 +250,7 @@ export const FR_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // Assemblage 3D
   cvv_prog_3d_aria: 'Assemblage du modèle 3D',
   cvv_prog_3d_text: 'Assemblage du modèle 3D… {n} sur {total} niveaux',
+  cvv_prog_3d_sel: 'Préparation de la sélection…',
   // Ouverture du projet
   cvv_prog_open_aria: 'Ouverture du projet',
   cvv_prog_phase_reading: 'Lecture du fichier',
@@ -302,6 +307,7 @@ export const IT_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // Composizione 3D
   cvv_prog_3d_aria: 'Composizione del modello 3D',
   cvv_prog_3d_text: 'Composizione del modello 3D… {n} di {total} livelli',
+  cvv_prog_3d_sel: 'Preparazione della selezione…',
   // Apertura del progetto
   cvv_prog_open_aria: 'Apertura del progetto',
   cvv_prog_phase_reading: 'Lettura del file',
@@ -358,6 +364,7 @@ export const PL_CANVAS_VIEWPORT: Record<keyof typeof PT_CANVAS_VIEWPORT, string>
   // Budowanie modelu 3D
   cvv_prog_3d_aria: 'Budowanie modelu 3D',
   cvv_prog_3d_text: 'Budowanie modelu 3D… {n} z {total} poziomów',
+  cvv_prog_3d_sel: 'Przygotowanie zaznaczania…',
   // Otwieranie projektu
   cvv_prog_open_aria: 'Otwieranie projektu',
   cvv_prog_phase_reading: 'Odczyt pliku',
