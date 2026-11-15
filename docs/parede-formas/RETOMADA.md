@@ -10,8 +10,11 @@
 ## Feito e mesclado em frente/parede-formas
 Fase 1 (formas na Parede, galeria Desenhar compartilhada com o perímetro), Fase 2 (parede inclinada: F2.1 a F2.12, etapas A a W, R), junções exatas em arco (J1 a J5), nó de 3+ paredes (S5/N1), junção por par (D2), desempenho (D4: projeto principal 4,4 s → 1,5 s a frio), captura de FACE SUPERIOR (T-A a T-E: snap, Alinhar, escolher face e por perímetro), porta/janela inclinadas por padrão (P1).
 
+## ATENÇÃO: lint com 1 erro (corrigir logo após mesclar D3/D1)
+`packages/engine/src/wallTiltJoinLevel.ts`: `max-lines` 429 > 420 (acúmulo de N1 + D2 + D4). Solução: extrair funções puras (ex.: `alinhar`/`alinharNivel`/helpers do plano B) para um arquivo novo, SEM mudar comportamento; só depois da D3/D1 (que edita o mesmo arquivo). T-F já mesclada (7cac82da): vale só para PISO e LAJE (forro e telhado não têm `OutlineSource`).
+
 ## Em andamento quando o dono desligou (confira `git log` e `git status` nos dois worktrees)
-- **T-F** em `~/hestia-wt/ft` (pf/ft): contorno vinculado de piso/laje/forro/telhado pelo TOPO (`OutlineSource.reference: 'base'|'top'`).
+- (T-F já concluída e mesclada.)
 - **D3/D1** em `~/hestia-wt/fj` (pf/fj): 4 pares do fuzz com fresta e a camada de tinta de 2 mm (2 a 3 mm nas esquinas; já existia com tilt 0).
 Se um agente caiu: o trabalho está em commits `wip` no worktree; retome com SendMessage ao agente (ids no transcript) ou abra um novo executor que leia o worktree e continue.
 
