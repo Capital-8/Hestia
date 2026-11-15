@@ -108,6 +108,11 @@ export interface SectionOpening {
   sSign: 1 | -1;
   /** Posição `t` local em que o plano da seção transversal atravessa o vão. */
   cutT: number;
+  /**
+   * Parede inclinada (P1): plano efetivo do vão, inclinação (rad, + = topo para +n do vão), peitoril e espessura, para a vista
+   * desenhar as peças no referencial inclinado como o 3D. Ausente em parede vertical.
+   */
+  tiltFrame?: { plane: 'vertical' | 'inclinado'; theta: number; sill: number; thickness: number };
   /** Materiais do tipo, para a cor e a hachura das peças do modelo. */
   frameMaterialId: Id;
   glassMaterialId: Id;
@@ -386,6 +391,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
         viewSide: du >= 0 ? -1 : 1,
         sSign: dn >= 0 ? 1 : -1,
+        ...(rw.tilt ? { tiltFrame: { plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, sill: g.sill, thickness: g.thickness } } : {}),
         cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
         frameMaterialId: ot.frameMaterialId,
         glassMaterialId: ot.glassMaterialId,

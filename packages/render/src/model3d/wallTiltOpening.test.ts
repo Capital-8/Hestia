@@ -72,12 +72,12 @@ describe('F2.8: vão em parede inclinada (θ=15°, t=0,2)', () => {
     expect(cheia - vol(bs)).toBeCloseTo(0.24 / Math.cos((15 * Math.PI) / 180), 4);
     expect(bs.every(closed)).toBe(true);
   });
-  it('porta vertical (padrão) retira 0,3913; porta inclinada abre pelo piso, volume ≥ 0,378 e malha fechada', () => {
+  it('porta com plano vertical explícito retira 0,3913; porta inclinada abre pelo piso, volume ≥ 0,378 e malha fechada', () => {
     const cheia = vol(solids(wall(15)));
-    const v = wall(15, { kind: 'door' });
+    const v = wall(15, { kind: 'door', plano: 'vertical' });
     expect(v.tiltCuts).toBeUndefined();
     expect(cheia - vol(solids(v))).toBeCloseTo(0.3913, 4);
-    const i = wall(15, { kind: 'door', plano: 'inclinado' });
+    const i = wall(15, { kind: 'door' }); // P1: padrão inclinado
     const bs = solids(i);
     expect(bs.every(closed)).toBe(true);
     expect(zRange(bs[0]!)[0]).toBeGreaterThanOrEqual(-1e-9);

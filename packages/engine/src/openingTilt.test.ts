@@ -59,7 +59,7 @@ describe('F2.8: geometria do vão em parede inclinada (valores do S4)', () => {
     expect(inclinedFitsArc(0.9, 2.1)).toBe(true);
     expect(inclinedFitsArc(5)).toBe(true);
     expect(openingPlaneOf({ kind: 'window' })).toBe('inclinado');
-    expect(openingPlaneOf({ kind: 'door' })).toBe('vertical');
+    expect(openingPlaneOf({ kind: 'door' })).toBe('inclinado'); // P1: porta segue a parede
     expect(openingPlaneOf({ kind: 'door', plano: 'inclinado' })).toBe('inclinado');
   });
 });
