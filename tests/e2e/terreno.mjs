@@ -2,6 +2,7 @@
 import { makeReporter } from './helpers.mjs';
 import { abrir } from './terreno-base.mjs';
 import { passo1, passo2, passo3, tempos } from './terreno-passos-a.mjs';
+import { passo4, passo5, passo6 } from './terreno-passos-b.mjs';
 
 const rep = makeReporter();
 const ctx = await abrir();
@@ -9,6 +10,9 @@ try {
   await passo1(rep, ctx);
   await passo2(rep, ctx);
   await passo3(rep, ctx);
+  await passo4(rep, ctx);
+  await passo5(rep, ctx);
+  await passo6(rep, ctx);
   await rep.step('sem erro de console em nenhum passo', async () => {
     rep.check('nenhum erro de console ou de página', ctx.errors.length === 0, ctx.errors.slice(0, 4).join(' | '));
   });
