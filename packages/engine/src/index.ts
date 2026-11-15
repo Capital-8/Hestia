@@ -119,6 +119,7 @@ export * from './loteGeometria.ts';
 export * from './loteIndices.ts';
 export * from './loteRumos.ts';
 export * from './loteIssues.ts';
+export * from './loteSchedule.ts';
 export * from './fixtureLote.ts';
 export * from './kernelTerreno.ts';
 export * from './kernelTerrenoServico.ts';

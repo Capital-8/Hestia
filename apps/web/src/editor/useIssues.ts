@@ -4,6 +4,7 @@ import { isGuardaCorpo, type Project, type ValidationIssue } from '@hestia/model
 import { useProject } from './controller.ts';
 import { useI18n } from './i18n.ts';
 import { agendarAvisos } from './avisosProjeto.ts';
+import { avisosGeometriaLote } from './loteVista.ts';
 
 /**
  * Avisos de geometria degenerada dos guarda-corpos (trecho que vira ponto, deslocamento maior que a largura, caminho com vértices repetidos...), medidos
@@ -47,7 +48,7 @@ export function useIssues(): ValidationIssue[] {
   useEffect(() => servicoCortina().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(() => servicoTerreno().aoMudarPronto(() => setKernelPronto((n) => n + 1)), []);
   useEffect(
-    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project), ...avisosGeometriaTerreno(project)])),
+    () => agendarAvisos(project, (a) => setSettled([...a, ...avisosGeometriaGuardaCorpo(project), ...avisosGeometriaCortina(project), ...avisosGeometriaTerreno(project), ...avisosGeometriaLote(project)])),
     // `kernelPronto` refaz a lista quando o kernel carrega ou é trocado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, kernelPronto],
