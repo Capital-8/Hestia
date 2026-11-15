@@ -417,6 +417,11 @@ export interface OutlineSource {
    * dizem o lado. Decisão 0026 (T7).
    */
   extend?: 'finish' | 'core';
+  /**
+   * Cota de que o contorno VINCULADO é derivado (T-F): `'base'` (padrão, ausente) = contorno da parede na cota da base;
+   * `'top'` = contorno do TOPO da parede em planta (em parede inclinada o topo se desloca H·tanθ). Só vale com `linked`.
+   */
+  reference?: 'base' | 'top';
 }
 
 /**

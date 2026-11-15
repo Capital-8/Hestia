@@ -96,8 +96,11 @@ export function wallTopFaces(p: Project, levelId: Id): WallTopFaces[] {
   const frames = levelFrames(p, levelId);
   if (!frames.length) return [];
   const ends = computeEnds(frames, p.settings?.joinTolerance);
-  const floors = resolveAllFloors(p);
-  const slabs = resolveAllSlabs(p);
+  // Pisos, lajes e telhados só entram quando alguma parede se anexa a eles: sem anexo `wallZRange` não os consulta, e
+  // assim o contorno vinculado de piso/laje no topo (T-F) não fecha um ciclo com `resolveAllFloors`.
+  const anexa = frames.some((f) => f.wall.attachBottomToFloor === true || f.wall.attachTopToFloor === true || f.wall.attachTopToRoof === true);
+  const floors = anexa ? resolveAllFloors(p) : [];
+  const slabs = anexa ? resolveAllSlabs(p) : [];
   const roofs = frames.some((f) => f.wall.attachTopToRoof === true) ? resolveAllRoofs(p) : undefined;
   const zs = new Map(frames.map((f) => [f.wall.id, wallZRange(p, f.wall, floors, slabs, roofs)] as const));
   const joins = frames.some((f) => f.wall.tilt) ? analyzeLevelTilt(frames, new Map([...zs].map(([id, z]) => [id, z.height] as const)), p.settings?.joinTolerance).joins : undefined;

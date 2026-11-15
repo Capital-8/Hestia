@@ -45,6 +45,10 @@ export const PT_MISC_UI = {
   msc_outline_relink: 'Revincular às paredes',
   msc_undo_outline_detach: 'Desvincular contorno',
   msc_undo_outline_relink: 'Revincular contorno às paredes',
+  msc_outline_follow: 'Seguir',
+  msc_outline_follow_base: 'Base da parede',
+  msc_outline_follow_top: 'Topo da parede',
+  msc_undo_outline_follow: 'Contorno: seguir base ou topo',
 } as const;
 
 export const EN_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -92,6 +96,10 @@ export const EN_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Relink to walls',
   msc_undo_outline_detach: 'Detach outline',
   msc_undo_outline_relink: 'Relink outline to walls',
+  msc_outline_follow: 'Follow',
+  msc_outline_follow_base: 'Wall base',
+  msc_outline_follow_top: 'Wall top',
+  msc_undo_outline_follow: 'Outline: follow base or top',
 };
 
 export const ES_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -139,6 +147,10 @@ export const ES_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Volver a vincular a los muros',
   msc_undo_outline_detach: 'Desvincular contorno',
   msc_undo_outline_relink: 'Volver a vincular el contorno a los muros',
+  msc_outline_follow: 'Seguir',
+  msc_outline_follow_base: 'Base del muro',
+  msc_outline_follow_top: 'Parte superior del muro',
+  msc_undo_outline_follow: 'Contorno: seguir base o parte superior',
 };
 
 export const DE_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -186,6 +198,10 @@ export const DE_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Mit Wänden neu verknüpfen',
   msc_undo_outline_detach: 'Umriss trennen',
   msc_undo_outline_relink: 'Umriss mit Wänden neu verknüpfen',
+  msc_outline_follow: 'Folgen',
+  msc_outline_follow_base: 'Wandfuß',
+  msc_outline_follow_top: 'Wandkopf',
+  msc_undo_outline_follow: 'Umriss: Fuß oder Kopf folgen',
 };
 
 export const FR_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -233,6 +249,10 @@ export const FR_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Relier aux murs',
   msc_undo_outline_detach: 'Dissocier le contour',
   msc_undo_outline_relink: 'Relier le contour aux murs',
+  msc_outline_follow: 'Suivre',
+  msc_outline_follow_base: 'Base du mur',
+  msc_outline_follow_top: 'Sommet du mur',
+  msc_undo_outline_follow: 'Contour : suivre la base ou le sommet',
 };
 
 export const IT_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -280,6 +300,10 @@ export const IT_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Ricollega alle pareti',
   msc_undo_outline_detach: 'Scollega contorno',
   msc_undo_outline_relink: 'Ricollega il contorno alle pareti',
+  msc_outline_follow: 'Segui',
+  msc_outline_follow_base: 'Base della parete',
+  msc_outline_follow_top: 'Sommità della parete',
+  msc_undo_outline_follow: 'Contorno: segui base o sommità',
 };
 
 export const PL_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
@@ -327,4 +351,8 @@ export const PL_MISC_UI: Record<keyof typeof PT_MISC_UI, string> = {
   msc_outline_relink: 'Ponownie połącz ze ścianami',
   msc_undo_outline_detach: 'Odłącz obrys',
   msc_undo_outline_relink: 'Ponownie połącz obrys ze ścianami',
+  msc_outline_follow: 'Podążaj za',
+  msc_outline_follow_base: 'Podstawą ściany',
+  msc_outline_follow_top: 'Górą ściany',
+  msc_undo_outline_follow: 'Obrys: podstawa lub góra',
 };
