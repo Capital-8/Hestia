@@ -47,6 +47,7 @@ if (new URLSearchParams(location.search).has('debug')) {
       // Miniatura da biblioteca (o e2e confere que ela sai com o modelo, salvando fora da aba 3D).
       miniatura: () => import('./editor/miniatura.ts').then((m) => m.capturarMiniatura3d()),
       resolveLevel: e.resolveLevel,
+      executarResolucao: () => import('@hestia/engine/src/worker/executor.ts').then((x) => x.executarResolucao),
       junctionLevel: e.junctionLevel,
       cutLevelByJunction: e.cutLevelByJunction,
       quantifyLevel: e.quantifyLevel,

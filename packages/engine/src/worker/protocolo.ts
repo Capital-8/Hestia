@@ -45,6 +45,8 @@ export interface PedidoResolucao {
    * pedido. Ausente: o worker não instala nada e o caminho é o de sempre.
    */
   kernelV2?: ConfigDespacho;
+  /** Medição da vista (D5, só com `?debug=1`): o worker devolve os instantes em `tw`. */
+  medir?: boolean;
 }
 
 /** Cancelamento de um pedido pelo id (vale se o pedido ainda não começou no worker). */
@@ -62,6 +64,8 @@ export interface RespostaResolucao {
   erro: string | null;
   /** Diagnóstico do despacho do kernel v2 neste worker (só quando instalado): a interface soma ao da thread principal. */
   kernelDiag?: DiagnosticoDespacho;
+  /** Instantes (ms, época) em que o worker recebeu o pedido, começou e terminou o cálculo (medição da vista, D5). */
+  tw?: [number, number, number];
 }
 
 /** Motivo pelo qual um pedido foi encerrado sem resultado: cancelado pelo chamador, ou substituído por um mais recente. */

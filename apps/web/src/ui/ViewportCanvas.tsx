@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
+import { vperf } from '../editor/vperf.ts';
 import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
@@ -428,7 +429,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       pf.reset(); quadroRef.current?.invalidar();
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
+      vperf?.mark('b_ini');
       const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang);
+      vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;
       // Camada viva (t,z): prévia das ferramentas, alças da abertura selecionada e a inferência (marcador/guias/tooltip).
@@ -522,6 +525,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (baseDl !== secDl.current) {
           // A lista base mudou: `setDrawList` limpa TODAS as camadas (inclusive as vivas), que são reaplicadas no mesmo quadro.
           plan.current.setDrawList(baseDl, v);
+          vperf?.mark('dl_fim');
           secDl.current = baseDl;
           secLive.current = false;
         }
@@ -531,6 +535,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           secLive.current = hasLive;
         }
         safeRender(g, plan.current.scene, plan.current.camera);
+        vperf?.mark('r_fim');
       } else if (cpuRef.current) {
         // Sem GPU, o Canvas2D recebe base + viva juntas numa lista só.
         drawPlanOnCanvas(cpuRef.current, { ...baseDl, fills: [...baseDl.fills, ...liveFills], strokes: [...baseDl.strokes, ...liveStrokes], labels }, v, dpr);

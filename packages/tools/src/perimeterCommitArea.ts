@@ -82,8 +82,11 @@ function wallLink(p: Project, levelId: Id, outer: Vec2[], opts: CommitPerimeterO
   const seed = longestSideMid(outer);
   const ring = outerPerimeter(p, levelId, seed);
   if (!ring) return LINK_NO_WALLS_MSG;
-  if (!sameRing(outer, ring)) return LINK_MISMATCH_MSG;
-  return { outline: { mode: 'perimeter', linked: true, seed }, boundary: ring };
+  if (sameRing(outer, ring)) return { outline: { mode: 'perimeter', linked: true, seed, reference: 'base' }, boundary: ring };
+  // T-F: o esboço veio da face superior (padrão de telhado e forro em parede inclinada): vincula ao TOPO das paredes.
+  const top = outerPerimeter(p, levelId, seed, 'finish', 'top');
+  if (top && sameRing(outer, top)) return { outline: { mode: 'perimeter', linked: true, seed, reference: 'top' }, boundary: top };
+  return LINK_MISMATCH_MSG;
 }
 
 /** Nota da mensagem: vínculo pedido e não feito, quando o esboço não veio de "Por perímetro". */
