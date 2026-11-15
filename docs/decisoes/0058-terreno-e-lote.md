@@ -239,16 +239,16 @@ Origem: PLANO.md, seção "Emendas".
 
 Origem: tabela de `docs/terreno/ESTADO.md`, na data do próprio ESTADO (2026-11-15). O ESTADO diz "execução em andamento; retome da primeira ficha não mesclada".
 
-Fichas mescladas, por fase do plano:
+Fichas mescladas, por fase do plano (estado de 2026-11-15, depois da P4):
 
 - Fase 0: M1, M2.
 - Fase 1: R1, R2, R3.
 - Fase 2: E1, V1, V2, V3.
-- Fase 3: I1, T1, T2, U1 (U1a e U1b). O ESTADO também cita a T1b como mesclada, nas pendências, sem linha própria na tabela.
-- Fase 4: T3. (U2 pendente.)
-- Fase 5: P1, P2. (P3, P4 pendentes; P5 condicional.)
-- Fase 6: X1. (G1 e Q1 pendentes.)
+- Fase 3: I1, T1, T2, U1 (U1a e U1b), mais a T1b, que fechou o Alinhar e o Colar do terreno.
+- Fase 4: T3, U2.
+- Fase 5: P1, P2, P3, P4.
+- Fase 6: G1, X1.
 
-Pendentes na tabela: U2, P3, P4, P5, G1, Q1, F1 e F2 (F1 e F2 são opcionais e dependem do "pode" do dono, D9).
+Pendentes: Q1 (E2E no navegador, medições e fecho; os checklists `docs/paridade/terrenos.md` e `lotes.md` e esta decisão já existem), P5 (envelope legal, condicional: só se a massa conceitual existir na branch, e hoje não existe) e F1 e F2 (Rastreamento e Referência, opcionais, dependem do "pode" do dono, D9).
 
 Pelo ESTADO, ainda não foram conferidos visualmente: desenhar e editar terreno, importar levantamento, planta com curvas, 3D e corte (U1); desenhar região (T3); capturas de corte e elevação (V3). Só a faixa foi vista (`docs/terreno/evidencias/fase3/faixa-massa-e-terreno.png`).

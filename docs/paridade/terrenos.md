@@ -7,7 +7,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [x] A1 Terreno como elemento (`kind: 'terrain'`) com pontos, curvas, linhas de quebra e borda (M1)
 - [x] A2 Região de terreno (`terrainRegion`) com os três papéis: subdivisão, plataforma e região nivelada (M1, T3)
 - [x] A3 Localização do projeto: leste, norte, altitude da cota zero e norte verdadeiro, no diálogo de Gerenciar projeto (M1, U1)
-- [ ] A4 Migração de arquivo: SCHEMA_VERSION sobe de 25 para 26 sem alterar dados (M1). Pendente: o ESTADO não registra teste de ida e volta com um arquivo antigo (A.8, item 8); confirmar.
+- [x] A4 Migração de arquivo: SCHEMA_VERSION sobe de 25 para 26 sem alterar dados (M1). Teste de ida e volta em `packages/model/src/esquema.test.ts` ("migração 25 → 26").
 - [x] A5 Comandos com desfazer: `addTerrain`, `updateTerrain`, `editTerrainFontes`, `addTerrainRegion`, `updateTerrainRegion`, `setTerrainRegionContorno`, `setLocalizacao` (M1)
 - [x] A6 Mover, copiar, girar, espelhar, matriz e apagar o terreno levam junto as suas regiões (T1)
 
@@ -16,7 +16,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [x] B2 Curvas de nível com curva mestra a cada intervalo fixado (R2). Nota: tempo em relevo realista ainda não medido, fica para Q1.
 - [x] B3 Corte vertical do solo proposto e do perfil existente (R2, R3)
 - [x] B4 Volumes de corte e aterro por terreno e por região (R2, R3)
-- [ ] B5 Avisos do kernel: pontos coincidentes, linha que cruza outra, regiões sobrepostas, precisão reduzida, terreno sem triângulos e região fora do terreno. Pendente: a consulta `terreno_avisos` (168) estava NAO_IMPLEMENTADO na R1 e o ESTADO não confirma a entrega na R2.
+- [x] B5 Avisos do kernel: pontos coincidentes, linha que cruza outra, regiões sobrepostas, precisão reduzida, terreno sem triângulos e região fora do terreno (R1, R2, R3). A consulta `terreno_avisos` (168) existe desde a R2 e os seis avisos chegam ao painel com "Ir para" (U1b; `useIssues.terreno.test.ts`).
 
 ## C · Entrada
 - [x] C1 Importar DXF: tabela de camadas, destino de cada camada, unidade e simplificação das polilinhas (I1, U1). Nota: blocos INSERT só geram aviso.
@@ -28,10 +28,10 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 ## D · Edição
 - [x] D1 Modo Editar terreno, por botão ou duplo clique (T2, U1). Nota: sem conferência visual.
 - [x] D2 Escolher o vértice mais próximo (tolerância de 8 px), arrastar em planta e apagar com Delete (T2, U1)
-- [ ] D3 Botões do modo: Ponto, Curva, Linha de quebra, Borda e Remover borda. Pendente: a T2 deixou os submodos na ferramenta e pediu os botões à U1; o ESTADO da U1 não confirma que foram ligados.
-- [ ] D4 Campo Cota do modo edita a cota do ponto ou da curva inteira. Pendente: a T2 pediu `definirCotaDoCampo` à U1; o ESTADO não confirma a ligação.
-- [ ] D5 Acima de 500 vértices na tela, mensagem "aproxime para editar pontos" e sem alças. Pendente: pedido à U1 pela T2; o ESTADO não confirma.
-- [ ] D6 Cada gesto concluído é um só desfazer (`editTerrainFontes`). Pendente: a T2 registra que Delete de vértice de curva usa removeCurva e addCurva, sem operação própria.
+- [x] D3 Botões do modo: Ponto, Curva, Linha de quebra, Borda, Editar e Remover borda na barra de opções (U1a, `TerrainOptionsBar.tsx`; T2).
+- [x] D4 Campo Cota do modo edita a cota do ponto ou da curva inteira (T2, ligado na barra de opções pela U1a).
+- [x] D5 Acima de 500 vértices na tela, mensagem "aproxime para editar pontos" e sem alças (T2, `LIMITE_ALCAS`; ligada à vista pela U1b, `edicaoParaAVista`).
+- [x] D6 Cada gesto concluído é um só desfazer (T2). Excluir vértice de curva ou quebra usa `removeCurva` mais `addCurva` no mesmo comando, sem operação própria; a linha vai para o fim da lista.
 - [x] D7 Rótulo de curva por linha, com botão ativo na faixa (T2, U1)
 - [x] D8 Cota de ponto por clique, com botão ativo na faixa (T2, U1)
 
@@ -40,7 +40,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [x] E2 Plataforma: plano com bordas verticais que corta e aterra (R3, T3)
 - [x] E3 Plataforma por elemento: clicar numa laje ou piso copia o contorno (T3)
 - [x] E4 Região nivelada: plano com taludes de corte e aterro (R3, T3)
-- [ ] E5 Valores padrão dos taludes: 0 na plataforma; 1,5 de corte e 2 de aterro na nivelada. Pendente: o ESTADO não registra esses valores; conferir no código.
+- [x] E5 Valores padrão dos taludes: 0 na plataforma; 1,5 de corte e 2 de aterro na nivelada; subdivisão permeável, os outros dois não (T3, `PADROES_REGIAO` em `terrainRegionTool.ts`).
 - [x] E6 Seta de direção de subida quando a inclinação é maior que zero (T3)
 - [x] E7 Vértice da região fora do terreno avisa na barra de status (T3). Nota: a área que passa da borda do terreno some (limitação da R3).
 - [x] E8 Alças de vértice e de meio de aresta na região (T3)
@@ -53,8 +53,8 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [ ] F3 Terreno no 3D, com seleção e realce. Pendente: a V1 montou a cena com malha falsa; o ESTADO não registra teste com malha real do kernel no 3D.
 - [ ] F4 Sem tremor entre plataforma e laje no 3D (A.8, item 6). Pendente: a V1 não conferiu.
 - [x] F5 Corte com solo cortado em hachura (V3). Nota: sem capturas de corte e elevação; traços do terreno atrás do edifício podem aparecer sobre a hachura.
-- [ ] F6 Perfil existente tracejado no corte. Pendente: o ESTADO não confirma o traço tracejado.
-- [ ] F7 Clicar dentro do terreno não o seleciona; só a borda e as curvas (A.8, item 7). Pendente: o ESTADO registra a seleção pela borda e pelas curvas (V2, T1), mas não a regra do clique dentro.
+- [x] F6 Perfil existente tracejado no corte, só quando há plataforma ou região nivelada (V3; `section/terreno.test.ts` e o teste de kernel real `kernel-terreno-corte-vista`).
+- [x] F7 Clicar dentro do terreno não o seleciona; só a borda e as curvas (A.8, item 7) (V2, T1; teste "clique no INTERIOR" em `terrainPick.test.ts`).
 - [x] F8 Seleção do terreno no corte (U1). Nota: sem conferência visual.
 
 ## G · Saídas
@@ -62,11 +62,11 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [x] G2 Mapa de corte e aterro na planta, em vermelho e azul, ligado pela caixa "Mapa" (U2). Nota: a liga é global; as pranchas também mostram o mapa enquanto ligado.
 - [x] G3 IFC: terreno como `IFCGEOGRAPHICELEMENT` com predefinido TERRAIN, contido no IFCSITE, com RefElevation pela cota zero (X1). Nota: sem kernel, o terreno não sai e aparece um aviso.
 - [x] G4 DXF: camadas TERRENO_CURVAS, TERRENO_CURVAS_MESTRAS, TERRENO_BORDA e TERRENO_REGIAO na planta, e CORTE_TERRENO no corte (X1)
-- [ ] G5 Terreno e regiões na prancha. Pendente: a X1 diz "nada a alterar" e não registra captura nem teste de prancha com terreno.
+- [x] G5 Terreno e regiões na prancha: planta, corte e 3D vetorial geram o PDF com o terreno (X1; teste de kernel real `kernel-terreno-x1`). Sem conferência visual.
 
 ## H · Integração
 - [x] H1 Gravidade no piso e na laje: cota inicial do terreno sob o primeiro clique, sem vínculo depois (G1)
-- [ ] H2 Gravidade na parede, na plataforma e na região nivelada. Pendente: o ESTADO cita as três, mas registra teste só de piso e laje (`perimeter.test.ts`).
+- [x] H2 Gravidade na parede, na plataforma, na região nivelada, no piso e na laje (G1; `gravidade.test.ts`, parede e região; `perimeter.test.ts`, piso e laje).
 - [x] H3 Cota exibida igual a z mais a cota zero, formatada pela unidade do projeto (M1, X1)
 - [x] H4 Norte verdadeiro usado na direção dos rumos do lote (U1, P3). Nota: o sinal foi decidido pelo fiscal (E4); o dono não respondeu.
 
