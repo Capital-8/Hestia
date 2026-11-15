@@ -283,11 +283,11 @@ describe.skipIf(!PRINCIPAL)('J5 · projeto principal: fresta e sobreposição em
     console.log(`[J5] nós inviáveis: ${inv.map((n) => `${n.id} [${n.avisos.join(', ')}]`).join('; ') || 'nenhum'}`);
     for (const n of inv) expect(n.avisos.length).toBeGreaterThan(0);
   });
-  // DEFEITO J5-D2: o componente 179a6-39484-703b7 cai inteiro no plano B e a fresta passa muito da espessura da parede.
-  it.fails('nós inviáveis: fresta < espessura da parede (defeito J5-D2: até 0,97 m para 0,19 m)', () => {
+  // J5-D2 (resolvido na D2): o trecho 37a7b-179a6-39484-703b7 caía inteiro no plano B por causa de uma camada fina (2 mm) no casamento dos anéis.
+  it('nós inviáveis (se houver): fresta < espessura da parede (era J5-D2: até 0,97 m para 0,19 m)', () => {
     for (const n of nosDoPrincipal().filter((q) => q.inviavel)) for (const x of n.m) expect(x.fresta, `fresta ${n.id}`).toBeLessThan(n.espessura);
   });
-  it.fails('o projeto principal não tem nó inviável (defeito J5-D2: 3 nós caem no plano B por causa de 179a6-39484-703b7)', () => {
+  it('o projeto principal não tem nó inviável (era J5-D2: 3 nós caíam no plano B por causa de 179a6-39484-703b7)', () => {
     expect(nosDoPrincipal().filter((n) => n.inviavel).map((n) => n.id)).toEqual([]);
   });
 });

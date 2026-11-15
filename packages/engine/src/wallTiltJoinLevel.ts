@@ -8,6 +8,7 @@ import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
 import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
+import { casarMonotono } from './wallTiltCasar.ts';
 import { nodeWarp, type NodeWarp } from './wallTiltNo.ts';
 import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
@@ -185,41 +186,6 @@ function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): {
   return ok ? { p0: a, pH: b } : null;
 }
 
-/**
- * Casamento cíclico monótono de `raw` com `ring` (índices de `ring`, não decrescentes ao longo do anel, volta completa < m):
- * minimiza a soma das distâncias. O vértice mais próximo isolado erra em camada fina (2 mm), onde o deslocamento do anel
- * passa da espessura e dois vértices de `raw` cairiam no mesmo vértice do anel (anel degenerado).
- */
-function casarMonotono(raw: readonly Vec2[], ring: readonly Vec2[]): number[] {
-  const n = raw.length, m = ring.length;
-  const d = (i: number, j: number): number => Math.hypot(ring[j % m]!.x - raw[i]!.x, ring[j % m]!.y - raw[i]!.y);
-  let best: number[] = raw.map((_, i) => Math.min(i, m - 1)), bestCost = Infinity;
-  for (let j0 = 0; j0 < m; j0++) {
-    // dp[i][k] = custo mínimo com raw[i] em ring[(j0 + k) % m], k em [0, m-1] não decrescente.
-    const dp: number[][] = [], from: number[][] = [];
-    for (let i = 0; i < n; i++) {
-      dp.push(new Array<number>(m).fill(Infinity));
-      from.push(new Array<number>(m).fill(0));
-      for (let k = 0; k < m; k++) {
-        if (i === 0) { if (k === 0) dp[0]![0] = d(0, j0); continue; }
-        let pk = 0, pc = Infinity;
-        for (let q = 0; q <= k; q++) if (dp[i - 1]![q]! < pc) { pc = dp[i - 1]![q]!; pk = q; }
-        dp[i]![k] = pc + d(i, j0 + k);
-        from[i]![k] = pk;
-      }
-    }
-    let k = 0, c = Infinity;
-    for (let q = 0; q < m; q++) if (dp[n - 1]![q]! < c) { c = dp[n - 1]![q]!; k = q; }
-    if (c < bestCost) {
-      bestCost = c;
-      const idx = new Array<number>(n);
-      for (let i = n - 1; i >= 0; i--) { idx[i] = (j0 + k) % m; k = from[i]![k]!; }
-      best = idx;
-    }
-  }
-  return best;
-}
-
 const wrapPi = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 const RUN_TOL = 1e-7;
 interface Run { s: number; len: number }
@@ -286,8 +252,7 @@ function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: 
     }
     if (out.some((q) => !q)) return null;
   } else if (memo) {
-    // Sem faces de arco: casamento monótono pela distância, feito na base (anel ≈ raw) e reaproveitado nos níveis acima (o deslocamento passa da espessura de uma
-    // camada fina (tinta de 2 mm) e o mais próximo trocaria vértices; a correspondência da base é reaproveitada (mesma contagem).
+    // Sem faces de arco: casamento monótono feito na base (anel ≈ raw) e reaproveitado nos níveis acima (mesma contagem).
     if (!memo.idx || memo.m !== m) { memo.idx = casarMonotono(raw, ring); memo.m = m; }
     out = memo.idx.map((j) => ring[j]!);
   } else out = raw.map((r) => nearest(r, 0, m));
@@ -501,29 +466,21 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       // pelo plano da face da outra em toda a altura; sobra no máximo a espessura da hospedeira. Ver S1 "Não passou".
       const tee = (r: Relation & { kind: 'pair' }, flip: boolean): Relation => (flip ? { kind: 'tee', branch: r.b, host: r.a.id } : { kind: 'tee', branch: r.a, host: r.b.id });
       const comoTee = (r: Relation & { kind: 'pair' }): Relation | null => [tee(r, false), tee(r, true)].find((c) => evalRels([c])) ?? null;
-      // D2: decisão por PAR. Sem força, cada par entra no conjunto aceito só se o conjunto continua viável COM ele (um par viável
-      // sozinho pode reprovar junto de outro; os demais seguem exatos). Só o par que reprova vira encosto local (nas suas duas pontas).
+      // D2: decisão por PAR: entra no conjunto aceito só se o conjunto segue viável com ele; o que reprova vira encosto local.
       const aceitos: Relation[] = [];
-      // Sem encosto viável, a ligação sai do conjunto (as duas pontas ficam no corte simples do resolvedor) e avisa.
-      const asTee = (r: Relation, force: boolean): Relation | null => {
-        if (r.kind !== 'pair') { aceitos.push(r); return r; }
-        if (!force && evalRels([...aceitos, r])) { aceitos.push(r); return r; }
-        return comoTee(r);
-      };
+      const asTee = (r: Relation, force: boolean): Relation | null => (r.kind === 'pair' && (force || !evalRels([...aceitos, r])) ? comoTee(r) : (aceitos.push(r), r));
+      const avisar = (r: Relation): void => { for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id); };
       for (const force of [false, true]) {
         aceitos.length = 0;
         const plano = crel.map((r) => asTee(r, force));
-        const mantidas = plano.filter((r): r is Relation => !!r);
-        joins = mantidas.length ? evalRels(mantidas) : new Map<string, WallTiltJoin>();
+        const mant = plano.filter((r): r is Relation => !!r);
+        joins = mant.length ? evalRels(mant) : new Map<string, WallTiltJoin>();
         if (joins) {
-          crel.forEach((r, i) => { if (plano[i] !== r) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id); });
+          crel.forEach((r, i) => { if (plano[i] !== r) avisar(r); });
           break;
         }
       }
-      if (!joins) {
-        for (const r of crel) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id);
-        continue;
-      }
+      if (!joins) { crel.forEach(avisar); continue; }
     }
     for (const [id, j] of joins) out.joins.set(id, j);
   }
