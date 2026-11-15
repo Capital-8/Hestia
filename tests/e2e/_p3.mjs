@@ -1,0 +1,23 @@
+import { chromium } from 'playwright-core';
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await b.newPage({ viewport: { width: 1440, height: 860 } });
+await page.goto('http://127.0.0.1:4174/?debug=1&gl=1');
+await page.waitForFunction(() => window.__hestia, null, { timeout: 60000 });
+await page.waitForTimeout(1500);
+await page.getByRole('button', { name: /Novo projeto/ }).first().click();
+await page.waitForFunction(()=>window.__hestia.useUi.getState().tela==='editor');
+console.log(await page.evaluate(async () => {
+  const { editor, model, resolveLevel } = window.__hestia;
+  const id = model.newId('wall');
+  editor.applyCommand({type:'addWall', wall: model.makeWall({id, typeId:'wt_conc15', levelId:'lv_0', a:{x:0,y:0}, b:{x:4,y:0}, tilt:20})});
+  const oid = model.newId('op'), oid2 = model.newId('op');
+  editor.applyCommand({type:'addOpening', opening:{id:oid, kind:'window', typeId:'ot_j120', hostId:id, offset:1, flipHand:false, flipFacing:false, sillOverride:null, mark:''}});
+  editor.applyCommand({type:'addOpening', opening:{id:oid2, kind:'door', typeId:'ot_p80', hostId:id, offset:3, flipHand:false, flipFacing:false, sillOverride:null, mark:''}});
+  const rl = resolveLevel(editor.project, 'lv_0');
+  const ws = rl.walls instanceof Map ? [...rl.walls.values()] : Object.values(rl.walls); const w = ws.find(w=>w.id===id) ?? ws[0];
+  const vid = model.newId('v');
+  editor.applyCommand({type:'addView', view:{id:vid,name:'C',kind:'section',a:{x:2,y:-3},b:{x:2,y:3},depth:3}});
+  const sr = await editor.sectionReady(vid);
+  return JSON.stringify({ wk: Object.keys(w), tiltCuts: w.tiltCuts, tiltPlan: w.tiltPlan, lay: w.layers?.[0] && Object.keys(w.layers[0]), cut: w.layers?.[0]?.cut, sk: Object.keys(sr), cutr: sr.cut?.slice(0,2), op: sr.openings }).slice(0,3500);
+}));
+await b.close();
