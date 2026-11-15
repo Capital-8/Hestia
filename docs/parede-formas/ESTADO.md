@@ -149,3 +149,13 @@ Mescladas: F2.1 a F2.8, F2.10, F2.11. Portões na árvore combinada: typecheck o
 - Teste permanente: `engine/wallTiltDesempenho.test.ts` (imprime tempos, limite 500 ms, identidade da junção entre snapshots e invalidação ao mudar o tilt).
 - Provável fonte da lentidão no app: a guarda E5 manda o projeto inteiro ao TS quando há uma parede inclinada (perde o Rust em resolver/junção/pisos). Não mexi; porte do tilt ao Rust (D2) resolve.
 - Pendências: `applyTiltToLevelPlan` recomputa uniões por parede a cada snapshot; `tiltBandBeyond` faz 2 interseções por polígono.
+## Etapa D
+- Causa do 5b: `buildLevelSolidsComCaixas` (paredesInstanciadas3d.ts, caminho padrão do app) transformava toda camada de faixas retangulares em caixas verticais instanciadas, ignorando `rw.tilt`/`tiltCuts`; o sólido inclinado e o corte inclinado da F2.8 só existiam no caminho de geometria. Correção: parede com `tilt`, `tiltCuts` ou faixa de junção inclinada nunca vira caixa (teste de projeto em render/model3d/wallTiltProject.test.ts).
+- Campo "Plano da abertura" (Padrão do tipo | Vertical | Inclinado) em Properties.tsx (OpeningProps), visível quando algum hospedeiro é parede inclinada; grava por `setOpeningPlane` (um desfazer); 4 chaves `prc_*` nos 7 idiomas (props-core.ts).
+- Padrão no TIPO de abertura: não feito (exigiria esquema); fica só na instância, SCHEMA_VERSION intacto.
+- Inclinação ao criar: já existia no painel de Propriedades (PlacementProperties, `place-wall-tilt`, ao lado de Forma); agora também na barra de opções (`WallTiltField` em OptionsBar.tsx, `opt-wall-tilt`).
+- Prévia da wallTool: linha tracejada projetada do topo (H·tanθ à esquerda de a→b) e ligações base-topo, em reta, corda do arco e retângulo; sem prévia quando o topo vem de pavimento ou nas formas por ponto (círculo, elipse, spline, polígono).
+- Esquadrias (batente/folha) na parede inclinada continuam instanciadas na vertical: pendência (fora do escopo do corte do sólido).
+- Corte/elevação: o vão usa o mesmo retângulo de planta do `openingRect`; não há teste novo de seção inclinada.
+- Testes novos: wallTiltProject.test.ts (render), wallTilt.test.ts (+prévia), WallTiltField.test.ts (web). Nenhum teste existente alterado.
+- Verificação no navegador (build própria, DOM, sem imagem): ao ativar Parede ficam visíveis `#place-wall-shape`, `#place-wall-tilt` (Propriedades) e `#opt-wall-tilt` (barra, 'Inclinação' em °). Teste de regressão: parede isolada com tilt 20 tem topo deslocado no sólido de `buildLevelSolidsComCaixas`. (A porta 4175 era de outra etapa; a minha usou 4176.)

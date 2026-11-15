@@ -28,6 +28,7 @@ import {
   type Id,
   type LocationLine,
   type Opening,
+  type OpeningPlane,
   type ViewRange,
   type Wall,
   wallArc,
@@ -279,6 +280,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
   const hand = common(items, (o) => o.flipHand);
   const facing = common(items, (o) => o.flipFacing);
   const mark = common(items, (o) => o.mark);
+  const plane = common(items, (o) => o.plano);
   return (
     <>
       <TypeSelector
@@ -310,6 +312,15 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { heightOverride: null })}>{t('prc_btn_use_type_height')}</button></div>
             )}
           </>
+        )}
+        {items.some((o) => { const h = p.elements[o.hostId]; return !!h && isWall(h) && !!h.tilt; }) && (
+          <Row label={t('prc_fld_opening_plane')} htmlFor="p-plane">
+            <select id="p-plane" className="select" value={plane.mixed ? '' : plane.value ?? ''} onChange={(e) => editor.store.exec({ type: 'setOpeningPlane', ids, plano: e.target.value === '' ? null : (e.target.value as OpeningPlane) })}>
+              <option value="">{t('prc_opt_plane_default')}</option>
+              <option value="vertical">{t('prc_opt_plane_vertical')}</option>
+              <option value="inclinado">{t('prc_opt_plane_inclined')}</option>
+            </select>
+          </Row>
         )}
         <Row label={t('prc_fld_flip_hand')} htmlFor="p-hand"><Check id="p-hand" checked={hand.value} mixed={hand.mixed} onChange={(v) => patch(ids, { flipHand: v })} /></Row>
         <Row label={t('prc_fld_flip_facing')} htmlFor="p-facing"><Check id="p-facing" checked={facing.value} mixed={facing.mixed} onChange={(v) => patch(ids, { flipFacing: v })} /></Row>

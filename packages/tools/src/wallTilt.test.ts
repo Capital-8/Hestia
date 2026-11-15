@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clickAt, makeEnv, tool, walls } from './testEnv.ts';
+import { clickAt, makeEnv, P, tool, walls } from './testEnv.ts';
 import type { ToolOptions } from './types.ts';
 
 /** Ferramenta Parede com a forma e a inclinação da opção (a inclinação é a opção `wallTilt` da barra/Propriedades). */
@@ -79,5 +79,18 @@ describe('wallTool: inclinação da opção ao desenhar (F2.10)', () => {
     clickAt(aceito.t, 4, 0);
     clickAt(aceito.t, 2, 1);
     expect(walls(aceito.store).map((w) => w.tilt)).toEqual([60]);
+  });
+
+  it('a prévia mostra a linha projetada do topo (deslocada H·tanθ à esquerda); sem inclinação não há', () => {
+    const c = setup('line', { wallTilt: 20, wallHeight: 3 });
+    clickAt(c.t, 0, 0);
+    c.t.move(P(4, 0));
+    const topo = c.t.preview().filter((i) => i.kind === 'line' && i.dashed) as Array<{ a: { x: number; y: number }; b: { x: number; y: number } }>;
+    const d = 3 * Math.tan((20 * Math.PI) / 180);
+    expect(topo.some((l) => Math.abs(l.a.y - d) < 1e-9 && Math.abs(l.b.y - d) < 1e-9 && Math.abs(l.b.x - 4) < 1e-9)).toBe(true);
+    const v = setup('line');
+    clickAt(v.t, 0, 0);
+    v.t.move(P(4, 0));
+    expect(v.t.preview().some((i) => i.kind === 'line' && i.dashed)).toBe(false);
   });
 });
