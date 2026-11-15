@@ -37,6 +37,7 @@ import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, graphicsOf, levelGrap
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
+import { terrenoCorteDxfOf, terrenoPlantaDxfOf } from './dxfTerreno.ts';
 import { rampDxf, stairDxf } from './dxfEscadas.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
 export { arrowOfPath, rampDxf, stairArrow, stairDxf } from './dxfEscadas.ts';
@@ -165,8 +166,10 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   // Ambientes (decisão 0018, 0037): contorno em AMBIENTES e rótulo completo (nome, número, área) em AMBIENTES_TEXTO; sem circuito, nada sai.
   const rooms = shown('room') ? resolveRooms(p, levelId).filter((r) => r.polygon && !hidden.has(r.roomId)) : [];
   const curtains = curtainDxfOf(p, levelId, view.cutZ, hidden, shown('wall'));
+  const terreno = terrenoPlantaDxfOf(p, levelId, { site: shown('site'), lot: shown('lot') }, hidden);
   const geo: DxfLevelGeometry = {
     ...(curtains === undefined ? {} : { curtains }),
+    ...(terreno.length === 0 ? {} : { terreno }),
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
       const at = roomLabelAt(r);
@@ -348,7 +351,8 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
   const allShown = GRAPHICS_CATEGORIES.every(shown);
   // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.
   const notes = shown('annotation') ? sectionNotesDxfOf(p, sectionId, vg.scale) : undefined;
-  const geo: DxfSectionGeometry = { cut, beyond, openings, ...(allShown ? { silhouette: section.silhouette } : {}), ...(notes === undefined ? {} : { notes }) };
+  const terrain = terrenoCorteDxfOf(p, section, shown('site'));
+  const geo: DxfSectionGeometry = { cut, beyond, openings, ...(allShown ? { silhouette: section.silhouette } : {}), ...(notes === undefined ? {} : { notes }), ...(terrain === undefined ? {} : { terrain }) };
   const lineWeights = sectionLineWeightsOf(p, geo);
   const layerStyles = Object.fromEntries(
     dxfSectionLayersOf(geo).map((layer): [string, DxfLayerStyle] => [layer, p.dxfLayers?.[layer] ?? dxfSectionLayerStyleOf(layer, lineWeights[layer] ?? DXF_LINE_WEIGHT_DEFAULT)]),
