@@ -216,3 +216,11 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Interface reaproveitada: o painel de avisos não tem infraestrutura de ação, então "Acompanhar inclinação" e "Cunha" estão no painel 'modificar-parede' da aba das paredes; o campo "Transição de inclinação" fica nas linhas de junção da paleta de propriedades (parede inclinada).
 - Gancho para a ação C (transição por extremidade, superfície regrada): ainda não existe; `transicao` é string-union extensível (ex.: 'regrada').
 - Testes: wallTiltTransicao.test.ts (motor), cunhaTransicao.test.ts (render: 8 triângulos, volume assinado), wallTiltCadeia.test.ts (web).
+
+## T-A / T-B (face superior da parede, pf/ft)
+- T-A: `engine/src/wallTopFaces.ts` (`wallTopFaces`, `wallTopFacesCached`, exportados no index). Por parede: arestas superiores `exterior`, `interior`, `coreExterior`, `coreInterior`, `axis`, `corners` e `outline`, em {x,y,z} com z ABSOLUTO.
+- Cota: `wallZRange` (nível+offset/height, topo anexado a piso/laje/telhado) e, para `topProfile`, o próprio perfil: um ponto por quebra (degrau = dois pontos no mesmo x,y). Arco: 8 a 64 amostras (~0,2 m).
+- Planta: `tiltPlanMap` na altura h de cada ponto (d = h·tanθ pela normal esquerda, espessura horizontal t/cosθ). Nas pontas com junção inclinada, o canto que casa com o anel `raw` de `analyzeLevelTilt` usa p0 + (pH − p0)·h/H; senão o mapa puro. Sem inclinação o topo coincide com a base em planta.
+- Decisão: a face externa/interna desloca H·tanθ ± (t/2)(1/cosθ − 1); o eixo desloca exatamente H·tanθ (0,8038 m para H=3, 15°). Literais: L=4, t=0,2, H=3, 15°: ext y=0,9073752, int 0,7003200; −15°: −0,7003200 / −0,9073752; canto L 15°/15° (−0,7003; −0,7003).
+- T-B: só tipos e rótulos, sem comportamento: `SnapKind 'topFace'` (peso 0,1 em `WEIGHT`), `AlignKind 'faceSuperior' | 'nucleoSuperior'`, `SketchPick.kind 'topFace'` (ordem 3), chaves `tl_snap_top_face/_edge_ext/_edge_int/_edge_core/_corner` nos 7 idiomas (`tools/i18n.ts`). `SketchWhich` e `which` por camada ficam para T-C a T-E.
+- Testes novos: `wallTopFaces.test.ts`, `tools/topFaceI18n.test.ts`. Nenhum teste existente alterado.

@@ -14,7 +14,7 @@ export type SketchWhich = 'ext' | 'int' | 'axis' | { ring: number; edge?: number
 
 /** Referência sob o cursor, já pronta para virar linha no rascunho. */
 export interface SketchPick {
-  kind: 'face' | 'axis' | 'edge';
+  kind: 'face' | 'axis' | 'edge' | 'topFace';
   hostId: Id;
   seg: SketchSeg;
   label: string;
@@ -24,7 +24,7 @@ export interface SketchPick {
 type Scored = SketchPick & { d: number };
 
 /** Desempate de mesma distância: face antes de eixo, eixo antes de borda. */
-const KIND_ORDER: Record<SketchPick['kind'], number> = { face: 0, axis: 1, edge: 2 };
+const KIND_ORDER: Record<SketchPick['kind'], number> = { face: 0, axis: 1, edge: 2, topFace: 3 };
 
 const wallName = (w: Wall): string => (w.mark ? `parede ${w.mark}` : 'parede');
 

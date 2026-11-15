@@ -10,7 +10,7 @@ import type { RampToolOptions } from './rampOptions.ts';
 import type { Lang } from './i18n.ts';
 import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
-export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'none';
+export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'none';
 
 export interface Guide {
   from: Vec2;
