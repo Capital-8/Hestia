@@ -35,6 +35,8 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  // Topografia: as curvas de nível são polilinhas desenhadas pelo núcleo comum (os pontos soltos são cliques únicos).
+  terrain: 'terrainTool.ts',
 };
 
 /**

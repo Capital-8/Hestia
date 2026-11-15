@@ -1,4 +1,4 @@
-import { applyCommand, makeCopyLink, newId, type Command, type Element, type Floor, type Id, type Opening, type Project, type Room, type Roof, type Slab, type Wall } from '@hestia/model';
+import { applyCommand, copiarTerreno, makeCopyLink, newId, type Command, type Element, type Floor, type Id, type Opening, type Project, type Room, type Roof, type Slab, type Wall } from '@hestia/model';
 import { roomRegionAt } from '@hestia/engine';
 import { rampTypeId } from '../rampCommands.ts';
 import { stairTypeId } from '../stairCommands.ts';
@@ -10,8 +10,17 @@ import type { PasteIds, PasteLevelsOptions, PasteLevelsResult, PasteWarning, Pas
 /** Ordem canônica das categorias no resultado e no vínculo (docs/colar-niveis/CONTRATO.md). */
 const CATEGORY_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad'];
 
-function emptyIds(): PasteIds {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [] };
+/**
+ * Ids colados, com o terreno e as regiões dele. Terreno e região ficam FORA da ordem canônica e do vínculo de andar-tipo: o
+ * terreno tem cotas absolutas e é um só para todos os níveis, então só o colar de UM nível o leva (`comTerreno`).
+ */
+export interface PasteIdsTerreno extends PasteIds {
+  terrains: Id[];
+  terrainRegions: Id[];
+}
+
+function emptyIds(): PasteIdsTerreno {
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], railings: [], terrains: [], terrainRegions: [] };
 }
 
 function emptySources(): Record<keyof PasteIds, Id[]> {
@@ -24,8 +33,9 @@ function idsInOrder(ids: PasteIds): Id[] {
 }
 
 /** Há algo colável? Aberturas sozinhas não entram: sem a parede anfitriã não há como colá-las. */
-function hasContent(c: ClipBuffer): boolean {
+function hasContent(c: ClipBuffer, comTerreno: boolean): boolean {
   return (
+    (comTerreno && (c.terrains?.length ?? 0) > 0) ||
     c.walls.length > 0 ||
     c.floors.length > 0 ||
     c.slabs.length > 0 ||
@@ -54,6 +64,7 @@ function sourceLevelOf(p: Project, c: ClipBuffer): Id {
     ...(c.generics ?? []).map((e) => e.levelId),
     ...(c.cad ?? []).map((e) => e.levelId),
     ...(c.railings ?? []).map((e) => e.levelId),
+    ...(c.terrains ?? []).map((e) => e.levelId),
   ];
   return candidates.find((id) => p.levels.some((l) => l.id === id)) ?? p.levels[0]?.id ?? '';
 }
@@ -119,7 +130,7 @@ function countOpenRooms(p: Project, levelId: Id, walls: readonly Omit<Wall, 'ord
 
 interface BuiltLevel {
   commands: Command[];
-  ids: PasteIds;
+  ids: PasteIdsTerreno;
   /** Ids de origem que foram realmente colados, por categoria (para montar o vínculo). */
   sources: Record<keyof PasteIds, Id[]>;
 }
@@ -128,7 +139,7 @@ interface BuiltLevel {
  * Gera um nível de destino. Paredes/aberturas/pisos/lajes/telhados/escadas/rampas/ambientes são copiados aqui;
  * forros, genéricos e CAD vêm de `cloneCategories` (W2), que recebe o mapa de paredes e o mapa geral de ids.
  */
-function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, mint: MintId, warnings: PasteWarning[], calcularAvisos: boolean): BuiltLevel {
+function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, mint: MintId, warnings: PasteWarning[], calcularAvisos: boolean, comTerreno: boolean): BuiltLevel {
   const ids = emptyIds();
   const sources = emptySources();
   const commands: Command[] = [];
@@ -281,6 +292,26 @@ function buildLevel(p: Project, clip: ClipBuffer, levelId: Id, srcLevelId: Id, m
     commands.push({ type: 'addGuardaCorpo', guardaCorpo: { ...rest, id, levelId, typeId, hospedeiro } });
   }
 
+  // Terreno e regiões (só no colar de um nível): cada região vai para o terreno NOVO; região sem o terreno no buffer não entra.
+  if (comTerreno) {
+    const terrenoMap = new Map<Id, Id>();
+    for (const tn of clip.terrains ?? []) {
+      const { order: _order, ...rest } = tn;
+      const id = mint('tn');
+      terrenoMap.set(tn.id, id);
+      ids.terrains.push(id);
+      commands.push({ type: 'addTerrain', terrain: { ...copiarTerreno(rest), id, levelId } });
+    }
+    for (const r of clip.terrainRegions ?? []) {
+      const novoTerreno = terrenoMap.get(r.terrenoId);
+      if (!novoTerreno) continue;
+      const { order: _order, ...rest } = r;
+      const id = mint('rg');
+      ids.terrainRegions.push(id);
+      commands.push({ type: 'addTerrainRegion', regiao: { ...rest, id, levelId, terrenoId: novoTerreno, contorno: rest.contorno.map((q) => ({ ...q })) } });
+    }
+  }
+
   // Aberturas sempre na parede copiada do MESMO nível de destino.
   for (const o of clip.openings) {
     const hostId = hostMap.get(o.hostId);
@@ -327,8 +358,10 @@ export function pasteAlignedToLevelsCommand(
   clip: ClipBuffer,
   levelIds: Id[],
   o: PasteLevelsOptions = {},
-): PasteLevelsResult | null {
-  if (!hasContent(clip)) return null;
+): (PasteLevelsResult & { byLevel: Record<Id, PasteIdsTerreno> }) | null {
+  // Terreno: cotas absolutas, um só para todos os níveis. Só o colar de um nível o leva (colar entre pavimentos o deixa de fora).
+  const comTerreno = levelIds.length === 1;
+  if (!hasContent(clip, comTerreno)) return null;
   if (levelIds.length === 0) return null;
   if (new Set(levelIds).size !== levelIds.length) return null;
   if (!levelIds.every((id) => p.levels.some((l) => l.id === id))) return null;
@@ -337,11 +370,11 @@ export function pasteAlignedToLevelsCommand(
   const srcLevelId = sourceLevelOf(p, clip);
   const commands: Command[] = [];
   const warnings: PasteWarning[] = [];
-  const byLevel: Record<Id, PasteIds> = {};
+  const byLevel: Record<Id, PasteIdsTerreno> = {};
   const sourcesByLevel: Record<Id, Record<keyof PasteIds, Id[]>> = {};
 
   for (const levelId of levelIds) {
-    const built = buildLevel(p, clip, levelId, srcLevelId, mint, warnings, o.semAvisos !== true);
+    const built = buildLevel(p, clip, levelId, srcLevelId, mint, warnings, o.semAvisos !== true, comTerreno);
     commands.push(...built.commands);
     byLevel[levelId] = built.ids;
     sourcesByLevel[levelId] = built.sources;
