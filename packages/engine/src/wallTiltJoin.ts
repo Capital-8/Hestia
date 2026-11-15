@@ -12,6 +12,7 @@ import { buttAgainst, both, flatEnd, setEnd, sOfDepth, miterPoint } from './join
 import { joinPair, toCenterline } from './joinPair.ts';
 import { endPoint as layerEndPoint, layerQuad } from './layerGeom.ts';
 import type { EndRef, SideSpec, WallEnds } from './joinTypes.ts';
+import { noFailed, noLevel, noTopology, type NoLine } from './wallTiltNo.ts';
 
 export interface TiltWall {
   frame: WallFrame;
@@ -46,7 +47,7 @@ export interface TiltJoinResult {
 }
 /** Falha de um nível: o modelo de dois níveis não se aplica a esta combinação (limite geométrico, não erro de cálculo). */
 export interface TiltJoinFail {
-  fail: 'cone-invertido' | 'sem-cruzamento' | 'no-fora-da-parede' | 'corte-nulo';
+  fail: 'cone-invertido' | 'sem-cruzamento' | 'no-fora-da-parede' | 'corte-nulo' | 'no-inviavel';
   z?: number;
 }
 export const isFail = (r: TiltJoinResult | TiltJoinFail): r is TiltJoinFail => 'fail' in r;
@@ -190,7 +191,9 @@ const failed = (r: object): r is LevelFail => 'fail' in r;
 /** Ligação decidida na base: canto entre duas pontas (`pair`) ou encosto de uma ponta no corpo de outra parede (`tee`). */
 export type Relation =
   | { kind: 'pair'; a: { id: string; end: 'a' | 'b' }; b: { id: string; end: 'a' | 'b' } }
-  | { kind: 'tee'; branch: { id: string; end: 'a' | 'b' }; host: string };
+  | { kind: 'tee'; branch: { id: string; end: 'a' | 'b' }; host: string }
+  /** Nó de 3 ou mais paredes retas no mesmo ponto (N1): cada par de faces vizinhas se cruza no nível (`wallTiltNo.ts`). */
+  | { kind: 'node'; ends: Array<{ id: string; end: 'a' | 'b' }> };
 
 /** Quadros e cortes de extremidade de um conjunto de paredes numa cota z, com a topologia dada (nunca procurada de novo). */
 export interface LevelSet {
@@ -216,7 +219,7 @@ function crossAxes(g: Curve, h: Curve, near: Vec2): Vec2 | null {
  * Reaplica a topologia da base aos eixos deslocados por d(z): cada canto vira o cruzamento dos eixos do nível e cada
  * encosto é cortado pelo plano da hospedeira no nível. `fail` quando o modelo de dois níveis não se aplica.
  */
-export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], z: number, base?: LevelSet): LevelSet | TiltJoinFail {
+export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], z: number, base?: LevelSet, rawEnds?: ReadonlyMap<string, WallEnds>): LevelSet | TiltJoinFail {
   const frames = new Map<string, WallFrame>();
   for (const [id, tw] of walls) {
     const g = levelFrame(tw, z);
@@ -256,6 +259,34 @@ export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Re
     const spec = buttAgainst(ref, host) ?? toCenterline(ref, host);
     if (!spec) return { fail: 'corte-nulo', z };
     setEnd(ends, ref, both(spec));
+  }
+  for (const r of rels) {
+    if (r.kind !== 'node') continue;
+    // Nó de N paredes (N1). Com `rawEnds` (nível vertical da base) a ponta é a do resolvedor; sem ele, o cruzamento das faces vizinhas.
+    if (rawEnds) {
+      for (const e of r.ends) {
+        const w = rawEnds.get(e.id);
+        if (w) ends.get(e.id)![e.end] = w[e.end];
+      }
+      continue;
+    }
+    const lines: NoLine[] = [];
+    for (const e of r.ends) {
+      const g = frames.get(e.id)!;
+      if (g.arc) return { fail: 'no-inviavel', z };
+      const a = e.end === 'a';
+      const u = a ? g.u : { x: -g.u.x, y: -g.u.y };
+      lines.push({ id: e.id, o: a ? g.a : g.b, u, lo: a ? g.sLo : -g.sHi, hi: a ? g.sHi : -g.sLo, len: g.length });
+    }
+    const topo = noTopology(lines);
+    if (noFailed(topo)) return { fail: 'no-inviavel', z };
+    const lv = noLevel(lines, topo, z);
+    if (noFailed(lv)) return { fail: 'no-inviavel', z };
+    for (const e of r.ends) {
+      const c = lv.corners.get(e.id)!;
+      ends.get(e.id)![e.end] = both({ kind: 'plane', p: c.r, q: c.l, pts: [] });
+      nodes.set(`${e.id}|${e.end}`, { x: (c.r.x + c.l.x) / 2, y: (c.r.y + c.l.y) / 2 });
+    }
   }
   return { frames, ends, nodes };
 }

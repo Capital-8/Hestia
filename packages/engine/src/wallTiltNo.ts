@@ -16,9 +16,19 @@
  *    recebe como vértices extras (sem fresta, sem sobreposição).
  */
 import type { Vec2 } from '@hestia/geom';
-import { meshVolume, polyArea, type Mesh, type Vec3 } from './wallTiltJoin.ts';
+import type { Mesh, Vec3 } from './wallTiltJoin.ts';
 
-export { meshVolume, polyArea };
+/** Área com sinal (positiva = anti-horário) de um laço. */
+export const polyArea = (p: readonly Vec2[]): number => p.reduce((s, q, i) => s + (q.x * p[(i + 1) % p.length]!.y - p[(i + 1) % p.length]!.x * q.y), 0) / 2;
+/** Volume com sinal de uma malha fechada (tetraedros com a origem). */
+export function meshVolume(m: Mesh): number {
+  let s = 0;
+  for (const [i, j, k] of m.t) {
+    const a = m.v[i]!, b = m.v[j]!, c = m.v[k]!;
+    s += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+  }
+  return s;
+}
 
 export type NoFailKind = 'poucas-paredes' | 'sobrepostas' | 'ponta-longa' | 'parede-curta' | 'degenerado' | 'nucleo-invalido';
 export interface NoFail {
