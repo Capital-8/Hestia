@@ -24,10 +24,10 @@ describe('Etapa W · vão inclinado no corte', () => {
     expect(r.openings[0]!.z1).toBeCloseTo(1.9659, 4);
     expect(r.openings[0]!.z0).toBeCloseTo(1.0, 6);
   });
-  it('porta vertical em parede a 15°: topo a prumo e profundidade 0,7697', () => {
+  it('porta com plano vertical explícito em parede a 15°: topo a prumo e profundidade 0,7697', () => {
     const g = openingTiltGeom({ plane: 'vertical', theta: (15 * Math.PI) / 180, t: 0.2, w: 0.9, h: 2.1, s: 0 });
     expect(g.horizontalDepth).toBeCloseTo(0.7697, 4);
-    const r = computeSection(build(15, 'door'), longi);
+    const r = computeSection(build(15, 'door', 'vertical'), longi);
     expect(r.openings[0]!.z1).toBeCloseTo(2.1, 6);
   });
   it('parede vertical: janela igual ao de sempre (z1 = peitoril + h)', () => {
