@@ -47,7 +47,11 @@ export const TABS_SOON: RibbonTab[] = [
     panel('mas-terreno', t('Terreno', 'Site Modeling'),
       split(tool('terrain', 'large', { label: t('Topografia', 'Toposurface'), icon: 'slope' }), [act('terrenoPontos', 'small'), act('terrenoCurvas', 'small'), act('importTerreno', 'small')], t('Topografia', 'Toposurface')),
       act('editTerreno'),
-      soon(t('Subdivisão', 'Subregion')), soon(t('Plataforma', 'Building Pad')), soon(t('Região nivelada', 'Graded Region')), soon(t('Componente de terreno', 'Site Component'))),
+      // Região de terreno (ficha T3): UM ToolId (`terrainRegion`) com três predefinições; a "Região de terreno" do menu abre a ferramenta e o papel se escolhe na barra de opções.
+      split(act('regiaoSubdivisao'), [tool('terrainRegion', 'small', { label: t('Região de terreno', 'Terrain Region'), icon: 'filledRegion' })], t('Subdivisão', 'Subregion')),
+      split(act('regiaoPlataforma'), [act('regiaoPlataformaElemento')], t('Plataforma', 'Building Pad')),
+      act('regiaoNivelada'),
+      soon(t('Componente de terreno', 'Site Component'))),
     panel('mas-lote', t('Lote', 'Lot'), soon(t('Linhas de propriedade', 'Property Line')), soon(t('Índices do lote', 'Lot Indices')), soon(t('Envelope legal', 'Legal Envelope'))),
     panel('mas-analise', t('Análise do terreno', 'Site Analysis'),
       soon(t('Corte e aterro', 'Cut and Fill')),

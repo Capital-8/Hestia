@@ -333,7 +333,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'array' && <ArrayOptionsBar />}
       {tool === 'grid' && <GridOptionsBar />}
-      {(tool === 'terrain' || tool === 'terrainEdit') && <TerrainOptionsBar tool={tool} />}
+      {(tool === 'terrain' || tool === 'terrainEdit' || tool === 'terrainRegion') && <TerrainOptionsBar tool={tool} />}
       {tool === 'align' && (
         <label>
           {t('pro_align_prefer')}

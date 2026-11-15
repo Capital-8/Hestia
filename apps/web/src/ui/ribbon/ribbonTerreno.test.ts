@@ -27,14 +27,14 @@ function setup(): void {
 describe('faixa: botões da fase 3 do terreno', () => {
   beforeEach(setup);
 
-  it('painel Terreno: Topografia (com menu), Editar terreno e o resto continua soon', () => {
+  it('painel Terreno: Topografia (com menu), Editar terreno e só o Componente de terreno continua soon (Subdivisão, Plataforma e Região nivelada: ficha T3)', () => {
     const pn = painel('massa', 'mas-terreno');
     const topografia = pn.items.find((it) => it.kind === 'split')!;
     expect(topografia.kind === 'split' && topografia.main).toMatchObject({ kind: 'tool', tool: 'terrain' });
     const menu = topografia.kind === 'split' ? topografia.menu : [];
     expect(menu.map((m) => (m.kind === 'action' ? m.action : m.kind))).toEqual(['terrenoPontos', 'terrenoCurvas', 'importTerreno']);
     expect(folhas(pn.items).some((it) => it.kind === 'action' && it.action === 'editTerreno')).toBe(true);
-    expect(nomes(pn.items)).toEqual(['Subdivisão', 'Plataforma', 'Região nivelada', 'Componente de terreno']);
+    expect(nomes(pn.items)).toEqual(['Componente de terreno']);
   });
 
   it('painel Lote: tudo soon por enquanto (fase 5)', () => {

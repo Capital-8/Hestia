@@ -25,7 +25,8 @@ export type ActionId =
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
   | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
   | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'railingForHost'
-  | 'terrenoPontos' | 'terrenoCurvas' | 'importTerreno' | 'editTerreno' | 'localizacao';
+  | 'terrenoPontos' | 'terrenoCurvas' | 'importTerreno' | 'editTerreno' | 'localizacao'
+  | 'regiaoSubdivisao' | 'regiaoPlataforma' | 'regiaoPlataformaElemento' | 'regiaoNivelada';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */
