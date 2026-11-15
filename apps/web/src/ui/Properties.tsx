@@ -324,7 +324,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
         )}
         {items.some((o) => { const h = p.elements[o.hostId]; return !!h && isWall(h) && !!h.tilt; }) && (
           <Row label={t('prc_fld_opening_plane')} htmlFor="p-plane">
-            <select id="p-plane" className="select" value={plane.mixed ? '' : plane.value ?? ''} onChange={(e) => editor.store.exec({ type: 'setOpeningPlane', ids, plano: e.target.value === '' ? null : (e.target.value as OpeningPlane) })}>
+            <select id="p-plane" className="select" title={t('prc_tip_opening_plane')} value={plane.mixed ? '' : plane.value ?? ''} onChange={(e) => editor.store.exec({ type: 'setOpeningPlane', ids, plano: e.target.value === '' ? null : (e.target.value as OpeningPlane) })}>
               <option value="">{t('prc_opt_plane_default')}</option>
               <option value="vertical">{t('prc_opt_plane_vertical')}</option>
               <option value="inclinado">{t('prc_opt_plane_inclined')}</option>
