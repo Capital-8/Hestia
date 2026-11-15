@@ -23,6 +23,7 @@ import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclu
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
+import { openingTiltGeom } from './openingTilt.ts';
 import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
@@ -363,6 +364,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       const z0 = rw.baseZ + g.sill;
       const model = buildOpeningModel(p, o, g, f);
       const ot = openingType(p, o);
+      // Parede inclinada (F2.8): 'inclinado' ocupa h·cosθ na vertical e o plano do caixilho desloca (s + h·cosθ/2)·tanθ ao
+      // longo de n; 'vertical' fica a prumo (topo em s + h), ancorado na face. Parede vertical: nada muda.
+      const tg = rw.tilt ? openingTiltGeom({ plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, t: g.thickness, w: g.width, h: g.height, s: g.sill }) : undefined;
+      const zTop = tg ? rw.baseZ + tg.topZ : z0 + g.height;
+      const shiftDepth = tg && g.tiltPlane ? tg.frameShift * (g.n.x * n.x + g.n.y * n.y) : 0;
       const du = d.x * g.u.x + d.y * g.u.y;
       const dn = d.x * g.n.x + d.y * g.n.y;
       openings.push({
@@ -371,10 +377,10 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         t0,
         t1,
         z0,
-        z1: z0 + g.height,
-        depth: Math.max(0, Math.min(...foot.map(dist))),
+        z1: zTop,
+        depth: Math.max(0, Math.min(...foot.map(dist)) + shiftDepth),
         cut: crossing,
-        polygons: [[rect(t0, t1, z0, z0 + g.height)]],
+        polygons: [[rect(t0, t1, z0, zTop)]],
         model,
         openingLine: openingLineConvention(p),
         // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
