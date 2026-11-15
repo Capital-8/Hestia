@@ -4,11 +4,13 @@
  * quadros deslocados por d(z) = z·tan(tilt). A topologia sai SÓ da base (joinStatus nos eixos); nos demais níveis ela
  * é reaplicada aos eixos deslocados, sem procurar parceiros de novo.
  */
-import { arcPointAt, arcTangentAt, perp, type Vec2 } from '@hestia/geom';
-import { faceCurve, intersectCurves, planeHit, pointAt, tangentAt, toLocal, type WallFrame } from './frame.ts';
+import { arcPointAt, arcTangentAt, perp, type Ring, type Vec2 } from '@hestia/geom';
+import { layerSpans } from '@hestia/model';
+import { faceCurve, intersectCurves, planeHit, pointAt, sAtDepth, tangentAt, toLocal, type Curve, type WallFrame } from './frame.ts';
 import { joinStatus } from './joins.ts';
 import { buttAgainst, both, flatEnd, setEnd, sOfDepth, miterPoint } from './joinSides.ts';
 import { joinPair, toCenterline } from './joinPair.ts';
+import { endPoint as layerEndPoint, layerQuad } from './layerGeom.ts';
 import type { EndRef, SideSpec, WallEnds } from './joinTypes.ts';
 
 export interface TiltWall {
@@ -199,10 +201,22 @@ export interface LevelSet {
 }
 
 /**
+ * Cruzamento de dois eixos de nível. Dois círculos de mesmo centro e mesmo raio (arcos tangentes de mesma inclinação)
+ * coincidem: o nó é a projeção radial de `near` sobre o círculo. Círculos concêntricos de raios diferentes não se cruzam.
+ */
+function crossAxes(g: Curve, h: Curve, near: Vec2): Vec2 | null {
+  if (g.kind === 'circle' && h.kind === 'circle' && Math.hypot(g.c.x - h.c.x, g.c.y - h.c.y) < 1e-4 && Math.abs(g.r - h.r) < 1e-4) {
+    const dx = near.x - g.c.x, dy = near.y - g.c.y, d = Math.hypot(dx, dy);
+    return d < 1e-12 ? null : { x: g.c.x + (dx / d) * g.r, y: g.c.y + (dy / d) * g.r };
+  }
+  return intersectCurves(g, h, near);
+}
+
+/**
  * Reaplica a topologia da base aos eixos deslocados por d(z): cada canto vira o cruzamento dos eixos do nível e cada
  * encosto é cortado pelo plano da hospedeira no nível. `fail` quando o modelo de dois níveis não se aplica.
  */
-export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], z: number): LevelSet | TiltJoinFail {
+export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], z: number, base?: LevelSet): LevelSet | TiltJoinFail {
   const frames = new Map<string, WallFrame>();
   for (const [id, tw] of walls) {
     const g = levelFrame(tw, z);
@@ -215,7 +229,8 @@ export function levelSet(walls: ReadonlyMap<string, TiltWall>, rels: readonly Re
     if (r.kind !== 'pair') continue;
     const fa = frames.get(r.a.id)!, fb = frames.get(r.b.id)!;
     // O nó do nível é o cruzamento dos eixos deslocados; a ponta do par passa a ser esse ponto.
-    const x = intersectCurves(faceCurve(fa, 0), faceCurve(fb, 0), endPoint(fa, r.a.end));
+    // Com arco o cruzamento tem duas raízes (círculo×círculo, círculo×reta): vale a mais perto do nó da base.
+    const x = crossAxes(faceCurve(fa, 0), faceCurve(fb, 0), base?.nodes.get(`${r.a.id}|${r.a.end}`) ?? endPoint(fa, r.a.end));
     if (!x) return { fail: 'sem-cruzamento', z };
     const ga = retarget(fa, r.a.end, x), gb = retarget(fb, r.b.end, x);
     if (!ga || !gb) return { fail: 'no-fora-da-parede', z }; // o cruzamento caiu fora de uma das paredes
@@ -337,4 +352,91 @@ export function wallTiltJoinPlanoB(A: TiltWall, B: TiltWall, H: number, intermed
   const comArco = !!(A.frame.arc || B.frame.arc) && (A.tiltDeg !== 0 || B.tiltDeg !== 0);
   if (!comArco) return { r: wallTiltJoin(A, B, H, intermediate), aviso: null };
   return { r: wallTiltJoin(A, B, H, intermediate, { pair: null, tee: [] }), aviso: 'arcoInclinadoSemJuncao' };
+}
+
+/** Anéis de planta de cada camada (com espessura) de uma parede do conjunto, na cota do `LevelSet`; camadas de espessura nula ficam de fora. */
+export function levelRings(ls: LevelSet, id: string): Map<number, Ring> {
+  const f = ls.frames.get(id)!;
+  const e = ls.ends.get(id)!;
+  const out = new Map<number, Ring>();
+  for (const sp of layerSpans(f.type)) {
+    if (sp.layer.thickness < 1e-6) continue;
+    out.set(sp.index, layerQuad(f, e, sAtDepth(f, sp.from), sAtDepth(f, sp.to)));
+  }
+  return out;
+}
+
+/** Pontos de canto de um conjunto (as pontas de cada fronteira de camada de cada parede, mais os nós): dão o desvio entre níveis. */
+function cornerPoints(ls: LevelSet): Vec2[] {
+  const pts: Vec2[] = [...ls.nodes.values()];
+  for (const [id, f] of ls.frames) {
+    const e = ls.ends.get(id)!;
+    for (const sp of layerSpans(f.type)) {
+      for (const d of [sp.from, sp.to]) for (const w of ['a', 'b'] as const) pts.push(layerEndPoint(f, w, e[w], sAtDepth(f, d)));
+    }
+  }
+  return pts;
+}
+
+/** Desvio padrão da corda (m) da curva do canto entre níveis: 0,5 mm. */
+export const TOL_CORDA = 5e-4;
+const MAX_NIVEIS = 65;
+
+/**
+ * Níveis adaptativos de 0 a H. A curva do canto de arcos inclinados não é reta em z: bisseção de cada intervalo até
+ * o ponto médio (cota H/2 do intervalo) ficar a menos de `tol` da corda entre as pontas (interpolação linear em z).
+ * Sempre inclui 0, H/2 e H. Reta×reta dá exatamente [0, H/2, H] (o canto é linear em z). `fail` se algum nível é inviável.
+ */
+export function levelSetAdaptive(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], H: number, tol = TOL_CORDA): { zs: number[]; sets: LevelSet[] } | TiltJoinFail {
+  const s0 = levelSet(walls, rels, 0);
+  if (failed(s0)) return s0;
+  const memo = new Map<number, LevelSet>([[0, s0]]);
+  const at = (z: number): LevelSet | TiltJoinFail => {
+    const m = memo.get(z);
+    if (m) return m;
+    const r = levelSet(walls, rels, z, s0);
+    if (!failed(r)) memo.set(z, r);
+    return r;
+  };
+  const sH = at(H);
+  if (failed(sH)) return sH;
+  const pts = new Map<number, Vec2[]>();
+  const ptsOf = (z: number): Vec2[] => pts.get(z) ?? (pts.set(z, cornerPoints(memo.get(z)!)), pts.get(z)!);
+  let n = 2;
+  const split = (z0: number, z1: number, force: boolean): number[] | TiltJoinFail => {
+    const zm = (z0 + z1) / 2;
+    const sm = at(zm);
+    if (failed(sm)) return sm;
+    const p0 = ptsOf(z0), p1 = ptsOf(z1), pm = ptsOf(zm);
+    let dev = 0;
+    if (p0.length !== p1.length || p0.length !== pm.length) dev = Infinity;
+    else for (let i = 0; i < pm.length; i++) dev = Math.max(dev, Math.hypot(pm[i]!.x - (p0[i]!.x + p1[i]!.x) / 2, pm[i]!.y - (p0[i]!.y + p1[i]!.y) / 2));
+    if (!force && (dev <= tol || n >= MAX_NIVEIS)) return [];
+    n++;
+    const a = split(z0, zm, false);
+    if (!Array.isArray(a)) return a;
+    const b = split(zm, z1, false);
+    if (!Array.isArray(b)) return b;
+    return [...a, zm, ...b];
+  };
+  const mids = split(0, H, true);
+  if (!Array.isArray(mids)) return mids;
+  const all = [0, ...mids, H];
+  return { zs: all, sets: all.map((z) => memo.get(z)!) };
+}
+
+/** Anéis de cada camada de cada parede em todos os níveis adaptativos: `rings[i]` pertence a `zs[i]`. */
+export interface LevelLayers {
+  zs: number[];
+  walls: Map<string, Array<{ layerIndex: number; rings: Ring[] }>>;
+}
+export function levelLayers(walls: ReadonlyMap<string, TiltWall>, rels: readonly Relation[], H: number, tol = TOL_CORDA): LevelLayers | TiltJoinFail {
+  const r = levelSetAdaptive(walls, rels, H, tol);
+  if (failed(r)) return r;
+  const out: LevelLayers['walls'] = new Map();
+  for (const id of walls.keys()) {
+    const per = r.sets.map((ls) => levelRings(ls, id));
+    out.set(id, [...per[0]!.keys()].map((layerIndex) => ({ layerIndex, rings: per.map((m) => m.get(layerIndex)!) })));
+  }
+  return { zs: r.zs, walls: out };
 }
