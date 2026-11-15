@@ -36,6 +36,7 @@ export { openingPlaneIssues } from './openingPlaneIssues.ts';
 export { analyzeLevelTilt, cadeiaContinua, projetoTemParedeInclinada, type Cunha, wallTiltJoinIssues, type LevelTiltAnalysis, type TiltAviso, type TiltAvisoCode, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
 export { tiltPlanMap, type PlanMap } from './wallTiltPlan.ts';
 export * from './faces.ts';
+export * from './wallTopFaces.ts';
 export * from './slabs.ts';
 export * from './slabQuantities.ts';
 export * from './slabSchedule.ts';
