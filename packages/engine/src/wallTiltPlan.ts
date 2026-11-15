@@ -1,7 +1,7 @@
 import { arcFromSagitta, closeGapsSafe, unionClipper, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import type { Region, ResolvedLevel, ResolvedWall } from './types.ts';
-import { analyzeLevelTilt, type WallTiltJoin } from './wallTiltJoinLevel.ts';
+import { analyzeLevelTilt, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
 import type { WallFrame } from './frame.ts';
 
 /**
@@ -40,21 +40,88 @@ export function tiltPlanMap(w: TiltAxis, tiltDeg: number): PlanMap {
 /** Casamento de vértice com o anel `raw` da junção (m), igual ao do sólido. */
 const MATCH = 5e-4;
 
-/** Com junção inclinada (F2.4): vértice que coincide com o anel vertical `raw` da camada vai para p0 + (pH − p0)·z/H. */
-export function joinedPlanMap(base: PlanMap, join: WallTiltJoin | undefined, layerIndex: number): PlanMap {
+/** Nível de junção de uma camada: cota (relativa à base) e anel (um ponto por vértice de `raw`). */
+export interface JoinPlanLevel { z: number; ring: Vec2[] }
+
+/**
+ * Níveis efetivos (J4) da camada: os níveis da junção (J2) sem os que são só interpolação linear dos vizinhos (1e-9 m).
+ * Reta×reta ([0, H/2, H], meio interpolado) cai em p0 e pH, isto é, no comportamento de sempre. `keepAll` mantém todos
+ * (o sólido 3D e o IFC de parede em arco partem as faces em todas as cotas). Sem `levels`: p0 e pH. Mesma regra de `tiltLevelsOf` (render).
+ */
+export function joinLevelsOf(join: WallTiltJoin, layer: WallTiltJoinLayer, keepAll = false): JoinPlanLevel[] {
+  const idx = join.layers.indexOf(layer);
+  const lv = join.levels;
+  const ends: JoinPlanLevel[] = [{ z: 0, ring: layer.p0 }, { z: join.H, ring: layer.pH }];
+  if (!lv || idx < 0 || lv.length < 3 || lv.some((x) => !x.rings[idx] || x.rings[idx]!.length !== layer.raw.length)) return ends;
+  const all: JoinPlanLevel[] = lv.map((x) => ({ z: x.z, ring: x.rings[idx]! }));
+  const out: JoinPlanLevel[] = [all[0]!];
+  for (let k = 1; k < all.length - 1; k++) {
+    const a = out[out.length - 1]!, c = all[k + 1]!, m = all[k]!;
+    const t = (m.z - a.z) / (c.z - a.z);
+    let lin = true;
+    for (let i = 0; i < m.ring.length && lin; i++) {
+      const pa = a.ring[i]!, pc = c.ring[i]!, pm = m.ring[i]!;
+      if (Math.abs(pa.x + (pc.x - pa.x) * t - pm.x) > 1e-9 || Math.abs(pa.y + (pc.y - pa.y) * t - pm.y) > 1e-9) lin = false;
+    }
+    if (!lin || keepAll) out.push(m);
+  }
+  out.push(all[all.length - 1]!);
+  return out.length > 2 ? out : ends;
+}
+
+/** Mapa de planta que também informa as cotas intermediárias dos níveis da junção (corte e elevação as usam como degraus). */
+export type JoinedPlanMap = PlanMap & { levelZs?: number[] };
+
+const levelPoint = (levels: JoinPlanLevel[], i: number, z: number): [number, number] => {
+  let k = 0;
+  while (k < levels.length - 2 && z > levels[k + 1]!.z) k++;
+  const l0 = levels[k]!, l1 = levels[k + 1]!;
+  const t = (z - l0.z) / (l1.z - l0.z);
+  const a = l0.ring[i]!, c = l1.ring[i]!;
+  return [a.x + (c.x - a.x) * t, a.y + (c.y - a.y) * t];
+};
+
+/**
+ * Com junção inclinada (F2.4/J4): vértice que coincide com o anel vertical `raw` da camada vai para o anel do nível da cota
+ * (interpolação entre os dois níveis vizinhos de `levels`; sem `levels`, ou reta×reta, p0 + (pH − p0)·z/H). Os demais seguem `base`.
+ */
+export function joinedPlanMap(base: PlanMap, join: WallTiltJoin | undefined, layerIndex: number): JoinedPlanMap {
   const layer = join?.layers.find((l) => l.layerIndex === layerIndex);
   if (!join || !layer) return base;
-  return (x, y, z) => {
+  const levels = joinLevelsOf(join, layer);
+  const f: JoinedPlanMap = (x, y, z) => {
     for (let i = 0; i < layer.raw.length; i++) {
       const r = layer.raw[i]!;
-      if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) {
-        const k = z / join.H;
-        const a = layer.p0[i]!, c = layer.pH[i]!;
-        return [a.x + (c.x - a.x) * k, a.y + (c.y - a.y) * k];
+      if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) return levelPoint(levels, i, z);
+    }
+    return base(x, y, z);
+  };
+  if (levels.length > 2) f.levelZs = levels.slice(1, -1).map((l) => l.z);
+  return f;
+}
+
+/**
+ * Mapa da parede inteira (todas as camadas) com a junção exata e as cotas em que o sólido parte as faces (`keepAll`):
+ * serve ao IFC, cujo contorno é a união dos fragmentos das camadas. Sem nível efetivo além de p0/pH em nenhuma camada
+ * (reta×reta, sem arco) devolve `undefined`: o chamador mantém o caminho de sempre.
+ */
+export function wallJoinPlanMap(rw: Pick<ResolvedWall, 'a' | 'b' | 'n' | 'sag' | 'tilt'>, join: WallTiltJoin | undefined): { map: PlanMap; zs: number[] } | undefined {
+  if (!join?.levels) return undefined;
+  const per = join.layers.map((layer) => ({ layer, levels: joinLevelsOf(join, layer, !!rw.sag) }));
+  const exato = per.some((x) => x.levels.length > 2 || (!!rw.sag && join.levels!.length > 2));
+  if (!exato) return undefined;
+  const base = tiltPlanMap(rw, rw.tilt ?? 0);
+  const zs = [...new Set(per.flatMap((x) => x.levels.slice(1, -1).map((l) => l.z)))].sort((a, b) => a - b);
+  const map: PlanMap = (x, y, z) => {
+    for (const { layer, levels } of per) {
+      for (let i = 0; i < layer.raw.length; i++) {
+        const r = layer.raw[i]!;
+        if (Math.abs(r.x - x) < MATCH && Math.abs(r.y - y) < MATCH) return levelPoint(levels, i, z);
       }
     }
     return base(x, y, z);
   };
+  return { map, zs };
 }
 
 /** Aplica o mapa de planta, na cota z, a todos os vértices de um multipolígono. */
@@ -63,7 +130,7 @@ export function mapMulti(m: MultiPolygon, map: PlanMap, z: number): MultiPolygon
 }
 
 /** Mapa de uma camada da parede resolvida (com a junção inclinada, se houver). Sem inclinação e sem junção: identidade. */
-export function layerPlanMap(rw: Pick<ResolvedWall, 'a' | 'b' | 'n' | 'sag' | 'tilt'>, layerIndex: number, join?: WallTiltJoin): PlanMap {
+export function layerPlanMap(rw: Pick<ResolvedWall, 'a' | 'b' | 'n' | 'sag' | 'tilt'>, layerIndex: number, join?: WallTiltJoin): JoinedPlanMap {
   return joinedPlanMap(tiltPlanMap(rw, rw.tilt ?? 0), join, layerIndex);
 }
 

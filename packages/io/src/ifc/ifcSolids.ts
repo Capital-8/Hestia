@@ -160,19 +160,22 @@ export function tiltExtrudeSolid(w: StepWriter, polygon: IfcPolygon, map: TiltPl
   return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, dx / len, dy / len, height / len)), num(len)]);
 }
 
-/** Parede em arco inclinada: IFCFACETEDBREP com a base (z=0) e o topo (z=height) mapeados vértice a vértice e laterais em triângulos. */
-export function tiltBrepSolid(w: StepWriter, polygon: IfcPolygon, map: TiltPlanMap, zBase: number, height: number, lang: Lang = 'pt'): number {
+/** Parede em arco inclinada: IFCFACETEDBREP com a base (z=0) e o topo (z=height) mapeados vértice a vértice e laterais em triângulos (partidas nas cotas `zsMid` da junção exata, J4). */
+export function tiltBrepSolid(w: StepWriter, polygon: IfcPolygon, map: TiltPlanMap, zBase: number, height: number, lang: Lang = 'pt', zsMid: readonly number[] = []): number {
   const poly = normalizePolygon(polygon);
   if (poly.length === 0) throw new Error(t(lang, 'io_err_ifc_solid_area'));
   const at = (p: IfcPoint, z: number): P3 => { const [x, y] = map(p.x, p.y, z); return { x, y, z: zBase + z }; };
   const faces: number[] = [];
+  const zl = [0, ...zsMid.filter((z) => z > 1e-9 && z < height - 1e-9), height];
   faces.push(faceOf(w, poly.map((r) => r.map((p) => at(p, height)))));
   faces.push(faceOf(w, poly.map((r) => [...r].reverse().map((p) => at(p, 0)))));
   for (const ring of poly) {
     for (let i = 0; i < ring.length; i++) {
       const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
-      const a0 = at(a, 0), b0 = at(b, 0), b1 = at(b, height), a1 = at(a, height);
-      faces.push(faceOf(w, [[a0, b0, b1]]), faceOf(w, [[a0, b1, a1]]));
+      for (let j = 0; j + 1 < zl.length; j++) {
+        const a0 = at(a, zl[j]!), b0 = at(b, zl[j]!), b1 = at(b, zl[j + 1]!), a1 = at(a, zl[j + 1]!);
+        faces.push(faceOf(w, [[a0, b0, b1]]), faceOf(w, [[a0, b1, a1]]));
+      }
     }
   }
   return w.add('IFCFACETEDBREP', [ref(w.add('IFCCLOSEDSHELL', [list(faces.map(ref))]))]);

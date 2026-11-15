@@ -164,7 +164,7 @@ function wallSolids(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo): number
   const profiled = !g.tilt && wall.topProfile && wall.sag === 0 ? g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null) : [];
   if (profiled.length > 0) return profiled;
   const [z, k] = [g.baseZ - st.elev, g.tilt];
-  return g.footprints.map((f) => (!k ? extrudeSolid(c.w, f, z, g.height) : k.straight ? tiltExtrudeSolid(c.w, f, k.map, z, g.height) : tiltBrepSolid(c.w, f, k.map, z, g.height, langOf(c))));
+  return g.footprints.map((f) => (!k ? extrudeSolid(c.w, f, z, g.height) : k.straight ? tiltExtrudeSolid(c.w, f, k.map, z, g.height) : tiltBrepSolid(c.w, f, k.map, z, g.height, langOf(c), k.zs)));
 }
 
 /** Paredes: IFCWALL com contorno extrudado, camadas do tipo (`IFCMATERIALLAYERSETUSAGE`) e `Pset_WallCommon`. */

@@ -27,6 +27,8 @@ import {
   type ResolvedRamp,
   type ResolvedStair,
   tiltPlanMap,
+  wallJoinPlanMap,
+  juncaoInclinadaDaParede,
 } from '@hestia/engine';
 import {
   exportIfc,
@@ -77,6 +79,9 @@ function wallsOfLevel(p: Project, levelId: Id): IfcGeometry['walls'] {
     const geo: IfcWallGeo = { wallId: rw.wallId, footprints: footprint.map((poly) => poly as IfcPolygon), baseZ: rw.baseZ, height: rw.height };
     // Parede inclinada: mesmo mapa de planta do sólido 3D e da planta (F2.3/F2.5), para o IFC ter o mesmo corpo.
     if (rw.tilt) geo.tilt = { map: tiltPlanMap(rw, rw.tilt), straight: !rw.sag };
+    // Junção exata de arco inclinado (J4): a malha usa os anéis por nível do sólido 3D (reta×reta e vertical: sem mudança).
+    const exata = wallJoinPlanMap(rw, juncaoInclinadaDaParede(p, levelId, rw.wallId));
+    if (exata) geo.tilt = { map: exata.map, straight: false, zs: exata.zs };
     return geo;
   });
 }

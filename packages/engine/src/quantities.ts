@@ -5,8 +5,8 @@ import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, 
 import type { ResolvedLevel } from './types.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
-import { cunhasDoNivel } from './junctionLevel.ts';
-import { openingIsTilted, tiltFactors } from './wallTiltQuantities.ts';
+import { cunhasDoNivel, juncaoInclinadaDaParede } from './junctionLevel.ts';
+import { openingIsTilted, tiltFactors, tiltJoinLayerVolume } from './wallTiltQuantities.ts';
 
 export interface LayerQuantity {
   wallId: Id;
@@ -76,6 +76,7 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     const H = rust ? rust.altura(rw.wallId) : rw.profileBottom ? (rw.profileTop ? profileMean(rw.profileTop, comprimento) : H0) - profileMean(rw.profileBottom, comprimento) : H0;
     // Parede inclinada (F2.7): volume e face reais; vertical = null, números idênticos aos de antes.
     const tf = tiltFactors(w, rw, H, comprimento);
+    const juncao = juncaoInclinadaDaParede(p, r.levelId, rw.wallId);
     const furos = tf ? openingsOfWall(p, w.id).filter((o) => openingIsTilted(p, rw, o, openingType(p, o).width)) : [];
     let total = 0;
     let grossTotal = 0;
@@ -83,19 +84,22 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
       const q = rust?.camada(rw.wallId, l.layerIndex);
       let grossVol = q ? q.bruto : l.bands.reduce((s, b) => s + bandVolume(b), 0);
       let ajusteVao = 0;
+      // Junção exata de arco inclinado (J4): o volume é o da malha do 3D (anéis por nível); senão, o fator de sempre.
+      const ex = juncao ? tiltJoinLayerVolume(rw, l, juncao) : undefined;
+      if (ex && !tf) grossVol *= ex.factor;
       if (tf) {
         // Furo vertical sai escalado; furo perpendicular (plano inclinado) mantém w·h·t: devolve (f − 1) do furo vertical.
         const wtl = p.wallTypes[w.typeId];
         const esp = (l.layerIndex >= 0 ? wtl?.layers[l.layerIndex]?.thickness : wtl?.strips[-l.layerIndex - 1]?.thickness) ?? 0;
         for (const o of furos) {
           const t = openingType(p, o);
-          ajusteVao += (tf.layer(l.fragment) - 1) * t.width * Math.max(0, Math.min(openingHeight(t, o), H - openingSill(t, o))) * esp;
+          ajusteVao += ((ex?.factor ?? tf.layer(l.fragment)) - 1) * t.width * Math.max(0, Math.min(openingHeight(t, o), H - openingSill(t, o))) * esp;
         }
-        grossVol = grossVol * tf.layer(l.fragment) + ajusteVao;
+        grossVol = grossVol * (ex?.factor ?? tf.layer(l.fragment)) + ajusteVao;
       }
       // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
       // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
-      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (tf ? tf.layer(l.fragment) : 1);
+      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (ex?.factor ?? (tf ? tf.layer(l.fragment) : 1));
       const vol = q ? q.liquido : Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
