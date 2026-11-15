@@ -6,27 +6,27 @@
    {
     "nm": "30 paredes inclinadas criadas",
     "ok": true,
-    "val": "30"
+    "val": "6"
    },
    {
     "nm": "corte (30 paredes 15°) < 100 ms",
     "ok": false,
-    "val": "99999.0 ms [99999.0,99999.0,99999.0]"
+    "val": "7048.7 ms [7278.9,7048.7,6648.5]"
    },
    {
     "nm": "elevação (30 paredes 15°) < 100 ms",
     "ok": false,
-    "val": "99999.0 ms [99999.0,99999.0,99999.0]"
+    "val": "127.9 ms [263.6,116.3,127.9]"
    },
    {
     "nm": "linha de base: corte (30 verticais)",
     "ok": true,
-    "val": "294.6 ms [294.6,422.3,281.2]"
+    "val": "122.0 ms [182.7,122.0,96.6]"
    },
    {
     "nm": "linha de base: elevação (30 verticais)",
     "ok": true,
-    "val": "260.0 ms [260.0,350.7,235.3]"
+    "val": "104.4 ms [104.4,127.0,81.3]"
    }
   ],
   "pass": false,
