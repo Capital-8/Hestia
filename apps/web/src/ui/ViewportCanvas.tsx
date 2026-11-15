@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
-import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
+import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, servicoTerreno, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
@@ -11,9 +11,11 @@ import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, mon
 import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, guardaCorposNaCaixaDoCorteDoProjeto, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { anotacoesNaCaixaDoCorte, gestoDoBotaoNoCorte, guardaCorposNaCaixaDoCorteDoProjeto, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa, terrenosNaCaixaDoCorteDoProjeto } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
+import { comEdicaoDoTerreno, edicaoParaAVista, entrarPorDuploClique } from '../editor/terrenoEdicao.ts';
+import { ligarRepinturaDoTerreno } from '../editor/terrenoVista.ts';
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
@@ -292,6 +294,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       }),
     [],
   );
+  // Idem para o terreno: sem o kernel só a borda de reserva aparece; quando ele chega, 3D e planta são refeitos.
+  useEffect(
+    () =>
+      ligarRepinturaDoTerreno(servicoTerreno(), {
+        zerarChaveDoModelo: () => { modelKey.current = ''; },
+        reiniciarPlanta: () => planFrame.current?.reset(),
+        invalidarQuadro: () => quadroRef.current?.invalidar(),
+        pedirDesenho: () => useUi.setState((x) => ({ previewTick: x.previewTick + 1 })),
+      }),
+    [],
+  );
   useEffect(() => {
     registrarPreparo3d(() => {
       iniciarMontagem3d(darkRef.current, useUi.getState());
@@ -547,7 +560,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: p, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, edicaoParaAVista(st, editor.activeTool, v)); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -611,6 +624,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       ...idsNaCaixaDoCorte(result, wa, wb, hidden),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
       ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
+      // Terreno: as linhas do kernel (solo cortado, perfil existente e silhueta), com a mesma regra de janela e cruzamento.
+      ...terrenosNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden, v.zoom),
       // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
       ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
     ];
@@ -1132,8 +1147,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           const alvo = st2.view === 'section'
             ? ({ vista: 'section', sectionId: st2.sectionId, hitId: sectionPickAt(s)?.id ?? null } as const)
             : ({ vista: 'plan', levelId: st2.levelId, planId: st2.planKind === 'area' ? (st2.areaPlanId ?? undefined) : undefined, mpp: 1 / vv.zoom } as const);
-          const id = cotaParaEditar(editor.project, alvo, screenToWorld(vv, s));
+          const mundo = screenToWorld(vv, s);
+          const id = cotaParaEditar(editor.project, alvo, mundo);
           if (id) useUi.setState({ dimEditId: id });
+          // Duplo clique no terreno (borda, curva de nível ou contorno de região) entra no modo Editar terreno; a mesma tolerância do clique de seleção.
+          else if (st2.view === 'plan' && st2.planKind !== 'area') entrarPorDuploClique(editor.project, st2.levelId, mundo, 6 / vv.zoom, (t) => editor.setTool(t), editor.ocultosDaPlanta());
         }
       } else ultimoCliqueSel.current = agora;
     }

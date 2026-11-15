@@ -26,11 +26,13 @@ import { ES_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { ES_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { ES_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { ES_TERRENO } from '../../areas/terreno.ts';
+import { ES_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { ES_PAREDE_CORTINA } from '../../areas/parede-cortina-1.ts';
 
 export const ES_ALL = {
   ...ES_GUARDA_CORPO,
   ...ES_TERRENO,
+  ...ES_TERRENO_VISTA,
   ...ES_PAREDE_CORTINA,
   ...ES_SHELL_RIBBON,
   ...ES_MISC_UI,
