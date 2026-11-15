@@ -175,3 +175,13 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Fora: corte/elevação (`engine/section.ts`) ainda desenha o vão com altura h e sem deslocamento (diferença h·(1−cosθ), ≤ 6% a 20°); sem teste de seção; símbolo em arco inclinado usa a tangente do centro.
 - Testes novos: `model3d/esquadriaInclinada3d.test.ts` (janela, porta, janela sem folha; ±15° e 20°; vertices a 1e-6; arco; geometria = caixas) e `plan/esquadriaInclinadaPlanta.test.ts`. Nenhum teste existente alterado.
 - Navegador (build própria, porta 4178): P5 PASS; desvio máx do vértice ao eixo inclinado 0,0979 m (antes 0,93; limite do teste = meia espessura horizontal 0,106 m, o caixilho fica dentro da parede; 1e-6 ao plano da face provado em node). Portões: typecheck, lint, check-units ok; render+engine 411 arquivos/5568 testes ok.
+
+## F2.12 (IFC/DXF de parede inclinada e regra do semicírculo)
+- IFC: `IfcWallGeo.tilt?` {mapa de planta, reta}; o app preenche com `tiltPlanMap` (mesmo mapa do sólido 3D e da planta, agora exportado do engine). Reta: `IFCEXTRUDEDAREASOLID` com perfil da base mapeada e direção oblíqua (profundidade H/cosθ). Arco: `IFCFACETEDBREP` (base e topo mapeados vértice a vértice, laterais em triângulos), `Brep`.
+- Volumes lidos do STEP no teste: 2,4847 (15°), 2,7713 (30°), arco 5,2708, a 1e-3. Vertical: saída idêntica (tilt 0 = ausente; sem Brep).
+- Reimportação: o `HestiaJSON` já carrega o elemento inteiro, então o `tilt` volta sem código novo; IFC sem pset Hestia: vertical, sem erro (testado).
+- Limite: junção inclinada nas pontas não entra no IFC (ponta cisalhada pelo mapa da parede); fica para D1.
+- DXF: a planta já usa o contorno mapeado no plano de corte (F2.5); teste de não lançar, de diferença e de igualdade do vertical. Sem aviso novo, sem texto novo.
+- Semicírculo (Tarefa 2): regra correta, só testes (`model/src/wallTiltSemicirculo.test.ts`). Afastando (s=+1) a 60° é válido; aproximando é recusado; limite R=2, H=3, t=0,2 em 30° válido e 32° recusado; recusa traduzida nos 7 idiomas.
+- A regra usa o lado do centro com o semicírculo como caso degenerado (centro na corda): tratado como centro à direita de sag, coerente com `arcFromSagitta`.
+- Escopo tocado fora de io: `engine/src/index.ts` (1 linha de export).
