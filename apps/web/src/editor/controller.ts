@@ -36,6 +36,7 @@ import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
+import { gravarAutosave } from './autosave.ts';
 import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
@@ -162,6 +163,7 @@ export class Editor {
   private sectionToFrame = new Set<Id>();
   /** Caixa pedida antes de a vista ter viewport (ex.: enquadrar um CAD ao abrir a planta dele): aplicada na criação. */
   private pendingBox: PlanBox | null = null;
+  private autosaveAvisado = false;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   fileName = 'projeto.hestia.json';
 
@@ -1164,7 +1166,8 @@ export class Editor {
     this.pastaDaBiblioteca = null;
     this.perimetro.encerrar(); this.store.load(p);
     // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
-    safeSet(AUTOSAVE_KEY, serializeProject(p, 1));
+    this.autosaveAvisado = false;
+    this.gravarAutosaveDoProjeto(p);
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
     if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
@@ -1300,7 +1303,17 @@ export class Editor {
 
   private scheduleAutosave(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-    this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, serializeProject(this.project, 1)), 800);
+    this.autosaveTimer = setTimeout(() => this.gravarAutosaveDoProjeto(this.project), 800);
+  }
+
+  /** Projeto grande não é serializado para o autosave (a cota do localStorage o recusaria): um aviso único e sem recuperação por F5. */
+  private gravarAutosaveDoProjeto(p: Project): void {
+    const g = this.geracaoDoProjeto;
+    const r = gravarAutosave(p, () => this.geracaoDoProjeto === g);
+    if (r === 'pulado' && !this.autosaveAvisado) {
+      this.autosaveAvisado = true;
+      useUi.setState({ status: { key: 'autosave_grande' } });
+    }
   }
 
   /**

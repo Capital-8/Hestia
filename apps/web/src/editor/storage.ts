@@ -15,6 +15,14 @@ export function safeSet(k: string, v: string): void {
   }
 }
 
+export function safeRemove(k: string): void {
+  try {
+    localStorage.removeItem(k);
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
 /** Chave do autosave (projeto em andamento, restaurado ao abrir o app). */
 export const AUTOSAVE_KEY = 'hestia.autosave.v1';
 /**
