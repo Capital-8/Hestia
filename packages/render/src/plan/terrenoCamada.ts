@@ -3,7 +3,7 @@ import type { Id, Project } from '@hestia/model';
 import type { PlanInput } from './build.ts';
 import type { FloorOps } from './floors.ts';
 import type { PlanPaint } from './style.ts';
-import { regiaoOps, terrenoOps, terrenosDoNivel, regioesDoNivel, type DadosTerreno } from './terreno.ts';
+import { regiaoOps, terrenoSelectionOps, terrenoOps, terrenosDoNivel, regioesDoNivel, type DadosTerreno } from './terreno.ts';
 
 /**
  * Terrenos e regiões ocultos na vista: o Hide in View do usuário (menos os revelados) e, com a categoria `site` desligada, todos os do nível.
@@ -51,4 +51,12 @@ export function terrenoOpsDaPlanta(input: PlanInput, paint: PlanPaint, scale: nu
     out.labels.push(...o.labels);
   }
   return out;
+}
+
+/** Realce do terreno e das regiões selecionados ou sob o cursor (só borda e contorno). Sem terreno no projeto, vazio e sem consulta ao kernel. */
+export function terrenoSelecaoDaPlanta(input: PlanInput, selection: readonly Id[], hover: Id | null, visivel: boolean, dados?: DadosTerreno): FloorOps {
+  const { project: p, levelId } = input;
+  if (!ServicoTerreno.temTerreno(p)) return { fills: [], strokes: [], labels: [] };
+  const ocultos = ocultosDoTerreno(p, levelId, input.hidden, input.revealed, visivel);
+  return terrenoSelectionOps(p, levelId, selection, hover, input.theme, dados ?? dadosDoKernel(p, levelId, false), ocultos);
 }
