@@ -246,6 +246,15 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Testes: `alignTopFace.test.ts` (8), valores literais de wallTopFaces.test.ts. Nenhum teste existente editado.
 
 - **E12 (T-D):** alinhar a aresta de contorno de telhado, piso, laje ou forro a uma face superior move só aquela aresta (política `anel`, dois vértices) e remodela o contorno, sem transladar o elemento inteiro (igual ao Revit). Mantido.
+## J2 (análise de junção com arco inclinado, pf/fj)
+- `analyzeLevelTiltRaw` não descarta mais a relação em arco: arco×reta e arco×arco (pair e tee, inclusive continuação tangente) entram em `evalRels`, que com arco usa `levelSetAdaptive` (um conjunto de níveis por altura distinta; `base` = nó em z=0 já dentro da J1). Reta×reta segue o caminho antigo, sem alteração de valores.
+- `WallTiltJoin` ganhou `zs?` e `levels?: {z, rings: Vec2[][]}[]` (`rings[k]` é da `layers[k]`, na ordem/contagem de `layers[k].raw`); `p0`/`pH` = primeiro/último nível. Reta×reta: zs=[0,H/2,H], meio por interpolação exata.
+- Alinhamento (`alinharNivel`): mesma contagem = índice a índice; contagem diferente (90% dos casos em arco: a grade depende do raio) reamostra cada face de arco por fração angular entre os cantos dela (cantos mantidos), as correntes entre faces casam por ordem/vértice mais próximo; anel degenerado, invertido ou não finito reprova o par.
+- Canto descontínuo em z (encosto entre arcos tangentes de inclinações diferentes: 60 níveis até o teto) é tratado como inviável (> 32 níveis, canto liso usa 3 a 10): sem junção, plano B antigo; sem isso o probe C6 do render regredia.
+- Aviso: `arcoInclinadoSemJuncao` só quando a ligação com arco é inviável (cone invertido, sem cruzamento, fora da parede): o par cai no plano B (encosto) e avisa; reta×reta inviável continua `inclinacaoInviavelNaJuncao`. A emissão nos casos viáveis foi removida.
+- `junctionLevel.ts` não precisou mudar: a análise é guardada por conteúdo (parede, tipo, cotas, alturas, tolerância) e o cache de junção compara a identidade do Map; os novos campos vêm dentro do mesmo resultado, sem JSON.
+- Tempo: arco×reta ~4 ms/análise fria no teste; desempenho existente passa. Consumidores (planta/corte/sólido) ainda interpolam linearmente p0→pH: J3/J4 devem usar `levels`.
+- Teste antigo ajustado: `wallTiltJoinLevel.test.ts` "arco inclinado ligado a outra parede" (agora junção exata, sem aviso). Novos: `wallTiltJoinLevelArco.test.ts`.
 
 ## T-E (escolher face e por perímetro no topo, pf/ft)
 - `sketchPickFace.ts`: `SketchWhich` ganhou `'extTop' | 'intTop'`; `faceCandidates/faceAt(..., { topDefault })`. Quando a face superior (`wallTopFacesCached`) difere da base em planta (> 1 µm nas pontas, ou arco com tilt), a face entra como PAR (base + `topFace`, rótulo "<face> (Face superior)"): o par usa a menor distância, o padrão vem primeiro e a outra logo atrás, então Tab (que já percorre candidatos) alterna. `topDefaultFor(target)`: telhado e forro = topo; piso e laje = base. Arco: pontas e meio das amostras viram um arco (sag por 3 pontos).

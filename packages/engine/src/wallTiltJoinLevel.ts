@@ -8,7 +8,7 @@ import { resolveLevel } from './resolve.ts';
 import { layerQuad } from './layerGeom.ts';
 import { joinStatus } from './joins.ts';
 import { sAtDepth, tangentAt, type WallFrame } from './frame.ts';
-import { levelSet, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
+import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
 
 /** Junção inclinada de um nível (F2.4): análise por camada, avisos e guarda do kernel. Núcleo geométrico em `wallTiltJoin.ts`. */
 const failed = (r: object): r is Pick<TiltJoinFail, 'fail'> => 'fail' in r;
@@ -21,6 +21,8 @@ export interface TiltAviso {
   /** `inclinacoesDiferentesEmContinuacao`: degrau no topo H·|tan a − tan b|, em metros. */
   valor?: number;
 }
+/** Canto liso precisa de poucos níveis (J1: 3 a 10); passar disso é canto descontínuo em z (ex.: encosto entre arcos tangentes). */
+const NIVEIS_SUAVES = 32;
 /** Degrau mínimo (m) que justifica o aviso de continuação com inclinações diferentes. */
 export const DEGRAU_MIN = 0.005;
 
@@ -38,6 +40,13 @@ export interface WallTiltJoinLayer {
 export interface WallTiltJoin {
   H: number;
   layers: WallTiltJoinLayer[];
+  /**
+   * Níveis da junção (J2): cotas `zs` (reta×reta: [0, H/2, H]; com arco: níveis adaptativos, corda < 0,5 mm) e, em cada nível,
+   * o anel de planta de cada camada (`rings[k]` é da `layers[k]`, mesma contagem e ordem de vértices que `layers[k].raw`).
+   * `p0`/`pH` são o primeiro e o último nível. Ausente só em junções montadas à mão.
+   */
+  zs?: number[];
+  levels?: Array<{ z: number; rings: Vec2[][] }>;
 }
 /**
  * Cunha de transição (etapa R, ação B): prisma triangular que fecha o degrau de uma continuação reta×reta com inclinações
@@ -115,7 +124,8 @@ const ids = (r: Relation): string[] => (r.kind === 'pair' ? [r.a.id, r.b.id] : [
 /**
  * Junção inclinada de um nível (F2.4). A topologia vem SÓ dos eixos da base (`joinStatus`); o topo reaplica a mesma
  * topologia aos eixos deslocados (`levelSet`). Reta×reta: anéis de camada em z=0 e z=H por parede ligada. Arco
- * inclinado (a própria parede ou a parceira): plano B, sem junção, aviso `arcoInclinadoSemJuncao`. Cruzamento fora
+ * inclinado (a própria parede ou a parceira): junção exata pelos níveis adaptativos da J2; só o par inviável (cone invertido,
+ * sem cruzamento, fora da parede) cai no plano B (encosto) com `arcoInclinadoSemJuncao`. Cruzamento fora
  * da parede, cone invertido ou anel degenerado: a componente inteira degrada para corte simples e avisa
  * `inclinacaoInviavelNaJuncao`. `heights`: altura real (resolvida) por parede; ausente = faixa nominal do quadro.
  * Sem parede inclinada devolve vazio sem custo (caminho idêntico ao de hoje).
@@ -163,6 +173,76 @@ function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): {
   // O anel completo (todos os vértices) é que não pode inverter nem degenerar.
   const ok = Math.sign(ringArea(p0)) === sg && Math.sign(ringArea(pH)) === sg && Math.abs(ringArea(pH)) > 1e-9;
   return ok ? { p0: a, pH: b } : null;
+}
+
+const wrapPi = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
+const RUN_TOL = 1e-7;
+interface Run { s: number; len: number }
+/** Trechos contíguos (cíclicos) de vértices à mesma distância do centro do arco: as faces de arco do anel. */
+function runsOf(poly: readonly Vec2[], c: Vec2): Run[] {
+  const n = poly.length;
+  const r = poly.map((p) => Math.hypot(p.x - c.x, p.y - c.y));
+  let k0 = -1;
+  for (let i = 0; i < n; i++) if (Math.abs(r[i]! - r[(i + n - 1) % n]!) >= RUN_TOL) { k0 = i; break; }
+  if (k0 < 0) return [];
+  const out: Run[] = [];
+  let i = 0;
+  while (i < n) {
+    let len = 1;
+    while (len < n && Math.abs(r[(k0 + i + len) % n]! - r[(k0 + i + len - 1) % n]!) < RUN_TOL) len++;
+    if (len >= 2) out.push({ s: (k0 + i) % n, len });
+    i += len;
+  }
+  return out;
+}
+
+/**
+ * Leva o anel `ring` de um nível à contagem e à ordem de vértices de `raw` (anel vertical). Mesma contagem: índice a índice.
+ * Contagem diferente (a grade das faces de arco depende do raio e do alcance): cada face de arco é reamostrada por fração
+ * angular entre os cantos dela (cantos mantidos), as correntes entre faces casam por ordem (ou pelo vértice mais próximo)
+ * e, sem faces de arco, vale o vértice mais próximo (como `alinhar`). null se o anel resultante é degenerado ou invertido.
+ */
+function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null): Vec2[] | null {
+  const n = raw.length, m = ring.length;
+  const sg = Math.sign(ringArea(raw));
+  const nearest = (p: Vec2, from: number, count: number): Vec2 => {
+    let best = ring[from % m]!, d = Infinity;
+    for (let k = 0; k < count; k++) { const q = ring[(from + k) % m]!; const e = Math.hypot(q.x - p.x, q.y - p.y); if (e < d) { d = e; best = q; } }
+    return best;
+  };
+  let out: Vec2[];
+  const rr = c ? runsOf(raw, c) : [], lr = c ? runsOf(ring, c) : [];
+  if (m === n) out = ring;
+  else if (c && rr.length > 0 && rr.length === lr.length) {
+    out = new Array<Vec2>(n);
+    for (let k = 0; k < rr.length; k++) {
+      const A = rr[k]!, B = lr[k]!;
+      const ang = (poly: readonly Vec2[], i: number): number => Math.atan2(poly[i % poly.length]!.y - c.y, poly[i % poly.length]!.x - c.x);
+      const cum = (poly: readonly Vec2[], run: Run): number[] => {
+        const o = [0];
+        for (let j = 1; j < run.len; j++) o.push(o[j - 1]! + wrapPi(ang(poly, run.s + j) - ang(poly, run.s + j - 1)));
+        return o;
+      };
+      const ca = cum(raw, A), cb = cum(ring, B);
+      const ta = ca[A.len - 1]!, tb = cb[B.len - 1]!;
+      const phi0 = ang(ring, B.s), rho = Math.hypot(ring[B.s % m]!.x - c.x, ring[B.s % m]!.y - c.y);
+      for (let j = 0; j < A.len; j++) {
+        const lam = Math.abs(ta) < 1e-12 ? (A.len > 1 ? j / (A.len - 1) : 0) : ca[j]! / ta;
+        const i = (A.s + j) % n;
+        out[i] = j === 0 ? ring[B.s % m]! : j === A.len - 1 ? ring[(B.s + B.len - 1) % m]! : { x: c.x + rho * Math.cos(phi0 + lam * tb), y: c.y + rho * Math.sin(phi0 + lam * tb) };
+      }
+      // Corrente entre esta face e a seguinte (vértices fora de qualquer face).
+      const An = rr[(k + 1) % rr.length]!, Bn = lr[(k + 1) % lr.length]!;
+      const na = (An.s - (A.s + A.len) + 2 * n) % n, nb = (Bn.s - (B.s + B.len) + 2 * m) % m;
+      for (let j = 0; j < na; j++) {
+        const i = (A.s + A.len + j) % n;
+        out[i] = na === nb ? ring[(B.s + B.len + j) % m]! : nb > 0 ? nearest(raw[i]!, B.s + B.len, nb) : nearest(raw[i]!, 0, m);
+      }
+    }
+    if (out.some((q) => !q)) return null;
+  } else out = raw.map((r) => nearest(r, 0, m));
+  const a = ringArea(out);
+  return Number.isFinite(a) && Math.sign(a) === sg && Math.abs(a) > 1e-9 && out.every((q) => Number.isFinite(q.x) && Number.isFinite(q.y)) ? out : null;
 }
 
 type Par = Relation & { kind: 'pair' };
@@ -230,6 +310,8 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
     avisoOnce.add(`${code}|${wallId}`);
     out.avisos.push(valor === undefined ? { code, wallId } : { code, wallId, valor });
   };
+  /** Ligação inviável: com arco o aviso é o do arco inclinado sem junção; reta×reta, `inclinacaoInviavelNaJuncao`. */
+  const codigoInviavel = (r: Relation): TiltAvisoCode => (ids(r).some((id) => byId.get(id)!.arc) ? 'arcoInclinadoSemJuncao' : 'inclinacaoInviavelNaJuncao');
   const heightOf = (f: WallFrame): number => heights.get(f.wall.id) ?? (f.z ? f.z.top - f.z.z0 : 3);
   const rels: Relation[] = [];
   for (const r of tiltRelations(frames, tol).filter(hasTilt)) {
@@ -250,9 +332,7 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         } else if (!fa.arc && !fb.arc) continue; // mesma inclinação em linha: corte plano exato
       }
     }
-    if (ids(r).some((id) => byId.get(id)!.arc)) {
-      for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('arcoInclinadoSemJuncao', id);
-    } else rels.push(r);
+    rels.push(r); // arco inclinado também entra: junção exata pelos níveis adaptativos (J2); só o inviável cai no plano B com aviso
   }
   // Componentes conexas pelas ligações que sobraram.
   const parent = new Map<string, string>();
@@ -291,18 +371,51 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
       return t;
     };
     const joins = new Map<string, WallTiltJoin>();
+    const comArco = wallIds.some((id) => !!byId.get(id)!.arc);
+    // Com arco os cantos não são retas em z: níveis adaptativos (um conjunto por altura distinta); reta×reta: 0, H/2 e H.
+    const adaptativos = new Map<number, { zs: number[]; sets: LevelSet[] } | TiltJoinFail>();
+    const niveis = (H: number): { zs: number[]; sets: LevelSet[] } | TiltJoinFail => {
+      let r = adaptativos.get(H);
+      if (!r) adaptativos.set(H, (r = levelSetAdaptive(tilted, crel, H)));
+      return r;
+    };
     for (const id of wallIds) {
-      const H = heightOf(byId.get(id)!);
-      const ts = top(H);
-      if (failed(ts) || !(H > 0)) return null;
-      const raw = ringsOf(rawSet, id)!, p0 = ringsOf(baseSet, id)!, pH = ringsOf(ts, id)!;
+      const f = byId.get(id)!;
+      const H = heightOf(f);
+      if (!(H > 0)) return null;
       const layers: WallTiltJoinLayer[] = [];
+      if (comArco) {
+        const ad = niveis(H);
+        // Mais de NIVEIS_SUAVES níveis = canto descontínuo em z (ex.: encosto entre arcos tangentes): não há junção suave, vale o plano B.
+        if (failed(ad) || ad.zs.length > NIVEIS_SUAVES) return null;
+        const per = ad.sets.map((ls) => levelRings(ls, id));
+        const raw = ringsOf(rawSet, id)!;
+        const centro = f.arc ? f.arc.center : null;
+        const aligned: Vec2[][][] = [];
+        for (const [layerIndex, r0] of raw) {
+          const rs: Vec2[][] = [];
+          for (const m of per) {
+            const q = m.get(layerIndex);
+            const al = q ? alinharNivel(r0, q, centro) : null;
+            if (!al) return null;
+            rs.push(al);
+          }
+          layers.push({ layerIndex, raw: r0, p0: rs[0]!, pH: rs[rs.length - 1]! });
+          aligned.push(rs);
+        }
+        joins.set(id, { H, layers, zs: ad.zs, levels: ad.zs.map((z, i) => ({ z, rings: aligned.map((rs) => rs[i]!) })) });
+        continue;
+      }
+      const ts = top(H);
+      if (failed(ts)) return null;
+      const raw = ringsOf(rawSet, id)!, p0 = ringsOf(baseSet, id)!, pH = ringsOf(ts, id)!;
       for (const [layerIndex, r0] of raw) {
         const al = alinhar(r0, p0.get(layerIndex), pH.get(layerIndex));
         if (!al) return null;
         layers.push({ layerIndex, raw: r0, p0: al.p0, pH: al.pH });
       }
-      joins.set(id, { H, layers });
+      const mid = layers.map((l) => l.p0.map((a, k) => ({ x: (a.x + l.pH[k]!.x) / 2, y: (a.y + l.pH[k]!.y) / 2 })));
+      joins.set(id, { H, layers, zs: [0, H / 2, H], levels: [{ z: 0, rings: layers.map((l) => l.p0) }, { z: H / 2, rings: mid }, { z: H, rings: layers.map((l) => l.pH) }] });
     }
     return joins;
   };
@@ -320,12 +433,12 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         const plano = crel.map((r) => asTee(r, force));
         joins = evalRels(plano);
         if (joins) {
-          crel.forEach((r, i) => { if (plano[i] !== r) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id); });
+          crel.forEach((r, i) => { if (plano[i] !== r) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id); });
           break;
         }
       }
       if (!joins) {
-        for (const id of new Set(crel.flatMap(ids))) if (tiltOf(byId.get(id)!) !== 0) warn('inclinacaoInviavelNaJuncao', id);
+        for (const r of crel) for (const id of ids(r)) if (tiltOf(byId.get(id)!) !== 0) warn(codigoInviavel(r), id);
         continue;
       }
     }

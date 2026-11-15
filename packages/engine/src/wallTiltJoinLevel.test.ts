@@ -58,19 +58,17 @@ describe('F2.4 · analyzeLevelTilt', () => {
     for (const w of Object.values(junctionLevel(p, 'lv_0').walls)) expect(w.tilt).toBeUndefined();
   });
 
-  it('arco inclinado ligado a outra parede: plano B, sem junção e com o aviso arcoInclinadoSemJuncao', () => {
+  it('arco inclinado ligado a outra parede (J2): junção exata, sem o aviso arcoInclinadoSemJuncao', () => {
     const R = 5, c = R * Math.SQRT2;
     const p = build([
       { id: 'A', a: { x: 0, y: 0 }, b: { x: c, y: 0 }, sag: R * (1 - Math.SQRT1_2), tilt: 15 },
       { id: 'B', a: { x: c, y: 0 }, b: { x: c, y: -4 } },
     ]);
     const an = analyzeLevelTilt(levelFrames(p, 'lv_0'), new Map([['A', 3], ['B', 3]]));
-    expect(an.joins.size).toBe(0);
-    expect(an.avisos).toEqual([{ code: 'arcoInclinadoSemJuncao', wallId: 'A' }]);
-    const issues = wallTiltJoinIssues(p);
-    expect(issues.map((i) => [i.code, i.elementId, i.severity])).toEqual([['arcoInclinadoSemJuncao', 'A', 'warning']]);
-    expect(issues[0]!.message).toContain('"A"');
-    expect(junctionLevel(p, 'lv_0').walls.get('A')?.tilt).toBeUndefined();
+    expect(an.joins.size).toBe(2);
+    expect(an.avisos).toEqual([]);
+    expect(wallTiltJoinIssues(p)).toEqual([]);
+    expect(junctionLevel(p, 'lv_0').walls.get('A')?.tilt).toBeDefined();
   });
 
   it('cruzamento fora da parede (-45°/-45°, L=2, H=6): plano B (encosto, sem degradar o conjunto) e avisa inclinacaoInviavelNaJuncao', () => {
