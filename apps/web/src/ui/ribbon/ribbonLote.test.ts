@@ -5,7 +5,8 @@ import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { aplicarRumos, formRumosL1 } from '../dialogs/loteRumosForm.ts';
 import { fecharLoteRumos, loteRumosAberto } from '../dialogs/loteRumosAberto.ts';
-import { ACTIONS, type RibbonCtx } from './actions.ts';
+import { fecharLoteSchedule, loteScheduleAberta } from '../dialogs/loteScheduleAberta.ts';
+import { ACTIONS, ctxNow, type RibbonCtx } from './actions.ts';
 import { txt, type RibbonItem, type RibbonPanel } from './model.ts';
 import { TABS } from './tabs.ts';
 
@@ -26,14 +27,17 @@ function setup(): void {
 
 describe('faixa: Linhas de propriedade ativo (ficha P3)', () => {
   beforeEach(setup);
-  afterEach(() => fecharLoteRumos());
+  afterEach(() => {
+    fecharLoteRumos();
+    fecharLoteSchedule();
+  });
 
-  it('o painel Lote tem a ferramenta lot com menu (Desenhar e Por tabela…); Índices do lote e Envelope legal seguem soon', () => {
+  it('o painel Lote tem a ferramenta lot com menu (Desenhar e Por tabela…) e Índices do lote ativo (ficha P4); só Envelope legal segue soon', () => {
     const pn = painel('massa', 'mas-lote');
     const dividido = pn.items.find((it) => it.kind === 'split')!;
     expect(dividido.kind === 'split' && dividido.main).toMatchObject({ kind: 'tool', tool: 'lot' });
-    expect(acoes(pn.items)).toEqual(['loteDesenhar', 'lotePorTabela']);
-    expect(soon(pn.items)).toEqual(['Índices do lote', 'Envelope legal']);
+    expect(acoes(pn.items)).toEqual(['loteDesenhar', 'lotePorTabela', 'indicesLote']);
+    expect(soon(pn.items)).toEqual(['Envelope legal']);
     expect(soon(pn.items)).not.toContain('Linhas de propriedade');
   });
 
@@ -43,6 +47,14 @@ describe('faixa: Linhas de propriedade ativo (ficha P3)', () => {
     expect(editor.activeTool).toBeInstanceOf(LotTool);
     const c = { tool: useUi.getState().tool, p: editor.project } as RibbonCtx;
     expect(ACTIONS.loteDesenhar.pressed?.(c)).toBe(true);
+  });
+
+  it('Índices do lote é ativo e abre a tabela (ficha P4)', () => {
+    expect(loteScheduleAberta()).toBe(false);
+    expect(ACTIONS.indicesLote.disabled?.(ctxNow()) ?? false).toBe(false);
+    ACTIONS.indicesLote.run();
+    expect(loteScheduleAberta()).toBe(true);
+    fecharLoteSchedule();
   });
 
   it('Por tabela… abre o diálogo', () => {

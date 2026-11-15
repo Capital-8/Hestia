@@ -41,9 +41,9 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(nomes(pn.items)).toEqual(['Componente de terreno']);
   });
 
-  it('painel Lote: Linhas de propriedade ativo (ficha P3); Índices do lote e Envelope legal seguem soon (P4 e P5)', () => {
+  it('painel Lote: Linhas de propriedade ativo (ficha P3) e Índices do lote ativo (ficha P4); só Envelope legal segue soon (P5)', () => {
     const pn = painel('massa', 'mas-lote');
-    expect(nomes(pn.items)).toEqual(['Índices do lote', 'Envelope legal']);
+    expect(nomes(pn.items)).toEqual(['Envelope legal']);
     expect(folhas(pn.items).some((it) => it.kind === 'tool' && it.tool === 'lot')).toBe(true);
   });
 
@@ -125,7 +125,7 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(mapaCorteAterroLigado()).toBe(false);
   });
 
-  it('Índices do lote e Envelope legal seguem soon (são de outras fichas)', () => {
-    expect(nomes(painel('massa', 'mas-lote').items)).toEqual(expect.arrayContaining(['Índices do lote', 'Envelope legal']));
+  it('Envelope legal segue soon (ficha P5); Índices do lote não está mais em soon', () => {
+    expect(nomes(painel('massa', 'mas-lote').items)).toEqual(['Envelope legal']);
   });
 });

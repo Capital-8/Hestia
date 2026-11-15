@@ -70,6 +70,7 @@ import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ImportTerrenoDialog } from './ui/dialogs/ImportTerrenoDialog.tsx';
 import { LocalizacaoDialog } from './ui/dialogs/LocalizacaoDialog.tsx';
 import { TerrenoScheduleDialog } from './ui/dialogs/TerrenoScheduleDialog.tsx';
+import { LoteScheduleDialog } from './ui/dialogs/LoteScheduleDialog.tsx';
 import { LoteRumosDialog } from './ui/dialogs/LoteRumosDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
@@ -413,6 +414,7 @@ export function App(): ReactElement {
       <ImportTerrenoDialog />
       <LocalizacaoDialog />
       <TerrenoScheduleDialog />
+      <LoteScheduleDialog />
       <LoteRumosDialog />
       <FileMenu />
       <IfcImportOverlay />

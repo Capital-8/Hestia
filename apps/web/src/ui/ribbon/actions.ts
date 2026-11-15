@@ -22,6 +22,7 @@ import { gridToolOf } from '../gridUi.ts';
 import { abrirLocalizacao } from '../dialogs/localizacaoAberta.ts';
 import { abrirTerrenoSchedule } from '../dialogs/terrenoScheduleAberta.ts';
 import { abrirLoteRumos } from '../dialogs/loteRumosAberto.ts';
+import { abrirLoteSchedule } from '../dialogs/loteScheduleAberta.ts';
 import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
 import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
@@ -555,6 +556,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'open',
     hint: t('Cria o lote por uma tabela de azimutes e distâncias, com o erro de fechamento ao vivo.', 'Creates the lot from a table of azimuths and distances, with a live closing error.'),
     run: abrirLoteRumos,
+  },
+  indicesLote: {
+    label: t('Índices do lote', 'Lot Indices'),
+    icon: 'schedule',
+    hint: t('Abre a tabela dos índices de cada lote (taxa de ocupação, coeficiente e permeabilidade) com os limites, a marca e exportação em CSV.', 'Opens the table of each lot\'s indices (site coverage, floor area ratio and permeability) with the limits, the mark and CSV export.'),
+    run: abrirLoteSchedule,
   },
   importTerreno: {
     label: t('Importar levantamento…', 'Import Survey…'),

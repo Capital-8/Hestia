@@ -45,6 +45,7 @@ import { PT_TERRENO, EN_TERRENO } from './terreno.ts';
 import { PT_TERRENO_VISTA, EN_TERRENO_VISTA } from './terreno-vista.ts';
 import { PT_GRAVIDADE, EN_GRAVIDADE } from './gravidade.ts';
 import { PT_TERRENO_TABELA, EN_TERRENO_TABELA } from './terreno-tabela.ts';
+import { PT_LOTE_TABELA, EN_LOTE_TABELA } from './lote-tabela.ts';
 import { PT_LOTE_UI, EN_LOTE_UI } from './lote-ui.ts';
 
 export const PT_ALL = {
@@ -53,6 +54,7 @@ export const PT_ALL = {
   ...PT_TERRENO_VISTA,
   ...PT_GRAVIDADE,
   ...PT_TERRENO_TABELA,
+  ...PT_LOTE_TABELA,
   ...PT_LOTE_UI,
   ...PT_PAREDE_CORTINA,
   ...PT_BIBLIOTECA,
@@ -103,6 +105,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_TERRENO_VISTA,
   ...EN_GRAVIDADE,
   ...EN_TERRENO_TABELA,
+  ...EN_LOTE_TABELA,
   ...EN_LOTE_UI,
   ...EN_PAREDE_CORTINA,
   ...EN_BIBLIOTECA,
