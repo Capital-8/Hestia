@@ -246,3 +246,10 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Testes: `alignTopFace.test.ts` (8), valores literais de wallTopFaces.test.ts. Nenhum teste existente editado.
 
 - **E12 (T-D):** alinhar a aresta de contorno de telhado, piso, laje ou forro a uma face superior move só aquela aresta (política `anel`, dois vértices) e remodela o contorno, sem transladar o elemento inteiro (igual ao Revit). Mantido.
+
+## T-E (escolher face e por perímetro no topo, pf/ft)
+- `sketchPickFace.ts`: `SketchWhich` ganhou `'extTop' | 'intTop'`; `faceCandidates/faceAt(..., { topDefault })`. Quando a face superior (`wallTopFacesCached`) difere da base em planta (> 1 µm nas pontas, ou arco com tilt), a face entra como PAR (base + `topFace`, rótulo "<face> (Face superior)"): o par usa a menor distância, o padrão vem primeiro e a outra logo atrás, então Tab (que já percorre candidatos) alterna. `topDefaultFor(target)`: telhado e forro = topo; piso e laje = base. Arco: pontas e meio das amostras viram um arco (sag por 3 pontos).
+- `perimeterFromBox(..., { top })`: por parede, usa `wallTopFaces.outline` só se o topo difere do contorno da base (> 0,1 mm em planta, inclui vizinha vertical de junção inclinada); as demais usam `wallFaces`. Círculos de arco reconhecidos a partir das amostras da aresta superior externa. Nenhuma parede difere = resultado idêntico ao anterior (testado: vertical).
+- `PerimeterTool`: padrão por alvo; em "Por perímetro" Tab inverte o padrão (mensagem com `tl_msg_flag_toggle`, rótulo `tl_snap_top_face`); `setShape` zera. UI web sem mudança (Tab já existe; i18n já existia nos 7 idiomas).
+- LIMITAÇÃO (item 3): `SketchSeg` e o modelo do telhado só têm posição em planta (cota do beiral = nível + offset); a cota z do topo NÃO é carregada. Só a posição em planta é usada.
+- Testes: `perimeterTopFace.test.ts` (retângulo 6x4 horário, tilt 15: topo -0,9073752..6,9073752, base -0,1..6,1; vertical idêntico; Tab; piso base; desfazer). Nenhum teste existente editado.
