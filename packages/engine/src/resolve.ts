@@ -31,6 +31,7 @@ import {
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
+import { paresQueSeCruzam } from './wallTiltCruzamento.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -169,12 +170,14 @@ export function buildItems(
 }
 
 /** Algoritmo do pintor por prioridade (docs/05 §1): o menor número de prioridade é aceito primeiro e corta os demais. */
-export function paint(items: Item[]): Map<Item, MultiPolygon> {
+export function paint(items: Item[], isentos?: ReadonlySet<string>): Map<Item, MultiPolygon> {
   // Prioridade igual: a parede que atravessa um T vem primeiro (a que chega para na face dela, como no Revit);
   // só depois valem o núcleo mais robusto e a ordem de criação (paredes sobrepostas sem junção).
   const sorted = [...items].sort((x, y) => x.priority - y.priority || Number(y.through) - Number(x.through) || y.coreT - x.coreT || x.order - y.order || x.layerIndex - y.layerIndex);
   const result = new Map<Item, MultiPolygon>();
   const higher: Item[] = [];
+  /** X1: paredes que se cruzam sem junção (ao menos uma inclinada) não se cortam: os corpos se interpenetram. */
+  const isento = (x: Item, y: Item): boolean => !!isentos && x.wallId !== y.wallId && isentos.has(x.wallId < y.wallId ? `${x.wallId}|${y.wallId}` : `${y.wallId}|${x.wallId}`);
   let i = 0;
   while (i < sorted.length) {
     let j = i;
@@ -183,9 +186,9 @@ export function paint(items: Item[]): Map<Item, MultiPolygon> {
     const accepted: Item[] = [];
     for (const it of group) {
       const subs: MultiPolygon[] = [];
-      for (const h of higher) if (boxesOverlap(h.box, it.box)) subs.push(h.shape);
+      for (const h of higher) if (boxesOverlap(h.box, it.box) && !isento(h, it)) subs.push(h.shape);
       // Mesma prioridade: o mais antigo vence, então a camada nova não duplica a área do canto.
-      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box)) subs.push(g.shape);
+      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box) && !isento(g, it)) subs.push(g.shape);
       const vis = subs.length ? difference(it.shape, ...subs) : it.shape;
       result.set(it, vis.filter((p) => multiArea([p]) > MIN_AREA));
       accepted.push(it);
@@ -302,21 +305,22 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
-function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false): ClusterCore {
-  const compartilhadas = pinturasDoCluster(items);
+function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false, isentos?: ReadonlySet<string>): ClusterCore {
+  const compartilhadas = pinturasDoCluster(items, isentos?.size ? [...isentos].sort().join(',') : '');
+  const pintar = (its: Item[]): Map<Item, MultiPolygon> => paint(its, isentos);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
     const key = active.map((i) => i.uid).sort((x, y) => x - y).join(',');
     let m = paintCache.get(key);
     if (!m) {
-      m = pintarCompartilhado(compartilhadas, key, active, paint);
+      m = pintarCompartilhado(compartilhadas, key, active, pintar);
       paintCache.set(key, m);
     }
     return m;
   };
   const plan = paintFor(items.filter((i) => i.inPlan));
   // Paredes só de contorno (fora do corte) pintam só entre si: não cortam as paredes que o corte atravessa.
-  const outlinePaint = paint(items.filter((i) => i.outline));
+  const outlinePaint = pintar(items.filter((i) => i.outline));
   // Retornos de acabamento não invadem paredes vizinhas (ver clipReturn.ts).
   const clipReturn = makeReturnClipper(items);
   const layers = new Map<Id, ResolvedLayer[]>();
@@ -459,10 +463,11 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
     const semRegioes = group.some((f) => !!f.wall.tilt);
-    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}`;
+    const isentos = paresQueSeCruzam(group, estrutura.status);
+    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}`;
     let core = cache.get(key);
     if (!core) {
-      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes);
+      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes, isentos);
       if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
       cache.set(key, core);
     }
