@@ -34,8 +34,6 @@ import { WallTiltDialog } from './ui/dialogs/WallTiltDialog.tsx';
 import { RevisionDialog } from './ui/dialogs/RevisionDialog.tsx';
 import { PublishDialog } from './ui/dialogs/PublishDialog.tsx';
 import { AutoCotaDialog } from './ui/dialogs/AutoCotaDialog.tsx';
-import { TagFamiliesDialog } from './ui/dialogs/TagFamiliesDialog.tsx';
-import { TagAllDialog } from './ui/dialogs/TagAllDialog.tsx';
 import { MaterialsDialog } from './ui/dialogs/MaterialsDialog.tsx';
 import { LevelsDialog, OpeningTypeDialog, ShortcutsDialog, StartDialog } from './ui/dialogs/OtherDialogs.tsx';
 import { UnitsDialog } from './ui/dialogs/UnitsDialog.tsx';
@@ -45,7 +43,6 @@ import { AlertaDialog } from './ui/dialogs/AlertaDialog.tsx';
 import { AreaMergeDialog } from './ui/dialogs/AreaMergeDialog.tsx';
 import { DimensionSettingsDialog } from './ui/dialogs/DimensionSettingsDialog.tsx';
 import { DimensionFamiliesDialog } from './ui/dialogs/DimensionFamiliesDialog.tsx';
-import { NorthArrowFamiliesDialog, RevisionCloudFamiliesDialog, SpotFamiliesDialog, TextFamiliesDialog } from './ui/dialogs/ExtraAnnotationFamilyDialogs.tsx';
 import { ShortcutsConfigDialog } from './ui/dialogs/ShortcutsConfigDialog.tsx';
 import { WallScheduleDialog } from './ui/dialogs/WallScheduleDialog.tsx';
 import { FloorTypeDialog } from './ui/dialogs/FloorTypeDialog.tsx';
@@ -97,9 +94,7 @@ import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
 import { SelectLevelsDialog } from './ui/dialogs/SelectLevelsDialog.tsx';
 import { SalvarSemPastaDialog } from './ui/dialogs/SalvarSemPastaDialog.tsx';
-import { BeamScheduleDialog } from './ui/dialogs/BeamScheduleDialog.tsx'; import { BeamTypeDialog } from './ui/dialogs/BeamTypeDialog.tsx';
-import { ColumnScheduleDialog } from './ui/dialogs/ColumnScheduleDialog.tsx'; import { ColumnTypeDialog } from './ui/dialogs/ColumnTypeDialog.tsx';
-import { FootingScheduleDialog } from './ui/dialogs/FootingScheduleDialog.tsx'; import { FootingTypeDialog } from './ui/dialogs/FootingTypeDialog.tsx';
+import { DialogoExtra } from './ui/dialogs/DialogoExtra.tsx';
 
 /**
  * Host do diálogo "Selecionar níveis": lê o projeto e o buffer da área de transferência fora do switch de diálogos
@@ -199,18 +194,6 @@ function Dialogs(): ReactElement | null {
       return <DimensionSettingsDialog onApplyStyle={(patch) => editor.store.exec({ type: 'setDimensionStyle', patch }, 'Estilo de cotas')} />;
     case 'dimensionFamilies':
       return <DimensionFamiliesDialog />;
-    case 'tagFamilies':
-      return <TagFamiliesDialog />;
-    case 'tagAll':
-      return <TagAllDialog />;
-    case 'textFamilies':
-      return <TextFamiliesDialog />;
-    case 'spotFamilies':
-      return <SpotFamiliesDialog />;
-    case 'revisionCloudFamilies':
-      return <RevisionCloudFamiliesDialog />;
-    case 'northArrowFamilies':
-      return <NorthArrowFamiliesDialog />;
     case 'start':
       return <StartDialog />;
     case 'shortcuts':
@@ -269,20 +252,9 @@ function Dialogs(): ReactElement | null {
       return <SelectLevelsHost />;
     case 'salvarSemPasta':
       return <SalvarSemPastaDialog />;
-    case 'columnType':
-      return <ColumnTypeDialog typeId={arg ?? undefined} />;
-    case 'beamType':
-      return <BeamTypeDialog typeId={arg ?? undefined} />;
-    case 'footingType':
-      return <FootingTypeDialog typeId={arg ?? undefined} />;
-    case 'columnSchedule':
-      return <ColumnScheduleDialog />;
-    case 'beamSchedule':
-      return <BeamScheduleDialog />;
-    case 'footingSchedule':
-      return <FootingScheduleDialog />;
     default:
-      return null;
+      // Famílias de anotação (etiquetas, texto, cotas de nível/coordenada, nuvem, norte) e a tríade estrutural.
+      return <DialogoExtra kind={d} arg={arg} />;
   }
 }
 

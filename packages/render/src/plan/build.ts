@@ -525,11 +525,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Etiquetas de tipo (G4) seguem a categoria 'anotação' (visibilidade e mm de papel).
   if (profile.tags && p.settings.showTags) labels.push(...wallTagLabels(p, input.levelId, paint.annotation, scale, hidden));
   // Etiquetas de portas e janelas (Tag on Placement): desligadas por padrão, ligadas ao inserir.
-  if (profile.tags && p.settings.showOpeningTags) {
-    // A esquadria que já tem etiqueta própria (elemento arrastável) não repete o rótulo automático.
-    const tagged = new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId));
-    labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, tagged));
-  }
+  // A esquadria que já tem etiqueta própria (elemento arrastável) não repete o rótulo automático.
+  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId))));
   separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
 

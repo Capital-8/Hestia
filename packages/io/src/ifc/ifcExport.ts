@@ -499,8 +499,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addStructural(c);
   addRailings(c, geo);
   addMasses(c, geo);
-  addGenerics(c);
-  addSpaces(c);
+  addGenerics(c); addSpaces(c);
   addGrids(c);
   addQuantities(c, geo);
   addHestiaPsets(c);
