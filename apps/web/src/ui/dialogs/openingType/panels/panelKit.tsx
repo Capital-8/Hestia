@@ -31,6 +31,8 @@ export interface PanelProps {
   /** Contagens de folhas aceitas pela família. */
   leaves: ReadonlyArray<{ value: OpeningType['leaves']; label: string }>;
   materials: Record<string, Material>;
+  /** Campos que a composição autoral define (`camposTravadosPelaComposicao`): o painel os mostra travados. */
+  travados?: ReadonlySet<keyof OpeningType>;
 }
 
 export const FIELD_LEAF: ReadonlyArray<readonly [OpeningLeafStyle, keyof Dict]> = [
@@ -127,13 +129,14 @@ export function Miniaturas<T extends string>({
   );
 }
 
-/** Seletor de material (caixilho, vidro...). */
-export function MaterialSelect({ id, labelKey, value, materials, onPick }: { id: string; labelKey: keyof Dict; value: string; materials: Record<string, Material>; onPick: (id: string) => void }): ReactElement {
+/** Seletor de material (caixilho, vidro...). `travado` (campo definido pela composição) desabilita e explica no aviso. */
+export function MaterialSelect({ id, labelKey, value, materials, onPick, travado = false }: { id: string; labelKey: keyof Dict; value: string; materials: Record<string, Material>; onPick: (id: string) => void; travado?: boolean }): ReactElement {
   const { t } = useT();
+  const aviso = travado ? t('dlo_h_defined_by_composition') : undefined;
   return (
     <div className="field-row">
-      <label htmlFor={id}>{t(labelKey)}</label>
-      <select id={id} className="select" value={value} onChange={(e) => onPick(e.target.value)}>
+      <label htmlFor={id} title={aviso}>{t(labelKey)}</label>
+      <select id={id} className="select" value={value} disabled={travado} title={aviso} onChange={(e) => onPick(e.target.value)}>
         {Object.values(materials).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select>
     </div>

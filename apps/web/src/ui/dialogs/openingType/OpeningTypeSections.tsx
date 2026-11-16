@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react';
-import { openingOptionSupport, type Material, type OpeningFamily, type OpeningType } from '@hestia/model';
+import { camposTravadosPelaComposicao, openingOptionSupport, type Material, type OpeningFamily, type OpeningType } from '@hestia/model';
 import { useT } from '../../../editor/i18n.ts';
 import { OPENING_COMPONENTS, componentToShow, rememberComponent, visibleComponents, type OpeningComponentId } from './components.ts';
 
@@ -24,6 +24,7 @@ export function OpeningTypeSections({ d, onChange, family, leaves, materials, ac
   const visiveis = visibleComponents(d.kind, family?.id ?? null);
   const atual = componentToShow(d.kind, family?.id ?? null, active ?? interno);
   const comp = OPENING_COMPONENTS.find((c) => c.id === atual) ?? OPENING_COMPONENTS[0]!;
+  const travados = camposTravadosPelaComposicao(d);
   const pick = (id: OpeningComponentId): void => {
     rememberComponent(id);
     setInterno(id);
@@ -57,7 +58,8 @@ export function OpeningTypeSections({ d, onChange, family, leaves, materials, ac
       </nav>
       <section className="op-panel" aria-label={t(comp.labelKey)}>
         <h3 className="op-panel-title">{t(comp.labelKey)}</h3>
-        <Panel d={d} onChange={onChange} family={family} support={openingOptionSupport(family?.id)} leaves={leaves} materials={materials} />
+        {travados.size > 0 ? <p className="hint" style={{ padding: '0 0 8px' }}>{t('dlo_h_authored_top')}</p> : null}
+        <Panel d={d} onChange={onChange} family={family} support={openingOptionSupport(family?.id)} leaves={leaves} materials={materials} travados={travados} />
       </section>
     </div>
   );

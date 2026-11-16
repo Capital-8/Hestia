@@ -17,6 +17,8 @@ interface OpeningTypeLibraryProps {
   onToggle: () => void;
   onFamily: (id: string) => void;
   onVariant: (variant: OpeningVariant) => void;
+  /** Chamado depois de duplicar o tipo em edição (o diálogo oferece aplicar a cópia às aberturas selecionadas). */
+  onDuplicated?: (copia: OpeningType, antigoId: string) => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export function OpeningTypeLibrary({
   onToggle,
   onFamily,
   onVariant,
+  onDuplicated,
 }: OpeningTypeLibraryProps): ReactElement {
   const { t } = useT();
   // Miniaturas adiadas: a lista acompanha a edição sem refazer a elevação a cada tecla.
@@ -54,7 +57,7 @@ export function OpeningTypeLibrary({
       </div>
       {open ? (
         <div className="op-lib-body">
-          <OpeningTypeLibraryActions type={type} />
+          <OpeningTypeLibraryActions type={type} onDuplicated={onDuplicated} />
           <div className="op-lib-title">{t('families')}</div>
           <nav className="op-lib-tree" aria-label={t('families')}>
             {families.map((f) => (
