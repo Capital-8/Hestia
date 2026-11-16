@@ -93,7 +93,8 @@ export interface PaneLayout {
 export const SPLIT_LIMITS = { minRatio: 0.15, maxRatio: 0.85 } as const;
 export const MAX_PANES = 4;
 
-export const DEFAULT_SYNC: PaneSync = { followLevel: true, followSelection: true, lockCameraTo: null };
+/** Padrão de sincronia. Quem cria painel copia (`{ ...DEFAULT_SYNC }`); nunca mutar o objeto exportado. */
+export const DEFAULT_SYNC: Readonly<PaneSync> = Object.freeze({ followLevel: true, followSelection: true, lockCameraTo: null });
 
 /** Layouts prontos do menu de vistas. */
 export type LayoutPresetId = 'single' | 'twoColumns' | 'twoRows' | 'oneAndTwo' | 'grid';
@@ -107,11 +108,15 @@ export interface PaneLayoutOps {
   split(l: PaneLayout, paneId: PaneId, direction: SplitDirection, view: PaneView, newId: PaneId): PaneLayout;
   /** Fecha o painel e promove o irmão. Nunca fecha o último. Se era o ativo, o irmão vira ativo. */
   close(l: PaneLayout, paneId: PaneId): PaneLayout;
-  /** Ajusta a fração da divisão que contém `paneId` como primeiro filho direto; respeita `SPLIT_LIMITS`. */
+  /**
+   * Ajusta a fração da divisão que contém `paneId` como primeiro filho direto; respeita `SPLIT_LIMITS`. Se `paneId` não
+   * for o primeiro filho direto de uma divisão (é o segundo, ou não existe), devolve o mesmo layout.
+   */
   resize(l: PaneLayout, paneId: PaneId, ratio: number): PaneLayout;
   setActive(l: PaneLayout, paneId: PaneId): PaneLayout;
   toggleMaximize(l: PaneLayout, paneId: PaneId): PaneLayout;
   setView(l: PaneLayout, paneId: PaneId, view: PaneView): PaneLayout;
+  /** Mescla o patch no estilo; uma chave presente no patch com valor `undefined` REMOVE a chave (volta a herdar). */
   setStyle(l: PaneLayout, paneId: PaneId, patch: PaneStyle): PaneLayout;
   applyPreset(l: PaneLayout, preset: LayoutPresetId, views: readonly PaneView[], ids: readonly PaneId[]): PaneLayout;
 }
