@@ -3,7 +3,7 @@ import { createEmptyProject } from '@hestia/model';
 import { editor } from './controller.ts';
 import { activatePane } from './paneActivation.ts';
 import { initialLayout, startPaneSync, usePanes } from './paneStore.ts';
-import { findPane, type PaneLayout, type PaneView } from './panes.ts';
+import { findPane, type PaneView } from './panes.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
 
 const pane = (id: string, view: PaneView) => ({ kind: 'leaf' as const, pane: { id, view, style: {}, sync: { followLevel: true, followSelection: true, lockCameraTo: null }, camera3d: null, camera2d: null } });

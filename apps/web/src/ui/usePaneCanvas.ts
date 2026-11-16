@@ -65,6 +65,7 @@ export function usePaneCameras(pane: PaneCanvas, model: RefObject<ModelScene>): 
     if (c2 && isActiveRef.current && saved.view.kind !== '3d' && !editor.viewport()) editor.setViewport({ cx: c2.center.x, cy: c2.center.y, zoom: c2.zoom, width: 1, height: 1 });
     const orbit = model.current.orbit;
     return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- o valor MAIS RECENTE ao desmontar é o desejado
       const v = isActiveRef.current ? editor.viewport() : (ownCamera.current?.v ?? null);
       usePanes.getState().saveCameras(paneId, { camera3d: guardarCamera(orbit), ...(v ? { camera2d: camera2dOf(v) } : {}) });
     };

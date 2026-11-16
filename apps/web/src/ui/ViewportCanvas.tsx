@@ -102,7 +102,7 @@ export interface ViewportCanvasProps {
 export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = true }: ViewportCanvasProps = {}): ReactElement {
   const { t, lang } = useT();
   const pane = usePaneCanvas(paneId);
-  const { state: paneState, isActiveRef } = pane;
+  const { state: paneState, isActiveRef, ownCamera, saved2d } = pane;
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const host = useRef<HTMLDivElement>(null);
@@ -439,8 +439,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     }
     // Painel inativo: câmera 2D própria do canvas, enquadrando a vista dele; o ativo usa a do controlador (como sempre).
     const ativo = isActiveRef.current;
-    const antes = ativo ? editor.viewport() : (pane.ownCamera.current?.v ?? null);
-    const v = ativo ? editor.ensureViewport(w, h) : ownViewport(pane.ownCamera, st, w, h, pane.saved2d());
+    const antes = ativo ? editor.viewport() : (ownCamera.current?.v ?? null);
+    const v = ativo ? editor.ensureViewport(w, h) : ownViewport(ownCamera, st, w, h, saved2d());
     // O tamanho do canvas mudou: as cotas (HTML) recalculam a posição com a vista nova (C07).
     if (antes && antes !== v) useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
     const pf = (planFrame.current ??= new PlanFrame(plan.current));
@@ -582,7 +582,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState]);
+  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
