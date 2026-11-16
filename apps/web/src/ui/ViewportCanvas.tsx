@@ -19,6 +19,8 @@ import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionTe
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { usePanes } from '../editor/paneStore.ts';
+import { estiloDoPainelAgora } from './paneEstilo.ts';
+import { projetoDoPainel } from '../editor/paneStyle.ts';
 import { ownViewport } from '../editor/paneCamera2d.ts';
 import { usePaneCameras, usePaneCanvas } from './usePaneCanvas.ts';
 import type { PaneId } from '../editor/panes.ts';
@@ -264,14 +266,14 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const iniciarMontagem3d = useCallback((darkAgora: boolean, st: ReturnType<typeof useUi.getState>): boolean => {
-    const p = editor.project;
+    const p = projetoDoPainel(editor.project, estiloDoPainelAgora(paneId), { kind: '3d' });
     const vis = visibilityOf(p, st);
     // Sombras e arestas são da vista 3D no projeto (decisão 0015 §1): a chave inclui a versão do projeto.
     const v3 = view3dOf(p);
     // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
     // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}`;
+    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}`;
     if (key === modelKey.current) return false;
     modelKey.current = key;
     const m = model.current;
@@ -287,7 +289,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
     montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
     return true;
-  }, []);
+  }, [paneId]);
   // Kernel Rust carregado depois da primeira montagem: o que foi desenhado sem os guarda-corpos (3D, planta, corte) é invalidado e refeito
   // (mesmo padrão do "calculando…" das paredes). A chave do nível na cena 3D também muda (marca `gc0` -> `gc1`).
   useEffect(
@@ -354,6 +356,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     dprRef.current = dpr;
     const g = gpuRef.current;
     const p = editor.project;
+    // Estilo visual do PRÓPRIO painel (`pane.style`) sobre o do projeto; painel sem estilo usa o projeto como sempre.
+    const estilo = estiloDoPainelAgora(paneId);
+    const pEstilo = projetoDoPainel(p, estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId });
     const vis = visibilityOf(p, st);
     const theme = dark ? DARK : LIGHT;
     if (st.view === '3d') {
@@ -413,7 +418,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
             camada.grupo.removeFromParent();
           }
         }
-      g.gpu.renderer.shadowMap.enabled = view3dOf(p).shadows;
+      g.gpu.renderer.shadowMap.enabled = view3dOf(pEstilo).shadows;
       g.gpu.setSize(w, h, dpr);
       // Animação da câmera (ViewCube, Início): avança a cada quadro e pede o próximo enquanto anima.
       if (m.orbit.step(performance.now())) {
@@ -425,7 +430,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       if (pendente) aplicarCameraNaOrbita(m.orbit, pendente);
       m.orbit.setAspect(w, h);
       // Sombra suja (edição) e gesto de câmera ativo: o mapa novo espera o fim do gesto; a órbita desenha com o anterior.
-      const adiarSombra = view3dOf(p).shadows && interacaoAtiva();
+      const adiarSombra = view3dOf(pEstilo).shadows && interacaoAtiva();
       m.sombra.aplicar(g.gpu.renderer, adiarSombra);
       if (adiarSombra && m.sombra.sujo && sombraAdiada.current === null) {
         sombraAdiada.current = setTimeout(() => {
@@ -450,7 +455,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
       vperf?.mark('b_ini');
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang);
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang, pEstilo);
       vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;
@@ -572,7 +577,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo)].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -582,7 +587,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d]);
+  }, [size, ready, dark, sketch, paneId, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.

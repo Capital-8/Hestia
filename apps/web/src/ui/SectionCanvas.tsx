@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { sectionAnnotationsOf, type Id } from '@hestia/model';
+import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
 import { anotacoesSemOcultas } from '../editor/viewAnnotations.ts';
 import { DARK, LIGHT, sectionFrame, type PlanDrawList, type Viewport } from '@hestia/render';
 import { editor, useProject } from '../editor/controller.ts';
@@ -19,14 +19,14 @@ import { Icon } from './Icon.tsx';
  * tamanho da vista não geram geometria nova. Com GPU, a lista volta como está (o shader aplica `papel`/`zoomMin` com o
  * zoom corrente); sem GPU, ela sai resolvida para o zoom do Canvas2D.
  */
-export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, lang: Lang = 'pt'): PlanDrawList | null {
+export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, lang: Lang = 'pt', projeto?: Project): PlanDrawList | null {
   const st = useUi.getState();
   const section = editor.sectionOf(st.sectionId);
   if (!section || !st.sectionId) return null;
   const view = editor.project.views.find((x) => x.id === st.sectionId);
   const gpu = st.gpu === 'webgl2' || st.gpu === 'webgpu';
   const entrada = {
-    project: editor.project,
+    project: projeto ?? editor.project,
     version: editor.store.version,
     sectionId: st.sectionId,
     section,
@@ -38,7 +38,7 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
     annotations: view ? anotacoesSemOcultas(sectionAnnotationsOf(view), hidden) : undefined,
     levelExtents: view?.levelExtents,
     highlight: { selection: st.selection, hover: st.hover, aviso: st.avisoParede ? [st.avisoParede] : [] },
-    thinLines: thinLinesOn(editor.project, 'section'),
+    thinLines: thinLinesOn(projeto ?? editor.project, 'section'),
     lang,
   };
   return sectionFrame.drawList(entrada, v, gpu);
