@@ -18,6 +18,9 @@ import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/di
 import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionText, sectionAnnotationsOf } from '@hestia/model';
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
+import { usePanes } from '../editor/paneStore.ts';
+import { usePaneCameras, usePaneCanvas } from './usePaneCanvas.ts';
+import type { PaneId } from '../editor/panes.ts';
 
 /** Tolerância (m) para escolher a linha de cortina sob o cursor na 3D (metade de um montante, com folga). */
 const TOLERANCIA_SUB_3D = 0.08;
@@ -86,11 +89,20 @@ export interface ViewportCanvasProps {
    * canvas monta o rascunho a partir do clipboard (`montarPrevia`) enquanto `useUi.pastePreview` existir.
    */
   projetoDePrevia?: Project | null;
+  /** Painel que o canvas mostra; ausente = o painel ativo (ou o do `PaneContext`). */
+  paneId?: PaneId;
+  /** Chamado quando o usuário clica num painel inativo; o clique só ativa, não executa a ferramenta. */
+  onActivate?: (paneId: PaneId) => void;
+  /** Falso: o painel está oculto (maximizado outro, aba escondida) e não renderiza quadros. Padrão: true. */
+  visible?: boolean;
 }
 
 /** Desenha o plano (GPU ou CPU) e o 3D, e traduz o ponteiro em chamadas ao editor. */
-export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): ReactElement {
+export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = true }: ViewportCanvasProps = {}): ReactElement {
   const { t, lang } = useT();
+  const pane = usePaneCanvas(paneId);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const host = useRef<HTMLDivElement>(null);
   const labelLayer = useRef<PlanLabelsHandle>(null);
   const gpuRef = useRef<{ gpu: GpuContext; canvas: HTMLCanvasElement } | null>(null);
@@ -114,10 +126,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // A prancha lê a câmera da MESMA vista 3D (decisão 0040) por `vista3dAoVivo`.
   useEffect(() => {
     const m = model.current;
+    // Só o painel ativo é a "vista 3D ao vivo" do app (catálogo de pontos de vista e prancha).
+    if (!pane.isActive) return;
     registrarOrbita3D(m.orbit);
     registrarCena3D({ scene: m.scene, camera: m.orbit.camera });
     return () => { registrarOrbita3D(null); registrarCena3D(null); };
-  }, []);
+  }, [pane.isActive]);
+  usePaneCameras(pane.paneId, model);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Rótulos da planta e a vista deles: o estado só troca quando o conteúdo ou a vista muda (`publish`).
   const [labels, setLabels] = useState<LabelOp[]>(NO_LABELS);
@@ -132,7 +147,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     [perim.active, perim.draft, perim.result, perim.hoverId, perim.selectionBox],
   );
   // Só o que a própria tela lê: a mudança de outros campos não re-renderiza a planta (o redesenho sai do agendamento abaixo).
-  const ui = useUi(useShallow((s) => ({ view: s.view, gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
+  const uiBase = useUi(useShallow((s) => ({ gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
+  const ui = useMemo(() => ({ ...uiBase, view: pane.fields.view }), [uiBase, pane.fields.view]);
   const selection = useUi((s) => s.selection);
   const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
@@ -295,7 +311,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   );
   useEffect(() => {
     registrarPreparo3d(() => {
-      iniciarMontagem3d(darkRef.current, useUi.getState());
+      iniciarMontagem3d(darkRef.current, pane.state());
       return montagem.current ? { montados: montagem.current.montados, total: montagem.current.total } : null;
     });
     return () => registrarPreparo3d(null);
@@ -306,10 +322,10 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(() => {
     registrarPreparoCena3D(() => {
       if (!editor.project) return false;
-      iniciarMontagem3d(darkRef.current, useUi.getState());
+      iniciarMontagem3d(darkRef.current, pane.state());
       montagem.current?.montarTudo();
       if (!montagem.current || montagem.current.montados === 0) return false;
-      if (!useUi.getState().seen3d) {
+      if (!pane.state().seen3d) {
         model.current?.fit();
         useUi.setState({ seen3d: true });
       }
@@ -320,9 +336,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
 
   // ---- desenho ----
   const renderQuadro = useCallback(() => {
-    const st = useUi.getState();
+    const st = pane.state();
     const { w, h } = size;
-    if (!ready || w < 10 || h < 10) return;
+    if (!ready || w < 10 || h < 10 || !visibleRef.current) return;
     // Saiu da prévia do Colar alinhado: tira os fantasmas e devolve a câmera de antes do comando.
     if (!st.pastePreview && fantasmas.current) {
       fantasmas.current.limpar();
@@ -573,12 +589,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const sched = (): void => { cancelAnimationFrame(frame.current); frame.current = requestAnimationFrame(render); };
     sched();
     const off = useUi.subscribe(sched);
-    return () => { off(); cancelAnimationFrame(frame.current); };
-  }, [render]);
+    const offPanes = usePanes.subscribe(sched);
+    return () => { off(); offPanes(); cancelAnimationFrame(frame.current); };
+  }, [render, visible]);
 
   // Entrou na prévia do Colar alinhado: o realce do cursor não fica preso ao elemento de antes.
   useEffect(() => {
-    if (previewState && useUi.getState().hover) useUi.setState({ hover: null });
+    if (previewState && pane.state().hover) useUi.setState({ hover: null });
   }, [previewState]);
 
   // ---- ponteiro ----
@@ -605,7 +622,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   /** Aplica a caixa do corte: converte as pontas para (t,z) e troca (ou soma, com Shift/Ctrl) a seleção. */
   const aplicarCaixaDoCorte = (a: Pt, b: Pt, somar: boolean): void => {
     const v = editor.viewport();
-    const st = useUi.getState();
+    const st = pane.state();
     const result = st.sectionId ? editor.sectionOf(st.sectionId) : null;
     if (!v || !result) return;
     const wa = screenToWorld(v, a);
@@ -681,7 +698,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   // a barra de controle da vista. Só as primeiras teclas das sequências são interceptadas; o restante segue normal.
   useEffect(() => {
     const atalhoDeVisibilidade = (e: KeyboardEvent): void => {
-      const st = useUi.getState();
+      if (!pane.isActiveRef.current) return;
+      const st = pane.state();
       if (st.view !== '3d' && st.view !== 'section') return;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       const alvo = e.target as HTMLElement | null;
@@ -724,9 +742,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     hover3d.current.frame = requestAnimationFrame(() => {
       hover3d.current.frame = 0;
       const at = hover3d.current.at;
-      if (!at || useUi.getState().view !== '3d') return;
+      if (!at || pane.state().view !== '3d') return;
       const id = elementAt3d(at)?.id ?? null;
-      if (useUi.getState().hover !== id) useUi.setState({ hover: id });
+      if (pane.state().hover !== id) useUi.setState({ hover: id });
     });
   };
   const modsDe = (e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }): Mods => ({
@@ -735,7 +753,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   /** `info` a partir de ponto e modificadores já capturados (o `down` adiado sai depois do evento original). */
   // Ferramenta que declara `hover3d` (Porta na cortina) recebe, na 3D, o ponto e a altura da superfície sob o cursor.
   const infoDe = (s: Pt, m: Mods) => {
-    if (useUi.getState().view === '3d' && editor.activeTool.hover3d) {
+    if (pane.state().view === '3d' && editor.activeTool.hover3d) {
       const el = elementAt3d(s);
       return { raw: el ? { x: el.point.x, y: el.point.y } : { x: 0, y: 0 }, ...m, hit3d: el?.id ?? null, hitZ: el?.point.z };
     }
@@ -782,14 +800,16 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onDown = (e: RPointerEvent): void => {
+    // Painel inativo: o clique só o ativa; a ferramenta não roda neste mesmo clique.
+    if (!pane.isActiveRef.current) { if (pane.paneId !== undefined) onActivate?.(pane.paneId); return; }
     host.current?.setPointerCapture(e.pointerId);
     const s = local(e);
     pointers.current.set(e.pointerId, s);
     // Um novo `down` encerra qualquer adiamento anterior (ex.: segundo dedo): o gesto pendente não entrega mais nada.
     cancelarDownAdiado();
-    const view = useUi.getState().view;
+    const view = pane.state().view;
     // Prévia do Colar alinhado: os cliques de edição são ignorados; orbitar, pan e zoom continuam.
-    const emPrevia = useUi.getState().pastePreview !== null;
+    const emPrevia = pane.state().pastePreview !== null;
     // Com a cota aberta, um clique fora do input aplica e fecha (o input não propaga o pointerdown).
     if (cotaRef.current?.fecharSeAberto()) return;
     if (pointers.current.size === 2) {
@@ -828,19 +848,19 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       // de orbitar. Alt+esquerdo, Espaço, meio e Shift+meio seguem como antes. Com a prévia do Colar, a órbita fica.
       if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey && editor.activeTool.id === 'select') {
         drag.current = { mode: 'marquee', start: s, last: s, moved: false, pick: true };
-        if (useUi.getState().hover) useUi.setState({ hover: null });
+        if (pane.state().hover) useUi.setState({ hover: null });
         return;
       }
       const mode = isOrbitReq ? 'orbit' : isPanReq ? 'pan' : (e.button === 0 ? 'orbit' : 'none');
       drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey && !emPrevia };
       if (mode === 'orbit' || mode === 'pan') iniciarGesto();
       // Ao pressionar, o realce some: enquanto arrasta, o cursor orbita e não destaca.
-      if (useUi.getState().hover) useUi.setState({ hover: null });
+      if (pane.state().hover) useUi.setState({ hover: null });
       return;
     }
     // Corte/elevação: ferramentas de anotação e edição usam o mesmo pointer da planta, em coordenadas (t,z).
     if (view === 'section') {
-      const stNow = useUi.getState();
+      const stNow = pane.state();
       const vNow = editor.viewport();
       const result = stNow.sectionId ? editor.sectionOf(stNow.sectionId) : null;
       if (vNow && e.button === 0 && !spaceDown.current && !e.altKey && !isMiddleBtn && editor.activeTool.id === 'select' && stNow.selection.length > 0) {
@@ -850,7 +870,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (grip) {
           sectionDimDrag.current = { grip, at: w };
           drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
-          if (useUi.getState().hover) useUi.setState({ hover: null });
+          if (pane.state().hover) useUi.setState({ hover: null });
           useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
           return;
         }
@@ -869,7 +889,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         // A vista pode ainda estar no primeiro quadro depois de abrir o corte; não entregue ponto sem viewport.
         if (!editor.viewport()) return;
         drag.current = { mode: 'tool', start: s, last: s, moved: false, pick: false };
-        if (useUi.getState().hover) useUi.setState({ hover: null });
+        if (pane.state().hover) useUi.setState({ hover: null });
         editor.pointer('down', info(e, s));
         return;
       }
@@ -877,11 +897,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       // Meio, Espaço e Alt arrastam a vista (pan).
       if (gestoDoBotaoNoCorte({ botao: e.button, espaco: spaceDown.current, alt: e.altKey }) === 'caixa') {
         drag.current = { mode: 'marquee', start: s, last: s, moved: false, pick: true };
-        if (useUi.getState().hover) useUi.setState({ hover: null });
+        if (pane.state().hover) useUi.setState({ hover: null });
         return;
       }
       drag.current = { mode: 'pan', start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current };
-      if (useUi.getState().hover) useUi.setState({ hover: null });
+      if (pane.state().hover) useUi.setState({ hover: null });
       return;
     }
     if (isPanReq || isMiddleBtn) {
@@ -897,10 +917,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onMove = (e: RPointerEvent): void => {
+    if (!pane.isActiveRef.current) return;
     const s = local(e);
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, s);
     if (rightPress.current) { if (Math.hypot(s.x - rightPress.current.start.x, s.y - rightPress.current.start.y) > 4) rightPress.current.moved = true; return; }
-    const view = useUi.getState().view;
+    const view = pane.state().view;
     if (gesture.current && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()] as [Pt, Pt];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -931,7 +952,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         d.last = s;
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
-      } else if (!useUi.getState().pastePreview) pickHover3d(s);
+      } else if (!pane.state().pastePreview) pickHover3d(s);
       return;
     }
     if (d.mode === 'pan') {
@@ -985,7 +1006,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         // Cursor de alça sobre a alça da cota selecionada (o resto do tempo, a seta da Selecionar).
         const vh = editor.viewport();
         if (host.current && vh && !ferramentaAtiva) {
-          const stH = useUi.getState();
+          const stH = pane.state();
           const sobre = stH.selection.length > 0 && !!sectionDimensionGripAt(editor.project, stH.sectionId, stH.selection, screenToWorld(vh, s), 8 / vh.zoom, 10 / vh.zoom, editor.viewScale());
           host.current.style.cursor = sobre ? 'move' : 'default';
         }
@@ -1023,6 +1044,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   const onUp = (e: RPointerEvent): void => {
+    if (!pane.isActiveRef.current) return;
     encerrarGesto();
     const s = local(e);
     pointers.current.delete(e.pointerId);
@@ -1030,7 +1052,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       const { grip } = sectionDimDrag.current;
       sectionDimDrag.current = null;
       const v = editor.viewport();
-      const sid = useUi.getState().sectionId;
+      const sid = pane.state().sectionId;
       const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
       if (cmd) {
         editor.applyCommand(cmd);
@@ -1065,8 +1087,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       // Alvo sob o cursor: 3D e corte pelo pick da vista; planta pelo realce da Selecionar (sem ferramenta, é null).
       if (!rp.moved) {
         // Na prévia do Colar alinhado o botão direito não abre o menu de edição.
-        if (useUi.getState().pastePreview) return;
-        abrirMenuDeContexto(e.clientX, e.clientY, useUi.getState().view === '3d' ? (elementAt3d(s)?.id ?? null) : useUi.getState().view === 'section' ? (sectionPickAt(s)?.id ?? null) : useUi.getState().hover, viewDoMenu(useUi.getState().view));
+        if (pane.state().pastePreview) return;
+        abrirMenuDeContexto(e.clientX, e.clientY, pane.state().view === '3d' ? (elementAt3d(s)?.id ?? null) : pane.state().view === 'section' ? (sectionPickAt(s)?.id ?? null) : pane.state().hover, viewDoMenu(pane.state().view));
       }
       return;
     }
@@ -1093,14 +1115,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (d.mode === 'marquee') {
       ocultarCaixa();
       if (d.moved) {
-        if (useUi.getState().view === '3d') aplicarCaixaDa3d(d.start, s, e.shiftKey || e.ctrlKey);
+        if (pane.state().view === '3d') aplicarCaixaDa3d(d.start, s, e.shiftKey || e.ctrlKey);
         else aplicarCaixaDoCorte(d.start, s, e.shiftKey || e.ctrlKey);
       }
     }
     // Clique sem arrasto na vista 3D. Com ferramenta que aceita pick3d: vai o ponto da superfície sob o cursor (no plano).
     // Sem essa ferramenta (seleção): seleciona o elemento sob o cursor; Shift/Ctrl acrescenta ou alterna (decisão 0016 §3).
     // Clique no vazio deseleciona.
-    if (!d.moved && d.pick && useUi.getState().view === '3d') {
+    if (!d.moved && d.pick && pane.state().view === '3d') {
       const hit = pick3dAt(s);
       const bruto = elementBrutoAt3d(s);
       const el = comoElementoDoProjeto(bruto);
@@ -1116,7 +1138,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       } else {
         // Um elemento sob o cursor tem prioridade: a anotação do nível (texto/bolha) não pode bloquear parede/telhado.
         if (el) {
-          const antes = useUi.getState().selection;
+          const antes = pane.state().selection;
           const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
           clickSelect3d(el.id, !comum);
           // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
@@ -1128,13 +1150,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       }
     }
     // Clique sem arrasto no corte ou na elevação: o mesmo caminho da 3D (clickSelect3d, que usa selectionAfterClick).
-    if (!d.moved && d.pick && useUi.getState().view === 'section') clickSelect3d(sectionPickAt(s)?.id ?? null, e.shiftKey || e.ctrlKey || e.metaKey);
+    if (!d.moved && d.pick && pane.state().view === 'section') clickSelect3d(sectionPickAt(s)?.id ?? null, e.shiftKey || e.ctrlKey || e.metaKey);
     // Duplo clique em cota permanente (Selecionar, planta ou corte): abre o editor de valor (dimEditId, frente I3).
-    if (!d.moved && e.button === 0 && editor.activeTool.id === 'select' && useUi.getState().view !== '3d') {
+    if (!d.moved && e.button === 0 && editor.activeTool.id === 'select' && pane.state().view !== '3d') {
       const agora: CliqueAnterior = { t: performance.now(), x: s.x, y: s.y };
       if (ehDuploClique(ultimoCliqueSel.current, agora)) {
         ultimoCliqueSel.current = null;
-        const st2 = useUi.getState();
+        const st2 = pane.state();
         const vv = editor.viewport();
         if (vv) {
           const alvo = st2.view === 'section'
@@ -1158,6 +1180,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
    * `down` já havia saído — com down adiado (D1) ou Shift pendente a ferramenta nem começou, não há estado a desfazer.
    */
   const onCancel = (e: RPointerEvent): void => {
+    if (!pane.isActiveRef.current) return;
     encerrarGesto();
     const fim = pointers.current.get(e.pointerId) ?? drag.current.last;
     pointers.current.delete(e.pointerId);
@@ -1173,7 +1196,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
 
   const onWheel = (e: WheelEvent): void => {
     e.preventDefault();
-    const st = useUi.getState();
+    if (!pane.isActiveRef.current) return;
+    const st = pane.state();
     if (st.view === '3d') {
       marcarInteracao();
       // Zoom para o ponto sob o cursor: ao aproximar, o target deriva em direção ao ponto 3D sob o cursor.
@@ -1210,7 +1234,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
-  const onLeave = (): void => { if (['3d', 'section'].includes(useUi.getState().view) && useUi.getState().hover) useUi.setState({ hover: null }); };
+  const onLeave = (): void => { if (pane.isActiveRef.current && ['3d', 'section'].includes(pane.state().view) && pane.state().hover) useUi.setState({ hover: null }); };
 
   // Uma única política para as três vistas (cursor.ts): Selecionar é sempre a seta, a mão só existe durante pan/orbit,
   // alças do corte pedem o eixo e as ferramentas de desenho usam texto/mover/mira.
