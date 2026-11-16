@@ -170,7 +170,7 @@ export function addWindowLeaf(
   const gt1 = t1 - lw;
   const gz0 = z0 + lw;
   const gz1 = z1 - lw;
-  addPart(c, `glass-${index}`, 'glass', 'glass', box(gt0, gt1, sCenter - c.G / 2, sCenter + c.G / 2, gz0, gz1), opts);
+  addPart(c, `glass-${index}`, 'glass', 'glass', box(gt0, gt1, sCenter - c.G / 2, sCenter + c.G / 2, gz0, gz1), { ...opts, glassKind: c.t.glassKind });
   const depth = Math.min(c.D * 0.6, c.D - 0.001);
   const half = 0.0125;
   for (let i = 1; i < c.grid.cols; i++) {

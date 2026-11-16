@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildOpeningModel, frameOfWall, openingGeometry, type OpeningGeometry, type OpeningModel } from '@hestia/engine';
 import { openingTypeById, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings } from '@hestia/model';
+import { materialNoProjeto } from './glassAppearance.ts';
 import { pecasDoModelo } from './openingParts.ts';
 import { referencialDaEsquadria } from './referencialInclinado3d.ts';
 import { deslocamentoDaPeca, geometriaDaPeca, geometriaRelativaAoPivo } from './geometriaPeca3d.ts';
@@ -99,7 +100,7 @@ export function montarAberturaDoModelo(
       }
       const geo = geometriaRelativaAoPivo(piece).translate(d.dx, d.dy, d.dz);
       const count = geo.index?.count ?? geo.getAttribute('position').count;
-      desenhar(pivot, geo, p.materials[piece.materialId], cat, linhas, range(count));
+      desenhar(pivot, geo, materialNoProjeto(p.materials, piece.materialId), cat, linhas, range(count));
       grupo.add(pivot);
     } else {
       // Peça fixa (ou folha de correr): a geometria em coordenadas do vão (o grupo leva a transformação), como lote da
