@@ -159,7 +159,8 @@ export class AlignTool extends ToolBase {
     const refWall = paredeDaFeicao(this.ref);
     // Nenhuma ferramenta Alinhar deve mover o próprio elemento de referência sobre si mesmo.
     const results: AlignSolution[] = targets.map((t) => {
-      if (t.ownerId === this.ref!.ownerId) {
+      // Aresta de anel (piso, laje...) alinhada à própria reta segue para o resolvedor: ele avisa "já alinhadas" ou move só a aresta.
+      if (t.ownerId === this.ref!.ownerId && t.kind !== 'arestaAnel') {
         return { kind: 'erro', mensagem: this.t('tl_msg_align_self_ref') };
       }
       const sol = solveAlign(this.ref!.line, t, pr, this.uiLang());

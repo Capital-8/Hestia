@@ -142,9 +142,11 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const topL = { x: tip.x - triW, y: tip.y + triH };
     const topM = { x: tip.x, y: tip.y + triH };
     const topR = { x: tip.x + triW, y: tip.y + triH };
-    fills.push({ polygons: [[[tip, topL, topM]]], color: theme.inkSoft, alpha: 0.9 });
-    fills.push({ polygons: [[[tip, topM, topR]]], color: theme.bg, alpha: 1 });
-    strokes.push({ pts: [tip, topL, topR], closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    // Contorno aberto (fecha na ponta) e metade esquerda "preenchida" por traços horizontais: só traços, sem `fills` nem contorno
+    // fechado, para o símbolo não contar como elemento do modelo (nada visível = nenhum preenchimento).
+    strokes.push({ pts: [tip, topL, topR, tip], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    strokes.push({ pts: [tip, topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    for (const f of [0.25, 0.5, 0.75]) strokes.push({ pts: [{ x: tip.x - triW * f, y: tip.y + triH * f }, { x: tip.x, y: tip.y + triH * f }], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
       text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
