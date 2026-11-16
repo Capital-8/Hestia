@@ -4,7 +4,8 @@ import { useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { PERIMETER_SHAPES, type PerimeterShape } from '../perimeter/PerimeterRibbonPanels.tsx';
 
-export type GalleryDrawTool = 'wall' | 'beam' | 'detailLine';
+/** A Parede tem o painel próprio (`WallDrawPanel`, modos da ferramenta com polígono, elipse e spline). */
+export type GalleryDrawTool = 'beam' | 'detailLine';
 
 interface DrawShapeChoice {
   value: string;
@@ -13,27 +14,12 @@ interface DrawShapeChoice {
 }
 
 interface DrawGallerySpec {
-  optionKey: 'wallShape' | 'beamShape' | 'detailLineShape';
+  optionKey: 'beamShape' | 'detailLineShape';
   defaultValue: string;
   items: readonly DrawShapeChoice[];
 }
 
 const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
-  wall: {
-    optionKey: 'wallShape',
-    defaultValue: 'line',
-    items: [
-      { value: 'line', shapeId: 'line', labelKey: 'pro_pm_shape_line' },
-      { value: 'rect', shapeId: 'rect', labelKey: 'pro_pm_shape_rect' },
-      { value: 'poly-inscribed', shapeId: 'poly-inscribed', labelKey: 'pro_pm_shape_poly_in' },
-      { value: 'poly-circumscribed', shapeId: 'poly-circumscribed', labelKey: 'pro_pm_shape_poly_circ' },
-      { value: 'circle', shapeId: 'circle', labelKey: 'pro_pm_shape_circle' },
-      { value: 'arc', shapeId: 'arc-3pt', labelKey: 'pro_pm_shape_arc3' },
-      { value: 'arc-center', shapeId: 'arc-center', labelKey: 'pro_pm_shape_arc_center' },
-      { value: 'arc-tangent', shapeId: 'arc-tangent', labelKey: 'pro_pm_shape_arc_tangent' },
-      { value: 'ellipse', shapeId: 'ellipse', labelKey: 'pro_pm_shape_ellipse' },
-    ],
-  },
   beam: {
     optionKey: 'beamShape',
     defaultValue: 'line',
@@ -70,7 +56,7 @@ const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
 const SHAPE_ICONS = new Map<PerimeterShape, ReactNode>(PERIMETER_SHAPES.map((s) => [s.id, s.icon]));
 
 export function isGalleryDrawTool(tool: ToolId): tool is GalleryDrawTool {
-  return tool === 'wall' || tool === 'beam' || tool === 'detailLine';
+  return tool === 'beam' || tool === 'detailLine';
 }
 
 const cls = (...c: Array<string | false | null | undefined>): string => c.filter(Boolean).join(' ');

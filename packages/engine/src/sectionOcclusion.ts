@@ -178,21 +178,61 @@ class GradeDeCaixas<T extends { box: Box }> {
   }
 }
 
-/** Acima de tantos oclusores, a subtração vai em lotes (ver `subtrairEmLotes`). */
+/** Até tantos vértices de oclusores, vale a subtração de sempre (passada única ou lotes de 4 na ordem de entrada). */
+const VERTICES_LEVES = 400;
+/** Também vale o de sempre quando nenhum oclusor tem tantos vértices (muitos retângulos, p. ex.): só oclusores complexos pedem lotes por vértices. */
+const OCLUSOR_COMPLEXO = 500;
+/** Acima de tantos oclusores, a subtração leve vai em lotes de `LOTE_DE_OCLUSORES` (comportamento de antes). */
 const MAX_OCLUSORES_POR_PASSADA = 8;
-/** Tamanho do lote da subtração. */
 const LOTE_DE_OCLUSORES = 4;
+/** Acima disso, os oclusores entram em lotes de até tantos vértices (um oclusor maior que o orçamento vai sozinho). */
+const VERTICES_POR_LOTE = 96;
+
+const verticesDe = (m: MultiPolygon): number => m.reduce((s, p) => s + p.reduce((t, r) => t + r.length, 0), 0);
+
+function caixaDe(m: MultiPolygon): Box {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of m) for (const r of p) for (const v of r) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y; }
+  return { minX, minY, maxX, maxY };
+}
 
 /**
- * `item − (o1 ∪ o2 ∪ ...)`. Com poucos oclusores é uma passada só. Com muitos, vai em lotes de 4: a passada única do kernel pagava dezenas de milissegundos por
- * peça quando os oclusores eram muitos e cheios de frestas finas (acabamentos de escada vistos de frente, projetados uns sobre os outros: uma elevação de
- * prédio com escadas em vários níveis levava 8 s, e os mesmos oclusores em lotes levam poucos ms). A região resultante é a mesma (a diferença não depende da
- * ordem nem do agrupamento); só a ordem dos vértices pode mudar. Para quando a peça some.
+ * `item − (o1 ∪ o2 ∪ ...)`. O custo da passada do kernel cresce muito mais que o número de vértices dos oclusores (as interseções entre eles entram na conta,
+ * mesmo longe da peça): no projeto do dono (paredes em arco inclinadas, ~120 lascas por oclusor, 3,6 mil vértices) uma peça de 4 vértices menos 8 oclusores
+ * levava 2,5 a 5 s numa só passada, e os mesmos oclusores em lotes de ~100 vértices, do menor para o maior, levam poucos ms (a peça costuma sumir nos primeiros).
+ * A região resultante é a mesma (a diferença não depende da ordem nem do agrupamento); só a ordem dos vértices pode mudar. Oclusor cuja caixa não encosta no
+ * resto da peça é pulado. Para quando a peça some. Poucos vértices (até `VERTICES_LEVES`): como antes (uma passada, ou lotes de 4 acima de 8 oclusores).
  */
-function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
-  if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+export function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
+  const tamanhos = oclusores.map(verticesDe);
+  if (tamanhos.reduce((s, n) => s + n, 0) <= VERTICES_LEVES || Math.max(0, ...tamanhos) < OCLUSOR_COMPLEXO) {
+    if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+    let resto = poligonos;
+    for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+    return resto;
+  }
+  const ordem = oclusores.map((_, i) => i).sort((i, j) => tamanhos[i]! - tamanhos[j]! || i - j);
   let resto = poligonos;
-  for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+  let lote: MultiPolygon[] = [];
+  let loteVertices = 0;
+  const descarregar = (): void => {
+    if (lote.length === 0) return;
+    resto = differenceClipper(resto, ...lote);
+    lote = [];
+    loteVertices = 0;
+  };
+  for (const i of ordem) {
+    if (resto.length === 0) break;
+    const o = oclusores[i]!;
+    if (loteVertices + tamanhos[i]! > VERTICES_POR_LOTE) descarregar();
+    if (resto.length === 0) break;
+    const c = caixaDe(resto);
+    const d = caixaDe(o);
+    if (d.minX > c.maxX + 1e-6 || d.maxX < c.minX - 1e-6 || d.minY > c.maxY + 1e-6 || d.maxY < c.minY - 1e-6) continue;
+    lote.push(o);
+    loteVertices += tamanhos[i]!;
+  }
+  descarregar();
   return resto;
 }
 

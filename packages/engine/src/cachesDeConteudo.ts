@@ -5,6 +5,7 @@ import { esvaziarCacheDeJuncao } from './junctionLevel.ts';
 import { esvaziarCachesDeResolucao } from './resolveMemo.ts';
 import { cacheDeCortadores } from './cutterCache.ts';
 import { resetCircuitCache } from './enclosed.ts';
+import { esvaziarAnaliseInclinada } from './wallTiltJoinLevel.ts';
 import { resetRegionCache } from './rooms.ts';
 
 /**
@@ -20,6 +21,7 @@ export function limparCachesDeConteudo(): void {
   esvaziarCachesDeResolucao();
   esvaziarCacheDeClusters();
   esvaziarCacheDeJuncao();
+  esvaziarAnaliseInclinada();
   esvaziarCacheDeLajes();
   esvaziarMemoSemEsquadrias();
   cacheDeCortadores.esvaziar();

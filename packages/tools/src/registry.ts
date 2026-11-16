@@ -47,8 +47,9 @@ import { PasteTool } from './pasteTool.ts';
 import { ColumnTool } from './columnTool.ts';
 import { BeamTool } from './beamTool.ts';
 import { FootingTool } from './footingTool.ts';
+import { MassTool } from './massTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
@@ -78,6 +79,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new SelectTool(env);
     case 'paste':
       return new PasteTool(env);
+    case 'plugin': // SUPLEMENTOS: a ferramenta de suplemento é criada pelo app (`PluginTool`, com a ponte do handler); aqui só o reserva.
+      return new SelectTool(env);
     case 'perimeter':
       return new PerimeterTool(env, perimeterTarget);
     case 'wall':
@@ -180,12 +183,15 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new NorthArrowTool(env);
     case 'revisionCloud':
       return new RevisionCloudTool(env);
+    case 'mass':
+      return new MassTool(env);
   }
 }
 
 export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
+  plugin: 'Suplemento',
   wall: 'Parede',
   floor: 'Piso',
   slab: 'Laje',
@@ -237,6 +243,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   column: 'Pilar',
   beam: 'Viga',
   footing: 'Sapata',
+  mass: 'Massa',
 };
 
 /** Rótulo da ferramenta no idioma pedido (PT de `TOOL_LABEL` é o fallback). */

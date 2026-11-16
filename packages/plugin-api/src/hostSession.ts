@@ -2,10 +2,11 @@ import { ALL_CAPABILITIES, CAPABILITY_REQUIRES, type Capability } from './permis
 import { validateManifest, type ManifestIssue, type PluginManifest } from './manifest.ts';
 import type { HostPorts, SceneContent } from './hostPorts.ts';
 import { Peer, type Transport } from './transport.ts';
+import { authProof, randomNonce, verifyAuthProof, type AuthCause, type AuthPolicy } from './pairing.ts';
 import { REQUIRED_CAPABILITY, isValidCamera, type ErrorCode, type Message, type ProtocolError } from './protocol.ts';
 import { SCENE_AXES, SCENE_UNITS, type CameraMode, type SceneCamera, type SceneSnapshot } from './scene.ts';
 import { diffScene } from './sceneSync.ts';
-import { API_VERSION, PROTOCOL_VERSION, formatVersion, negotiateProtocol, parseVersion } from './version.ts';
+import { API_VERSION, PROTOCOL_VERSION, formatVersion, negotiateProtocol, parseVersion, type Version } from './version.ts';
 
 /** Estado retido entre conexões do mesmo plugin, para a retomada (`hello.resume`). */
 export interface RetainedSession {
@@ -15,8 +16,8 @@ export interface RetainedSession {
 }
 
 export type SessionEvent =
-  | { type: 'ready'; manifest: PluginManifest; granted: Capability[]; denied: Capability[]; resumed: boolean }
-  | { type: 'incompatible'; code: ErrorCode; message: string; issues?: ManifestIssue[] }
+  | { type: 'ready'; manifest: PluginManifest; granted: Capability[]; denied: Capability[]; resumed: boolean; /** Pareamento por token concluído (protocolo 1.1). Falso = sem autenticação (só no modo opcional, de desenvolvimento). */ authenticated: boolean }
+  | { type: 'incompatible'; code: ErrorCode; message: string; issues?: ManifestIssue[]; /** Causa do pareamento, quando a falha foi de autenticação. */ cause?: AuthCause }
   | { type: 'closed'; reason: string; error?: ProtocolError }
   | { type: 'camera-mode'; mode: CameraMode }
   | { type: 'denied'; message: string; messageType: string }
@@ -28,6 +29,10 @@ export interface HostSessionOptions {
   grants: readonly Capability[];
   /** Se informado, o manifesto precisa ter este tipo de integração. */
   expectedKind?: PluginManifest['kind'];
+  /** Política do token de pareamento. `required` (padrão para uso real) recusa plugin sem 1.1 e sem prova; `optional` só em desenvolvimento. */
+  tokenPolicy?: AuthPolicy;
+  /** Token do plugin (informado pelo usuário). Nunca é enviado: só entra no cálculo das provas. */
+  token?: string;
   heartbeatMs?: number;
   ackTimeoutMs?: number;
   handshakeMs?: number;
@@ -58,7 +63,10 @@ let sessionCounter = 0;
 export class HostSession {
   private readonly o: HostSessionOptions & typeof DEFAULTS;
   private readonly peer: Peer;
-  private state: 'handshaking' | 'ready' | 'closed' = 'handshaking';
+  private state: 'handshaking' | 'authenticating' | 'ready' | 'closed' = 'handshaking';
+  /** Dados do `hello` guardados enquanto o pareamento por token acontece. */
+  private pendingHello: { m: Extract<Message, { t: 'hello' }>; version: Version; nonceP: string; nonceH: string } | null = null;
+  private authenticated = false;
   private manifest: PluginManifest | null = null;
   private granted = new Set<Capability>();
   private revision = 0;
@@ -91,7 +99,7 @@ export class HostSession {
     }, this.o.handshakeMs);
   }
 
-  get currentState(): 'handshaking' | 'ready' | 'closed' { return this.state; }
+  get currentState(): 'handshaking' | 'ready' | 'closed' { return this.state === 'authenticating' ? 'handshaking' : this.state; }
   get pluginManifest(): PluginManifest | null { return this.manifest; }
   get grantedCapabilities(): Capability[] { return ALL_CAPABILITIES.filter((c) => this.granted.has(c)); }
   get mode(): CameraMode { return this.cameraMode; }
@@ -115,9 +123,9 @@ export class HostSession {
 
   private can(c: Capability): boolean { return this.granted.has(c); }
 
-  private fail(code: ErrorCode, message: string, detail?: Record<string, unknown>): void {
+  private fail(code: ErrorCode, message: string, detail?: Record<string, unknown>, cause?: AuthCause): void {
     const error: ProtocolError = { code, message, fatal: true, ...(detail ? { detail } : {}) };
-    if (this.state === 'handshaking') this.o.onEvent({ type: 'incompatible', code, message });
+    if (this.state === 'handshaking' || this.state === 'authenticating') this.o.onEvent({ type: 'incompatible', code, message, ...(cause ? { cause } : {}) });
     this.peer.sendError(error);
     this.peer.close(code);
   }
@@ -125,7 +133,17 @@ export class HostSession {
   private onMessage(m: Message): void {
     if (this.state === 'closed') return;
     if (m.t === 'bye') { this.peer.close('bye'); return; }
-    if (m.t === 'error') return; // erros do plugin chegam como informação; não há o que desfazer aqui
+    if (m.t === 'error') {
+      // Erros do plugin chegam como informação; só a recusa do pareamento (fatal) muda o estado: o plugin não aceitou nossa prova.
+      if (this.state === 'authenticating' && m.error.code === 'auth_failed') this.failAuth('wrong_token', `O plugin recusou o pareamento: ${m.error.message}`);
+      return;
+    }
+    // Antes de o pareamento terminar, nada de cena, câmera ou substituição é processado.
+    if (this.state === 'authenticating') {
+      if (m.t === 'auth.ok') void this.onAuthOk(m.proof);
+      else this.failAuth('wrong_token', `Mensagem "${m.t}" antes da autenticação.`);
+      return;
+    }
     if (this.state === 'handshaking') {
       if (m.t !== 'hello') { this.fail('not_handshaken', 'Esperava "hello" antes de qualquer outra mensagem.'); return; }
       this.onHello(m);
@@ -155,11 +173,56 @@ export class HostSession {
     const min = parseVersion(m.protocol?.min);
     const max = parseVersion(m.protocol?.max);
     if (!min || !max) { this.fail('bad_request', '"protocol" precisa de min e max no formato "major.minor".'); return; }
-    const neg = negotiateProtocol({ min, max });
+    const requireToken = (this.o.tokenPolicy ?? 'optional') === 'required';
+    const neg = negotiateProtocol({ min, max }, PROTOCOL_VERSION, { requireToken });
+    if (!neg.ok && neg.reason === 'token_required') {
+      this.failAuth('plugin_without_auth', `O plugin fala o protocolo ${formatVersion(min)}–${formatVersion(max)}, sem pareamento por token (1.1), e o Hestia exige token.`);
+      return;
+    }
     if (!neg.ok) {
       this.fail('unsupported_version', `O plugin fala o protocolo ${formatVersion(min)}–${formatVersion(max)}; o Hestia fala ${formatVersion(PROTOCOL_VERSION)}.`, { host: formatVersion(PROTOCOL_VERSION), min: formatVersion(min), max: formatVersion(max) });
       return;
     }
+    const nonceP = m.auth?.nonce;
+    if (requireToken && !nonceP) { this.failAuth('plugin_without_auth', 'O plugin não enviou "auth" no hello; o Hestia exige token de pareamento.'); return; }
+    if (nonceP && this.o.token) { this.startAuth(m, neg.version, nonceP); return; }
+    if (requireToken) { this.failAuth('no_token', 'Informe o token deste plugin em Ferramentas externas.'); return; }
+    this.completeHello(m, neg.version); // modo opcional (desenvolvimento) sem token: segue sem autenticar
+  }
+
+  // ---- pareamento por token (1.1) ----
+  private failAuth(cause: AuthCause, message: string): void {
+    this.fail('auth_failed', message, { cause }, cause);
+  }
+
+  private startAuth(m: Extract<Message, { t: 'hello' }>, version: Version, nonceP: string): void {
+    this.state = 'authenticating';
+    let nonceH: string;
+    try { nonceH = randomNonce(); } catch { this.failAuth('no_crypto', 'Este ambiente não tem WebCrypto; o pareamento por token não é possível.'); return; }
+    this.pendingHello = { m, version, nonceP, nonceH };
+    this.handshakeTimer = setTimeout(() => { if (this.state === 'authenticating') this.failAuth('timeout', 'O plugin não respondeu ao pareamento a tempo.'); }, this.o.handshakeMs);
+    authProof(this.o.token!, 'hestia-host', nonceP, nonceH).then(
+      (proof) => { if (this.state === 'authenticating') this.peer.send({ t: 'auth', proof, nonce: nonceH }); },
+      () => this.failAuth('no_crypto', 'Este ambiente não tem WebCrypto; o pareamento por token não é possível.'),
+    );
+  }
+
+  private async onAuthOk(proof: string): Promise<void> {
+    const p = this.pendingHello;
+    if (!p) return;
+    this.pendingHello = null;
+    let ok = false;
+    try { ok = await verifyAuthProof(this.o.token!, 'hestia-plugin', p.nonceP, p.nonceH, proof); } catch { ok = false; }
+    if (this.state !== 'authenticating') return;
+    if (!ok) { this.failAuth('wrong_token', 'O plugin não provou conhecer o token: confira o token informado.'); return; }
+    if (this.handshakeTimer) clearTimeout(this.handshakeTimer);
+    this.authenticated = true;
+    this.state = 'handshaking';
+    this.completeHello(p.m, p.version);
+  }
+
+  /** Segunda metade do aperto de mãos (manifesto, concessões, `welcome`); roda depois do pareamento, quando há. */
+  private completeHello(m: Extract<Message, { t: 'hello' }>, version: Version): void {
     const v = validateManifest(m.manifest);
     if (!v.ok) {
       const incompat = v.issues.some((i) => i.code === 'api_incompatible');
@@ -184,8 +247,8 @@ export class HostSession {
     this.state = 'ready';
     this.peer.setHeartbeat(this.o.heartbeatMs);
     this.peer.startHeartbeat();
-    this.peer.send({ t: 'welcome', protocol: formatVersion(neg.version), api: formatVersion(API_VERSION), sessionId: this.sessionId, granted: this.grantedCapabilities, denied, heartbeatMs: this.o.heartbeatMs, cameraMode: this.cameraMode, resumed });
-    this.o.onEvent({ type: 'ready', manifest: v.manifest, granted: this.grantedCapabilities, denied, resumed });
+    this.peer.send({ t: 'welcome', protocol: formatVersion(version), api: formatVersion(API_VERSION), sessionId: this.sessionId, granted: this.grantedCapabilities, denied, heartbeatMs: this.o.heartbeatMs, cameraMode: this.cameraMode, resumed });
+    this.o.onEvent({ type: 'ready', manifest: v.manifest, granted: this.grantedCapabilities, denied, resumed, authenticated: this.authenticated });
     if (this.can('scene.read')) {
       if (resumed && ret) this.resumeFrom(ret);
       else this.sendSnapshot();
@@ -324,6 +387,7 @@ export class HostSession {
     for (const u of this.unsubs.splice(0)) u();
     if (this.settleTimer) clearTimeout(this.settleTimer);
     if (this.handshakeTimer) clearTimeout(this.handshakeTimer);
+    this.pendingHello = null;
     this.o.onEvent({ type: 'closed', reason, ...(this.fatalError ? { error: this.fatalError } : {}) });
   }
 }

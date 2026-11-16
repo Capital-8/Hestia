@@ -7,6 +7,7 @@ import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { Mass } from './massTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
@@ -28,8 +29,10 @@ import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
 
 export type Id = string;
-/** v26: tríade estrutural (pilar, viga, sapata). */
-export const SCHEMA_VERSION = 26;
+/** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
+/** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
+/** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
+export const SCHEMA_VERSION = 28;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
@@ -37,6 +40,7 @@ export type { Footing, FootingType } from './footing.ts';
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+export type { Mass } from './massTypes.ts';
 export type * from './openingTypes.ts';
 
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
@@ -177,6 +181,11 @@ export interface JoinConfig {
   kind: JoinKind;
   /** Inverte qual parede domina (quem atravessa no encosto). Padrão: a mais antiga domina. */
   flip: boolean;
+  /**
+   * Parede inclinada em continuação com inclinação diferente (etapa R): 'degrau' (ausente) = o topo faz degrau e o aviso
+   * `inclinacoesDiferentesEmContinuacao` aponta; 'cunha' = um prisma triangular fecha o degrau. Campo opcional, sem migração.
+   */
+  transicao?: 'degrau' | 'cunha';
 }
 
 export interface Level {
@@ -422,8 +431,16 @@ export interface Wall {
    * topo se mantém na altura do ponto mais próximo. `null` = topo reto por `height`/nível. Só em parede reta.
    */
   topProfile: ProfilePoint[] | null;
+  /**
+   * Inclinação em graus a partir da vertical; positivo = o topo desloca para a ESQUERDA de a→b (mesma convenção do sinal
+   * de `sag`). Ausente = 0 = parede vertical. A rotação é em torno da LINHA DE BASE (a base não se move). Até a Fase 3 não
+   * pode coexistir com `topProfile`. Validação em `wallTiltIssue` (|tilt| ≤ 60, arco inclinado para o centro).
+   */
+  tilt?: number;
   /** Instância da parede cortina (decisão 0056, §4.3): só intenções (sobrescritas), nunca geometria. Ausente = parede comum. */
   curtain?: CurtainInstance;
+  /** Massa e nível de que veio a parede (ficha D2); ausente em parede comum. Some ao copiar (a cópia é parede comum). */
+  origemMassa?: OrigemMassa;
   mark: string;
   comments: string;
   /** Ordem de criação: desempata junções (docs/05 §1, ordem de junção). */
@@ -460,6 +477,21 @@ export interface OutlineSource {
    * dizem o lado. Decisão 0026 (T7).
    */
   extend?: 'finish' | 'core';
+  /**
+   * Cota de que o contorno VINCULADO é derivado (T-F): `'base'` (padrão, ausente) = contorno da parede na cota da base;
+   * `'top'` = contorno do TOPO da parede em planta (em parede inclinada o topo se desloca H·tanθ). Só vale com `linked`.
+   */
+  reference?: 'base' | 'top';
+}
+
+/**
+ * Origem de piso ou laje gerado pela massa (ficha D1, plano de massa A.7): a massa e o nível cuja fatia deu o contorno.
+ * Opcional: arquivo antigo e elemento desenhado à mão não têm o campo. Não há vínculo automático: é a chave para que
+ * rodar a derivação de novo substitua os gerados antes pela mesma massa e nível.
+ */
+export interface OrigemMassa {
+  massaId: Id;
+  nivelId: Id;
 }
 
 /**
@@ -475,6 +507,8 @@ export interface Floor {
   holes: Vec2[][];
   /** Origem do contorno quando criado por paredes/perímetro; ausente = estático (arquivo antigo). */
   outlineSource?: OutlineSource;
+  /** Massa e nível de que veio o contorno (ficha D1); ausente em piso comum. */
+  origemMassa?: OrigemMassa;
   heightOffset: number;
   mark: string;
   comments: string;
@@ -513,6 +547,8 @@ export interface Slab {
   holes: Vec2[][];
   /** Origem do contorno quando criado por paredes/perímetro; ausente = estático (arquivo antigo). */
   outlineSource?: OutlineSource;
+  /** Massa e nível de que veio o contorno (ficha D1); ausente em laje comum. */
+  origemMassa?: OrigemMassa;
   heightOffset: number;
   slope: SlabSlope | null;
   mark: string;
@@ -733,6 +769,13 @@ export interface IfcProperty {
  * Guarda a classe de origem, a malha triangular em coordenadas de mundo (m), o contorno em planta e as propriedades do IFC.
  * Entra no 3D, no DXF e nos quantitativos (volume/área por triângulos) e volta no IFC como `IfcBuildingElementProxy`.
  */
+export type MeshPositions = Float32Array | readonly number[];
+export type MeshIndices = Uint32Array | readonly number[];
+export interface GenericMesh {
+  positions: MeshPositions;
+  indices: MeshIndices;
+}
+
 export interface Generic {
   id: Id;
   kind: 'generic';
@@ -742,8 +785,14 @@ export interface Generic {
   sourceClass: string;
   predefinedType?: string;
   objectType?: string;
-  /** Malha triangular em coordenadas de mundo: `positions` = x, y, z...; `indices` = triplas. */
-  mesh: { positions: number[]; indices: number[] };
+  /**
+   * Malha triangular em coordenadas de mundo: `positions` = x, y, z...; `indices` = triplas. Em memória fica em
+   * `Float32Array`/`Uint32Array` (4x menos RAM que `number[]`); arquivos antigos e testes ainda podem trazer arrays
+   * comuns (`migrateProject` normaliza). No arquivo salvo continua sendo array JSON (ver `serializeProject`).
+   * Precisão Float32: ~0,1 mm a 1 km da origem; para coordenadas na casa de centenas de km (UTM) a resolução cai
+   * para centímetros (limitação conhecida, sem origem local por elemento para não mudar o esquema).
+   */
+  mesh: GenericMesh;
   /** Contorno em planta (hull da malha) para as vistas 2D; ausente = sem desenho em planta. */
   outline?: Vec2[];
   color?: string;
@@ -754,7 +803,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | Generic | CadDrawing | Column | Beam | Footing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing | Column | Beam | Footing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;

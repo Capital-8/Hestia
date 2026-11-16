@@ -13,6 +13,8 @@ import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
+import { massIdsInBox, pickMassAt } from './massPick.ts';
+import { massHandlePreview } from './massHandles.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -44,7 +46,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'mass' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -56,7 +58,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -245,6 +247,9 @@ export class SelectTool extends ToolBase {
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
     const gn = genericAt(vp, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
+    // Massa: o anel cortado do kernel (ou a base, sem kernel); o clique no piso, na laje, no telhado ou no objeto que estão sob ela continua ganhando (a massa é estudo volumétrico); vem antes do ambiente.
+    const ms = pickMassAt(pr, lv, at, mpp, this.env.hiddenInView?.());
+    if (ms) return { id: ms, kind: 'mass' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };
@@ -283,7 +288,7 @@ export class SelectTool extends ToolBase {
     if (this.mode === 'idle') {
       this.items.push(...ringHandlePreview(pr, this.env.selection(), this.focus, !this.somenteLeitura));
       for (const previa of previasDeAlcas) this.items.push(...previa(this.env));
-      if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()));
+      if (!this.somenteLeitura) this.items.push(...stairHandlePreview(pr, this.env.selection()), ...stairFreeHandlePreview(pr, this.env.selection()), ...spiralHandlePreview(pr, this.env.selection()), ...gridHandlePreview(pr, this.env.selection()), ...rampHandlePreview(pr, this.env.selection()), ...massHandlePreview(pr, this.env.selection()));
     }
     // Alça da cota selecionada: sob o cursor, a cota destaca-se (arrastar muda o deslocamento).
     const dgHover = this.mode === 'idle' ? dimGripAt(pr, this.env.levelId(), this.env.selection(), p.raw, this.env.metersPerPixel(), this.planId()) : null;
@@ -649,6 +654,7 @@ export class SelectTool extends ToolBase {
           ...floorIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...slabIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roofIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...massIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
           ...stairIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roomIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),

@@ -97,6 +97,7 @@ export class AlignTool extends ToolBase {
       metersPerPixel: this.env.metersPerPixel(),
       prefer: this.env.options().alignPrefer ?? 'faces',
       hidden: this.env.hiddenInView?.(),
+      topFaces: true,
     });
   }
 

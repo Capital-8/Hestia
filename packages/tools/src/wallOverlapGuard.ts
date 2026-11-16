@@ -1,4 +1,4 @@
-import { applyTransform, type Transform } from '@hestia/geom';
+import { applyTransform, dist, type Transform } from '@hestia/geom';
 import { elementLabel, isWall, wallConflict, wallOverlap, type Id, type Project, type Wall, type WallCandidate, type WallConflict } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
@@ -37,7 +37,24 @@ export function wallsOf(p: Project, ids: readonly Id[]): Wall[] {
   return ids.map((id) => p.elements[id]).filter(isWall);
 }
 
-/** A parede com o eixo transformado por `t` (espelho também inverte o lado da curvatura `sag`). */
+/**
+ * Sobreposição real de duas paredes: o critério C14 olha só a corda a→b, mas dois arcos com a mesma corda e flechas
+ * (`sag`) diferentes (os dois semicírculos de um círculo) são geometrias distintas. Se algum dos dois é arco, só conta
+ * quando a corda tem o mesmo comprimento e a flecha é a mesma (com o sinal trocado se as cordas têm sentidos opostos),
+ * a menos de 1 cm; reta contra reta segue o critério antigo.
+ */
+function realOverlap(a: Wall, b: Wall): ReturnType<typeof wallOverlap> {
+  const o = wallOverlap(a, b);
+  if (!o) return null;
+  const arco = Math.abs(a.sag) > 1e-6 || Math.abs(b.sag) > 1e-6;
+  if (!arco) return o;
+  const oposto = (b.b.x - b.a.x) * (a.b.x - a.a.x) + (b.b.y - b.a.y) * (a.b.y - a.a.y) < 0;
+  const sagB = oposto ? -b.sag : b.sag;
+  const igual = Math.abs(a.sag - sagB) < 0.01 && Math.abs(dist(a.a, a.b) - dist(b.a, b.b)) < 0.01;
+  return igual ? o : null;
+}
+
+/** A parede com o eixo transformado por `t` (a sobreposição olha só o eixo a→b, como o C14). */
 function probeWall(w: Wall, t: Transform): Wall {
   return { ...w, a: applyTransform(t, w.a), b: applyTransform(t, w.b), sag: t.kind === 'mirror' ? -w.sag : w.sag };
 }
@@ -46,7 +63,7 @@ function probeWall(w: Wall, t: Transform): Wall {
 function covering(p: Project, after: Wall, ignore: ReadonlySet<Id>): WallConflict | null {
   for (const e of Object.values(p.elements)) {
     if (!isWall(e) || ignore.has(e.id) || e.levelId !== after.levelId) continue;
-    const overlap = wallOverlap(after, e);
+    const overlap = realOverlap(after, e);
     if (overlap) return { wall: e, overlap };
   }
   return null;
@@ -62,9 +79,9 @@ export function moveOverlap(project: Project, walls: readonly Wall[], t: Transfo
     const after = probeWall(w, t);
     for (const e of Object.values(project.elements)) {
       if (!isWall(e) || ignore.has(e.id) || e.levelId !== after.levelId) continue;
-      const overlap = wallOverlap(after, e);
+      const overlap = realOverlap(after, e);
       // Já se sobrepunham antes de mover: não é esta operação que criou a sobreposição.
-      if (!overlap || wallOverlap(w, e)) continue;
+      if (!overlap || realOverlap(w, e)) continue;
       return { wall: e, overlap };
     }
   }
@@ -72,8 +89,8 @@ export function moveOverlap(project: Project, walls: readonly Wall[], t: Transfo
     for (let j = i + 1; j < walls.length; j++) {
       const a = walls[i]!;
       const b = walls[j]!;
-      const overlap = wallOverlap(probeWall(a, t), probeWall(b, t));
-      if (overlap && !wallOverlap(a, b)) return { wall: b, overlap };
+      const overlap = realOverlap(probeWall(a, t), probeWall(b, t));
+      if (overlap && !realOverlap(a, b)) return { wall: b, overlap };
     }
   }
   return null;
@@ -93,7 +110,7 @@ export function copyOverlap(project: Project, walls: readonly Wall[], t: Transfo
 function coveringAmong(candidates: readonly Wall[], after: Wall): WallConflict | null {
   for (const e of candidates) {
     if (e.levelId !== after.levelId) continue;
-    const overlap = wallOverlap(after, e);
+    const overlap = realOverlap(after, e);
     if (overlap) return { wall: e, overlap };
   }
   return null;

@@ -25,6 +25,12 @@ import { IT_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { IT_MASSA } from '../../areas/massa.ts';
+import { IT_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { IT_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
+import { IT_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { IT_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { IT_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 import { IT_STRUCTURAL } from '../../areas/structural.ts';
 import { IT_TAGGING } from '../../areas/tagging.ts';
@@ -33,6 +39,12 @@ export const IT_ALL = {
   ...IT_STRUCTURAL,
   ...IT_TAGGING,
   ...IT_GUARDA_CORPO,
+  ...IT_MASSA,
+  ...IT_MASSA_PISOS,
+  ...IT_MASSA_PAREDES,
+  ...IT_SUPLEMENTOS,
+  ...IT_SUPLEMENTOS_IO,
+  ...IT_SUPUI,
   ...IT_PAREDE_CORTINA,
   ...IT_SHELL_RIBBON,
   ...IT_MISC_UI,

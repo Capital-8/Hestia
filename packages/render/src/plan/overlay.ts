@@ -48,6 +48,9 @@ export function snapMarker(inf: Inference, theme: PlanTheme): StrokeOp[] {
       return [mk(cantosDoQuadrado(h * 0.5), true), mk([P(-h, 0), P(h, 0)], false), mk([P(0, -h), P(0, h)], false)];
     case 'tangent':
       return [mk([P(-h, h), P(h, h)], false), mk([P(0, h), P(0, -h * 0.6)], false)];
+    case 'topFace':
+      // Face superior: quadrado vazado com traço superior (a aresta do topo).
+      return [mk(cantosDoQuadrado(h), true), mk([P(-h * 1.3, -h * 1.3), P(h * 1.3, -h * 1.3)], false)];
     case 'grid':
       return [fino([P(-h * 0.6, 0), P(h * 0.6, 0)]), fino([P(0, -h * 0.6), P(0, h * 0.6)])];
     case 'polar':
@@ -71,6 +74,7 @@ const SNAP_TOOLTIP_KEYS: Record<string, DictKey> = {
   polar: 'rn_snap_polar',
   center: 'rn_snap_center',
   tangent: 'rn_snap_tangent',
+  topFace: 'rn_snap_top_face',
 };
 
 /** Nome do hospedeiro no tooltip: `parede 04` (PT) / `wall 04` (EN). */

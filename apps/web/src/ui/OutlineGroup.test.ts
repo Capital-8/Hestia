@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { multiArea } from '@hestia/geom';
 import { resolveFloors } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeFloor, makeWall, totalThickness, type Floor } from '@hestia/model';
-import { outlineView, runOutlineAction, type OutlineHolder } from './OutlineGroup.tsx';
+import { outlineReferenceOf, outlineView, runOutlineAction, runOutlineReference, type OutlineHolder } from './OutlineGroup.tsx';
 
 const linked = (id: string, mode: 'walls-finish' | 'walls-core' | 'perimeter' = 'walls-finish'): OutlineHolder => ({ id, outlineSource: { mode, seed: { x: 1, y: 1 }, linked: true } });
 const stat = (id: string): OutlineHolder => ({ id, outlineSource: { mode: 'walls-finish', seed: { x: 1, y: 1 }, linked: false } });
@@ -61,6 +61,28 @@ describe('grupo Contorno do piso e da laje (decisão 0023 §8.2)', () => {
     expect((store.project.elements.f1 as Floor).outlineSource!.linked).toBe(true);
     store.undo();
     expect((store.project.elements.f1 as Floor).outlineSource!.linked).toBe(false);
+  });
+
+  it('T-F: Seguir base/topo grava a referência dos vinculados num passo só de desfazer; igual ao atual não faz nada', () => {
+    const store = new ProjectStore(createEmptyProject());
+    const boundary = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }];
+    store.exec({ type: 'addFloor', floor: makeFloor({ id: 'f1', typeId: 'ft_ceram', levelId: 'lv_0', boundary, outlineSource: { mode: 'perimeter', seed: { x: 0.5, y: 0.5 }, linked: true } }) });
+    store.exec({ type: 'addFloor', floor: makeFloor({ id: 'f2', typeId: 'ft_ceram', levelId: 'lv_0', boundary, outlineSource: { mode: 'walls-core', seed: { x: 0.5, y: 0.5 }, linked: true, reference: 'top' } }) });
+    store.exec({ type: 'addFloor', floor: makeFloor({ id: 'f3', typeId: 'ft_ceram', levelId: 'lv_0', boundary, outlineSource: { mode: 'walls-core', seed: { x: 0.5, y: 0.5 }, linked: false } }) });
+    const els = ['f1', 'f2'].map((id) => store.project.elements[id] as Floor);
+    expect(outlineReferenceOf(els)).toBeNull();
+    runOutlineReference(store, ['f1', 'f2', 'f3'], 'top');
+    const ref = (id: string) => (store.project.elements[id] as Floor).outlineSource!.reference;
+    expect(ref('f1')).toBe('top');
+    expect(ref('f2')).toBe('top');
+    expect(ref('f3')).toBeUndefined();
+    expect((store.project.elements.f2 as Floor).outlineSource!.mode).toBe('walls-core');
+    const before = store.project;
+    runOutlineReference(store, ['f1', 'f2'], 'top');
+    expect(store.project).toBe(before);
+    store.undo();
+    expect(ref('f1')).toBeUndefined();
+    expect(ref('f2')).toBe('top');
   });
 
   it('Desvincular congela o circuito visto: mover parede depois não muda a área; revincular volta a acompanhar', () => {

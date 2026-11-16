@@ -27,6 +27,8 @@ export interface PasteIds {
   footings: Id[];
   /** Guarda-corpos colados (fora do vínculo de andar-tipo, decisão 0055 §11). */
   railings: Id[];
+  /** Massas coladas (também fora do vínculo de andar-tipo: cada uma é um volume próprio). */
+  masses: Id[];
 }
 
 /**

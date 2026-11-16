@@ -57,6 +57,7 @@ const isAte = (t: LayerTermino): t is { ate: { prioridade: number } } => typeof 
  */
 export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: readonly Layer[], core: readonly boolean[], base: MultiPolygon, scope?: WallScope): MultiPolygon[] {
   const src = el.outlineSource;
+  const ref0 = src?.reference === 'top' ? 'top' : 'base'; // T-F: de que cota vem o contorno vinculado
   const linked = !!src?.linked && src.mode !== 'perimeter' && !!src.seed;
   // Elemento de perímetro com contorno no núcleo (decisão 0026, D3): a camada do núcleo fica no contorno inteiro (que já
   // está na face do núcleo) e as demais param na face interna da parede. Fora do modo core, `auto` continua como antes.
@@ -80,13 +81,13 @@ export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: r
     if (!lim) return m;
     // O término por camada da parede (decisão 0054) manda também no perímetro: o limite externo não o sobrescreve.
     if (terminoCamadaOf(term[i]!)) return m;
-    const ring = outerPerimeter(p, levelId, src?.seed, lim === 'nucleo' ? 'core' : 'finish');
+    const ring = outerPerimeter(p, levelId, src?.seed, lim === 'nucleo' ? 'core' : 'finish', ref0);
     return ring ? intersection(m, [[ring]]) : m;
   };
   if (src?.mode === 'perimeter') {
     // F6 (0023 §2): a borda externa tem a face de acabamento e a do núcleo, como as paredes internas.
     const edge = (extend: RoomExtend): MultiPolygon | null => {
-      const ring = outerPerimeter(p, levelId, src.seed, extend);
+      const ring = outerPerimeter(p, levelId, src.seed, extend, ref0);
       return ring ? [[ring, ...el.holes]] : null;
     };
     const finish = edge('finish');
@@ -112,7 +113,7 @@ export function layerOutlines(p: Project, levelId: Id, el: LinkedHost, layers: r
     }).map((m, i) => limite(i, m));
   }
   const circuit = (extend: RoomExtend): MultiPolygon | null => {
-    const room = roomAt(enclosedRooms(p, levelId, extend), src!.seed!);
+    const room = roomAt(enclosedRooms(p, levelId, extend, ref0), src!.seed!);
     return room ? withHoles(room, el.holes) : null;
   };
   const finish = !linked ? base : src!.mode === 'walls-finish' ? base : circuit('finish');

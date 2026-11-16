@@ -348,7 +348,7 @@ function caixaDosPontos(pontos: readonly Vec2[], z0: number, z1: number): CaixaD
   return { min: { x: minX, y: minY, z: Math.min(z0, z1) }, max: { x: maxX, y: maxY, z: Math.max(z0, z1) } };
 }
 
-function caixaDaMalha(positions: readonly number[], deltaZ: number): CaixaDaPrevia | null {
+function caixaDaMalha(positions: ArrayLike<number>, deltaZ: number): CaixaDaPrevia | null {
   if (positions.length < 3) return null;
   const c = caixaVazia();
   for (let i = 0; i + 2 < positions.length; i += 3) {

@@ -290,3 +290,4 @@ function ghostOps(p: Project, levelId: Id, view: PlanView, ids: Id[], theme: Pla
   }
   return out;
 }
+export { simboloNaCotaDoCorte, tiltProjectionStrokes } from './tiltOps.ts';

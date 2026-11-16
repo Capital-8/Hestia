@@ -17,7 +17,7 @@ function commonText(values: Array<string | undefined>, lang: Lang): string | nul
 }
 
 /** Chave de um vértice pela posição: a malha importada duplica os vértices por triângulo, então o índice não serve. */
-function vertexKey(positions: readonly number[], i: number): string {
+function vertexKey(positions: ArrayLike<number>, i: number): string {
   return `${positions[i * 3]!.toFixed(6)},${positions[i * 3 + 1]!.toFixed(6)},${positions[i * 3 + 2]!.toFixed(6)}`;
 }
 

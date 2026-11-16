@@ -24,19 +24,10 @@ const PLACE: ReadonlySet<ToolId> = new Set<ToolId>([
 
 const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;
 
-/** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". */
+/** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". A Parede tem o painel próprio (`WallDrawPanel`). */
 function drawPanel(id: ToolId): RibbonPanel | null {
   const mk = (...items: ReturnType<typeof option>[]): RibbonPanel => panel('desenhar', t('Desenhar', 'Draw'), stack(...items.slice(0, 3)), ...(items.length > 3 ? [stack(...items.slice(3, 6))] : []));
   switch (id) {
-    case 'wall':
-      return mk(
-        option(t('Linha', 'Line'), 'wall', same('wallShape', 'line'), { wallShape: 'line' }),
-        option(t('Retângulo', 'Rectangle'), 'plan', same('wallShape', 'rect'), { wallShape: 'rect' }),
-        option(t('Círculo', 'Circle'), 'detailLine', same('wallShape', 'circle'), { wallShape: 'circle' }),
-        option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
-        option(t('Arco (centro)', 'Arc (center)'), 'detailLine', same('wallShape', 'arc-center'), { wallShape: 'arc-center' }),
-        option(t('Polígono', 'Polygon'), 'plan', same('wallShape', 'poly-inscribed'), { wallShape: 'poly-inscribed' }),
-      );
     case 'beam':
       return mk(
         option(t('Linha', 'Line'), 'beam', (o) => (o.beamShape ?? 'line') === 'line', { beamShape: 'line' }),
@@ -52,7 +43,7 @@ const PERIMETRO = panel('perimetro', t('Perímetro', 'Perimeter'), act('editPeri
 
 /** Painéis do assunto de cada categoria selecionada. */
 const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
-  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')))] },
+  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')), act('wallTilt'), stack(act('tiltFollow', 'small'), act('tiltWedge', 'small')))] },
   door: { label: t('Portas', 'Doors'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   window: { label: t('Janelas', 'Windows'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   floor: { label: t('Pisos', 'Floors'), panels: [PERIMETRO] },

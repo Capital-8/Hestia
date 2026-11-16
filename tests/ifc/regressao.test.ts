@@ -108,9 +108,11 @@ describe.each(FIXTURES)('regressão IFC — $nome', ({ nome, texto, esperado }) 
     const pisos = report.imported.pisos ?? 0;
     const lajes = report.imported.lajes ?? 0;
     const forros = report.imported.forros ?? 0;
+    // `IFCSLAB` de telhado (`.ROOF.`) entra como telhado nativo (uma água), não como laje horizontal.
+    const telhados = report.imported.telhados ?? 0;
     expect(
-      pisos + lajes + forros,
-      `${nome}: pisos/lajes/forros — IFC tem ${noIfc} IFCSLAB/IFCCOVERING; o importador trouxe ${pisos} piso(s) + ${lajes} laje(s) + ${forros} forro(s)`,
+      pisos + lajes + forros + telhados,
+      `${nome}: pisos/lajes/forros/telhados — IFC tem ${noIfc} IFCSLAB/IFCCOVERING; o importador trouxe ${pisos} piso(s) + ${lajes} laje(s) + ${forros} forro(s) + ${telhados} telhado(s)`,
     ).toBe(noIfc);
   });
 

@@ -1,6 +1,8 @@
 import { levelElevation } from './queries.ts';
 import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
+import { isMass } from './mass.ts';
+import type { Mass } from './massTypes.ts';
 import {
   isBeam,
   isCeiling,
@@ -47,7 +49,7 @@ export interface SetElementLevel {
 /** Elementos com nível próprio. Aberturas não têm: acompanham a parede anfitriã. */
 export const hasLevel = (
   e: Element | undefined,
-): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Room | CadDrawing | Column | Beam | Footing =>
+): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | CadDrawing | Column | Beam | Footing =>
   isWall(e) ||
   isFloor(e) ||
   isSlab(e) ||
@@ -56,6 +58,7 @@ export const hasLevel = (
   isStair(e) ||
   isRamp(e) ||
   isGuardaCorpo(e) ||
+  isMass(e) ||
   isRoom(e) ||
   isCad(e) ||
   isColumn(e) ||
@@ -88,7 +91,7 @@ export function applyElementLevel(p: Project, c: SetElementLevel, lang: Lang = '
     if (!hasLevel(e)) continue;
     const delta = c.keep === 'elevation' ? levelElevation(p, e.levelId) - target.elevation : 0;
     e.levelId = target.id;
-    if (isWall(e) || isStair(e) || isRamp(e) || isColumn(e)) e.baseOffset += delta;
+    if (isWall(e) || isStair(e) || isRamp(e) || isColumn(e) || isMass(e)) e.baseOffset += delta;
     else if (isBeam(e)) e.zOffset += delta;
     else if (isFooting(e)) e.heightOffset += delta;
     // Guarda-corpo hospedado segue a cota do hospedeiro (o nível vem dele); só o manual tem cota própria.

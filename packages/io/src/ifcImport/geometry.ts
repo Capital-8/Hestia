@@ -182,7 +182,54 @@ function readMapped(f: IfcFile, item: StepEntity, mat: Mat, out: Body, depth: nu
   const target = transformation(f, f.ent(item, 1));
   const m = composeMat(composeMat(mat, origin), target);
   if (!rep) return;
+  if (depth === 0) {
+    const local = mapContent(f, source.id, rep);
+    if (appendTransformed(local, m, out)) return;
+  }
   for (const sub of f.list(rep, 3)) readItem(f, sub, m, out, depth + 1);
+}
+
+/** Conteúdo de cada `IfcRepresentationMap` já triangulado em coordenadas locais (um mapa serve a centenas de usos). */
+const mapCache = new WeakMap<IfcFile, Map<number, Body>>();
+
+function mapContent(f: IfcFile, id: number, rep: StepEntity): Body {
+  let perFile = mapCache.get(f);
+  if (!perFile) mapCache.set(f, (perFile = new Map()));
+  let local = perFile.get(id);
+  if (!local) {
+    local = zero();
+    for (const sub of f.list(rep, 3)) readItem(f, sub, IDENTITY, local, 1);
+    perFile.set(id, local);
+  }
+  return local;
+}
+
+/** Aplica `m` ao conteúdo local do mapa. Devolve false se houver prisma e `m` não for rotação/escala em torno de Z. */
+function appendTransformed(local: Body, m: Mat, out: Body): boolean {
+  if (local.prisms.length) {
+    const zAligned = m.x.z === 0 && m.y.z === 0 && m.z.x === 0 && m.z.y === 0;
+    if (!zAligned) return false;
+  }
+  const t = local.tris;
+  const dst = out.tris;
+  for (let i = 0; i + 2 < t.length; i += 3) {
+    const x = t[i]!;
+    const y = t[i + 1]!;
+    const z = t[i + 2]!;
+    dst.push(
+      m.o.x + m.x.x * x + m.y.x * y + m.z.x * z,
+      m.o.y + m.x.y * x + m.y.y * y + m.z.y * z,
+      m.o.z + m.x.z * x + m.y.z * y + m.z.z * z,
+    );
+  }
+  for (const pr of local.prisms) {
+    const loops = pr.loops.map((loop) => loop.map((p) => ({ x: m.o.x + m.x.x * p.x + m.y.x * p.y, y: m.o.y + m.x.y * p.x + m.y.y * p.y })));
+    const za = m.o.z + m.z.z * pr.z0;
+    const zb = m.o.z + m.z.z * pr.z1;
+    out.prisms.push({ loops, z0: Math.min(za, zb), z1: Math.max(za, zb), approx: pr.approx });
+  }
+  for (const u of local.unsupported) out.unsupported.push(u);
+  return true;
 }
 
 /** `IfcCartesianTransformationOperator(3D)`: origem, eixos e escala. */
@@ -196,20 +243,26 @@ function transformation(f: IfcFile, e: StepEntity | undefined): Mat {
   return { o, x: mul3(unit3(a1), scale), y: mul3(unit3(a2), scale), z: mul3(unit3(a3), scale) };
 }
 
-/** Faces de um B-rep/shell em triângulos (leque por face; buracos de face não são recortados). Já em mundo. */
+/**
+ * Faces de um B-rep ou modelo de superfície em triângulos (leque por face; buracos de face não são recortados). Já em mundo.
+ * O B-rep tem um casco no atributo 0. Os modelos de superfície têm uma LISTA no atributo 0 (`IfcShell` ou
+ * `IfcConnectedFaceSet`), e cada conjunto guarda as faces no atributo 0 (`CfsFaces`).
+ */
 function readFaces(f: IfcFile, e: StepEntity, mat: Mat, out: Body): void {
-  const shell = f.ent(e, 0);
-  if (!shell) return;
-  for (const face of f.list(shell, 0)) {
-    for (const bound of f.list(face, 0)) {
-      const loop = f.ent(bound, 0);
-      if (!loop) continue;
-      const pts: Pt3[] = [];
-      for (const p of f.list(loop, 0)) {
-        const ponto = f.point(p ? { k: 'ref', id: p.id } : undefined);
-        if (ponto) pts.push(applyMat(mat, ponto));
+  const sets = e.type === 'IFCFACETEDBREP' ? [f.ent(e, 0)] : f.list(e, 0);
+  for (const set of sets) {
+    if (!set) continue;
+    for (const face of f.list(set, 0)) {
+      for (const bound of f.list(face, 0)) {
+        const loop = f.ent(bound, 0);
+        if (!loop) continue;
+        const pts: Pt3[] = [];
+        for (const p of f.list(loop, 0)) {
+          const ponto = f.point(p ? { k: 'ref', id: p.id } : undefined);
+          if (ponto) pts.push(applyMat(mat, ponto));
+        }
+        for (let i = 1; i + 1 < pts.length; i++) pushTri(out, pts[0]!, pts[i]!, pts[i + 1]!);
       }
-      for (let i = 1; i + 1 < pts.length; i++) pushTri(out, pts[0]!, pts[i]!, pts[i + 1]!);
     }
   }
 }

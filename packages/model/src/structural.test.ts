@@ -331,9 +331,9 @@ describe('comandos estruturais (StructuralCommand)', () => {
     expect(labelOf({ type: 'deleteFootingType', id: '1' })).toBe('Excluir tipo de sapata');
   });
 
-  it('migração 25 → 26 povoa columnTypes, beamTypes, footingTypes preservando os existentes', () => {
+  it('migração 27 → 28 povoa columnTypes, beamTypes, footingTypes preservando os existentes', () => {
     const raw = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
-    raw.schemaVersion = 25;
+    raw.schemaVersion = 27;
     delete raw.columnTypes;
     delete raw.beamTypes;
     delete raw.footingTypes;

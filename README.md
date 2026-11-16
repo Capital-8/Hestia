@@ -79,10 +79,15 @@ com colegas e testar o programa em projetos reais.
 
 ---
 
+## Suplementos
+
+O Hestia aceita **suplementos**: pacotes `.hestiapkg` que acrescentam comandos, verificações, quantitativos, importadores e exportadores, famílias, materiais e ferramentas. Há três tipos: declarativo (só JSON), script (JavaScript em Worker isolado, sem rede) e processo externo (como o renderizador). O suplemento só pede; **você concede** cada permissão e pode revogá-la depois. Tudo fica em **Suplementos › Gerenciar suplementos** (atalho Alt+Shift+P). Para escrever um: `npm run suplementos:novo -- com.minhaempresa.nome`, depois `npm run suplementos:empacotar`. Guia: [docs/plugins/09-guia-do-autor.md](docs/plugins/09-guia-do-autor.md); referência: [docs/plugins/10-referencia-da-api.md](docs/plugins/10-referencia-da-api.md); exemplos em `plugins-exemplo/`.
+
 ## Documentação técnica
 
 | Arquivo | Conteúdo |
 |---|---|
+| [docs/plugins/](docs/plugins/README.md) | Suplementos: especificação, guia do autor e referência da API |
 | [docs/01-ARQUITETURA.md](docs/01-ARQUITETURA.md) | Camadas, GPU/CPU, núcleo em Rust/WASM, modelo de dados, comandos, regras de código |
 | [docs/02-MODELO-BIM.md](docs/02-MODELO-BIM.md) | Como cada elemento funciona: tipos, camadas, parede, piso, laje, telhado, aberturas, escada |
 | [docs/03-INTERFACE.md](docs/03-INTERFACE.md) | Layout, árvore de projeto, painel de propriedades, 2D x 3D, vistas, ferramentas |

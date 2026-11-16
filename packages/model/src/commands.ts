@@ -1,13 +1,13 @@
 /* eslint-disable max-lines */
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import {
-  isOpening,
   isCeiling,
   isFloor,
   isSlab,
   isRoof,
   isStair,
   isRamp,
+  isOpening,
   isWall,
   isRoom,
   isGeneric,
@@ -37,8 +37,10 @@ import {
   type RampType,
   type JoinConfig,
   type Level,
+  type Mass,
   type Material,
   type Opening,
+  type OpeningPlane,
   type OpeningType,
   type Project,
   type SectionView,
@@ -46,13 +48,15 @@ import {
   type Wall,
   type WallType,
 } from './types.ts';
+import { wallTiltIssue, wallTiltOf } from './wallTilt.ts';
 import { splitWall } from './splitWall.ts';
 import { setOpeningHost } from './openingHost.ts';
+import { isOpeningPlane } from './openingPlane.ts';
 import { changesWallEnds, clampOffset, rehostOpenings, wallEndsPatchOf, type WallEndsPatch } from './hostedOffset.ts';
 import { applyElementLevel, hasLevel, type SetElementLevel } from './elementLevel.ts';
 import { transformStair } from './stairTransform.ts';
 import { transformRamp } from './rampTransform.ts';
-import { transformCad, transformCeiling, transformFloor, transformRoof, transformSlab } from './transformPlanar.ts';
+import { semOrigemMassa, transformCad, transformCeiling, transformFloor, transformRoof, transformSlab } from './transformPlanar.ts';
 import { isCad, type CadDrawing } from './cad.ts';
 import { stairTypeIssue } from './stair.ts';
 import { rampTypeIssue } from './ramp.ts';
@@ -94,7 +98,11 @@ import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
+import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyMassCommand } from './massCommands.ts';
+import { isMass, transformMass } from './mass.ts';
+import type { ArranjoMassa, SecaoMassa } from './massTypes.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
 import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
 import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
@@ -150,6 +158,11 @@ export type Command =
   | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
   | { type: 'deletePerfilNorma'; id: Id }
   | { type: 'setNormaGuardaCorpo'; id: Id }
+  // Massa conceitual (A.3 item 4): tratados em massCommands.ts; apagar usa `deleteElements`.
+  | { type: 'addMass'; mass: Omit<Mass, 'order'> }
+  | { type: 'updateMass'; id: Id; patch: Partial<Omit<Mass, 'id' | 'kind' | 'order'>> }
+  | { type: 'setMassSecoes'; id: Id; secoes: SecaoMassa[] }
+  | { type: 'setMassArranjo'; id: Id; arranjo: ArranjoMassa | null }
   | { type: 'upsertSlabType'; slabType: SlabType }
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
@@ -160,6 +173,12 @@ export type Command =
   | { type: 'detachCeilingRoom'; id: Id }
   | { type: 'relinkCeilingRoom'; id: Id; roomId: Id }
   | { type: 'setWallEnds'; id: Id; a?: Vec2; b?: Vec2 }
+  /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
+  | { type: 'setWallTilt'; ids: Id[]; tilt: number }
+  /** Ação D (etapa R): inclinação própria por parede (a cadeia contínua vem do motor, com o sinal por sentido a→b), atômica. */
+  | { type: 'alignTiltOfChain'; items: Array<{ id: Id; tilt: number }> }
+  /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se o valor for inválido. */
+  | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
   | { type: 'transform'; ids: Id[]; transform: Transform; copy?: { idMap: Record<Id, Id> } }
   | { type: 'splitWall'; id: Id; newId: Id; t: number; gap?: number; idMap?: Record<Id, Id> }
@@ -196,6 +215,7 @@ export type Command =
   | SheetCommand
   | View3DPointCommand
   | PluginDataCommand
+  | PluginContentCommand // SUPLEMENTOS:
   | GridCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
@@ -254,12 +274,16 @@ export type Command =
   | { type: 'removeColorScheme'; id: Id }
   | ({ type: 'setElementLevel' } & SetElementLevel)
   | StructuralCommand;
-function transformWall(w: Wall, t: Transform): Wall {
+function transformWall(w: Wall, t: Transform, copy = false): Wall {
   const a = applyTransform(t, w.a);
   const b = applyTransform(t, w.b);
   // Espelhar inverte o lado externo: sem trocar `flipped` a pilha de camadas sairia do lado errado.
   // Espelhar também inverte o lado para o qual o arco abaulava.
-  return { ...w, a, b, flipped: t.kind === 'mirror' ? !w.flipped : w.flipped, sag: t.kind === 'mirror' ? -w.sag : w.sag };
+  const movida = { ...w, a, b, flipped: t.kind === 'mirror' ? !w.flipped : w.flipped, sag: t.kind === 'mirror' ? -w.sag : w.sag };
+  // Espelhar também troca o lado para o qual o topo se inclina (F2.11): o sinal do tilt acompanha o do sag.
+  if (t.kind === 'mirror' && w.tilt) movida.tilt = -w.tilt;
+  // Cópia de parede gerada pela massa não carrega `origemMassa` (ficha D2, emenda E16 item 3).
+  return copy ? semOrigemMassa(movida) : movida;
 }
 
 function removeIds(p: Project, ids: Id[]): void {
@@ -302,6 +326,7 @@ function transformEach<E extends Element>(
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
   transformEach(p, c, isRoof, transformRoof);
+  transformEach(p, c, isMass, transformMass);
   transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
@@ -331,7 +356,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
   const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {
-    const next = transformWall(w, c.transform);
+    const next = transformWall(w, c.transform, !!idMap);
     if (idMap) {
       const nid = idMap[w.id];
       if (!nid) continue;
@@ -387,11 +412,16 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyStructuralCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
-    case 'addWall':
+    case 'addWall': {
+      if (c.wall.tilt !== undefined) {
+        const issue = wallTiltIssue(p, c.wall, c.wall.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
       break;
+    }
     case 'addCadDrawing':
       p.elements[c.cad.id] = { ...c.cad, order: p.nextOrder++ };
       break;
@@ -486,7 +516,52 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       p.elements[c.opening.id] = { ...c.opening, offset: clampOffset(p, c.opening, host) };
       break;
     }
+    case 'setWallTilt': {
+      const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
+      for (const w of walls) {
+        const issue = wallTiltIssue(p, w, c.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const w of walls) {
+        if (c.tilt === 0) delete w.tilt;
+        else w.tilt = c.tilt;
+      }
+      break;
+    }
+    case 'alignTiltOfChain': {
+      const walls = c.items.map((i) => ({ w: p.elements[i.id], tilt: i.tilt })).filter((x): x is { w: Wall; tilt: number } => isWall(x.w));
+      if (walls.length === 0) throw new Error(t(lang, 'md_cmd_tilt_invalid'));
+      for (const { w, tilt } of walls) {
+        const issue = wallTiltIssue(p, w, tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const { w, tilt } of walls) {
+        if (tilt === 0) delete w.tilt;
+        else w.tilt = tilt;
+      }
+      break;
+    }
+    case 'setOpeningPlane': {
+      if (c.plano !== null && !isOpeningPlane(c.plano)) throw new Error(t(lang, 'md_cmd_plane_invalid'));
+      for (const id of c.ids) {
+        const o = p.elements[id];
+        if (!isOpening(o)) continue;
+        if (c.plano === null) delete o.plano;
+        else o.plano = c.plano;
+      }
+      break;
+    }
     case 'updateElements': {
+      const patchW = c.patch as Partial<Wall>;
+      if ('tilt' in patchW || 'topProfile' in patchW || 'sag' in patchW) {
+        for (const id of c.ids) {
+          const e = p.elements[id];
+          if (!isWall(e)) continue;
+          const next = { ...e, ...patchW };
+          const issue = wallTiltIssue(p, next, wallTiltOf(next), lang);
+          if (issue) throw new Error(issue);
+        }
+      }
       const ends = wallEndsPatchOf(c.patch as Partial<Wall>);
       const movesEnds = changesWallEnds(c.patch as Partial<Wall>);
       const colMoves = 'at' in c.patch || 'rotation' in c.patch;
@@ -612,6 +687,8 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'ensurePluginProjectUid':
     case 'setPluginViewOverride':
     case 'clearPluginViewOverride':
+    case 'setPluginData': // SUPLEMENTOS:
+    case 'deletePluginData': // SUPLEMENTOS:
       applyPluginDataCommand(p, c);
       break;
     case 'addView3DPoint':

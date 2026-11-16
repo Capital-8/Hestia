@@ -1,0 +1,45 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.assistente-ia",
+  "name": "Assistente (exemplo de IA)",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "description": "Exemplo do fluxo de IA com prévia: transforma uma frase simples (\"sala 4x5\") em comandos por regra fixa, sem chamar nenhuma IA real. O Hestia ensaia o lote, mostra a prévia e só aplica depois do clique em Aplicar.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["model.read", "model.write", "ui.commands", "ui.ribbon", "ui.dialogs"],
+  "limits": { "timeoutMs": 5000, "memoryMiB": 64, "maxCommandsPerAction": 200 },
+  "contributes": {
+    "commands": [
+      {
+        "id": "abrir",
+        "title": { "pt": "Assistente: descrever...", "en": "Assistant: describe..." },
+        "keywords": ["assistente", "ia", "sala", "frase", "assistant", "ai", "room"],
+        "run": { "type": "dialog", "ref": "pedido" }
+      }
+    ],
+    "ribbon": {
+      "panels": [
+        {
+          "id": "assistente",
+          "title": { "pt": "Assistente", "en": "Assistant" },
+          "items": [{ "command": "abrir", "size": "large", "icon": "wall" }]
+        }
+      ]
+    },
+    "dialogs": [
+      {
+        "id": "pedido",
+        "title": { "pt": "Assistente (exemplo)", "en": "Assistant (example)" },
+        "fields": [
+          { "key": "frase", "label": { "pt": "Descreva (ex.: sala 4x5, em metros)", "en": "Describe (e.g. sala 4x5, in meters)" }, "type": "text", "default": "sala 4x5" }
+        ],
+        "actions": [
+          { "id": "interpretar", "label": { "pt": "Propor alterações", "en": "Propose changes" }, "run": { "type": "handler", "ref": "interpretar" } }
+        ]
+      }
+    ]
+  }
+}

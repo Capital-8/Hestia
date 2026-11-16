@@ -73,6 +73,9 @@ function mesmosNiveis(a: readonly unknown[], b: readonly unknown[]): boolean {
   return a.length === b.length && a.every((x, i) => x === b[i] || norm(x) === norm(b[i]));
 }
 
+/** Elemento que não entra na resolução do nível (guarda-corpo e massa), ou ausente. */
+const acessorioDoNivel = (e: Element | undefined): boolean => e === undefined || e.kind === 'railing' || e.kind === 'mass';
+
 export function niveisAfetados(antes: Project, depois: Project): NiveisAfetados {
   const chaves = new Set([...Object.keys(antes), ...Object.keys(depois)]);
   for (const k of chaves) {
@@ -87,8 +90,8 @@ export function niveisAfetados(antes: Project, depois: Project): NiveisAfetados 
     const a = antes.elements[id];
     const b = depois.elements[id];
     if (a === b) continue;
-    // Guarda-corpo não entra na resolução do nível (paredes, aberturas, pisos, lajes...): ligar ou editar um não recalcula o nível.
-    if ((a === undefined || a.kind === 'railing') && (b === undefined || b.kind === 'railing')) continue;
+    // Guarda-corpo e massa não entram na resolução do nível (paredes, aberturas, pisos, lajes...): ligar ou editar um não recalcula o nível.
+    if (acessorioDoNivel(a) && acessorioDoNivel(b)) continue;
     for (const e of [a, b]) {
       if (!e) continue;
       const n = nivelDe(e === a ? antes : depois, e);

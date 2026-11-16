@@ -1003,3 +1003,18 @@ svg { display: block; }
     overscroll-behavior-x: contain;
   }
 }
+
+/* ---- Diálogos de tipo com camadas (piso, laje, forro, telhado, parede): os controles da camada nunca ficam sob a prévia ---- */
+@media (min-width: 601px) {
+  .split:has(.layers) { grid-template-columns: minmax(440px, 1.7fr) minmax(200px, 1fr); align-items: start; }
+  .split:has(.layers) > :first-child { position: relative; z-index: 1; min-width: 0; overflow-x: auto; }
+  .split:has(.layers) > :last-child { position: sticky; top: 0; z-index: 0; min-width: 0; }
+  .split:has(.layers) .section-svg { max-height: 300px; }
+  .layers td:last-child { white-space: nowrap; width: 1%; position: sticky; right: 0; background: var(--panel); }
+  .layers .iconrow { flex-wrap: nowrap; gap: 2px; }
+  .layers .iconrow .ibtn { min-width: 28px; min-height: 28px; justify-content: center; }
+}
+@media (min-width: 601px) and (max-width: 1000px) {
+  .split:has(.layers) { grid-template-columns: minmax(0, 1fr); }
+  .split:has(.layers) > :last-child { position: static; }
+}

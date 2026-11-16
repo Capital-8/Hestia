@@ -38,6 +38,8 @@ pub struct State {
     pub resyncs: u32,
     pub errors: Vec<Value>,
     pub last_close: String,
+    pub auth_required: bool,
+    pub authenticated: bool,
 }
 
 fn id_of(v: &Value) -> Option<String> {
@@ -136,6 +138,8 @@ impl State {
             "resyncs": self.resyncs,
             "errors": self.errors,
             "lastClose": self.last_close,
+            "authRequired": self.auth_required,
+            "authenticated": self.authenticated,
             "scene": {
                 "projectId": self.scene.project_id,
                 "projectName": self.scene.project_name,

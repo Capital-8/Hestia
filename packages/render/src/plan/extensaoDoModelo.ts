@@ -1,4 +1,5 @@
 import { planFootprint } from './stairs.ts';
+import { pontosDaMassaEmPlanta } from './massa.ts';
 import { resolveRampOne, resolveStairOne } from '@hestia/engine';
 import {
   beamPolygon,
@@ -95,6 +96,8 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  // A massa entra com os contornos de todas as seções e cópias (a caixa do envelope, sem o kernel): é o que a planta e o corte mostram.
+  mass: { entra: true, pontos: (e) => pontosDaMassaEmPlanta(e) },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,

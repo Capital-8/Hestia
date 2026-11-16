@@ -25,10 +25,10 @@ export function Progresso3D(): ReactElement | null {
   const { t } = useT();
   const p = useProgresso3d();
   if (!p) return null;
-  const pct = Math.round((p.montados / p.total) * 100);
+  const pct = Math.round(p.fracao * 100);
   return (
-    <div role="progressbar" aria-label={t('cvv_prog_3d_aria')} aria-valuemin={0} aria-valuemax={p.total} aria-valuenow={p.montados} style={CAIXA}>
-      <div>{t('cvv_prog_3d_text', { n: p.montados, total: p.total })}</div>
+    <div role="progressbar" aria-label={t('cvv_prog_3d_aria')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} style={CAIXA}>
+      <div>{p.fase === 'selecao' ? t('cvv_prog_3d_sel') : t('cvv_prog_3d_text', { n: p.montados, total: p.total })}</div>
       <div style={TRILHO}>
         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent, #4a90d9)', transition: 'width 120ms linear' }} />
       </div>

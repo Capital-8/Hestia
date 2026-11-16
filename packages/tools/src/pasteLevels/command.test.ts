@@ -223,7 +223,7 @@ describe('pasteAlignedToLevelsCommand', () => {
     if (g.kind === 'generic') {
       expect(g.id).not.toBe('g1');
       expect(g.levelId).toBe('lv_1');
-      expect(g.mesh.positions).toEqual([0, 0, 5, 1, 0, 5, 0, 1, 5]); // +3 m do nível
+      expect(Array.from(g.mesh.positions)).toEqual([0, 0, 5, 1, 0, 5, 0, 1, 5]); // +3 m do nível
       expect(g.outline).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }]);
     }
 

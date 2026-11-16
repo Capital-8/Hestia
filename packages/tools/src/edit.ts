@@ -2,7 +2,7 @@ import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, ty
 import { frameOfWall, openingGeometry } from '@hestia/engine';
 import {
   beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn,
-  isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId,
+  isFloor, isFooting, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId,
   sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project,
 } from '@hestia/model';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
@@ -16,6 +16,7 @@ import { selectedFloors } from './floorPick.ts';
 import { selectedSlabs } from './slabPick.ts';
 import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
+import { massRings, selectedMasses } from './massPick.ts';
 import { ghostGuardaCorpos, selectedGuardaCorpos } from './guardaCorpoEdicao.ts';
 import { selectedBeams, selectedColumns, selectedFootings } from './structuralPick.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
@@ -28,7 +29,7 @@ export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) =>
 export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isOpening(p.elements[id]));
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
-/** Paredes, pisos, lajes, telhados e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
+/** Paredes, pisos, lajes, telhados, massas e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
 export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedWalls(p, ids),
   ...selectedFloors(p, ids),
@@ -42,6 +43,7 @@ export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedColumns(p, ids),
   ...selectedBeams(p, ids),
   ...selectedFootings(p, ids),
+  ...selectedMasses(p, ids),
 ];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */
@@ -86,6 +88,7 @@ export function makeIdMap(p: Project, ids: Id[]): Record<Id, Id> {
     else if (isColumn(e)) map[id] = newId('col');
     else if (isBeam(e)) map[id] = newId('bm');
     else if (isFooting(e)) map[id] = newId('ft');
+    else if (isMass(e)) map[id] = newId('ms');
   }
   for (const e of Object.values(p.elements)) {
     if (isOpening(e) && ids.includes(e.hostId)) map[e.id] = newId(e.kind === 'door' ? 'd' : 'j');
@@ -124,6 +127,11 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
           dashed: true,
         });
       }
+      continue;
+    }
+    // Massa: o fantasma é o anel cortado de cada cópia (ou o contorno da base sem kernel), pelo mesmo transform.
+    if (isMass(fl)) {
+      for (const anel of massRings(p, fl.id)) out.push({ kind: 'polygon', ring: anel.map((q) => applyTransform(t, q)), dashed: true });
       continue;
     }
     // Ambiente: o contorno é derivado do circuito, então o fantasma é o ponto interior movido.

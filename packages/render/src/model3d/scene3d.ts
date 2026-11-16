@@ -1,15 +1,16 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
 import { OrbitCamera, cameraBasis } from './orbit.ts';
-import { firstSurfaceDistance } from './pick3d.ts';
+import { firstSurfaceDistance, prepararPicking } from './pick3d.ts';
+import { faixaDaNevoa } from './nevoa3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
-import { arestasDosLotes, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
+import { arestasDosLotes, genericosAcimaDoOrcamento, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
 import { SombrasDaCena, SOMBRA_MAX_TRIANGULOS, prepararSombraDoQuadro, type FaixaDeSombra } from './sombras3d.ts';
 import { LotesPorFaixa, type Faixa3D } from './faixas3d.ts';
 import { BITS_PROFUNDIDADE, diagnosticarOrigem, diagnosticarProfundidade, type DiagnosticoOrigem, type DiagnosticoProfundidade } from './precisao3d.ts';
@@ -29,10 +30,12 @@ import { GRUPO_DE_REALCE_VAZIO, RealceDaCortina, type GrupoDeRealceCortina } fro
 import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
 import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from './caixasDoNivel3d.ts';
 import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
-import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type SolidBatch } from './solids.ts';
+import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type LoteSolido, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
-import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeNivel } from './chaveNivel3d.ts';
+import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeMassaCor, chavesDeMassaGeometria, chavesDeNivel } from './chaveNivel3d.ts';
+import { CacheDeMassas3d, contornoDaBase, massasDoNivel, montarLoteDeMassas, temMassa } from './massa3d.ts';
+import { geometriaDoLoteDeMassas, malhaDeMassas, materiaisDoLote, reservaDaBase } from './massaGrupo3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
@@ -146,6 +149,31 @@ interface EntradaCortina {
 const kernelCortina = (p: Project): string => (temCortina(p) ? (servicoCortina().pronto() ? 'k1' : 'k0') : '-');
 
 /** Lote 3D dos guarda-corpos de um nível (ver `atualizarGuardaCorpo`). */
+/** Lote 3D das massas de um nível (ver `atualizarMassa`). */
+interface EntradaMassa {
+  readonly levelId: Id;
+  /** Chave da geometria (massas do nível, assinaturas, ocultas, marca do kernel e da vista): muda, o lote é montado de novo. */
+  readonly chaveGeo: string;
+  /** Chave da cor e do material: muda, só os materiais são trocados (a geometria fica como está). */
+  chaveCor: string;
+  readonly grupo: THREE.Group;
+  readonly picks: PickSource[];
+  mats: string[];
+  /** Malha do lote e a geometria dela (`null` na reserva sem kernel), e a massa de cada faixa (ordem dos materiais). */
+  readonly mesh: THREE.Mesh | null;
+  readonly geo: THREE.BufferGeometry | null;
+  readonly ids: readonly Id[];
+}
+
+/** Marca de cache das massas: o kernel pronto ou não (`m1`/`m0`) faz a reserva virar malha quando ele chega. */
+const kernelMassa = (): string => (servicoMassa().pronto() ? 'm1' : 'm0');
+
+/** Cor da massa no projeto (`undefined` = padrão neutro). */
+const corDaMassa = (p: Project, id: Id): string | undefined => {
+  const e = p.elements[id];
+  return e?.kind === 'mass' ? e.color : undefined;
+};
+
 interface EntradaGuardaCorpo {
   readonly levelId: Id;
   readonly chave: string;
@@ -180,6 +208,14 @@ export class ModelScene {
   private niveisAssinatura: string | null = null;
   /** Caixa do "Enquadrar": modelo + datum dos níveis (com a margem do texto/bolha em X). */
   private caixaEnquadramento = new THREE.Box3();
+  /**
+   * Prepara a seleção 3D em fatias (ver `prepararPicking`): o primeiro raio sobre o modelo não paga a construção das
+   * estruturas de picking. Chamada repetida até `feitas === total`; cada chamada gasta no máximo ~`orcamentoMs`.
+   */
+  prepararSelecao(orcamentoMs: number): { feitas: number; total: number } {
+    return prepararPicking(this.model, orcamentoMs);
+  }
+
   /** Peças de picking do nível que se monta agora (no wireframe a malha não entra na cena: vai para cá). */
   private picks: PickSource[] = [];
   private caixaUnitaria = criarCaixaUnitaria();
@@ -210,6 +246,9 @@ export class ModelScene {
   private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
   /** Lote 3D das paredes cortina (instâncias do kernel), um grupo por nível, com chave própria por hash das cortinas. */
   private cortinaNaCena: EntradaCortina[] = [];
+  /** Lote 3D das massas, um grupo por nível, com chave de geometria e chave de cor próprias; o cache de peças por massa fica em `massas`. */
+  private massaNaCena: EntradaMassa[] = [];
+  private readonly massas = new CacheDeMassas3d();
   private cache: CacheMalhas;
   private sequencia = 0;
   private frame: Frame3D = { view: view3dOf({}), dark: false, edges: false, shadows: false };
@@ -316,7 +355,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks)];
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks), ...this.massaNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -398,11 +437,13 @@ export class ModelScene {
         this.frame.edges,
         this.frame.shadows,
         view.style,
+        // Decisão do projeto sobre as arestas dos genéricos: mudá-la refaz todos os níveis (senão um nível cacheado manteria as arestas).
+        genericosAcimaDoOrcamento(p.elements),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
-      // Guarda-corpo tem lote e chave próprios (`atualizarGuardaCorpo`): mudar um não remonta o outro.
-      { semGuardaCorpo: true },
+      // Guarda-corpo e massa têm lote e chave próprios (`atualizarGuardaCorpo`, `atualizarMassa`): mudar um não remonta o outro.
+      { semGuardaCorpo: true, semMassa: true },
     );
     const antes = this.cenaNiveis;
     const atuais: EntradaNivel[] = [];
@@ -436,6 +477,7 @@ export class ModelScene {
     for (const e of atuais) this.model.add(e.grupo);
     this.atualizarGuardaCorpo(p, opt, levels);
     this.atualizarCortina(p, opt, levels);
+    this.atualizarMassa(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
       const res = this.lotes.atualizar(
@@ -486,7 +528,8 @@ export class ModelScene {
     this.ground.visible = view.style !== 'wireframe';
     this.ground.receiveShadow = this.frame.shadows;
     this.scene.background = bg;
-    this.scene.fog = new THREE.Fog(bg, 60, 170);
+    const nevoa = faixaDaNevoa(this.orbit.camera.position, this.caixaEnquadramento);
+    this.scene.fog = new THREE.Fog(bg, nevoa.near, nevoa.far);
     this.sun.castShadow = this.frame.shadows;
     this.direcaoSol.copy(sunDirection(view.sunAzimuth, view.sunElevation));
     if (!this.boxCache.isEmpty()) {
@@ -686,6 +729,7 @@ export class ModelScene {
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
     for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
     for (const g of this.cortinaNaCena) this.model.add(g.grupo);
+    for (const g of this.massaNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
     for (const m of res.instanciadas) this.model.add(m);
@@ -855,6 +899,97 @@ export class ModelScene {
     return this.mats.cached(`reveal|${REVEAL_COLOR}`, () => new THREE.LineBasicMaterial({ color: REVEAL_COLOR, depthWrite: false }));
   }
 
+  /**
+   * Massa conceitual (ficha V1): um grupo por nível com massa. A geometria vem do kernel por nível (`servicoMassa().malha`) e é montada a partir das peças
+   * por massa (`CacheDeMassas3d`): editar UMA massa refaz só a peça dela. Mudar só a cor troca só os materiais (chave de cor). Sem kernel, ou com a malha
+   * nula, desenha a reserva: o contorno da base. Nunca TypeScript no lugar da malha (A.5).
+   */
+  private atualizarMassa(p: Project, opt: Scene3DOptions, levels: readonly ResolvedLevel[]): void {
+    const anteriores = new Map(this.massaNaCena.map((g) => [g.levelId, g] as const));
+    const atuais: EntradaMassa[] = [];
+    const view = this.frame.view;
+    if (view.overrides.mass.visible && temMassa(p)) {
+      const marcaGeo = JSON.stringify([kernelMassa(), view.style === 'wireframe', this.frame.edges]);
+      const chavesGeo = chavesDeMassaGeometria(p, marcaGeo, { ocultos: this.ocultos, revelados: this.revelados });
+      const chavesCor = chavesDeMassaCor(p, JSON.stringify([opt.dark, view.style, view.overrides.mass]));
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      for (const [levelId, chaveGeo] of chavesGeo) {
+        if (!nivelDe.has(levelId)) continue;
+        const chaveCor = chavesCor.get(levelId) ?? '-';
+        const velha = anteriores.get(levelId);
+        if (velha?.chaveGeo === chaveGeo) {
+          if (velha.chaveCor !== chaveCor) this.recolorirMassa(p, velha, chaveCor);
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(levelId);
+          continue;
+        }
+        const nova = this.montarMassa(p, levelId, chaveGeo, chaveCor);
+        if (nova) atuais.push(nova);
+      }
+    }
+    this.massaNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarMassa(g);
+    for (const g of atuais) this.model.add(g.grupo);
+    this.massas.podar(new Set(massasDoProjeto(p).map((m) => m.id)));
+  }
+
+  private montarMassa(p: Project, levelId: Id, chaveGeo: string, chaveCor: string): EntradaMassa | null {
+    const massas = massasDoNivel(p, levelId).filter((m) => !this.ocultos.has(m.id) && massIssue(m) === null);
+    if (!massas.length) return null;
+    const view = this.frame.view;
+    const grupo = new THREE.Group();
+    grupo.userData = { levelId };
+    const picks: PickSource[] = [];
+    const mats = new Set<string>();
+    const matsAnt = this.mats.noNivel;
+    this.mats.noNivel = mats;
+    const assinaturas = entradaMassaDoProjeto(p).assinaturas;
+    const malha = servicoMassa().pronto() ? servicoMassa().malha(p, levelId, 1) : null;
+    let mesh: THREE.Mesh | null = null;
+    let geo: THREE.BufferGeometry | null = null;
+    let ids: Id[] = [];
+    if (malha) {
+      const doKernel = massas.flatMap((m) => {
+        const assinatura = assinaturas.get(m.id);
+        return assinatura === undefined ? [] : [{ id: m.id, assinatura }];
+      });
+      const lote = montarLoteDeMassas(this.massas.pecas(malha, doKernel));
+      if (lote.faixas.length) {
+        geo = geometriaDoLoteDeMassas(lote);
+        ids = lote.faixas.map((f) => f.id);
+        mesh = malhaDeMassas(geo, materiaisDoLote(this.mats, view, ids.map((id) => corDaMassa(p, id))), lote.faixas);
+        // Wireframe não desenha a face: a malha vai só para o picking (como o `draw`).
+        if (view.style === 'wireframe') picks.push({ geo, owner: grupo, kind: 'mass', ranges: lote.faixas });
+        else grupo.add(mesh);
+        if (this.frame.edges) grupo.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, EDGE_ANGLE), this.mats.edge()));
+      }
+    } else {
+      const linhas = this.mats.edge();
+      const cota = p.levels.find((l) => l.id === levelId)?.elevation ?? 0;
+      for (const m of massas) grupo.add(reservaDaBase(contornoDaBase(m, cota), linhas));
+    }
+    this.mats.noNivel = matsAnt;
+    if (!grupo.children.length && !picks.length) return null;
+    return { levelId, chaveGeo, chaveCor, grupo, picks, mats: [...mats], mesh, geo, ids };
+  }
+
+  /** Só a cor (ou a vista da categoria) mudou: troca os materiais do lote e deixa a geometria como está. */
+  private recolorirMassa(p: Project, g: EntradaMassa, chaveCor: string): void {
+    const mats = new Set<string>();
+    const matsAnt = this.mats.noNivel;
+    this.mats.noNivel = mats;
+    if (g.mesh) g.mesh.material = materiaisDoLote(this.mats, this.frame.view, g.ids.map((id) => corDaMassa(p, id)));
+    this.mats.noNivel = matsAnt;
+    g.mats = [...mats];
+    g.chaveCor = chaveCor;
+  }
+
+  private liberarMassa(g: EntradaMassa): void {
+    g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
+    for (const s of g.picks) s.geo.dispose();
+  }
+
   private liberarGuardaCorpo(g: EntradaGuardaCorpo): void {
     g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
     for (const s of g.picks) s.geo.dispose();
@@ -871,7 +1006,7 @@ export class ModelScene {
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true });
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements)]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
   }
 
   /**
@@ -920,9 +1055,13 @@ export class ModelScene {
       } else {
         matrizes.push(o.matrixWorld);
       }
-      const contar = indice ? indice.count : pos.count;
+      // Só vale o `drawRange`: o lote da GPU guarda índices de reserva (degenerados) depois de uma troca.
+      const dr = o.geometry.drawRange;
+      const total = indice ? indice.count : pos.count;
+      const inicio = Number.isFinite(dr.start) ? Math.max(0, dr.start) : 0;
+      const contar = Number.isFinite(dr.count) ? Math.min(total, inicio + dr.count) : total;
       for (const m of matrizes) {
-        for (let i = 0; i + 2 < contar; i += 3) {
+        for (let i = inicio; i + 2 < contar; i += 3) {
           for (let k = 0; k < 3; k++) {
             const n = indice ? indice.getX(i + k) : i + k;
             ponto(m, pos.getX(n), pos.getY(n), pos.getZ(n));
@@ -957,6 +1096,7 @@ export class ModelScene {
    */
   private antesDeDesenhar(renderer: RendererDeQuadro): void {
     this.layoutNiveis();
+    this.atualizarNevoa();
     if (!this.frame.shadows) return;
     prepararSombraDoQuadro({
       renderer,
@@ -970,6 +1110,15 @@ export class ModelScene {
       teto: this.sombraMaxTriangulos,
       tamanhoTela: this.tamanhoTela,
     });
+  }
+
+  /** Névoa pela câmera atual e a caixa de enquadramento (`faixaDaNevoa`). Só escreve quando a faixa muda. */
+  private atualizarNevoa(): void {
+    const fog = this.scene.fog;
+    if (!(fog instanceof THREE.Fog)) return;
+    const { near, far } = faixaDaNevoa(this.orbit.camera.position, this.caixaEnquadramento);
+    if (fog.near !== near) fog.near = near;
+    if (fog.far !== far) fog.far = far;
   }
 
   /**
@@ -1117,7 +1266,7 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
-    const batches: SolidBatch[] = [
+    const batches: LoteSolido[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
       ...buildCeilingSolids(ceilings),
@@ -1132,8 +1281,10 @@ export class ModelScene {
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
     const bordas: number[] = [];
-    const arestasDe = (lotes: readonly SolidBatch[]): void => {
-      const g = arestasDosLotes(lotes, EDGE_ANGLE);
+    // Orçamento de arestas dos genéricos decidido pelo projeto inteiro (não por nível): igual em todos os níveis.
+    const semGenericos = genericosAcimaDoOrcamento(p.elements);
+    const arestasDe = (lotes: readonly LoteSolido[]): void => {
+      const g = arestasDosLotes(lotes, EDGE_ANGLE, semGenericos);
       if (!g) return;
       for (const x of g.getAttribute('position').array) bordas.push(x);
       g.dispose();
@@ -1168,12 +1319,12 @@ export class ModelScene {
     const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os
     // lotes globais por categoria/material (o gestor de GPU os junta e atualiza por faixa).
-    const lotes: SolidBatch[] = [];
+    const lotes: LoteSolido[] = [];
     // Prismas das esquadrias (batente em L): como as caixas das esquadrias, só têm arestas nos estilos de linhas (igual ao caminho de geometria).
-    const prismasSemArestas = new Set<SolidBatch>();
+    const prismasSemArestas = new Set<LoteSolido>();
     if (!this.instanciar) {
       // Lotes do nível juntados por categoria e material: uma malha por grupo (ver `lotesMalha3d.ts`).
-      this.desenharLotes(grupo, batches, this.frame.edges, materialOf);
+      this.desenharLotes(grupo, batches, this.frame.edges, materialOf, [], semGenericos);
     } else {
       lotes.push(...batches);
       for (const b of batches) this.mats.face(materialOf(b.materialId), b.category);
@@ -1251,7 +1402,7 @@ export class ModelScene {
       if (this.frame.edges) {
         this.mats.edge();
         if (lotes.length) {
-          const g = arestasDosLotes(prismasSemArestas.size ? lotes.filter((l) => !prismasSemArestas.has(l)) : lotes, EDGE_ANGLE);
+          const g = arestasDosLotes(prismasSemArestas.size ? lotes.filter((l) => !prismasSemArestas.has(l)) : lotes, EDGE_ANGLE, semGenericos);
           if (g) {
             arestasSolidas = Float32Array.from(g.getAttribute('position').array);
             g.dispose();
@@ -1310,10 +1461,10 @@ export class ModelScene {
    * elemento deslocadas (picking e realce continuam por triângulo). As arestas de todos os lotes saem numa linha só, com o
    * mesmo ângulo de antes, e só quando `edges`.
    */
-  private desenharLotes(parent: THREE.Object3D, lotes: SolidBatch[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = []): void {
+  private desenharLotes(parent: THREE.Object3D, lotes: LoteSolido[], edges: boolean, materialOf: (id: Id) => Material | undefined, arestasGrupos: readonly number[] = [], semGenericos?: boolean): void {
     for (const b of juntarLotes(lotes)) this.draw(parent, geometriaDoLote(b), materialOf(b.materialId), b.category, false, b.ids);
     // Peças de um grupo físico desenham uma silhueta só: as arestas internas do grupo não entram na linha.
-    const arestas = edges ? arestasDosLotes(lotes.filter((b) => !b.group), EDGE_ANGLE) : null;
+    const arestas = edges ? arestasDosLotes(lotes.filter((b) => !b.group), EDGE_ANGLE, semGenericos) : null;
     if (arestas) parent.add(new THREE.LineSegments(arestas, this.mats.edge()));
     if (edges && arestasGrupos.length) {
       const g = new THREE.BufferGeometry();
@@ -1376,6 +1527,9 @@ export class ModelScene {
     this.realces.soltarTodos();
     for (const g of this.guardaCorpoNaCena) this.liberarGuardaCorpo(g);
     this.guardaCorpoNaCena = [];
+    for (const g of this.massaNaCena) this.liberarMassa(g);
+    this.massaNaCena = [];
+    this.massas.limpar();
     for (const g of this.cortinaNaCena) this.liberarCortina(g);
     this.cortinaNaCena = [];
     this.grupoRealceCortina = [];

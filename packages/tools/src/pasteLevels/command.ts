@@ -1,6 +1,6 @@
 import {
   applyCommand, newId, type Beam, type Column, type Command, type Element, type Floor, type Footing,
-  type Id, type Opening, type Project, type Room, type Roof, type Slab, type Wall,
+  type Id, type Mass, type Opening, type Project, type Room, type Roof, type Slab, type Wall,
 } from '@hestia/model';
 import { rampTypeId } from '../rampCommands.ts';
 import { stairTypeId } from '../stairCommands.ts';
@@ -244,6 +244,16 @@ function buildLevel(
     const id = mint('gc');
     ids.railings.push(id);
     commands.push({ type: 'addGuardaCorpo', guardaCorpo: { ...rest, id, levelId: dest.levelId, typeId, hospedeiro } });
+  }
+
+  // Massas: id novo e nível de destino; seções, `arranjo` e `baseOffset` seguem como estavam (a base acompanha a cota do nível).
+  for (const m of clip.masses ?? []) {
+    const { order: _order, ...rest } = m;
+    const id = mint('ms');
+    ids.masses.push(id);
+    sources.masses.push(m.id);
+    const massa: Omit<Mass, 'order'> = { ...structuredClone(rest), id, levelId: destOf(m.levelId).levelId };
+    commands.push({ type: 'addMass', mass: massa });
   }
 
   // Aberturas sempre na parede copiada do MESMO nível de destino.

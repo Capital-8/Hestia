@@ -13,6 +13,7 @@ import {
   buildTemplate,
   createEmptyProject,
   migrateProject,
+  serializeProject,
   newId,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
@@ -25,16 +26,19 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
+import { vperf } from './vperf.ts';
+import { aquecerCorteNoWorker, emOciosidade, temParedeInclinada } from './aquecimentoCorte.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
 import { startCreateSimilar } from './createSimilar.ts';
 import { desfazerOuRefazer } from './historyStatus.ts';
 import { keptFloorType } from './typeActions.ts'; import { keptSlabType } from './slabTypeActions.ts'; import { PerimeterMode } from './perimeterMode.ts';
+import { gravarAutosave } from './autosave.ts';
 import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
@@ -59,6 +63,7 @@ import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
 import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
+import { ligarMassa } from './massaLigacao.ts';
 import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra no select)
 
 
@@ -164,6 +169,7 @@ export class Editor {
   private sectionToFrame = new Set<Id>();
   /** Caixa pedida antes de a vista ter viewport (ex.: enquadrar um CAD ao abrir a planta dele): aplicada na criação. */
   private pendingBox: PlanBox | null = null;
+  private autosaveAvisado = false;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   fileName = 'projeto.hestia.json';
 
@@ -172,8 +178,54 @@ export class Editor {
     this.store.subscribe(() => {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
+      this.aquecerCorteSeInclinada();
+      this.agendarPrecalculoDeVistas();
       useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
     });
+  }
+
+  private corteAquecido = false;
+
+  private precalculoTimer: ReturnType<typeof setTimeout> | null = null;
+  private precalculando = false;
+  /** Máximo de vistas calculadas em segundo plano por projeto (as primeiras da lista). */
+  private static readonly MAX_PRECALCULO = 12;
+
+  /**
+   * D5: depois que o projeto assenta (600 ms sem edição) e o navegador está ocioso, o worker calcula, uma vista por vez, os cortes e elevações que ainda não estão
+   * prontos para o projeto atual. Abrir a vista passa a ler o resultado do cache (o cálculo no projeto do dono leva 0,4 a 1,1 s e o pedido na hora de abrir esperava por ele).
+   */
+  private agendarPrecalculoDeVistas(): void {
+    if (typeof Worker === 'undefined') return;
+    if (this.precalculoTimer) clearTimeout(this.precalculoTimer);
+    this.precalculoTimer = setTimeout(() => {
+      this.precalculoTimer = null;
+      emOciosidade(() => this.precalcularProximaVista());
+    }, 600);
+  }
+
+  private precalcularProximaVista(): void {
+    const p = this.project;
+    const alvo = p.views.slice(0, Editor.MAX_PRECALCULO).find((v) => !this.sectionFresh(v.id) && this.sectionPending.get(v.id) !== p);
+    if (!alvo) { this.precalculando = false; return; }
+    this.precalculando = true;
+    this.sectionOf(alvo.id);
+  }
+
+  /**
+   * Etapa W: compila no worker (JIT) os caminhos do corte/elevação inclinados, em ociosidade, uma vez por sessão do
+   * worker; e, com vista de corte aberta, calcula-a em segundo plano. Chamado ao carregar e quando surge parede inclinada.
+   */
+  aquecerCorteSeInclinada(forcar = false): void {
+    if (typeof Worker === 'undefined') return;
+    if (!this.corteAquecido && (forcar || temParedeInclinada(this.project))) {
+      this.corteAquecido = true;
+      this.sectionClient ??= criarClienteResolucao({ usarWorker: true });
+      void aquecerCorteNoWorker(this.sectionClient, undefined, () => {
+        const st = useUi.getState();
+        if (st.view === 'section' && st.sectionId) this.sectionOf(st.sectionId);
+      });
+    }
   }
 
   // ---------- ambiente entregue às ferramentas ----------
@@ -404,6 +456,7 @@ export class Editor {
       (value) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!value) return;
+        vperf?.mark('cache');
         const first = !this.sectionCache.has(id);
         this.sectionCache.set(id, { project, value: value as SectionResult });
         if (first && this.sectionToFrame.delete(id)) {
@@ -417,10 +470,12 @@ export class Editor {
         const st = useUi.getState();
         if (st.view === 'section' && st.sectionId === id) this.tool.refreshPreviewAtPointer?.();
         this.bump();
+        if (this.precalculando) emOciosidade(() => this.precalcularProximaVista());
       },
       (e: unknown) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!(e instanceof ResolucaoCancelada)) console.error('corte', e);
+        else if (this.precalculando) this.agendarPrecalculoDeVistas();
       },
     );
   }
@@ -539,7 +594,8 @@ export class Editor {
 
   private activate(id: ToolId, tool: Tool = createTool(id, this.env)): void {
     this.limparArrasteRotulo();
-    this.tool = tool;
+    (this.tool as { dispose?: () => void }).dispose?.(); // SUPLEMENTOS: ferramenta de suplemento descarta respostas atrasadas
+    this.tool = ligarMassa(tool);
     useUi.setState({ tool: id, typed: '', prompt: null, hover: null });
     this.tool.start();
     this.bump();
@@ -564,6 +620,14 @@ export class Editor {
     }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
     this.activate(id);
+  }
+
+  /** SUPLEMENTOS (fase H): ativa a ferramenta interativa de um suplemento; respeita as mesmas restrições de vista de `setTool`. */
+  startPluginTool(spec: Omit<PluginToolSpec, 'redraw'>, bridge: PluginToolBridge): boolean {
+    const st = useUi.getState();
+    if (st.view === 'section' || (st.planKind === 'area' && st.view !== '3d')) { useUi.setState({ status: { key: 'supui_tool_busy' } }); return false; }
+    this.activate('plugin', new PluginTool(this.env, { ...spec, redraw: () => this.bump() }, bridge));
+    return true;
   }
 
   bump(): void {
@@ -833,6 +897,7 @@ export class Editor {
   // ---------- cortes e elevações ----------
   /** Abre um corte ou elevação na área central, com viewport próprio. */
   openSection(id: Id): void {
+    vperf?.mark('abrir');
     if (this.perimetro.bloqueiaNavegacao() || !this.project.views.some((v) => v.id === id)) return;
     // Ao abrir, enquadra de novo: descarta o viewport guardado desta vista.
     this.viewports.delete(`sec:${id}`);
@@ -1180,7 +1245,8 @@ export class Editor {
     this.pastaDaBiblioteca = null;
     this.perimetro.encerrar(); this.store.load(p);
     // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
-    safeSet(AUTOSAVE_KEY, JSON.stringify(p, null, 1));
+    this.autosaveAvisado = false;
+    this.gravarAutosaveDoProjeto(p);
     this.fileName = name;
     this.levels.clear(); const iniciais = this.fluxo.abrir(p, this.store.version);
     if (restaurado) for (const [id, valor] of restaurado.semeados) this.fluxo.resolucao.semear(id, valor);
@@ -1192,6 +1258,7 @@ export class Editor {
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
     useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
+    this.aquecerCorteSeInclinada(true);
   }
 
   openFromText(text: string, name: string): { ok: true } | { ok: false; error: string } {
@@ -1230,7 +1297,7 @@ export class Editor {
 
   /** Caminho de quem não tem pasta (navegador sem acesso a arquivos): baixa o `.hestia.json`. */
   private async baixarArquivo(): Promise<void> {
-    const text = JSON.stringify(this.project, null, 1);
+    const text = serializeProject(this.project, 1);
     const name = safeFilename(`${this.project.name.trim() || 'projeto'}.hestia.json`);
     safeSet(AUTOSAVE_KEY, text);
     const entrega = await entregarArquivo({ nome: name, conteudo: text });
@@ -1299,7 +1366,7 @@ export class Editor {
     const lang = useI18n.getState().lang;
     const miniatura = capturarMiniatura3d();
     const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
-    const conteudo = JSON.stringify(documento, null, 1);
+    const conteudo = serializeProject(documento, 1);
     safeSet(AUTOSAVE_KEY, conteudo);
     try {
       const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
@@ -1316,7 +1383,17 @@ export class Editor {
 
   private scheduleAutosave(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-    this.autosaveTimer = setTimeout(() => safeSet(AUTOSAVE_KEY, JSON.stringify(this.project, null, 1)), 800);
+    this.autosaveTimer = setTimeout(() => this.gravarAutosaveDoProjeto(this.project), 800);
+  }
+
+  /** Projeto grande não é serializado para o autosave (a cota do localStorage o recusaria): um aviso único e sem recuperação por F5. */
+  private gravarAutosaveDoProjeto(p: Project): void {
+    const g = this.geracaoDoProjeto;
+    const r = gravarAutosave(p, () => this.geracaoDoProjeto === g);
+    if (r === 'pulado' && !this.autosaveAvisado) {
+      this.autosaveAvisado = true;
+      useUi.setState({ status: { key: 'autosave_grande' } });
+    }
   }
 
   /**

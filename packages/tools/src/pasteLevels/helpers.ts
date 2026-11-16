@@ -13,7 +13,7 @@ export const CATEGORY_ORDER: readonly (keyof PasteIds)[] = [
 ];
 
 export function emptySources(): Record<keyof PasteIds, Id[]> {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], columns: [], beams: [], footings: [], railings: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], columns: [], beams: [], footings: [], railings: [], masses: [] };
 }
 
 /** Ids de um nível na ordem canônica (é a ordem de `sourceIds`/`members` do vínculo). */
@@ -37,7 +37,8 @@ export function hasContent(c: ClipBuffer): boolean {
     (c.columns?.length ?? 0) > 0 ||
     (c.beams?.length ?? 0) > 0 ||
     (c.footings?.length ?? 0) > 0 ||
-    (c.railings?.length ?? 0) > 0
+    (c.railings?.length ?? 0) > 0 ||
+    (c.masses?.length ?? 0) > 0
   );
 }
 
@@ -58,6 +59,7 @@ export function sourceLevelsInClip(p: Project, c: ClipBuffer): Id[] {
     ...(c.beams ?? []).map((e) => e.levelId),
     ...(c.footings ?? []).map((e) => e.levelId),
     ...(c.railings ?? []).map((e) => e.levelId),
+    ...(c.masses ?? []).map((e) => e.levelId),
   ];
   const present = new Set(candidates.filter((id) => p.levels.some((l) => l.id === id)));
   if (present.size === 0) return p.levels[0]?.id ? [p.levels[0].id] : [];

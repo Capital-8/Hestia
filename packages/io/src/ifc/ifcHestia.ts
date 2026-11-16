@@ -53,7 +53,7 @@ export function hestiaRecordOf(el: Element): HestiaElementRecord {
 
 /** Prefixos de GlobalId do produto de cada tipo de elemento (`gid('<prefixo>:<id>')` no exportador). */
 const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
-  wall: ['wall'],
+  wall: ['wall', 'curtain'],
   door: ['door'],
   window: ['window'],
   floor: ['floor'],
@@ -63,6 +63,8 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   stair: ['stair'],
   ramp: ['ramp'],
   railing: ['railing'],
+  // A massa conceitual sai como `IFCBUILDINGELEMENTPROXY` (ficha X1, `ifcMassa.ts`); sem kernel não há produto e o pset não é escrito.
+  mass: ['mass'],
   room: ['space', 'room', 'ifcspace'],
   generic: ['generic'],
   // O CAD importado não vira produto IFC (é desenho de referência, como no Revit).
@@ -135,7 +137,7 @@ function elementPset(sink: HestiaSink, el: Element, product: number): void {
 }
 
 /** Mapas de tipo do projeto que voltam no `TypesJSON` (os que o projeto tiver). */
-const TYPE_KEYS = ['wallTypes', 'floorTypes', 'slabTypes', 'ceilingTypes', 'roofTypes', 'stairTypes', 'openingTypes', 'gridTypes'] as const;
+const TYPE_KEYS = ['wallTypes', 'floorTypes', 'slabTypes', 'ceilingTypes', 'roofTypes', 'stairTypes', 'openingTypes', 'gridTypes', 'mullionTypes', 'curtainPanelTypes'] as const;
 
 /** `Pset_Hestia_Project`: versão do formato, esquema e o esqueleto do projeto (sem elementos) em JSON. */
 function projectPset(sink: HestiaSink, p: Project, project: number): void {

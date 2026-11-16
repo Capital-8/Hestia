@@ -86,6 +86,7 @@ function elementsOf(c: ClipBuffer): Element[] {
     ...(c.generics ?? []),
     ...(c.cad ?? []),
     ...(c.railings ?? []),
+    ...(c.masses ?? []),
   ];
 }
 
@@ -103,6 +104,7 @@ function idsOf(c: ClipBuffer): Id[] {
     ...(c.generics ?? []).map((e) => e.id),
     ...(c.cad ?? []).map((e) => e.id),
     ...(c.railings ?? []).map((e) => e.id),
+    ...(c.masses ?? []).map((e) => e.id),
   ];
 }
 
@@ -186,7 +188,7 @@ export class PasteTool extends ToolBase {
         notifyWallOverlap(this.env, conflito);
         return;
       }
-      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds];
+      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds, ...r.massIds];
     this.env.transaction('Colar', () => {
       this.env.exec(r.command);
       if (len(this.delta) > 1e-9) {
@@ -207,7 +209,7 @@ export class PasteTool extends ToolBase {
     for (const id of ids) {
       const g = this.env.project().elements[id];
       if (!isGeneric(g)) continue;
-      const positions = g.mesh.positions.slice();
+      const positions = Float32Array.from(g.mesh.positions);
       for (let i = 0; i < positions.length; i += 3) {
         positions[i] = positions[i]! + d.x;
         positions[i + 1] = positions[i + 1]! + d.y;
