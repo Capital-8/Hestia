@@ -355,3 +355,11 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Totais: área e quantidade somam as linhas, então batem com as instâncias. Custo total = custo unitário × quantidade da linha; o total do CSV soma só as linhas com custo.
 - Colunas opcionais (fogo, Rw, U, descrição, fabricante, custo unitário, custo total, fator solar): desligadas por padrão no diálogo (checkboxes em `wsched-opt`); no CSV só saem quando pedidas, então o CSV padrão não muda. Fator solar só para janela. Números sem grandeza usam o separador do projeto (`scheduleNumber`, `scheduleCsvNumber`).
 - Testes novos: `engine/src/openingScheduleOverride.test.ts` e `apps/web/src/ui/dialogs/OpeningScheduleDialogColunas.test.ts`. Nenhum teste existente editado. Antes/depois: saída do quadro (linhas, CSV PT/EN e composição) idêntica nos fixtures existentes sem override nem colunas.
+
+## esq/cortina (aviso e cursor "não permitido" nas ferramentas de cortina)
+- Problema: no Janela, na Porta e na Linha de grade, clicar numa parede comum (ou fora de parede) não fazia nada, e a única pista era a dica da barra de status.
+- Decisão: sem alvo válido, a ferramenta marca `blocked()` (cursor "não permitido" em `cursor.ts`), mostra a mensagem na barra de status e um rótulo junto do cursor (prévia `label`), e o clique não grava nada.
+- Texto único: `tl_msg_curtain_only` ("Esta ferramenta só funciona em parede cortina. Escolha uma parede de tipo cortina (Propriedades > Tipo > Parede cortina).") nos 7 idiomas; a barra mostra "{nome da ferramenta}: {texto}".
+- Sem parede cortina sem grade: mantém a mensagem do kernel. Célula não achada na cortina: `tl_msg_curtain_no_cell`. Linha fora do vão e linha duplicada também recusam o cursor.
+- Botão "Criar parede cortina" NÃO foi feito: não há comando simples para isso (os três tipos predefinidos já vêm no projeto, em `wallTypes`); a mensagem só indica onde escolher o tipo.
+- Testes novos: `packages/tools/src/curtainSemAlvo.test.ts`. Existente editado (único): `curtainGridLineTool.test.ts`, caso "fora de qualquer parede" (agora espera o aviso em vez da dica pura).

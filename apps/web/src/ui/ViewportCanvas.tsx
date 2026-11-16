@@ -137,6 +137,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
   const previewState = useUi((s) => s.pastePreview);
+  /** Cursor "não permitido": a ferramenta ativa não tem alvo sob o ponteiro. Só re-renderiza quando muda. */
+  const [semAlvo, setSemAlvo] = useState(false);
   const frame = useRef(0);
   const dprRef = useRef(1);
   const planFrame = useRef<PlanFrame | null>(null);
@@ -969,6 +971,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         const inf = info(e, s);
         editor.pointer(d.moved ? 'drag' : 'move', inf);
+        marcaSemAlvo();
         // A barra de status também acompanha o corte: as coordenadas já vêm em (t,z) e o tipo de snap é o da inferência.
         useUi.setState({ cursor: inf.raw, snapKind: editor.activeTool.inference()?.kind ?? '' });
         d.last = s;
@@ -979,7 +982,10 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         // a prévia e a barra de status acompanharem o cursor mesmo entre cliques (como na planta).
         const inf = editor.viewport() ? info(e, s) : null;
         const ferramentaAtiva = editor.activeTool.id !== 'select';
-        if (inf && ferramentaAtiva) editor.pointer('move', inf);
+        if (inf && ferramentaAtiva) {
+          editor.pointer('move', inf);
+          marcaSemAlvo();
+        }
         if (inf) useUi.setState({ cursor: inf.raw, snapKind: ferramentaAtiva ? (editor.activeTool.inference()?.kind ?? '') : '' });
         if (!ferramentaAtiva) hoverSectionAt(s);
         // Cursor de alça sobre a alça da cota selecionada (o resto do tempo, a seta da Selecionar).
@@ -1016,6 +1022,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (d.mode === 'tool') {
       if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
       editor.pointer(d.moved ? 'drag' : 'move', inf);
+      marcaSemAlvo();
       d.last = s;
     } else {
       editor.pointer('move', inf);
@@ -1210,7 +1217,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   };
 
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
-  const onLeave = (): void => { if (['3d', 'section'].includes(useUi.getState().view) && useUi.getState().hover) useUi.setState({ hover: null }); };
+  const onLeave = (): void => {
+    if (['3d', 'section'].includes(useUi.getState().view) && useUi.getState().hover) useUi.setState({ hover: null });
+    setSemAlvo(false);
+  };
+  /** Lê do ponteiro da ferramenta ativa se ela recusa o cursor (sem alvo): o cursor vira "não permitido" (cursor.ts). */
+  const marcaSemAlvo = (): void => {
+    const recusa = editor.activeTool.blocked?.() === true;
+    if (recusa !== semAlvo) setSemAlvo(recusa);
+  };
 
   // Uma única política para as três vistas (cursor.ts): Selecionar é sempre a seta, a mão só existe durante pan/orbit,
   // alças do corte pedem o eixo e as ferramentas de desenho usam texto/mover/mira.
@@ -1223,6 +1238,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode,
     moved: drag.current.moved,
     handle: handleAxis,
+    // A ferramenta confere no próprio render: uma troca de ferramenta não deixa o "não permitido" para trás.
+    blocked: semAlvo && editor.activeTool.blocked?.() === true,
   });
   return (
     <div
