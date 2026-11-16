@@ -14,6 +14,7 @@ import {
   type OpeningFrameStyle,
   type OpeningHandle,
   type OpeningLeafStyle,
+  type OpeningGlassKind,
   type OpeningType,
   type Project,
 } from '@hestia/model';
@@ -125,6 +126,7 @@ export interface AddOptions {
   dashed?: boolean;
   profile?: PartProfile;
   group?: string;
+  glassKind?: OpeningGlassKind;
 }
 
 export function addPart(c: Ctx, id: string, role: PartRole, material: PartMaterial, b: PartBox, opts: AddOptions = {}): void {

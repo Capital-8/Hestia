@@ -11,6 +11,7 @@ import {
   type WallFrame,
 } from '@hestia/engine';
 import { openingTypeById, openingAngle3d, openingDetail3d, type Id, type Opening, type OpeningType, type Project } from '@hestia/model';
+import { materialDoVidro } from './glassAppearance.ts';
 
 /**
  * Peça da esquadria no 3D, em coordenadas locais do vão: x ao longo da parede, y na profundidade (0 = eixo da
@@ -55,7 +56,7 @@ function mostraNoDetalhe(part: OpeningPart, detail: ReturnType<typeof openingDet
 
 /** Material do projeto para o papel lógico da peça: esquadria, folha, vidro, concreto ou metal. */
 function materialIdOf(part: OpeningPart, p: Project, frameId: Id, glassId: Id, leafId: Id): Id {
-  if (part.material === 'glass') return glassId;
+  if (part.material === 'glass') return materialDoVidro(glassId, part.glassKind);
   if (part.material === 'leaf') return leafId;
   if (part.material === 'concrete') return p.materials['mat_concreto'] ? 'mat_concreto' : frameId;
   if (part.material === 'metal') {
