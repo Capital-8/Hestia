@@ -46,7 +46,9 @@ export function secaoPorCamada(p: Project, id: string, z: number, rl = resolveLe
   }
   return out;
 }
-export const dentro = (s: Seg[], x: number, y: number): boolean => {
+export const dentro = (s: Seg[], x0: number, y0: number): boolean => {
+  // desloca o raio 0,12 µm: um canto da tampa que cai exatamente na altura de um vértice da vizinha dava paridade errada (falso "dentro")
+  const x = x0, y = y0 + 1.2345e-7;
   let c = false;
   for (const [x1, y1, x2, y2] of s) if ((y1 > y) !== (y2 > y) && x < x1 + ((y - y1) * (x2 - x1)) / (y2 - y1)) c = !c;
   return c;
@@ -101,7 +103,7 @@ export function medirT(p: Project, ramo: string, w: 'a' | 'b', host: string, no:
     }
     if (!emAlguma(H, x, y)) {
       const d = distAlguma(H, x, y);
-      if (d > fresta) onde = `fresta camada ${li} (${x.toFixed(4)}, ${y.toFixed(4)})`;
+      if (d > fresta) onde = `fresta camada ${li} (${x.toFixed(4)}, ${y.toFixed(4)})`; // units-ok: mensagem de diagnóstico de teste
       fresta = Math.max(fresta, d);
       if (grossa) frestaG = Math.max(frestaG, d);
     }
@@ -147,7 +149,7 @@ export const avisosDe = (p: Project, H: number, ids: string[]): string[] => {
   return [...new Set(analyzeLevelTilt(levelFrames(p, 'lv_0'), heights).avisos.filter((a) => ids.includes(a.wallId)).map((a) => a.code))];
 };
 
-/** Área (m²) em que a união das seções difere da união das seções "ideais" (cada parede sozinha), numa janela em torno de `c`. `vazio` = ideal e não real (abertura); `excesso` = real e não ideal. */
+/** Área (em metros quadrados) em que a união das seções difere da união das seções "ideais" (cada parede sozinha), numa janela em torno de `c`. `vazio` = ideal e não real (abertura); `excesso` = real e não ideal. */
 export function cobertura(real: Seg[][][], ideal: Seg[][][], c: P, meio = 2.0, passo = 0.025, mascara?: (x: number, y: number) => boolean): { vazio: number; excesso: number; maiorVazio: number; centro?: P } {
   /** `mascara` (T): só vale para a 2ª parede (o ramo) do conjunto ideal: a parte dele além do eixo da hospedeira não existe. */
   const emU = (U: Seg[][][], x: number, y: number, ideal2 = false): boolean => U.some((w, i) => (!ideal2 || i === 0 || !mascara || mascara(x, y)) && w.some((l) => dentro(l, x, y)));

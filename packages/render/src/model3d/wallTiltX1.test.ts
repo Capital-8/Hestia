@@ -212,3 +212,28 @@ describe('X1 · X (cruzamento): os corpos se interpenetram, sem abertura', () =>
     expect(volumeParede(par, 'H').vol + volumeParede(par, 'R').vol).toBeCloseTo(3.6 * 2 - 0.12, 6);
   });
 });
+
+describe('X1 · X4: dois arcos inclinados que se cruzam no meio dos dois eixos', () => {
+  const c = CASOS_X[2]!; // arco R=5 (centro (4,0)) × arco que passa por (-1,0) com a corda horizontal
+  const linhas: string[] = [];
+  it.each([[15, -10], [20, -20], [30, 15], [15, 15], [0, 0]] as ReadonlyArray<readonly [number, number]>)('tilts %i/%i, camada única e multicamada: interpenetração fechada, sem abertura', (ta, tb) => {
+    for (const cam of [[0.2], 'padrao'] as const) {
+      limparCachesDeConteudo();
+      const pa = { ...c.a, tilt: ta }, pb = { ...c.b, tilt: tb };
+      const par = build([pa, pb], H, cam as number[] | 'padrao');
+      const A = volumeParede(par, 'H'), B = volumeParede(par, 'R');
+      limparCachesDeConteudo();
+      const sa = volumeParede(build([pa], H, cam as number[] | 'padrao'), 'H');
+      limparCachesDeConteudo();
+      const sb = volumeParede(build([pb], H, cam as number[] | 'padrao'), 'R');
+      const vazio = ZS.map((z) => coberturaDe(par, [['H', pa], ['R', pb]], cam as number[] | 'padrao', { x: -1, y: 0 }, z).vazio);
+      linhas.push(`| X4 arco×arco | ${cam === 'padrao' ? 'alv14' : '0,2'} | ${ta}/${tb} | ${(Math.abs(A.vol - sa.vol) * 1e6).toFixed(1)} / ${(Math.abs(B.vol - sb.vol) * 1e6).toFixed(1)} cm³ | ${vazio.map((v) => (v * 1e4).toFixed(0)).join(' / ')} cm² |`);
+      if (ta === 0 && tb === 0) continue; // vertical: o pintor segue cedendo a área do cruzamento (idêntico a hoje)
+      expect(A.vol).toBeCloseTo(sa.vol, 6);
+      expect(B.vol).toBeCloseTo(sb.vol, 6);
+      for (const v of vazio) expect(v).toBeLessThan(1e-4);
+      if (ta !== 0 && tb !== 0) { expect(A.fechada).toBe(true); expect(B.fechada).toBe(true); }
+    }
+    if (process.env.HESTIA_X1_SAIDA) console.log(linhas.splice(0).join('\n'));
+  }, 180000);
+});
