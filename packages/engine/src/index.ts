@@ -89,6 +89,7 @@ export * from './stairLive.ts';
 export * from './stairFree.ts';
 export * from './stairFreeEdit.ts';
 export * from './openingSchedule.ts';
+export * from './openingScheduleExtras.ts';
 export * from './openingChecks.ts';
 export * from './rooms.ts';
 export * from './roomReference.ts';
