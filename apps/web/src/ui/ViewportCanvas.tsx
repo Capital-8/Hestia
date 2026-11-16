@@ -19,6 +19,7 @@ import { dimensionFormatStyle, dimensionGeometry, dimensionStyleFor, dimensionTe
 import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/render';
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { usePanes } from '../editor/paneStore.ts';
+import { ownViewport } from '../editor/paneCamera2d.ts';
 import { usePaneCameras, usePaneCanvas } from './usePaneCanvas.ts';
 import type { PaneId } from '../editor/panes.ts';
 
@@ -133,7 +134,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     registrarCena3D({ scene: m.scene, camera: m.orbit.camera });
     return () => { registrarOrbita3D(null); registrarCena3D(null); };
   }, [pane.isActive]);
-  usePaneCameras(pane.paneId, model);
+  usePaneCameras(pane, model);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Rótulos da planta e a vista deles: o estado só troca quando o conteúdo ou a vista muda (`publish`).
   const [labels, setLabels] = useState<LabelOp[]>(NO_LABELS);
@@ -436,8 +437,10 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       publish(NO_LABELS, null);
       return;
     }
-    const antes = editor.viewport();
-    const v = editor.ensureViewport(w, h);
+    // Painel inativo: câmera 2D própria do canvas, enquadrando a vista dele; o ativo usa a do controlador (como sempre).
+    const ativo = isActiveRef.current;
+    const antes = ativo ? editor.viewport() : (pane.ownCamera.current?.v ?? null);
+    const v = ativo ? editor.ensureViewport(w, h) : ownViewport(pane.ownCamera, st, w, h, pane.saved2d());
     // O tamanho do canvas mudou: as cotas (HTML) recalculam a posição com a vista nova (C07).
     if (antes && antes !== v) useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
     const pf = (planFrame.current ??= new PlanFrame(plan.current));
@@ -456,7 +459,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       const liveFills: PlanDrawList['fills'] = [];
       const liveStrokes: PlanDrawList['strokes'] = [];
       const liveLabels: PlanDrawList['labels'] = [];
-      for (const it of editor.activeTool.preview()) {
+      for (const it of ativo ? editor.activeTool.preview() : []) {
         // Linha de destaque (halo): o MESMO desenho da planta (`previewOverlay`), para o Alinhar ficar igual nas duas vistas.
         if (it.kind === 'line' && it.halo) liveStrokes.push(...previewOverlay([it], theme, () => []).strokes);
         else if (it.kind === 'line') liveStrokes.push({ pts: [it.a, it.b], closed: false, widthPx: 1, color: theme.ink, alpha: 1, ...(it.dashed ? { dash: [4, 3] } : {}) });
@@ -464,7 +467,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         else if (it.kind === 'label' && it.dimensionStyle) {
           // Prévia de cota no corte: texto de papel com a fonte da família (sem a caixa do rótulo de interface).
           const estilo = dimensionStyleFor(p.settings, { familyId: st.options.dimensionFamilyId ?? undefined });
-          for (const l of sectionLabelsAt([{ at: it.at, text: it.text, center: true, rotation: it.rotation, color: theme.ink, papel: { escala: editor.viewScale(), fontMm: estilo.textHeight > 0 ? estilo.textHeight : 2.5 } }], v.zoom)) liveLabels.push(l);
+          for (const l of sectionLabelsAt([{ at: it.at, text: it.text, center: true, rotation: it.rotation, color: theme.ink, papel: { escala: editor.viewScale(st), fontMm: estilo.textHeight > 0 ? estilo.textHeight : 2.5 } }], v.zoom)) liveLabels.push(l);
         } else if (it.kind === 'label') liveLabels.push({ at: it.at, text: it.text, tone: 'info' });
         else if (it.kind === 'point') {
           const r = 3 / Math.max(v.zoom, 1);
@@ -514,7 +517,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
           if (next && !next.angular) {
             const style = dimensionStyleFor(p.settings, next);
             const pts = sectionDimensionPoints(next);
-            const gd = dimensionGeometry(pts.a, pts.b, next.offset, editor.viewScale() / 1000, next.textHeight ?? style.textHeight, next.textAt, {
+            const gd = dimensionGeometry(pts.a, pts.b, next.offset, editor.viewScale(st) / 1000, next.textHeight ?? style.textHeight, next.textAt, {
               extensionGapMm: style.extensionGap,
               extensionOvershootMm: style.extensionOvershoot,
               tickHalfMm: style.tickSize / 2,
@@ -527,7 +530,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
           }
         }
       }
-      const live = sectionLiveOps({ project: p, inference: editor.activeTool.inference(), theme });
+      const live = sectionLiveOps({ project: p, inference: ativo ? editor.activeTool.inference() : null, theme });
       liveFills.push(...live.fills);
       liveStrokes.push(...live.strokes);
       liveLabels.push(...live.labels);
@@ -569,7 +572,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => { const estado = { project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return planFrameUpdateOf(estado); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
