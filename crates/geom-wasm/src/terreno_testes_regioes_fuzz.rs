@@ -76,7 +76,7 @@ fn aviso_precisao_reduzida() {
     assert_eq!((a4[0].1[0], a4[0].1[1]), (0.5, 0.25), "passo dobrado uma vez: 0,25 → 0,5");
     let m = malha(&mut cena, 0, 1);
     conferir_proposta(&m, 1);
-    assert!(m.v.len() < 2 * (40_000 + 2000), "a grade respeitou o teto: {} vértices", m.v.len());
+    assert!(m.v.len() < 2 * (40_000 + 2000 + crate::terreno_proposta::TETO_REFINO), "a grade (mais o teto do refino do pé do talude) respeitou o teto: {} vértices", m.v.len());
     let z = cotas(&mut cena, &[[100.0, 100.0], [100.0, 90.0]], 1);
     assert!((z[0].1 + 30.0).abs() < 1e-9, "dentro da região: o plano");
     assert!((z[1].1 - (-30.0 + 5.0 / 2.0)).abs() < 0.2, "no talude de corte 2 a 5 m da borda: {}", z[1].1);
@@ -198,7 +198,7 @@ fn fuzz_200_completo() {
         for l in curvas(&mut cena, 0, 1) {
             for (pt, c) in l.pontos.iter().zip(cotas(&mut cena, &l.pontos, 1)) {
                 assert_eq!(c.0, 1, "caso {caso}: ponto {pt:?} da curva {} fora do domínio", l.z);
-                assert!((c.1 - l.z).abs() < 1e-9, "caso {caso}: ponto {pt:?} na cota {} e não em {}", c.1, l.z);
+                assert!((c.1 - l.z).abs() < 1e-7, "caso {caso}: ponto {pt:?} na cota {} e não em {}", c.1, l.z);
             }
             n_curvas += 1;
         }

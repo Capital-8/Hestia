@@ -20,7 +20,7 @@ fn pe_do_talude_sem_serrilhado() {
     }
     let z = cotas(&mut cena, &pontos, 1);
     let mut pior: f64 = 0.0;
-    for (k, p) in pontos.iter().enumerate() {
+    for k in 0..pontos.len() {
         let esperado = casos[k % casos.len()].1;
         pior = pior.max((z[k].1 - esperado).abs());
     }

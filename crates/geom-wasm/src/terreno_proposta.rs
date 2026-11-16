@@ -164,7 +164,12 @@ fn grades(regioes: &[Regiao], planas: &[usize], e: &Malha) -> (Vec<Vec<V>>, u32)
 /// Erro de cota (m) tolerado da malha proposta em relação a `zP` na faixa dos taludes: 1 cm, a precisão de obra de uma cota de terraplenagem.
 pub const TOL_PE: f64 = 0.01;
 /// Teto de vértices acrescentados pelo refino do pé do talude (cruzamentos e refino adaptativo); passado o teto, o refino para e a malha fica como está.
-pub const TETO_REFINO: usize = 20_000;
+pub const TETO_REFINO: usize = 10_000;
+/// Distância (m) à reta dos vizinhos abaixo da qual um cruzamento da cadeia do pé do talude é dispensado (evita triângulos de sliver).
+const COM_CADEIA: bool = true;
+const ALINHADO: f64 = 1e-3;
+/// Distância (m) ao contorno de uma região plana abaixo da qual o refino não mexe: ali ficam a parede dos "gêmeos" e seus triângulos estreitos.
+const FOLGA_PAREDE: f64 = 0.05;
 /// Rodadas de refino adaptativo depois da rodada dos cruzamentos.
 const RODADAS_REFINO: usize = 6;
 
@@ -187,9 +192,12 @@ fn refinar_pe_do_talude(regioes: &[Regiao], planas: &[usize], e: &Malha, vs: &mu
     let zp_de = |p: V| e.cota(p.x, p.y).map(|z| aplicar(regioes, p, z));
     let ativo = |p: V| e.cota(p.x, p.y).is_some_and(|z| (aplicar(regioes, p, z) - z).abs() > 1e-9);
     let dentro_de_plana = |p: V| planas.iter().any(|&k| regioes[k].estritamente_dentro(p));
+    let na_parede = |p: V| planas.iter().any(|&k| regioes[k].perto(p, FOLGA_PAREDE) && regioes[k].mais_proximo(p).1 < FOLGA_PAREDE);
     let no_alcance = |p: V| com_talude.iter().any(|r| r.perto(p, r.alcance));
     for rodada in 0..=RODADAS_REFINO {
         let antes = vs.pontos.len();
+        // Arestas presas (restrições aceitas): um vértice novo sobre elas, por arredondamento, só geraria triângulo-lasca; ficam como estão.
+        let presas: std::collections::HashSet<(u32, u32)> = trechos.iter().zip(&tri.aceitas).filter(|(_, &ok)| ok).map(|(r, _)| (r[0].min(r[1]), r[0].max(r[1]))).collect();
         if rodada == 0 {
             let flags: Vec<bool> = (0..vs.pontos.len()).map(|i| ativo(pt_de(&vs.pontos, i as u32))).collect();
             let mut cruz: HashMap<(u32, u32), u32> = HashMap::new();
@@ -199,7 +207,7 @@ fn refinar_pe_do_talude(regioes: &[Regiao], planas: &[usize], e: &Malha, vs: &mu
                 let mut achados: Vec<(u32, u32)> = Vec::new();
                 for k in 0..3 {
                     let (a, b) = (t[k], t[(k + 1) % 3]);
-                    if flags[a as usize] != flags[b as usize] {
+                    if flags[a as usize] != flags[b as usize] && !presas.contains(&(a.min(b), a.max(b))) {
                         achados.push((a.min(b), a.max(b)));
                     }
                 }
@@ -224,13 +232,59 @@ fn refinar_pe_do_talude(regioes: &[Regiao], planas: &[usize], e: &Malha, vs: &mu
                     ligas.push([achados[0], achados[1]]);
                 }
             }
-            let idx: Vec<Option<u32>> = novos
-                .iter()
-                .map(|&(m, _)| if dentro_de_plana(m) { None } else { zp_de(m).map(|z| vs.adicionar(m, z, ID_AUSENTE)) })
-                .collect();
-            for l in ligas {
-                if let Some((a, b)) = idx[cruz[&l[0]] as usize].zip(idx[cruz[&l[1]] as usize]).filter(|(a, b)| a != b) {
-                    trechos.push([a, b]);
+            // Vizinhos de cada cruzamento ao longo da curva (cada triângulo liga dois).
+            let mut viz: Vec<Vec<usize>> = vec![Vec::new(); novos.len()];
+            for l in &ligas {
+                let (a, b) = (cruz[&l[0]] as usize, cruz[&l[1]] as usize);
+                if a != b {
+                    viz[a].push(b);
+                    viz[b].push(a);
+                }
+            }
+            let mut visto = vec![false; novos.len()];
+            let inicios: Vec<usize> = (0..novos.len()).filter(|&k| viz[k].len() <= 1).chain(0..novos.len()).collect();
+            for ini in inicios {
+                if visto[ini] {
+                    continue;
+                }
+                // Percorre a corrente a partir de `ini`.
+                let mut cadeia = vec![ini];
+                visto[ini] = true;
+                while let Some(&prox) = viz[*cadeia.last().unwrap_or(&ini)].iter().find(|&&k| !visto[k]) {
+                    visto[prox] = true;
+                    cadeia.push(prox);
+                }
+                // Tira os pontos alinhados (a menos de 1 mm da reta dos vizinhos): triângulos de sliver não valem os vértices extras.
+                let mut mantidos: Vec<usize> = vec![cadeia[0]];
+                for k in 1..cadeia.len() {
+                    let (a, p) = (novos[*mantidos.last().unwrap_or(&cadeia[0])].0, novos[cadeia[k]].0);
+                    let alinhado = k + 1 < cadeia.len() && {
+                        let b = novos[cadeia[k + 1]].0;
+                        let (dx, dy) = (b.x - a.x, b.y - a.y);
+                        let l = crate::geo2d::hipot(dx, dy);
+                        l > 0.0 && ((p.x - a.x) * dy - (p.y - a.y) * dx).abs() / l < ALINHADO
+                    };
+                    if !alinhado {
+                        mantidos.push(cadeia[k]);
+                    }
+                }
+                let idx: Vec<Option<u32>> = mantidos
+                    .iter()
+                    .map(|&k| {
+                        let m = novos[k].0;
+                        if dentro_de_plana(m) || na_parede(m) {
+                            None
+                        } else {
+                            zp_de(m).filter(|_| vs.pontos.len() - base < TETO_REFINO).map(|z| vs.adicionar(m, z, ID_AUSENTE))
+                        }
+                    })
+                    .collect();
+                for w in idx.windows(2) {
+                    if let Some((a, b)) = w[0].zip(w[1]).filter(|(a, b)| a != b) {
+                        if COM_CADEIA {
+                            trechos.push([a, b]);
+                        }
+                    }
                 }
             }
         } else {
@@ -247,11 +301,13 @@ fn refinar_pe_do_talude(regioes: &[Regiao], planas: &[usize], e: &Malha, vs: &mu
                 let mut amostras = vec![(v((c[0].x + c[1].x + c[2].x) / 3.0, (c[0].y + c[1].y + c[2].y) / 3.0), (z[0] + z[1] + z[2]) / 3.0)];
                 for k in 0..3 {
                     let j = (k + 1) % 3;
-                    amostras.push((v((c[k].x + c[j].x) / 2.0, (c[k].y + c[j].y) / 2.0), (z[k] + z[j]) / 2.0));
+                    if !presas.contains(&(t[k].min(t[j]), t[k].max(t[j]))) {
+                        amostras.push((v((c[k].x + c[j].x) / 2.0, (c[k].y + c[j].y) / 2.0), (z[k] + z[j]) / 2.0));
+                    }
                 }
                 let pior = amostras
                     .into_iter()
-                    .filter(|&(p, _)| no_alcance(p) && !dentro_de_plana(p))
+                    .filter(|&(p, _)| no_alcance(p) && !dentro_de_plana(p) && !na_parede(p))
                     .filter_map(|(p, zi)| zp_de(p).map(|zt| (p, zt, (zt - zi).abs())))
                     .filter(|x| x.2 > TOL_PE)
                     .fold(None, |m: Option<(V, f64, f64)>, x| if m.is_none_or(|y| x.2 > y.2) { Some(x) } else { m });
