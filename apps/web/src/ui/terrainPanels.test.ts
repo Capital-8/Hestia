@@ -12,7 +12,7 @@ vi.mock('../editor/controller.ts', () => ({
 }));
 
 const { TerrainProperties, TerrainLeituras } = await import('./TerrainProperties.tsx');
-const { TerrainRegionProperties, RegiaoLeituras, temPlano, corPadraoDaRegiao } = await import('./TerrainRegionProperties.tsx');
+const { TerrainRegionProperties, RegiaoLeituras, temPlano, temTalude, corPadraoDaRegiao } = await import('./TerrainRegionProperties.tsx');
 const { LotProperties } = await import('./LotProperties.tsx');
 
 const renderiza = (p: Project, el: ReturnType<typeof createElement>): string => {
@@ -81,7 +81,9 @@ describe('TerrainRegionProperties', () => {
     expect(html).not.toContain('id="p-rg-cota"');
     expect(html).not.toContain('id="p-rg-incl"');
     expect(html).not.toContain('id="p-rg-dir"');
-    expect(html).toContain('id="p-rg-tcorte"');
+    expect(html).not.toContain('id="p-rg-tcorte"');
+    expect(html).not.toContain('id="p-rg-taterro"');
+    expect(html).toContain('id="p-rg-perm"');
   });
 
   it('a cota do plano é a exibida (z + altitude da cota zero)', () => {
@@ -128,5 +130,34 @@ describe('LotProperties', () => {
     const html = renderiza(p, createElement(LotProperties, { lots: [{ ...l, lados: loteL1().lados }] }));
     expect(html).toContain('value="5"');
     expect(html).toContain('value="1,5"');
+  });
+});
+
+describe('TerrainRegionProperties: campos por papel', () => {
+  const p = projetoTerreno('T5');
+  const r = Object.values(p.elements).find(isTerrainRegion)!;
+
+  it('temPlano e temTalude são falsos na subdivisão e verdadeiros em plataforma e nivelada', () => {
+    expect([temPlano({ papel: 'subdivisao' }), temTalude({ papel: 'subdivisao' })]).toEqual([false, false]);
+    expect([temPlano({ papel: 'plataforma' }), temTalude({ papel: 'plataforma' })]).toEqual([true, true]);
+    expect([temPlano({ papel: 'nivelada' }), temTalude({ papel: 'nivelada' })]).toEqual([true, true]);
+  });
+
+  it('nivelada mostra plano e taludes; subdivisão mostra só permeável, material e cor', () => {
+    const nivelada = { ...r, papel: 'nivelada' as const };
+    const htmlN = renderiza(p, createElement(TerrainRegionProperties, { regions: [nivelada] }));
+    for (const id of ['p-rg-cota', 'p-rg-tcorte', 'p-rg-taterro', 'p-rg-perm', 'p-rg-material', 'p-rg-cor']) expect(htmlN, id).toContain(`id="${id}"`);
+    const sub = { ...r, papel: 'subdivisao' as const };
+    const htmlS = renderiza(p, createElement(TerrainRegionProperties, { regions: [sub] }));
+    for (const id of ['p-rg-perm', 'p-rg-material', 'p-rg-cor']) expect(htmlS, id).toContain(`id="${id}"`);
+    for (const id of ['p-rg-cota', 'p-rg-incl', 'p-rg-dir', 'p-rg-tcorte', 'p-rg-taterro']) expect(htmlS, id).not.toContain(`id="${id}"`);
+  });
+
+  it('seleção mista (subdivisão e plataforma) mostra os taludes com o valor da plataforma', () => {
+    const plat = { ...r, taludeCorte: 1.25, taludeAterro: 0 };
+    const sub = { ...r, id: 'tr_sub', papel: 'subdivisao' as const, taludeCorte: 0, taludeAterro: 0 };
+    const html = renderiza(p, createElement(TerrainRegionProperties, { regions: [sub, plat] }));
+    expect(html).toContain('id="p-rg-tcorte"');
+    expect(html).toMatch(/id="p-rg-tcorte"[^>]*value="1,25"/);
   });
 });

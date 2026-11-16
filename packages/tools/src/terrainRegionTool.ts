@@ -7,7 +7,9 @@ import {
   isTerrainRegion,
   makeTerrainRegion,
   newId,
+  camposDoPapel,
   normalizarContorno,
+  PADROES_PAPEL_REGIAO,
   TERRENO_LIMITES,
   terrainRegionIssue,
   unitsOf,
@@ -26,12 +28,8 @@ import type { PointerInfo, PreviewItem } from './types.ts';
 /** As três predefinições da ferramenta: o papel da região que ela cria (A.6). */
 export type PredefinicaoRegiao = PapelRegiaoTerreno;
 
-/** Padrões de cada predefinição (A.6): taludes de corte e aterro e se a região conta como área permeável. */
-export const PADROES_REGIAO: Readonly<Record<PredefinicaoRegiao, { taludeCorte: number; taludeAterro: number; permeavel: boolean }>> = {
-  subdivisao: { taludeCorte: 0, taludeAterro: 0, permeavel: true },
-  plataforma: { taludeCorte: 0, taludeAterro: 0, permeavel: false },
-  nivelada: { taludeCorte: 1.5, taludeAterro: 2, permeavel: false },
-};
+/** Padrões de cada predefinição (A.6), os mesmos do modelo (`PADROES_PAPEL_REGIAO`). */
+export const PADROES_REGIAO = PADROES_PAPEL_REGIAO;
 
 /** Valor padrão do campo "Cota" (z do projeto). */
 export const COTA_REGIAO_PADRAO = 0;
@@ -150,12 +148,16 @@ export class TerrainRegionTool extends ToolBase {
     return this.aterroV;
   }
 
-  /** Talude (metros na horizontal para 1 m na vertical) de corte ou de aterro, de 0 a `taludeMax`. */
+  /**
+   * Talude (metros na horizontal para 1 m na vertical) de corte ou de aterro, de 0 a `taludeMax`. Só existe nos papéis de plano: na
+   * subdivisão não grava nada e devolve falso (a barra de opções não mostra o campo nela).
+   */
   definirTalude(qual: 'corte' | 'aterro', valor: number): boolean {
     if (!Number.isFinite(valor) || valor < 0 || valor > TERRENO_LIMITES.taludeMax) {
       this.env.say(this.t('tl_tn_rg_talude_invalido', { max: TERRENO_LIMITES.taludeMax }));
       return false;
     }
+    if (!camposDoPapel(this.predef).talude) return false;
     if (qual === 'corte') this.corteV = valor;
     else this.aterroV = valor;
     return true;

@@ -3,6 +3,7 @@ import { t, type Lang } from './i18n.ts';
 import { localizacaoIssue } from './localizacao.ts';
 import { copiarTerreno, isTerrain, isTerrainRegion, normalizarBorda, normalizarContorno } from './terrain.ts';
 import { aplicarOpsFontes } from './terrainFontes.ts';
+import { neutralizarCamposNaoUsados, normalizarEdicaoRegiao } from './terrainPapel.ts';
 import type { Terrain, TerrainRegion } from './terrainTypes.ts';
 import { contornoRegiaoIssue, terrainIssue, terrainRegionIssue } from './validateTerrain.ts';
 import type { Project } from './types.ts';
@@ -58,7 +59,7 @@ export function applyTerrainCommand(p: Project, c: Command, lang: Lang = 'pt'): 
     }
     case 'addTerrainRegion': {
       if (!nivelExiste(p, c.regiao.levelId)) throw new Error(t(lang, 'md_cmd_level_missing_id', { id: c.regiao.levelId }));
-      const r = aceitarRegiao({ ...c.regiao, order: 0 }, p, lang);
+      const r = aceitarRegiao(neutralizarCamposNaoUsados({ ...c.regiao, order: 0 }), p, lang);
       p.elements[r.id] = { ...r, order: p.nextOrder++ };
       return true;
     }
@@ -66,7 +67,7 @@ export function applyTerrainCommand(p: Project, c: Command, lang: Lang = 'pt'): 
       const e = p.elements[c.id];
       if (!isTerrainRegion(e)) throw new Error(t(lang, 'md_cmd_terrain_region_missing'));
       if (c.patch.levelId && !nivelExiste(p, c.patch.levelId)) throw new Error(t(lang, 'md_cmd_level_missing_id', { id: c.patch.levelId }));
-      p.elements[c.id] = { ...aceitarRegiao({ ...e, ...c.patch }, p, lang), id: e.id, kind: 'terrainRegion', order: e.order };
+      p.elements[c.id] = { ...aceitarRegiao(normalizarEdicaoRegiao(e, c.patch), p, lang), id: e.id, kind: 'terrainRegion', order: e.order };
       return true;
     }
     case 'setTerrainRegionContorno': {

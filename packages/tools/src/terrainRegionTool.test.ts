@@ -310,3 +310,23 @@ describe('Região de terreno: núcleo comum de desenho', () => {
     expect(t.preview().length).toBeGreaterThan(0);
   });
 });
+
+describe('Região de terreno: talude só nos papéis de plano', () => {
+  it('definirTalude na subdivisão recusa (falso) e não muda o talude da ferramenta', () => {
+    const { t } = cena();
+    t.definirPredefinicao('subdivisao');
+    expect(t.definirTalude('corte', 3)).toBe(false);
+    expect(t.definirTalude('aterro', 2)).toBe(false);
+    expect([t.taludeCorte, t.taludeAterro]).toEqual([0, 0]);
+  });
+
+  it('talude digitado na plataforma some ao trocar para subdivisão e a região desenhada não o guarda', () => {
+    const { ctx, t } = cena();
+    expect(t.definirTalude('corte', 3)).toBe(true);
+    t.definirPredefinicao('subdivisao');
+    desenha(t);
+    const [r] = regioes(ctx.store.project);
+    expect(r!.papel).toBe('subdivisao');
+    expect([r!.taludeCorte, r!.taludeAterro, r!.cota, r!.inclinacao, r!.direcao]).toEqual([0, 0, 0, 0, 0]);
+  });
+});

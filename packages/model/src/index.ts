@@ -49,6 +49,7 @@ export * from './validateRamps.ts';
 export * from './terrainTypes.ts';
 export * from './terrain.ts';
 export * from './terrainFontes.ts';
+export * from './terrainPapel.ts';
 export * from './validateTerrain.ts';
 export * from './lotTypes.ts';
 export * from './lot.ts';
