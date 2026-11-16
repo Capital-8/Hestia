@@ -25,7 +25,11 @@ export function initialLayout(f: ActiveViewFields): PaneLayout {
 }
 
 function mapLeaf(n: LayoutNode, id: PaneId, fn: (p: Pane) => Pane): LayoutNode {
-  if (n.kind === 'leaf') return n.pane.id === id ? { kind: 'leaf', pane: fn(n.pane) } : n;
+  if (n.kind === 'leaf') {
+    if (n.pane.id !== id) return n;
+    const pane = fn(n.pane);
+    return pane === n.pane ? n : { kind: 'leaf', pane };
+  }
   const first = mapLeaf(n.first, id, fn);
   const second = mapLeaf(n.second, id, fn);
   return first === n.first && second === n.second ? n : { ...n, first, second };
