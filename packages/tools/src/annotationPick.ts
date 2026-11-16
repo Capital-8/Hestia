@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
+import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -135,7 +135,7 @@ export function detailItemAt(p: Project, levelId: Id, at: Vec2, mpp: number, pla
     }
     if (inside) return region.id;
   }
-  for (const line of [...a.detailLines].reverse()) if (distToSegment(at, line.a, line.b) <= 6 * mpp) return line.id;
+  for (const line of [...a.detailLines].reverse()) if (detailLineSegments(line).some(([p, q]) => distToSegment(at, p, q) <= 6 * mpp)) return line.id;
   return null;
 }
 
@@ -185,7 +185,7 @@ export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, pla
     if (textHit(t, a.scale, at, 6 * mpp)) return { id: t.id, kind: 'text' };
     if (t.leader?.some((q, i) => i > 0 && distToSegment(at, t.leader![i - 1]!, q) <= 6 * mpp)) return { id: t.id, kind: 'text' };
   }
-  for (const line of a.detailLines) if (distToSegment(at, line.a, line.b) <= 6 * mpp) return { id: line.id, kind: 'text' };
+  for (const line of a.detailLines) if (detailLineSegments(line).some(([p, q]) => distToSegment(at, p, q) <= 6 * mpp)) return { id: line.id, kind: 'text' };
   for (const region of a.detailRegions) {
     let inside = false;
     for (let i = 0, j = region.boundary.length - 1; i < region.boundary.length; j = i++) {

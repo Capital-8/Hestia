@@ -329,7 +329,14 @@ export interface TextNote {
 }
 
 /** Linha gráfica de detalhamento, vista-específica. */
-export interface DetailLine { id: Id; a: Vec2; b: Vec2; style?: 'solid' | 'dashed' | 'dotted'; }
+export interface DetailLine {
+  id: Id; a: Vec2; b: Vec2; style?: 'solid' | 'dashed' | 'dotted';
+  /**
+   * Flecha do arco (m), como `Wall.sag`: distância do meio do arco à corda, positiva à ESQUERDA de a→b.
+   * Ausente (ou ~0) = linha reta. Limitada a metade da corda (arco de até 180°); ver `detailLineSegments`.
+   */
+  sag?: number;
+}
 
 /** Região 2D vista-específica; `mask` cobre a geometria atrás da região. */
 export interface DetailRegion { id: Id; boundary: Vec2[]; color?: string; mask?: boolean; }

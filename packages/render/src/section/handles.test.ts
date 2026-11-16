@@ -109,6 +109,12 @@ describe('seleção de anotações de seção (pickSectionAnnotation)', () => {
     expect(pickSectionAnnotation(a, v(4.6, 2), 0.01)).toBeNull();
   });
 
+  it('linha de detalhe em arco: acerta o meio do arco e nao a corda', () => {
+    const a: SectionAnnotations = { dimensions: [], texts: [], detailRegions: [], tags: [], detailLines: [{ id: 'arc', a: v(0, 0), b: v(2, 0), sag: 1 }] };
+    expect(pickSectionAnnotation(a, v(1, 1), 0.05)).toEqual({ id: 'arc', kind: 'detailLine' });
+    expect(pickSectionAnnotation(a, v(1, 0), 0.05)).toBeNull();
+  });
+
   it('linha e região de detalhe: segmento e interior/borda', () => {
     const a = anotacoes();
     expect(pickSectionAnnotation(a, v(1, 3.05), 0.1)).toEqual({ id: 'ln1', kind: 'detailLine' });

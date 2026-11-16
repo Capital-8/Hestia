@@ -1,4 +1,4 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, elementTagText, isOpening, isWall, levelDimensions, levelTexts, unitsOf, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, elementTagText, isOpening, isWall, levelDimensions, levelTexts, unitsOf, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project, detailLineSegments } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { DxfPoint } from './dxf.ts';
 import type { DxfTextEntity } from './dxfDoc.ts';
@@ -109,7 +109,7 @@ export function notesDxfOf(p: Project, levelId: Id, scale: number): DxfNotes {
     out.texts.push({ at: t.at, text: t.text, height: t.height * mPerMm, rotation: t.rotation, layer: DXF_LAYER_TEXTOS });
   }
   const level = p.levels.find((l) => l.id === levelId);
-  for (const line of level?.detailLines ?? []) out.otherLines!.push({ a: line.a, b: line.b, layer: DXF_LAYER_DETALHE });
+  for (const line of level?.detailLines ?? []) for (const [a, b] of detailLineSegments(line)) out.otherLines!.push({ a, b, layer: DXF_LAYER_DETALHE });
   for (const tag of level?.tags ?? []) {
     if (!p.elements[tag.hostId]) continue;
     const value = tagValueText(p, tag);
