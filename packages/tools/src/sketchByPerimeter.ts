@@ -1,5 +1,5 @@
 import { arcFromSagitta, arcSample, asMulti, boxOf, closeGapsSafe, dist, intersectSegments, ringArea, sagFromThreePoints, union, type Box, type Ring, type SketchSeg, type Vec2 } from '@hestia/geom';
-import { levelFrames, wallFacesCached } from '@hestia/engine';
+import { cleanOutlineRing, levelFrames, wallFacesCached } from '@hestia/engine';
 import { newId, wallsOnLevel, type Wall } from '@hestia/model';
 import { circleIndexOf, makeSeg, sameDirection, visibleIn, type Circle, type SketchCtx } from './sketchPickFaceGeom.ts';
 import { t as translate } from './i18n.ts';
@@ -60,7 +60,9 @@ function arcThrough(pts: Vec2[]): SketchSeg {
  * fundidas.
  */
 function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
-  const ring = cleanRing(ring0);
+  // Limpeza do anel da união das paredes: paredes que quase se alinham deixam arestas de milímetros e vértices em reta (ver `ringClean.ts`).
+  // Os vértices sobre o arco de uma parede curva ficam como estão.
+  const ring = cleanOutlineRing(cleanRing(ring0), undefined, undefined, (q) => circleIndexOf(q, circles) >= 0);
   const n = ring.length;
   if (n < 3) return [];
   const on = ring.map((q) => circleIndexOf(q, circles));

@@ -37,9 +37,9 @@ export function wallsOf(p: Project, ids: readonly Id[]): Wall[] {
   return ids.map((id) => p.elements[id]).filter(isWall);
 }
 
-/** A parede com o eixo transformado por `t` (a sobreposição olha só o eixo a→b, como o C14). */
+/** A parede com o eixo transformado por `t` (espelho também inverte o lado da curvatura `sag`). */
 function probeWall(w: Wall, t: Transform): Wall {
-  return { ...w, a: applyTransform(t, w.a), b: applyTransform(t, w.b) };
+  return { ...w, a: applyTransform(t, w.a), b: applyTransform(t, w.b), sag: t.kind === 'mirror' ? -w.sag : w.sag };
 }
 
 /** Primeira parede do projeto (mesmo nível) sob `after`, ignorando `ignore`. */

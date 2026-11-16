@@ -1,6 +1,6 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
-import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
+import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { thinStrokes } from '../plan/thin.ts';
@@ -57,6 +57,7 @@ const HATCH_ZOOM_EPS = 1e-3;
 
 const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
 
+
 const fmt = (u: ResolvedUnits, z: number): string => `${z >= 0 ? '+' : '−'}${formatQuantity(u, 'length', Math.abs(z), { withUnit: false })}`;
 
 /** Categoria gráfica de uma origem do motor (parede, piso, laje, telhado ou escada). */
@@ -89,6 +90,16 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
    * deixa a GPU (e o `larguraEmPx` do Canvas2D) aplicar o zoom corrente. Sem `papel`, o `zoomMin`/a largura antigos valem.
    */
   const strokeWidth = (e: Espessura): Pick<StrokeOp, 'widthPx' | 'papel'> => (e.papel ? { widthPx: e.widthPx, papel: e.papel } : { widthPx: e.widthPx });
+  /**
+   * Peso de linha por proximidade (hierarquia clássica de elevação): o que está junto ao plano leva a linha mais forte e o que está
+   * no fundo a mais fraca; o contorno externo da obra (2,2 px) continua o mais pesado. `depth` é a distância ao plano de corte.
+   */
+  const NEAR_K = 1.6;
+  const FAR_K = 0.55;
+  const byProximity = (e: Espessura, depth: number): Espessura => {
+    const k = NEAR_K - (NEAR_K - FAR_K) * Math.min(1, Math.max(0, depth / maxDepth));
+    return e.papel ? { widthPx: e.widthPx * k, papel: { ...e.papel, mm: e.papel.mm * k } } : { widthPx: e.widthPx * k };
+  };
   /** Hachura do corte/elevação: a decisão do zoom virou `zoomMin` (o shader esconde abaixo dele, sem refazer a lista). */
   const hatchZoomMin = detail === 'fine' ? 0 : SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS;
   const hatchFor = (kind: HatchKind | undefined, color: string): { kind: HatchKind; color: string; zoomMin?: number } | undefined =>
@@ -121,10 +132,21 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       { x: x1, y: l.z },
     ];
     strokes.push({ pts: edge, closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [10, 5] });
+    // Símbolo NBR/Revit de nível no corte: triângulo invertido meio-preenchido (P&B) na extremidade direita da linha.
+    const mPerMm = style.scale / 1000;
+    const triH = 3.2 * mPerMm;
+    const triW = 2.4 * mPerMm;
+    const tip = edge[1]!;
+    const topL = { x: tip.x - triW, y: tip.y + triH };
+    const topM = { x: tip.x, y: tip.y + triH };
+    const topR = { x: tip.x + triW, y: tip.y + triH };
+    fills.push({ polygons: [[[tip, topL, topM]]], color: theme.inkSoft, alpha: 0.9 });
+    fills.push({ polygons: [[[tip, topM, topR]]], color: theme.bg, alpha: 1 });
+    strokes.push({ pts: [tip, topL, topR], closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
       text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
-      papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 2, ux: 1, uy: -0.9 } },
+      papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 4.5, ux: -1, uy: -1.1 } },
       // Alinhado à direita: o texto termina depois da ponta da linha de nível e cresce para dentro do desenho (não
       // estoura a moldura da vista, como acontecia com o rótulo ancorado à esquerda).
       align: 'right',
@@ -132,12 +154,20 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     });
   }
 
+  // Telhado: os itens por água e por camada vão para `roofDrawingsOf` (motor), que devolve o que se vê de fora (a face de cima fechada,
+  // as camadas de baixo só fora dela, a silhueta e uma linha por divisa); a tela e o DXF usam a mesma geometria.
+  const roofItems: SectionBeyond[] = [];
   const drawBeyond = (b: SectionBeyond): void => {
     const owner = ownerOf(b);
     if (owner && isHidden(owner.id)) return;
     const cat = categoryOf(b);
     const pt = paint[cat];
     if (!pt.visible) return;
+    if (b.roofId !== undefined) {
+      roofItems.push(b);
+      if (owner && isRevealed(owner.id)) revealOutline(b.polygons);
+      return;
+    }
     silhouetteParts.push(b.polygons);
     const base = pt.color ?? p.materials[b.materialId]?.color ?? '#999999';
     if (!noFill) {
@@ -146,8 +176,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const hatch = hatchFor(b.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
       fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
     }
-    const line = mix(theme.ink, paper, 0.35 + 0.4 * (b.depth / maxDepth));
-    for (const ring of ringsOf(b.polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(projWidth(cat)), color: halftone(line, pt), alpha: 1 });
+    const line = mix(theme.ink, paper, 0.5 * (b.depth / maxDepth));
+    for (const ring of ringsOf(b.polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(byProximity(projWidth(cat), b.depth)), color: halftone(line, pt), alpha: 1 });
     if (owner && isRevealed(owner.id)) revealOutline(b.polygons);
   };
 
@@ -166,7 +196,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     if (isRevealed(o.openingId)) revealOutline(polygons);
     const edge = openingEdge(kind, cut);
     const outline = (): void => {
-      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(edge), color: halftone(theme.ink, pt), alpha: 1 });
+      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cut ? edge : byProximity(edge, o.depth)), color: halftone(theme.ink, pt), alpha: 1 });
     };
     const symbol = (pts: Vec2[], dashed: boolean): void => {
       if (detail === 'coarse') return;
@@ -324,6 +354,26 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   ];
   paintList.sort((x, y) => y.depth - x.depth || Number(x.cut) - Number(y.cut));
   for (const item of paintList) item.draw();
+  // Telhado visto de fora (ver `roofDrawingsOf`): preenchimentos, silhueta e uma linha por divisa, no peso por proximidade.
+  for (const rd of roofDrawingsOf(roofItems, s.roofEdges)) {
+    const sample = rd.fills[0]?.sample ?? roofItems.find((x) => x.roofId === rd.roofId)!;
+    const cat = categoryOf(sample);
+    const pt = paint[cat];
+    const line = halftone(mix(theme.ink, paper, 0.5 * (rd.depth / maxDepth)), pt);
+    if (!noFill) {
+      for (const f of rd.fills) {
+        const base = pt.color ?? p.materials[f.materialId]?.color ?? '#999999';
+        const fade = 0.55 + 0.35 * (f.sample.depth / maxDepth);
+        const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
+        const hatch = hatchFor(f.sample.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
+        fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
+      }
+    }
+    if (rd.silhouette.length > 0) silhouetteParts.push(rd.silhouette);
+    const width = strokeWidth(byProximity(projWidth(cat), rd.depth));
+    for (const ring of ringsOf(rd.silhouette)) strokes.push({ pts: ring, closed: true, ...width, color: line, alpha: 1 });
+    for (const [a, b] of rd.segments) strokes.push({ pts: [a, b], closed: false, ...width, color: line, alpha: 1 });
+  }
   // Membranas de piso e laje: linha tracejada na cota da face (decisão 0023 §5), na espessura do corte do dono.
   for (const m of s.membranes) {
     const owner = ownerOf(m);
@@ -337,7 +387,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Contorno externo: a união das regiões visíveis (o que está atrás de um sólido não entra). Com categoria oculta (ou
   // elemento oculto nesta vista), a silhueta do motor (que une tudo) é refeita só com os itens que ficaram.
   const hiddenAny = GRAPHICS_CATEGORIES.some((c) => !paint[c].visible);
-  const silhouette = hiddenAny || hasHidden ? (silhouetteParts.length > 0 ? union(...silhouetteParts) : []) : s.silhouette;
+  const silhouette = hiddenAny || hasHidden || roofItems.length > 0 ? (silhouetteParts.length > 0 ? semFrestas(union(...silhouetteParts)) : []) : s.silhouette;
   for (const ring of ringsOf(silhouette)) strokes.push({ pts: ring, closed: true, widthPx: 2.2, color: theme.ink, alpha: 1 });
 
   // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A

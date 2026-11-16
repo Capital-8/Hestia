@@ -1,14 +1,16 @@
-import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
+import { add, angleOf, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
 import { formatQuantity, makeWall, wallThicknessOf, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
 import { ToolBase, makeId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
+import { BEAM_SHAPE_KIND, beamShapeInputPrompt, beamShapePromptMsg, buildBeamShapeSegs, initBeamShapeStep, normalizeBeamSegs } from './beamToolShapes.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import type { InferContext } from './infer.ts';
 import { pontoPorComprimento } from './desenhoPolilinha.ts';
-import { lengthUnitName, parseQuantityText } from './numeric.ts';
-import type { PointerInfo } from './types.ts';
+import { lengthUnitName, parseNumber, parseQuantityText } from './numeric.ts';
+import { anchorOf, buildShape, pointsOf, shapeName, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
+import type { PointerInfo, WallDrawShape } from './types.ts';
 import { refuseWallOverlap } from './wallOverlapGuard.ts';
 
 const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -26,6 +28,8 @@ export class WallTool extends ToolBase {
   private startPt: Vec2 | null = null;
   /** Arco: ponto final da corda, já definido; falta o ponto sobre o arco. */
   private chordEnd: Vec2 | null = null;
+  private shapeStep: ShapeStep | null = null;
+  private activeShapeKey: WallDrawShape | null = null;
   private first: Vec2 | null = null;
   private count = 0;
   private flip = false;
@@ -36,6 +40,8 @@ export class WallTool extends ToolBase {
   protected reset(): void {
     this.startPt = null;
     this.chordEnd = null;
+    this.shapeStep = null;
+    this.activeShapeKey = null;
     this.first = null;
     this.count = 0;
     this.items = [];
@@ -46,15 +52,30 @@ export class WallTool extends ToolBase {
   }
 
   protected busy(): boolean {
-    return this.startPt !== null;
+    return this.startPt !== null || this.shapeStep !== null;
+  }
+
+  private currentShape(): WallDrawShape {
+    const s = this.env.options().wallShape ?? 'line';
+    if (this.activeShapeKey !== null && this.activeShapeKey !== s) {
+      this.shapeStep = null;
+      this.startPt = null;
+      this.chordEnd = null;
+    }
+    this.activeShapeKey = s;
+    return s;
+  }
+
+  private isCatalogShape(): boolean {
+    return BEAM_SHAPE_KIND[this.currentShape()] !== undefined;
   }
 
   private isArc(): boolean {
-    return this.env.options().wallShape === 'arc';
+    return this.currentShape() === 'arc';
   }
 
   private isRect(): boolean {
-    return this.env.options().wallShape === 'rect';
+    return this.currentShape() === 'rect';
   }
 
   /**
@@ -66,6 +87,7 @@ export class WallTool extends ToolBase {
   }
 
   override inputPrompt(): string | null {
+    if (this.shapeStep) return beamShapeInputPrompt(this.shapeStep, this.uiLang(), this.t('tl_inp_length'));
     if (!this.startPt || this.isRect()) return null;
     return this.chordEnd ? 'Flecha do arco' : this.isArc() ? 'Comprimento da corda' : this.t('tl_inp_length');
   }
@@ -154,8 +176,50 @@ export class WallTool extends ToolBase {
     return [segmentLengthDim(this.startPt, this.lastPoint)];
   }
 
+  private moveCatalogShape(p: PointerInfo, shape: WallDrawShape): void {
+    const st = this.shapeStep ?? (this.shapeStep = initBeamShapeStep(shape));
+    const steps = stepsOf(st.shape);
+    const input = steps[st.idx];
+    if (!input) return;
+    const anchor = anchorOf(st);
+    const inf = this.snapWall(p, { from: anchor ?? undefined });
+    this.lastPoint = inf.point;
+    let value: unknown = null;
+    if (input.kind === 'point') value = inf.point;
+    else if (input.kind === 'length' && anchor) value = dist(inf.point, anchor);
+    else if (input.kind === 'angle' && anchor) value = angleOf(sub(inf.point, anchor));
+    else if (input.kind === 'count') value = 6;
+    const isPolyRadius =
+      (st.shape.id === 'inscribedPolygon' || st.shape.id === 'circumscribedPolygon') && st.idx === 1;
+    let segs: SketchSeg[] = [];
+    if (value !== null && st.idx === steps.length - 1) {
+      segs = buildShape(st.shape.id, { ...st.vals, [input.key]: value }, {});
+    } else if (value !== null && isPolyRadius) {
+      segs = buildShape(st.shape.id, { ...st.vals, [input.key]: value, sides: 6 }, {});
+    }
+    const { thickness, sMid } = this.band();
+    this.items = pointsOf(st).map((at) => ({ kind: 'point' as const, at }));
+    if (segs.length > 0) {
+      for (const s of normalizeBeamSegs(segs, shape)) {
+        this.items.push({ kind: 'wallBand', a: s.a, b: s.b, thickness, sMid, sag: s.sag });
+      }
+      if (shape === 'circle' && anchor) {
+        const r = dist(inf.point, anchor);
+        if (r > 0.01) this.items.push({ kind: 'label', at: inf.point, text: `R ${fmt(unitsOf(this.env.project()), r)}` });
+      }
+    } else if (anchor) {
+      this.items.push({ kind: 'line', a: anchor, b: inf.point, dashed: true });
+    }
+    this.env.say(beamShapePromptMsg(st, this.uiLang()));
+  }
+
   override move(p: PointerInfo): void {
     this.lastPointer = p;
+    const shape = this.currentShape();
+    if (this.isCatalogShape()) {
+      this.moveCatalogShape(p, shape);
+      return;
+    }
     if (this.isRect()) {
       this.moveRect(p);
       return;
@@ -236,7 +300,67 @@ export class WallTool extends ToolBase {
     this.items = [];
   }
 
+  private setShapeInput(shape: WallDrawShape, st: ShapeStep, key: string, value: unknown): void {
+    st.vals[key] = value;
+    st.idx += 1;
+    this.items = [];
+    if (st.idx < stepsOf(st.shape).length) {
+      this.env.say(beamShapePromptMsg(st, this.uiLang()));
+      return;
+    }
+    const segs = buildBeamShapeSegs(shape, st, {});
+    if (segs.length === 0) {
+      const last = stepsOf(st.shape)[st.idx - 1]!;
+      st.idx -= 1;
+      delete st.vals[last.key];
+      this.env.say(this.t('tl_msg_degenerate_shape'));
+      return;
+    }
+    const walls = segs.map((s) => this.wallAt(s.a, s.b, s.sag));
+    if (walls.some((wall) => refuseWallOverlap(this.env, wall))) {
+      const last = stepsOf(st.shape)[st.idx - 1]!;
+      st.idx -= 1;
+      delete st.vals[last.key];
+      return;
+    }
+    this.env.transaction(`Criar ${shapeName(st.shape, this.uiLang())}`, () => {
+      for (const wall of walls) this.env.exec({ type: 'addWall', wall });
+    });
+    this.reset();
+    this.env.say(this.t('tl_msg_shape_added', { shape: shapeName(st.shape, this.uiLang()) }));
+  }
+
+  private clickCatalogShape(p: PointerInfo, shape: WallDrawShape): void {
+    const st = this.shapeStep ?? (this.shapeStep = initBeamShapeStep(shape));
+    const input = stepsOf(st.shape)[st.idx];
+    if (!input) return;
+    const anchor = anchorOf(st);
+    const inf = this.snapWall(p, { from: anchor ?? undefined });
+    if (input.kind === 'point') {
+      if (anchor && dist(inf.point, anchor) < 1e-9) {
+        this.env.say(this.t('tl_msg_point_repeated'));
+        return;
+      }
+      this.setShapeInput(shape, st, input.key, inf.point);
+      return;
+    }
+    if (input.kind === 'count') {
+      this.setShapeInput(shape, st, input.key, 6);
+      return;
+    }
+    if ((input.kind === 'length' || input.kind === 'angle') && anchor) {
+      const v = input.kind === 'length' ? dist(inf.point, anchor) : angleOf(sub(inf.point, anchor));
+      if (input.kind === 'length' && v < 0.05) return;
+      this.setShapeInput(shape, st, input.key, v);
+    }
+  }
+
   override click(p: PointerInfo): void {
+    const shape = this.currentShape();
+    if (this.isCatalogShape()) {
+      this.clickCatalogShape(p, shape);
+      return;
+    }
     if (this.isRect()) {
       this.clickRect(p);
       return;
@@ -265,6 +389,42 @@ export class WallTool extends ToolBase {
   }
 
   override type(text: string): boolean {
+    if (this.shapeStep) {
+      const st = this.shapeStep;
+      const input = stepsOf(st.shape)[st.idx];
+      if (!input) return false;
+      const anchor = anchorOf(st);
+      if (input.kind === 'count') {
+        const n = parseNumber(text);
+        if (n === null || !Number.isInteger(n) || n < 3 || n > 64) {
+          this.env.say('Informe um número inteiro de lados entre 3 e 64.');
+          return false;
+        }
+        this.setShapeInput(this.currentShape(), st, input.key, n);
+        return true;
+      }
+      if (input.kind === 'angle') {
+        const deg = parseNumber(text);
+        if (deg === null) return false;
+        this.setShapeInput(this.currentShape(), st, input.key, (deg * Math.PI) / 180);
+        return true;
+      }
+      const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
+      if (v === null || v <= 0) {
+        this.env.say(`Valor inválido. Digite um número em ${lengthUnitName(unitsOf(this.env.project()))}.`);
+        return false;
+      }
+      if (input.kind === 'length') {
+        this.setShapeInput(this.currentShape(), st, input.key, v);
+        return true;
+      }
+      if (input.kind === 'point' && anchor) {
+        const pt = pontoPorComprimento(anchor, this.inf?.point ?? this.lastPoint ?? this.raw, v);
+        this.setShapeInput(this.currentShape(), st, input.key, pt);
+        return true;
+      }
+      return false;
+    }
     if (this.isRect() || !this.startPt) return false;
     const v = parseQuantityText(text, unitsOf(this.env.project()), 'length');
     if (v === null) {

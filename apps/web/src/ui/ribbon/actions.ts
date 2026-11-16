@@ -2,7 +2,7 @@
 import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
 import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, type PerimeterModifyKind, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
-import { tagAllNotTagged } from '../../editor/tagActions.ts';
+import { numberOpeningMarks } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { pedirAlerta } from '../../editor/alertaPrompt.ts';
 import { editor } from '../../editor/controller.ts';
@@ -112,13 +112,13 @@ const noSel = (c: RibbonCtx): Txt | false => (c.selection.length === 0 ? t('Sele
 const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
   verbo === 'Copiar'
     ? t(
-        'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
-        'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
-      )
+      'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+      'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+    )
     : t(
-        'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
-        'Cut only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
-      );
+      'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+      'Cut only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+    );
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
 
@@ -141,6 +141,26 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'dimension',
     hint: t('Aparência nomeada das cotas (marcador, texto, leitura e formato); a família padrão é a da cota nova.', 'Named dimension appearance (marker, text, read convention and format); the default family is used for new dimensions.'),
     run: openDialog('dimensionFamilies'),
+  },
+  tagFamilies: {
+    label: t('Famílias de etiquetas', 'Tag Types'),
+    icon: 'tag',
+    hint: t('Modelo de rótulo com parâmetros, contorno (círculo, hexágono, retângulo) e tamanho em mm de papel.', 'Label format with parameters, outline shape (circle, hexagon, rectangle) and size in paper mm.'),
+    run: openDialog('tagFamilies'),
+  },
+  numberMarks: {
+    label: t('Numerar marcas', 'Number Marks'),
+    icon: 'tag',
+    hint: t('Numera automaticamente P01, J01… nas portas e janelas sem marca e verifica duplicatas.', 'Automatically numbers P01, J01… on unmarked doors and windows and checks duplicates.'),
+    run: () => { numberOpeningMarks(false); },
+  },
+  tagRoom: {
+    label: t('Etiquetar ambiente', 'Tag Room'),
+    icon: 'tagRoom',
+    hint: t('Ativa a etiqueta na categoria de ambiente para clicar no ambiente e rotulá-lo.', 'Activates tagging for rooms so you can click a room to tag it.'),
+    run: () => {
+      editor.setTool('tag');
+    },
   },
   typeProps: {
     label: t('Propriedades de tipo', 'Type Properties'),
@@ -189,7 +209,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
         });
         return;
       }
-      tagAllNotTagged();
+      useUi.setState({ dialog: 'tagAll' });
     },
   },
   wallTags: {

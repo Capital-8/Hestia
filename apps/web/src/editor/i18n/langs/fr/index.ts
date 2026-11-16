@@ -27,9 +27,11 @@ import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { FR_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 import { FR_STRUCTURAL } from '../../areas/structural.ts';
+import { FR_TAGGING } from '../../areas/tagging.ts';
 
 export const FR_ALL = {
   ...FR_STRUCTURAL,
+  ...FR_TAGGING,
   ...FR_GUARDA_CORPO,
   ...FR_PAREDE_CORTINA,
   ...FR_SHELL_RIBBON,

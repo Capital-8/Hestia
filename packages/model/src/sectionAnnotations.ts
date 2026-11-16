@@ -1,4 +1,4 @@
-import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, SectionView, TextNote } from './types.ts';
+import type { DetailLine, DetailRegion, Dimension, ElementTag, Id, RevisionCloud, SectionView, SpotAnnotation, SymbolAnnotation, TextNote } from './types.ts';
 
 /**
  * Ponta associativa de uma cota de corte/elevação: um ponto de captura de um elemento (parede, laje, escada, guarda-corpo...) na vista.
@@ -29,6 +29,9 @@ export interface SectionAnnotations {
   detailLines: DetailLine[];
   detailRegions: DetailRegion[];
   tags: ElementTag[];
+  spots?: SpotAnnotation[];
+  revisionClouds?: RevisionCloud[];
+  symbols?: SymbolAnnotation[];
 }
 
 export const EMPTY_SECTION_ANNOTATIONS: SectionAnnotations = {
@@ -67,6 +70,14 @@ export function cleanSectionAnnotations(a: SectionAnnotations | undefined): Sect
   const detailLines = unique(a.detailLines ?? []);
   const detailRegions = unique(a.detailRegions ?? []);
   const tags = unique(a.tags ?? []);
-  if (!dimensions.length && !texts.length && !detailLines.length && !detailRegions.length && !tags.length) return undefined;
-  return { dimensions, texts, detailLines, detailRegions, tags };
+  const spots = unique(a.spots ?? []);
+  const revisionClouds = unique(a.revisionClouds ?? []);
+  const symbols = unique(a.symbols ?? []);
+  if (!dimensions.length && !texts.length && !detailLines.length && !detailRegions.length && !tags.length && !spots.length && !revisionClouds.length && !symbols.length) return undefined;
+  return {
+    dimensions, texts, detailLines, detailRegions, tags,
+    ...(spots.length ? { spots } : {}),
+    ...(revisionClouds.length ? { revisionClouds } : {}),
+    ...(symbols.length ? { symbols } : {}),
+  };
 }

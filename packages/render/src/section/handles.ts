@@ -254,6 +254,15 @@ export function pickSectionAnnotation(
   const textTol = Math.max(0, textTolerance);
   const s = Number.isFinite(scale) && scale > 0 ? scale : 100;
   for (const tag of annotations.tags) if (distance(point, tag.at) <= tol) return { id: tag.id, kind: 'tag' };
+  for (const sp of annotations.spots ?? []) if (distance(point, sp.target) <= tol * 1.5 || distance(point, sp.at) <= tol * 2.5) return { id: sp.id, kind: 'text' };
+  for (const sy of annotations.symbols ?? []) if (distance(point, sy.at) <= tol * 2.5) return { id: sy.id, kind: 'text' };
+  for (const rc of annotations.revisionClouds ?? []) {
+    const pts = rc.points;
+    for (let i = 0; i < pts.length; i++) {
+      const next = pts[(i + 1) % pts.length]!;
+      if ((i + 1 < pts.length || rc.closed) && hitSegment(point, pts[i]!, next, tol * 1.5)) return { id: rc.id, kind: 'detailLine' };
+    }
+  }
   for (const text of annotations.texts) if (textHit(text, point, tol, s, textTol)) return { id: text.id, kind: 'text' };
   for (const line of annotations.detailLines) if (hitSegment(point, line.a, line.b, tol)) return { id: line.id, kind: 'detailLine' };
   for (const region of annotations.detailRegions) if (regionHit(region, point, tol)) return { id: region.id, kind: 'detailRegion' };

@@ -27,9 +27,11 @@ import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { PL_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 import { PL_STRUCTURAL } from '../../areas/structural.ts';
+import { PL_TAGGING } from '../../areas/tagging.ts';
 
 export const PL_ALL = {
   ...PL_STRUCTURAL,
+  ...PL_TAGGING,
   ...PL_GUARDA_CORPO,
   ...PL_PAREDE_CORTINA,
   ...PL_SHELL_RIBBON,

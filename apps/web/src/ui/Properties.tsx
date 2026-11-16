@@ -493,7 +493,7 @@ export function Properties(): ReactElement {
           : kinds === 1 && beams.length > 0 ? <BeamProperties items={beams} />
           : kinds === 1 && footings.length > 0 ? <FootingProperties items={footings} />
           : grade ? <GridProperties grid={grade} />
-          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} section={note.section} planId={planId} sectionId={sectionId} />
+          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} spot={note.spot} revisionCloud={note.revisionCloud} symbol={note.symbol} section={note.section} planId={planId} sectionId={sectionId} />
           : view ? <SectionViewProps view={view} />
           : nivelSelecionado ? <LevelProps />
           : count > 0 ? (

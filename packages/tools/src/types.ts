@@ -185,6 +185,17 @@ export interface AngleMode {
   polarIncrementDeg: number;
 }
 
+export type WallDrawShape =
+  | 'line'
+  | 'arc'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse';
+
 export type BeamDrawShape =
   | 'line'
   | 'rect'
@@ -210,8 +221,8 @@ export interface ToolOptions {
   wallTopOffset?: number;
   wallFlipped?: boolean;
   chain: boolean;
-  /** Forma da parede ao desenhar: reta, arco por três pontos ou retângulo por dois cantos opostos. */
-  wallShape: 'line' | 'arc' | 'rect';
+  /** Forma da parede ao desenhar: reta, arco, retângulo, círculo, polígono ou elipse. */
+  wallShape: WallDrawShape;
   doorTypeId: Id;
   windowTypeId: Id;
   /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */
@@ -244,6 +255,11 @@ export interface ToolOptions {
   textRotation?: number;
   textWidth?: number;
   textLeader?: 'none' | 'straight' | 'elbow';
+  textFamilyId?: Id | null;
+  spotElevationFamilyId?: Id | null;
+  spotCoordinateFamilyId?: Id | null;
+  revisionCloudFamilyId?: Id | null;
+  northArrowFamilyId?: Id | null;
   dimensionMode?: 'auto' | 'aligned' | 'horizontal' | 'vertical';
   dimensionString?: 'single' | 'continuous' | 'baseline';
   /** Família de cotas da cota nova (ausente/null = família padrão do projeto). */
@@ -257,11 +273,14 @@ export interface ToolOptions {
   dimensionTextHeight?: number;
   dimensionTickStyle?: 'slash' | 'arrow' | 'dot';
   tagProperty?: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height';
+  /** Família das etiquetas novas (ausente = a padrão do projeto). */
+  tagFamilyId?: Id;
   tagLeader?: boolean;
   tagOrientation?: 'horizontal' | 'vertical';
   regionMask?: boolean;
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
+  detailLineShape?: WallDrawShape;
   columnTypeId?: Id;
   columnMode?: 'vertical' | 'slanted';
   columnDepthMode?: 'depth' | 'height';

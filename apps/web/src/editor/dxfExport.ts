@@ -1,5 +1,5 @@
-import { openingSymbolPaths, type MultiPolygon } from '@hestia/geom';
-import { buildOpeningModel, computeSection, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
+import { openingSymbolPaths, union, type MultiPolygon } from '@hestia/geom';
+import { buildOpeningModel, computeSection, roofDrawingsOf, semFrestas, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
 import { openingPlanWorldPaths, ownerOf, planViewOf, roofFootprint, roomFullText, roomLabelAt, type PlanView } from '@hestia/render';
 import {
   dxfDocOf,
@@ -342,14 +342,22 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
     if (cat) cut.push({ category: cat, polygons: r.polygons });
   }
   const beyond: DxfSectionItem[] = section.beyond.flatMap((b) => {
+    if (b.roofId !== undefined) return [];
     const cat = sectionCategoryOf(b);
     return shown(cat) ? [{ category: cat, polygons: b.polygons }] : [];
   });
+  // Telhado: o desenho de fora (silhueta e uma linha por divisa entre águas), o mesmo da tela, e não o polígono de cada camada.
+  const lines: NonNullable<DxfSectionGeometry['lines']> = [];
+  for (const rd of roofDrawingsOf(section.beyond.filter((b) => b.roofId !== undefined && shown(sectionCategoryOf(b))), section.roofEdges)) {
+    const cat = sectionCategoryOf(section.beyond.find((b) => b.roofId === rd.roofId)!);
+    if (rd.silhouette.length > 0) beyond.push({ category: cat, polygons: rd.silhouette });
+    for (const [a, b] of rd.segments) lines.push({ category: cat, a, b });
+  }
   const openings = section.openings.flatMap((o) => (shown(o.kind) ? [{ category: o.kind, polygons: o.polygons, cut: o.cut }] : []));
   const allShown = GRAPHICS_CATEGORIES.every(shown);
   // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.
   const notes = shown('annotation') ? sectionNotesDxfOf(p, sectionId, vg.scale) : undefined;
-  const geo: DxfSectionGeometry = { cut, beyond, openings, ...(allShown ? { silhouette: section.silhouette } : {}), ...(notes === undefined ? {} : { notes }) };
+  const geo: DxfSectionGeometry = { cut, beyond, ...(lines.length > 0 ? { lines } : {}), openings, ...(allShown ? { silhouette: semFrestas(union(...section.cut.map((r) => r.polygons), ...beyond.map((b) => b.polygons))) } : {}), ...(notes === undefined ? {} : { notes }) };
   const lineWeights = sectionLineWeightsOf(p, geo);
   const layerStyles = Object.fromEntries(
     dxfSectionLayersOf(geo).map((layer): [string, DxfLayerStyle] => [layer, p.dxfLayers?.[layer] ?? dxfSectionLayerStyleOf(layer, lineWeights[layer] ?? DXF_LINE_WEIGHT_DEFAULT)]),

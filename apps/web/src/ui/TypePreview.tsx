@@ -18,6 +18,7 @@ import {
   type RoofType,
   type SlabType,
   type StairType,
+  type TagFamily,
   type TipoGuardaCorpo,
   type WallType,
 } from '@hestia/model';
@@ -26,6 +27,7 @@ import { RampSectionPreview } from './dialogs/RampSectionPreview.tsx';
 import { RoofSectionPreview } from './dialogs/RoofSectionPreview.tsx';
 import { SectionPreview } from './dialogs/SectionPreview.tsx';
 import { DimensionStylePreview } from './dialogs/dimensionStylePreview.tsx';
+import { TagFamilyPreview } from './dialogs/TagFamilyPreview.tsx';
 import { formatQuantity, type ResolvedUnits } from '@hestia/model';
 import { useUnits } from './useUnits.ts';
 import { SlabSectionPreview } from './dialogs/SlabSectionPreview.tsx';
@@ -45,6 +47,8 @@ export type PreviewSubject =
   | { kind: 'railing'; type: TipoGuardaCorpo }
   /** Família de cota: a miniatura desenha a cota com o estilo da família (sem tipo nem código). */
   | { kind: 'dimension'; style: DimensionStyle }
+  /** Família de etiqueta: a miniatura desenha o contorno, o fundo e o modelo preenchido. */
+  | { kind: 'tag'; family: TagFamily }
   | { kind: 'column'; type: ColumnType }
   | { kind: 'beam'; type: BeamType }
   | { kind: 'footing'; type: FootingType };
@@ -53,7 +57,7 @@ export type PreviewSubject =
 
 /** Código do tipo (P-02, PA-14…), ou null quando o tipo não tem código. */
 function codeOf(s: PreviewSubject): string | null {
-  if (s.kind === 'dimension') return null;
+  if (s.kind === 'dimension' || s.kind === 'tag') return null;
   const c = s.type.code;
   return c ? c : null;
 }
@@ -87,6 +91,7 @@ function dimsOf(s: PreviewSubject, units: ResolvedUnits): string | null {
     case 'ramp':
     case 'railing':
     case 'dimension':
+    case 'tag':
       return null;
   }
 }
@@ -114,6 +119,8 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
       return <RailingThumb type={subject.type} />;
     case 'dimension':
       return <DimensionStylePreview style={subject.style} />;
+    case 'tag':
+      return <TagFamilyPreview family={subject.family} compact />;
     case 'column':
       return <ColumnDrawing t={subject.type} />;
     case 'beam':

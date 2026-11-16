@@ -66,7 +66,7 @@ import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra 
  * Ferramentas que continuam disponíveis na planta de área: anotação e as ferramentas de área (ambiente e separador).
  * O resto (parede, porta, piso, laje, forro, telhado, escada, grade...) é do modelo e fica bloqueado nela.
  */
-export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
+export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'spotElevation', 'spotCoordinate', 'text', 'tag', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'room', 'roomsep'];
 
 /** A ferramenta pode rodar na planta de área? */
 export const areaPlanToolAllowed = (id: ToolId): boolean => AREA_PLAN_TOOLS.includes(id);
@@ -78,6 +78,9 @@ const PLAN_ANNOTATION_TYPES = new Set<Command['type']>([
   'addDetailLine', 'updateDetailLine', 'removeDetailLine',
   'addDetailRegion', 'updateDetailRegion', 'removeDetailRegion',
   'addTag', 'updateTag', 'removeTag',
+  'addSpot', 'updateSpot', 'removeSpot',
+  'addRevisionCloud', 'updateRevisionCloud', 'removeRevisionCloud',
+  'addSymbol', 'updateSymbol', 'removeSymbol',
 ]);
 
 const isPlanAnnotation = (c: Command): c is AnnotationCommand => PLAN_ANNOTATION_TYPES.has(c.type);
@@ -127,7 +130,7 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
 };
 
 /** Ferramentas que fazem sentido na vista de corte/elevação. As demais continuam exclusivas da planta. */
-const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move', 'copy']);
+const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'tag', 'align', 'move', 'copy']);
 
 export class Editor {
   readonly store = new ProjectStore(createEmptyProject(useI18n.getState().lang));

@@ -29,7 +29,7 @@ import { refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
-import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, elementTagGripAt, overlayAnnotationAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, spotGripAt, symbolGripAt, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
@@ -39,7 +39,7 @@ import { spiralHandlePreview } from './stairSpiralGrips.ts';
 import { rampHandlePreview } from './rampGrips.ts';
 import type { PointerInfo } from './types.ts';
 
-type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove';
+type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove' | 'eltagmove' | 'spotmove' | 'symbolmove';
 
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
@@ -198,6 +198,8 @@ export class SelectTool extends ToolBase {
     const vp = this.visibleProject();
     const detail = detailItemAt(pr, lv, at, mpp, planId);
     if (detail && !hidden?.has(detail)) return { id: detail, kind: 'annotation' };
+    const overlay = overlayAnnotationAt(pr, lv, at, mpp, planId);
+    if (overlay && !hidden?.has(overlay)) return { id: overlay, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
@@ -435,6 +437,12 @@ export class SelectTool extends ToolBase {
     if (dg) { this.dimGrip = dg; this.dimOffset = null; this.mode = 'dimgrip'; return; }
     const tg = textGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
     if (tg) { this.textGrip = tg; this.textAt = null; this.mode = 'textmove'; return; }
+    const etg = elementTagGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    if (etg) { this.tagGrip = etg; this.tagAt = null; this.mode = 'eltagmove'; return; }
+    const spg = spotGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    if (spg) { this.tagGrip = spg; this.tagAt = null; this.mode = 'spotmove'; return; }
+    const syg = symbolGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    if (syg) { this.tagGrip = syg; this.tagAt = null; this.mode = 'symbolmove'; return; }
     const tagHit = planId ? roomTagAt(pr, p.raw, mpp, planId) : null;
     if (tagHit && sel.includes(tagHit) && !this.annotationUnder(p.raw)) { this.tagGrip = tagHit; this.tagAt = null; this.mode = 'tagmove'; return; }
     // Linha de separação selecionada não se arrasta (não é movível pelo arrasto): o clique só (des)seleciona no soltar.
@@ -494,6 +502,27 @@ export class SelectTool extends ToolBase {
         // A prévia mostra a âncora original e o ponto de destino; o modelo só muda ao soltar (um passo de desfazer).
         this.textAt = add(t.at, sub(p.raw, this.downPt));
         this.items.push({ kind: 'line', a: t.at, b: this.textAt, dashed: true }, { kind: 'point', at: this.textAt });
+        break;
+      }
+      case 'eltagmove': {
+        const t = this.tagGrip ? viewAnnotationsOf(pr, this.env.levelId(), this.planId()).tags.find((x) => x.id === this.tagGrip) : undefined;
+        if (!t) break;
+        this.tagAt = add(t.at, sub(p.raw, this.downPt));
+        this.items.push({ kind: 'line', a: t.at, b: this.tagAt, dashed: true }, { kind: 'point', at: this.tagAt });
+        break;
+      }
+      case 'spotmove': {
+        const sp = this.tagGrip ? viewAnnotationsOf(pr, this.env.levelId(), this.planId()).spots.find((x) => x.id === this.tagGrip) : undefined;
+        if (!sp) break;
+        this.tagAt = add(sp.at, sub(p.raw, this.downPt));
+        this.items.push({ kind: 'line', a: sp.target, b: this.tagAt, dashed: true }, { kind: 'point', at: this.tagAt });
+        break;
+      }
+      case 'symbolmove': {
+        const sy = this.tagGrip ? viewAnnotationsOf(pr, this.env.levelId(), this.planId()).symbols.find((x) => x.id === this.tagGrip) : undefined;
+        if (!sy) break;
+        this.tagAt = add(sy.at, sub(p.raw, this.downPt));
+        this.items.push({ kind: 'line', a: sy.at, b: this.tagAt, dashed: true }, { kind: 'point', at: this.tagAt });
         break;
       }
       case 'tagmove': {
@@ -563,6 +592,27 @@ export class SelectTool extends ToolBase {
         if (this.textGrip && this.textAt) this.env.exec({ type: 'updateText', levelId: this.env.levelId(), id: this.textGrip, patch: { at: this.textAt }, ...(planId ? { planId } : {}) });
         this.textGrip = null;
         this.textAt = null;
+        break;
+      }
+      case 'eltagmove': {
+        const planId = this.planId();
+        if (this.tagGrip && this.tagAt) this.env.exec({ type: 'updateTag', levelId: this.env.levelId(), id: this.tagGrip, patch: { at: this.tagAt }, ...(planId ? { planId } : {}) });
+        this.tagGrip = null;
+        this.tagAt = null;
+        break;
+      }
+      case 'spotmove': {
+        const planId = this.planId();
+        if (this.tagGrip && this.tagAt) this.env.exec({ type: 'updateSpot', levelId: this.env.levelId(), id: this.tagGrip, patch: { at: this.tagAt }, ...(planId ? { planId } : {}) });
+        this.tagGrip = null;
+        this.tagAt = null;
+        break;
+      }
+      case 'symbolmove': {
+        const planId = this.planId();
+        if (this.tagGrip && this.tagAt) this.env.exec({ type: 'updateSymbol', levelId: this.env.levelId(), id: this.tagGrip, patch: { at: this.tagAt }, ...(planId ? { planId } : {}) });
+        this.tagGrip = null;
+        this.tagAt = null;
         break;
       }
       case 'tagmove': {
