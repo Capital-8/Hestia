@@ -295,6 +295,23 @@ export function dimGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: num
   return dist(at, mid(g.line[0], g.line[1])) <= DIM_GRIP_PX * mpp ? d.id : null;
 }
 
+/**
+ * Corpo da cota JÁ selecionada (seleção única, linear e não travada): o texto (parte `text`) ou a linha de cota e as
+ * extensões (parte `line`). Arrastar o corpo equivale a arrastar a alça da parte: texto move o texto, linha muda o
+ * afastamento. Mesma tolerância do `annotationAt` (10 px no texto, 6 px nas linhas).
+ */
+export function dimBodyAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): { id: Id; part: 'text' | 'line' } | null {
+  if (sel.length !== 1) return null;
+  const va = viewAnnotationsOf(p, levelId, planId);
+  const d = va.dimensions.find((x) => x.id === sel[0]);
+  if (!d || d.angular || d.locked) return null;
+  const pts = dimensionPoints(p, d);
+  const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
+  if (dist(at, g.textAt) <= 10 * mpp) return { id: d.id, part: 'text' };
+  for (const [s, e] of [g.line, ...g.extensions]) if (distToSegment(at, s, e) <= 6 * mpp) return { id: d.id, part: 'line' };
+  return null;
+}
+
 /** Alça do texto da cota, que pode ser deslocado sem alterar os pontos medidos nem o afastamento da linha. */
 export function dimTextGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
   if (sel.length !== 1) return null;

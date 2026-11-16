@@ -175,6 +175,8 @@ export interface SectionDimensionGrip {
   id: Id;
   kind: 'offset' | 'text' | 'noteText';
   at: Vec2;
+  /** Pegou pelo corpo (linha de cota/extensões), não pela alça: o clique sem arrasto não altera a cota. */
+  body?: true;
 }
 
 /**
@@ -209,7 +211,10 @@ export function pickSectionDimensionGrip(
   const g = dimensionGeometry(a, b, d.offset, s / 1000, d.textHeight, d.textAt);
   if (distance(point, g.textAt) <= textTol) return { id: d.id, kind: 'text', at: g.textAt };
   const mid = { x: (g.line[0]!.x + g.line[1]!.x) / 2, y: (g.line[0]!.y + g.line[1]!.y) / 2 };
-  return distance(point, mid) <= Math.max(0, tolerance) ? { id: d.id, kind: 'offset', at: mid } : null;
+  if (distance(point, mid) <= Math.max(0, tolerance)) return { id: d.id, kind: 'offset', at: mid };
+  // Corpo da cota selecionada (e não travada): linha de cota e extensões arrastam como a alça do afastamento.
+  if (!d.locked) for (const [s0, e0] of [g.line, ...g.extensions]) if (hitSegment(point, s0!, e0!, Math.max(0, tolerance))) return { id: d.id, kind: 'offset', at: mid, body: true };
+  return null;
 }
 
 /**
