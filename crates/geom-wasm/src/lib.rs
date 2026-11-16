@@ -124,6 +124,8 @@ mod terreno_testes_fuzz;
 mod terreno_testes_regioes;
 #[cfg(test)]
 mod terreno_testes_regioes_fuzz;
+#[cfg(test)]
+mod terreno_testes_talude;
 pub mod terreno_tin;
 pub mod terreno_tipos;
 pub mod terreno_volumes;

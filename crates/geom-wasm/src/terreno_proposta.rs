@@ -161,6 +161,117 @@ fn grades(regioes: &[Regiao], planas: &[usize], e: &Malha) -> (Vec<Vec<V>>, u32)
     }
 }
 
+/// Erro de cota (m) tolerado da malha proposta em relação a `zP` na faixa dos taludes: 1 cm, a precisão de obra de uma cota de terraplenagem.
+pub const TOL_PE: f64 = 0.01;
+/// Teto de vértices acrescentados pelo refino do pé do talude (cruzamentos e refino adaptativo); passado o teto, o refino para e a malha fica como está.
+pub const TETO_REFINO: usize = 20_000;
+/// Rodadas de refino adaptativo depois da rodada dos cruzamentos.
+const RODADAS_REFINO: usize = 6;
+
+fn pt_de(p: &[[f64; 3]], i: u32) -> V {
+    v(p[i as usize][0], p[i as usize][1])
+}
+
+/// Triangula P e refina em volta do pé do talude (onde o talude encontra E, quina de `zP`): a rodada 0 acha, em cada aresta cujas pontas têm o talude
+/// ativo e inativo, o ponto de transição (bisseção) e liga os dois pontos de cada triângulo por uma restrição (breakline), de modo que talude e terreno
+/// compartilham vértices na borda e a quina fica exata; as rodadas seguintes inserem o ponto de pior erro `|zP − interpolação|` de cada triângulo (centro
+/// e meios das arestas) acima de `TOL_PE`. Determinístico: só percorre triângulos na ordem da triangulação. Devolve a triangulação final.
+fn refinar_pe_do_talude(regioes: &[Regiao], planas: &[usize], e: &Malha, vs: &mut Vertices, trechos: &mut Vec<[u32; 2]>) -> Result<crate::terreno_tin::Triangulacao, u32> {
+    let xy_de = |vs: &Vertices| -> Vec<[f64; 2]> { vs.pontos.iter().map(|p| [p[0], p[1]]).collect() };
+    let com_talude: Vec<&Regiao> = planas.iter().map(|&i| &regioes[i]).filter(|r| r.alcance > ALCANCE_MIN && (r.talude_corte > 0.0 || r.talude_aterro > 0.0)).collect();
+    let mut tri = triangular(&xy_de(vs), trechos)?;
+    if com_talude.is_empty() {
+        return Ok(tri);
+    }
+    let base = vs.pontos.len();
+    let zp_de = |p: V| e.cota(p.x, p.y).map(|z| aplicar(regioes, p, z));
+    let ativo = |p: V| e.cota(p.x, p.y).is_some_and(|z| (aplicar(regioes, p, z) - z).abs() > 1e-9);
+    let dentro_de_plana = |p: V| planas.iter().any(|&k| regioes[k].estritamente_dentro(p));
+    let no_alcance = |p: V| com_talude.iter().any(|r| r.perto(p, r.alcance));
+    for rodada in 0..=RODADAS_REFINO {
+        let antes = vs.pontos.len();
+        if rodada == 0 {
+            let flags: Vec<bool> = (0..vs.pontos.len()).map(|i| ativo(pt_de(&vs.pontos, i as u32))).collect();
+            let mut cruz: HashMap<(u32, u32), u32> = HashMap::new();
+            let mut novos: Vec<(V, f64)> = Vec::new();
+            let mut ligas: Vec<[(u32, u32); 2]> = Vec::new();
+            for t in &tri.t {
+                let mut achados: Vec<(u32, u32)> = Vec::new();
+                for k in 0..3 {
+                    let (a, b) = (t[k], t[(k + 1) % 3]);
+                    if flags[a as usize] != flags[b as usize] {
+                        achados.push((a.min(b), a.max(b)));
+                    }
+                }
+                if achados.len() == 2 {
+                    for &ar in &achados {
+                        if !cruz.contains_key(&ar) {
+                            let (ia, ib) = if flags[ar.0 as usize] { (pt_de(&vs.pontos, ar.1), pt_de(&vs.pontos, ar.0)) } else { (pt_de(&vs.pontos, ar.0), pt_de(&vs.pontos, ar.1)) };
+                            let (mut lo, mut hi) = (ia, ib);
+                            for _ in 0..40 {
+                                let m = v((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0);
+                                if ativo(m) {
+                                    hi = m;
+                                } else {
+                                    lo = m;
+                                }
+                            }
+                            let m = v((lo.x + hi.x) / 2.0, (lo.y + hi.y) / 2.0);
+                            cruz.insert(ar, novos.len() as u32);
+                            novos.push((m, 0.0));
+                        }
+                    }
+                    ligas.push([achados[0], achados[1]]);
+                }
+            }
+            let idx: Vec<Option<u32>> = novos
+                .iter()
+                .map(|&(m, _)| if dentro_de_plana(m) { None } else { zp_de(m).map(|z| vs.adicionar(m, z, ID_AUSENTE)) })
+                .collect();
+            for l in ligas {
+                if let Some((a, b)) = idx[cruz[&l[0]] as usize].zip(idx[cruz[&l[1]] as usize]).filter(|(a, b)| a != b) {
+                    trechos.push([a, b]);
+                }
+            }
+        } else {
+            for t in &tri.t {
+                if vs.pontos.len() - base >= TETO_REFINO {
+                    break;
+                }
+                let c = t.map(|i| pt_de(&vs.pontos, i));
+                let z = t.map(|i| vs.pontos[i as usize][2]);
+                let maior = (0..3).map(|k| crate::geo2d::hipot(c[(k + 1) % 3].x - c[k].x, c[(k + 1) % 3].y - c[k].y)).fold(0.0, f64::max);
+                if maior < 0.02 {
+                    continue;
+                }
+                let mut amostras = vec![(v((c[0].x + c[1].x + c[2].x) / 3.0, (c[0].y + c[1].y + c[2].y) / 3.0), (z[0] + z[1] + z[2]) / 3.0)];
+                for k in 0..3 {
+                    let j = (k + 1) % 3;
+                    amostras.push((v((c[k].x + c[j].x) / 2.0, (c[k].y + c[j].y) / 2.0), (z[k] + z[j]) / 2.0));
+                }
+                let pior = amostras
+                    .into_iter()
+                    .filter(|&(p, _)| no_alcance(p) && !dentro_de_plana(p))
+                    .filter_map(|(p, zi)| zp_de(p).map(|zt| (p, zt, (zt - zi).abs())))
+                    .filter(|x| x.2 > TOL_PE)
+                    .fold(None, |m: Option<(V, f64, f64)>, x| if m.is_none_or(|y| x.2 > y.2) { Some(x) } else { m });
+                if let Some((p, zt, _)) = pior {
+                    vs.adicionar(p, zt, ID_AUSENTE);
+                }
+            }
+        }
+        if vs.pontos.len() == antes && rodada > 0 {
+            break;
+        }
+        if rodada == RODADAS_REFINO || vs.pontos.len() - base >= TETO_REFINO && rodada > 0 {
+            tri = triangular(&xy_de(vs), trechos)?;
+            break;
+        }
+        tri = triangular(&xy_de(vs), trechos)?;
+    }
+    Ok(tri)
+}
+
 /// Compacta uma triangulação: só ficam os vértices usados, na ordem de entrada.
 fn compactar(pontos: &[[f64; 3]], ids: &[u32], t: &[[u32; 3]], restricoes: &[[u32; 2]]) -> Malha {
     let mut novo: Vec<Option<u32>> = vec![None; pontos.len()];
@@ -255,8 +366,7 @@ pub fn calcular(ex: &Existente, mut regioes: Vec<Regiao>) -> Result<Proposta, u3
         }
     }
     trechos.extend(e.restricoes.iter().filter_map(|r| de_e[r[0] as usize].zip(de_e[r[1] as usize])).filter(|(a, b)| a != b).map(|(a, b)| [a, b]));
-    let xy: Vec<[f64; 2]> = vs.pontos.iter().map(|p| [p[0], p[1]]).collect();
-    let tri = triangular(&xy, &trechos)?;
+    let tri = refinar_pe_do_talude(&regioes, &planas, e, &mut vs, &mut trechos)?;
     let aceitos: Vec<[u32; 2]> = trechos.iter().zip(&tri.aceitas).filter(|(_, &ok)| ok).map(|(t, _)| *t).collect();
     let triangulos: Vec<[u32; 3]> = if ex.borda.is_some() {
         tri.t
