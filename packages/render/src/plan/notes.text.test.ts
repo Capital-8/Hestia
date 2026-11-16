@@ -127,3 +127,18 @@ describe('anotações da vista · destaque', () => {
     expect(a.dimensions.map((d) => d.id)).toEqual(['d1']);
   });
 });
+
+describe('alças da cota selecionada na planta (quadrado do afastamento e losango do texto)', () => {
+  it('quadrado no meio da linha de cota (2,1) e losango no texto (2,1.5), ambos em pixels de tela', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addDimension', levelId: LV0, dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1, textAt: { x: 2, y: 1.5 } } });
+    const ops = annotationHighlightOps(s.project, LV0, SCALE, { select: LOOK.select, paper: '#fff' }, { selection: ['d1'] });
+    const naCota = (x: number, y: number) => ops.strokes.filter((st) => st.deslocamentoPx && st.pts.every((q) => q.x === x && q.y === y));
+    const quadrado = naCota(2, 1);
+    expect(quadrado).toHaveLength(1);
+    expect(quadrado[0]!.deslocamentoPx).toEqual([{ x: -4.5, y: -4.5 }, { x: 4.5, y: -4.5 }, { x: 4.5, y: 4.5 }, { x: -4.5, y: 4.5 }]);
+    const losango = naCota(2, 1.5);
+    expect(losango).toHaveLength(1);
+    expect(losango[0]!.deslocamentoPx).toEqual([{ x: 0, y: -6 }, { x: 6, y: 0 }, { x: 0, y: 6 }, { x: -6, y: 0 }]);
+  });
+});

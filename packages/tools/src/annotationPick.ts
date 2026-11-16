@@ -5,6 +5,11 @@ import { resolveAngularDimension } from '@hestia/engine';
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
 const END_TOL = 1e-4;
 
+/** Raio (px de tela) da alça de afastamento da cota (o quadrado no meio da linha de cota). */
+export const DIM_GRIP_PX = 9;
+/** Raio (px de tela) da alça de texto da cota (o losango no texto). */
+export const DIM_TEXT_GRIP_PX = 12;
+
 /**
  * Referência a uma extremidade de parede do nível quando o ponto cai nela (a cota passa a acompanhar a parede).
  * Ponto no meio da face ou no vazio: sem referência, a cota fica livre.
@@ -287,7 +292,7 @@ export function dimGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: num
   if (!d || d.angular) return null;
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, { ...d, textAt: undefined }, pts.a, pts.b, va.scale);
-  return dist(at, mid(g.line[0], g.line[1])) <= 6 * mpp ? d.id : null;
+  return dist(at, mid(g.line[0], g.line[1])) <= DIM_GRIP_PX * mpp ? d.id : null;
 }
 
 /** Alça do texto da cota, que pode ser deslocado sem alterar os pontos medidos nem o afastamento da linha. */
@@ -298,11 +303,11 @@ export function dimTextGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp:
   if (!d) return null;
   if (d.angular) {
     const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
-    return g && dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+    return g && dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
   }
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
-  return dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+  return dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
 }
 
 /**

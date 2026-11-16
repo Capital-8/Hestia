@@ -2,7 +2,7 @@ import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimens
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
-import { quadradoEm } from './marcadores.ts';
+import { ALCA_PX, poligonoEm, quadradoEm, tracoEm } from './marcadores.ts';
 import { revisionCloudOps, spotAnnotationOps, symbolAnnotationOps } from './extraAnnotations.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
 import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
@@ -39,6 +39,8 @@ const MOLDURA_MM = 0.35;
 const SELECAO_MM = 0.8;
 /** Meio lado da alça quadrada do texto, em pixels de tela (o ponto de ancoragem é `text.at`). */
 const ALCA_TEXTO_PX = 4;
+/** Meio lado do losango da alça de texto da cota selecionada, em pixels de tela (o quadrado de afastamento usa `ALCA_PX`). */
+const ALCA_LOSANGO_PX = 6;
 /** Espessura das linhas da cota em destaque (hover/seleção) em relação à normal. */
 const DIM_ESTADO_FATOR = 1.5;
 /** Alfa do realce leve sob o cursor (o preenchimento não esconde o desenho de trás). */
@@ -387,6 +389,22 @@ export function annotationHighlightOps(
     const q = quadradoEm(alcaDoTextoEm(t, scale), ALCA_TEXTO_PX);
     out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
     out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
+  }
+  // Alças da cota selecionada (uma só, linear): quadrado no meio da linha (afastamento) e losango no texto. Os raios que
+  // pegam a alça (`DIM_GRIP_PX`, `DIM_TEXT_GRIP_PX` em tools) são maiores que estes desenhos, em pixels de tela.
+  const cotaUnica = selected.size === 1 ? a.dimensions.find((d) => selected.has(d.id) && !d.angular) : undefined;
+  if (cotaUnica) {
+    const l = layoutDimensions(dimensionItems(p, levelId, a.dimensions, look.dimStyle), { scale, style: look.dimStyle, v }).find((x) => x.item.d.id === cotaUnica.id);
+    if (l?.g) {
+      const [ini, fim] = l.g.line;
+      const meio = { x: (ini!.x + fim!.x) / 2, y: (ini!.y + fim!.y) / 2 };
+      const q = quadradoEm(meio, ALCA_PX);
+      out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
+      out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
+      const losango = [{ x: 0, y: -ALCA_LOSANGO_PX }, { x: ALCA_LOSANGO_PX, y: 0 }, { x: 0, y: ALCA_LOSANGO_PX }, { x: -ALCA_LOSANGO_PX, y: 0 }];
+      out.fills.push({ ...poligonoEm(l.textAt, losango), color: '#ffffff', alpha: 1 });
+      out.strokes.push({ ...tracoEm(l.textAt, losango, true), widthPx: 1.5, color: look.select, alpha: 1 });
+    }
   }
   // Cotas: o hover destaca a cota INTEIRA (linha, chamadas, marcadores e texto) na cor de realce, mais grossa, e cerca o
   // valor com o realce leve; a cota selecionada já sai na cor de seleção em `noteOps`. A disposição é a de `noteOps`.
