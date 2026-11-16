@@ -1,180 +1,174 @@
-import { dist, type Vec2 } from '@hestia/geom';
-import { newId, unitsOf } from '@hestia/model';
+import { angleOf, dist, sub, type Vec2 } from '@hestia/geom';
+import { newId, unitsOf, type DetailLine } from '@hestia/model';
 import { addSectionDetailLine, ToolBase, viewPlanId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { detailLinePreviewDim } from './dims/providers/line.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
+import {
+  DETAIL_MIN_LEN,
+  DETAIL_SHAPE_KIND,
+  buildDetailShapeSegs,
+  detailShapeInputPrompt,
+  detailShapePromptMsg,
+  initDetailShapeStep,
+  parseDetailShapeInput,
+  previewDetailShapeStep,
+  skipCountInputs,
+  type DetailSeg,
+} from './detailLineToolShapes.ts';
+import { anchorOf, kindOf, shapeName, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
+import { shapeInputLabel } from './sketchShapes.ts';
 import type { PointerInfo, WallDrawShape } from './types.ts';
 
-function arcThreePt(p0: Vec2, p1: Vec2, p2: Vec2, segs = 16): Array<[Vec2, Vec2]> {
-  const ax = p0.x; const ay = p0.y;
-  const bx = p1.x; const by = p1.y;
-  const cx = p2.x; const cy = p2.y;
-  const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
-  if (Math.abs(d) < 1e-6) return [[p0, p2]];
-  const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d;
-  const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d;
-  const r = Math.hypot(ax - ux, ay - uy);
-  const a0 = Math.atan2(ay - uy, ax - ux);
-  const a1 = Math.atan2(by - uy, bx - ux);
-  const a2 = Math.atan2(cy - uy, cx - ux);
-  const norm = (ang: number): number => ((ang % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-  let sweep = norm(a2 - a0);
-  const mid = norm(a1 - a0);
-  if (mid > sweep) sweep -= Math.PI * 2;
-  const out: Array<[Vec2, Vec2]> = [];
-  for (let i = 0; i < segs; i++) {
-    const t0 = a0 + (sweep * i) / segs;
-    const t1 = a0 + (sweep * (i + 1)) / segs;
-    out.push([
-      { x: ux + Math.cos(t0) * r, y: uy + Math.sin(t0) * r },
-      { x: ux + Math.cos(t1) * r, y: uy + Math.sin(t1) * r },
-    ]);
-  }
-  return out;
-}
-
-function shapeSegments(shape: WallDrawShape, pts: readonly Vec2[], cur: Vec2): Array<[Vec2, Vec2]> {
-  const p0 = pts[0];
-  if (!p0) return [];
-  if (shape === 'line') return [[p0, cur]];
-  if (shape === 'rect') {
-    const p1 = { x: cur.x, y: p0.y };
-    const p2 = cur;
-    const p3 = { x: p0.x, y: cur.y };
-    return [[p0, p1], [p1, p2], [p2, p3], [p3, p0]];
-  }
-  if (shape === 'circle' || shape === 'poly-inscribed' || shape === 'poly-circumscribed') {
-    const r0 = dist(p0, cur);
-    if (r0 < 1e-4) return [];
-    const sides = shape === 'circle' ? 24 : 6;
-    const r = shape === 'poly-circumscribed' ? r0 / Math.cos(Math.PI / sides) : r0;
-    const baseAng = Math.atan2(cur.y - p0.y, cur.x - p0.x);
-    const out: Array<[Vec2, Vec2]> = [];
-    for (let i = 0; i < sides; i++) {
-      const a0 = baseAng + (i / sides) * Math.PI * 2;
-      const a1 = baseAng + ((i + 1) / sides) * Math.PI * 2;
-      out.push([
-        { x: p0.x + Math.cos(a0) * r, y: p0.y + Math.sin(a0) * r },
-        { x: p0.x + Math.cos(a1) * r, y: p0.y + Math.sin(a1) * r },
-      ]);
-    }
-    return out;
-  }
-  if (shape === 'ellipse') {
-    const rx = Math.abs(cur.x - p0.x);
-    const ry = Math.abs(cur.y - p0.y);
-    if (rx < 1e-4 || ry < 1e-4) return [];
-    const sides = 24;
-    const out: Array<[Vec2, Vec2]> = [];
-    for (let i = 0; i < sides; i++) {
-      const a0 = (i / sides) * Math.PI * 2;
-      const a1 = ((i + 1) / sides) * Math.PI * 2;
-      out.push([
-        { x: p0.x + Math.cos(a0) * rx, y: p0.y + Math.sin(a0) * ry },
-        { x: p0.x + Math.cos(a1) * rx, y: p0.y + Math.sin(a1) * ry },
-      ]);
-    }
-    return out;
-  }
-  if (shape === 'arc' || shape === 'arc-tangent') {
-    if (pts.length === 1) return [[p0, cur]];
-    return arcThreePt(p0, pts[1]!, cur);
-  }
-  if (shape === 'arc-center') {
-    if (pts.length === 1) return [[p0, cur]];
-    const p1 = pts[1]!;
-    const r = dist(p0, p1);
-    const a0 = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-    const a1 = Math.atan2(cur.y - p0.y, cur.x - p0.x);
-    let sweep = a1 - a0;
-    while (sweep > Math.PI) sweep -= Math.PI * 2;
-    while (sweep < -Math.PI) sweep += Math.PI * 2;
-    const segs = 16;
-    const out: Array<[Vec2, Vec2]> = [];
-    for (let i = 0; i < segs; i++) {
-      const t0 = a0 + (sweep * i) / segs;
-      const t1 = a0 + (sweep * (i + 1)) / segs;
-      out.push([
-        { x: p0.x + Math.cos(t0) * r, y: p0.y + Math.sin(t0) * r },
-        { x: p0.x + Math.cos(t1) * r, y: p0.y + Math.sin(t1) * r },
-      ]);
-    }
-    return out;
-  }
-  return [[p0, cur]];
-}
-
-/** Linha de detalhe: traço 2D independente da geometria do modelo, com todas as formas geométricas da galeria. */
+/**
+ * Linha de detalhe: traço 2D independente da geometria do modelo, com as formas da galeria vindas do núcleo comum
+ * (`buildShape`), no molde da viga. Arco é UMA linha com `sag`; o polígono usa `detailLinePolygonSides`.
+ * Não encadeia: cada forma é concluída e a ferramenta recomeça.
+ */
 export class DetailLineTool extends ToolBase {
   readonly id = 'detailLine';
   readonly label = 'Linha de detalhe';
   override get hint(): string {
+    if (this.step) return detailShapePromptMsg(this.step, this.uiLang());
     return this.t('tl_hint_detail_line');
   }
-  private pts: Vec2[] = [];
+  private step: ShapeStep | null = null;
+  private activeShape: WallDrawShape | null = null;
+  private flags: Record<string, boolean> = {};
   private last: Vec2 | null = null;
-  protected reset(): void { this.pts = []; this.last = null; this.items = []; this.inf = null; }
-  protected busy(): boolean { return this.pts.length > 0; }
-  private shape(): WallDrawShape { return this.env.options().detailLineShape ?? 'line'; }
-  private requiredClicks(): number {
+  private lastPointer: PointerInfo | null = null;
+
+  protected reset(): void {
+    this.step = null;
+    this.flags = {};
+    this.last = null;
+    this.lastPointer = null;
+    this.items = [];
+    this.inf = null;
+  }
+  protected busy(): boolean { return this.step !== null && Object.keys(this.step.vals).some((k) => k !== 'sides'); }
+
+  private shape(): WallDrawShape {
+    const s = this.env.options().detailLineShape ?? 'line';
+    if (this.activeShape !== null && this.activeShape !== s) this.reset();
+    this.activeShape = s;
+    return s;
+  }
+  private current(): ShapeStep {
     const s = this.shape();
-    return s === 'arc' || s === 'arc-center' || s === 'arc-tangent' ? 3 : 2;
+    return this.step ?? initDetailShapeStep(s, this.env.options().detailLinePolygonSides);
+  }
+
+  override tab(): void {
+    const flag = kindOf(DETAIL_SHAPE_KIND[this.shape()]).inputs.find((i) => i.kind === 'flag');
+    if (!flag) return;
+    this.flags[flag.key] = !this.flags[flag.key];
+    this.env.say(this.t('tl_msg_flag_toggle', {
+      label: shapeInputLabel(flag.label, this.uiLang()),
+      value: this.flags[flag.key] ? this.t('tl_yes') : this.t('tl_no'),
+    }));
+    if (this.lastPointer) this.move(this.lastPointer);
+  }
+
+  override inputPrompt(): string | null {
+    return this.step ? detailShapeInputPrompt(this.step, this.uiLang(), this.t('tl_inp_length')) : null;
   }
 
   override move(p: PointerInfo): void {
-    const a = this.pts[this.pts.length - 1] ?? null;
+    this.lastPointer = p;
+    this.raw = p.raw;
+    const shape = this.shape();
+    const st = this.current();
+    const a = anchorOf(st);
     const q = this.snap(p, contextoDeTraco(a)).point;
     this.last = q;
-    if (!this.pts.length) { this.items = []; return; }
-    const segs = shapeSegments(this.shape(), this.pts, q);
-    this.items = segs.map(([sa, sb]) => ({ kind: 'line' as const, a: sa, b: sb, dashed: true }));
-    if (this.shape() === 'line' && a) {
+    if (!a) { this.items = []; return; }
+    this.items = previewDetailShapeStep(st, q, this.flags);
+    if (shape === 'line') {
       this.items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), viewPlanId(this.env), a, q, this.env.metersPerPixel(), unitsOf(this.env.project())));
     }
   }
 
   /** Comprimento do traço em desenho, pelo sistema único de cotas. */
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
-    const a = this.pts[0];
-    return a && this.last ? [detailLinePreviewDim(a, this.last)] : [];
+    const st = this.step;
+    const a = anchorOf(st);
+    const input = st ? stepsOf(st.shape)[st.idx] : undefined;
+    if (!a || !this.last || !input || (input.kind !== 'point' && input.kind !== 'length')) return [];
+    return [detailLinePreviewDim(a, this.last)];
   }
 
-  /** Comprimento digitado + Enter, pelo núcleo comum de desenho (igual à parede). */
+  /** Comprimento digitado + Enter (pontos) ou valor da entrada (raio, semieixo, ângulo), pelo núcleo comum. */
   override type(text: string): boolean {
-    const a = this.pts[this.pts.length - 1];
-    if (!a) return false;
+    const st = this.step;
+    if (!st) return false;
+    const input = stepsOf(st.shape)[st.idx];
+    if (!input) return false;
+    if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') {
+      const v = parseDetailShapeInput(this.env, st, text, this.uiLang());
+      if (v === null) return false;
+      this.setInput(st, input.key, v);
+      return true;
+    }
+    const a = anchorOf(st);
+    if (input.kind !== 'point' || !a) return false;
     const v = lerComprimentoDigitado(this.env, text);
     if (v === null) return false;
-    this.commit(pontoPorComprimento(a, this.inf?.point ?? this.raw, v));
+    this.setInput(st, input.key, pontoPorComprimento(a, this.inf?.point ?? this.raw, v));
     return true;
   }
 
   override click(p: PointerInfo): void {
-    const a = this.pts[this.pts.length - 1] ?? null;
+    this.raw = p.raw;
+    this.shape();
+    const st = this.step ?? (this.step = this.current());
+    const input = stepsOf(st.shape)[st.idx];
+    if (!input) return;
+    const a = anchorOf(st);
     const q = this.snap(p, contextoDeTraco(a)).point;
-    if (this.pts.length + 1 < this.requiredClicks()) {
-      this.pts.push(q);
-      this.env.say(this.pts.length === 1 ? 'Clique no próximo ponto da forma.' : 'Clique para concluir o arco.');
-      return;
+    if (input.kind === 'point') {
+      if (a && dist(q, a) < 1e-9) { this.env.say(this.t('tl_msg_point_repeated')); return; }
+      this.setInput(st, input.key, q);
+    } else if ((input.kind === 'length' || input.kind === 'angle') && a) {
+      const v = input.kind === 'length' ? dist(q, a) : angleOf(sub(q, a));
+      if (input.kind === 'length' && v < DETAIL_MIN_LEN) return;
+      this.setInput(st, input.key, v);
     }
-    this.commit(q);
   }
 
-  private commit(q: Vec2): void {
-    const segs = shapeSegments(this.shape(), this.pts, q).filter(([a, b]) => dist(a, b) >= 0.01);
-    if (!segs.length) { this.env.say('Escolha um ponto final mais distante.'); return; }
+  private setInput(st: ShapeStep, key: string, value: unknown): void {
+    st.vals[key] = value;
+    st.idx += 1;
+    skipCountInputs(st);
+    this.items = [];
+    if (st.idx < stepsOf(st.shape).length) {
+      this.env.say(detailShapePromptMsg(st, this.uiLang()));
+      return;
+    }
+    const segs = buildDetailShapeSegs(st, this.flags);
+    if (segs.length === 0) {
+      const all = stepsOf(st.shape);
+      const lastIn = all.filter((i) => i.kind !== 'count').pop()!;
+      st.idx = all.indexOf(lastIn);
+      delete st.vals[lastIn.key];
+      this.env.say(this.t('tl_msg_degenerate_shape'));
+      return;
+    }
+    this.commit(segs);
+    this.reset();
+    this.env.say(this.hint);
+  }
+
+  private commit(segs: readonly DetailSeg[]): void {
     const style = this.env.options().detailLineStyle ?? 'solid';
     const levelId = this.env.levelId();
     const planId = viewPlanId(this.env);
     this.env.transaction('Linha de detalhe', () => {
-      for (const [a, b] of segs) {
-        const item = { id: newId('dl'), a, b, style };
+      for (const s of segs) {
+        const item: DetailLine = { id: newId('dl'), a: s.a, b: s.b, style, ...(s.sag ? { sag: s.sag } : {}) };
         if (!addSectionDetailLine(this.env, item)) this.env.exec({ type: 'addDetailLine', levelId, planId, item });
       }
     });
-    this.reset();
-    this.env.say(this.hint);
   }
 }

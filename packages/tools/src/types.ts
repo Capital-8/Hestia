@@ -297,6 +297,8 @@ export interface ToolOptions {
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
   detailLineShape?: WallDrawShape;
+  /** Lados do polígono da linha de detalhe (3..64; padrão 6). */
+  detailLinePolygonSides?: number;
   columnTypeId?: Id;
   columnMode?: 'vertical' | 'slanted';
   columnDepthMode?: 'depth' | 'height';
