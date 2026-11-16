@@ -1,9 +1,10 @@
 import type { Vec2 } from '@hestia/geom';
-import { projectGrids, type Id, type Project } from '@hestia/model';
+import { projectGrids, type DetailLine, type Id, type Project } from '@hestia/model';
 import type { SectionResult } from '@hestia/engine';
 import type { ExtraTrack, InferContext, SnapPoint } from './infer.ts';
 import { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
 import type { SectionSnapIndex, SectionSnapSegment } from './sectionSnapIndex.ts';
+import { detailSnapDeLinhas } from './detailSnap.ts';
 import { registrarCauda } from './snapAccel.ts';
 
 /**
@@ -19,6 +20,8 @@ export interface SectionInferOptions extends Partial<Omit<InferContext, 'project
   grids?: boolean;
   /** Elementos ocultos nesta vista (Hide in View): não viram alvo de captura. */
   hidden?: ReadonlySet<Id>;
+  /** Linhas de detalhe da vista (`sectionAnnotationsOf(view).detailLines`), em (t, z): viram pontas, ponto médio e arestas de captura. */
+  detailLines?: readonly DetailLine[];
 }
 
 const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
@@ -91,7 +94,7 @@ export function sectionInferContext(
   options: SectionInferOptions = {},
   extra: Partial<InferContext> = {},
 ): InferContext {
-  const { line, grids = true, hidden, ...runtime } = options;
+  const { line, grids = true, hidden, detailLines, ...runtime } = options;
   // Seção + guarda-corpo (o kernel o desenha na camada própria): o mesmo índice cacheado serve a todos os movimentos.
   const index = sectionSnapIndexDoProjeto(section, project);
 
@@ -101,6 +104,9 @@ export function sectionInferContext(
 
   // Grades do projeto projetadas no plano do corte: cada eixo que cruza o plano vira uma vertical em t.
   const gridSegments = grids && line ? projectGridSegments(project, section, line, hidden) : [];
+
+  // Linhas de detalhe: listas memoizadas pela referência do array de anotações (não recria a cada movimento).
+  const detalhe = detailSnapDeLinhas(detailLines, hidden);
 
   return {
     ...runtime,
@@ -118,8 +124,8 @@ export function sectionInferContext(
     orthoLock: (extra.orthoLock ?? runtime.orthoLock) ?? false,
     polar: (extra.polar ?? runtime.polar) ?? false,
     snap: extra.snap ?? runtime.snap,
-    extraPoints: concat<SnapPoint>(visiblePoints, runtime.extraPoints, extra.extraPoints),
-    extraSegments: concat<SectionSnapSegment>(visibleSegments, gridSegments, runtime.extraSegments as SectionSnapSegment[] | undefined, extra.extraSegments as SectionSnapSegment[] | undefined),
+    extraPoints: concat<SnapPoint>(visiblePoints, detalhe.points, runtime.extraPoints, extra.extraPoints),
+    extraSegments: concat<SectionSnapSegment>(visibleSegments, gridSegments, detalhe.segments, runtime.extraSegments as SectionSnapSegment[] | undefined, extra.extraSegments as SectionSnapSegment[] | undefined),
     // Trilhas de alinhamento (todas as arestas da seção, h/v e inclinadas): o rastreamento estende a linha além das
     // pontas, como nas faces da planta.
     extraTracks: concat<ExtraTrack>(visibleTracks, runtime.extraTracks, extra.extraTracks),

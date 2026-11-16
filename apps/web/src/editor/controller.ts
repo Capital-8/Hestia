@@ -248,6 +248,8 @@ export class Editor {
           snap: st.options.snap,
           // Hide in View da vista: o que está oculto não pode virar alvo de captura (grades incluídas).
           hidden: visibilityOf(this.project, st).hidden,
+          // Linhas de detalhe do corte ativo como alvo de captura (mesma referência enquanto as anotações não mudam).
+          detailLines: sectionAnnotationsOf(this.project.views.find((v) => v.id === view.id)).detailLines,
           ...extra,
         }),
         result: () => result,
