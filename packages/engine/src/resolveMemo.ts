@@ -24,8 +24,8 @@ interface ItemPintura {
 const LIMITE_PINTURAS = 48;
 const pinturasPorItens = new Map<string, Map<string, MultiPolygon[]>>();
 
-export function pinturasDoCluster(items: readonly ItemPintura[]): Map<string, MultiPolygon[]> {
-  const chave = items.map((i) => `${i.wallId}|${i.layerIndex}|${i.priority}|${i.through ? 1 : 0}|${i.coreT}|${i.order}|${ringsOfShape(i.shape)}`).join('\n');
+export function pinturasDoCluster(items: readonly ItemPintura[], extra = ''): Map<string, MultiPolygon[]> {
+  const chave = extra + '#' + items.map((i) => `${i.wallId}|${i.layerIndex}|${i.priority}|${i.through ? 1 : 0}|${i.coreT}|${i.order}|${ringsOfShape(i.shape)}`).join('\n');
   let m = pinturasPorItens.get(chave);
   if (m) {
     pinturasPorItens.delete(chave);

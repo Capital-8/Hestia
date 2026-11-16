@@ -9,6 +9,7 @@ import { layerQuad } from './layerGeom.ts';
 import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, type WallFrame } from './frame.ts';
 import { casarMonotono } from './wallTiltCasar.ts';
+import { alinharNivel } from './wallTiltAlinhar.ts';
 import { nodeWarp, type NodeWarp } from './wallTiltNo.ts';
 import { cunhaDe, emContinuacao } from './wallTiltContinuacao.ts';
 import { levelRings, levelSet, levelSetAdaptive, type LevelSet, type Relation, type TiltJoinFail, type TiltWall } from './wallTiltJoin.ts';
@@ -193,80 +194,6 @@ function alinhar(raw: Vec2[], p0: Vec2[] | undefined, pH: Vec2[] | undefined): {
   return ok ? { p0: a, pH: b } : null;
 }
 
-const wrapPi = (a: number): number => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
-const RUN_TOL = 1e-7;
-interface Run { s: number; len: number }
-/** Trechos contíguos (cíclicos) de vértices à mesma distância do centro do arco: as faces de arco do anel. */
-function runsOf(poly: readonly Vec2[], c: Vec2): Run[] {
-  const n = poly.length;
-  const r = poly.map((p) => Math.hypot(p.x - c.x, p.y - c.y));
-  let k0 = -1;
-  for (let i = 0; i < n; i++) if (Math.abs(r[i]! - r[(i + n - 1) % n]!) >= RUN_TOL) { k0 = i; break; }
-  if (k0 < 0) return [];
-  const out: Run[] = [];
-  let i = 0;
-  while (i < n) {
-    let len = 1;
-    while (len < n && Math.abs(r[(k0 + i + len) % n]! - r[(k0 + i + len - 1) % n]!) < RUN_TOL) len++;
-    if (len >= 2) out.push({ s: (k0 + i) % n, len });
-    i += len;
-  }
-  return out;
-}
-
-/**
- * Leva o anel `ring` de um nível à contagem e à ordem de vértices de `raw` (anel vertical). Mesma contagem: índice a índice.
- * Contagem diferente (a grade das faces de arco depende do raio e do alcance): cada face de arco é reamostrada por fração
- * angular entre os cantos dela (cantos mantidos), as correntes entre faces casam por ordem (ou pelo vértice mais próximo)
- * e, sem faces de arco, vale o vértice mais próximo (como `alinhar`). null se o anel resultante é degenerado ou invertido.
- */
-function alinharNivel(raw: Vec2[], ring: Vec2[], c: Vec2 | null, memo?: { idx?: number[]; m?: number }): Vec2[] | null {
-  const n = raw.length, m = ring.length;
-  const sg = Math.sign(ringArea(raw));
-  const nearest = (p: Vec2, from: number, count: number): Vec2 => {
-    let best = ring[from % m]!, d = Infinity;
-    for (let k = 0; k < count; k++) { const q = ring[(from + k) % m]!; const e = Math.hypot(q.x - p.x, q.y - p.y); if (e < d) { d = e; best = q; } }
-    return best;
-  };
-  let out: Vec2[];
-  const rr = c ? runsOf(raw, c) : [], lr = c ? runsOf(ring, c) : [];
-  if (m === n) out = ring;
-  else if (c && rr.length > 0 && rr.length === lr.length) {
-    out = new Array<Vec2>(n);
-    for (let k = 0; k < rr.length; k++) {
-      const A = rr[k]!, B = lr[k]!;
-      const ang = (poly: readonly Vec2[], i: number): number => Math.atan2(poly[i % poly.length]!.y - c.y, poly[i % poly.length]!.x - c.x);
-      const cum = (poly: readonly Vec2[], run: Run): number[] => {
-        const o = [0];
-        for (let j = 1; j < run.len; j++) o.push(o[j - 1]! + wrapPi(ang(poly, run.s + j) - ang(poly, run.s + j - 1)));
-        return o;
-      };
-      const ca = cum(raw, A), cb = cum(ring, B);
-      const ta = ca[A.len - 1]!, tb = cb[B.len - 1]!;
-      const phi0 = ang(ring, B.s), rho = Math.hypot(ring[B.s % m]!.x - c.x, ring[B.s % m]!.y - c.y);
-      for (let j = 0; j < A.len; j++) {
-        const lam = Math.abs(ta) < 1e-12 ? (A.len > 1 ? j / (A.len - 1) : 0) : ca[j]! / ta;
-        const i = (A.s + j) % n;
-        out[i] = j === 0 ? ring[B.s % m]! : j === A.len - 1 ? ring[(B.s + B.len - 1) % m]! : { x: c.x + rho * Math.cos(phi0 + lam * tb), y: c.y + rho * Math.sin(phi0 + lam * tb) };
-      }
-      // Corrente entre esta face e a seguinte (vértices fora de qualquer face).
-      const An = rr[(k + 1) % rr.length]!, Bn = lr[(k + 1) % lr.length]!;
-      const na = (An.s - (A.s + A.len) + 2 * n) % n, nb = (Bn.s - (B.s + B.len) + 2 * m) % m;
-      for (let j = 0; j < na; j++) {
-        const i = (A.s + A.len + j) % n;
-        out[i] = na === nb ? ring[(B.s + B.len + j) % m]! : nb > 0 ? nearest(raw[i]!, B.s + B.len, nb) : nearest(raw[i]!, 0, m);
-      }
-    }
-    if (out.some((q) => !q)) return null;
-  } else if (memo) {
-    // Sem faces de arco: casamento monótono feito na base (anel ≈ raw) e reaproveitado nos níveis acima (mesma contagem).
-    if (!memo.idx || memo.m !== m) { memo.idx = casarMonotono(raw, ring); memo.m = m; }
-    out = memo.idx.map((j) => ring[j]!);
-  } else out = raw.map((r) => nearest(r, 0, m));
-  const a = ringArea(out);
-  return Number.isFinite(a) && Math.sign(a) === sg && Math.abs(a) > 1e-9 && out.every((q) => Number.isFinite(q.x) && Number.isFinite(q.y)) ? out : null;
-}
-
 /**
  * Cadeia contínua da parede `refId` (ação D): paredes ligadas em continuação (em linha ou arcos tangentes), com o fator de
  * sinal de cada uma em relação à referência (+1 = mesmo sentido a→b ao longo da cadeia, −1 = sentido oposto). A inclinação
@@ -406,9 +333,12 @@ function analyzeLevelTiltRaw(frames: readonly WallFrame[], heights: ReadonlyMap<
         for (const [layerIndex, r0] of raw) {
           const rs: Vec2[][] = [];
           const memo: { idx?: number[]; m?: number } = {};
-          for (const m of per) {
+          const cb = rawSet.ends.get(id)?.cordas;
+          for (const [ni, m] of per.entries()) {
             const q = m.get(layerIndex);
-            const al = q ? alinharNivel(r0, q, centro, memo) : null;
+            const cn = ad.sets[ni]!.ends.get(id)?.cordas;
+            const ancoras = cb?.length && cn?.length === cb.length ? cb.flatMap((c, k) => [{ raw: c.p, nivel: cn[k]!.p }, { raw: c.q, nivel: cn[k]!.q }]) : undefined;
+            const al = q ? alinharNivel(r0, q, centro, memo, ancoras) : null;
             if (!al) return null;
             rs.push(al);
           }
