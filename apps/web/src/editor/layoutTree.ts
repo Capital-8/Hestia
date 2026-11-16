@@ -250,7 +250,12 @@ function applyLayoutPreset(l: PaneLayout, preset: LayoutPresetId, views: readonl
   const used = pairsOf(views, ids).slice(0, PRESET_PANES[preset]);
   const first = used[0]?.[1];
   if (first === undefined) return l;
-  const queue = used.map(([view, id]) => leafNode(newPane(id, view)));
+  // Painel que já existia com o mesmo id E a mesma vista é preservado (estilo, sincronia e câmeras); senão nasce novo.
+  const existentes = new Map(leaves(l.root).map((p) => [p.id, p] as const));
+  const queue = used.map(([view, id]) => {
+    const antigo = existentes.get(id);
+    return leafNode(antigo && sameView(antigo.view, view) ? antigo : newPane(id, view));
+  });
   const take = (): LayoutNode => queue.shift() as LayoutNode;
   const root = presetTree(shapeFor(preset, used.length), take);
   const activeId = used.some(([, id]) => id === l.activeId) ? l.activeId : first;
