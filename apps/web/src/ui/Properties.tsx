@@ -52,6 +52,7 @@ import { LevelField } from './LevelField.tsx';
 import { LevelProps } from './LevelProps.tsx';
 import { UnderlayRow } from './ViewOptionRows.tsx';
 import { ProfileRow } from './ProfileRow.tsx';
+import { AlturaDaAbertura } from './OpeningHeightRows.tsx';
 import { FloorProperties } from './FloorProperties.tsx';
 import { RoofProperties } from './RoofProperties.tsx';
 import { SlabProperties } from './SlabProperties.tsx';
@@ -320,12 +321,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
             {single.sillOverride !== null && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { sillOverride: null })}>{t('prc_btn_use_type_sill')}</button></div>
             )}
-            <Row label={t('prc_fld_opening_height')} htmlFor="p-height">
-              <NumField id="p-height" value={type ? openingHeight(type, single) : 0} onCommit={(v) => patch(ids, { heightOverride: v })} quantity="length" min={0.1} onInvalid={() => useUi.setState({ status: { key: 'prc_msg_invalid_height', args: { v: fmtNum(1.2, 2, lang) } } })} onValid={() => { const st = useUi.getState().status; if (typeof st !== 'string' && st.key === 'prc_msg_invalid_height') useUi.setState({ status: { key: 'prc_msg_ready' } }); }} />
-            </Row>
-            {typeof single.heightOverride === 'number' && (
-              <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { heightOverride: null })}>{t('prc_btn_use_type_height')}</button></div>
-            )}
+            <AlturaDaAbertura ids={ids} abertura={single} tipo={type} />
           </>
         )}
         {items.some((o) => { const h = p.elements[o.hostId]; return !!h && isWall(h) && !!h.tilt; }) && (
