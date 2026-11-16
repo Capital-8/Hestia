@@ -3,6 +3,7 @@ import { coreSpan, type Id, type Project } from '@hestia/model';
 import { pointAt, sAtDepth, type WallFrame } from './frame.ts';
 import { wallFaces } from './faces.ts';
 import { levelFrames } from './resolve.ts';
+import { wallTopFacesCached } from './wallTopFaces.ts';
 
 /** Faixa de uma parede entre as posições s1 e s2 (perpendiculares ao eixo): quatro cantos, ou amostragem em arco. */
 function bandRing(f: WallFrame, s1: number, s2: number): Ring {
@@ -34,6 +35,57 @@ const PERIMETER_REACH = 1.5;
 
 /** `finish`: o espaço para na face de acabamento (padrão). `core`: avança por baixo do reboco até a face do núcleo. */
 export type RoomExtend = 'finish' | 'core';
+
+/**
+ * Cota de referência do contorno (T-F): `base` = contorno da parede na cota da base (padrão, comportamento antigo);
+ * `top` = contorno do TOPO da parede em planta (`wallTopFaces`), que em parede inclinada se desloca H·tanθ.
+ */
+export type OutlineReference = 'base' | 'top';
+
+/** Há parede que muda de lugar em planta no topo (inclinada, perfil de topo ou topo anexado)? Senão topo == base. */
+function topDiffers(p: Project, levelId: Id): boolean {
+  return levelFrames(p, levelId).some((f) => !!f.wall.tilt || !!f.wall.topProfile || f.wall.attachTopToFloor === true || f.wall.attachTopToRoof === true);
+}
+
+/** Anel de planta de uma polilinha do topo, sem pontos repetidos (degrau de perfil = dois pontos no mesmo x,y). */
+function planRing(pts: ReadonlyArray<{ x: number; y: number }>): Ring {
+  const out: Ring = [];
+  for (const q of pts) {
+    const l = out[out.length - 1];
+    if (!l || Math.abs(l.x - q.x) > 1e-9 || Math.abs(l.y - q.y) > 1e-9) out.push({ x: q.x, y: q.y });
+  }
+  return out;
+}
+
+/** Projeto cujo topo está sendo calculado agora: corta o ciclo (topo anexado a piso que depende do próprio contorno). */
+const topBusy = new WeakSet<Project>();
+
+/** Contorno superior de cada parede (`outline`, ou o do núcleo), em planta; null = usar a base (sem diferença ou em ciclo). */
+function topPieces(p: Project, levelId: Id, frames: WallFrame[], extend: RoomExtend, reference: OutlineReference): Ring[] | null {
+  if (reference !== 'top' || topBusy.has(p) || !topDiffers(p, levelId)) return null;
+  topBusy.add(p);
+  try {
+    const tops = new Map(wallTopFacesCached(p, levelId).map((w) => [w.wallId, w] as const));
+    return frames.map((f) => {
+      const w = tops.get(f.wall.id);
+      if (!w) return extend === 'core' ? coreSilhouette(f) : bandRing(f, f.sHi, f.sLo);
+      return planRing(extend === 'core' ? [...w.coreExterior, ...[...w.coreInterior].reverse()] : w.outline);
+    });
+  } finally {
+    topBusy.delete(p);
+  }
+}
+
+/** Cache do contorno de referência `top` por projeto (imutável): depende de inclinação, perfil, anexos e cotas. */
+const topRoomsCache = new WeakMap<Project, Map<string, unknown>>();
+function topMemo<T>(p: Project, key: string, make: () => T): T {
+  let m = topRoomsCache.get(p);
+  if (!m) topRoomsCache.set(p, (m = new Map()));
+  if (m.has(key)) return m.get(key) as T;
+  const v = make();
+  m.set(key, v);
+  return v;
+}
 
 /**
  * Assinatura do conteúdo das paredes do nível (posição, tipo, espessura, junções). O cache de circuitos é por nível e
@@ -83,7 +135,8 @@ const perimeterCache = new Map<string, { sig: string; value: Ring[] }>();
  * Cada espaço é um polígono: anel externo = borda do espaço; furos = ilhas de parede soltas dentro dele.
  * O espaço que toca a caixa envolvente é o exterior infinito e não entra.
  */
-export function enclosedRooms(p: Project, levelId: Id, extend: RoomExtend = 'finish'): Polygon[] {
+export function enclosedRooms(p: Project, levelId: Id, extend: RoomExtend = 'finish', reference: OutlineReference = 'base'): Polygon[] {
+  if (reference === 'top' && topDiffers(p, levelId)) return topMemo(p, `r|${levelId}|${extend}`, () => (recalcCount++, computeRooms(p, levelId, extend, 'top')));
   const key = `${levelId}|${extend}`;
   const sig = wallsSignature(p, levelId);
   const hit = roomsCache.get(key);
@@ -94,11 +147,12 @@ export function enclosedRooms(p: Project, levelId: Id, extend: RoomExtend = 'fin
   return value;
 }
 
-function computeRooms(p: Project, levelId: Id, extend: RoomExtend): Polygon[] {
+function computeRooms(p: Project, levelId: Id, extend: RoomExtend, reference: OutlineReference = 'base'): Polygon[] {
   const frames = levelFrames(p, levelId);
   if (frames.length === 0) return [];
   const piece = extend === 'core' ? coreSilhouette : wallSilhouette;
-  const walls = closeGapsSafe(union(...frames.map((f) => asMulti(piece(f)))));
+  const tops = topPieces(p, levelId, frames, extend, reference);
+  const walls = closeGapsSafe(union(...(tops ?? frames.map((f) => piece(f))).map((r) => asMulti(r))));
   const box = boxOf(walls.flatMap((poly) => poly.flat()));
   const b = { minX: box.minX - MARGIN, minY: box.minY - MARGIN, maxX: box.maxX + MARGIN, maxY: box.maxY + MARGIN };
   const frame: Ring = [
@@ -145,19 +199,23 @@ function outlinePieces(p: Project, levelId: Id, frames: WallFrame[], extend: Roo
  * `extend` escolhe a face: `finish` pela face de acabamento (`wallFaces`); `core` pela face do núcleo (F6, 0023 §2).
  * A chave do cache é nível + extensão: o contorno de acabamento e o do núcleo não se reaproveitam.
  */
-function buildingOutlines(p: Project, levelId: Id, extend: RoomExtend = 'finish'): Ring[] {
+function buildingOutlines(p: Project, levelId: Id, extend: RoomExtend = 'finish', reference: OutlineReference = 'base'): Ring[] {
+  if (reference === 'top' && topDiffers(p, levelId)) return topMemo(p, `b|${levelId}|${extend}`, () => buildingOutlinesCompute(p, levelId, extend, 'top'));
   const key = `${levelId}|${extend}`;
   const sig = wallsSignature(p, levelId);
   const hit = perimeterCache.get(key);
   if (hit && hit.sig === sig) return hit.value;
-  recalcCount += 1;
-  const frames = levelFrames(p, levelId);
-  const value: Ring[] =
-    frames.length === 0
-      ? []
-      : closeGapsSafe(union(...outlinePieces(p, levelId, frames, extend).map((r) => asMulti(r)))).map((poly) => poly[0]!);
+  const value = buildingOutlinesCompute(p, levelId, extend, 'base');
   perimeterCache.set(key, { sig, value });
   return value;
+}
+
+function buildingOutlinesCompute(p: Project, levelId: Id, extend: RoomExtend, reference: OutlineReference): Ring[] {
+  recalcCount += 1;
+  const frames = levelFrames(p, levelId);
+  if (frames.length === 0) return [];
+  const pieces = topPieces(p, levelId, frames, extend, reference) ?? outlinePieces(p, levelId, frames, extend);
+  return closeGapsSafe(union(...pieces.map((r) => asMulti(r)))).map((poly) => poly[0]!);
 }
 
 /** Distância do ponto ao contorno (suas arestas). */
@@ -173,8 +231,8 @@ function distToRing(q: Vec2, r: Ring): number {
  * `'finish'` = face externa do acabamento; `'core'` = face externa do núcleo.
  * Devolve só o anel externo, ou null se não há paredes ali.
  */
-export function outerPerimeter(p: Project, levelId: Id, near?: Vec2, extend: RoomExtend = 'finish'): Ring | null {
-  const rings = buildingOutlines(p, levelId, extend);
+export function outerPerimeter(p: Project, levelId: Id, near?: Vec2, extend: RoomExtend = 'finish', reference: OutlineReference = 'base'): Ring | null {
+  const rings = buildingOutlines(p, levelId, extend, reference);
   if (rings.length === 0) return null;
   if (!near) return rings.reduce((best, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(best)) ? r : best));
   const holding = rings.find((r) => pointInRing(near, r));

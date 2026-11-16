@@ -4,7 +4,7 @@ import { faceSetOf } from './ifcGeneric.ts';
 import { addPropertySet, type PropValue } from './ifcProperties.ts';
 import { axis3, direction, localPlacement } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, stepString } from './ifcStep.ts';
-import type { IfcCurtainGeo, IfcCurtainPrototypeGeo, IfcCurtainWallGeo } from './ifcTypes.ts';
+import type { IfcCurtainGeo, IfcCurtainPrototypeGeo, IfcCurtainWallGeo, IfcGeometry, IfcWallGeo } from './ifcTypes.ts';
 import { t } from '../i18n.ts';
 
 /**
@@ -255,3 +255,7 @@ export function addCurtainWalls(c: IfcCtx, geo: IfcCurtainGeo): void {
 export function avisoCortinaSemKernel(c: IfcCtx, nome: string): void {
   c.avisos?.push(t(langOf(c), 'io_ifc_curtain_without_kernel', { name: nome }));
 }
+
+/** Contorno das cortinas do kernel para decidir a face externa: as paredes comuns e as cortinas entram juntas no teste de vizinhança. */
+export const footprintsDaCortina = (geo: IfcGeometry): IfcWallGeo[] =>
+  (geo.curtains?.walls ?? []).map((w) => ({ wallId: w.wallId, footprints: [w.footprint], baseZ: 0, height: 0 }));

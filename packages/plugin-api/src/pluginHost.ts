@@ -4,6 +4,7 @@ import type { HostPorts } from './hostPorts.ts';
 import { HostSession, type RetainedSession, type SessionEvent } from './hostSession.ts';
 import type { Transport } from './transport.ts';
 import type { CameraMode } from './scene.ts';
+import { AuthLockout, type AuthCause, type AuthPolicy } from './pairing.ts';
 
 /**
  * Endereço de um plugin. Só loopback: o Hestia NUNCA inicia processos nem abre caminhos de arquivo vindos de plugin;
@@ -55,7 +56,9 @@ export type PluginState =
 
 export interface PluginRuntime {
   state: PluginState;
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; /** Causa do pareamento por token, quando a falha foi de autenticação. */ cause?: AuthCause };
+  /** A sessão ativa foi autenticada por token. Falso e conectado = sem pareamento (só no modo opcional, de desenvolvimento). */
+  authenticated?: boolean;
   /** Capacidades concedidas à sessão ativa. */
   granted: Capability[];
   /** Pedidas pelo manifesto e ainda não concedidas. */
@@ -75,6 +78,14 @@ export interface PluginHostOptions {
   /** Entradas que já vêm cadastradas (ex.: o renderizador). */
   builtins: PluginEntry[];
   storeKey?: string;
+  /**
+   * Política do token de pareamento (protocolo 1.1). `required`: plugin sem token ou sem 1.1 fica "incompatível" com a
+   * causa. `optional`: só para desenvolvimento (o app a usa apenas em modo de desenvolvimento, com aviso na tela). O padrão
+   * da biblioteca é `optional` porque o transporte em memória dos testes não tem processo externo; o app passa `required`.
+   */
+  tokenPolicy?: AuthPolicy;
+  /** Token guardado para o plugin (o cofre fica com o app; o gerenciador não o persiste). */
+  getToken?: (key: string) => string | undefined;
   heartbeatMs?: number;
   /** Esperas entre tentativas de reconexão, em ms (a última se repete). */
   backoffMs?: number[];
@@ -97,6 +108,8 @@ export class PluginHost {
   private cache: PluginView[] = [];
   private readonly storeKey: string;
   private readonly backoff: number[];
+  /** Bloqueio por falhas seguidas de pareamento, por plugin. */
+  private locks = new Map<string, AuthLockout>();
 
   constructor(private readonly o: PluginHostOptions) {
     this.storeKey = o.storeKey ?? 'hestia.plugins.v1';
@@ -187,6 +200,12 @@ export class PluginHost {
     if (!e || !e.enabled) return;
     this.cancelTimer(key);
     if (this.sessions.has(key)) return;
+    const lock = this.lockOf(key).remainingMs();
+    if (lock > 0) {
+      const prev0 = this.runtime.get(key)!;
+      this.setRuntime(key, { ...prev0, state: 'incompatible', error: { code: 'auth_failed', cause: 'locked', message: `Muitas falhas de pareamento seguidas; aguarde ${Math.ceil(lock / 1000)} s.` }, granted: [], pending: [] });
+      return;
+    }
     const my = this.bump(key);
     const prev = this.runtime.get(key)!;
     this.setRuntime(key, { ...prev, state: prev.state === 'connected' || prev.state === 'reconnecting' ? 'reconnecting' : 'connecting', error: undefined });
@@ -202,6 +221,8 @@ export class PluginHost {
     const session = new HostSession(tr, {
       ports: this.o.ports,
       grants: e.grants,
+      tokenPolicy: this.o.tokenPolicy ?? 'optional',
+      ...(this.o.getToken?.(key) ? { token: this.o.getToken(key)! } : {}),
       ...(e.expectedKind ? { expectedKind: e.expectedKind } : {}),
       ...(this.o.heartbeatMs ? { heartbeatMs: this.o.heartbeatMs } : {}),
       retained: this.retained.get(key) ?? null,
@@ -209,6 +230,17 @@ export class PluginHost {
       onEvent: (ev) => this.onEvent(key, my, ev),
     });
     this.sessions.set(key, session);
+  }
+
+  /** O token deste plugin mudou (ou foi apagado): zera o bloqueio e reconecta com o novo. */
+  tokenChanged(key: string): void {
+    this.locks.delete(key);
+    const e = this.entries.get(key);
+    if (!e?.enabled) return;
+    if (this.sessions.has(key)) this.dropSession(key, 'token');
+    this.cancelTimer(key);
+    this.setRuntime(key, { ...this.idle(e), error: undefined });
+    void this.connect(key);
   }
 
   /** Ao abrir o app: conecta o que o usuário deixou habilitado. */
@@ -231,10 +263,12 @@ export class PluginHost {
       case 'ready':
         e.manifest = ev.manifest;
         this.save();
-        this.setRuntime(key, { ...prev, state: 'connected', error: undefined, granted: ev.granted, pending: ev.denied, cameraMode: this.sessions.get(key)?.mode ?? 'follow-hestia', attempt: 0 });
+        if (ev.authenticated) this.locks.delete(key);
+        this.setRuntime(key, { ...prev, state: 'connected', error: undefined, authenticated: ev.authenticated, granted: ev.granted, pending: ev.denied, cameraMode: this.sessions.get(key)?.mode ?? 'follow-hestia', attempt: 0 });
         break;
       case 'incompatible':
-        this.setRuntime(key, { ...prev, state: 'incompatible', error: { code: ev.code, message: ev.message }, granted: [], pending: [] });
+        if (ev.code === 'auth_failed') this.lockOf(key).fail();
+        this.setRuntime(key, { ...prev, state: 'incompatible', error: { code: ev.code, message: ev.message, ...(ev.cause ? { cause: ev.cause } : {}) }, granted: [], pending: [] });
         break;
       case 'camera-mode':
         this.setRuntime(key, { ...prev, cameraMode: ev.mode });
@@ -256,7 +290,7 @@ export class PluginHost {
 
   private failed(key: string, error: { code: string; message: string }, wasConnected = false): void {
     const e = this.entries.get(key)!;
-    const prev = this.runtime.get(key)!;
+    const { authenticated: _a, ...prev } = this.runtime.get(key)!;
     const attempt = prev.attempt + 1;
     // "Ausente" = nunca foi visto; com manifesto conhecido é só "desconectado".
     this.setRuntime(key, { ...prev, state: e.manifest ? (wasConnected ? 'reconnecting' : 'disconnected') : 'absent', error, granted: [], pending: [], attempt });
@@ -268,6 +302,12 @@ export class PluginHost {
     const s = this.sessions.get(key);
     this.sessions.delete(key);
     s?.disconnect(reason);
+  }
+
+  private lockOf(key: string): AuthLockout {
+    let l = this.locks.get(key);
+    if (!l) { l = new AuthLockout(); this.locks.set(key, l); }
+    return l;
   }
 
   private cancelTimer(key: string): void {

@@ -1,10 +1,10 @@
 import type { Project, Id } from '@hestia/model';
-import type { ToolId, ToolOptions } from '@hestia/tools';
+import type { ToolId } from '@hestia/tools';
 import type { SketchTarget } from '@hestia/geom';
 import { toolLabel } from '../../editor/i18n.ts';
 import type { PastePreviewState } from '../../editor/pasteLevels/types.ts';
 import { perimeterContextTab, type PerimeterContextTab } from '../perimeter/PerimeterRibbonPanels.tsx';
-import { act, option, panel, soonS, stack, t, tool, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
+import { act, panel, soonS, stack, t, tool, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
 import { P_CLIPBOARD, P_CREATE, P_GEOMETRY, P_MEASURE, P_MODIFY, P_PROPS, P_SELECT, P_SELECTION_EXTRA, P_VIEW_MOD } from './panelsShared.ts';
 
 /**
@@ -19,29 +19,12 @@ export interface ContextTab {
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
 const PLACE: ReadonlySet<ToolId> = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag']);
 
-const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;
-
-/** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". */
-function drawPanel(id: ToolId): RibbonPanel | null {
-  const mk = (...items: ReturnType<typeof option>[]): RibbonPanel => panel('desenhar', t('Desenhar', 'Draw'), stack(...items.slice(0, 3)), ...(items.length > 3 ? [stack(...items.slice(3, 6))] : []));
-  switch (id) {
-    case 'wall':
-      return mk(
-        option(t('Linha', 'Line'), 'wall', same('wallShape', 'line'), { wallShape: 'line' }),
-        option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
-        option(t('Retângulo', 'Rectangle'), 'plan', same('wallShape', 'rect'), { wallShape: 'rect' }),
-      );
-    default:
-      return null;
-  }
-}
-
 /** Painel "Editar perímetro" das categorias que têm contorno (telhado, piso, laje, forro). */
 const PERIMETRO = panel('perimetro', t('Perímetro', 'Perimeter'), act('editPerimeter'));
 
 /** Painéis do assunto de cada categoria selecionada. */
 const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
-  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')))] },
+  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')), act('wallTilt'), stack(act('tiltFollow', 'small'), act('tiltWedge', 'small')))] },
   door: { label: t('Portas', 'Doors'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   window: { label: t('Janelas', 'Windows'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   floor: { label: t('Pisos', 'Floors'), panels: [PERIMETRO] },
@@ -59,11 +42,10 @@ const base = (...extra: RibbonPanel[]): RibbonPanel[] => [P_SELECT, P_PROPS, P_C
 export function contextTab(toolId: ToolId, selection: readonly Id[], p: Project): ContextTab | null {
   if (toolId !== 'select') {
     if (!PLACE.has(toolId)) return null;
-    const draw = drawPanel(toolId);
     const name = { pt: toolLabel(toolId, 'pt'), en: toolLabel(toolId, 'en') };
     return {
       key: `tool:${toolId}`,
-      tab: { id: 'ctx', label: { pt: `Modificar | Colocar ${name.pt}`, en: `Modify | Place ${name.en}` }, panels: [P_SELECT, P_PROPS, P_MODIFY, P_MEASURE, P_CREATE, ...(draw ? [draw] : [])] },
+      tab: { id: 'ctx', label: { pt: `Modificar | Colocar ${name.pt}`, en: `Modify | Place ${name.en}` }, panels: [P_SELECT, P_PROPS, P_MODIFY, P_MEASURE, P_CREATE] },
     };
   }
   if (selection.length === 0) return null;

@@ -1,5 +1,6 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
+import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
@@ -10,6 +11,7 @@ import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } fr
 import type { Viewport } from '../viewport.ts';
 import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
+import { pontaDaPeca, vistaInclinada } from './referencialInclinadoVista.ts';
 import { ownerOf, sectionItems, type SectionItem } from './pick.ts';
 import { sectionStyleOf } from './style.ts';
 
@@ -213,12 +215,23 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       if (!mat || mat.hatch === 'none') return undefined;
       return { kind: mat.hatch, color: mix(mat.color, input.dark ? '#ffffff' : '#000000', 0.45), ...(SECTION_HATCH_ZOOM_MIN > 0 ? { zoomMin: SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS } : {}) };
     };
-    const toScreen = (u: number, z: number): Vec2 => (faceOn ? { x: cx - o.viewSide * u, y: z0 + z } : { x: cx + o.sSign * u, y: z0 + z });
+    // Parede inclinada (P1): as peças seguem o referencial inclinado do 3D (h·cosθ e deslocamento) ou o prumo ancorado na face.
+    const projetadas = projetarComPerfis(model, faceOn ? 's' : 't', CLOSED);
+    const ponta = o.tiltFrame && o.tiltFrame.plane === 'vertical'
+      ? pontaDaPeca(projetarComPerfis(model, 't', CLOSED).flatMap((r) => r.ring.map((q) => q.u)), o.tiltFrame.theta)
+      : 0;
+    const vista = vistaInclinada(o.tiltFrame, ponta);
+    const toScreen = (u: number, z: number, depth = 0): Vec2 => {
+      if (faceOn) { const m = vista.elevacao(u, z, depth); return { x: cx - o.viewSide * m.u, y: z0 + m.z }; }
+      const m = vista.transversal(u, z);
+      return { x: cx + o.sSign * m.u, y: z0 + m.z };
+    };
+    const zv = (z: number): number => (o.tiltFrame?.plane === 'inclinado' ? z * Math.cos(o.tiltFrame.theta) : z);
     // Peças do mesmo `group` são UMA peça física (alizar): o contorno e o preenchimento são a união delas.
     type Unidade = { itens: ProjectedRing[]; depth: number; cut: boolean };
     const porGrupo = new Map<string, Unidade>();
     const unidades: Unidade[] = [];
-    for (const item of projetarComPerfis(model, faceOn ? 's' : 't', CLOSED)) {
+    for (const item of projetadas) {
       if (!item.part.group) {
         unidades.push({ itens: [item], depth: item.depth, cut: isCut(item.part) });
         continue;
@@ -241,7 +254,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     // Vão livre: só contorno, sem X; a janela sem folha mostra a soleira, como no modelo (decisão 0024 §3).
     outline();
     for (const item of ordered) {
-      const rings = item.itens.map((x) => x.ring.map((q) => toScreen(q.u, q.z))).filter((r) => r.length >= 3);
+      const rings = item.itens.map((x) => x.ring.map((q) => toScreen(q.u, q.z, x.depth))).filter((r) => r.length >= 3);
       if (!rings.length) continue;
       const polygons: MultiPolygon = rings.length === 1 ? [[rings[0]!]] : union(...rings.map((r): MultiPolygon => [[r]]));
       const primeira = item.itens[0]!.part;
@@ -259,13 +272,13 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const inner = t1 - t0 - 2 * fw;
       for (let i = 1; i < slides; i++) {
         const t = t0 + fw + (i * inner) / slides;
-        strokes.push({ pts: [{ x: t, y: z0 + fw }, { x: t, y: z1 - fw }], closed: false, ...strokeWidth(symbolWidth(kind)), color: theme.ink, alpha: 0.7 });
+        strokes.push({ pts: [{ x: t, y: z0 + zv(fw) }, { x: t, y: z1 - zv(fw) }], closed: false, ...strokeWidth(symbolWidth(kind)), color: theme.ink, alpha: 0.7 });
       }
     }
     // Linhas de abertura (V, seta) com a convenção do projeto; a coordenada `u` já sai da função em tela.
     if (faceOn) {
       for (const line of openingLinePaths(model, o.viewSide, o.openingLine, 'elevation')) {
-        symbol(line.pts.map((q) => ({ x: cx + q.u, y: z0 + q.z })), line.dashed);
+        symbol(line.pts.map((q) => ({ x: cx + q.u, y: z0 + zv(q.z) })), line.dashed);
       }
     }
   };
@@ -361,6 +374,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   if (revealStrokes.length > 0) strokes.push(...revealStrokes);
   // Guarda-corpo revelado: a borda azul sai depois do desenho dele (como as outras reveladas, sem o `thinStrokes`).
   const revealGC: StrokeOp[] = [];
+  // Massas (ficha V3): pelo mesmo caminho do guarda-corpo, antes dele; a categoria 'mass' e a ocultação da vista valem dentro de `massaCorteOps`.
+  massaCorteOps(p, s, theme, input.dark, hidden, paint.mass, fills, strokes, input.highlight);
   guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);

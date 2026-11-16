@@ -113,7 +113,7 @@ describe('ContadoresPerf', () => {
     expect(s.quadro!.ms).toBeCloseTo(3, 6);
 
     expect(s.total).toEqual({ quadros: 3, drawCalls: 60, triangulos: 9000, uploads: 2, uploadBytes: 200, rebuilds: 3, commitsReact: 2 });
-    expect(s.camadas).toEqual({ geometria: 1, sobreposicao: 1, grade: 1, guardaCorpo: 0 });
+    expect(s.camadas).toEqual({ geometria: 1, sobreposicao: 1, grade: 1, guardaCorpo: 0, massa: 0 });
     expect(s.gpu).toMatchObject({ timer: 'disponivel', ms: 7.5 });
   });
 
@@ -131,6 +131,19 @@ describe('ContadoresPerf', () => {
     expect(s.total.drawCalls).toBe(6);
   });
 
+  it('a camada da massa tem contagem própria e entra no total de rebuilds', () => {
+    const c = new ContadoresPerf();
+    c.ativar();
+    c.iniciarQuadro(0);
+    c.contarRebuild('massa');
+    c.contarRebuild('massa');
+    c.contarRebuild('guardaCorpo');
+    c.encerrarQuadro(1);
+    const s = c.snapshot();
+    expect(s.camadas).toEqual({ geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 1, massa: 2 });
+    expect(s.total.rebuilds).toBe(3);
+  });
+
   it('reset zera totais, janela e camadas, mas preserva backend e estado do timer', () => {
     const c = new ContadoresPerf();
     c.ativar();
@@ -146,7 +159,7 @@ describe('ContadoresPerf', () => {
     expect(s.total.quadros).toBe(0);
     expect(s.janela.n).toBe(0);
     expect(s.quadro).toBeNull();
-    expect(s.camadas).toEqual({ geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0 });
+    expect(s.camadas).toEqual({ geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0, massa: 0 });
     expect(s.backend).toBe('webgl2');
     expect(s.gpu).toMatchObject({ timer: 'indisponivel', ms: null, nota: 'sem timer' });
     expect(s.indisponiveis).toContain('sem timer');

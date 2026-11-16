@@ -1,6 +1,8 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
+import { cunhasDoNivel3d } from './cunhaSolid.ts';
+import { extrudeLayerTilted, tiltJoinOf, tiltLevelsSignature } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 import { emendaDaAgua } from './roofEmendas3d.ts';
 
@@ -364,7 +366,9 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  * mudou (sem anexo de telhado, sem edição) dá a mesma chave e reaproveita o sólido, em vez de refazer as uniões.
  */
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
-  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}`;
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}:${tiltLevelsSignature(tj, !!rw.sag)}${tj.all.nodes ? `:n=${JSON.stringify(tj.all.nodes)}` : ''}${tj.all.vizinhas?.length ? `:v=${tj.all.vizinhas.map((nj) => nj.layers.map((nl) => `${nl.raw.length}/${tiltLevelsSignature({ all: nj, layer: nl }, true)}`).join(',')).join(';')}` : ''}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
+  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
 }
 
 /** Sólido da camada (do cache, ou extrudado agora e guardado). Quem chama copia os dados; o cache não é alterado. */
@@ -379,7 +383,10 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   }
   wallLayerStats.misses++;
   const local: SolidBatch = { materialId: l.materialId, category: 'wall', positions: [], normals: [], indices: [], ids: [] };
-  ofElement(local, rw.wallId, () => extrudeLayer(local, fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ));
+  const fused = fuseBands(wallLayerBandsAfterJunction(jl, rw, l));
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilted = (!!rw.tilt || !!tj) && !fused.some((x) => x.slope);
+  ofElement(local, rw.wallId, () => (tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt ?? 0, { push, emitFace, oriented, unionAll, zEps: Z_EPS }, tj) : extrudeLayer(local, fused, rw.baseZ)));
   const bytes = estimatedCacheEntryBytes(key, local);
   if (bytes > WALL_CACHE_BYTES_MAX) return local;
   while (wallLayerCache.size && wallLayerCacheBytes + bytes > WALL_CACHE_BYTES_MAX) {
@@ -392,6 +399,9 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   wallLayerCacheBytes += bytes;
   return local;
 }
+
+/** Cunhas de transição (etapa R) do nível, nos lotes do material da camada principal da parede dona. */
+export const appendCunhas = (byMat: Map<Id, SolidBatch>, r: ResolvedLevel, jl?: JunctionLevel): void => cunhasDoNivel3d(r, jl).forEach((c) => appendSolid(batchOf(byMat, c.materialId, 'wall'), c));
 
 /** Acrescenta o sólido local `f` ao lote `b`, deslocando vértices, índices e faixas (cópia: `f` fica intacto). */
 export function appendSolid(b: SolidBatch, f: SolidBatch): void {
@@ -426,6 +436,7 @@ export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel): LevelSol
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
   }
+  appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()] };
 }
 

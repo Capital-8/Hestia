@@ -758,5 +758,157 @@
     "fr": "De l'escalier ou de la rampe sélectionné",
     "it": "Dalla scala o rampa selezionata",
     "pl": "Z wybranych schodów lub rampy"
+  },
+  {
+    "pt": "Massa",
+    "es": "Masa",
+    "de": "Masse",
+    "fr": "Masse",
+    "it": "Massa",
+    "pl": "Bryła"
+  },
+  {
+    "pt": "Extrusão",
+    "es": "Extrusión",
+    "de": "Extrusion",
+    "fr": "Extrusion",
+    "it": "Estrusione",
+    "pl": "Wyciągnięcie"
+  },
+  {
+    "pt": "Mistura",
+    "es": "Mezcla",
+    "de": "Überblendung",
+    "fr": "Fusion",
+    "it": "Fusione",
+    "pl": "Mieszanie"
+  },
+  {
+    "pt": "Loft",
+    "es": "Loft",
+    "de": "Loft",
+    "fr": "Loft",
+    "it": "Loft",
+    "pl": "Loft"
+  },
+  {
+    "pt": "Bulbo",
+    "es": "Bulbo",
+    "de": "Zwiebel",
+    "fr": "Bulbe",
+    "it": "Bulbo",
+    "pl": "Bulwa"
+  },
+  {
+    "pt": "Massas por pavimento",
+    "es": "Masas por planta",
+    "de": "Massen je Geschoss",
+    "fr": "Masses par étage",
+    "it": "Masse per piano",
+    "pl": "Bryły według kondygnacji"
+  },
+  {
+    "pt": "Pisos da massa",
+    "es": "Pisos de la masa",
+    "de": "Massenböden",
+    "fr": "Planchers de la masse",
+    "it": "Solai della massa",
+    "pl": "Stropy z bryły"
+  },
+  {
+    "pt": "Paredes da massa",
+    "es": "Muros de la masa",
+    "de": "Wände aus Masse",
+    "fr": "Murs de la masse",
+    "it": "Pareti della massa",
+    "pl": "Ściany z bryły"
+  },
+  {
+    "pt": "Selecione uma massa.",
+    "es": "Seleccione una masa.",
+    "de": "Masse auswählen.",
+    "fr": "Sélectionnez une masse.",
+    "it": "Seleziona una massa.",
+    "pl": "Wybierz bryłę."
+  },
+  {
+    "pt": "Gerenciar suplementos",
+    "es": "Gestionar complementos",
+    "de": "Add-ins verwalten",
+    "fr": "Gérer les compléments",
+    "it": "Gestisci i componenti aggiuntivi",
+    "pl": "Zarządzaj dodatkami"
+  },
+  {
+    "pt": "Instala suplementos (.hestiapkg ou pasta), revisa as permissões e os ativa ou desativa.",
+    "es": "Instala complementos (.hestiapkg o carpeta), revisa los permisos y los activa o desactiva.",
+    "de": "Installiert Add-ins (.hestiapkg oder Ordner), prüft die Berechtigungen und aktiviert oder deaktiviert sie.",
+    "fr": "Installe des compléments (.hestiapkg ou dossier), examine les autorisations et les active ou désactive.",
+    "it": "Installa componenti aggiuntivi (.hestiapkg o cartella), esamina le autorizzazioni e li attiva o disattiva.",
+    "pl": "Instaluje dodatki (.hestiapkg lub folder), przegląda uprawnienia oraz włącza lub wyłącza dodatki."
+  },
+  {
+    "pt": "Lista todos os suplementos: instala, atualiza, ajusta permissões, mostra o registro e os dados. Atalho: Alt+Shift+P.",
+    "es": "Lista todos los complementos: instala, actualiza, ajusta permisos, muestra el registro y los datos. Atajo: Alt+Shift+P.",
+    "de": "Listet alle Add-ins auf: installieren, aktualisieren, Berechtigungen anpassen, Protokoll und Daten anzeigen. Kurzbefehl: Alt+Shift+P.",
+    "fr": "Liste tous les compléments : installer, mettre à jour, ajuster les autorisations, afficher le journal et les données. Raccourci : Alt+Maj+P.",
+    "it": "Elenca tutti i componenti aggiuntivi: installa, aggiorna, regola le autorizzazioni, mostra il registro e i dati. Scorciatoia: Alt+Maiusc+P.",
+    "pl": "Wyświetla wszystkie dodatki: instalacja, aktualizacja, uprawnienia, podgląd dziennika i danych. Skrót: Alt+Shift+P."
+  },
+  {
+    "pt": "Inclinar",
+    "es": "Inclinar",
+    "de": "Neigen",
+    "fr": "Incliner",
+    "it": "Inclina",
+    "pl": "Pochyl"
+  },
+  {
+    "pt": "Selecione paredes primeiro.",
+    "es": "Seleccione primero muros.",
+    "de": "Wände zuerst auswählen.",
+    "fr": "Sélectionnez d’abord des murs.",
+    "it": "Seleziona prima dei muri.",
+    "pl": "Najpierw zaznacz ściany."
+  },
+  {
+    "pt": "Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).",
+    "es": "Inclina los muros seleccionados según el ángulo indicado (positivo: parte superior a la izquierda de a→b).",
+    "de": "Neigt die gewählten Wände um den eingegebenen Winkel (positiv: Oberkante links von a→b).",
+    "fr": "Incline les murs sélectionnés de l’angle saisi (positif : haut à gauche de a→b).",
+    "it": "Inclina i muri selezionati dell’angolo indicato (positivo: sommità a sinistra di a→b).",
+    "pl": "Pochyla zaznaczone ściany o podany kąt (dodatni: góra po lewej stronie a→b)."
+  },
+  {
+    "pt": "Acompanhar inclinação",
+    "es": "Seguir inclinación",
+    "de": "Neigung folgen",
+    "fr": "Suivre l'inclinaison",
+    "it": "Segui inclinazione",
+    "pl": "Podążaj za nachyleniem"
+  },
+  {
+    "pt": "Cunha",
+    "es": "Cuña",
+    "de": "Keil",
+    "fr": "Coin",
+    "it": "Cuneo",
+    "pl": "Klin"
+  },
+  {
+    "pt": "Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.",
+    "es": "Aplica la inclinación de la primera pared seleccionada a toda la cadena de paredes continuas (signo según el sentido a→b), en un solo deshacer.",
+    "de": "Überträgt die Neigung der ersten gewählten Wand auf die ganze Kette durchgehender Wände (Vorzeichen je Richtung a→b), in einem Rückgängig-Schritt.",
+    "fr": "Applique l'inclinaison du premier mur sélectionné à toute la chaîne de murs continus (signe selon le sens a→b), en une seule annulation.",
+    "it": "Applica l'inclinazione della prima parete selezionata a tutta la catena di pareti continue (segno secondo il verso a→b), in un solo annullamento.",
+    "pl": "Stosuje nachylenie pierwszej zaznaczonej ściany do całego łańcucha ścian ciągłych (znak zależny od kierunku a→b), w jednym cofnięciu."
+  },
+  {
+    "pt": "Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).",
+    "es": "Cierra con un prisma el escalón entre paredes continuas de inclinaciones distintas (alterna con el escalón abierto).",
+    "de": "Schließt die Stufe zwischen durchgehenden Wänden verschiedener Neigung mit einem Prisma (wechselt mit der offenen Stufe).",
+    "fr": "Ferme par un prisme la marche entre murs continus d'inclinaisons différentes (alterne avec la marche ouverte).",
+    "it": "Chiude con un prisma il gradino tra pareti continue di inclinazioni diverse (alterna con il gradino aperto).",
+    "pl": "Zamyka graniastosłupem uskok między ścianami ciągłymi o różnych nachyleniach (przełącza z otwartym uskokiem)."
   }
 ]

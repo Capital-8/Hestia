@@ -1,6 +1,6 @@
-import { apoioDoElemento, servicoGuardaCorpo, type ApoioDoElemento } from '@hestia/engine';
+import { apoioDoElemento, servicoGuardaCorpo, servicoMassa, type ApoioDoElemento } from '@hestia/engine';
 import { dist, type Vec2 } from '@hestia/geom';
-import { isGuardaCorpo, type Id, type Project, type Ramp, type Stair } from '@hestia/model';
+import { isGuardaCorpo, isMass, type Id, type Project, type Ramp, type Stair } from '@hestia/model';
 import { planComponentsInLevel } from './componentLevels.ts';
 import { rampEndpoints, rampPolylines } from './rampPick.ts';
 import { stairEndpoints, stairPolylines } from './stairPick.ts';
@@ -30,7 +30,7 @@ export interface ComponentSnapGeometry {
 const MIN_SEG = 1e-9;
 
 interface Entrada {
-  /** O kernel do guarda-corpo estava pronto? Ele pode ficar pronto sem o projeto mudar, e aí a geometria ganha as peças. */
+  /** Os kernels do guarda-corpo e da massa estavam prontos? Eles podem ficar prontos sem o projeto mudar, e aí a geometria ganha as peças. */
   kernel: boolean;
   geometry: ComponentSnapGeometry;
   index?: SnapIndexado;
@@ -123,6 +123,12 @@ function geometryOfLevel(p: Project, levelId: Id): ComponentSnapGeometry {
     const apoio = apoioDoElemento(p, e);
     if (apoio) parts.push(geometryOfApoio(e.id, apoio));
   }
+  // Massa do nível: vértices, meios de aresta e arestas do anel cortado (o kernel; sem ele o apoio sai vazio, A.5), pela mesma fonte das cotas.
+  for (const e of Object.values(p.elements)) {
+    if (!isMass(e) || e.levelId !== levelId) continue;
+    const apoio = apoioDoElemento(p, e);
+    if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+  }
   return { points: parts.flatMap((g) => g.points), segments: parts.flatMap((g) => g.segments) };
 }
 
@@ -132,7 +138,7 @@ function entradaDoNivel(p: Project, levelId: Id): Entrada {
     byLevel = new Map();
     cache.set(p, byLevel);
   }
-  const kernel = servicoGuardaCorpo().pronto();
+  const kernel = servicoGuardaCorpo().pronto() && servicoMassa().pronto();
   let all = byLevel.get(levelId);
   if (!all || all.kernel !== kernel) {
     all = { kernel, geometry: geometryOfLevel(p, levelId) };

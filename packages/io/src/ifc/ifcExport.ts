@@ -16,8 +16,9 @@ import {
   type WallType,
 } from '@hestia/model';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
-import { addCurtainWalls, avisoCortinaSemKernel } from './ifcCurtainWall.ts';
+import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './ifcCurtainWall.ts';
 import { addRailings } from './ifcGuardaCorpo.ts';
+import { addMasses } from './ifcMassa.ts';
 import { addGenerics } from './ifcGeneric.ts';
 import { addHestiaPsets } from './ifcHestia.ts';
 import { addPropertySet, type PropValue } from './ifcProperties.ts';
@@ -27,7 +28,7 @@ import { addQuantities } from './ifcQuantities.ts';
 import { addSpaces } from './ifcSpaces.ts';
 import { addItemStyles, addStyles } from './ifcStyles.ts';
 import { gid, langOf, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
-import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf } from './ifcSolids.ts';
+import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf, tiltBrepSolid, tiltExtrudeSolid } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, StepWriter, stepString } from './ifcStep.ts';
 import type { IfcGeometry, IfcOpeningGeo, IfcOpeningPartGeo, IfcPoint, IfcPolygon, IfcWallGeo } from './ifcTypes.ts';
 import { t, type Lang } from '../i18n.ts';
@@ -160,11 +161,10 @@ function topProfileSolid(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo, fo
 
 /** Corpo da parede: perfil superior quando há `topProfile` em parede reta; senão a extrusão de altura constante. */
 function wallSolids(c: IfcCtx, st: IfcStorey, wall: Wall, g: IfcWallGeo): number[] {
-  if (wall.topProfile && wall.sag === 0) {
-    const profiled = g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null);
-    if (profiled.length > 0) return profiled;
-  }
-  return g.footprints.map((f) => extrudeSolid(c.w, f, g.baseZ - st.elev, g.height));
+  const profiled = !g.tilt && wall.topProfile && wall.sag === 0 ? g.footprints.map((f) => topProfileSolid(c, st, wall, g, f)).filter((s): s is number => s !== null) : [];
+  if (profiled.length > 0) return profiled;
+  const [z, k] = [g.baseZ - st.elev, g.tilt];
+  return g.footprints.map((f) => (!k ? extrudeSolid(c.w, f, z, g.height) : k.straight ? tiltExtrudeSolid(c.w, f, k.map, z, g.height) : tiltBrepSolid(c.w, f, k.map, z, g.height, langOf(c), k.zs)));
 }
 
 /** Paredes: IFCWALL com contorno extrudado, camadas do tipo (`IFCMATERIALLAYERSETUSAGE`) e `Pset_WallCommon`. */
@@ -180,7 +180,7 @@ function addWalls(c: IfcCtx, walls: readonly IfcWallGeo[]): void {
     const name = stepString(type?.name ?? t(langOf(c), 'io_ifc_default_wall'));
     const solids = wallSolids(c, st, wall, g);
     if (solids.length === 0) continue;
-    const shape = bodyShape(c.w, c.ctx, 'SweptSolid', solids);
+    const shape = bodyShape(c.w, c.ctx, g.tilt && !g.tilt.straight ? 'Brep' : 'SweptSolid', solids);
     const place = localPlacement(c.w, st.place, [0, 0, 0]);
     const id = c.w.add('IFCWALL', [gid(`wall:${g.wallId}`), OMIT, name, OMIT, name, ref(place), ref(shape), optStr(wall.mark), en('STANDARD')]);
     c.walls.set(g.wallId, id);
@@ -444,10 +444,6 @@ function registerTypeMaterials(c: IfcCtx): void {
 /** Exporta o projeto como IFC4 (texto STEP): IfcProject > IfcSite > IfcBuilding > IfcBuildingStorey (um por nível) e os elementos. */
 export { externalWalls } from './ifcExterior.ts';
 
-/** Contorno das cortinas do kernel para decidir a face externa: as paredes comuns e as cortinas entram juntas no teste de vizinhança. */
-const footprintsDaCortina = (geo: IfcGeometry): IfcWallGeo[] =>
-  (geo.curtains?.walls ?? []).map((w) => ({ wallId: w.wallId, footprints: [w.footprint], baseZ: 0, height: 0 }));
-
 export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions = {}): string {
   const lang = opts.lang ?? 'pt';
   const w = new StepWriter();
@@ -500,6 +496,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addStairs(c, geo);
   addRamps(c, geo);
   addRailings(c, geo);
+  addMasses(c, geo);
   addGenerics(c);
   addSpaces(c);
   addGrids(c);

@@ -292,6 +292,15 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_MASSA_MALHA => crate::massa_malha::consulta_massa_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
+        esquema::CONSULTA_MASSA_PLANTA => crate::massa_planta::consulta_massa_planta(cena, arg_nivel(args[0])?, arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?),
+        esquema::CONSULTA_MASSA_FATIAS => crate::massa_fatia::consulta_massa_fatias(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_MASSA_CORTE => {
+            let (ox, oy, dx, dy, prof) = (arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?, arg_finito(args[4])?, arg_finito(args[5])?);
+            crate::massa_corte::consulta_massa_corte(cena, arg_nivel(args[0])?, ox, oy, dx, dy, prof)
+        }
+        esquema::CONSULTA_QUANT_MASSA => crate::massa_quant::consulta_quant_massa(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_MASSA_AVISOS => crate::massa_avisos::consulta_massa_avisos(cena, arg_nivel(args[0])?),
         _ => Err(NAO_IMPLEMENTADO),
     }
 }
@@ -510,6 +519,19 @@ mod testes {
         let mut c = cena_com(&l);
         let s = executar(&mut c, 3, &[0.0, 0.0]).expect("ok");
         assert_eq!(u32s(&s[0]), &[1, 2]);
+    }
+
+    #[test]
+    fn consultas_da_massa_140_a_145_sem_massas_devolvem_saidas_vazias() {
+        let ids: Vec<(u32, usize)> = esquema::CONSULTAS.iter().filter(|q| (140..=159).contains(&q.id)).map(|q| (q.id, q.args.len())).collect();
+        assert_eq!(ids, vec![(140, 2), (141, 4), (142, 1), (143, 6), (144, 1), (145, 1)]);
+        let mut c = cena_com(&lote(&[(1, 0, 0.0, 0.0, 1.0, 0.0, 0.1)]));
+        for (id, n) in ids {
+            // Todas as consultas 140 a 145 estão implementadas (R1 a R3): sem massas na cena, devolvem todas as saídas vazias.
+            let saidas = esquema::CONSULTAS.iter().find(|q| q.id == id).map(|q| q.saidas.len());
+            assert_eq!(executar(&mut c, id, &vec![0.0; n]).map(|s| s.iter().map(Saida::len).collect::<Vec<_>>()).ok(), saidas.map(|k| vec![0; k]), "consulta {id}");
+            assert_eq!(executar(&mut c, id, &vec![0.0; n + 1]).err(), Some(ENTRADA), "consulta {id} com argumento a mais");
+        }
     }
 
     #[test]

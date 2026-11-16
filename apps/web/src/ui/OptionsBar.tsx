@@ -8,6 +8,8 @@ import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
 import { Check, NumField } from './fields.tsx';
 import { useUnits } from './useUnits.ts';
+import { wallModeOf } from './wallModes.ts';
+import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { DisjoinCheck } from './DisjoinCheck.tsx';
 import { SlabOptionsBar } from './SlabOptionsBar.tsx';
 import { CeilingOptionsBar } from './CeilingOptionsBar.tsx';
@@ -17,9 +19,47 @@ import { StairOptionsBar } from './StairOptionsBar.tsx';
 import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
+import { MassOptionsBar } from './MassOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
+
+/** Inclinação das paredes novas (graus no campo; o mesmo valor `wallTilt` do painel de Propriedades). Exportado para os testes. */
+export function WallTiltField({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement {
+  const { t } = useT();
+  return (
+    <label>
+      {t('prc_fld_tilt')}
+      <NumField id="opt-wall-tilt" value={radDeGrau(o.wallTilt ?? 0)} quantity="angle" min={-TILT_MAX_RAD} max={TILT_MAX_RAD} strictRange onInvalid={avisoLimiteInclinacao} onCommit={(v) => set({ wallTilt: grauDeRad(v) })} />
+    </label>
+  );
+}
+
+/**
+ * Ajustes do modo de parede que pedem número: lados do polígono (3 a 64) e tolerância do ajuste a arcos da elipse e da
+ * spline (1 a 50 mm; o padrão 5 mm vale como 0,005 m). Exportado para os testes.
+ */
+export function WallShapeFields({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement | null {
+  const { t } = useT();
+  const modo = wallModeOf(o);
+  if (modo === 'polygonIn' || modo === 'polygonOut') {
+    return (
+      <label>
+        {t('pro_poly_sides')}
+        <NumField id="opt-poly-sides" value={o.wallPolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ wallPolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
+      </label>
+    );
+  }
+  if (modo === 'ellipse' || modo === 'spline') {
+    return (
+      <label>
+        {t('pro_fit_tol')}
+        <NumField id="opt-fit-tol" value={o.wallFitTol ?? 0.005} quantity="smallLength" min={0.001} onCommit={(v) => set({ wallFitTol: Math.min(0.05, Math.max(0.001, v)) })} />
+      </label>
+    );
+  }
+  return null;
+}
 
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -203,7 +243,14 @@ export function OptionsBar(): ReactElement {
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {
-    return <div className="optbar" role="group" aria-label={t('pro_tool_options')}><span className="tool-name">{toolLabel(tool, lang)}</span><span style={{ color: 'var(--fg-soft)' }}>{t('pro_settings_in_props')}</span></div>;
+    return (
+      <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
+        <span className="tool-name">{toolLabel(tool, lang)}</span>
+        <span style={{ color: 'var(--fg-soft)' }}>{t('pro_settings_in_props')}</span>
+        {tool === 'wall' && <WallShapeFields o={o} set={set} />}
+        {tool === 'wall' && <WallTiltField o={o} set={set} />}
+      </div>
+    );
   }
   return (
     <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
@@ -240,6 +287,7 @@ export function OptionsBar(): ReactElement {
             {t('pro_height')}
             <NumField id="opt-height" value={o.wallHeight} onCommit={(v) => set({ wallHeight: v })} quantity="length" min={0.1} />
           </label>
+          <WallTiltField o={o} set={set} />
           <Check id="opt-chain" checked={o.chain} onChange={(v) => set({ chain: v })}>{t('pro_chain')}</Check>
         </>
       )}
@@ -290,6 +338,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'stairrun' && <StairRunOptionsBar />}
       {tool === 'ramp' && <RampOptionsBar />}
       {tool === 'railing' && <GuardaCorpoOptionsBar />}
+      {tool === 'mass' && <MassOptionsBar />}
       {(tool === 'door' || tool === 'window') && (
         <OpeningTypePicker
           kind={tool}
@@ -370,6 +419,7 @@ export function OptionsBar(): ReactElement {
             />
           </label>
           <Check id="opt-ocopy" checked={o.offsetCopy} onChange={(v) => set({ offsetCopy: v })}>{t('tool_copy')}</Check>
+          <Check id="opt-ochain" checked={o.offsetChain ?? true} onChange={(v) => set({ offsetChain: v })}>{t('tool_chain')}</Check>
         </>
       )}
       {tool === 'parallel' && (

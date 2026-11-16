@@ -8,8 +8,9 @@ import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
 import type { RampToolOptions } from './rampOptions.ts';
 import type { Lang } from './i18n.ts';
+import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
-export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'none';
+export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'none';
 
 export interface Guide {
   from: Vec2;
@@ -23,6 +24,8 @@ export interface Inference {
   guides: Guide[];
   /** Parede sobre a qual o cursor está (para portas e janelas). */
   hostId?: Id;
+  /** Cota z absoluta (m) do ponto capturado, quando a captura vem da face superior da parede (`topFace` em planta). */
+  z?: number;
 }
 
 /** Tom da prévia: os da escada e o de erro (abertura sem espaço, em vermelho). */
@@ -150,6 +153,8 @@ export interface SnapOptions {
   midpoint?: boolean;
   /** Captura nos desenhos CAD importados (DXF): vértices, meios, pontos e cruzamentos das linhas. */
   cad?: boolean;
+  /** Face superior das paredes (arestas e cantos do topo, com a cota z). Padrão: ligada; depende de Faces (e de Núcleo para o núcleo). */
+  topFaces?: boolean;
 }
 
 export const DEFAULT_SNAP: SnapOptions = {
@@ -166,6 +171,7 @@ export const DEFAULT_SNAP: SnapOptions = {
   midpoint: true,
   // O DXF importado serve de referência por padrão: é para isso que ele entra no projeto.
   cad: true,
+  topFaces: true,
 };
 
 /** Padrões do "Desconectar": Mover e Espelhar acompanham a vizinha (falso) e Rotacionar é livre (verdadeiro). */
@@ -196,8 +202,18 @@ export interface ToolOptions {
   wallTopOffset?: number;
   wallFlipped?: boolean;
   chain: boolean;
-  /** Forma da parede ao desenhar: reta, arco por três pontos ou retângulo por dois cantos opostos. */
-  wallShape: 'line' | 'arc' | 'rect';
+  /**
+   * Forma da parede ao desenhar: reta, arco por três pontos, retângulo por dois cantos opostos, polígono regular
+   * (centro + raio), círculo (centro + raio), elipse (centro, semieixo, ponto do outro semieixo) ou spline (pontos).
+   */
+  wallShape: 'line' | 'arc' | 'arc-center' | 'arc-tangent' | 'rect' | 'polygon' | 'circle' | 'ellipse' | 'spline';
+  /** Polígono: número de lados (3 a 64; padrão 6) e se é circunscrito ao raio (padrão: inscrito). */
+  wallPolygonSides?: number;
+  wallPolygonCircumscribed?: boolean;
+  /** Inclinação (graus, + = topo à esquerda de a→b) das paredes criadas; ausente = 0 (vertical). Limite e validação no modelo. */
+  wallTilt?: number;
+  /** Elipse e spline: tolerância do ajuste a arcos, em metros (padrão 0,005). */
+  wallFitTol?: number;
   doorTypeId: Id;
   windowTypeId: Id;
   /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */
@@ -268,6 +284,8 @@ export interface ToolOptions {
   rotateCopy: boolean;
   mirrorCopy: boolean;
   offsetCopy: boolean;
+  /** Deslocar: "Cadeia" desloca todas as paredes ligadas (junção pair) à clicada, pelo mesmo lado, recalculando os cantos. Ausente = verdadeiro. */
+  offsetChain?: boolean;
   /** Mover: "Desconectar" solta a ponta das vizinhas em vez de esticá-las. Ausente = falso (padrão do Revit). */
   moveDisjoin?: boolean;
   /** Rotacionar: "Desconectar" solta a ponta das vizinhas. Ausente = verdadeiro (giro livre). */
@@ -302,6 +320,8 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
+  /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
+  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
 }
 
 export interface PointerInfo {

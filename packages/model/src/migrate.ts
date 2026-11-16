@@ -272,6 +272,12 @@ const migrations: Record<number, Migration> = {
   // `mullionTypes` nem `curtainPanelTypes`: ausente = parede básica e padrões por leitura. Nada a converter; a migração
   // só avança a versão, e assim um programa antigo recusa um arquivo com cortina.
   24: (raw) => ({ ...raw }),
+  // v25 → v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas e `elements` as aceita sem
+  // conversão. A migração só avança a versão, e assim um programa antigo recusa um arquivo com massa.
+  25: (raw) => ({ ...raw }),
+  // v26 → v27: parede inclinada (`Wall.tilt`, opcional; ausente = vertical). Nenhum elemento é reescrito; a migração só
+  // avança a versão, e assim um programa antigo recusa um arquivo com parede inclinada.
+  26: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

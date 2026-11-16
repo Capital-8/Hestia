@@ -80,6 +80,12 @@ export function labelOf(c: Command): string {
       return 'Soltar forro do ambiente';
     case 'relinkCeilingRoom':
       return 'Revincular forro ao ambiente';
+    case 'setWallTilt':
+      return c.ids.length === 1 ? 'Inclinar parede' : 'Inclinar paredes';
+    case 'alignTiltOfChain':
+      return 'Acompanhar inclinação da cadeia';
+    case 'setOpeningPlane':
+      return c.ids.length === 1 ? 'Mudar plano da abertura' : 'Mudar plano das aberturas';
     case 'setWallEnds':
       return 'Ajustar parede';
     case 'setJoin':
@@ -138,6 +144,10 @@ export function labelOf(c: Command): string {
       return 'Editar material';
     case 'upsertOpeningType':
       return 'Editar tipo de abertura';
+    case 'deleteOpeningType': // SUPLEMENTOS:
+      return 'Excluir tipo de abertura';
+    case 'deleteMaterial': // SUPLEMENTOS:
+      return 'Excluir material';
     case 'upsertLevel':
       return 'Editar nível';
     case 'deleteLevel':
@@ -252,6 +262,10 @@ export function labelOf(c: Command): string {
       return 'Substituição de material de visualização';
     case 'clearPluginViewOverride':
       return 'Remover substituição de visualização';
+    case 'setPluginData': // SUPLEMENTOS:
+      return 'Gravar dados do plugin';
+    case 'deletePluginData': // SUPLEMENTOS:
+      return 'Remover dados do plugin';
     case 'addView3DPoint':
       return 'Salvar ponto de vista 3D';
     case 'updateView3DPoint':
@@ -308,6 +322,14 @@ export function labelOf(c: Command): string {
       return 'Excluir perfil de norma';
     case 'setNormaGuardaCorpo':
       return 'Escolher norma do projeto';
+    case 'addMass':
+      return 'Adicionar massa';
+    case 'updateMass':
+      return 'Editar massa';
+    case 'setMassSecoes':
+      return 'Editar seções da massa';
+    case 'setMassArranjo':
+      return 'Editar arranjo da massa';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':

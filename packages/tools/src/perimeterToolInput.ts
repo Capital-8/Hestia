@@ -6,7 +6,7 @@ import { SELECT_PX, hasSeg, hitSeg, segLines, triangleHit, roomHint } from './pe
 import { t as translate, type Lang } from './i18n.ts';
 import { perimeterFromBox } from './sketchByPerimeter.ts';
 import { kindOf, promptOf, shapeName } from './perimeterToolShape.ts';
-import { faceAt } from './sketchPickFace.ts';
+import { faceAt, topDefaultFor } from './sketchPickFace.ts';
 import { selectionModeOf } from './perimeterToolSelect.ts';
 import type { PointerInfo, PreviewItem, ToolEnv } from './types.ts';
 
@@ -31,8 +31,8 @@ export function parseDelta(text: string, u: ResolvedUnits): Vec2 | null {
 }
 
 /** Prévia da face sob o cursor: realce, rótulo e aviso para a barra de status. */
-export function facePreview(env: ToolEnv, at: Vec2, cycle: number, lang: Lang = 'pt'): { items: PreviewItem[]; msg: string } {
-  const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle);
+export function facePreview(env: ToolEnv, at: Vec2, cycle: number, lang: Lang = 'pt', topDefault = false): { items: PreviewItem[]; msg: string } {
+  const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle, { topDefault });
   if (!pick) return { items: [], msg: translate(lang, 'tl_msg_point_face_axis_edge') };
   return {
     items: [...segLines(pick.seg, { halo: true }), { kind: 'label', at: mid(pick.seg.a, pick.seg.b), text: pick.label }],
@@ -42,7 +42,7 @@ export function facePreview(env: ToolEnv, at: Vec2, cycle: number, lang: Lang = 
 
 /** Linha da face sob o cursor, ou o motivo de não servir (sem face, ou já está no esboço). */
 export function facePick(env: ToolEnv, at: Vec2, cycle: number, d: SketchDraft, lang: Lang = 'pt'): { seg: SketchSeg; label: string } | { msg: string } {
-  const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle);
+  const pick = faceAt(env, at, PICK_PX * env.metersPerPixel(), cycle, { topDefault: topDefaultFor(d.target) });
   if (!pick) return { msg: translate(lang, 'tl_msg_nothing_face') };
   if (hasSeg(d.segs, pick.seg)) return { msg: translate(lang, 'tl_msg_line_in_sketch') };
   return { seg: pick.seg, label: pick.label };
@@ -67,9 +67,9 @@ export function selectClick(d: SketchDraft, p: PointerInfo, slope: boolean, mpp:
 }
 
 /** Contorno pelas paredes da caixa de `a` a `b`, ou null se a caixa é um clique. `segs` vazio = nada pego (aviso em `msg`). */
-export function boxPick(env: ToolEnv, a: Vec2, b: Vec2, lang: Lang = 'pt'): { segs: SketchSeg[]; msg: string } | null {
+export function boxPick(env: ToolEnv, a: Vec2, b: Vec2, lang: Lang = 'pt', top = false): { segs: SketchSeg[]; msg: string } | null {
   if (dist(a, b) < BOX_MIN_PX * env.metersPerPixel()) return null;
-  const r = perimeterFromBox(env, a, b);
+  const r = perimeterFromBox(env, a, b, { top });
   if (r.segs.length === 0) return { segs: [], msg: r.warnings.join(' ') || translate(lang, 'tl_msg_no_walls_box') };
   return { segs: r.segs, msg: [...r.warnings, translate(lang, 'tl_msg_box_outline_added', { n: r.segs.length })].join(' ') };
 }

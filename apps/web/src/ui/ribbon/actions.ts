@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
+import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
 import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, type PerimeterModifyKind, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { tagAllNotTagged } from '../../editor/tagActions.ts';
@@ -15,10 +15,13 @@ import { addSheetAction } from '../../editor/sheetActions.ts';
 import { sheetsPerLevelAction } from '../../editor/sheetInsert.ts';
 import { setSnap, toggleRoofProjection, useUi, type DialogKind, type UiState } from '../../editor/state.ts';
 import { transfer } from '../../editor/transfer.ts';
+import { alternarMassaNaVista, massaVisivelNaVista } from '../../editor/viewVisibility.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
+import { massaUnicaSelecionada } from '../dialogs/massPisosForm.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
@@ -115,6 +118,7 @@ const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
       );
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
+const wallsIn = (c: RibbonCtx): Wall[] => c.selection.map((id) => c.p.elements[id]).filter(isWall);
 
 function thinTarget(): { levelId: Id } | 'section' {
   const ui = useUi.getState();
@@ -324,6 +328,25 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },
   underlay: { label: t('Subpavimento', 'Underlay'), icon: 'layers', hint: t('Mostra o pavimento abaixo, apagado.', 'Show the level below, faded.'), run: () => useUi.setState((s) => ({ showUnderlay: !s.showUnderlay })), pressed: (c) => c.showUnderlay },
   roofProjection: { label: t('Projeção da cobertura', 'Roof Projection'), icon: 'roof', run: toggleRoofProjection, pressed: (c) => c.showRoofProjection },
+  showMass: {
+    label: t('Mostrar massa', 'Show Mass'),
+    icon: 'cube',
+    run: alternarMassaNaVista,
+    pressed: (c) => massaVisivelNaVista(c.p),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Does not apply to sheets.') : false),
+  },
+  pisosDaMassa: {
+    label: t('Pisos da massa', 'Floors from Mass'),
+    icon: 'floor',
+    run: openDialog('massPisos'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
+  paredesDaMassa: {
+    label: t('Paredes da massa', 'Walls from Mass'),
+    icon: 'wall',
+    run: openDialog('massParedes'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
   graphicsVisibility: {
     label: t('Visibilidade/Gráficos', 'Visibility/Graphics'),
     icon: 'layers',
@@ -394,6 +417,12 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Conecta programas externos (como o renderizador) ao modelo.', 'Connect external programs (such as the renderer) to the model.'),
     run: openDialog('externalTools'),
   },
+  pluginManager: {
+    label: t('Gerenciar suplementos', 'Manage Add-Ins'),
+    icon: 'component',
+    hint: t('Lista todos os suplementos: instala, atualiza, ajusta permissões, mostra o registro e os dados. Atalho: Alt+Shift+P.', 'Lists every add-in: install, update, adjust permissions, view the log and the data. Shortcut: Alt+Shift+P.'),
+    run: openDialog('pluginManager'),
+  },
   importCad: {
     label: t('Importar CAD (DXF)', 'Import CAD'),
     icon: 'open',
@@ -427,6 +456,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   schedRamps: sched(t('Tabela de rampas', 'Ramp Schedule'), 'rampSchedule'),
   schedRooms: sched(t('Tabela de ambientes', 'Room Schedule'), 'roomSchedule'),
   schedOpenings: sched(t('Tabela de portas e janelas', 'Door/Window Schedule'), 'openingSchedule'),
+  schedMass: sched(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
   stairSketch: {
     label: t('Editar croqui', 'Edit Sketch'),
     icon: 'stair',
@@ -451,6 +481,36 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if (r) useUi.setState({ dialog: 'rampType', dialogArg: r.typeId });
     },
     disabled: (c) => (rampsIn(c).length > 0 ? false : t('Selecione uma rampa.', 'Select a ramp.')),
+  },
+  wallTilt: {
+    label: t('Inclinar', 'Tilt'),
+    icon: 'slope',
+    hint: t('Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).', 'Tilts the selected walls by the typed angle (positive: top to the left of a→b).'),
+    run: openDialog('wallTilt'),
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltFollow: {
+    label: t('Acompanhar inclinação', 'Follow tilt'),
+    icon: 'slope',
+    hint: t('Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.', 'Applies the first selected wall tilt to its whole chain of continuous walls (sign per a→b direction), in a single undo.'),
+    run: () => {
+      const erro = acompanharInclinacao(editor.store, useUi.getState().selection);
+      if (erro) useUi.setState({ status: erro });
+    },
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltWedge: {
+    label: t('Cunha', 'Wedge'),
+    icon: 'slope',
+    hint: t('Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).', 'Closes with a prism the step between continuous walls of different tilts (toggles with the open step).'),
+    run: () => {
+      const sel = useUi.getState().selection;
+      const ref = editor.project.elements[sel.find((id) => isWall(editor.project.elements[id])) ?? ''];
+      const j = isWall(ref) ? ref.joinEnd : undefined;
+      const erro = definirTransicaoDaCadeia(editor.store, sel, !(j?.transicao === 'cunha'));
+      if (erro) useUi.setState({ status: erro });
+    },
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
   },
   railingForHost: {
     label: t('Guarda-corpo da escada ou rampa', 'Railing for stair or ramp'),

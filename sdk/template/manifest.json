@@ -1,0 +1,34 @@
+{
+  "manifestVersion": 2,
+  "id": "__ID__",
+  "name": "__NOME__",
+  "version": "0.1.0",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "description": "Descreva em uma frase o que este suplemento faz.",
+  "author": "Seu nome",
+  "license": "MIT",
+  "capabilities": ["model.read", "ui.commands", "ui.ribbon"],
+  "limits": { "timeoutMs": 2000, "memoryMiB": 64, "maxCommandsPerAction": 100 },
+  "dataSchema": 1,
+  "contributes": {
+    "commands": [
+      {
+        "id": "ola",
+        "title": { "pt": "Contar elementos", "en": "Count elements" },
+        "keywords": ["contar", "count", "elementos"],
+        "run": { "type": "handler", "ref": "ola" }
+      }
+    ],
+    "ribbon": {
+      "panels": [
+        {
+          "id": "principal",
+          "title": { "pt": "__NOME__", "en": "__NOME__" },
+          "items": [{ "command": "ola", "size": "large", "icon": "component" }]
+        }
+      ]
+    }
+  }
+}

@@ -3,12 +3,47 @@ import { type Capability, type PluginView } from '@hestia/plugin-api';
 import { useT } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { pluginHost } from '../../plugins/appPorts.ts';
+import { gravarToken, lerToken, mensagemDeCausa, tokenNoCofreDoSistema } from '../../plugins/pluginTokens.ts';
 import { capabilityLabel, stateHelp, stateLabel } from '../../plugins/pluginLabels.ts';
 import { Dialog } from './Dialog.tsx';
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
 const COR: Record<string, string> = { connected: '#2e7d32', connecting: '#b26a00', reconnecting: '#b26a00', incompatible: '#c62828', absent: '#757575', disconnected: '#757575' };
+
+/** Campo do token de pareamento: guarda, apaga e mostra se há token; o valor nunca volta para a tela. */
+function TokenField({ p, lang }: { p: PluginView; lang: string }): ReactElement {
+  const host = pluginHost();
+  const tx = (a: string, b: string): string => (lang === 'pt' ? a : b);
+  const [texto, setTexto] = useState('');
+  const [ruim, setRuim] = useState(false);
+  const [tem, setTem] = useState(() => lerToken(p.key) !== undefined);
+  const salvar = (): void => {
+    const ok = gravarToken(p.key, texto);
+    setRuim(!ok);
+    if (!ok) return;
+    setTexto('');
+    setTem(true);
+    host.tokenChanged(p.key);
+  };
+  const apagar = (): void => { gravarToken(p.key, null); setTem(false); host.tokenChanged(p.key); };
+  const semAuth = p.state === 'connected' && p.authenticated === false;
+  return (
+    <fieldset style={{ border: 0, padding: 0, margin: '8px 0' }} data-testid="token-field">
+      <legend><b>{tx('Token de pareamento', 'Pairing token')}</b></legend>
+      <div role="status" className="hint">{tem ? tx('Token configurado.', 'Token set.') : tx('Nenhum token configurado.', 'No token set.')}{p.authenticated ? ` ${tx('Conexão autenticada.', 'Connection authenticated.')}` : ''}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input type="password" autoComplete="off" spellCheck={false} aria-label={tx('Token de pareamento', 'Pairing token')} placeholder={tx('Cole o token do programa externo', 'Paste the external program token')} value={texto} onChange={(e) => setTexto(e.target.value)} style={{ minWidth: 260 }} />
+        <button className="btn" onClick={salvar} disabled={!texto.trim()}>{tx('Salvar token', 'Save token')}</button>
+        {tem ? <button className="btn" onClick={apagar}>{tx('Apagar token', 'Delete token')}</button> : null}
+      </div>
+      {ruim ? <div role="alert" style={{ color: '#c62828' }}>{tx('Token inválido: use de 32 a 256 caracteres, sem espaços.', 'Invalid token: use 32 to 256 characters, no spaces.')}</div> : null}
+      <div className="hint">{tx('O programa externo mostra o token uma única vez, na primeira execução (e o guarda num arquivo só seu). O token nunca é enviado pela rede: só prova que você o conhece.', 'The external program shows the token once, on first run (and keeps it in a file only you can read). The token is never sent over the network: it only proves you know it.')}</div>
+      {!tokenNoCofreDoSistema() ? <div className="hint">{tx('Atenção: neste app o token fica guardado no armazenamento do navegador, que é menos seguro que o cofre do sistema.', 'Note: in this app the token is kept in browser storage, which is less secure than the system vault.')}</div> : null}
+      {semAuth ? <div role="alert" style={{ color: '#b26a00' }}>{tx('Conectado SEM pareamento (modo de desenvolvimento). Qualquer programa deste computador poderia ler a cena. Não use assim no dia a dia.', 'Connected WITHOUT pairing (development mode). Any program on this computer could read the scene. Do not use it this way day to day.')}</div> : null}
+    </fieldset>
+  );
+}
 
 function Card({ p, lang }: { p: PluginView; lang: string }): ReactElement {
   const host = pluginHost();
@@ -28,7 +63,8 @@ function Card({ p, lang }: { p: PluginView; lang: string }): ReactElement {
         <span role="status" data-state={p.state} style={{ marginLeft: 'auto', color: COR[p.state], fontWeight: 600 }}>● {stateLabel(p.state, lang)}</span>
       </div>
       <div className="hint">{stateHelp(p.state, lang, !!p.error)}</div>
-      {p.error ? <div role="alert" style={{ color: '#c62828', margin: '4px 0' }}>{p.error.message}</div> : null}
+      {p.error ? <div role="alert" style={{ color: '#c62828', margin: '4px 0' }}>{p.error.cause ? mensagemDeCausa(p.error.cause, lang) : p.error.message}</div> : null}
+      <TokenField p={p} lang={lang} />
       <div className="hint">{tx('Endereço local', 'Local address')}: {p.endpoint.host}:{p.endpoint.port}</div>
 
       {shown.length > 0 ? (

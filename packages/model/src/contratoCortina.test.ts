@@ -56,6 +56,7 @@ const PONTOS_PERMITIDOS_LAYERS = new Set([
   'packages/io/src/ifc/ifcExport.ts',
   'packages/io/src/ifc/ifcQuantities.ts',
   'packages/model/src/queries.ts',
+  'packages/render/src/model3d/x1Medida.ts', // harness de medição do X1 (só usado por testes)
   'packages/render/src/plan/tags.ts',
   'tests/ifc-export/canonical.ts',
 ]);

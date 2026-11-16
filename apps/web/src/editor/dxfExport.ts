@@ -37,6 +37,7 @@ import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, graphicsOf, levelGrap
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
+import { massaDoCorte, massaDxfDaPlanta } from './dxfExportMassa.ts';
 import { rampDxf, stairDxf } from './dxfEscadas.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
 export { arrowOfPath, rampDxf, stairArrow, stairDxf } from './dxfEscadas.ts';
@@ -165,8 +166,11 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   // Ambientes (decisão 0018, 0037): contorno em AMBIENTES e rótulo completo (nome, número, área) em AMBIENTES_TEXTO; sem circuito, nada sai.
   const rooms = shown('room') ? resolveRooms(p, levelId).filter((r) => r.polygon && !hidden.has(r.roomId)) : [];
   const curtains = curtainDxfOf(p, levelId, view.cutZ, hidden, shown('wall'));
+  // Massa (ficha X1): camada `MASSA` com as linhas de `massa_planta` na cota de corte da vista; sem kernel ou categoria oculta, nada sai.
+  const masses = massaDxfDaPlanta(p, levelId, view.cutZ, hidden, shown('mass'));
   const geo: DxfLevelGeometry = {
     ...(curtains === undefined ? {} : { curtains }),
+    ...(masses === undefined ? {} : { masses }),
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
       const at = roomLabelAt(r);
@@ -344,6 +348,10 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
     const cat = sectionCategoryOf(b);
     return shown(cat) ? [{ category: cat, polygons: b.polygons }] : [];
   });
+  // Massa (ficha X1): o cortado e o projetado do kernel (`massa_corte`) entram como itens da categoria 'mass' (camada `CORTE_MASSA`).
+  const massa = massaDoCorte(p, section, shown('mass'));
+  cut.push(...massa.cut);
+  beyond.push(...massa.beyond);
   const openings = section.openings.flatMap((o) => (shown(o.kind) ? [{ category: o.kind, polygons: o.polygons, cut: o.cut }] : []));
   const allShown = GRAPHICS_CATEGORIES.every(shown);
   // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.

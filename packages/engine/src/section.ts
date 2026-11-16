@@ -23,6 +23,8 @@ import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclu
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
+import { openingTiltGeom } from './openingTilt.ts';
+import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
 export { type SectionPart } from './sectionParts.ts';
@@ -106,6 +108,11 @@ export interface SectionOpening {
   sSign: 1 | -1;
   /** Posição `t` local em que o plano da seção transversal atravessa o vão. */
   cutT: number;
+  /**
+   * Parede inclinada (P1): plano efetivo do vão, inclinação (rad, + = topo para +n do vão), peitoril e espessura, para a vista
+   * desenhar as peças no referencial inclinado como o 3D. Ausente em parede vertical.
+   */
+  tiltFrame?: { plane: 'vertical' | 'inclinado'; theta: number; sill: number; thickness: number };
   /** Materiais do tipo, para a cor e a hachura das peças do modelo. */
   frameMaterialId: Id;
   glassMaterialId: Id;
@@ -304,7 +311,16 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
         const z0 = rw.baseZ + band.z0;
         const z1 = rw.baseZ + band.z1;
+        // Parede inclinada (F2.6): a seção é o paralelogramo regrado; vertical sem junção inclinada segue o caminho abaixo.
+        const tm = band.slope ? undefined : tiltSectionMap(rw, layer.layerIndex, jl.walls.get(w.id)?.tilt);
         for (const poly of band.poly) {
+          if (tm) {
+            for (const ring of tiltBandCut(rw, tm, poly, { a: line.a, d, n, length }, band.z0, band.z1)) {
+              addCut(layer.materialId, [ring], { wallId: w.id });
+              grow(z0, z1);
+            }
+            continue;
+          }
           for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
             const lo = Math.max(0, t0);
             const hi = Math.min(length, t1);
@@ -313,6 +329,13 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
             addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
             grow(z0, z1);
           }
+        }
+        if (tm) {
+          for (const bp of tiltBandBeyond(rw, tm, band.poly, slab, { a: line.a, d, n, length }, band.z0, band.z1)) {
+            beyond.push({ wallId: w.id, materialId: layer.materialId, layerIndex: layer.layerIndex, depth: bp.depth, polygons: bp.polygons });
+            grow(z0, z1);
+          }
+          continue;
         }
         for (const sp of intersection(band.poly, slab)) {
           const outer = sp[0];
@@ -346,6 +369,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       const z0 = rw.baseZ + g.sill;
       const model = buildOpeningModel(p, o, g, f);
       const ot = openingType(p, o);
+      // Parede inclinada (F2.8): 'inclinado' ocupa h·cosθ na vertical e o plano do caixilho desloca (s + h·cosθ/2)·tanθ ao
+      // longo de n; 'vertical' fica a prumo (topo em s + h), ancorado na face. Parede vertical: nada muda.
+      const tg = rw.tilt ? openingTiltGeom({ plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, t: g.thickness, w: g.width, h: g.height, s: g.sill }) : undefined;
+      const zTop = tg ? rw.baseZ + tg.topZ : z0 + g.height;
+      const shiftDepth = tg && g.tiltPlane ? tg.frameShift * (g.n.x * n.x + g.n.y * n.y) : 0;
       const du = d.x * g.u.x + d.y * g.u.y;
       const dn = d.x * g.n.x + d.y * g.n.y;
       openings.push({
@@ -354,15 +382,16 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         t0,
         t1,
         z0,
-        z1: z0 + g.height,
-        depth: Math.max(0, Math.min(...foot.map(dist))),
+        z1: zTop,
+        depth: Math.max(0, Math.min(...foot.map(dist)) + shiftDepth),
         cut: crossing,
-        polygons: [[rect(t0, t1, z0, z0 + g.height)]],
+        polygons: [[rect(t0, t1, z0, zTop)]],
         model,
         openingLine: openingLineConvention(p),
         // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
         viewSide: du >= 0 ? -1 : 1,
         sSign: dn >= 0 ? 1 : -1,
+        ...(rw.tilt ? { tiltFrame: { plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, sill: g.sill, thickness: g.thickness } } : {}),
         cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
         frameMaterialId: ot.frameMaterialId,
         glassMaterialId: ot.glassMaterialId,

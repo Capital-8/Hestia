@@ -5,7 +5,7 @@
       "quant_cortina",
       "cortina_avisos"
     ],
-    "esquemaVersao": 18,
+    "esquemaVersao": 19,
     "tabelaDePecas": "cortina_pecas::tabela_pecas (função de teste, não é consulta)"
   },
   "descricao": "Casos de paridade da parede cortina (ADR 0056, fase 1): entradas (formato CortinaEntrada de cortinaRef) e saídas esperadas (formato SaidaConsulta) geradas pelo Rust (crates/geom-wasm/tests/cortina_paridade.rs).",

@@ -21,6 +21,8 @@ const LINEARES: Record<string, string> = {
   filledRegion: 'detailRegionTool.ts',
   dimension: 'dimensionTool.ts',
   grid: 'gridTool.ts',
+  // Massa (ficha T1a): extrusão, mistura, loft e bulbo criam por perfil; o perfil livre traça pelo núcleo comum.
+  mass: 'massTool.ts',
   // Piso, laje, forro e telhado traçam o contorno pela sessão de perímetro (a faixa desvia a escolha para ela).
   perimeter: 'perimeterTool.ts',
   floor: 'perimeterTool.ts',
@@ -35,6 +37,8 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
+  plugin: 'pluginTool.ts',
 };
 
 /**

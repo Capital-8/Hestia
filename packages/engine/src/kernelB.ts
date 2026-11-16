@@ -178,13 +178,13 @@ export function montarCenaB1(p: Project, materialDe: Map<Id, number> = new Map()
     // Circuitos e perímetro: o que `resolveBoundary` e `layerOutlines` leem (o Rust usa só o do modo do elemento).
     if (src?.linked && src.mode !== 'perimeter' && src.seed) {
       for (const [extend, papel] of [['finish', PAPEL.circuitoAcabamento], ['core', PAPEL.circuitoNucleo]] as const) {
-        const sala = roomAt(enclosedRooms(p, elemento.levelId, extend), src.seed);
+        const sala = roomAt(enclosedRooms(p, elemento.levelId, extend, src.reference === 'top' ? 'top' : 'base'), src.seed);
         if (sala) aneis('contornos_vinculados', tipoEl, id, { papel }, sala);
       }
     }
     if (src?.mode === 'perimeter' || tipo.layers.some((l) => l.limiteExterno)) {
       for (const [extend, papel] of [['finish', PAPEL.perimetroAcabamento], ['core', PAPEL.perimetroNucleo]] as const) {
-        const anel = outerPerimeter(p, elemento.levelId, src?.seed, extend);
+        const anel = outerPerimeter(p, elemento.levelId, src?.seed, extend, src?.reference === 'top' ? 'top' : 'base');
         if (anel) aneis('contornos_vinculados', tipoEl, id, { papel }, [anel]);
       }
     }

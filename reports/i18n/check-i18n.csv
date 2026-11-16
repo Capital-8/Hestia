@@ -1,1 +1,5 @@
 ﻿arquivo,linha,coluna,tipo,atributo,texto
+apps/web/src/ui/dialogs/ExternalToolsDialog.tsx,48,42,atributo,aria-label,Câmera
+apps/web/src/ui/dialogs/ExternalToolsDialog.tsx,98,33,atributo,aria-label,Nome
+apps/web/src/ui/dialogs/ExternalToolsDialog.tsx,98,66,atributo,placeholder,Nome
+apps/web/src/ui/dialogs/ExternalToolsDialog.tsx,100,33,atributo,aria-label,Porta

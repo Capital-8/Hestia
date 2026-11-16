@@ -1,0 +1,306 @@
+# Suplementos 2.0: especificação
+
+**Estado:** implementado nas fases B a H, na integração e na fase J (gerenciador unificado, SDK e guia do autor); a fase I (token de pareamento e IA) corre em paralelo e segue PROPOSTA neste documento. O que existe vem marcado **EXISTE**; o que não existe, PROPOSTO. Guias: [09 (autor)](09-guia-do-autor.md) e [10 (referência da API)](10-referencia-da-api.md). Decisão: [0057](../decisoes/0057-suplementos-geral.md); base: [0047](../decisoes/0047-plugins-de-integracao.md) e [01](01-api.md) a [07](07-pareamento-por-token.md).
+Unidades em todo o documento: comprimentos em **metro**, ângulos em **radiano**, tempos em **milissegundos (ms)**, memória em **mebibytes (MiB)**, tamanhos de arquivo em **bytes** ou **MiB**.
+
+## 1. Conceitos
+- **Suplemento** (no código, `plugin`): unidade instalável descrita por um manifesto.
+- **Runtime:** `declarative` (só JSON), `script` (Worker isolado) ou `external` (processo separado, WebSocket loopback; EXISTE).
+- **Contribuição** (`contributes`): o que o suplemento acrescenta ao Hestia. **Permissão** (`capabilities`): o que ele pode fazer. Contribuir não concede nada; o usuário concede.
+
+## 2. Manifesto 2.0 (`manifest.json`)
+EXISTE: `PluginManifestV2` em `packages/plugin-api/src/manifestV2.ts`. O validador novo (`validateManifestAny`) aceita 1.x e 2.0; o manifesto é **dado não confiável**: objeto simples, campos desconhecidos **ignorados e descartados** (não repassados), tamanhos limitados, nada de caminho absoluto, `..`, URL de código nem `eval`.
+
+| Campo | Tipo | Obrigatório | Regra e limite |
+|---|---|---|---|
+| `manifestVersion` | `2` | sim (2.0) | ausente = manifesto 1.x (§2.1) |
+| `id` | texto | sim | reverso-DNS minúsculo, `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$` (mesmo `ID_RE` de `manifest.ts`), até 100 caracteres |
+| `name` | texto | sim | 1 a 80 caracteres |
+| `version` | texto | sim | semver do suplemento `x.y.z` (até 40 caracteres) |
+| `hestiaApi` | texto | sim | `major.minor` alvo (EXISTE: `apiSupports`); mesmo `major`, `minor` <= o do host. O host atual é **1.0** (`API_VERSION`): os exemplos usam `"1.0"`; `"2.0"` é recusado na instalação |
+| `runtime` | `'declarative' \| 'script' \| 'external'` | sim | define os campos abaixo |
+| `description` | texto | não | até 400 caracteres |
+| `author`, `homepage`, `license` | texto | não | até 120, 200 e 40 caracteres; `homepage` só `https://` e só exibido (nunca aberto sem clique) |
+| `capabilities` | lista de permissões | sim (pode ser `[]`) | até 40 itens, sem repetição; desconhecida recusa o manifesto (como hoje) |
+| `entry` | caminho relativo no pacote | só `script` | até 200 caracteres, `.js` ou `.mjs`, dentro do pacote |
+| `limits` | objeto | não, só `script` | `timeoutMs` (padrão 2000, máx. 30000 por chamada), `memoryMiB` (padrão 64, máx. 256), `maxCommandsPerAction` (padrão 5000, máx. 50000); o host **limita** ao teto, nunca amplia |
+| `external` | objeto | só `external` | `{ kind: 'renderer'\|'exporter'\|'analysis'; endpoint?: {host,port} }`; mesma regra de `validateEndpoint` (loopback, portas 1024 a 65535) |
+| `dataSchema` | inteiro 1 a 9999 | não | versão do formato do **espaço de dados** do suplemento (§5); padrão 1 |
+| `contributes` | objeto | não | pontos da §4; no máximo 200 entradas no total |
+| `i18n` | `{ [lang]: { [chave]: texto } }` | não | até 4 línguas (`pt`, `en` ao menos), 200 chaves, 200 caracteres por texto; rótulos de contribuição usam `"%chave"` |
+
+Regras cruzadas: `runtime: 'declarative'` **não pode** ter `entry`, `external` nem contribuições `tools` ou `importers`/`exporters` com `handler`; `runtime: 'script'` exige `entry`; `runtime: 'external'` exige `external`. Cada `contributes.*[].id` é único **dentro do suplemento**; o host o expõe como `<pluginId>:<id>`.
+
+### 2.1 Compatibilidade com 1.x (EXISTE, não pode quebrar)
+Um manifesto sem `manifestVersion` é lido por `validateManifest` atual, **sem mudança**, e tratado como `{ runtime: 'external', external.kind: <kind>, contributes: {} }`. A mensagem `hello` do protocolo 1.0 continua carregando o manifesto 1.x. Os 11 casos de `tests/integration/rustRenderer.integ.ts` e `packages/plugin-api/src/plugins.test.ts` devem passar **sem edição**; `PluginManifest`, `INTEGRATION_KINDS` e `CAPABILITIES` não perdem campo nem chave. Suplemento externo 2.0 usa `hello` protocolo 1.1 ([07](07-pareamento-por-token.md)), com `manifestVersion: 2`.
+
+## 3. Permissões (`capabilities`)
+EXISTE: as 5 abaixo marcadas "atual" e as demais (fase B), em `packages/plugin-api/src/permissions.ts` (acréscimo a `CAPABILITIES`; a tabela atual não muda). Menor privilégio: o suplemento **pede**, o usuário **concede** por permissão na tela (estendendo `PluginHost.setGrants`), o host confere a **concessão** a cada chamada e falha com `permission_denied`.
+
+| Permissão | Permite | Exige | Runtimes |
+|---|---|---|---|
+| `scene.read` (atual) | ler a cena 3D (snapshot, deltas) | n/a | external |
+| `camera.read` (atual) | ler a câmera 3D | n/a | external |
+| `events.subscribe` (atual) | eventos de alteração | n/a | todos |
+| `camera.write` (atual) | dirigir a câmera 3D | `camera.read` | external |
+| `overrides.write` (atual) | substituições de visualização (`setPluginViewOverride`) | `scene.read` | external |
+| `model.read` | ler o projeto como dados imutáveis (cópia): níveis, elementos, tipos, materiais, quantitativos; consultar por id/tipo | n/a | todos |
+| `model.write` | aplicar **lotes de comandos** validados (§6) como **um passo de desfazer** | `model.read` | script, external |
+| `plugindata.rw` | ler e gravar o **próprio** espaço de dados em `Project.plugins.data[pluginId]` (§5) | n/a | todos |
+| `ui.commands` | registrar comandos na busca de comandos | n/a | todos |
+| `ui.ribbon` | acrescentar botões/painéis na aba Suplementos | `ui.commands` | todos |
+| `ui.panels` | painéis laterais (propriedades/navegador) declarativos | n/a | todos |
+| `ui.dialogs` | caixas de diálogo declarativas | n/a | todos |
+| `ui.tools` | ferramentas de desenho interativas (§4, `tools`) | `model.write` | script, external |
+| `io.import` | registrar importadores e ler o arquivo escolhido pelo usuário | `model.write` | script, external |
+| `io.export` | registrar exportadores; receber o modelo e **devolver arquivo** ao usuário | `model.read` | todos |
+| `checks.run` | registrar verificações (regras) e publicar avisos no painel de problemas | `model.read` | todos |
+| `content.families` | contribuir famílias/tipos (paredes, aberturas, etc.) | n/a | todos |
+| `content.materials` | contribuir materiais | n/a | todos |
+| `content.schedules` | contribuir quantitativos/tabelas | `model.read` | todos |
+| `net.fetch` | **reservado, não implementado nesta fase** (rede a partir de script) | n/a | nenhum |
+
+Regras: (1) `declarative` só pode pedir `ui.*` (menos `ui.tools`), `content.*`, `checks.run`, `io.export` com formato declarativo, `plugindata.rw` e `model.read`; `model.write` é recusado. (2) Dependências: conceder a permissão sem as exigidas é impossível (a tela marca as exigidas junto) e o host trata a falta como `permission_denied`. (3) Mudar concessões reinicia a sessão/Worker do suplemento (como já ocorre em 03). (4) O manifesto é só um **pedido**; a lista concedida fica no `localStorage` (`hestia.plugins.v1`, EXISTE) e, para uso real, também registrada no projeto (§5) para auditoria.
+
+## 4. Pontos de contribuição (`contributes`)
+Todos EXISTEM (fases B, E, F, G, H). Textos visíveis aceitam `string` ou `{ pt, en }` (como `Txt`/`t()` em `apps/web/src/ui/ribbon/model.ts`) ou `"%chave"` do `i18n` do manifesto. Ícone: nome de ícone interno do Hestia (`Icon.tsx`); ícone próprio só como SVG do pacote, até 20 KiB, sem `<script>`.
+
+| Ponto | Formato de cada entrada | Permissão | Runtime |
+|---|---|---|---|
+| `commands[]` | `{ id, title, keywords?: string[], run: <Ação> }` | `ui.commands` | todos |
+| `ribbon` | `{ panels: [{ id, title, items: [{ command: <id>, size?: 'large'\|'small', icon? }] }] }`; vai sempre para a aba **Suplementos** (a aba não é escolhida pelo suplemento) | `ui.ribbon` | todos |
+| `panels[]` | `{ id, title, dock: 'properties'\|'browser', when?: <Seletor>, view: <Visão declarativa> }` | `ui.panels` | todos |
+| `dialogs[]` | `{ id, title, fields: [{ key, label, type: 'number'\|'text'\|'choice'\|'bool'\|'length'\|'angle', default?, min?, max?, options? }], actions: [{ id, label, run: <Ação> }] }` (`length` em metro, `angle` em radiano na API; mostrados nas unidades do projeto) | `ui.dialogs` | todos |
+| `tools[]` | `{ id, title, icon?, prompts: [{ key, kind: 'point'\|'line'\|'polyline'\|'pick-element', label }], onCommit: <handler> }`; o host faz captura, prévia e cancelamento (Esc), o suplemento só recebe os pontos já capturados e devolve **comandos** (§6) | `ui.tools` | script, external |
+| `importers[]` | `{ id, title, extensions: ['dxf',...], handler: <handler> }`; recebe os bytes (até 64 MiB) e devolve lote de comandos + relatório | `io.import` | script, external |
+| `exporters[]` | `{ id, title, extension, mime, handler: <handler> \| template: <Modelo declarativo> }`; devolve bytes (até 64 MiB) que o host entrega como download | `io.export` | todos |
+| `families[]` | `{ id, category: 'wall'\|'opening'\|'floor'\|'slab'\|'ceiling'\|'roof'\|'stair'\|'ramp', types: [<tipo no formato do modelo, sem id>] }`; os tipos são **validados pelo mesmo validador do app** (`wallType.ts`, `openingTypes.ts`, ...) e entram como tipos do projeto sob `<pluginId>:<id>` só quando o usuário os **carrega** | `content.families` | todos |
+| `materials[]` | `{ id, name, color: '#rrggbb', gloss?: 0..1, opacity?: 0..1 }` | `content.materials` | todos |
+| `schedules[]` | `{ id, title, source: 'wall'\|'opening'\|'room'\|'floor'\|..., columns: [{ key, title, expr, unit?, total?: 'sum'\|'count' }], filter?: <expr>, groupBy?: [key] }`; `expr` é uma expressão **JSONLogic** (JSON, operadores em inglês, sem sintaxe própria nem palavras em pt-BR; **não Turing-completa**), restrita a uma lista branca de operadores (`var`, `+ - * /`, comparações, `and`, `or`, `!`, `round`, `min`, `max`) e a campos do elemento | `content.schedules` | todos |
+| `checks[]` | `{ id, title, severity: 'info'\|'warning'\|'error', applyTo: 'wall'\|'opening'\|..., rule: <expr JSONLogic booleana>, message: <Txt com {campos}> }` ou `handler` (só script/external); a violação vira item do painel de problemas (formato de `ValidationIssue`, EXISTE em `packages/model/src/validate.ts`) | `checks.run` | todos |
+
+Auxiliares: **\<Ação\>** = `{ type: 'dialog'\|'tool'\|'exporter'\|'importer'\|'handler', ref: <id> }` (declarativo só usa os quatro primeiros). **\<handler\>** = nome de função exportada pelo `entry` (script) ou id de mensagem (external). **\<Seletor\>** = `{ kind: <tipo de elemento>, minSelected?: n }`. **\<Visão declarativa\>** = árvore de blocos `text`, `value` (campo do elemento), `row`, `table`, `button` (com `<Ação>`); sem HTML, sem script, sem URL.
+
+Limites gerais: `contributes` com no máximo 200 entradas; texto de título 80 caracteres; `expr` 500 caracteres e profundidade 12; `families[].types` até 200 itens por entrada; tamanho do manifesto até 256 KiB.
+
+### 4.1 Onde cada ponto aparece
+`commands`: busca de comandos (`apps/web/src/ui/ribbon/commandSearch.ts`). `ribbon`: aba `suplementos` (parte fixa `sup-externas` e `sup-gerenciar`, mais os painéis dos suplementos ativos, `pluginRibbon.ts`). `dialogs`: novo `DialogKind` `'pluginDialog'` em `apps/web/src/editor/state.ts`, despachado em `App.tsx`. `checks`: painel de problemas (`IssuesButton.tsx`). `schedules`: caixa de quantitativos (como `'schedule'`/`'openingSchedule'` em `DialogKind`). `families`/`materials`: catálogos e `Project.materials`.
+
+### 4.2 Convenções implementadas (fases E a H)
+**Verificações (`checks`, EXISTE, fase E).** Duas formas. (1) `rule`: expressão JSONLogic restrita avaliada pelo host sobre cada elemento da origem `applyTo`; **regra FALSA gera um item** no painel de problemas (a regra descreve o que é correto). O item tem o código `plugin:<id do suplemento>:<id da verificação>`, a severidade da verificação, o `elementId` e a `message` com os `{campos}` do elemento preenchidos. (2) `handler` (script/external): função `handler(ctx)` que devolve uma lista de `{ elementId?, message? }`; cada item vira uma linha do painel. Até 200 itens por verificação, mensagem até 300 caracteres. Falha de uma verificação vira entrada no log do suplemento e nunca atrapalha as demais. A ação `check` de um comando reavalia e avisa o resultado na barra de estado.
+
+**Quantitativos (`schedules`, EXISTE, fase E).** `source` escolhe a origem (`wall`, `opening`, `door`, `window`, `floor`, `room` ou qualquer `kind`); `filter` (expressão) mantém só as linhas verdadeiras; `groupBy` agrupa por colunas; `columns[].expr` calcula a célula e `total: 'sum' | 'count'` gera a linha de totais; `sum` e `count` só valem como agregação. Até 5000 linhas (excedeu = tabela cortada com aviso); célula que falha vira vazia e é contada. A caixa de quantitativos exporta CSV. Campos consultáveis, em metro (m), metro quadrado (m2) e metro cúbico (m3): `common` (`id`, `kind`, `mark`, `levelId`, `levelName`), `wall` (`typeId`, `typeName`, `length`, `height`, `thickness`, `area`, `volume`, `material`, `materials`, `cost`, `thermalU`, `acousticRw`), `opening` (`typeId`, `typeName`, `typeCode`, `hostId`, `width`, `height`, `sill`, `area`, `leaves`), `floor` (`typeId`, `typeName`, `area`, `material`, `materials`), `room` (`name`, `number`). Detalhe em [10](10-referencia-da-api.md).
+
+**Ações (EXISTE).** `{ type, ref }` com `type` em `handler` (chama a função do script), `dialog` (abre o diálogo declarado), `tool` (ativa a ferramenta), `exporter`, `importer`, `check` e `schedule` (abrem verificação e quantitativo). Ação sem suporte no ambiente avisa "ação ainda não disponível" e o app segue.
+
+**Exportar e importar (EXISTE, fase F).** `exporters`: handler `(ctx, { project, fileName })` devolve texto, bytes ou `{ data, name? }` (até 64 MiB; nome e extensão conferidos), ou `template` declarativo; o host entrega o arquivo. `importers`: handler `(ctx, { name, bytes })` devolve `commands[]` ou `{ commands, report? }`; o host mostra **prévia** (comandos e elementos novos) e só aplica após confirmação, em um passo de desfazer.
+
+**Carga de conteúdo (EXISTE, fase G).** `families` e `materials` ficam no pacote; nada entra no projeto até o usuário clicar em **Carregar conteúdo** (cartão do suplemento ativo). Os tipos e materiais entram sob `<pluginId>:<id>` (nunca substituem os do projeto), com prévia (novo, já carregado, atualização, recusado) e um passo de desfazer; remover é seguro (o que está em uso fica e é avisado).
+
+**Ferramentas e diálogos (EXISTE, fase H).** Ver §6.3: eventos `start`, `point`, `move`, `key`, `cancel`; resposta com `draft`, `commit`, `message`, `done`; campos de diálogo e de painel com `length` e `angle` nas unidades do projeto (o handler recebe metro e radiano).
+
+### 4.3 Gerenciador unificado (EXISTE, fase J)
+Aba Suplementos > **Gerenciar suplementos** (também na busca de comandos e pelo atalho **Alt+Shift+P**) é a ÚNICA tela de gestão: lista os suplementos de pacote e os de processo externo ("Ferramentas externas", que seguem funcionando e mantêm o diálogo próprio para adicionar por porta). Cada cartão mostra estado (ativo, desativado, aguardando permissão, falhou), versão, runtime, autor e descrição, o aviso de **pacote sem assinatura** (ou de pasta de desenvolvimento), as permissões concedidas (conceder e revogar depois, com as dependências marcadas junto; mudar reinicia o suplemento), o **log por suplemento** (filtro por nível e texto, copiar, limpar; o log só aparece aqui), o motivo da falha com **Reativar**, ativar e desativar, **Atualizar** (nova versão do MESMO id; mantém concessões e pede só as novas), **Desinstalar** com confirmação (o conteúdo já carregado e os dados no projeto permanecem) e o **espaço de dados** no projeto, somente leitura (bytes por chave; aviso quando o `dataSchema` do projeto é maior que o instalado). Busca (nome, id, autor, descrição, sem acento) e filtro por estado; rótulos ARIA, foco por teclado e `role="log"`/`role="status"` nas regiões vivas. Lógica pura em `apps/web/src/plugins/supManage.ts`; núcleo em `supRuntime.ts` (`setGrants`, `update`, `dataSpace`).
+
+### 4.4 SDK para autores (EXISTE, fase J)
+Pasta `sdk/` (fora dos pacotes do monorepo; não altera `check-boundaries`): `hestia-plugin.d.ts` (tipos de `ctx`, handlers, ferramentas e manifesto), `template/` (manifesto e `main.js` comentados), `validar.ts` (mesmo validador do app, mensagens em português), `testkit.ts` (executa o script sem abrir o app) e `novo.ts`. Comandos: `npm run suplementos:novo -- <id>` e `npm run suplementos:empacotar` (valida antes de empacotar; `--validar` só valida). Ver [09](09-guia-do-autor.md).
+
+## 5. Dados do suplemento no projeto
+EXISTE, em `packages/model/src/pluginData.ts` (também: `PluginProjectData` com `projectUid` e `viewOverrides`; `applyPluginDataCommand`). Acréscimos opcionais, **sem mudar `SCHEMA_VERSION`**:
+
+```ts
+interface PluginProjectData {
+  projectUid?: string;                     // EXISTE
+  viewOverrides?: Record<string, Record<Id, ViewMaterialOverrideData>>; // EXISTE
+  data?: Record<string /*pluginId*/, PluginDataSpace>;  // EXISTE
+  grants?: Record<string, string[]>;       // PROPOSTO: o tipo existe, mas o app ainda não grava as concessões no projeto (ficam no IndexedDB do app)
+}
+interface PluginDataSpace {
+  schema: number;                          // = manifest.dataSchema
+  version: string;                         // versão do suplemento que gravou por último
+  values: Record<string, JsonValue>;       // chave livre (<= 64 caracteres) -> JSON
+}
+```
+Limites (aplicados pelo host em `applyPluginDataCommand`): 1 MiB por suplemento, 4 MiB no projeto, profundidade JSON 16, chaves até 64 caracteres, só JSON puro (sem `undefined`, funções, `NaN`). Comandos EXISTENTES: `{ type: 'setPluginData', pluginId, key, value }` e `{ type: 'deletePluginData', pluginId, key }`; um suplemento só escreve no **seu** `pluginId` (o host força o id, o suplemento não o escolhe). Se `dataSchema` do suplemento instalado for **maior** que o salvo, ele migra (`onMigrate`, só script/external); se for **menor** (projeto de versão mais nova), o espaço fica **somente leitura** e o app avisa. Se o suplemento sumir, o espaço é **preservado** (nunca apagado sozinho). Isto é a mitigação para "tipos novos de elemento definidos por plugin" (não-objetivo): dados próprios por id de elemento, em `values`, sem entrar em `Project.elements`.
+
+## 6. Escrita no modelo (API de comandos)
+Porta EXISTENTE `ModelPort` em `packages/plugin-api/src/hostPorts.ts` (junto de `ScenePort`, EXISTE):
+```ts
+interface ModelPort {
+  read(): ProjectSnapshot;                               // cópia imutável (model.read)
+  apply(pluginId: string, label: string, commands: unknown[]): ApplyResult; // model.write
+}
+type ApplyResult = { ok: true; applied: number } | { ok: false; index: number; error: string };
+```
+Regras do host (implementação em `apps/web/src/plugins/appModelPort.ts`, EXISTE, ao lado de `appPorts.ts`, EXISTE):
+1. O lote é `unknown[]`: cada item é **validado** contra uma lista branca de tipos de `Command` permitidos ao plugin (`packages/model/src/pluginCommands.ts`, EXISTE) e por `validateProject` depois de aplicar. Comando fora da lista (ex.: apagar o projeto, trocar `plugins` de outro id, `import` em massa) é recusado.
+2. **Atômico:** `ProjectStore.transaction(label, fn)` (EXISTE em `history.ts`) executa `exec` de cada comando; se algum lançar erro ou `validateProject` achar erro novo, o lote inteiro é desfeito sem entrar no histórico. Sucesso = **um** passo de desfazer, rótulo `"<nome do suplemento>: <label>"`.
+3. Limite: `maxCommandsPerAction` (padrão 5000) e 8 MiB por lote; ids novos devem vir de `newId` do host (o plugin pede ids por `model.newId(prefix)`; ids inventados pelo plugin são recusados).
+4. O plugin **nunca** recebe o `Project` mutável nem o `ProjectStore`; só cópias (como nas portas atuais).
+5. **IA desenha:** a IA devolve `commands[]`; o host mostra uma **prévia** (a transação roda, o resultado é desenhado, e só `confirmar` a mantém; `cancelar` faz `undo` silencioso) e aplica como um passo. Sem confirmação, nada fica.
+
+### 6.1 Resultado de um handler (EXISTE)
+O que um handler `export async function nome(ctx, valores)` devolve é **dado não confiável**, mostrado só como texto simples numa caixa de diálogo (`DialogKind` `'pluginResult'`): `string`, ou `{ title?: Txt, message: Txt }` com `Txt = string | { pt, en }`, ou qualquer JSON (exibido formatado, até 4000 caracteres). `null`/`undefined` não abre caixa alguma. Erro lançado vira entrada de log e aviso na barra de estado; três falhas em 60000 ms desativam o suplemento (§7).
+
+### 6.2 Integração no app (EXISTE)
+`apps/web/src/plugins/supRuntime.ts` junta instalador, carregador, registro, portas e Worker; `supApp.ts` o liga ao app (registro global, IndexedDB, Worker embutido, avisos); `supStore.ts` persiste pacote, estado e **concessões** no IndexedDB (`hestia-suplementos`). Botão e diálogo: aba Suplementos > Gerenciar suplementos (`SupplementsDialog.tsx`). Exemplos empacotáveis em `plugins-exemplo/` (`npm run suplementos:empacotar`).
+
+### 6.3 Ferramentas, diálogos e painéis (EXISTE, fase H)
+- **Ferramenta (`tools`, `ui.tools`, script/external):** o botão (ação `{ type: 'tool' }`) ativa `PluginTool` (`packages/tools/src/pluginTool.ts`, id `plugin`). O host captura cliques e posições **com os snaps do app** (Orto/Polar incluídos) e chama o handler `onCommit` como `handler(ctx, evento)`; os eventos, em metro, são `start` (`values` = campos validados do diálogo que a abriu), `point` (`key`, `kind`, `point`, `complete`, `collected` por `key`; `line` = 2 cliques, `polyline` termina com Enter, `pick-element` traz `elementId`), `move`, `key` (`Enter`/`Tab`/`Space`) e `cancel` (Esc). Movimentos seguidos se fundem no último. A **resposta** (dado não confiável, validada por `sanitizeToolReply`) pode ter `draft` (até 500 linhas, 500 pontos, 50 rótulos; coordenadas finitas até 1e6 m), `commit: { label, commands }`, `message` e `done`. `commit` vai pela porta de escrita da §6 (lista branca, atômico, **um** passo de desfazer, exige `model.write`). Esc cancela o passo e avisa o handler; respostas atrasadas são ignoradas. Exceção do handler = ferramenta `failed`: o app avisa, sai da ferramenta e segue (a regra das 3 falhas em 60 s da §7 continua valendo).
+- **Diálogo (`dialogs`) e campos `input` de painel:** `number`, `text`, `choice`, `bool`, `length` e `angle`. `length` e `angle` são **exibidos e digitados nas unidades do projeto** (separador decimal e unidade do projeto; `fieldUnits.ts`), e o handler recebe **metro e radiano**. Os valores passam por `validateFieldValues` (tipo, `min`/`max`, opção válida, texto até 200 caracteres) antes de qualquer ação; campo inválido mostra o erro e não fecha o diálogo.
+- **Painel (`panels`):** `view` é validada por `parseView` já na instalação (blocos `text`, `value`, `row`, `table`, `button`, `input`; profundidade 6, 200 nós; caminho de campo só de propriedades próprias). O painel lateral persistente (`ui/PluginPanel.tsx`) fica à direita, recolhível, e respeita `when`; `value`/`table` leem a seleção, com `unit: 'length' | 'angle'` nas unidades do projeto; `button` envia os `input` validados mais `$selection` (ids). Exemplo: `plugins-exemplo/grade-de-paredes/`.
+
+## 7. Ciclo de vida
+Estados EXISTENTES (estendem `PluginState` de `pluginHost.ts`, EXISTE: `absent`, `disconnected`, `connecting`, `connected`, `reconnecting`, `incompatible`): `installed`, `needs-grant`, `active`, `failed`, `disabled`.
+
+1. **Instalar:** o usuário escolhe um `.hestiapkg` (ou pasta, em desenvolvimento). O host lê o zip (limites em §8), valida `manifest.json` (dado não confiável) e **nada executa**. Resultado: `installed`, com a lista de permissões pedidas na tela. Falha de validação mostra o motivo e não instala.
+2. **Conceder e ativar:** o usuário marca as permissões e ativa (nada vem concedido de início). **Concessão parcial** ativa só o concedido (o registro esconde as contribuições sem permissão e o host nega as portas não concedidas); **nenhuma** concessão, tendo o manifesto pedido alguma, deixa o suplemento em `needs-grant`. `declarative`: contribuições registradas, sem código. `script`: cria o Worker, carrega `entry`, chama `activate(ctx)`. `external`: conecta como hoje (e exige token).
+3. **Operação:** cada chamada ao script tem `timeoutMs`; excedeu = Worker **encerrado** e recriado na próxima chamada. `memoryMiB` estourado (medido pelo Worker/host quando disponível, e por tamanho de mensagens) = idem. Três falhas em 60 s (60000 ms) = `failed` e desativação automática com aviso.
+4. **Falha:** erro de um suplemento **nunca** propaga ao editor: exceção do script vira entrada de log e aviso, a contribuição do suplemento é retirada, o app segue. Na abertura do app e do projeto, cada suplemento carrega **dentro de try/catch e fora do caminho crítico** (depois da primeira pintura); manifesto inválido ou pacote corrompido = `failed` e o app abre normalmente.
+5. **Desativar:** remove contribuições, encerra Worker/conexão, **mantém** o espaço de dados e as concessões. **Desinstalar:** remove o pacote e as concessões; o espaço de dados no projeto **permanece** até o usuário pedir "limpar dados do suplemento".
+6. **Log por suplemento:** anel de 500 entradas por suplemento (nível, hora, texto até 500 caracteres), visível no gerenciador; nunca grava dados do modelo.
+7. **Atualização:** nova `version` com mesmo `id` substitui o pacote; se pediu **mais** permissões, volta a `needs-grant` só para as novas.
+
+## 8. Formato `.hestiapkg`
+Arquivo **zip** (método store ou deflate), extensão `.hestiapkg`, tipo `application/zip`. EXISTEM o **escritor** (`packages/io/src/zip.ts`, store), o **leitor** (`zipRead.ts`, com inflate e proteção contra zip bomb) e a validação do pacote (`pkg.ts`).
+```
+meu-suplemento.hestiapkg
+├── manifest.json        (obrigatório, na raiz, UTF-8, até 256 KiB)
+├── main.js              (runtime script; o `entry`)
+├── data/*.json          (declarativo: famílias, materiais, tabelas)
+├── icons/*.svg          (opcional)
+└── README.md            (opcional, mostrado ao instalar)
+```
+Limites: até 200 arquivos, 16 MiB descompactado no total, 8 MiB por arquivo, razão de compressão até 100:1; caminhos relativos com `/`, sem `..`, sem `/` inicial, sem links, sem nomes reservados. Tipos aceitos: `.json`, `.js`, `.mjs`, `.svg`, `.png`, `.md`, `.txt`. Sem binários executáveis (`.exe`, `.dll`, `.so`, `.wasm` fica **recusado** nesta fase). Assinatura e loja: não-objetivo. Em desenvolvimento: uma pasta com `manifest.json`, lida no desktop (Tauri, comando `suplementos_ler_pasta` em `desktop/src-tauri/src/suplementos.rs`, EXISTE) e, no navegador, por seletor de pasta/arquivo.
+
+## 9. Exemplos
+### 9.1 `manifest.json` declarativo (norma e verificação, sem código)
+```json
+{
+  "manifestVersion": 2,
+  "id": "dev.exemplo.norma-corrimao",
+  "name": "Verificação de corrimão",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "declarative",
+  "description": "Avisa quando a altura do guarda-corpo é menor que 1,05 m.",
+  "capabilities": ["model.read", "checks.run", "ui.commands", "content.schedules"],
+  "contributes": {
+    "checks": [{
+      "id": "altura-minima", "title": "Altura mínima do guarda-corpo",
+      "severity": "warning", "applyTo": "guardaCorpo",
+      "rule": "height >= 1.05",
+      "message": { "pt": "Guarda-corpo com {height} m; mínimo 1,05 m.", "en": "Railing at {height} m; minimum 1.05 m." }
+    }],
+    "schedules": [{
+      "id": "gc-resumo", "title": "Guarda-corpos por nível", "source": "guardaCorpo",
+      "groupBy": ["levelName"],
+      "columns": [
+        { "key": "levelName", "title": "Nível", "expr": "levelName" },
+        { "key": "len", "title": "Comprimento", "expr": "length", "unit": "m", "total": "sum" }
+      ]
+    }]
+  }
+}
+```
+(Campos como `height` e `length` são os do elemento; a lista de campos consultáveis por tipo será definida na Fase E, tabelas geradas a partir dos tipos de `packages/model/src/types.ts`.)
+
+### 9.2 `manifest.json` de script (ferramenta que desenha)
+```json
+{
+  "manifestVersion": 2,
+  "id": "dev.exemplo.grade-de-pilares",
+  "name": "Grade de pilares",
+  "version": "0.3.1",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "capabilities": ["model.read", "model.write", "ui.commands", "ui.ribbon", "ui.dialogs"],
+  "limits": { "timeoutMs": 3000, "memoryMiB": 64, "maxCommandsPerAction": 2000 },
+  "contributes": {
+    "dialogs": [{
+      "id": "params", "title": "Grade de pilares",
+      "fields": [
+        { "key": "nx", "label": "Colunas", "type": "number", "default": 4, "min": 1, "max": 50 },
+        { "key": "ny", "label": "Linhas", "type": "number", "default": 3, "min": 1, "max": 50 },
+        { "key": "vao", "label": "Vão", "type": "length", "default": 4.0, "min": 0.5, "max": 20 }
+      ],
+      "actions": [{ "id": "gerar", "label": "Gerar", "run": { "type": "handler", "ref": "gerar" } }]
+    }],
+    "commands": [{ "id": "abrir", "title": "Grade de pilares...", "run": { "type": "dialog", "ref": "params" } }],
+    "ribbon": { "panels": [{ "id": "p1", "title": "Estrutura", "items": [{ "command": "abrir", "size": "large" }] }] }
+  }
+}
+```
+
+### 9.3 `main.js` (script)
+O script roda num Worker sem DOM, sem `fetch`, sem `importScripts` externo. Recebe um `ctx` só com as portas concedidas. **Toda porta é assíncrona** (mensagem ao host e resposta): use sempre `await` em `ctx.model.*` e `ctx.data.*`. O host confere a permissão a cada chamada (EXISTE, `scriptHost.ts`):
+```js
+// Exporta handlers pelo nome usado em `ref`.
+export async function gerar(ctx, valores) {
+  const nx = Math.floor(valores.nx), ny = Math.floor(valores.ny), vao = valores.vao; // vao em metro
+  const projeto = await ctx.model.read();                    // model.read (cópia imutável; porta ASSÍNCRONA)
+  const nivel = projeto.levels[0];
+  if (!nivel) { ctx.log.warn('Projeto sem nível.'); return; }
+  const comandos = [];
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    comandos.push({
+      type: 'addGeneric',                                    // comando real de packages/model (commands.ts)
+      // O host emite o id (`newId`); id inventado pelo script é recusado.
+      generic: { id: await ctx.model.newId('gen'), levelId: nivel.id, name: `Pilar ${i + 1}-${j + 1}`,
+                 /* ...demais campos do tipo Generic... */ },
+    });
+  }
+  // Um único passo de desfazer; atômico; validado pelo host.
+  const r = await ctx.model.apply('Grade de pilares', comandos); // model.write
+  if (!r.ok) ctx.log.error(`Comando ${r.index} recusado: ${r.error}`);
+  else await ctx.data.set('ultimaGrade', { nx, ny, vao });   // plugindata.rw (não pedida acima: seria recusada)
+}
+```
+Nota: o exemplo grava em `ctx.data`, que exige `plugindata.rw`; como o manifesto 9.2 não a pede, a chamada falharia com `permission_denied` (de propósito: mostra o menor privilégio). O formato exato de `Generic` deve ser conferido em `packages/model/src/types.ts` na Fase C.
+
+### 9.4 "IA desenha" (external ou script)
+Fluxo: o usuário digita um pedido; o suplemento envia o contexto mínimo (por `model.read`) ao seu serviço de IA; a IA devolve `commands[]` (JSON de `Command`); o suplemento chama `await ctx.model.apply('IA: <pedido>', commands)` com `preview: true`; o host valida, aplica em transação, mostra, e o usuário confirma ou cancela. Comandos inválidos recusam o lote (resposta devolve `index` e `error` para a IA tentar de novo). A chave da IA é do usuário e nunca entra no `.hestiapkg` nem no projeto.
+
+## 10. Mapa: pacotes do repositório e pontos que tocam
+| Pacote / pasta | Papel | Pontos |
+|---|---|---|
+| `packages/plugin-api/src` | manifesto 2.0, permissões, portas, registro de contribuições, protocolo 1.1 | todos |
+| `packages/model/src` | `pluginData.ts` (dados, comandos `setPluginData`), `pluginCommands.ts` (lista branca), `commands.ts` (união `Command`), `history.ts` (`transaction`, EXISTE), `validate.ts` | escrita, dados, checks |
+| `packages/io/src` | leitor zip (`zipRead.ts`), contrato de importador/exportador | `.hestiapkg`, `importers`, `exporters` |
+| `packages/tools/src` | ponte de ferramenta de plugin (captura, prévia) | `tools` |
+| `apps/web/src/plugins` | `appPorts.ts` (EXISTE), `appModelPort.ts`, carregador, Worker, registro | todos |
+| `apps/web/src/ui/ribbon` | `tabsSoon.ts`, `actions.ts`, `model.ts`, `commandSearch.ts` | `commands`, `ribbon` |
+| `apps/web/src/ui` e `editor/state.ts`, `App.tsx` | diálogos e painéis de plugin, `DialogKind` | `dialogs`, `panels`, `schedules`, `checks` |
+| `desktop/src-tauri/src` | `suplementos.rs` (pasta/arquivos), token no cofre; `biblioteca.rs` é o modelo | instalar, external |
+| `crates/hestia-renderer` | só segue `hello` 1.x/1.1; sem mudança de API | external |
+
+## 11. Divisão de trabalho em fases
+Regra anti-conflito: cada fase é **dona** dos arquivos listados e só **acrescenta** nos arquivos compartilhados abaixo, numa linha/bloco marcado `// SUPLEMENTOS:`; os compartilhados são `packages/plugin-api/src/index.ts` (só linhas `export *`), `packages/model/src/commands.ts` (só a união `Command`; dona: C), `apps/web/src/editor/state.ts` (só `DialogKind`; dona: B) e `apps/web/src/App.tsx` (só um `case`; dona: B). Ordem: B antes de C e D; C e D em paralelo depois de B; E, F, G, H em paralelo depois de C e D; I por último.
+
+| Fase | Objetivo | Arquivos (novos, salvo indicação) |
+|---|---|---|
+| **B. Registro e UI** | manifesto 2.0, validador que aceita 1.x, permissões novas, registro de contribuições e gerenciador, botões na aba Suplementos, busca de comandos | `packages/plugin-api/src/manifestV2.ts`, `registry.ts`, `permissions.ts` (acréscimo), `manifest.ts` (só chamar o novo validador, sem mudar o atual), testes `manifestV2.test.ts`; `apps/web/src/plugins/registry.ts`, `pluginUi.tsx`; edita `ui/ribbon/tabsSoon.ts`, `actions.ts`, `model.ts`, `commandSearch.ts`, `editor/state.ts`, `App.tsx`; roda os 11 testes de integração |
+| **C. API de escrita** | `ModelPort`, lista branca, atomicidade e um passo de desfazer, espaço de dados | `packages/model/src/pluginCommands.ts`, `pluginData.ts` (acréscimo), `commands.ts` (união), testes; `packages/plugin-api/src/modelPort.ts`, `hostPorts.ts` (acréscimo); `apps/web/src/plugins/appModelPort.ts` |
+| **D. Carregador e runtime** | leitor `.hestiapkg`, instalação, runtime declarativo, Worker de script, limites, log, falha isolada | `packages/io/src/zipRead.ts`, `pkg.ts`; `packages/plugin-api/src/scriptHost.ts`, `scriptWorker.ts`, `limits.ts`; `apps/web/src/plugins/loader.ts`, `installer.ts`, `pluginLog.ts`; `desktop/src-tauri/src/suplementos.rs` (+ registro em `main.rs`/`lib.rs`) |
+| **E. Checks e quantitativos** | `checks`, `schedules`, linguagem de expressão | `packages/model/src/pluginExpr.ts` (avaliador JSONLogic restrito), `pluginChecks.ts`, `pluginSchedules.ts`; `apps/web/src/ui/PluginSchedule.tsx`, integração no painel de problemas (`IssuesButton.tsx`) |
+| **F. Importar e exportar** | `importers`, `exporters`, entrega de arquivo | `packages/io/src/pluginIo.ts`; `apps/web/src/plugins/ioBridge.ts`; menu de Arquivo (`FileMenu.tsx`, só acréscimo) |
+| **G. Famílias e materiais** | `families`, `materials`, carregar como tipos do projeto | `packages/model/src/pluginContent.ts`; `apps/web/src/plugins/contentBridge.ts`; catálogos (só acréscimo em `catalogoAberturas*.ts` e `Project.materials` via comando existente) |
+| **H. Ferramentas e diálogos** | `tools` interativas, `dialogs`/`panels` declarativos completos | `packages/tools/src/pluginTool.ts`; `apps/web/src/plugins/toolBridge.ts`; `ui/PluginDialog.tsx`, `PluginPanel.tsx` |
+| **I. IA e processo externo** | prévia confirmável, token de pareamento obrigatório ([07](07-pareamento-por-token.md)), protocolo 1.1, endurecimento | `packages/plugin-api/src/protocol.ts` (acréscimo de `auth`), `hostSession.ts`, `pluginHost.ts`; `apps/web/src/plugins/aiPreview.ts`; `crates/hestia-renderer` (token); `desktop/src-tauri/src` (cofre) |
+
+**Estado das fases:** B, C, D, E, F, G, H e J entregues (**EXISTE**); I (token de pareamento, protocolo 1.1, prévia da IA) em andamento em frente separada (**PROPOSTO** aqui até ser mesclada).
+
+Critérios de pronto, comuns: testes de unidade da fase, **os 11 casos de integração e `plugins.test.ts` verdes sem edição**, nenhuma importação de store/React em `plugin-api`, nenhum caminho de escrita fora de `Command`.
+
+## 12. Decisões do dono (fechadas)
+Token de pareamento obrigatório para todo suplemento de processo externo; pacote sem assinatura aceito com aviso; **`.wasm` recusado no pacote nesta fase** (liberável depois sem quebrar nada); limites da proposta aceitos; script roda no navegador e no desktop; **expressões de `checks` e `schedules` usam JSONLogic restrito, sem linguagem própria nem sintaxe em pt-BR**; prévia da IA sempre obrigatória; log só no gerenciador; suplemento não escolhe a aba (sempre Suplementos); `dataSchema` maior que o instalado deixa o espaço somente leitura; **uma única permissão de escrita, `model.write`** (sem `.elements` e `.types`; dividir depois é compatível); suplemento só adiciona tipos sob `<pluginId>:`.
+
+Pendências menores: extensão do código no zip (`.js` somente?) e tamanho máximo de lote a validar na implementação.
+
+## 13. Estado da fase I (IA com prévia e token) — IMPLEMENTADA
+- **Token de pareamento:** protocolo 1.1, obrigatório em uso real ([07](07-pareamento-por-token.md)). Cofre do sistema no desktop **não** implementado (token no `localStorage`, com aviso).
+- **Prévia confirmável** (genérica para script ou processo externo): o handler devolve `{ proposal: { label, commands, note? } }` (só essa chave conta). O host **ensaia** o lote numa cópia (`rehearsePluginBatch` em `packages/model/src/pluginCommands.ts`, as mesmas validações de `applyPluginBatch`; porta `ModelPort.rehearse`), mostra criados, alterados, apagados e erros (`apps/web/src/plugins/batchPreview.ts`, diálogo `pluginBatchPreview`) e só aplica no clique em **Aplicar** (`ModelPort.apply`: atômico, UM passo de Desfazer). Com erros o botão fica desabilitado; sem `rehearse` na porta a proposta é recusada; há um desfazer da aplicação enquanto ela for o último passo. Não existe opção de desligar a prévia.
+- **Importar (fase F):** a prévia da importação reaproveita o ensaio (`PendingImport.rehearsal`: alterados, apagados, erros; "Importar" fica desabilitado com erros).
+- **Exemplo:** `plugins-exemplo/assistente-ia/` transforma "sala 4x5" em 4 paredes por regra fixa (sem IA). Um plugin real de IA ligaria um modelo de linguagem trocando `interpretarFrase`; rede só pela permissão `net.fetch`, que continua **reservada e recusada** (não habilitada): hoje seria um plugin de processo externo com token.
+- Testes: `pluginRehearsal.test.ts`, `assistenteIa.test.ts`, `pairing.test.ts`, `pluginTokens.test.ts` e os casos de token em `tests/integration/rustRenderer.integ.ts`.

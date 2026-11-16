@@ -25,10 +25,22 @@ import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { DE_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { DE_MASSA } from '../../areas/massa.ts';
+import { DE_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { DE_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
+import { DE_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { DE_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { DE_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { DE_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 
 export const DE_ALL = {
   ...DE_GUARDA_CORPO,
+  ...DE_MASSA,
+  ...DE_MASSA_PISOS,
+  ...DE_MASSA_PAREDES,
+  ...DE_SUPLEMENTOS,
+  ...DE_SUPLEMENTOS_IO,
+  ...DE_SUPUI,
   ...DE_PAREDE_CORTINA,
   ...DE_SHELL_RIBBON,
   ...DE_MISC_UI,

@@ -1,15 +1,19 @@
-# Protocolo (versão 1.0)
+# Protocolo (versão 1.1)
 
 Quadros de **texto JSON** em transporte ordenado e bidirecional (WebSocket em loopback). O **plugin é o servidor**; o
 Hestia conecta e o plugin fala primeiro (`hello`). Independente de linguagem; a referência em TypeScript é `protocol.ts`
 e `transport.ts` (`Peer`).
+
+A 1.1 é aditiva: acrescenta o pareamento por token ([07](07-pareamento-por-token.md)); a 1.0 continua negociável.
 
 Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ... }`.
 
 ## Tipos
 | Sentido | Tipo | Capacidade exigida (concessão) |
 |---|---|---|
-| plugin→host | `hello` (`protocol` com `min` e `max`, `manifest`, `resume?`) | — |
+| plugin→host | `hello` (`protocol` com `min` e `max`, `manifest`, `resume?`, `auth?: { nonce }` na 1.1) | — |
+| host→plugin | `auth` (`proof`, `nonce`) — 1.1 | — |
+| plugin→host | `auth.ok` (`proof`) — 1.1 | — |
 | host→plugin | `welcome` (`protocol`, `api`, `sessionId`, `granted`, `denied`, `heartbeatMs`, `cameraMode`, `resumed`) | — |
 | host→plugin | `scene.snapshot`, `scene.delta`, `event.connection` | `scene.read` (deltas também `events.subscribe`) |
 | plugin→host | `scene.resync` | `scene.read` |
@@ -24,6 +28,10 @@ Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ..
 ## Regras
 - **Versão:** `hello.protocol` é a faixa `[min, max]` do plugin. O host escolhe a maior versão comum (mesmo `major`).
   Sem interseção: `error unsupported_version` fatal e estado **incompatível**.
+- **Pareamento (1.1):** com token (obrigatório em uso real) o `hello` leva `auth.nonce`, o host responde `auth`, o plugin
+  responde `auth.ok` e só então vem `welcome`. Antes disso nada de cena, câmera ou substituição é processado (`auth_failed`
+  fatal). O token nunca trafega: HMAC-SHA256 sobre os dois nonces. Host 1.1 com plugin 1.0 negocia 1.0 e, com token
+  obrigatório, vira incompatível. Detalhes em [07](07-pareamento-por-token.md).
 - **Confirmação:** toda mensagem exceto `ack`, `ping`, `pong`, `bye` e `error` leva `seq` crescente a partir de 1; o
   receptor responde `ack`. Duplicata: reconfirma e ignora. Salto: `out_of_order` fatal. Sem `ack` no prazo: `ack_timeout` fatal.
 - **Heartbeat:** `ping` a cada `heartbeatMs` (padrão 5 s). Silêncio por mais de 2,5 vezes isso: `heartbeat_timeout` e fechamento.
@@ -38,6 +46,6 @@ Envelope: `{ "t": tipo, "seq"?: n, "id"?: correlação, "re"?: id respondido, ..
   mandar `hello.resume` (`sessionId`, `lastRevision`); se a revisão casa com a retida, o host envia só o delta; senão, snapshot.
 - **Erros:** `error` com `code` em `bad_frame`, `unknown_type`, `unsupported_version`, `bad_manifest`, `not_handshaken`,
   `permission_denied`, `bad_request`, `out_of_order`, `cancelled`, `ack_timeout`, `heartbeat_timeout`,
-  `image_payload_forbidden`, `internal`; mais `message`, `fatal` e `detail?`. Fatal fecha a conexão.
+  `image_payload_forbidden`, `internal`, `auth_failed` (1.1); mais `message`, `fatal` e `detail?`. Fatal fecha a conexão.
 - **Proibido:** imagem como sincronização. `findImagePayload` recusa `data:image/*` e as chaves `png`, `jpeg`, `image`,
   `frame`, `pixels`, `bitmap` e `screenshot`.

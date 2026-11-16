@@ -29,6 +29,8 @@ export * from './migrate.ts';
 export * from './meshArrays.ts';
 export * from './templates.ts';
 export * from './wall.ts';
+export * from './wallTilt.ts';
+export * from './openingPlane.ts';
 export * from './wallOverlap.ts';
 export * from './validate.ts';
 export { STAIR_MIN_HEIGHT } from './validateStairs.ts';
@@ -47,6 +49,10 @@ export * from './ramp.ts';
 export * from './rampTypes.ts';
 export * from './rampTransform.ts';
 export * from './validateRamps.ts';
+export * from './massTypes.ts';
+export * from './mass.ts';
+export * from './validateMass.ts';
+export * from './massDerivaCommands.ts';
 export * from './guardaCorpoTypes.ts';
 export * from './guardaCorpo.ts';
 export * from './guardaCorpoTransform.ts';
@@ -80,6 +86,9 @@ export * from './sheet.ts';
 export * from './sheetCommands.ts';
 export * from './view3dPoints.ts';
 export * from './pluginData.ts';
+export * from './pluginCommands.ts'; // SUPLEMENTOS:
+export * from './pluginContent.ts'; // SUPLEMENTOS:
+export { materialReferences } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';
@@ -92,3 +101,8 @@ export * from './viewHiddenCommands.ts';
 export * from './sectionAnnotations.ts';
 export * from './sectionAnnotationCommands.ts';
 export * from './sectionLevelExtents.ts';
+// SUPLEMENTOS (fase E): expressões JSONLogic restritas, campos, verificações e quantitativos.
+export * from './pluginExpr.ts';
+export * from './pluginFields.ts';
+export * from './pluginChecks.ts';
+export * from './pluginSchedules.ts';

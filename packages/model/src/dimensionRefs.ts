@@ -17,8 +17,8 @@ import { isOpening, isWall, type DimensionRef, type Opening, type Id, type Locat
  * - `vertex`: `boundary[index]` de laje/piso/forro/telhado; em escada/rampa, o anel de vértices na ordem dos componentes
  *   (lance: limite esquerdo e depois o direito de trás para frente; patamar: seu limite), usando o início de cada
  *   segmento do croqui. `edge`: ponto médio da aresta `index` (de `index` a `index+1`, fechando o anel).
- * - `part`: ponto de apoio de escada, rampa ou guarda-corpo (cantos e meios dos degraus, espelhos, acabamentos, eixo, peças
- *   do guarda-corpo...), nomeado por `key`. A geometria vem do motor, que se registra com `definirProvedorDeApoio`
+ * - `part`: ponto de apoio de escada, rampa, guarda-corpo ou massa (cantos e meios dos degraus, espelhos, acabamentos, eixo, peças
+ *   do guarda-corpo, vértices e meios do anel cortado da massa...), nomeado por `key`. A geometria vem do motor, que se registra com `definirProvedorDeApoio`
  *   (o modelo não conhece o motor). Sem provedor, ou com a chave que sumiu na edição, resolve para `null` e a cota
  *   mantém o último ponto guardado.
  * - `plane` (3º parâmetro de `resolveDimRef`) está reservado para vistas em corte/elevação: hoje as refs resolvem
@@ -203,9 +203,9 @@ export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { r
     if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
     for (const c of dimRefCandidates(p, el)) consider(c);
   }
-  // Pontos de apoio (degraus, espelhos, acabamentos, guarda-corpo): depois dos vértices e arestas, que vencem o empate.
+  // Pontos de apoio (degraus, espelhos, acabamentos, guarda-corpo, vértices do anel cortado da massa): depois dos vértices e arestas, que vencem o empate.
   for (const el of Object.values(p.elements)) {
-    if ((el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing') || el.levelId !== levelId) continue;
+    if ((el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'mass') || el.levelId !== levelId) continue;
     for (const c of dimRefApoioCandidates(p, el)) consider(c);
   }
   return best;

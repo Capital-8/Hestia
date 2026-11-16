@@ -20,7 +20,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
 
 export interface UiState {
   tool: ToolId;
@@ -287,6 +287,9 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   wallHeight: 2.8,
   chain: true,
   wallShape: 'line',
+  wallPolygonSides: 6,
+  wallPolygonCircumscribed: false,
+  wallFitTol: 0.005,
   doorTypeId: 'ot_p80',
   windowTypeId: 'ot_j120',
   openingFacingMode: 'cursor',
@@ -305,6 +308,7 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   rotateCopy: false,
   mirrorCopy: true,
   offsetCopy: true,
+  offsetChain: true,
   moveDisjoin: DEFAULT_DISJOIN.move,
   rotateDisjoin: DEFAULT_DISJOIN.rotate,
   mirrorDisjoin: DEFAULT_DISJOIN.mirror,

@@ -1,0 +1,57 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.grade-de-paredes",
+  "name": "Grade de paredes",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "script",
+  "entry": "main.js",
+  "description": "Pede a largura, a altura e o passo numa caixa de diálogo e, com dois cliques, gera uma grade de paredes. Mostra a prévia ao mover o cursor e um único passo de Desfazer.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["model.read", "model.write", "ui.commands", "ui.ribbon", "ui.dialogs", "ui.tools"],
+  "limits": { "timeoutMs": 5000, "memoryMiB": 64, "maxCommandsPerAction": 500 },
+  "contributes": {
+    "commands": [
+      {
+        "id": "abrir",
+        "title": { "pt": "Grade de paredes...", "en": "Wall grid..." },
+        "keywords": ["grade", "paredes", "grid", "walls"],
+        "run": { "type": "dialog", "ref": "params" }
+      }
+    ],
+    "ribbon": {
+      "panels": [
+        {
+          "id": "grade",
+          "title": { "pt": "Grade de paredes", "en": "Wall grid" },
+          "items": [{ "command": "abrir", "size": "large", "icon": "wall" }]
+        }
+      ]
+    },
+    "dialogs": [
+      {
+        "id": "params",
+        "title": { "pt": "Grade de paredes", "en": "Wall grid" },
+        "fields": [
+          { "key": "largura", "label": { "pt": "Largura da grade", "en": "Grid width" }, "type": "length", "default": 6, "min": 0.5, "max": 100 },
+          { "key": "altura", "label": { "pt": "Altura da grade", "en": "Grid height" }, "type": "length", "default": 4, "min": 0.5, "max": 100 },
+          { "key": "passo", "label": { "pt": "Passo entre paredes", "en": "Wall spacing" }, "type": "length", "default": 2, "min": 0.5, "max": 50 }
+        ],
+        "actions": [
+          { "id": "desenhar", "label": { "pt": "Escolher a linha de base", "en": "Pick the base line" }, "run": { "type": "tool", "ref": "grade" } }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "id": "grade",
+        "title": { "pt": "Grade de paredes", "en": "Wall grid" },
+        "prompts": [
+          { "key": "base", "kind": "line", "label": { "pt": "Clique no início e no fim da linha de base da grade", "en": "Click the start and the end of the grid base line" } }
+        ],
+        "onCommit": "grade"
+      }
+    ]
+  }
+}

@@ -21,12 +21,13 @@ import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
+import { massaOps, ocultosDaMassa } from './massa.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, simboloNaCotaDoCorte, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -78,6 +79,8 @@ export interface PlanInput {
    * ver `buildPlanGuardaCorpo`, em guardaCorpoCamada.ts); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).
    */
   guardaCorpo?: 'sem';
+  /** Massas (plano de massa, A.4 regra 10) têm camada própria na planta (`buildPlanMassa`, em massaCamada.ts); `'sem'` tira-as da geometria do nível. */
+  massa?: 'sem';
   /** Rótulo em arraste (fantasma) da planta de área: segue o cursor em tempo real. */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Ambiente cujo rótulo está sendo arrastado: a geometria não o desenha (o fantasma desenha). */
@@ -231,7 +234,7 @@ function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: Ope
   // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
   // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
   const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
-  const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
+  const sym = openingViewOps(simboloNaCotaDoCorte(p, g, cls === undefined || cls === 'cut' ? (view ? view.cutZ - baseZ : 1.2) : g.sill + model.height / 2), cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
     model,
     detail: detail2d,
     angle: (openingAngle2d(type) * Math.PI) / 180,
@@ -375,6 +378,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
+  if (profile.stairs && input.massa !== 'sem' && !rp) addOps(massaOps(p, input.levelId, ocultosDaMassa(p, input.hidden, input.revealed, paint.mass.visible), theme, input.dark, paint.mass, view?.cutZ), paint.mass, true);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
   if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).
@@ -418,7 +423,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         for (const ring of ringsOf(c.silhouette)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.cut, color: theme.ink, alpha: 1 });
       }
       // Paredes fora do corte (decisão 0013 §4): contorno; projeção acima tracejada, abaixo e "além" em linha clara.
-      if (view) wallOps.strokes.push(...wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)));
+      wallOps.strokes.push(...(view ? wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)) : []), ...tiltProjectionStrokes(geo.walls, view, hidden, theme, paint.wall.proj)); // F2.5: base e topo inclinados
 
       // Membranas (camadas de espessura zero): linha fina tracejada no limite entre camadas (só no fino, paredes cortadas).
       if (fine && !rp) {

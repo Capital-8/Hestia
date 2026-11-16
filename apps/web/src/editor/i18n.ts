@@ -107,11 +107,13 @@ export const I18N = {
     tool_filledRegion: 'Região preenchida',
     tool_tag: 'Etiqueta',
     tool_perimeter: 'Perímetro',
+    tool_mass: 'Massa',
     tool_cotasAuto: 'Cotas automáticas',
 
     // Modificadores
     tool_move: 'Mover',
     tool_copy: 'Copiar',
+    tool_chain: 'Cadeia',
     tool_paste: 'Colar',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
@@ -459,11 +461,13 @@ export const I18N = {
     tool_filledRegion: 'Filled Region',
     tool_tag: 'Tag by Category',
     tool_perimeter: 'Perimeter',
+    tool_mass: 'Mass',
     tool_cotasAuto: 'Auto Dimensions',
 
     // Modifiers
     tool_move: 'Move',
     tool_copy: 'Copy',
+    tool_chain: 'Chain',
     tool_paste: 'Paste',
     tool_rotate: 'Rotate',
     tool_mirror: 'Mirror',

@@ -23,8 +23,8 @@ export type ActionId =
   | 'materials' | 'levels' | 'levelTool' | 'lineWeights' | 'units' | 'shortcutsConfig' | 'shortcuts' | 'importCad' | 'manageCad'
   | 'schedWalls' | 'schedFloors' | 'schedSlabs' | 'schedCeilings' | 'schedRoofs' | 'schedStairs' | 'schedRooms' | 'schedOpenings'
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
-  | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
-  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'railingForHost';
+  | 'wallTilt' | 'tiltFollow' | 'tiltWedge' | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
+  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'pluginManager' | 'railingForHost' | 'showMass' | 'schedMass' | 'pisosDaMassa' | 'paredesDaMassa';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */
@@ -33,6 +33,8 @@ export type RibbonItem =
   | { kind: 'action'; action: ActionId; size: Size; label?: Txt }
   /** Alternador de opção da ferramenta (modo de desenho): aparece pressionado quando `test` vale. */
   | { kind: 'option'; label: Txt; icon: string; size: Size; test: (o: ToolOptions) => boolean; patch: Partial<ToolOptions>; restart?: ToolId }
+  /** SUPLEMENTOS: botão contribuído por um suplemento (só na aba Suplementos). `command` é o id qualificado `<pluginId>:<id>`. */
+  | { kind: 'plugin'; command: string; label: Txt; size: Size; icon?: string }
   /** Ainda não existe: aparece esmaecido, com tooltip. É o roteiro da interface. */
   | { kind: 'soon'; label: Txt; icon?: string; size: Size }
   /** Botão dividido: clicar no ícone roda `main`; o rótulo com ▾ abre `menu`. */

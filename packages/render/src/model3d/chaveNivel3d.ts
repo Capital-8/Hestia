@@ -1,5 +1,5 @@
 import type { Id, Project } from '@hestia/model';
-import { assinaturasDasCortinasPorNivel, assinaturasDoProjeto, hashTexto, nivelDoElemento } from '@hestia/engine';
+import { assinaturasDasCortinasPorNivel, assinaturasDoProjeto, entradaMassaDoProjeto, hashTexto, massasDoProjeto, nivelDoElemento } from '@hestia/engine';
 
 export { assinaturasDoProjeto, hashTexto, type AssinaturasProjeto } from '@hestia/engine';
 
@@ -19,10 +19,12 @@ export { assinaturasDoProjeto, hashTexto, type AssinaturasProjeto } from '@hesti
  * os telhados de TODOS os níveis (`axisRoofs`): a chave deles entra na chave dele, senão editar um telhado de outro
  * nível deixaria a malha antiga na tela.
  */
-export function chavesDeNivel(p: Project, marca: string, visibilidade?: VisibilidadeDaChave, opcoes: { semGuardaCorpo?: boolean } = {}): Map<Id, string> {
-  const a = assinaturasDoProjeto(p);
+export function chavesDeNivel(p: Project, marca: string, visibilidade?: VisibilidadeDaChave, opcoes: { semGuardaCorpo?: boolean; semMassa?: boolean } = {}): Map<Id, string> {
   const semGC = opcoes.semGuardaCorpo === true;
-  const vis = visibilidadePorNivel(p, visibilidade, semGC ? 'sem' : 'todos');
+  const semMassa = opcoes.semMassa === true;
+  // Massa tem lote e chave próprios (`chavesDeMassaGeometria`): editar uma não remonta as paredes e lajes do nível.
+  const a = assinaturasDoProjeto(semMassa ? semMassas(p) : p);
+  const vis = visibilidadePorNivel(p, visibilidade, semGC ? 'sem' : 'todos', semMassa);
   // Conteúdo + visibilidade do nível: é o que os vizinhos por cota e os telhados leem do nível.
   const assinatura = semGC ? a.nivelSemGuardaCorpo : a.nivel;
   const conteudo = (id: Id): string => `${assinatura.get(id) ?? '-'}#${vis.nivel.get(id) ?? ''}`;
@@ -98,7 +100,7 @@ export interface VisibilidadeDaChave {
  * Assinatura de visibilidade por nível: os ids ocultos/revelados de cada nível, em hash. Id que não é elemento de nível
  * (global, genérico, CAD, vista) vai para a assinatura global, que entra em todas as chaves (conservador, como antes).
  */
-function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, guardaCorpo: 'todos' | 'sem' | 'so' = 'todos'): { nivel: Map<Id, string>; global: string } {
+function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, guardaCorpo: 'todos' | 'sem' | 'so' = 'todos', semMassa = false): { nivel: Map<Id, string>; global: string } {
   const porNivel = new Map<Id, string[]>();
   const globais: string[] = [];
   if (v) {
@@ -107,7 +109,7 @@ function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, gu
         const e = p.elements[id];
         // Guarda-corpo tem lote e chave próprios: a visibilidade dele só entra na chave dele ('so'), nunca na do nível ('sem').
         const gc = e?.kind === 'railing';
-        if ((guardaCorpo === 'sem' && gc) || (guardaCorpo === 'so' && !gc)) continue;
+        if ((guardaCorpo === 'sem' && gc) || (guardaCorpo === 'so' && !gc) || (semMassa && e?.kind === 'mass')) continue;
         const nivel = e ? nivelDoElemento(p.elements, e) : null;
         const entrada = `${tag}:${id}`;
         if (nivel === null) globais.push(entrada);
@@ -122,4 +124,47 @@ function visibilidadePorNivel(p: Project, v: VisibilidadeDaChave | undefined, gu
   const nivel = new Map<Id, string>();
   for (const [id, lista] of porNivel) nivel.set(id, hashTexto(lista.sort().join('\u0001')));
   return { nivel, global: globais.length ? hashTexto(globais.sort().join('\u0001')) : '-' };
+}
+
+/** Projeto sem as massas (só para a assinatura do nível: a massa não entra na geometria das paredes, lajes e escadas). */
+function semMassas(p: Project): Project {
+  if (!Object.values(p.elements).some((e) => e.kind === 'mass')) return p;
+  return { ...p, elements: Object.fromEntries(Object.entries(p.elements).filter(([, e]) => e.kind !== 'mass')) };
+}
+
+/**
+ * Chave de cada nível para o LOTE 3D DAS MASSAS (geometria; ficha V1): a marca do kernel (`m0`/`m1`), a assinatura de cada massa do nível (a mesma de
+ * `entradaMassaDoProjeto`: origem, cota, seções, arranjo; cor e nome não entram) e as massas ocultas. Editar uma massa muda só a chave do nível dela,
+ * e a dos níveis vizinhos fica igual. Só há chave para níveis com massa.
+ */
+export function chavesDeMassaGeometria(p: Project, pronto: string, visibilidade?: VisibilidadeDaChave): Map<Id, string> {
+  const assinaturas = entradaMassaDoProjeto(p).assinaturas;
+  const porNivel = new Map<Id, string[]>();
+  for (const m of massasDoProjeto(p)) {
+    const oculta = visibilidade?.ocultos.has(m.id) ? 'o' : '';
+    const linha = `${m.id}:${assinaturas.get(m.id) ?? '-'}:${oculta}`;
+    const lista = porNivel.get(m.levelId);
+    if (lista) lista.push(linha);
+    else porNivel.set(m.levelId, [linha]);
+  }
+  const out = new Map<Id, string>();
+  for (const [id, lista] of porNivel) out.set(id, hashTexto([pronto, ...lista].join('|')));
+  return out;
+}
+
+/**
+ * Chave de cada nível para a COR e o material das massas: a marca da vista (tema, estilo, vista da categoria `mass`) e a cor de cada massa do nível.
+ * Mudar só a cor muda esta chave e não a de geometria: o lote refaz só os materiais (`atualizarMassa`, em `scene3d.ts`).
+ */
+export function chavesDeMassaCor(p: Project, marca: string): Map<Id, string> {
+  const porNivel = new Map<Id, string[]>();
+  for (const m of massasDoProjeto(p)) {
+    const linha = `${m.id}:${m.color ?? ''}`;
+    const lista = porNivel.get(m.levelId);
+    if (lista) lista.push(linha);
+    else porNivel.set(m.levelId, [linha]);
+  }
+  const out = new Map<Id, string>();
+  for (const [id, lista] of porNivel) out.set(id, hashTexto([marca, ...lista].join('|')));
+  return out;
 }

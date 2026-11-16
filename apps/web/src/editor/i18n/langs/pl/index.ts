@@ -25,10 +25,22 @@ import { PL_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { PL_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { PL_MASSA } from '../../areas/massa.ts';
+import { PL_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { PL_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
+import { PL_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { PL_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { PL_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { PL_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 
 export const PL_ALL = {
   ...PL_GUARDA_CORPO,
+  ...PL_MASSA,
+  ...PL_MASSA_PISOS,
+  ...PL_MASSA_PAREDES,
+  ...PL_SUPLEMENTOS,
+  ...PL_SUPLEMENTOS_IO,
+  ...PL_SUPUI,
   ...PL_PAREDE_CORTINA,
   ...PL_SHELL_RIBBON,
   ...PL_MISC_UI,

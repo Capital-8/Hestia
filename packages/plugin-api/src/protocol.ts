@@ -16,18 +16,22 @@ export interface Envelope { t: string; seq?: number; id?: string; re?: string }
 export type ErrorCode =
   | 'bad_frame' | 'unknown_type' | 'unsupported_version' | 'bad_manifest' | 'not_handshaken'
   | 'permission_denied' | 'bad_request' | 'out_of_order' | 'cancelled' | 'ack_timeout' | 'heartbeat_timeout'
-  | 'image_payload_forbidden' | 'internal';
+  | 'image_payload_forbidden' | 'internal'
+  /** Protocolo 1.1: falha no pareamento por token (docs/plugins/07-pareamento-por-token.md). Sempre fatal. */
+  | 'auth_failed';
 
 export interface ProtocolError { code: ErrorCode; message: string; fatal: boolean; detail?: Record<string, unknown> }
 
 // ---- plugin → host ----
-export interface HelloMsg extends Envelope { t: 'hello'; protocol: { min: string; max: string }; manifest: PluginManifest; resume?: { sessionId: string; lastRevision: number } }
+export interface HelloMsg extends Envelope { t: 'hello'; protocol: { min: string; max: string }; manifest: PluginManifest; resume?: { sessionId: string; lastRevision: number }; /** Protocolo 1.1: nonce do plugin para o pareamento por token. */ auth?: { nonce: string } }
 export interface ResyncMsg extends Envelope { t: 'scene.resync' }
 export interface CameraModeSetMsg extends Envelope { t: 'camera.mode.set'; mode: CameraMode }
 export interface CameraSetMsg extends Envelope { t: 'camera.set'; camera: SceneCamera; cameraRev: number }
 export interface OverridesSetMsg extends Envelope { t: 'overrides.set'; materialId: MaterialId; override: ViewMaterialOverride }
 export interface OverridesClearMsg extends Envelope { t: 'overrides.clear'; materialId: MaterialId }
 export interface CancelMsg extends Envelope { t: 'cancel'; target: string }
+/** Protocolo 1.1: prova do plugin (HMAC-SHA256 sobre os dois nonces); o token nunca trafega. */
+export interface AuthOkMsg extends Envelope { t: 'auth.ok'; proof: string }
 
 // ---- host → plugin ----
 export interface WelcomeMsg extends Envelope {
@@ -41,6 +45,8 @@ export interface WelcomeMsg extends Envelope {
   cameraMode: CameraMode;
   resumed: boolean;
 }
+/** Protocolo 1.1: prova do host e o nonce do host (resposta ao `hello.auth`). */
+export interface AuthMsg extends Envelope { t: 'auth'; proof: string; nonce: string }
 export interface SnapshotMsg extends Envelope { t: 'scene.snapshot'; snapshot: SceneSnapshot }
 export interface DeltaMsg extends Envelope { t: 'scene.delta'; delta: SceneDelta }
 export interface ConnectionEventMsg extends Envelope { t: 'event.connection'; state: 'connected' | 'closing'; reason?: string }
@@ -55,14 +61,14 @@ export interface PongMsg extends Envelope { t: 'pong'; n: number }
 export interface ByeMsg extends Envelope { t: 'bye'; reason?: string }
 export interface ErrorMsg extends Envelope { t: 'error'; error: ProtocolError }
 
-export type PluginToHost = HelloMsg | ResyncMsg | CameraModeSetMsg | CameraSetMsg | OverridesSetMsg | OverridesClearMsg | CancelMsg | CameraUpdateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
-export type HostToPlugin = WelcomeMsg | SnapshotMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
+export type PluginToHost = HelloMsg | ResyncMsg | CameraModeSetMsg | CameraSetMsg | OverridesSetMsg | OverridesClearMsg | CancelMsg | AuthOkMsg | CameraUpdateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
+export type HostToPlugin = AuthMsg | WelcomeMsg | SnapshotMsg | DeltaMsg | ConnectionEventMsg | CameraUpdateMsg | CameraModeMsg | OverridesStateMsg | AckMsg | PingMsg | PongMsg | ByeMsg | ErrorMsg;
 export type Message = PluginToHost | HostToPlugin;
 
 /** Tipos que consomem `seq` e exigem `ack`. */
 export const ACKED_TYPES: ReadonlySet<string> = new Set([
-  'hello', 'scene.resync', 'camera.mode.set', 'camera.set', 'overrides.set', 'overrides.clear', 'cancel',
-  'welcome', 'scene.snapshot', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
+  'hello', 'scene.resync', 'camera.mode.set', 'camera.set', 'overrides.set', 'overrides.clear', 'cancel', 'auth.ok',
+  'auth', 'welcome', 'scene.snapshot', 'scene.delta', 'event.connection', 'camera.update', 'camera.mode', 'overrides.state',
 ]);
 
 export const KNOWN_TYPES: ReadonlySet<string> = new Set([...ACKED_TYPES, 'bye', 'ack', 'ping', 'pong', 'error']);
@@ -142,6 +148,9 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object
 const isStr = (x: unknown, max = 100): x is string => typeof x === 'string' && x.length > 0 && x.length <= max;
 const isInt = (x: unknown, min = 0): x is number => typeof x === 'number' && Number.isSafeInteger(x) && x >= min;
 const isUnit = (x: unknown): boolean => typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= 1;
+const B64 = /^[A-Za-z0-9+/_-]+={0,2}$/;
+const isNonce = (x: unknown): x is string => typeof x === 'string' && x.length >= 16 && x.length <= 64 && B64.test(x);
+const isProof = (x: unknown): x is string => typeof x === 'string' && x.length >= 32 && x.length <= 128 && B64.test(x);
 const CAMERA_MODES = ['follow-hestia', 'plugin-drives'];
 
 export function isValidCamera(c: unknown): boolean {
@@ -179,8 +188,13 @@ export function validateMessage(m: Message): string | null {
       if (!isObj(r.protocol) || !isStr(r.protocol.min, 10) || !isStr(r.protocol.max, 10)) return '"protocol" precisa de min e max';
       if (!isObj(r.manifest)) return '"manifest" ausente';
       if (r.resume !== undefined && !(isObj(r.resume) && isStr(r.resume.sessionId, 64) && isInt(r.resume.lastRevision))) return '"resume" inválido';
+      if (r.auth !== undefined && !(isObj(r.auth) && isNonce(r.auth.nonce))) return '"auth.nonce" inválido (16 a 64 caracteres base64)';
       return null;
     }
+    case 'auth':
+      return isProof(r.proof) && isNonce(r.nonce) ? null : '"proof" e "nonce" precisam ser base64 válidos';
+    case 'auth.ok':
+      return isProof(r.proof) ? null : '"proof" inválida';
     case 'welcome':
       if (!isStr(r.sessionId, 64) || !CAMERA_MODES.includes(r.cameraMode as string) || !isInt(r.heartbeatMs, 1) || !Array.isArray(r.granted) || !Array.isArray(r.denied)) return 'campos inválidos';
       return null;
