@@ -62,6 +62,13 @@ import { comTerminoValido } from './termino.ts';
 import { viewRangeIssues, type ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { DimensionStyle } from './dimensionContract.ts';
+import { removeTagFamilyFrom, tagFamiliesOf, tagFamilyIssue, writeTagFamily, type TagFamily } from './tagFamily.ts';
+import {
+  removeNorthArrowFamilyFrom, removeRevisionCloudFamilyFrom, removeSpotFamilyFrom, removeTextFamilyFrom,
+  writeNorthArrowFamily, writeRevisionCloudFamily, writeSpotFamily, writeTextFamily,
+  type NorthArrowFamily, type RevisionCloudFamily, type SpotFamily, type TextFamily,
+} from './annotationFamilies.ts';
+import type { MarkAssignment } from './marks.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
@@ -103,7 +110,7 @@ import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
-import { t } from './i18n.ts';
+import { t, textFor } from './i18n.ts';
 
 /** Comando = dados serializáveis. A única forma de escrever no modelo (docs/01 §5). */
 export type Command =
@@ -209,6 +216,22 @@ export type Command =
   | { type: 'upsertDimensionFamily'; family: DimensionFamily }
   | { type: 'removeDimensionFamily'; id: Id }
   | { type: 'setDefaultDimensionFamily'; id: Id }
+  | { type: 'upsertTagFamily'; family: TagFamily }
+  | { type: 'removeTagFamily'; id: Id }
+  | { type: 'setDefaultTagFamily'; id: Id }
+  | { type: 'upsertTextFamily'; family: TextFamily }
+  | { type: 'removeTextFamily'; id: Id }
+  | { type: 'setDefaultTextFamily'; id: Id }
+  | { type: 'upsertSpotFamily'; family: SpotFamily }
+  | { type: 'removeSpotFamily'; id: Id }
+  | { type: 'setDefaultSpotFamily'; kind: 'elevation' | 'coordinate'; id: Id }
+  | { type: 'upsertRevisionCloudFamily'; family: RevisionCloudFamily }
+  | { type: 'removeRevisionCloudFamily'; id: Id }
+  | { type: 'setDefaultRevisionCloudFamily'; id: Id }
+  | { type: 'upsertNorthArrowFamily'; family: NorthArrowFamily }
+  | { type: 'removeNorthArrowFamily'; id: Id }
+  | { type: 'setDefaultNorthArrowFamily'; id: Id }
+  | { type: 'setMarks'; assignments: MarkAssignment[] }
   | { type: 'setDxfLayerStyle'; layer: string; style: DxfLayerStyle }
   | { type: 'resetDxfLayers' }
   | { type: 'toggleOpeningFavorite'; id: Id }
@@ -572,6 +595,9 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'addDetailLine': case 'updateDetailLine': case 'removeDetailLine':
     case 'addDetailRegion': case 'updateDetailRegion': case 'removeDetailRegion':
     case 'addTag': case 'updateTag': case 'removeTag':
+    case 'addSpot': case 'updateSpot': case 'removeSpot':
+    case 'addRevisionCloud': case 'updateRevisionCloud': case 'removeRevisionCloud':
+    case 'addSymbol': case 'updateSymbol': case 'removeSymbol':
       applyAnnotationCommand(p, c, lang);
       break;
     case 'addSheet':
@@ -667,6 +693,66 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'setDefaultDimensionFamily': {
       if (!dimensionFamiliesOf(p.settings).some((f) => f.id === c.id)) throw new Error(t(lang, 'md_cmd_dim_family_missing'));
       p.settings = { ...p.settings, defaultDimensionFamilyId: c.id };
+      break;
+    }
+    case 'upsertTagFamily': {
+      const others = tagFamiliesOf(p.settings, lang).filter((f) => f.id !== c.family.id);
+      const issue = tagFamilyIssue(c.family, others, lang);
+      if (issue) throw new Error(issue);
+      p.settings = writeTagFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    }
+    case 'removeTagFamily':
+      p.settings = removeTagFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultTagFamily': {
+      if (!tagFamiliesOf(p.settings, lang).some((f) => f.id === c.id)) throw new Error(textFor(lang, 'A família de etiqueta não existe.', 'The tag family does not exist.'));
+      p.settings = { ...p.settings, defaultTagFamilyId: c.id };
+      break;
+    }
+    case 'upsertTextFamily':
+      p.settings = writeTextFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeTextFamily':
+      p.settings = removeTextFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultTextFamily':
+      p.settings = { ...p.settings, defaultTextFamilyId: c.id };
+      break;
+    case 'upsertSpotFamily':
+      p.settings = writeSpotFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeSpotFamily':
+      p.settings = removeSpotFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultSpotFamily':
+      p.settings = c.kind === 'elevation'
+        ? { ...p.settings, defaultSpotElevationFamilyId: c.id }
+        : { ...p.settings, defaultSpotCoordinateFamilyId: c.id };
+      break;
+    case 'upsertRevisionCloudFamily':
+      p.settings = writeRevisionCloudFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeRevisionCloudFamily':
+      p.settings = removeRevisionCloudFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultRevisionCloudFamily':
+      p.settings = { ...p.settings, defaultRevisionCloudFamilyId: c.id };
+      break;
+    case 'upsertNorthArrowFamily':
+      p.settings = writeNorthArrowFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeNorthArrowFamily':
+      p.settings = removeNorthArrowFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultNorthArrowFamily':
+      p.settings = { ...p.settings, defaultNorthArrowFamilyId: c.id };
+      break;
+    case 'setMarks': {
+      for (const a of c.assignments) {
+        const e = p.elements[a.id];
+        if (e && 'mark' in e) (e as { mark: string }).mark = a.mark;
+      }
       break;
     }
     case 'setDxfLayerStyle': {

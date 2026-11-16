@@ -6,6 +6,7 @@ import {
   type DimensionStyle,
   type OpeningType,
   type Project,
+  type TagFamily,
 } from '@hestia/model';
 import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
@@ -98,4 +99,9 @@ export function guardaCorpoOptions(p: Project, family: string): TypeOption[] {
 /** Famílias de cota (a Padrão inclusa): a lista do seletor, todas no grupo da categoria `family`. */
 export function dimensionOptions(familias: ReadonlyArray<{ id: string; name: string } & DimensionStyle>, family: string): TypeOption[] {
   return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'dimension', style: f } }));
+}
+
+/** Famílias de etiqueta: a lista do seletor, todas no grupo da categoria `family`. */
+export function tagOptions(familias: readonly TagFamily[], family: string): TypeOption[] {
+  return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'tag', family: f } }));
 }

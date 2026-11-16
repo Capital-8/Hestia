@@ -20,7 +20,7 @@ import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
 import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
-import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
+import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, defaultTagFamilyIdOf, tagFamiliesOf, type LocationLine } from '@hestia/model';
 
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -223,10 +223,16 @@ export function OptionsBar(): ReactElement {
           </label>
           <label>
             {t('pro_shape')}
-            <select id="opt-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as 'line' | 'arc' | 'rect' })}>
-              <option value="line">{t('pro_shape_line')}</option>
-              <option value="arc">{t('pro_shape_arc3')}</option>
-              <option value="rect">{t('pro_shape_rect')}</option>
+            <select id="opt-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as typeof o.wallShape })}>
+              <option value="line">{t('pro_pm_shape_line')}</option>
+              <option value="rect">{t('pro_pm_shape_rect')}</option>
+              <option value="poly-inscribed">{t('pro_pm_shape_poly_in')}</option>
+              <option value="poly-circumscribed">{t('pro_pm_shape_poly_circ')}</option>
+              <option value="circle">{t('pro_pm_shape_circle')}</option>
+              <option value="arc">{t('pro_pm_shape_arc3')}</option>
+              <option value="arc-center">{t('pro_pm_shape_arc_center')}</option>
+              <option value="arc-tangent">{t('pro_pm_shape_arc_tangent')}</option>
+              <option value="ellipse">{t('pro_pm_shape_ellipse')}</option>
             </select>
           </label>
           <label>
@@ -262,7 +268,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'detailLine' && <label>{t('pro_line_style')}<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">{t('pro_line_solid')}</option><option value="dashed">{t('pro_line_dashed')}</option><option value="dotted">{t('pro_line_dotted')}</option></select></label>}
       {tool === 'tag' && (
         <>
-          <label>{t('pro_tag_info')}<select className="select" value={o.tagProperty ?? 'type'} onChange={(e) => set({ tagProperty: e.target.value as NonNullable<typeof o.tagProperty> })}><option value="type">{t('pro_type')}</option><option value="name">{t('pro_name')}</option><option value="mark">{t('pro_mark')}</option><option value="level">{t('pro_level')}</option><option value="width">{t('pro_width')}</option><option value="height">{t('pro_height')}</option></select></label>
+          <label>{t('tg_fld_family')}<select className="select" value={o.tagFamilyId ?? defaultTagFamilyIdOf(p.settings)} onChange={(e) => set({ tagFamilyId: e.target.value })}>{tagFamiliesOf(p.settings, lang).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
           <label>{t('pro_orientation')}<select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">{t('pro_horizontal')}</option><option value="vertical">{t('pro_vertical')}</option></select></label>
           <Check id="opt-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>{t('pro_leader_label')}</Check>
         </>

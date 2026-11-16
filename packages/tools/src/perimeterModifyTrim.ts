@@ -10,7 +10,7 @@ import {
   type Curve,
   type Geom,
 } from './perimeterModifyCurve.ts';
-import { findSeg, replaceById, spliceSeg } from './perimeterModifyDraft.ts';
+import { findSeg, replaceById, spliceSeg, weldMicroSegs } from './perimeterModifyDraft.ts';
 
 /**
  * Parte de `c` que fica do lado do clique `tp` (já limitado ao traço), presa ao canto `tc`: se o canto vem antes do
@@ -26,13 +26,15 @@ function keepSide(c: Curve, tc: number, tp: number): Geom | null {
  * Null se não há interseção, se as linhas são a mesma, ou se o arco não alcança o canto.
  */
 export function trimExtendToCorner(
-  d: SketchDraft,
+  d0: SketchDraft,
   segA: string,
   pickA: Vec2,
   segB: string,
   pickB: Vec2,
 ): SketchDraft | null {
   if (segA === segB) return null;
+  // Degraus micro (união de paredes quase alinhadas) saem antes: a ponta aparada não pode ficar a milímetros do vértice.
+  const d = weldMicroSegs(d0);
   const A = findSeg(d, segA);
   const B = findSeg(d, segB);
   if (!A || !B) return null;
@@ -45,12 +47,14 @@ export function trimExtendToCorner(
     const ga = keepSide(cA, h.t1, tpA);
     const gb = keepSide(cB, h.t2, tpB);
     if (ga && gb) {
-      return replaceById(
-        d,
-        new Map([
-          [A.id, withGeom(A, ga)],
-          [B.id, withGeom(B, gb)],
-        ]),
+      return weldMicroSegs(
+        replaceById(
+          d,
+          new Map([
+            [A.id, withGeom(A, ga)],
+            [B.id, withGeom(B, gb)],
+          ]),
+        ),
       );
     }
   }

@@ -3,12 +3,13 @@ import { coreSpan, type Id, type Project } from '@hestia/model';
 import { pointAt, sAtDepth, type WallFrame } from './frame.ts';
 import { wallFaces } from './faces.ts';
 import { levelFrames } from './resolve.ts';
+import { cleanOutlineRing } from './ringClean.ts';
 
 /** Faixa de uma parede entre as posições s1 e s2 (perpendiculares ao eixo): quatro cantos, ou amostragem em arco. */
 function bandRing(f: WallFrame, s1: number, s2: number): Ring {
   const hi = Math.max(s1, s2);
   const lo = Math.min(s1, s2);
-  if (f.arc) return [...arcSample(f.arc, 0, f.length, hi), ...arcSample(f.arc, f.length, 0, lo)];
+  if (f.arc) return [...arcSample(f.arc, 0, f.length, hi, 0.01), ...arcSample(f.arc, f.length, 0, lo, 0.01)];
   return [pointAt(f, 0, hi), pointAt(f, f.length, hi), pointAt(f, f.length, lo), pointAt(f, 0, lo)];
 }
 
@@ -176,13 +177,14 @@ function distToRing(q: Vec2, r: Ring): number {
 export function outerPerimeter(p: Project, levelId: Id, near?: Vec2, extend: RoomExtend = 'finish'): Ring | null {
   const rings = buildingOutlines(p, levelId, extend);
   if (rings.length === 0) return null;
-  if (!near) return rings.reduce((best, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(best)) ? r : best));
+  // Contorno limpo: sem degraus de milímetros nem vértices em reta (ver `ringClean.ts`).
+  if (!near) return cleanOutlineRing(rings.reduce((best, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(best)) ? r : best)));
   const holding = rings.find((r) => pointInRing(near, r));
-  if (holding) return holding;
+  if (holding) return cleanOutlineRing(holding);
   let best: { ring: Ring; d: number } | null = null;
   for (const r of rings) {
     const d = distToRing(near, r);
     if (!best || d < best.d) best = { ring: r, d };
   }
-  return best && best.d <= PERIMETER_REACH ? best.ring : null;
+  return best && best.d <= PERIMETER_REACH ? cleanOutlineRing(best.ring) : null;
 }

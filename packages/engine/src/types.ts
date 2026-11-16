@@ -1,4 +1,4 @@
-import type { MultiPolygon, Vec2 } from '@hestia/geom';
+import type { Arc, MultiPolygon, Vec2 } from '@hestia/geom';
 import type { Id, PlanSymbol, ProfilePoint } from '@hestia/model';
 
 export interface ResolvedLayer {
@@ -121,4 +121,6 @@ export interface OpeningGeometry {
    * da face nas ombreiras (o furo é reto pela tangente no centro; a face se afasta dele ao longo da corda do vão).
    */
   cutHalf?: number;
+  /** Arco da parede hospedeira e `sMid`, quando curva: permite alinhar batente, soleira, vidro e alizar exatamente à curvatura. */
+  curve?: { arc: Arc; sMid: number };
 }

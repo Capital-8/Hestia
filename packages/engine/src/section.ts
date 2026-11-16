@@ -1,4 +1,4 @@
-import { intersection, machineNumber, orientedRect, unionClipper, type MultiPolygon, type Polygon, type Vec2 } from '@hestia/geom';
+import { intersection, machineNumber, orientedRect, pointInMulti, unionClipper, type MultiPolygon, type Polygon, type Vec2 } from '@hestia/geom';
 import { openingLineConvention, openingType, openingsOfWall, wallsOnLevel, type HatchKind, type Id, type OpeningLineConvention, type Project } from '@hestia/model';
 import { bandTopAt } from './profile.ts';
 import { fuseBands } from './bandFuse.ts';
@@ -7,13 +7,13 @@ import { junctionLevel, layerPartsOf, wallLayerBandsAfterJunction } from './junc
 import { resolveSlabs, slabRiseAt } from './slabs.ts';
 import { sectionOfCeilings } from './sectionCeilings.ts';
 import { resolveRoofs } from './roofs.ts';
-import { sectionOfRoofs } from './sectionRoofs.ts';
+import { sectionOfRoofs, type RoofEdgeCandidate } from './sectionRoofs.ts';
 
-export { sectionOfRoofs, squareCutRun, type RoofSection } from './sectionRoofs.ts';
+export { sectionOfRoofs, squareCutRun, type RoofSection, type RoofEdgeCandidate } from './sectionRoofs.ts';
 import { frameOfWall, openingGeometry, resolveLevel } from './resolve.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import type { OpeningModel } from './openingModelTypes.ts';
-import { EPS_T, lineIntervals, prismProjection, rect, sectionFrame, slabQuad, type SectionLine } from './sectionGeom.ts';
+import { EPS_T, limpaAneis, lineIntervals, prismProjection, rect, sectionFrame, semFrestas, slabQuad, type SectionLine } from './sectionGeom.ts';
 import { resolveStairsOnLevel } from './stairs.ts';
 import { sectionOfStairs } from './sectionStairs.ts';
 import { resolveRampsOnLevel } from './ramps.ts';
@@ -25,7 +25,8 @@ import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
 
-export { lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
+export { lineIntervals, limpaAneis, sectionFrame, semFrestas, type SectionLine } from './sectionGeom.ts';
+export { getRoofLinesMode, roofDrawingsOf, setRoofLinesMode, type RoofDrawing, type RoofFill, type RoofLinesMode } from './sectionRoofDraw.ts';
 export { type SectionPart } from './sectionParts.ts';
 
 /**
@@ -85,6 +86,10 @@ export interface SectionBeyond extends SectionOrigin {
   layerIndex: number;
   /** Distância do plano de corte ao ponto mais próximo. */
   depth: number;
+  /** Profundidade em cada ponto (t, z) para face inclinada (água de telhado): depth = c + a·t + b·z. Ausente = constante `depth`. */
+  depthPlane?: { c: number; a: number; b: number };
+  /** Água vista de perfil (de ponta): não esconde nada; só sobram as arestas dela onde nada a cobre. */
+  passive?: boolean;
   polygons: MultiPolygon;
 }
 
@@ -117,6 +122,16 @@ export interface SectionOpening {
   leafMaterialId?: Id;
 }
 
+/** Trecho visível de uma aresta 3D de telhado no desenho (t, z). */
+export interface SectionRoofEdge {
+  roofId: Id;
+  kind: RoofEdgeCandidate['kind'];
+  a: Vec2;
+  b: Vec2;
+  /** Profundidade média do trecho (peso de linha por proximidade). */
+  depth: number;
+}
+
 export interface SectionLevelMark {
   levelId: Id;
   name: string;
@@ -138,6 +153,8 @@ export interface SectionResult {
   /** Membranas de piso e laje cortadas pelo plano: linha na cota da face (decisão 0023 §5). */
   membranes: SectionMembrane[];
   levels: SectionLevelMark[];
+  /** Arestas 3D dos telhados visíveis (cumeeira, espigão, rincão, beiral, empena), em (t, z), já sem o que está coberto por outro elemento. */
+  roofEdges?: SectionRoofEdge[];
   /** Aneis (t, z) de degraus, espelhos, patamares e rampas antes da uniao/envoltoria; so captura (snap). Ausente sem escada/rampa. */
   snapRings?: SectionSnapRing[];
   /**
@@ -174,6 +191,8 @@ export interface SectionLevelPart {
   openings: SectionOpening[];
   membranes: SectionMembrane[];
   snapRings: SectionSnapRing[];
+  /** Arestas 3D dos telhados do pavimento, ainda sem a oclusão por paredes e pisos (feita na montagem). */
+  roofEdges?: RoofEdgeCandidate[];
   zMin: number;
   zMax: number;
 }
@@ -187,6 +206,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   };
   const beyond: SectionBeyond[] = [];
   const snapRings: SectionSnapRing[] = [];
+  const roofEdges: RoofEdgeCandidate[] = [];
   const membranes: SectionMembrane[] = []; const frame = { line, length, d, n };
   const openings: SectionOpening[] = [];
   let zMin = Infinity;
@@ -284,6 +304,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   grow(ck.zMin, ck.zMax);
   // Telhados (D3): como as lajes, por água e por camada (cada faixa segue a cota da água menos `below`).
   const rf = sectionOfRoofs(resolveRoofs(p, levelId), line);
+  roofEdges.push(...rf.edges);
   for (const c of rf.cut) addCut(c.materialId, c.polygon, { roofId: c.roofId });
   beyond.push(...rf.beyond);
   grow(rf.zMin, rf.zMax);
@@ -379,7 +400,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       });
     }
   }
-  return { cuts, beyond, openings, membranes, snapRings, zMin, zMax };
+  return { cuts, beyond, openings, membranes, snapRings, roofEdges, zMin, zMax };
 }
 
 export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p.levels.map((l) => l.id)): SectionResult {
@@ -408,9 +429,11 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
   const snapRings: SectionSnapRing[] = [];
   const membranes: SectionMembrane[] = [];
   const openings: SectionOpening[] = [];
+  const edgeCands: RoofEdgeCandidate[] = [];
   let zMin = Infinity;
   let zMax = -Infinity;
   for (const part of parts) {
+    if (part.roofEdges) edgeCands.push(...part.roofEdges);
     for (const c of part.cuts) {
       const key = `${c.materialId}|${c.hatch ?? ''}`;
       const entry = cutBy.get(key) ?? { materialId: c.materialId, hatch: c.hatch, items: [] };
@@ -438,7 +461,7 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
   }
   for (const b of groupBeyond(beyond)) {
     refs.push({ beyond: b });
-    items.push({ depth: b.depth, rank: OCCLUSION_RANK.beyond, polygons: b.polygons });
+    items.push({ depth: b.depth, rank: OCCLUSION_RANK.beyond, polygons: b.polygons, ...(b.depthPlane ? { plane: b.depthPlane } : {}), ...(b.passive ? { passive: true } : {}) });
   }
   for (const o of openings) {
     refs.push({ opening: o });
@@ -452,15 +475,66 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
     const polygons = visible[i]!;
     if (polygons.length === 0) return;
     if ('cut' in ref) cutVisible[ref.cut.entry]!.push({ origin: ref.cut.part.origin, polygons });
-    else if ('beyond' in ref) beyondVisible.push({ ...ref.beyond, polygons });
+    else if ('beyond' in ref) {
+      const clean = limpaAneis(polygons);
+      if (clean.length > 0) beyondVisible.push({ ...ref.beyond, polygons: clean });
+    }
     else openingsVisible.push({ ...ref.opening, polygons });
   });
   const cut = cutRegions(cutEntries, cutSources, cutVisible);
   // Telhado: as camadas projetam na mesma área (a face é inclinada), então a de cima (índice menor) desenha por último.
   beyondVisible.sort((x, y) => y.depth - x.depth || (x.roofId || y.roofId ? y.layerIndex - x.layerIndex : x.layerIndex - y.layerIndex));
   openingsVisible.sort((x, y) => y.depth - x.depth);
-  const silhouette = unionClipper(...cut.map((c) => c.polygons), ...beyondVisible.map((b) => b.polygons));
+  const silhouette = semFrestas(unionClipper(...cut.map((c) => c.polygons), ...beyondVisible.map((b) => b.polygons)));
   const levels = p.levels.map((l) => ({ levelId: l.id, name: l.name, z: l.elevation }));
   if (!isFinite(zMin)) return { ...empty, levels };
-  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(snapRings.length > 0 ? { snapRings } : {}) };
+  const roofEdges = visibleRoofEdges(edgeCands, cut, beyondVisible, openingsVisible);
+  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(roofEdges.length > 0 ? { roofEdges } : {}), ...(snapRings.length > 0 ? { snapRings } : {}) };
+}
+
+/** Passo (m) da amostragem de uma aresta contra o que está na frente dela. */
+const EDGE_OCCLUDE_STEP = 0.03;
+
+/**
+ * Arestas 3D dos telhados no que se vê: de cada candidato (já sem o que as outras águas do telhado cobrem) sai o que não cai dentro da
+ * parte visível de um item MAIS PERTO do plano (parede, piso, laje, escada, vão ou o próprio corte). Os trechos contínuos viram segmentos.
+ * O telhado não conta como oclusor aqui: as águas já foram vistas entre si na hora de projetar a aresta.
+ */
+function visibleRoofEdges(cands: readonly RoofEdgeCandidate[], cut: readonly SectionRegion[], beyond: readonly SectionBeyond[], openings: readonly SectionOpening[]): SectionRoofEdge[] {
+  if (cands.length === 0) return [];
+  const front: Array<{ depth: number; polygons: MultiPolygon; box: { minX: number; minY: number; maxX: number; maxY: number } }> = [];
+  const add = (depth: number, polygons: MultiPolygon): void => {
+    if (polygons.length === 0) return;
+    const pts = polygons.flat(2);
+    front.push({ depth, polygons, box: { minX: Math.min(...pts.map((q) => q.x)), minY: Math.min(...pts.map((q) => q.y)), maxX: Math.max(...pts.map((q) => q.x)), maxY: Math.max(...pts.map((q) => q.y)) } });
+  };
+  for (const c of cut) add(0, c.polygons);
+  for (const b of beyond) if (b.roofId === undefined && !b.passive) add(b.depth, b.polygons);
+  for (const o of openings) add(o.depth, o.polygons);
+  const out: SectionRoofEdge[] = [];
+  for (const c of cands) {
+    for (const [s0, s1] of c.spans) {
+      const lerp = (u: number): Vec2 => ({ x: c.a.x + (c.b.x - c.a.x) * u, y: c.a.y + (c.b.y - c.a.y) * u });
+      const len = Math.hypot((c.b.x - c.a.x) * (s1 - s0), (c.b.y - c.a.y) * (s1 - s0));
+      const steps = Math.max(2, Math.ceil(len / EDGE_OCCLUDE_STEP));
+      let start = -1;
+      for (let k = 0; k <= steps; k++) {
+        const u = s0 + ((s1 - s0) * k) / steps;
+        const p = lerp(u);
+        const dp = c.da + (c.db - c.da) * u;
+        const hidden = front.some((f) => f.depth < dp - 0.02 && p.x >= f.box.minX && p.x <= f.box.maxX && p.y >= f.box.minY && p.y <= f.box.maxY && pointInMulti(p, f.polygons));
+        if (!hidden && start < 0) start = k;
+        if ((hidden || k === steps) && start >= 0) {
+          const end = hidden ? k - 1 : k;
+          if (end > start) {
+            const ua = s0 + ((s1 - s0) * start) / steps;
+            const ub = s0 + ((s1 - s0) * end) / steps;
+            out.push({ roofId: c.roofId, kind: c.kind, a: lerp(ua), b: lerp(ub), depth: c.da + (c.db - c.da) * ((ua + ub) / 2) });
+          }
+          start = -1;
+        }
+      }
+    }
+  }
+  return out;
 }

@@ -178,6 +178,14 @@ export function labelOf(c: Command): string {
       return 'Excluir família de cotas';
     case 'setDefaultDimensionFamily':
       return 'Família de cotas padrão';
+    case 'upsertTagFamily':
+      return 'Família de etiqueta';
+    case 'removeTagFamily':
+      return 'Excluir família de etiqueta';
+    case 'setDefaultTagFamily':
+      return 'Família de etiqueta padrão';
+    case 'setMarks':
+      return 'Numerar marcas';
     case 'setDxfLayerStyle':
       return 'Editar camada do DXF';
     case 'resetDxfLayers':
@@ -226,6 +234,24 @@ export function labelOf(c: Command): string {
       return 'Editar etiqueta';
     case 'removeTag':
       return 'Excluir etiqueta';
+    case 'addSpot':
+      return 'Inserir cota de elevação/coordenada';
+    case 'updateSpot':
+      return 'Editar cota de elevação/coordenada';
+    case 'removeSpot':
+      return 'Excluir cota de elevação/coordenada';
+    case 'addRevisionCloud':
+      return 'Criar nuvem de revisão';
+    case 'updateRevisionCloud':
+      return 'Editar nuvem de revisão';
+    case 'removeRevisionCloud':
+      return 'Excluir nuvem de revisão';
+    case 'addSymbol':
+      return 'Inserir símbolo';
+    case 'updateSymbol':
+      return 'Editar símbolo';
+    case 'removeSymbol':
+      return 'Excluir símbolo';
     case 'addText':
       return 'Criar texto';
     case 'updateText':
@@ -330,6 +356,30 @@ export function labelOf(c: Command): string {
       return 'Editar tipo de sapata';
     case 'deleteFootingType':
       return 'Excluir tipo de sapata';
+    case 'upsertTextFamily':
+      return 'Editar família de texto';
+    case 'removeTextFamily':
+      return 'Excluir família de texto';
+    case 'setDefaultTextFamily':
+      return 'Definir família de texto padrão';
+    case 'upsertSpotFamily':
+      return 'Editar família de cota de ponto';
+    case 'removeSpotFamily':
+      return 'Excluir família de cota de ponto';
+    case 'setDefaultSpotFamily':
+      return 'Definir família de cota de ponto padrão';
+    case 'upsertRevisionCloudFamily':
+      return 'Editar família de nuvem de revisão';
+    case 'removeRevisionCloudFamily':
+      return 'Excluir família de nuvem de revisão';
+    case 'setDefaultRevisionCloudFamily':
+      return 'Definir família de nuvem padrão';
+    case 'upsertNorthArrowFamily':
+      return 'Editar família de seta norte';
+    case 'removeNorthArrowFamily':
+      return 'Excluir família de seta norte';
+    case 'setDefaultNorthArrowFamily':
+      return 'Definir família de seta norte padrão';
     default: {
       const _nunca: never = c;
       return _nunca;

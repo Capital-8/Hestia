@@ -16,10 +16,10 @@ use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::envolvimento::{camadas_envolventes, faixa_de_profundidade, lados_do_modo};
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::geo2d::{perp, v, V};
+use crate::geo2d::V;
 use crate::itens::{caixas_se_cruzam, Caixa4};
-use crate::ops::{diferenca_com_escala, interseccao, ESCALA_FINA};
-use crate::quadro::{ponto_em, tangente_em, Quadro};
+use crate::ops::{diferenca_com_escala, ESCALA_FINA};
+use crate::quadro::{ponto_em, Quadro};
 use crate::secoes_a3::{Abertura, TipoAbertura, FECHAMENTO_HERDA};
 use crate::{Anel, MultiPoligono};
 
@@ -131,15 +131,9 @@ fn secao_da_ombreira(d: &Dims, hw: f64, side: f64, j: f64, offset: f64) -> [(f64
     ]
 }
 
-/// `vaoPoint(f, offset)(t, s)`: parede reta, o próprio `pointAt`; parede curva, o sistema reto do vão.
-fn ponto_do_vao(f: &Quadro, offset: f64, t: f64, s: f64) -> V {
-    if f.arc.is_none() {
-        return ponto_em(f, t, s);
-    }
-    let c = ponto_em(f, offset, f.s_mid);
-    let u = tangente_em(f, offset);
-    let n = perp(u);
-    v(c.x + u.x * (t - offset) + n.x * (s - f.s_mid), c.y + u.y * (t - offset) + n.y * (s - f.s_mid))
+/// `vaoPoint(f, _offset)(t, s)`: acompanha `ponto_em(f, t, s)` também em paredes curvas.
+fn ponto_do_vao(f: &Quadro, _offset: f64, t: f64, s: f64) -> V {
+    ponto_em(f, t, s)
 }
 
 fn anel_de(pts: &[V]) -> Anel {
@@ -184,16 +178,12 @@ fn faixa_da_parede(f: &Quadro, t0: f64, t1: f64, s0: f64, s1: f64) -> MultiPolig
     vec![vec![anel_de(&anel)]]
 }
 
-/// `rect(f, offset, t0, t1, s0, s1)`: retângulo do retorno no sistema do vão.
-fn retangulo_do_retorno(f: &Quadro, offset: f64, t0: f64, t1: f64, s0: f64, s1: f64) -> Result<MultiPoligono, u32> {
-    let at = |t: f64, s: f64| ponto_do_vao(f, offset, t, s);
+/// `rect(f, _offset, t0, t1, s0, s1)`: setor anular em parede curva, retângulo na reta.
+fn retangulo_do_retorno(f: &Quadro, _offset: f64, t0: f64, t1: f64, s0: f64, s1: f64) -> Result<MultiPoligono, u32> {
     if f.arc.is_none() {
-        return Ok(vec![vec![anel_de(&[at(t0, s0), at(t1, s0), at(t1, s1), at(t0, s1)])]]);
+        return Ok(vec![vec![anel_de(&[ponto_em(f, t0, s0), ponto_em(f, t1, s0), ponto_em(f, t1, s1), ponto_em(f, t0, s1)])]]);
     }
-    let big = f.thickness + 0.5;
-    let alto: MultiPoligono = vec![vec![anel_de(&[at(t0, f.s_mid - big), at(t1, f.s_mid - big), at(t1, f.s_mid + big), at(t0, f.s_mid + big)])]];
-    let faixa = faixa_da_parede(f, t0.min(t1) - 0.2, t0.max(t1) + 0.2, s0, s1);
-    interseccao(&alto, &faixa).map_err(traduz)
+    Ok(faixa_da_parede(f, t0, t1, s0, s1))
 }
 
 /// Camadas do tipo da parede que o retorno lê (`wrappingLayers` usa função, espessura e `wraps`).

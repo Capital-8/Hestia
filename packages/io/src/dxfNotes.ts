@@ -1,4 +1,4 @@
-import { openingHeight, openingTypeById, angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, isOpening, isWall, levelDimensions, levelTexts, unitsOf, wallHeight, wallType, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionGeometry, dimensionPoints, dimensionStyleFor, dimensionText, elementTagText, isOpening, isWall, levelDimensions, levelTexts, unitsOf, type Dimension, type DimensionStyle, type DimTick, type ElementTag, type Id, type Project } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { DxfPoint } from './dxf.ts';
 import type { DxfTextEntity } from './dxfDoc.ts';
@@ -93,23 +93,7 @@ export function dimensionLinesDxfOf(
 
 /** Texto de uma etiqueta de elemento (o mesmo valor da tela), ou vazio quando o hóspede sumiu. Planta e corte/elevação. */
 export function tagValueText(p: Project, tag: ElementTag): string {
-  const e = p.elements[tag.hostId];
-  if (!e) return '';
-  const type = e.kind === 'wall' ? p.wallTypes[e.typeId]
-    : e.kind === 'door' || e.kind === 'window' ? openingTypeById(p, e.typeId)
-    : e.kind === 'floor' ? p.floorTypes[e.typeId]
-    : e.kind === 'slab' ? p.slabTypes[e.typeId]
-    : e.kind === 'ceiling' ? p.ceilingTypes[e.typeId]
-    : e.kind === 'roof' ? p.roofTypes[e.typeId]
-    : e.kind === 'stair' ? p.stairTypes[e.typeId] : undefined;
-  const tagHost = isOpening(e) ? p.elements[e.hostId] : undefined;
-  const tagLevelId = 'levelId' in e ? e.levelId : tagHost && 'levelId' in tagHost ? tagHost.levelId : null;
-  return tag.property === 'type' ? (type && 'code' in type ? type.code : '') || (type && 'name' in type ? type.name : '') || e.kind
-    : tag.property === 'name' ? e.kind === 'room' ? e.name : type && 'name' in type ? type.name : e.kind
-    : tag.property === 'mark' ? ('mark' in e ? e.mark : '')
-    : tag.property === 'level' ? p.levels.find((l) => l.id === tagLevelId)?.name ?? ''
-    : tag.property === 'width' ? isOpening(e) ? `${(openingTypeById(p, e.typeId)?.width ?? 0) * 100} cm` : isWall(e) ? `${wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0) * 100} cm` : ''
-    : isOpening(e) ? (() => { const ot = openingTypeById(p, e.typeId); return `${ot ? openingHeight(ot, e) : 0} m`; })() : isWall(e) ? `${wallHeight(p, e)} m` : '';
+  return elementTagText(p, tag);
 }
 
 /**

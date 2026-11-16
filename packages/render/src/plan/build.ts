@@ -25,6 +25,7 @@ import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
+import { separateAutoLabels } from './labelCollision.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
 import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
@@ -157,8 +158,7 @@ export function planGeometrySelection(p: Project, levelId: Id, selection: readon
     ...levelRoomSeparators(p, levelId).map((r) => r.id),
     ...p.views.map((v) => v.id),
     ...projectGrids(p).map((g) => g.id),
-    ...(level?.detailLines ?? []).map((l) => l.id),
-    ...(level?.detailRegions ?? []).map((r) => r.id),
+    ...[level?.detailLines, level?.detailRegions, level?.tags, level?.texts, level?.spots, level?.symbols, level?.revisionClouds].flatMap((a) => (a ?? []).map((x) => x.id)),
     // Anotações da planta de área (cotas, textos, detalhes e etiquetas da vista): a seleção chega ao desenho por aqui.
     ...(areaPlan ? planAnnotationIds(areaPlan) : []),
   ]);
@@ -512,7 +512,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   labels.push(...notes.labels);
 
   if (profile.elementTags) {
-    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale);
+    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, { selection: input.selection, selectColor: theme.select });
     strokes.push(...tagged.strokes);
     labels.push(...tagged.labels);
   }
@@ -520,7 +520,12 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Etiquetas de tipo (G4) seguem a categoria 'anotação' (visibilidade e mm de papel).
   if (profile.tags && p.settings.showTags) labels.push(...wallTagLabels(p, input.levelId, paint.annotation, scale, hidden));
   // Etiquetas de portas e janelas (Tag on Placement): desligadas por padrão, ligadas ao inserir.
-  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden));
+  if (profile.tags && p.settings.showOpeningTags) {
+    // A esquadria que já tem etiqueta própria (elemento arrastável) não repete o rótulo automático.
+    const tagged = new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId));
+    labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, tagged));
+  }
+  separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
 
   // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.

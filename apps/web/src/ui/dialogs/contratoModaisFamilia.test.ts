@@ -35,6 +35,7 @@ const MIGRADOS = [
   'ColumnTypeDialog.tsx',
   'BeamTypeDialog.tsx',
   'FootingTypeDialog.tsx',
+  'ExtraAnnotationFamilyDialogs.tsx',
 ];
 
 /** Peças internas dos diálogos migrados: também não podem ter seção/linha própria. */
@@ -47,7 +48,7 @@ const PECAS = ['StairTypeSections.tsx', 'StairCalculatorPanel.tsx', 'StairBlonde
  * - openingType/OpeningTypeDialog: diálogo XL com biblioteca, prévia 3D e painéis próprios (cotas e esquadrias).
  * - DimensionFamiliesDialog: famílias de cota, editor de lista com estilos próprios.
  */
-const EXCECOES_TODO = ['GridTypeDialog.tsx', 'openingType/OpeningTypeDialog.tsx', 'DimensionFamiliesDialog.tsx'];
+const EXCECOES_TODO = ['GridTypeDialog.tsx', 'openingType/OpeningTypeDialog.tsx', 'DimensionFamiliesDialog.tsx', 'TagFamiliesDialog.tsx'];
 
 const usaEsqueleto = (arq: string): boolean => /<FamilyTypeDialog\b/.test(fonte(arq)) && /from '(\.\.?)\/familia\/index\.ts'/.test(fonte(arq));
 

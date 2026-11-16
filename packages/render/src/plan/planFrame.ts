@@ -225,7 +225,7 @@ export function sameLabels(a: readonly LabelOp[], b: readonly LabelOp[]): boolea
     if (x.at.x !== y.at.x || x.at.y !== y.at.y || x.text !== y.text || x.dx !== y.dx || x.dy !== y.dy || x.color !== y.color) return false;
     if (x.tone !== y.tone || x.fontPx !== y.fontPx || x.rotation !== y.rotation || x.center !== y.center || !samePapel(x.papel, y.papel)) return false;
     if (x.widthPx !== y.widthPx || x.bold !== y.bold || x.italic !== y.italic || x.underline !== y.underline || x.align !== y.align) return false;
-    if (x.whiteSpace !== y.whiteSpace) return false;
+    if (x.whiteSpace !== y.whiteSpace || x.selected !== y.selected) return false;
     if (x.maskColor !== y.maskColor || x.maskBorderColor !== y.maskBorderColor || x.maskBoundary?.length !== y.maskBoundary?.length) return false;
     if (x.maskBoundary && y.maskBoundary && x.maskBoundary.some((p, j) => p.x !== y.maskBoundary![j]!.x || p.y !== y.maskBoundary![j]!.y)) return false;
   }

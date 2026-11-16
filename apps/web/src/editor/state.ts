@@ -20,7 +20,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | null;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | null;
 
 export interface UiState {
   tool: ToolId;
@@ -84,6 +84,7 @@ export interface UiState {
   dimRefPick: { dimId: string; slot: 'a' | 'b' } | null;
   /** Família que o diálogo de famílias abre selecionada (botão "Editar família…" da cota); some ao abrir. */
   dimFamilyFocus: string | null;
+  tagFamilyFocus: string | null;
   /**
    * Versão do projeto em que a seleção virou cotas permanentes (botão "I"): enquanto o projeto estiver nela, as cotas
    * temporárias da seleção ficam suspensas para não se sobrepor às pretas. Some na próxima seleção ou alteração.
@@ -384,6 +385,7 @@ export const useUi = create<UiState>(() => ({
   dimTargets: {},
   dimRefPick: null,
   dimFamilyFocus: null,
+  tagFamilyFocus: null,
   dimsSuspendedVersion: null,
   dimEditId: null,
   cursor: null,

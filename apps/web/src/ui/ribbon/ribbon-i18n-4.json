@@ -974,5 +974,69 @@
     "fr": "Quadrillage",
     "it": "Griglia",
     "pl": "Oś"
+  },
+  {
+    "pt": "Famílias de etiquetas",
+    "es": "Tipos de etiqueta",
+    "de": "Beschriftungstypen",
+    "fr": "Types d'étiquette",
+    "it": "Tipi di etichetta",
+    "pl": "Typy etykiet"
+  },
+  {
+    "pt": "Modelo de rótulo com parâmetros, contorno (círculo, hexágono, retângulo) e tamanho em mm de papel.",
+    "es": "Plantilla de etiqueta con parámetros, contorno (círculo, hexágono, rectángulo) y tamaño en mm de papel.",
+    "de": "Beschriftungsformat mit Parametern, Umriss (Kreis, Sechseck, Rechteck) und Größe in Papier-mm.",
+    "fr": "Modèle d'étiquette avec paramètres, contour (cercle, hexagone, rectangle) et taille en mm papier.",
+    "it": "Modello di etichetta con parametri, contorno (cerchio, esagono, rettangolo) e dimensione in mm carta.",
+    "pl": "Szablon etykiety z parametrami, obrysem (koło, sześciokąt, prostokąt) i rozmiarem w mm papieru."
+  },
+  {
+    "pt": "Numerar marcas",
+    "es": "Numerar marcas",
+    "de": "Marken nummerieren",
+    "fr": "Numéroter les marques",
+    "it": "Numera contrassegni",
+    "pl": "Numeruj oznaczenia"
+  },
+  {
+    "pt": "Numera automaticamente P01, J01… nas portas e janelas sem marca e verifica duplicatas.",
+    "es": "Numera automáticamente P01, J01… en puertas y ventanas sin marca y comprueba duplicados.",
+    "de": "Nummeriert automatisch P01, J01… an unmarkierten Türen und Fenstern und prüft Duplikate.",
+    "fr": "Numérote automatiquement P01, J01… sur les portes et fenêtres sans marque et vérifie les doublons.",
+    "it": "Numera automaticamente P01, J01… su porte e finestre senza contrassegno e verifica i duplicati.",
+    "pl": "Automatycznie numeruje P01, J01… w nieoznaczonych drzwiach i oknach oraz sprawdza duplikaty."
+  },
+  {
+    "pt": "Ativa a etiqueta na categoria de ambiente para clicar no ambiente e rotulá-lo.",
+    "es": "Activa la etiqueta en la categoría de habitación para hacer clic en ella y etiquetarla.",
+    "de": "Aktiviert die Beschriftung für Räume, um einen Raum per Klick zu beschriften.",
+    "fr": "Active l'étiquette pour la catégorie pièce afin de cliquer sur une pièce et l'étiqueter.",
+    "it": "Attiva l'etichetta nella categoria locale per fare clic sul locale ed etichettarlo.",
+    "pl": "Włącza etykietę pomieszczenia, aby kliknąć pomieszczenie i je opisać."
+  },
+  {
+    "pt": "Círculo",
+    "es": "Círculo",
+    "de": "Kreis",
+    "fr": "Cercle",
+    "it": "Cerchio",
+    "pl": "Okrąg"
+  },
+  {
+    "pt": "Arco (centro)",
+    "es": "Arco (centro)",
+    "de": "Bogen (Mittelpunkt)",
+    "fr": "Arc (centre)",
+    "it": "Arco (centro)",
+    "pl": "Łuk (środek)"
+  },
+  {
+    "pt": "Polígono",
+    "es": "Polígono",
+    "de": "Vieleck",
+    "fr": "Polygone",
+    "it": "Poligono",
+    "pl": "Wielokąt"
   }
 ]

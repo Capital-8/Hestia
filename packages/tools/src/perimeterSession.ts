@@ -11,6 +11,7 @@ import {
 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import { fitRing } from './perimeterArcFit.ts';
+import { weldMicroSegs } from './perimeterModifyDraft.ts';
 import { sideSegs } from './perimeterSessionEdges.ts';
 
 /**
@@ -226,7 +227,8 @@ export function effectiveSeg(d: SketchDraft, seg: SketchSeg): EffectiveSeg {
 
 /** Agrupa as linhas em laços e valida o esboço. */
 export function closeAnalysis(d: SketchDraft): SketchResult {
-  return validateSketch(d.segs);
+  // Degraus micro (menos de 1 cm) entre duas linhas se soldam antes de validar (ver `weldMicroSegs`).
+  return validateSketch(weldMicroSegs(d).segs);
 }
 
 /** Concluir só fica habilitado com um laço externo e nenhum problema. */

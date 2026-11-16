@@ -1,5 +1,7 @@
 /* eslint-disable max-lines */
 import type { DimensionElementRef, DimensionStyle } from './dimensionContract.ts';
+import type { TagFamily } from './tagFamily.ts';
+import type { NorthArrowFamily, RevisionCloudFamily, SpotFamily, TextFamily } from './annotationFamilies.ts';
 import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
@@ -199,6 +201,12 @@ export interface Level {
   detailRegions?: DetailRegion[];
   /** Etiquetas associativas de elementos nesta vista. */
   tags?: ElementTag[];
+  /** Cotas de elevação e coordenadas de ponto nesta vista. */
+  spots?: SpotAnnotation[];
+  /** Nuvens de revisão nesta vista. */
+  revisionClouds?: RevisionCloud[];
+  /** Símbolos de anotação (ex.: Seta norte) nesta vista. */
+  symbols?: SymbolAnnotation[];
   /** Linhas de separação de ambiente (decisão 0031 §3; Revit: Room Separation Line); ausente = nenhuma. */
   roomSeparators?: RoomSeparator[];
 }
@@ -297,6 +305,8 @@ export interface TextNote {
   text: string;
   height: number;
   rotation: number;
+  /** Família de texto associada (fonte, tamanho, fundo, seta do líder). */
+  familyId?: Id;
   /** Largura da caixa em mm de papel; ausente mantém texto sem quebra. */
   width?: number;
   /** Desenha a caixa (moldura) em volta do texto; ausente = só texto. */
@@ -316,7 +326,50 @@ export interface DetailLine { id: Id; a: Vec2; b: Vec2; style?: 'solid' | 'dashe
 export interface DetailRegion { id: Id; boundary: Vec2[]; color?: string; mask?: boolean; }
 
 /** Etiqueta vinculada ao elemento: o valor é consultado no modelo e se atualiza junto com ele. */
-export interface ElementTag { id: Id; hostId: Id; at: Vec2; property: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height'; leader?: boolean; orientation?: 'horizontal' | 'vertical'; }
+export interface ElementTag {
+  id: Id;
+  hostId: Id;
+  at: Vec2;
+  /** Parâmetro único (comportamento antigo); com `familyId` o rótulo vem do modelo da família. */
+  property: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height';
+  /** Família de etiqueta (modelo do rótulo, forma e tamanho); ausente = `property` como antes. */
+  familyId?: Id;
+  leader?: boolean;
+  orientation?: 'horizontal' | 'vertical';
+}
+
+/** Cota de elevação ou coordenada de ponto (Revit: Spot Elevation / Spot Coordinate). */
+export interface SpotAnnotation {
+  id: Id;
+  kind: 'elevation' | 'coordinate';
+  /** Ponto medido no modelo (ou em (t, z) no corte). */
+  target: Vec2;
+  /** Ponto do texto/ombro. */
+  at: Vec2;
+  /** Cotovelo opcional da linha de chamada. */
+  elbow?: Vec2;
+  familyId?: Id;
+  showLeader?: boolean;
+}
+
+/** Nuvem de revisão única com arcos paramétricos. */
+export interface RevisionCloud {
+  id: Id;
+  points: Vec2[];
+  closed: boolean;
+  familyId?: Id;
+  revisionTag?: string;
+  comments?: string;
+}
+
+/** Símbolo gráfico único (ex.: Seta Norte). */
+export interface SymbolAnnotation {
+  id: Id;
+  kind: 'northArrow';
+  at: Vec2;
+  rotation: number;
+  familyId?: Id;
+}
 
 /** Ponto do perfil superior: `t` = distância ao longo de a→b; `h` = altura do topo acima da base da parede. */
 export interface ProfilePoint {
@@ -735,6 +788,26 @@ export interface ProjectSettings {
   dimensionFamilies?: DimensionFamily[];
   /** Família usada nas cotas novas (ausente = a primeira da lista, ou `Padrão`). */
   defaultDimensionFamilyId?: Id;
+  /** Famílias de etiqueta nomeadas (ausente = as predefinidas). */
+  tagFamilies?: TagFamily[];
+  /** Família usada nas etiquetas novas (ausente = a primeira da lista). */
+  defaultTagFamilyId?: Id;
+  /** Famílias de texto, cota de elevação/coordenada, nuvem de revisão e seta norte. */
+  textFamilies?: TextFamily[];
+  defaultTextFamilyId?: Id;
+  spotFamilies?: SpotFamily[];
+  defaultSpotElevationFamilyId?: Id;
+  defaultSpotCoordinateFamilyId?: Id;
+  revisionCloudFamilies?: RevisionCloudFamily[];
+  defaultRevisionCloudFamilyId?: Id;
+  northArrowFamilies?: NorthArrowFamily[];
+  defaultNorthArrowFamilyId?: Id;
+  /** Ponto Base do Projeto (origem local em metros). */
+  projectBasePoint?: { x: number; y: number; z: number };
+  /** Ponto de Levantamento topográfico (origem georreferenciada e Norte Verdadeiro em graus). */
+  surveyPoint?: { x: number; y: number; z: number; trueNorthDeg?: number };
+  /** Numera sozinho a marca (P01, J01…) de porta e janela ao inseri-las. Ausente = liga. */
+  autoMarks?: boolean;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
   /** Perfil de norma do guarda-corpo do projeto (ausente = `nbr-br`). Só gera avisos. */

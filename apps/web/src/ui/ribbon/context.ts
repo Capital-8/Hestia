@@ -18,7 +18,7 @@ export interface ContextTab {
 
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
 const PLACE: ReadonlySet<ToolId> = new Set<ToolId>([
-  'wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag',
+  'wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'tag',
   'column', 'beam', 'footing',
 ]);
 
@@ -31,8 +31,11 @@ function drawPanel(id: ToolId): RibbonPanel | null {
     case 'wall':
       return mk(
         option(t('Linha', 'Line'), 'wall', same('wallShape', 'line'), { wallShape: 'line' }),
-        option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
         option(t('Retângulo', 'Rectangle'), 'plan', same('wallShape', 'rect'), { wallShape: 'rect' }),
+        option(t('Círculo', 'Circle'), 'detailLine', same('wallShape', 'circle'), { wallShape: 'circle' }),
+        option(t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine', same('wallShape', 'arc'), { wallShape: 'arc' }),
+        option(t('Arco (centro)', 'Arc (center)'), 'detailLine', same('wallShape', 'arc-center'), { wallShape: 'arc-center' }),
+        option(t('Polígono', 'Polygon'), 'plan', same('wallShape', 'poly-inscribed'), { wallShape: 'poly-inscribed' }),
       );
     case 'beam':
       return mk(

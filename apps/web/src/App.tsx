@@ -33,6 +33,8 @@ import { RenumberSheetsDialog } from './ui/dialogs/RenumberSheetsDialog.tsx';
 import { RevisionDialog } from './ui/dialogs/RevisionDialog.tsx';
 import { PublishDialog } from './ui/dialogs/PublishDialog.tsx';
 import { AutoCotaDialog } from './ui/dialogs/AutoCotaDialog.tsx';
+import { TagFamiliesDialog } from './ui/dialogs/TagFamiliesDialog.tsx';
+import { TagAllDialog } from './ui/dialogs/TagAllDialog.tsx';
 import { MaterialsDialog } from './ui/dialogs/MaterialsDialog.tsx';
 import { LevelsDialog, OpeningTypeDialog, ShortcutsDialog, StartDialog } from './ui/dialogs/OtherDialogs.tsx';
 import { UnitsDialog } from './ui/dialogs/UnitsDialog.tsx';
@@ -42,6 +44,7 @@ import { AlertaDialog } from './ui/dialogs/AlertaDialog.tsx';
 import { AreaMergeDialog } from './ui/dialogs/AreaMergeDialog.tsx';
 import { DimensionSettingsDialog } from './ui/dialogs/DimensionSettingsDialog.tsx';
 import { DimensionFamiliesDialog } from './ui/dialogs/DimensionFamiliesDialog.tsx';
+import { NorthArrowFamiliesDialog, RevisionCloudFamiliesDialog, SpotFamiliesDialog, TextFamiliesDialog } from './ui/dialogs/ExtraAnnotationFamilyDialogs.tsx';
 import { ShortcutsConfigDialog } from './ui/dialogs/ShortcutsConfigDialog.tsx';
 import { WallScheduleDialog } from './ui/dialogs/WallScheduleDialog.tsx';
 import { FloorTypeDialog } from './ui/dialogs/FloorTypeDialog.tsx';
@@ -175,6 +178,18 @@ function Dialogs(): ReactElement | null {
       return <DimensionSettingsDialog onApplyStyle={(patch) => editor.store.exec({ type: 'setDimensionStyle', patch }, 'Estilo de cotas')} />;
     case 'dimensionFamilies':
       return <DimensionFamiliesDialog />;
+    case 'tagFamilies':
+      return <TagFamiliesDialog />;
+    case 'tagAll':
+      return <TagAllDialog />;
+    case 'textFamilies':
+      return <TextFamiliesDialog />;
+    case 'spotFamilies':
+      return <SpotFamiliesDialog />;
+    case 'revisionCloudFamilies':
+      return <RevisionCloudFamiliesDialog />;
+    case 'northArrowFamilies':
+      return <NorthArrowFamiliesDialog />;
     case 'start':
       return <StartDialog />;
     case 'shortcuts':

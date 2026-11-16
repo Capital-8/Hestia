@@ -37,7 +37,7 @@ import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
-import { cutHalfOf, openingRect } from './openingCut.ts';
+import { cutHalfOf, openingHole } from './openingCut.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -250,7 +250,7 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipHand: o.flipHand,
     flipFacing: o.flipFacing,
     offset: o.offset,
-    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}),
+    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2), curve: { arc: f.arc, sMid: f.sMid } } : {}),
   };
 }
 
@@ -338,7 +338,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
       const w = zr.get(it.wallId)!;
       const holes = opens
         .filter((g) => g.hostId === it.wallId && mid > w.z0 + g.sill && mid < w.z0 + g.sill + g.roughHeight)
-        .map(openingRect);
+        .map(openingHole);
       let poly = holes.length ? furosDe(frag, holes) : frag;
       // Retorno do acabamento no vão: só nas faixas de altura que o vão atravessa.
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) {
@@ -362,7 +362,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     let cut = fragment;
     if (it.inPlan && fragment.length) {
       // Só as aberturas que furam a parede na planta; o retorno do vão sai junto com o seu vão.
-      const rects = opens.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map(openingRect);
+      const rects = opens.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map(openingHole);
       cut = rects.length ? difference(fragment, ...rects) : fragment;
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) if (planOpen(r.openingId)) cut = [...cut, ...clipReturn(r, it.wallId, plan)];
     }
@@ -374,11 +374,11 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     layers.set(it.wallId, arr);
     if (cut.length) byMaterial.set(it.materialId, [...(byMaterial.get(it.materialId) ?? []), cut]);
   }
-  const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: closeGapsSafe(unionClipper(...parts)) }));
+  const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: parts.length === 1 && parts[0]!.length <= 1 ? parts[0]! : closeGapsSafe(unionClipper(...parts)) }));
   // Silhueta pela união das regiões por material. Unir todos os cortes numa só operação do Clipper foi tentado (semente 18
   // dos testes de propriedade: um bolsão fechado de 0,029 metros quadrados entre três paredes que se cruzam fica preenchido nesta união),
   // mas em outras sementes essa união única preencheu ambientes inteiros (até 8,9 metros quadrados a mais): o erro de 0,1% é o menor.
-  const silhouette = closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
+  const silhouette = regions.length <= 1 ? (regions[0]?.polygons ?? []) : closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
   for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex);
   return { layers, regions, silhouette };
 }

@@ -64,7 +64,8 @@ describe('desenho do corte com escada', () => {
     const draw = buildSectionDrawList(input({ a: v(-1, -3), b: v(6, -3), depth: 6 }));
     expect(draw.fills.filter((f) => f.hatch)).toHaveLength(0);
     // Os 15 degraus formam um só sólido: um preenchimento e um contorno fino fechado (o perfil dentado), sem linha vertical entre degraus.
-    const thin = draw.strokes.filter((s) => s.closed && s.widthPx === 1);
+    // (o peso varia com a proximidade, então "fino" é tudo abaixo da silhueta de 2,2 px)
+    const thin = draw.strokes.filter((s) => s.closed && s.widthPx < 2.2);
     expect(thin).toHaveLength(1);
   });
 });
@@ -449,7 +450,12 @@ describe('gráficos do corte/elevação (decisão 0015)', () => {
   it('sem gráficos salvos o hiddenLine continua com os traços fixos de antes (silhueta 2,2 e além 1)', () => {
     const d = buildSectionDrawList(boxInput());
     expect(d.strokes.filter((s) => s.closed).some((s) => s.widthPx === 2.2)).toBe(true);
-    expect(d.strokes.filter((s) => s.closed && s.widthPx === 1).length).toBeGreaterThan(0);
+    // O que está além pesa por proximidade (0,55 a 1,6 vezes o traço de projeção de 1 px): sempre abaixo da silhueta.
+    const beyond = d.strokes.filter((s) => s.closed && s.widthPx < 2.2);
+    expect(beyond.length).toBeGreaterThan(0);
+    expect(beyond.every((s) => s.widthPx >= 0.55 - 1e-9 && s.widthPx <= 1.6 + 1e-9)).toBe(true);
+    // E há gradação: mais de um peso entre os traços de projeção (perto pesa mais que longe).
+    expect(new Set(beyond.map((s) => s.widthPx.toFixed(3))).size).toBeGreaterThan(1);
   });
 });
 

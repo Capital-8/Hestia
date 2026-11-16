@@ -1,4 +1,4 @@
-import { boxOf, boxesOverlap, differenceClipper, multiArea, multiPoints, type Box, type MultiPolygon } from '@hestia/geom';
+import { boxOf, boxesOverlap, differenceClipper, intersection, multiArea, multiPoints, type Box, type MultiPolygon, type Ring } from '@hestia/geom';
 
 /**
  * Remoção de superfícies ocultas (linha oculta, como Revit e Archicad) em (t, z) para o corte e a elevação.
@@ -51,7 +51,21 @@ export interface OcclusionCota {
   wall: boolean;
 }
 
+/**
+ * Profundidade ao plano de corte em cada ponto (t, z) de um item de face plana inclinada (água de telhado): depth = c + a·t + b·z.
+ * Sem plano, o item vale a profundidade constante `depth` (a do ponto mais próximo), como parede, piso e laje plana.
+ */
+export interface OcclusionPlane {
+  c: number;
+  a: number;
+  b: number;
+}
+
 export interface OcclusionItem {
+  /** Face vista de perfil (de ponta): não cobre nada, só é coberta (como o Lapin: face paralela à vista não esconde nada). */
+  passive?: boolean;
+  /** Profundidade em cada ponto, para face inclinada; ausente = constante `depth`. */
+  plane?: OcclusionPlane;
   /** Distância do plano de corte (ou da linha de elevação) ao ponto mais próximo do item. */
   depth: number;
   /** Ordem de empate (`OCCLUSION_RANK`). */
@@ -182,6 +196,47 @@ function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): Mu
   return resto;
 }
 
+/** Folga (m) de profundidade: abaixo disso duas faces estão no mesmo plano e nenhuma cobre a outra. */
+const DEPTH_EPS = 1e-6;
+
+/** Planos de profundidade iguais (águas coplanares vizinhas), com a folga de ponto flutuante. */
+const mesmoPlano = (p: OcclusionPlane, q: OcclusionPlane): boolean => Math.abs(p.c - q.c) < 1e-3 && Math.abs(p.a - q.a) < 1e-4 && Math.abs(p.b - q.b) < 1e-4;
+
+const planeOf = (it: OcclusionItem): OcclusionPlane => it.plane ?? { c: it.depth, a: 0, b: 0 };
+
+/**
+ * Região de `box` (com folga) onde `front` está mais perto do plano de corte que `back`:
+ * depth_front(t, z) + eps < depth_back(t, z). Semiplano linear em (t, z), recortado com Sutherland-Hodgman.
+ */
+function frontRegion(front: OcclusionPlane, back: OcclusionPlane, box: Box, winTies = false): MultiPolygon {
+  // `winTies`: o empate (dentro da folga) fica com `front`; sem ele, `front` só cobre quando está na frente por mais que a folga.
+  const c = front.c - back.c + (winTies ? -DEPTH_EPS : DEPTH_EPS);
+  const a = front.a - back.a;
+  const b = front.b - back.b;
+  const pad = 1;
+  let ring: Ring = [
+    { x: box.minX - pad, y: box.minY - pad },
+    { x: box.maxX + pad, y: box.minY - pad },
+    { x: box.maxX + pad, y: box.maxY + pad },
+    { x: box.minX - pad, y: box.maxY + pad },
+  ];
+  const f = (v: { x: number; y: number }): number => -(c + a * v.x + b * v.y);
+  const out: Ring = [];
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    const fp = f(p);
+    const fq = f(q);
+    if (fp >= 0) out.push(p);
+    if ((fp >= 0) !== (fq >= 0)) {
+      const k = fp / (fp - fq);
+      out.push({ x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k });
+    }
+  }
+  ring = out;
+  return ring.length >= 3 ? [[ring]] : [];
+}
+
 /** Mais células que isto numa só caixa: ela vai para a lista de grandes. */
 const MAX_CELULAS_POR_CAIXA = 64;
 
@@ -210,17 +265,45 @@ export function visibleParts(items: OcclusionItem[]): MultiPolygon[] {
   const n = order.length;
   const colunas = Math.max(1, Math.min(512, Math.ceil(Math.sqrt(n))));
   const lado = Math.max((total.maxX - total.minX) / colunas, (total.maxY - total.minY) / colunas, 1e-6);
-  const grade = new GradeDeCaixas<{ box: Box; polygons: MultiPolygon }>(total.minX, total.minY, lado, colunas + 1);
+  const grade = new GradeDeCaixas<{ box: Box; polygons: MultiPolygon; idx: number }>(total.minX, total.minY, lado, colunas + 1);
   for (const i of order) {
     const item = items[i]!;
     const box = caixas.get(i)!;
-    const hits = grade.consultar(box, 1e-9).map((o) => o.polygons);
-    const visible = hits.length > 0 ? subtrairEmLotes(item.polygons, hits) : item.polygons;
+    const near = grade.consultar(box, 1e-9);
+    const passive = item.passive === true;
+    const sloped = (j: number): boolean => items[j]!.plane !== undefined && (items[j]!.plane!.a !== 0 || items[j]!.plane!.b !== 0);
+    const pi = planeOf(item);
+    // Quem cobre o item: o já processado inteiro (profundidade constante) ou, com face inclinada de um dos lados, só onde está na frente.
+    const hits = near.map((o) => {
+      if (!sloped(i) && !sloped(o.idx)) return o.polygons;
+      const po = planeOf(items[o.idx]!);
+      // Mesmo plano (águas coplanares vizinhas): nenhuma cobre a outra por profundidade; vale a ordem de antes (o já processado cobre).
+      if (mesmoPlano(po, pi)) return o.polygons;
+      const region = frontRegion(po, pi, o.box, true);
+      return region.length > 0 ? intersection(o.polygons, region) : [];
+    });
+    const visible = hits.length > 0 ? subtrairEmLotes(item.polygons, hits.filter((h) => h.length > 0)) : item.polygons;
+    // Onde o item está na frente de um já processado de face inclinada, ele o cobre: tira o item dali (o corpo inclinado vinha antes
+    // pela profundidade do ponto mais próximo e escondia indevidamente o que está na frente da sua parte alta).
+    if (visible.length > 0 && !passive) {
+      for (const o of near) {
+        if (!sloped(i) && !sloped(o.idx)) continue;
+        const po = planeOf(items[o.idx]!);
+        if (mesmoPlano(po, pi)) continue;
+        const region = frontRegion(pi, po, box);
+        if (region.length === 0) continue;
+        const covering = intersection(visible, region);
+        if (covering.length === 0) continue;
+        const rest = o.polygons.length > 0 ? differenceClipper(o.polygons, covering) : [];
+        o.polygons = rest;
+        out[o.idx] = rest;
+      }
+    }
     if (visible.length === 0) continue;
-    const area = multiArea(visible);
-    if (area < MIN_VISIBLE_AREA || (2 * area) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
+    const area0 = multiArea(visible);
+    if (area0 < MIN_VISIBLE_AREA || (2 * area0) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
     out[i] = visible;
-    grade.add({ box: boxOf(multiPoints(visible)), polygons: visible });
+    if (!passive) grade.add({ box: boxOf(multiPoints(visible)), polygons: visible, idx: i });
   }
   return out;
 }

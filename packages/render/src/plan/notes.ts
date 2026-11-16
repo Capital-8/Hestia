@@ -1,8 +1,9 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
 import { quadradoEm } from './marcadores.ts';
+import { revisionCloudOps, spotAnnotationOps, symbolAnnotationOps } from './extraAnnotations.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
 import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
@@ -21,6 +22,8 @@ export interface NoteLook {
   dimStyle?: DimensionStyle;
   /** Cota sob o cursor: destacada inteira (linha, chamadas, marcadores e texto). */
   hover?: Id | null;
+  /** Verdadeiro quando o chamador é uma vista de corte/elevação. */
+  isSection?: boolean;
 }
 
 /** Espessura relativa das linhas de separação selecionadas (um pouco maior que a normal, traço mantido). */
@@ -137,6 +140,9 @@ export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan): Area
     detailLines: prof.detail ? all.detailLines : [],
     detailRegions: prof.detail ? all.detailRegions : [],
     tags: prof.tags ? all.tags : [],
+    spots: prof.tags ? (all.spots ?? []) : [],
+    revisionClouds: prof.detail ? (all.revisionClouds ?? []) : [],
+    symbols: prof.tags ? (all.symbols ?? []) : [],
   };
 }
 
@@ -187,6 +193,9 @@ export function annotationsOfLevel(p: Project, levelId: Id): AreaPlanAnnotations
     detailLines: level?.detailLines ?? [],
     detailRegions: level?.detailRegions ?? [],
     tags: level?.tags ?? [],
+    spots: level?.spots ?? [],
+    revisionClouds: level?.revisionClouds ?? [],
+    symbols: level?.symbols ?? [],
   };
 }
 
@@ -208,6 +217,9 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   const texts = annotations ? annotations.texts : levelTexts(p, levelId);
   const detailLines = annotations ? annotations.detailLines : (level?.detailLines ?? []);
   const detailRegions = annotations ? annotations.detailRegions : (level?.detailRegions ?? []);
+  const spots = annotations ? (annotations.spots ?? []) : (level?.spots ?? []);
+  const revisionClouds = annotations ? (annotations.revisionClouds ?? []) : (level?.revisionClouds ?? []);
+  const symbols = annotations ? (annotations.symbols ?? []) : (level?.symbols ?? []);
   const corte = espessuraDeCorte(pt);
   const projecao = espessuraDeProjecao(pt);
   // Disposição das cotas da vista: o texto que não cabe sai com linha de chamada e os rótulos não se sobrepõem.
@@ -228,28 +240,63 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
     out.labels.push(...d.labels);
   }
   for (const t of texts) {
+    const tf = textFamilyFor(p.settings, t.familyId);
+    const effHeight = t.height > 0 ? t.height : tf.textMm;
+    const effBold = t.bold ?? tf.bold;
+    const effItalic = t.italic ?? tf.italic;
+    const effUnderline = t.underline ?? tf.underline;
+    const effFrame = t.frame ?? tf.frame;
+    const effText = { ...t, height: effHeight };
     const selecionado = picked(t.id);
     const c = selecionado ? look.select : color;
     const mPorMm = scale / 1000;
-    const bloco = textBlockModel(t, scale);
-    if (t.leader) for (let i = 0; i < t.leader.length - 1; i++) out.strokes.push({ pts: [t.leader[i]!, t.leader[i + 1]!], closed: false, ...projecao, color: c, alpha: 1 });
+    const bloco = textBlockModel(effText, scale);
+    if (t.leader) {
+      for (let i = 0; i < t.leader.length - 1; i++) out.strokes.push({ pts: [t.leader[i]!, t.leader[i + 1]!], closed: false, ...projecao, color: c, alpha: 1 });
+      if (t.leader.length >= 2 && tf.leaderArrow !== 'none') {
+        const tip = t.leader[0]!;
+        const nxt = t.leader[1]!;
+        const dx = nxt.x - tip.x;
+        const dy = nxt.y - tip.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 1e-6) {
+          const ux = dx / len;
+          const uy = dy / len;
+          const sz = Math.max(1.8 * mPorMm, 0.04);
+          if (tf.leaderArrow === 'arrow') {
+            out.fills.push({ polygons: [[[tip, { x: tip.x + ux * sz - uy * sz * 0.38, y: tip.y + uy * sz + ux * sz * 0.38 }, { x: tip.x + ux * sz + uy * sz * 0.38, y: tip.y + uy * sz - ux * sz * 0.38 }]]], color: c, alpha: 1 });
+          } else if (tf.leaderArrow === 'dot') {
+            const r = sz * 0.35;
+            const pts = Array.from({ length: 10 }, (_, k) => {
+              const a = (k / 10) * Math.PI * 2;
+              return { x: tip.x + Math.cos(a) * r, y: tip.y + Math.sin(a) * r };
+            });
+            out.fills.push({ polygons: [[pts]], color: c, alpha: 1 });
+          } else if (tf.leaderArrow === 'slash') {
+            const nx = -uy * sz * 0.5;
+            const ny = ux * sz * 0.5;
+            out.strokes.push({ pts: [{ x: tip.x - nx - ux * sz * 0.3, y: tip.y - ny - uy * sz * 0.3 }, { x: tip.x + nx + ux * sz * 0.3, y: tip.y + ny + uy * sz * 0.3 }], closed: false, ...corte, color: c, alpha: 1 });
+          }
+        }
+      }
+    }
     // Moldura do texto (`frame`): fundo do papel e contorno em volta do bloco, quebrado por `width` quando houver.
-    if (t.frame) {
+    if (effFrame || tf.opaqueBackground) {
       const folga = MOLDURA_MM * mPorMm;
       out.fills.push({ polygons: [[blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga)]], color: look.paper ?? '#fbfbfa', alpha: 1 });
-      out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga), closed: true, ...projecao, color: c, alpha: 1 });
+      if (effFrame) out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga), closed: true, ...projecao, color: c, alpha: 1 });
     }
     // Seleção: caixa em volta do bloco e o quadradinho da alça no canto inferior esquerdo, fora do texto.
     if (selecionado) {
       out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, (MOLDURA_MM + SELECAO_MM) * mPorMm), closed: true, widthPx: 2, color: look.select, alpha: 1 });
-      const q = quadradoEm(alcaDoTextoEm(t, scale), ALCA_TEXTO_PX);
+      const q = quadradoEm(alcaDoTextoEm(effText, scale), ALCA_TEXTO_PX);
       out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
       out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
     }
-    const label = noteLabel(t.at, t.text, t.height, scale, t.rotation);
+    const label = noteLabel(t.at, t.text, effHeight, scale, t.rotation);
     if (t.width) label.papel = { ...label.papel!, widthMm: t.width };
     // `whiteSpace: pre-wrap` preserva as quebras de `\n` (e as de `width`) no texto de tela; a cor de seleção tinge o texto.
-    out.labels.push({ ...label, whiteSpace: 'pre-wrap', bold: t.bold, italic: t.italic, underline: t.underline, align: t.align, ...(selecionado ? { color: look.select } : {}) });
+    out.labels.push({ ...label, whiteSpace: 'pre-wrap', bold: effBold, italic: effItalic, underline: effUnderline, align: t.align, ...(selecionado ? { color: look.select } : {}) });
   }
   for (const line of detailLines) {
     const selected = picked(line.id);
@@ -271,9 +318,26 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   // Só entram quando a vista traz as suas anotações; sem elas, `build.ts` desenha as do nível à parte (como antes).
   if (annotations) {
     const comTags: Project = { ...p, levels: p.levels.map((x) => (x.id === levelId ? { ...x, tags: annotations.tags } : x)) };
-    const tags = elementTagOps(comTags, levelId, pt, scale);
+    const tags = elementTagOps(comTags, levelId, pt, scale, { selection: look.selection, selectColor: look.select });
     out.strokes.push(...tags.strokes);
     out.labels.push(...tags.labels);
+  }
+  if (spots.length > 0) {
+    const sp = spotAnnotationOps(p, levelId, spots, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.fills.push(...sp.fills);
+    out.strokes.push(...sp.strokes);
+    out.labels.push(...sp.labels);
+  }
+  if (revisionClouds.length > 0) {
+    const rc = revisionCloudOps(p, revisionClouds, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.strokes.push(...rc.strokes);
+    out.labels.push(...rc.labels);
+  }
+  if (symbols.length > 0) {
+    const sy = symbolAnnotationOps(p, symbols, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.fills.push(...sy.fills);
+    out.strokes.push(...sy.strokes);
+    out.labels.push(...sy.labels);
   }
   return out;
 }

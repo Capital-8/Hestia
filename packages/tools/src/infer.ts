@@ -16,8 +16,8 @@ import {
   type Arc,
   type Vec2,
 } from '@hestia/geom';
-import { frameOfWall, wallFacesCached as facesOf, type WallFaces } from '@hestia/engine';
-import { openingTypeById, openingsOfWall, wallThicknessOf, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { frameOfWall, pointAt, toLocal, wallFacesCached as facesOf, type WallFaces } from '@hestia/engine';
+import { openingTypeById, openingsOfWall, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
@@ -672,11 +672,14 @@ function bestOf(
 export function hostUnder(cursor: Vec2, p: Project, levelId: Id, mpp: number, snapOn = true, tolPx = TOL_PX): { wallId: Id; offset: number; point: Vec2 } | null {
   let best: { wallId: Id; offset: number; point: Vec2; d: number } | null = null;
   for (const w of wallsOnLevel(p, levelId)) {
-    const near = closestOnWall(w, cursor);
-    const type = p.wallTypes[w.typeId];
-    const half = (type ? wallThicknessOf(type) : 0.2) / 2 + (snapOn ? tolPx * mpp : 0);
-    if (near.dist > half) continue;
-    if (!best || near.dist < best.d) best = { wallId: w.id, offset: near.t, point: near.point, d: near.dist };
+    const f = frameOfWall(p, w.id);
+    if (!f) continue;
+    const t = Math.max(0, Math.min(f.length, toLocal(f, cursor).t));
+    const midPt = pointAt(f, t, f.sMid);
+    const d = Math.hypot(cursor.x - midPt.x, cursor.y - midPt.y);
+    const half = f.thickness / 2 + (snapOn ? tolPx * mpp : 0);
+    if (d > half) continue;
+    if (!best || d < best.d) best = { wallId: w.id, offset: t, point: midPt, d };
   }
   return best ? { wallId: best.wallId, offset: best.offset, point: best.point } : null;
 }

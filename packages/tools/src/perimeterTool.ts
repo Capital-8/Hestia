@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { weldMicroSegs } from './perimeterModifyDraft.ts';
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { angleOf, dist, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
 import { ToolBase } from './base.ts';
@@ -195,7 +196,7 @@ export class PerimeterTool extends ToolBase {
 
   /** Botão Concluir: valida o esboço. Se fecha, devolve o contorno e os furos (com as flags das arestas) e limpa o rascunho. */
   finish(): FinishResult {
-    const r = finishSketch(this.d);
+    const r = finishSketch(weldMicroSegs(this.d));
     if (!r.ok) {
       this.env.say(r.issues[0]?.message ?? this.t('tl_msg_sketch_incomplete'));
       return r;

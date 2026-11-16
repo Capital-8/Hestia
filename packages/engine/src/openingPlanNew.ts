@@ -22,6 +22,13 @@ export interface OpeningPlanPoint {
   s: number;
 }
 
+/** Âncora no sistema local do vão para manter peças articuladas/arcos rígidos alinhados ao batente curvo. */
+export interface OpeningPlanAnchor {
+  t: number;
+  s: number;
+  refT?: number;
+}
+
 /** Um traço da planta da esquadria, em coordenadas locais do vão. */
 export interface OpeningPlanPath {
   pts: OpeningPlanPoint[];
@@ -31,6 +38,7 @@ export interface OpeningPlanPath {
   tone: OpeningPlanTone;
   dash?: [number, number];
   role: OpeningPlanRole;
+  anchor?: OpeningPlanAnchor;
 }
 
 /** Opções da planta: nível de detalhe, abertura, convenção de exibição e cota de corte (z local do modelo). */
@@ -63,22 +71,24 @@ const FRAME_ROLES: ReadonlySet<PartRole> = new Set<PartRole>([
   'transom',
 ]);
 
-export const line = (pts: OpeningPlanPoint[], role: OpeningPlanRole, tone: OpeningPlanTone = 'ink', weight = 1, dash?: [number, number]): OpeningPlanPath => ({
+export const line = (pts: OpeningPlanPoint[], role: OpeningPlanRole, tone: OpeningPlanTone = 'ink', weight = 1, dash?: [number, number], anchor?: OpeningPlanAnchor): OpeningPlanPath => ({
   pts,
   closed: false,
   weight,
   tone,
   ...(dash ? { dash } : {}),
   role,
+  ...(anchor ? { anchor } : {}),
 });
 
-export const polygon = (pts: OpeningPlanPoint[], role: OpeningPlanRole, tone: OpeningPlanTone = 'cut', weight = 1, dash?: [number, number]): OpeningPlanPath => ({
+export const polygon = (pts: OpeningPlanPoint[], role: OpeningPlanRole, tone: OpeningPlanTone = 'cut', weight = 1, dash?: [number, number], anchor?: OpeningPlanAnchor): OpeningPlanPath => ({
   pts,
   closed: true,
   weight,
   tone,
   ...(dash ? { dash } : {}),
   role,
+  ...(anchor ? { anchor } : {}),
 });
 
 /** Anel do retângulo da caixa (t0,s0) → (t1,s0) → (t1,s1) → (t0,s1). */
@@ -153,15 +163,15 @@ export function openingSign(o: LeafOpening, motion: PartMotion | undefined): 1 |
 }
 
 /** Arco (ou reta) do fecho de `closedEnd` até a folha aberta, no estilo pedido. */
-export function addOpeningArc(out: OpeningPlanPath[], center: OpeningPlanPoint, closedEnd: OpeningPlanPoint, sweep: number, style: 'arc' | 'dash' | 'line'): void {
+export function addOpeningArc(out: OpeningPlanPath[], center: OpeningPlanPoint, closedEnd: OpeningPlanPoint, sweep: number, style: 'arc' | 'dash' | 'line', anchor?: OpeningPlanAnchor): void {
   if (Math.abs(sweep) < EPS) return;
   const openEnd = rotatePoint(closedEnd, center, sweep);
   if (style === 'line') {
-    out.push(line([closedEnd, openEnd], 'swing', 'soft', 0.7));
+    out.push(line([closedEnd, openEnd], 'swing', 'soft', 0.7, undefined, anchor));
     return;
   }
   const pts = arcPoints(center, closedEnd, sweep);
-  if (pts.length >= 2) out.push(line(pts, 'swing', 'soft', 0.7, style === 'dash' ? [4, 3] : undefined));
+  if (pts.length >= 2) out.push(line(pts, 'swing', 'soft', 0.7, style === 'dash' ? [4, 3] : undefined, anchor));
 }
 
 /** Perfis do batente/caixilho cortados na cota `z` (peças fixas). */
@@ -312,7 +322,7 @@ export function addNewDoorPlan(out: OpeningPlanPath[], m: OpeningModel, opts: Op
     const face = side * (m.thickness / 2);
     const comprimento = Math.min(m.height, 2.5);
     if (Number.isFinite(t0) && Number.isFinite(t1)) {
-      out.push(polygon(boxRing({ t0, t1, s0: face, s1: face + side * comprimento, z0: 0, z1: 1 }), 'leaf', 'soft', 0.7, [6, 3]));
+      out.push(polygon(boxRing({ t0, t1, s0: face, s1: face + side * comprimento, z0: 0, z1: 1 }), 'leaf', 'soft', 0.7, [6, 3], { t: t0, s: face, refT: t1 }));
     }
     addDeepTracks(out, m);
     if (level === 'high') addHighExtras(out, m, opts.cutZ);
@@ -321,7 +331,8 @@ export function addNewDoorPlan(out: OpeningPlanPath[], m: OpeningModel, opts: Op
   if (family === 'fold') {
     for (const part of m.parts.filter((x) => x.role === 'leaf')) {
       const motion = part.motion;
-      out.push(polygon(transformedRing(part.box, motion, opts.angle), 'leaf', 'cut', 1));
+      const anchor = motion?.kind === 'rotate' && motion.axis === 'z' ? { t: motion.t, s: motion.s } : undefined;
+      out.push(polygon(transformedRing(part.box, motion, opts.angle), 'leaf', 'cut', 1, undefined, anchor));
     }
     addTracks(out, m);
     if (level === 'high') addHighExtras(out, m, opts.cutZ);
@@ -333,13 +344,14 @@ export function addNewDoorPlan(out: OpeningPlanPath[], m: OpeningModel, opts: Op
     if (!box) continue;
     const motion = leafMotion(m, o.leaf);
     const sign = openingSign(o, motion);
-    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1));
-    out.push(polygon(transformedRing(box, motion, -opts.angle), 'leaf', 'cut', 1));
+    const anchor: OpeningPlanAnchor = { t: o.pivot.t, s: o.pivot.s, refT: o.latchT };
+    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1, undefined, anchor));
+    out.push(polygon(transformedRing(box, motion, -opts.angle), 'leaf', 'cut', 1, undefined, anchor));
     if (!opts.showSwing) continue;
     const center = { t: o.pivot.t, s: o.pivot.s };
     const closedEnd = { t: o.latchT, s: o.pivot.s };
-    addOpeningArc(out, center, closedEnd, sign * opts.angle, opts.swingStyle);
-    addOpeningArc(out, center, closedEnd, -sign * opts.angle, 'dash');
+    addOpeningArc(out, center, closedEnd, sign * opts.angle, opts.swingStyle, anchor);
+    addOpeningArc(out, center, closedEnd, -sign * opts.angle, 'dash', anchor);
   }
   if (level === 'high') addHighExtras(out, m, opts.cutZ);
   return true;
@@ -373,11 +385,12 @@ export function addHingedPlan(out: OpeningPlanPath[], m: OpeningModel, opts: Ope
     const box = leafBox(m, o.leaf);
     if (!box) continue;
     const motion = leafMotion(m, o.leaf);
-    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1));
+    const anchor: OpeningPlanAnchor = { t: o.pivot.t, s: o.pivot.s, refT: o.latchT };
+    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1, undefined, anchor));
     if (!opts.showSwing) continue;
     const sign = openingSign(o, motion);
     const center = { t: o.pivot.t, s: o.pivot.s };
-    addOpeningArc(out, center, { t: o.latchT, s: o.pivot.s }, sign * opts.angle, 'dash');
+    addOpeningArc(out, center, { t: o.latchT, s: o.pivot.s }, sign * opts.angle, 'dash', anchor);
   }
 }
 
@@ -388,11 +401,12 @@ export function addPivotWinPlan(out: OpeningPlanPath[], m: OpeningModel, opts: O
     const box = leafBox(m, o.leaf);
     if (!box) continue;
     const motion = leafMotion(m, o.leaf);
-    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1));
+    const anchor: OpeningPlanAnchor = { t: o.pivot.t, s: o.pivot.s };
+    out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1, undefined, anchor));
     if (!opts.showSwing) continue;
     const sign = openingSign(o, motion);
     const center = { t: o.pivot.t, s: o.pivot.s };
-    addOpeningArc(out, center, { t: box.t0, s: o.pivot.s }, sign * opts.angle, 'dash');
-    addOpeningArc(out, center, { t: box.t1, s: o.pivot.s }, sign * opts.angle, 'dash');
+    addOpeningArc(out, center, { t: box.t0, s: o.pivot.s }, sign * opts.angle, 'dash', anchor);
+    addOpeningArc(out, center, { t: box.t1, s: o.pivot.s }, sign * opts.angle, 'dash', anchor);
   }
 }

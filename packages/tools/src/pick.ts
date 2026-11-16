@@ -1,4 +1,4 @@
-import { dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
+import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
 import { isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
 import { toLocal, wallEndCorners } from '@hestia/engine';
@@ -101,20 +101,26 @@ export function followingEnds(p: Project, levelId: Id, pt: Vec2, exclude: Set<Id
 export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
   const box = boxOf([a, b]);
   const crossing = b.x < a.x;
+  const inside = (q: Vec2): boolean => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY;
+  const corners: Vec2[] = [
+    { x: box.minX, y: box.minY },
+    { x: box.maxX, y: box.minY },
+    { x: box.maxX, y: box.maxY },
+    { x: box.minX, y: box.maxY },
+  ];
   const ids: Id[] = [];
   for (const w of wallsOnLevel(p, levelId)) {
-    const bb = boxOf([w.a, w.b]);
-    const inside = (q: Vec2): boolean => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY;
-    const contained = inside(w.a) && inside(w.b);
-    let hit = contained;
+    const arc = arcFromSagitta(w.a, w.b, w.sag);
+    const pts = arc ? arcSample(arc, 0, arc.length, 0, 0.05) : [w.a, w.b];
+    const bb = boxOf(pts);
+    let hit = pts.every(inside);
     if (!hit && crossing && boxesOverlap(bb, box)) {
-      const corners: Vec2[] = [
-        { x: box.minX, y: box.minY },
-        { x: box.maxX, y: box.minY },
-        { x: box.maxX, y: box.maxY },
-        { x: box.minX, y: box.maxY },
-      ];
-      hit = inside(w.a) || inside(w.b) || corners.some((c, i) => intersectSegments(w.a, w.b, c, corners[(i + 1) % 4]!) !== null);
+      hit = pts.some(inside);
+      for (let i = 0; !hit && i + 1 < pts.length; i++) {
+        const s0 = pts[i]!;
+        const s1 = pts[i + 1]!;
+        if (corners.some((c, j) => intersectSegments(s0, s1, c, corners[(j + 1) % 4]!) !== null)) hit = true;
+      }
     }
     if (hit) ids.push(w.id);
   }

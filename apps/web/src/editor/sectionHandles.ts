@@ -62,7 +62,7 @@ export function sectionAnnotationIdsIn(p: Project): Set<Id> {
   const ids = new Set<Id>();
   for (const v of p.views) {
     const a = sectionAnnotationsOf(v);
-    for (const list of [a.dimensions, a.texts, a.detailLines, a.detailRegions, a.tags]) for (const x of list) ids.add(x.id);
+    for (const list of [a.dimensions, a.texts, a.detailLines, a.detailRegions, a.tags, a.spots ?? [], a.revisionClouds ?? [], a.symbols ?? []]) for (const x of list) ids.add(x.id);
   }
   return ids;
 }

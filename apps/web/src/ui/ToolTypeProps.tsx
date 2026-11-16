@@ -1,14 +1,29 @@
 import { useUi, type DialogKind } from '../editor/state.ts';
 import { useProject } from '../editor/controller.ts';
-import { useT, type Dict } from '../editor/i18n.ts';
+import { useI18n, useT, type Dict } from '../editor/i18n.ts';
+import {
+  defaultDimensionFamilyIdOf,
+  defaultNorthArrowFamilyIdOf,
+  defaultRevisionCloudFamilyIdOf,
+  defaultSpotFamilyIdOf,
+  defaultTagFamilyIdOf,
+  defaultTextFamilyIdOf,
+  dimensionFamiliesOf,
+  dimensionStyleOf,
+  northArrowFamiliesOf,
+  revisionCloudFamiliesOf,
+  spotFamiliesOf,
+  tagFamiliesOf,
+  textFamiliesOf,
+} from '@hestia/model';
 import { DEFAULT_RAMP_OPTIONS, DEFAULT_STAIR_RUN_OPTIONS, stairTypeForShape, stairTypeId, stairTypesForShape } from '@hestia/tools';
 import type { ReactElement } from 'react';
 import { TypeSelector } from './TypeSelector.tsx';
-import { beamOptions, ceilingOptions, columnOptions, floorOptions, footingOptions, openingOptions, openingOptionsDaCortina, rampOptions, roofOptions, slabOptions, stairOptions, wallOptions } from './typeOptions.ts';
+import { beamOptions, ceilingOptions, columnOptions, dimensionOptions, floorOptions, footingOptions, openingOptions, openingOptionsDaCortina, rampOptions, roofOptions, slabOptions, stairOptions, tagOptions, wallOptions } from './typeOptions.ts';
 import { setStairOpt } from './StairOptionsBar.tsx';
 
 /** Ferramentas de colocação com tipo: a paleta mostra o tipo escolhido antes de desenhar (o mesmo valor da barra de opções). */
-export type ToolTypeKind = 'wall' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp' | 'column' | 'beam' | 'footing';
+export type ToolTypeKind = 'wall' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'roofextrusion' | 'stair' | 'stairrun' | 'ramp' | 'column' | 'beam' | 'footing' | 'dimension' | 'text' | 'spotElevation' | 'spotCoordinate' | 'revisionCloud' | 'northArrow' | 'tag';
 const TOOL_TYPE_LABEL = {
   wall: 'prb_place_wall',
   door: 'prb_place_door',
@@ -27,6 +42,13 @@ const TOOL_TYPE_LABEL = {
   column: 'tool_column',
   beam: 'tool_beam',
   footing: 'tool_footing',
+  dimension: 'pra_pgrp_placement_dimension',
+  text: 'pra_pgrp_placement_text',
+  spotElevation: 'pra_pgrp_placement_dimension',
+  spotCoordinate: 'pra_pgrp_placement_dimension',
+  revisionCloud: 'pra_pgrp_detail_line',
+  northArrow: 'pra_pgrp_detail_line',
+  tag: 'tg_pgrp_tag',
 } as const satisfies Record<ToolTypeKind, keyof Dict>;
 
 export function isToolTypeKind(tool: string): tool is ToolTypeKind {
@@ -130,6 +152,61 @@ export function ToolTypeProps({ tool }: { tool: ToolTypeKind }): ReactElement {
         <TypeSelector categoryLabel={categoryLabel} triggerId="prop-footingtype" label={t('str_prop_type_footing')} options={footingOptions(p)} selectedId={o.footingTypeId ?? null}
           onSelect={(id) => setOpt({ footingTypeId: id })} onEdit={() => edit('footingType', o.footingTypeId)} />
       );
+    case 'dimension': {
+      const fams = dimensionFamiliesOf(p.settings, useI18n.getState().lang);
+      const id = o.dimensionFamilyId ?? defaultDimensionFamilyIdOf(p.settings);
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-dimfamily" label={t('pra_pgrp_placement_dimension')} options={dimensionOptions(fams, categoryLabel)} selectedId={id}
+          onSelect={(v) => setOpt({ dimensionFamilyId: v })} onEdit={() => useUi.setState({ dialog: 'dimensionFamilies', dimFamilyFocus: id })} />
+      );
+    }
+    case 'text': {
+      const fams = textFamiliesOf(p.settings);
+      const id = o.textFamilyId ?? defaultTextFamilyIdOf(p.settings);
+      const subj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+      return (
+        <TypeSelector categoryLabel={categoryLabel} triggerId="prop-textfamily" label={t('pra_pgrp_text')} options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: t('pra_pgrp_text'), subject: subj }))} selectedId={id}
+          onSelect={(v) => setOpt({ textFamilyId: v })} onEdit={() => edit('textFamilies', id)} />
+      );
+    }
+    case 'spotElevation':
+    case 'spotCoordinate': {
+      const kind = tool === 'spotElevation' ? 'elevation' : 'coordinate';
+      const famLabel = kind === 'elevation' ? 'Cota de elevação' : 'Coordenada de ponto';
+      const fams = spotFamiliesOf(p.settings, kind);
+      const id = (kind === 'elevation' ? o.spotElevationFamilyId : o.spotCoordinateFamilyId) ?? defaultSpotFamilyIdOf(p.settings, kind);
+      const subj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+      return (
+        <TypeSelector categoryLabel={famLabel} triggerId="prop-spotfamily" label={famLabel} options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: famLabel, subject: subj }))} selectedId={id}
+          onSelect={(v) => setOpt(kind === 'elevation' ? { spotElevationFamilyId: v } : { spotCoordinateFamilyId: v })} onEdit={() => edit('spotFamilies', id)} />
+      );
+    }
+    case 'revisionCloud': {
+      const fams = revisionCloudFamiliesOf(p.settings);
+      const id = o.revisionCloudFamilyId ?? defaultRevisionCloudFamilyIdOf(p.settings);
+      const subj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+      return (
+        <TypeSelector categoryLabel="Nuvem de revisão" triggerId="prop-rcfamily" label="Nuvem de revisão" options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: 'Nuvem de revisão', subject: subj }))} selectedId={id}
+          onSelect={(v) => setOpt({ revisionCloudFamilyId: v })} onEdit={() => edit('revisionCloudFamilies', id)} />
+      );
+    }
+    case 'northArrow': {
+      const fams = northArrowFamiliesOf(p.settings);
+      const id = o.northArrowFamilyId ?? defaultNorthArrowFamilyIdOf(p.settings);
+      const subj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+      return (
+        <TypeSelector categoryLabel="Seta norte" triggerId="prop-symfamily" label="Seta norte" options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: 'Seta norte', subject: subj }))} selectedId={id}
+          onSelect={(v) => setOpt({ northArrowFamilyId: v })} onEdit={() => edit('northArrowFamilies', id)} />
+      );
+    }
+    case 'tag': {
+      const fams = tagFamiliesOf(p.settings, useI18n.getState().lang);
+      const id = o.tagFamilyId ?? defaultTagFamilyIdOf(p.settings);
+      return (
+        <TypeSelector categoryLabel={t('tg_pgrp_tag')} triggerId="prop-tagfamily" label={t('tg_fld_family')} options={tagOptions(fams, t('tg_pgrp_tag'))} selectedId={id}
+          onSelect={(v) => setOpt({ tagFamilyId: v })} onEdit={() => useUi.setState({ dialog: 'tagFamilies', tagFamilyFocus: id })} />
+      );
+    }
   }
 }
 

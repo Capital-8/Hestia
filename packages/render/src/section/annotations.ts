@@ -34,7 +34,10 @@ export function hasSectionAnnotations(a: SectionAnnotations | undefined): boolea
     listOf(a.texts).length > 0 ||
     listOf(a.detailLines).length > 0 ||
     listOf(a.detailRegions).length > 0 ||
-    listOf(a.tags).length > 0
+    listOf(a.tags).length > 0 ||
+    listOf(a.spots).length > 0 ||
+    listOf(a.revisionClouds).length > 0 ||
+    listOf(a.symbols).length > 0
   );
 }
 
@@ -110,6 +113,9 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
     detailLines: [...listOf(a.detailLines)],
     detailRegions: [...listOf(a.detailRegions)],
     tags,
+    spots: [...listOf(a.spots)],
+    revisionClouds: [...listOf(a.revisionClouds)],
+    symbols: [...listOf(a.symbols)],
   };
   // Projeto derivado só para as etiquetas: o `noteOps` lê `level.tags`, então as etiquetas da seção tomam o lugar das do
   // nível de referência (sem somar as da planta). Sem nível, nenhuma etiqueta é desenhada.
@@ -127,6 +133,7 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
     selection: [...(opts.selectedIds ?? input.highlight?.selection ?? [])],
     hover: opts.hoverId === undefined ? (input.highlight?.hover ?? null) : opts.hoverId,
     dimStyle: opts.style ?? dimensionStyleOf(input.project.settings),
+    isSection: true,
   };
   // `annotations` sempre definido: além de substituir as do nível, impede as linhas de separação de ambiente (que são da
   // planta) de entrarem no corte. Sem nível de referência (projeto sem níveis), as cotas/textos/detalhes ainda saem;

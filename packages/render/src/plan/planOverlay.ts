@@ -1,5 +1,5 @@
-import { orientedRect, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { frameOfWall, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
+import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { frameOfWall, openingBandRing, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
 import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
@@ -48,7 +48,7 @@ function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: stri
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);
-      out.push({ polygons: [[orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02)]], color, alpha });
+      out.push({ polygons: [[openingBandRing(g)]], color, alpha });
     }
   }
   return out;
@@ -76,9 +76,9 @@ function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: PlanView | null)
     const f = frameOfWall(p, e.hostId);
     if (!f) return out;
     const g = openingGeometry(p, e, f);
-    const rect = orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02);
-    out.fills.push({ polygons: [[rect]], color: AVISO, alpha: AVISO_ALPHA });
-    out.strokes.push({ pts: rect, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
+    const ring = openingBandRing(g);
+    out.fills.push({ polygons: [[ring]], color: AVISO, alpha: AVISO_ALPHA });
+    out.strokes.push({ pts: ring, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
   }
   return out;
 }/** Folga da caixa do Reveal em volta do texto de uma anotação, em mm de papel. */
@@ -121,7 +121,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);
-      out.strokes.push({ pts: orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
+      out.strokes.push({ pts: openingBandRing(g), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
       continue;
     }
     const m = pegadas.get(id);

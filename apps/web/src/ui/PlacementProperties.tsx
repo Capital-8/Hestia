@@ -12,7 +12,7 @@ import { RampLevelsFields, rampLevelsValue } from './RampLevelsFields.tsx';
 import { abrirCaixaDeTexto } from './dialogs/TextDialog.tsx';
 import { stairRunFields, stairShapeOptions } from './stairRunFields.ts';
 
-const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'section', 'column', 'beam', 'footing']);
+const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section', 'column', 'beam', 'footing']);
 
 /** Linha de localização da parede: mesma lista de `LOCATION_LABEL`, traduzida pelo dicionário. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -54,7 +54,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
     <>
       {tool === 'wall' && (
         <Group title={t('pra_pgrp_placement_wall')}>
-          <Row label={t('pra_fld_form')} htmlFor="place-wall-shape"><select id="place-wall-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as typeof o.wallShape })}><option value="line">{t('pra_opt_line')}</option><option value="arc">{t('pra_opt_arc_3_points')}</option><option value="rect">{t('pra_opt_rectangle')}</option></select></Row>
+          <Row label={t('pra_fld_form')} htmlFor="place-wall-shape"><select id="place-wall-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as typeof o.wallShape })}><option value="line">{t('pro_pm_shape_line')}</option><option value="rect">{t('pro_pm_shape_rect')}</option><option value="poly-inscribed">{t('pro_pm_shape_poly_in')}</option><option value="poly-circumscribed">{t('pro_pm_shape_poly_circ')}</option><option value="circle">{t('pro_pm_shape_circle')}</option><option value="arc">{t('pro_pm_shape_arc3')}</option><option value="arc-center">{t('pro_pm_shape_arc_center')}</option><option value="arc-tangent">{t('pro_pm_shape_arc_tangent')}</option><option value="ellipse">{t('pro_pm_shape_ellipse')}</option></select></Row>
           <Row label={t('pra_fld_base_level')}><span className="val">{p.levels.find((l) => l.id === levelId)?.name ?? t('pra_msg_active_level')}</span></Row>
           <Row label={t('pra_fld_base_offset')} htmlFor="place-wall-base"><NumField id="place-wall-base" value={o.wallBaseOffset ?? 0} quantity="length" onCommit={(v) => set({ wallBaseOffset: v })} /></Row>
           <Row label={t('pra_fld_top_level')} htmlFor="place-wall-top"><select id="place-wall-top" className="select" value={o.wallTopLevelId ?? ''} onChange={(e) => set({ wallTopLevelId: e.target.value || null })}><option value="">{t('pra_opt_by_height')}</option>{p.levels.filter((l) => l.id !== levelId).map((l) => <option key={l.id} value={l.id}>{t('pra_opt_up_to', { name: l.name })}</option>)}</select></Row>
@@ -76,6 +76,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
           <Row label={t('pra_fld_dim_opening')} htmlFor="place-open-dim-self"><select id="place-open-dim-self" className="select" value={sessionChoice(dimOverrides, 'opening:opening')} onChange={(e) => chooseDim('opening:opening', e.target.value)}><option value="">{t('pra_opt_project_default')}</option>{OPENING_OPTIONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></Row>
           <Row label={t('pra_fld_opening_tags')}><Check id="place-open-tags" checked={p.settings.showOpeningTags === true} onChange={(v) => editor.store.exec({ type: 'setSettings', patch: { showOpeningTags: v } })} /></Row>
           <Row label={t('pra_fld_tag_on_place')}><Check id="place-open-tag-place" checked={o.openingTagOnPlace !== false} onChange={(v) => set({ openingTagOnPlace: v })} /></Row>
+          <Row label={t('tg_undo_marks')}><Check id="place-open-automarks" checked={p.settings.autoMarks !== false} onChange={(v) => editor.store.exec({ type: 'setSettings', patch: { autoMarks: v } })} /></Row>
           {(() => { const typeId = tool === 'door' ? o.doorTypeId : o.windowTypeId; const type = p.openingTypes[typeId]; return <Row label={t('pra_fld_sill')} htmlFor="place-opening-sill"><NumField id="place-opening-sill" value={o.openingSillOverride ?? type?.sill ?? 0} placeholder={type ? t('pra_ph_sill_from_type', { value: format('length', type.sill) }) : undefined} onCommit={(v) => set({ openingSillOverride: v })} onClear={() => set({ openingSillOverride: null })} quantity="length" min={0} /></Row>; })()}
           <div className="hint">{t('pra_msg_opening_placement_hint')}</div>
         </Group>
@@ -260,12 +261,47 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
           <div className="hint">{t('pra_msg_text_placement_hint')}</div>
         </Group>
       )}
-      {['room', 'roomsep', 'dimension', 'text', 'section'].includes(tool) && (
-        <Group title={tool === 'room' ? t('pra_pgrp_placement_room') : tool === 'roomsep' ? t('pra_pgrp_placement_room_sep') : tool === 'dimension' ? t('pra_pgrp_placement_dimension') : tool === 'text' ? t('pra_pgrp_placement_text') : t('pra_pgrp_placement_section')}>
+      {tool === 'detailLine' && (
+        <Group title={t('pra_pgrp_detail_line')}>
+          <Row label={t('pra_fld_form')} htmlFor="place-dl-shape">
+            <select id="place-dl-shape" className="select" value={o.detailLineShape ?? 'line'} onChange={(e) => set({ detailLineShape: e.target.value as typeof o.detailLineShape })}>
+              <option value="line">{t('pro_pm_shape_line')}</option>
+              <option value="rect">{t('pro_pm_shape_rect')}</option>
+              <option value="poly-inscribed">{t('pro_pm_shape_poly_in')}</option>
+              <option value="poly-circumscribed">{t('pro_pm_shape_poly_circ')}</option>
+              <option value="circle">{t('pro_pm_shape_circle')}</option>
+              <option value="arc">{t('pro_pm_shape_arc3')}</option>
+              <option value="arc-center">{t('pro_pm_shape_arc_center')}</option>
+              <option value="arc-tangent">{t('pro_pm_shape_arc_tangent')}</option>
+              <option value="ellipse">{t('pro_pm_shape_ellipse')}</option>
+            </select>
+          </Row>
+          <Row label={t('pra_fld_line_style')} htmlFor="place-dl-style">
+            <select id="place-dl-style" className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as typeof o.detailLineStyle })}>
+              <option value="solid">{t('pra_opt_continuous')}</option>
+              <option value="dashed">{t('pra_opt_dashed')}</option>
+              <option value="dotted">{t('pra_opt_dotted')}</option>
+            </select>
+          </Row>
+        </Group>
+      )}
+      {tool === 'tag' && (
+        <Group title={t('pra_pgrp_tag')}>
+          <Row label={t('pra_fld_orientation')}>
+            <select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as typeof o.tagOrientation })}>
+              <option value="horizontal">{t('pra_opt_horizontal')}</option>
+              <option value="vertical">{t('pra_opt_vertical')}</option>
+            </select>
+          </Row>
+          <Check id="place-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>{t('pra_fld_show_leader')}</Check>
+        </Group>
+      )}
+      {['room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section'].includes(tool) && (
+        <Group title={tool === 'room' ? t('pra_pgrp_placement_room') : tool === 'roomsep' ? t('pra_pgrp_placement_room_sep') : tool === 'dimension' ? t('pra_pgrp_placement_dimension') : tool === 'text' ? t('pra_pgrp_placement_text') : tool === 'section' ? t('pra_pgrp_placement_section') : tool === 'tag' ? t('pra_pgrp_tag') : t('pra_pgrp_detail_line')}>
           <div className="hint">{t('pra_msg_annotation_target_hint', { target: targetName })}</div>
         </Group>
       )}
-      {!['room', 'roomsep', 'dimension', 'text', 'section'].includes(tool) && (
+      {!['room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section'].includes(tool) && (
         <Group title={t('pra_pgrp_level_identity')} open={false}>
           <Row label={t('pra_fld_level')} htmlFor="place-level"><select id="place-level" className="select" value={levelId} onChange={(e) => useUi.setState({ levelId: e.target.value, selection: [] })}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
           <Row label={t('pra_fld_mark')} htmlFor="place-mark"><TextField id="place-mark" value={o.placementMark ?? ''} onCommit={(v) => set({ placementMark: v })} /></Row>

@@ -4,7 +4,7 @@ import { useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { PERIMETER_SHAPES, type PerimeterShape } from '../perimeter/PerimeterRibbonPanels.tsx';
 
-export type GalleryDrawTool = 'wall' | 'beam';
+export type GalleryDrawTool = 'wall' | 'beam' | 'detailLine';
 
 interface DrawShapeChoice {
   value: string;
@@ -13,7 +13,7 @@ interface DrawShapeChoice {
 }
 
 interface DrawGallerySpec {
-  optionKey: 'wallShape' | 'beamShape';
+  optionKey: 'wallShape' | 'beamShape' | 'detailLineShape';
   defaultValue: string;
   items: readonly DrawShapeChoice[];
 }
@@ -24,8 +24,14 @@ const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
     defaultValue: 'line',
     items: [
       { value: 'line', shapeId: 'line', labelKey: 'pro_pm_shape_line' },
-      { value: 'arc', shapeId: 'arc-3pt', labelKey: 'pro_pm_shape_arc3' },
       { value: 'rect', shapeId: 'rect', labelKey: 'pro_pm_shape_rect' },
+      { value: 'poly-inscribed', shapeId: 'poly-inscribed', labelKey: 'pro_pm_shape_poly_in' },
+      { value: 'poly-circumscribed', shapeId: 'poly-circumscribed', labelKey: 'pro_pm_shape_poly_circ' },
+      { value: 'circle', shapeId: 'circle', labelKey: 'pro_pm_shape_circle' },
+      { value: 'arc', shapeId: 'arc-3pt', labelKey: 'pro_pm_shape_arc3' },
+      { value: 'arc-center', shapeId: 'arc-center', labelKey: 'pro_pm_shape_arc_center' },
+      { value: 'arc-tangent', shapeId: 'arc-tangent', labelKey: 'pro_pm_shape_arc_tangent' },
+      { value: 'ellipse', shapeId: 'ellipse', labelKey: 'pro_pm_shape_ellipse' },
     ],
   },
   beam: {
@@ -44,12 +50,27 @@ const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
       { value: 'pick-face', shapeId: 'pick-face', labelKey: 'pro_pm_shape_pick_face' },
     ],
   },
+  detailLine: {
+    optionKey: 'detailLineShape',
+    defaultValue: 'line',
+    items: [
+      { value: 'line', shapeId: 'line', labelKey: 'pro_pm_shape_line' },
+      { value: 'rect', shapeId: 'rect', labelKey: 'pro_pm_shape_rect' },
+      { value: 'poly-inscribed', shapeId: 'poly-inscribed', labelKey: 'pro_pm_shape_poly_in' },
+      { value: 'poly-circumscribed', shapeId: 'poly-circumscribed', labelKey: 'pro_pm_shape_poly_circ' },
+      { value: 'circle', shapeId: 'circle', labelKey: 'pro_pm_shape_circle' },
+      { value: 'arc', shapeId: 'arc-3pt', labelKey: 'pro_pm_shape_arc3' },
+      { value: 'arc-center', shapeId: 'arc-center', labelKey: 'pro_pm_shape_arc_center' },
+      { value: 'arc-tangent', shapeId: 'arc-tangent', labelKey: 'pro_pm_shape_arc_tangent' },
+      { value: 'ellipse', shapeId: 'ellipse', labelKey: 'pro_pm_shape_ellipse' },
+    ],
+  },
 };
 
 const SHAPE_ICONS = new Map<PerimeterShape, ReactNode>(PERIMETER_SHAPES.map((s) => [s.id, s.icon]));
 
 export function isGalleryDrawTool(tool: ToolId): tool is GalleryDrawTool {
-  return tool === 'wall' || tool === 'beam';
+  return tool === 'wall' || tool === 'beam' || tool === 'detailLine';
 }
 
 const cls = (...c: Array<string | false | null | undefined>): string => c.filter(Boolean).join(' ');

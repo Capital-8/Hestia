@@ -9,6 +9,7 @@ export * from './openingSymbol.ts';
 export * from './sketchTypes.ts';
 export * from './sketchValidate.ts';
 export * from './sketchConst.ts';
+export { SKETCH_TOL } from './sketchGeom.ts';
 export * from './numberText.ts';
 
 // `boolean.ts` continua sendo a implementação TypeScript, intocada. As operações quentes saem por
