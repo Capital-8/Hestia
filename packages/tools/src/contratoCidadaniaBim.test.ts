@@ -83,8 +83,11 @@ describe('Contrato de cidadania BIM (Regras 7–12)', () => {
   it('Regra 10 e 11: galeria de desenho .pm-galbox compartilhada e paridade completa de TypeRow em Families.tsx', () => {
     const gallery = ler('apps/web/src/ui/ribbon/DrawGalleryPanel.tsx');
     expect(gallery).toContain('pm-galbox');
-    expect(gallery).toContain("wallShape");
     expect(gallery).toContain("beamShape");
+    // A Parede usa a mesma galeria compartilhada (ShapeGallery, .pm-galbox) pelo painel próprio, ligada à opção wallShape.
+    const paredeGaleria = ler('apps/web/src/ui/WallDrawPanel.tsx');
+    expect(paredeGaleria).toContain('ShapeGallery');
+    expect(paredeGaleria).toContain('wallShape');
 
     const ribbon = ler('apps/web/src/ui/Ribbon.tsx');
     expect(ribbon).toContain('DrawGalleryPanel');
