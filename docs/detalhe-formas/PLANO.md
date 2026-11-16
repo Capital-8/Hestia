@@ -60,3 +60,12 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - **R4 (haiku, high)**: typecheck, lint, testes das pastas tocadas, CHANGELOG, `ESTADO.md`, rascunho (não postado) da resposta da issue.
 
 ## Estado (cada executor acrescenta 6 a 8 linhas abaixo, com o id da ficha)
+
+**S2-A (haiku, high)**
+- Linhas de detalhe entram na captura da planta: `packages/tools/src/detailSnap.ts` (`detailEdges`, `detailPoints`), ligadas em `ToolBase.ctx` (`base.ts`) com `viewPlanId`; plantas de área usam só as próprias linhas; as ocultas na vista ficam de fora.
+- Ponto único para arco: `segmentosDaLinha(l)` (hoje reta a→b); trocar por `detailLineSegments` do modelo quando o S1-A entregar.
+- Alças de cota: `DIM_GRIP_PX = 9` (afastamento) e `DIM_TEXT_GRIP_PX = 12` (texto), exportadas de `annotationPick.ts`; testes literais em `annotationPick.test.ts`.
+- Desenho: a cota selecionada (uma, linear) ganha quadrado no meio da linha e losango no texto (`render/src/plan/notes.ts`, `annotationHighlightOps`); antes não havia alça desenhada. Teste em `notes.text.test.ts`.
+- Gap: o cursor não muda sobre as alças. A Selecionar fixa a seta (`cursor.ts`) e a ferramenta não tem API de cursor; o corte já pede `move` (`ViewportCanvas.tsx`). Não tocado.
+- Gap: as alças da cota no corte (`sectionHandles.ts`) não são desenhadas; só o pick. Fica para o S2-B/S2-C.
+- Perpendicular de teste com from (1,3) e pé (1,0), não (2,3): com from (2,3) o ponto médio (2,0), de peso menor, vence o pé no mesmo ponto.
