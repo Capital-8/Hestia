@@ -119,6 +119,6 @@ describe('exportIfc: massa conceitual (ficha X1)', () => {
     const volta = Object.values(project.elements).filter((e) => e.kind === 'generic' || e.kind === 'mass');
     expect(volta).toHaveLength(1);
     expect(volta[0]!.kind).toBe('generic');
-    expect((volta[0] as { mesh: { positions: number[] } }).mesh.positions.length).toBeGreaterThanOrEqual(24);
+    expect((volta[0] as unknown as { mesh: { positions: number[] } }).mesh.positions.length).toBeGreaterThanOrEqual(24);
   });
 });
