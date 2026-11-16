@@ -13,6 +13,8 @@ import {
   type Opening,
   type OpeningType,
   type Project,
+  type WallType,
+  wallThicknessOf,
 } from '@hestia/model';
 import { openingChecks } from '@hestia/engine';
 import { editor, useProject } from '../../../editor/controller.ts';
@@ -40,8 +42,8 @@ import { componentToShow, rememberComponent, type OpeningComponentId } from './c
 
 const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
-/** Espessura do núcleo da parede que hospeda o tipo (DEC-1); sem parede, o núcleo usual de 0,14 m. */
-function coreThicknessFor(p: Project, typeId: Id): number {
+/** Parede que hospeda o tipo (a primeira que o usa; senão a primeira do projeto) e o tipo dela. */
+function hostWallTypeFor(p: Project, typeId: Id): WallType | undefined {
   const walls = Object.values(p.elements).filter(isWall);
   const hosts = new Set(
     Object.values(p.elements)
@@ -49,7 +51,12 @@ function coreThicknessFor(p: Project, typeId: Id): number {
       .map((e) => e.hostId),
   );
   const wall = walls.find((w) => hosts.has(w.id)) ?? walls[0];
-  const type = wall ? p.wallTypes[wall.typeId] : undefined;
+  return wall ? p.wallTypes[wall.typeId] : undefined;
+}
+
+/** Espessura do núcleo da parede que hospeda o tipo (DEC-1); sem parede, o núcleo usual de 0,14 m. */
+function coreThicknessFor(p: Project, typeId: Id): number {
+  const type = hostWallTypeFor(p, typeId);
   if (!type) return 0.14;
   const core = coreSpan(type);
   return Math.max(0, core.to - core.from);
@@ -100,7 +107,8 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const favorite = openingFavorites(p).includes(d.id);
   const counts = familyCounts(p, d.kind, lang);
   const variants = openingVariants(d.kind);
-  const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p));
+  const hostWall = hostWallTypeFor(p, d.id);
+  const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p), lang, hostWall ? wallThicknessOf(hostWall) : undefined);
   /** Grava pelo comando; a mensagem de erro do modelo aparece no diálogo, que continua aberto. */
   const run = (fn: () => void): boolean => {
     try {
