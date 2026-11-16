@@ -18,12 +18,14 @@ import {
   openingSign,
   polygon,
   transformedRing,
+  type OpeningPlanAnchor,
   type OpeningPlanOptions,
   type OpeningPlanPath,
   type OpeningPlanPoint,
 } from './openingPlanNew.ts';
 
 export type {
+  OpeningPlanAnchor,
   OpeningPlanOptions,
   OpeningPlanPath,
   OpeningPlanPoint,
@@ -73,6 +75,7 @@ function addVoid(out: OpeningPlanPath[], m: OpeningModel): void {
 function addWindowOpening(out: OpeningPlanPath[], m: OpeningModel, o: LeafOpening): void {
   const hw = m.width / 2;
   const s = (m.core.s0 + m.core.s1) / 2;
+  const anchor: OpeningPlanAnchor = { t: -hw, s, refT: hw };
   if (o.kind === 'top') {
     const pts: OpeningPlanPoint[] = [];
     const steps = 18;
@@ -80,11 +83,11 @@ function addWindowOpening(out: OpeningPlanPath[], m: OpeningModel, o: LeafOpenin
       const t = -hw + (2 * hw * i) / steps;
       pts.push({ t, s: s + o.side * hw * 0.5 * (1 - (t / hw) ** 2) });
     }
-    out.push(line(pts, 'swing', 'soft', 0.8, [4, 3]));
+    out.push(line(pts, 'swing', 'soft', 0.8, [4, 3], anchor));
     return;
   }
   if (o.kind === 'bottom') {
-    out.push(line([{ t: -hw, s }, { t: 0, s: s + o.side * hw * 0.5 }, { t: hw, s }], 'swing', 'soft', 0.8));
+    out.push(line([{ t: -hw, s }, { t: 0, s: s + o.side * hw * 0.5 }, { t: hw, s }], 'swing', 'soft', 0.8, undefined, anchor));
   }
 }
 
@@ -97,7 +100,7 @@ function addTiltPlan(out: OpeningPlanPath[], m: OpeningModel, o: LeafOpening, an
   const side = o.side || 1;
   const dt = half * Math.cos(angle);
   const ds = half * Math.sin(angle) * side;
-  out.push(line([{ t: center.t - dt, s: center.s - ds }, { t: center.t + dt, s: center.s + ds }], 'leaf', 'ink', 1));
+  out.push(line([{ t: center.t - dt, s: center.s - ds }, { t: center.t + dt, s: center.s + ds }], 'leaf', 'ink', 1, undefined, center));
 }
 
 /** Desenho de uma porta (giro, dupla, pivotante, correr e vão livre) nos níveis baixo/médio/alto. */
@@ -125,15 +128,20 @@ function doorPaths(out: OpeningPlanPath[], m: OpeningModel, opts: OpeningPlanOpt
       const box = leafBox(m, o.leaf);
       if (!box) continue;
       const motion = leafMotion(m, o.leaf);
-      out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1));
+      const anchor: OpeningPlanAnchor = {
+        t: o.pivot.t,
+        s: o.pivot.s,
+        ...(o.kind === 'pivot' ? {} : { refT: o.latchT }),
+      };
+      out.push(polygon(transformedRing(box, motion, opts.angle), 'leaf', 'cut', 1, undefined, anchor));
       if (!opts.showSwing) continue;
       const sign = openingSign(o, motion);
       const center = { t: o.pivot.t, s: o.pivot.s };
       if (o.kind === 'pivot') {
-        addOpeningArc(out, center, { t: box.t0, s: o.pivot.s }, sign * opts.angle, opts.swingStyle);
-        addOpeningArc(out, center, { t: box.t1, s: o.pivot.s }, sign * opts.angle, opts.swingStyle);
+        addOpeningArc(out, center, { t: box.t0, s: o.pivot.s }, sign * opts.angle, opts.swingStyle, anchor);
+        addOpeningArc(out, center, { t: box.t1, s: o.pivot.s }, sign * opts.angle, opts.swingStyle, anchor);
       } else {
-        addOpeningArc(out, center, { t: o.latchT, s: o.pivot.s }, sign * opts.angle, opts.swingStyle);
+        addOpeningArc(out, center, { t: o.latchT, s: o.pivot.s }, sign * opts.angle, opts.swingStyle, anchor);
       }
     }
   }

@@ -1,15 +1,15 @@
-import { orientedRect } from '@hestia/geom';
 import {
   frameOfWall,
+  openingBandRing,
   openingGeometry,
   openingPlanPathsAt,
+  openingTagPoint,
   openingPreviewLocalPaths,
-  pointAt,
   toLocal,
   type OpeningPlanPath,
 } from '@hestia/engine';
-import { dimensionSettingsOf, openingTypeById, openingType, openingsOfWall, unitsOf, type DetailLevel, type Opening, type OpeningType, type Project, type Wall, type WallType } from '@hestia/model';
-import { ToolBase, makeId } from './base.ts';
+import { dimensionSettingsOf, markAssignments, newId, openingTagFamilyId, openingTypeById, openingType, openingsOfWall, unitsOf, type DetailLevel, type Opening, type OpeningType, type Project, type Wall, type WallType } from '@hestia/model';
+import { ToolBase, addSectionTag, makeId, viewPlanId } from './base.ts';
 import { hostUnder, occupiedRanges } from './infer.ts';
 import { parseQuantityText } from './numeric.ts';
 import {
@@ -197,7 +197,7 @@ export class OpeningTool extends ToolBase {
     if (!f || !t) return;
     const neighbors = perpendicularNeighbors(pr, host.wallId, this.env.levelId());
     // O lado do cursor define o sentido, com histerese de 3 px perto do eixo.
-    this.lastSide = sideWithHysteresis(toLocal(f, p.raw).s, this.lastSide, 3 * mpp);
+    this.lastSide = sideWithHysteresis(toLocal(f, p.raw).s - f.sMid, this.lastSide, 3 * mpp);
     const { flipHand, flipFacing } = this.intent();
     const center = anchorCenter(host.offset, t.width, flipHand, options.openingAnchor);
     const aligned = this.snapOffset(center, host.wallId, t.width, neighbors);
@@ -285,8 +285,7 @@ export class OpeningTool extends ToolBase {
         this.items.push({ kind: 'line', a: s.pts[i]!, b: s.pts[(i + 1) % s.pts.length]!, dashed: s.dash !== undefined, tone });
       }
     }
-    const c = pointAt(f, offset, f.sMid);
-    this.items.push({ kind: 'polygon', ring: orientedRect(c.x, c.y, f.u.x, f.u.y, width / 2, f.thickness / 2 + 0.02), tone });
+    this.items.push({ kind: 'polygon', ring: openingBandRing(g, width / 2, f.thickness / 2 + 0.02), tone });
     this.dimSubject = { hostId: wallId, offset, typeId: this.typeId(), flipFacing, flipHand, side: this.lastSide };
   }
 
@@ -315,9 +314,16 @@ export class OpeningTool extends ToolBase {
     // A esquadria e a etiqueta ao inserir formam UM passo de desfazer: o primeiro Ctrl+Z remove a porta e o flag juntos.
     this.env.transaction(this.t(this.id === 'door' ? 'tl_undo_insert_door' : 'tl_undo_insert_window'), () => {
       this.env.exec({ type: 'addOpening', opening: o });
-      // Revit "Tag on Placement": a etiqueta do tipo nasce junto com a esquadria (a opção desliga só esta ligação).
-      if (options.openingTagOnPlace !== false && !this.env.project().settings.showOpeningTags) {
-        this.env.exec({ type: 'setSettings', patch: { showOpeningTags: true } });
+      // Marca automática (P01, J01…): continua a numeração das esquadrias já existentes.
+      if (this.env.project().settings.autoMarks !== false && o.mark.trim() === '') {
+        const assignments = markAssignments(this.env.project(), { ids: new Set([o.id]) });
+        if (assignments.length > 0) this.env.exec({ type: 'setMarks', assignments });
+      }
+      // Revit "Tag on Placement": a etiqueta (elemento próprio, arrastável) nasce junto com a esquadria, do lado certo.
+      const at = options.openingTagOnPlace !== false ? openingTagPoint(this.env.project(), o.id) : null;
+      if (at) {
+        const item = { id: newId('tag'), hostId: o.id, at, property: 'mark', familyId: openingTagFamilyId(this.env.project().settings), leader: false } as const;
+        if (!addSectionTag(this.env, item)) this.env.exec({ type: 'addTag', levelId: this.env.levelId(), planId: viewPlanId(this.env), item });
       }
     });
     const pr = this.env.project();
