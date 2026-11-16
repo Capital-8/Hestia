@@ -79,12 +79,19 @@ export class CurtainGridLineTool extends ToolBase {
   private eixo: EixoGrade = 'u';
   private alvo: Alvo | null = null;
   private lastPointer: PointerInfo | null = null;
+  /** Sem linha que o clique possa criar: o cursor é "não permitido". */
+  private bloqueado = false;
 
   protected reset(): void {
     this.items = [];
     this.inf = null;
     this.alvo = null;
     this.lastPointer = null;
+    this.bloqueado = false;
+  }
+
+  override blocked(): boolean {
+    return this.bloqueado;
   }
 
   protected busy(): boolean {
@@ -143,21 +150,33 @@ export class CurtainGridLineTool extends ToolBase {
     return { alvo: { wallId: wall.id, eixo: this.eixo, pos, ponto, dir, profundidade: par.profundidade, duplicada }, fora };
   }
 
-  /** Atualiza o candidato e a prévia sob o cursor. Sem parede cortina, limpa a prévia. */
+  /**
+   * Recusa o cursor: sem linha para criar, o clique não grava nada. O rótulo junto do cursor traz o motivo; a barra de
+   * status traz o mesmo motivo (`barra`, com o nome da ferramenta quando ajuda).
+   */
+  private recusar(p: PointerInfo, rotulo: string, barra: string = rotulo): void {
+    this.bloqueado = true;
+    this.items = [{ kind: 'label', at: p.raw, text: rotulo }];
+    this.env.say(barra);
+  }
+
+  /** Atualiza o candidato e a prévia sob o cursor. Sem parede cortina (ou sem grade, ou fora do vão), recusa o cursor. */
   override move(p: PointerInfo): void {
     this.raw = p.raw;
     this.lastPointer = p;
     this.items = [];
     this.alvo = null;
+    this.bloqueado = false;
     const pr = this.env.project();
     const sob = this.paredeSob(p);
     if (!sob) {
-      this.env.say(this.hint);
+      const msg = this.t('tl_msg_curtain_only');
+      this.recusar(p, msg, `${this.t('tl_tool_curtain_gridline')}: ${msg}`);
       return;
     }
     const par = this.env.subelementos?.(sob.wall.id) ?? null;
     if (!par) {
-      this.env.say(this.t('tl_msg_curtain_no_grid'));
+      this.recusar(p, this.t('tl_msg_curtain_no_grid'));
       return;
     }
     const { alvo, fora } = this.candidato(pr, sob.wall, par, sob.zAbs, p.raw);
@@ -166,10 +185,11 @@ export class CurtainGridLineTool extends ToolBase {
     const valor = fmtNumLang(alvo.pos, 3, this.uiLang());
     if (fora) {
       this.alvo = null;
-      this.env.say(this.t('tl_msg_curtain_gridline_span'));
+      this.recusar(p, this.t('tl_msg_curtain_gridline_span'));
       return;
     }
     if (alvo.duplicada) {
+      this.bloqueado = true;
       this.env.say(this.t('tl_msg_curtain_gridline_dup'));
     } else {
       this.env.say(this.t('tl_msg_curtain_gridline_ready', { eixo: nome, pos: valor }));

@@ -16,6 +16,8 @@ export interface CursorViewState {
   moved?: boolean;
   /** Alça do corte em arraste (ou sob o ponteiro, quando a vista souber disso). */
   handle?: HandleAxis | null;
+  /** A ferramenta não tem alvo sob o cursor (o clique não grava nada): cursor "não permitido". */
+  blocked?: boolean;
 }
 
 /** Cursores próprios das ferramentas; o resto desenha com a mira. */
@@ -38,5 +40,6 @@ export function cursorForView(st: CursorViewState): string {
   // A prancha tem cursor próprio (papel); o canvas da vista nunca dita a mão ali.
   if (st.view === 'sheet') return 'default';
   if (st.tool === 'select') return 'default';
+  if (st.blocked) return 'not-allowed';
   return TOOL_CURSOR[st.tool] ?? 'crosshair';
 }

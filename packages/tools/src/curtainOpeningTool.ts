@@ -58,6 +58,8 @@ export class CurtainOpeningTool extends ToolBase {
   }
   private alvo: { wallId: Id; i: number; j: number } | null = null;
   private lastPointer: PointerInfo | null = null;
+  /** Sem célula válida sob o cursor: o clique não grava nada e o cursor é "não permitido". */
+  private bloqueado = false;
 
   constructor(env: ConstructorParameters<typeof ToolBase>[0], kind: 'curtainDoor' | 'curtainWindow') {
     super(env);
@@ -70,6 +72,11 @@ export class CurtainOpeningTool extends ToolBase {
     this.inf = null;
     this.alvo = null;
     this.lastPointer = null;
+    this.bloqueado = false;
+  }
+
+  override blocked(): boolean {
+    return this.bloqueado;
   }
 
   protected busy(): boolean {
@@ -118,28 +125,39 @@ export class CurtainOpeningTool extends ToolBase {
     return cotaDeCorteCortina(this.env.project(), this.env.levelId()) - zBase;
   }
 
-  /** Destaca a célula sob o cursor (subelemento da cortina) e grava o alvo do clique; sem célula, limpa o destaque. */
+  /**
+   * Recusa o cursor: sem alvo, o clique não grava nada. A barra de status diz o motivo e um rótulo junto do cursor
+   * repete a mensagem enquanto ele estiver ali (aviso temporário); o cursor fica "não permitido" (`blocked`).
+   */
+  private recusar(p: PointerInfo, rotulo: string, barra: string): void {
+    this.env.setSubelemento?.(null);
+    this.bloqueado = true;
+    this.items = [{ kind: 'label', at: p.raw, text: rotulo }];
+    this.env.say(barra);
+  }
+
+  /** Destaca a célula sob o cursor (subelemento da cortina) e grava o alvo do clique; sem célula, recusa o cursor. */
   private destacar(p: PointerInfo): void {
     this.alvo = null;
     this.items = [];
+    this.bloqueado = false;
     const pr = this.env.project();
     const sob = this.paredeSob(p);
     const wall = sob ? pr.elements[sob.wallId] : undefined;
     if (!sob || !wall || !isWall(wall) || !isCurtainType(pr.wallTypes[wall.typeId])) {
-      this.env.setSubelemento?.(null);
-      this.env.say(this.hint);
+      const msg = this.t('tl_msg_curtain_only');
+      const nome = this.t(this.id === 'curtainDoor' ? 'tl_tool_curtain_door' : 'tl_tool_curtain_window');
+      this.recusar(p, msg, `${nome}: ${msg}`);
       return;
     }
     const par = this.env.subelementos?.(wall.id) ?? null;
     if (!par) {
-      this.env.setSubelemento?.(null);
-      this.env.say(this.t('tl_msg_curtain_no_grid'));
+      this.recusar(p, this.t('tl_msg_curtain_no_grid'), this.t('tl_msg_curtain_no_grid'));
       return;
     }
     const item = celulaSob(par, sNaParede(par, p.raw.x, p.raw.y), this.alturaRelativa(par.zBase, sob.zAbs));
     if (!item || item.sub.kind !== 'cell') {
-      this.env.setSubelemento?.(null);
-      this.env.say(this.hint);
+      this.recusar(p, this.t('tl_msg_curtain_no_cell'), this.t('tl_msg_curtain_no_cell'));
       return;
     }
     const { i, j } = item.sub.cell;
