@@ -105,9 +105,16 @@ function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
   let s = -1;
   for (let i = 0; i < n && s < 0; i++) if (!arcEdge((i + n - 1) % n)) s = i;
   if (s < 0) {
-    const h = Math.floor(n / 2);
-    const pts = ring.map((_, i) => at(i));
-    out.push(arcThrough(pts.slice(0, h + 1)), arcThrough([...pts.slice(h), pts[0]!]));
+    // Círculo inteiro: dois semicírculos entre `at(0)` e o ponto diametralmente oposto, exato sobre a circunferência ajustada.
+    // Partir no vértice de índice n/2 não serve: o anel da união começa num vértice qualquer e a corda deixaria de ser o diâmetro
+    // (a flecha sairia menor que o raio).
+    const { c } = circles[on[0]!]!;
+    const a = at(0);
+    const b = { x: 2 * c.x - a.x, y: 2 * c.y - a.y };
+    out.push(
+      makeSeg(newId('sk'), a, b, sagFromThreePoints(a, at(Math.floor(n / 4)), b)),
+      makeSeg(newId('sk'), b, a, sagFromThreePoints(b, at(Math.floor((3 * n) / 4)), a)),
+    );
     return out;
   }
 
