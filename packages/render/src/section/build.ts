@@ -145,8 +145,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     // Contorno aberto (fecha na ponta) e metade esquerda "preenchida" por traços horizontais: só traços, sem `fills` nem contorno
     // fechado, para o símbolo não contar como elemento do modelo (nada visível = nenhum preenchimento).
     strokes.push({ pts: [tip, topL, topR, tip], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
-    strokes.push({ pts: [tip, topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
-    for (const f of [0.25, 0.5, 0.75]) strokes.push({ pts: [{ x: tip.x - triW * f, y: tip.y + triH * f }, { x: tip.x, y: tip.y + triH * f }], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    // Uma só linha em serpentina: sobe pelo eixo e vai e volta até a aresta esquerda (hachura da metade), sem traços soltos de 2 pontos.
+    const em = (f: number, fx: number): Vec2 => ({ x: tip.x - triW * fx, y: tip.y + triH * f });
+    strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
       text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
