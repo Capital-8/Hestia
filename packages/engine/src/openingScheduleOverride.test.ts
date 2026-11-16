@@ -13,7 +13,7 @@ const opening = (o: Partial<Opening> & Pick<Opening, 'id' | 'kind' | 'typeId' | 
 
 const linhasCsv = (rows: OpeningScheduleRow[], extra: Parameters<typeof openingScheduleToCsv>[4] = []): string[] => {
   const totals = sumOpeningRows(rows);
-  return openingScheduleToCsv(rows, totals, defaultUnits(), 'pt', extra).replace(/^﻿/, '').split('\r\n').filter((l) => l.length > 0);
+  return openingScheduleToCsv(rows, totals, defaultUnits(), 'pt', extra).replace(/^\uFEFF/, '').split('\r\n').filter((l) => l.length > 0);
 };
 
 /*
