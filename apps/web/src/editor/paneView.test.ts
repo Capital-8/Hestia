@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fieldsOfView, paneViewFieldsNow, pickViewFields, withViewFields } from './paneView.ts';
 import { initialLayout, usePanes, withPaneView } from './paneStore.ts';
+import { leaves } from './panes.ts';
 import { useUi } from './state.ts';
 
 const base = { view: 'plan', levelId: 'lv_9', sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null } as const;
@@ -41,7 +42,8 @@ describe('paneViewFieldsNow', () => {
   });
   it('painel inativo lê o PaneView guardado', () => {
     const l = usePanes.getState().layout;
-    usePanes.setState({ layout: { root: { kind: 'split', direction: 'row', ratio: 0.5, first: l.root, second: { kind: 'leaf', pane: { ...(l.root as { pane: never }).pane, id: 'p2', view: { kind: '3d' } } } }, activeId: 'p1', maximizedId: null } });
+    const p1 = leaves(l.root)[0]!;
+    usePanes.setState({ layout: { root: { kind: 'split', direction: 'row', ratio: 0.5, first: l.root, second: { kind: 'leaf', pane: { ...p1, id: 'p2', view: { kind: '3d' } } } }, activeId: 'p1', maximizedId: null } });
     expect(paneViewFieldsNow('p2')).toEqual({ view: '3d', levelId: 'lv_9', sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null });
     expect(paneViewFieldsNow('p1').view).toBe('plan');
   });
