@@ -14,6 +14,11 @@ export function scheduleCsvCell(units: ResolvedUnits, q: Quantity, si: number, d
   return formatQuantity(units, q, si, { decimals, withUnit: false, decimalSymbol: csvDecimalSymbol(units, lang) });
 }
 
+/** Número sem grandeza (Rw, U, fator solar) de um quadro exportado, com o separador decimal do CSV. */
+export function scheduleCsvNumber(units: ResolvedUnits, v: number, decimals: number, lang: Lang = 'pt'): string {
+  return v.toFixed(decimals).replace('.', csvDecimalSymbol(units, lang));
+}
+
 /** Rótulo de coluna de um quadro exportado, com o símbolo da unidade do projeto. */
 export function scheduleCsvHeader(units: ResolvedUnits, label: string, q: Quantity): string {
   return `${label} (${unitSymbol(units, q)})`;

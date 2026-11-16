@@ -653,6 +653,9 @@ svg { display: block; }
 /* ---- tabela de paredes (quantitativos) ---- */
 .wsched-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
 .wsched-bar label { color: var(--fg-soft); }
+.wsched-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 10px; padding: 4px 8px; border: 1px solid var(--line, #0002); border-radius: 4px; }
+.wsched-opt legend { color: var(--fg-soft); padding: 0 4px; }
+.wsched-opt label { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-soft); }
 .wsched-scroll { overflow: auto; max-width: 100%; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); }
 .wsched { min-width: 880px; }
 .wsched th.num, .wsched td.num { text-align: right; }

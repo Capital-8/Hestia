@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model';
-import { buildOpeningSchedule, filterOpeningRows, openingScheduleToCsv, sumOpeningRows, type OpeningScheduleRow } from '@hestia/engine';
+import { buildOpeningSchedule, filterOpeningRows, openingRowLabel, openingScheduleToCsv, sumOpeningRows, type OpeningExtraKey, type OpeningScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
 import { saveText } from '../../editor/saveText.ts';
 import { Icon } from '../Icon.tsx';
 import { Dialog } from './Dialog.tsx';
-import { scheduleCell, scheduleHeader } from './scheduleUnits.ts';
+import { scheduleCell, scheduleHeader, scheduleNumber } from './scheduleUnits.ts';
 import { useUnits } from '../useUnits.ts';
 
 interface Col {
@@ -44,6 +44,21 @@ const COLS: Col[] = [
   { key: 'hardware', labelKey: 'col_hardware' },
 ];
 
+/** Colunas opcionais, desligadas por padrão: dados do tipo que o quadro não mostrava. Saem depois das fixas, nesta ordem. */
+const OPTIONAL_COLS: Array<Col & { key: OpeningExtraKey }> = [
+  { key: 'fireRating', labelKey: 'dlo_f_fire_rating' },
+  { key: 'acousticRw', labelKey: 'col_rw', decimals: 0 },
+  { key: 'uValue', labelKey: 'col_u_value', decimals: 2 },
+  { key: 'description', labelKey: 'dlo_f_description' },
+  { key: 'manufacturer', labelKey: 'dlo_f_manufacturer' },
+  { key: 'unitCost', labelKey: 'col_unit_cost', decimals: 2, quantity: 'currency' },
+  { key: 'totalCost', labelKey: 'col_total_cost', decimals: 2, quantity: 'currency' },
+  { key: 'solarFactor', labelKey: 'dlo_f_solar_factor', decimals: 2 },
+];
+
+/** Colunas da tabela: as fixas e, depois, as opcionais ligadas. */
+export const openingCols = (extras: ReadonlySet<OpeningExtraKey>): Col[] => [...COLS, ...OPTIONAL_COLS.filter((c) => extras.has(c.key))];
+
 interface Sort {
   key: keyof OpeningScheduleRow;
   dir: 1 | -1;
@@ -52,6 +67,7 @@ interface Sort {
 const compare = (a: OpeningScheduleRow, b: OpeningScheduleRow, s: Sort, lang: Lang): number => {
   const x = a[s.key];
   const y = b[s.key];
+  if (x === null || y === null) return (x === null ? 1 : 0) - (y === null ? 1 : 0); // sem valor vai para o fim, em qualquer sentido
   const r = typeof x === 'number' && typeof y === 'number' ? x - y : cmpTexto(String(x ?? ''), String(y ?? ''), lang);
   return r * s.dir;
 };
@@ -59,13 +75,57 @@ const compare = (a: OpeningScheduleRow, b: OpeningScheduleRow, s: Sort, lang: La
 /** Textos das células de categoria e de valores vazios; PT/EN passados pelo diálogo. */
 const cellValue = (r: OpeningScheduleRow, c: Col, kindText: (k: string) => string, units: ResolvedUnits): ReactNode => {
   if (c.key === 'kind') return kindText(r.kind);
+  if (c.key === 'typeName') return openingRowLabel(r); // com o desvio ("altura própria 1,84 m") quando a linha tem
   const v = r[c.key];
   if (v === null || v === undefined || v === '') return '—';
   if (typeof v === 'object') return '—';
-  return typeof v === 'number' ? (c.quantity ? scheduleCell(units, c.quantity, v, c.decimals) : String(v)) : v;
+  if (typeof v !== 'number') return v;
+  if (c.quantity) return scheduleCell(units, c.quantity, v, c.decimals);
+  return c.decimals !== undefined ? scheduleNumber(units, v, c.decimals) : String(v);
 };
 
-/** Tabela de portas e janelas com ordenação, filtro por categoria, totais e exportação CSV (padrão da tabela de escadas). */
+type Dict = ReturnType<typeof dictOf>;
+
+/** Cabeçalho e linhas da tabela de portas e janelas (ordenação pelo cabeçalho, sem estado próprio). */
+export function OpeningScheduleTable(props: {
+  rows: OpeningScheduleRow[];
+  cols: Col[];
+  units: ResolvedUnits;
+  sort: Sort | null;
+  onSort: (key: keyof OpeningScheduleRow) => void;
+  t: Dict;
+}): ReactElement {
+  const { rows, cols, units, sort, onSort, t } = props;
+  return (
+    <table className="layers wsched">
+      <thead>
+        <tr>
+          {cols.map((c) => (
+            <th key={c.key} className={c.decimals !== undefined ? 'num' : undefined} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
+              <button type="button" className="sortbtn" onClick={() => onSort(c.key)} title={t.sched_sort_col}>
+                {c.quantity ? scheduleHeader(units, t[c.labelKey], c.quantity) : t[c.labelKey]}
+                {sort?.key === c.key ? <Icon name={sort.dir === 1 ? 'up' : 'down'} size={11} /> : null}
+              </button>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={`${r.typeId}|${r.height}|${r.sill}`}>
+            {cols.map((c) => (
+              <td key={c.key} className={c.decimals !== undefined ? 'num' : undefined}>
+                {cellValue(r, c, (k) => (k === 'door' ? t.sched_kind_door : t.sched_kind_window), units)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Tabela de portas e janelas com ordenação, filtro por categoria, colunas opcionais, totais e exportação CSV (padrão da tabela de escadas). */
 export function OpeningScheduleDialog(): ReactElement {
   const p = useProject();
   const lang = useI18n((s) => s.lang);
@@ -74,7 +134,11 @@ export function OpeningScheduleDialog(): ReactElement {
   const schedule = useMemo(() => buildOpeningSchedule(p), [p]);
   const [kind, setKind] = useState<'' | 'door' | 'window'>('');
   const [sort, setSort] = useState<Sort | null>(null);
+  const [extras, setExtras] = useState<ReadonlySet<OpeningExtraKey>>(() => new Set());
   const [msg, setMsg] = useState<TextLike>('');
+
+  const cols = useMemo(() => openingCols(extras), [extras]);
+  const extraKeys = useMemo(() => OPTIONAL_COLS.map((c) => c.key).filter((k) => extras.has(k)), [extras]);
 
   const visible = useMemo(() => {
     const list = filterOpeningRows(schedule.rows, { kind: kind || undefined });
@@ -86,12 +150,20 @@ export function OpeningScheduleDialog(): ReactElement {
   const toggleSort = (key: keyof OpeningScheduleRow): void =>
     setSort((s) => (s && s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
 
+  const toggleExtra = (key: OpeningExtraKey): void =>
+    setExtras((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
   const exportCsv = async (): Promise<void> => {
     const base = p.name.trim() || t.scx_csv_default_project;
     // i18n: passar `lang` e os nomes de categoria quando o engine aceitar (cabeçalho, células e separador decimal do CSV).
-    const status = await saveText(`${base}-${t.scx_csv_file_opening}.csv`, openingScheduleToCsv(visible, totals, units, lang));
+    const status = await saveText(`${base}-${t.scx_csv_file_opening}.csv`, openingScheduleToCsv(visible, totals, units, lang, extraKeys));
     setMsg(status);
     useUi.setState({ status });
   };
@@ -119,43 +191,29 @@ export function OpeningScheduleDialog(): ReactElement {
           <option value="window">{t.sched_cat_window}</option>
         </select>
       </div>
+      <fieldset className="wsched-opt">
+        <legend>{t.sched_optional_cols}</legend>
+        {OPTIONAL_COLS.map((c) => (
+          <label key={c.key}>
+            <input type="checkbox" checked={extras.has(c.key)} onChange={() => toggleExtra(c.key)} />
+            {t[c.labelKey]}
+          </label>
+        ))}
+      </fieldset>
 
       {visible.length === 0 ? (
         <p className="hint">{schedule.rows.length === 0 ? t.sched_empty_opening : t.sched_none_opening}</p>
       ) : (
         <>
           <div className="wsched-scroll">
-            <table className="layers wsched">
-              <thead>
-                <tr>
-                  {COLS.map((c) => (
-                    <th key={c.key} className={c.decimals !== undefined ? 'num' : undefined} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
-                      <button type="button" className="sortbtn" onClick={() => toggleSort(c.key)} title={t.sched_sort_col}>
-                        {c.quantity ? scheduleHeader(units, t[c.labelKey], c.quantity) : t[c.labelKey]}
-                        {sort?.key === c.key ? <Icon name={sort.dir === 1 ? 'up' : 'down'} size={11} /> : null}
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((r) => (
-                  <tr key={r.typeId}>
-                    {COLS.map((c) => (
-                      <td key={c.key} className={c.decimals !== undefined ? 'num' : undefined}>
-                        {cellValue(r, c, (k) => (k === 'door' ? t.sched_kind_door : t.sched_kind_window), units)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <OpeningScheduleTable rows={visible} cols={cols} units={units} sort={sort} onSort={toggleSort} t={t} />
           </div>
           <div className="total">
             <span>{totals.count} {t[totals.count === 1 ? 'scx_total_opening_one' : 'scx_total_opening_many']}</span>
             <span>{t.sched_total_doors} {totals.doorCount}</span>
             <span>{t.sched_total_windows} {totals.windowCount}</span>
             <span>{t.sched_total_total_area} {formatQuantity(units, 'area', totals.totalArea, { decimals: 2 })}</span>
+            {extras.has('totalCost') ? <span>{t.sched_total_cost} {formatQuantity(units, 'currency', totals.totalCost, { decimals: 2 })}</span> : null}
           </div>
         </>
       )}

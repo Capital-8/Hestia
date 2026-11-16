@@ -5,6 +5,11 @@ export function scheduleCell(units: ResolvedUnits, q: Quantity, si: number, deci
   return formatQuantity(units, q, si, { withUnit: false, decimals });
 }
 
+/** Número sem grandeza (Rw, U, fator solar) com o separador decimal do projeto. */
+export function scheduleNumber(units: ResolvedUnits, v: number, decimals: number): string {
+  return v.toFixed(decimals).replace('.', units.decimalSymbol);
+}
+
 /** Rótulo da coluna com o símbolo da unidade do projeto entre parênteses. */
 export function scheduleHeader(units: ResolvedUnits, label: string, q: Quantity): string {
   const symbol = unitSymbol(units, q);
