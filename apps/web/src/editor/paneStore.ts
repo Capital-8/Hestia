@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import type { Project } from '@hestia/model';
 import { activeViewOf, sameView, type ActiveViewFields } from './openViews.ts';
-import { layoutTreeOps, loadPanes, nextPaneId } from './layoutTree.ts';
+import { layoutTreeOps, loadPanes, nextPaneId, savePanes } from './layoutTree.ts';
 import {
   DEFAULT_SYNC,
   MAX_PANES,
-  PANES_KEY,
   findPane,
   leaves,
   type LayoutNode,
@@ -16,8 +15,8 @@ import {
   type PaneStyle,
   type PaneView,
   type SplitDirection,
+  type SplitPath,
 } from './panes.ts';
-import { safeSet } from './storage.ts';
 import { useUi } from './state.ts';
 import { tabOf } from './viewTabActions.ts';
 
@@ -79,16 +78,6 @@ export function sanitizeLayoutViews(l: PaneLayout, p: Project, fallbackView: Pan
   return leaves(l.root).reduce((acc, pane) => (tabOf(p, pane.view) === null ? withPaneView(acc, pane.id, fallbackView) : acc), l);
 }
 
-/** Guarda o layout no navegador sem as câmeras (2D e 3D são da sessão: ao reabrir, cada painel enquadra de novo). */
-export function savePanes(l: PaneLayout): void {
-  safeSet(PANES_KEY, JSON.stringify({ ...l, root: semCameras(l.root) }));
-}
-
-function semCameras(n: LayoutNode): LayoutNode {
-  if (n.kind === 'leaf') return { kind: 'leaf', pane: { ...n.pane, camera2d: null, camera3d: null } };
-  return { ...n, first: semCameras(n.first), second: semCameras(n.second) };
-}
-
 /**
  * Ordem das vistas para um layout pronto: a do painel ativo vem primeiro (ele mantém a própria vista ao aplicar),
  * depois as vistas abertas na ordem das abas. Completa com a vista ativa até cobrir todos os painéis possíveis.
@@ -114,6 +103,8 @@ export interface PanesState {
   closePane: (paneId: PaneId) => void;
   /** Ajusta a divisória que tem `paneId` como primeiro filho direto (fração, clampada). */
   resizePane: (paneId: PaneId, ratio: number) => void;
+  /** Ajusta a fração da divisão no caminho (qualquer divisão da árvore). */
+  resizeSplit: (path: SplitPath, ratio: number) => void;
   toggleMaximize: (paneId: PaneId) => void;
   setPaneView: (paneId: PaneId, view: PaneView) => void;
   setPaneStyle: (paneId: PaneId, patch: PaneStyle) => void;
@@ -148,6 +139,7 @@ export const usePanes = create<PanesState>((set, get) => {
     splitPane: (paneId, direction, view) => aplica((l) => layoutTreeOps.split(l, paneId, direction, view, nextPaneId(l))),
     closePane: (paneId) => aplica((l) => layoutTreeOps.close(l, paneId)),
     resizePane: (paneId, ratio) => aplica((l) => layoutTreeOps.resize(l, paneId, ratio)),
+    resizeSplit: (path, ratio) => aplica((l) => layoutTreeOps.resizeAt(l, path, ratio)),
     toggleMaximize: (paneId) => aplica((l) => layoutTreeOps.toggleMaximize(l, paneId)),
     setPaneView: (paneId, view) => aplica((l) => layoutTreeOps.setView(l, paneId, view)),
     setPaneStyle: (paneId, patch) => aplica((l) => layoutTreeOps.setStyle(l, paneId, patch)),

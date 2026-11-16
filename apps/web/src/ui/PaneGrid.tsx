@@ -5,7 +5,7 @@ import { useT } from '../editor/i18n.ts';
 import { activatePane } from '../editor/paneActivation.ts';
 import { reconcilePanes, usePanes } from '../editor/paneStore.ts';
 import { viewKey, sameView, type OpenView } from '../editor/openViews.ts';
-import { MAX_PANES, SPLIT_LIMITS, leaves, type LayoutNode, type Pane, type PaneLayout } from '../editor/panes.ts';
+import { MAX_PANES, SPLIT_LIMITS, leaves, type LayoutNode, type Pane, type PaneLayout, type SplitPath } from '../editor/panes.ts';
 import { tabOf } from '../editor/viewTabActions.ts';
 import { useUi } from '../editor/state.ts';
 import { SheetView } from './SheetView.tsx';
@@ -44,17 +44,17 @@ export function PaneGrid(): ReactElement {
   const ctx: GridCtx = { layout, project, openViews, multi: leaves(layout.root).length > 1 };
   return (
     <div className="pane-grid">
-      <NodeView node={layout.root} ctx={ctx} oculto={false} />
+      <NodeView node={layout.root} ctx={ctx} oculto={false} path={[]} />
     </div>
   );
 }
 
-function NodeView({ node, ctx, oculto }: { node: LayoutNode; ctx: GridCtx; oculto: boolean }): ReactElement {
-  return node.kind === 'leaf' ? <PaneFrame pane={node.pane} ctx={ctx} oculto={oculto} /> : <SplitView node={node} ctx={ctx} oculto={oculto} />;
+function NodeView({ node, ctx, oculto, path }: { node: LayoutNode; ctx: GridCtx; oculto: boolean; path: SplitPath }): ReactElement {
+  return node.kind === 'leaf' ? <PaneFrame pane={node.pane} ctx={ctx} oculto={oculto} /> : <SplitView node={node} ctx={ctx} oculto={oculto} path={path} />;
 }
 
 /** Divisão: dois filhos e a divisória arrastável entre eles. O primeiro filho ocupa `ratio` do espaço livre. */
-function SplitView({ node, ctx, oculto }: { node: Extract<LayoutNode, { kind: 'split' }>; ctx: GridCtx; oculto: boolean }): ReactElement {
+function SplitView({ node, ctx, oculto, path }: { node: Extract<LayoutNode, { kind: 'split' }>; ctx: GridCtx; oculto: boolean; path: SplitPath }): ReactElement {
   const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   const arrastando = useRef(false);
@@ -63,15 +63,10 @@ function SplitView({ node, ctx, oculto }: { node: Extract<LayoutNode, { kind: 's
   const maximizado = ctx.layout.maximizedId;
   const ocultaPrimeiro = maximizado !== null && !contem(first, maximizado);
   const ocultaSegundo = maximizado !== null && !contem(second, maximizado);
-  // A API de layout só ajusta a divisória pelo primeiro filho quando ele é um painel (folha). Grade 2×2 fica fixa nas linhas.
-  const idPrimeiro = first.kind === 'leaf' ? first.pane.id : null;
-
-  const ajusta = (r: number): void => {
-    if (idPrimeiro !== null) usePanes.getState().resizePane(idPrimeiro, r);
-  };
+  // A divisória é endereçada pelo caminho da raiz até esta divisão: vale para qualquer nível da árvore (grade 2×2 inclusive).
+  const ajusta = (r: number): void => usePanes.getState().resizeSplit(path, r);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>): void => {
-    if (idPrimeiro === null) return;
     e.preventDefault();
     arrastando.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -88,7 +83,6 @@ function SplitView({ node, ctx, oculto }: { node: Extract<LayoutNode, { kind: 's
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (idPrimeiro === null) return;
     const r = passoDaTecla(ratio, e.key);
     if (r === null) return;
     e.preventDefault();
@@ -98,14 +92,13 @@ function SplitView({ node, ctx, oculto }: { node: Extract<LayoutNode, { kind: 's
   return (
     <div ref={ref} className={`pane-split ${direction}`} style={oculto ? OCULTO : undefined}>
       <div className="pane-slot" style={{ flex: `${ratio} 1 0`, ...(ocultaPrimeiro ? OCULTO : null) }}>
-        <NodeView node={first} ctx={ctx} oculto={ocultaPrimeiro} />
+        <NodeView node={first} ctx={ctx} oculto={ocultaPrimeiro} path={[...path, 'first']} />
       </div>
       <div
         role="separator"
-        tabIndex={idPrimeiro === null ? -1 : 0}
+        tabIndex={0}
         aria-orientation={horizontal ? 'vertical' : 'horizontal'}
         aria-label={t('pane_divider_aria')}
-        aria-disabled={idPrimeiro === null || undefined}
         aria-valuenow={Math.round(ratio * 100)}
         aria-valuemin={SPLIT_MIN_PCT}
         aria-valuemax={SPLIT_MAX_PCT}
@@ -118,7 +111,7 @@ function SplitView({ node, ctx, oculto }: { node: Extract<LayoutNode, { kind: 's
         onKeyDown={onKeyDown}
       />
       <div className="pane-slot" style={{ flex: `${1 - ratio} 1 0`, ...(ocultaSegundo ? OCULTO : null) }}>
-        <NodeView node={second} ctx={ctx} oculto={ocultaSegundo} />
+        <NodeView node={second} ctx={ctx} oculto={ocultaSegundo} path={[...path, 'second']} />
       </div>
     </div>
   );

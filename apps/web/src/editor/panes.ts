@@ -67,6 +67,9 @@ export interface Pane {
 
 export type SplitDirection = 'row' | 'column';
 
+/** Caminho da raiz até uma divisão: cada passo desce ao primeiro ou ao segundo filho. `[]` é a própria raiz. */
+export type SplitPath = readonly ('first' | 'second')[];
+
 /** Nó do layout: folha (painel) ou divisão em dois filhos. */
 export type LayoutNode =
   | { kind: 'leaf'; pane: Pane }
@@ -113,6 +116,11 @@ export interface PaneLayoutOps {
    * for o primeiro filho direto de uma divisão (é o segundo, ou não existe), devolve o mesmo layout.
    */
   resize(l: PaneLayout, paneId: PaneId, ratio: number): PaneLayout;
+  /**
+   * Ajusta a fração da divisão no caminho dado (qualquer divisão, inclusive as que têm outra divisão como primeiro
+   * filho, como as linhas da grade 2×2). Caminho que não leva a uma divisão: devolve o mesmo layout.
+   */
+  resizeAt(l: PaneLayout, path: SplitPath, ratio: number): PaneLayout;
   setActive(l: PaneLayout, paneId: PaneId): PaneLayout;
   toggleMaximize(l: PaneLayout, paneId: PaneId): PaneLayout;
   setView(l: PaneLayout, paneId: PaneId, view: PaneView): PaneLayout;

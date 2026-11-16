@@ -19,6 +19,7 @@ import {
   type PaneSync,
   type PaneView,
   type SplitDirection,
+  type SplitPath,
 } from './panes.ts';
 import { safeGet, safeSet } from './storage.ts';
 
@@ -139,6 +140,25 @@ function resizePane(l: PaneLayout, paneId: PaneId, ratio: number): PaneLayout {
   return { ...l, root: swapNode(l.root, s, { ...s, ratio: r }) };
 }
 
+/** Troca a fração da divisão no `path`. Caminho inválido, ratio não finito ou fração igual: o mesmo layout. */
+function resizeAtPath(l: PaneLayout, path: SplitPath, ratio: number): PaneLayout {
+  if (!finite(ratio)) return l;
+  const r = clamp(ratio, SPLIT_LIMITS.minRatio, SPLIT_LIMITS.maxRatio);
+  const go = (n: LayoutNode, i: number): LayoutNode => {
+    if (n.kind === 'leaf') return n;
+    if (i === path.length) return n.ratio === r ? n : { ...n, ratio: r };
+    const side = path[i];
+    if (side === 'first') {
+      const first = go(n.first, i + 1);
+      return first === n.first ? n : { ...n, first };
+    }
+    const second = go(n.second, i + 1);
+    return second === n.second ? n : { ...n, second };
+  };
+  const root = go(l.root, 0);
+  return root === l.root ? l : { ...l, root };
+}
+
 function setActivePane(l: PaneLayout, paneId: PaneId): PaneLayout {
   if (!findPane(l, paneId)) return l;
   const maximizedId = l.maximizedId !== null && l.maximizedId !== paneId ? paneId : l.maximizedId;
@@ -241,6 +261,7 @@ export const layoutTreeOps: PaneLayoutOps = {
   split: splitPane,
   close: closePane,
   resize: resizePane,
+  resizeAt: resizeAtPath,
   setActive: setActivePane,
   toggleMaximize: toggleMaximizePane,
   setView: setPaneView,
@@ -399,6 +420,7 @@ export function loadPanes(fallback: Fallback): PaneLayout {
   }
 }
 
+/** Guarda o layout no navegador sem as câmeras (2D e 3D são da sessão: ao reabrir, cada painel enquadra de novo). */
 export function savePanes(layout: PaneLayout): void {
-  safeSet(PANES_KEY, JSON.stringify(layout));
+  safeSet(PANES_KEY, JSON.stringify({ ...layout, root: mapPanes(layout.root, (p) => ({ ...p, camera2d: null, camera3d: null })) }));
 }

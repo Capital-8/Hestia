@@ -556,6 +556,16 @@ describe('persistência (navegador falso)', () => {
     expect(loadPanes(FB)).toEqual(singlePaneLayout(PLAN0, 'p1'));
   });
 
+  it('savePanes não grava câmeras (são da sessão)', () => {
+    const store = fakeStorage();
+    const base = singlePaneLayout(PLAN0, 'p1');
+    const pane = (base.root as { kind: 'leaf'; pane: Pane }).pane;
+    savePanes({ ...base, root: { kind: 'leaf', pane: { ...pane, camera2d: { zoom: 5, center: { x: 1, y: 2 } } } } });
+    const salvo = JSON.parse(store.get('hestia.panes') as string) as { root: { pane: Pane } };
+    expect(salvo.root.pane.camera2d).toBeNull();
+    expect(salvo.root.pane.camera3d).toBeNull();
+  });
+
   it('armazenamento que lança na escrita: savePanes não lança', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => null,
@@ -564,6 +574,48 @@ describe('persistência (navegador falso)', () => {
       },
     });
     expect(() => savePanes(duo())).not.toThrow();
+  });
+});
+
+describe('resizeAt (por caminho)', () => {
+  /** Grade 2×2 de verdade: column(row(p1,p2), row(p3,p4)): o primeiro filho da raiz é uma DIVISÃO. */
+  const grade = (): PaneLayout => ops.applyPreset(singlePaneLayout(PLAN0, 'p1'), 'grid', [PLAN0, V3D, PLAN1, V3D], ['p1', 'p2', 'p3', 'p4']);
+  const GRADE = 'column@0.5(row@0.5(p1,p2),row@0.5(p3,p4))';
+
+  it('a grade pronta tem a forma esperada', () => {
+    expect(shape(grade().root)).toBe(GRADE);
+  });
+
+  it('raiz: [] ajusta a divisão da raiz', () => {
+    expect(shape(ops.resizeAt(duo(), [], 0.3).root)).toBe('row@0.3(p1,p2)');
+  });
+
+  it('grade 2×2: a divisória das LINHAS (primeiro filho é divisão) é alcançável', () => {
+    expect(shape(ops.resizeAt(grade(), [], 0.7).root)).toBe('column@0.7(row@0.5(p1,p2),row@0.5(p3,p4))');
+  });
+
+  it('grade 2×2: divisória de cada linha pelo caminho', () => {
+    expect(shape(ops.resizeAt(grade(), ['first'], 0.3).root)).toBe('column@0.5(row@0.3(p1,p2),row@0.5(p3,p4))');
+    expect(shape(ops.resizeAt(grade(), ['second'], 0.6).root)).toBe('column@0.5(row@0.5(p1,p2),row@0.6(p3,p4))');
+  });
+
+  it('clampa em SPLIT_LIMITS: 0.05 vira 0.15 e 0.99 vira 0.85', () => {
+    expect(shape(ops.resizeAt(duo(), [], 0.05).root)).toBe('row@0.15(p1,p2)');
+    expect(shape(ops.resizeAt(duo(), [], 0.99).root)).toBe('row@0.85(p1,p2)');
+  });
+
+  it('caminho que não leva a uma divisão, ratio NaN ou fração igual: mesmo objeto', () => {
+    const l = duo();
+    expect(ops.resizeAt(l, ['first'], 0.3)).toBe(l);
+    expect(ops.resizeAt(l, ['first', 'first', 'second'], 0.3)).toBe(l);
+    expect(ops.resizeAt(l, [], Number.NaN)).toBe(l);
+    expect(ops.resizeAt(l, [], 0.5)).toBe(l);
+  });
+
+  it('não muta a entrada (layout congelado)', () => {
+    const l = deepFreeze(grade());
+    expect(shape(ops.resizeAt(l, [], 0.7).root)).toBe('column@0.7(row@0.5(p1,p2),row@0.5(p3,p4))');
+    expect(shape(l.root)).toBe(GRADE);
   });
 });
 
