@@ -24,10 +24,9 @@ import { TitleBar } from './ui/TitleBar.tsx';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
 import { ViewTabs } from './ui/ViewTabs.tsx';
-import { startPaneSync, usePanes } from './editor/paneStore.ts';
-import { ViewportCanvas } from './ui/ViewportCanvas.tsx';
+import { startPaneSync } from './editor/paneStore.ts';
+import { PaneGrid } from './ui/PaneGrid.tsx';
 import { useNarrow } from './ui/useNarrow.ts';
-import { SheetView } from './ui/SheetView.tsx';
 import { SheetDialog } from './ui/dialogs/SheetDialog.tsx';
 import { AddViewDialog } from './ui/dialogs/AddViewDialog.tsx';
 import { RenumberSheetsDialog } from './ui/dialogs/RenumberSheetsDialog.tsx';
@@ -265,10 +264,6 @@ function Dialogs(): ReactElement | null {
  */
 function Palco(): ReactElement {
   const openViews = useUi((s) => s.openViews);
-  const view = useUi((s) => s.view);
-  const sheetId = useUi((s) => s.sheetId);
-  const paneId = usePanes((s) => s.layout.activeId);
-  const ativarPainel = usePanes.getState().activate;
   // O painel ativo acompanha a vista ativa do app.
   useEffect(() => startPaneSync(), []);
   // Sem nenhuma aba válida, a área de desenho mostra o estado vazio (o navegador continua acessível).
@@ -280,7 +275,7 @@ function Palco(): ReactElement {
       <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Tutorial />
         <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'grid' }}>
-          {semVistas ? <EmptyViews /> : view === 'sheet' && sheetId ? <SheetView sheetId={sheetId} /> : <ViewportCanvas paneId={paneId} onActivate={ativarPainel} />}
+          {semVistas ? <EmptyViews /> : <PaneGrid />}
         </div>
       </div>
       {!semVistas && <ViewControlBar />}

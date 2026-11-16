@@ -1,10 +1,31 @@
 import { create } from 'zustand';
+import type { Project } from '@hestia/model';
 import { activeViewOf, sameView, type ActiveViewFields } from './openViews.ts';
-import { DEFAULT_SYNC, leaves, type LayoutNode, type Pane, type PaneId, type PaneLayout, type PaneView } from './panes.ts';
+import { layoutTreeOps, loadPanes, nextPaneId } from './layoutTree.ts';
+import {
+  DEFAULT_SYNC,
+  MAX_PANES,
+  PANES_KEY,
+  findPane,
+  leaves,
+  type LayoutNode,
+  type LayoutPresetId,
+  type Pane,
+  type PaneId,
+  type PaneLayout,
+  type PaneStyle,
+  type PaneView,
+  type SplitDirection,
+} from './panes.ts';
+import { safeSet } from './storage.ts';
 import { useUi } from './state.ts';
+import { tabOf } from './viewTabActions.ts';
 
 /** Id do painel único inicial. */
 export const FIRST_PANE_ID: PaneId = 'p1';
+
+/** Ids dos painéis criados por layout pronto (estáveis: a mesma posição sempre tem o mesmo id). */
+const PRESET_IDS: readonly PaneId[] = ['p1', 'p2', 'p3', 'p4'];
 
 /** Campos de um painel que o canvas guarda ao sair de cena (câmeras). */
 export type PaneCameras = Pick<Pane, 'camera2d' | 'camera3d'>;
@@ -50,6 +71,34 @@ export function withPaneCameras(l: PaneLayout, id: PaneId, patch: Partial<PaneCa
   return root === l.root ? l : { ...l, root };
 }
 
+/**
+ * Painéis cuja vista não existe mais no projeto (nível, corte, prancha ou planta de área excluídos) passam a mostrar
+ * `fallbackView`. Função pura: sem vista quebrada, devolve o MESMO layout.
+ */
+export function sanitizeLayoutViews(l: PaneLayout, p: Project, fallbackView: PaneView): PaneLayout {
+  return leaves(l.root).reduce((acc, pane) => (tabOf(p, pane.view) === null ? withPaneView(acc, pane.id, fallbackView) : acc), l);
+}
+
+/** Guarda o layout no navegador sem as câmeras (2D e 3D são da sessão: ao reabrir, cada painel enquadra de novo). */
+export function savePanes(l: PaneLayout): void {
+  safeSet(PANES_KEY, JSON.stringify({ ...l, root: semCameras(l.root) }));
+}
+
+function semCameras(n: LayoutNode): LayoutNode {
+  if (n.kind === 'leaf') return { kind: 'leaf', pane: { ...n.pane, camera2d: null, camera3d: null } };
+  return { ...n, first: semCameras(n.first), second: semCameras(n.second) };
+}
+
+/**
+ * Ordem das vistas para um layout pronto: a do painel ativo vem primeiro (ele mantém a própria vista ao aplicar),
+ * depois as vistas abertas na ordem das abas. Completa com a vista ativa até cobrir todos os painéis possíveis.
+ */
+function vistasDoPreset(abertas: readonly PaneView[], ativa: PaneView): PaneView[] {
+  const resto = abertas.filter((v) => !sameView(v, ativa));
+  const padding = Array.from({ length: MAX_PANES }, (): PaneView => ativa);
+  return [ativa, ...resto, ...padding];
+}
+
 export interface PanesState {
   layout: PaneLayout;
   setLayout: (l: PaneLayout) => void;
@@ -59,24 +108,71 @@ export interface PanesState {
   saveCameras: (id: PaneId, patch: Partial<PaneCameras>) => void;
   /** O painel ativo passa a mostrar a vista ativa do `useUi`. */
   syncActiveView: (f: ActiveViewFields) => void;
+  /** Divide o painel; o novo recebe `view` e vira o ativo. Recusa acima de `MAX_PANES`. */
+  splitPane: (paneId: PaneId, direction: SplitDirection, view: PaneView) => void;
+  /** Fecha o painel (nunca o último). */
+  closePane: (paneId: PaneId) => void;
+  /** Ajusta a divisória que tem `paneId` como primeiro filho direto (fração, clampada). */
+  resizePane: (paneId: PaneId, ratio: number) => void;
+  toggleMaximize: (paneId: PaneId) => void;
+  setPaneView: (paneId: PaneId, view: PaneView) => void;
+  setPaneStyle: (paneId: PaneId, patch: PaneStyle) => void;
+  /** Aplica um layout pronto com as vistas abertas (e a do painel ativo). */
+  applyPreset: (preset: LayoutPresetId) => void;
 }
 
-export const usePanes = create<PanesState>((set, get) => ({
-  layout: initialLayout(useUi.getState()),
-  setLayout: (layout) => set({ layout }),
-  activate: (id) => {
-    const { layout } = get();
-    if (layout.activeId !== id && leaves(layout.root).some((p) => p.id === id)) set({ layout: { ...layout, activeId: id } });
-  },
-  saveCameras: (id, patch) => set((s) => ({ layout: withPaneCameras(s.layout, id, patch) })),
-  syncActiveView: (f) => {
-    const { layout } = get();
-    const view = activeViewOf(f);
-    if (!view) return;
-    const next = withPaneView(layout, layout.activeId, view);
-    if (next !== layout) set({ layout: next });
-  },
-}));
+export const usePanes = create<PanesState>((set, get) => {
+  /** Aplica uma operação pura ao layout; quando ela não muda nada, o estado nem é trocado (sem aviso aos ouvintes). */
+  const aplica = (fn: (l: PaneLayout) => PaneLayout): void =>
+    set((s) => {
+      const layout = fn(s.layout);
+      return layout === s.layout ? s : { layout };
+    });
+
+  return {
+    // Ao carregar, o layout guardado é lido; sem nada válido guardado, vale um painel só com a vista ativa do app.
+    layout: loadPanes({ view: viewOfFields(useUi.getState()), id: FIRST_PANE_ID }),
+    setLayout: (layout) => set({ layout }),
+    activate: (id) => {
+      const { layout } = get();
+      if (layout.activeId !== id && leaves(layout.root).some((p) => p.id === id)) set({ layout: { ...layout, activeId: id } });
+    },
+    saveCameras: (id, patch) => set((s) => ({ layout: withPaneCameras(s.layout, id, patch) })),
+    syncActiveView: (f) => {
+      const { layout } = get();
+      const view = activeViewOf(f);
+      if (!view) return;
+      const next = withPaneView(layout, layout.activeId, view);
+      if (next !== layout) set({ layout: next });
+    },
+    splitPane: (paneId, direction, view) => aplica((l) => layoutTreeOps.split(l, paneId, direction, view, nextPaneId(l))),
+    closePane: (paneId) => aplica((l) => layoutTreeOps.close(l, paneId)),
+    resizePane: (paneId, ratio) => aplica((l) => layoutTreeOps.resize(l, paneId, ratio)),
+    toggleMaximize: (paneId) => aplica((l) => layoutTreeOps.toggleMaximize(l, paneId)),
+    setPaneView: (paneId, view) => aplica((l) => layoutTreeOps.setView(l, paneId, view)),
+    setPaneStyle: (paneId, patch) => aplica((l) => layoutTreeOps.setStyle(l, paneId, patch)),
+    applyPreset: (preset) => {
+      const abertas = useUi.getState().openViews;
+      aplica((l) => {
+        const ativa = findPane(l, l.activeId)?.view;
+        if (!ativa) return l;
+        return layoutTreeOps.applyPreset(l, preset, vistasDoPreset(abertas, ativa), PRESET_IDS);
+      });
+    },
+  };
+});
+
+// Toda mudança de layout é guardada (sem câmeras).
+usePanes.subscribe((s, prev) => {
+  if (s.layout !== prev.layout) savePanes(s.layout);
+});
+
+/** Ao abrir ou trocar de projeto: painéis com vista inexistente passam a vista ativa do app. */
+export function reconcilePanes(p: Project): void {
+  const { layout } = usePanes.getState();
+  const next = sanitizeLayoutViews(layout, p, viewOfFields(useUi.getState()));
+  if (next !== layout) usePanes.setState({ layout: next });
+}
 
 const mudouVista = (a: ActiveViewFields, b: ActiveViewFields): boolean =>
   a.view !== b.view || a.levelId !== b.levelId || a.planKind !== b.planKind || a.areaPlanId !== b.areaPlanId || a.sectionId !== b.sectionId || a.sheetId !== b.sheetId;
@@ -88,4 +184,3 @@ export function startPaneSync(): () => void {
     if (mudouVista(s, prev)) usePanes.getState().syncActiveView(s);
   });
 }
-
