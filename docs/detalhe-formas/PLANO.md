@@ -69,3 +69,10 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Gap: o cursor não muda sobre as alças. A Selecionar fixa a seta (`cursor.ts`) e a ferramenta não tem API de cursor; o corte já pede `move` (`ViewportCanvas.tsx`). Não tocado.
 - Gap: as alças da cota no corte (`sectionHandles.ts`) não são desenhadas; só o pick. Fica para o S2-B/S2-C.
 - Perpendicular de teste com from (1,3) e pé (1,0), não (2,3): com from (2,3) o ponto médio (2,0), de peso menor, vence o pé no mesmo ponto.
+
+**S2-B (sonnet, medium)**
+- Corte: `sectionInferContext` aceita `detailLines` (opção); `detailSnapDeLinhas` (detailSnap.ts) devolve pontas, meio e segmentos `nearest`, memoizados pela referência do array de linhas (e pelos ocultos que pertencem a ele), então o `snapAccel` vê as mesmas listas a cada movimento. Ligado em `controller.ts` com `sectionAnnotationsOf(view).detailLines`. Teste: `detailSnapCorte.test.ts` (perpendicular (1,3)->(1,0), meio (2,0), ponta, cruzamento (1,0), oculta).
+- Arco: `detailLineSegments` NÃO existe neste ramo (sem `sag` em `DetailLine`); `segmentosDaLinha` segue a corda. Trocar nele quando o S1-A for mesclado (planta e corte mudam juntos).
+- Planta: `dimBodyAt` (annotationPick.ts) + `down` do Select: cota já selecionada (única, linear, não `locked`) pressionada no texto entra em `dimtext`, na linha/extensões em `dimgrip`; mesma lógica de commit. Folga de 4 px: clique ou tremor não grava nada. Cota não selecionada segue só selecionando. Teste: `selectDimBody.test.ts`.
+- Corte: `pickSectionDimensionGrip` devolve `kind:'offset'` com `body:true` para linha/extensões; `ViewportCanvas.tsx` ignora o `up` sem arrasto (4 px) quando `body`. Teste novo em `render/src/section/handles.test.ts`.
+- Gap (cursor): o Select continua sem API de cursor por hover (fixa a seta; só o corte pede `move`); não implementado. Alça da cota no corte segue sem desenho (só pick).
