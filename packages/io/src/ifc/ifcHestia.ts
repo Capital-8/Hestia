@@ -72,6 +72,7 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   column: ['column', 'col'],
   beam: ['beam'],
   footing: ['footing', 'foot'],
+  furniture: [],
 };
 
 /** Destino de entidades: o `StepWriter` na exportação normal e o injetor de texto do `withHestiaPsets`. */

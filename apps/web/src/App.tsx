@@ -72,6 +72,7 @@ import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
+import { ImportFurnitureDialog } from './ui/dialogs/ImportFurnitureDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
@@ -222,6 +223,8 @@ function Dialogs(): ReactElement | null {
       return <DxfExportDialog />;
     case 'importCad':
       return <ImportCadDialog />;
+    case 'importFurniture':
+      return <ImportFurnitureDialog />;
     case 'manageCad':
       return <ManageCadDialog />;
     case 'experimentos':

@@ -34,6 +34,7 @@ import { FR_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { FR_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 import { FR_STRUCTURAL } from '../../areas/structural.ts';
 import { FR_TAGGING } from '../../areas/tagging.ts';
+import { FR_FURNITURE } from '../../areas/furniture.ts';
 
 export const FR_ALL = {
   ...FR_STRUCTURAL,
@@ -71,4 +72,5 @@ export const FR_ALL = {
   ...FR_PROPS_OPTIONS,
   ...FR_PACKAGES_IO,
   ...FR_BIBLIOTECA,
+  ...FR_FURNITURE,
 };

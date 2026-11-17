@@ -51,6 +51,8 @@ export const PT_BASE_CORE_1 = {
     tool_copy: 'Copiar',
     tool_chain: 'Cadeia',
     tool_paste: 'Colar',
+
+    tool_furniture: 'Móvel',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
     tool_array: 'Matriz',
@@ -164,6 +166,8 @@ export const ES_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_copy: 'Copiar',
     tool_chain: 'Cadena',
     tool_paste: 'Pegar',
+
+    tool_furniture: 'Mueble',
     tool_rotate: 'Rotar',
     tool_mirror: 'Simetría',
     tool_array: 'Matriz',
@@ -277,6 +281,8 @@ export const DE_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_copy: 'Kopieren',
     tool_chain: 'Kette',
     tool_paste: 'Einfügen',
+
+    tool_furniture: 'Möbel',
     tool_rotate: 'Drehen',
     tool_mirror: 'Spiegeln',
     tool_array: 'Reihe',
@@ -390,6 +396,8 @@ export const FR_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_copy: 'Copier',
     tool_chain: 'Chaîne',
     tool_paste: 'Coller',
+
+    tool_furniture: 'Meuble',
     tool_rotate: 'Faire pivoter',
     tool_mirror: 'Symétrie',
     tool_array: 'Réseau',
@@ -503,6 +511,8 @@ export const IT_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_copy: 'Copia',
     tool_chain: 'Catena',
     tool_paste: 'Incolla',
+
+    tool_furniture: 'Arredo',
     tool_rotate: 'Ruota',
     tool_mirror: 'Simmetria',
     tool_array: 'Matrice',
@@ -616,6 +626,8 @@ export const PL_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_copy: 'Kopiuj',
     tool_chain: 'Łańcuch',
     tool_paste: 'Wklej',
+
+    tool_furniture: 'Mebel',
     tool_rotate: 'Obróć',
     tool_mirror: 'Lustrzane odbicie',
     tool_array: 'Szyk',

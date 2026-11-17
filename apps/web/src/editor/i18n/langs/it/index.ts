@@ -34,6 +34,7 @@ import { IT_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 import { IT_STRUCTURAL } from '../../areas/structural.ts';
 import { IT_TAGGING } from '../../areas/tagging.ts';
+import { IT_FURNITURE } from '../../areas/furniture.ts';
 
 export const IT_ALL = {
   ...IT_STRUCTURAL,
@@ -71,4 +72,5 @@ export const IT_ALL = {
   ...IT_PROPS_OPTIONS,
   ...IT_PACKAGES_IO,
   ...IT_BIBLIOTECA,
+  ...IT_FURNITURE,
 };

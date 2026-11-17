@@ -27,6 +27,7 @@ import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from
 import type { Column, ColumnType } from './column.ts';
 import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
+import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
@@ -63,6 +64,11 @@ export interface Material {
   cost: number;
   /** Unidade do custo/quantitativo. */
   unit: 'm2' | 'm3' | 'm';
+  /**
+   * Categoria de material (`wood`, `metal`, `glass`...; texto minúsculo, até 32 caracteres). Opcional: ausente = sem
+   * categoria. Usada pelos blocos importados. Sem migração de esquema.
+   */
+  category?: string;
 }
 
 export interface Layer {
@@ -810,7 +816,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing | Column | Beam | Footing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing | Column | Beam | Footing | Furniture;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -991,6 +997,8 @@ export interface Project {
   view3d?: View3DSettings;
   /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */
   plugins?: import('./pluginData.ts').PluginProjectData;
+  /** Moveis importados (assets de malha; instancias sao elementos `furniture`). Ausente = nenhum. Sem migracao. */
+  furniture?: FurnitureProjectData;
   /**
    * Pontos de vista 3D salvos (decisão 0040): catálogo do projeto, referenciado pelas pranchas. Ausente = nenhum.
    * Ver `view3dPoints.ts`.

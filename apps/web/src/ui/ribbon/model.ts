@@ -25,7 +25,7 @@ export type ActionId =
   | 'schedColumns' | 'schedBeams' | 'schedFootings' | 'column' | 'beam' | 'footing' | 'structuralEditType' | 'structuralRotate90' | 'footingAtColumns'
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'
   | 'wallTilt' | 'tiltFollow' | 'tiltWedge' | 'copySelection' | 'cutSelection' | 'pasteAligned' | 'pasteAlignedLevels' | 'syncLinked' | 'unlinkLinked' | 'createSimilar'
-  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'pluginManager' | 'railingForHost' | 'showMass' | 'schedMass' | 'pisosDaMassa' | 'paredesDaMassa' | 'tagFamilies' | 'numberMarks' | 'tagRoom';
+  | 'addViewSheet' | 'publishSheets' | 'sheetsPerLevel' | 'externalTools' | 'pluginManager' | 'railingForHost' | 'showMass' | 'schedMass' | 'pisosDaMassa' | 'paredesDaMassa' | 'tagFamilies' | 'numberMarks' | 'tagRoom' | 'importFurniture' | 'myBlocks';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

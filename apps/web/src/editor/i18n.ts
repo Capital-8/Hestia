@@ -117,6 +117,8 @@ export const I18N = {
     tool_copy: 'Copiar',
     tool_chain: 'Cadeia',
     tool_paste: 'Colar',
+
+    tool_furniture: 'Móvel',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
     tool_array: 'Matriz',
@@ -472,6 +474,8 @@ export const I18N = {
     tool_copy: 'Copy',
     tool_chain: 'Chain',
     tool_paste: 'Paste',
+
+    tool_furniture: 'Furniture',
     tool_rotate: 'Rotate',
     tool_mirror: 'Mirror',
     tool_array: 'Array',

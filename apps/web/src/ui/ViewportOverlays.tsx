@@ -12,6 +12,7 @@ import { TempDimsOverlay } from './dims/TempDimsOverlay.tsx';
 import { DimValueEditor } from './dims/DimValueEditor.tsx';
 import { NavBar } from './NavBar.tsx';
 import { CanvasContextMenu } from './CanvasContextMenu.tsx';
+import { FurniturePlanOverlay } from './FurniturePlanOverlay.tsx';
 
 /** Sobreposições HTML do canvas, na mesma ordem em que entram na árvore da vista. */
 export function ViewportOverlays({
@@ -37,6 +38,7 @@ export function ViewportOverlays({
   return (
     <>
       {ui.view === 'plan' && selectedOpeningId ? <OpeningFlipGrips openingId={selectedOpeningId} /> : null}
+      {ui.view === 'plan' ? <FurniturePlanOverlay /> : null}
       {/* No corte e na elevação só o Mover e o Copiar mostram a cota dinâmica do deslocamento (as cotas da seleção são de planta). */}
       {ui.view === 'plan' || (ui.view === 'section' && (ui.tool === 'move' || ui.tool === 'copy')) ? <TempDimsOverlay /> : null}
       {ui.view === 'plan' || ui.view === 'section' ? <DimValueEditor /> : null}

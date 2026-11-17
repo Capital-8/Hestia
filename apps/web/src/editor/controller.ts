@@ -59,6 +59,7 @@ import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.t
 import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
 import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
+import { avisarTamanhoDoProjeto } from './furniture/saveWarning.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
@@ -851,6 +852,7 @@ export class Editor {
         || this.tool.id === 'column'
         || this.tool.id === 'beam'
         || this.tool.id === 'footing'
+        || this.tool.id === 'furniture'
       )
     ) {
       this.tool.space?.();
@@ -1306,6 +1308,7 @@ export class Editor {
       this.store.markSaved();
       safeSet(AUTOSAVE_SALVO_KEY, text);
       useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
+      avisarTamanhoDoProjeto(text.length);
       return;
     }
     if (entrega === 'cancelado') {
@@ -1321,6 +1324,7 @@ export class Editor {
     } catch {
       useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated', args: { name } } : { key: 'eds_msg_download_failed' } });
     }
+    avisarTamanhoDoProjeto(text.length);
   }
 
   /**
@@ -1377,6 +1381,7 @@ export class Editor {
       safeSet(AUTOSAVE_SALVO_KEY, conteudo);
       this.store.markSaved();
       useUi.setState({ status: { key: pasta === null ? 'bib_saved_new' : 'bib_saved', args: { name: projeto.pasta } } });
+      avisarTamanhoDoProjeto(conteudo.length);
     } catch {
       useUi.setState({ status: { key: 'bib_save_error' } });
     }

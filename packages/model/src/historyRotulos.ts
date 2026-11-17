@@ -1,8 +1,11 @@
 // Rótulo do passo de desfazer de cada comando (o texto que o Desfazer/Refazer mostra). Um rótulo por tipo de comando; o `never` do
 // fim faz um comando novo sem rótulo não compilar.
 import type { Command } from './commands.ts';
+import type { Lang } from './i18n.ts';
+import { furnitureLabel, isFurnitureCommand } from './furniture/commands.ts';
 
-export function labelOf(c: Command): string {
+export function labelOf(c: Command, lang: Lang = 'pt'): string {
+  if (isFurnitureCommand(c)) return furnitureLabel(c, lang);
   switch (c.type) {
     case 'addWall':
       return 'Criar parede';
