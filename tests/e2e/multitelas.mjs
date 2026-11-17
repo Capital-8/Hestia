@@ -248,6 +248,40 @@ try {
   assert.equal(await page.locator('.pane-head').count(), 0);
   ok('fechar painel volta ao modo de um painel');
 
+  // 13. Cenário relatado: planta | (3D em cima, corte embaixo); fechar o corte deixa SÓ o 3D, sem a planta aparecer no lugar.
+  await page.evaluate(() => {
+    const h = window.__hestia;
+    h.editor.store.exec({ type: 'addView', view: { id: 'sv9', name: 'Corte Z', kind: 'section', a: { x: -2, y: 3 }, b: { x: 9, y: 3 }, depth: 6 } });
+  });
+  await preset('Um + dois');
+  let u = await S();
+  assert.equal(u.panes.length, 3);
+  // Monta exatamente o cenário relatado: planta à esquerda, 3D em cima à direita, corte embaixo à direita.
+  await trocarVista(0, 'Térreo');
+  await trocarVista(1, 'Modelo 3D');
+  await trocarVista(2, 'Corte Z');
+  await page.waitForTimeout(400);
+  u = await S();
+  assert.deepEqual(u.panes.map((p) => p.kind), ['plan', '3d', 'section']);
+  assert.equal(u.active, u.panes[2].id, 'o corte é o painel ativo');
+  await page.evaluate(() => {
+    window.__vistasVistas = [];
+    const h = window.__hestia;
+    const reg = () => { const l = h.usePanes.getState().layout; const f = []; const v = (n) => (n.kind === 'leaf' ? f.push(n.pane.view.kind) : (v(n.first), v(n.second))); v(l.root); window.__vistasVistas.push(`${l.activeId} app=${h.useUi.getState().view} ${f.join('+')}`); };
+    h.usePanes.subscribe(reg); h.useUi.subscribe((s, o) => s.view !== o.view && reg());
+  });
+  const antesFechar = u.panes.map((p) => `${p.id}:${p.kind}`).join(' ') + ` ativo=${u.active}`;
+  await page.getByRole('button', { name: 'Fechar painel' }).nth(2).click();
+  await page.waitForTimeout(1200);
+  u = await S();
+  assert.equal(u.panes.length, 2);
+  assert.deepEqual(u.panes.map((p) => p.kind), ['plan', '3d'], `sobram a planta e o 3D (antes: ${antesFechar}; depois: ${u.panes.map((p) => `${p.id}:${p.kind}`).join(' ')})`);
+  assert.equal(u.ui.view, '3d', 'o app passou para o 3D (o painel ativo)');
+  assert.equal(u.panes.find((p) => p.id === u.active).kind, '3d');
+  const hist = await page.evaluate(() => window.__vistasVistas);
+  assert.ok(hist.every((h) => h.endsWith('plan+3d')) , `nenhum estado intermediário errado: ${hist.join(' / ')}`);
+  ok('fechar o corte ativo deixa o 3D sem estados intermediários errados');
+
   const relevantes = errors.filter((e) => !/favicon|WebGL|GPU stall|swiftshader/i.test(e));
   assert.deepEqual(relevantes, [], `erros no console: ${relevantes.join(' | ')}`);
   ok('sem erros no console');

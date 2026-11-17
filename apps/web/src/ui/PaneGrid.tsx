@@ -2,7 +2,7 @@ import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type Pointer
 import type { Project } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
 import { useI18n, useT } from '../editor/i18n.ts';
-import { activatePane, choosePaneView } from '../editor/paneActivation.ts';
+import { activatePane, choosePaneView, closePaneAligned } from '../editor/paneActivation.ts';
 import { activatePaneOnEnter } from '../editor/paneMouseActivation.ts';
 import { listPaneViews } from '../editor/paneViews.ts';
 import { reconcilePanes, usePanes } from '../editor/paneStore.ts';
@@ -126,7 +126,7 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
   const cheio = leaves(layout.root).length >= MAX_PANES;
   const nome = tabOf(project, pane.view)?.label ?? t('pane_view_missing');
   const lang = useI18n((s) => s.lang);
-  const { splitPane, closePane, toggleMaximize } = usePanes.getState();
+  const { splitPane, toggleMaximize } = usePanes.getState();
 
   // Todas as vistas do projeto, em grupos. Se a do painel não existe mais, ela aparece à parte como indisponível.
   const grupos = listPaneViews(project, lang);
@@ -195,7 +195,7 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
           >
             <IconeMaximizar />
           </button>
-          <button type="button" className="ibtn" aria-label={t('pane_close')} title={t('pane_close')} onClick={() => closePane(pane.id)}>
+          <button type="button" className="ibtn" aria-label={t('pane_close')} title={t('pane_close')} onClick={() => closePaneAligned(pane.id)}>
             ×
           </button>
         </header>

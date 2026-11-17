@@ -1,5 +1,7 @@
 import { activeViewOf, sameView } from './openViews.ts';
-import { findPane, type PaneId, type PaneView } from './panes.ts';
+import { editor } from './controller.ts';
+import { layoutTreeOps } from './layoutTree.ts';
+import { findPane, type LayoutPresetId, type PaneId, type PaneView } from './panes.ts';
 import { usePanes } from './paneStore.ts';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
@@ -41,4 +43,35 @@ export function choosePaneView(id: PaneId, view: PaneView): void {
   activatePane(id);
   // Navegação recusada: o painel volta à vista anterior (activatePane já devolveu o ativo ao painel de antes).
   if (usePanes.getState().layout.activeId !== id) setPaneView(id, antiga);
+}
+
+/** O app mostra a vista do painel ativo? Se não, navega até ela pela navegação existente (que o modo de perímetro pode recusar). */
+function alinharAppAoPainelAtivo(): void {
+  const { layout } = usePanes.getState();
+  const ativo = findPane(layout, layout.activeId);
+  if (!ativo) return;
+  const agora = activeViewOf(useUi.getState());
+  if (!agora || !sameView(agora, ativo.view)) activateView(ativo.view);
+}
+
+/**
+ * Fecha o painel. Se era o ativo, o irmão vira o ativo e o app navega para a vista dele: sem isso o painel ativo seguia
+ * mostrando a vista do app (a do painel fechado) até algo ressincronizar. Com o modo de perímetro aberto e a navegação
+ * necessária recusada, o painel NÃO é fechado.
+ */
+export function closePaneAligned(id: PaneId): void {
+  const { layout, closePane } = usePanes.getState();
+  const depois = layoutTreeOps.close(layout, id);
+  if (depois === layout) return;
+  const novo = findPane(depois, depois.activeId);
+  const agora = activeViewOf(useUi.getState());
+  if (depois.activeId !== layout.activeId && novo && (!agora || !sameView(agora, novo.view)) && editor.perimetro.bloqueiaNavegacao()) return;
+  closePane(id);
+  alinharAppAoPainelAtivo();
+}
+
+/** Aplica o layout pronto; se o painel ativo mudou de vista (ou de painel), o app navega para a dele. */
+export function applyPresetAligned(preset: LayoutPresetId): void {
+  usePanes.getState().applyPreset(preset);
+  alinharAppAoPainelAtivo();
 }

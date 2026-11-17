@@ -2,7 +2,7 @@ import { useCallback, useRef, useState, type ReactElement } from 'react';
 import { useT } from '../editor/i18n.ts';
 import type { MenuEntry } from '../editor/contextMenu.ts';
 import type { LayoutPresetId } from '../editor/panes.ts';
-import { usePanes } from '../editor/paneStore.ts';
+import { applyPresetAligned } from '../editor/paneActivation.ts';
 import { PopupMenu } from './PopupMenu.tsx';
 
 /** Layouts prontos, na ordem do menu. */
@@ -54,7 +54,7 @@ export function PaneLayoutMenu(): ReactElement {
           x={pos.x}
           y={pos.y}
           items={itens}
-          onPick={(id) => usePanes.getState().applyPreset(id as LayoutPresetId)}
+          onPick={(id) => applyPresetAligned(id as LayoutPresetId)}
           onClose={fecha}
         />
       )}
