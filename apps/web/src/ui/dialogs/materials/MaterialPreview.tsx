@@ -11,6 +11,8 @@ interface Props {
   size?: number;
   /** Miniatura: sem sombra pesada e sem arrastar. */
   low?: boolean;
+  /** Mostra piso e parede de ladrilhos (padrão); falso mostra só o objeto. */
+  cenario?: boolean;
 }
 
 const PASSO_TECLA = 0.15;
@@ -19,7 +21,7 @@ const PASSO_TECLA = 0.15;
  * Prévia 3D de material: objeto sobre piso/parede de ladrilhos soltos. Um único WebGLRenderer é compartilhado
  * entre todas as prévias; cada uma copia o quadro para o seu canvas 2D. Desenha só sob demanda.
  */
-export function MaterialPreview({ material, shape, size = 220, low = false }: Props): ReactElement {
+export function MaterialPreview({ material, shape, size = 220, low = false, cenario = true }: Props): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cenaRef = useRef<CenaMaterial | null>(null);
   const desenharRef = useRef<() => void>(() => {});
@@ -78,6 +80,10 @@ export function MaterialPreview({ material, shape, size = 220, low = false }: Pr
     cenaRef.current?.aplicarMaterial(material);
     desenharRef.current();
   }, [material]);
+  useEffect(() => {
+    cenaRef.current?.definirCenario(cenario);
+    desenharRef.current();
+  }, [cenario, low]);
   useEffect(() => {
     cenaRef.current?.definirForma(shape);
     desenharRef.current();

@@ -37,6 +37,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
   const [q, setQ] = useState('');
   const [aba, setAba] = useState<Aba>('identidade');
   const [forma, setForma] = useState<PreviewShape>('sphere');
+  const [cenario, setCenario] = useState(true);
   const stored = p.materials[sel];
   const [draft, setDraft] = useState<Material | undefined>(stored ? { ...stored } : undefined);
   useEffect(() => setDraft(p.materials[sel] ? { ...p.materials[sel]! } : undefined), [sel, p.materials]);
@@ -135,7 +136,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
         {draft ? (
           <div className="mat-detalhe" onBlur={() => commit()}>
             <div className="mat-topo">
-              <MaterialPreview material={draft} shape={forma} size={168} />
+              <MaterialPreview material={draft} shape={forma} size={168} cenario={cenario} />
               <div className="mat-topo-campos">
                 <div className="mat-forma" role="group" aria-label={t('dlt_mat_shape_label')}>
                   {FORMAS.map((f) => (
@@ -143,6 +144,9 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
                       {t(ROTULO_FORMA[f])}
                     </button>
                   ))}
+                  <button className={`btn small${cenario ? ' primary' : ''}`} aria-pressed={cenario} title={t('dlt_mat_cenario_tip')} onClick={() => setCenario((v) => !v)}>
+                    {t('dlt_mat_cenario')}
+                  </button>
                 </div>
                 <div className="field-row">
                   <label htmlFor="mat-name">{t('dlt_fld_name')}</label>

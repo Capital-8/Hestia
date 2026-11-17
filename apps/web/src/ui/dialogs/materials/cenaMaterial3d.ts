@@ -63,6 +63,8 @@ export interface CenaMaterial {
   /** Atualiza só o material físico (sem recriar a cena). */
   aplicarMaterial(m: Material): void;
   definirForma(s: PreviewShape): void;
+  /** Mostra ou esconde piso, parede e sombra de contato (só o objeto quando falso). */
+  definirCenario(visivel: boolean): void;
   /** Gira o objeto (radianos). */
   girar(yaw: number, pitch: number): void;
   dispose(): void;
@@ -100,31 +102,37 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
   };
   aplicarMaterial(material);
 
+  // Cenário (piso, parede, ladrilhos e sombra de contato) num grupo só: dá para mostrar apenas o objeto.
+  const cenario = new THREE.Group();
+  scene.add(cenario);
   // Fundo visível pelas frestas: argamassa escura.
   const lado = 1;
   const { colunas, linhas } = gradeLadrilhos(low);
   const largura = colunas * lado;
+  const espessura = lado * 0.3;
+  // Piso e parede têm a MESMA profundidade de fresta: o fundo fica logo atrás da face de trás do ladrilho.
+  const recuoFundo = espessura + 0.02;
   const fundoMat = new THREE.MeshStandardMaterial({ color: '#4a4845', roughness: 0.9 });
   mats.push(fundoMat);
   const pisoFundo = new THREE.Mesh(new THREE.PlaneGeometry(largura, linhas * lado), fundoMat);
   geos.push(pisoFundo.geometry);
   pisoFundo.rotation.x = -Math.PI / 2;
-  pisoFundo.position.set(0, -0.02, 0);
+  pisoFundo.position.set(0, -recuoFundo, 0);
   pisoFundo.receiveShadow = !low;
-  scene.add(pisoFundo);
+  cenario.add(pisoFundo);
   const paredeFundo = new THREE.Mesh(new THREE.PlaneGeometry(largura, linhas * lado), fundoMat);
   geos.push(paredeFundo.geometry);
   const zParede = -linhas * lado * 0.5;
   paredeFundo.position.set(0, (linhas * lado) / 2, zParede - 0.02);
   paredeFundo.receiveShadow = !low;
-  scene.add(paredeFundo);
+  cenario.add(paredeFundo);
 
   // Ladrilhos: RoundedBox em InstancedMesh, cor por instância (três tons), piso e parede.
-  const espessura = lado * 0.3;
   const aresta = lado * (1 - FRESTA);
-  const tileGeo = new RoundedBoxGeometry(aresta, espessura, aresta, low ? 2 : 3, aresta * RAIO_CANTO);
+  // Uma única geometria e um único material de ladrilho para piso e parede: mesmo raio de canto e mesma fresta.
+  const tileGeo = new RoundedBoxGeometry(aresta, espessura, aresta, low ? 3 : 5, aresta * RAIO_CANTO);
   geos.push(tileGeo);
-  const tileMat = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.55, metalness: 0, clearcoat: 0.15 });
+  const tileMat = new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.5, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.35 });
   mats.push(tileMat);
   const tons = TONS_LADRILHO.map((c) => new THREE.Color(c));
   const montar = (ladrilhos: ReturnType<typeof gerarLadrilhos>, alvo: (u: number, v: number, m: THREE.Matrix4) => void): void => {
@@ -136,7 +144,7 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
       im.setColorAt(i, tons[l.tom]!);
     });
     im.receiveShadow = !low;
-    scene.add(im);
+    cenario.add(im);
   };
   const rotParede = new THREE.Matrix4().makeRotationX(Math.PI / 2);
   montar(gerarLadrilhos(colunas, linhas, lado), (u, v, m) => m.makeTranslation(u, -espessura / 2, v));
@@ -174,7 +182,7 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
   geos.push(contato.geometry);
   contato.rotation.x = -Math.PI / 2;
   contato.position.y = 0.005;
-  scene.add(contato);
+  cenario.add(contato);
 
   // Luzes: principal (sombra suave PCFSoft) e preenchimento.
   const sol = new THREE.DirectionalLight('#fff4e6', 2.4);
@@ -204,6 +212,9 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
     camera,
     aplicarMaterial,
     definirForma,
+    definirCenario(visivel) {
+      cenario.visible = visivel;
+    },
     girar(yaw, pitch) {
       grupo.rotation.set(Math.max(-1.2, Math.min(1.2, pitch)), yaw, 0, 'YXZ');
     },
