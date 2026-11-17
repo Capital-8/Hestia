@@ -25,10 +25,14 @@ function cenaCom(terreno: boolean): ModelScene {
 describe('neblina do 3D com terreno grande', () => {
   it('o enquadramento de um terreno de 100 m não fica além da neblina (a cena sumia no fundo)', () => {
     const ms = cenaCom(true);
+    // A faixa da névoa é refeita a cada quadro pela câmera e pela caixa da cena (`antesDeDesenhar`); aqui aplica-se o passo do quadro à mão.
+    (ms as unknown as { atualizarNevoa(): void }).atualizarNevoa();
     const neblina = ms.scene.fog as THREE.Fog;
     expect(ms.orbit.distance).toBeGreaterThan(170);
     expect(neblina.far).toBeGreaterThan(ms.orbit.distance * 1.5);
-    expect(neblina.near).toBeGreaterThan(ms.orbit.distance * 0.7);
+    // A névoa da main (`faixaDaNevoa`) mantém a proporção 60/170: o começo do esmaecimento fica antes do alvo, mas o fim passa de toda a cena.
+    expect(neblina.near).toBeGreaterThan(60);
+    expect(neblina.near).toBeLessThan(neblina.far);
   });
 
   it('sem terreno a neblina continua em 60 a 170 m', () => {
