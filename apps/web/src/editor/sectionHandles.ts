@@ -40,14 +40,27 @@ export function sectionHandleCommand(p: Project, handle: SectionHandle, z: numbe
   const base = wallBaseElevation(p, wall);
   if (handle.kind === 'sill') {
     if (opening.kind !== 'window') return null;
-    return { type: 'updateElements', ids: [opening.id], patch: { sillOverride: Math.max(0, Math.round((z - base) * 1000) / 1000) } };
+    const sill = Math.max(0, Math.round((z - base) * 1000) / 1000);
+    const novo = valorDoOverride(sill, openingSill(type, opening), type.sill);
+    return novo === undefined ? null : { type: 'updateElements', ids: [opening.id], patch: { sillOverride: novo } };
   }
   if (handle.kind === 'head') {
     const sill = openingSill(type, opening);
     const height = Math.max(0.1, Math.round((z - base - sill) * 1000) / 1000);
-    return { type: 'updateElements', ids: [opening.id], patch: { heightOverride: height } };
+    const novo = valorDoOverride(height, openingHeight(type, opening), type.height);
+    return novo === undefined ? null : { type: 'updateElements', ids: [opening.id], patch: { heightOverride: novo } };
   }
   return null;
+}
+
+/**
+ * Valor do override a gravar a partir do valor arrastado: `undefined` quando nada muda (o override não é gravado, nada entra
+ * no desfazer); `null` quando o valor é igual ao do tipo (tira o override que houver, a instância volta a seguir o tipo);
+ * o próprio número quando difere do tipo.
+ */
+function valorDoOverride(valor: number, atual: number, doTipo: number): number | null | undefined {
+  if (Math.abs(valor - atual) < 1e-9) return undefined;
+  return Math.abs(valor - doTipo) < 1e-6 ? null : valor;
 }
 
 /** Altura efetiva e peitoril atuais, para a barra de status/prévia. */

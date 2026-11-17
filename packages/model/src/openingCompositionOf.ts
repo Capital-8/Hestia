@@ -3,6 +3,7 @@ import { openingFamilyOf, type OpeningFamilyId } from './opening.ts';
 import { openingNominalRef, openingSpanGap, openingSpanOf } from './openingNominal.ts';
 import { compositionIssue } from './openingCompositionRules.ts';
 import { profileMaterialOf } from './openingProfiles.ts';
+import { CAMPOS_SEM_MAPEAMENTO, OPTION_KEYS, syncAuthoredComposition } from './openingCompositionSync.ts';
 import {
   COMPOSITION_VERSION,
   LEGACY_SIDELIGHT_MULLION,
@@ -21,12 +22,7 @@ const FRAME_W = 0.05;
 const FRAME_D = 0.09;
 const positive = (v: number | undefined, f: number): number => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : f);
 
-/** Campos de folha do tipo antigo que viram `LeafOptions` da célula (só os definidos, para não gravar `undefined`). */
-const OPTION_KEYS = [
-  'leafStyle', 'handle', 'glassRatio', 'hinges', 'leafThickness', 'leafMaterialId', 'glassKind', 'glassThickness', 'grid',
-  'tiltAxis', 'leafSide', 'leafUndercut', 'handleHeight', 'handleInset', 'angle2d', 'angle3d', 'showSwing', 'swingStyle', 'leafPlan',
-] as const satisfies readonly (keyof LeafOptions)[];
-
+/** Campos de folha do tipo antigo que viram `LeafOptions` da célula (só os definidos, para não gravar `undefined`): ver `OPTION_KEYS`. */
 function optionsOf(t: OpeningType): LeafOptions {
   const o: Record<string, unknown> = {};
   for (const k of OPTION_KEYS) if (t[k] !== undefined) o[k] = t[k];
@@ -139,8 +135,22 @@ export function withBridgedComposition(next: OpeningType, prev: OpeningType | un
   // Só a composição DERIVADA dos campos antigos é regenerada quando eles mudam; a autoral (perfis, alizar, células) é preservada.
   const derivada = !prev?.composition || canonComposition(prev.composition) === canonComposition(compositionOfType(prev));
   const legacy = !next.composition || (!edited && derivada && (next.composition.layout.kind === 'cell' || !!next.transom || !!next.sidelights));
-  const out = legacy ? { ...next, composition: compositionOfType(next) } : next;
+  // Composição autoral intocada e campos planos editados (vão, perfil do batente, opções de folha, alizar): a composição os recebe
+  // (regra em `syncAuthoredComposition`); antes o campo gravava e o vão/peça não mudava.
+  const sync = !legacy && !edited && !!prev?.composition && !derivada;
+  const out = legacy ? { ...next, composition: compositionOfType(next) } : sync ? { ...next, composition: syncAuthoredComposition(next.composition!, prev!, next, profiles) } : next;
   const issue = compositionIssue(out.composition!, profiles);
   if (issue) throw new Error(issue);
   return out;
+}
+
+/** A composição do tipo foi editada nos módulos (não é só a derivada dos campos planos). */
+export const isAuthoredComposition = (t: OpeningType): boolean => !!t.composition && canonComposition(t.composition) !== canonComposition(compositionOfType(t));
+
+/**
+ * Campos planos do tipo que a composição AUTORAL não acompanha (bandeira, laterais, estilo e material do batente): o diálogo
+ * deve travá-los com aviso e remeter aos módulos. Vazio para tipo sem composição ou com composição só derivada dos campos.
+ */
+export function camposTravadosPelaComposicao(t: OpeningType): Set<keyof OpeningType> {
+  return new Set<keyof OpeningType>(isAuthoredComposition(t) ? CAMPOS_SEM_MAPEAMENTO : []);
 }

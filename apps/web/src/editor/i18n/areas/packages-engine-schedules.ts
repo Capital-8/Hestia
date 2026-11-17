@@ -68,6 +68,14 @@ export const PT_PACKAGES_ENGINE_SCHEDULES = {
   egs_csv_col_material_da_folha: 'Material da folha',
   egs_csv_col_ferragens: 'Ferragens',
   egs_csv_col_composicao: 'Composição',
+  egs_csv_col_fogo: 'Resistência ao fogo',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Descrição',
+  egs_csv_col_fabricante: 'Fabricante',
+  egs_csv_col_custo_unitario: 'Custo unitário',
+  egs_csv_col_custo_total: 'Custo total',
+  egs_csv_col_fator_solar: 'Fator solar',
 
   // ---- linhas de total -----------------------------------------------------------------------------------
   egs_csv_total: 'Total',
@@ -140,6 +148,8 @@ export const PT_PACKAGES_ENGINE_SCHEDULES = {
   // ---- portas e janelas: categoria -----------------------------------------------------------------------
   egs_opening_cat_door: 'Porta',
   egs_opening_cat_window: 'Janela',
+  egs_opening_own_height: 'altura própria {value}',
+  egs_opening_own_sill: 'peitoril próprio {value}',
 } as const;
 
 export const EN_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -204,6 +214,14 @@ export const EN_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Leaf Material',
   egs_csv_col_ferragens: 'Hardware',
   egs_csv_col_composicao: 'Composition',
+  egs_csv_col_fogo: 'Fire rating',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Description',
+  egs_csv_col_fabricante: 'Manufacturer',
+  egs_csv_col_custo_unitario: 'Unit cost',
+  egs_csv_col_custo_total: 'Total cost',
+  egs_csv_col_fator_solar: 'Solar factor',
 
   egs_csv_total: 'Total',
   egs_room_subtotal: 'Subtotal {level}',
@@ -270,6 +288,8 @@ export const EN_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Door',
   egs_opening_cat_window: 'Window',
+  egs_opening_own_height: 'own height {value}',
+  egs_opening_own_sill: 'own sill {value}',
 };
 
 export const ES_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -334,6 +354,14 @@ export const ES_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Material de la hoja',
   egs_csv_col_ferragens: 'Herrajes',
   egs_csv_col_composicao: 'Composición',
+  egs_csv_col_fogo: 'Resistencia al fuego',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Descripción',
+  egs_csv_col_fabricante: 'Fabricante',
+  egs_csv_col_custo_unitario: 'Costo unitario',
+  egs_csv_col_custo_total: 'Costo total',
+  egs_csv_col_fator_solar: 'Factor solar',
 
   egs_csv_total: 'Total',
   egs_room_subtotal: 'Subtotal {level}',
@@ -400,6 +428,8 @@ export const ES_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Puerta',
   egs_opening_cat_window: 'Ventana',
+  egs_opening_own_height: 'altura propia {value}',
+  egs_opening_own_sill: 'antepecho propio {value}',
 };
 
 export const DE_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -464,6 +494,14 @@ export const DE_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Flügelmaterial',
   egs_csv_col_ferragens: 'Beschläge',
   egs_csv_col_composicao: 'Zusammensetzung',
+  egs_csv_col_fogo: 'Feuerwiderstand',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Beschreibung',
+  egs_csv_col_fabricante: 'Hersteller',
+  egs_csv_col_custo_unitario: 'Stückkosten',
+  egs_csv_col_custo_total: 'Gesamtkosten',
+  egs_csv_col_fator_solar: 'Gesamtenergiedurchlassgrad',
 
   egs_csv_total: 'Gesamt',
   egs_room_subtotal: 'Zwischensumme {level}',
@@ -530,6 +568,8 @@ export const DE_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Tür',
   egs_opening_cat_window: 'Fenster',
+  egs_opening_own_height: 'eigene Höhe {value}',
+  egs_opening_own_sill: 'eigene Brüstung {value}',
 };
 
 export const FR_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -594,6 +634,14 @@ export const FR_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Matériau du vantail',
   egs_csv_col_ferragens: 'Quincaillerie',
   egs_csv_col_composicao: 'Composition',
+  egs_csv_col_fogo: 'Résistance au feu',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Description',
+  egs_csv_col_fabricante: 'Fabricant',
+  egs_csv_col_custo_unitario: 'Coût unitaire',
+  egs_csv_col_custo_total: 'Coût total',
+  egs_csv_col_fator_solar: 'Facteur solaire',
 
   egs_csv_total: 'Total',
   egs_room_subtotal: 'Sous-total {level}',
@@ -660,6 +708,8 @@ export const FR_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Porte',
   egs_opening_cat_window: 'Fenêtre',
+  egs_opening_own_height: 'hauteur propre {value}',
+  egs_opening_own_sill: 'allège propre {value}',
 };
 
 export const IT_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -724,6 +774,14 @@ export const IT_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Materiale dell\'anta',
   egs_csv_col_ferragens: 'Ferramenta',
   egs_csv_col_composicao: 'Composizione',
+  egs_csv_col_fogo: 'Resistenza al fuoco',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Descrizione',
+  egs_csv_col_fabricante: 'Produttore',
+  egs_csv_col_custo_unitario: 'Costo unitario',
+  egs_csv_col_custo_total: 'Costo totale',
+  egs_csv_col_fator_solar: 'Fattore solare',
 
   egs_csv_total: 'Totale',
   egs_room_subtotal: 'Subtotale {level}',
@@ -790,6 +848,8 @@ export const IT_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Porta',
   egs_opening_cat_window: 'Finestra',
+  egs_opening_own_height: 'altezza propria {value}',
+  egs_opening_own_sill: 'davanzale proprio {value}',
 };
 
 export const PL_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGINE_SCHEDULES, string> = {
@@ -854,6 +914,14 @@ export const PL_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
   egs_csv_col_material_da_folha: 'Materiał skrzydła',
   egs_csv_col_ferragens: 'Okucia',
   egs_csv_col_composicao: 'Kompozycja',
+  egs_csv_col_fogo: 'Odporność ogniowa',
+  egs_csv_col_rw: 'Rw (dB)',
+  egs_csv_col_u: 'U (W/m²K)',
+  egs_csv_col_descricao: 'Opis',
+  egs_csv_col_fabricante: 'Producent',
+  egs_csv_col_custo_unitario: 'Koszt jednostkowy',
+  egs_csv_col_custo_total: 'Koszt całkowity',
+  egs_csv_col_fator_solar: 'Współczynnik słoneczny',
 
   egs_csv_total: 'Razem',
   egs_room_subtotal: 'Suma częściowa {level}',
@@ -920,4 +988,6 @@ export const PL_PACKAGES_ENGINE_SCHEDULES: Record<keyof typeof PT_PACKAGES_ENGIN
 
   egs_opening_cat_door: 'Drzwi',
   egs_opening_cat_window: 'Okno',
+  egs_opening_own_height: 'własna wysokość {value}',
+  egs_opening_own_sill: 'własny parapet {value}',
 };

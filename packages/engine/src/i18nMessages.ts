@@ -104,6 +104,8 @@ const PT = {
   egb_issue_ventilation_area: 'Área útil de ventilação {area} ({pct} de {w} × {h}).',
   egb_issue_jamb_depth_ok: 'Profundidade do batente {depth} cabe no núcleo de {core}.',
   egb_issue_jamb_depth_over: 'Profundidade do batente {depth} maior que o núcleo de {core}.',
+  egb_issue_reveal_ok: 'Recuo do batente {reveal} cabe na parede de {wall} (limite {max}).',
+  egb_issue_reveal_clamped: 'Recuo do batente {reveal} limitado a {max}: parede de {wall} com batente de {depth}.',
   egb_issue_lintel_ok: 'Verga presente.',
   egb_issue_lintel_missing: 'Verga ausente: o vão fica sem peça de concreto sobre a abertura.',
 
@@ -373,6 +375,8 @@ const EN: Record<DictKey, string> = {
   egb_issue_ventilation_area: 'Useful ventilation area {area} ({pct} of {w} × {h}).',
   egb_issue_jamb_depth_ok: 'Frame depth {depth} fits the core of {core}.',
   egb_issue_jamb_depth_over: 'Frame depth {depth} is larger than the core of {core}.',
+  egb_issue_reveal_ok: 'Frame reveal {reveal} fits the wall of {wall} (limit {max}).',
+  egb_issue_reveal_clamped: 'Frame reveal {reveal} limited to {max}: wall of {wall} with a frame of {depth}.',
   egb_issue_lintel_ok: 'Lintel present.',
   egb_issue_lintel_missing: 'Lintel missing: the opening has no concrete piece above it.',
 
