@@ -1,4 +1,4 @@
-import { CATALOGO_ARQUIVO, urlTextura, validarCatalogo, type TexturasCatalogo } from '@hestia/io';
+import { CATALOGO_ARQUIVO, urlTextura, validarCatalogo, type TexturaItem, type TexturasCatalogo } from '@hestia/io';
 
 /** Bucket público das texturas. Somente leitura: as imagens não vão na release do app. */
 export const URL_TEXTURAS = 'https://pub-8902f5770d27459b9c9a712765874108.r2.dev';
@@ -34,6 +34,29 @@ export class ErroCatalogo extends Error {
 /** Cache de memória do módulo: só guarda catálogo válido (erro não fica cacheado, para "Tentar de novo" refazer o download). */
 let cache: { base: string; catalogo: TexturasCatalogo } | null = null;
 
+/** Prefixo do `imagemId` que aponta para o catálogo online (resolvido pelos mapas do catálogo). */
+export const PREFIXO_CATALOGO = 'catalogo:';
+
+/** Texturas do catálogo a que um `imagemId` se refere; `undefined` se não for do catálogo ou não constar nele. */
+export function itemDoCatalogo(imagemId: string, catalogo: TexturasCatalogo | null): TexturaItem | undefined {
+  if (!catalogo || !imagemId.startsWith(PREFIXO_CATALOGO)) return undefined;
+  const id = imagemId.slice(PREFIXO_CATALOGO.length);
+  return catalogo.itens.find((i) => i.id === id);
+}
+
+const ouvintes = new Set<() => void>();
+
+/** Catálogo já baixado nesta sessão (para quem não pode esperar rede: exportação de cena, 3D). `null` se ainda não veio. */
+export function catalogoEmCache(base: string = baseAtual()): TexturasCatalogo | null {
+  return cache && cache.base === base ? cache.catalogo : null;
+}
+
+/** Avisa quando um catálogo novo chega à memória. Devolve a função que cancela. */
+export function aoCarregarCatalogo(cb: () => void): () => void {
+  ouvintes.add(cb);
+  return () => { ouvintes.delete(cb); };
+}
+
 /** Esquece o catálogo em memória (uso em teste e quando a base muda). */
 export function esquecerCatalogo(): void {
   cache = null;
@@ -58,6 +81,7 @@ export async function carregarCatalogo(fetchFn: FetchTexturas = fetch, base: str
   const catalogo = validarCatalogo(raw);
   if (!catalogo) throw new ErroCatalogo('formato', 'catálogo inválido ou de outra versão');
   cache = { base, catalogo };
+  for (const cb of [...ouvintes]) cb();
   return catalogo;
 }
 

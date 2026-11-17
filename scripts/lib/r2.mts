@@ -94,7 +94,7 @@ const campo = (bloco: string, nome: string): string | undefined => {
 };
 
 export interface PaginaListagem {
-  objetos: Array<{ key: string; size: number }>;
+  objetos: Array<{ key: string; size: number; etag?: string }>;
   truncada: boolean;
   proximoToken?: string;
 }
@@ -105,7 +105,8 @@ export function parseListagem(xml: string): PaginaListagem {
   for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
     const key = campo(m[1]!, 'Key');
     const size = Number(campo(m[1]!, 'Size') ?? 0);
-    if (key !== undefined) objetos.push({ key, size: Number.isFinite(size) ? size : 0 });
+    const etag = (campo(m[1]!, 'ETag') ?? '').replace(/&quot;|"/g, '');
+    if (key !== undefined) objetos.push({ key, size: Number.isFinite(size) ? size : 0, ...(etag ? { etag } : {}) });
   }
   // O token e o truncamento ficam fora dos blocos <Contents>.
   const fora = xml.replace(/<Contents>[\s\S]*?<\/Contents>/g, '');
@@ -137,10 +138,10 @@ export function lerConfigR2(arquivo: string): R2Config {
 }
 
 /** Lista todos os objetos com o prefixo (ListObjectsV2, com paginação). */
-export async function listarObjetos(cfg: R2Config, prefixo: string, progresso?: (total: number) => void): Promise<Array<{ key: string; size: number }>> {
+export async function listarObjetos(cfg: R2Config, prefixo: string, progresso?: (total: number) => void): Promise<Array<{ key: string; size: number; etag?: string }>> {
   const host = `${cfg.accountId}.r2.cloudflarestorage.com`;
   const caminho = `/${cfg.bucket}`;
-  const todos: Array<{ key: string; size: number }> = [];
+  const todos: Array<{ key: string; size: number; etag?: string }> = [];
   let token: string | undefined;
   do {
     const query: Record<string, string> = { 'list-type': '2', prefix: prefixo, 'max-keys': '1000' };

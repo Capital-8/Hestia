@@ -15,6 +15,7 @@
 .tex-previa { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tex-previa-img { width: 100%; aspect-ratio: 1; border: 1px solid var(--line-strong); background: #e6e1d8; display: grid; place-items: center; overflow: hidden; }
 .tex-previa-img img { width: 100%; height: 100%; object-fit: cover; }
+.tex-mapas { display: flex; gap: 4px; flex-wrap: wrap; }
 .tex-titulo { margin: 4px 0 0; font-size: 14px; }
 .tex-acoes { display: flex; flex-direction: column; gap: 6px; }
 @media (max-width: 640px) {

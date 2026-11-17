@@ -26,7 +26,8 @@ const valorDe = (flag: string): string | undefined => {
 const semMiniaturas = args.includes('--sem-miniaturas');
 const saida = path.resolve(valorDe('--saida') ?? path.join(os.homedir(), '.hestia', 'catalogo-texturas'));
 const pastaCatalogo = path.join(saida, 'textures', '_catalogo');
-const cache = path.join(os.tmpdir(), 'hestia-texturas-cache');
+// Cache persistente: ao acrescentar texturas ao bucket, só as novas são baixadas de novo.
+const cache = path.join(os.homedir(), '.hestia', 'cache-texturas');
 
 /** Executável do Chromium: HESTIA_CHROMIUM, o do Playwright (Windows/Linux/macOS) ou um Chrome/Chromium do sistema. */
 function acharChromium(): string {

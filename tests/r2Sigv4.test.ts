@@ -44,7 +44,7 @@ describe('parse da listagem', () => {
       <Contents><Size>10</Size><Key>textures/A&amp;B/Color.jpg</Key><ETag>x</ETag></Contents>
       <Contents><Key>textures/C/Color.jpg</Key><Size>7</Size></Contents>
       <NextContinuationToken>tok+/=</NextContinuationToken></ListBucketResult>`;
-    expect(parseListagem(xml)).toEqual({ objetos: [{ key: 'textures/A&B/Color.jpg', size: 10 }, { key: 'textures/C/Color.jpg', size: 7 }], truncada: true, proximoToken: 'tok+/=' });
+    expect(parseListagem(xml)).toEqual({ objetos: [{ key: 'textures/A&B/Color.jpg', size: 10, etag: 'x' }, { key: 'textures/C/Color.jpg', size: 7 }], truncada: true, proximoToken: 'tok+/=' });
   });
 
   it('última página não tem token', () => {

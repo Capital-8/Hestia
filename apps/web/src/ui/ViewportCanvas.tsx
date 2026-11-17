@@ -2,6 +2,7 @@
 import { vperf } from '../editor/vperf.ts';
 import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { texturas3d } from '../editor/texturas3d.ts';
 import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
@@ -117,6 +118,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const pickSize = useRef({ w: 0, h: 0 });
   const plan = useRef(new PlanScene());
   const model = useRef(new ModelScene());
+  model.current.texturas = texturas3d;
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
@@ -277,7 +279,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
     // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}`;
+    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}|${texturas3d.versao}`;
     if (key === modelKey.current) return false;
     modelKey.current = key;
     const m = model.current;
@@ -301,6 +303,16 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       servicoGuardaCorpo().aoMudarPronto(() => {
         modelKey.current = '';
         planFrame.current?.reset();
+        quadroRef.current?.invalidar();
+        useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+      }),
+    [],
+  );
+  // Textura do catálogo terminou de baixar: os materiais do 3D são refeitos com ela.
+  useEffect(
+    () =>
+      texturas3d.aoMudar(() => {
+        modelKey.current = '';
         quadroRef.current?.invalidar();
         useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
       }),

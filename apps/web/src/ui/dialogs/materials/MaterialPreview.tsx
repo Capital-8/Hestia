@@ -1,5 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import type { Material } from '@hestia/model';
+import { texturas3d } from '../../../editor/texturas3d.ts';
 import { criarCena, liberarRenderer, obterRenderer, type CenaMaterial, type PreviewShape } from './cenaMaterial3d.ts';
 
 export type { PreviewShape };
@@ -80,6 +81,15 @@ export function MaterialPreview({ material, shape, size = 220, low = false, cena
     cenaRef.current?.aplicarMaterial(material);
     desenharRef.current();
   }, [material]);
+  // Textura do catálogo terminou de baixar: reaplica o material atual com ela.
+  useEffect(
+    () =>
+      texturas3d.aoMudar(() => {
+        cenaRef.current?.aplicarMaterial(latest.current.material);
+        desenharRef.current();
+      }),
+    [],
+  );
   useEffect(() => {
     cenaRef.current?.definirCenario(cenario);
     desenharRef.current();

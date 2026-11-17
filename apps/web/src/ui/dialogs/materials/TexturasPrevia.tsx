@@ -17,14 +17,35 @@ interface Props {
   onAplicar: () => void;
 }
 
-/** Pré-visualização maior da textura (baixa o Color.jpg sob demanda) e as duas ações. */
+type ChaveMapa = 'cor' | 'normal' | 'rugosidade';
+const MAPAS_PREVIA: ReadonlyArray<{ chave: ChaveMapa; rotulo: 'dlt_tex_map_color' | 'dlt_tex_map_normal' | 'dlt_tex_map_roughness' }> = [
+  { chave: 'cor', rotulo: 'dlt_tex_map_color' },
+  { chave: 'normal', rotulo: 'dlt_tex_map_normal' },
+  { chave: 'rugosidade', rotulo: 'dlt_tex_map_roughness' },
+];
+
+/** Pré-visualização da textura em tamanho original (cor, normal ou rugosidade; cada mapa só baixa quando escolhido) e as duas ações. */
 export function TexturasPrevia({ item, base, lang, mb, podeAplicar, semMaterial, aviso, onCriar, onAplicar }: Props): ReactElement {
   const { t } = useT();
-  const src = urlDoMapa(base, item.mapas.cor);
+  const [mapa, setMapa] = useState<ChaveMapa>('cor');
+  const disponiveis = MAPAS_PREVIA.filter((m) => item.mapas[m.chave] !== undefined);
+  // Textura trocada para uma sem o mapa escolhido: volta à cor.
+  const chave: ChaveMapa = item.mapas[mapa] !== undefined ? mapa : 'cor';
+  const src = urlDoMapa(base, item.mapas[chave] ?? item.mapas.cor);
   return (
     <>
-      {/* `key` recria o estado de carregamento quando a textura muda. */}
+      {disponiveis.length > 1 ? (
+        <div className="tex-mapas" role="group" aria-label={t('dlt_tex_map_label')}>
+          {disponiveis.map((m) => (
+            <button key={m.chave} className={chave === m.chave ? 'btn small primary' : 'btn small'} aria-pressed={chave === m.chave} onClick={() => setMapa(m.chave)}>
+              {t(m.rotulo)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {/* `key` recria o estado de carregamento quando a textura ou o mapa muda. O mapa vem inteiro, em tamanho original. */}
       <PreviaImagem key={src} src={src} alt={item.nome} />
+      <a className="hint" href={src} target="_blank" rel="noopener noreferrer">{t('dlt_tex_open_original')}</a>
       <h3 className="tex-titulo">{item.nome}</h3>
       <p className="hint" title={t('dlt_tex_size_tip')}>
         {rotuloCategoria(item.categoria, lang)} · {t('dlt_tex_size', { mb })}

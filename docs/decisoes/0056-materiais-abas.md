@@ -40,3 +40,11 @@ Os ganchos com `TODO` no código são a textura por imagem e o cálculo térmico
 - Os campos novos não exigem migração própria.
 - A parte física e térmica fica só como dado, sem efeito no cálculo, até a etapa do kernel.
 - Quem desenha passa a depender de `materialEfetivo`. Qualquer leitura direta de `color`, `hatch` ou `gloss` no render é um desvio e deve ser corrigida.
+
+**4. Textura por imagem (adendo de 2026-11-17).**
+- *Origem.* O catálogo online (bucket R2 público, `textures/<Id>/{Color,NormalDX,Roughness}.jpg`) é só consulta e download; nada vai na release. `catalogo.json` e `miniaturas.jpg` (atlas único) ficam em `textures/_catalogo/`, gerados por `npm run texturas:catalogo` (só lê o bucket; o envio é manual). O gerador guarda o ETag de cada mapa (`hashes`) e mantém cache em `~/.hestia/cache-texturas`.
+- *Referência no material.* `aparencia.textura.imagemId = catalogo:<IdDaTextura>`. A imagem não entra no zip do projeto: projeto sem rede mantém o material, sem imagem.
+- *Qualidade.* A prévia do painel mostra o mapa em tamanho original (cor, normal ou rugosidade, cada um só ao ser pedido). Não há versão reduzida.
+- *Renderizador por plugin.* `SceneMaterial.textures` (slots `color`, `normal`, `roughness`) e `textureMapping` (escala em metros, rotação em graus, deslocamento em metros, repetição) saem na cena; `SceneTexture` leva `uri` do bucket e `hash` (ETag, ou o caminho sem ele). O plugin baixa os bytes.
+- *Renderização no Hestia.* No estilo realista, o `MeshStandardMaterial` recebe os mapas por projeção triplanar em coordenadas de mundo (escala real, sem UV), com cor, rugosidade e normal (DirectX). O render não baixa nada: o app entrega um `TexturasProvedor3D`; enquanto os mapas baixam, vale a cor do material. A versão do provedor entra na marca dos níveis.
+- *Fora de escopo.* Embutir os JPG no zip (projeto portátil), hachura de planta por imagem, cálculo térmico.

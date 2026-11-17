@@ -1,5 +1,6 @@
 import type { Material, MaterialTextura } from '@hestia/model';
 import type { TexturaItem } from '@hestia/io';
+import { PREFIXO_CATALOGO } from '../../../editor/texturasOnline.ts';
 
 /**
  * Lógica pura do painel "Texturas online" (sem React, sem rede): filtro, ordenação, paginação e os blocos
@@ -10,8 +11,7 @@ import type { TexturaItem } from '@hestia/io';
 export const LOTE_TEXTURAS = 60;
 /** Cor média neutra do material criado a partir de uma textura. */
 export const COR_NEUTRA_TEXTURA = '#b9a98f';
-/** Prefixo do `imagemId` que aponta para o catálogo online (resolvido pelos mapas do catálogo). */
-export const PREFIXO_CATALOGO = 'catalogo:';
+export { PREFIXO_CATALOGO };
 
 /** Rótulos das categorias comuns do catálogo. Categoria fora da lista mostra o próprio id. */
 const ROTULOS_CATEGORIA: Readonly<Record<string, { pt: string; en: string }>> = {

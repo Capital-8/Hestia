@@ -33,6 +33,7 @@ import { CaixasDoNivel, chaveDaColecao, faixasDosIds, type ColecaoCaixas } from 
 import { arestasDasCaixas, criarCaixaUnitaria, geometriaDeCaixas } from './caixas3d.ts';
 import { buildCeilingSolids, buildFloorSolids, buildLevelSolids, buildRoofSolids, buildSlabSolids, filtrarParedesDoNivel, type ElementRange, type LoteSolido, type SolidBatch } from './solids.ts';
 import { Materiais3D } from './materiais3d.ts';
+import type { TexturasProvedor3D } from './texturas3d.ts';
 import { CacheMalhas, bytesDeNivel, disposeNivel, type EntradaNivel, type PickSource } from './cacheMalhas3d.ts';
 import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeMassaCor, chavesDeMassaGeometria, chavesDeNivel } from './chaveNivel3d.ts';
 import { CacheDeMassas3d, contornoDaBase, massasDoNivel, montarLoteDeMassas, temMassa } from './massa3d.ts';
@@ -241,6 +242,9 @@ export class ModelScene {
   private soRevelados: Project | null = null;
   /** Materiais por chave (ver `Materiais3D`). */
   private mats = new Materiais3D();
+  /** Texturas por imagem dos materiais (provedor do app). Trocar ou mudar a versão dele refaz os níveis na próxima atualização. */
+  set texturas(p: TexturasProvedor3D | null) { this.mats.texturas = p; }
+  get texturas(): TexturasProvedor3D | null { return this.mats.texturas; }
   /** Níveis que a cena mostra agora, e o cache de malhas por nível (ver `update`). */
   private cenaNiveis: EntradaNivel[] = [];
   /** Lote 3D dos guarda-corpos, um grupo por nível, com chave própria (fora das entradas de nível e do cache por nível). */
@@ -440,6 +444,7 @@ export class ModelScene {
         view.style,
         // Decisão do projeto sobre as arestas dos genéricos: mudá-la refaz todos os níveis (senão um nível cacheado manteria as arestas).
         genericosAcimaDoOrcamento(p.elements),
+        this.versaoTexturas(),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
@@ -1004,10 +1009,15 @@ export class ModelScene {
     return false;
   }
 
+  /** Textura carregada (ou removida): entra na marca dos níveis para os materiais serem refeitos. Sem provedor, 0 (marca de sempre). */
+  private versaoTexturas(): number {
+    return this.mats.texturas?.versao ?? 0;
+  }
+
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
     const view = view3dOf(p);
-    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements)]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
+    return chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements), this.versaoTexturas()]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
   }
 
   /**

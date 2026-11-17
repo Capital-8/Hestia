@@ -18,7 +18,7 @@ import { PL_PROPS_CORE } from '../../areas/props-core.ts';
 import { PL_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { PL_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { PL_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
-import { PL_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas.ts';
+import { PL_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas2.ts';
 import { PL_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { PL_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { PL_EDITOR_CONTEXT } from '../../areas/editor-context.ts';

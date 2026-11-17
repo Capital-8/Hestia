@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Material } from '@hestia/model';
+import { aplicarTexturaTriplanar } from '@hestia/render';
+import { texturas3d } from '../../../editor/texturas3d.ts';
 import { FRESTA, RAIO_CANTO, TONS_LADRILHO, gerarLadrilhos, gradeLadrilhos, parametrosMaterial } from './sceneMaterial.ts';
 
 export type PreviewShape = 'sphere' | 'cube' | 'plane';
@@ -85,6 +87,7 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
   // Material do objeto (único): props novas só atualizam seus campos.
   const mat = new THREE.MeshPhysicalMaterial();
   mats.push(mat);
+  let comTextura = false;
   const aplicarMaterial = (m: Material): void => {
     const p = parametrosMaterial(m);
     mat.color.set(p.color);
@@ -99,7 +102,18 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
     mat.envMapIntensity = p.envMapIntensity;
     // Duas faces sempre: o plano tem verso visível quando se gira o objeto (e o vidro mostra o interior).
     mat.side = THREE.DoubleSide;
-    if (mudouTransp) mat.needsUpdate = true;
+    // Textura do catálogo (projeção triplanar, escala real): só com os mapas já baixados; senão fica a cor do material.
+    const textura = m.aparencia?.textura;
+    const mapas = textura ? texturas3d.obter(textura.imagemId) : undefined;
+    if (textura && mapas) {
+      aplicarTexturaTriplanar(mat, mapas, textura);
+      comTextura = true;
+    } else if (comTextura) {
+      mat.onBeforeCompile = () => undefined;
+      mat.customProgramCacheKey = () => '';
+      mat.needsUpdate = true;
+      comTextura = false;
+    } else if (mudouTransp) mat.needsUpdate = true;
   };
   aplicarMaterial(material);
 

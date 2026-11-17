@@ -26,6 +26,9 @@ export interface TexturaMapas {
   rugosidade?: string;
 }
 
+/** Hash (ETag do bucket) de cada mapa: identifica o conteúdo sem baixar o arquivo. */
+export type TexturaHashes = Partial<Record<'cor' | 'normal' | 'rugosidade', string>>;
+
 export interface TexturaItem {
   /** Nome da pasta (ex.: `Bricks003`). Identifica a textura. */
   id: string;
@@ -36,6 +39,8 @@ export interface TexturaItem {
   /** Soma dos bytes dos mapas (estimativa do download). */
   bytes: number;
   mapas: TexturaMapas;
+  /** ETag de cada mapa (quando o gerador a conhece). Serve de `hash` ao entregar a textura ao renderizador. */
+  hashes?: TexturaHashes;
   /** Posição da miniatura no atlas (0..n-1), ou ausente se não houver. */
   icone?: number;
 }
@@ -65,6 +70,8 @@ export function nomeDaTextura(id: string): string {
 export interface ChaveBucket {
   key: string;
   size: number;
+  /** ETag devolvida pela listagem do bucket (sem aspas). */
+  etag?: string;
 }
 
 /**
@@ -73,7 +80,7 @@ export interface ChaveBucket {
  */
 export function montarCatalogo(chaves: readonly ChaveBucket[], opts: { gerado?: string; miniaturas?: TexturasCatalogo['miniaturas'] } = {}): TexturasCatalogo {
   const porId = new Map<string, TexturaItem>();
-  for (const { key, size } of chaves) {
+  for (const { key, size, etag } of chaves) {
     const partes = key.split('/');
     if (partes.length !== 3 || partes[0] !== 'textures' || partes[1] === '_catalogo') continue;
     const id = partes[1]!;
@@ -86,6 +93,7 @@ export function montarCatalogo(chaves: readonly ChaveBucket[], opts: { gerado?: 
     }
     item.mapas[mapa.chave] = key;
     item.bytes += size;
+    if (etag) item.hashes = { ...item.hashes, [mapa.chave]: etag };
   }
   const itens = [...porId.values()].filter((i) => i.mapas.cor !== '').sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nome.localeCompare(b.nome, 'en', { numeric: true }));
   if (opts.miniaturas) itens.forEach((it, i) => (it.icone = i));
@@ -117,10 +125,44 @@ export function validarCatalogo(raw: unknown): TexturasCatalogo | null {
     if (typeof m.normal === 'string') mapas.normal = m.normal;
     if (typeof m.rugosidade === 'string') mapas.rugosidade = m.rugosidade;
     const item: TexturaItem = { id: r.id, nome: r.nome, categoria: r.categoria, bytes: typeof r.bytes === 'number' && Number.isFinite(r.bytes) ? r.bytes : 0, mapas };
+    const h = r.hashes as Record<string, unknown> | undefined;
+    if (h && typeof h === 'object') {
+      const hashes: TexturaHashes = {};
+      for (const k of ['cor', 'normal', 'rugosidade'] as const) if (typeof h[k] === 'string' && h[k] !== '') hashes[k] = h[k] as string;
+      if (Object.keys(hashes).length) item.hashes = hashes;
+    }
     if (typeof r.icone === 'number' && Number.isInteger(r.icone) && r.icone >= 0) item.icone = r.icone;
     itens.push(item);
   }
   const mi = o.miniaturas as Record<string, unknown> | undefined;
   const miniaturas = mi && typeof mi.arquivo === 'string' && typeof mi.lado === 'number' && typeof mi.colunas === 'number' && mi.lado > 0 && mi.colunas > 0 ? { arquivo: mi.arquivo, lado: mi.lado, colunas: mi.colunas } : undefined;
   return { versao: CATALOGO_VERSAO, gerado: typeof o.gerado === 'string' ? o.gerado : '', ...(miniaturas ? { miniaturas } : {}), itens };
+}
+
+export type SlotTextura = 'color' | 'normal' | 'roughness';
+const CHAVE_DO_SLOT: Record<SlotTextura, 'cor' | 'normal' | 'rugosidade'> = { color: 'cor', normal: 'normal', roughness: 'rugosidade' };
+
+export interface MapaResolvido {
+  slot: SlotTextura;
+  /** Identificador estável do mapa, `<idDaTextura>:<slot>`. */
+  textureId: string;
+  /** Caminho no bucket. */
+  caminho: string;
+  /** URL absoluta, endereçável. */
+  uri: string;
+  mime: 'image/jpeg';
+  /** ETag do bucket; sem ela, o próprio caminho (estável enquanto o arquivo não muda de nome). */
+  hash: string;
+}
+
+/** Os mapas de uma textura do catálogo prontos para entregar a um renderizador (cor, normal, rugosidade; só os que existem). */
+export function mapasDaTextura(item: TexturaItem, base: string): MapaResolvido[] {
+  const out: MapaResolvido[] = [];
+  for (const slot of ['color', 'normal', 'roughness'] as const) {
+    const chave = CHAVE_DO_SLOT[slot];
+    const caminho = item.mapas[chave];
+    if (!caminho) continue;
+    out.push({ slot, textureId: `${item.id}:${slot}`, caminho, uri: urlTextura(base, caminho), mime: 'image/jpeg', hash: item.hashes?.[chave] ?? caminho });
+  }
+  return out;
 }

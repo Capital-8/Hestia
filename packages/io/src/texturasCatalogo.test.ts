@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoriaDaTextura, montarCatalogo, nomeDaTextura, posicaoIcone, urlTextura, validarCatalogo } from './texturasCatalogo.ts';
+import { categoriaDaTextura, mapasDaTextura, montarCatalogo, nomeDaTextura, posicaoIcone, urlTextura, validarCatalogo } from './texturasCatalogo.ts';
 
 describe('catálogo de texturas online', () => {
   it('deriva categoria e nome legível do id da pasta', () => {
@@ -51,5 +51,30 @@ describe('catálogo de texturas online', () => {
     expect(validarCatalogo(null)).toBeNull();
     const sujo = { ...c, itens: [...c.itens, { id: 1 }, null, { id: 'X', nome: 'X', categoria: 'X', mapas: {} }] };
     expect(validarCatalogo(sujo)!.itens).toHaveLength(2);
+  });
+
+  it('guarda o ETag de cada mapa como hash e o valida ao ler', () => {
+    const cat = montarCatalogo([
+      { key: 'textures/Bricks003/Color.jpg', size: 100, etag: 'aaa' },
+      { key: 'textures/Bricks003/NormalDX.jpg', size: 200, etag: 'bbb' },
+      { key: 'textures/Bricks003/Roughness.jpg', size: 50 },
+    ]);
+    expect(cat.itens[0]!.hashes).toEqual({ cor: 'aaa', normal: 'bbb' });
+    const lido = validarCatalogo(JSON.parse(JSON.stringify(cat)));
+    expect(lido!.itens[0]!.hashes).toEqual({ cor: 'aaa', normal: 'bbb' });
+    const sujo = validarCatalogo({ versao: 1, itens: [{ id: 'A1', nome: 'A 1', categoria: 'A', bytes: 1, mapas: { cor: 'textures/A1/Color.jpg' }, hashes: { cor: 5, normal: '' } }] });
+    expect(sujo!.itens[0]!.hashes).toBeUndefined();
+  });
+
+  it('mapasDaTextura entrega slots, URLs absolutas e hash (ETag, ou o caminho sem ele)', () => {
+    const cat = montarCatalogo([
+      { key: 'textures/Bricks003/Color.jpg', size: 1, etag: 'aaa' },
+      { key: 'textures/Bricks003/Roughness.jpg', size: 1 },
+    ]);
+    const m = mapasDaTextura(cat.itens[0]!, 'https://x.dev/');
+    expect(m).toEqual([
+      { slot: 'color', textureId: 'Bricks003:color', caminho: 'textures/Bricks003/Color.jpg', uri: 'https://x.dev/textures/Bricks003/Color.jpg', mime: 'image/jpeg', hash: 'aaa' },
+      { slot: 'roughness', textureId: 'Bricks003:roughness', caminho: 'textures/Bricks003/Roughness.jpg', uri: 'https://x.dev/textures/Bricks003/Roughness.jpg', mime: 'image/jpeg', hash: 'textures/Bricks003/Roughness.jpg' },
+    ]);
   });
 });

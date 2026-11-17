@@ -22,7 +22,7 @@ Unidades: **metro e radiano**. Eixos: destro, **X leste, Y norte, Z para cima**.
   `textures`, `camera`, `overrides` (as do plugin, por id do material de origem).
 - `SceneEntity`: `id` (id do elemento no Hestia), `kind`, `levelId?`, `materialIds?`, `transform`, `mesh` ou `null`, `visible`.
 - `SceneMesh`: `positions`, `indices`, `groups` (`start`, `count`, `materialId` ou `null`), `hash` de conteúdo.
-- `SceneMaterial`: `id`, `name`, `color`, `gloss`, `opacity`, `textures?` (por id).
+- `SceneMaterial`: `id`, `name`, `color`, `gloss`, `opacity`, `textures?` (por id; slots `color`, `normal`, `roughness`), `textureMapping?` (`scaleMeters`, `rotationDeg`, `offsetMeters`, `repeat`). Texturas do catálogo online saem em `SceneContent.textures` com `uri` do bucket e `hash` (ETag); o plugin baixa os bytes.
 - `SceneTexture`: `id`, `mime`, `hash`, `uri` (nunca `data:` de imagem). O Hestia ainda não tem texturas: lista vazia.
 - `SceneDelta` (`baseRevision`, `revision`, `ops`) com `entity`, `material` e `texture` em `add`, `update`, `remove`.
 - `SceneCamera`: projeção, `target`, `position`, `up`, `fovY`, `orthoHeight`, `near`, `far`.
