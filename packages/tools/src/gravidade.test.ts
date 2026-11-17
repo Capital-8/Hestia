@@ -124,6 +124,7 @@ describe('Gravidade (G1): plataforma e região nivelada', () => {
     adicionarFixtureTerreno(ctx.store, 'T2');
     if (comGravidade) ctx.env.cotaDoTerreno = rampa;
     const t = new TerrainRegionTool(ctx.env);
+    t.definirPredefinicao('plataforma');
     t.start();
     return { ctx, t };
   };
