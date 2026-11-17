@@ -28,6 +28,8 @@ export const PASSO_PADRAO = 1;
  */
 export class TerrainTool extends ToolBase {
   readonly id = 'terrain';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Topografia';
   private modo: ModoTopografia = 'pontos';
   /** z do projeto da cota corrente. */

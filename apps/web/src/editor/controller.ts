@@ -885,6 +885,12 @@ export class Editor {
       this.bump();
       return true;
     }
+    // C fecha o contorno em andamento (massa livre, lote, guarda-corpo, terreno): a letra não entra no campo numérico (só depois
+    // de um dígito), então a ferramenta a recebe aqui; se não houver o que fechar (`type` recusa), a tecla segue aos atalhos.
+    if (this.tool.fechaComC && !ui.typed && !e.altKey && !e.ctrlKey && !e.metaKey && /^c$/i.test(k) && this.tool.type('c')) {
+      this.bump();
+      return true;
+    }
     // Campo numérico: dígitos, operadores e sufixo de unidade (`120cm`, `5'6"`); ferramenta de texto (freeText): qualquer tecla digitável.
     if (this.tool.inputPrompt() && (this.tool.freeText ? k.length === 1 : aceitaCaractereNumerico(k, ui.typed))) {
       useUi.setState({ typed: ui.typed + k });

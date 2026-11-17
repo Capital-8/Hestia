@@ -17,6 +17,8 @@ import type { PointerInfo, PreviewItem } from './types.ts';
  */
 export class LotTool extends ToolBase {
   readonly id = 'lot';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Linhas de propriedade';
   private r = new RascunhoPolilinha();
   private ultimoCursor: Vec2 | null = null;

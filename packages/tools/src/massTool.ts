@@ -15,6 +15,8 @@ import { anelDoPerfil, capturaCirculo, capturaElipse, capturaLivre, capturaPolig
  */
 export class MassTool extends ToolBase {
   readonly id = 'mass';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Massa';
   override get hint(): string {
     return this.t('tl_hint_mass');

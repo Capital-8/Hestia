@@ -50,6 +50,8 @@ const CHAVE_NOME = { subdivisao: 'tl_tn_rg_papel_subdivisao', plataforma: 'tl_tn
  */
 export class TerrainRegionTool extends ToolBase {
   readonly id = 'terrainRegion';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Região de terreno';
   private predef: PredefinicaoRegiao = 'plataforma';
   private porElementoV = false;

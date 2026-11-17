@@ -420,6 +420,8 @@ export interface Tool {
   readonly hover3d?: boolean;
   /** Campo de valor aceita texto livre (letras e espaços), não só números. */
   readonly freeText?: boolean;
+  /** A tecla C, sem número digitado e com o campo de valor aberto, fecha o contorno (vai a `type('c')`). */
+  readonly fechaComC?: boolean;
   start(): void;
   /** Atualiza a pré-visualização. */
   move(p: PointerInfo): void;

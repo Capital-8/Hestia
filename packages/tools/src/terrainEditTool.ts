@@ -40,6 +40,8 @@ const TOLERANCIA_PX = 8;
  */
 export class TerrainEditTool extends ToolBase {
   readonly id = 'terrainEdit';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Editar terreno';
   private modo: ModoEdicaoTerreno = 'editar';
   private idTerreno: Id | null = null;
