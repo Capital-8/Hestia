@@ -248,6 +248,46 @@ try {
   assert.equal(await page.locator('.pane-head').count(), 0);
   ok('fechar painel volta ao modo de um painel');
 
+  // 12b. Barra de navegação (roda, aproximar, afastar, enquadrar): não se mexe ao trocar de painel e os botões funcionam.
+  await preset('Duas colunas');
+  {
+    const e = await S();
+    const i2d = e.panes.findIndex((p) => p.kind === 'plan');
+    const i3d = e.panes.findIndex((p) => p.kind === '3d');
+    assert.ok(i2d >= 0 && i3d >= 0, `precisa de planta e 3D: ${e.panes.map((p) => p.kind)}`);
+    const posicoes = () => page.evaluate(() => [...document.querySelectorAll('.pane-body')].map((b) => { const n = b.querySelector('.navbar'); const r = n.getBoundingClientRect(); const q = b.getBoundingClientRect(); return `${n.className.includes('below-cube') ? 'abaixo-cubo' : 'topo'}@${Math.round(r.x - q.x)},${Math.round(r.y - q.y)}`; }));
+    const bs = await page.locator('.pane-body').evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }));
+    const ir = async (i) => { const [x, y, w, h] = bs[i]; await page.mouse.move(5, 5); await page.mouse.move(x + w * 0.4, y + h * 0.6, { steps: 3 }); await page.waitForTimeout(450); };
+    await ir(i2d);
+    const ref = await posicoes();
+    await ir(i3d);
+    assert.deepEqual(await posicoes(), ref, 'a barra de cada painel não muda de lugar quando o painel ativo muda');
+    assert.ok(ref[i2d].startsWith('topo') && ref[i3d].startsWith('abaixo-cubo'), `barras no lugar certo: ${ref}`);
+    const btn = (i, nome) => page.locator('.pane-body').nth(i).locator(`button[aria-label^="${nome}"]`);
+    const zoom = () => page.evaluate(() => window.__hestia.editor.viewport()?.zoom);
+    await ir(i2d);
+    const z0 = await zoom();
+    await btn(i2d, 'Aproximar').click();
+    await page.waitForTimeout(300);
+    const z1 = await zoom();
+    assert.ok(z1 > z0 * 1.2, `aproximar aumenta o zoom (${z0} → ${z1})`);
+    await btn(i2d, 'Afastar').click();
+    await btn(i2d, 'Afastar').click();
+    await page.waitForTimeout(300);
+    const z2 = await zoom();
+    assert.ok(z2 < z1 * 0.8, `afastar diminui o zoom (${z1} → ${z2})`);
+    await btn(i2d, 'Enquadrar').click();
+    await page.waitForTimeout(400);
+    assert.notEqual(await zoom(), z2, 'enquadrar muda o zoom');
+    await ir(i3d);
+    const a = await page.locator('.pane-body').nth(i3d).screenshot();
+    for (let k = 0; k < 3; k++) await btn(i3d, 'Aproximar').click();
+    await page.waitForTimeout(700);
+    const c = await page.locator('.pane-body').nth(i3d).screenshot();
+    assert.notDeepEqual(a, c, 'aproximar muda o desenho do 3D');
+    ok(`barra de navegação estável (${ref.join(' | ')}) e botões funcionam no 2D e no 3D`);
+  }
+
   // 13. Cenário relatado: planta | (3D em cima, corte embaixo); fechar o corte deixa SÓ o 3D, sem a planta aparecer no lugar.
   await page.evaluate(() => {
     const h = window.__hestia;

@@ -1273,7 +1273,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       onContextMenu={(e) => e.preventDefault()}
     >
       <PlanLabels ref={labelLayer} labels={ui.view !== '3d' && labelView ? labels : NO_LABELS} v={labelView} />
-      <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} />
+      <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} paneId={pane.paneId} />
       <NivelCotaEditor ref={cotaRef} />
       <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
       {ui.view === '3d' && <Progresso3D />}
