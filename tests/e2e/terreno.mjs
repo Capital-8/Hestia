@@ -6,6 +6,7 @@ import { passo4, passo5, passo6 } from './terreno-passos-b.mjs';
 import { passo7, passo8, passo9 } from './terreno-passos-c.mjs';
 import { passo10 } from './terreno-passos-d.mjs';
 import { medicoes } from './terreno-medicoes.mjs';
+import { subdivisaoCompleta } from './terreno-subdivisao.mjs';
 
 const rep = makeReporter();
 // Largura maior: com os painéis da massa (main) na mesma aba, a faixa passou a cortar o painel "Análise do terreno" em 1760 px.
@@ -29,6 +30,11 @@ try {
   await medicoes(rep);
 } catch (e) {
   console.log(`\nFALHA INESPERADA NA MEDIÇÃO: ${e.stack ?? e.message}`);
+}
+try {
+  await subdivisaoCompleta(rep);
+} catch (e) {
+  console.log(`\nFALHA INESPERADA NA SUBDIVISÃO: ${e.stack ?? e.message}`);
 }
 console.log('\nTempos (ms):', JSON.stringify(tempos));
 rep.summary();

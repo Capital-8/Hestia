@@ -17,6 +17,8 @@ function cena() {
   ctx.env.say = (m: string) => { msgs.push(m); };
   const t = new TerrainRegionTool(ctx.env);
   t.start();
+  // Os testes abaixo partem de Plataforma (a ferramenta nasce em Subdivisão: ver o teste "nasce em Subdivisão").
+  t.definirPredefinicao('plataforma');
   return { ctx, t, msgs };
 }
 const regioes = (p: Project): TerrainRegion[] => Object.values(p.elements).filter(isTerrainRegion);
@@ -43,6 +45,28 @@ describe('Região de terreno: padrões das três predefinições (A.6)', () => {
     t.definirPredefinicao('subdivisao');
     expect([t.taludeCorte, t.taludeAterro, t.permeavel]).toEqual([0, 0, true]);
     expect(COTA_REGIAO_PADRAO).toBe(0);
+  });
+
+  it('nasce em Subdivisão e a região desenhada sem escolher predefinição não mexe na superfície', () => {
+    const ctx = makeEnv(new ProjectStore(createEmptyProject()));
+    adicionarFixtureTerreno(ctx.store, 'T1');
+    const t = new TerrainRegionTool(ctx.env);
+    t.start();
+    expect(t.predefinicao).toBe('subdivisao');
+    expect([t.taludeCorte, t.taludeAterro, t.permeavel]).toEqual([0, 0, true]);
+    desenha(t);
+    const [r] = regioes(ctx.store.project);
+    expect(regioes(ctx.store.project)).toHaveLength(1);
+    expect([r!.papel, r!.cota, r!.inclinacao, r!.direcao, r!.taludeCorte, r!.taludeAterro, r!.permeavel]).toEqual(['subdivisao', 0, 0, 0, 0, 0, true]);
+  });
+
+  it('trocar a predefinição para Subdivisão depois de Plataforma devolve taludes 0 e permeável', () => {
+    const { ctx, t } = cena();
+    t.definirPredefinicao('nivelada');
+    t.definirPredefinicao('subdivisao');
+    desenha(t);
+    const [r] = regioes(ctx.store.project);
+    expect([r!.papel, r!.cota, r!.taludeCorte, r!.taludeAterro, r!.permeavel]).toEqual(['subdivisao', 0, 0, 0, true]);
   });
 
   it('campos inválidos são recusados sem mudar nada', () => {
@@ -175,6 +199,7 @@ describe('Região de terreno: criação de T5 e T6 pela ferramenta (sem navegado
     desenha(t);
     const t2 = new TerrainRegionTool(ctx.env);
     t2.start();
+    t2.definirPredefinicao('plataforma');
     desenha(t2, [[1, 1], [3, 1], [3, 3], [1, 3]]);
     expect(regioes(ctx.store.project).map((r) => r.name)).toEqual(['Plataforma 1', 'Plataforma 2']);
   });
