@@ -18,6 +18,7 @@ import {
   paginar,
   podeAplicarTextura,
   rotuloCategoria,
+  texturaEhAtual,
 } from './texturasLogic.ts';
 import './TexturasOnline.css';
 
@@ -76,6 +77,12 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
     setLimite(LOTE_TEXTURAS);
   };
 
+  // Outra textura escolhida: a confirmação da anterior sai.
+  const escolher = (item: TexturaItem): void => {
+    setEscolhida(item);
+    setAviso('');
+  };
+
   const criar = (): void => {
     if (!escolhida) return;
     const id = newId('mat');
@@ -131,7 +138,7 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
               </select>
             </div>
             {filtrados.length === 0 ? <p className="hint">{t('dlt_tex_no_match')}</p> : (
-              <TexturasGrade itens={visiveis} catalogo={catalogo} base={base} selecionadaId={escolhida?.id ?? null} onSelect={setEscolhida} />
+              <TexturasGrade itens={visiveis} catalogo={catalogo} base={base} selecionadaId={escolhida?.id ?? null} onSelect={escolher} />
             )}
             {filtrados.length > 0 ? (
               <div className="tex-rodape">
@@ -150,6 +157,7 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
                 podeAplicar={podeAplicar}
                 semMaterial={materialSelecionado === undefined}
                 aviso={aviso}
+                atual={texturaEhAtual(materialSelecionado, escolhida)}
                 onCriar={criar}
                 onAplicar={aplicar}
               />

@@ -110,6 +110,11 @@ export function aplicarTexturaNoMaterial(m: Material, item: Pick<TexturaItem, 'i
   return { ...m, aparencia: { ...m.aparencia, textura: texturaDaCatalogo(item.id) } };
 }
 
+/** O material já usa esta textura do catálogo (selo "textura atual" no painel). */
+export function texturaEhAtual(material: Material | undefined, item: Pick<TexturaItem, 'id'> | null): boolean {
+  return material !== undefined && item !== null && material.aparencia?.textura?.imagemId === `${PREFIXO_CATALOGO}${item.id}`;
+}
+
 /** "Aplicar" só vale com uma textura escolhida e um material selecionado. */
 export function podeAplicarTextura(material: Material | undefined, item: TexturaItem | null): boolean {
   return material !== undefined && item !== null;

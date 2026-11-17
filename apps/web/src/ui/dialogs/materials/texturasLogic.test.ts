@@ -14,6 +14,7 @@ import {
   podeAplicarTextura,
   rotuloCategoria,
   texturaDaCatalogo,
+  texturaEhAtual,
 } from './texturasLogic.ts';
 
 function item(id: string, categoria: string, nome = id.replace(/(\d+)$/, ' $1')): TexturaItem {
@@ -182,5 +183,15 @@ describe('blocos aparencia.textura', () => {
   it('"Aplicar" fica desabilitado sem textura escolhida, e habilitado com material e textura', () => {
     expect(podeAplicarTextura(base, null)).toBe(false);
     expect(podeAplicarTextura(base, item('Bricks003', 'Bricks'))).toBe(true);
+  });
+
+  it('selo "textura atual": só quando o material selecionado já usa aquela textura do catálogo', () => {
+    const b = item('Bricks003', 'Bricks');
+    const com = aplicarTexturaNoMaterial(base, b);
+    expect(texturaEhAtual(com, b)).toBe(true);
+    expect(texturaEhAtual(com, item('Wood012', 'Wood'))).toBe(false);
+    expect(texturaEhAtual(base, b)).toBe(false);
+    expect(texturaEhAtual(undefined, b)).toBe(false);
+    expect(texturaEhAtual(com, null)).toBe(false);
   });
 });
