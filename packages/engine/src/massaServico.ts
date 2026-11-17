@@ -362,6 +362,8 @@ export function definirGerenciadorDaMassa(f: () => GerenciadorKernelV2 | null): 
   const velho = servicoAtual;
   servicoAtual = null;
   velho?.encerrar();
+  servicoAuxiliar?.encerrar();
+  servicoAuxiliar = null;
   if (velho) {
     const ouvintes = [...velho['ouvintesPronto']];
     velho['soltarKernel']?.();
@@ -374,4 +376,14 @@ export function definirGerenciadorDaMassa(f: () => GerenciadorKernelV2 | null): 
 /** O serviço único do processo. */
 export function servicoMassa(): ServicoMassa {
   return (servicoAtual ??= new ServicoMassa(() => fonteGerenciador()));
+}
+
+let servicoAuxiliar: ServicoMassa | null = null;
+
+/**
+ * Segundo serviço, só para fatiar projetos sintéticos (níveis auxiliares em cotas arbitrárias, paredes torcidas da massa): usá-lo não invalida
+ * as respostas memorizadas do serviço principal nem recria a cena dele a cada consulta.
+ */
+export function servicoMassaAuxiliar(): ServicoMassa {
+  return (servicoAuxiliar ??= new ServicoMassa(() => fonteGerenciador()));
 }
