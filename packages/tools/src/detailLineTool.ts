@@ -49,6 +49,11 @@ export class DetailLineTool extends ToolBase {
   }
   protected busy(): boolean { return this.step !== null && Object.keys(this.step.vals).some((k) => k !== 'sides'); }
 
+  /** Retângulo: o 2º canto não leva Orto/Polar a partir do 1º (cairia sobre o eixo e o retângulo ficaria sem altura). */
+  private deRetangulo(): boolean {
+    return this.shape() === 'rect';
+  }
+
   private shape(): WallDrawShape {
     const s = this.env.options().detailLineShape ?? 'line';
     if (this.activeShape !== null && this.activeShape !== s) this.reset();
@@ -81,7 +86,7 @@ export class DetailLineTool extends ToolBase {
     const shape = this.shape();
     const st = this.current();
     const a = anchorOf(st);
-    const q = this.snap(p, contextoDeTraco(a)).point;
+    const q = this.snap(p, contextoDeTraco(this.deRetangulo() ? null : a)).point;
     this.last = q;
     if (!a) { this.items = []; return; }
     this.items = previewDetailShapeStep(st, q, this.flags);
@@ -126,7 +131,7 @@ export class DetailLineTool extends ToolBase {
     const input = stepsOf(st.shape)[st.idx];
     if (!input) return;
     const a = anchorOf(st);
-    const q = this.snap(p, contextoDeTraco(a)).point;
+    const q = this.snap(p, contextoDeTraco(this.deRetangulo() ? null : a)).point;
     if (input.kind === 'point') {
       if (a && dist(q, a) < 1e-9) { this.env.say(this.t('tl_msg_point_repeated')); return; }
       this.setInput(st, input.key, q);

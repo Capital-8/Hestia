@@ -4,8 +4,8 @@ import { clickAt, makeEnv, tool } from './testEnv.ts';
 import type { WallDrawShape } from './types.ts';
 
 // Orto (F8) e Polar (F10) na linha de detalhe, no molde de orthoLock.test.ts. Valores literais, calculados à mão.
-// Retângulo: o 2º canto recebe Orto a partir do 1º, como na viga (beamTool, `contextoDeTraco(startPt)`). Com F8 ligado o
-// canto cai sobre o eixo do 1º e o retângulo fica degenerado. Não há teste de F8 para retângulo: fica como pendência.
+// Retângulo: o 2º canto NÃO recebe Orto a partir do 1º (cairia sobre o eixo e o retângulo ficaria sem altura): ver o
+// último teste deste arquivo.
 
 const dl = (s: ReturnType<typeof makeEnv>['store']): DetailLine[] => s.project.levels[0]!.detailLines ?? [];
 
@@ -76,5 +76,18 @@ describe('linha de detalhe: Polar (F10)', () => {
     expect(ls[0]!.b.x).toBeCloseTo(2.05, 9);
     expect(ls[0]!.b.y).toBeCloseTo(2.05, 9);
     expect(Math.hypot(ls[0]!.b.x, ls[0]!.b.y)).toBeCloseTo(2.8991378, 6);
+  });
+});
+
+describe('linha de detalhe: retângulo com Orto ligado', () => {
+  it('1º canto (0,0), 2º canto (3,2) com Orto: o retângulo mantém o canto (3,2), com 4 lados e altura 2', () => {
+    const { store, t } = ambiente('rect', { orthoLock: true });
+    clickAt(t, 0, 0);
+    clickAt(t, 3, 2);
+    const ls = dl(store);
+    expect(ls).toHaveLength(4);
+    const pontas = ls.flatMap((l) => [l.a, l.b]);
+    expect(pontas.some((q) => Math.abs(q.x - 3) < 1e-9 && Math.abs(q.y - 2) < 1e-9)).toBe(true);
+    expect(Math.max(...pontas.map((q) => q.y))).toBeCloseTo(2, 9);
   });
 });

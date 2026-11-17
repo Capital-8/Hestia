@@ -110,3 +110,14 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Testes novos: `packages/tools/src/textoAcompanhaAfastamento.test.ts`, `apps/web/src/editor/sectionDimTextAcompanha.test.ts`; acréscimos em `plan/notes.text.test.ts` e `section/annotations.test.ts` (valores binários exatos: linha em y = 0,75, pois 0,2 + 0,4 não é exato em ponto flutuante).
 - Gap (cursor): `ui/cursor.ts` fixa Selecionar em seta por política, e a ferramenta não tem API de cursor de hover. O corte já pinta `move` na alça (`ViewportCanvas.tsx`); a planta não. Não implementado.
 - Lint: eslint nos 34 .ts/.tsx do diff 96b8d0e5..HEAD, sem erro. Typecheck: 1 erro herdado (`shapeName` não usado em `detailLineTool.ts`), corrigido; tsc verde.
+
+### Fechamento (integração das duas branches)
+- `frente/detalhe-snaps` mesclada em `frente/detalhe-formas` (commit c7e22218). Branch pronta para revisão: `frente/detalhe-formas`.
+- Correção na integração: o 2º canto do retângulo não recebe Orto/Polar a partir do 1º (ficava sem altura com F8). `detailLineTool.ts` (`deRetangulo`) + teste em `detailLineOrtoPolar.test.ts`.
+- Portões que rodaram na branch integrada: typecheck RC=0; eslint nos arquivos do diff RC=0; vitest `packages/tools/src` 236 arquivos/2674 testes; `model`+`io`+`render/section`+`render/plan` 241/2750; `apps/web/src/ui`+`editor` 255/2143. Todos verdes.
+- Pendências conhecidas: (1) cursor de mover no hover das alças da cota (o Select fixa a seta em `cursor.ts`; exige API de cursor); (2) retângulo girado sem id/ícone na galeria; (3) galeria sem campo de lados (o campo está na barra de opções e nas propriedades); (4) alça do texto de anotação no corte só para cota linear; (5) "escolher face" para linha de detalhe (fora do escopo); (6) caixa de seleção por área ainda usa a corda do arco; (7) validar no navegador (nenhuma verificação visual foi feita, só dados medidos).
+
+### Rascunho de resposta para a issue (NÃO postado)
+> Obrigado pelo relato. Em relação aos dois pontos:
+> 1. **Arrastar cotas:** a cota selecionada agora pode ser arrastada pelo próprio corpo (linha de cota e extensões mudam o afastamento; o texto move o texto), com alças maiores. Se você já puxou o texto, ele acompanha o novo afastamento. Vale na planta e no corte/elevação.
+> 2. **Linha de detalhe e perpendicular:** as linhas de detalhe passam a ser alvo dos snaps (ponto final, ponto médio, interseção, perpendicular e ponto próximo), na planta e no corte, então a perpendicular aparece com o guia de captura. Além disso, a linha de detalhe agora usa a mesma caixa de formas das paredes (retângulo, polígono com N lados, círculo, elipse, arcos) com Orto e Polar.
