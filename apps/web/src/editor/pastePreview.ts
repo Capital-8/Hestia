@@ -1,9 +1,12 @@
 import type { Vec2 } from '@hestia/geom';
 import {
   ProjectStore,
+  isBeam,
   isCad,
   isCeiling,
+  isColumn,
   isFloor,
+  isFooting,
   isGeneric,
   isRamp,
   isRoof,
@@ -234,7 +237,14 @@ function elevacaoDoNivel(p: Project, levelId: Id): number {
 
 /** Elementos do buffer, incluindo os opcionais que o motor do colar passa a guardar (W1/W2). */
 function elementosDoBuffer(clip: ClipBuffer): Element[] {
-  const extras = clip as ClipBuffer & { ceilings?: Element[]; generics?: Element[]; cad?: Element[] };
+  const extras = clip as ClipBuffer & {
+    ceilings?: Element[];
+    generics?: Element[];
+    cad?: Element[];
+    columns?: Element[];
+    beams?: Element[];
+    footings?: Element[];
+  };
   return [
     ...clip.walls,
     ...clip.openings,
@@ -247,6 +257,9 @@ function elementosDoBuffer(clip: ClipBuffer): Element[] {
     ...(extras.ceilings ?? []),
     ...(extras.generics ?? []),
     ...(extras.cad ?? []),
+    ...(extras.columns ?? []),
+    ...(extras.beams ?? []),
+    ...(extras.footings ?? []),
   ];
 }
 
@@ -293,6 +306,27 @@ function caixaDeElemento(p: Project, e: Element, deltaZ: number): CaixaDaPrevia 
     for (const t of e.texts) pontos.push(t.at);
     z0 = zNivel + (e.offsetZ ?? 0);
     z1 = z0;
+  } else if (isColumn(e)) {
+    pontos.push(e.at);
+    z0 = zNivel + e.baseOffset;
+    z1 = e.topLevelId ? elevacaoDoNivel(p, e.topLevelId) + deltaZ + e.topOffset : z0 + e.height;
+    const b = caixaDosPontos(pontos, z0, z1);
+    const half = 0.25;
+    return b && { min: { x: b.min.x - half, y: b.min.y - half, z: b.min.z }, max: { x: b.max.x + half, y: b.max.y + half, z: b.max.z } };
+  } else if (isBeam(e)) {
+    pontos.push(e.a, e.b);
+    z0 = zNivel + (e.zOffset ?? 0);
+    z1 = z0;
+    const b = caixaDosPontos(pontos, z0, z1);
+    const half = 0.2;
+    return b && { min: { x: b.min.x - half, y: b.min.y - half, z: b.min.z }, max: { x: b.max.x + half, y: b.max.y + half, z: b.max.z } };
+  } else if (isFooting(e)) {
+    pontos.push(e.at);
+    z0 = zNivel + (e.heightOffset ?? 0);
+    z1 = z0;
+    const b = caixaDosPontos(pontos, z0, z1);
+    const half = 0.5;
+    return b && { min: { x: b.min.x - half, y: b.min.y - half, z: b.min.z }, max: { x: b.max.x + half, y: b.max.y + half, z: b.max.z } };
   } else {
     return null;
   }

@@ -304,6 +304,19 @@ svg { display: block; }
 .plan-note { position: absolute; z-index: 2; font-family: var(--font-ui); color: var(--fg); white-space: nowrap; line-height: 1.15; pointer-events: none; }
 .plan-note--dimension-preview { font-family: var(--font-mono); color: var(--accent); text-shadow: 0 0 2px var(--panel), 0 0 3px var(--panel); }
 .dim-label { z-index: 2; }
+/* Etiqueta de família (Revit: Tag Type): contorno em círculo, hexágono ou retângulo ao redor do rótulo. */
+.plan-note--badge { box-sizing: border-box; padding: 0.28em 0.5em; text-align: center; line-height: 1.15; border: 1px solid currentColor; }
+.plan-note--badge.plan-note--fill { background: var(--sheet, #fff); }
+.plan-note--circle { border-radius: 999px; min-width: 2.1em; padding: 0.38em 0.4em; }
+.plan-note--rect { border-radius: 2px; }
+.plan-note--hexagon { border: 0; padding: 0.4em 0.85em; background: transparent; z-index: 2; }
+.plan-note--hexagon::before, .plan-note--hexagon::after { content: ''; position: absolute; inset: 0; z-index: -1; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.plan-note--hexagon::before { background: currentColor; }
+.plan-note--hexagon::after { inset: 1px; background: var(--sheet, #fff); }
+.plan-note--hexagon:not(.plan-note--fill)::after { background: transparent; clip-path: none; }
+.plan-note--selected { outline: 2px solid var(--accent, #2563eb); outline-offset: 2px; border-radius: 3px; background: rgba(37, 99, 235, 0.14); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22); font-weight: 700; }
+.plan-note--badge.plan-note--selected { background: rgba(37, 99, 235, 0.16); }
+.plan-note--hexagon.plan-note--selected::after { background: rgba(37, 99, 235, 0.16); }
 .typebox { position: absolute; left: 14px; bottom: 44px; z-index: 11; display: flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 5px 9px; box-shadow: var(--shadow); font-family: var(--font-mono); }
 .typebox .cap { font-family: var(--font-ui); color: var(--fg-soft); }
 .typebox .buf { min-width: 60px; font-size: 14px; }
@@ -640,6 +653,9 @@ svg { display: block; }
 /* ---- tabela de paredes (quantitativos) ---- */
 .wsched-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
 .wsched-bar label { color: var(--fg-soft); }
+.wsched-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 10px; padding: 4px 8px; border: 1px solid var(--line, #0002); border-radius: 4px; }
+.wsched-opt legend { color: var(--fg-soft); padding: 0 4px; }
+.wsched-opt label { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-soft); }
 .wsched-scroll { overflow: auto; max-width: 100%; border: 1px solid var(--line); border-radius: var(--r); background: var(--sheet); }
 .wsched { min-width: 880px; }
 .wsched th.num, .wsched td.num { text-align: right; }
@@ -989,4 +1005,19 @@ svg { display: block; }
     overflow-x: auto;
     overscroll-behavior-x: contain;
   }
+}
+
+/* ---- Diálogos de tipo com camadas (piso, laje, forro, telhado, parede): os controles da camada nunca ficam sob a prévia ---- */
+@media (min-width: 601px) {
+  .split:has(.layers) { grid-template-columns: minmax(440px, 1.7fr) minmax(200px, 1fr); align-items: start; }
+  .split:has(.layers) > :first-child { position: relative; z-index: 1; min-width: 0; overflow-x: auto; }
+  .split:has(.layers) > :last-child { position: sticky; top: 0; z-index: 0; min-width: 0; }
+  .split:has(.layers) .section-svg { max-height: 300px; }
+  .layers td:last-child { white-space: nowrap; width: 1%; position: sticky; right: 0; background: var(--panel); }
+  .layers .iconrow { flex-wrap: nowrap; gap: 2px; }
+  .layers .iconrow .ibtn { min-width: 28px; min-height: 28px; justify-content: center; }
+}
+@media (min-width: 601px) and (max-width: 1000px) {
+  .split:has(.layers) { grid-template-columns: minmax(0, 1fr); }
+  .split:has(.layers) > :last-child { position: static; }
 }

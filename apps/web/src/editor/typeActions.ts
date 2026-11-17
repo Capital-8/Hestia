@@ -1,11 +1,15 @@
 import { fitBox, type Viewport } from '@hestia/render';
-import { ProjectStore, isCad, isFloor, isGeneric, isOpening, isRamp, isRoof, isSlab, isStair, isWall, newId, openingType, wallTypeUsage, type Element, type FloorType, type Id, type Project } from '@hestia/model';
+import {
+  ProjectStore, beamTypeMap, columnPolygon, columnTypeMap, findColumnType, findFootingType, footingPolygon,
+  footingTypeMap, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isSlab, isStair, isWall,
+  newId, openingType, wallTypeUsage, type Element, type FloorType, type Id, type Project,
+} from '@hestia/model';
 import { rampPoints } from './rampActions.ts';
 import { stairPoints } from './stairActions.ts';
 import { t, useI18n } from './i18n.ts';
 
-/** Tipos que o navegador de projeto lista: parede, porta, janela, piso, laje, forro, telhado, escada e rampa. */
-export type TypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp';
+/** Tipos que o navegador de projeto lista (arquitetura e estrutura). */
+export type TypeKind = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'column' | 'beam' | 'footing';
 
 export interface TypeChoice {
   id: Id;
@@ -16,9 +20,12 @@ const lang = () => useI18n.getState().lang;
 
 /** Nível de um elemento: a parede tem o seu; a abertura herda o da parede anfitriã. */
 export function levelOfElement(p: Project, e: Element): Id | undefined {
-  if (isWall(e) || isGeneric(e) || isCad(e) || isRamp(e) || e.kind === 'railing' || e.kind === 'mass' || e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof' || e.kind === 'stair' || e.kind === 'room') return e.levelId;
-  const host = p.elements[e.hostId];
-  return isWall(host) ? host.levelId : undefined;
+  if ('levelId' in e) return e.levelId;
+  if ('hostId' in e) {
+    const host = p.elements[e.hostId];
+    return isWall(host) ? host.levelId : undefined;
+  }
+  return undefined;
 }
 
 function usesType(e: Element, kind: TypeKind, typeId: Id): boolean {
@@ -29,6 +36,9 @@ function usesType(e: Element, kind: TypeKind, typeId: Id): boolean {
   if (kind === 'roof') return isRoof(e) && e.typeId === typeId;
   if (kind === 'stair') return isStair(e) && e.typeId === typeId;
   if (kind === 'ramp') return isRamp(e) && e.typeId === typeId;
+  if (kind === 'column') return isColumn(e) && e.typeId === typeId;
+  if (kind === 'beam') return isBeam(e) && e.typeId === typeId;
+  if (kind === 'footing') return isFooting(e) && e.typeId === typeId;
   return isOpening(e) && e.kind === kind && e.typeId === typeId;
 }
 
@@ -88,7 +98,15 @@ export function compatibleTypes(p: Project, kind: TypeKind, typeId: Id): TypeCho
               ? Object.values(p.stairTypes).filter((t) => t.id !== typeId)
               : kind === 'ramp'
                 ? Object.values(p.rampTypes).filter((t) => t.id !== typeId)
-                : Object.values(p.openingTypes).filter((t) => t.kind === kind && t.id !== typeId);
+                : kind === 'ceiling'
+                  ? Object.values(p.ceilingTypes).filter((t) => t.id !== typeId)
+                  : kind === 'column'
+                    ? Object.values(columnTypeMap(p)).filter((t) => t.id !== typeId)
+                    : kind === 'beam'
+                      ? Object.values(beamTypeMap(p)).filter((t) => t.id !== typeId)
+                      : kind === 'footing'
+                        ? Object.values(footingTypeMap(p)).filter((t) => t.id !== typeId)
+                        : Object.values(p.openingTypes).filter((t) => t.kind === kind && t.id !== typeId);
   return list.map((t) => ({ id: t.id, name: t.name }));
 }
 
@@ -142,7 +160,10 @@ export function boxOfElements(p: Project, ids: Id[]): Box | null {
   for (const id of ids) {
     const e = p.elements[id];
     if (isWall(e)) pts.push(...wallPoints(e));
-    else if (isFloor(e) || isSlab(e) || isRoof(e)) pts.push(...e.boundary);
+    else if (isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e)) pts.push(...e.boundary);
+    else if (isColumn(e)) pts.push(...columnPolygon(e, findColumnType(p, e.typeId)));
+    else if (isBeam(e)) pts.push(e.a, e.b);
+    else if (isFooting(e)) pts.push(...footingPolygon(e, findFootingType(p, e.typeId)));
     else if (isStair(e)) pts.push(...stairPoints(e));
     else if (isRamp(e)) pts.push(...rampPoints(e));
     else if (e && isOpening(e)) {

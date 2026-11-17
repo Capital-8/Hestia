@@ -195,7 +195,7 @@ export function buildGlassCell(c: Ctx, l: ResolvedLayout, cell: ResolvedCell, co
   const frameless = g.mounting === 'frameless';
   const ext = Object.fromEntries(EDGES.map((e) => [e, frameless ? -k : r[e].ext])) as Record<Edge, number>;
   const b = plateBox(c, cell, g.thickness, ext);
-  addPart(c, `glass-${cell.id}`, 'glass', 'glass', b);
+  addPart(c, `glass-${cell.id}`, 'glass', 'glass', b, { glassKind: g.kind });
   if (!frameless) addBeads(c, cell, g.thickness, r);
   if (!g.grid) return;
   const depth = Math.min(c.D * 0.6, c.D - 0.001);

@@ -1,3 +1,4 @@
+import { dist } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import { NON_ELEMENT_KINDS, type DimContext, type DimProvider, type DimSubjectKind, type NonElementKind, type TempDim } from './types.ts';
 import { openingDimProvider } from './providers/opening.ts';
@@ -5,7 +6,8 @@ import { wallDimProvider } from './providers/wall.ts';
 import { outlineDimProvider } from './providers/outline.ts';
 import { detailLineDimProvider, perimeterLineDimProvider } from './providers/line.ts';
 import { gridDimProvider } from './providers/grid.ts';
-import { permanentDimProvider } from './providers/dimension.ts';
+import { beamDimProvider, columnDimProvider, footingDimProvider } from './providers/structural.ts';
+import { attachedPermanentDims, permanentDimProvider } from './providers/dimension.ts';
 
 // O sujeito varia por provedor; o registro guarda o contrato sem o parâmetro e só `selectionDims` o usa.
 type AnyProvider = DimProvider<never>;
@@ -59,12 +61,23 @@ function resolveSelection(ctx: DimContext, id: Id): Resolved | null {
 }
 
 /**
- * Cotas do que está selecionado: só com UM sujeito selecionado, com provedor registrado e `showOnSelection` ligado.
+ * Cotas do que está selecionado: só com UM sujeito selecionado e `showOnSelection` ligado. Quando há cotas
+ * permanentes amarradas ao elemento selecionado, elas vêm junto em destaque (e substituem temporárias idênticas).
  */
 export function selectionDims(ctx: DimContext, ids: readonly Id[]): TempDim[] {
   if (ids.length !== 1 || !ctx.settings.showOnSelection) return [];
-  const resolved = resolveSelection(ctx, ids[0]!);
-  return resolved ? resolved.provider.compute(ctx, resolved.subject) : [];
+  const id = ids[0]!;
+  const resolved = resolveSelection(ctx, id);
+  const base = resolved ? resolved.provider.compute(ctx, resolved.subject) : [];
+  if (resolved?.provider.id === 'dimension') return base;
+  const attached = attachedPermanentDims(ctx, id);
+  if (attached.length === 0) return base;
+  const duplicatesAttached = (tmp: TempDim): boolean => attached.some(
+    (att) =>
+      (dist(tmp.a, att.a) < 1e-3 && dist(tmp.b, att.b) < 1e-3)
+      || (dist(tmp.a, att.b) < 1e-3 && dist(tmp.b, att.a) < 1e-3),
+  );
+  return [...attached, ...base.filter((d) => !duplicatesAttached(d))];
 }
 
 /**
@@ -90,5 +103,8 @@ export function registerBuiltinDimProviders(): void {
   registerDimProvider('detailLine', detailLineDimProvider);
   registerDimProvider('perimeterLine', perimeterLineDimProvider);
   registerDimProvider('grid', gridDimProvider);
+  registerDimProvider('column', columnDimProvider);
+  registerDimProvider('beam', beamDimProvider);
+  registerDimProvider('footing', footingDimProvider);
   registerDimProvider('dimension', permanentDimProvider);
 }

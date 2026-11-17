@@ -2,8 +2,11 @@ import { DXF_LINE_WEIGHTS, DXF_LINE_WEIGHT_DEFAULT, type DxfLayerStyle, type Gra
 import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXTOS, dxfTextEntity, type DxfNoteText, type DxfNotes } from './dxfNotes.ts';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLineType, type DxfUnit } from './dxfDoc.ts';
 import { DXF_LAYER_GENERIC } from './dxfGeneric.ts';
+import { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING, structuralDxfShapes } from './dxfStructural.ts';
 import { DXF_LAYER_MASS, type DxfMassPath } from './dxfMassa.ts';
 import { dxfLayerCanonical, dxfLayerName, dxfLayerPrefix, t, type Lang } from './i18n.ts';
+
+export { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING } from './dxfStructural.ts';
 
 /** Ponto em metros: x para a direita, y para cima (planta). */
 export interface DxfPoint {
@@ -327,6 +330,7 @@ const LAYER_STYLE: Record<string, LayerStyle> = {
   [DXF_LAYER_ROOF_PROJECTION]: { linetype: 'DASHED', color: 7 },
   [DXF_LAYER_STAIR_ABOVE]: { linetype: 'DASHED', color: 7 },
   [DXF_LAYER_RAMP_ABOVE]: { linetype: 'DASHED', color: 7 },
+  [DXF_LAYER_BEAM]: { linetype: 'DASHED', color: 7 },
 };
 const styleOf = (layer: string): LayerStyle => LAYER_STYLE[layer] ?? { linetype: 'CONTINUOUS', color: 7 };
 
@@ -420,6 +424,9 @@ const FIXED_LINE_ROLE = new Map<string, DxfLineRole>([
   [DXF_LAYER_CURTAIN_GLASS, projection('window')],
   [DXF_LAYER_CURTAIN_SOLID, cut('wall')],
   [DXF_LAYER_CURTAIN_OPENING, cut('window')],
+  [DXF_LAYER_COLUMN, cut('wall')],
+  [DXF_LAYER_BEAM, projection('slab')],
+  [DXF_LAYER_FOOTING, cut('slab')],
   // Massa conceitual: peso de corte da categoria 'mass' (a linha cortada) para todas as linhas dela.
   [DXF_LAYER_MASS, cut('mass')],
 ]);
@@ -461,7 +468,7 @@ function linesOf(geo: DxfLevelGeometry): Line[] {
  * Polilinhas do nível: por cluster, as regiões de material e depois o contorno; depois as projeções de parede, os pisos,
  * as lajes, os telhados (e a projeção dos fora do intervalo), as escadas e, por último, os vãos.
  */
-function shapesOf(project: Project, geo: DxfLevelGeometry): Shape[] {
+function shapesOf(project: Project, geo: DxfLevelGeometry, levelId?: Id): Shape[] {
   const out: Shape[] = [];
   const push = (layer: string, polygons: DxfPolygons): void => {
     for (const poly of polygons) {
@@ -509,6 +516,7 @@ function shapesOf(project: Project, geo: DxfLevelGeometry): Shape[] {
   }
   for (const boundary of geo.notes?.regions ?? []) if (boundary.length >= 3) push(DXF_LAYER_DETALHE, [[boundary]]);
   for (const c of geo.curtains ?? []) out.push({ layer: c.layer, pts: c.pts, closed: c.closed, ...(c.dashed === true ? { dashed: true } : {}) });
+  if (levelId) out.push(...structuralDxfShapes(project, levelId));
   for (const m of geo.masses ?? []) out.push({ layer: DXF_LAYER_MASS, pts: m.pts, closed: m.closed, ...(m.dashed === true ? { dashed: true } : {}) });
   return out;
 }
@@ -527,8 +535,8 @@ function layerNamesOf(shapes: Shape[], lines: Line[], texts: DxfNoteText[]): str
 }
 
 /** Nomes das camadas que `exportDxf` põe na tabela LAYER para esta geometria (a base de `lineWeights`). */
-export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt'): string[] {
-  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...curtainLayersOf(geo), ...massLayersOf(geo), ...(geo.extraLayers ?? [])])]
+export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt', levelId?: Id): string[] {
+  return [...new Set([...layerNamesOf(shapesOf(project, geo, levelId), linesOf(geo), textsOf(geo)), ...curtainLayersOf(geo), ...massLayersOf(geo), ...(geo.extraLayers ?? [])])]
     .map((name) => dxfLayerName(name, lang))
     .sort();
 }
@@ -543,7 +551,7 @@ export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang 
  */
 export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry, lang: Lang = 'pt'): DxfDoc {
   if (!project.levels.some((l) => l.id === levelId)) throw new Error(t(lang, 'io_err_dxf_level_missing', { id: levelId }));
-  const shapes = shapesOf(project, geo);
+  const shapes = shapesOf(project, geo, levelId);
   const lines = linesOf(geo);
   const texts = textsOf(geo);
   const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...curtainLayersOf(geo), ...massLayersOf(geo), ...(geo.extraLayers ?? [])])].sort().map((name) => {

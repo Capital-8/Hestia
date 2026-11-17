@@ -9,13 +9,16 @@ import {
   openingFamilyName,
   openingFamilyOf,
   openingHandleHeight,
+  openingHeight,
   openingHinges,
   openingLeafUndercut,
   openingLintel,
   openingOptionSupport,
   openingRough,
+  openingSill,
   openingSillBeam,
   openingThreshold,
+  openingType,
   formatQuantity,
   spanTypeOf,
   type CellNode,
@@ -33,10 +36,13 @@ import {
 import { csvDocument, csvText } from './csv.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
 import { collationFor, t, type EngineScheduleKey, type Lang } from './i18n.ts';
+import { openingExtraCsvCell, openingExtraCsvHeader, openingOwnMeasureText, openingRowLabel, type OpeningExtraKey } from './openingScheduleExtras.ts';
 
 /**
- * Uma linha da tabela de portas e janelas: um TIPO de abertura (Revit: Type) com a contagem das instâncias dele no
- * projeto. É aqui que aparece o código do tipo (Revit: Type Mark). Valores em metros (SI).
+ * Uma linha da tabela de portas e janelas: um TIPO de abertura (Revit: Type) com a contagem das instâncias dele que têm
+ * a MESMA medida efetiva (largura, altura e peitoril das instâncias). Instância com altura ou peitoril próprios vira
+ * linha à parte, com o desvio em `variant` (Revit: linhas por tipo e medida). É aqui que aparece o código do tipo
+ * (Revit: Type Mark). Valores em metros (SI).
  */
 export interface OpeningScheduleRow {
   typeId: Id;
@@ -44,10 +50,13 @@ export interface OpeningScheduleRow {
   /** Código do tipo (Revit: Type Mark), como "P-01"; vazio quando não informado. */
   code: string;
   typeName: string;
+  /** Desvio do tipo nesta linha ("altura própria 1,84 m"); vazio quando as instâncias seguem o tipo. */
+  variant: string;
   /** Nome da família (openingFamilyName), como "Porta de giro"; vazio quando a combinação (símbolo × folhas) não existe. */
   familyName: string;
   /** Vão (m): com `nominalRef` 'leaf' é a folha mais a folga; nos demais, o próprio `width`/`height` do tipo. */
   width: number;
+  /** Altura efetiva das instâncias desta linha (m): a do tipo, ou a altura própria da instância (`heightOverride`). */
   height: number;
   /** Folha nominal (m): a "80 x 210" do comércio. Igual ao vão menos a folga quando o tipo é dado pelo vão. */
   leafWidth: number;
@@ -55,6 +64,7 @@ export interface OpeningScheduleRow {
   /** Vão bruto (furo na parede): largura e altura do tipo mais a folga `roughOversize`. */
   roughWidth: number;
   roughHeight: number;
+  /** Peitoril efetivo das instâncias desta linha (m): o do tipo, ou o peitoril próprio da instância. */
   sill: number;
   leaves: OpeningLeaves;
   /** Verga e contraverga do tipo (transpasse e altura); null quando o tipo não as tem. */
@@ -63,7 +73,7 @@ export interface OpeningScheduleRow {
   /** Comprimento total das peças no projeto (m) = (largura + 2 × transpasse) × quantidade. */
   lintelLength: number;
   sillBeamLength: number;
-  /** Quantidade de instâncias deste tipo no projeto. */
+  /** Quantidade de instâncias desta linha (mesmo tipo e mesma medida efetiva) no projeto. */
   count: number;
   /** Área do vão unitária (metros quadrados) = largura × altura. */
   unitArea: number;
@@ -80,6 +90,18 @@ export interface OpeningScheduleRow {
   hardware: string;
   /** Resumo da composição de 2+ células ("porta + 2 laterais + bandeira superior"); vazio com uma célula só. */
   composition: string;
+  /** Colunas opcionais (só aparecem no diálogo quando ligadas): dados do tipo, sem efeito no cálculo. */
+  fireRating: string;
+  acousticRw: number | null;
+  uValue: number | null;
+  description: string;
+  manufacturer: string;
+  /** Custo unitário do tipo; null quando o tipo não tem custo. */
+  unitCost: number | null;
+  /** Custo total da linha = custo unitário × quantidade; null sem custo unitário. */
+  totalCost: number | null;
+  /** Fator solar: só janela (null nas portas e quando o tipo não informa). */
+  solarFactor: number | null;
 }
 
 export interface OpeningScheduleTotals {
@@ -91,6 +113,8 @@ export interface OpeningScheduleTotals {
   windowCount: number;
   /** Área de vão total (metros quadrados). */
   totalArea: number;
+  /** Custo total (soma dos custos totais das linhas que têm custo). */
+  totalCost: number;
 }
 
 export interface OpeningSchedule {
@@ -218,7 +242,10 @@ export function compositionSummary(c: OpeningComposition, lang: Lang = 'pt'): st
 /** Ordem das categorias na tabela: portas antes de janelas. */
 const kindOrder = (k: 'door' | 'window'): number => (k === 'door' ? 0 : 1);
 
-/** Ordenação estável: portas antes de janelas; dentro da categoria, pelo código, depois pelo nome e pelo id do tipo. */
+/**
+ * Ordenação estável: portas antes de janelas; dentro da categoria, pelo código, depois pelo nome e pelo id do tipo; as
+ * linhas de um mesmo tipo seguem a medida efetiva (altura, depois peitoril).
+ */
 function compareRows(a: OpeningScheduleRow, b: OpeningScheduleRow, lang: Lang): number {
   if (a.kind !== b.kind) return kindOrder(a.kind) - kindOrder(b.kind);
   const collation = collationFor(lang);
@@ -226,66 +253,92 @@ function compareRows(a: OpeningScheduleRow, b: OpeningScheduleRow, lang: Lang): 
   if (byCode !== 0) return byCode;
   const byName = a.typeName.localeCompare(b.typeName, collation, { numeric: true });
   if (byName !== 0) return byName;
-  return a.typeId.localeCompare(b.typeId, collation);
+  const byType = a.typeId.localeCompare(b.typeId, collation);
+  if (byType !== 0) return byType;
+  return a.height - b.height || a.sill - b.sill;
+}
+
+/** Instâncias de um mesmo tipo com a mesma medida efetiva (altura e peitoril): viram uma linha do quadro. */
+interface MeasureGroup {
+  typeId: Id;
+  height: number;
+  sill: number;
+  count: number;
+  senses: Set<string>;
+}
+
+/** Linha do quadro de um grupo (tipo × medida efetiva): os campos do tipo mais a contagem e as áreas do grupo. */
+function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): OpeningScheduleRow {
+  const raw = p.openingTypes[g.typeId]!;
+  const ot = { ...spanTypeOf(raw), ...openingSpanOf(raw) }; // vão: a composição manda quando há 2+ células
+  const leaf = leafSizeOf(raw);
+  const rough = openingRough({ ...ot, height: g.height });
+  const lintel = openingLintel(ot);
+  const sillBeam = openingSillBeam(ot);
+  const comp = openingCompositionOf(raw);
+  const cells = compositionCells(comp);
+  const multi = cells.length >= 2;
+  const unitCost = raw.cost ?? null;
+  return {
+    typeId: g.typeId,
+    kind: ot.kind,
+    code: ot.code ?? '',
+    typeName: ot.name,
+    variant: openingOwnMeasureText(u, lang, { height: g.height, sill: g.sill }, { height: ot.height, sill: ot.sill }),
+    familyName: openingFamilyName(ot) ?? '',
+    width: ot.width,
+    height: g.height,
+    leafWidth: leaf.width,
+    // A folha segue o vão: a altura própria da instância desloca a folha pela mesma diferença (a folga não muda).
+    leafHeight: Math.max(0, leaf.height + (g.height - ot.height)),
+    roughWidth: rough.width,
+    roughHeight: rough.height,
+    sill: g.sill,
+    leaves: ot.leaves,
+    lintel,
+    sillBeam,
+    lintelLength: lintel ? (ot.width + 2 * lintel.over) * g.count : 0,
+    sillBeamLength: sillBeam ? (ot.width + 2 * sillBeam.over) * g.count : 0,
+    count: g.count,
+    unitArea: ot.width * g.height,
+    totalArea: ot.width * g.height * g.count,
+    frameMaterial: p.materials[ot.frameMaterialId]?.name ?? '',
+    sense: ot.leaves === 0 ? '' : [...g.senses].join('; '),
+    leafMaterial: (ot.leafMaterialId && p.materials[ot.leafMaterialId]?.name) || '',
+    hardware: multi ? compositionHardware(ot, cells, u, lang) : hardwareText(ot, u, lang),
+    composition: multi ? compositionSummary(comp, lang) : '',
+    fireRating: raw.fireRating ?? '',
+    acousticRw: raw.acousticRw ?? null,
+    uValue: raw.uValue ?? null,
+    description: raw.description ?? '',
+    manufacturer: raw.manufacturer ?? '',
+    unitCost,
+    totalCost: unitCost === null ? null : unitCost * g.count,
+    solarFactor: ot.kind === 'window' ? (raw.solarFactor ?? null) : null,
+  };
 }
 
 /**
- * Tabela de portas e janelas do projeto: uma linha por TIPO usado (portas e janelas juntos, ordenados), com a
- * quantidade de instâncias. Tipo de abertura inexistente não conta (a instância aponta para um tipo ausente).
+ * Tabela de portas e janelas do projeto: uma linha por TIPO e medida efetiva (portas e janelas juntos, ordenados), com a
+ * quantidade de instâncias. A medida efetiva é a da instância: altura (`heightOverride`) e peitoril (`sillOverride`)
+ * próprios viram linha à parte. Tipo de abertura inexistente não conta (a instância aponta para um tipo ausente).
  */
 export function buildOpeningSchedule(p: Project, lang: Lang = 'pt'): OpeningSchedule {
   const u = unitsOf(p, lang);
-  const counts = new Map<Id, number>();
-  const senses = new Map<Id, Set<string>>();
+  const groups = new Map<string, MeasureGroup>();
   for (const e of Object.values(p.elements)) {
     if (!isOpening(e)) continue;
     if (!p.openingTypes[e.typeId]) continue;
-    counts.set(e.typeId, (counts.get(e.typeId) ?? 0) + 1);
-    const set = senses.get(e.typeId) ?? new Set<string>();
-    set.add(senseText(e, lang));
-    senses.set(e.typeId, set);
+    const span = openingType(p, e);
+    const height = openingHeight(span, e);
+    const sill = openingSill(span, e);
+    const key = `${e.typeId}|${height}|${sill}`;
+    const g = groups.get(key) ?? { typeId: e.typeId, height, sill, count: 0, senses: new Set<string>() };
+    g.count += 1;
+    g.senses.add(senseText(e, lang));
+    groups.set(key, g);
   }
-  const rows: OpeningScheduleRow[] = [];
-  for (const [typeId, count] of counts) {
-    const raw = p.openingTypes[typeId];
-    if (!raw) continue;
-    const t = { ...spanTypeOf(raw), ...openingSpanOf(raw) }; // vão: a composição manda quando há 2+ células
-    const leaf = leafSizeOf(raw);
-    const unitArea = t.width * t.height;
-    const rough = openingRough(t);
-    const lintel = openingLintel(t);
-    const sillBeam = openingSillBeam(t);
-    const comp = openingCompositionOf(raw);
-    const cells = compositionCells(comp);
-    const multi = cells.length >= 2;
-    rows.push({
-      typeId,
-      kind: t.kind,
-      code: t.code ?? '',
-      typeName: t.name,
-      familyName: openingFamilyName(t) ?? '',
-      width: t.width,
-      height: t.height,
-      leafWidth: leaf.width,
-      leafHeight: leaf.height,
-      roughWidth: rough.width,
-      roughHeight: rough.height,
-      sill: t.sill,
-      leaves: t.leaves,
-      lintel,
-      sillBeam,
-      lintelLength: lintel ? (t.width + 2 * lintel.over) * count : 0,
-      sillBeamLength: sillBeam ? (t.width + 2 * sillBeam.over) * count : 0,
-      count,
-      unitArea,
-      totalArea: unitArea * count,
-      frameMaterial: p.materials[t.frameMaterialId]?.name ?? '',
-      sense: t.leaves === 0 ? '' : [...(senses.get(typeId) ?? [])].join('; '),
-      leafMaterial: (t.leafMaterialId && p.materials[t.leafMaterialId]?.name) || '',
-      hardware: multi ? compositionHardware(t, cells, u, lang) : hardwareText(t, u, lang),
-      composition: multi ? compositionSummary(comp, lang) : '',
-    });
-  }
+  const rows = [...groups.values()].map((g) => rowOf(p, g, u, lang));
   rows.sort((a, b) => compareRows(a, b, lang));
   return { rows, totals: sumOpeningRows(rows) };
 }
@@ -302,8 +355,9 @@ export function sumOpeningRows(rows: OpeningScheduleRow[]): OpeningScheduleTotal
       doorCount: t.doorCount + (r.kind === 'door' ? r.count : 0),
       windowCount: t.windowCount + (r.kind === 'window' ? r.count : 0),
       totalArea: t.totalArea + r.totalArea,
+      totalCost: t.totalCost + (r.totalCost ?? 0),
     }),
-    { count: 0, doorCount: 0, windowCount: 0, totalArea: 0 },
+    { count: 0, doorCount: 0, windowCount: 0, totalArea: 0, totalCost: 0 },
   );
 }
 
@@ -333,14 +387,15 @@ const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
 
 /**
  * CSV com separador ';', decimal do idioma (ou o do projeto), cabeçalho no idioma ativo e BOM UTF-8 (o mesmo formato das
- * outras tabelas). Uma linha por tipo, seguida de uma linha de total (quantidade de instâncias e área total).
+ * outras tabelas). Uma linha por tipo, seguida de uma linha de total (quantidade de instâncias e área total). `extra` são as
+ * colunas opcionais ligadas, na ordem em que saem depois da composição; sem elas, o CSV é o de sempre.
  */
-export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: OpeningScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt'): string {
-  const n = (q: 'length' | 'area', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
+export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: OpeningScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt', extra: readonly OpeningExtraKey[] = []): string {
+  const n = (q: 'length' | 'area' | 'currency', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const withComposition = rows.some((r) => r.composition !== '');
   const body = rows.map((r) => [
     csvText(r.code),
-    csvText(r.typeName),
+    csvText(openingRowLabel(r)),
     csvText(r.familyName),
     t(lang, r.kind === 'door' ? 'egs_opening_cat_door' : 'egs_opening_cat_window'),
     n('length', r.width, 2),
@@ -361,9 +416,11 @@ export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: Opening
     csvText(r.leafMaterial),
     csvText(r.hardware),
     ...(withComposition ? [csvText(r.composition)] : []),
+    ...extra.map((k) => openingExtraCsvCell(r, k, units, lang)),
   ]);
-  const total = [t(lang, 'egs_csv_total'), '', '', '', '', '', '', '', '', '', '', '', String(totals.count), '', n('area', totals.totalArea, 2), '', '', '', '', '', '', ...(withComposition ? [''] : [])];
+  const total = [t(lang, 'egs_csv_total'), '', '', '', '', '', '', '', '', '', '', '', String(totals.count), '', n('area', totals.totalArea, 2), '', '', '', '', '', '', ...(withComposition ? [''] : []), ...extra.map((k) => (k === 'totalCost' ? n('currency', totals.totalCost, 2) : ''))];
   const header = csvHeader(units, lang);
   if (withComposition) header.push(t(lang, 'egs_csv_col_composicao'));
+  header.push(...extra.map((k) => openingExtraCsvHeader(k, units, lang)));
   return csvDocument([header, ...body, total]);
 }

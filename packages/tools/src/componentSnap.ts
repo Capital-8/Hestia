@@ -1,6 +1,6 @@
 import { apoioDoElemento, servicoGuardaCorpo, servicoMassa, type ApoioDoElemento } from '@hestia/engine';
 import { dist, type Vec2 } from '@hestia/geom';
-import { isGuardaCorpo, isMass, type Id, type Project, type Ramp, type Stair } from '@hestia/model';
+import { isBeam, isColumn, isFooting, isGuardaCorpo, isMass, type Id, type Project, type Ramp, type Stair } from '@hestia/model';
 import { planComponentsInLevel } from './componentLevels.ts';
 import { rampEndpoints, rampPolylines } from './rampPick.ts';
 import { stairEndpoints, stairPolylines } from './stairPick.ts';
@@ -122,6 +122,18 @@ function geometryOfLevel(p: Project, levelId: Id): ComponentSnapGeometry {
     if (!isGuardaCorpo(e) || e.levelId !== levelId) continue;
     const apoio = apoioDoElemento(p, e);
     if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+  }
+  // Elementos estruturais: pilar, viga e sapata (pontos e arestas pelo apoioDoElemento).
+  for (const e of Object.values(p.elements)) {
+    if (isColumn(e)) {
+      if (e.levelId === levelId || e.topLevelId === levelId) {
+        const apoio = apoioDoElemento(p, e);
+        if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+      }
+    } else if ((isBeam(e) || isFooting(e)) && e.levelId === levelId) {
+      const apoio = apoioDoElemento(p, e);
+      if (apoio) parts.push(geometryOfApoio(e.id, apoio));
+    }
   }
   // Massa do nível: vértices, meios de aresta e arestas do anel cortado (o kernel; sem ele o apoio sai vazio, A.5), pela mesma fonte das cotas.
   for (const e of Object.values(p.elements)) {

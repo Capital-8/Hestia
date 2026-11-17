@@ -17,7 +17,16 @@ type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | '
  * na planta de piso e de cobertura as do nível. Fora dessas (3D, prancha) não há anotação.
  */
 export function annotationsOfActiveView(p: Project, st: ViewState): ViewAnnotation[] {
-  type Fonte = { dimensions?: Array<{ id: Id; familyId?: Id }>; texts?: Array<{ id: Id }>; detailLines?: Array<{ id: Id }>; detailRegions?: Array<{ id: Id }>; tags?: Array<{ id: Id }> };
+  type Fonte = {
+    dimensions?: Array<{ id: Id; familyId?: Id }>;
+    texts?: Array<{ id: Id }>;
+    detailLines?: Array<{ id: Id }>;
+    detailRegions?: Array<{ id: Id }>;
+    tags?: Array<{ id: Id }>;
+    spots?: Array<{ id: Id; kind: string; familyId?: Id }>;
+    revisionClouds?: Array<{ id: Id; familyId?: Id }>;
+    symbols?: Array<{ id: Id; kind: string; familyId?: Id }>;
+  };
   let fonte: Fonte | undefined;
   let separadores: Array<{ id: Id }> = [];
   if (st.view === 'section') {
@@ -38,6 +47,9 @@ export function annotationsOfActiveView(p: Project, st: ViewState): ViewAnnotati
   for (const x of fonte?.detailLines ?? []) out.push({ id: x.id, kind: 'detailLine', typeKey: 'detailLine' });
   for (const x of fonte?.detailRegions ?? []) out.push({ id: x.id, kind: 'detailRegion', typeKey: 'detailRegion' });
   for (const x of fonte?.tags ?? []) out.push({ id: x.id, kind: 'tag', typeKey: 'tag' });
+  for (const x of fonte?.spots ?? []) out.push({ id: x.id, kind: 'spot', typeKey: `spot:${x.kind}:${x.familyId ?? 'default'}` });
+  for (const x of fonte?.revisionClouds ?? []) out.push({ id: x.id, kind: 'revisionCloud', typeKey: `revisionCloud:${x.familyId ?? 'default'}` });
+  for (const x of fonte?.symbols ?? []) out.push({ id: x.id, kind: 'symbol', typeKey: `symbol:${x.kind}:${x.familyId ?? 'default'}` });
   for (const x of separadores) out.push({ id: x.id, kind: 'roomSeparator', typeKey: 'roomSeparator' });
   return out;
 }
@@ -46,7 +58,16 @@ export function annotationsOfActiveView(p: Project, st: ViewState): ViewAnnotati
 export function anotacoesSemOcultas(a: SectionAnnotations, hidden?: ReadonlySet<Id>): SectionAnnotations {
   if (!hidden?.size) return a;
   const keep = <T extends { id: Id }>(xs: T[]): T[] => xs.filter((x) => !hidden.has(x.id));
-  return { dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags) };
+  return {
+    dimensions: keep(a.dimensions),
+    texts: keep(a.texts),
+    detailLines: keep(a.detailLines),
+    detailRegions: keep(a.detailRegions),
+    tags: keep(a.tags),
+    ...(a.spots?.length ? { spots: keep(a.spots) } : {}),
+    ...(a.revisionClouds?.length ? { revisionClouds: keep(a.revisionClouds) } : {}),
+    ...(a.symbols?.length ? { symbols: keep(a.symbols) } : {}),
+  };
 }
 
 /** Ids de todas as anotações da vista ativa. */

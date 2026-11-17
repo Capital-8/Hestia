@@ -66,7 +66,8 @@ export class TextTool extends ToolBase {
     const options = this.env.options();
     const at = this.points[this.points.length - 1]!;
     const leader = this.points.length > 1 ? this.points.map((p) => ({ ...p })) : undefined;
-    const note: TextNote = { id: newId('txt'), at: { ...at }, text: t, height: options.textHeight ?? TEXT_DEFAULT_HEIGHT_MM, rotation: options.textRotation ?? 0, width: options.textWidth, leader, align: 'left' };
+    const familyId = options.textFamilyId ?? this.env.project().settings.defaultTextFamilyId;
+    const note: TextNote = { id: newId('txt'), at: { ...at }, text: t, height: options.textHeight ?? TEXT_DEFAULT_HEIGHT_MM, rotation: options.textRotation ?? 0, width: options.textWidth, leader, align: 'left', ...(familyId ? { familyId } : {}) };
     if (!addSectionText(this.env, note)) this.env.exec({ type: 'addText', levelId: this.env.levelId(), planId: viewPlanId(this.env), text: note });
     this.reset();
     this.env.say(this.hint);

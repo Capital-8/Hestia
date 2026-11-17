@@ -5,6 +5,8 @@ import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, 
 import type { ResolvedLevel } from './types.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
+import { cunhasDoNivel, juncaoInclinadaDaParede } from './junctionLevel.ts';
+import { openingIsTilted, tiltFactors, tiltJoinLayerVolume } from './wallTiltQuantities.ts';
 
 export interface LayerQuantity {
   wallId: Id;
@@ -49,6 +51,10 @@ export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
   return quantifyLevelCom(p, r, despachanteDeQuantidades()?.(p, r.levelId, 'paredes') ?? null);
 }
 
+/** Camada que recebe o volume da cunha de transição (a de maior área em planta): quantitativos e 3D usam a mesma. */
+export const camadaDaCunha = (rw: ResolvedLevel['walls'][Id]): ResolvedLevel['walls'][Id]['layers'][number] | undefined =>
+  rw.layers.reduce<ResolvedLevel['walls'][Id]['layers'][number] | undefined>((m, l) => (!m || multiArea(l.cut) > multiArea(m.cut) ? l : m), undefined);
+
 /** O motor TypeScript das quantidades de parede, sem despacho: só a referência (oráculo) dos testes do Rust. */
 export const quantifyLevelTs = (p: Project, r: ResolvedLevel): Quantities => quantifyLevelCom(p, r, null);
 
@@ -68,14 +74,32 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     const comprimento = wallLength(w);
     const H0 = rust ? 0 : profiled ? profileMean(profiled, comprimento) : rw.height;
     const H = rust ? rust.altura(rw.wallId) : rw.profileBottom ? (rw.profileTop ? profileMean(rw.profileTop, comprimento) : H0) - profileMean(rw.profileBottom, comprimento) : H0;
+    // Parede inclinada (F2.7): volume e face reais; vertical = null, números idênticos aos de antes.
+    const tf = tiltFactors(w, rw, H, comprimento);
+    const juncao = juncaoInclinadaDaParede(p, r.levelId, rw.wallId);
+    const furos = tf ? openingsOfWall(p, w.id).filter((o) => openingIsTilted(p, rw, o, openingType(p, o).width)) : [];
     let total = 0;
     let grossTotal = 0;
     for (const l of rw.layers) {
       const q = rust?.camada(rw.wallId, l.layerIndex);
-      const grossVol = q ? q.bruto : l.bands.reduce((s, b) => s + bandVolume(b), 0);
+      let grossVol = q ? q.bruto : l.bands.reduce((s, b) => s + bandVolume(b), 0);
+      let ajusteVao = 0;
+      // Junção exata de arco inclinado (J4): o volume é o da malha do 3D (anéis por nível); senão, o fator de sempre.
+      const ex = juncao ? tiltJoinLayerVolume(rw, l, juncao) : undefined;
+      if (ex && !tf) grossVol *= ex.factor;
+      if (tf) {
+        // Furo vertical sai escalado; furo perpendicular (plano inclinado) mantém w·h·t: devolve (f − 1) do furo vertical.
+        const wtl = p.wallTypes[w.typeId];
+        const esp = (l.layerIndex >= 0 ? wtl?.layers[l.layerIndex]?.thickness : wtl?.strips[-l.layerIndex - 1]?.thickness) ?? 0;
+        for (const o of furos) {
+          const t = openingType(p, o);
+          ajusteVao += ((ex?.factor ?? tf.layer(l.fragment)) - 1) * t.width * Math.max(0, Math.min(openingHeight(t, o), H - openingSill(t, o))) * esp;
+        }
+        grossVol = grossVol * (ex?.factor ?? tf.layer(l.fragment)) + ajusteVao;
+      }
       // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
       // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
-      const cortado = q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0);
+      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (ex?.factor ?? (tf ? tf.layer(l.fragment) : 1));
       const vol = q ? q.liquido : Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
@@ -88,14 +112,14 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     }
     for (const m of rw.membranes) {
       const len = Math.hypot(m.pts[1]!.x - m.pts[0]!.x, m.pts[1]!.y - m.pts[0]!.y);
-      faceAreaByMaterial[m.materialId] = (faceAreaByMaterial[m.materialId] ?? 0) + len * H;
+      faceAreaByMaterial[m.materialId] = (faceAreaByMaterial[m.materialId] ?? 0) + len * H * (tf?.face ?? 1);
     }
-    const gross = wallLength(w) * H;
+    const gross = tf ? tf.grossFace : wallLength(w) * H;
     const openings = openingsOfWall(p, w.id).reduce((s, o) => {
       const t = openingType(p, o);
       const top = profiled ? profileHeightAt(profiled, o.offset) : H;
       const clipped = Math.max(0, Math.min(openingHeight(t, o), top - openingSill(t, o)));
-      return s + t.width * clipped;
+      return s + t.width * clipped * (tf && !openingIsTilted(p, rw, o, t.width) ? tf.face : 1);
     }, 0);
     walls.push({
       wallId: w.id,
@@ -107,6 +131,16 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
       volume: total,
       grossVolume: grossTotal,
     });
+  }
+  // Cunhas de transição (etapa R): o volume do prisma entra na parede dona e no material da camada mais espessa.
+  for (const c of cunhasDoNivel(p, r.levelId)) {
+    const wq = walls.find((x) => x.wallId === c.wallId);
+    const rw = r.walls[c.wallId];
+    const main = rw && camadaDaCunha(rw);
+    if (!wq || !main) continue;
+    wq.volume += c.volume;
+    wq.grossVolume += c.volume;
+    volumeByMaterial[main.materialId] = (volumeByMaterial[main.materialId] ?? 0) + c.volume;
   }
   return { layers, walls, volumeByMaterial, faceAreaByMaterial };
 }

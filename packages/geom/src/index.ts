@@ -9,6 +9,7 @@ export * from './openingSymbol.ts';
 export * from './sketchTypes.ts';
 export * from './sketchValidate.ts';
 export * from './sketchConst.ts';
+export { SKETCH_TOL } from './sketchGeom.ts';
 export * from './numberText.ts';
 
 // `boolean.ts` continua sendo a implementação TypeScript, intocada. As operações quentes saem por
@@ -22,7 +23,7 @@ export { difference, differenceClipper, intersection, offsetMulti, union, unionC
 export { ativarKernelExperimental, desativarKernelExperimental, garantirKernelExperimental } from './kernel/carregador.ts';
 export { estadoKernel, exigirKernel, kernelExigido, KernelV1Pendente, ErroKernelV1, type EstadoKernel, type ImplKernel } from './kernel/contrato.ts';
 // Kernel v2 (ABI v2, decisão 0046): chaves de liberação por fatia.
-export { kernelFatiaLigada, fatiasLigadas, interpretarLista, CHAVE_FATIAS, FATIAS, type Fatia } from './kernel/v2/fatias.ts';
+export { kernelFatiaLigada, fatiaEfetiva, fatiasLigadas, interpretarLista, CHAVE_FATIAS, FATIAS, type Fatia } from './kernel/v2/fatias.ts';
 export { medicaoOperacoes, resetarMedicaoOperacoes, type MedicaoOperacoes } from './operacoesKernel.ts';
 // Kernel v2: instância, cena e erros (decisão 0046), usados pelo despacho da fatia A (`packages/engine/src/kernelDespacho.ts`).
 export { GerenciadorKernelV2, MAX_RECRIACOES, JANELA_RECRIACAO_MS, type EstadoGerenciador } from './kernel/v2/gerenciador.ts';

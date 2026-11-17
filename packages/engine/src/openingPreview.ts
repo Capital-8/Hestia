@@ -1,4 +1,4 @@
-import type { Vec2 } from '@hestia/geom';
+import { arcPointAt, arcTangentAt, type Vec2 } from '@hestia/geom';
 import {
   openingAngle2d,
   openingDetail2d,
@@ -16,6 +16,7 @@ import type { WallFrame } from './frame.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import {
   openingPlanPaths,
+  type OpeningPlanAnchor,
   type OpeningPlanOptions,
   type OpeningPlanPath,
   type OpeningPlanRole,
@@ -53,11 +54,78 @@ const at = (c: Vec2, u: Vec2, n: Vec2, t: number, s: number): Vec2 => ({
   y: c.y + u.y * t + n.y * s,
 });
 
+function anchoredBasis(g: OpeningGeometry, anchor: OpeningPlanAnchor): { origin: Vec2; u: Vec2; n: Vec2; scale: number } {
+  const { arc, sMid } = g.curve!;
+  const origin = arcPointAt(arc, g.offset + anchor.t, sMid + anchor.s);
+  let u = arcTangentAt(arc, g.offset + anchor.t);
+  let scale = 1;
+  if (anchor.refT !== undefined) {
+    const dl = anchor.refT - anchor.t;
+    if (Math.abs(dl) > 1e-6) {
+      const target = arcPointAt(arc, g.offset + anchor.refT, sMid + anchor.s);
+      const dx = target.x - origin.x;
+      const dy = target.y - origin.y;
+      const chord = Math.hypot(dx, dy);
+      if (chord > 1e-9) {
+        const sgn = dl > 0 ? 1 : -1;
+        u = { x: (dx / chord) * sgn, y: (dy / chord) * sgn };
+        scale = chord / Math.abs(dl);
+      }
+    }
+  }
+  return { origin, u, n: { x: -u.y, y: u.x }, scale };
+}
+
+/** Ponto em coordenadas locais do vão usando a mesma âncora rígida da folha em parede curva. */
+export function openingAnchoredPoint(g: OpeningGeometry, anchor: OpeningPlanAnchor, t: number, s: number): Vec2 {
+  if (!g.curve) return at(g.center, g.u, g.n, t, s);
+  const { origin, u, n, scale } = anchoredBasis(g, anchor);
+  return {
+    x: origin.x + (u.x * (t - anchor.t) + n.x * (s - anchor.s)) * scale,
+    y: origin.y + (u.y * (t - anchor.t) + n.y * (s - anchor.s)) * scale,
+  };
+}
+
+function mapAnchoredRigid(g: OpeningGeometry, p: OpeningPlanPath, anchor: OpeningPlanAnchor): Vec2[] {
+  const { origin, u, n, scale } = anchoredBasis(g, anchor);
+  return p.pts.map((q) => ({
+    x: origin.x + (u.x * (q.t - anchor.t) + n.x * (q.s - anchor.s)) * scale,
+    y: origin.y + (u.y * (q.t - anchor.t) + n.y * (q.s - anchor.s)) * scale,
+  }));
+}
+
+function mapCurvedPath(g: OpeningGeometry, p: OpeningPlanPath): Vec2[] {
+  const { arc, sMid } = g.curve!;
+  const src = p.pts;
+  if (src.length === 0) return [];
+  const out: Vec2[] = [];
+  const count = p.closed ? src.length : src.length - 1;
+  for (let i = 0; i < count; i++) {
+    const a = src[i]!;
+    const b = src[(i + 1) % src.length]!;
+    const dt = Math.abs(b.t - a.t);
+    const steps = dt > 0.04 ? Math.max(2, Math.ceil(dt / 0.08)) : 1;
+    for (let k = 0; k < steps; k++) {
+      const f = k / steps;
+      out.push(arcPointAt(arc, g.offset + a.t + (b.t - a.t) * f, sMid + a.s + (b.s - a.s) * f));
+    }
+  }
+  if (!p.closed) {
+    const last = src[src.length - 1]!;
+    out.push(arcPointAt(arc, g.offset + last.t, sMid + last.s));
+  }
+  return out;
+}
+
 /** Põe os traços locais do vão (`t` ao longo da parede, `s` na profundidade) em coordenadas do mundo. */
 export function openingPlanPathsAt(g: OpeningGeometry, paths: readonly OpeningPlanPath[]): OpeningPlanWorldPath[] {
   return paths.map((p) => ({
     ...p,
-    pts: p.pts.map((q) => at(g.center, g.u, g.n, q.t, q.s)),
+    pts: !g.curve
+      ? p.pts.map((q) => at(g.center, g.u, g.n, q.t, q.s))
+      : p.anchor
+        ? mapAnchoredRigid(g, p, p.anchor)
+        : mapCurvedPath(g, p),
   }));
 }
 

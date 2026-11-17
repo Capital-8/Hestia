@@ -1,11 +1,10 @@
 import type { Project, Id } from '@hestia/model';
-import type { ToolId } from '@hestia/tools';
+import type { ToolId, ToolOptions } from '@hestia/tools';
 import type { SketchTarget } from '@hestia/geom';
 import { toolLabel } from '../../editor/i18n.ts';
 import type { PastePreviewState } from '../../editor/pasteLevels/types.ts';
 import { perimeterContextTab, type PerimeterContextTab } from '../perimeter/PerimeterRibbonPanels.tsx';
-import { act, option, panel, soonS, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
-import { wallModeOf, wallModePatch, type WallMode } from '../wallModes.ts';
+import { act, option, panel, soonS, stack, t, tool, type RibbonPanel, type RibbonTab, type Txt } from './model.ts';
 import { P_CLIPBOARD, P_CREATE, P_GEOMETRY, P_MEASURE, P_MODIFY, P_PROPS, P_SELECT, P_SELECTION_EXTRA, P_VIEW_MOD } from './panelsShared.ts';
 
 /**
@@ -18,28 +17,21 @@ export interface ContextTab {
 }
 
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
-const PLACE: ReadonlySet<ToolId> = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag']);
+const PLACE: ReadonlySet<ToolId> = new Set<ToolId>([
+  'wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'tag',
+  'column', 'beam', 'footing',
+]);
 
-/** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". */
+const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;
+
+/** Modos de desenho (opções da ferramenta) como botões pressionáveis, no painel "Desenhar". A Parede tem o painel próprio (`WallDrawPanel`). */
 function drawPanel(id: ToolId): RibbonPanel | null {
-  // Pilhas de três botões (limite da faixa): o painel ganha uma pilha a cada três modos.
-  const mk = (...items: RibbonItem[]): RibbonPanel => {
-    const pilhas: RibbonItem[] = [];
-    for (let i = 0; i < items.length; i += 3) pilhas.push(stack(...items.slice(i, i + 3)));
-    return panel('desenhar', t('Desenhar', 'Draw'), ...pilhas);
-  };
-  const modo = (m: WallMode, label: Txt, icon: string): RibbonItem => option(label, icon, (o) => wallModeOf(o) === m, wallModePatch(m));
+  const mk = (...items: ReturnType<typeof option>[]): RibbonPanel => panel('desenhar', t('Desenhar', 'Draw'), stack(...items.slice(0, 3)), ...(items.length > 3 ? [stack(...items.slice(3, 6))] : []));
   switch (id) {
-    case 'wall':
+    case 'beam':
       return mk(
-        modo('line', t('Linha', 'Line'), 'wall'),
-        modo('arc', t('Arco (3 pontos)', 'Arc (3 points)'), 'detailLine'),
-        modo('rect', t('Retângulo', 'Rectangle'), 'plan'),
-        modo('polygonIn', t('Polígono inscrito', 'Inscribed polygon'), 'roomsep'),
-        modo('polygonOut', t('Polígono circunscrito', 'Circumscribed polygon'), 'filledRegion'),
-        modo('circle', t('Círculo', 'Circle'), 'materialSphere'),
-        modo('ellipse', t('Elipse', 'Ellipse'), 'eye'),
-        modo('spline', t('Spline', 'Spline'), 'roofextrusion'),
+        option(t('Linha', 'Line'), 'beam', (o) => (o.beamShape ?? 'line') === 'line', { beamShape: 'line' }),
+        option(t('Retângulo', 'Rectangle'), 'plan', same('beamShape', 'rect'), { beamShape: 'rect' }),
       );
     default:
       return null;
@@ -51,7 +43,7 @@ const PERIMETRO = panel('perimetro', t('Perímetro', 'Perimeter'), act('editPeri
 
 /** Painéis do assunto de cada categoria selecionada. */
 const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
-  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')))] },
+  wall: { label: t('Paredes', 'Walls'), panels: [panel('modificar-parede', t('Modificar parede', 'Modify Wall'), stack(tool('attachroof', 'small'), tool('detachroof', 'small'), soonS(t('Editar perfil', 'Edit Profile'), 'soon')), act('wallTilt'), stack(act('tiltFollow', 'small'), act('tiltWedge', 'small')))] },
   door: { label: t('Portas', 'Doors'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   window: { label: t('Janelas', 'Windows'), panels: [panel('hospedeiro', t('Hospedeiro', 'Host'), tool('rehost'))] },
   floor: { label: t('Pisos', 'Floors'), panels: [PERIMETRO] },
@@ -61,6 +53,24 @@ const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
   stair: { label: t('Escadas', 'Stairs'), panels: [panel('escada', t('Escada', 'Stair'), act('stairSketch'), act('stairTypes'), act('schedStairs', 'large', t('Tabela de escadas', 'Stair Schedule')))] },
   ramp: { label: t('Rampas', 'Ramps'), panels: [panel('rampa', t('Rampa', 'Ramp'), act('rampTypes'), act('schedRamps', 'large', t('Tabela de rampas', 'Ramp Schedule')))] },
   room: { label: t('Ambientes', 'Rooms'), panels: [panel('ambiente', t('Ambiente', 'Room'), tool('roomsep'))] },
+  column: {
+    label: t('Pilares estruturais', 'Structural Columns'),
+    panels: [
+      panel('modificar-pilar', t('Pilar', 'Column'), act('structuralRotate90'), act('structuralEditType'), act('schedColumns', 'large', t('Tabela de pilares', 'Column Schedule'))),
+    ],
+  },
+  beam: {
+    label: t('Quadro estrutural (Vigas)', 'Structural Framing (Beams)'),
+    panels: [
+      panel('modificar-viga', t('Viga', 'Beam'), act('structuralEditType'), act('schedBeams', 'large', t('Tabela de vigas', 'Beam Schedule'))),
+    ],
+  },
+  footing: {
+    label: t('Fundações estruturais', 'Structural Foundations'),
+    panels: [
+      panel('modificar-sapata', t('Fundação', 'Foundation'), act('structuralRotate90'), act('footingAtColumns'), act('structuralEditType'), act('schedFootings', 'large', t('Tabela de sapatas', 'Footing Schedule'))),
+    ],
+  },
 };
 
 /** Base dos painéis de uma aba contextual, na ordem do Revit. */

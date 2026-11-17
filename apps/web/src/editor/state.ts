@@ -1,8 +1,8 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type { Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
-import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
+import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type DimCustomTarget, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
 import { safeGet, safeSet } from './storage.ts';
 import { selectionAfterClick } from './selectionClick.ts';
 import { activeViewOf, addView, type OpenView, type PlanKind } from './openViews.ts';
@@ -20,7 +20,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'massSchedule' | 'massPisos' | 'massParedes' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
 
 export interface UiState {
   tool: ToolId;
@@ -76,12 +76,15 @@ export interface UiState {
   tutorial: boolean;
   /** Incrementa quando a pré-visualização da ferramenta muda (força novo desenho). */
   previewTick: number;
-  /** Referências de cota escolhidas na sessão (`${provedor}:${ponta}` → referência); somem ao trocar de ferramenta ou seleção. */
+  /** Referências de cota escolhidas na sessão (`${provedor}:${ponta}` ou `${dimKey}:${ponta}` → referência). */
   dimOverrides: Record<string, WallDimRef | OpeningDimRef>;
+  /** Alvos personalizados arrastados pela alça azul das cotas temporárias (`${dimKey}` → alvo). */
+  dimTargets: Record<string, DimCustomTarget>;
   /** Escolha de nova referência de uma ponta de cota permanente (Shift+clique na alça): o próximo clique na planta é o alvo. */
   dimRefPick: { dimId: string; slot: 'a' | 'b' } | null;
   /** Família que o diálogo de famílias abre selecionada (botão "Editar família…" da cota); some ao abrir. */
   dimFamilyFocus: string | null;
+  tagFamilyFocus: string | null;
   /**
    * Versão do projeto em que a seleção virou cotas permanentes (botão "I"): enquanto o projeto estiver nela, as cotas
    * temporárias da seleção ficam suspensas para não se sobrepor às pretas. Some na próxima seleção ou alteração.
@@ -326,6 +329,17 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   stair: { primitive: 'line', baseOffset: 0, topOffset: 0, height: 2.8, topLevelId: null },
   stairRun: DEFAULT_STAIR_RUN_OPTIONS,
   ramp: DEFAULT_RAMP_OPTIONS,
+  columnMode: 'vertical',
+  columnDepthMode: 'height',
+  columnHeight: 2.8,
+  columnBaseOffset: 0,
+  columnTopOffset: 0,
+  columnRotation: 0,
+  beamJustify: 'center',
+  beamZOffset: 0,
+  footingMode: 'free',
+  footingRotation: 0,
+  footingHeightOffset: 0,
 };
 
 /**
@@ -372,8 +386,10 @@ export const useUi = create<UiState>(() => ({
   tutorial: false,
   previewTick: 0,
   dimOverrides: {},
+  dimTargets: {},
   dimRefPick: null,
   dimFamilyFocus: null,
+  tagFamilyFocus: null,
   dimsSuspendedVersion: null,
   dimEditId: null,
   cursor: null,
@@ -433,6 +449,20 @@ export function setDimOverride(key: string, ref: WallDimRef | OpeningDimRef): vo
   useUi.setState((s) => ({ dimOverrides: { ...s.dimOverrides, [key]: ref } }));
 }
 
+/** Grava o alvo personalizado arrastado pela alça azul de uma cota temporária (`dimKey`). */
+export function setDimTarget(dimKey: string, target: DimCustomTarget): void {
+  useUi.setState((s) => ({ dimTargets: { ...s.dimTargets, [dimKey]: target } }));
+}
+
+/** Remove o alvo personalizado de uma cota temporária (volta ao vizinho mais próximo). */
+export function clearDimTarget(dimKey: string): void {
+  useUi.setState((s) => {
+    if (!(dimKey in s.dimTargets)) return s;
+    const { [dimKey]: _removida, ...resto } = s.dimTargets;
+    return { dimTargets: resto };
+  });
+}
+
 /** Remove a troca de uma ponta (volta ao padrão do projeto). */
 export function clearDimOverride(key: string): void {
   useUi.setState((s) => {
@@ -443,7 +473,10 @@ export function clearDimOverride(key: string): void {
 
 /** Limpa as referências de sessão (volta ao padrão do projeto). */
 export function clearDimOverrides(): void {
-  if (Object.keys(useUi.getState().dimOverrides).length > 0) useUi.setState({ dimOverrides: {} });
+  const st = useUi.getState();
+  if (Object.keys(st.dimOverrides).length > 0 || Object.keys(st.dimTargets).length > 0) {
+    useUi.setState({ dimOverrides: {}, dimTargets: {} });
+  }
 }
 
 /**
@@ -459,9 +492,8 @@ export function clearDimsSuspension(): void {
   if (useUi.getState().dimsSuspendedVersion !== null) useUi.setState({ dimsSuspendedVersion: null });
 }
 
-// As trocas rápidas e a suspensão valem para a ferramenta e a seleção em que foram feitas.
+// As trocas de referência permanecem gravadas na sessão ao desselecionar; só a suspensão de "I" é limpa.
 useUi.subscribe((s, prev) => {
   if (s.tool === prev.tool && s.selection === prev.selection) return;
-  clearDimOverrides();
   clearDimsSuspension();
 });

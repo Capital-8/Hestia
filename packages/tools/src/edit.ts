@@ -1,6 +1,10 @@
 import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingGeometry } from '@hestia/engine';
-import { isCad, isFloor, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId, sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project } from '@hestia/model';
+import {
+  beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn,
+  isFloor, isFooting, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId,
+  sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project,
+} from '@hestia/model';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
@@ -14,8 +18,11 @@ import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
 import { massRings, selectedMasses } from './massPick.ts';
 import { ghostGuardaCorpos, selectedGuardaCorpos } from './guardaCorpoEdicao.ts';
+import { selectedBeams, selectedColumns, selectedFootings } from './structuralPick.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 import { langOf, t as translate } from './i18n.ts';
+
+export { selectedBeams, selectedColumns, selectedFootings } from './structuralPick.ts';
 
 /** Paredes dentro da seleção (aberturas selecionadas acompanham o anfitrião). */
 export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isWall(p.elements[id]));
@@ -23,7 +30,21 @@ export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id)
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
 /** Paredes, pisos, lajes, telhados, massas e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
-export const selectedMovables = (p: Project, ids: Id[]): Id[] => [...selectedWalls(p, ids), ...selectedFloors(p, ids), ...selectedSlabs(p, ids), ...selectedRoofs(p, ids), ...selectedStairs(p, ids), ...selectedRamps(p, ids), ...selectedRooms(p, ids), ...selectedCads(p, ids), ...selectedGuardaCorpos(p, ids), ...selectedMasses(p, ids)];
+export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
+  ...selectedWalls(p, ids),
+  ...selectedFloors(p, ids),
+  ...selectedSlabs(p, ids),
+  ...selectedRoofs(p, ids),
+  ...selectedStairs(p, ids),
+  ...selectedRamps(p, ids),
+  ...selectedRooms(p, ids),
+  ...selectedCads(p, ids),
+  ...selectedGuardaCorpos(p, ids),
+  ...selectedColumns(p, ids),
+  ...selectedBeams(p, ids),
+  ...selectedFootings(p, ids),
+  ...selectedMasses(p, ids),
+];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */
 export const selectedViews = (p: Project, ids: Id[]): Id[] => viewIdsIn(p, ids);
@@ -64,6 +85,9 @@ export function makeIdMap(p: Project, ids: Id[]): Record<Id, Id> {
     else if (isRamp(e)) map[id] = newId('rp');
     else if (isRoom(e)) map[id] = newId('rm');
     else if (isCad(e)) map[id] = newId('cad');
+    else if (isColumn(e)) map[id] = newId('col');
+    else if (isBeam(e)) map[id] = newId('bm');
+    else if (isFooting(e)) map[id] = newId('ft');
     else if (isMass(e)) map[id] = newId('ms');
   }
   for (const e of Object.values(p.elements)) {
@@ -117,6 +141,24 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
     }
     if (isFloor(fl) || isSlab(fl) || isRoof(fl)) {
       out.push({ kind: 'polygon', ring: fl.boundary.map((q) => applyTransform(t, q)), dashed: true });
+      continue;
+    }
+    if (isColumn(fl)) {
+      const type = findColumnType(p, fl.typeId);
+      const poly = columnPolygon(fl, type);
+      out.push({ kind: 'polygon', ring: poly.map((q) => applyTransform(t, q)), dashed: true });
+      continue;
+    }
+    if (isBeam(fl)) {
+      const type = findBeamType(p, fl.typeId);
+      const poly = beamPolygon(fl, type);
+      out.push({ kind: 'polygon', ring: poly.map((q) => applyTransform(t, q)), dashed: true });
+      continue;
+    }
+    if (isFooting(fl)) {
+      const type = findFootingType(p, fl.typeId);
+      const poly = footingPolygon(fl, type);
+      out.push({ kind: 'polygon', ring: poly.map((q) => applyTransform(t, q)), dashed: true });
       continue;
     }
     const f = frameOfWall(p, id);

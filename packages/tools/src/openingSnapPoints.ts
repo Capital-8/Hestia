@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { buildOpeningModel, frameOfWall, openingGeometry, pointAt, type LeafOpening, type OpeningModel, type WallFrame } from '@hestia/engine';
+import { buildOpeningModel, frameOfWall, openingAnchoredPoint, openingGeometry, pointAt, type LeafOpening, type OpeningModel, type OpeningPlanAnchor, type WallFrame } from '@hestia/engine';
 import { openingTypeById, openingAngle2d, openingsOfWall, wallsOnLevel, type Id, type OpeningType, type Project, type Wall } from '@hestia/model';
 import type { SnapPoint } from './infer.ts';
 import type { SnapKind } from './types.ts';
@@ -23,14 +23,6 @@ const cache = new WeakMap<Project, Map<Id, OpeningSnapGeometry>>();
 
 function at(f: WallFrame, t: number, s: number): Vec2 {
   return pointAt(f, t, s);
-}
-
-/** Ponto no sistema local do vão, o mesmo que a planta usa (`openingPlanWorldPaths`). */
-function localToWorld(g: ReturnType<typeof openingGeometry>, t: number, s: number): Vec2 {
-  return {
-    x: g.center.x + g.u.x * t + g.n.x * s,
-    y: g.center.y + g.u.y * t + g.n.y * s,
-  };
 }
 
 /** Sinal do giro da folha: o mesmo de `openingSign` (movimento da folha, ou a regra do lado). */
@@ -59,14 +51,19 @@ function swingPoints(t: OpeningType, g: ReturnType<typeof openingGeometry>, mode
   for (const leaf of model.openings) {
     if (leaf.kind !== 'side' && leaf.kind !== 'pivot') continue;
     const pivot = leaf.pivot;
-    out.push(localToWorld(g, pivot.t, pivot.s));
+    const anchor: OpeningPlanAnchor = {
+      t: pivot.t,
+      s: pivot.s,
+      ...(leaf.kind === 'pivot' ? {} : { refT: leaf.latchT }),
+    };
+    out.push(openingAnchoredPoint(g, anchor, pivot.t, pivot.s));
     const closedEnds = leaf.kind === 'pivot' ? (leafT(model, leaf.leaf) ?? [leaf.latchT, leaf.latchT]) : [leaf.latchT];
     const sweep = leafSign(leaf, model) * angle;
     const cos = Math.cos(sweep);
     const sin = Math.sin(sweep);
     for (const closedT of closedEnds) {
       const dt = closedT - pivot.t;
-      out.push(localToWorld(g, pivot.t + dt * cos, pivot.s + dt * sin));
+      out.push(openingAnchoredPoint(g, anchor, pivot.t + dt * cos, pivot.s + dt * sin));
     }
   }
   return out;

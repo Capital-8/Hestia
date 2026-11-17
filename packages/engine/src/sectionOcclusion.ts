@@ -1,4 +1,4 @@
-import { boxOf, boxesOverlap, differenceClipper, multiArea, multiPoints, type Box, type MultiPolygon } from '@hestia/geom';
+import { boxOf, boxesOverlap, differenceClipper, intersection, multiArea, multiPoints, type Box, type MultiPolygon, type Ring } from '@hestia/geom';
 
 /**
  * Remoção de superfícies ocultas (linha oculta, como Revit e Archicad) em (t, z) para o corte e a elevação.
@@ -51,7 +51,21 @@ export interface OcclusionCota {
   wall: boolean;
 }
 
+/**
+ * Profundidade ao plano de corte em cada ponto (t, z) de um item de face plana inclinada (água de telhado): depth = c + a·t + b·z.
+ * Sem plano, o item vale a profundidade constante `depth` (a do ponto mais próximo), como parede, piso e laje plana.
+ */
+export interface OcclusionPlane {
+  c: number;
+  a: number;
+  b: number;
+}
+
 export interface OcclusionItem {
+  /** Face vista de perfil (de ponta): não cobre nada, só é coberta (como o Lapin: face paralela à vista não esconde nada). */
+  passive?: boolean;
+  /** Profundidade em cada ponto, para face inclinada; ausente = constante `depth`. */
+  plane?: OcclusionPlane;
   /** Distância do plano de corte (ou da linha de elevação) ao ponto mais próximo do item. */
   depth: number;
   /** Ordem de empate (`OCCLUSION_RANK`). */
@@ -164,22 +178,103 @@ class GradeDeCaixas<T extends { box: Box }> {
   }
 }
 
-/** Acima de tantos oclusores, a subtração vai em lotes (ver `subtrairEmLotes`). */
+/** Até tantos vértices de oclusores, vale a subtração de sempre (passada única ou lotes de 4 na ordem de entrada). */
+const VERTICES_LEVES = 400;
+/** Também vale o de sempre quando nenhum oclusor tem tantos vértices (muitos retângulos, p. ex.): só oclusores complexos pedem lotes por vértices. */
+const OCLUSOR_COMPLEXO = 500;
+/** Acima de tantos oclusores, a subtração leve vai em lotes de `LOTE_DE_OCLUSORES` (comportamento de antes). */
 const MAX_OCLUSORES_POR_PASSADA = 8;
-/** Tamanho do lote da subtração. */
 const LOTE_DE_OCLUSORES = 4;
+/** Acima disso, os oclusores entram em lotes de até tantos vértices (um oclusor maior que o orçamento vai sozinho). */
+const VERTICES_POR_LOTE = 96;
+
+const verticesDe = (m: MultiPolygon): number => m.reduce((s, p) => s + p.reduce((t, r) => t + r.length, 0), 0);
+
+function caixaDe(m: MultiPolygon): Box {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of m) for (const r of p) for (const v of r) { if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x; if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y; }
+  return { minX, minY, maxX, maxY };
+}
 
 /**
- * `item − (o1 ∪ o2 ∪ ...)`. Com poucos oclusores é uma passada só. Com muitos, vai em lotes de 4: a passada única do kernel pagava dezenas de milissegundos por
- * peça quando os oclusores eram muitos e cheios de frestas finas (acabamentos de escada vistos de frente, projetados uns sobre os outros: uma elevação de
- * prédio com escadas em vários níveis levava 8 s, e os mesmos oclusores em lotes levam poucos ms). A região resultante é a mesma (a diferença não depende da
- * ordem nem do agrupamento); só a ordem dos vértices pode mudar. Para quando a peça some.
+ * `item − (o1 ∪ o2 ∪ ...)`. O custo da passada do kernel cresce muito mais que o número de vértices dos oclusores (as interseções entre eles entram na conta,
+ * mesmo longe da peça): no projeto do dono (paredes em arco inclinadas, ~120 lascas por oclusor, 3,6 mil vértices) uma peça de 4 vértices menos 8 oclusores
+ * levava 2,5 a 5 s numa só passada, e os mesmos oclusores em lotes de ~100 vértices, do menor para o maior, levam poucos ms (a peça costuma sumir nos primeiros).
+ * A região resultante é a mesma (a diferença não depende da ordem nem do agrupamento); só a ordem dos vértices pode mudar. Oclusor cuja caixa não encosta no
+ * resto da peça é pulado. Para quando a peça some. Poucos vértices (até `VERTICES_LEVES`): como antes (uma passada, ou lotes de 4 acima de 8 oclusores).
  */
-function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
-  if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+export function subtrairEmLotes(poligonos: MultiPolygon, oclusores: MultiPolygon[]): MultiPolygon {
+  const tamanhos = oclusores.map(verticesDe);
+  if (tamanhos.reduce((s, n) => s + n, 0) <= VERTICES_LEVES || Math.max(0, ...tamanhos) < OCLUSOR_COMPLEXO) {
+    if (oclusores.length <= MAX_OCLUSORES_POR_PASSADA) return differenceClipper(poligonos, ...oclusores);
+    let resto = poligonos;
+    for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+    return resto;
+  }
+  const ordem = oclusores.map((_, i) => i).sort((i, j) => tamanhos[i]! - tamanhos[j]! || i - j);
   let resto = poligonos;
-  for (let i = 0; i < oclusores.length && resto.length > 0; i += LOTE_DE_OCLUSORES) resto = differenceClipper(resto, ...oclusores.slice(i, i + LOTE_DE_OCLUSORES));
+  let lote: MultiPolygon[] = [];
+  let loteVertices = 0;
+  const descarregar = (): void => {
+    if (lote.length === 0) return;
+    resto = differenceClipper(resto, ...lote);
+    lote = [];
+    loteVertices = 0;
+  };
+  for (const i of ordem) {
+    if (resto.length === 0) break;
+    const o = oclusores[i]!;
+    if (loteVertices + tamanhos[i]! > VERTICES_POR_LOTE) descarregar();
+    if (resto.length === 0) break;
+    const c = caixaDe(resto);
+    const d = caixaDe(o);
+    if (d.minX > c.maxX + 1e-6 || d.maxX < c.minX - 1e-6 || d.minY > c.maxY + 1e-6 || d.maxY < c.minY - 1e-6) continue;
+    lote.push(o);
+    loteVertices += tamanhos[i]!;
+  }
+  descarregar();
   return resto;
+}
+
+/** Folga (m) de profundidade: abaixo disso duas faces estão no mesmo plano e nenhuma cobre a outra. */
+const DEPTH_EPS = 1e-6;
+
+/** Planos de profundidade iguais (águas coplanares vizinhas), com a folga de ponto flutuante. */
+const mesmoPlano = (p: OcclusionPlane, q: OcclusionPlane): boolean => Math.abs(p.c - q.c) < 1e-3 && Math.abs(p.a - q.a) < 1e-4 && Math.abs(p.b - q.b) < 1e-4;
+
+const planeOf = (it: OcclusionItem): OcclusionPlane => it.plane ?? { c: it.depth, a: 0, b: 0 };
+
+/**
+ * Região de `box` (com folga) onde `front` está mais perto do plano de corte que `back`:
+ * depth_front(t, z) + eps < depth_back(t, z). Semiplano linear em (t, z), recortado com Sutherland-Hodgman.
+ */
+function frontRegion(front: OcclusionPlane, back: OcclusionPlane, box: Box, winTies = false): MultiPolygon {
+  // `winTies`: o empate (dentro da folga) fica com `front`; sem ele, `front` só cobre quando está na frente por mais que a folga.
+  const c = front.c - back.c + (winTies ? -DEPTH_EPS : DEPTH_EPS);
+  const a = front.a - back.a;
+  const b = front.b - back.b;
+  const pad = 1;
+  let ring: Ring = [
+    { x: box.minX - pad, y: box.minY - pad },
+    { x: box.maxX + pad, y: box.minY - pad },
+    { x: box.maxX + pad, y: box.maxY + pad },
+    { x: box.minX - pad, y: box.maxY + pad },
+  ];
+  const f = (v: { x: number; y: number }): number => -(c + a * v.x + b * v.y);
+  const out: Ring = [];
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    const fp = f(p);
+    const fq = f(q);
+    if (fp >= 0) out.push(p);
+    if ((fp >= 0) !== (fq >= 0)) {
+      const k = fp / (fp - fq);
+      out.push({ x: p.x + (q.x - p.x) * k, y: p.y + (q.y - p.y) * k });
+    }
+  }
+  ring = out;
+  return ring.length >= 3 ? [[ring]] : [];
 }
 
 /** Mais células que isto numa só caixa: ela vai para a lista de grandes. */
@@ -210,17 +305,45 @@ export function visibleParts(items: OcclusionItem[]): MultiPolygon[] {
   const n = order.length;
   const colunas = Math.max(1, Math.min(512, Math.ceil(Math.sqrt(n))));
   const lado = Math.max((total.maxX - total.minX) / colunas, (total.maxY - total.minY) / colunas, 1e-6);
-  const grade = new GradeDeCaixas<{ box: Box; polygons: MultiPolygon }>(total.minX, total.minY, lado, colunas + 1);
+  const grade = new GradeDeCaixas<{ box: Box; polygons: MultiPolygon; idx: number }>(total.minX, total.minY, lado, colunas + 1);
   for (const i of order) {
     const item = items[i]!;
     const box = caixas.get(i)!;
-    const hits = grade.consultar(box, 1e-9).map((o) => o.polygons);
-    const visible = hits.length > 0 ? subtrairEmLotes(item.polygons, hits) : item.polygons;
+    const near = grade.consultar(box, 1e-9);
+    const passive = item.passive === true;
+    const sloped = (j: number): boolean => items[j]!.plane !== undefined && (items[j]!.plane!.a !== 0 || items[j]!.plane!.b !== 0);
+    const pi = planeOf(item);
+    // Quem cobre o item: o já processado inteiro (profundidade constante) ou, com face inclinada de um dos lados, só onde está na frente.
+    const hits = near.map((o) => {
+      if (!sloped(i) && !sloped(o.idx)) return o.polygons;
+      const po = planeOf(items[o.idx]!);
+      // Mesmo plano (águas coplanares vizinhas): nenhuma cobre a outra por profundidade; vale a ordem de antes (o já processado cobre).
+      if (mesmoPlano(po, pi)) return o.polygons;
+      const region = frontRegion(po, pi, o.box, true);
+      return region.length > 0 ? intersection(o.polygons, region) : [];
+    });
+    const visible = hits.length > 0 ? subtrairEmLotes(item.polygons, hits.filter((h) => h.length > 0)) : item.polygons;
+    // Onde o item está na frente de um já processado de face inclinada, ele o cobre: tira o item dali (o corpo inclinado vinha antes
+    // pela profundidade do ponto mais próximo e escondia indevidamente o que está na frente da sua parte alta).
+    if (visible.length > 0 && !passive) {
+      for (const o of near) {
+        if (!sloped(i) && !sloped(o.idx)) continue;
+        const po = planeOf(items[o.idx]!);
+        if (mesmoPlano(po, pi)) continue;
+        const region = frontRegion(pi, po, box);
+        if (region.length === 0) continue;
+        const covering = intersection(visible, region);
+        if (covering.length === 0) continue;
+        const rest = o.polygons.length > 0 ? differenceClipper(o.polygons, covering) : [];
+        o.polygons = rest;
+        out[o.idx] = rest;
+      }
+    }
     if (visible.length === 0) continue;
-    const area = multiArea(visible);
-    if (area < MIN_VISIBLE_AREA || (2 * area) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
+    const area0 = multiArea(visible);
+    if (area0 < MIN_VISIBLE_AREA || (2 * area0) / multiPerimeter(visible) < MIN_VISIBLE_WIDTH) continue;
     out[i] = visible;
-    grade.add({ box: boxOf(multiPoints(visible)), polygons: visible });
+    if (!passive) grade.add({ box: boxOf(multiPoints(visible)), polygons: visible, idx: i });
   }
   return out;
 }

@@ -18,6 +18,7 @@ import { buildCadLines } from './cad3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { geometriaDoLote, juntarLote } from './lotesMalha3d.ts';
 import { buildRampSolids } from './rampSolids.ts';
+import { buildStructuralSolids } from './structuralSolids.ts';
 import {
   buildCeilingSolids,
   buildFloorSolids,
@@ -163,6 +164,7 @@ export class CamadaFantasmas {
         ...buildStairSolids(dasEscadas, (s) => stairArrivalTop(previa, s).top),
         ...buildRampSolids(dasRampas),
         ...buildGenericSolids(projetoNovo, nivelId),
+        ...buildStructuralSolids(previa, nivelId, (id) => !novos.has(id)),
       );
     }
 

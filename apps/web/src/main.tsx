@@ -34,12 +34,15 @@ if (new URLSearchParams(location.search).has('debug')) {
     estado: estadoKernel,
     medicao: medicaoOperacoes,
   };
-  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model')]).then(([c, s, e, t, m]) => {
+  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model'), import('./editor/paneStore.ts'), import('./editor/layoutTree.ts'), import('./editor/paneStyle.ts')]).then(([c, s, e, t, m, ps, lt, pst]) => {
     (window as unknown as { __hestia: unknown }).__hestia = {
       editor: c.editor,
       abrirPorFases: (t: string, n: string) => import('./editor/aberturaProjeto.ts').then((a) => a.abrirProjetoPorFases(t, n)),
       priorizar: (alvo: { nivel?: string; vista?: string }) => import('./editor/aberturaProjeto.ts').then((a) => a.priorizar(alvo)),
       useUi: s.useUi,
+      usePanes: ps.usePanes,
+      layoutTreeOps: lt.layoutTreeOps,
+      descreverEstiloAplicado: pst.descreverEstiloAplicado,
       resolveSlabs: e.resolveSlabs,
       resolveFloors: e.resolveFloors,
       resolveStairs: e.resolveStairs,
@@ -47,6 +50,7 @@ if (new URLSearchParams(location.search).has('debug')) {
       // Miniatura da biblioteca (o e2e confere que ela sai com o modelo, salvando fora da aba 3D).
       miniatura: () => import('./editor/miniatura.ts').then((m) => m.capturarMiniatura3d()),
       resolveLevel: e.resolveLevel,
+      executarResolucao: () => import('@hestia/engine/src/worker/executor.ts').then((x) => x.executarResolucao),
       junctionLevel: e.junctionLevel,
       cutLevelByJunction: e.cutLevelByJunction,
       quantifyLevel: e.quantifyLevel,

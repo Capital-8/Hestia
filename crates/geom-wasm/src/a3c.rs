@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use crate::a2::{pintar_nivel, Codificador, GrupoPintado, NivelPintado, OpcoesDePlanta};
-use crate::a3::{furos_de, aberturas_do_nivel, retangulo_do_vao};
+use crate::a3::{furos_de, aberturas_do_nivel, furo_do_vao};
 use crate::a3b::{recortar_retorno, retornos_do_nivel, RetornoDoNivel};
 use crate::cena::Cena;
 use crate::consultas::Saida;
@@ -277,8 +277,12 @@ fn resolver_grupo(
         regioes.push((*material, fechar_frestas_seguro(&uniao(partes)?, FRESTA_EPS, FRESTA_PERDA_MAXIMA)?));
     }
     // Silhueta pela união das regiões por material (ver o comentário em `solveCluster`).
-    let polis: Vec<MultiPoligono> = regioes.iter().map(|(_, p)| p.clone()).collect();
-    let silhueta = fechar_frestas_seguro(&uniao(&polis)?, FRESTA_EPS, FRESTA_PERDA_MAXIMA)?;
+    let silhueta = if regioes.len() <= 1 {
+        regioes.first().map(|(_, p)| p.clone()).unwrap_or_default()
+    } else {
+        let polis: Vec<MultiPoligono> = regioes.iter().map(|(_, p)| p.clone()).collect();
+        fechar_frestas_seguro(&uniao(&polis)?, FRESTA_EPS, FRESTA_PERDA_MAXIMA)?
+    };
     // Ordem de `resolveLevel`: por parede (primeira aparição) e, em cada uma, `layerIndex` crescente (ordenação estável).
     let mut camadas: Vec<CamadaResolvida> = Vec::with_capacity(resolvidas.len());
     let mut restantes: Vec<Option<CamadaResolvida>> = resolvidas.into_iter().map(Some).collect();
@@ -317,10 +321,18 @@ pub fn resolver_nivel(cena: &Cena, nivel: u32, tol: f64, opcoes: &OpcoesDoCluste
             let z = cena.parede_z(p).ok_or(ENTRADA)?;
             zr.insert(p, FaixaZ { z0: z.z0, z1: z.z0 + z.altura });
         }
+        let quadro_de: HashMap<u32, &crate::quadro::Quadro> =
+            g.membros.iter().map(|&i| (pintado.quadros[i].id, &pintado.quadros[i])).collect();
         let vaos: Vec<VaoDoGrupo> = aberturas
             .iter()
             .filter(|(_, a, _, _)| paredes.contains(&a.parede))
-            .map(|(id, a, _, geo)| VaoDoGrupo { id: *id, parede: a.parede, peitoril: geo.peitoril, vao_altura: geo.vao_altura, retangulo: retangulo_do_vao(geo) })
+            .map(|(id, a, _, geo)| VaoDoGrupo {
+                id: *id,
+                parede: a.parede,
+                peitoril: geo.peitoril,
+                vao_altura: geo.vao_altura,
+                retangulo: furo_do_vao(quadro_de[&a.parede], geo),
+            })
             .collect();
         // Cortinas embutidas (fase 5, seção 113): o vão recorta o hospedeiro em todas as camadas, como uma abertura sem retorno.
         let mut vaos = vaos;

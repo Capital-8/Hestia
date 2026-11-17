@@ -1,5 +1,7 @@
 /* eslint-disable max-lines */
 import type { DimensionElementRef, DimensionStyle } from './dimensionContract.ts';
+import type { TagFamily } from './tagFamily.ts';
+import type { NorthArrowFamily, RevisionCloudFamily, SpotFamily, TextFamily } from './annotationFamilies.ts';
 import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
@@ -22,11 +24,19 @@ import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
+import type { Column, ColumnType } from './column.ts';
+import type { Beam, BeamType } from './beam.ts';
+import type { Footing, FootingType } from './footing.ts';
 
 export type Id = string;
+/** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
+/** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 26;
+export const SCHEMA_VERSION = 28;
 
+export type { Column, ColumnType, ColumnShape } from './column.ts';
+export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
+export type { Footing, FootingType } from './footing.ts';
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
@@ -171,6 +181,11 @@ export interface JoinConfig {
   kind: JoinKind;
   /** Inverte qual parede domina (quem atravessa no encosto). Padrão: a mais antiga domina. */
   flip: boolean;
+  /**
+   * Parede inclinada em continuação com inclinação diferente (etapa R): 'degrau' (ausente) = o topo faz degrau e o aviso
+   * `inclinacoesDiferentesEmContinuacao` aponta; 'cunha' = um prisma triangular fecha o degrau. Campo opcional, sem migração.
+   */
+  transicao?: 'degrau' | 'cunha';
 }
 
 export interface Level {
@@ -195,6 +210,12 @@ export interface Level {
   detailRegions?: DetailRegion[];
   /** Etiquetas associativas de elementos nesta vista. */
   tags?: ElementTag[];
+  /** Cotas de elevação e coordenadas de ponto nesta vista. */
+  spots?: SpotAnnotation[];
+  /** Nuvens de revisão nesta vista. */
+  revisionClouds?: RevisionCloud[];
+  /** Símbolos de anotação (ex.: Seta norte) nesta vista. */
+  symbols?: SymbolAnnotation[];
   /** Linhas de separação de ambiente (decisão 0031 §3; Revit: Room Separation Line); ausente = nenhuma. */
   roomSeparators?: RoomSeparator[];
 }
@@ -293,6 +314,8 @@ export interface TextNote {
   text: string;
   height: number;
   rotation: number;
+  /** Família de texto associada (fonte, tamanho, fundo, seta do líder). */
+  familyId?: Id;
   /** Largura da caixa em mm de papel; ausente mantém texto sem quebra. */
   width?: number;
   /** Desenha a caixa (moldura) em volta do texto; ausente = só texto. */
@@ -306,13 +329,63 @@ export interface TextNote {
 }
 
 /** Linha gráfica de detalhamento, vista-específica. */
-export interface DetailLine { id: Id; a: Vec2; b: Vec2; style?: 'solid' | 'dashed' | 'dotted'; }
+export interface DetailLine {
+  id: Id; a: Vec2; b: Vec2; style?: 'solid' | 'dashed' | 'dotted';
+  /**
+   * Flecha do arco (m), como `Wall.sag`: distância do meio do arco à corda, positiva à ESQUERDA de a→b.
+   * Ausente (ou ~0) = linha reta. Limitada a metade da corda (arco de até 180°); ver `detailLineSegments`.
+   */
+  sag?: number;
+}
 
 /** Região 2D vista-específica; `mask` cobre a geometria atrás da região. */
 export interface DetailRegion { id: Id; boundary: Vec2[]; color?: string; mask?: boolean; }
 
 /** Etiqueta vinculada ao elemento: o valor é consultado no modelo e se atualiza junto com ele. */
-export interface ElementTag { id: Id; hostId: Id; at: Vec2; property: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height'; leader?: boolean; orientation?: 'horizontal' | 'vertical'; }
+export interface ElementTag {
+  id: Id;
+  hostId: Id;
+  at: Vec2;
+  /** Parâmetro único (comportamento antigo); com `familyId` o rótulo vem do modelo da família. */
+  property: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height';
+  /** Família de etiqueta (modelo do rótulo, forma e tamanho); ausente = `property` como antes. */
+  familyId?: Id;
+  leader?: boolean;
+  orientation?: 'horizontal' | 'vertical';
+}
+
+/** Cota de elevação ou coordenada de ponto (Revit: Spot Elevation / Spot Coordinate). */
+export interface SpotAnnotation {
+  id: Id;
+  kind: 'elevation' | 'coordinate';
+  /** Ponto medido no modelo (ou em (t, z) no corte). */
+  target: Vec2;
+  /** Ponto do texto/ombro. */
+  at: Vec2;
+  /** Cotovelo opcional da linha de chamada. */
+  elbow?: Vec2;
+  familyId?: Id;
+  showLeader?: boolean;
+}
+
+/** Nuvem de revisão única com arcos paramétricos. */
+export interface RevisionCloud {
+  id: Id;
+  points: Vec2[];
+  closed: boolean;
+  familyId?: Id;
+  revisionTag?: string;
+  comments?: string;
+}
+
+/** Símbolo gráfico único (ex.: Seta Norte). */
+export interface SymbolAnnotation {
+  id: Id;
+  kind: 'northArrow';
+  at: Vec2;
+  rotation: number;
+  familyId?: Id;
+}
 
 /** Ponto do perfil superior: `t` = distância ao longo de a→b; `h` = altura do topo acima da base da parede. */
 export interface ProfilePoint {
@@ -365,6 +438,12 @@ export interface Wall {
    * topo se mantém na altura do ponto mais próximo. `null` = topo reto por `height`/nível. Só em parede reta.
    */
   topProfile: ProfilePoint[] | null;
+  /**
+   * Inclinação em graus a partir da vertical; positivo = o topo desloca para a ESQUERDA de a→b (mesma convenção do sinal
+   * de `sag`). Ausente = 0 = parede vertical. A rotação é em torno da LINHA DE BASE (a base não se move). Até a Fase 3 não
+   * pode coexistir com `topProfile`. Validação em `wallTiltIssue` (|tilt| ≤ 60, arco inclinado para o centro).
+   */
+  tilt?: number;
   /** Instância da parede cortina (decisão 0056, §4.3): só intenções (sobrescritas), nunca geometria. Ausente = parede comum. */
   curtain?: CurtainInstance;
   /** Massa e nível de que veio a parede (ficha D2); ausente em parede comum. Some ao copiar (a cópia é parede comum). */
@@ -405,6 +484,11 @@ export interface OutlineSource {
    * dizem o lado. Decisão 0026 (T7).
    */
   extend?: 'finish' | 'core';
+  /**
+   * Cota de que o contorno VINCULADO é derivado (T-F): `'base'` (padrão, ausente) = contorno da parede na cota da base;
+   * `'top'` = contorno do TOPO da parede em planta (em parede inclinada o topo se desloca H·tanθ). Só vale com `linked`.
+   */
+  reference?: 'base' | 'top';
 }
 
 /**
@@ -726,7 +810,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing | Column | Beam | Footing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -760,6 +844,26 @@ export interface ProjectSettings {
   dimensionFamilies?: DimensionFamily[];
   /** Família usada nas cotas novas (ausente = a primeira da lista, ou `Padrão`). */
   defaultDimensionFamilyId?: Id;
+  /** Famílias de etiqueta nomeadas (ausente = as predefinidas). */
+  tagFamilies?: TagFamily[];
+  /** Família usada nas etiquetas novas (ausente = a primeira da lista). */
+  defaultTagFamilyId?: Id;
+  /** Famílias de texto, cota de elevação/coordenada, nuvem de revisão e seta norte. */
+  textFamilies?: TextFamily[];
+  defaultTextFamilyId?: Id;
+  spotFamilies?: SpotFamily[];
+  defaultSpotElevationFamilyId?: Id;
+  defaultSpotCoordinateFamilyId?: Id;
+  revisionCloudFamilies?: RevisionCloudFamily[];
+  defaultRevisionCloudFamilyId?: Id;
+  northArrowFamilies?: NorthArrowFamily[];
+  defaultNorthArrowFamilyId?: Id;
+  /** Ponto Base do Projeto (origem local em metros). */
+  projectBasePoint?: { x: number; y: number; z: number };
+  /** Ponto de Levantamento topográfico (origem georreferenciada e Norte Verdadeiro em graus). */
+  surveyPoint?: { x: number; y: number; z: number; trueNorthDeg?: number };
+  /** Numera sozinho a marca (P01, J01…) de porta e janela ao inseri-las. Ausente = liga. */
+  autoMarks?: boolean;
   /** Unidades do projeto (ausente = padrões de `defaultUnits()`). */
   units?: UnitsSettings;
   /** Perfil de norma do guarda-corpo do projeto (ausente = `nbr-br`). Só gera avisos. */
@@ -864,6 +968,12 @@ export interface Project {
   mullionTypes?: Record<Id, MullionType>;
   /** Tipos de painel da parede cortina (decisão 0056, §4.5). Mesmo regime de `mullionTypes` (`curtainPanelTypesOf`). */
   curtainPanelTypes?: Record<Id, CurtainPanelType>;
+  /** Catálogo de tipos de pilar (decisão estrutural). */
+  columnTypes?: Record<Id, ColumnType>;
+  /** Catálogo de tipos de viga (decisão estrutural). */
+  beamTypes?: Record<Id, BeamType>;
+  /** Catálogo de tipos de sapata/bloco de fundação (decisão estrutural). */
+  footingTypes?: Record<Id, FootingType>;
   elements: Record<Id, Element>;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
@@ -924,3 +1034,6 @@ export const isRamp = (e: Element | undefined): e is Ramp => e?.kind === 'ramp';
 export const isGuardaCorpo = (e: Element | undefined): e is GuardaCorpo => e?.kind === 'railing';
 export const isRoom = (e: Element | undefined): e is Room => e?.kind === 'room';
 export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === 'generic';
+export const isColumn = (e: Element | undefined): e is Column => e?.kind === 'column';
+export const isBeam = (e: Element | undefined): e is Beam => e?.kind === 'beam';
+export const isFooting = (e: Element | undefined): e is Footing => e?.kind === 'footing';

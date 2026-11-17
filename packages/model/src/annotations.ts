@@ -2,7 +2,7 @@ import { len, sub, type Vec2 } from '@hestia/geom';
 import { areaPlanOf, planAnnotationsOf, planAnnotationIds, type AreaPlan, type AreaPlanAnnotations } from './areaPlan.ts';
 import { DIM_MIN_LENGTH } from './dimension.ts';
 import { newId } from './ids.ts';
-import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RoomSeparator, type SectionView, type TextNote } from './types.ts';
+import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RevisionCloud, type RoomSeparator, type SectionView, type SpotAnnotation, type SymbolAnnotation, type TextNote } from './types.ts';
 import { cleanSectionAnnotations, sectionAnnotationsOf, type SectionAnnotations } from './sectionAnnotations.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
@@ -41,7 +41,16 @@ export type AnnotationCommand =
   | ({ type: 'removeDetailRegion'; id: Id } & AnnotationView)
   | ({ type: 'addTag'; item: ElementTag } & AnnotationView)
   | ({ type: 'updateTag'; id: Id; patch: Partial<Omit<ElementTag, 'id'>> } & AnnotationView)
-  | ({ type: 'removeTag'; id: Id } & AnnotationView);
+  | ({ type: 'removeTag'; id: Id } & AnnotationView)
+  | ({ type: 'addSpot'; item: SpotAnnotation } & AnnotationView)
+  | ({ type: 'updateSpot'; id: Id; patch: Partial<Omit<SpotAnnotation, 'id'>> } & AnnotationView)
+  | ({ type: 'removeSpot'; id: Id } & AnnotationView)
+  | ({ type: 'addRevisionCloud'; item: RevisionCloud } & AnnotationView)
+  | ({ type: 'updateRevisionCloud'; id: Id; patch: Partial<Omit<RevisionCloud, 'id'>> } & AnnotationView)
+  | ({ type: 'removeRevisionCloud'; id: Id } & AnnotationView)
+  | ({ type: 'addSymbol'; item: SymbolAnnotation } & AnnotationView)
+  | ({ type: 'updateSymbol'; id: Id; patch: Partial<Omit<SymbolAnnotation, 'id'>> } & AnnotationView)
+  | ({ type: 'removeSymbol'; id: Id } & AnnotationView);
 
 const finite = (v: Vec2): boolean => Number.isFinite(v.x) && Number.isFinite(v.y);
 
@@ -113,6 +122,9 @@ interface AnnotationScope {
   detailLines: AnnotationList<DetailLine>;
   detailRegions: AnnotationList<DetailRegion>;
   tags: AnnotationList<ElementTag>;
+  spots: AnnotationList<SpotAnnotation>;
+  revisionClouds: AnnotationList<RevisionCloud>;
+  symbols: AnnotationList<SymbolAnnotation>;
 }
 
 /** Anotações do nível (planta de piso). */
@@ -122,6 +134,9 @@ const levelScope = (level: Level): AnnotationScope => ({
   detailLines: { get: () => level.detailLines ?? [], set: (next) => { level.detailLines = next; } },
   detailRegions: { get: () => level.detailRegions ?? [], set: (next) => { level.detailRegions = next; } },
   tags: { get: () => level.tags ?? [], set: (next) => { level.tags = next; } },
+  spots: { get: () => level.spots ?? [], set: (next) => { level.spots = next; } },
+  revisionClouds: { get: () => level.revisionClouds ?? [], set: (next) => { level.revisionClouds = next; } },
+  symbols: { get: () => level.symbols ?? [], set: (next) => { level.symbols = next; } },
 });
 
 /** Anotações da planta de área: cada escrita reatribui o conjunto, sem mutar o array atual. */
@@ -135,6 +150,9 @@ const planScope = (plan: AreaPlan): AnnotationScope => {
     detailLines: { get: () => planAnnotationsOf(plan).detailLines, set: (detailLines) => write({ detailLines }) },
     detailRegions: { get: () => planAnnotationsOf(plan).detailRegions, set: (detailRegions) => write({ detailRegions }) },
     tags: { get: () => planAnnotationsOf(plan).tags, set: (tags) => write({ tags }) },
+    spots: { get: () => planAnnotationsOf(plan).spots ?? [], set: (spots) => write({ spots }) },
+    revisionClouds: { get: () => planAnnotationsOf(plan).revisionClouds ?? [], set: (revisionClouds) => write({ revisionClouds }) },
+    symbols: { get: () => planAnnotationsOf(plan).symbols ?? [], set: (symbols) => write({ symbols }) },
   };
 };
 
@@ -167,6 +185,9 @@ const sectionScope = (view: SectionView): AnnotationScope => {
     detailLines: { get: () => sectionAnnotationsOf(view).detailLines, set: (detailLines) => write({ detailLines }) },
     detailRegions: { get: () => sectionAnnotationsOf(view).detailRegions, set: (detailRegions) => write({ detailRegions }) },
     tags: { get: () => sectionAnnotationsOf(view).tags, set: (tags) => write({ tags }) },
+    spots: { get: () => sectionAnnotationsOf(view).spots ?? [], set: (spots) => write({ spots }) },
+    revisionClouds: { get: () => sectionAnnotationsOf(view).revisionClouds ?? [], set: (revisionClouds) => write({ revisionClouds }) },
+    symbols: { get: () => sectionAnnotationsOf(view).symbols ?? [], set: (symbols) => write({ symbols }) },
   };
 };
 
@@ -285,10 +306,55 @@ export function applyAnnotationCommand(p: Project, c: AnnotationCommand, lang: L
       if (!scope.tags.get().some((x) => x.id === c.id)) throw new Error(translate(lang, 'md_cmd_tag_missing'));
       scope.tags.set(scope.tags.get().filter((x) => x.id !== c.id));
       break;
+    case 'addSpot':
+      if (!finite(c.item.target) || !finite(c.item.at)) throw new Error('Coordenada de anotação inválida.');
+      scope.spots.set([...scope.spots.get(), c.item]);
+      break;
+    case 'updateSpot': {
+      const old = scope.spots.get().find((x) => x.id === c.id);
+      if (!old) throw new Error('Cota de elevação/coordenada não encontrada.');
+      const next = { ...old, ...c.patch, id: old.id };
+      scope.spots.set(scope.spots.get().map((x) => x.id === c.id ? next : x));
+      break;
+    }
+    case 'removeSpot':
+      if (!scope.spots.get().some((x) => x.id === c.id)) throw new Error('Cota de elevação/coordenada não encontrada.');
+      scope.spots.set(scope.spots.get().filter((x) => x.id !== c.id));
+      break;
+    case 'addRevisionCloud':
+      if (c.item.points.length < 2 || c.item.points.some((q) => !finite(q))) throw new Error('Nuvem de revisão inválida.');
+      scope.revisionClouds.set([...scope.revisionClouds.get(), c.item]);
+      break;
+    case 'updateRevisionCloud': {
+      const old = scope.revisionClouds.get().find((x) => x.id === c.id);
+      if (!old) throw new Error('Nuvem de revisão não encontrada.');
+      const next = { ...old, ...c.patch, id: old.id };
+      scope.revisionClouds.set(scope.revisionClouds.get().map((x) => x.id === c.id ? next : x));
+      break;
+    }
+    case 'removeRevisionCloud':
+      if (!scope.revisionClouds.get().some((x) => x.id === c.id)) throw new Error('Nuvem de revisão não encontrada.');
+      scope.revisionClouds.set(scope.revisionClouds.get().filter((x) => x.id !== c.id));
+      break;
+    case 'addSymbol':
+      if (!finite(c.item.at)) throw new Error('Posição de símbolo inválida.');
+      scope.symbols.set([...scope.symbols.get(), c.item]);
+      break;
+    case 'updateSymbol': {
+      const old = scope.symbols.get().find((x) => x.id === c.id);
+      if (!old) throw new Error('Símbolo não encontrado.');
+      const next = { ...old, ...c.patch, id: old.id };
+      scope.symbols.set(scope.symbols.get().map((x) => x.id === c.id ? next : x));
+      break;
+    }
+    case 'removeSymbol':
+      if (!scope.symbols.get().some((x) => x.id === c.id)) throw new Error('Símbolo não encontrado.');
+      scope.symbols.set(scope.symbols.get().filter((x) => x.id !== c.id));
+      break;
   }
 }
 
-export type RemoveAnnotation = Extract<AnnotationCommand, { type: 'removeDimension' | 'removeText' | 'removeRoomSeparator' | 'removeDetailLine' | 'removeDetailRegion' | 'removeTag' }>;
+export type RemoveAnnotation = Extract<AnnotationCommand, { type: 'removeDimension' | 'removeText' | 'removeRoomSeparator' | 'removeDetailLine' | 'removeDetailRegion' | 'removeTag' | 'removeSpot' | 'removeRevisionCloud' | 'removeSymbol' }>;
 
 /**
  * Comandos de exclusão para as cotas e os textos da vista cujos ids estão em `ids` (o resto são elementos).
@@ -303,6 +369,9 @@ export function annotationRemovals(p: Pick<Project, 'levels' | 'areaPlans'>, lev
   for (const x of level?.detailLines ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, id: x.id });
   for (const x of level?.detailRegions ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, id: x.id });
   for (const x of level?.tags ?? []) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, id: x.id });
+  for (const x of level?.spots ?? []) if (want.has(x.id)) out.push({ type: 'removeSpot', levelId, id: x.id });
+  for (const x of level?.revisionClouds ?? []) if (want.has(x.id)) out.push({ type: 'removeRevisionCloud', levelId, id: x.id });
+  for (const x of level?.symbols ?? []) if (want.has(x.id)) out.push({ type: 'removeSymbol', levelId, id: x.id });
   const plan = planId ? areaPlanOf(p, planId) : undefined;
   if (plan) {
     const a = planAnnotationsOf(plan);
@@ -311,6 +380,9 @@ export function annotationRemovals(p: Pick<Project, 'levels' | 'areaPlans'>, lev
     for (const x of a.detailLines) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, planId, id: x.id });
     for (const x of a.detailRegions) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, planId, id: x.id });
     for (const x of a.tags) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, planId, id: x.id });
+    for (const x of a.spots ?? []) if (want.has(x.id)) out.push({ type: 'removeSpot', levelId, planId, id: x.id });
+    for (const x of a.revisionClouds ?? []) if (want.has(x.id)) out.push({ type: 'removeRevisionCloud', levelId, planId, id: x.id });
+    for (const x of a.symbols ?? []) if (want.has(x.id)) out.push({ type: 'removeSymbol', levelId, planId, id: x.id });
   }
   return out;
 }
@@ -333,6 +405,9 @@ export function annotationIdsInView(p: Pick<Project, 'levels' | 'areaPlans'>, le
     ...(level?.detailLines ?? []),
     ...(level?.detailRegions ?? []),
     ...(level?.tags ?? []),
+    ...(level?.spots ?? []),
+    ...(level?.revisionClouds ?? []),
+    ...(level?.symbols ?? []),
   ].map((a) => a.id);
   if (!planId) return ids;
   const plan = areaPlanOf(p, planId);

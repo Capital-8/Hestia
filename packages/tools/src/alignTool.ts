@@ -97,6 +97,7 @@ export class AlignTool extends ToolBase {
       metersPerPixel: this.env.metersPerPixel(),
       prefer: this.env.options().alignPrefer ?? 'faces',
       hidden: this.env.hiddenInView?.(),
+      topFaces: true,
     });
   }
 
@@ -156,8 +157,12 @@ export class AlignTool extends ToolBase {
     if (!this.ref || !targets.length) return;
     const pr = this.env.project();
     const refWall = paredeDaFeicao(this.ref);
-    // Alinhar a parede de referência a ela mesma não faz sentido: a referência se moveria junto.
+    // Nenhuma ferramenta Alinhar deve mover o próprio elemento de referência sobre si mesmo.
     const results: AlignSolution[] = targets.map((t) => {
+      // Aresta de anel (piso, laje...) alinhada à própria reta segue para o resolvedor: ele avisa "já alinhadas" ou move só a aresta.
+      if (t.ownerId === this.ref!.ownerId && t.kind !== 'arestaAnel') {
+        return { kind: 'erro', mensagem: this.t('tl_msg_align_self_ref') };
+      }
       const sol = solveAlign(this.ref!.line, t, pr, this.uiLang());
       if (sol.kind === 'transladar' && sol.target === 'parede' && sol.id === refWall) {
         return { kind: 'erro', mensagem: this.t('tl_msg_align_self_ref') };

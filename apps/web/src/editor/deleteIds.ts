@@ -1,4 +1,4 @@
-import { annotationRemovals, areaPlanOf, isRoom, levelRoomSeparators, planAnnotationsOf, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { annotationRemovals, areaPlanOf, isColumn, isFooting, isRoom, levelRoomSeparators, planAnnotationsOf, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
@@ -95,9 +95,16 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   const viewIds = new Set(views.map((c) => c.id));
   const sepIds = new Set(separators);
   const elems = ids.filter((id) => !noteIds.has(id) && !viewIds.has(id) && !sepIds.has(id) && !gridIds.has(id));
+  const deletedColIds = new Set(elems.filter((id) => isColumn(store.project.elements[id])));
+  const unlinkedFootings = deletedColIds.size > 0
+    ? Object.values(store.project.elements)
+        .filter((e) => isFooting(e) && e.columnId && deletedColIds.has(e.columnId))
+        .map((e) => e.id)
+    : [];
   const commands: Command[] = [
     ...notes,
     ...(elems.length ? [{ type: 'deleteElements' as const, ids: elems }] : []),
+    ...(unlinkedFootings.length ? [{ type: 'updateElements' as const, ids: unlinkedFootings, patch: { columnId: null } }] : []),
     ...views,
     ...separators.map((id): Command => ({ type: 'removeRoomSeparator', levelId, id })),
     ...grids.map((id): Command => ({ type: 'removeGrid', id })),

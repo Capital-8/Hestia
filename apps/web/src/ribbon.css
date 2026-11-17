@@ -124,6 +124,9 @@
 .bnode.bold .blabel { font-weight: 700; }
 .bnode svg { flex: none; }
 .blabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bnode-menu-btn { margin-left: auto; flex: none; width: 18px; height: 16px; padding: 0; line-height: 14px; font-size: 12px; color: var(--fg-soft); background: transparent; border: 1px solid transparent; border-radius: 2px; opacity: 0; cursor: pointer; }
+.bnode:hover .bnode-menu-btn, .bnode.sel .bnode-menu-btn, .bnode:focus-within .bnode-menu-btn { opacity: 1; }
+.bnode-menu-btn:hover { color: var(--fg); background: var(--sheet); border-color: var(--line-strong); }
 .bbox { flex: none; width: 11px; height: 11px; margin-left: 4px; display: inline-grid; place-items: center; font: 9px/9px var(--font-mono); color: var(--fg-soft); background: var(--sheet); border: 1px solid var(--line-strong); }
 .bbox.none { visibility: hidden; }
 .bkids { padding-left: 15px; }
@@ -151,7 +154,7 @@
 .vcb-btn:disabled { opacity: 0.4; cursor: default; }
 .vcb-btn:disabled svg { filter: grayscale(1); }
 .vcb-sep { flex: none; width: 1px; height: 14px; margin: 0 4px; background: var(--line-strong); }
-.navbar { position: absolute; z-index: 2; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 1px; padding: 2px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line-strong); }
+.navbar { position: absolute; z-index: 15; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 1px; padding: 2px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line-strong); }
 .navbar.below-cube { top: 160px; }
 .navbar button { width: 26px; height: 24px; display: grid; place-items: center; padding: 0; color: var(--fg); background: transparent; border: 1px solid transparent; border-radius: 2px; }
 .navbar button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--line-strong); }

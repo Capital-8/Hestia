@@ -760,6 +760,286 @@
     "pl": "Z wybranych schodów lub rampy"
   },
   {
+    "pt": "Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro, telhado, pilar, viga ou sapata).",
+    "es": "Seleccione un elemento de un solo tipo (muro, puerta, ventana, suelo, losa, techo, cubierta, pilar, viga o zapata).",
+    "de": "Wählen Sie ein Element eines einzigen Typs aus (Wand, Tür, Fenster, Boden, Geschossdecke, Decke, Dach, Stütze, Träger oder Fundament).",
+    "fr": "Sélectionnez un élément d'un seul type (mur, porte, fenêtre, sol, dalle, plafond, toit, poteau, poutre ou semelle).",
+    "it": "Selezionare un elemento di un solo tipo (muro, porta, finestra, pavimento, solaio, controsoffitto, tetto, pilastro, trave o plinto).",
+    "pl": "Wybierz element jednego typu (ściana, drzwi, okno, podłoga, płyta, sufit, dach, słup, belka lub stopa)."
+  },
+  {
+    "pt": "Tabela de pilares",
+    "es": "Tabla de pilares",
+    "de": "Stützenliste",
+    "fr": "Nomenclature de poteaux",
+    "it": "Abaco pilastri",
+    "pl": "Zestawienie słupów"
+  },
+  {
+    "pt": "Tabela de vigas",
+    "es": "Tabla de vigas",
+    "de": "Trägerliste",
+    "fr": "Nomenclature de poutres",
+    "it": "Abaco travi",
+    "pl": "Zestawienie belek"
+  },
+  {
+    "pt": "Tabela de sapatas",
+    "es": "Tabla de zapatas",
+    "de": "Fundamentliste",
+    "fr": "Nomenclature de semelles",
+    "it": "Abaco plinti",
+    "pl": "Zestawienie stóp"
+  },
+  {
+    "pt": "Insere um pilar estrutural no projeto.",
+    "es": "Inserta un pilar estructural en el proyecto.",
+    "de": "Fügt eine Tragwerksstütze in das Projekt ein.",
+    "fr": "Insère un poteau structurel dans le projet.",
+    "it": "Inserisce un pilastro strutturale nel progetto.",
+    "pl": "Wstawia słup konstrukcyjny do projektu."
+  },
+  {
+    "pt": "Desenha uma viga estrutural entre dois pontos.",
+    "es": "Dibuja una viga estructural entre dos puntos.",
+    "de": "Zeichnet einen Tragwerksträger zwischen zwei Punkten.",
+    "fr": "Dessine une poutre structurelle entre deux points.",
+    "it": "Disegna una trave strutturale tra due punti.",
+    "pl": "Rysuje belkę konstrukcyjną między dwoma punktami."
+  },
+  {
+    "pt": "Sapata",
+    "es": "Zapata",
+    "de": "Einzelfundament",
+    "fr": "Semelle",
+    "it": "Plinto",
+    "pl": "Stopa"
+  },
+  {
+    "pt": "Insere uma sapata isolada sob um pilar ou livre no projeto.",
+    "es": "Inserta una zapata aislada bajo un pilar o libre en el proyecto.",
+    "de": "Fügt ein Einzelfundament unter einer Stütze oder frei im Projekt ein.",
+    "fr": "Insère une semelle isolée sous un poteau ou libre dans le projet.",
+    "it": "Inserisce un plinto isolato sotto un pilastro o libero nel progetto.",
+    "pl": "Wstawia stopę fundamentową pod słupem lub swobodnie w projekcie."
+  },
+  {
+    "pt": "Editar tipo",
+    "es": "Editar tipo",
+    "de": "Typ bearbeiten",
+    "fr": "Modifier le type",
+    "it": "Modifica tipo",
+    "pl": "Edytuj typ"
+  },
+  {
+    "pt": "Abre o diálogo de propriedades de tipo da seleção estrutural.",
+    "es": "Abre el cuadro de diálogo de propiedades de tipo de la selección estructural.",
+    "de": "Öffnet den Dialog für Typeneigenschaften der Tragwerksauswahl.",
+    "fr": "Ouvre la boîte de dialogue des propriétés de type de la sélection structurelle.",
+    "it": "Apre la finestra delle proprietà del tipo della selezione strutturale.",
+    "pl": "Otwiera okno właściwości typu wybranego elementu konstrukcyjnego."
+  },
+  {
+    "pt": "Girar 90°",
+    "es": "Girar 90°",
+    "de": "Um 90° drehen",
+    "fr": "Pivoter de 90°",
+    "it": "Ruota di 90°",
+    "pl": "Obróć o 90°"
+  },
+  {
+    "pt": "Gira 90 graus a rotação do pilar ou sapata (na colocação ou nos selecionados).",
+    "es": "Gira 90 grados la rotación del pilar o zapata (al colocar o en los seleccionados).",
+    "de": "Dreht die Stütze oder das Fundament um 90 Grad (beim Platzieren oder für ausgewählte Elemente).",
+    "fr": "Fait pivoter le poteau ou la semelle de 90 degrés (lors du placement ou pour les éléments sélectionnés).",
+    "it": "Ruota di 90 gradi il pilastro o il plinto (in fase di posizionamento o per quelli selezionati).",
+    "pl": "Obraca słup lub stopę o 90 stopni (podczas wstawiania lub dla zaznaczonych)."
+  },
+  {
+    "pt": "Selecione pilares ou sapatas para girar.",
+    "es": "Seleccione pilares o zapatas para girar.",
+    "de": "Wählen Sie Stützen oder Fundamente zum Drehen aus.",
+    "fr": "Sélectionnez des poteaux ou des semelles à faire pivoter.",
+    "it": "Selezionare pilastri o plinti da ruotare.",
+    "pl": "Wybierz słupy lub stopy do obrócenia."
+  },
+  {
+    "pt": "Nos pilares",
+    "es": "En los pilares",
+    "de": "An den Stützen",
+    "fr": "Aux poteaux",
+    "it": "Sui pilastri",
+    "pl": "Na słupach"
+  },
+  {
+    "pt": "Insere sapatas isoladas alinhadas aos pilares do nível ativo.",
+    "es": "Inserta zapatas aisladas alineadas con los pilares del nivel activo.",
+    "de": "Platziert Einzelfundamente ausgerichtet an den Stützen der aktiven Ebene.",
+    "fr": "Place des semelles isolées alignées sur les poteaux du niveau actif.",
+    "it": "Inserisce plinti isolati allineati ai pilastri del livello attivo.",
+    "pl": "Wstawia stopy fundamentowe wyrównane do słupów aktywnego poziomu."
+  },
+  {
+    "pt": "Pilares estruturais",
+    "es": "Pilares estructurales",
+    "de": "Tragwerksstützen",
+    "fr": "Poteaux structurels",
+    "it": "Pilastri strutturali",
+    "pl": "Słupy konstrukcyjne"
+  },
+  {
+    "pt": "Quadro estrutural (Vigas)",
+    "es": "Armazón estructural (Vigas)",
+    "de": "Tragwerksrahmen (Träger)",
+    "fr": "Ossature (Poutres)",
+    "it": "Telaio strutturale (Travi)",
+    "pl": "Rama konstrukcyjna (Belki)"
+  },
+  {
+    "pt": "Fundações estruturais",
+    "es": "Cimentaciones estructurales",
+    "de": "Tragwerksfundamente",
+    "fr": "Fondations structurelles",
+    "it": "Fondazioni strutturali",
+    "pl": "Fundamenty konstrukcyjne"
+  },
+  {
+    "pt": "Parede estrutural",
+    "es": "Muro estructural",
+    "de": "Tragende Wand",
+    "fr": "Mur structurel",
+    "it": "Muro strutturale",
+    "pl": "Ściana konstrukcyjna"
+  },
+  {
+    "pt": "Piso estrutural",
+    "es": "Suelo estructural",
+    "de": "Tragende Geschossdecke",
+    "fr": "Sol structurel",
+    "it": "Pavimento strutturale",
+    "pl": "Podłoga konstrukcyjna"
+  },
+  {
+    "pt": "Ligação",
+    "es": "Conexión",
+    "de": "Verbindung",
+    "fr": "Connexion",
+    "it": "Connessione",
+    "pl": "Połączenie"
+  },
+  {
+    "pt": "Vergalhão",
+    "es": "Armadura",
+    "de": "Bewehrungsstab",
+    "fr": "Armature",
+    "it": "Armatura",
+    "pl": "Pręt zbrojeniowy"
+  },
+  {
+    "pt": "Caminho",
+    "es": "Camino",
+    "de": "Pfad",
+    "fr": "Chemin",
+    "it": "Percorso",
+    "pl": "Ścieżka"
+  },
+  {
+    "pt": "Linha do modelo",
+    "es": "Línea de modelo",
+    "de": "Modelllinie",
+    "fr": "Ligne de modèle",
+    "it": "Linea di modello",
+    "pl": "Linia modelu"
+  },
+  {
+    "pt": "Grupo de modelos",
+    "es": "Grupo de modelos",
+    "de": "Modellgruppe",
+    "fr": "Groupe de modèles",
+    "it": "Gruppo di modelli",
+    "pl": "Grupa modeli"
+  },
+  {
+    "pt": "Shaft",
+    "es": "Hueco de conducto",
+    "de": "Schacht",
+    "fr": "Trémie",
+    "it": "Cavedio",
+    "pl": "Szyb"
+  },
+  {
+    "pt": "Eixo",
+    "es": "Eje",
+    "de": "Raster",
+    "fr": "Quadrillage",
+    "it": "Griglia",
+    "pl": "Oś"
+  },
+  {
+    "pt": "Famílias de etiquetas",
+    "es": "Tipos de etiqueta",
+    "de": "Beschriftungstypen",
+    "fr": "Types d'étiquette",
+    "it": "Tipi di etichetta",
+    "pl": "Typy etykiet"
+  },
+  {
+    "pt": "Modelo de rótulo com parâmetros, contorno (círculo, hexágono, retângulo) e tamanho em mm de papel.",
+    "es": "Plantilla de etiqueta con parámetros, contorno (círculo, hexágono, rectángulo) y tamaño en mm de papel.",
+    "de": "Beschriftungsformat mit Parametern, Umriss (Kreis, Sechseck, Rechteck) und Größe in Papier-mm.",
+    "fr": "Modèle d'étiquette avec paramètres, contour (cercle, hexagone, rectangle) et taille en mm papier.",
+    "it": "Modello di etichetta con parametri, contorno (cerchio, esagono, rettangolo) e dimensione in mm carta.",
+    "pl": "Szablon etykiety z parametrami, obrysem (koło, sześciokąt, prostokąt) i rozmiarem w mm papieru."
+  },
+  {
+    "pt": "Numerar marcas",
+    "es": "Numerar marcas",
+    "de": "Marken nummerieren",
+    "fr": "Numéroter les marques",
+    "it": "Numera contrassegni",
+    "pl": "Numeruj oznaczenia"
+  },
+  {
+    "pt": "Numera automaticamente P01, J01… nas portas e janelas sem marca e verifica duplicatas.",
+    "es": "Numera automáticamente P01, J01… en puertas y ventanas sin marca y comprueba duplicados.",
+    "de": "Nummeriert automatisch P01, J01… an unmarkierten Türen und Fenstern und prüft Duplikate.",
+    "fr": "Numérote automatiquement P01, J01… sur les portes et fenêtres sans marque et vérifie les doublons.",
+    "it": "Numera automaticamente P01, J01… su porte e finestre senza contrassegno e verifica i duplicati.",
+    "pl": "Automatycznie numeruje P01, J01… w nieoznaczonych drzwiach i oknach oraz sprawdza duplikaty."
+  },
+  {
+    "pt": "Ativa a etiqueta na categoria de ambiente para clicar no ambiente e rotulá-lo.",
+    "es": "Activa la etiqueta en la categoría de habitación para hacer clic en ella y etiquetarla.",
+    "de": "Aktiviert die Beschriftung für Räume, um einen Raum per Klick zu beschriften.",
+    "fr": "Active l'étiquette pour la catégorie pièce afin de cliquer sur une pièce et l'étiqueter.",
+    "it": "Attiva l'etichetta nella categoria locale per fare clic sul locale ed etichettarlo.",
+    "pl": "Włącza etykietę pomieszczenia, aby kliknąć pomieszczenie i je opisać."
+  },
+  {
+    "pt": "Círculo",
+    "es": "Círculo",
+    "de": "Kreis",
+    "fr": "Cercle",
+    "it": "Cerchio",
+    "pl": "Okrąg"
+  },
+  {
+    "pt": "Arco (centro)",
+    "es": "Arco (centro)",
+    "de": "Bogen (Mittelpunkt)",
+    "fr": "Arc (centre)",
+    "it": "Arco (centro)",
+    "pl": "Łuk (środek)"
+  },
+  {
+    "pt": "Polígono",
+    "es": "Polígono",
+    "de": "Vieleck",
+    "fr": "Polygone",
+    "it": "Poligono",
+    "pl": "Wielokąt"
+  },
+  {
     "pt": "Massa",
     "es": "Masa",
     "de": "Masse",
@@ -854,5 +1134,61 @@
     "fr": "Liste tous les compléments : installer, mettre à jour, ajuster les autorisations, afficher le journal et les données. Raccourci : Alt+Maj+P.",
     "it": "Elenca tutti i componenti aggiuntivi: installa, aggiorna, regola le autorizzazioni, mostra il registro e i dati. Scorciatoia: Alt+Maiusc+P.",
     "pl": "Wyświetla wszystkie dodatki: instalacja, aktualizacja, uprawnienia, podgląd dziennika i danych. Skrót: Alt+Shift+P."
+  },
+  {
+    "pt": "Inclinar",
+    "es": "Inclinar",
+    "de": "Neigen",
+    "fr": "Incliner",
+    "it": "Inclina",
+    "pl": "Pochyl"
+  },
+  {
+    "pt": "Selecione paredes primeiro.",
+    "es": "Seleccione primero muros.",
+    "de": "Wände zuerst auswählen.",
+    "fr": "Sélectionnez d’abord des murs.",
+    "it": "Seleziona prima dei muri.",
+    "pl": "Najpierw zaznacz ściany."
+  },
+  {
+    "pt": "Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).",
+    "es": "Inclina los muros seleccionados según el ángulo indicado (positivo: parte superior a la izquierda de a→b).",
+    "de": "Neigt die gewählten Wände um den eingegebenen Winkel (positiv: Oberkante links von a→b).",
+    "fr": "Incline les murs sélectionnés de l’angle saisi (positif : haut à gauche de a→b).",
+    "it": "Inclina i muri selezionati dell’angolo indicato (positivo: sommità a sinistra di a→b).",
+    "pl": "Pochyla zaznaczone ściany o podany kąt (dodatni: góra po lewej stronie a→b)."
+  },
+  {
+    "pt": "Acompanhar inclinação",
+    "es": "Seguir inclinación",
+    "de": "Neigung folgen",
+    "fr": "Suivre l'inclinaison",
+    "it": "Segui inclinazione",
+    "pl": "Podążaj za nachyleniem"
+  },
+  {
+    "pt": "Cunha",
+    "es": "Cuña",
+    "de": "Keil",
+    "fr": "Coin",
+    "it": "Cuneo",
+    "pl": "Klin"
+  },
+  {
+    "pt": "Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.",
+    "es": "Aplica la inclinación de la primera pared seleccionada a toda la cadena de paredes continuas (signo según el sentido a→b), en un solo deshacer.",
+    "de": "Überträgt die Neigung der ersten gewählten Wand auf die ganze Kette durchgehender Wände (Vorzeichen je Richtung a→b), in einem Rückgängig-Schritt.",
+    "fr": "Applique l'inclinaison du premier mur sélectionné à toute la chaîne de murs continus (signe selon le sens a→b), en une seule annulation.",
+    "it": "Applica l'inclinazione della prima parete selezionata a tutta la catena di pareti continue (segno secondo il verso a→b), in un solo annullamento.",
+    "pl": "Stosuje nachylenie pierwszej zaznaczonej ściany do całego łańcucha ścian ciągłych (znak zależny od kierunku a→b), w jednym cofnięciu."
+  },
+  {
+    "pt": "Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).",
+    "es": "Cierra con un prisma el escalón entre paredes continuas de inclinaciones distintas (alterna con el escalón abierto).",
+    "de": "Schließt die Stufe zwischen durchgehenden Wänden verschiedener Neigung mit einem Prisma (wechselt mit der offenen Stufe).",
+    "fr": "Ferme par un prisme la marche entre murs continus d'inclinaisons différentes (alterne avec la marche ouverte).",
+    "it": "Chiude con un prisma il gradino tra pareti continue di inclinazioni diverse (alterna con il gradino aperto).",
+    "pl": "Zamyka graniastosłupem uskok między ścianami ciągłymi o różnych nachyleniach (przełącza z otwartym uskokiem)."
   }
 ]

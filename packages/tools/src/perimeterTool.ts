@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { weldMicroSegs } from './perimeterModifyDraft.ts';
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { angleOf, dist, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
 import { ToolBase } from './base.ts';
@@ -8,6 +9,7 @@ import { parseNumber, parseQuantityText } from './numeric.ts';
 import { SKETCH_DEFAULTS, addSegs, closeAnalysis, finish as finishSketch, newDraft, removeSegs, selectAllSegs, type FinishResult, type SketchOrigin } from './perimeterSession.ts';
 import { anchorOf, buildShape, kindOf, promptOf, shapeName, stepPreview, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
 import { SELECT_PX, boxRing, hitSeg, roomClick, roomHover, segLines } from './perimeterToolPick.ts';
+import { topDefaultFor } from './sketchPickFace.ts';
 import { boxPick, facePick, selectClick, shapeHintOf } from './perimeterToolInput.ts';
 import { applySegs, faceMove, refuse, shapeIdOf, snapExtraOf } from './perimeterToolHelpers.ts';
 import { shapeInputLabel, type ShapeKindId } from './sketchShapes.ts';
@@ -53,6 +55,8 @@ export class PerimeterTool extends ToolBase {
   private hover: string | null = null;
   /** Caixa do arrasto em "pela caixa", ou null. */
   private box: { a: Vec2; b: Vec2 } | null = null;
+  /** "Por perímetro": Tab inverte o padrão do alvo (telhado e forro: topo; piso e laje: base). */
+  private baseOutline = false;
 
   constructor(env: ToolEnv, target: SketchTarget = 'roof') {
     super(env);
@@ -133,6 +137,7 @@ export class PerimeterTool extends ToolBase {
     this.mod.stop();
     this.shape = kind;
     this.flags = {};
+    this.baseOutline = false;
     this.reset();
     this.env.say(kind === null ? this.t('tl_hint_perim_select') : shapeHintOf(kind, this.uiLang()));
   }
@@ -195,7 +200,7 @@ export class PerimeterTool extends ToolBase {
 
   /** Botão Concluir: valida o esboço. Se fecha, devolve o contorno e os furos (com as flags das arestas) e limpa o rascunho. */
   finish(): FinishResult {
-    const r = finishSketch(this.d);
+    const r = finishSketch(weldMicroSegs(this.d));
     if (!r.ok) {
       this.env.say(r.issues[0]?.message ?? this.t('tl_msg_sketch_incomplete'));
       return r;
@@ -295,7 +300,7 @@ export class PerimeterTool extends ToolBase {
       if (this.line === 'boundary') this.hover = hitSeg(this.d.segs, p.raw, SELECT_PX * this.env.metersPerPixel());
       return;
     }
-    if (this.shape === 'pickFace') faceMove(this.env, p.raw, this.cycle, this.items, this.uiLang());
+    if (this.shape === 'pickFace') faceMove(this.env, p.raw, this.cycle, this.items, this.uiLang(), topDefaultFor(this.d.target));
     else if (this.shape === 'pickRoom') {
       const h = roomHover(this.env, p.raw, this.uiLang());
       this.items = h.items;
@@ -345,7 +350,7 @@ export class PerimeterTool extends ToolBase {
     const box = this.box;
     if (!box) return;
     this.reset();
-    const r = boxPick(this.env, box.a, p.raw, this.uiLang());
+    const r = boxPick(this.env, box.a, p.raw, this.uiLang(), topDefaultFor(this.d.target) !== this.baseOutline);
     if (!r) return;
     if (r.segs.length > 0) this.commit(applySegs(this.d, r.segs));
     if (r.segs.length > 0) this.originInfo = { ...this.originInfo, walls: true };
@@ -355,10 +360,16 @@ export class PerimeterTool extends ToolBase {
   /** Tab: alterna o candidato sob o cursor (face), o sinalizador da forma (ex.: sentido do arco), ou a variante de Modificar. */
   override tab(): void {
     if (this.mod.active()) return this.mod.tab();
+    if (this.shape === 'byPerimeter') {
+      this.baseOutline = !this.baseOutline;
+      const top = topDefaultFor(this.d.target) !== this.baseOutline;
+      this.env.say(this.t('tl_msg_flag_toggle', { label: this.t('tl_snap_top_face'), value: top ? this.t('tl_yes') : this.t('tl_no') }));
+      return;
+    }
     if (this.shape === 'pickFace') {
       this.cycle += 1;
       this.items = [];
-      faceMove(this.env, this.raw, this.cycle, this.items);
+      faceMove(this.env, this.raw, this.cycle, this.items, this.uiLang(), topDefaultFor(this.d.target));
       return;
     }
     const id = shapeIdOf(this.shape);

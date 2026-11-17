@@ -93,7 +93,8 @@ describe('aba contextual', () => {
     expect(c?.key).toBe('tool:wall');
     expect(txt(c!.tab.label, 'pt')).toBe('Modificar | Colocar Parede');
     expect(txt(c!.tab.label, 'en')).toBe('Modify | Place Wall');
-    expect(c!.tab.panels.map((x) => x.id)).toContain('desenhar');
+    // O painel Desenhar da Parede é a galeria do perímetro (WallDrawPanel, montada em Ribbon.tsx), não um painel de dados.
+    expect(c!.tab.panels.map((x) => x.id)).toContain('modificar');
   });
   it('ferramenta de edição e nada selecionado não abrem aba', () => {
     expect(contextTab('move', [], p)).toBeNull();

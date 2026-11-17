@@ -43,12 +43,16 @@ import { PT_MASSA, EN_MASSA } from './massa.ts';
 import { PT_MASSA_PISOS, EN_MASSA_PISOS } from './massa-pisos.ts';
 import { PT_MASSA_PAREDES, EN_MASSA_PAREDES } from './massa-paredes.ts';
 import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
+import { PT_STRUCTURAL, EN_STRUCTURAL } from './structural.ts';
+import { PT_TAGGING, EN_TAGGING } from './tagging.ts';
 import { PT_SUPLEMENTOS, EN_SUPLEMENTOS } from './suplementos.ts';
 import { PT_SUPLEMENTOS_IO, EN_SUPLEMENTOS_IO } from './suplementos-io.ts';
 import { PT_SUPUI, EN_SUPUI } from './suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 
 export const PT_ALL = {
+  ...PT_STRUCTURAL,
+  ...PT_TAGGING,
   ...PT_SUPLEMENTOS,
   ...PT_SUPLEMENTOS_IO,
   ...PT_SUPUI,
@@ -100,6 +104,8 @@ export const PT_ALL = {
 } as const;
 
 export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
+  ...EN_STRUCTURAL,
+  ...EN_TAGGING,
   ...EN_SUPLEMENTOS,
   ...EN_SUPLEMENTOS_IO,
   ...EN_SUPUI,

@@ -1,4 +1,5 @@
-import type { MultiPolygon, Vec2 } from '@hestia/geom';
+import type { Arc, MultiPolygon, Vec2 } from '@hestia/geom';
+import type { TiltCut } from './openingTilt.ts';
 import type { Id, PlanSymbol, ProfilePoint } from '@hestia/model';
 
 export interface ResolvedLayer {
@@ -54,6 +55,16 @@ export interface ResolvedWall {
   /** Faixa de cota da parede sem anexar a piso/laje (base do modelo até a altura máxima): é a que o término por camada usa. */
   nominalZ0?: number;
   nominalZ1?: number;
+  /** Inclinação em graus (+ = topo à esquerda de a→b), só quando não nula, com a flecha `sag` do eixo (arco). */
+  tilt?: number;
+  sag?: number;
+  /**
+   * Planta de parede inclinada (F2.5): cota z do plano de corte (relativa à base) em que `layers[].cut` foi mapeado, e a
+   * projeção da base (z=0) e do topo (z=H). Só em parede inclinada ou ligada a uma por junção inclinada.
+   */
+  tiltPlan?: { z: number; base: MultiPolygon; top: MultiPolygon };
+  /** Vãos cortados perpendicular às faces (F2.8, modo 'inclinado'); só em parede inclinada, ausente sem eles. */
+  tiltCuts?: TiltCut[];
   layers: ResolvedLayer[];
   /** Camadas de espessura zero (membranas, barreiras): linhas no limite entre camadas, em planta e nos quantitativos. */
   membranes: Membrane[];
@@ -121,4 +132,8 @@ export interface OpeningGeometry {
    * da face nas ombreiras (o furo é reto pela tangente no centro; a face se afasta dele ao longo da corda do vão).
    */
   cutHalf?: number;
+  /** Arco da parede hospedeira e `sMid`, quando curva: permite alinhar batente, soleira, vidro e alizar exatamente à curvatura. */
+  curve?: { arc: Arc; sMid: number };
+  /** Plano efetivo do vão na parede inclinada (F2.8): presente só quando é 'inclinado' e o vão cabe (arco: w² ≤ 0,4·R). */
+  tiltPlane?: 'inclinado';
 }

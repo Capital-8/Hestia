@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent, type ReactElement } from 'react';
-import type { Id, Project } from '@hestia/model';
+import { beamTypeMap, columnTypeMap, footingTypeMap, type Id, type Project, type ProjectStore } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
@@ -16,6 +16,7 @@ import {
   tryDeleteWallType,
   wallTypeDeleteBlock,
   whereUsed,
+  type DeleteResult,
   type TypeKind,
 } from '../editor/typeActions.ts';
 import { duplicateSlabType, renameSlabType, slabTypeDeleteBlock, tryDeleteSlabType } from '../editor/slabTypeActions.ts';
@@ -23,6 +24,11 @@ import { duplicateCeilingType, renameCeilingType, ceilingTypeDeleteBlock, tryDel
 import { duplicateRoofType, renameRoofType, roofTypeDeleteBlock, tryDeleteRoofType } from '../editor/roofTypeActions.ts';
 import { duplicateStairType, renameStairType, stairTypeDeleteBlock, tryDeleteStairType } from '../editor/stairTypeActions.ts';
 import { duplicateRampType, rampTypeDeleteBlock, renameRampType, tryDeleteRampType } from '../editor/rampTypeActions.ts';
+import {
+  beamTypeDeleteBlock, columnTypeDeleteBlock, duplicateBeamType, duplicateColumnType, duplicateFootingType,
+  footingTypeDeleteBlock, renameBeamType, renameColumnType, renameFootingType, tryDeleteBeamType, tryDeleteColumnType,
+  tryDeleteFootingType,
+} from '../editor/structuralTypeActions.ts';
 import { Node, type MenuItem } from './browser/Tree.tsx';
 
 interface TypeRowProps {
@@ -36,17 +42,31 @@ interface TypeRowProps {
   onEdit: () => void;
 }
 
-/** Motivo pelo qual o tipo não pode ser excluído (parede, piso, laje…); null quando pode ou não é excluível (porta, janela). */
-function deleteBlockOf(p: Project, kind: TypeKind, typeId: Id): string | null {
-  if (kind === 'wall') return wallTypeDeleteBlock(p, typeId);
-  if (kind === 'floor') return floorTypeDeleteBlock(p, typeId);
-  if (kind === 'slab') return slabTypeDeleteBlock(p, typeId);
-  if (kind === 'ceiling') return ceilingTypeDeleteBlock(p, typeId);
-  if (kind === 'roof') return roofTypeDeleteBlock(p, typeId);
-  if (kind === 'stair') return stairTypeDeleteBlock(p, typeId);
-  if (kind === 'ramp') return rampTypeDeleteBlock(p, typeId);
-  return null;
+interface TypeCrud {
+  deleteBlock: (p: Project, id: Id) => string | null;
+  remove: (s: ProjectStore, id: Id) => DeleteResult;
+  duplicate?: (s: ProjectStore, id: Id) => Id | null;
+  rename?: (s: ProjectStore, id: Id, name: string) => DeleteResult;
+  resetActive?: (p: Project, id: Id) => void;
 }
+
+const resetOpt = (key: 'floorTypeId' | 'slabTypeId' | 'ceilingTypeId' | 'roofTypeId' | 'columnTypeId' | 'beamTypeId' | 'footingTypeId', firstId: (p: Project) => Id | undefined) => (p: Project, deletedId: Id): void => {
+  const ui = useUi.getState();
+  if (ui.options[key] === deletedId) useUi.setState({ options: { ...ui.options, [key]: firstId(p) ?? ui.options[key] } });
+};
+
+const CRUD: Partial<Record<TypeKind, TypeCrud>> = {
+  wall: { deleteBlock: wallTypeDeleteBlock, remove: tryDeleteWallType, resetActive: (p, id) => { const ui = useUi.getState(); if (ui.options.wallTypeId === id) useUi.setState({ options: { ...ui.options, wallTypeId: p.defaults.wallTypeId } }); } },
+  floor: { deleteBlock: floorTypeDeleteBlock, remove: tryDeleteFloorType, duplicate: duplicateFloorType, rename: renameFloorType, resetActive: resetOpt('floorTypeId', (p) => Object.keys(p.floorTypes)[0]) },
+  slab: { deleteBlock: slabTypeDeleteBlock, remove: tryDeleteSlabType, duplicate: duplicateSlabType, rename: renameSlabType, resetActive: resetOpt('slabTypeId', (p) => Object.keys(p.slabTypes)[0]) },
+  ceiling: { deleteBlock: ceilingTypeDeleteBlock, remove: tryDeleteCeilingType, duplicate: duplicateCeilingType, rename: renameCeilingType, resetActive: resetOpt('ceilingTypeId', (p) => Object.keys(p.ceilingTypes)[0]) },
+  roof: { deleteBlock: roofTypeDeleteBlock, remove: tryDeleteRoofType, duplicate: duplicateRoofType, rename: renameRoofType, resetActive: resetOpt('roofTypeId', (p) => Object.keys(p.roofTypes)[0]) },
+  stair: { deleteBlock: stairTypeDeleteBlock, remove: tryDeleteStairType, duplicate: duplicateStairType, rename: renameStairType, resetActive: (p, id) => { const ui = useUi.getState(); if (ui.options.stair?.typeId === id) useUi.setState({ options: { ...ui.options, stair: { ...ui.options.stair, typeId: Object.keys(p.stairTypes)[0] } } }); } },
+  ramp: { deleteBlock: rampTypeDeleteBlock, remove: tryDeleteRampType, duplicate: duplicateRampType, rename: renameRampType, resetActive: (p, id) => { const ui = useUi.getState(); if (ui.options.ramp?.typeId === id) useUi.setState({ options: { ...ui.options, ramp: { ...ui.options.ramp, typeId: Object.keys(p.rampTypes)[0] } } }); } },
+  column: { deleteBlock: columnTypeDeleteBlock, remove: tryDeleteColumnType, duplicate: duplicateColumnType, rename: renameColumnType, resetActive: resetOpt('columnTypeId', (p) => Object.keys(columnTypeMap(p))[0]) },
+  beam: { deleteBlock: beamTypeDeleteBlock, remove: tryDeleteBeamType, duplicate: duplicateBeamType, rename: renameBeamType, resetActive: resetOpt('beamTypeId', (p) => Object.keys(beamTypeMap(p))[0]) },
+  footing: { deleteBlock: footingTypeDeleteBlock, remove: tryDeleteFootingType, duplicate: duplicateFootingType, rename: renameFootingType, resetActive: resetOpt('footingTypeId', (p) => Object.keys(footingTypeMap(p))[0]) },
+};
 
 /**
  * Tipo na árvore do navegador (Famílias ▸ Categoria ▸ Família ▸ Tipo). Clique usa o tipo ao desenhar (negrito), duplo
@@ -63,12 +83,13 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
   const [askDelete, setAskDelete] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newName, setNewName] = useState(name);
+  const crud = CRUD[kind];
   const uses = instancesOfType(p, kind, typeId).length;
   const choices = compatibleTypes(p, kind, typeId);
   const chosen = choices.some((c) => c.id === target) ? target : (choices[0]?.id ?? '');
-  const deletable = kind === 'wall' || kind === 'floor' || kind === 'slab' || kind === 'ceiling' || kind === 'roof' || kind === 'stair' || kind === 'ramp';
-  const renamable = kind === 'floor' || kind === 'slab' || kind === 'ceiling' || kind === 'roof' || kind === 'stair' || kind === 'ramp';
-  const deleteBlock = deleteBlockOf(p, kind, typeId);
+  const deletable = Boolean(crud);
+  const renamable = Boolean(crud?.rename && crud?.duplicate);
+  const deleteBlock = crud ? crud.deleteBlock(p, typeId) : null;
   const replaceBlock = choices.length === 0 ? t('prc_msg_no_compatible_type') : uses === 0 ? t('prc_msg_type_has_no_instances') : null;
 
   const selectAll = (): void => {
@@ -85,44 +106,29 @@ export function TypeRow({ kind, typeId, name, icon, active, onUse, onEdit }: Typ
       const n = replaceType(editor.store, kind, typeId, to.id);
       useUi.setState({ status: replaceStatus(n, to.name) });
       setReplacing(false);
-      // Só pergunta se o tipo antigo pode mesmo ser excluído (o padrão do projeto não pode).
-      setAskDelete(deletable && n > 0 && deleteBlockOf(editor.project, kind, typeId) === null);
+      setAskDelete(deletable && n > 0 && crud?.deleteBlock(editor.project, typeId) === null);
     } catch (e) {
       useUi.setState({ status: t('prc_msg_replace_failed', { error: errText(e) }) });
     }
   };
   const remove = (): void => {
-    const r = kind === 'floor' ? tryDeleteFloorType(editor.store, typeId) : kind === 'slab' ? tryDeleteSlabType(editor.store, typeId) : kind === 'ceiling' ? tryDeleteCeilingType(editor.store, typeId) : kind === 'roof' ? tryDeleteRoofType(editor.store, typeId) : kind === 'stair' ? tryDeleteStairType(editor.store, typeId) : kind === 'ramp' ? tryDeleteRampType(editor.store, typeId) : tryDeleteWallType(editor.store, typeId);
+    if (!crud) return;
+    const r = crud.remove(editor.store, typeId);
     if (!r.ok) {
       useUi.setState({ status: t('prc_msg_delete_type_failed', { name, error: r.error }) });
       return;
     }
-    // Se o tipo excluído era o escolhido para desenhar, volta ao padrão do projeto.
-    const ui = useUi.getState();
-    if (kind === 'floor' && ui.options.floorTypeId === typeId) {
-      useUi.setState({ options: { ...ui.options, floorTypeId: Object.keys(editor.project.floorTypes)[0] ?? ui.options.floorTypeId } });
-    } else if (kind === 'slab' && ui.options.slabTypeId === typeId) {
-      useUi.setState({ options: { ...ui.options, slabTypeId: Object.keys(editor.project.slabTypes)[0] ?? ui.options.slabTypeId } });
-    } else if (kind === 'ceiling' && ui.options.ceilingTypeId === typeId) {
-      useUi.setState({ options: { ...ui.options, ceilingTypeId: Object.keys(editor.project.ceilingTypes)[0] ?? ui.options.ceilingTypeId } });
-    } else if (kind === 'roof' && ui.options.roofTypeId === typeId) {
-      useUi.setState({ options: { ...ui.options, roofTypeId: Object.keys(editor.project.roofTypes)[0] ?? ui.options.roofTypeId } });
-    } else if (kind === 'stair' && ui.options.stair?.typeId === typeId) {
-      useUi.setState({ options: { ...ui.options, stair: { ...ui.options.stair, typeId: Object.keys(editor.project.stairTypes)[0] } } });
-    } else if (kind === 'ramp' && ui.options.ramp?.typeId === typeId) {
-      useUi.setState({ options: { ...ui.options, ramp: { ...ui.options.ramp, typeId: Object.keys(editor.project.rampTypes)[0] } } });
-    } else if (kind === 'wall' && ui.options.wallTypeId === typeId) {
-      useUi.setState({ options: { ...ui.options, wallTypeId: editor.project.defaults.wallTypeId } });
-    }
+    crud.resetActive?.(editor.project, typeId);
     setAskDelete(false);
     useUi.setState({ status: t('prc_msg_type_deleted', { name }) });
   };
   const duplicate = (): void => {
-    const id = kind === 'slab' ? duplicateSlabType(editor.store, typeId) : kind === 'ceiling' ? duplicateCeilingType(editor.store, typeId) : kind === 'roof' ? duplicateRoofType(editor.store, typeId) : kind === 'stair' ? duplicateStairType(editor.store, typeId) : kind === 'ramp' ? duplicateRampType(editor.store, typeId) : duplicateFloorType(editor.store, typeId);
+    const id = crud?.duplicate?.(editor.store, typeId) ?? null;
     useUi.setState({ status: id ? t('prc_msg_type_duplicated', { name }) : t('prc_msg_duplicate_failed') });
   };
   const applyRename = (): void => {
-    const r = kind === 'slab' ? renameSlabType(editor.store, typeId, newName) : kind === 'ceiling' ? renameCeilingType(editor.store, typeId, newName) : kind === 'roof' ? renameRoofType(editor.store, typeId, newName) : kind === 'stair' ? renameStairType(editor.store, typeId, newName) : kind === 'ramp' ? renameRampType(editor.store, typeId, newName) : renameFloorType(editor.store, typeId, newName);
+    if (!crud?.rename) return;
+    const r = crud.rename(editor.store, typeId, newName);
     if (!r.ok) {
       useUi.setState({ status: r.error });
       return;

@@ -32,8 +32,12 @@ import { DE_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { DE_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
 import { DE_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { DE_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
+import { DE_STRUCTURAL } from '../../areas/structural.ts';
+import { DE_TAGGING } from '../../areas/tagging.ts';
 
 export const DE_ALL = {
+  ...DE_STRUCTURAL,
+  ...DE_TAGGING,
   ...DE_GUARDA_CORPO,
   ...DE_MASSA,
   ...DE_MASSA_PISOS,

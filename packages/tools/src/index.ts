@@ -115,4 +115,8 @@ export { sectionInferContext, type SectionInferOptions } from './sectionContext.
 export { sectionSnapIndex, type SectionSnapIndex } from './sectionSnapIndex.ts';
 export { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
 export { resolveSectionAnnotations, resolveSectionDimensions, resolveSectionDimRef, sectionDimRefAt } from './sectionDimRefs.ts';
+export * from './columnTool.ts';
+export * from './beamTool.ts';
+export * from './footingTool.ts';
+export * from './structuralPresets.ts';
 export * from './wallShapes.ts';

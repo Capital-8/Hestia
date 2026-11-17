@@ -31,19 +31,21 @@ import {
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
+import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
-import { cutHalfOf, openingRect } from './openingCut.ts';
+import { cutHalfOf, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 import { withWallZ } from './wallFrameZ.ts';
 import { semCortina } from './cortinaProjeto.ts';
 import { round, ringsOfShape, sigCanonica } from './geomSig.ts';
+import { applyTiltToLevelPlan } from './wallTiltPlan.ts';
 import type { LayerBand, OpeningGeometry, Region, ResolvedCluster, ResolvedLayer, ResolvedLevel, ResolvedWall } from './types.ts';
 
 const MIN_AREA = 1e-9;
@@ -168,7 +170,7 @@ export function buildItems(
 }
 
 /** Algoritmo do pintor por prioridade (docs/05 §1): o menor número de prioridade é aceito primeiro e corta os demais. */
-export function paint(items: Item[]): Map<Item, MultiPolygon> {
+export function paint(items: Item[], isentos?: ReadonlySet<string>): Map<Item, MultiPolygon> {
   // Prioridade igual: a parede que atravessa um T vem primeiro (a que chega para na face dela, como no Revit);
   // só depois valem o núcleo mais robusto e a ordem de criação (paredes sobrepostas sem junção).
   const sorted = [...items].sort((x, y) => x.priority - y.priority || Number(y.through) - Number(x.through) || y.coreT - x.coreT || x.order - y.order || x.layerIndex - y.layerIndex);
@@ -182,9 +184,9 @@ export function paint(items: Item[]): Map<Item, MultiPolygon> {
     const accepted: Item[] = [];
     for (const it of group) {
       const subs: MultiPolygon[] = [];
-      for (const h of higher) if (boxesOverlap(h.box, it.box)) subs.push(h.shape);
+      for (const h of higher) if (boxesOverlap(h.box, it.box) && !isentos?.has(chaveDoPar(h.wallId, it.wallId))) subs.push(h.shape);
       // Mesma prioridade: o mais antigo vence, então a camada nova não duplica a área do canto.
-      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box)) subs.push(g.shape);
+      for (const g of accepted) if (g.wallId !== it.wallId && boxesOverlap(g.box, it.box) && !isentos?.has(chaveDoPar(g.wallId, it.wallId))) subs.push(g.shape);
       const vis = subs.length ? difference(it.shape, ...subs) : it.shape;
       result.set(it, vis.filter((p) => multiArea([p]) > MIN_AREA));
       accepted.push(it);
@@ -250,7 +252,7 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipHand: o.flipHand,
     flipFacing: o.flipFacing,
     offset: o.offset,
-    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2) } : {}),
+    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2), curve: { arc: f.arc, sMid: f.sMid } } : {}), ...openingTiltPlane(o, f, rough.width),
   };
 }
 
@@ -301,21 +303,21 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
-function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean): ClusterCore {
-  const compartilhadas = pinturasDoCluster(items);
+function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false, isentos?: ReadonlySet<string>): ClusterCore {
+  const compartilhadas = pinturasDoCluster(items, isentos?.size ? [...isentos].sort().join(',') : ''), pintar = (its: Item[]): Map<Item, MultiPolygon> => paint(its, isentos);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
     const key = active.map((i) => i.uid).sort((x, y) => x - y).join(',');
     let m = paintCache.get(key);
     if (!m) {
-      m = pintarCompartilhado(compartilhadas, key, active, paint);
+      m = pintarCompartilhado(compartilhadas, key, active, pintar);
       paintCache.set(key, m);
     }
     return m;
   };
   const plan = paintFor(items.filter((i) => i.inPlan));
   // Paredes só de contorno (fora do corte) pintam só entre si: não cortam as paredes que o corte atravessa.
-  const outlinePaint = paint(items.filter((i) => i.outline));
+  const outlinePaint = pintar(items.filter((i) => i.outline));
   // Retornos de acabamento não invadem paredes vizinhas (ver clipReturn.ts).
   const clipReturn = makeReturnClipper(items);
   const layers = new Map<Id, ResolvedLayer[]>();
@@ -338,7 +340,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
       const w = zr.get(it.wallId)!;
       const holes = opens
         .filter((g) => g.hostId === it.wallId && mid > w.z0 + g.sill && mid < w.z0 + g.sill + g.roughHeight)
-        .map(openingRect);
+        .map(openingHole);
       let poly = holes.length ? furosDe(frag, holes) : frag;
       // Retorno do acabamento no vão: só nas faixas de altura que o vão atravessa.
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) {
@@ -362,7 +364,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     let cut = fragment;
     if (it.inPlan && fragment.length) {
       // Só as aberturas que furam a parede na planta; o retorno do vão sai junto com o seu vão.
-      const rects = opens.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map(openingRect);
+      const rects = opens.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map(openingHole);
       cut = rects.length ? difference(fragment, ...rects) : fragment;
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) if (planOpen(r.openingId)) cut = [...cut, ...clipReturn(r, it.wallId, plan)];
     }
@@ -374,11 +376,13 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     layers.set(it.wallId, arr);
     if (cut.length) byMaterial.set(it.materialId, [...(byMaterial.get(it.materialId) ?? []), cut]);
   }
-  const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: closeGapsSafe(unionClipper(...parts)) }));
+  // D4: cluster inclinado: `applyTiltToPlan` refaz regiões e silhueta (cortes deslocados); as verticais (~250 ms) seriam descartadas.
+  if (semRegioes) { for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex); return { layers, regions: [], silhouette: [] }; }
+  const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: parts.length === 1 && parts[0]!.length <= 1 ? parts[0]! : closeGapsSafe(unionClipper(...parts)) }));
   // Silhueta pela união das regiões por material. Unir todos os cortes numa só operação do Clipper foi tentado (semente 18
   // dos testes de propriedade: um bolsão fechado de 0,029 metros quadrados entre três paredes que se cruzam fica preenchido nesta união),
   // mas em outras sementes essa união única preencheu ambientes inteiros (até 8,9 metros quadrados a mais): o erro de 0,1% é o menor.
-  const silhouette = closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
+  const silhouette = regions.length <= 1 ? (regions[0]?.polygons ?? []) : closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
   for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex);
   return { layers, regions, silhouette };
 }
@@ -453,17 +457,13 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     }
     const opens = group.flatMap((f) => openingsOfWall(p, f.wall.id).map((o) => openingGeometry(p, o, f)));
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
-    const zr = new Map(
-      group.map((f) => {
-        const { z0, height } = wz.get(f.wall.id)!;
-        return [f.wall.id, { z0, z1: z0 + height }] as const;
-      }),
-    );
+    const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
-    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}`;
+    const semRegioes = group.some((f) => !!f.wall.tilt), isentos = paresQueSeCruzam(group, estrutura.status);
+    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}`;
     let core = cache.get(key);
     if (!core) {
-      core = solveCluster(items, opens, zr, returns, planOpen);
+      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes, isentos);
       if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
       cache.set(key, core);
     }
@@ -474,8 +474,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         wallId: f.wall.id,
         a: f.a,
         b: f.b,
-        u: f.u,
-        n: f.n,
+        u: f.u, n: f.n,
         length: f.length,
         sHi: f.sHi,
         sLo: f.sLo,
@@ -483,6 +482,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         height: heights.get(f.wall.id)!,
         nominalZ0: wallBaseElevation(p, f.wall),
         nominalZ1: wallBaseElevation(p, f.wall) + wallMaxHeight(p, f.wall),
+        ...(f.wall.tilt ? { tilt: f.wall.tilt, sag: f.wall.sag } : {}), ...openingTiltCuts(opens, f.wall.id, f.wall.tilt),
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
         membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),
@@ -490,5 +490,6 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
       out.walls[f.wall.id] = rw;
     }
   }
+  applyTiltToLevelPlan(out, frames, opts.cutZ, PLAN_CUT, p.settings?.joinTolerance); // F2.5: parede inclinada
   return out;
 }

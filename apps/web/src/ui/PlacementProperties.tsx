@@ -1,18 +1,20 @@
 import type { ReactElement } from 'react';
 import { wallModeOf, wallModePatch, type WallMode } from './wallModes.ts';
-import { areaPlanOf, isOpeningDimRef, isWallDimRef, type LocationLine } from '@hestia/model';
+import { areaPlanOf, DEFAULT_FOOTING_TYPES, isOpeningDimRef, isWallDimRef, type LocationLine } from '@hestia/model';
 import { DEFAULT_RAMP_OPTIONS, roofAutoOffset, stairTypeForShape, type ToolId } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { clearDimOverride, setDimOverride, useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
+import { FootingEccentricityRows, StructuralAnchorCard, footingPresetOffset, matchingFootingPreset } from './footingEccentricity.tsx';
 import { useFormat } from './useUnits.ts';
 import { OPENING_OPTIONS, WALL_OPTIONS, sessionChoice } from './dialogs/dimensionSettingsModel.ts';
 import { RampLevelsFields, rampLevelsValue } from './RampLevelsFields.tsx';
 import { abrirCaixaDeTexto } from './dialogs/TextDialog.tsx';
 import { stairRunFields, stairShapeOptions } from './stairRunFields.ts';
+import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 
-const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'section']);
+const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section', 'column', 'beam', 'footing']);
 
 /** Linha de localização da parede: mesma lista de `LOCATION_LABEL`, traduzida pelo dicionário. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -54,9 +56,10 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
     <>
       {tool === 'wall' && (
         <Group title={t('pra_pgrp_placement_wall')}>
-          <Row label={t('pra_fld_form')} htmlFor="place-wall-shape"><select id="place-wall-shape" className="select" value={wallModeOf(o)} onChange={(e) => set(wallModePatch(e.target.value as WallMode))}><option value="line">{t('pra_opt_line')}</option><option value="arc">{t('pra_opt_arc_3_points')}</option><option value="rect">{t('pra_opt_rectangle')}</option><option value="polygonIn">{t('pro_shape_poly_in')}</option><option value="polygonOut">{t('pro_shape_poly_out')}</option><option value="circle">{t('pro_shape_circle')}</option><option value="ellipse">{t('pro_shape_ellipse')}</option><option value="spline">{t('pro_shape_spline')}</option></select></Row>
+          <Row label={t('pra_fld_form')} htmlFor="place-wall-shape"><select id="place-wall-shape" className="select" value={wallModeOf(o)} onChange={(e) => set(wallModePatch(e.target.value as WallMode))}><option value="line">{t('pra_opt_line')}</option><option value="arc">{t('pra_opt_arc_3_points')}</option><option value="arcCenter">{t('pro_pm_shape_arc_center')}</option><option value="arcTangent">{t('pro_pm_shape_arc_tangent')}</option><option value="rect">{t('pra_opt_rectangle')}</option><option value="polygonIn">{t('pro_shape_poly_in')}</option><option value="polygonOut">{t('pro_shape_poly_out')}</option><option value="circle">{t('pro_shape_circle')}</option><option value="ellipse">{t('pro_shape_ellipse')}</option><option value="spline">{t('pro_shape_spline')}</option></select></Row>
           {wallModeOf(o) === 'polygonIn' || wallModeOf(o) === 'polygonOut' ? <Row label={t('pro_poly_sides')} htmlFor="place-wall-sides"><NumField id="place-wall-sides" value={o.wallPolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ wallPolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} /></Row> : null}
           {wallModeOf(o) === 'ellipse' || wallModeOf(o) === 'spline' ? <Row label={t('pro_fit_tol')} htmlFor="place-wall-fittol"><NumField id="place-wall-fittol" value={o.wallFitTol ?? 0.005} quantity="smallLength" min={0.001} onCommit={(v) => set({ wallFitTol: Math.min(0.05, Math.max(0.001, v)) })} /></Row> : null}
+          <Row label={t('prc_fld_tilt')} htmlFor="place-wall-tilt"><NumField id="place-wall-tilt" value={radDeGrau(o.wallTilt ?? 0)} quantity="angle" min={-TILT_MAX_RAD} max={TILT_MAX_RAD} strictRange onInvalid={avisoLimiteInclinacao} onCommit={(v) => set({ wallTilt: grauDeRad(v) })} /></Row>
           <Row label={t('pra_fld_base_level')}><span className="val">{p.levels.find((l) => l.id === levelId)?.name ?? t('pra_msg_active_level')}</span></Row>
           <Row label={t('pra_fld_base_offset')} htmlFor="place-wall-base"><NumField id="place-wall-base" value={o.wallBaseOffset ?? 0} quantity="length" onCommit={(v) => set({ wallBaseOffset: v })} /></Row>
           <Row label={t('pra_fld_top_level')} htmlFor="place-wall-top"><select id="place-wall-top" className="select" value={o.wallTopLevelId ?? ''} onChange={(e) => set({ wallTopLevelId: e.target.value || null })}><option value="">{t('pra_opt_by_height')}</option>{p.levels.filter((l) => l.id !== levelId).map((l) => <option key={l.id} value={l.id}>{t('pra_opt_up_to', { name: l.name })}</option>)}</select></Row>
@@ -78,6 +81,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
           <Row label={t('pra_fld_dim_opening')} htmlFor="place-open-dim-self"><select id="place-open-dim-self" className="select" value={sessionChoice(dimOverrides, 'opening:opening')} onChange={(e) => chooseDim('opening:opening', e.target.value)}><option value="">{t('pra_opt_project_default')}</option>{OPENING_OPTIONS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}</select></Row>
           <Row label={t('pra_fld_opening_tags')}><Check id="place-open-tags" checked={p.settings.showOpeningTags === true} onChange={(v) => editor.store.exec({ type: 'setSettings', patch: { showOpeningTags: v } })} /></Row>
           <Row label={t('pra_fld_tag_on_place')}><Check id="place-open-tag-place" checked={o.openingTagOnPlace !== false} onChange={(v) => set({ openingTagOnPlace: v })} /></Row>
+          <Row label={t('tg_undo_marks')}><Check id="place-open-automarks" checked={p.settings.autoMarks !== false} onChange={(v) => editor.store.exec({ type: 'setSettings', patch: { autoMarks: v } })} /></Row>
           {(() => { const typeId = tool === 'door' ? o.doorTypeId : o.windowTypeId; const type = p.openingTypes[typeId]; return <Row label={t('pra_fld_sill')} htmlFor="place-opening-sill"><NumField id="place-opening-sill" value={o.openingSillOverride ?? type?.sill ?? 0} placeholder={type ? t('pra_ph_sill_from_type', { value: format('length', type.sill) }) : undefined} onCommit={(v) => set({ openingSillOverride: v })} onClear={() => set({ openingSillOverride: null })} quantity="length" min={0} /></Row>; })()}
           <div className="hint">{t('pra_msg_opening_placement_hint')}</div>
         </Group>
@@ -135,6 +139,112 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
           <RampLevelsFields project={p} levelId={levelId} idPrefix="place-ramp" value={rampLevelsValue(o.ramp ?? DEFAULT_RAMP_OPTIONS)} onChange={setRamp} Field={Row} />
         </Group>
       )}
+      {tool === 'column' && (
+        <Group title={t('tool_column')}>
+          <Row label={t('str_opt_col_mode')} htmlFor="place-col-mode">
+            <select id="place-col-mode" className="select" value={o.columnMode ?? 'vertical'} onChange={(e) => set({ columnMode: e.target.value as 'vertical' | 'slanted' })}>
+              <option value="vertical">{t('str_opt_col_vertical')}</option>
+              <option value="slanted">{t('str_opt_col_slanted')}</option>
+            </select>
+          </Row>
+          <Row label={t('str_opt_col_height')} htmlFor="place-col-depth-mode">
+            <select id="place-col-depth-mode" className="select" value={o.columnDepthMode ?? 'height'} onChange={(e) => set({ columnDepthMode: e.target.value as 'depth' | 'height' })}>
+              <option value="height">{t('str_opt_col_height')}</option>
+              <option value="depth">{t('str_opt_col_depth')}</option>
+            </select>
+          </Row>
+          <Row label={t('pra_fld_base_offset')} htmlFor="place-col-base">
+            <NumField id="place-col-base" value={o.columnBaseOffset ?? 0} quantity="length" onCommit={(v) => set({ columnBaseOffset: v })} />
+          </Row>
+          <Row label={t('pra_fld_top_level')} htmlFor="place-col-top">
+            <select id="place-col-top" className="select" value={o.columnTopLevelId ?? ''} onChange={(e) => set({ columnTopLevelId: e.target.value || null })}>
+              <option value="">{t('pra_opt_by_height')}</option>
+              {p.levels.filter((l) => l.id !== levelId).map((l) => <option key={l.id} value={l.id}>{t('pra_opt_up_to', { name: l.name })}</option>)}
+            </select>
+          </Row>
+          {o.columnTopLevelId ? (
+            <Row label={t('pra_fld_top_offset')} htmlFor="place-col-topoff">
+              <NumField id="place-col-topoff" value={o.columnTopOffset ?? 0} quantity="length" onCommit={(v) => set({ columnTopOffset: v })} />
+            </Row>
+          ) : (
+            <Row label={t('pra_fld_height')} htmlFor="place-col-height">
+              <NumField id="place-col-height" value={o.columnHeight ?? 2.8} quantity="length" min={0.1} onCommit={(v) => set({ columnHeight: v })} />
+            </Row>
+          )}
+          <Row label={t('str_fld_rotation')} htmlFor="place-col-rot">
+            <NumField id="place-col-rot" value={o.columnRotation ?? 0} quantity="angle" onCommit={(v) => set({ columnRotation: v })} />
+          </Row>
+          <Row label={t('str_fld_anchor_point')}>
+            <StructuralAnchorCard
+              kind="column"
+              activePreset={o.columnAnchor ?? 'center'}
+              onSelect={(preset) => set({ columnAnchor: preset })}
+            />
+          </Row>
+        </Group>
+      )}
+      {tool === 'beam' && (
+        <Group title={t('tool_beam')}>
+          <Row label={t('str_fld_justify')} htmlFor="place-beam-just">
+            <select id="place-beam-just" className="select" title={t('str_hint_beam_space')} value={o.beamJustify ?? 'center'} onChange={(e) => set({ beamJustify: e.target.value as typeof o.beamJustify })}>
+              <option value="center">{t('str_just_center')}</option>
+              <option value="left">{t('str_just_left')}</option>
+              <option value="right">{t('str_just_right')}</option>
+            </select>
+          </Row>
+          <div style={{ fontSize: 10.5, color: 'var(--fg-soft)', margin: '2px 0 4px' }}>{t('str_hint_beam_space')}</div>
+          <Row label={t('str_fld_z_offset')} htmlFor="place-beam-zoff">
+            <NumField id="place-beam-zoff" value={o.beamZOffset ?? 0} quantity="length" onCommit={(v) => set({ beamZOffset: v })} />
+          </Row>
+          <Row label={t('pra_fld_chain')} htmlFor="place-beam-chain">
+            <Check id="place-beam-chain" checked={o.chain} onChange={(v) => set({ chain: v })} />
+          </Row>
+        </Group>
+      )}
+      {tool === 'footing' && (
+        <Group title={t('tool_footing')}>
+          <Row label={t('str_opt_foot_mode')} htmlFor="place-ft-mode">
+            <select id="place-ft-mode" className="select" value={o.footingMode ?? 'free'} onChange={(e) => set({ footingMode: e.target.value as 'free' | 'atColumns' })}>
+              <option value="free">{t('str_opt_foot_free')}</option>
+              <option value="atColumns">{t('str_opt_foot_at_cols')}</option>
+            </select>
+          </Row>
+          <Row label={t('str_fld_height_offset')} htmlFor="place-ft-offset">
+            <NumField id="place-ft-offset" value={o.footingHeightOffset ?? 0} quantity="length" onCommit={(v) => set({ footingHeightOffset: v })} />
+          </Row>
+          <Row label={t('str_fld_rotation')} htmlFor="place-ft-rot">
+            <NumField id="place-ft-rot" value={o.footingRotation ?? 0} quantity="angle" onCommit={(v) => set({ footingRotation: v })} />
+          </Row>
+          <FootingEccentricityRows
+            idPrefix="place-ft"
+            eccentric={Boolean(o.footingEccentric)}
+            ex={o.footingEccentricityX ?? 0}
+            ey={o.footingEccentricityY ?? 0}
+            activePreset={o.footingEccentric
+              ? matchingFootingPreset(
+                p,
+                o.footingTypeId ?? DEFAULT_FOOTING_TYPES[0]!.id,
+                null,
+                o.footingRotation ?? 0,
+                o.footingEccentricityX ?? 0,
+                o.footingEccentricityY ?? 0,
+              )
+              : 'center'}
+            onModeChange={(ecc) => set(ecc ? { footingEccentric: true } : { footingEccentric: false, footingEccentricityX: 0, footingEccentricityY: 0 })}
+            onExChange={(v) => set({ footingEccentric: Math.hypot(v, o.footingEccentricityY ?? 0) > 1e-6 || Boolean(o.footingEccentric), footingEccentricityX: v })}
+            onEyChange={(v) => set({ footingEccentric: Math.hypot(o.footingEccentricityX ?? 0, v) > 1e-6 || Boolean(o.footingEccentric), footingEccentricityY: v })}
+            onPreset={(preset) => {
+              const ftId = o.footingTypeId ?? DEFAULT_FOOTING_TYPES[0]!.id;
+              const off = footingPresetOffset(p, ftId, null, o.footingRotation ?? 0, preset);
+              set({
+                footingEccentric: preset !== 'center',
+                footingEccentricityX: off.eccentricityX,
+                footingEccentricityY: off.eccentricityY,
+              });
+            }}
+          />
+        </Group>
+      )}
       {tool === 'room' && (
         <Group title={t('pra_pgrp_placement_room')}>
           <Row label={t('pra_fld_level')} htmlFor="place-room-level"><select id="place-room-level" className="select" value={levelId} onChange={(e) => useUi.setState({ levelId: e.target.value, selection: [] })}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
@@ -156,12 +266,48 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
           <div className="hint">{t('pra_msg_text_placement_hint')}</div>
         </Group>
       )}
-      {['room', 'roomsep', 'dimension', 'text', 'section'].includes(tool) && (
-        <Group title={tool === 'room' ? t('pra_pgrp_placement_room') : tool === 'roomsep' ? t('pra_pgrp_placement_room_sep') : tool === 'dimension' ? t('pra_pgrp_placement_dimension') : tool === 'text' ? t('pra_pgrp_placement_text') : t('pra_pgrp_placement_section')}>
+      {tool === 'detailLine' && (
+        <Group title={t('pra_pgrp_detail_line')}>
+          <Row label={t('pra_fld_form')} htmlFor="place-dl-shape">
+            <select id="place-dl-shape" className="select" value={o.detailLineShape ?? 'line'} onChange={(e) => set({ detailLineShape: e.target.value as typeof o.detailLineShape })}>
+              <option value="line">{t('pro_pm_shape_line')}</option>
+              <option value="rect">{t('pro_pm_shape_rect')}</option>
+              <option value="poly-inscribed">{t('pro_pm_shape_poly_in')}</option>
+              <option value="poly-circumscribed">{t('pro_pm_shape_poly_circ')}</option>
+              <option value="circle">{t('pro_pm_shape_circle')}</option>
+              <option value="arc">{t('pro_pm_shape_arc3')}</option>
+              <option value="arc-center">{t('pro_pm_shape_arc_center')}</option>
+              <option value="arc-tangent">{t('pro_pm_shape_arc_tangent')}</option>
+              <option value="ellipse">{t('pro_pm_shape_ellipse')}</option>
+            </select>
+          </Row>
+          {o.detailLineShape === 'poly-inscribed' || o.detailLineShape === 'poly-circumscribed' ? <Row label={t('pro_poly_sides')} htmlFor="place-dl-sides"><NumField id="place-dl-sides" value={o.detailLinePolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ detailLinePolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} /></Row> : null}
+          <Row label={t('pra_fld_line_style')} htmlFor="place-dl-style">
+            <select id="place-dl-style" className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as typeof o.detailLineStyle })}>
+              <option value="solid">{t('pra_opt_continuous')}</option>
+              <option value="dashed">{t('pra_opt_dashed')}</option>
+              <option value="dotted">{t('pra_opt_dotted')}</option>
+            </select>
+          </Row>
+        </Group>
+      )}
+      {tool === 'tag' && (
+        <Group title={t('pra_pgrp_tag')}>
+          <Row label={t('pra_fld_orientation')}>
+            <select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as typeof o.tagOrientation })}>
+              <option value="horizontal">{t('pra_opt_horizontal')}</option>
+              <option value="vertical">{t('pra_opt_vertical')}</option>
+            </select>
+          </Row>
+          <Check id="place-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>{t('pra_fld_show_leader')}</Check>
+        </Group>
+      )}
+      {['room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section'].includes(tool) && (
+        <Group title={tool === 'room' ? t('pra_pgrp_placement_room') : tool === 'roomsep' ? t('pra_pgrp_placement_room_sep') : tool === 'dimension' ? t('pra_pgrp_placement_dimension') : tool === 'text' ? t('pra_pgrp_placement_text') : tool === 'section' ? t('pra_pgrp_placement_section') : tool === 'tag' ? t('pra_pgrp_tag') : t('pra_pgrp_detail_line')}>
           <div className="hint">{t('pra_msg_annotation_target_hint', { target: targetName })}</div>
         </Group>
       )}
-      {!['room', 'roomsep', 'dimension', 'text', 'section'].includes(tool) && (
+      {!['room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section'].includes(tool) && (
         <Group title={t('pra_pgrp_level_identity')} open={false}>
           <Row label={t('pra_fld_level')} htmlFor="place-level"><select id="place-level" className="select" value={levelId} onChange={(e) => useUi.setState({ levelId: e.target.value, selection: [] })}>{p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Row>
           <Row label={t('pra_fld_mark')} htmlFor="place-mark"><TextField id="place-mark" value={o.placementMark ?? ''} onCommit={(v) => set({ placementMark: v })} /></Row>

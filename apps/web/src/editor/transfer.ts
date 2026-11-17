@@ -1,4 +1,4 @@
-import type { Id, Project, ProjectStore } from '@hestia/model';
+import { isOpening, type Id, type Project, type ProjectStore } from '@hestia/model';
 import { clipboardFrom, copyableIds as copyableIdsOf, idsOfType, pasteAlignedCommand, pasteAlignedToLevelsCommand, sameNameRoomIds, selectedTypeId, type ClipBuffer, type PasteIds, type PasteLevelsResult } from '@hestia/tools';
 import type { SectionResult } from '@hestia/engine';
 import { idsVisiveisDoTipoNoCorte } from './sectionBoxSelect.ts';
@@ -7,7 +7,7 @@ import { useUi } from './state.ts';
 import { annotationIdsOfType, annotationTypeOf, selectedAnnotations } from './viewAnnotations.ts';
 
 /** Ordem canônica de exibição/seleção das categorias coladas (a mesma do motor). */
-const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad', 'railings', 'masses'];
+const PASTE_ORDER: readonly (keyof PasteIds)[] = ['walls', 'openings', 'floors', 'slabs', 'ceilings', 'roofs', 'stairs', 'ramps', 'rooms', 'generics', 'cad', 'columns', 'beams', 'footings', 'railings', 'masses'];
 
 /** Achata os ids de um nível na ordem canônica. */
 const idsOfPaste = (ids: PasteIds): Id[] => PASTE_ORDER.flatMap((key) => ids[key]);
@@ -24,6 +24,9 @@ const counts = (c: ClipBuffer): Counts => ({
   rooms: c.rooms?.length ?? 0,
   generics: c.generics?.length ?? 0,
   cad: c.cad?.length ?? 0,
+  columns: c.columns?.length ?? 0,
+  beams: c.beams?.length ?? 0,
+  footings: c.footings?.length ?? 0,
   railings: c.railings?.length ?? 0,
   masses: c.masses?.length ?? 0,
 });
@@ -40,6 +43,9 @@ interface Counts {
   rooms: number;
   generics: number;
   cad: number;
+  columns: number;
+  beams: number;
+  footings: number;
   railings: number;
   masses: number;
 }
@@ -56,6 +62,9 @@ const COUNT_KEYS: Record<keyof Counts, readonly [keyof Dict, keyof Dict]> = {
   rooms: ['edc_count_room_one', 'edc_count_room_many'],
   generics: ['edc_count_generic_one', 'edc_count_generic_many'],
   cad: ['edc_count_cad_one', 'edc_count_cad_many'],
+  columns: ['edc_count_column_one', 'edc_count_column_many'],
+  beams: ['edc_count_beam_one', 'edc_count_beam_many'],
+  footings: ['edc_count_footing_one', 'edc_count_footing_many'],
   railings: ['edc_count_railing_one', 'edc_count_railing_many'],
   masses: ['edc_count_mass_one', 'edc_count_mass_many'],
 };
@@ -85,6 +94,9 @@ function originLevelIdsOf(c: ClipBuffer): Id[] {
     ...(c.rooms ?? []),
     ...(c.generics ?? []),
     ...(c.cad ?? []),
+    ...(c.columns ?? []),
+    ...(c.beams ?? []),
+    ...(c.footings ?? []),
     ...(c.railings ?? []),
     ...(c.masses ?? []),
   ];
@@ -105,6 +117,9 @@ function elementCountOf(c: ClipBuffer): number {
     (c.rooms?.length ?? 0) +
     (c.generics?.length ?? 0) +
     (c.cad?.length ?? 0) +
+    (c.columns?.length ?? 0) +
+    (c.beams?.length ?? 0) +
+    (c.footings?.length ?? 0) +
     (c.railings?.length ?? 0) +
     (c.masses?.length ?? 0)
   );
@@ -188,10 +203,13 @@ export class Transfer {
       rooms: r.roomIds.length,
       generics: r.genericIds.length,
       cad: r.cadIds.length,
+      columns: r.columnIds.length,
+      beams: r.beamIds.length,
+      footings: r.footingIds.length,
       railings: r.railingIds.length,
       masses: r.massIds.length,
     };
-    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds, ...r.massIds];
+    const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.columnIds, ...r.beamIds, ...r.footingIds, ...r.railingIds, ...r.massIds];
     useUi.setState({ selection: ids, status: { key: 'edc_pasted_in_place', args: { description: describe(pasted, lang) } } });
     return true;
   }
@@ -269,33 +287,51 @@ export class Transfer {
     return ids.length;
   }
 
+  /** Nível comum dos elementos selecionados (aberturas via parede-mãe); `fallback` se vazio ou misto. */
+  private levelOfSelection(p: Project, fallback: Id): Id {
+    const levels = new Set<Id>();
+    for (const id of useUi.getState().selection) {
+      const el = p.elements[id];
+      if (!el) continue;
+      if (isOpening(el)) {
+        const host = p.elements[el.hostId];
+        if (host && 'levelId' in host) levels.add(host.levelId);
+      } else if ('levelId' in el) {
+        levels.add(el.levelId);
+      }
+    }
+    return levels.size === 1 ? [...levels][0]! : fallback;
+  }
+
   /** "Mesmo tipo": seleciona todos do tipo da seleção atual (que precisa ser de um só tipo). */
   sameType(p: Project, levelId: Id): number {
     const notas = this.ofAnnotationType(p, null);
     if (notas !== null) return notas;
-    const r =selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
+    const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
     if ('error' in r) {
       useUi.setState({ status: r.error });
       return 0;
     }
-    return this.ofType(p, levelId, r.typeId);
+    return this.ofType(p, this.levelOfSelection(p, levelId), r.typeId);
   }
 
   /**
    * "Visíveis na vista": o tipo da seleção, só do que a vista mostra. Na planta, os do pavimento que não estão ocultos;
-   * no corte/elevação (`section` calculado), os que aparecem no desenho, de qualquer pavimento. Devolve quantos.
+   * no corte/elevação (`section` calculado), os que aparecem no desenho, de qualquer pavimento; no 3D, os visíveis em todos os pavimentos. Devolve quantos.
    */
-  sameTypeVisible(p: Project, levelId: Id, hidden: ReadonlySet<Id>, section: SectionResult | null): number {
+  sameTypeVisible(p: Project, activeLevelId: Id, hidden: ReadonlySet<Id>, section: SectionResult | null): number {
     const notas = this.ofAnnotationType(p, hidden);
     if (notas !== null) return notas;
-    const r =selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
+    const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
     if ('error' in r) {
       useUi.setState({ status: r.error });
       return 0;
     }
-    const ids = useUi.getState().view === 'section'
+    const view = useUi.getState().view;
+    const levelId = this.levelOfSelection(p, activeLevelId);
+    const ids = view === 'section'
       ? (section ? idsVisiveisDoTipoNoCorte(p, section, r.typeId, hidden) : [])
-      : idsOfType(p, levelId, r.typeId).filter((id) => !hidden.has(id));
+      : idsOfType(p, view === '3d' ? null : levelId, r.typeId).filter((id) => !hidden.has(id));
     useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
     return ids.length;
   }

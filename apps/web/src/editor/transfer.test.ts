@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, defaultStairTypeId, isOpening, makeLevel, makeRoom, makeStair, makeWall, stairsOnLevel, wallsOnLevel, type StairLanding, type StairRun, type Wall } from '@hestia/model';
+import { computeSection } from '@hestia/engine';
+import { ProjectStore, beamsOnLevel, columnsOnLevel, createEmptyProject, defaultStairTypeId, footingsOnLevel, isOpening, makeBeam, makeColumn, makeFooting, makeLevel, makeRoom, makeStair, makeWall, stairsOnLevel, wallsOnLevel, type StairLanding, type StairRun, type Wall } from '@hestia/model';
 import { Transfer } from './transfer.ts';
 import { resolveText } from './i18n.ts';
 import { useUi } from './state.ts';
@@ -213,5 +214,61 @@ describe('estado do buffer e ids que o Copiar levaria', () => {
     const t = new Transfer();
     expect(t.copyableIds(s.project, ['A', 'A', 'zzz'])).toEqual(['A', 'd1']);
     expect(t.copyableIds(s.project, [])).toEqual([]);
+  });
+
+  it('sameTypeVisible seleciona visíveis em todas as vistas (3d e section cruzam níveis; plan fica no nível)', () => {
+    const s = setup();
+    s.exec({ type: 'addColumn', column: makeColumn({ id: 'c0', typeId: 'ct_conc_20x40', levelId: 'lv_0', at: { x: 1, y: -1 } }) });
+    s.exec({ type: 'addColumn', column: makeColumn({ id: 'c1', typeId: 'ct_conc_20x40', levelId: 'lv_1', at: { x: 2, y: -1 } }) });
+    s.exec({ type: 'addColumn', column: makeColumn({ id: 'c_hid', typeId: 'ct_conc_20x40', levelId: 'lv_1', at: { x: 3, y: -1 } }) });
+    const t = new Transfer();
+    const hidden = new Set(['c_hid']);
+
+    useUi.setState({ view: '3d', selection: ['c0'], levelId: 'lv_0' });
+    expect(t.sameTypeVisible(s.project, 'lv_0', hidden, null)).toBe(2);
+    expect(new Set(useUi.getState().selection)).toEqual(new Set(['c0', 'c1']));
+
+    const sec = computeSection(s.project, { a: { x: -1, y: -2 }, b: { x: 6, y: -2 }, depth: 6 });
+    useUi.setState({ view: 'section', selection: ['c0'], levelId: 'lv_0' });
+    expect(t.sameTypeVisible(s.project, 'lv_0', hidden, sec)).toBe(2);
+    expect(new Set(useUi.getState().selection)).toEqual(new Set(['c0', 'c1']));
+
+    useUi.setState({ view: 'plan', selection: ['c0'], levelId: 'lv_0' });
+    expect(t.sameTypeVisible(s.project, 'lv_0', hidden, null)).toBe(1);
+    expect(useUi.getState().selection).toEqual(['c0']);
+    useUi.setState({ view: 'plan' });
+  });
+
+  it('copia e cola alinhado pilares, vigas e sapatas entre níveis', () => {
+    const s = setup();
+    s.exec({ type: 'addColumn', column: makeColumn({ id: 'c0', typeId: 'ct_conc_20x40', levelId: 'lv_0', at: { x: 1, y: 2 } }) });
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'bm0', typeId: 'bt_conc_15x40', levelId: 'lv_0', a: { x: 1, y: 2 }, b: { x: 4, y: 2 } }) });
+    s.exec({ type: 'addFooting', footing: makeFooting({ id: 'ft0', typeId: 'ft_iso_100x100', levelId: 'lv_0', at: { x: 1, y: 2 }, eccentricityX: 0.1 }) });
+
+    const t = new Transfer();
+    expect(t.copy(s.project, ['c0', 'bm0', 'ft0'])).toBe(true);
+    expect(t.paste(s, 'lv_1')).toBe(true);
+
+    expect(columnsOnLevel(s.project, 'lv_1')).toHaveLength(1);
+    expect(beamsOnLevel(s.project, 'lv_1')).toHaveLength(1);
+    expect(footingsOnLevel(s.project, 'lv_1')).toHaveLength(1);
+    expect(useUi.getState().selection).toHaveLength(3);
+  });
+
+  it('sameType e sameTypeVisible respeitam o pavimento do elemento selecionado mesmo quando a planta ativa é outro nível', () => {
+    const s = setup();
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'bm_t0', typeId: 'bt_conc_15x40', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 3, y: 0 } }) });
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'bm_p2_a', typeId: 'bt_conc_15x40', levelId: 'lv_1', a: { x: 0, y: 0 }, b: { x: 3, y: 0 } }) });
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'bm_p2_b', typeId: 'bt_conc_15x40', levelId: 'lv_1', a: { x: 0, y: 2 }, b: { x: 3, y: 2 } }) });
+    s.exec({ type: 'addBeam', beam: makeBeam({ id: 'bm_p2_hid', typeId: 'bt_conc_15x40', levelId: 'lv_1', a: { x: 0, y: 4 }, b: { x: 3, y: 4 } }) });
+
+    const t = new Transfer();
+    useUi.setState({ view: 'plan', selection: ['bm_p2_a'], levelId: 'lv_0' });
+    expect(t.sameType(s.project, 'lv_0')).toBe(3);
+    expect(new Set(useUi.getState().selection)).toEqual(new Set(['bm_p2_a', 'bm_p2_b', 'bm_p2_hid']));
+
+    useUi.setState({ view: 'plan', selection: ['bm_p2_a'], levelId: 'lv_0' });
+    expect(t.sameTypeVisible(s.project, 'lv_0', new Set(['bm_p2_hid']), null)).toBe(2);
+    expect(new Set(useUi.getState().selection)).toEqual(new Set(['bm_p2_a', 'bm_p2_b']));
   });
 });

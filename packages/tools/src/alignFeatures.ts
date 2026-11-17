@@ -1,34 +1,10 @@
-import {
-  arcFromSagitta,
-  arcLocal,
-  arcPointAt,
-  arcTangentAt,
-  closestOnSegment,
-  dist,
-  norm,
-  sub,
-  type SketchDraft,
-  type Vec2,
-} from '@hestia/geom';
+import { arcFromSagitta, arcLocal, arcPointAt, arcTangentAt, closestOnSegment, dist, norm, sub, type SketchDraft, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import { t as translate, type Lang } from './i18n.ts';
 import {
-  areaPlanOf,
-  coreSpan,
-  isCeiling,
-  isFloor,
-  isGuardaCorpo,
-  isRoof,
-  isSlab,
-  levelRoomSeparators,
-  openingsOfWall,
-  openingType,
-  planAnnotationsOf,
-  projectGrids,
-  wallsOnLevel,
-  type Id,
-  type Project,
-  type StairCurve,
+  areaPlanOf, beamsOnLevel, columnsOnLevel, coreSpan, footingsOnLevel, isBeam, isCeiling, isColumn, isFloor, isFooting,
+  isGuardaCorpo, isRoof, isSlab, levelRoomSeparators, openingsOfWall, openingType, planAnnotationsOf, projectGrids,
+  wallsOnLevel, type Id, type Project, type StairCurve,
 } from '@hestia/model';
 import type { EdgeRef } from './ringEdge.ts';
 import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
@@ -36,14 +12,18 @@ import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts'
 import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
 import { gridPath } from './gridGeom.ts';
+import { buildBeamFeatures, buildColumnFeatures, buildFootingFeatures } from './structuralAlignFeatures.ts';
 import { massFeatures } from './massAlinhar.ts';
 import type { AlignPrefer } from './types.ts';
+import { topFaceFeatures } from './alignTopFeatures.ts';
 
 /** Feições que o Alinhar reconhece sob o cursor. */
 export type AlignKind =
   | 'faceParede'
   | 'eixoParede'
   | 'nucleoParede'
+  | 'faceSuperior'
+  | 'nucleoSuperior'
   | 'extremidadeParede'
   | 'ombreiraAbertura'
   | 'centroAbertura'
@@ -55,7 +35,14 @@ export type AlignKind =
   | 'arestaMassa'
   | 'linhaGrade'
   | 'linhaDetalhe'
-  | 'separador';
+  | 'separador'
+  | 'eixoPilar'
+  | 'facePilar'
+  | 'eixoViga'
+  | 'faceViga'
+  | 'extremidadeViga'
+  | 'eixoSapata'
+  | 'faceSapata';
 
 /** Reta de referência: um ponto e uma direção (unitária). */
 export interface AlignLine {
@@ -69,8 +56,9 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'massa'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
+  | { policy: 'pontaViga'; beamId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
   | { policy: 'anel'; ref: EdgeRef }
   | { policy: 'esboco'; segId: string }
@@ -109,6 +97,10 @@ export interface AlignQuery {
   draft?: SketchDraft;
   /** Idioma dos rótulos das feições (ausente = português). */
   lang?: Lang;
+  /** Oferece as feições da FACE SUPERIOR das paredes (T-D). Ausente = só as da base, como antes. */
+  topFaces?: boolean;
+  /** Com `topFaces`: em parede cujo topo coincide com a base em planta, a feição única leva o rótulo "Face superior". */
+  topLabel?: boolean;
 }
 
 const TOL_PX = 8;
@@ -458,6 +450,21 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
   return out;
 }
 
+/** Feições de pilares visíveis no nível: eixos e faces. */
+export function columnFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
+  return columnsOnLevel(p, levelId).filter(isColumn).flatMap((c) => buildColumnFeatures(p, c, at, mpp, hidden, lang));
+}
+
+/** Feições de vigas visíveis no nível: eixo e faces. */
+export function beamFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
+  return beamsOnLevel(p, levelId).filter(isBeam).flatMap((b) => buildBeamFeatures(p, b, at, mpp, hidden, lang));
+}
+
+/** Feições de sapatas visíveis no nível: eixos e faces. */
+export function footingFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
+  return footingsOnLevel(p, levelId).filter(isFooting).flatMap((f) => buildFootingFeatures(p, f, at, mpp, hidden, lang));
+}
+
 export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   const prefer = q.prefer ?? 'faces';
   const out: AlignFeature[] = [];
@@ -468,11 +475,16 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
     out.push(...wallFeatures(frame, q.at, q.metersPerPixel, prefer));
     out.push(...openingFeatures(q.project, frame, q.at, q.metersPerPixel));
   }
+  const top = q.topFaces ? topFaceFeatures(q, prefer, TOL_PX) : null;
+  if (top) out.push(...top.features);
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...columnFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...beamFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...footingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...massFeatures(q.project, q.levelId, q.at, q.metersPerPixel, TOL_PX, q.hidden));
   if (q.referenceOnly) out.push(...referenceLineFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.planId));
   out.push(...draftFeatures(q.draft, q.at, q.metersPerPixel));
-  return out.sort((a, b) => a.distance - b.distance);
+  return out.filter((f) => !top?.drop.has(f.key)).sort((a, b) => a.distance - b.distance);
 }

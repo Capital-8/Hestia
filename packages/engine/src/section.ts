@@ -7,24 +7,29 @@ import { junctionLevel, layerPartsOf, wallLayerBandsAfterJunction } from './junc
 import { resolveSlabs, slabRiseAt } from './slabs.ts';
 import { sectionOfCeilings } from './sectionCeilings.ts';
 import { resolveRoofs } from './roofs.ts';
-import { sectionOfRoofs } from './sectionRoofs.ts';
+import { sectionOfRoofs, type RoofEdgeCandidate } from './sectionRoofs.ts';
 
-export { sectionOfRoofs, squareCutRun, type RoofSection } from './sectionRoofs.ts';
+export { sectionOfRoofs, squareCutRun, type RoofSection, type RoofEdgeCandidate } from './sectionRoofs.ts';
 import { frameOfWall, openingGeometry, resolveLevel } from './resolve.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import type { OpeningModel } from './openingModelTypes.ts';
-import { EPS_T, lineIntervals, prismProjection, rect, sectionFrame, slabQuad, type SectionLine } from './sectionGeom.ts';
+import { EPS_T, limpaAneis, lineIntervals, prismProjection, rect, sectionFrame, semFrestas, slabQuad, type SectionLine } from './sectionGeom.ts';
 import { resolveStairsOnLevel } from './stairs.ts';
 import { sectionOfStairs } from './sectionStairs.ts';
 import { resolveRampsOnLevel } from './ramps.ts';
 import type { SectionSnapRing } from './sectionSnapRings.ts';
 import { sectionOfRamps } from './sectionRamps.ts';
+import { sectionOfStructural } from './sectionStructural.ts';
+import { visibleRoofEdges } from './sectionRoofEdgesVis.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
+import { openingTiltGeom } from './openingTilt.ts';
+import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
-export { lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
+export { lineIntervals, limpaAneis, sectionFrame, semFrestas, type SectionLine } from './sectionGeom.ts';
+export { getRoofLinesMode, roofDrawingsOf, setRoofLinesMode, type RoofDrawing, type RoofFill, type RoofLinesMode } from './sectionRoofDraw.ts';
 export { type SectionPart } from './sectionParts.ts';
 
 /**
@@ -52,6 +57,9 @@ export interface SectionOrigin {
   stairId?: Id;
   rampId?: Id;
   openingId?: Id;
+  columnId?: Id;
+  beamId?: Id;
+  footingId?: Id;
 }
 
 /**
@@ -81,6 +89,10 @@ export interface SectionBeyond extends SectionOrigin {
   layerIndex: number;
   /** Distância do plano de corte ao ponto mais próximo. */
   depth: number;
+  /** Profundidade em cada ponto (t, z) para face inclinada (água de telhado): depth = c + a·t + b·z. Ausente = constante `depth`. */
+  depthPlane?: { c: number; a: number; b: number };
+  /** Água vista de perfil (de ponta): não esconde nada; só sobram as arestas dela onde nada a cobre. */
+  passive?: boolean;
   polygons: MultiPolygon;
 }
 
@@ -106,11 +118,26 @@ export interface SectionOpening {
   sSign: 1 | -1;
   /** Posição `t` local em que o plano da seção transversal atravessa o vão. */
   cutT: number;
+  /**
+   * Parede inclinada (P1): plano efetivo do vão, inclinação (rad, + = topo para +n do vão), peitoril e espessura, para a vista
+   * desenhar as peças no referencial inclinado como o 3D. Ausente em parede vertical.
+   */
+  tiltFrame?: { plane: 'vertical' | 'inclinado'; theta: number; sill: number; thickness: number };
   /** Materiais do tipo, para a cor e a hachura das peças do modelo. */
   frameMaterialId: Id;
   glassMaterialId: Id;
   /** Material da folha do tipo (ausente = o do batente): a peça de papel `leaf` usa este material. */
   leafMaterialId?: Id;
+}
+
+/** Trecho visível de uma aresta 3D de telhado no desenho (t, z). */
+export interface SectionRoofEdge {
+  roofId: Id;
+  kind: RoofEdgeCandidate['kind'];
+  a: Vec2;
+  b: Vec2;
+  /** Profundidade média do trecho (peso de linha por proximidade). */
+  depth: number;
 }
 
 export interface SectionLevelMark {
@@ -134,6 +161,8 @@ export interface SectionResult {
   /** Membranas de piso e laje cortadas pelo plano: linha na cota da face (decisão 0023 §5). */
   membranes: SectionMembrane[];
   levels: SectionLevelMark[];
+  /** Arestas 3D dos telhados visíveis (cumeeira, espigão, rincão, beiral, empena), em (t, z), já sem o que está coberto por outro elemento. */
+  roofEdges?: SectionRoofEdge[];
   /** Aneis (t, z) de degraus, espelhos, patamares e rampas antes da uniao/envoltoria; so captura (snap). Ausente sem escada/rampa. */
   snapRings?: SectionSnapRing[];
   /**
@@ -170,6 +199,8 @@ export interface SectionLevelPart {
   openings: SectionOpening[];
   membranes: SectionMembrane[];
   snapRings: SectionSnapRing[];
+  /** Arestas 3D dos telhados do pavimento, ainda sem a oclusão por paredes e pisos (feita na montagem). */
+  roofEdges?: RoofEdgeCandidate[];
   zMin: number;
   zMax: number;
 }
@@ -183,6 +214,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   };
   const beyond: SectionBeyond[] = [];
   const snapRings: SectionSnapRing[] = [];
+  const roofEdges: RoofEdgeCandidate[] = [];
   const membranes: SectionMembrane[] = []; const frame = { line, length, d, n };
   const openings: SectionOpening[] = [];
   let zMin = Infinity;
@@ -280,6 +312,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   grow(ck.zMin, ck.zMax);
   // Telhados (D3): como as lajes, por água e por camada (cada faixa segue a cota da água menos `below`).
   const rf = sectionOfRoofs(resolveRoofs(p, levelId), line);
+  roofEdges.push(...rf.edges);
   for (const c of rf.cut) addCut(c.materialId, c.polygon, { roofId: c.roofId });
   beyond.push(...rf.beyond);
   grow(rf.zMin, rf.zMax);
@@ -295,6 +328,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   beyond.push(...rk.beyond);
   snapRings.push(...rk.snapRings);
   grow(rk.zMin, rk.zMax);
+  // Elementos estruturais: pilares, vigas e sapatas (corte e elevação).
+  const st = sectionOfStructural(p, levelId, line);
+  for (const c of st.cut) addCut(c.materialId, c.polygon, c.origin);
+  beyond.push(...st.beyond);
+  grow(st.zMin, st.zMax);
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;
@@ -304,7 +342,16 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
         const z0 = rw.baseZ + band.z0;
         const z1 = rw.baseZ + band.z1;
+        // Parede inclinada (F2.6): a seção é o paralelogramo regrado; vertical sem junção inclinada segue o caminho abaixo.
+        const tm = band.slope ? undefined : tiltSectionMap(rw, layer.layerIndex, jl.walls.get(w.id)?.tilt);
         for (const poly of band.poly) {
+          if (tm) {
+            for (const ring of tiltBandCut(rw, tm, poly, { a: line.a, d, n, length }, band.z0, band.z1)) {
+              addCut(layer.materialId, [ring], { wallId: w.id });
+              grow(z0, z1);
+            }
+            continue;
+          }
           for (const [t0, t1] of lineIntervals(poly, line.a, d, n)) {
             const lo = Math.max(0, t0);
             const hi = Math.min(length, t1);
@@ -313,6 +360,13 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
             addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
             grow(z0, z1);
           }
+        }
+        if (tm) {
+          for (const bp of tiltBandBeyond(rw, tm, band.poly, slab, { a: line.a, d, n, length }, band.z0, band.z1)) {
+            beyond.push({ wallId: w.id, materialId: layer.materialId, layerIndex: layer.layerIndex, depth: bp.depth, polygons: bp.polygons });
+            grow(z0, z1);
+          }
+          continue;
         }
         for (const sp of intersection(band.poly, slab)) {
           const outer = sp[0];
@@ -346,6 +400,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       const z0 = rw.baseZ + g.sill;
       const model = buildOpeningModel(p, o, g, f);
       const ot = openingType(p, o);
+      // Parede inclinada (F2.8): 'inclinado' ocupa h·cosθ na vertical e o plano do caixilho desloca (s + h·cosθ/2)·tanθ ao
+      // longo de n; 'vertical' fica a prumo (topo em s + h), ancorado na face. Parede vertical: nada muda.
+      const tg = rw.tilt ? openingTiltGeom({ plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, t: g.thickness, w: g.width, h: g.height, s: g.sill }) : undefined;
+      const zTop = tg ? rw.baseZ + tg.topZ : z0 + g.height;
+      const shiftDepth = tg && g.tiltPlane ? tg.frameShift * (g.n.x * n.x + g.n.y * n.y) : 0;
       const du = d.x * g.u.x + d.y * g.u.y;
       const dn = d.x * g.n.x + d.y * g.n.y;
       openings.push({
@@ -354,15 +413,16 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         t0,
         t1,
         z0,
-        z1: z0 + g.height,
-        depth: Math.max(0, Math.min(...foot.map(dist))),
+        z1: zTop,
+        depth: Math.max(0, Math.min(...foot.map(dist)) + shiftDepth),
         cut: crossing,
-        polygons: [[rect(t0, t1, z0, z0 + g.height)]],
+        polygons: [[rect(t0, t1, z0, zTop)]],
         model,
         openingLine: openingLineConvention(p),
         // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.
         viewSide: du >= 0 ? -1 : 1,
         sSign: dn >= 0 ? 1 : -1,
+        ...(rw.tilt ? { tiltFrame: { plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, sill: g.sill, thickness: g.thickness } } : {}),
         cutT: (line.a.x - g.center.x) * g.u.x + (line.a.y - g.center.y) * g.u.y,
         frameMaterialId: ot.frameMaterialId,
         glassMaterialId: ot.glassMaterialId,
@@ -370,7 +430,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       });
     }
   }
-  return { cuts, beyond, openings, membranes, snapRings, zMin, zMax };
+  return { cuts, beyond, openings, membranes, snapRings, roofEdges, zMin, zMax };
 }
 
 export function computeSection(p: Project, line: SectionLine, levelIds: Id[] = p.levels.map((l) => l.id)): SectionResult {
@@ -399,9 +459,11 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
   const snapRings: SectionSnapRing[] = [];
   const membranes: SectionMembrane[] = [];
   const openings: SectionOpening[] = [];
+  const edgeCands: RoofEdgeCandidate[] = [];
   let zMin = Infinity;
   let zMax = -Infinity;
   for (const part of parts) {
+    if (part.roofEdges) edgeCands.push(...part.roofEdges);
     for (const c of part.cuts) {
       const key = `${c.materialId}|${c.hatch ?? ''}`;
       const entry = cutBy.get(key) ?? { materialId: c.materialId, hatch: c.hatch, items: [] };
@@ -429,7 +491,7 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
   }
   for (const b of groupBeyond(beyond)) {
     refs.push({ beyond: b });
-    items.push({ depth: b.depth, rank: OCCLUSION_RANK.beyond, polygons: b.polygons });
+    items.push({ depth: b.depth, rank: OCCLUSION_RANK.beyond, polygons: b.polygons, ...(b.depthPlane ? { plane: b.depthPlane } : {}), ...(b.passive ? { passive: true } : {}) });
   }
   for (const o of openings) {
     refs.push({ opening: o });
@@ -443,15 +505,19 @@ function assembleSectionBase(p: Project, line: SectionLine, parts: readonly Sect
     const polygons = visible[i]!;
     if (polygons.length === 0) return;
     if ('cut' in ref) cutVisible[ref.cut.entry]!.push({ origin: ref.cut.part.origin, polygons });
-    else if ('beyond' in ref) beyondVisible.push({ ...ref.beyond, polygons });
+    else if ('beyond' in ref) {
+      const clean = limpaAneis(polygons);
+      if (clean.length > 0) beyondVisible.push({ ...ref.beyond, polygons: clean });
+    }
     else openingsVisible.push({ ...ref.opening, polygons });
   });
   const cut = cutRegions(cutEntries, cutSources, cutVisible);
   // Telhado: as camadas projetam na mesma área (a face é inclinada), então a de cima (índice menor) desenha por último.
   beyondVisible.sort((x, y) => y.depth - x.depth || (x.roofId || y.roofId ? y.layerIndex - x.layerIndex : x.layerIndex - y.layerIndex));
   openingsVisible.sort((x, y) => y.depth - x.depth);
-  const silhouette = unionClipper(...cut.map((c) => c.polygons), ...beyondVisible.map((b) => b.polygons));
+  const silhouette = semFrestas(unionClipper(...cut.map((c) => c.polygons), ...beyondVisible.map((b) => b.polygons)));
   const levels = p.levels.map((l) => ({ levelId: l.id, name: l.name, z: l.elevation }));
   if (!isFinite(zMin)) return { ...empty, levels };
-  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(snapRings.length > 0 ? { snapRings } : {}) };
+  const roofEdges = visibleRoofEdges(edgeCands, cut, beyondVisible, openingsVisible);
+  return { length, zMin, zMax, cut, silhouette, beyond: beyondVisible, openings: openingsVisible, membranes, levels, ...(roofEdges.length > 0 ? { roofEdges } : {}), ...(snapRings.length > 0 ? { snapRings } : {}) };
 }

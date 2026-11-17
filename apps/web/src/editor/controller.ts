@@ -30,6 +30,8 @@ import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, 
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
+import { vperf } from './vperf.ts';
+import { aquecerCorteNoWorker, emOciosidade, temParedeInclinada } from './aquecimentoCorte.ts';
 import { transfer } from './transfer.ts';
 import type { PastePreviewState } from './pasteLevels/types.ts';
 import { consumirManterCameraDaPrevia, guardarOrigemDoColar, limparOrigemDoColar, limparPreviaPreparada, manterCameraDaPrevia, origemDoColar, prepararPrevia, previaPreparada, type OrigemDoColar } from './pastePreview.ts';
@@ -41,7 +43,8 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { elevationFrameBox, fitBox, levelFrameBox, panBy, planViewOf, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -69,7 +72,7 @@ import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra 
  * Ferramentas que continuam disponíveis na planta de área: anotação e as ferramentas de área (ambiente e separador).
  * O resto (parede, porta, piso, laje, forro, telhado, escada, grade...) é do modelo e fica bloqueado nela.
  */
-export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'text', 'tag', 'detailLine', 'filledRegion', 'room', 'roomsep'];
+export const AREA_PLAN_TOOLS: readonly ToolId[] = ['select', 'measure', 'dimension', 'spotElevation', 'spotCoordinate', 'text', 'tag', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'room', 'roomsep'];
 
 /** A ferramenta pode rodar na planta de área? */
 export const areaPlanToolAllowed = (id: ToolId): boolean => AREA_PLAN_TOOLS.includes(id);
@@ -81,6 +84,9 @@ const PLAN_ANNOTATION_TYPES = new Set<Command['type']>([
   'addDetailLine', 'updateDetailLine', 'removeDetailLine',
   'addDetailRegion', 'updateDetailRegion', 'removeDetailRegion',
   'addTag', 'updateTag', 'removeTag',
+  'addSpot', 'updateSpot', 'removeSpot',
+  'addRevisionCloud', 'updateRevisionCloud', 'removeRevisionCloud',
+  'addSymbol', 'updateSymbol', 'removeSymbol',
 ]);
 
 const isPlanAnnotation = (c: Command): c is AnnotationCommand => PLAN_ANNOTATION_TYPES.has(c.type);
@@ -130,7 +136,7 @@ const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
 };
 
 /** Ferramentas que fazem sentido na vista de corte/elevação. As demais continuam exclusivas da planta. */
-const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag', 'align', 'move', 'copy']);
+const SECTION_TOOLS = new Set<ToolId>(['select', 'measure', 'level', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'tag', 'align', 'move', 'copy']);
 
 export class Editor {
   readonly store = new ProjectStore(createEmptyProject(useI18n.getState().lang));
@@ -173,8 +179,54 @@ export class Editor {
     this.store.subscribe(() => {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
+      this.aquecerCorteSeInclinada();
+      this.agendarPrecalculoDeVistas();
       useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
     });
+  }
+
+  private corteAquecido = false;
+
+  private precalculoTimer: ReturnType<typeof setTimeout> | null = null;
+  private precalculando = false;
+  /** Máximo de vistas calculadas em segundo plano por projeto (as primeiras da lista). */
+  private static readonly MAX_PRECALCULO = 12;
+
+  /**
+   * D5: depois que o projeto assenta (600 ms sem edição) e o navegador está ocioso, o worker calcula, uma vista por vez, os cortes e elevações que ainda não estão
+   * prontos para o projeto atual. Abrir a vista passa a ler o resultado do cache (o cálculo no projeto do dono leva 0,4 a 1,1 s e o pedido na hora de abrir esperava por ele).
+   */
+  private agendarPrecalculoDeVistas(): void {
+    if (typeof Worker === 'undefined') return;
+    if (this.precalculoTimer) clearTimeout(this.precalculoTimer);
+    this.precalculoTimer = setTimeout(() => {
+      this.precalculoTimer = null;
+      emOciosidade(() => this.precalcularProximaVista());
+    }, 600);
+  }
+
+  private precalcularProximaVista(): void {
+    const p = this.project;
+    const alvo = p.views.slice(0, Editor.MAX_PRECALCULO).find((v) => !this.sectionFresh(v.id) && this.sectionPending.get(v.id) !== p);
+    if (!alvo) { this.precalculando = false; return; }
+    this.precalculando = true;
+    this.sectionOf(alvo.id);
+  }
+
+  /**
+   * Etapa W: compila no worker (JIT) os caminhos do corte/elevação inclinados, em ociosidade, uma vez por sessão do
+   * worker; e, com vista de corte aberta, calcula-a em segundo plano. Chamado ao carregar e quando surge parede inclinada.
+   */
+  aquecerCorteSeInclinada(forcar = false): void {
+    if (typeof Worker === 'undefined') return;
+    if (!this.corteAquecido && (forcar || temParedeInclinada(this.project))) {
+      this.corteAquecido = true;
+      this.sectionClient ??= criarClienteResolucao({ usarWorker: true });
+      void aquecerCorteNoWorker(this.sectionClient, undefined, () => {
+        const st = useUi.getState();
+        if (st.view === 'section' && st.sectionId) this.sectionOf(st.sectionId);
+      });
+    }
   }
 
   // ---------- ambiente entregue às ferramentas ----------
@@ -197,6 +249,8 @@ export class Editor {
           snap: st.options.snap,
           // Hide in View da vista: o que está oculto não pode virar alvo de captura (grades incluídas).
           hidden: visibilityOf(this.project, st).hidden,
+          // Linhas de detalhe do corte ativo como alvo de captura (mesma referência enquanto as anotações não mudam).
+          detailLines: sectionAnnotationsOf(this.project.views.find((v) => v.id === view.id)).detailLines,
           ...extra,
         }),
         result: () => result,
@@ -205,7 +259,7 @@ export class Editor {
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
-    hiddenInView: () => planViewOf(this.store.project, useUi.getState().levelId).hidden,
+    hiddenInView: () => visibilityOf(this.store.project, useUi.getState()).hidden,
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -239,8 +293,8 @@ export class Editor {
    * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que
    * converte mm de papel em metros de desenho — a mesma na tela, na prancha e no DXF.
    */
-  viewScale(): number {
-    const st = useUi.getState();
+  viewScale(f?: ViewKeyFields & { sectionId: Id | null }): number {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
@@ -295,23 +349,21 @@ export class Editor {
 
   // ---------- vistas ----------
   /** Chave do viewport: cada planta tem o seu (a de cobertura tem outro, do mesmo nível); cada corte ou elevação tem o próprio. */
-  private viewKey(): Id {
-    const st = useUi.getState();
-    return st.view === 'section' ? `sec:${st.sectionId}` : st.planKind === 'roof' ? `roof:${st.levelId}` : st.planKind === 'area' ? `area:${st.areaPlanId ?? st.levelId}` : st.levelId;
+  private viewKey(f?: ViewKeyFields): Id { return viewKeyOf(f ?? useUi.getState()); }
+
+  /** Câmera 2D da vista (sem `f`: a vista ativa do app; com `f`: a vista dada, ex.: a de um painel que acabou de sair de cena). */
+  viewport(f?: ViewKeyFields): Viewport | null {
+    return this.viewports.get(this.viewKey(f)) ?? null;
   }
 
-  viewport(): Viewport | null {
-    return this.viewports.get(this.viewKey()) ?? null;
-  }
-
-  setViewport(v: Viewport): void {
-    this.viewports.set(this.viewKey(), v);
+  setViewport(v: Viewport, f?: ViewKeyFields): void {
+    this.viewports.set(this.viewKey(f), v);
     useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
   }
 
   /** Caixa para enquadrar a vista atual: o nível na planta, o corte na vista de corte. */
-  private frameBox(): PlanBox | null {
-    const st = useUi.getState();
+  frameBox(f?: ViewKeyFields & { sectionId: Id | null }): PlanBox | null {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const r = this.sectionOf(st.sectionId);
       return r ? sectionBox(r) : null;
@@ -405,6 +457,7 @@ export class Editor {
       (value) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!value) return;
+        vperf?.mark('cache');
         const first = !this.sectionCache.has(id);
         this.sectionCache.set(id, { project, value: value as SectionResult });
         if (first && this.sectionToFrame.delete(id)) {
@@ -418,10 +471,12 @@ export class Editor {
         const st = useUi.getState();
         if (st.view === 'section' && st.sectionId === id) this.tool.refreshPreviewAtPointer?.();
         this.bump();
+        if (this.precalculando) emOciosidade(() => this.precalcularProximaVista());
       },
       (e: unknown) => {
         if (this.sectionPending.get(id) === project) this.sectionPending.delete(id);
         if (!(e instanceof ResolucaoCancelada)) console.error('corte', e);
+        else if (this.precalculando) this.agendarPrecalculoDeVistas();
       },
     );
   }
@@ -684,11 +739,12 @@ export class Editor {
       this.save();
       return true;
     }
-    if (mod && ui.view === 'plan' && /^[cvx]$/i.test(k) && !this.perimetro.ativo) {
+    if (mod && (ui.view === 'plan' || ui.view === '3d' || ui.view === 'section') && /^[cvx]$/i.test(k) && !this.perimetro.ativo) {
       const tecla = k.toLowerCase();
       if (tecla === 'c') return this.copySelection();
       if (tecla === 'x') return this.cutSelection();
-      return this.pasteAligned();
+      if (ui.view === 'plan') return this.pasteAligned();
+      return this.openPasteLevelsDialog();
     }
     if (mod) return /^a$/i.test(k) && this.perimetro.selecionarTudo();
     if (k === 'F3') {
@@ -783,7 +839,20 @@ export class Editor {
       this.bump();
       return true;
     }
-    if (k === ' ' && this.tool.id === 'wall') {
+    if (
+      k === ' '
+      && !(this.tool.freeText && this.tool.inputPrompt())
+      && (
+        this.tool.id === 'wall'
+        || this.tool.id === 'door'
+        || this.tool.id === 'window'
+        || this.tool.id === 'curtainDoor'
+        || this.tool.id === 'curtainWindow'
+        || this.tool.id === 'column'
+        || this.tool.id === 'beam'
+        || this.tool.id === 'footing'
+      )
+    ) {
       this.tool.space?.();
       this.bump();
       return true;
@@ -793,12 +862,12 @@ export class Editor {
       useUi.setState({ typed: ui.typed + k });
       return true;
     }
-    if (k === ' ' && (this.tool.id === 'door' || this.tool.id === 'window' || this.tool.id === 'curtainDoor' || this.tool.id === 'curtainWindow')) {
-      this.tool.space?.(); this.bump();
+    // Atalho por sequência (ex.: WA) e teclas específicas da ferramenta (ex.: 1–9 em sapatas/pilares/vigas).
+    if (e.altKey || ui.typed || this.tool.freeText) return false;
+    if (!this.tool.inputPrompt() && this.tool.onKey?.(k)) {
+      this.bump();
       return true;
     }
-    // Atalho por sequência (ex.: WA). Alt não dispara; digitação ativa ou ferramenta de texto (freeText, sem ponto) não deixa letras virarem atalho.
-    if (e.altKey || ui.typed || this.tool.freeText) return false;
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });
@@ -829,6 +898,7 @@ export class Editor {
   // ---------- cortes e elevações ----------
   /** Abre um corte ou elevação na área central, com viewport próprio. */
   openSection(id: Id): void {
+    vperf?.mark('abrir');
     if (this.perimetro.bloqueiaNavegacao() || !this.project.views.some((v) => v.id === id)) return;
     // Ao abrir, enquadra de novo: descarta o viewport guardado desta vista.
     this.viewports.delete(`sec:${id}`);
@@ -1189,6 +1259,7 @@ export class Editor {
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
     useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
+    this.aquecerCorteSeInclinada(true);
   }
 
   openFromText(text: string, name: string): { ok: true } | { ok: false; error: string } {

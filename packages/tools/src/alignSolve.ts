@@ -1,6 +1,6 @@
 import { add, cross, dist, dot, intersectLines, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
-import { isGuardaCorpo, openingsOfWall, openingType, type Id, type Project } from '@hestia/model';
+import { isBeam, isGuardaCorpo, openingsOfWall, openingType, type Id, type Project } from '@hestia/model';
 import type { AlignFeature, AlignLine } from './alignFeatures.ts';
 import type { EdgeRef } from './ringEdge.ts';
 import { ringOps } from './ringOps.ts';
@@ -9,8 +9,9 @@ import { t as translate, type Lang } from './i18n.ts';
 
 /** Deslocamento calculado pelo Alinhar. `nada` = já alinhado; `erro` = recusa com a explicação em português. */
 export type AlignSolution =
-  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'massa'; id: Id; d: Vec2; distance: number }
+  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa'; id: Id; d: Vec2; distance: number }
   | { kind: 'ponta'; wallId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
+  | { kind: 'pontaViga'; beamId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
   | { kind: 'abertura'; openingId: Id; offset: number; distance: number }
   | { kind: 'anel'; ref: EdgeRef; ring: Vec2[]; distance: number }
   | { kind: 'esboco'; segId: string; a: Vec2; b: Vec2; distance: number }
@@ -89,6 +90,24 @@ export function solveAlign(ref: AlignLine, feature: AlignFeature, project: Proje
       return { kind: 'erro', mensagem: translate(lang, 'tl_msg_wall_zero_length') };
     }
     return { kind: 'ponta', wallId: move.wallId, end: move.end, to: hit.point, distance: dist(current, hit.point) };
+  }
+
+  if (move.policy === 'pontaViga') {
+    const beam = project.elements[move.beamId];
+    if (!isBeam(beam)) return { kind: 'erro', mensagem: translate(lang, 'tl_msg_align_feature_ref_only') };
+    if (dist(beam.a, beam.b) < 1e-9) return { kind: 'erro', mensagem: translate(lang, 'tl_msg_beam_zero_length') };
+    const u = norm(sub(beam.b, beam.a));
+    if (parallel(u, ref.d)) return { kind: 'erro', mensagem: translate(lang, 'tl_msg_ref_parallel_axis') };
+    const hit = intersectLines(beam.a, u, ref.p, ref.d);
+    if (!hit) return { kind: 'erro', mensagem: translate(lang, 'tl_msg_ref_no_cross') };
+    const current = move.end === 'a' ? beam.a : beam.b;
+    const other = move.end === 'a' ? beam.b : beam.a;
+    if (dist(current, hit.point) < EPS) return { kind: 'nada' };
+    const dirFromOther = move.end === 'b' ? u : mul(u, -1);
+    if (dot(sub(hit.point, other), dirFromOther) < 0.05) {
+      return { kind: 'erro', mensagem: translate(lang, 'tl_msg_beam_zero_length') };
+    }
+    return { kind: 'pontaViga', beamId: beam.id, end: move.end, to: hit.point, distance: dist(current, hit.point) };
   }
 
   if (move.policy === 'abertura') {

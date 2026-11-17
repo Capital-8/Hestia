@@ -41,6 +41,9 @@ const OWNER_FIELDS: Array<[Exclude<keyof SectionOrigin, 'openingId'>, GraphicsCa
   ['roofId', 'roof'],
   ['stairId', 'stair'],
   ['rampId', 'stair'],
+  ['columnId', 'wall'],
+  ['beamId', 'slab'],
+  ['footingId', 'slab'],
 ];
 
 /** Dono de uma origem do motor (parede, piso, laje, telhado ou escada); null se a origem não traz id. */

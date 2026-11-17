@@ -1,4 +1,13 @@
-import { embutirNaCortina, type DimensionStyle, type OpeningType, type Project } from '@hestia/model';
+import {
+  beamTypeMap,
+  columnTypeMap,
+  embutirNaCortina,
+  footingTypeMap,
+  type DimensionStyle,
+  type OpeningType,
+  type Project,
+  type TagFamily,
+} from '@hestia/model';
 import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
@@ -40,6 +49,36 @@ export function rampOptions(p: Project, lang: Lang = useI18n.getState().lang): T
   return Object.values(p.rampTypes).map((t) => ({ id: t.id, name: t.name, code: t.code, family: familyName('stair', lang), subject: { kind: 'ramp', type: t } }));
 }
 
+export function columnOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
+  return Object.values(columnTypeMap(p)).map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    family: familyName('column', lang),
+    subject: { kind: 'column', type: t },
+  }));
+}
+
+export function beamOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
+  return Object.values(beamTypeMap(p)).map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    family: familyName('beam', lang),
+    subject: { kind: 'beam', type: t },
+  }));
+}
+
+export function footingOptions(p: Project, lang: Lang = useI18n.getState().lang): TypeOption[] {
+  return Object.values(footingTypeMap(p)).map((t) => ({
+    id: t.id,
+    name: t.name,
+    code: t.code,
+    family: familyName('footing', lang),
+    subject: { kind: 'footing', type: t },
+  }));
+}
+
 /** Portas (kind `door`) ou janelas (`window`), com a família do símbolo de planta (Porta de giro, Janela de correr…). */
 export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang, aceita: (t: OpeningType) => boolean = () => true): TypeOption[] {
   return Object.values(p.openingTypes)
@@ -60,4 +99,9 @@ export function guardaCorpoOptions(p: Project, family: string): TypeOption[] {
 /** Famílias de cota (a Padrão inclusa): a lista do seletor, todas no grupo da categoria `family`. */
 export function dimensionOptions(familias: ReadonlyArray<{ id: string; name: string } & DimensionStyle>, family: string): TypeOption[] {
   return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'dimension', style: f } }));
+}
+
+/** Famílias de etiqueta: a lista do seletor, todas no grupo da categoria `family`. */
+export function tagOptions(familias: readonly TagFamily[], family: string): TypeOption[] {
+  return familias.map((f) => ({ id: f.id, name: f.name, code: '', family, subject: { kind: 'tag', family: f } }));
 }

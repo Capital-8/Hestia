@@ -37,6 +37,7 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  beam: 'beamTool.ts',
   // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
   plugin: 'pluginTool.ts',
 };
@@ -46,12 +47,16 @@ const LINEARES: Record<string, string> = {
  * da lista (o teste abaixo avisa quando uma exceção passa a usar o núcleo).
  */
 const EXCECOES_TODO: Record<string, string> = {
+  // Nuvem de revisão: contorno por cliques com núcleo próprio (annotationExtraTools.ts).
+  revisionCloud: 'annotationExtraTools.ts',
 };
 
 /** Ferramentas que não traçam elemento linear (seleção, edição, inserção por clique único, anotação pontual). */
 const SEM_TRACADO = new Set([
   'select', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'move', 'copy', 'rotate', 'mirror', 'array',
-  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste',
+  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste', 'column', 'footing',
+  // Anotações pontuais (um clique): cota de nível, cota de coordenada e seta de norte.
+  'spotElevation', 'spotCoordinate', 'northArrow',
 ]);
 
 function idsDoRegistro(): string[] {

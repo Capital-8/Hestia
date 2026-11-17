@@ -32,8 +32,12 @@ import { ES_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { ES_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
 import { ES_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { ES_PAREDE_CORTINA } from '../../areas/parede-cortina-1.ts';
+import { ES_STRUCTURAL } from '../../areas/structural.ts';
+import { ES_TAGGING } from '../../areas/tagging.ts';
 
 export const ES_ALL = {
+  ...ES_STRUCTURAL,
+  ...ES_TAGGING,
   ...ES_GUARDA_CORPO,
   ...ES_MASSA,
   ...ES_MASSA_PISOS,

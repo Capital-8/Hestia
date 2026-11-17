@@ -32,6 +32,8 @@ export interface IfcWallGeo {
   footprints: IfcPolygon[];
   baseZ: number;
   height: number;
+  /** Parede inclinada: mapa de planta (x, y, z relativa à base) e se o eixo é reto (extrusão oblíqua) ou em arco (malha); `zs` = cotas intermediárias (junção exata de arco, J4) em que a malha parte as laterais. */
+  tilt?: { map: (x: number, y: number, z: number) => [number, number]; straight: boolean; zs?: number[] };
 }
 
 /**

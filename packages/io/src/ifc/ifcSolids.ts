@@ -139,6 +139,70 @@ export function extrudeSolid(w: StepWriter, polygon: IfcPolygon, zBase: number, 
   return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, 0, 0, 1)), num(depth)]);
 }
 
+/**
+ * Sólido por extrusão ao longo de um eixo 3D arbitrário (usado para vigas I/T no eixo longitudinal).
+ */
+export function extrudeHorizontalProfile(
+  w: StepWriter,
+  profileRing: IfcRing,
+  origin: readonly [number, number, number],
+  axisDir: readonly [number, number, number],
+  refDir: readonly [number, number, number],
+  depth: number,
+): number {
+  const poly = normalizePolygon([profileRing]);
+  const profile = profileOf(w, poly);
+  const p = w.add('IFCCARTESIANPOINT', [list([num(origin[0]), num(origin[1]), num(origin[2])])]);
+  const pos = w.add('IFCAXIS2PLACEMENT3D', [
+    ref(p),
+    ref(direction(w, axisDir[0], axisDir[1], axisDir[2])),
+    ref(direction(w, refDir[0], refDir[1], refDir[2])),
+  ]);
+  return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, 0, 0, 1)), num(depth)]);
+}
+
+/** Mapa de planta da parede inclinada: (x, y) do vértice vertical na cota z acima da base. */
+export type TiltPlanMap = (x: number, y: number, z: number) => [number, number];
+
+/**
+ * Parede reta inclinada: perfil = contorno na base (mapa z=0) e extrusão oblíqua até a cota `height`. A direção é a do
+ * deslocamento do topo do primeiro vértice (o cisalhamento é uniforme na reta), normalizada; a profundidade é medida
+ * ao longo dela (height / cosθ). Volume = área da base × height.
+ */
+export function tiltExtrudeSolid(w: StepWriter, polygon: IfcPolygon, map: TiltPlanMap, zBase: number, height: number): number {
+  const poly = normalizePolygon(polygon);
+  const mapped: IfcPolygon = poly.map((r) => r.map((p) => { const [x, y] = map(p.x, p.y, 0); return { x, y }; }));
+  const v = poly[0]![0]!;
+  const [x0, y0] = map(v.x, v.y, 0);
+  const [x1, y1] = map(v.x, v.y, height);
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy, height);
+  const profile = profileOf(w, mapped);
+  const pos = axis3(w, [0, 0, zBase]);
+  return w.add('IFCEXTRUDEDAREASOLID', [ref(profile), ref(pos), ref(direction(w, dx / len, dy / len, height / len)), num(len)]);
+}
+
+/** Parede em arco inclinada: IFCFACETEDBREP com a base (z=0) e o topo (z=height) mapeados vértice a vértice e laterais em triângulos (partidas nas cotas `zsMid` da junção exata, J4). */
+export function tiltBrepSolid(w: StepWriter, polygon: IfcPolygon, map: TiltPlanMap, zBase: number, height: number, lang: Lang = 'pt', zsMid: readonly number[] = []): number {
+  const poly = normalizePolygon(polygon);
+  if (poly.length === 0) throw new Error(t(lang, 'io_err_ifc_solid_area'));
+  const at = (p: IfcPoint, z: number): P3 => { const [x, y] = map(p.x, p.y, z); return { x, y, z: zBase + z }; };
+  const faces: number[] = [];
+  const zl = [0, ...zsMid.filter((z) => z > 1e-9 && z < height - 1e-9), height];
+  faces.push(faceOf(w, poly.map((r) => r.map((p) => at(p, height)))));
+  faces.push(faceOf(w, poly.map((r) => [...r].reverse().map((p) => at(p, 0)))));
+  for (const ring of poly) {
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i]!, b = ring[(i + 1) % ring.length]!;
+      for (let j = 0; j + 1 < zl.length; j++) {
+        const a0 = at(a, zl[j]!), b0 = at(b, zl[j]!), b1 = at(b, zl[j + 1]!), a1 = at(a, zl[j + 1]!);
+        faces.push(faceOf(w, [[a0, b0, b1]]), faceOf(w, [[a0, b1, a1]]));
+      }
+    }
+  }
+  return w.add('IFCFACETEDBREP', [ref(w.add('IFCCLOSEDSHELL', [list(faces.map(ref))]))]);
+}
+
 /** Ponto 3D, com a cota já calculada no plano. */
 interface P3 {
   x: number;

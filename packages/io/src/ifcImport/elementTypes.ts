@@ -1,6 +1,6 @@
 import type { CeilingType, FloorType, Id, OpeningType, Project, SlabType, WallType } from '@hestia/model';
 import type { IfcFile } from './ifc.ts';
-import { styleOf, type IfcStyle } from './psets.ts';
+import { propertiesOf, styleOf, type IfcStyle, typePropertyOf } from './psets.ts';
 import type { StepEntity } from './step.ts';
 import { t as tr, type Lang } from '../i18n.ts';
 
@@ -76,6 +76,21 @@ export function operationOf(type: StepEntity | undefined): string {
   return '';
 }
 
+/**
+ * Fabricante (`Pset_ManufacturerTypeInformation.Manufacturer`, no tipo) e, só janela, fator solar
+ * (`Pset_WindowCommon.SolarHeatGainTransmittance`, na ocorrência). Campo ausente ou vazio não entra no tipo.
+ */
+function bimFieldsOf(ctx: TypeCtx, filler: StepEntity, declared: StepEntity | undefined, kind: 'door' | 'window'): Pick<OpeningType, 'manufacturer' | 'solarFactor'> {
+  const out: Pick<OpeningType, 'manufacturer' | 'solarFactor'> = {};
+  const manufacturer = declared ? typePropertyOf(ctx.f, declared, 'Pset_ManufacturerTypeInformation', 'Manufacturer') : undefined;
+  if (typeof manufacturer === 'string' && manufacturer) out.manufacturer = manufacturer;
+  if (kind === 'window') {
+    const solar = propertiesOf(ctx.f, filler, declared).find((p) => p.pset === 'Pset_WindowCommon' && p.name === 'SolarHeatGainTransmittance')?.value;
+    if (typeof solar === 'number' && Number.isFinite(solar)) out.solarFactor = solar;
+  }
+  return out;
+}
+
 /** Tipo de porta/janela: família de planta e folhas deduzidas da operação, senão o padrão do tipo. */
 export function openingType(
   ctx: TypeCtx,
@@ -109,6 +124,7 @@ export function openingType(
     frameMaterialId: 'mat_aluminio',
     glassMaterialId: 'mat_vidro',
     closure: 'inherit',
+    ...bimFieldsOf(ctx, filler, declared, kind),
   };
   ctx.p.openingTypes[id] = type;
   ctx.types.set(key, id);

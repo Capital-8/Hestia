@@ -118,7 +118,7 @@ export const PlanLabels = forwardRef<PlanLabelsHandle, { labels: LabelOp[]; v: V
                 <span
                   key={i}
                   ref={(node) => { nodes.current[i] = node; }}
-                  className={`plan-note${l.appearance === 'dimension-preview' ? ' plan-note--dimension-preview' : ''}`}
+                  className={`plan-note${l.appearance === 'dimension-preview' ? ' plan-note--dimension-preview' : ''}${l.badge ? ` plan-note--badge plan-note--${l.badge.shape}${l.badge.fill ? ' plan-note--fill' : ''}` : ''}${l.selected ? ' plan-note--selected' : ''}`}
                   style={{
                     left: 0,
                     top: 0,

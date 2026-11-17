@@ -19,15 +19,17 @@ import { roofEdgeColor, roofFills, roofFootprint, roofOps } from './roofs.ts';
 import { belowStairOps, stairFills } from './stairs.ts';
 import { belowRampOps, rampFills } from './ramps.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
+import { structuralPlanOps } from './structural.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
 import { massaOps, ocultosDaMassa } from './massa.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
 import { openingTagLabels } from './openingTags.ts';
+import { separateAutoLabels } from './labelCollision.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, simboloNaCotaDoCorte, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -159,8 +161,7 @@ export function planGeometrySelection(p: Project, levelId: Id, selection: readon
     ...levelRoomSeparators(p, levelId).map((r) => r.id),
     ...p.views.map((v) => v.id),
     ...projectGrids(p).map((g) => g.id),
-    ...(level?.detailLines ?? []).map((l) => l.id),
-    ...(level?.detailRegions ?? []).map((r) => r.id),
+    ...[level?.detailLines, level?.detailRegions, level?.tags, level?.texts, level?.spots, level?.symbols, level?.revisionClouds].flatMap((a) => (a ?? []).map((x) => x.id)),
     // Anotações da planta de área (cotas, textos, detalhes e etiquetas da vista): a seleção chega ao desenho por aqui.
     ...(areaPlan ? planAnnotationIds(areaPlan) : []),
   ]);
@@ -234,7 +235,7 @@ function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: Ope
   // A cota do corte é absoluta na vista; o modelo usa z local (soleira = 0, base da parede descontada). Fora do
   // corte (projeção), o símbolo mostra o vão inteiro e corta no meio do modelo.
   const cutLocal = view ? view.cutZ - baseZ - g.sill : model.height / 2;
-  const sym = openingViewOps(g, cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
+  const sym = openingViewOps(simboloNaCotaDoCorte(p, g, cls === undefined || cls === 'cut' ? (view ? view.cutZ - baseZ : 1.2) : g.sill + model.height / 2), cls, theme, { cut: espessuraDeCorte(pt), proj: espessuraDeProjecao(pt) }, {
     model,
     detail: detail2d,
     angle: (openingAngle2d(type) * Math.PI) / 180,
@@ -357,17 +358,13 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   }
 
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
-  if (profile.floors) {
-    for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
-  }
+  if (profile.floors) for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
   // Ambientes sobre os pisos (preenchimento leve e etiqueta com nome, número e área) e sob as paredes (decisão 0018).
   if (profile.rooms) {
     if (areaPlan) {
       const roomPlan: AreaPlan = profile.referenceLines ? areaPlan : { ...areaPlan, graphics: { ...areaPlan.graphics, referenceLines: 'never' } };
       const room = areaPlanRoomOps(p, roomPlan, theme, input.dark, scale, hidden, paint.room, resolveRooms(p, input.levelId), new Set(input.selection));
-      fills.push(...room.fills);
-      strokes.push(...room.strokes);
-      labels.push(...room.labels);
+      fills.push(...room.fills); strokes.push(...room.strokes); labels.push(...room.labels);
     } else {
       addOps(roomOps(p, input.levelId, theme, input.dark, detail, style.scale, hidden, paint.room, input.hideLabelRoomId, input.lang), paint.room, !rp);
     }
@@ -378,6 +375,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Elementos estruturais do nível (sapatas, vigas, pilares): sapatas antes das paredes, pilares em corte.
+  if (!rp) addOps(structuralPlanOps(p, input.levelId, theme, input.dark, detail, hidden, paint.wall, paint.slab, scale), paint.wall, true);
   // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
   if (profile.stairs && input.massa !== 'sem' && !rp) addOps(massaOps(p, input.levelId, ocultosDaMassa(p, input.hidden, input.revealed, paint.mass.visible), theme, input.dark, paint.mass, view?.cutZ), paint.mass, true);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
@@ -423,7 +422,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         for (const ring of ringsOf(c.silhouette)) wallOps.strokes.push({ pts: ring, closed: true, ...paint.wall.cut, color: theme.ink, alpha: 1 });
       }
       // Paredes fora do corte (decisão 0013 §4): contorno; projeção acima tracejada, abaixo e "além" em linha clara.
-      if (view) wallOps.strokes.push(...wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)));
+      wallOps.strokes.push(...(view ? wallOutlineOps(view, theme, espessuraDeProjecao(paint.wall)) : []), ...tiltProjectionStrokes(geo.walls, view, hidden, theme, paint.wall.proj)); // F2.5: base e topo inclinados
 
       // Membranas (camadas de espessura zero): linha fina tracejada no limite entre camadas (só no fino, paredes cortadas).
       if (fine && !rp) {
@@ -518,7 +517,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   labels.push(...notes.labels);
 
   if (profile.elementTags) {
-    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale);
+    const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, { selection: input.selection, selectColor: theme.select });
     strokes.push(...tagged.strokes);
     labels.push(...tagged.labels);
   }
@@ -526,7 +525,9 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Etiquetas de tipo (G4) seguem a categoria 'anotação' (visibilidade e mm de papel).
   if (profile.tags && p.settings.showTags) labels.push(...wallTagLabels(p, input.levelId, paint.annotation, scale, hidden));
   // Etiquetas de portas e janelas (Tag on Placement): desligadas por padrão, ligadas ao inserir.
-  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden));
+  // A esquadria que já tem etiqueta própria (elemento arrastável) não repete o rótulo automático.
+  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId))));
+  separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
 
   // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.

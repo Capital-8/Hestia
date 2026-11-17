@@ -13,7 +13,13 @@ import {
   isSlab,
   isStair,
   isWall,
+  isColumn,
+  isBeam,
+  isFooting,
   type Ceiling,
+  type Column,
+  type Beam,
+  type Footing,
   type Element,
   type Generic,
   type Id,
@@ -264,6 +270,30 @@ function syncOne(
         mesh: dz === 0 ? from.mesh : { positions: shiftZ(from.mesh.positions, dz), indices: from.mesh.indices },
       };
       return { type: 'updateGeneric', id: target.id, patch };
+    }
+    case 'column': {
+      if (!isColumn(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Column> = {
+        ...rest,
+        topLevelId: remapTopLevel(levels, fromLevelId, toLevelId, from.topLevelId),
+      };
+      return { type: 'updateElements', ids: [target.id], patch };
+    }
+    case 'beam': {
+      if (!isBeam(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Beam> = rest;
+      return { type: 'updateElements', ids: [target.id], patch };
+    }
+    case 'footing': {
+      if (!isFooting(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Footing> = {
+        ...rest,
+        columnId: remapLinkedId(link, targetMember, from.columnId ?? undefined) ?? null,
+      };
+      return { type: 'updateElements', ids: [target.id], patch };
     }
   }
 }

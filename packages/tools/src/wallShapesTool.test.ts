@@ -96,3 +96,39 @@ describe('wallTool: formas (F1.3)', () => {
     expect(walls(c.store)).toHaveLength(0);
   });
 });
+
+describe('wallTool: arcos centro-extremidades e tangente (F1.10)', () => {
+  it('centro e extremidades: arco exato de 90 graus, 1 desfazer, Esc cancela', () => {
+    const c = setup('arc-center');
+    clickAt(c.t, 0, 0);
+    clickAt(c.t, 3, 0);
+    // Cursor acima do raio inicial: percurso anti-horário.
+    clickAt(c.t, 0, 3);
+    const ws = walls(c.store);
+    expect(ws).toHaveLength(1);
+    expect(Math.hypot(ws[0]!.a.x - 0, ws[0]!.a.y - 0)).toBeCloseTo(3, 6);
+    expect(Math.abs(ws[0]!.sag ?? 0)).toBeGreaterThan(0.1);
+    c.store.undo();
+    expect(walls(c.store)).toHaveLength(0);
+    const d = setup('arc-center');
+    clickAt(d.t, 0, 0);
+    clickAt(d.t, 3, 0);
+    d.t.cancel();
+    expect(walls(d.store)).toHaveLength(0);
+  });
+
+  it('arco tangente: parte tangente à direção dada e termina no ponto', () => {
+    const c = setup('arc-tangent');
+    clickAt(c.t, 0, 0);
+    clickAt(c.t, 2, 0);
+    clickAt(c.t, 3, 3);
+    const ws = walls(c.store);
+    expect(ws.length).toBeGreaterThanOrEqual(1);
+    expect(ws[0]!.a.x).toBeCloseTo(0, 6);
+    expect(ws[0]!.a.y).toBeCloseTo(0, 6);
+    expect(ws.at(-1)!.b.x).toBeCloseTo(3, 6);
+    expect(ws.at(-1)!.b.y).toBeCloseTo(3, 6);
+    c.store.undo();
+    expect(walls(c.store)).toHaveLength(0);
+  });
+});

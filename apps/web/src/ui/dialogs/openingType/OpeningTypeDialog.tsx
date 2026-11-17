@@ -1,8 +1,8 @@
 import { useState, type ReactElement } from 'react';
 import {
   coreSpan,
+  isOpening,
   isWall,
-  newId,
   openingAngle2d,
   openingFamilyOf,
   openingFavorites,
@@ -13,11 +13,14 @@ import {
   type Opening,
   type OpeningType,
   type Project,
+  type WallType,
+  wallThicknessOf,
 } from '@hestia/model';
 import { openingChecks } from '@hestia/engine';
 import { editor, useProject } from '../../../editor/controller.ts';
 import { useUi } from '../../../editor/state.ts';
 import { useT, type Lang } from '../../../editor/i18n.ts';
+import { changeOpeningType } from '../../../editor/openingTypeActions.ts';
 import { openingFamilyName } from '../../typeFamilies.ts';
 import {
   applyFamily,
@@ -37,11 +40,18 @@ import { OpeningTypeLibrary } from './OpeningTypeLibrary.tsx';
 import { OpeningTypePreview, type PreviewTab } from './OpeningTypePreview.tsx';
 import { OpeningTypeSections } from './OpeningTypeSections.tsx';
 import { componentToShow, rememberComponent, type OpeningComponentId } from './components.ts';
+import { aberturasComTipo, copiaDoRascunho } from './duplicaTipo.ts';
+
+/** Oferta depois de duplicar: aplicar a cópia (`typeId`) às aberturas selecionadas que usavam o tipo antigo (`ids`). */
+interface Oferta {
+  ids: Id[];
+  typeId: Id;
+}
 
 const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
-/** Espessura do núcleo da parede que hospeda o tipo (DEC-1); sem parede, o núcleo usual de 0,14 m. */
-function coreThicknessFor(p: Project, typeId: Id): number {
+/** Parede que hospeda o tipo (a primeira que o usa; senão a primeira do projeto) e o tipo dela. */
+function hostWallTypeFor(p: Project, typeId: Id): WallType | undefined {
   const walls = Object.values(p.elements).filter(isWall);
   const hosts = new Set(
     Object.values(p.elements)
@@ -49,7 +59,12 @@ function coreThicknessFor(p: Project, typeId: Id): number {
       .map((e) => e.hostId),
   );
   const wall = walls.find((w) => hosts.has(w.id)) ?? walls[0];
-  const type = wall ? p.wallTypes[wall.typeId] : undefined;
+  return wall ? p.wallTypes[wall.typeId] : undefined;
+}
+
+/** Espessura do núcleo da parede que hospeda o tipo (DEC-1); sem parede, o núcleo usual de 0,14 m. */
+function coreThicknessFor(p: Project, typeId: Id): number {
+  const type = hostWallTypeFor(p, typeId);
   if (!type) return 0.14;
   const core = coreSpan(type);
   return Math.max(0, core.to - core.from);
@@ -82,6 +97,7 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const [flipHand, setFlipHand] = useState(false);
   const [flipFacing, setFlipFacing] = useState(false);
   const [active, setActive] = useState<OpeningComponentId | undefined>(undefined);
+  const [oferta, setOferta] = useState<Oferta | null>(null);
   const [previewAngle, setPreviewAngle] = useState(() => (src ? openingAngle2d(src) : 90));
   if (current !== typeId) {
     setCurrent(typeId);
@@ -97,10 +113,12 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const family = openingFamilyOf(d, lang);
   // Folhas aceitas pela família escolhida; sem família válida (dado fora do contrato) mostra só a contagem atual.
   const leaves = family ? leavesChoicesFor(family, lang) : [{ value: d.leaves, label: leavesLabel(d.leaves, lang) }];
+  const comAlturaPropria = Object.values(p.elements).filter((e): e is Opening => isOpening(e) && e.typeId === d.id && typeof e.heightOverride === 'number').length;
   const favorite = openingFavorites(p).includes(d.id);
   const counts = familyCounts(p, d.kind, lang);
   const variants = openingVariants(d.kind);
-  const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p));
+  const hostWall = hostWallTypeFor(p, d.id);
+  const checks = openingChecks(d, coreThicknessFor(p, d.id), unitsOf(p), lang, hostWall ? wallThicknessOf(hostWall) : undefined);
   /** Grava pelo comando; a mensagem de erro do modelo aparece no diálogo, que continua aberto. */
   const run = (fn: () => void): boolean => {
     try {
@@ -118,11 +136,36 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
   const ok = (): void => {
     if (run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')))) close();
   };
+  /** Executa e mostra o erro do modelo no diálogo (ele continua aberto); devolve null quando recusa. */
+  const tentar = <R,>(fn: () => R): R | null => {
+    try {
+      const r = fn();
+      setErr('');
+      return r;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('dlo_err_generic'));
+      return null;
+    }
+  };
+  /** Cópia (nome e código únicos, como na biblioteca) passa a ser o tipo em edição; oferece aplicá-la às selecionadas. */
+  const aoDuplicar = (copia: OpeningType, antigoId: Id): void => {
+    useUi.setState({ dialogArg: copia.id });
+    setD(copia);
+    const ids = aberturasComTipo(p, useUi.getState().selection, antigoId);
+    setOferta(ids.length > 0 ? { ids, typeId: copia.id } : null);
+  };
   const dup = (): void => {
-    const copy = { ...d, id: newId('ot'), name: `${d.name} ${t('dlo_copy_suffix')}` };
-    if (!run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: copy }, t('dlo_cmd_duplicate')))) return;
-    useUi.setState({ dialogArg: copy.id });
-    setD(copy);
+    const copia = tentar(() => {
+      const c = copiaDoRascunho(p, d, lang);
+      editor.store.exec({ type: 'upsertOpeningType', openingType: c }, t('dlo_cmd_duplicate'));
+      return c;
+    });
+    if (copia) aoDuplicar(copia, d.id);
+  };
+  const aplicarOferta = (): void => {
+    if (!oferta) return;
+    changeOpeningType(editor.store, oferta.ids, oferta.typeId, (m) => useUi.setState({ status: m }));
+    setOferta(null);
   };
   /** Tipo novo da família escolhida; passa a editar o tipo criado (no Revit: Duplicate → novo tipo). */
   const create = (): void => {
@@ -196,10 +239,18 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
             onToggle={() => setLibOpen((v) => !v)}
             onFamily={changeFamily}
             onVariant={(v) => change(applyVariant(d, v))}
+            onDuplicated={aoDuplicar}
           />
           <div className="op-center">
             <OpeningTypeSections d={d} onChange={change} family={family} leaves={leaves} materials={p.materials} active={componentToShow(d.kind, family?.id ?? null, active)} onActive={setActive} />
             {err ? <p className="error" role="alert">{err}</p> : null}
+            {comAlturaPropria > 0 ? <p className="hint" style={{ padding: '0 0 8px' }}>{t('dlo_own_height_count', { n: comAlturaPropria })}</p> : null}
+            {oferta && oferta.typeId === d.id ? (
+              <div role="status" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', padding: '4px 0 8px' }}>
+                <button type="button" className="btn small primary" onClick={aplicarOferta}>{t('dlo_offer_apply', { n: oferta.ids.length })}</button>
+                <button type="button" className="btn small" onClick={() => setOferta(null)}>{t('dlo_offer_dismiss')}</button>
+              </div>
+            ) : null}
           </div>
           <OpeningTypePreview
             d={d}

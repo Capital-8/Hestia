@@ -1,9 +1,14 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RoomTag, type TextNote } from '@hestia/model';
+import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
 const END_TOL = 1e-4;
+
+/** Raio (px de tela) da alça de afastamento da cota (o quadrado no meio da linha de cota). */
+export const DIM_GRIP_PX = 9;
+/** Raio (px de tela) da alça de texto da cota (o losango no texto). */
+export const DIM_TEXT_GRIP_PX = 12;
 
 /**
  * Referência a uma extremidade de parede do nível quando o ponto cai nela (a cota passa a acompanhar a parede).
@@ -30,6 +35,20 @@ export const signedOffset = (a: Vec2, b: Vec2, q: Vec2): number => {
   const n = leftNormal(a, b);
   return n ? dot(sub(q, a), n) : 0;
 };
+
+/**
+ * Texto que ACOMPANHA o afastamento da cota. Se o usuário puxou o texto (`textAt` presente), ele se desloca pelo mesmo
+ * delta do afastamento (`offsetNovo - offsetAntigo`) ao longo da normal esquerda de a→b, a mesma de `dimensionGeometry`
+ * (offset positivo leva a linha de cota para o lado da normal). Sem `textAt`, devolve `undefined`: o texto já segue a
+ * linha. Delta zero devolve uma cópia do próprio `textAt`. Degenerada (a = b), a normal é (0, 1), como em `dimensionGeometry`.
+ */
+export function textAtAcompanhando(a: Vec2, b: Vec2, offsetAntigo: number, offsetNovo: number, textAt: Vec2 | undefined): Vec2 | undefined {
+  if (!textAt) return undefined;
+  const delta = offsetNovo - offsetAntigo;
+  if (delta === 0) return { x: textAt.x, y: textAt.y };
+  const n = leftNormal(a, b) ?? { x: 0, y: 1 };
+  return { x: textAt.x + n.x * delta, y: textAt.y + n.y * delta };
+}
 
 /** Distância de `q` ao segmento p–r. */
 function distToSegment(q: Vec2, p: Vec2, r: Vec2): number {
@@ -88,6 +107,9 @@ export interface ViewAnnotations {
   detailLines: DetailLine[];
   detailRegions: DetailRegion[];
   tags: ElementTag[];
+  spots: SpotAnnotation[];
+  revisionClouds: RevisionCloud[];
+  symbols: SymbolAnnotation[];
 }
 
 /**
@@ -105,7 +127,7 @@ export function viewAnnotationsOf(p: Project, levelId: Id, planId?: Id): ViewAnn
     if (!ly.detail) { a.detailLines = []; a.detailRegions = []; }
     if (!ly.tags) a.tags = [];
     const scale = Number.isFinite(plan.scale) && plan.scale > 0 ? plan.scale : levelGraphicsOf(p, levelId).scale;
-    return { scale, ...a };
+    return { scale, ...a, spots: a.spots ?? [], revisionClouds: a.revisionClouds ?? [], symbols: a.symbols ?? [] };
   }
   const level = p.levels.find((l) => l.id === levelId);
   return {
@@ -115,6 +137,9 @@ export function viewAnnotationsOf(p: Project, levelId: Id, planId?: Id): ViewAnn
     detailLines: level?.detailLines ?? [],
     detailRegions: level?.detailRegions ?? [],
     tags: level?.tags ?? [],
+    spots: level?.spots ?? [],
+    revisionClouds: level?.revisionClouds ?? [],
+    symbols: level?.symbols ?? [],
   };
 }
 
@@ -129,19 +154,57 @@ export function detailItemAt(p: Project, levelId: Id, at: Vec2, mpp: number, pla
     }
     if (inside) return region.id;
   }
-  for (const line of [...a.detailLines].reverse()) if (distToSegment(at, line.a, line.b) <= 6 * mpp) return line.id;
+  for (const line of [...a.detailLines].reverse()) if (detailLineSegments(line).some(([p, q]) => distToSegment(at, p, q) <= 6 * mpp)) return line.id;
+  return null;
+}
+
+/**
+ * Etiquetas, cotas de ponto, símbolos e nuvens ficam desenhados POR CIMA do modelo na planta: têm prioridade de clique
+ * sobre paredes/portas/piso para que o usuário consiga selecionar, mover e apagar facilmente.
+ */
+export function overlayAnnotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, planId?: Id): Id | null {
+  const a = viewAnnotationsOf(p, levelId, planId);
+  for (const tag of [...a.tags].reverse()) {
+    if (Math.abs(at.x - tag.at.x) <= 28 * mpp && Math.abs(at.y - tag.at.y) <= 16 * mpp) return tag.id;
+  }
+  for (const sp of [...a.spots].reverse()) {
+    if (dist(at, sp.target) <= 12 * mpp || dist(at, sp.at) <= 22 * mpp) return sp.id;
+  }
+  for (const sym of [...a.symbols].reverse()) {
+    if (dist(at, sym.at) <= 20 * mpp) return sym.id;
+  }
+  for (const rc of [...a.revisionClouds].reverse()) {
+    const pts = rc.points;
+    for (let i = 0; i < pts.length; i++) {
+      const next = pts[(i + 1) % pts.length]!;
+      if ((i + 1 < pts.length || rc.closed) && distToSegment(at, pts[i]!, next) <= 10 * mpp) return rc.id;
+    }
+  }
   return null;
 }
 
 /** Cota, etiqueta, texto ou detalhe sob o cursor (tolerância de 6 px; o texto vale pelo retângulo, não só pela âncora). */
 export function annotationAt(p: Project, levelId: Id, at: Vec2, mpp: number, planId?: Id): { id: Id; kind: 'dimension' | 'text' } | null {
   const a = viewAnnotationsOf(p, levelId, planId);
-  for (const tag of a.tags) if (dist(at, tag.at) <= 14 * mpp) return { id: tag.id, kind: 'text' };
+  for (const tag of a.tags) if (Math.abs(at.x - tag.at.x) <= 28 * mpp && Math.abs(at.y - tag.at.y) <= 16 * mpp) return { id: tag.id, kind: 'text' };
+  for (const sp of a.spots) {
+    if (dist(at, sp.target) <= 12 * mpp || dist(at, sp.at) <= 18 * mpp) return { id: sp.id, kind: 'text' };
+  }
+  for (const sym of a.symbols) {
+    if (dist(at, sym.at) <= 18 * mpp) return { id: sym.id, kind: 'text' };
+  }
+  for (const rc of a.revisionClouds) {
+    const pts = rc.points;
+    for (let i = 0; i < pts.length; i++) {
+      const next = pts[(i + 1) % pts.length]!;
+      if ((i + 1 < pts.length || rc.closed) && distToSegment(at, pts[i]!, next) <= 10 * mpp) return { id: rc.id, kind: 'text' };
+    }
+  }
   for (const t of a.texts) {
     if (textHit(t, a.scale, at, 6 * mpp)) return { id: t.id, kind: 'text' };
     if (t.leader?.some((q, i) => i > 0 && distToSegment(at, t.leader![i - 1]!, q) <= 6 * mpp)) return { id: t.id, kind: 'text' };
   }
-  for (const line of a.detailLines) if (distToSegment(at, line.a, line.b) <= 6 * mpp) return { id: line.id, kind: 'text' };
+  for (const line of a.detailLines) if (detailLineSegments(line).some(([p, q]) => distToSegment(at, p, q) <= 6 * mpp)) return { id: line.id, kind: 'text' };
   for (const region of a.detailRegions) {
     let inside = false;
     for (let i = 0, j = region.boundary.length - 1; i < region.boundary.length; j = i++) {
@@ -186,7 +249,7 @@ export interface DimensionBoxSource {
  * Regra única de caixa (janela contém, cruzamento toca) sobre as anotações de qualquer vista: a planta passa as do nível
  * ou da planta de área; o corte passa as dele, em (t,z). Só muda de onde vem a geometria da cota.
  */
-export function annotationIdsInBoxOf(a0: Pick<ViewAnnotations, 'scale' | 'dimensions' | 'texts' | 'detailLines' | 'detailRegions' | 'tags'>, a: Vec2, b: Vec2, src: DimensionBoxSource): Id[] {
+export function annotationIdsInBoxOf(a0: Pick<ViewAnnotations, 'scale' | 'dimensions' | 'texts' | 'detailLines' | 'detailRegions' | 'tags'> & { spots?: ViewAnnotations['spots']; revisionClouds?: ViewAnnotations['revisionClouds']; symbols?: ViewAnnotations['symbols'] }, a: Vec2, b: Vec2, src: DimensionBoxSource): Id[] {
   const box = boxOf([a, b]);
   const crossing = b.x < a.x;
   const dentro = (q: Vec2): boolean => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY;
@@ -224,6 +287,14 @@ export function annotationIdsInBoxOf(a0: Pick<ViewAnnotations, 'scale' | 'dimens
     if (contida || cruza) ids.push(r.id);
   }
   for (const t of a0.tags) if (dentro(t.at)) ids.push(t.id);
+  for (const sp of a0.spots ?? []) if (dentro(sp.target) || dentro(sp.at)) ids.push(sp.id);
+  for (const sy of a0.symbols ?? []) if (dentro(sy.at)) ids.push(sy.id);
+  for (const rc of a0.revisionClouds ?? []) {
+    const cantos = rc.points;
+    const contida = cantos.length > 0 && cantos.every(dentro);
+    const cruza = crossing && cantos.length > 0 && (boxesOverlap(boxOf(cantos), box) || cantos.some(dentro));
+    if (contida || cruza) ids.push(rc.id);
+  }
   return ids;
 }
 
@@ -235,7 +306,24 @@ export function dimGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: num
   if (!d || d.angular) return null;
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, { ...d, textAt: undefined }, pts.a, pts.b, va.scale);
-  return dist(at, mid(g.line[0], g.line[1])) <= 6 * mpp ? d.id : null;
+  return dist(at, mid(g.line[0], g.line[1])) <= DIM_GRIP_PX * mpp ? d.id : null;
+}
+
+/**
+ * Corpo da cota JÁ selecionada (seleção única, linear e não travada): o texto (parte `text`) ou a linha de cota e as
+ * extensões (parte `line`). Arrastar o corpo equivale a arrastar a alça da parte: texto move o texto, linha muda o
+ * afastamento. Mesma tolerância do `annotationAt` (10 px no texto, 6 px nas linhas).
+ */
+export function dimBodyAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): { id: Id; part: 'text' | 'line' } | null {
+  if (sel.length !== 1) return null;
+  const va = viewAnnotationsOf(p, levelId, planId);
+  const d = va.dimensions.find((x) => x.id === sel[0]);
+  if (!d || d.angular || d.locked) return null;
+  const pts = dimensionPoints(p, d);
+  const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
+  if (dist(at, g.textAt) <= 10 * mpp) return { id: d.id, part: 'text' };
+  for (const [s, e] of [g.line, ...g.extensions]) if (distToSegment(at, s, e) <= 6 * mpp) return { id: d.id, part: 'line' };
+  return null;
 }
 
 /** Alça do texto da cota, que pode ser deslocado sem alterar os pontos medidos nem o afastamento da linha. */
@@ -246,11 +334,11 @@ export function dimTextGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp:
   if (!d) return null;
   if (d.angular) {
     const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
-    return g && dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+    return g && dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
   }
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
-  return dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+  return dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
 }
 
 /**
@@ -320,6 +408,33 @@ export function textGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: nu
   if (!t) return null;
   // O quadradinho fica no canto inferior esquerdo; a âncora também vale (é o centro do texto e o alvo natural do clique).
   return dist(at, textHandleAt(t, a.scale)) <= 8 * mpp || dist(at, t.at) <= 6 * mpp ? t.id : null;
+}
+
+/** Alça da etiqueta de elemento selecionada (`ElementTag`): arrastá-la move `tag.at`. */
+export function elementTagGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
+  if (sel.length !== 1) return null;
+  const a = viewAnnotationsOf(p, levelId, planId);
+  const tag = a.tags.find((x) => x.id === sel[0]);
+  if (!tag) return null;
+  return dist(at, tag.at) <= 18 * mpp ? tag.id : null;
+}
+
+/** Alça de cota de ponto (`SpotAnnotation`): arrastá-la move `spot.textAt`. */
+export function spotGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
+  if (sel.length !== 1) return null;
+  const a = viewAnnotationsOf(p, levelId, planId);
+  const sp = a.spots.find((x) => x.id === sel[0]);
+  if (!sp) return null;
+  return dist(at, sp.at) <= 18 * mpp || dist(at, sp.target) <= 12 * mpp ? sp.id : null;
+}
+
+/** Alça de símbolo (`SymbolAnnotation`): arrastá-la move `symbol.at`. */
+export function symbolGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): Id | null {
+  if (sel.length !== 1) return null;
+  const a = viewAnnotationsOf(p, levelId, planId);
+  const sym = a.symbols.find((x) => x.id === sel[0]);
+  if (!sym) return null;
+  return dist(at, sym.at) <= 18 * mpp ? sym.id : null;
 }
 
 /** Ponto médio de um segmento. */

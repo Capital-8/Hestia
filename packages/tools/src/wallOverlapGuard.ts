@@ -56,7 +56,7 @@ function realOverlap(a: Wall, b: Wall): ReturnType<typeof wallOverlap> {
 
 /** A parede com o eixo transformado por `t` (a sobreposição olha só o eixo a→b, como o C14). */
 function probeWall(w: Wall, t: Transform): Wall {
-  return { ...w, a: applyTransform(t, w.a), b: applyTransform(t, w.b) };
+  return { ...w, a: applyTransform(t, w.a), b: applyTransform(t, w.b), sag: t.kind === 'mirror' ? -w.sag : w.sag };
 }
 
 /** Primeira parede do projeto (mesmo nível) sob `after`, ignorando `ignore`. */

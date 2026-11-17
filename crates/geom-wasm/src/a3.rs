@@ -15,7 +15,7 @@ use crate::a1::quadros_do_nivel;
 use crate::cena::Cena;
 use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, NIVEL_TODOS};
-use crate::geo2d::V;
+use crate::geo2d::{arco_amostra, V};
 use crate::ops::{diferenca_com_escala, ESCALA_FINA};
 use crate::quadro::{normal_em, ponto_em, tangente_em, Quadro};
 use crate::secoes_a3::{Abertura, TipoAbertura};
@@ -101,6 +101,25 @@ pub(crate) fn retangulo_orientado(c: V, u: V, along: f64, across: f64) -> Anel {
 pub fn retangulo_do_vao(g: &GeomAbertura) -> MultiPoligono {
     let across = g.meia_prof.unwrap_or(g.espessura / 2.0 + FOLGA_DO_FURO);
     vec![vec![retangulo_orientado(g.centro, g.u, g.vao_largura / 2.0, across)]]
+}
+
+/// `openingHole`: furo real que recorta as camadas da parede (setor anular em parede curva, retângulo na reta).
+pub fn furo_do_vao(f: &Quadro, g: &GeomAbertura) -> MultiPoligono {
+    let Some(arc) = &f.arc else {
+        return retangulo_do_vao(g);
+    };
+    let hw = g.vao_largura / 2.0;
+    let half_s = f.thickness / 2.0 + FOLGA_DO_FURO;
+    let mut anel: Anel = arco_amostra(arc, g.deslocamento - hw, g.deslocamento + hw, f.s_mid + half_s, 0.005)
+        .into_iter()
+        .map(|p| [p.x, p.y])
+        .collect();
+    anel.extend(
+        arco_amostra(arc, g.deslocamento + hw, g.deslocamento - hw, f.s_mid - half_s, 0.005)
+            .into_iter()
+            .map(|p| [p.x, p.y]),
+    );
+    vec![vec![anel]]
 }
 
 /// `furosDe(frag, holes)`: o fragmento menos os vãos (`difference(frag, ...holes)`).

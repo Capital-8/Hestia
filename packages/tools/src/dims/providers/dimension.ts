@@ -1,4 +1,21 @@
-import { areaPlanOf, areaPlansOfLevel, dimRefAt, dimRefCandidates, dimensionPoints, dimensionValue, isElementRef, isOpening, levelDimensions, planAnnotationsOf, type Command, type Dimension, type DimensionElementRef, type Id, type Project } from '@hestia/model';
+import {
+  areaPlanOf,
+  areaPlansOfLevel,
+  dimRefAt,
+  dimRefCandidates,
+  dimensionPoints,
+  dimensionValue,
+  isElementRef,
+  isOpening,
+  levelDimensions,
+  planAnnotationsOf,
+  type Command,
+  type Dimension,
+  type DimensionElementRef,
+  type DimensionRef,
+  type Id,
+  type Project,
+} from '@hestia/model';
 import type { DimContext, DimEditResult, DimEnd, DimProvider, TempDim } from '../types.ts';
 import { drivenEditCommands } from '../driven.ts';
 import { t as translate, type Lang } from '../../i18n.ts';
@@ -61,8 +78,10 @@ export function dimElementRefLabel(r: DimensionElementRef, lang: Lang = 'pt'): s
   }
 }
 
+const normKey = (k: string | undefined): string | undefined => (k === 'line' ? undefined : k);
+
 const sameRef = (x: DimensionElementRef, y: DimensionElementRef): boolean =>
-  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0) && x.key === y.key;
+  x.elementId === y.elementId && x.feature === y.feature && (x.index ?? 0) === (y.index ?? 0) && normKey(x.key) === normKey(y.key);
 
 /**
  * Alternativas de referência de uma ponta permanente: as feições do próprio elemento da ponta (de parede, a parede
@@ -92,6 +111,61 @@ export interface PermanentDimSubject extends CotaVista {
 /** Id do provedor (compõe a chave da cota temporária: `dimension:<id>`). */
 export const PERMANENT_DIM_ID = 'dimension';
 
+const refTargetsId = (ref: DimensionRef | DimensionElementRef | undefined, targetId: Id): boolean =>
+  !!ref && (isElementRef(ref) ? ref.elementId === targetId : ref.wallId === targetId);
+
+function buildPermanentTempDim(
+  ctx: DimContext,
+  vista: CotaVista,
+  d: Dimension,
+  key: string,
+  fixed?: 'a' | 'b',
+): TempDim | null {
+  if (d.angular) return null;
+  const pts = dimensionPoints(ctx.project, d);
+  const end = (at: { x: number; y: number }, which: 'a' | 'b'): DimEnd => {
+    const ref = d.refs?.[which];
+    const alt = endAltOf(ctx.project, vista, d, which, isElementRef(ref) ? ref : undefined);
+    // Com alternativas, a ponta não usa `options` de cota dinâmica de parede/esquadria (que ficam vazias aqui).
+    return alt
+      ? { at, slot: which, kind: 'wall', current: 'axis', options: [], alt, targetRef: true }
+      : { at, slot: which, kind: 'wall', current: 'axis', options: ['axis'], targetRef: true };
+  };
+  return {
+    key,
+    a: pts.a,
+    b: pts.b,
+    offset: d.offset,
+    ...(d.textAt ? { textAt: d.textAt } : {}),
+    value: dimensionValue(ctx.project, d),
+    quantity: 'length',
+    ends: [end(pts.a, 'a'), end(pts.b, 'b')],
+    edit: (valor: number): DimEditResult => {
+      const r = drivenEditCommands(ctx.project, d, valor, fixed);
+      if (!r.ok) return { error: r.reason };
+      return { commands: r.commands as Command[] };
+    },
+  };
+}
+
+/**
+ * Cotas permanentes do nível que estão amarradas por exatamente uma ponta a `selectedId`: no estilo Revit, ao
+ * selecionar o elemento elas ficam azuis/editáveis e editar o texto move o elemento mantendo a outra ponta fixa.
+ */
+export function attachedPermanentDims(ctx: DimContext, selectedId: Id): TempDim[] {
+  const out: TempDim[] = [];
+  const vista: CotaVista = { levelId: ctx.levelId };
+  for (const d of levelDimensions(ctx.project, ctx.levelId)) {
+    const onA = refTargetsId(d.refs?.a, selectedId);
+    const onB = refTargetsId(d.refs?.b, selectedId);
+    if (onA === onB) continue;
+    const fixed: 'a' | 'b' = onA ? 'b' : 'a';
+    const item = buildPermanentTempDim(ctx, vista, d, `${PERMANENT_DIM_ID}:${d.id}:attached:${selectedId}`, fixed);
+    if (item) out.push(item);
+  }
+  return out;
+}
+
 /**
  * Cota permanente selecionada (planta de piso ou planta de área): mesmas cotas dinâmicas das paredes e esquadrias, para
  * que a edição do valor use o mesmo caminho (`drivenEditCommands`) e a mesma interface (`DimValueEditor`). Cada ponta
@@ -103,32 +177,9 @@ export const permanentDimProvider: DimProvider<PermanentDimSubject> = {
   compute(ctx: DimContext, subject: PermanentDimSubject): TempDim[] {
     const vista: CotaVista = subject.planId ? { levelId: subject.levelId, planId: subject.planId } : { levelId: subject.levelId };
     const d = dimsDaVista(ctx.project, vista).find((x) => x.id === subject.dimId);
-    if (!d || d.angular) return [];
-    const pts = dimensionPoints(ctx.project, d);
-    const end = (at: { x: number; y: number }, which: 'a' | 'b'): DimEnd => {
-      const ref = d.refs?.[which];
-      const alt = endAltOf(ctx.project, vista, d, which, isElementRef(ref) ? ref : undefined);
-      // Com alternativas, a ponta não usa `options` de cota dinâmica de parede/esquadria (que ficam vazias aqui).
-      return alt
-        ? { at, slot: which, kind: 'wall', current: 'axis', options: [], alt }
-        : { at, slot: which, kind: 'wall', current: 'axis', options: ['axis'] };
-    };
-    return [
-      {
-        key: `${PERMANENT_DIM_ID}:${d.id}`,
-        a: pts.a,
-        b: pts.b,
-        offset: d.offset,
-        value: dimensionValue(ctx.project, d),
-        quantity: 'length',
-        ends: [end(pts.a, 'a'), end(pts.b, 'b')],
-        edit: (valor: number): DimEditResult => {
-          const r = drivenEditCommands(ctx.project, d, valor);
-          if (!r.ok) return { error: r.reason };
-          return { commands: r.commands as Command[] };
-        },
-      },
-    ];
+    if (!d) return [];
+    const item = buildPermanentTempDim(ctx, vista, d, `${PERMANENT_DIM_ID}:${d.id}`);
+    return item ? [item] : [];
   },
 
   selectionSubject(project: Project, selectionId: Id, levelId?: Id): PermanentDimSubject | null {

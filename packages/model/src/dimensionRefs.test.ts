@@ -11,6 +11,7 @@ import {
   dimensionStyleOf,
   dimensionValue,
   effectiveDimStyle,
+  elementRing,
   formatDimension,
   isMass,
   makeFloor,
@@ -18,6 +19,7 @@ import {
   makeStair,
   makeWall,
   openingType,
+  resolveDimEnd,
   resolveDimRef,
   secaoCirculo,
   type Dimension,
@@ -183,5 +185,54 @@ describe('estilo', () => {
     expect(s.project.settings.dimensionStyle).toEqual({ tick: 'arrow', textHeight: 3 });
     s.undo();
     expect(s.project.settings.dimensionStyle).toBeUndefined();
+  });
+
+  it('dimRefAt captura ponto contínuo ao longo de face de parede e aresta, e resolveDimEnd projeta ao mover parede', () => {
+    const s = cena();
+    const w1 = s.project.elements.w1!;
+    if (w1.kind !== 'wall') throw new Error('expected wall');
+    s.exec({
+      type: 'addWall',
+      wall: { ...w1, id: 'w_cont', levelId: LV, a: { x: 0, y: 8 }, b: { x: 4, y: 8 } },
+    });
+    const halfT = T / 2;
+    const onHiFace = { x: 1.5, y: 8 + halfT };
+    const hitFace = dimRefAt(s.project, LV, onHiFace, 0.05);
+    expect(hitFace).not.toBeNull();
+    const hitFaceRef = hitFace!.ref as DimensionElementRef;
+    expect(hitFaceRef.elementId).toBe('w_cont');
+    expect(hitFaceRef.feature).toBe('wall-face-hi');
+
+    // Ponto discreto da ponta (eixo) ainda vence sobre o segmento contínuo
+    const atEndA = { x: 0, y: 8 };
+    const hitEnd = dimRefAt(s.project, LV, atEndA, 0.05);
+    expect(hitEnd).not.toBeNull();
+    const hitEndRef = hitEnd!.ref as DimensionElementRef;
+    expect(hitEndRef.elementId).toBe('w_cont');
+    expect(hitEndRef.feature).toBe('wall-axis-a');
+    expect(hitEndRef.key).toBeUndefined();
+
+    // Aresta contínua de piso/elemento fora de sobreposição (t = 0.25, longe de vértices e do ponto médio)
+    const f1 = s.project.elements.f1!;
+    if (f1.kind === 'floor') {
+      s.exec({
+        type: 'addFloor',
+        floor: { ...f1, id: 'f_cont', levelId: LV, boundary: f1.boundary.map((pt) => ({ x: pt.x + 20, y: pt.y + 20 })) },
+      });
+      const fIso = s.project.elements.f_cont!;
+      const ring = elementRing(fIso, s.project);
+      const qEdge = { x: ring[0]!.x * 0.75 + ring[1]!.x * 0.25, y: ring[0]!.y * 0.75 + ring[1]!.y * 0.25 };
+      const hitEdge = dimRefAt(s.project, LV, qEdge, 0.05);
+      expect(hitEdge).not.toBeNull();
+      const hitEdgeRef = hitEdge!.ref as DimensionElementRef;
+      expect(hitEdgeRef.elementId).toBe('f_cont');
+      expect(hitEdgeRef.feature).toBe('edge');
+    }
+
+    // Move w_cont e valida que resolveDimEnd projeta o fallback ortogonalmente sobre a nova face (preservando x = 1.5)
+    s.exec({ type: 'updateElements', ids: ['w_cont'], patch: { a: { x: 0, y: 8.75 }, b: { x: 4, y: 8.75 } } });
+    const resolved = resolveDimEnd(s.project, hitFaceRef, onHiFace);
+    expect(resolved.x).toBeCloseTo(1.5, 6);
+    expect(resolved.y).toBeCloseTo(8.75 + halfT, 6);
   });
 });

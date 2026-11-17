@@ -3,7 +3,11 @@ import {
   formatQuantity,
   OPENING_FRAME_DEFAULTS,
   openingFamilyOf,
+  openingFrameDepth,
+  openingFrameStyle,
   openingLintel,
+  openingRevealDepth,
+  openingRevealRoom,
   spanTypeOf,
   type OpeningType,
 } from '@hestia/model';
@@ -65,9 +69,10 @@ export function openingVentilationArea(raw: OpeningType): number {
 
 /**
  * Lista de verificações do tipo, na ordem: largura livre (NBR 9050), altura livre, ventilação (janela), profundidade
- * do batente contra o núcleo da parede e presença de verga. `coreThickness` é a espessura do núcleo (DEC-1).
+ * do batente contra o núcleo da parede, recuo do batente (só com `wallThickness` e recuo > 0) e presença de verga.
+ * `coreThickness` é a espessura do núcleo (DEC-1); `wallThickness`, a da parede que hospeda o tipo.
  */
-export function openingChecks(raw: OpeningType, coreThickness: number, units = defaultUnits(), lang: Lang = 'pt'): OpeningCheck[] {
+export function openingChecks(raw: OpeningType, coreThickness: number, units = defaultUnits(), lang: Lang = 'pt', wallThickness?: number): OpeningCheck[] {
   const t = spanTypeOf(raw); // as larguras e alturas abaixo são do VÃO (com `nominalRef` 'leaf' a folha ganha a folga)
   const out: OpeningCheck[] = [];
   const freeW = openingClearWidth(t);
@@ -111,6 +116,9 @@ export function openingChecks(raw: OpeningType, coreThickness: number, units = d
       : { level: 'warn', text: tr(lang, 'egb_issue_jamb_depth_over', { depth: formatQuantity(units, 'length', depth), core: formatQuantity(units, 'length', core) }) },
   );
 
+  const reveal = revealCheck(t, core, wallThickness, units, lang);
+  if (reveal) out.push(reveal);
+
   out.push(
     openingLintel(t)
       ? { level: 'ok', text: tr(lang, 'egb_issue_lintel_ok') }
@@ -118,4 +126,17 @@ export function openingChecks(raw: OpeningType, coreThickness: number, units = d
   );
 
   return out;
+}
+
+/**
+ * Recuo do batente contra a parede: ok se cabe; aviso se o motor vai limitá-lo (parede fina demais para o recuo pedido).
+ * O batente é considerado centrado (núcleo simétrico), a mesma leitura de `openingFrameDepth`; o motor usa a posição real.
+ */
+function revealCheck(t: OpeningType, core: number, wallThickness: number | undefined, units: ReturnType<typeof defaultUnits>, lang: Lang): OpeningCheck | null {
+  const asked = openingRevealDepth(t);
+  if (asked <= 0 || typeof wallThickness !== 'number' || !Number.isFinite(wallThickness) || wallThickness <= 0) return null;
+  const depth = openingFrameStyle(t) === 'aduela' ? Math.min(core, wallThickness) : openingFrameDepth(t, wallThickness, core).depth;
+  const max = openingRevealRoom(wallThickness, 0, depth);
+  const args = { reveal: formatQuantity(units, 'length', asked), max: formatQuantity(units, 'length', max), wall: formatQuantity(units, 'length', wallThickness), depth: formatQuantity(units, 'length', depth) };
+  return asked <= max + 1e-9 ? { level: 'ok', text: tr(lang, 'egb_issue_reveal_ok', args) } : { level: 'warn', text: tr(lang, 'egb_issue_reveal_clamped', args) };
 }

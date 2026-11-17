@@ -1,4 +1,4 @@
-import { openingFamilyOf, type OpeningHandle, type OpeningLeafStyle, type OpeningType } from '@hestia/model';
+import { openingFamilyOf, type OpeningGlassKind, type OpeningHandle, type OpeningLeafStyle, type OpeningType } from '@hestia/model';
 import type { OpeningGeometry } from './types.ts';
 import type {
   LeafOpening,
@@ -64,6 +64,7 @@ interface AddOptions {
   motion?: PartMotion;
   leaf?: number;
   dashed?: boolean;
+  glassKind?: OpeningGlassKind;
 }
 
 function addPart(c: WindowCtx, id: string, role: PartRole, material: PartMaterial, b: PartBox, opts: AddOptions = {}): void {
@@ -170,7 +171,7 @@ export function addWindowLeaf(
   const gt1 = t1 - lw;
   const gz0 = z0 + lw;
   const gz1 = z1 - lw;
-  addPart(c, `glass-${index}`, 'glass', 'glass', box(gt0, gt1, sCenter - c.G / 2, sCenter + c.G / 2, gz0, gz1), opts);
+  addPart(c, `glass-${index}`, 'glass', 'glass', box(gt0, gt1, sCenter - c.G / 2, sCenter + c.G / 2, gz0, gz1), { ...opts, glassKind: c.t.glassKind });
   const depth = Math.min(c.D * 0.6, c.D - 0.001);
   const half = 0.0125;
   for (let i = 1; i < c.grid.cols; i++) {

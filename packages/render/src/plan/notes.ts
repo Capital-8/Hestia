@@ -1,8 +1,9 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote, detailLinePoints } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
-import { quadradoEm } from './marcadores.ts';
+import { ALCA_PX, poligonoEm, quadradoEm, tracoEm } from './marcadores.ts';
+import { revisionCloudOps, spotAnnotationOps, symbolAnnotationOps } from './extraAnnotations.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
 import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
@@ -21,6 +22,8 @@ export interface NoteLook {
   dimStyle?: DimensionStyle;
   /** Cota sob o cursor: destacada inteira (linha, chamadas, marcadores e texto). */
   hover?: Id | null;
+  /** Verdadeiro quando o chamador é uma vista de corte/elevação. */
+  isSection?: boolean;
 }
 
 /** Espessura relativa das linhas de separação selecionadas (um pouco maior que a normal, traço mantido). */
@@ -36,6 +39,8 @@ const MOLDURA_MM = 0.35;
 const SELECAO_MM = 0.8;
 /** Meio lado da alça quadrada do texto, em pixels de tela (o ponto de ancoragem é `text.at`). */
 const ALCA_TEXTO_PX = 4;
+/** Meio lado do losango da alça de texto da cota selecionada, em pixels de tela (o quadrado de afastamento usa `ALCA_PX`). */
+const ALCA_LOSANGO_PX = 6;
 /** Espessura das linhas da cota em destaque (hover/seleção) em relação à normal. */
 const DIM_ESTADO_FATOR = 1.5;
 /** Alfa do realce leve sob o cursor (o preenchimento não esconde o desenho de trás). */
@@ -137,6 +142,9 @@ export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan): Area
     detailLines: prof.detail ? all.detailLines : [],
     detailRegions: prof.detail ? all.detailRegions : [],
     tags: prof.tags ? all.tags : [],
+    spots: prof.tags ? (all.spots ?? []) : [],
+    revisionClouds: prof.detail ? (all.revisionClouds ?? []) : [],
+    symbols: prof.tags ? (all.symbols ?? []) : [],
   };
 }
 
@@ -187,6 +195,9 @@ export function annotationsOfLevel(p: Project, levelId: Id): AreaPlanAnnotations
     detailLines: level?.detailLines ?? [],
     detailRegions: level?.detailRegions ?? [],
     tags: level?.tags ?? [],
+    spots: level?.spots ?? [],
+    revisionClouds: level?.revisionClouds ?? [],
+    symbols: level?.symbols ?? [],
   };
 }
 
@@ -208,13 +219,20 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   const texts = annotations ? annotations.texts : levelTexts(p, levelId);
   const detailLines = annotations ? annotations.detailLines : (level?.detailLines ?? []);
   const detailRegions = annotations ? annotations.detailRegions : (level?.detailRegions ?? []);
+  const spots = annotations ? (annotations.spots ?? []) : (level?.spots ?? []);
+  const revisionClouds = annotations ? (annotations.revisionClouds ?? []) : (level?.revisionClouds ?? []);
+  const symbols = annotations ? (annotations.symbols ?? []) : (level?.symbols ?? []);
   const corte = espessuraDeCorte(pt);
   const projecao = espessuraDeProjecao(pt);
   // Disposição das cotas da vista: o texto que não cabe sai com linha de chamada e os rótulos não se sobrepõem.
   const layouts = layoutDimensions(dimensionItems(p, levelId, dimensions, look.dimStyle), { scale, style: look.dimStyle, v });
+  const refTargets = (r: NonNullable<Dimension['refs']>['a'], targetId: Id): boolean =>
+    !!r && (isElementRef(r) ? r.elementId === targetId : r.wallId === targetId);
+  const singleSelectedId = look.selection.length === 1 ? look.selection[0]! : null;
   for (const l of layouts) {
     const id = l.item.d.id;
-    const sel = picked(id);
+    const attached = singleSelectedId !== null && (refTargets(l.item.d.refs?.a, singleSelectedId) !== refTargets(l.item.d.refs?.b, singleSelectedId));
+    const sel = picked(id) || attached;
     const hov = !sel && look.hover === id;
     const estado = sel || hov;
     const c = sel ? look.select : hov ? (look.hoverColor ?? look.select) : color;
@@ -224,32 +242,67 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
     out.labels.push(...d.labels);
   }
   for (const t of texts) {
+    const tf = textFamilyFor(p.settings, t.familyId);
+    const effHeight = t.height > 0 ? t.height : tf.textMm;
+    const effBold = t.bold ?? tf.bold;
+    const effItalic = t.italic ?? tf.italic;
+    const effUnderline = t.underline ?? tf.underline;
+    const effFrame = t.frame ?? tf.frame;
+    const effText = { ...t, height: effHeight };
     const selecionado = picked(t.id);
     const c = selecionado ? look.select : color;
     const mPorMm = scale / 1000;
-    const bloco = textBlockModel(t, scale);
-    if (t.leader) for (let i = 0; i < t.leader.length - 1; i++) out.strokes.push({ pts: [t.leader[i]!, t.leader[i + 1]!], closed: false, ...projecao, color: c, alpha: 1 });
+    const bloco = textBlockModel(effText, scale);
+    if (t.leader) {
+      for (let i = 0; i < t.leader.length - 1; i++) out.strokes.push({ pts: [t.leader[i]!, t.leader[i + 1]!], closed: false, ...projecao, color: c, alpha: 1 });
+      if (t.leader.length >= 2 && tf.leaderArrow !== 'none') {
+        const tip = t.leader[0]!;
+        const nxt = t.leader[1]!;
+        const dx = nxt.x - tip.x;
+        const dy = nxt.y - tip.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 1e-6) {
+          const ux = dx / len;
+          const uy = dy / len;
+          const sz = Math.max(1.8 * mPorMm, 0.04);
+          if (tf.leaderArrow === 'arrow') {
+            out.fills.push({ polygons: [[[tip, { x: tip.x + ux * sz - uy * sz * 0.38, y: tip.y + uy * sz + ux * sz * 0.38 }, { x: tip.x + ux * sz + uy * sz * 0.38, y: tip.y + uy * sz - ux * sz * 0.38 }]]], color: c, alpha: 1 });
+          } else if (tf.leaderArrow === 'dot') {
+            const r = sz * 0.35;
+            const pts = Array.from({ length: 10 }, (_, k) => {
+              const a = (k / 10) * Math.PI * 2;
+              return { x: tip.x + Math.cos(a) * r, y: tip.y + Math.sin(a) * r };
+            });
+            out.fills.push({ polygons: [[pts]], color: c, alpha: 1 });
+          } else if (tf.leaderArrow === 'slash') {
+            const nx = -uy * sz * 0.5;
+            const ny = ux * sz * 0.5;
+            out.strokes.push({ pts: [{ x: tip.x - nx - ux * sz * 0.3, y: tip.y - ny - uy * sz * 0.3 }, { x: tip.x + nx + ux * sz * 0.3, y: tip.y + ny + uy * sz * 0.3 }], closed: false, ...corte, color: c, alpha: 1 });
+          }
+        }
+      }
+    }
     // Moldura do texto (`frame`): fundo do papel e contorno em volta do bloco, quebrado por `width` quando houver.
-    if (t.frame) {
+    if (effFrame || tf.opaqueBackground) {
       const folga = MOLDURA_MM * mPorMm;
       out.fills.push({ polygons: [[blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga)]], color: look.paper ?? '#fbfbfa', alpha: 1 });
-      out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga), closed: true, ...projecao, color: c, alpha: 1 });
+      if (effFrame) out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, folga), closed: true, ...projecao, color: c, alpha: 1 });
     }
     // Seleção: caixa em volta do bloco e o quadradinho da alça no canto inferior esquerdo, fora do texto.
     if (selecionado) {
       out.strokes.push({ pts: blocoEm(t.at, bloco.w, bloco.h, t.rotation, (MOLDURA_MM + SELECAO_MM) * mPorMm), closed: true, widthPx: 2, color: look.select, alpha: 1 });
-      const q = quadradoEm(alcaDoTextoEm(t, scale), ALCA_TEXTO_PX);
+      const q = quadradoEm(alcaDoTextoEm(effText, scale), ALCA_TEXTO_PX);
       out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
       out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
     }
-    const label = noteLabel(t.at, t.text, t.height, scale, t.rotation);
+    const label = noteLabel(t.at, t.text, effHeight, scale, t.rotation);
     if (t.width) label.papel = { ...label.papel!, widthMm: t.width };
     // `whiteSpace: pre-wrap` preserva as quebras de `\n` (e as de `width`) no texto de tela; a cor de seleção tinge o texto.
-    out.labels.push({ ...label, whiteSpace: 'pre-wrap', bold: t.bold, italic: t.italic, underline: t.underline, align: t.align, ...(selecionado ? { color: look.select } : {}) });
+    out.labels.push({ ...label, whiteSpace: 'pre-wrap', bold: effBold, italic: effItalic, underline: effUnderline, align: t.align, ...(selecionado ? { color: look.select } : {}) });
   }
   for (const line of detailLines) {
     const selected = picked(line.id);
-    out.strokes.push({ pts: [line.a, line.b], closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
+    out.strokes.push({ pts: detailLinePoints(line), closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
   }
   for (const region of detailRegions) {
     const ink = picked(region.id) ? look.select : color;
@@ -267,10 +320,58 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   // Só entram quando a vista traz as suas anotações; sem elas, `build.ts` desenha as do nível à parte (como antes).
   if (annotations) {
     const comTags: Project = { ...p, levels: p.levels.map((x) => (x.id === levelId ? { ...x, tags: annotations.tags } : x)) };
-    const tags = elementTagOps(comTags, levelId, pt, scale);
+    const tags = elementTagOps(comTags, levelId, pt, scale, { selection: look.selection, selectColor: look.select });
     out.strokes.push(...tags.strokes);
     out.labels.push(...tags.labels);
   }
+  if (spots.length > 0) {
+    const sp = spotAnnotationOps(p, levelId, spots, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.fills.push(...sp.fills);
+    out.strokes.push(...sp.strokes);
+    out.labels.push(...sp.labels);
+  }
+  if (revisionClouds.length > 0) {
+    const rc = revisionCloudOps(p, revisionClouds, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.strokes.push(...rc.strokes);
+    out.labels.push(...rc.labels);
+  }
+  if (symbols.length > 0) {
+    const sy = symbolAnnotationOps(p, symbols, { ...pt, color }, scale, { selection: look.selection, selectColor: look.select, isSection: look.isSection });
+    out.fills.push(...sy.fills);
+    out.strokes.push(...sy.strokes);
+    out.labels.push(...sy.labels);
+  }
+  return out;
+}
+
+/**
+ * Alças da cota selecionada (uma só, linear): quadrado no meio da linha (afastamento) e losango no texto, em pixels de
+ * tela. Compartilhada pela planta (`annotationHighlightOps`) e pelo corte/elevação (`sectionAnnotationOps`), para que as
+ * duas vistas desenhem a mesma alça. Os raios que pegam a alça (`DIM_GRIP_PX`, `DIM_TEXT_GRIP_PX` em tools) são maiores
+ * que estes desenhos. Sem cota única linear na seleção, nada é desenhado.
+ */
+export function alcasDaCotaSelecionadaOps(
+  p: Project,
+  levelId: Id,
+  scale: number,
+  look: Pick<NoteLook, 'select' | 'dimStyle'>,
+  selected: ReadonlySet<Id>,
+  annotations: AreaPlanAnnotations,
+  v?: Viewport,
+): NoteOps {
+  const out: NoteOps = { fills: [], strokes: [], labels: [] };
+  const cotaUnica = selected.size === 1 ? annotations.dimensions.find((d) => selected.has(d.id) && !d.angular) : undefined;
+  if (!cotaUnica) return out;
+  const l = layoutDimensions(dimensionItems(p, levelId, annotations.dimensions, look.dimStyle), { scale, style: look.dimStyle, v }).find((x) => x.item.d.id === cotaUnica.id);
+  if (!l?.g) return out;
+  const [ini, fim] = l.g.line;
+  const meio = { x: (ini!.x + fim!.x) / 2, y: (ini!.y + fim!.y) / 2 };
+  const q = quadradoEm(meio, ALCA_PX);
+  out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
+  out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
+  const losango = [{ x: 0, y: -ALCA_LOSANGO_PX }, { x: ALCA_LOSANGO_PX, y: 0 }, { x: 0, y: ALCA_LOSANGO_PX }, { x: -ALCA_LOSANGO_PX, y: 0 }];
+  out.fills.push({ ...poligonoEm(l.textAt, losango), color: '#ffffff', alpha: 1 });
+  out.strokes.push({ ...tracoEm(l.textAt, losango, true), widthPx: 1.5, color: look.select, alpha: 1 });
   return out;
 }
 
@@ -320,6 +421,9 @@ export function annotationHighlightOps(
     out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
     out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
   }
+  const alcas = alcasDaCotaSelecionadaOps(p, levelId, scale, look, selected, a, v);
+  out.fills.push(...alcas.fills);
+  out.strokes.push(...alcas.strokes);
   // Cotas: o hover destaca a cota INTEIRA (linha, chamadas, marcadores e texto) na cor de realce, mais grossa, e cerca o
   // valor com o realce leve; a cota selecionada já sai na cor de seleção em `noteOps`. A disposição é a de `noteOps`.
   if (a.dimensions.some((d) => hover === d.id && !selected.has(d.id))) {
