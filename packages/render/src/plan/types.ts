@@ -112,6 +112,12 @@ export interface LabelOp {
   maskBorderColor?: string;
   /** Medidas em papel: `resolverZoom` as converte em `fontPx`, `dx` e `dy` com o zoom corrente. */
   papel?: PapelRotulo;
+  /** Contorno em volta do rótulo (etiqueta de família): círculo, hexágono ou retângulo; `fill` pinta o fundo com a cor do papel. */
+  badge?: { shape: 'circle' | 'hexagon' | 'rect'; fill: boolean };
+  /** Posição calculada pelo motor (etiqueta automática): o afastamento de colisões pode movê-la; a do usuário nunca. */
+  auto?: boolean;
+  /** Rótulo atualmente selecionado: renderiza destaque visual no overlay de texto. */
+  selected?: boolean;
 }
 
 /** Lista de desenho neutra: tanto o renderizador de GPU quanto o de CPU a consomem. */

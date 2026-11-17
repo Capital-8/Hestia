@@ -28,9 +28,8 @@ export interface OpcoesImportacaoIfc {
  */
 export async function importIfcFile(file: File, opcoes: OpcoesImportacaoIfc = {}): Promise<{ name: string; report: ImportReport }> {
   opcoes.onProgress?.({ fase: 'read', fracao: 0, feito: 0, total: file.size });
-  const text = await file.text();
-  opcoes.onProgress?.({ fase: 'read', fracao: FAIXAS.read[1], feito: file.size, total: file.size });
-  const { project, report } = await importIfcText(text, opcoes.onProgress, opcoes.sinal, opcoes.lang);
+  const lerFeito = (): void => opcoes.onProgress?.({ fase: 'read', fracao: FAIXAS.read[1], feito: file.size, total: file.size });
+  const { project, report } = await importIfcFonte(file, opcoes.onProgress, opcoes.sinal, opcoes.lang ?? useI18n.getState().lang, lerFeito);
   const name = nomeDoProjeto(file.name);
   editor.load(project, name);
   return { name, report };
@@ -84,7 +83,7 @@ function paraBarra(p: IfcImportProgress): ProgressoImportacao {
  * Roda o `importIfc` num worker dedicado (`ifcWorker.ts`) para o arquivo grande não congelar a interface.
  * Rejeita com `WorkerIndisponivel`, `FalhaImportacao`, `TempoEsgotado` ou `Cancelada`; `importIfcText` decide o fallback.
  */
-function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) => void, sinal?: AbortSignal, lang: Lang = useI18n.getState().lang): Promise<ImportResult> {
+function importarNoWorker(fonte: string | File, onLido: (() => void) | undefined, onProgress?: (p: ProgressoImportacao) => void, sinal?: AbortSignal, lang: Lang = useI18n.getState().lang): Promise<ImportResult> {
   return new Promise<ImportResult>((resolve, reject) => {
     let worker: Worker;
     try {
@@ -96,6 +95,7 @@ function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) =>
     }
 
     let encerrado = false;
+    let lido = false;
     /** Termina o worker uma única vez, qualquer que seja o desfecho. */
     const encerrar = (): boolean => {
       if (encerrado) return false;
@@ -124,6 +124,11 @@ function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) =>
 
     worker.onmessage = (evento: MessageEvent<RespostaIfcWorker>) => {
       const resposta = evento.data;
+      // A primeira resposta do worker prova que ele já leu o arquivo do disco (a leitura é dele, não da janela).
+      if (onLido && !lido) {
+        lido = true;
+        onLido();
+      }
       if ('progress' in resposta) {
         onProgress?.(paraBarra(resposta.progress));
         return;
@@ -138,27 +143,45 @@ function importarNoWorker(text: string, onProgress?: (p: ProgressoImportacao) =>
       if (encerrar()) reject(new WorkerIndisponivel(evento.message || t(useI18n.getState().lang, 'edc_ifc_worker_failed')));
     };
 
-    worker.postMessage({ text, lang });
+    // `File` é clonável sem copiar os bytes: o texto (dezenas de MB) nasce dentro do worker, sem passar pela janela.
+    worker.postMessage(typeof fonte === 'string' ? { text: fonte, lang } : { file: fonte, lang });
   });
 }
 
 /**
- * Importa o texto de um IFC. Com `Worker` (navegador), o trabalho pesado sai da thread principal; sem ele
- * (Node, testes) ou se o worker não puder ser criado/carregado, cai no `importIfc` síncrono — mesmo resultado.
+ * Importa um IFC (texto ou `File`). Com `Worker` (navegador), o trabalho pesado sai da thread principal e um `File` é
+ * lido dentro do worker; sem ele (Node, testes) ou se o worker não puder ser criado/carregado, cai no `importIfc`
+ * síncrono — mesmo resultado.
  */
-export async function importIfcText(
+async function importIfcFonte(
+  fonte: string | File,
+  onProgress: ((p: ProgressoImportacao) => void) | undefined,
+  sinal: AbortSignal | undefined,
+  lang: Lang,
+  onLido?: () => void,
+): Promise<ImportResult> {
+  const local = async (): Promise<ImportResult> => {
+    const text = typeof fonte === 'string' ? fonte : await fonte.text();
+    if (typeof fonte !== 'string') onLido?.();
+    return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined, lang);
+  };
+  if (typeof Worker === 'undefined') return local();
+  try {
+    return await importarNoWorker(fonte, typeof fonte === 'string' ? undefined : onLido, onProgress, sinal, lang);
+  } catch (erro) {
+    if (erro instanceof WorkerIndisponivel) return local();
+    throw erro;
+  }
+}
+
+/** Importa o texto de um IFC já lido (ver `importIfcFonte`). */
+export function importIfcText(
   text: string,
   onProgress?: (p: ProgressoImportacao) => void,
   sinal?: AbortSignal,
   lang: Lang = useI18n.getState().lang,
 ): Promise<ImportResult> {
-  if (typeof Worker === 'undefined') return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined, lang);
-  try {
-    return await importarNoWorker(text, onProgress, sinal, lang);
-  } catch (erro) {
-    if (erro instanceof WorkerIndisponivel) return importIfc(text, undefined, onProgress ? (p) => onProgress(paraBarra(p)) : undefined, lang);
-    throw erro;
-  }
+  return importIfcFonte(text, onProgress, sinal, lang);
 }
 
 /** "casa.ifc" vira "casa.hestia.json": o IFC original não é sobrescrito pelo Salvar. */

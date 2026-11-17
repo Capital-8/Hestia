@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, angularDimensionData, angularDimensionGeometry, createEmptyProject, levelDimensions, levelTexts } from '@hestia/model';
-import { annotationAt, annotationIdsInBox, dimHitGeometry, dimTextGripAt } from './annotationPick.ts';
+import { DIM_GRIP_PX, DIM_TEXT_GRIP_PX, annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimHitGeometry, dimTextGripAt } from './annotationPick.ts';
 import { clickAt, makeEnv, tool } from './testEnv.ts';
 
 /** Texto 'Quarto' colocado em (9, 2) m, com a planta na escala padrão; o cursor mede 0,01 m por pixel. */
@@ -85,5 +85,39 @@ describe('hit test da cota alinhado ao desenho (I2)', () => {
   it('a alça do texto acompanha o texto deslocado', () => {
     const store = cria({ textAt: { x: 6, y: 3 } });
     expect(dimTextGripAt(store.project, 'lv_0', ['d1'], { x: 6, y: 3 }, MPP)).toBe('d1');
+  });
+});
+
+describe('alças de cota: raios em pixels de tela (DIM_GRIP_PX = 9, DIM_TEXT_GRIP_PX = 12)', () => {
+  const cria = (extra: Record<string, unknown>) => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addDimension', levelId: 'lv_0', dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1, ...extra } });
+    return store;
+  };
+
+  it('as constantes têm os valores de 9 e 12 px', () => {
+    expect(DIM_GRIP_PX).toBe(9);
+    expect(DIM_TEXT_GRIP_PX).toBe(12);
+  });
+
+  it('alça de texto: a 10 px do centro acerta; a 13 px não (MPP 0,01 m/px)', () => {
+    const store = cria({ textAt: { x: 6, y: 3 } });
+    expect(dimTextGripAt(store.project, 'lv_0', ['d1'], { x: 6.1, y: 3 }, MPP)).toBe('d1');
+    expect(dimTextGripAt(store.project, 'lv_0', ['d1'], { x: 6.13, y: 3 }, MPP)).toBeNull();
+  });
+
+  it('alça de afastamento: o meio da linha de cota (2,1) acerta a 8 px e não a 10 px', () => {
+    const store = cria({});
+    expect(dimGripAt(store.project, 'lv_0', ['d1'], { x: 2, y: 1.08 }, MPP)).toBe('d1');
+    expect(dimGripAt(store.project, 'lv_0', ['d1'], { x: 2, y: 1.1 }, MPP)).toBeNull();
+  });
+});
+
+describe('linha de detalhe em arco', () => {
+  it('acerta o meio do arco (1, 1) e nao a corda (1, 0)', () => {
+    const ctx = makeEnv();
+    ctx.store.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'dl', a: { x: 0, y: 0 }, b: { x: 2, y: 0 }, sag: 1 } });
+    expect(detailItemAt(ctx.store.project, 'lv_0', { x: 1, y: 1.02 }, MPP)).toBe('dl');
+    expect(detailItemAt(ctx.store.project, 'lv_0', { x: 1, y: 0 }, MPP)).toBeNull();
   });
 });

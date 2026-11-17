@@ -10,14 +10,14 @@
  * projeto): a extração da cena 3D do app não roda em Node; ver docs/plugins/06-validacao-processo-rust.md.
  */
 import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import * as THREE from 'three';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall, pluginViewOverrides, type SheetView3DCamera, type Wall } from '@hestia/model';
-import { PluginHost, RENDERER_CAPABILITIES, type HostPorts, type PluginEntry } from '@hestia/plugin-api';
+import { PluginHost, RENDERER_CAPABILITIES, type AuthPolicy, type HostPorts, type PluginEntry } from '@hestia/plugin-api';
 import { fromSceneCamera, toSceneCamera } from '../../apps/web/src/plugins/cameraConvert.ts';
 import { buildSceneContent } from '../../apps/web/src/plugins/sceneExport.ts';
 import { connectWebSocket } from '../../apps/web/src/plugins/wsTransport.ts';
@@ -53,7 +53,7 @@ interface RState {
   pid: number; connections: number; connected: boolean; sessionId: string | null; protocol: string; api: string;
   granted: string[]; denied: string[]; resumed: boolean; cameraMode: string; camera: ReturnType<typeof toSceneCamera> | null;
   cameraUpdates: number; overrides: Record<string, Record<string, unknown>>; snapshots: number; deltas: number; resyncs: number;
-  errors: Array<{ code: string; message: string }>;
+  errors: Array<{ code: string; message: string }>; authRequired: boolean; authenticated: boolean;
   scene: { projectId: string; revision: number; entities: Record<string, { kind: string; triangles: number; vertices: number; meshHash: string }>; materials: Record<string, { color: string }> };
 }
 
@@ -65,7 +65,10 @@ class Renderer {
     this.stateFile = path.join(dir, `state-${port}-${Date.now()}.json`);
   }
   async start(): Promise<this> {
-    this.proc = spawn(BIN, ['--port', String(this.port), '--state-file', this.stateFile, '--control-stdin', ...this.extra], { stdio: ['pipe', 'pipe', 'pipe'] });
+    // Os casos anteriores à 1.1 testam o contrato 1.0: sem `--token-file`/`--require-token` o processo sobe em modo legado
+    // (`--no-require-token`, só para desenvolvimento). Os casos de token (abaixo) passam `--token-file` e usam o padrão (token exigido).
+    const comToken = this.extra.includes('--token-file') || this.extra.includes('--require-token');
+    this.proc = spawn(BIN, ['--port', String(this.port), '--state-file', this.stateFile, '--control-stdin', ...(comToken ? [] : ['--no-require-token']), ...this.extra], { stdio: ['pipe', 'pipe', 'pipe'] });
     let buf = '';
     this.proc.stdout.on('data', (d: Buffer) => {
       buf += d.toString();
@@ -142,7 +145,7 @@ function makeHestia(store: ProjectStore) {
   };
 }
 
-function makeHost(ports: HostPorts, port: number): PluginHost {
+function makeHost(ports: HostPorts, port: number, auth: { policy?: AuthPolicy; token?: string } = {}): PluginHost {
   const entry: PluginEntry = {
     key: 'renderer-rust', label: 'Renderizador (Rust)', endpoint: { host: '127.0.0.1', port }, enabled: false, grants: [], suggested: [...RENDERER_CAPABILITIES], expectedKind: 'renderer', builtin: true,
   };
@@ -150,6 +153,7 @@ function makeHost(ports: HostPorts, port: number): PluginHost {
   return new PluginHost({
     ports, connect: connectWebSocket, store: { get: (k) => mem.get(k) ?? null, set: (k, v) => void mem.set(k, v) },
     builtins: [entry], heartbeatMs: 500, backoffMs: [100, 200, 400],
+    ...(auth.policy ? { tokenPolicy: auth.policy } : {}), getToken: () => auth.token,
   });
 }
 
@@ -376,5 +380,125 @@ describe('Hestia ↔ renderizador Rust, processos separados', () => {
     expect(s.pid).not.toBe(oldPid);
     expect(s.resumed).toBe(false); // processo novo: não há o que retomar
     expect(Object.keys(s.scene.entities)).toEqual(expect.arrayContaining(['w_a', 'w_b']));
+  });
+});
+
+/** Casos do protocolo 1.1: pareamento por token com o processo Rust real (token exigido, que é o padrão do binário). */
+describe('pareamento por token (processo Rust real, protocolo 1.1)', () => {
+  const tokenFile = (name: string): string => path.join(tmp, `token-${name}-${Date.now()}`);
+  const newRenderer = async (extra: string[] = []): Promise<{ r: Renderer; token: () => string; file: string }> => {
+    const file = tokenFile(String(procs.length));
+    const port = await freePort();
+    const r = await new Renderer(tmp, port, ['--token-file', file, '--allow-no-origin', ...extra]).start();
+    procs.push(r);
+    return { r, token: () => readFileSync(file, 'utf8').trim(), file };
+  };
+  const hostFor = (r: Renderer, token: string | undefined, policy: AuthPolicy = 'required'): PluginHost => {
+    const h = makeHost(makeHestia(new ProjectStore(createEmptyProject('pt'))).ports, r.port, { policy, ...(token ? { token } : {}) });
+    hosts.push(h);
+    h.enable('renderer-rust', RENDERER_CAPABILITIES);
+    return h;
+  };
+
+  it('na primeira execução o renderizador gera o token (256 bits, hexadecimal, arquivo só do usuário) e o mostra uma vez; na seguinte, reutiliza', async () => {
+    const { r, token, file } = await newRenderer();
+    expect(token()).toMatch(/^[0-9a-f]{64}$/);
+    expect(r.events.some((e) => e.event === 'token_created')).toBe(true);
+    if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
+    const first = token();
+    await r.kill();
+    const again = await new Renderer(tmp, await freePort(), ['--token-file', file, '--allow-no-origin']).start();
+    procs.push(again);
+    expect(again.events.some((e) => e.event === 'token_created')).toBe(false);
+    expect(token()).toBe(first);
+    await again.kill();
+  });
+
+  it('token certo: autentica (1.1), conecta e só então recebe a cena', async () => {
+    const { r, token } = await newRenderer();
+    const host = hostFor(r, token());
+    const v = await until('conectado', () => { const x = host.get('renderer-rust')!; return x.state === 'connected' ? x : false; });
+    expect(v.authenticated).toBe(true);
+    const s = await r.waitState('welcome e snapshot', (x) => x.sessionId !== null && x.snapshots === 1);
+    expect(s).toMatchObject({ protocol: '1.1', authRequired: true, authenticated: true });
+    host.dispose();
+    await r.kill();
+  });
+
+  it('token errado: o processo recusa (auth_failed), o Hestia mostra "incompatível" com a causa e nenhuma cena é entregue', async () => {
+    const { r } = await newRenderer();
+    const host = hostFor(r, 'e'.repeat(64));
+    const v = await until('incompatível', () => { const x = host.get('renderer-rust')!; return x.state === 'incompatible' ? x : false; });
+    expect(v.error).toMatchObject({ code: 'auth_failed', cause: 'wrong_token' });
+    const s = await r.waitState('erro registrado', (x) => x.errors.some((e) => e.code === 'auth_failed') && !x.connected);
+    expect(s).toMatchObject({ authenticated: false, snapshots: 0, sessionId: null });
+    host.dispose();
+    await r.kill();
+  });
+
+  it('token ausente no Hestia: incompatível com a causa "no_token"; o processo não entrega nada', async () => {
+    const { r } = await newRenderer();
+    const host = hostFor(r, undefined);
+    const v = await until('incompatível', () => { const x = host.get('renderer-rust')!; return x.state === 'incompatible' ? x : false; });
+    expect(v.error).toMatchObject({ code: 'auth_failed', cause: 'no_token' });
+    expect((await r.waitState('fechou', (x) => !x.connected && x.connections === 1)).snapshots).toBe(0);
+    host.dispose();
+    await r.kill();
+  });
+
+  it('plugin 1.0 (renderizador legado, sem token) com o Hestia exigindo token: incompatível, sem sessão; em modo opcional conecta com aviso', async () => {
+    const port = await freePort();
+    const legado = await new Renderer(tmp, port, ['--allow-no-origin']).start(); // helper: --no-require-token (protocolo 1.0)
+    procs.push(legado);
+    const exigente = hostFor(legado, 'a'.repeat(64), 'required');
+    const v = await until('incompatível', () => { const x = exigente.get('renderer-rust')!; return x.state === 'incompatible' ? x : false; });
+    expect(v.error).toMatchObject({ code: 'auth_failed', cause: 'plugin_without_auth' });
+    expect(legado.state().snapshots).toBe(0);
+    exigente.dispose();
+    const dev = hostFor(legado, undefined, 'optional');
+    const c = await until('conectado sem token', () => { const x = dev.get('renderer-rust')!; return x.state === 'connected' ? x : false; });
+    expect(c.authenticated).toBe(false);
+    expect((await legado.waitState('welcome 1.0', (x) => x.sessionId !== null)).protocol).toBe('1.0');
+    dev.dispose();
+    await legado.kill();
+  });
+
+  it('um Hestia antigo (1.0), que manda "welcome" e cena sem autenticar, é recusado e nada é processado', async () => {
+    const { r } = await newRenderer();
+    const ws = new WebSocket(`ws://127.0.0.1:${r.port}`);
+    const got: Array<Record<string, unknown>> = [];
+    ws.onmessage = (ev) => {
+      const m = JSON.parse(String(ev.data)) as Record<string, unknown>;
+      got.push(m);
+      if (m.t === 'hello') {
+        ws.send(JSON.stringify({ t: 'ack', ack: 1 }));
+        ws.send(JSON.stringify({ t: 'welcome', seq: 1, protocol: '1.0', api: '1.0', sessionId: 's1', granted: ['scene.read'], denied: [], heartbeatMs: 5000, cameraMode: 'follow-hestia', resumed: false }));
+        ws.send(JSON.stringify({ t: 'scene.snapshot', seq: 2, snapshot: { projectId: 'p', projectName: 'P', revision: 1, entities: [], materials: [], textures: [] } }));
+      }
+    };
+    const s = await r.waitState('recusa registrada', (x) => x.errors.some((e) => e.code === 'auth_failed'));
+    expect(s).toMatchObject({ snapshots: 0, sessionId: null, authenticated: false });
+    expect(got[0]).toMatchObject({ t: 'hello', protocol: { min: '1.1', max: '1.1' } });
+    expect(JSON.stringify(got[0])).not.toMatch(/token/i); // o hello leva só o nonce
+    ws.close();
+    await r.kill();
+  });
+
+  it('três provas erradas seguidas bloqueiam o processo por alguns segundos; depois o token certo entra', async () => {
+    const { r, token } = await newRenderer(['--lock-seconds', '2']);
+    for (let i = 0; i < 3; i++) {
+      const h = hostFor(r, 'b'.repeat(64));
+      await until('recusa', () => h.get('renderer-rust')!.state === 'incompatible');
+      h.dispose();
+    }
+    const bloqueado = hostFor(r, token()); // quarta tentativa, com o token CERTO, dentro do bloqueio: a porta não responde
+    await until('recusada pelo bloqueio', () => r.events.some((e) => e.event === 'refused' && /bloqueado/.test(String(e.reason))), 6000);
+    bloqueado.dispose();
+    await sleep(2300); // passou o bloqueio
+    const ok = hostFor(r, token());
+    await until('conectado depois do bloqueio', () => ok.get('renderer-rust')!.state === 'connected', 15000);
+    expect((await r.waitState('autenticado', (x) => x.authenticated)).snapshots).toBeGreaterThanOrEqual(0);
+    ok.dispose();
+    await r.kill();
   });
 });

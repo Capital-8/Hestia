@@ -14,10 +14,12 @@ import {
   type OpeningFrameStyle,
   type OpeningHandle,
   type OpeningLeafStyle,
+  type OpeningGlassKind,
   type OpeningType,
   type Project,
 } from '@hestia/model';
 import type { WallFrame } from './frame.ts';
+import { revealedCenter } from './openingReveal.ts';
 import type { OpeningGeometry } from './types.ts';
 import type {
   LeafOpening,
@@ -83,6 +85,12 @@ export function openingCore(f: WallFrame): { s0: number; s1: number } {
  * núcleo inteiro (spec E §3.1). No modo `fixed` o centro parte do núcleo e é ajustado para caber entre as faces.
  */
 export function openingFramePlacement(f: WallFrame, t: OpeningType): { D: number; Cd: number } {
+  const base = openingFramePlacementBase(f, t);
+  return { D: base.D, Cd: revealedCenter(f, t, base.D, base.Cd) };
+}
+
+/** Posição do batente sem o recuo (`reveal`). */
+function openingFramePlacementBase(f: WallFrame, t: OpeningType): { D: number; Cd: number } {
   const core = openingCore(f);
   const coreWidth = core.s1 - core.s0;
   const fd = openingFrameDepth(t, f.thickness, coreWidth);
@@ -118,6 +126,7 @@ export interface AddOptions {
   dashed?: boolean;
   profile?: PartProfile;
   group?: string;
+  glassKind?: OpeningGlassKind;
 }
 
 export function addPart(c: Ctx, id: string, role: PartRole, material: PartMaterial, b: PartBox, opts: AddOptions = {}): void {

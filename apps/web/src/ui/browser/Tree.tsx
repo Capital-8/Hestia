@@ -170,6 +170,21 @@ export function Node({ id, label, icon, group = false, open: initial = false, bo
         <span className={`bbox${has ? '' : ' none'}`} aria-hidden="true" onClick={(e) => { e.stopPropagation(); if (has) toggle(); }}>{has ? (open ? '−' : '+') : ''}</span>
         {icon ? <Icon name={icon} size={14} /> : null}
         <span className="blabel">{label}</span>
+        {menu && menu.length > 0 ? (
+          <button
+            type="button"
+            className="bnode-menu-btn"
+            aria-label="Menu"
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              t.set(id);
+              t.menu(e, menu);
+            }}
+          >
+            ⋯
+          </button>
+        ) : null}
       </div>
       {after}
       {has && open && (

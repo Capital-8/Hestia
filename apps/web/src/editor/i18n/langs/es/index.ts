@@ -31,9 +31,19 @@ import { ES_GRAVIDADE } from '../../areas/gravidade.ts';
 import { ES_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { ES_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { ES_LOTE_UI } from '../../areas/lote-ui.ts';
+import { ES_MASSA } from '../../areas/massa.ts';
+import { ES_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { ES_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
+import { ES_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { ES_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { ES_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { ES_PAREDE_CORTINA } from '../../areas/parede-cortina-1.ts';
+import { ES_STRUCTURAL } from '../../areas/structural.ts';
+import { ES_TAGGING } from '../../areas/tagging.ts';
 
 export const ES_ALL = {
+  ...ES_STRUCTURAL,
+  ...ES_TAGGING,
   ...ES_GUARDA_CORPO,
   ...ES_TERRENO,
   ...ES_TERRENO_VISTA,
@@ -41,6 +51,12 @@ export const ES_ALL = {
   ...ES_TERRENO_TABELA,
   ...ES_LOTE_TABELA,
   ...ES_LOTE_UI,
+  ...ES_MASSA,
+  ...ES_MASSA_PISOS,
+  ...ES_MASSA_PAREDES,
+  ...ES_SUPLEMENTOS,
+  ...ES_SUPLEMENTOS_IO,
+  ...ES_SUPUI,
   ...ES_PAREDE_CORTINA,
   ...ES_SHELL_RIBBON,
   ...ES_MISC_UI,

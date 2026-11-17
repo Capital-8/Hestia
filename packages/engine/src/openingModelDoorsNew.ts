@@ -21,6 +21,7 @@ import {
   type Project,
 } from '@hestia/model';
 import type { WallFrame } from './frame.ts';
+import { revealedCenter } from './openingReveal.ts';
 import type { OpeningGeometry } from './types.ts';
 import type { LeafOpening, OpeningPart, PartBox, PartMaterial, PartMotion, PartProfile, PartRole } from './openingModelTypes.ts';
 import { hingeBoxes, thresholdPart } from './openingModelDetails.ts';
@@ -41,6 +42,8 @@ interface Ctx {
   core: { s0: number; s1: number };
   C: number;
   Cd: number;
+  /** Deslocamento do centro do batente pelo recuo (`reveal`), com sinal em `s`; 0 sem recuo. */
+  dCd: number;
   hw: number;
   H: number;
   thickness: number;
@@ -115,12 +118,13 @@ function makeCtx(p: Project, o: Opening, g: OpeningGeometry, f: WallFrame): Ctx 
   const fd = openingFrameDepth(t, f.thickness, coreWidth);
   const mode = t.frameDepthMode ?? 'wall';
   const D = frameStyle === 'aduela' ? coreWidth : fd.depth;
-  const Cd =
+  const Cd0 =
     frameStyle === 'aduela' || mode === 'core'
       ? (core.s0 + core.s1) / 2
       : mode === 'fixed'
         ? Math.min(f.thickness / 2 - D / 2, Math.max(-f.thickness / 2 + D / 2, (core.s0 + core.s1) / 2))
         : fd.centerOffset;
+  const Cd = revealedCenter(f, t, D, Cd0);
   return {
     p,
     o,
@@ -130,6 +134,7 @@ function makeCtx(p: Project, o: Opening, g: OpeningGeometry, f: WallFrame): Ctx 
     core,
     C: (core.s0 + core.s1) / 2,
     Cd,
+    dCd: Cd - Cd0,
     hw: g.width / 2,
     H: g.height,
     thickness: f.thickness,
@@ -245,8 +250,14 @@ function buildPocketDoor(c: Ctx): void {
   const travel = width;
   const motion: PartMotion = { kind: 'slide', dt: c.h, ds: 0, dz: 0, travel };
   addLeaf(c, 0, -width / 2, width / 2, z, motion, c.h * width, false);
-  const pocketIn = c.core.s0 + 0.02;
-  const pocketOut = c.core.s1 - 0.02;
+  let pocketIn = c.core.s0 + 0.02;
+  let pocketOut = c.core.s1 - 0.02;
+  if (c.dCd !== 0) {
+    // Com recuo a folha anda para dentro da parede: a cavidade a acompanha, sem passar das faces.
+    const half = c.thickness / 2;
+    pocketIn = Math.max(-half, Math.min(pocketIn, c.Cd - c.L / 2 - 0.005));
+    pocketOut = Math.min(half, Math.max(pocketOut, c.Cd + c.L / 2 + 0.005));
+  }
   const inicio = c.h * (c.hw - c.J);
   addPart(c, 'pocket', 'pocket', 'frame', box(inicio, inicio + c.h * width, pocketIn, pocketOut, z.z0, z.z1), undefined, undefined, true);
   c.openings.push({

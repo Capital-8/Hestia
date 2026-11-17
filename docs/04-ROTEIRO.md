@@ -45,8 +45,14 @@ Ficam de fora: envelope legal (depende da massa conceitual), Rastreamento e Refe
 ## Plugins de integração (priorizado em 2026-11-07)
 A decisão [0047](decisoes/0047-plugins-de-integracao.md) tira *plugins* de "Fora da v1": fundação de API, protocolo e gerenciador (Suplementos › Ferramentas externas) em `docs/plugins/`. Falta o plugin do renderizador Rust.
 
+## Massa conceitual (concluída em 2026-11-14)
+A decisão [0058](decisoes/0058-massa-conceitual.md) e o plano `docs/massa/PLANO.md` entregam o elemento `Mass` (pilha de seções, extrusão, mistura, loft, bulbo, torção e arranjo polar), com o kernel Rust, 3D, planta, corte, elevação, tabela, derivação de pisos e paredes por pavimento, IFC, DXF e prancha. Próxima frente prevista: **terreno e lote** (briefing em `docs/terreno/BRIEFING-PARA-PLANEJAR.md`).
+
+## Suplementos (decisão 0057, implementada em 2026-11)
+Plataforma de suplementos em três runtimes (declarativo, script em Worker isolado e processo externo): manifesto 2.0, permissões concedidas pelo usuário, escrita no modelo só por comandos validados (um passo de Desfazer), verificações e quantitativos, importar e exportar, famílias e materiais, ferramentas e diálogos, e **gerenciador unificado** (Suplementos › Gerenciar suplementos, atalho Alt+Shift+P). Autores contam com o SDK em `sdk/` (`npm run suplementos:novo`, `npm run suplementos:empacotar`, testkit) e com o [guia do autor](plugins/09-guia-do-autor.md) e a [referência da API](plugins/10-referencia-da-api.md). Fica de fora: loja, Python embutido, tipos novos de elemento, `.wasm` e rede para script (ver o ADR [0057](decisoes/0057-suplementos-geral.md)). A fase I (token de pareamento e IA) segue em frente separada.
+
 ## Fora da v1
-Scripting, famílias paramétricas gerais, colaboração em tempo real, IA generativa de layout,
+Famílias paramétricas gerais, colaboração em tempo real, IA generativa de layout,
 instalações (hidráulica/elétrica), renderização fotorrealista.
 
 ## Regra de passagem entre elementos

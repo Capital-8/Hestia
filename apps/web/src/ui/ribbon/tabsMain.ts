@@ -45,7 +45,7 @@ export const TAB_ARQUITETURA: RibbonTab = {
       'ambiente',
       t('Ambiente e área', 'Room & Area'),
       tool('room'),
-      stack(tool('roomsep', 'small'), soonS(t('Etiquetar ambiente', 'Tag Room'), 'tag')),
+      stack(tool('roomsep', 'small'), act('tagRoom', 'small', t('Etiquetar ambiente', 'Tag Room'))),
     ),
     panel('abertura', t('Abertura', 'Opening'), soon(t('Por face', 'By Face'), 'opening'), soon(t('Poço', 'Shaft'), 'opening'), soon(t('Parede', 'Wall'), 'opening'), soon(t('Vertical', 'Vertical'), 'opening'), soon(t('Água-furtada', 'Dormer'), 'opening')),
     panel('referencia', t('Referência', 'Datum'), tool('level', 'large', { label: t('Nível (LL)', 'Level (LL)'), icon: 'level' }), stack(act('levels', 'small', t('Gerenciar níveis', 'Manage Levels'))), tool('grid', 'large', { label: t('Grade', 'Grid'), icon: 'grid' })),
@@ -63,12 +63,12 @@ export const TAB_ANOTAR: RibbonTab = {
       tool('dimension', 'large', { label: t('Alinhada', 'Aligned') }),
       tool('angularDimension', 'large', { label: t('Angular', 'Angular') }),
       act('cotasAuto'),
-      stack(act('dimensionFamilies', 'small', t('Famílias de cotas', 'Dimension Types')), soonS(t('Cota de elevação', 'Spot Elevation'), 'dimension'), soonS(t('Coordenada de ponto', 'Spot Coordinate'), 'soon')),
+      stack(act('dimensionFamilies', 'small', t('Famílias de cotas', 'Dimension Types')), tool('spotElevation', 'small', { label: t('Cota de elevação', 'Spot Elevation'), icon: 'spotElevation' }), tool('spotCoordinate', 'small', { label: t('Coordenada de ponto', 'Spot Coordinate'), icon: 'spotCoordinate' })),
     ),
-    panel('detalhe', t('Detalhe', 'Detail'), tool('detailLine'), tool('filledRegion'), soon(t('Componente de detalhe', 'Detail Component'), 'component'), soon(t('Nuvem de revisão', 'Revision Cloud'), 'soon')),
+    panel('detalhe', t('Detalhe', 'Detail'), tool('detailLine'), tool('filledRegion'), soon(t('Componente de detalhe', 'Detail Component'), 'component'), tool('revisionCloud', 'large', { label: t('Nuvem de revisão', 'Revision Cloud'), icon: 'revisionCloud' })),
     panel('texto', t('Texto', 'Text'), tool('text'), stack(soonS(t('Verificar ortografia', 'Spelling'), 'soon'), soonS(t('Localizar/substituir', 'Find/Replace'), 'search'))),
-    panel('etiqueta', t('Etiqueta', 'Tag'), tool('tag', 'large', { label: t('Etiquetar por categoria', 'Tag by Category') }), act('tagAll'), act('wallTags')),
-    panel('simbolo', t('Símbolo', 'Symbol'), soon(t('Símbolo', 'Symbol'), 'soon'), stack(soonS(t('Seta norte', 'North Arrow'), 'soon'), soonS(t('Caminho da escada', 'Stair Path'), 'soon'))),
+    panel('etiqueta', t('Etiqueta', 'Tag'), tool('tag', 'large', { label: t('Etiquetar por categoria', 'Tag by Category') }), act('tagAll'), act('wallTags'), stack(act('tagFamilies', 'small'), act('numberMarks', 'small'))),
+    panel('simbolo', t('Símbolo', 'Symbol'), tool('northArrow', 'large', { label: t('Seta norte', 'North Arrow'), icon: 'northArrow' }), stack(soonS(t('Caminho da escada', 'Stair Path'), 'soon'))),
   ],
 };
 
@@ -98,7 +98,8 @@ export const TAB_VISTA: RibbonTab = {
       soon(t('Legendas', 'Legends'), 'soon'),
       split(act('schedWalls', 'large', t('Tabelas', 'Schedules')), [
         act('schedWalls', 'small'), act('schedFloors', 'small'), act('schedSlabs', 'small'), act('schedCeilings', 'small'),
-        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'),
+        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), act('schedMass', 'small'),
+        act('schedColumns', 'small'), act('schedBeams', 'small'), act('schedFootings', 'small'),
       ]),
     ),
     panel(

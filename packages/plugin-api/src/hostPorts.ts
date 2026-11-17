@@ -1,3 +1,4 @@
+import type { ModelPort, PluginDataPort } from './modelPort.ts';
 import type { MaterialId, SceneCamera, SceneEntity, SceneMaterial, SceneTexture, ViewMaterialOverride } from './scene.ts';
 
 /**
@@ -42,4 +43,7 @@ export interface HostPorts {
   scene: ScenePort;
   camera: CameraPort;
   overrides: OverridesPort;
+  /** SUPLEMENTOS: leitura/escrita do modelo e espaço de dados (opcionais: o renderizador não os usa). */
+  model?: ModelPort;
+  data?: PluginDataPort;
 }

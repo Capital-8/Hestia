@@ -289,23 +289,54 @@ describe('colocação da abertura: prévia e cotas', () => {
 });
 
 describe('colocação da abertura: etiquetar ao inserir', () => {
-  it('inserir uma porta liga showOpeningTags quando estava desligado', () => {
+  const tagsOf = (ctx: Ctx) => ctx.store.project.levels.flatMap((l) => l.tags ?? []);
+
+  it('inserir uma porta cria uma etiqueta própria (elemento selecionável) com a marca P01, sem ligar o flag antigo', () => {
     const ctx = makeEnv();
     makeWall(ctx, [0, 0], [4, 0]);
+    const o = moveAndClick(ctx, 2, 0.1);
+    const tags = tagsOf(ctx);
+    expect(tags).toHaveLength(1);
+    expect(tags[0]!.hostId).toBe(o.id);
+    expect(tags[0]!.familyId).toBe('tagfam_marca');
+    expect((ctx.store.project.elements[o.id] as Opening).mark).toBe('P01');
     expect(ctx.store.project.settings.showOpeningTags).not.toBe(true);
-    moveAndClick(ctx, 2, 0.1);
-    expect(ctx.store.project.settings.showOpeningTags).toBe(true);
   });
 
-  it('openingTagOnPlace desligado mantém a configuração', () => {
+  it('a etiqueta nasce do lado oposto ao arco de abertura, fora da espessura da parede', () => {
+    const ctx = makeEnv();
+    makeWall(ctx, [0, 0], [4, 0]);
+    const o = moveAndClick(ctx, 2, 0.1);
+    const tag = tagsOf(ctx)[0]!;
+    expect(tag.at.x).toBeCloseTo(o.offset, 3);
+    expect(Math.abs(tag.at.y)).toBeGreaterThan(0.1);
+  });
+
+  it('a segunda e a terceira porta recebem P02 e P03 (continua a numeração)', () => {
+    const ctx = makeEnv();
+    withSnapOff(ctx);
+    makeWall(ctx, [0, 0], [10, 0]);
+    const t = tool('door', ctx.env);
+    for (const x of [2, 5, 8]) { t.move!(P(x, 0.05)); t.click!(P(x, 0.05)); }
+    expect(openings(ctx).map((o) => o.mark).sort()).toEqual(['P01', 'P02', 'P03']);
+  });
+
+  it('autoMarks desligado não numera', () => {
+    const ctx = makeEnv();
+    ctx.store.exec({ type: 'setSettings', patch: { autoMarks: false } });
+    makeWall(ctx, [0, 0], [4, 0]);
+    expect(moveAndClick(ctx, 2, 0.1).mark).toBe('');
+  });
+
+  it('openingTagOnPlace desligado não cria etiqueta', () => {
     const ctx = makeEnv();
     ctx.options.openingTagOnPlace = false;
     makeWall(ctx, [0, 0], [4, 0]);
     moveAndClick(ctx, 2, 0.1);
-    expect(ctx.store.project.settings.showOpeningTags).not.toBe(true);
+    expect(tagsOf(ctx)).toHaveLength(0);
   });
 
-  it('o primeiro Ctrl+Z remove a porta e o flag de etiqueta no mesmo passo', () => {
+  it('o primeiro Ctrl+Z remove a porta, a marca e a etiqueta no mesmo passo', () => {
     const ctx = makeEnv();
     withSnapOff(ctx);
     makeWall(ctx, [0, 0], [4, 0]);
@@ -313,11 +344,10 @@ describe('colocação da abertura: etiquetar ao inserir', () => {
     t.move!(P(2, 0.05));
     t.click!(P(2, 0.05));
     expect(openings(ctx)).toHaveLength(1);
-    expect(ctx.store.project.settings.showOpeningTags).toBe(true);
+    expect(tagsOf(ctx)).toHaveLength(1);
     ctx.store.undo();
     expect(openings(ctx)).toHaveLength(0);
-    // O flag volta ao estado anterior (ausente no projeto vazio), no mesmo passo da porta.
-    expect(ctx.store.project.settings.showOpeningTags).not.toBe(true);
+    expect(tagsOf(ctx)).toHaveLength(0);
   });
 
   it('cinco portas são cinco passos de desfazer: um Ctrl+Z volta a quatro', () => {
@@ -332,9 +362,7 @@ describe('colocação da abertura: etiquetar ao inserir', () => {
     expect(openings(ctx)).toHaveLength(5);
     ctx.store.undo();
     expect(openings(ctx)).toHaveLength(4);
-    // A etiqueta já estava ligada desde a primeira porta: o undo da última não mexe nela.
-    expect(ctx.store.project.settings.showOpeningTags).toBe(true);
-    // Cinco desfazer no total removem as cinco portas; sem o passo extra do flag sobraria uma.
+    expect(tagsOf(ctx)).toHaveLength(4);
     for (let i = 0; i < 4; i++) ctx.store.undo();
     expect(openings(ctx)).toHaveLength(0);
     expect(walls(ctx.store)).toHaveLength(1);

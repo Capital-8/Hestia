@@ -80,6 +80,12 @@ export function labelOf(c: Command): string {
       return 'Soltar forro do ambiente';
     case 'relinkCeilingRoom':
       return 'Revincular forro ao ambiente';
+    case 'setWallTilt':
+      return c.ids.length === 1 ? 'Inclinar parede' : 'Inclinar paredes';
+    case 'alignTiltOfChain':
+      return 'Acompanhar inclinação da cadeia';
+    case 'setOpeningPlane':
+      return c.ids.length === 1 ? 'Mudar plano da abertura' : 'Mudar plano das aberturas';
     case 'setWallEnds':
       return 'Ajustar parede';
     case 'setJoin':
@@ -138,6 +144,10 @@ export function labelOf(c: Command): string {
       return 'Editar material';
     case 'upsertOpeningType':
       return 'Editar tipo de abertura';
+    case 'deleteOpeningType': // SUPLEMENTOS:
+      return 'Excluir tipo de abertura';
+    case 'deleteMaterial': // SUPLEMENTOS:
+      return 'Excluir material';
     case 'upsertLevel':
       return 'Editar nível';
     case 'deleteLevel':
@@ -178,6 +188,14 @@ export function labelOf(c: Command): string {
       return 'Excluir família de cotas';
     case 'setDefaultDimensionFamily':
       return 'Família de cotas padrão';
+    case 'upsertTagFamily':
+      return 'Família de etiqueta';
+    case 'removeTagFamily':
+      return 'Excluir família de etiqueta';
+    case 'setDefaultTagFamily':
+      return 'Família de etiqueta padrão';
+    case 'setMarks':
+      return 'Numerar marcas';
     case 'setDxfLayerStyle':
       return 'Editar camada do DXF';
     case 'resetDxfLayers':
@@ -226,6 +244,24 @@ export function labelOf(c: Command): string {
       return 'Editar etiqueta';
     case 'removeTag':
       return 'Excluir etiqueta';
+    case 'addSpot':
+      return 'Inserir cota de elevação/coordenada';
+    case 'updateSpot':
+      return 'Editar cota de elevação/coordenada';
+    case 'removeSpot':
+      return 'Excluir cota de elevação/coordenada';
+    case 'addRevisionCloud':
+      return 'Criar nuvem de revisão';
+    case 'updateRevisionCloud':
+      return 'Editar nuvem de revisão';
+    case 'removeRevisionCloud':
+      return 'Excluir nuvem de revisão';
+    case 'addSymbol':
+      return 'Inserir símbolo';
+    case 'updateSymbol':
+      return 'Editar símbolo';
+    case 'removeSymbol':
+      return 'Excluir símbolo';
     case 'addText':
       return 'Criar texto';
     case 'updateText':
@@ -252,6 +288,10 @@ export function labelOf(c: Command): string {
       return 'Substituição de material de visualização';
     case 'clearPluginViewOverride':
       return 'Remover substituição de visualização';
+    case 'setPluginData': // SUPLEMENTOS:
+      return 'Gravar dados do plugin';
+    case 'deletePluginData': // SUPLEMENTOS:
+      return 'Remover dados do plugin';
     case 'addView3DPoint':
       return 'Salvar ponto de vista 3D';
     case 'updateView3DPoint':
@@ -328,10 +368,60 @@ export function labelOf(c: Command): string {
       return 'Editar contorno do lote';
     case 'setLocalizacao':
       return 'Definir localização do projeto';
+    case 'addMass':
+      return 'Adicionar massa';
+    case 'updateMass':
+      return 'Editar massa';
+    case 'setMassSecoes':
+      return 'Editar seções da massa';
+    case 'setMassArranjo':
+      return 'Editar arranjo da massa';
     case 'upsertColorScheme':
       return 'Editar esquema de cores';
     case 'removeColorScheme':
       return 'Excluir esquema de cores';
+    case 'addColumn':
+      return 'Criar pilar';
+    case 'upsertColumnType':
+      return 'Editar tipo de pilar';
+    case 'deleteColumnType':
+      return 'Excluir tipo de pilar';
+    case 'addBeam':
+      return 'Criar viga';
+    case 'upsertBeamType':
+      return 'Editar tipo de viga';
+    case 'deleteBeamType':
+      return 'Excluir tipo de viga';
+    case 'addFooting':
+      return 'Criar sapata';
+    case 'upsertFootingType':
+      return 'Editar tipo de sapata';
+    case 'deleteFootingType':
+      return 'Excluir tipo de sapata';
+    case 'upsertTextFamily':
+      return 'Editar família de texto';
+    case 'removeTextFamily':
+      return 'Excluir família de texto';
+    case 'setDefaultTextFamily':
+      return 'Definir família de texto padrão';
+    case 'upsertSpotFamily':
+      return 'Editar família de cota de ponto';
+    case 'removeSpotFamily':
+      return 'Excluir família de cota de ponto';
+    case 'setDefaultSpotFamily':
+      return 'Definir família de cota de ponto padrão';
+    case 'upsertRevisionCloudFamily':
+      return 'Editar família de nuvem de revisão';
+    case 'removeRevisionCloudFamily':
+      return 'Excluir família de nuvem de revisão';
+    case 'setDefaultRevisionCloudFamily':
+      return 'Definir família de nuvem padrão';
+    case 'upsertNorthArrowFamily':
+      return 'Editar família de seta norte';
+    case 'removeNorthArrowFamily':
+      return 'Excluir família de seta norte';
+    case 'setDefaultNorthArrowFamily':
+      return 'Definir família de seta norte padrão';
     default: {
       const _nunca: never = c;
       return _nunca;

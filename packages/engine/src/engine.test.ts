@@ -367,7 +367,13 @@ describe('paredes em arco', () => {
   it('arco para o outro lado (flecha negativa) espelha o resultado', () => {
     const a = setup([arcWall('c', 0, 0, 4, 0, 1)]);
     const b = setup([arcWall('c', 0, 0, 4, 0, -1)]);
-    expect(silhouetteArea(a)).toBeCloseTo(silhouetteArea(b), 6);
+    // A simetria é exata na geometria das camadas (mesma grade de amostragem, só espelhada): cada camada de `a` tem a área da camada
+    // espelhada de `b` (a ordem das camadas é invertida) a 1e-9. A silhueta passa por `closeGaps` (Clipper, grade de 1 µm): o ruído de
+    // arredondamento de ~100 vértices é de ~1e-6 m², por isso a silhueta só vale a 5e-6 (o passo do arco novo muda onde o arredondamento cai).
+    const camadas = (s: ProjectStore) => resolveLevel(s.project, 'lv_0').walls.c!.layers.map((l) => multiArea(l.cut));
+    const ca = camadas(a), cb = [...camadas(b)].reverse();
+    ca.forEach((v, i) => expect(v).toBeCloseTo(cb[i]!, 9));
+    expect(silhouetteArea(a)).toBeCloseTo(silhouetteArea(b), 5);
   });
   it('canto entre reta e arco: sem sobreposição em encosto e esquadria', () => {
     for (const kind of ['butt', 'miter'] as const) {

@@ -1,6 +1,6 @@
 import { boxOf, type Box, type Vec2 } from '@hestia/geom';
 import type { SectionResult } from '@hestia/engine';
-import { guardaCorpoNaCaixaDoCorte, guardaCorposVisiveisNoCorte, ownerOf, sectionDimensionPoints, sectionItems, sectionStyleOf, terrenosNaCaixaDoCorte, type SectionItem, type SectionPick } from '@hestia/render';
+import { guardaCorpoNaCaixaDoCorte, guardaCorposVisiveisNoCorte, massasNaCaixaDoCorte, ownerOf, sectionDimensionPoints, sectionItems, sectionStyleOf, terrenosNaCaixaDoCorte, type SectionItem, type SectionPick } from '@hestia/render';
 import { angularDimensionGeometry, dimensionGeometry, type Id, type Project, type SectionAnnotations } from '@hestia/model';
 import { annotationIdsInBoxOf } from '@hestia/tools';
 
@@ -81,6 +81,11 @@ export function guardaCorposNaCaixaDoCorteDoProjeto(p: Project, s: SectionResult
  */
 export function terrenosNaCaixaDoCorteDoProjeto(p: Project, s: SectionResult, a: Vec2, b: Vec2, hidden: ReadonlySet<Id> | undefined, zoom: number): Id[] {
   return terrenosNaCaixaDoCorte(p, s, hidden, sectionStyleOf(p, zoom).paint.site, a, b);
+}
+
+/** Massas que a caixa pega (as linhas do kernel que o corte desenha; ficam fora do `SectionResult`). Mesma regra de janela e cruzamento; sem kernel, nenhuma. */
+export function massasNaCaixaDoCorteDoProjeto(p: Project, s: SectionResult, a: Vec2, b: Vec2, hidden?: ReadonlySet<Id>): Id[] {
+  return massasNaCaixaDoCorte(p, s, hidden, a, b);
 }
 
 /** Seleção depois da caixa: Shift/Ctrl somam à seleção atual; sem eles, a caixa substitui (como na planta). */

@@ -33,7 +33,7 @@ describe('perfis de atalho', () => {
   it('todo comando com ferramenta (exceto Selecionar, Perímetro e Colar) tem atalho nos dois perfis', () => {
     // O perímetro não tem tecla: abre-se pelas ferramentas Telhado, Piso, Laje e Forro.
     // Colar é um modo transitório (Ctrl+V ou o botão Colar), não uma ferramenta da faixa: fica sem sequência de letras.
-    const ferramentas = Object.keys(TOOL_LABEL).filter((id) => id !== 'select' && id !== 'perimeter' && id !== 'paste');
+    const ferramentas = Object.keys(TOOL_LABEL).filter((id) => id !== 'select' && id !== 'perimeter' && id !== 'paste' && id !== 'plugin'); // 'plugin' (SUPLEMENTOS): aberta pelo botão do suplemento, sem tecla
     for (const perfil of perfis) {
       for (const id of ferramentas) expect(SHORTCUT_PROFILES[perfil][id as keyof typeof TOOL_LABEL], `${perfil}:${id}`).toBeTruthy();
     }

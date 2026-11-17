@@ -5,6 +5,7 @@ import { ToolBase } from './base.ts';
 import { avisaGuardaCorpoHospedado, deslocarCaminho, deslocarGuardaCorpo, ladoDoCursor, manualDe } from './guardaCorpoEdicao.ts';
 import { pickRailingAt } from './railingPick.ts';
 import { copyWalls, ghostBands, moveWalls } from './edit.ts';
+import { chainSides, offsetChain, type ChainWall } from './offsetChain.ts';
 import { commitRingEdit, edgeAtCursor, ringOfRef } from './ringTarget.ts';
 import { COMPONENT_EDGE_MSG, componentUnderCursor } from './componentTarget.ts';
 import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './componentEdge.ts';
@@ -56,7 +57,7 @@ export class OffsetTool extends ToolBase {
     return curve ? { signed, curve } : null;
   }
 
-  private target(p: Vec2): { id: Id; d: Vec2; arc: { a: Vec2; b: Vec2; sag: number } | null } | null {
+  private target(p: Vec2): { id: Id; d: Vec2; arc: { a: Vec2; b: Vec2; sag: number } | null; signed: number } | null {
     const pr = this.env.project();
     let best: { id: Id; dist: number; half: number; n: Vec2; side: number } | null = null;
     for (const e of Object.values(pr.elements)) {
@@ -75,7 +76,17 @@ export class OffsetTool extends ToolBase {
     const sign = best.side >= 0 ? 1 : -1;
     const w = pr.elements[best.id];
     const arc = isWall(w) && Math.abs(w.sag) > 1e-6 ? offsetArc(w.a, w.b, w.sag, sign * dist0) : null;
-    return { id: best.id, d: mul(best.n, sign * dist0), arc };
+    return { id: best.id, d: mul(best.n, sign * dist0), arc, signed: sign * dist0 };
+  }
+
+  /**
+   * Opção "Cadeia": deslocamento da cadeia inteira de paredes em junção pair com a clicada, pelo mesmo lado. Null quando
+   * a opção está desligada ou a parede não tem vizinha pair (comportamento de parede única).
+   */
+  private chain(t: { id: Id; signed: number }): ChainWall[] | null {
+    if (this.env.options().offsetChain === false) return null;
+    const sides = chainSides(this.env.project(), this.env.levelId(), t.id, t.signed);
+    return sides.size > 1 ? offsetChain(this.env.project(), this.env.levelId(), sides) : null;
   }
 
   /** Guarda-corpo sob o cursor: manual (com o deslocamento assinado) ou hospedado (só aviso). */
@@ -133,6 +144,15 @@ export class OffsetTool extends ToolBase {
     }
     const t = this.target(p.raw);
     if (!t) return;
+    const cadeia = this.chain(t);
+    if (cadeia) {
+      this.items.push({ kind: 'highlight', ids: cadeia.map((w) => w.id) });
+      for (const w of cadeia) {
+        const fw = frameOfWall(this.env.project(), w.id);
+        if (fw) this.items.push({ kind: 'wallBand', a: w.a, b: w.b, thickness: fw.thickness, sMid: fw.sMid, sag: w.sag });
+      }
+      return;
+    }
     this.items.push({ kind: 'highlight', ids: [t.id] });
     const f = frameOfWall(this.env.project(), t.id);
     if (t.arc && f) this.items.push({ kind: 'wallBand', a: t.arc.a, b: t.arc.b, thickness: f.thickness, sMid: f.sMid, sag: t.arc.sag });
@@ -181,6 +201,17 @@ export class OffsetTool extends ToolBase {
     const t = this.target(p.raw);
     if (!t) return;
     const copy = this.env.options().offsetCopy;
+    const cadeia = this.chain(t);
+    if (cadeia) {
+      const ids = cadeia.map((w) => w.id);
+      this.env.transaction(copy ? 'Deslocar cadeia e copiar' : 'Deslocar cadeia', () => {
+        const alvo = copy ? copyWalls(this.env, ids, { kind: 'translate', d: { x: 0, y: 0 } }) : ids;
+        cadeia.forEach((w, i) => {
+          if (alvo[i]) this.env.exec({ type: 'updateElements', ids: [alvo[i]!], patch: { a: w.a, b: w.b, sag: w.sag } });
+        });
+      });
+      return;
+    }
     if (!t.arc) {
       if (copy) this.env.transaction('Deslocar e copiar', () => copyWalls(this.env, [t.id], { kind: 'translate', d: t.d }));
       else moveWalls(this.env, [t.id], t.d);

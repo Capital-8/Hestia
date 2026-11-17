@@ -1,5 +1,5 @@
 import type { SectionResult } from '@hestia/engine';
-import { pickGuardaCorpoNoCorte, pickSection, pickSectionAnnotation, pickTerrenoNoCorte, screenToWorld, sectionStyleOf, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
+import { pickGuardaCorpoNoCorte, pickMassaNoCorte, pickSection, pickSectionAnnotation, pickTerrenoNoCorte, screenToWorld, sectionStyleOf, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
 import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
@@ -52,6 +52,9 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   // Guarda-corpo: as mesmas linhas que o corte desenha (kernel); oculto ou fora do isolamento nao e alvo.
   const guarda = pickGuardaCorpoNoCorte(editor.project, result, hidden, point, TOLERANCE_PX / v.zoom);
   if (guarda) return { id: guarda, kind: 'railing' };
+  // Massa (ficha V3): o contorno cortado ou projetado do kernel é a região clicável; oculta ou categoria desligada não é alvo.
+  const massa = pickMassaNoCorte(editor.project, result, hidden, point, TOLERANCE_PX / v.zoom);
+  if (massa) return { id: massa, kind: 'mass' };
   const elemento = pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
   if (elemento) return elemento;
   // O terreno fica atrás do edifício: só vale quando nenhum elemento foi achado.

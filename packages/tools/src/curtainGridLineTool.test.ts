@@ -203,11 +203,11 @@ describe('alternar eixo, 3D e Esc', () => {
     expect(c.sala.done).toBe(1);
   });
 
-  it('fora de qualquer parede cortina, a ferramenta só diz a dica e não tem prévia', () => {
+  it('fora de qualquer parede cortina, a ferramenta avisa que só funciona em parede cortina e não tem prévia de linha', () => {
     const c = ambiente();
     const t = ferramenta(c.env);
     t.move(P(20, 20));
-    expect(t.preview()).toHaveLength(0);
-    expect(c.sala.say.at(-1)).toBe(t.hint);
+    expect(t.preview()).toEqual([{ kind: 'label', at: { x: 20, y: 20 }, text: tr('pt', 'tl_msg_curtain_only') }]);
+    expect(c.sala.say.at(-1)).toBe(`${tr('pt', 'tl_tool_curtain_gridline')}: ${tr('pt', 'tl_msg_curtain_only')}`);
   });
 });

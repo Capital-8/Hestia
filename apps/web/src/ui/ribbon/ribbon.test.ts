@@ -55,8 +55,9 @@ describe('faixa guiada por dados', () => {
     const ctx = ['wall', 'roofarrow', 'slope', 'attachroof', 'detachroof', 'rehost', 'roomsep'] as const;
     // Pendente: o modo de perímetro não tem botão de criação na faixa (abre por `perimeterActions.begin`).
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
+    // A ferramenta de suplemento ('plugin') é aberta pelos botões que o próprio suplemento contribui (aba Suplementos).
     // `terrainEdit` entra pelo botão "Editar terreno" (ação `editTerreno`: grava `terrenoEdicao` e depois liga a ferramenta; ver ribbonTerreno.test.ts).
-    const pendente = ['perimeter', 'paste', 'terrainEdit'] as const;
+    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit'] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);
@@ -93,7 +94,8 @@ describe('aba contextual', () => {
     expect(c?.key).toBe('tool:wall');
     expect(txt(c!.tab.label, 'pt')).toBe('Modificar | Colocar Parede');
     expect(txt(c!.tab.label, 'en')).toBe('Modify | Place Wall');
-    expect(c!.tab.panels.map((x) => x.id)).toContain('desenhar');
+    // O painel Desenhar da Parede é a galeria do perímetro (WallDrawPanel, montada em Ribbon.tsx), não um painel de dados.
+    expect(c!.tab.panels.map((x) => x.id)).toContain('modificar');
   });
   it('ferramenta de edição e nada selecionado não abrem aba', () => {
     expect(contextTab('move', [], p)).toBeNull();

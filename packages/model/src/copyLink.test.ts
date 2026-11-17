@@ -287,7 +287,7 @@ describe('vínculo de andar-tipo', () => {
     if (!cmd || cmd.type !== 'batch') throw new Error('esperava um batch de sincronização');
     s.exec(cmd);
     const zs = (id: string): number[] =>
-      (s.project.elements[id] as Generic).mesh.positions.filter((_, i) => i % 3 === 2);
+      Array.from((s.project.elements[id] as Generic).mesh.positions).filter((_, i) => i % 3 === 2);
     expect(zs('g1')).toEqual([3.5, 3.5, 3.5, 3.5]);
     expect(zs('g2')).toEqual([6.5, 6.5, 6.5, 6.5]);
     expect((s.project.elements.g1 as Generic).levelId).toBe('lv_1');
@@ -331,8 +331,8 @@ describe('migração do vínculo de andar-tipo (v22 → v23)', () => {
     raw.schemaVersion = 22;
     delete raw.copyLinks;
     const m: Project = migrateProject(raw);
-    expect(SCHEMA_VERSION).toBe(26);
-    expect(m.schemaVersion).toBe(26);
+    expect(SCHEMA_VERSION).toBe(29);
+    expect(m.schemaVersion).toBe(29);
     expect(m.copyLinks ?? []).toEqual([]);
     expect(m.levels).toHaveLength(2);
   });

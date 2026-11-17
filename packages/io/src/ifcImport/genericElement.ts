@@ -1,5 +1,6 @@
 import type { Generic, Id, Project } from '@hestia/model';
-import { bodyPoints, hull2, type Body } from './geometry.ts';
+import { hull2, type Body } from './geometry.ts';
+import type { Pt2 } from './ifc.ts';
 import { styleOfWithMaterial } from './elementTypes.ts';
 import type { IfcFile } from './ifc.ts';
 import { propertiesOf } from './psets.ts';
@@ -21,19 +22,61 @@ export function minZOf(body: Body): number {
   return z;
 }
 
+/** Tamanho da célula de soldagem: vértices a menos de 1e-6 m um do outro viram um só (em metros). */
+const WELD_SCALE = 1e6;
+
+/**
+ * Solda os vértices idênticos (chave: coordenadas arredondadas à célula de soldagem) e monta os índices. Triângulos
+ * degenerados (dois vértices soldados iguais) saem da lista. Os vértices de triângulos descartados continuam em
+ * `positions`, para o contorno em planta não mudar.
+ */
+export function weldTris(tris: number[]): { positions: Float32Array; indices: Uint32Array } {
+  // Pior caso: todo vértice é novo (tris.length / 3 vértices). Aloca uma vez e apara no fim, sem number[] gigante.
+  const buf = new Float32Array(tris.length);
+  const idx = new Uint32Array(Math.floor(tris.length / 9) * 3);
+  let nv = 0;
+  let ni = 0;
+  const seen = new Map<string, number>();
+  const vertex = (x: number, y: number, z: number): number => {
+    const key = `${Math.round(x * WELD_SCALE)},${Math.round(y * WELD_SCALE)},${Math.round(z * WELD_SCALE)}`;
+    let i = seen.get(key);
+    if (i === undefined) {
+      i = nv++;
+      seen.set(key, i);
+      buf[i * 3] = x;
+      buf[i * 3 + 1] = y;
+      buf[i * 3 + 2] = z;
+    }
+    return i;
+  };
+  for (let t = 0; t + 8 < tris.length; t += 9) {
+    const a = vertex(tris[t]!, tris[t + 1]!, tris[t + 2]!);
+    const b = vertex(tris[t + 3]!, tris[t + 4]!, tris[t + 5]!);
+    const c = vertex(tris[t + 6]!, tris[t + 7]!, tris[t + 8]!);
+    if (a === b || b === c || a === c) continue;
+    idx[ni++] = a;
+    idx[ni++] = b;
+    idx[ni++] = c;
+  }
+  return { positions: buf.slice(0, nv * 3), indices: idx.slice(0, ni) };
+}
+
+/** Contorno em planta (hull convexo) a partir dos vértices soldados, achatados em x, y, z. */
+export function outlineOf(positions: ArrayLike<number>): Pt2[] {
+  const pts: Pt2[] = [];
+  for (let i = 0; i + 2 < positions.length; i += 3) pts.push({ x: positions[i]!, y: positions[i + 1]! });
+  return hull2(pts);
+}
+
 /**
  * Elemento genérico a partir do corpo de um produto que não virou nativo. Preserva a classe IFC de origem, a malha
  * triangular (com a cor e as propriedades), e devolve `null` quando não há triângulo para desenhar.
  */
 export function makeGeneric(src: GenericSource, e: StepEntity, body: Body, levelId: Id): Omit<Generic, 'order'> | null {
   if (!body.tris.length) return null;
-  // Os triângulos já vêm achatados (x, y, z por vértice); cada um tem vértices próprios, então os índices são 0,1,2...
-  const positions = body.tris.slice();
-  const total = positions.length / 3;
-  const indices = new Array<number>(total);
-  for (let i = 0; i < total; i++) indices[i] = i;
-  if (!positions.length) return null;
-  const outline = hull2(bodyPoints(body).map((p) => ({ x: p.x, y: p.y })));
+  const { positions, indices } = weldTris(body.tris);
+  if (!indices.length) return null;
+  const outline = outlineOf(positions);
   const props = propertiesOf(src.f, e, src.typeOf.get(e.id));
   const style = styleOfWithMaterial(src, src.f, e);
   return {

@@ -6,12 +6,14 @@ import { isGeneric } from '@hestia/model';
 describe('objetos importados (elemento genérico)', () => {
   const { project, report } = importIfc(fzkHaus);
 
-  it('vigas, pilares, escada e mobiliário entram como genérico, com a classe IFC de origem', () => {
+  it('vigas, pilares, escada (sem lance reto) e mobiliário entram como genérico, com a classe IFC de origem', () => {
     const generics = Object.values(project.elements).filter(isGeneric);
     expect(generics.length).toBeGreaterThan(50);
     const classes = new Set(generics.map((g) => g.sourceClass));
     expect(classes.has('IFCBEAM')).toBe(true);
-    expect(classes.has('IFCRAILING')).toBe(true);
+    // Corrimãos retos de piso a topo (HANDRAIL horizontal) viram guarda-corpo nativo (guardaCorpoImport.ts).
+    expect(classes.has('IFCRAILING')).toBe(false);
+    expect(report.imported['guarda-corpos']).toBeGreaterThan(0);
     expect(report.generic.IFCBEAM).toBeGreaterThan(0);
   });
 

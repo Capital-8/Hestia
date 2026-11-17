@@ -110,7 +110,7 @@ const TEXTOS = {
 type Chave = keyof typeof TEXTOS;
 
 /** Tipos de elemento que têm ferramenta de criação (Criar semelhante e Selecionar todas as instâncias). */
-const TIPOS_COM_FERRAMENTA = new Set(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof']);
+const TIPOS_COM_FERRAMENTA = new Set(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'column', 'beam', 'footing']);
 /** Tipos que o menu mostra mas o Hestia ainda não cria por "semelhante" (Escada, Rampa e Ambiente). */
 const TIPOS_EM_BREVE = new Set(['stair', 'ramp', 'room']);
 
@@ -185,8 +185,8 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
       hint: visiveisOk ? undefined : T('oneType'),
       children: [
         { id: 'selectAllView', label: T('selectAllView'), disabled: !visiveisOk, hint: visiveisOk ? undefined : T('oneType') },
-        // Só o que a vista mostra (sem os ocultos): na planta e no corte/elevação; o 3D não tem essa variante.
-        ...(ctx.view === '3d' ? [] : [{ id: 'selectAllVisible', label: T('selectAllVisible'), disabled: !visiveisOk, hint: visiveisOk ? undefined : T('oneType') }]),
+        // Visíveis na vista (sem os ocultos): planta, corte/elevação e 3D.
+        { id: 'selectAllVisible', label: T('selectAllVisible'), disabled: !visiveisOk, hint: visiveisOk ? undefined : T('oneType') },
         soon('selectAllProject', T('selectAllProject')),
       ],
     };

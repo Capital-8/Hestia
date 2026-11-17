@@ -1,5 +1,8 @@
 import type { Vec2 } from '@hestia/geom';
-import { hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isRamp, isRoof, isSlab, isStair, isTerrain, isTerrainRegion, isWall, type Command, type Id, type Project, type TerrainRegion } from '@hestia/model';
+import {
+  hospedeiroDoGuardaCorpo, isBeam, isColumn, isFloor, isFooting, isGuardaCorpo, isMass, isRamp, isRoof, isSlab, isStair,
+  isTerrain, isTerrainRegion, isWall, type Command, type Id, type Project, type TerrainRegion,
+} from '@hestia/model';
 import { guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { makeIdMap, selectedMovables } from './edit.ts';
 import { comandosCopiaTerreno, comandosVerticalTerreno } from './terrainHandles.ts';
@@ -16,7 +19,7 @@ import { comandosCopiaRegioes } from './terrainRegionHandles.ts';
 export function moveisDoCorte(p: Project, ids: readonly Id[]): Id[] {
   return selectedMovables(p, [...ids]).filter((id) => {
     const e = p.elements[id];
-    return isWall(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e) || isTerrain(e) || isTerrainRegion(e);
+    return isWall(e) || isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e) || isColumn(e) || isBeam(e) || isFooting(e) || isMass(e) || isTerrain(e) || isTerrainRegion(e);
   });
 }
 
@@ -27,7 +30,7 @@ export function aceitaVerticalNoCorte(p: Project, id: Id): boolean {
   // Terreno: soma o deslocamento a todas as cotas das fontes; a região plana leva a cota dela (a subdivisão não tem cota).
   if (isTerrain(e)) return true;
   if (isTerrainRegion(e)) return e.papel !== 'subdivisao';
-  return isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e);
+  return isFloor(e) || isSlab(e) || isRoof(e) || isStair(e) || isRamp(e) || isColumn(e) || isBeam(e) || isFooting(e) || isMass(e);
 }
 
 /** Comandos que levam a cota de `id` por `dz` (já na cota do novo id, no caso de cópia). */
@@ -35,6 +38,11 @@ function comandoVertical(p: Project, id: Id, alvo: Id, dz: number): Command | nu
   const e = p.elements[id];
   if (isGuardaCorpo(e)) return hospedeiroDoGuardaCorpo(e) === null ? { type: 'updateGuardaCorpo', id: alvo, patch: { cotaBase: e.cotaBase + dz } } : null;
   if (isStair(e) || isRamp(e)) return { type: 'updateElements', ids: [alvo], patch: { baseOffset: e.baseOffset + dz, topOffset: e.topOffset + dz } };
+  if (isColumn(e)) return { type: 'updateElements', ids: [alvo], patch: { baseOffset: e.baseOffset + dz, ...(e.topLevelId !== null ? { topOffset: e.topOffset + dz } : {}) } };
+  if (isBeam(e)) return { type: 'updateElements', ids: [alvo], patch: { zOffset: e.zOffset + dz } };
+  if (isFooting(e)) return { type: 'updateElements', ids: [alvo], patch: { heightOffset: e.heightOffset + dz } };
+  // Massa: o vertical é o deslocamento da base em relação à cota do nível (`baseOffset`); as seções não mudam.
+  if (isMass(e)) return { type: 'updateMass', id: alvo, patch: { baseOffset: e.baseOffset + dz } };
   if (isFloor(e) || isSlab(e) || isRoof(e)) return { type: 'updateElements', ids: [alvo], patch: { heightOffset: e.heightOffset + dz } };
   return null;
 }

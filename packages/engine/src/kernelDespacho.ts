@@ -16,10 +16,12 @@
  * (VERSAO, HANDLE, INTERNO, trap): a cena recria a instância e repete (no máximo 3 recriações em 5 min, no gerenciador); se ainda assim
  * falhar, a chamada volta ao TS e, esgotado o limite, o kernel fica desligado na sessão. Nada liga sem flag: o padrão é o TypeScript.
  */
-import { ativarKernelExperimental, desativarKernelExperimental, exigirKernel, CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
+import { fatiaEfetiva, ativarKernelExperimental, desativarKernelExperimental, exigirKernel, CenaV2, ErroKernelGrave, GerenciadorKernelV2, baixarAssetDoWasm, fonteDeSecoes } from '@hestia/geom';
 import { wallsOnLevel, openingsOfWall, type Id, type Project } from '@hestia/model';
 import { montarCenaA1 } from './kernelA1.ts';
 import { semCortina } from './cortinaProjeto.ts';
+import { projetoTemParedeInclinada } from './wallTiltJoinLevel.ts';
+import { projetoTemContornoNoTopo } from './outlineBound.ts';
 import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from './kernelDespachoB.ts';
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
@@ -148,28 +150,28 @@ export class DespachoKernel {
 
   /** O despachante de `resolveFloors` (fatia B). */
   resolverPisos(p: Project, levelId: Id, ts: () => ResolvedFloor[]): ResolvedFloor[] {
-    return this.b.resolverPisos(p, levelId, ts);
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.resolverPisos(p, levelId, ts) : ts();
   }
 
   /** O despachante de `resolveSlabs` (fatia B). */
   resolverLajes(p: Project, levelId: Id, ts: () => ResolvedSlab[]): ResolvedSlab[] {
-    return this.b.resolverLajes(p, levelId, ts);
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.resolverLajes(p, levelId, ts) : ts();
   }
 
   /** O despachante de `junctionLevel` (fatia B): só o modo sombra consulta a B3. */
   resolverJuncao(p: Project, levelId: Id, ts: () => JunctionLevel): JunctionLevel {
-    return this.b.resolverJuncao(p, levelId, ts);
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p)) ? this.b.resolverJuncao(p, levelId, ts) : ts();
   }
 
   /** O despachante das quantidades (fatia B, esquema v12). */
   quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
-    return this.b.quantificar(p, levelId, tipo);
+    return fatiaEfetiva(true, projetoTemParedeInclinada(p) || projetoTemContornoNoTopo(p)) ? this.b.quantificar(p, levelId, tipo) : null;
   }
 
   /** O despachante de `resolveLevel`. */
   resolver(p: Project, levelId: Id, opts: PlanResolveOptions, ts: () => ResolvedLevel): ResolvedLevel {
     const cfg = this.opcoes.config();
-    if (!cfg.fatiaA) return ts();
+    if (!fatiaEfetiva(cfg.fatiaA, projetoTemParedeInclinada(p))) return ts(); // parede inclinada: sempre TS (E5)
     const ger = this.opcoes.gerenciador();
     if (!ger) throw this.semKernel('A', levelId); // wasm ainda não carregado: pendente, nunca TypeScript
     if (!ger.ligado) {

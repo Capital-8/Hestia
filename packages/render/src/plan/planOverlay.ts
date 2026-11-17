@@ -1,6 +1,6 @@
-import { orientedRect, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { frameOfWall, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
-import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
+import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { frameOfWall, openingBandRing, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
+import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project, detailLinePoints } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { slabSelectionOps } from './slabs.ts';
@@ -9,6 +9,7 @@ import { ceilingSelectionOps } from './ceilings.ts';
 import { roofFootprint, roofSelectionOps } from './roofs.ts';
 import { planFootprint, stairSelectionOps } from './stairs.ts';
 import { rampFootprint, rampSelectionOps } from './ramps.ts';
+import { structuralPegadas, structuralSelectionOps } from './structural.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
 import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
 import { planContext, type PlanContext } from './planContext.ts';
@@ -21,6 +22,7 @@ import { loteSelectionOps } from './lote.ts';
 import { ocultosDoLote } from './loteCamada.ts';
 import { terrenoSelecaoDaPlanta } from './terrenoCamada.ts';
 import { terrenoEdicaoOps } from './terrenoEdicaoOverlay.ts';
+import { massaSelectionOps } from './massa.ts';
 import { contornoDaCortina, destaqueSubelementoPlanta } from './cortina.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type PlanOps } from './types.ts';
@@ -51,7 +53,7 @@ function elementHighlight(p: Project, geo: ResolvedLevel, ids: Id[], color: stri
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);
-      out.push({ polygons: [[orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02)]], color, alpha });
+      out.push({ polygons: [[openingBandRing(g)]], color, alpha });
     }
   }
   return out;
@@ -79,9 +81,9 @@ function avisoOps(p: Project, geo: ResolvedLevel, id: Id, view: PlanView | null)
     const f = frameOfWall(p, e.hostId);
     if (!f) return out;
     const g = openingGeometry(p, e, f);
-    const rect = orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02);
-    out.fills.push({ polygons: [[rect]], color: AVISO, alpha: AVISO_ALPHA });
-    out.strokes.push({ pts: rect, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
+    const ring = openingBandRing(g);
+    out.fills.push({ polygons: [[ring]], color: AVISO, alpha: AVISO_ALPHA });
+    out.strokes.push({ pts: ring, closed: true, widthPx: 2.5, color: AVISO, alpha: 1 });
   }
   return out;
 }/** Folga da caixa do Reveal em volta do texto de uma anotação, em mm de papel. */
@@ -112,6 +114,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
   for (const s of stairs) pegadas.set(s.id, planFootprint(s));
   for (const r of ramps) pegadas.set(r.id, rampFootprint(r));
   for (const r of ambientesDoNivel(p, levelId)) if (r.polygon) pegadas.set(r.roomId, [r.polygon]);
+  for (const [id, poly] of structuralPegadas(p, levelId)) pegadas.set(id, poly);
   for (const id of ids) {
     const e = p.elements[id];
     if (!e) continue;
@@ -123,7 +126,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);
-      out.strokes.push({ pts: orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
+      out.strokes.push({ pts: openingBandRing(g), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
       continue;
     }
     const m = pegadas.get(id);
@@ -178,7 +181,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
     const bloco = textBlockModel({ text: dimensionText(p, d, unitsOf(p)), height: textMm }, scale);
     caixa(g.textAt, bloco.w, bloco.h, g.textRotation);
   }
-  for (const l of annotations.detailLines) if (sel.has(l.id)) out.strokes.push({ pts: [l.a, l.b], closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
+  for (const l of annotations.detailLines) if (sel.has(l.id)) out.strokes.push({ pts: detailLinePoints(l), closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
   for (const r of annotations.detailRegions) if (sel.has(r.id)) out.strokes.push({ pts: r.boundary, closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
   for (const s of levelRoomSeparators(p, levelId)) if (sel.has(s.id)) out.strokes.push({ pts: [s.a, s.b], closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
   return out;
@@ -231,6 +234,9 @@ export function buildPlanSelectionOverlay(input: PlanInput): PlanOps {
   if (up) add(ceilingSelectionOps(p, input.levelId, selection, null, theme, input.viewport, hidden, alcasDeModelo));
   add(roofSelectionOps(p, input.levelId, selection, null, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, null, theme, input.viewport, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, selection, null, theme, input.viewport));
+  // Massas selecionadas: o anel cortado (ou o contorno da base, sem kernel) na cor de seleção. Oculta na vista não se realça.
+  if (selection.length) out.strokes.push(...massaSelectionOps(p, input.levelId, selection.filter((id) => !hidden?.has(id)), theme, view?.cutZ));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));
     for (const id of selection) {
@@ -285,6 +291,7 @@ export function buildPlanHoverOverlay(input: PlanInput): PlanOps {
   add(roofSelectionOps(p, input.levelId, [], hover, theme, input.viewport, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, [], hover, theme, input.viewport, alcasDeModelo));
   add(rampSelectionOps(p, ramps, [], hover, theme, input.viewport, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, [], hover, theme, input.viewport));
   out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
   comAnotacoes(out, input, style.scale, { selection: [], hover });
   return out;
@@ -349,6 +356,7 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
   add(roofSelectionOps(p, input.levelId, selection, hover, theme, v, roofHidden, style.paint.roof, alcasDeModelo));
   add(stairSelectionOps(p, stairs, selection, hover, theme, v, alcasDeModelo));
   add(rampSelectionOps(p, ramps, selection, hover, theme, v, alcasDeModelo));
+  add(structuralSelectionOps(p, input.levelId, selection, hover, theme, v));
   if (hover && !selection.includes(hover)) out.fills.push(...elementHighlight(p, geo, [hover], theme.select, 0.16, view));
   if (selection.length) {
     out.fills.push(...elementHighlight(p, geo, selection, theme.select, 0.26, view));

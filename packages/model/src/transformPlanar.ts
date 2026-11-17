@@ -1,11 +1,21 @@
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import { followsRoom } from './ceiling.ts';
 import type { CadDrawing } from './cad.ts';
-import { type Ceiling, type Floor, type Roof, type Slab } from './types.ts';
+import { type Ceiling, type Floor, type OrigemMassa, type Roof, type Slab } from './types.ts';
 
 /** Solta o vínculo do contorno quando o elemento é movido/girado/espelhado (a cópia herda a origem; decisão 0023 §8.2b). */
 const detach = <T extends { outlineSource?: { linked: boolean } }>(e: T, copy: boolean): T =>
   !copy && e.outlineSource?.linked ? { ...e, outlineSource: { ...e.outlineSource, linked: false } } : e;
+
+/**
+ * Tira `origemMassa` de uma cópia (ficha D2, emenda E16 item 3): a cópia de um piso, laje ou parede gerado não é gerada pela massa,
+ * então uma geração nova não a apaga. Sem o campo, devolve o próprio elemento. Mover, girar e espelhar não passam por aqui.
+ */
+export function semOrigemMassa<E extends { origemMassa?: OrigemMassa }>(e: E): E {
+  if (!e.origemMassa) return e;
+  const { origemMassa: _origem, ...resto } = e;
+  return resto as E;
+}
 
 /** Move/gira/espelha um piso; espelhar inverte o sentido do contorno (a orientação não importa ao motor, mas fica estável). */
 export function transformFloor(f: Floor, t: Transform, copy = false): Floor {
@@ -13,7 +23,8 @@ export function transformFloor(f: Floor, t: Transform, copy = false): Floor {
     const out = ring.map((q) => applyTransform(t, q));
     return t.kind === 'mirror' ? out.reverse() : out;
   };
-  return detach({ ...f, boundary: pts(f.boundary), holes: f.holes.map(pts) }, copy);
+  const movido = detach({ ...f, boundary: pts(f.boundary), holes: f.holes.map(pts) }, copy);
+  return copy ? semOrigemMassa(movido) : movido;
 }
 
 /** Move/gira/espelha uma laje: contorno, furos e a linha de inclinação (origem e direção). */
@@ -31,7 +42,8 @@ export function transformSlab(s: Slab, t: Transform, copy = false): Slab {
     const l = Math.hypot(dx, dy) || 1;
     slope = { origin: o, dir: { x: dx / l, y: dy / l }, percent: slope.percent };
   }
-  return detach({ ...s, boundary: pts(s.boundary), holes: s.holes.map(pts), slope }, copy);
+  const movida = detach({ ...s, boundary: pts(s.boundary), holes: s.holes.map(pts), slope }, copy);
+  return copy ? semOrigemMassa(movida) : movida;
 }
 
 /**

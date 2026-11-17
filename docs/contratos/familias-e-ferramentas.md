@@ -142,6 +142,48 @@ Teste-guarda: `packages/tools/src/contratoSnaps.test.ts`. `CLASSIFICACAO` é um 
 cada marca tem de apontar código que existe e `null` exige o motivo (TODO). Testes por elemento: `snapsPlantaEscadaGuardaCorpo.test.ts`
 (tipos de ponto, ordem de prioridade, sem repetição, Cota e Medir) e `apoioDeSnap.test.ts` (chaves e geometria).
 
+## Regra 7. Cidadania de seleção e visibilidade multi-vista (Planta, Corte/Elevação e 3D)
+
+Todo elemento com `typeId` (arquitetura, estrutura e futuras disciplinas) deve funcionar de forma uniforme em todas as
+vistas (`plan`, `section` e `3d`):
+
+- `selectedTypeId` e `idsOfType(p, levelId | null, typeId)` (`packages/tools/src/selectionFilters.ts`): aceitar `levelId = null` para varrer todos os níveis (3D) e incluir todos os kinds tipados.
+- `categoriaDoElemento` (`apps/web/src/editor/viewVisibility.ts`): mapear o kind para `GraphicsCategory` para que Ocultar/Isolar Elemento ou Categoria funcione em planta, corte/elevação e 3D.
+- `OWNER_FIELDS` (`packages/render/src/section/pick.ts`): mapear o campo `*Id` da origem do corte/elevação para que seleção, realce e `idsVisiveisDoTipoNoCorte` funcionem em corte/elevação.
+- `ClipBuffer` (`packages/tools/src/clipboard.ts`), `PasteIds` (`pasteLevels/types.ts`) e `PASTE_ORDER` / `Counts` / `COUNT_KEYS` (`apps/web/src/editor/transfer.ts`): contagem singular/plural e cópia/cola entre níveis completos.
+- Menu de contexto (`apps/web/src/editor/contextMenu.ts` e `transfer.ts`): incluir `TIPOS_COM_FERRAMENTA` para "Criar semelhante" e manter `"Selecionar todas as instâncias → Visíveis na vista"` disponível nas 3 vistas (`plan`, `section` e `3d`, respeitando ocultos da vista ativa).
+
+## Regra 8. Cotas temporárias (`TempDim`) e cotas permanentes associativas
+
+Todo elemento posicional ou linear desenhado/posicionado em planta deve fornecer cotas provisórias editáveis ao ser selecionado:
+
+- Registrar `DimProvider` em `packages/tools/src/dims/registry.ts` medindo distâncias até vizinhos ortogonais/paralelos (paredes, colunas, vigas, sapatas) e eixos (`Grid`), com edição direta ao clicar no valor (`SelectTool` + `applyDrivenMove` em `packages/tools/src/dims/driven.ts`).
+- Expor o contorno/faces em `elementRing(e, p)` (`packages/model/src/dimensionRefs.ts`) para cotas permanentes associativas (`matchDimRef`) acompanharem o elemento ao mover ou editar.
+
+## Regra 9. Ferramenta Alinhar (`AL`) finita, segura e com propagação de vínculos
+
+- Feições de alinhamento (`alignFeatures.ts` / `structuralAlignFeatures.ts`) de elementos finitos devem calcular a distância de escolha até o **segmento finito** (`segmentDistance`), nunca por reta infinita, evitando que elementos distantes capturem o clique.
+- Auto-referência proibida: `alignTool.ts` deve impedir que uma feição do mesmo elemento de referência (`t.ownerId === ref.ownerId`) seja usada como alvo.
+- Pontas móveis (`pontaParede`, `pontaViga`): ao clicar na extremidade de um elemento linear após fixar uma face/eixo de referência, `alignSolve.ts` / `alignApply.ts` esticam apenas a ponta correspondente em vez de transladar a referência ou o corpo inteiro.
+- Transformações e exclusões em elemento pai com filhos vinculados (ex.: `Footing.columnId === col.id`) propagam-se no núcleo do modelo (`structuralCommands.ts` via `commands.ts`).
+
+## Regra 10. Galeria compartilhada de formas (`DrawGalleryPanel` / `.pm-galbox`) na aba contextual
+
+Ferramentas de criação com múltiplas formas de traçado (`line`, `arc`, `rect`, etc.) devem reutilizar a caixa de galeria `.pm-galbox` / `.pm-gal` (`apps/web/src/ui/ribbon/DrawGalleryPanel.tsx` / `PerimeterRibbonPanels.tsx`) na aba contextual `Modificar | Colocar …`, evitando botões soltos diferentes por ferramenta.
+
+## Regra 11. Paridade completa no Navegador de Projeto (`Families.tsx` / `<TypeRow />`)
+
+Toda categoria com famílias e tipos no navegador (`Families.tsx`) deve renderizar os tipos com `<TypeRow />` e suportar as ações em `typeActions.ts`, garantindo sempre *Propriedades do tipo*, *Usar para desenhar*, *Selecionar todas as instâncias*, *Onde é usado*, *Substituir tipo*, *Duplicar*, *Renomear* e *Excluir*.
+
+## Regra 12. Fidelidade geométrica de perfil em 3D, corte/elevação, planta (detalhe médio/alto) e IFC
+
+Elementos com perfil paramétrico não retangular (`i-section`, `t-section`, etc.):
+- **Modelo (`packages/model`)**: expõem o anel real da seção (`beamProfileRingSZ`, `beamProfileParts`, `columnProfileStrips`) e área líquida real (`beamSectionArea`).
+- **3D (`structuralSolids.ts`) e IFC (`ifcStructural.ts`)**: extrudam o perfil completo ao longo do eixo, nunca uma caixa envoltória.
+- **Corte/Elevação (`sectionStructural.ts`)**: cortam cada parte do perfil e unem os polígonos com `unionClipper`, e emitem linhas de projeção (`beyond`) das mesas e alma; em planta com detalhe médio/alto (`plan/structural.ts`), desenham as linhas internas tracejadas da alma.
+
+Teste-guarda das Regras 7–12: `packages/tools/src/contratoCidadaniaBim.test.ts`.
+
 ## Exceções vigentes (TODO)
 
 - Ferramentas: nenhuma exceção. Todas as de criação usam o núcleo comum de desenho.

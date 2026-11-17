@@ -1,10 +1,15 @@
 /* eslint-disable max-lines -- o Alinhar do corte concentra pick, features, guias e patches; dividir depois. */
 import { closestOnSegment, dist, dot, norm, pointInMulti, sub, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { formatQuantity, hospedeiroDoGuardaCorpo, isFloor, isGuardaCorpo, isOpening, isRamp, isSlab, isStair, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation, wallLength, wallTopElevation, type Command, type Id, type Opening, type Project } from '@hestia/model';
+import {
+  formatQuantity, hospedeiroDoGuardaCorpo, isBeam, isColumn, isFloor, isFooting, isGuardaCorpo, isMass, isOpening, isRamp,
+  isSlab, isStair, isWall, levelElevation, openingHeight, openingSill, openingType, unitsOf, wallBaseElevation,
+  wallLength, wallTopElevation, type Command, type Id, type Opening, type Project,
+} from '@hestia/model';
 import { alignFeatureItems } from './alignTool.ts';
 import { ToolBase } from './base.ts';
 import { avisaGuardaCorpoHospedado } from './guardaCorpoEdicao.ts';
+import { massaCortePieces } from './massCortePecas.ts';
 import { comandosMoverNoCorte } from './sectionMoverElementos.ts';
 import { corteGuardaCorpoDaSecao } from './sectionSnapComGuardaCorpo.ts';
 import type { Guide, Inference, PointerInfo, PreviewItem, SectionToolContext, SnapKind, ToolEnv } from './types.ts';
@@ -72,6 +77,7 @@ const SNAP_KIND_LABEL: Partial<Record<SnapKind, string>> = {
   perpendicular: 'perpendicular',
   center: 'centro',
   tangent: 'tangente',
+  topFace: 'face superior',
   grid: 'grade',
   ortho: 'ortogonal',
   polar: 'polar',
@@ -88,6 +94,7 @@ const SNAP_KIND_KEYS: Partial<Record<SnapKind, DictKey>> = {
   perpendicular: 'tl_snap_perpendicular',
   center: 'tl_snap_center',
   tangent: 'tl_snap_tangent',
+  topFace: 'tl_snap_top_face',
   grid: 'tl_snap_grid',
   ortho: 'tl_snap_ortho',
   polar: 'tl_snap_polar',
@@ -262,7 +269,7 @@ export function resultPieces(result: SectionResult): Piece[] {
 function buildResultPieces(result: SectionResult): Piece[] {
   const out: Piece[] = [];
   const push = (origin: SectionOrigin, polygons: MultiPolygon, depth: number): void => {
-    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId;
+    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId ?? origin.columnId ?? origin.beamId ?? origin.footingId;
     if (hostId !== undefined) out.push({ hostId, depth, polygons });
   };
   for (const r of result.cut ?? []) {
@@ -335,7 +342,12 @@ export function guardaCorpoPieces(env: ToolEnv, result: SectionResult): Piece[] 
   return hidden && hidden.size > 0 ? hit.filter((q) => !hidden.has(q.hostId)) : hit;
 }
 
-/** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível (guarda-corpo incluído). */
+/** Peças que a vista desenha fora do resultado do corte (guarda-corpo e massa, ambos pelo kernel), com os ocultos já tirados. */
+function pecasDoKernelNaVista(env: ToolEnv, result: SectionResult): Piece[] {
+  return [...guardaCorpoPieces(env, result), ...massaCortePieces(env.project(), result, ocultosDaVista(env))];
+}
+
+/** Elemento sob o clique: abertura primeiro, depois parede, depois qualquer outro dono visível (guarda-corpo e massa incluídos). */
 function pickAt(result: SectionResult, project: Project, at: Vec2, tol: number, prefer: 'h' | 'v' | null, tie = tol / 10, extra: Piece[] = [], hidden?: ReadonlySet<Id>): Pick | null {
   const op = hitOpening(result, at, tol, prefer, tie);
   if (op && !hidden?.has(op.opening.openingId)) return { kind: 'opening', hostId: op.opening.openingId, opening: op.opening, lines: op.lines, line: op.line };
@@ -353,7 +365,7 @@ export function pickSectionElement(env: ToolEnv, at: Vec2): Id | null {
   const result = sectionResult(env);
   if (!result) return null;
   const tol = Math.max(1e-6, env.metersPerPixel() * 4);
-  return pickAt(result, env.project(), at, tol, null, tol / 10, guardaCorpoPieces(env, result), ocultosDaVista(env))?.hostId ?? null;
+  return pickAt(result, env.project(), at, tol, null, tol / 10, pecasDoKernelNaVista(env, result), ocultosDaVista(env))?.hostId ?? null;
 }
 
 /** Guia persistente: h/v atravessam a vista inteira; a inclinada usa a própria reta. */
@@ -452,7 +464,7 @@ export class SectionAlignTool extends ToolBase {
   private tie(): number { return Math.max(1e-7, this.env.metersPerPixel() * 1.5); }
 
   private pickAt(result: SectionResult, at: Vec2, prefer: 'h' | 'v' | null): Pick | null {
-    return pickAt(result, this.env.project(), at, this.tolerance(), prefer, this.tie(), guardaCorpoPieces(this.env, result), ocultosDaVista(this.env));
+    return pickAt(result, this.env.project(), at, this.tolerance(), prefer, this.tie(), pecasDoKernelNaVista(this.env, result), ocultosDaVista(this.env));
   }
 
   private findTarget(at: Vec2): AlignTarget | null {
@@ -515,7 +527,7 @@ export class SectionAlignTool extends ToolBase {
   }
 
   /**
-   * Escada, rampa, laje, telhado e guarda-corpo: o mesmo mecanismo do Mover no corte (`comandosMoverNoCorte`). Linha horizontal
+   * Escada, rampa, laje, piso, guarda-corpo e massa: o mesmo mecanismo do Mover no corte (`comandosMoverNoCorte`). Linha horizontal
    * leva o elemento na vertical até a referência; linha vertical leva ao longo do corte. Aresta inclinada não alinha. O
    * guarda-corpo hospedado só segue o hospedeiro: a barra de status explica.
    */
@@ -523,7 +535,7 @@ export class SectionAlignTool extends ToolBase {
     const p0 = this.env.project();
     const el = p0.elements[target.hostId];
     if (isGuardaCorpo(el) && hospedeiroDoGuardaCorpo(el) !== null) { avisaGuardaCorpoHospedado(this.env); return; }
-    if (!el || !(isStair(el) || isRamp(el) || isFloor(el) || isSlab(el) || isGuardaCorpo(el))) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
+    if (!el || !(isStair(el) || isRamp(el) || isFloor(el) || isSlab(el) || isGuardaCorpo(el) || isColumn(el) || isBeam(el) || isFooting(el) || isMass(el))) { this.env.say(this.t('tl_msg_align_target_invalid')); return; }
     let dt = 0;
     let dz = 0;
     if (target.axis === 'h') {

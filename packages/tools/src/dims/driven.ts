@@ -2,15 +2,22 @@ import { add, dist, dot, len, mul, norm, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingExtents, type WallFrame } from '@hestia/engine';
 import {
   applyCommand,
+  elementRing,
+  isBeam,
+  isColumn,
+  isFooting,
   isOpening,
   isWall,
   openingTypeById,
   openingsOfWall,
   resolveDimRef,
+  type Beam,
+  type Column,
   type Command,
   type Dimension,
   type DrivenEdit,
   type Element,
+  type Footing,
   type Id,
   type Opening,
   type Project,
@@ -57,6 +64,8 @@ type Mover =
   | { t: 'opening'; o: Opening }
   | { t: 'wallEnd'; w: Wall; end: 'a' | 'b' }
   | { t: 'wallFace'; w: Wall }
+  | { t: 'structural'; el: Column | Footing }
+  | { t: 'beam'; b: Beam; end: 'a' | 'b' | 'whole' }
   | { t: 'vertex'; el: Boundaried; index: number }
   | { t: 'edge'; el: Boundaried; index: number }
   | { t: 'other'; el: Element };
@@ -104,14 +113,14 @@ function featureInfo(p: Project, ref: LooseRef, fallback: Vec2, lang: Lang = 'pt
   if (!el) return { error: translate(lang, 'tl_msg_dim_element_removed') };
   const f = ref.feature ?? '';
   if (isWall(el)) {
-    if (f === 'wall-axis-a' || f === 'wall-axis-b') {
+    if ((f === 'wall-axis-a' && ref.key !== 'line') || f === 'wall-axis-b') {
       const end = f === 'wall-axis-a' ? 'a' : 'b';
       return { point: { ...el[end] }, mover: { t: 'wallEnd', w: el, end }, elementId: el.id };
     }
-    if (f === 'wall-face-lo' || f === 'wall-face-hi') {
+    if (f === 'wall-face-lo' || f === 'wall-face-hi' || (f === 'wall-axis-a' && ref.key === 'line')) {
       const fr = frameOfWall(p, el.id);
       if (!fr) return { error: 'Parede inválida.' };
-      const s = f === 'wall-face-lo' ? fr.sLo : fr.sHi;
+      const s = f === 'wall-face-lo' ? fr.sLo : f === 'wall-face-hi' ? fr.sHi : fr.sMid;
       const point = projectOnLine(fallback, add(fr.a, mul(fr.n, s)), fr.u);
       return { point, mover: { t: 'wallFace', w: el }, elementId: el.id };
     }
@@ -128,6 +137,20 @@ function featureInfo(p: Project, ref: LooseRef, fallback: Vec2, lang: Lang = 'pt
   // ainda não move estes elementos pelo valor: a edição é recusada com o motivo, sem alterar nada.
   if (f === 'part' && ref.key !== undefined) {
     return { point: resolveDimRef(p, { elementId: ref.elementId, feature: 'part', key: ref.key }) ?? { ...fallback }, mover: { t: 'other', el }, elementId: el.id };
+  }
+  if ((isColumn(el) || isFooting(el) || isBeam(el)) && (f === 'vertex' || f === 'edge')) {
+    const ring = elementRing(el, p);
+    const i = ref.index ?? 0;
+    if (i < 0 || i >= ring.length) return { error: 'A feição referenciada não existe mais.' };
+    const point =
+      f === 'vertex'
+        ? { ...ring[i]! }
+        : projectOnLine(fallback, ring[i]!, norm(sub(ring[(i + 1) % ring.length]!, ring[i]!)));
+    if (isBeam(el)) {
+      const end = f === 'edge' && i === 1 ? 'b' : f === 'edge' && i === 3 ? 'a' : 'whole';
+      return { point, mover: { t: 'beam', b: el, end }, elementId: el.id };
+    }
+    return { point, mover: { t: 'structural', el }, elementId: el.id };
   }
   const boundary = (el as { boundary?: Vec2[] }).boundary;
   if (Array.isArray(boundary) && (f === 'vertex' || f === 'edge')) {
@@ -250,6 +273,17 @@ function moveMover(p: Project, mv: Mover, m: Vec2, dir: Vec2, lang: Lang = 'pt')
     case 'opening': return moveOpening(p, mv.o, m, dir, lang);
     case 'wallEnd':
     case 'wallFace': return moveWall(p, mv, m, dir, lang);
+    case 'structural':
+      return { commands: [{ type: 'updateElements', ids: [mv.el.id], patch: { at: add(mv.el.at, m) } }] };
+    case 'beam': {
+      if (mv.end === 'a' || mv.end === 'b') {
+        const nextEnd = add(mv.b[mv.end], m);
+        const other = mv.end === 'a' ? mv.b.b : mv.b.a;
+        if (dist(nextEnd, other) < 0.05) return { error: translate(lang, 'tl_msg_beam_zero_length') };
+        return { commands: [{ type: 'updateElements', ids: [mv.b.id], patch: mv.end === 'a' ? { a: nextEnd } : { b: nextEnd } }] };
+      }
+      return { commands: [{ type: 'updateElements', ids: [mv.b.id], patch: { a: add(mv.b.a, m), b: add(mv.b.b, m) } }] };
+    }
     case 'vertex':
     case 'edge': return moveBoundary(mv, m, lang);
     default: return { error: `A cota dirigida ainda não move este tipo de elemento (${mv.el.kind}).` };

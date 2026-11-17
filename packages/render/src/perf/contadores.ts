@@ -6,7 +6,7 @@
  */
 
 /** Camadas da planta que o `PlanFrame` pode refazer (ver `planFrame.ts`). */
-export type CamadaRebuild = 'geometria' | 'sobreposicao' | 'grade' | 'guardaCorpo';
+export type CamadaRebuild = 'geometria' | 'sobreposicao' | 'grade' | 'guardaCorpo' | 'massa';
 
 /** Estado do timer de GPU: mede, não mede, ou não há GPU (modo CPU). */
 export type EstadoTimerGpu = 'disponivel' | 'indisponivel' | 'sem-gpu';
@@ -137,7 +137,7 @@ export class ContadoresPerf {
   private totalUploadBytes = 0;
   private totalRebuilds = 0;
   private totalCommitsReact = 0;
-  private camadas: Record<CamadaRebuild, number> = { geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0 };
+  private camadas: Record<CamadaRebuild, number> = { geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0, massa: 0 };
   private gpuTimer: EstadoTimerGpu = 'sem-gpu';
   private gpuMs: number | null = null;
   private gpuNota: string | null = null;
@@ -265,7 +265,7 @@ export class ContadoresPerf {
     this.totalUploadBytes = 0;
     this.totalRebuilds = 0;
     this.totalCommitsReact = 0;
-    this.camadas = { geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0 };
+    this.camadas = { geometria: 0, sobreposicao: 0, grade: 0, guardaCorpo: 0, massa: 0 };
     this.gpuMs = null;
   }
 

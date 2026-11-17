@@ -31,9 +31,19 @@ import { DE_GRAVIDADE } from '../../areas/gravidade.ts';
 import { DE_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { DE_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { DE_LOTE_UI } from '../../areas/lote-ui.ts';
+import { DE_MASSA } from '../../areas/massa.ts';
+import { DE_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { DE_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
+import { DE_SUPLEMENTOS } from '../../areas/suplementos.ts';
+import { DE_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
+import { DE_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { DE_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
+import { DE_STRUCTURAL } from '../../areas/structural.ts';
+import { DE_TAGGING } from '../../areas/tagging.ts';
 
 export const DE_ALL = {
+  ...DE_STRUCTURAL,
+  ...DE_TAGGING,
   ...DE_GUARDA_CORPO,
   ...DE_TERRENO,
   ...DE_TERRENO_VISTA,
@@ -41,6 +51,12 @@ export const DE_ALL = {
   ...DE_TERRENO_TABELA,
   ...DE_LOTE_TABELA,
   ...DE_LOTE_UI,
+  ...DE_MASSA,
+  ...DE_MASSA_PISOS,
+  ...DE_MASSA_PAREDES,
+  ...DE_SUPLEMENTOS,
+  ...DE_SUPLEMENTOS_IO,
+  ...DE_SUPUI,
   ...DE_PAREDE_CORTINA,
   ...DE_SHELL_RIBBON,
   ...DE_MISC_UI,

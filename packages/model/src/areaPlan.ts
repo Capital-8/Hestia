@@ -1,6 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import { t, type Lang } from './i18n.ts';
-import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project } from './types.ts';
+import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project, RevisionCloud, SpotAnnotation, SymbolAnnotation } from './types.ts';
 import type { ViewHidden } from './graphics.ts';
 
 /** Anotações de uma planta de área (mesmas estruturas da planta de piso, guardadas por vista). */
@@ -10,6 +10,9 @@ export interface AreaPlanAnnotations {
   detailLines: DetailLine[];
   detailRegions: DetailRegion[];
   tags: ElementTag[];
+  spots?: SpotAnnotation[];
+  revisionClouds?: RevisionCloud[];
+  symbols?: SymbolAnnotation[];
 }
 
 /** Linha da etiqueta de ambiente (a ordem é a ordem no bloco). */
@@ -194,7 +197,12 @@ export const planAnnotationsOf = (plan: Pick<AreaPlan, 'annotations'>): AreaPlan
   const a: Partial<AreaPlanAnnotations> | undefined = plan.annotations;
   if (a === undefined) return emptyPlanAnnotations();
   if (a.dimensions && a.texts && a.detailLines && a.detailRegions && a.tags) return a as AreaPlanAnnotations;
-  return { dimensions: a.dimensions ?? [], texts: a.texts ?? [], detailLines: a.detailLines ?? [], detailRegions: a.detailRegions ?? [], tags: a.tags ?? [] };
+  return {
+    dimensions: a.dimensions ?? [], texts: a.texts ?? [], detailLines: a.detailLines ?? [], detailRegions: a.detailRegions ?? [], tags: a.tags ?? [],
+    ...(a.spots ? { spots: a.spots } : {}),
+    ...(a.revisionClouds ? { revisionClouds: a.revisionClouds } : {}),
+    ...(a.symbols ? { symbols: a.symbols } : {}),
+  };
 };
 
 /** Cópia das anotações da planta: os comandos nunca compartilham os arrays da origem. */
@@ -204,12 +212,19 @@ export const copyPlanAnnotations = (a: AreaPlanAnnotations): AreaPlanAnnotations
   detailLines: a.detailLines.map((x) => ({ ...x })),
   detailRegions: a.detailRegions.map((x) => ({ ...x, boundary: x.boundary.map((p) => ({ ...p })) })),
   tags: a.tags.map((x) => ({ ...x, at: { ...x.at } })),
+  ...(a.spots ? { spots: a.spots.map((x) => ({ ...x, target: { ...x.target }, at: { ...x.at } })) } : {}),
+  ...(a.revisionClouds ? { revisionClouds: a.revisionClouds.map((x) => ({ ...x, points: x.points.map((p) => ({ ...p })) })) } : {}),
+  ...(a.symbols ? { symbols: a.symbols.map((x) => ({ ...x, at: { ...x.at } })) } : {}),
 });
 
 /** Ids de todas as anotações da planta (seleção e ocultação). */
 export const planAnnotationIds = (plan: Pick<AreaPlan, 'annotations'>): Id[] => {
   const a = planAnnotationsOf(plan);
-  return [...a.dimensions.map((x) => x.id), ...a.texts.map((x) => x.id), ...a.detailLines.map((x) => x.id), ...a.detailRegions.map((x) => x.id), ...a.tags.map((x) => x.id)];
+  return [
+    ...a.dimensions.map((x) => x.id), ...a.texts.map((x) => x.id), ...a.detailLines.map((x) => x.id),
+    ...a.detailRegions.map((x) => x.id), ...a.tags.map((x) => x.id),
+    ...(a.spots ?? []).map((x) => x.id), ...(a.revisionClouds ?? []).map((x) => x.id), ...(a.symbols ?? []).map((x) => x.id),
+  ];
 };
 
 export const roomTagsOf = (p: Pick<Project, 'areaPlans'>, roomId: Id): RoomTag[] => areaPlansOf(p).flatMap((x) => x.tags.filter((t) => t.roomId === roomId));

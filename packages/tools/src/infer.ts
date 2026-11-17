@@ -16,14 +16,15 @@ import {
   type Arc,
   type Vec2,
 } from '@hestia/geom';
-import { frameOfWall, wallFacesCached as facesOf, type WallFaces } from '@hestia/engine';
-import { openingTypeById, openingsOfWall, wallThicknessOf, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { frameOfWall, pointAt, toLocal, wallFacesCached as facesOf, type WallFaces } from '@hestia/engine';
+import { openingTypeById, openingsOfWall, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 import { closestOnWall, wallMid } from './wallGeom.ts';
 import { addGridSnaps } from './gridSnapPoints.ts';
 import { addCadSnaps, type CadSnapIndex } from './snapCad.ts';
 import { addExtraPoints, addExtraSegments, addExtraTracks } from './snapExtras.ts';
 import { addIndexedPoints, addIndexedSegments, cruzamentosDePlanta, indexedAlignmentRefs, type SnapIndexado } from './snapIndexado.ts';
 import { arestasPerto, pontosNasFaixas } from './snapAccel.ts';
+import { addTopFaceSnaps } from './snapTopFace.ts';
 import { orthoPoint, polarPoint } from './angleSnap.ts';
 import { DEFAULT_SNAP, type Guide, type Inference, type SnapKind, type SnapOptions } from './types.ts';
 
@@ -94,6 +95,12 @@ export interface InferContext {
    * e arestas entregues pela vista em `extraPoints`/`extraSegments`. Os cruzamentos entre essas arestas viram captura.
    */
   section?: boolean;
+  /**
+   * A ferramenta ativa trabalha com o topo das paredes (telhado, forro, piso, laje, Alinhar): a face superior ganha peso
+   * maior e, onde coincide com a base (parede vertical), funde com ela mantendo o rótulo "Face superior". Nas demais
+   * ferramentas o topo só aparece se a posição em planta difere da base em mais de 5 mm.
+   */
+  topFaceTool?: boolean;
 }
 
 const TOL_PX = 10;
@@ -119,6 +126,8 @@ const WEIGHT: Record<SnapKind, number> = {
   grid: 1.5,
   center: 0.2,
   tangent: 0.3,
+  // Face superior: mesmo custo da face de base; as ferramentas de topo (telhado, forro, piso, laje, Alinhar) usam pesos menores (`snapTopFace.ts`).
+  topFace: 0.1,
   none: 9,
 };
 /** Cruzamento de duas restrições (x × y, x × face, face × face): o ponto que o usuário mira. */
@@ -141,6 +150,8 @@ interface Cand {
   weight: number;
   guides: Guide[];
   hostId?: Id;
+  /** Cota z absoluta (só a face superior em planta). */
+  z?: number;
 }
 
 /** Pontos cuja caixa envolvente está a até `tol` do cursor (descarte rápido antes das contas de aresta). */
@@ -420,6 +431,12 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
       if (sn.core) addSegs(wf.coreOutline.length >= 3 ? outlineSegs(wf.coreOutline) : wf.core, 'core', wf.wallId);
     }
   }
+  // Face superior das paredes (T-C): arestas e cantos do topo, com a cota z. Em planta; a seção tem as próprias arestas.
+  if (!ctx.section && !ctx.onWallsOnly) {
+    addTopFaceSnaps(ctx, sn, cursor, tol, walls, levels, (point, z, weight, hostId) => {
+      cands.push({ point, kind: 'topFace', weight, guides: [], hostId, z });
+    });
+  }
   // Faces de parede curva: as laterais são arcos concêntricos (raio R ± meia espessura), não a corda. A captura é
   // analítica: pontas do arco, ponto médio e pé radial sobre o arco da face (S-09).
   for (const w of walls) {
@@ -657,7 +674,7 @@ function bestOf(
   if (list.length) {
     const n = list.length;
     const best = list[((cycle ?? 0) % n + n) % n]!;
-    return { point: best.point, kind: best.kind, guides: best.guides.length ? best.guides : guides, hostId: best.hostId };
+    return { point: best.point, kind: best.kind, guides: best.guides.length ? best.guides : guides, hostId: best.hostId, ...(best.z !== undefined ? { z: best.z } : {}) };
   }
   if (grid && grid > 0) {
     return { point: v2(Math.round(cursor.x / grid) * grid, Math.round(cursor.y / grid) * grid), kind: 'grid', guides };
@@ -672,11 +689,14 @@ function bestOf(
 export function hostUnder(cursor: Vec2, p: Project, levelId: Id, mpp: number, snapOn = true, tolPx = TOL_PX): { wallId: Id; offset: number; point: Vec2 } | null {
   let best: { wallId: Id; offset: number; point: Vec2; d: number } | null = null;
   for (const w of wallsOnLevel(p, levelId)) {
-    const near = closestOnWall(w, cursor);
-    const type = p.wallTypes[w.typeId];
-    const half = (type ? wallThicknessOf(type) : 0.2) / 2 + (snapOn ? tolPx * mpp : 0);
-    if (near.dist > half) continue;
-    if (!best || near.dist < best.d) best = { wallId: w.id, offset: near.t, point: near.point, d: near.dist };
+    const f = frameOfWall(p, w.id);
+    if (!f) continue;
+    const t = Math.max(0, Math.min(f.length, toLocal(f, cursor).t));
+    const midPt = pointAt(f, t, f.sMid);
+    const d = Math.hypot(cursor.x - midPt.x, cursor.y - midPt.y);
+    const half = f.thickness / 2 + (snapOn ? tolPx * mpp : 0);
+    if (d > half) continue;
+    if (!best || d < best.d) best = { wallId: w.id, offset: t, point: midPt, d };
   }
   return best ? { wallId: best.wallId, offset: best.offset, point: best.point } : null;
 }

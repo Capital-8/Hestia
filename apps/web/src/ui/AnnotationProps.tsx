@@ -2,6 +2,11 @@ import { useEffect, useState, type ReactElement } from 'react';
 import {
   DIM_FAMILY_PADRAO,
   areaPlanOf,
+  defaultNorthArrowFamilyIdOf,
+  defaultRevisionCloudFamilyIdOf,
+  defaultSpotFamilyIdOf,
+  defaultTagFamilyIdOf,
+  defaultTextFamilyIdOf,
   dimensionFamiliesOf,
   dimensionFormatStyle,
   dimensionStyleFor,
@@ -10,8 +15,13 @@ import {
   formatDimension,
   levelDimensions,
   levelTexts,
+  northArrowFamiliesOf,
   planAnnotationsOf,
+  revisionCloudFamiliesOf,
   sectionAnnotationsOf,
+  spotFamiliesOf,
+  tagFamiliesOf,
+  textFamiliesOf,
   type AngularDimension,
   type AngularDimensionSide,
   type AnnotationCommand,
@@ -21,6 +31,9 @@ import {
   type ElementTag,
   type Id,
   type Project,
+  type RevisionCloud,
+  type SpotAnnotation,
+  type SymbolAnnotation,
   type TextNote,
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
@@ -29,7 +42,7 @@ import { useUi } from '../editor/state.ts';
 import { t as translate, useI18n, useT } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { TypeSelector } from './TypeSelector.tsx';
-import { dimensionOptions } from './typeOptions.ts';
+import { dimensionOptions, tagOptions } from './typeOptions.ts';
 import { useUnits } from './useUnits.ts';
 
 /** Cota, texto, detalhe ou etiqueta selecionado (decisão 0019); null se a seleção não é uma anotação. */
@@ -39,6 +52,9 @@ export interface NotaSelecionada {
   line?: DetailLine;
   region?: DetailRegion;
   tag?: ElementTag;
+  spot?: SpotAnnotation;
+  revisionCloud?: RevisionCloud;
+  symbol?: SymbolAnnotation;
   /**
    * Anotação da vista de corte/elevação: o par gravado é `(t,z)` e as referências de parede da planta não valem. O painel
    * usa isto para medir/formatar sem resolver `refs`.
@@ -64,7 +80,13 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     const region = a.detailRegions.find((x) => x.id === id);
     if (region) return { region, section: true };
     const tag = a.tags.find((x) => x.id === id);
-    return tag ? { tag, section: true } : null;
+    if (tag) return { tag, section: true };
+    const spot = a.spots?.find((x) => x.id === id);
+    if (spot) return { spot, section: true };
+    const revisionCloud = a.revisionClouds?.find((x) => x.id === id);
+    if (revisionCloud) return { revisionCloud, section: true };
+    const symbol = a.symbols?.find((x) => x.id === id);
+    return symbol ? { symbol, section: true } : null;
   }
   if (planId) {
     const plan = areaPlanOf(p, planId);
@@ -79,7 +101,13 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     const region = a.detailRegions.find((x) => x.id === id);
     if (region) return { region };
     const tag = a.tags.find((x) => x.id === id);
-    return tag ? { tag } : null;
+    if (tag) return { tag };
+    const spot = a.spots?.find((x) => x.id === id);
+    if (spot) return { spot };
+    const revisionCloud = a.revisionClouds?.find((x) => x.id === id);
+    if (revisionCloud) return { revisionCloud };
+    const symbol = a.symbols?.find((x) => x.id === id);
+    return symbol ? { symbol } : null;
   }
   const dim = levelDimensions(p, levelId).find((d) => d.id === id);
   if (dim) return { dim };
@@ -91,7 +119,13 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
   const region = level?.detailRegions?.find((x) => x.id === id);
   if (region) return { region };
   const tag = level?.tags?.find((x) => x.id === id);
-  return tag ? { tag } : null;
+  if (tag) return { tag };
+  const spot = level?.spots?.find((x) => x.id === id);
+  if (spot) return { spot };
+  const revisionCloud = level?.revisionClouds?.find((x) => x.id === id);
+  if (revisionCloud) return { revisionCloud };
+  const symbol = level?.symbols?.find((x) => x.id === id);
+  return symbol ? { symbol } : null;
 }
 
 /**
@@ -166,7 +200,7 @@ export function angularSidePatch(a: AngularDimension, side: AngularDimensionSide
 }
 
 /** Propriedades da cota (valor só leitura, deslocamento da linha) e do texto (caixa, moldura, posição e estilo). */
-export function AnnotationProps({ dim, text, line, region, tag, section, planId, sectionId }: NotaSelecionada & { planId?: Id | null; sectionId?: Id | null }): ReactElement {
+export function AnnotationProps({ dim, text, line, region, tag, spot, revisionCloud, symbol, section, planId, sectionId }: NotaSelecionada & { planId?: Id | null; sectionId?: Id | null }): ReactElement {
   const p = useProject();
   const units = useUnits();
   const { t } = useT();
@@ -213,16 +247,16 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
         <>
           {familiaHeader(dim)}
           <Group title={t('pra_pgrp_angular_dimension')}>
-          <Row label={t('pra_fld_value')}><span className="val">{valorAngular}</span></Row>
-          <Row label={t('pra_fld_text')} htmlFor="p-dtext">
-            <TextField id="p-dtext" value={dim.text ?? ''} placeholder={valorAngular} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
-          </Row>
-          <Row label={t('pra_fld_side')}><select className="select" value={a.side} onChange={(e) => patchAngular(angularSidePatch(a, e.target.value as AngularDimensionSide))}><option value="minor">{t('pra_opt_minor_internal')}</option><option value="reflex">{t('pra_opt_reflex_external')}</option>{a.side === 'major' && <option value="major">{t('pra_opt_major_supplementary')}</option>}</select></Row>
-          <Row label={t('pra_fld_radius')} htmlFor="p-dradius"><NumField id="p-dradius" value={a.radius} decimals={2} quantity="length" min={0.01} onCommit={(v) => patchAngular({ radius: v })} /></Row>
-          <Row label={t('pra_fld_decimals')}><select className="select" value={dim.precision ?? 2} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { precision: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></Row>
-          <Row label={t('pra_fld_text_height')} htmlFor="p-dheight">{/* units-ok: altura em mm, como no campo da cota linear */}<NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
-          <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
-          <div className="prow"><span className="soft">{t('pra_msg_angular_dimension_hint')}</span></div>
+            <Row label={t('pra_fld_value')}><span className="val">{valorAngular}</span></Row>
+            <Row label={t('pra_fld_text')} htmlFor="p-dtext">
+              <TextField id="p-dtext" value={dim.text ?? ''} placeholder={valorAngular} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
+            </Row>
+            <Row label={t('pra_fld_side')}><select className="select" value={a.side} onChange={(e) => patchAngular(angularSidePatch(a, e.target.value as AngularDimensionSide))}><option value="minor">{t('pra_opt_minor_internal')}</option><option value="reflex">{t('pra_opt_reflex_external')}</option>{a.side === 'major' && <option value="major">{t('pra_opt_major_supplementary')}</option>}</select></Row>
+            <Row label={t('pra_fld_radius')} htmlFor="p-dradius"><NumField id="p-dradius" value={a.radius} decimals={2} quantity="length" min={0.01} onCommit={(v) => patchAngular({ radius: v })} /></Row>
+            <Row label={t('pra_fld_decimals')}><select className="select" value={dim.precision ?? 2} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { precision: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></Row>
+            <Row label={t('pra_fld_text_height')} htmlFor="p-dheight">{/* units-ok: altura em mm, como no campo da cota linear */}<NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
+            <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
+            <div className="prow"><span className="soft">{t('pra_msg_angular_dimension_hint')}</span></div>
           </Group>
         </>
       );
@@ -231,32 +265,134 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
       <>
         {familiaHeader(dim)}
         <Group title={t('pra_pgrp_dimension')}>
-        <Row label={t('pra_fld_value')}><span className="val">{medida.valor}</span></Row>
-        <Row label={t('pra_fld_text')} htmlFor="p-dtext">
-          <TextField id="p-dtext" value={dim.text ?? ''} placeholder={medida.textoVazio} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
-        </Row>
-        <Row label={t('pra_fld_offset')} htmlFor="p-doff">
-          <NumField id="p-doff" value={dim.offset} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { offset: v } }))} quantity="length" />
-        </Row>
-        <Check id="p-dlock" checked={dim.locked === true} onChange={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { locked: v } }))}>{t('pra_fld_locked')}</Check>
-        <Row label={t('pra_fld_direction')}><select className="select" value={dim.mode ?? 'aligned'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { mode: e.target.value as Dimension['mode'] } }))}><option value="aligned">{t('pra_opt_aligned')}</option><option value="horizontal">{t('pra_opt_horizontal')}</option><option value="vertical">{t('pra_opt_vertical')}</option></select></Row>
-        <details className="prow">
-        <summary className="soft">{t('pra_msg_dim_advanced')}</summary>
-        <Row label={t('pra_fld_units')}><select className="select" value={dim.unit ?? 'project'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { unit: e.target.value as Dimension['unit'] } }))}><option value="project">{t('pra_opt_project_units')}</option><option value="m">{t('pra_opt_meters')}</option><option value="cm">{t('pra_opt_centimeters')}</option><option value="mm">{t('pra_opt_millimeters')}</option></select></Row>
-        <Row label={t('pra_fld_decimals')}><select className="select" value={dim.precision ?? 2} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { precision: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></Row>
-        <Row label={t('pra_fld_prefix')} htmlFor="p-dprefix"><TextField id="p-dprefix" value={dim.prefix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { prefix: v } }))} /></Row>
-        <Row label={t('pra_fld_suffix')} htmlFor="p-dsuffix"><TextField id="p-dsuffix" value={dim.suffix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { suffix: v } }))} /></Row>
-        <Row label={t('pra_fld_text_height')} htmlFor="p-dheight"><NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
-        <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
-        </details>
-        <div className="prow"><span className="soft">{section ? t('pra_msg_section_dimension_hint') : t('pra_msg_dimension_follows_wall')}</span></div>
+          <Row label={t('pra_fld_value')}><span className="val">{medida.valor}</span></Row>
+          <Row label={t('pra_fld_text')} htmlFor="p-dtext">
+            <TextField id="p-dtext" value={dim.text ?? ''} placeholder={medida.textoVazio} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { text: v.trim() === '' ? undefined : v } }))} />
+          </Row>
+          <Row label={t('pra_fld_offset')} htmlFor="p-doff">
+            <NumField id="p-doff" value={dim.offset} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { offset: v } }))} quantity="length" />
+          </Row>
+          <Check id="p-dlock" checked={dim.locked === true} onChange={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { locked: v } }))}>{t('pra_fld_locked')}</Check>
+          <Row label={t('pra_fld_direction')}><select className="select" value={dim.mode ?? 'aligned'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { mode: e.target.value as Dimension['mode'] } }))}><option value="aligned">{t('pra_opt_aligned')}</option><option value="horizontal">{t('pra_opt_horizontal')}</option><option value="vertical">{t('pra_opt_vertical')}</option></select></Row>
+          <details className="prow">
+            <summary className="soft">{t('pra_msg_dim_advanced')}</summary>
+            <Row label={t('pra_fld_units')}><select className="select" value={dim.unit ?? 'project'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { unit: e.target.value as Dimension['unit'] } }))}><option value="project">{t('pra_opt_project_units')}</option><option value="m">{t('pra_opt_meters')}</option><option value="cm">{t('pra_opt_centimeters')}</option><option value="mm">{t('pra_opt_millimeters')}</option></select></Row>
+            <Row label={t('pra_fld_decimals')}><select className="select" value={dim.precision ?? 2} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { precision: Number(e.target.value) as 0 | 1 | 2 | 3 } }))}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></Row>
+            <Row label={t('pra_fld_prefix')} htmlFor="p-dprefix"><TextField id="p-dprefix" value={dim.prefix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { prefix: v } }))} /></Row>
+            <Row label={t('pra_fld_suffix')} htmlFor="p-dsuffix"><TextField id="p-dsuffix" value={dim.suffix ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { suffix: v } }))} /></Row>
+            <Row label={t('pra_fld_text_height')} htmlFor="p-dheight"><NumField id="p-dheight" value={dim.textHeight ?? 2.5} decimals={1} unit="mm" min={0.5} onCommit={(v) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { textHeight: v } }))} /></Row>
+            <Row label={t('pra_fld_tick_mark')}><select className="select" value={dim.tickStyle ?? 'slash'} onChange={(e) => edit(() => nota({ type: 'updateDimension', levelId, id: dim.id, patch: { tickStyle: e.target.value as Dimension['tickStyle'] } }))}><option value="slash">{t('pra_opt_tick_slash')}</option><option value="arrow">{t('pra_opt_tick_arrow')}</option><option value="dot">{t('pra_opt_tick_dot')}</option></select></Row>
+          </details>
+          <div className="prow"><span className="soft">{section ? t('pra_msg_section_dimension_hint') : t('pra_msg_dimension_follows_wall')}</span></div>
         </Group>
       </>
     );
   }
   if (line) return <Group title={t('pra_pgrp_detail_line')}><Row label={t('pra_fld_line_style')}><select className="select" value={line.style ?? 'solid'} onChange={(e) => edit(() => nota({ type: 'updateDetailLine', levelId, id: line.id, patch: { style: e.target.value as DetailLine['style'] } }))}><option value="solid">{t('pra_opt_continuous')}</option><option value="dashed">{t('pra_opt_dashed')}</option><option value="dotted">{t('pra_opt_dotted')}</option></select></Row></Group>;
   if (region) return <Group title={t('pra_pgrp_detail_region')}><Row label={t('pra_fld_fill')}><input className="input" type="color" value={region.color ?? '#f5d782'} onChange={(e) => edit(() => nota({ type: 'updateDetailRegion', levelId, id: region.id, patch: { color: e.target.value, mask: false } }))} /></Row><Check id="p-region-mask" checked={region.mask === true} onChange={(v) => edit(() => nota({ type: 'updateDetailRegion', levelId, id: region.id, patch: { mask: v } }))}>{t('pra_fld_mask_elements')}</Check></Group>;
-  if (tag) return <Group title={t('pra_pgrp_tag')}><Row label={t('pra_fld_information')}><select className="select" value={tag.property} onChange={(e) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { property: e.target.value as ElementTag['property'] } }))}><option value="type">{t('pra_fld_type')}</option><option value="name">{t('pra_fld_name')}</option><option value="mark">{t('pra_fld_mark')}</option><option value="level">{t('pra_fld_level')}</option><option value="width">{t('pra_fld_width')}</option><option value="height">{t('pra_fld_height')}</option></select></Row><Row label={t('pra_fld_orientation')}><select className="select" value={tag.orientation ?? 'horizontal'} onChange={(e) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { orientation: e.target.value as ElementTag['orientation'] } }))}><option value="horizontal">{t('pra_opt_horizontal')}</option><option value="vertical">{t('pra_opt_vertical')}</option></select></Row><Check id="p-tag-leader" checked={tag.leader === true} onChange={(v) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { leader: v } }))}>{t('pra_fld_show_leader')}</Check></Group>;
+  if (tag) {
+    const tagFamilies = tagFamiliesOf(p.settings, useI18n.getState().lang);
+    const currentFamilyId = tag.familyId ?? defaultTagFamilyIdOf(p.settings);
+    return (
+      <>
+        <TypeSelector
+          triggerId="prop-tagfamily"
+          label={t('tg_fld_family')}
+          categoryLabel={t('tg_pgrp_tag')}
+          options={tagOptions(tagFamilies, t('tg_pgrp_tag'))}
+          selectedId={tag.familyId && tagFamilies.some((f) => f.id === tag.familyId) ? tag.familyId : null}
+          onSelect={(id) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { familyId: id } }))}
+          onEdit={() => useUi.setState({ dialog: 'tagFamilies', tagFamilyFocus: currentFamilyId })}
+        />
+        <Group title={t('pra_pgrp_tag')}>
+          {!tag.familyId ? (
+            <Row label={t('pra_fld_information')}>
+              <select className="select" value={tag.property} onChange={(e) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { property: e.target.value as ElementTag['property'] } }))}>
+                <option value="type">{t('pra_fld_type')}</option>
+                <option value="name">{t('pra_fld_name')}</option>
+                <option value="mark">{t('pra_fld_mark')}</option>
+                <option value="level">{t('pra_fld_level')}</option>
+                <option value="width">{t('pra_fld_width')}</option>
+                <option value="height">{t('pra_fld_height')}</option>
+              </select>
+            </Row>
+          ) : null}
+          <Row label={t('pra_fld_orientation')}>
+            <select className="select" value={tag.orientation ?? 'horizontal'} onChange={(e) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { orientation: e.target.value as ElementTag['orientation'] } }))}>
+              <option value="horizontal">{t('pra_opt_horizontal')}</option>
+              <option value="vertical">{t('pra_opt_vertical')}</option>
+            </select>
+          </Row>
+          <Check id="p-tag-leader" checked={tag.leader === true} onChange={(v) => edit(() => nota({ type: 'updateTag', levelId, id: tag.id, patch: { leader: v } }))}>{t('pra_fld_show_leader')}</Check>
+        </Group>
+      </>
+    );
+  }
+  if (spot) {
+    const fams = spotFamiliesOf(p.settings, spot.kind);
+    const currentId = spot.familyId ?? defaultSpotFamilyIdOf(p.settings, spot.kind);
+    const famLabel = spot.kind === 'elevation' ? 'Cota de elevação' : 'Coordenada de ponto';
+    const previewSubj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+    return (
+      <>
+        <TypeSelector
+          triggerId="prop-spotfamily"
+          label="Família"
+          categoryLabel={famLabel}
+          options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: famLabel, subject: previewSubj }))}
+          selectedId={spot.familyId && fams.some((f) => f.id === spot.familyId) ? spot.familyId : currentId}
+          onSelect={(id) => edit(() => nota({ type: 'updateSpot', levelId, id: spot.id, patch: { familyId: id } }))}
+          onEdit={() => useUi.setState({ dialog: 'spotFamilies', dialogArg: currentId })}
+        />
+        <Group title={famLabel}>
+          <Check id="p-spot-leader" checked={spot.showLeader !== false} onChange={(v) => edit(() => nota({ type: 'updateSpot', levelId, id: spot.id, patch: { showLeader: v } }))}>Exibir linha de chamada</Check>
+        </Group>
+      </>
+    );
+  }
+  if (revisionCloud) {
+    const fams = revisionCloudFamiliesOf(p.settings);
+    const currentId = revisionCloud.familyId ?? defaultRevisionCloudFamilyIdOf(p.settings);
+    const previewSubj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+    return (
+      <>
+        <TypeSelector
+          triggerId="prop-rcfamily"
+          label="Família"
+          categoryLabel="Nuvem de revisão"
+          options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: 'Nuvem de revisão', subject: previewSubj }))}
+          selectedId={revisionCloud.familyId && fams.some((f) => f.id === revisionCloud.familyId) ? revisionCloud.familyId : currentId}
+          onSelect={(id) => edit(() => nota({ type: 'updateRevisionCloud', levelId, id: revisionCloud.id, patch: { familyId: id } }))}
+          onEdit={() => useUi.setState({ dialog: 'revisionCloudFamilies', dialogArg: currentId })}
+        />
+        <Group title="Nuvem de revisão">
+          <Row label="Etiqueta / Rev." htmlFor="p-rc-tag"><TextField id="p-rc-tag" value={revisionCloud.revisionTag ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateRevisionCloud', levelId, id: revisionCloud.id, patch: { revisionTag: v } }))} /></Row>
+          <Row label="Comentários" htmlFor="p-rc-com"><TextField id="p-rc-com" value={revisionCloud.comments ?? ''} onCommit={(v) => edit(() => nota({ type: 'updateRevisionCloud', levelId, id: revisionCloud.id, patch: { comments: v } }))} /></Row>
+        </Group>
+      </>
+    );
+  }
+  if (symbol) {
+    const fams = northArrowFamiliesOf(p.settings);
+    const currentId = symbol.familyId ?? defaultNorthArrowFamilyIdOf(p.settings);
+    const previewSubj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+    return (
+      <>
+        <TypeSelector
+          triggerId="prop-symfamily"
+          label="Família"
+          categoryLabel="Seta norte"
+          options={fams.map((f) => ({ id: f.id, name: f.name, code: '', family: 'Seta norte', subject: previewSubj }))}
+          selectedId={symbol.familyId && fams.some((f) => f.id === symbol.familyId) ? symbol.familyId : currentId}
+          onSelect={(id) => edit(() => nota({ type: 'updateSymbol', levelId, id: symbol.id, patch: { familyId: id } }))}
+          onEdit={() => useUi.setState({ dialog: 'northArrowFamilies', dialogArg: currentId })}
+        />
+        <Group title="Seta norte">
+          <Row label="Rotação" htmlFor="p-sym-rot"><NumField id="p-sym-rot" value={symbol.rotation} decimals={0} unit="°" onCommit={(v) => edit(() => nota({ type: 'updateSymbol', levelId, id: symbol.id, patch: { rotation: v } }))} /></Row>
+        </Group>
+      </>
+    );
+  }
   if (!text) return <></>;
   /** Grava uma mudança do texto na vista dona (corte/elevação, planta de área ou nível). */
   const notaTexto = (patch: Partial<Omit<TextNote, 'id'>>): void => edit(() => editor.store.exec(comVista({ type: 'updateText', levelId, id: text.id, patch }, planId, sectionId)));
@@ -269,8 +405,21 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
     }
     notaTexto({ at: { x: v.cx, y: v.cy } });
   };
+  const textFamilies = textFamiliesOf(p.settings);
+  const currentTextFamId = text.familyId ?? defaultTextFamilyIdOf(p.settings);
+  const textPreviewSubj = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
   return (
-    <Group title={t('pra_pgrp_text')}>
+    <>
+      <TypeSelector
+        triggerId="prop-textfamily"
+        label="Família"
+        categoryLabel={t('pra_pgrp_text')}
+        options={textFamilies.map((f) => ({ id: f.id, name: f.name, code: '', family: t('pra_pgrp_text'), subject: textPreviewSubj }))}
+        selectedId={text.familyId && textFamilies.some((f) => f.id === text.familyId) ? text.familyId : currentTextFamId}
+        onSelect={(id) => notaTexto({ familyId: id })}
+        onEdit={() => useUi.setState({ dialog: 'textFamilies', dialogArg: currentTextFamId })}
+      />
+      <Group title={t('pra_pgrp_text')}>
       <Row label={t('pra_fld_content')} htmlFor="p-ttext">
         <TextAreaField id="p-ttext" value={text.text} onCommit={(v) => notaTexto({ text: v })} />
       </Row>
@@ -297,6 +446,7 @@ export function AnnotationProps({ dim, text, line, region, tag, section, planId,
         <NumField id="p-ty" value={text.at.y} decimals={2} unit="m" onCommit={(v) => notaTexto({ at: { ...text.at, y: v } })} />
       </Row>
       <div className="prow"><span /><button type="button" className="btn small" title={t('pra_tip_center_in_view')} onClick={centralizar}>{t('pra_btn_center_at_point')}</button></div>
-    </Group>
+      </Group>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { dot, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { frameOfWall, planoDaSecao, ServicoTerreno, servicoTerreno, type LinhaCorteTN, type SectionResult } from '@hestia/engine';
 import { hospedeiroDoGuardaCorpo, isGuardaCorpo, isOpening, isTerrain, isTerrainRegion, isWall, type Id, type Opening, type Project } from '@hestia/model';
+import { massaCortePieces } from './massCortePecas.ts';
 import type { Piece } from './sectionEditTools.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 
@@ -9,7 +10,7 @@ import type { PreviewItem, ToolEnv } from './types.ts';
  * selecionado, deslocado de `(dt, dz)` no plano (t, z), como a planta mostra o contorno deslocado (`ghostBands`).
  *
  * O desenho vem das mesmas peças que a vista usa para escolher o elemento sob o cursor (`resultPieces` e `guardaCorpoPieces`):
- * escada, rampa, laje, piso, telhado, parede e guarda-corpo saem com o contorno que o corte desenha. A parede só anda na
+ * escada, rampa, laje, piso, telhado, parede, guarda-corpo e massa saem com o contorno que o corte desenha. A parede só anda na
  * horizontal (a cota dela vem do nível), então o fantasma dela nunca sobe. O que segue um hospedeiro (guarda-corpo da escada ou
  * da rampa, vão da parede) anda com ele.
  */
@@ -123,6 +124,11 @@ export function fantasmaDoMover(
     const pts = l.pontos.map((q) => ({ x: q.s, y: q.z }));
     if (l.papel === 'cortado') poligono(pts, dt, dz);
     else for (let i = 1; i < pts.length; i++) out.push({ kind: 'line', a: { x: pts[i - 1]!.x + dt, y: pts[i - 1]!.y + dz }, b: { x: pts[i]!.x + dt, y: pts[i]!.y + dz }, dashed: true });
+  }
+  // Massa (ficha T1c): o anel de cada cópia no corte, do kernel; anda o deslocamento inteiro, como a escada e a laje (sem hospedeiro).
+  for (const q of massaCortePieces(p, result)) {
+    if (!movidos.has(q.hostId)) continue;
+    for (const ring of aneis(q.polygons)) poligono(ring, dt, dz);
   }
   // Vãos: andam com a parede (só horizontal) ou sozinhos ao longo dela, com o peitoril na vertical.
   const soltas = new Map(alvos.aberturas.map((o) => [o.id, o] as const));

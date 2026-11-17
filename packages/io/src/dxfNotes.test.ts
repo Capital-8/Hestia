@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, angularDimensionData, makeWall } from '@hestia/model';
-import { DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, dxfTextEntity, notesDxfOf } from './dxfNotes.ts';
+import { DXF_LAYER_DETALHE, DXF_LAYER_COTAS, DXF_LAYER_TEXTOS, dxfTextEntity, notesDxfOf } from './dxfNotes.ts';
 import { exportDxf, type DxfLevelGeometry } from './dxf.ts';
 
 const LV0 = 'lv_0';
@@ -126,5 +126,19 @@ describe('anotações no DXF da planta', () => {
     const end = notes.lines.at(-3)![1];
     expect(start.y).toBeCloseTo(0, 8);
     expect(end.x * Math.sin(angle) - end.y * Math.cos(angle)).toBeCloseTo(0, 8);
+  });
+});
+
+describe('linha de detalhe no DXF', () => {
+  it('reta: 1 LINE; com sag = metade da corda: 8 segmentos de um semicirculo de raio 1', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addDetailLine', levelId: LV0, item: { id: 'r', a: { x: 0, y: 5 }, b: { x: 2, y: 5 } } });
+    expect(notesDxfOf(s.project, LV0, 100).otherLines!.filter((l) => l.layer === DXF_LAYER_DETALHE)).toHaveLength(1);
+    s.exec({ type: 'removeDetailLine', levelId: LV0, id: 'r' });
+    s.exec({ type: 'addDetailLine', levelId: LV0, item: { id: 'c', a: { x: 0, y: 0 }, b: { x: 2, y: 0 }, sag: 1 } });
+    const ls = notesDxfOf(s.project, LV0, 100).otherLines!.filter((l) => l.layer === DXF_LAYER_DETALHE);
+    expect(ls).toHaveLength(8);
+    expect(ls[3]!.b.x).toBeCloseTo(1, 9);
+    expect(ls[3]!.b.y).toBeCloseTo(1, 9);
   });
 });

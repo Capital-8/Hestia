@@ -1,0 +1,63 @@
+{
+  "manifestVersion": 2,
+  "id": "dev.hestia.familias-exemplo",
+  "name": "Biblioteca de portas e paredes",
+  "version": "1.0.0",
+  "hestiaApi": "1.0",
+  "runtime": "declarative",
+  "description": "Suplemento declarativo (só JSON, sem código): biblioteca com três portas e duas paredes, mais dois materiais próprios. Só entra no projeto quando você carrega o conteúdo.",
+  "author": "Equipe Hestia",
+  "license": "MIT",
+  "capabilities": ["content.families", "content.materials"],
+  "contributes": {
+    "materials": [
+      { "id": "madeira-freijo", "name": "Madeira freijó", "color": "#b98b57", "gloss": 0.35, "opacity": 1 },
+      { "id": "pintura-grafite", "name": "Pintura grafite", "color": "#3d4045", "gloss": 0.15, "opacity": 1 }
+    ],
+    "families": [
+      {
+        "id": "portas",
+        "category": "opening",
+        "types": [
+          { "key": "giro-90", "kind": "door", "name": "Porta de giro freijó 90 x 210", "code": "PF-01", "width": 0.9, "height": 2.1, "sill": 0, "leaves": 1, "plan": "swing", "frameMaterialId": "madeira-freijo" },
+          { "key": "dupla-160", "kind": "door", "name": "Porta dupla freijó 160 x 210", "code": "PF-02", "width": 1.6, "height": 2.1, "sill": 0, "leaves": 2, "plan": "double", "frameMaterialId": "madeira-freijo" },
+          { "key": "correr-160", "kind": "door", "name": "Porta de correr alumínio 160 x 210", "code": "PF-03", "width": 1.6, "height": 2.1, "sill": 0, "leaves": 2, "plan": "sliding", "frameMaterialId": "mat_aluminio" }
+        ]
+      },
+      {
+        "id": "parede-bloco-grafite",
+        "category": "wall",
+        "types": [
+          {
+            "name": "Parede bloco 14 com pintura grafite",
+            "code": "PG-14",
+            "description": "Bloco de 14 cm com reboco e pintura grafite nas duas faces.",
+            "layers": [
+              { "function": "finish2", "materialId": "pintura-grafite", "thickness": 0.002, "wraps": true },
+              { "function": "substrate", "materialId": "mat_reboco", "thickness": 0.02, "wraps": true },
+              { "function": "structure", "materialId": "mat_bloco14", "thickness": 0.14 },
+              { "function": "substrate", "materialId": "mat_reboco", "thickness": 0.02, "wraps": true },
+              { "function": "finish2", "materialId": "pintura-grafite", "thickness": 0.002, "wraps": true }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "parede-drywall-freijo",
+        "category": "wall",
+        "types": [
+          {
+            "name": "Divisória drywall com painel freijó",
+            "code": "DF-07",
+            "description": "Perfil de aço com gesso e painel de madeira freijó em uma face.",
+            "layers": [
+              { "function": "finish1", "materialId": "madeira-freijo", "thickness": 0.006, "wraps": true },
+              { "function": "structure", "materialId": "mat_perfil", "thickness": 0.048 },
+              { "function": "finish1", "materialId": "mat_gesso", "thickness": 0.0125, "wraps": true }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

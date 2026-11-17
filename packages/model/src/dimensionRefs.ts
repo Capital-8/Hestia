@@ -2,6 +2,9 @@ import { dist, type Vec2 } from '@hestia/geom';
 import type { DimensionElementRef } from './dimensionContract.ts';
 import { openingsOfWall, openingType, wallsOnLevel } from './queries.ts';
 import { coreSpan, wallThicknessOf } from './wallType.ts';
+import { beamPolygon, findBeamType } from './beam.ts';
+import { columnPolygon, findColumnType } from './column.ts';
+import { footingPolygon, findFootingType } from './footing.ts';
 import { isOpening, isWall, type DimensionRef, type Opening, type Id, type LocationLine, type Project, type Wall, type WallType } from './types.ts';
 
 /**
@@ -17,8 +20,8 @@ import { isOpening, isWall, type DimensionRef, type Opening, type Id, type Locat
  * - `vertex`: `boundary[index]` de laje/piso/forro/telhado; em escada/rampa, o anel de vértices na ordem dos componentes
  *   (lance: limite esquerdo e depois o direito de trás para frente; patamar: seu limite), usando o início de cada
  *   segmento do croqui. `edge`: ponto médio da aresta `index` (de `index` a `index+1`, fechando o anel).
- * - `part`: ponto de apoio de escada, rampa ou guarda-corpo (cantos e meios dos degraus, espelhos, acabamentos, eixo, peças
- *   do guarda-corpo...), nomeado por `key`. A geometria vem do motor, que se registra com `definirProvedorDeApoio`
+ * - `part`: ponto de apoio de escada, rampa, guarda-corpo ou massa (cantos e meios dos degraus, espelhos, acabamentos, eixo, peças
+ *   do guarda-corpo, vértices e meios do anel cortado da massa...), nomeado por `key`. A geometria vem do motor, que se registra com `definirProvedorDeApoio`
  *   (o modelo não conhece o motor). Sem provedor, ou com a chave que sumiu na edição, resolve para `null` e a cota
  *   mantém o último ponto guardado.
  * - `plane` (3º parâmetro de `resolveDimRef`) está reservado para vistas em corte/elevação: hoje as refs resolvem
@@ -79,9 +82,36 @@ function wallGeo(p: Pick<Project, 'wallTypes' | 'defaults'>, w: Wall): WallGeo |
 
 const at = (g: WallGeo, t: number, s: number): Vec2 => ({ x: g.a.x + g.u.x * t + g.n.x * s, y: g.a.y + g.u.y * t + g.n.y * s });
 
-/** Anel de vértices (planta) de um elemento com contorno; vazio se não tem. */
-export function elementRing(e: Project['elements'][string] | undefined): Vec2[] {
+const projectOnLine = (p: Vec2, orig: Vec2, unitDir: Vec2): Vec2 => {
+  const t = (p.x - orig.x) * unitDir.x + (p.y - orig.y) * unitDir.y;
+  return { x: orig.x + unitDir.x * t, y: orig.y + unitDir.y * t };
+};
+
+function closestPointOnSegment(pt: Vec2, a: Vec2, b: Vec2): { point: Vec2; dist: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  if (l2 < 1e-12) return { point: { ...a }, dist: dist(pt, a) };
+  const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / l2));
+  const point = { x: a.x + dx * t, y: a.y + dy * t };
+  return { point, dist: dist(pt, point) };
+}
+
+function closestPointOnInfiniteLine(pt: Vec2, a: Vec2, b: Vec2): { point: Vec2; dist: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return { point: { ...a }, dist: dist(pt, a) };
+  const point = projectOnLine(pt, a, { x: dx / len, y: dy / len });
+  return { point, dist: dist(pt, point) };
+}
+
+/** Anel de vértices (planta) de um elemento com contorno (inclui pilar, viga e sapata); vazio se não tem. */
+export function elementRing(e: Project['elements'][string] | undefined, p?: Project): Vec2[] {
   if (!e) return [];
+  if (e.kind === 'column') return columnPolygon(e, p ? findColumnType(p, e.typeId) : undefined);
+  if (e.kind === 'beam') return beamPolygon(e, p ? findBeamType(p, e.typeId) : undefined);
+  if (e.kind === 'footing') return footingPolygon(e, p ? findFootingType(p, e.typeId) : undefined);
   if (e.kind === 'floor' || e.kind === 'slab' || e.kind === 'ceiling' || e.kind === 'roof') return e.boundary;
   if (e.kind === 'stair' || e.kind === 'ramp') {
     const out: Vec2[] = [];
@@ -144,12 +174,12 @@ export function resolveDimRef(p: Project, ref: DimensionElementRef | DimensionRe
       return provedorDeApoio.ponto(p, el.id, ref.key);
     }
     case 'vertex': {
-      const ring = elementRing(el);
+      const ring = elementRing(el, p);
       const v = ring[ref.index ?? 0];
       return v ? { ...v } : null;
     }
     case 'edge': {
-      const ring = elementRing(el);
+      const ring = elementRing(el, p);
       const i = ref.index ?? 0;
       const v = ring[i];
       const w = ring[(i + 1) % ring.length];
@@ -172,7 +202,7 @@ export function dimRefCandidates(p: Project, el: Project['elements'][string]): A
     for (const f of ['wall-face-hi', 'wall-face-lo'] as const) for (const index of [0, 1]) push({ elementId: el.id, feature: f, index });
     return out;
   }
-  const n = elementRing(el).length;
+  const n = elementRing(el, p).length;
   for (let i = 0; i < n; i++) push({ elementId: el.id, feature: 'vertex', index: i });
   for (let i = 0; i < n; i++) push({ elementId: el.id, feature: 'edge', index: i });
   return out;
@@ -185,6 +215,64 @@ export function dimRefCandidates(p: Project, el: Project['elements'][string]): A
 export function dimRefApoioCandidates(p: Project, el: Project['elements'][string]): Array<{ ref: DimensionElementRef; point: Vec2 }> {
   if (!provedorDeApoio) return [];
   return provedorDeApoio.candidatos(p, el).map((c) => ({ ref: { elementId: el.id, feature: 'part' as const, key: c.key }, point: c.point }));
+}
+
+function matchElementSegmentRef(
+  p: Project,
+  el: Project['elements'][string],
+  point: Vec2,
+  tol: number,
+  infinite = false,
+): { ref: DimensionElementRef; point: Vec2; dist: number } | null {
+  let best: { ref: DimensionElementRef; point: Vec2; dist: number } | null = null;
+  const consider = (ref: DimensionElementRef, segA: Vec2, segB: Vec2): void => {
+    const hit = infinite ? closestPointOnInfiniteLine(point, segA, segB) : closestPointOnSegment(point, segA, segB);
+    if (hit.dist <= tol && (!best || hit.dist < best.dist - 1e-9)) {
+      best = { ref, point: hit.point, dist: hit.dist };
+    }
+  };
+  if (isWall(el)) {
+    const g = wallGeo(p, el);
+    if (!g) return null;
+    consider({ elementId: el.id, feature: 'wall-face-hi', index: 0 }, at(g, 0, g.sHi), at(g, g.length, g.sHi));
+    consider({ elementId: el.id, feature: 'wall-face-lo', index: 0 }, at(g, 0, g.sLo), at(g, g.length, g.sLo));
+    consider({ elementId: el.id, feature: 'wall-axis-a', key: 'line' }, g.a, g.b);
+    return best;
+  }
+  const ring = elementRing(el, p);
+  for (let i = 0; i < ring.length; i++) {
+    consider({ elementId: el.id, feature: 'edge', index: i }, ring[i]!, ring[(i + 1) % ring.length]!);
+  }
+  return best;
+}
+
+/**
+ * Casa um ponto exato (`tol`) contra as feições do elemento: primeiro os pontos discretos (eixo, pontas, vértices,
+ * esquadrias) e, se nenhum coincidir, as faces/eixo da parede ou arestas do anel ao longo do segmento (ou reta
+ * infinita, quando `infinite = true`, para pontos projetados em cotas temporárias).
+ */
+export function matchElementDimRef(
+  p: Project,
+  el: Project['elements'][string],
+  point: Vec2,
+  tol: number,
+  infinite = false,
+): { ref: DimensionElementRef; point: Vec2 } | null {
+  let best: { ref: DimensionElementRef; point: Vec2 } | null = null;
+  let bestD = Infinity;
+  for (const c of dimRefCandidates(p, el)) {
+    const d = dist(c.point, point);
+    if (d <= tol && d < bestD - 1e-9) {
+      best = c;
+      bestD = d;
+    }
+  }
+  if (best) return best;
+  const seg = matchElementSegmentRef(p, el, point, tol, false);
+  if (seg) return { ref: seg.ref, point: seg.point };
+  if (!infinite) return null;
+  const infSeg = matchElementSegmentRef(p, el, point, tol, true);
+  return infSeg ? { ref: infSeg.ref, point: infSeg.point } : null;
 }
 
 /**
@@ -203,17 +291,50 @@ export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { r
     if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
     for (const c of dimRefCandidates(p, el)) consider(c);
   }
-  // Pontos de apoio (degraus, espelhos, acabamentos, guarda-corpo): depois dos vértices e arestas, que vencem o empate.
+  // Pontos de apoio (degraus, espelhos, acabamentos, guarda-corpo, vértices do anel cortado da massa): depois dos vértices e arestas, que vencem o empate.
   for (const el of Object.values(p.elements)) {
-    if ((el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing') || el.levelId !== levelId) continue;
+    if ((el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'mass') || el.levelId !== levelId) continue;
     for (const c of dimRefApoioCandidates(p, el)) consider(c);
   }
-  return best;
+  if (best) return best;
+
+  // Fallback contínuo ao longo de faces de parede e arestas de contorno (para cliques no meio da parede/elemento).
+  let bestSeg: { ref: DimensionElementRef; point: Vec2; dist: number } | null = null;
+  const considerSeg = (seg: { ref: DimensionElementRef; point: Vec2; dist: number } | null): void => {
+    if (seg && (!bestSeg || seg.dist < bestSeg.dist - 1e-9)) bestSeg = seg;
+  };
+  for (const w of wallsOnLevel(p, levelId)) considerSeg(matchElementSegmentRef(p, w, point, tol));
+  for (const el of Object.values(p.elements)) {
+    if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
+    considerSeg(matchElementSegmentRef(p, el, point, tol));
+  }
+  const found = bestSeg as { ref: DimensionElementRef; point: Vec2; dist: number } | null;
+  return found ? { ref: found.ref, point: found.point } : null;
 }
 
-/** Ponto de uma ponta da cota: a referência resolvida (com a projeção `axis` do antigo) ou o ponto guardado. */
+/** Ponto de uma ponta da cota: a referência resolvida (reprojetada ao longo da face/aresta quando contínuo) ou o ponto guardado. */
 export function resolveDimEnd(p: Project, ref: DimensionRef | DimensionElementRef | undefined, fallback: Vec2): Vec2 {
   if (!ref) return fallback;
+  if (isElementRef(ref)) {
+    const el = p.elements[ref.elementId];
+    if (!el) return fallback;
+    if ((ref.feature === 'wall-face-lo' || ref.feature === 'wall-face-hi' || (ref.feature === 'wall-axis-a' && ref.key === 'line')) && isWall(el)) {
+      const g = wallGeo(p, el);
+      if (!g) return fallback;
+      const s = ref.feature === 'wall-face-hi' ? g.sHi : ref.feature === 'wall-face-lo' ? g.sLo : g.sMid;
+      return projectOnLine(fallback, at(g, 0, s), g.u);
+    }
+    if (ref.feature === 'edge') {
+      const ring = elementRing(el, p);
+      const i = ref.index ?? 0;
+      const v = ring[i];
+      const w = ring[(i + 1) % ring.length];
+      if (v && w) {
+        const edgeLen = Math.hypot(w.x - v.x, w.y - v.y);
+        if (edgeLen > 1e-6) return projectOnLine(fallback, v, { x: (w.x - v.x) / edgeLen, y: (w.y - v.y) / edgeLen });
+      }
+    }
+  }
   const pt = resolveDimRef(p, ref);
   if (!pt) return fallback;
   if (!isElementRef(ref)) {

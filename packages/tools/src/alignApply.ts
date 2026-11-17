@@ -57,6 +57,11 @@ export function applyAlign(env: ToolEnv, sol: AlignSolution, hooks: AlignApplyHo
     return result.status !== 'cancelled';
   }
 
+  if (sol.kind === 'pontaViga') {
+    env.exec({ type: 'updateElements', ids: [sol.beamId], patch: sol.end === 'a' ? { a: sol.to } : { b: sol.to } });
+    return true;
+  }
+
   if (sol.kind === 'abertura') {
     env.exec({ type: 'updateElements', ids: [sol.openingId], patch: { offset: sol.offset } });
     return true;

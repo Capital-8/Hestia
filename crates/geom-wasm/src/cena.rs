@@ -19,6 +19,7 @@ use crate::secoes_b::SecoesB;
 use crate::secoes_cortina::SecoesCortina;
 use crate::secoes_gc::SecoesGC;
 use crate::secoes_terreno::SecoesTerreno;
+use crate::secoes_massa::SecoesMassa;
 
 /// Módulo máximo aceito para uma coordenada ou espessura (metros). Evita `inf` em somas e
 /// subtrações internas; 1e12 m é muito maior que qualquer projeto real.
@@ -326,6 +327,8 @@ pub struct Cena {
     pub(crate) terreno: SecoesTerreno,
     /// T0 e E por terreno (PLANO do terreno A.4 regra 16), pela assinatura das fontes daquele terreno. Nenhuma outra seção o esvazia.
     pub(crate) cache_terreno: RefCell<crate::terreno_tipos::CacheTerreno>,
+    /// Seções da massa de estudo volumétrico (140 a 142); só as consultas da massa as leem.
+    pub(crate) massa: SecoesMassa,
     /// Cache por nível (`NIVEL_TODOS` inclusive). Invalidado quando a seção muda.
     indices: BTreeMap<u32, IndiceNivel>,
     /// B3: `true` enquanto a consulta `junction_nivel` resolve as paredes na variante da JUNÇÃO (`paredes_z_juncao` e `perfis_z_juncao`, sem `flatAttach`). Só a
@@ -394,7 +397,7 @@ impl Cena {
         // As seções do guarda-corpo (60 a 81) não entram em nenhum cache de paredes, pisos, lajes ou forros.
         // Idem as da parede cortina (100 a 112); a 113 (`cortina_hospedes`) NÃO: ela recorta o hospedeiro no nível resolvido das paredes, como uma abertura.
         // Idem as do terreno (160 a 165), que têm cache próprio.
-        if SecoesGC::e_minha(secao_id) || SecoesTerreno::e_minha(secao_id) || (SecoesCortina::e_minha(secao_id) && secao_id != esquema::SECAO_CORTINA_HOSPEDES) {
+        if SecoesGC::e_minha(secao_id) || SecoesMassa::e_minha(secao_id) || SecoesTerreno::e_minha(secao_id) || (SecoesCortina::e_minha(secao_id) && secao_id != esquema::SECAO_CORTINA_HOSPEDES) {
             return;
         }
         let so_b = SecoesB::e_minha(secao_id);
@@ -446,6 +449,7 @@ impl Cena {
             s if SecoesGC::e_minha(s) => self.gc.definir(s, n_linhas, bytes),
             s if SecoesCortina::e_minha(s) => self.cortina.definir(s, n_linhas, bytes),
             s if SecoesTerreno::e_minha(s) => self.terreno.definir(s, n_linhas, bytes),
+            s if SecoesMassa::e_minha(s) => self.massa.definir(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         };
         if r.is_ok() {
@@ -476,6 +480,7 @@ impl Cena {
             s if SecoesGC::e_minha(s) => self.gc.upsert(s, n_linhas, bytes),
             s if SecoesCortina::e_minha(s) => self.cortina.upsert(s, n_linhas, bytes),
             s if SecoesTerreno::e_minha(s) => self.terreno.upsert(s, n_linhas, bytes),
+            s if SecoesMassa::e_minha(s) => self.massa.upsert(s, n_linhas, bytes),
             _ => Err(ENTRADA),
         }
     }
@@ -513,6 +518,10 @@ impl Cena {
             }
             s if SecoesTerreno::e_minha(s) => {
                 self.terreno.remover(s, ids);
+                Ok(())
+            }
+            s if SecoesMassa::e_minha(s) => {
+                self.massa.remover(s, ids);
                 Ok(())
             }
             _ => Err(ENTRADA),

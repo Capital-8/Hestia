@@ -3,7 +3,11 @@ import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXT
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLineType, type DxfUnit } from './dxfDoc.ts';
 import { DXF_LAYER_GENERIC } from './dxfGeneric.ts';
 import { DXF_LAYER_LOTE, DXF_LAYER_LOTE_EDIFICAVEL, DXF_LAYER_TERRENO_BORDA, DXF_LAYER_TERRENO_CURVAS, DXF_LAYER_TERRENO_CURVAS_MESTRAS, DXF_LAYER_TERRENO_REGIAO, type DxfTerrenoPath } from './dxfPlantaTerreno.ts';
+import { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING, structuralDxfShapes } from './dxfStructural.ts';
+import { DXF_LAYER_MASS, type DxfMassPath } from './dxfMassa.ts';
 import { dxfLayerCanonical, dxfLayerName, dxfLayerPrefix, t, type Lang } from './i18n.ts';
+
+export { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING } from './dxfStructural.ts';
 
 /** Ponto em metros: x para a direita, y para cima (planta). */
 export interface DxfPoint {
@@ -152,6 +156,11 @@ export interface DxfLevelGeometry {
    * um na sua camada (`TERRENO_*`, `LOTE`, `LOTE_EDIFICAVEL`). Quem monta é o web (curvas e borda vêm do kernel). Ausente = nenhuma dessas camadas.
    */
   terreno?: DxfTerrenoPath[];
+  /**
+   * Massas conceituais na planta (ficha X1): linhas de `massa_planta` na camada `MASSA`. Ausente = nenhuma massa resolvida pelo kernel (ou categoria
+   * oculta, ou sem massa no nível): a camada não sai. Presente e vazio = a camada entra na tabela LAYER sem entidades.
+   */
+  masses?: DxfMassPath[];
 }
 
 /** Polilinha de cortina em planta: a camada da peça e os pontos (em metros); `closed` fecha o contorno e `dashed` põe o tracejado. */
@@ -173,6 +182,9 @@ const CURTAIN_LAYERS: readonly string[] = [DXF_LAYER_CURTAIN_MULLION, DXF_LAYER_
 function curtainLayersOf(geo: DxfLevelGeometry): string[] {
   return geo.curtains === undefined ? [] : [...CURTAIN_LAYERS];
 }
+
+/** A camada `MASSA` entra na tabela LAYER quando a planta tem massa resolvida pelo kernel (mesmo vazia). */
+const massLayersOf = (geo: DxfLevelGeometry): string[] => (geo.masses === undefined ? [] : [DXF_LAYER_MASS]);
 
 export const DXF_LAYER_CONTOUR = 'PAREDE_CONTORNO';
 /** Camada dos forros da planta de forro (decisão 0021). */
@@ -326,6 +338,7 @@ const LAYER_STYLE: Record<string, LayerStyle> = {
   [DXF_LAYER_ROOF_PROJECTION]: { linetype: 'DASHED', color: 7 },
   [DXF_LAYER_STAIR_ABOVE]: { linetype: 'DASHED', color: 7 },
   [DXF_LAYER_RAMP_ABOVE]: { linetype: 'DASHED', color: 7 },
+  [DXF_LAYER_BEAM]: { linetype: 'DASHED', color: 7 },
 };
 const styleOf = (layer: string): LayerStyle => LAYER_STYLE[layer] ?? { linetype: 'CONTINUOUS', color: 7 };
 
@@ -354,6 +367,7 @@ export const DXF_CATEGORY_COLORS: Record<GraphicsCategory, number> = {
   railing: 9,
   site: 34,
   lot: 1,
+  mass: 8,
   room: 7,
   annotation: 7,
   generic: 8,
@@ -427,6 +441,11 @@ const FIXED_LINE_ROLE = new Map<string, DxfLineRole>([
   [DXF_LAYER_TERRENO_REGIAO, cut('site')],
   [DXF_LAYER_LOTE, cut('lot')],
   [DXF_LAYER_LOTE_EDIFICAVEL, cut('lot')],
+  [DXF_LAYER_COLUMN, cut('wall')],
+  [DXF_LAYER_BEAM, projection('slab')],
+  [DXF_LAYER_FOOTING, cut('slab')],
+  // Massa conceitual: peso de corte da categoria 'mass' (a linha cortada) para todas as linhas dela.
+  [DXF_LAYER_MASS, cut('mass')],
 ]);
 
 /** Papel de uma camada pelo nome. `undefined` = sem categoria (sai com -3). `PAREDE_<material>` é corte de parede. */
@@ -466,7 +485,7 @@ function linesOf(geo: DxfLevelGeometry): Line[] {
  * Polilinhas do nível: por cluster, as regiões de material e depois o contorno; depois as projeções de parede, os pisos,
  * as lajes, os telhados (e a projeção dos fora do intervalo), as escadas e, por último, os vãos.
  */
-function shapesOf(project: Project, geo: DxfLevelGeometry): Shape[] {
+function shapesOf(project: Project, geo: DxfLevelGeometry, levelId?: Id): Shape[] {
   const out: Shape[] = [];
   const push = (layer: string, polygons: DxfPolygons): void => {
     for (const poly of polygons) {
@@ -517,6 +536,8 @@ function shapesOf(project: Project, geo: DxfLevelGeometry): Shape[] {
   for (const tn of geo.terreno ?? []) {
     if (tn.pts.length >= 2) out.push({ layer: tn.layer, pts: tn.pts, closed: tn.closed, ...(tn.dashed === true ? { dashed: true } : {}), ...(tn.elevation === undefined ? {} : { elevation: tn.elevation }) });
   }
+  if (levelId) out.push(...structuralDxfShapes(project, levelId));
+  for (const m of geo.masses ?? []) out.push({ layer: DXF_LAYER_MASS, pts: m.pts, closed: m.closed, ...(m.dashed === true ? { dashed: true } : {}) });
   return out;
 }
 
@@ -534,8 +555,8 @@ function layerNamesOf(shapes: Shape[], lines: Line[], texts: DxfNoteText[]): str
 }
 
 /** Nomes das camadas que `exportDxf` põe na tabela LAYER para esta geometria (a base de `lineWeights`). */
-export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt'): string[] {
-  return [...new Set([...layerNamesOf(shapesOf(project, geo), linesOf(geo), textsOf(geo)), ...curtainLayersOf(geo), ...(geo.extraLayers ?? [])])]
+export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang = 'pt', levelId?: Id): string[] {
+  return [...new Set([...layerNamesOf(shapesOf(project, geo, levelId), linesOf(geo), textsOf(geo)), ...curtainLayersOf(geo), ...massLayersOf(geo), ...(geo.extraLayers ?? [])])]
     .map((name) => dxfLayerName(name, lang))
     .sort();
 }
@@ -550,10 +571,10 @@ export function dxfLayersOf(project: Project, geo: DxfLevelGeometry, lang: Lang 
  */
 export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry, lang: Lang = 'pt'): DxfDoc {
   if (!project.levels.some((l) => l.id === levelId)) throw new Error(t(lang, 'io_err_dxf_level_missing', { id: levelId }));
-  const shapes = shapesOf(project, geo);
+  const shapes = shapesOf(project, geo, levelId);
   const lines = linesOf(geo);
   const texts = textsOf(geo);
-  const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...curtainLayersOf(geo), ...(geo.extraLayers ?? [])])].sort().map((name) => {
+  const layers: DxfDocLayer[] = [...new Set([...layerNamesOf(shapes, lines, texts), ...curtainLayersOf(geo), ...massLayersOf(geo), ...(geo.extraLayers ?? [])])].sort().map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });

@@ -19,7 +19,7 @@ import type { StepEntity, StepValue } from './step.ts';
 
 /** Mapas de tipo que viajam no `TypesJSON`. */
 type ProjectTypes = Partial<
-  Pick<Project, 'wallTypes' | 'floorTypes' | 'slabTypes' | 'ceilingTypes' | 'roofTypes' | 'stairTypes' | 'openingTypes' | 'gridTypes'>
+  Pick<Project, 'wallTypes' | 'floorTypes' | 'slabTypes' | 'ceilingTypes' | 'roofTypes' | 'stairTypes' | 'openingTypes' | 'gridTypes' | 'mullionTypes' | 'curtainPanelTypes'>
 >;
 
 /** Esqueleto do projeto que o `Pset_Hestia_Project` carrega. */
@@ -263,7 +263,7 @@ function plausible(record: HestiaElementRecord): boolean {
 /** Filhos de um produto por `IfcRelAggregates` (águas do telhado, lances da escada): já vêm no registro do pai. */
 const aggregateCache = new WeakMap<IfcFile, Map<number, number[]>>();
 
-function aggregateIndex(f: IfcFile): Map<number, number[]> {
+export function aggregateIndex(f: IfcFile): Map<number, number[]> {
   const hit = aggregateCache.get(f);
   if (hit) return hit;
   const index = new Map<number, number[]>();

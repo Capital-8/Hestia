@@ -1,10 +1,12 @@
-import { newId, type DetailLine, type DetailRegion, type Dimension, type ElementTag, type Id, type SectionAnnotations, type TextNote, type Wall } from '@hestia/model';
+import { newId, type DetailLine, type DetailRegion, type Dimension, type ElementTag, type Id, type RevisionCloud, type SectionAnnotations, type SpotAnnotation, type SymbolAnnotation, type TextNote, type Wall } from '@hestia/model';
 import type { Inference, PointerInfo, PreviewItem, Tool, ToolEnv } from './types.ts';
 import { infer, type InferContext } from './infer.ts';
 import { floorEdges, floorVertices } from './floorPick.ts';
+import { detailEdges, detailPoints } from './detailSnap.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapIndex } from './componentSnap.ts';
 import { cadSnapIndexes } from './snapCad.ts';
+import { TOP_FACE_TOOLS } from './snapTopFace.ts';
 import type { Vec2 } from '@hestia/geom';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
 
@@ -95,12 +97,14 @@ export abstract class ToolBase implements Tool {
         orthoLock: options.orthoLock || angle?.ortho === true,
         polar: angle?.polar === true,
         polarIncrementDeg: angle?.polarIncrementDeg,
+        topFaceTool: TOP_FACE_TOOLS.has(this.id),
         ...extra,
       });
     }
     const project = this.env.project();
     const levelId = this.env.levelId();
     const hidden = this.env.hiddenInView?.();
+    const planId = viewPlanId(this.env);
     const under = this.env.underlayLevelId?.() ?? null;
     const levelsIn = (l: string): string[] => (under ? [l, under] : [l]);
     const visible = hidden ? (w: Wall) => !hidden.has(w.id) : undefined;
@@ -122,6 +126,7 @@ export abstract class ToolBase implements Tool {
       polar: angle?.polar === true,
       polarIncrementDeg: angle?.polarIncrementDeg,
       snap: options.snap,
+      topFaceTool: TOP_FACE_TOOLS.has(this.id),
       ...extra,
       indexed: components,
       ...(hidden ? { hiddenIds: hidden } : {}),
@@ -129,11 +134,14 @@ export abstract class ToolBase implements Tool {
       extraPoints: [
         ...levels.flatMap((l) => floorVertices(project, l)),
         ...openings.flatMap((g) => g.points),
+        // Pontas e ponto médio das linhas de detalhe da vista (planta de piso ou de área).
+        ...detailPoints(project, levelId, planId, hidden),
         ...(extra.extraPoints ?? []),
       ],
       extraSegments: [
         ...levels.flatMap((l) => floorEdges(project, l)),
         ...openings.flatMap((g) => g.segments),
+        ...detailEdges(project, levelId, planId, hidden),
         ...(extra.extraSegments ?? []),
       ],
       // Desenhos CAD importados visíveis: o que a vista oculta (temporária ou permanentemente) não se captura.
@@ -163,7 +171,7 @@ export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?
  * Acrescenta uma anotação na vista de corte/elevação ativa, pelo MESMO comando por item da planta (`sectionId`), com
  * validação do modelo e rótulo de desfazer certos. Falso quando a vista ativa não é corte.
  */
-function appendSection<K extends keyof SectionAnnotations>(env: ToolEnv, key: K, item: SectionAnnotations[K][number]): boolean {
+function appendSection<K extends keyof SectionAnnotations>(env: ToolEnv, key: K, item: NonNullable<SectionAnnotations[K]>[number]): boolean {
   const sec = env.section?.();
   if (!sec) return false;
   const levelId = env.levelId();
@@ -184,6 +192,15 @@ function appendSection<K extends keyof SectionAnnotations>(env: ToolEnv, key: K,
     case 'tags':
       env.exec({ type: 'addTag', levelId, sectionId, item: item as ElementTag });
       break;
+    case 'spots':
+      env.exec({ type: 'addSpot', levelId, sectionId, item: item as SpotAnnotation });
+      break;
+    case 'revisionClouds':
+      env.exec({ type: 'addRevisionCloud', levelId, sectionId, item: item as RevisionCloud });
+      break;
+    case 'symbols':
+      env.exec({ type: 'addSymbol', levelId, sectionId, item: item as SymbolAnnotation });
+      break;
   }
   return true;
 }
@@ -193,3 +210,6 @@ export const addSectionText = (env: ToolEnv, item: TextNote): boolean => appendS
 export const addSectionDetailLine = (env: ToolEnv, item: DetailLine): boolean => appendSection(env, 'detailLines', item);
 export const addSectionDetailRegion = (env: ToolEnv, item: DetailRegion): boolean => appendSection(env, 'detailRegions', item);
 export const addSectionTag = (env: ToolEnv, item: ElementTag): boolean => appendSection(env, 'tags', item);
+export const addSectionSpot = (env: ToolEnv, item: SpotAnnotation): boolean => appendSection(env, 'spots', item);
+export const addSectionRevisionCloud = (env: ToolEnv, item: RevisionCloud): boolean => appendSection(env, 'revisionClouds', item);
+export const addSectionSymbol = (env: ToolEnv, item: SymbolAnnotation): boolean => appendSection(env, 'symbols', item);

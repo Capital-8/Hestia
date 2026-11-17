@@ -1,8 +1,9 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
-import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
+import { bandTopAt, fuseBands, layerPartsOf, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
+import { cunhasDoNivel3d } from './cunhaSolid.ts';
+import { extrudeLayerTilted, tiltJoinOf, tiltLevelsSignature } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
-import { emendaDaAgua } from './roofEmendas3d.ts';
 
 /**
  * Faixa de `indices` de um lote que pertence a um elemento: `indices[start .. start + count)`, sempre múltiplo de 3
@@ -28,6 +29,21 @@ export interface SolidBatch {
   group?: string;
 }
 
+/**
+ * Lote só para leitura (consumidores: GPU, arestas, fantasma, picking). `SolidBatch` é atribuível a ele. Aceita arrays
+ * tipados e, sem `normals`, o lote é de sombreamento chapado por derivadas no shader (`flatShading`): malha indexada
+ * soldada, sem normais por vértice (objetos genéricos importados, `buildGenericSolids`).
+ */
+export interface LoteSolido {
+  materialId: Id;
+  category: GraphicsCategory;
+  positions: ArrayLike<number>;
+  normals?: ArrayLike<number>;
+  indices: ArrayLike<number>;
+  ids: ElementRange[];
+  group?: string;
+}
+
 /** Registra as faixas de `indices` que `fn` acrescenta ao lote `b` como pertencentes ao elemento `id`. */
 export function ofElement(b: SolidBatch, id: Id, fn: () => void): void {
   const start = b.indices.length;
@@ -35,12 +51,12 @@ export function ofElement(b: SolidBatch, id: Id, fn: () => void): void {
   if (b.indices.length > start) b.ids.push({ id, start, count: b.indices.length - start });
 }
 
-function oriented(r: Ring, ccw: boolean): Ring {
+export function oriented(r: Ring, ccw: boolean): Ring {
   const a = ringArea(r);
   return (a > 0) === ccw ? r : [...r].reverse();
 }
 
-function push(b: SolidBatch, v: number[], n: [number, number, number], tris: number[]): void {
+export function push(b: SolidBatch, v: number[], n: [number, number, number], tris: number[]): void {
   const base = b.positions.length / 3;
   for (let i = 0; i < v.length; i += 3) {
     b.positions.push(v[i]!, v[i + 1]!, v[i + 2]!);
@@ -141,7 +157,7 @@ const LINE_EPS = 3e-7;
 const Z_EPS = 1e-9;
 
 /** Triângulos com a normal voltada para `n` (a ordem dos vértices é corrigida pelo produto vetorial). */
-function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
+export function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
   for (const p of poly) {
     if (!p[0]) continue;
     const m = triangulate(p);
@@ -349,7 +365,9 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  * mudou (sem anexo de telhado, sem edição) dá a mesma chave e reaproveita o sólido, em vez de refazer as uniões.
  */
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
-  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}`;
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}:${tiltLevelsSignature(tj, !!rw.sag)}${tj.all.nodes ? `:n=${JSON.stringify(tj.all.nodes)}` : ''}${tj.all.vizinhas?.length ? `:v=${tj.all.vizinhas.map((nj) => nj.layers.map((nl) => `${nl.raw.length}/${tiltLevelsSignature({ all: nj, layer: nl }, true)}`).join(',')).join(';')}` : ''}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
+  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
 }
 
 /** Sólido da camada (do cache, ou extrudado agora e guardado). Quem chama copia os dados; o cache não é alterado. */
@@ -364,7 +382,10 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   }
   wallLayerStats.misses++;
   const local: SolidBatch = { materialId: l.materialId, category: 'wall', positions: [], normals: [], indices: [], ids: [] };
-  ofElement(local, rw.wallId, () => extrudeLayer(local, fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ));
+  const fused = fuseBands(wallLayerBandsAfterJunction(jl, rw, l));
+  const tj = tiltJoinOf(rw, l, jl);
+  const tilted = (!!rw.tilt || !!tj) && !fused.some((x) => x.slope);
+  ofElement(local, rw.wallId, () => (tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt ?? 0, { push, emitFace, oriented, unionAll, zEps: Z_EPS }, tj) : extrudeLayer(local, fused, rw.baseZ)));
   const bytes = estimatedCacheEntryBytes(key, local);
   if (bytes > WALL_CACHE_BYTES_MAX) return local;
   while (wallLayerCache.size && wallLayerCacheBytes + bytes > WALL_CACHE_BYTES_MAX) {
@@ -377,6 +398,9 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   wallLayerCacheBytes += bytes;
   return local;
 }
+
+/** Cunhas de transição (etapa R) do nível, nos lotes do material da camada principal da parede dona. */
+export const appendCunhas = (byMat: Map<Id, SolidBatch>, r: ResolvedLevel, jl?: JunctionLevel): void => cunhasDoNivel3d(r, jl).forEach((c) => appendSolid(batchOf(byMat, c.materialId, 'wall'), c));
 
 /** Acrescenta o sólido local `f` ao lote `b`, deslocando vértices, índices e faixas (cópia: `f` fica intacto). */
 export function appendSolid(b: SolidBatch, f: SolidBatch): void {
@@ -411,6 +435,7 @@ export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel): LevelSol
   for (const rw of Object.values(r.walls)) {
     for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
   }
+  appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()] };
 }
 
@@ -489,41 +514,4 @@ export function buildSlabSolids(slabs: ResolvedSlab[], jl?: JunctionLevel): Soli
   return [...byMat.values()];
 }
 
-/**
- * Sólidos dos telhados (D2): por água e por camada, uma extrusão cujo topo segue o plano da água menos `below` e cuja
- * base está `thickness` abaixo, na vertical. Empenas não entram aqui: a parede ajusta o topo no motor.
- */
-export function buildRoofSolids(roofs: ResolvedRoof[]): SolidBatch[] {
-  const byMat = new Map<Id, SolidBatch>();
-  for (const r of roofs) {
-    r.planes.forEach((pl, k) => {
-      // As emendas entre águas de mesma cota (facetas de um arco) não levam parede: sem elas, a vista de arestas não
-      // desenha um raio em cada lado amostrado.
-      const emenda = emendaDaAgua(r, k);
-      for (const l of r.layers) {
-        if (l.thickness < 1e-6) continue;
-        const b = batchOf(byMat, l.materialId, 'roof');
-        const topAt = (x: number, y: number): number => planeZ(pl, { x, y }) - l.below;
-        const bottomAt = (x: number, y: number): number => topAt(x, y) - l.thickness;
-        ofElement(b, r.roofId, () => {
-          for (const poly of pl.polygon) extrudeRoofPolygon(b, poly, l.thickness, topAt, bottomAt, emenda);
-        });
-      }
-    });
-  }
-  return [...byMat.values()];
-}
-
-/** Extrusão de uma água por camada (como `extrudePolygon`), sem a parede das emendas com outra água (`emenda`). */
-function extrudeRoofPolygon(b: SolidBatch, poly: Polygon, espessura: number, topAt: (x: number, y: number) => number, bottomAt: (x: number, y: number) => number, emenda: (p: Vec2, q: Vec2) => boolean): void {
-  if (espessura < 1e-6 || !poly[0]) return;
-  extrudeCaps(b, poly, 0, espessura, topAt, bottomAt);
-  for (const ring of poly.map((r, i) => oriented(r, i === 0))) {
-    for (let i = 0; i < ring.length; i++) {
-      const p = ring[i]!;
-      const q = ring[(i + 1) % ring.length]!;
-      if (emenda(p, q)) continue;
-      pushWall(b, p, q, bottomAt(p.x, p.y), bottomAt(q.x, q.y), topAt(p.x, p.y), topAt(q.x, q.y));
-    }
-  }
-}
+export { buildRoofSolids } from './roofSolids3d.ts';

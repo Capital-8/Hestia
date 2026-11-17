@@ -13,6 +13,30 @@ const ESFERA_XADREZ = 'M16 29L16 29L16 28.9L15.2 28.9L14.3 28.8L13.5 28.7L12.8 2
 
 const R: Record<string, string> = {
   ...ICONES_MASSA_TERRENO,
+  spotElevation:
+    '<circle class="ic-s1" cx="16" cy="18" r="8"/>' +
+    p('s3', 'M16 10A8 8 0 0 1 24 18H16Z') +
+    p('s3', 'M16 26A8 8 0 0 1 8 18H16Z') +
+    p('ln', 'M5 18H27M16 7V29') +
+    p('ac', 'M16 10L21 5H29'),
+  spotCoordinate:
+    '<circle class="ic-s1" cx="16" cy="16" r="7"/>' +
+    p('ln', 'M16 3V29M3 16H29') +
+    p('fa', 'M16 3L13.5 7H18.5ZM29 16L25 13.5V18.5Z') +
+    '<circle class="ic-ac" cx="16" cy="16" r="2.5"/>',
+  revisionCloud:
+    p('bl', 'M8 23A4.5 4.5 0 0 1 6.5 14.5A5.5 5.5 0 0 1 16 9A5.5 5.5 0 0 1 25.5 14.5A4.5 4.5 0 0 1 24 23Z') +
+    p('ac', 'M8 23A4.5 4.5 0 0 1 6.5 14.5A5.5 5.5 0 0 1 16 9A5.5 5.5 0 0 1 25.5 14.5A4.5 4.5 0 0 1 24 23Z'),
+  northArrow:
+    '<circle class="ic-s1" cx="16" cy="18" r="10"/>' +
+    p('fa', 'M16 6L21 20L16 17Z') +
+    p('s2', 'M16 6L11 20L16 17Z') +
+    '<text class="ic-tx" x="16" y="7.5" text-anchor="middle">N</text>',
+  tagRoom:
+    p('bl', 'M4 5H28V27H4Z') +
+    p('s1', 'M8 12H24V20H8Z') +
+    p('ac', 'M11 16H21'),
+  ...ICONES_MASSA_TERRENO,
   roomsep: p('s1', 'M3 3H29V29H3Z') + p('bl', 'M7 11H25V25H7Z') + p('ln', 'M1 18H31'),
   // Seleção e edição
   select: p('s1', 'M8 3V24L13 19L16.5 27L19.8 25.6L16.5 18.2L23 18Z'),
@@ -92,6 +116,13 @@ const R: Record<string, string> = {
   component: p('s2', 'M6 10H24V28H6Z') + p('s3', 'M6 10L11 5H29L24 10Z') + p('s3', 'M24 10L29 5V23L24 28Z'),
   column: p('s2', 'M11 3H21V29H11Z') + p('s3', 'M8 26H24V29H8Z') + p('s3', 'M8 3H24V6H8Z'),
   beam: p('s2', 'M3 11H29V19H3Z') + p('s3', 'M3 19H29V23H3Z'),
+  footing: p('s3', 'M4 22L16 28L28 22V25L16 31L4 25Z') + p('s2', 'M4 19L16 25L28 19V22L16 28L4 22Z') + p('s1', 'M4 19L16 25L28 19L16 13Z') + p('s3', 'M12 12V17H16V14H20V12Z') + p('s2', 'M12 12H16V17H12Z') + p('s1', 'M12 12L16 10L20 12V17H12Z'),
+  brace: p('s3', 'M4 4H28V8H4Z') + p('s3', 'M4 24H28V28H4Z') + p('s3', 'M4 8H8V24H4Z') + p('s3', 'M24 8H28V24H24Z') + p('bl', 'M8 8L24 24M24 8L8 24') + p('ac', 'M14 14L18 18M18 14L14 18'),
+  truss: p('s2', 'M3 6H29V9H3Z') + p('s2', 'M3 23H29V26H3Z') + p('ln2', 'M5 9L11 23M11 23L17 9M17 9L23 23M23 23L27 9') + p('bl', 'M8 9H14V23H8Z') + p('bl', 'M20 9H26V23H20Z'),
+  beamsystem: p('ln2', 'M4 6H28V26H4Z') + p('s2', 'M4 9H28V12H4Z') + p('s2', 'M4 16H28V19H4Z') + p('s2', 'M4 23H28V26H4Z') + p('bl', 'M10 6V26M22 6V26'),
+  rebar: p('ac', 'M7 7H25V25H7Z') + p('fa', 'M9 9H13V13H9Z') + p('fa', 'M19 9H23V13H19Z') + p('fa', 'M9 19H13V23H9Z') + p('fa', 'M19 19H23V23H19Z') + p('ln2', 'M11 11H21V21H11Z'),
+  shaft: p('s3', 'M4 8L16 14L28 8V11L16 17L4 11Z') + p('s2', 'M4 8L16 14V26L4 20Z') + p('s1', 'M16 14L28 8V20L16 26Z') + p('ac ic-ds', 'M7 13L25 21M25 13L7 21'),
+  connection: p('s3', 'M4 10H16V22H4Z') + p('s2', 'M16 10H28V22H16Z') + p('bl', 'M10 6H22V26H10Z') + p('fa', 'M12 8H14V10H12Z') + p('fa', 'M18 8H20V10H18Z') + p('fa', 'M12 22H14V24H12Z') + p('fa', 'M18 22H20V24H18Z'),
   ramp: p('s1', 'M3 26L29 12V26Z') + p('ac', 'M8 22L22 16'),
   railing: p('ln2', 'M4 9H28') + p('s2', 'M6 9V26M12 9V26M18 9V26M24 9V26') + p('ln', 'M4 26H28'),
   level: p('ln ic-ds', 'M2 21H30') + p('s3', 'M5 9L11 15H-1Z') + p('ac', 'M8 21V8'),

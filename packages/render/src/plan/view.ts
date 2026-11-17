@@ -1,11 +1,12 @@
 import { mesmoSemGuardaCorpo } from './versoesPlanta.ts';
-import { difference, orientedRect, union, type MultiPolygon } from '@hestia/geom';
+import { difference, union, type MultiPolygon } from '@hestia/geom';
 import {
   applyPartialStructure,
   classifyLevelEntries,
   cutLevelByJunction,
   frameOfWall,
   junctionLevel,
+  openingBandRing,
   openingGeometry,
   resolveFloors,
   resolveLevel,
@@ -281,7 +282,7 @@ function ghostOps(p: Project, levelId: Id, view: PlanView, ids: Id[], theme: Pla
       const f = frameOfWall(p, e.hostId);
       if (!f) continue;
       const g = openingGeometry(p, e, f);
-      out.push({ pts: orientedRect(g.center.x, g.center.y, g.u.x, g.u.y, g.width / 2, g.thickness / 2 + 0.02), closed: true, ...style });
+      out.push({ pts: openingBandRing(g), closed: true, ...style });
       continue;
     }
     const m = footprints.get(id);
@@ -289,3 +290,4 @@ function ghostOps(p: Project, levelId: Id, view: PlanView, ids: Id[], theme: Pla
   }
   return out;
 }
+export { simboloNaCotaDoCorte, tiltProjectionStrokes } from './tiltOps.ts';

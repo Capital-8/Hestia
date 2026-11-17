@@ -1,11 +1,41 @@
 import { levelElevation } from './queries.ts';
 import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
+import { isMass } from './mass.ts';
+import type { Mass } from './massTypes.ts';
 import { isTerrain, isTerrainRegion } from './terrain.ts';
 import { isLot } from './lot.ts';
 import type { Terrain, TerrainRegion } from './terrainTypes.ts';
 import type { Lot } from './lotTypes.ts';
-import { isCeiling, isFloor, isGuardaCorpo, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Ceiling, type Element, type Floor, type GuardaCorpo, type Id, type Project, type Ramp, type Roof, type Room, type Slab, type Stair, type Wall } from './types.ts';
+import {
+  isBeam,
+  isCeiling,
+  isColumn,
+  isFloor,
+  isFooting,
+  isGuardaCorpo,
+  isRamp,
+  isRoof,
+  isRoom,
+  isSlab,
+  isStair,
+  isWall,
+  type Beam,
+  type Ceiling,
+  type Column,
+  type Element,
+  type Floor,
+  type Footing,
+  type GuardaCorpo,
+  type Id,
+  type Project,
+  type Ramp,
+  type Roof,
+  type Room,
+  type Slab,
+  type Stair,
+  type Wall,
+} from './types.ts';
 import { t, type Lang } from './i18n.ts';
 
 /**
@@ -21,8 +51,26 @@ export interface SetElementLevel {
 }
 
 /** Elementos com nível próprio. Aberturas não têm: acompanham a parede anfitriã. */
-export const hasLevel = (e: Element | undefined): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Terrain | TerrainRegion | Lot | Room | CadDrawing =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isGuardaCorpo(e) || isTerrain(e) || isTerrainRegion(e) || isLot(e) || isRoom(e) || isCad(e);
+export const hasLevel = (
+  e: Element | undefined,
+): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | CadDrawing | Column | Beam | Footing =>
+  isWall(e) ||
+  isFloor(e) ||
+  isSlab(e) ||
+  isCeiling(e) ||
+  isRoof(e) ||
+  isStair(e) ||
+  isRamp(e) ||
+  isGuardaCorpo(e) ||
+  isMass(e) ||
+  isTerrain(e) ||
+  isTerrainRegion(e) ||
+  isLot(e) ||
+  isRoom(e) ||
+  isCad(e) ||
+  isColumn(e) ||
+  isBeam(e) ||
+  isFooting(e);
 
 /** Nível de um elemento com nível próprio; null para abertura ou id inexistente. */
 export function elementLevelId(e: Element | undefined): Id | null {
@@ -50,7 +98,9 @@ export function applyElementLevel(p: Project, c: SetElementLevel, lang: Lang = '
     if (!hasLevel(e)) continue;
     const delta = c.keep === 'elevation' ? levelElevation(p, e.levelId) - target.elevation : 0;
     e.levelId = target.id;
-    if (isWall(e) || isStair(e) || isRamp(e)) e.baseOffset += delta;
+    if (isWall(e) || isStair(e) || isRamp(e) || isColumn(e) || isMass(e)) e.baseOffset += delta;
+    else if (isBeam(e)) e.zOffset += delta;
+    else if (isFooting(e)) e.heightOffset += delta;
     // Guarda-corpo hospedado segue a cota do hospedeiro (o nível vem dele); só o manual tem cota própria.
     else if (isGuardaCorpo(e)) {
       if (e.hospedeiro.tipo === 'manual') e.cotaBase += delta;
