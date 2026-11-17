@@ -166,6 +166,28 @@ try {
     await btn('Cancelar').click();
     check('Cancelar fecha o esboço', !(await estadoEsboco()).ativo);
   });
+  await passo('8. Sem regressão: piso, laje, forro e telhado seguem pelo esboço (galeria própria) e concluem', async () => {
+    await H(() => window.__hestia.useUi.setState({ selection: [] }));
+    for (const alvo of ['floor', 'slab', 'ceiling', 'roof']) {
+      await H((alvo) => window.__hestia.editor.perimetro.begin(alvo), alvo);
+      await page.waitForTimeout(400);
+      const galeria = [...new Set((await page.getByRole('button').evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')))).filter((n) => n === 'Retângulo' || n === 'Círculo' || n === 'Pegar face'))];
+      const r = await H((alvo) => {
+        const { editor, useUi } = window.__hestia;
+        const antes = Object.values(editor.project.elements).filter((e) => e.kind === alvo).length;
+        const ativo = editor.perimetro.view().target;
+        const segs = [[60, 60], [66, 60], [66, 64], [60, 64]].map((a, i, ar) => { const b = ar[(i + 1) % 4]; return { id: `r${i}`, a: { x: a[0], y: a[1] }, b: { x: b[0], y: b[1] }, definesSlope: true }; });
+        editor.activeTool.loadDraft({ target: alvo, segs, selected: [], defaults: { definesSlope: true, slopePct: 30, overhang: 0.5 } });
+        editor.perimetro.finish();
+        const fechou = !editor.perimetro.ativo;
+        if (!fechou) editor.perimetro.cancel();
+        const depois = Object.values(editor.project.elements).filter((e) => e.kind === alvo).length;
+        return { ativo, galeria: [], fechou, novos: depois - antes, msg: JSON.stringify(useUi.getState().status) };
+      }, alvo);
+      r.galeria = galeria;
+      check(`${alvo}: esboço com alvo ${alvo}, galeria com Retângulo e Círculo, Concluir cria 1 elemento`, r.ativo === alvo && r.galeria.includes('Retângulo') && r.galeria.includes('Círculo') && r.fechou && r.novos === 1, JSON.stringify(r));
+    }
+  });
 } finally {
   console.log('\nerros de console:', erros.length);
   for (const e of erros.slice(0, 5)) console.log('  ', e.slice(0, 200));
