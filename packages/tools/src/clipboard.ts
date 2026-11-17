@@ -51,12 +51,6 @@ export interface ClipBuffer {
   lots?: Lot[];
   /** Massas (ausente em buffers antigos = nenhuma). A cópia nasce com id novo e mantém seções e `arranjo`. */
   masses?: Mass[];
-  /** Terrenos (ausente em buffers antigos = nenhum). As regiões deles vão em `terrainRegions`. */
-  terrains?: Terrain[];
-  /** Regiões dos terrenos copiados (ausente em buffers antigos = nenhuma); o colar remapeia `terrenoId` para o terreno novo. */
-  terrainRegions?: TerrainRegion[];
-  /** Lotes (ausente em buffers antigos = nenhum). O lote é 2D: cola em qualquer nível, com os mesmos lados. */
-  lots?: Lot[];
 }
 
 /** Gerador de identificadores; injetável para teste. */
@@ -89,12 +83,6 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
   const terrainRegions = [...regioesDosTerrenos, ...regioesSoltas].map((r) => structuredClone(r));
   const lots = ids.map((id) => p.elements[id]).filter(isLot).map((l) => structuredClone(l));
   const railings = guardaCorposDaCopia(p, ids).map((id) => structuredClone(p.elements[id] as GuardaCorpo));
-  const terrains = ids.map((id) => p.elements[id]).filter(isTerrain).map((t) => structuredClone(t));
-  // Regiões do terreno copiado e as regiões SOZINHAS na seleção (essas ficam no terreno original ao colar).
-  const regioesDosTerrenos = terrains.flatMap((t) => regioesDoTerreno(p, t.id));
-  const regioesSoltas = ids.map((id) => p.elements[id]).filter(isTerrainRegion).filter((r) => !regioesDosTerrenos.some((x) => x.id === r.id));
-  const terrainRegions = [...regioesDosTerrenos, ...regioesSoltas].map((r) => structuredClone(r));
-  const lots = ids.map((id) => p.elements[id]).filter(isLot).map((l) => structuredClone(l));
   if (
     hostIds.size === 0 &&
     floors.length === 0 &&
