@@ -1,5 +1,6 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
+import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
@@ -122,6 +123,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const revealOutline = (polygons: MultiPolygon): void => {
     for (const ring of ringsOf(polygons)) revealStrokes.push({ pts: ring, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 });
   };
+
+  // Terreno (ficha V3): do kernel, ANTES do edifício (fica atrás); a categoria `site` desligada ou o terreno oculto não saem.
+  const terreno = terrenoCorteOps(p, s, theme, input.dark, hidden, paint.site, { noFill, hatchFor, halftone }, revealed);
+  fills.push(...terreno.fills); strokes.push(...terreno.strokes); revealStrokes.push(...terreno.reveal);
 
   // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento. O nome/cota do nível sai como texto de papel
   // (mm × escala da vista), sem a caixa do rótulo de interface: é anotação de nível, como a marca de corte na planta.
@@ -431,6 +436,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   massaCorteOps(p, s, theme, input.dark, hidden, paint.mass, fills, strokes, input.highlight);
   guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
+  const realceTN = terrenoCorteRealce(p, s, theme, hidden, paint.site, input.highlight);
+  fills.push(...realceTN.fills); strokes.push(...realceTN.strokes);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
 
   return { background: theme.bg, fills, strokes, labels };

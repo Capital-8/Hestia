@@ -25,6 +25,12 @@ import { IT_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { IT_TERRENO } from '../../areas/terreno.ts';
+import { IT_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { IT_GRAVIDADE } from '../../areas/gravidade.ts';
+import { IT_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { IT_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { IT_LOTE_UI } from '../../areas/lote-ui.ts';
 import { IT_MASSA } from '../../areas/massa.ts';
 import { IT_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { IT_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -39,6 +45,12 @@ export const IT_ALL = {
   ...IT_STRUCTURAL,
   ...IT_TAGGING,
   ...IT_GUARDA_CORPO,
+  ...IT_TERRENO,
+  ...IT_TERRENO_VISTA,
+  ...IT_GRAVIDADE,
+  ...IT_TERRENO_TABELA,
+  ...IT_LOTE_TABELA,
+  ...IT_LOTE_UI,
   ...IT_MASSA,
   ...IT_MASSA_PISOS,
   ...IT_MASSA_PAREDES,

@@ -100,6 +100,13 @@ import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyTerrainCommand } from './terrainCommands.ts';
+import { applyLotCommand } from './lotCommands.ts';
+import { isTerrain, isTerrainRegion, transformTerrain, transformTerrainRegion } from './terrain.ts';
+import { isLot, transformLot } from './lot.ts';
+import type { Localizacao } from './localizacao.ts';
+import type { OpTerreno, Terrain, TerrainRegion } from './terrainTypes.ts';
+import type { Lot } from './lotTypes.ts';
 import { applyMassCommand } from './massCommands.ts';
 import { isMass, transformMass } from './mass.ts';
 import type { ArranjoMassa, SecaoMassa } from './massTypes.ts';
@@ -158,6 +165,17 @@ export type Command =
   | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
   | { type: 'deletePerfilNorma'; id: Id }
   | { type: 'setNormaGuardaCorpo'; id: Id }
+  // Terreno, região de terreno, lote e localização (A.3 item 4): tratados em terrainCommands.ts e lotCommands.ts; apagar usa `deleteElements`.
+  | { type: 'addTerrain'; terrain: Omit<Terrain, 'order'> }
+  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color'>> }
+  | { type: 'editTerrainFontes'; terrenoId: Id; ops: OpTerreno[] }
+  | { type: 'addTerrainRegion'; regiao: Omit<TerrainRegion, 'order'> }
+  | { type: 'updateTerrainRegion'; id: Id; patch: Partial<Omit<TerrainRegion, 'id' | 'kind' | 'order' | 'contorno' | 'terrenoId'>> }
+  | { type: 'setTerrainRegionContorno'; id: Id; contorno: Vec2[] }
+  | { type: 'addLot'; lot: Omit<Lot, 'order'> }
+  | { type: 'updateLot'; id: Id; patch: Partial<Pick<Lot, 'name' | 'limites' | 'mostrarEdificavel' | 'color'>> }
+  | { type: 'setLotContorno'; id: Id; contorno: Vec2[]; lados: Lot['lados'] }
+  | { type: 'setLocalizacao'; localizacao: Localizacao | null }
   // Massa conceitual (A.3 item 4): tratados em massCommands.ts; apagar usa `deleteElements`.
   | { type: 'addMass'; mass: Omit<Mass, 'order'> }
   | { type: 'updateMass'; id: Id; patch: Partial<Omit<Mass, 'id' | 'kind' | 'order'>> }
@@ -289,6 +307,8 @@ function transformWall(w: Wall, t: Transform, copy = false): Wall {
 function removeIds(p: Project, ids: Id[]): void {
   const doomed = new Set(ids);
   for (const e of Object.values(p.elements)) if (isOpening(e) && doomed.has(e.hostId)) doomed.add(e.id);
+  // Apagar um terreno apaga as suas regiões, na mesma transação (A.3 item 4).
+  for (const e of Object.values(p.elements)) if (isTerrainRegion(e) && doomed.has(e.terrenoId)) doomed.add(e.id);
   unlinkFootingsOfDeletedColumns(p, doomed);
   for (const id of doomed) delete p.elements[id];
 }
@@ -326,6 +346,9 @@ function transformEach<E extends Element>(
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
   transformEach(p, c, isRoof, transformRoof);
+  transformEach(p, c, isTerrain, transformTerrain);
+  transformEach(p, c, isTerrainRegion, transformTerrainRegion);
+  transformEach(p, c, isLot, transformLot);
   transformEach(p, c, isMass, transformMass);
   transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
@@ -412,7 +435,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyTerrainCommand(p, c, lang) || applyLotCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall': {
       if (c.wall.tilt !== undefined) {

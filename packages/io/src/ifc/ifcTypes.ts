@@ -147,10 +147,21 @@ export interface IfcGeometry {
    */
   curtains?: IfcCurtainGeo;
   /**
+   * Terrenos resolvidos pelo kernel (ficha X1): a malha da superfície PROPOSTA de cada terreno (só o papel de superfície, sem saia nem base), em cota
+   * absoluta do projeto. Ausente = o kernel não está pronto: o terreno não sai e o exportador registra o aviso.
+   */
+  terrenos?: IfcTerrenoGeo[];
+  /**
    * Massas conceituais resolvidas pelo kernel (ficha X1): a malha `lod 2` de cada massa, uma casca por cópia do arranjo. Ausente (ou massa que não
    * está na lista, por exemplo sem kernel) = a massa não é exportada e o exportador registra o aviso.
    */
   masses?: IfcMassaGeo[];
+}
+
+/** Malha da superfície proposta de um terreno (`positions` x, y, z em metros; `indices` de três em três). */
+export interface IfcTerrenoGeo {
+  terrenoId: Id;
+  mesh: { positions: number[]; indices: number[] };
 }
 
 /** Massa conceitual resolvida pelo kernel: a malha `massa_malha` (lod 2) já separada por massa, com as quantidades de `quant_massa` quando existem. */

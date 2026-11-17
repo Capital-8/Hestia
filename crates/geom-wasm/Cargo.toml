@@ -18,6 +18,7 @@ crate-type = ["cdylib", "rlib"]
 # `i_overlay` cobre booleanas E offset com miter (`OutlineOffset`), então é a única dependência.
 # Licença MIT OR Apache-2.0, compatível com a MIT do projeto (ver NOTICE).
 i_overlay = "9"
+spade = { version = "2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 # So nos testes (o teste de contrato le schema/cena-v11.json). Nao entra no binario nem no NOTICE.

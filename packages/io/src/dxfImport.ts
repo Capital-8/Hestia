@@ -54,10 +54,10 @@ const PROFUNDIDADE_MAXIMA = 8;
 const ALTURA_PADRAO = 2.5;
 
 /** Par código/valor do arquivo (linhas alternadas). */
-type Par = [number, string];
+export type Par = [number, string];
 
 /** Registro do DXF: tipo (código 0) e os pares seguintes. */
-interface Registro {
+export interface Registro {
   tipo: string;
   pares: Par[];
 }
@@ -98,7 +98,7 @@ interface Contexto {
 }
 
 /** Variáveis do HEADER já lidas (unidade e extensão). */
-interface Cabecalho {
+export interface Cabecalho {
   unit: CadUnit;
   unitScale: number;
   extMin?: DxfPoint;
@@ -170,7 +170,7 @@ export function parseDxfText(text: string, name = 'CAD', lang: Lang = 'pt'): Dxf
 }
 
 /** Lê os pares código/valor (linhas alternadas), tolerando CRLF, LF e CR e um BOM no começo. */
-function lerPares(text: string): Par[] {
+export function lerPares(text: string): Par[] {
   const linhas = text.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
   const pares: Par[] = [];
   let pendente: number | null = null;
@@ -188,7 +188,7 @@ function lerPares(text: string): Par[] {
 }
 
 /** Separa as seções do arquivo (HEADER, TABLES, BLOCKS, ENTITIES...) pelos marcadores 0/SECTION. */
-function separarSecoes(pares: Par[]): Map<string, Par[]> {
+export function separarSecoes(pares: Par[]): Map<string, Par[]> {
   const secoes = new Map<string, Par[]>();
   let atual: Par[] | null = null;
   for (let i = 0; i < pares.length; i++) {
@@ -211,7 +211,7 @@ function separarSecoes(pares: Par[]): Map<string, Par[]> {
 }
 
 /** Agrupa os pares em registros pelo código 0. */
-function registros(pares: Par[]): Registro[] {
+export function registros(pares: Par[]): Registro[] {
   const out: Registro[] = [];
   for (const [codigo, valor] of pares) {
     if (codigo === 0) out.push({ tipo: valor.trim().toUpperCase(), pares: [] });
@@ -221,12 +221,12 @@ function registros(pares: Par[]): Registro[] {
 }
 
 /** Primeiro valor do código no registro. */
-function campo(registro: Registro, codigo: number): string | undefined {
+export function campo(registro: Registro, codigo: number): string | undefined {
   return registro.pares.find(([c]) => c === codigo)?.[1];
 }
 
 /** Valor numérico do código no registro (ponto decimal; vírgula não é aceita). */
-function numero(registro: Registro, codigo: number): number | undefined {
+export function numero(registro: Registro, codigo: number): number | undefined {
   const valor = campo(registro, codigo);
   if (valor === undefined) return undefined;
   const n = Number(valor.trim());
@@ -287,7 +287,7 @@ function verificarOcs(registro: Registro, coletor: Coletor): void {
 }
 
 /** Lê o `$INSUNITS` e o `$EXTMIN`/`$EXTMAX` do HEADER. */
-function lerCabecalho(pares: Par[], warnings: string[], lang: Lang): Cabecalho {
+export function lerCabecalho(pares: Par[], warnings: string[], lang: Lang): Cabecalho {
   const variaveis = new Map<string, Par[]>();
   let atual: string | null = null;
   for (const [codigo, valor] of pares) {

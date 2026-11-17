@@ -112,6 +112,11 @@ export interface ToolEnv {
   options(): ToolOptions;
   /** Altera opções da barra a partir da ferramenta (ex.: inclinação depois do Ajustar). Ausente = a ferramenta grava no objeto de `options()`. */
   setOptions?(patch: Partial<ToolOptions>): void;
+  /**
+   * Gravidade (ficha G1): cota do terreno proposto (z do projeto) no ponto, ou null (botão desligado, sem kernel ou fora do terreno).
+   * É só o valor inicial do elemento no primeiro clique: sem vínculo. Ausente = sem gravidade.
+   */
+  cotaDoTerreno?(x: number, y: number): number | null;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
   /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */

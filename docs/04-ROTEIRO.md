@@ -33,10 +33,14 @@ Corte e elevação, pranchas, escalas e pesos de linha, exportação PDF/DXF, qu
 **Pronto:** prancha impressa a partir do projeto.
 
 ## Fase 7 · Escada, estrutura, extras
-Escada (trajetória e croqui), pilar/viga/sapata, guarda-corpo, cortina de vidro, lote e zoneamento.
+Escada (trajetória e croqui), pilar/viga/sapata, guarda-corpo, cortina de vidro, lote e zoneamento (terreno e lote: ver a seção própria abaixo).
 
 ## Fase 8 · Interoperabilidade e nuvem
 IFC de entrada e saída, importador do Hestia 1, salvar na nuvem, link de compartilhamento.
+
+## Terreno e lote (entregue em 2026-11-15; decisão [0058](decisoes/0058-terreno-e-lote.md))
+Terreno topográfico (TIN no kernel Rust, com curvas de nível, corte, regiões plataforma, nivelada e subdivisão, e volumes de corte e aterro), importação de levantamento (DXF e CSV), edição por pontos, curvas e linhas de quebra, gravidade, localização do projeto e norte verdadeiro, lote com recuos, rumos e distâncias e índices urbanísticos, saída em IFC, DXF e prancha. Plano e estado em `docs/terreno/` (`PLANO.md`, `ESTADO.md`, `RETOMADA.md`); checklists em `docs/paridade/terrenos.md` e `lotes.md`; E2E em `tests/e2e/terreno.mjs`, com evidências em `docs/terreno/evidencias/final/`.
+Ficam de fora: envelope legal (depende da massa conceitual), Rastreamento e Referência (fase opcional, aguarda o dono), componentes de terreno, vínculo persistente parede-terreno e terreno em camadas.
 
 ## Plugins de integração (priorizado em 2026-11-07)
 A decisão [0047](decisoes/0047-plugins-de-integracao.md) tira *plugins* de "Fora da v1": fundação de API, protocolo e gerenciador (Suplementos › Ferramentas externas) em `docs/plugins/`. Falta o plugin do renderizador Rust.

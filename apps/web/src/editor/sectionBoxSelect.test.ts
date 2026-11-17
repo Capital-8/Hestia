@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import type { SectionResult } from '@hestia/engine';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { projetoTerreno, servicoTerreno, type LinhaCorteTN, type SectionResult } from '@hestia/engine';
+import { ProjectStore } from '@hestia/model';
 import type { MultiPolygon } from '@hestia/geom';
-import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from './sectionBoxSelect.ts';
+import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa, terrenosNaCaixaDoCorteDoProjeto } from './sectionBoxSelect.ts';
+import { terrenoNoPontoDoCorte } from './sectionPick.ts';
 
 /** Retângulo (t,z) como multipolígono de uma peça só. */
 const retangulo = (x0: number, y0: number, x1: number, y1: number): MultiPolygon => [[[{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]]];
@@ -49,5 +51,51 @@ describe('caixa de seleção na vista de corte (como na planta)', () => {
     expect(selecaoComCaixa(['w1', 'w2'], ['w2'], true)).toEqual(['w1', 'w2']);
     expect(selecaoComCaixa(['w1'], ['w2'], false)).toEqual(['w2']);
     expect(selecaoComCaixa(['w1'], [], false)).toEqual([]);
+  });
+});
+
+describe('terreno no corte: seleção por caixa e por clique (kernel simulado)', () => {
+  const pt = (s: number, z: number) => ({ s, z });
+  /** Solo cortado fechado de 0 a 20 em z 5..10 e o perfil existente em z = 10 (T5 em corte). */
+  const LINHAS: LinhaCorteTN[] = [
+    { terrenoId: 'tn_t5', papel: 'cortado', fechada: true, pontos: [pt(0, 10), pt(20, 10), pt(20, 5), pt(0, 5)] },
+    { terrenoId: 'tn_t5', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(20, 10)] },
+  ];
+  const secao = { length: 20, zMin: 0, zMax: 12, cut: [], silhouette: [], beyond: [], openings: [], membranes: [], levels: [], plano: { a: { x: 0, y: 10 }, b: { x: 20, y: 10 }, depth: 12 } } as unknown as SectionResult;
+  const falso = (linhas: LinhaCorteTN[]) => vi.spyOn(servicoTerreno(), 'corte').mockReturnValue(linhas);
+  afterEach(() => vi.restoreAllMocks());
+
+  it('janela pega o terreno só quando todas as linhas estão dentro; cruzamento, quando alguma toca', () => {
+    falso(LINHAS);
+    const p = projetoTerreno('T5');
+    expect(terrenosNaCaixaDoCorteDoProjeto(p, secao, { x: -1, y: 4 }, { x: 21, y: 11 }, undefined, 60)).toEqual(['tn_t5']);
+    expect(terrenosNaCaixaDoCorteDoProjeto(p, secao, { x: 5, y: 4 }, { x: 15, y: 11 }, undefined, 60)).toEqual([]);
+    expect(terrenosNaCaixaDoCorteDoProjeto(p, secao, { x: 15, y: 11 }, { x: 5, y: 4 }, undefined, 60)).toEqual(['tn_t5']);
+    expect(terrenosNaCaixaDoCorteDoProjeto(p, secao, { x: 30, y: 30 }, { x: 25, y: 20 }, undefined, 60)).toEqual([]);
+  });
+
+  it('terreno oculto na vista não é pego pela caixa', () => {
+    falso(LINHAS);
+    expect(terrenosNaCaixaDoCorteDoProjeto(projetoTerreno('T5'), secao, { x: -1, y: 4 }, { x: 21, y: 11 }, new Set(['tn_t5']), 60)).toEqual([]);
+  });
+
+  it('categoria site desligada no corte: nada é pego', () => {
+    falso(LINHAS);
+    const s = new ProjectStore(projetoTerreno('T5'));
+    s.exec({ type: 'setSectionGraphics', patch: { overrides: { site: { visible: false } } } });
+    expect(terrenosNaCaixaDoCorteDoProjeto(s.project, secao, { x: -1, y: 4 }, { x: 21, y: 11 }, undefined, 60)).toEqual([]);
+  });
+
+  it('clique: no interior do solo cortado acha o terreno (kind site); fora dele, nada; o elemento do edifício vence na ordem de quem chama', () => {
+    falso(LINHAS);
+    const p = projetoTerreno('T5');
+    expect(terrenoNoPontoDoCorte(p, secao, undefined, 60, { x: 10, y: 7 })).toEqual({ id: 'tn_t5', kind: 'site' });
+    expect(terrenoNoPontoDoCorte(p, secao, undefined, 60, { x: 10, y: 11 })).toBeNull();
+    expect(terrenoNoPontoDoCorte(p, secao, new Set(['tn_t5']), 60, { x: 10, y: 7 })).toBeNull();
+  });
+
+  it('sem kernel (corte devolve null) nenhum terreno é achado', () => {
+    vi.spyOn(servicoTerreno(), 'corte').mockReturnValue(null);
+    expect(terrenoNoPontoDoCorte(projetoTerreno('T5'), secao, undefined, 60, { x: 10, y: 7 })).toBeNull();
   });
 });

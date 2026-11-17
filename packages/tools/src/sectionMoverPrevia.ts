@@ -1,6 +1,6 @@
 import { dot, type MultiPolygon, type Vec2 } from '@hestia/geom';
-import { frameOfWall, type SectionResult } from '@hestia/engine';
-import { hospedeiroDoGuardaCorpo, isGuardaCorpo, isOpening, isWall, type Id, type Opening, type Project } from '@hestia/model';
+import { frameOfWall, planoDaSecao, ServicoTerreno, servicoTerreno, type LinhaCorteTN, type SectionResult } from '@hestia/engine';
+import { hospedeiroDoGuardaCorpo, isGuardaCorpo, isOpening, isTerrain, isTerrainRegion, isWall, type Id, type Opening, type Project } from '@hestia/model';
 import { massaCortePieces } from './massCortePecas.ts';
 import type { Piece } from './sectionEditTools.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
@@ -65,6 +65,17 @@ function pecasDe(lista: readonly Piece[], dono: Id): readonly Piece[] {
   return m.get(dono) ?? [];
 }
 
+/**
+ * Linhas do terreno no plano da vista (as que o corte desenha), vindas do kernel: o fantasma do Mover e do Copiar as desloca. Vazio sem terreno no
+ * projeto, sem plano ou sem kernel pronto. Nada é calculado em TS.
+ */
+export function linhasDoTerrenoParaFantasma(p: Project, result: SectionResult): LinhaCorteTN[] {
+  if (!ServicoTerreno.temTerreno(p)) return [];
+  const plano = planoDaSecao(result);
+  if (!plano) return [];
+  return servicoTerreno().corte(p, { x: plano.a.x, y: plano.a.y }, { x: plano.b.x - plano.a.x, y: plano.b.y - plano.a.y }, plano.depth, null) ?? [];
+}
+
 const aneis = (polys: MultiPolygon): Vec2[][] => polys.flatMap((poly) => poly.filter((ring) => ring.length >= 2));
 const rect = (t0: number, z0: number, t1: number, z1: number): Vec2[] => [{ x: t0, y: z0 }, { x: t1, y: z0 }, { x: t1, y: z1 }, { x: t0, y: z1 }];
 
@@ -81,6 +92,7 @@ export function fantasmaDoMover(
   u: Vec2,
   dt: number,
   dz: number,
+  linhasTerreno: readonly LinhaCorteTN[] = [],
 ): PreviewItem[] {
   const out: PreviewItem[] = [];
   const movidos = new Set(alvos.movidos);
@@ -99,6 +111,19 @@ export function fantasmaDoMover(
     const host = hospedeiroDoGuardaCorpo(e);
     if (!(host === null ? movidos.has(e.id) : movidos.has(host))) continue;
     for (const ring of aneis(q.polygons)) poligono(ring, dt, dz);
+  }
+  // Terreno: o solo cortado como contorno e o perfil e a silhueta como linhas, deslocados; a região move o terreno dela (as cotas somam em todo o terreno).
+  const terrenosMovidos = new Set<Id>();
+  for (const id of movidos) {
+    const e = p.elements[id];
+    if (isTerrain(e)) terrenosMovidos.add(e.id);
+    else if (isTerrainRegion(e)) terrenosMovidos.add(e.terrenoId);
+  }
+  for (const l of linhasTerreno) {
+    if (!terrenosMovidos.has(l.terrenoId) || l.pontos.length < 2) continue;
+    const pts = l.pontos.map((q) => ({ x: q.s, y: q.z }));
+    if (l.papel === 'cortado') poligono(pts, dt, dz);
+    else for (let i = 1; i < pts.length; i++) out.push({ kind: 'line', a: { x: pts[i - 1]!.x + dt, y: pts[i - 1]!.y + dz }, b: { x: pts[i]!.x + dt, y: pts[i]!.y + dz }, dashed: true });
   }
   // Massa (ficha T1c): o anel de cada cópia no corte, do kernel; anda o deslocamento inteiro, como a escada e a laje (sem hospedeiro).
   for (const q of massaCortePieces(p, result)) {

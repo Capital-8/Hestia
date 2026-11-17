@@ -7,6 +7,9 @@ import type { Vec2 } from '@hestia/geom';
 import type { Stair, StairType } from './stairTypes.ts';
 import type { Ramp, RampType } from './rampTypes.ts';
 import type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+import type { Terrain, TerrainRegion } from './terrainTypes.ts';
+import type { Lot } from './lotTypes.ts';
+import type { Localizacao } from './localizacao.ts';
 import type { Mass } from './massTypes.ts';
 import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import type { ViewRange } from './viewRange.ts';
@@ -29,10 +32,11 @@ import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
 
 export type Id = string;
+/** v29: terreno, região de terreno, lote e `localizacao` do projeto: a migração 28 → 29 só avança a versão (terreno virou 29 ao integrar com a main, que usou 26 a 28 para massa, parede inclinada e tríade estrutural). */
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
 /** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 28;
+export const SCHEMA_VERSION = 29;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
@@ -40,6 +44,8 @@ export type { Footing, FootingType } from './footing.ts';
 export type { Stair, StairCurve, StairGenerator, StairLanding, StairRun, StairRunStyle, StairSpiralParams, StairType, StairUndersideStyle } from './stairTypes.ts';
 export type { Ramp, RampInputMode, RampNormProfile, RampNormRow, RampShape, RampType } from './rampTypes.ts';
 export type { GuardaCorpo, TipoGuardaCorpo } from './guardaCorpoTypes.ts';
+export type { Terrain, TerrainRegion } from './terrainTypes.ts';
+export type { Lot } from './lotTypes.ts';
 export type { Mass } from './massTypes.ts';
 export type * from './openingTypes.ts';
 
@@ -810,7 +816,7 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | Generic | CadDrawing | Column | Beam | Footing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | Generic | CadDrawing | Column | Beam | Footing;
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -975,6 +981,8 @@ export interface Project {
   /** Catálogo de tipos de sapata/bloco de fundação (decisão estrutural). */
   footingTypes?: Record<Id, FootingType>;
   elements: Record<Id, Element>;
+  /** Deslocamento para a coordenada real, altitude da cota zero e norte verdadeiro (A.3). Ausente = tudo zero. */
+  localizacao?: Localizacao;
   /**
    * Vínculos de andar-tipo criados pelo "Colar alinhado aos níveis selecionados" com a opção
    * "Manter cópias vinculadas". Ausente = nenhum vínculo (arquivos anteriores à versão 23).
