@@ -19,8 +19,8 @@ import { chaveCota, contornosEmCotas, type FonteFatiasEmCotas } from './massaFat
 import { desvioEntre, deslocamentoNormal, segmentosDeAneis, type Segmento } from './massaParedesGeom.ts';
 import { servicoMassa, servicoMassaAuxiliar, type ServicoMassa } from './massaServico.ts';
 
-/** Desvio máximo padrão entre o modelo de paredes e a superfície da massa (m): 2 cm, só entra na decisão de partir um passo. */
-export const DESVIO_PAREDE_PADRAO = 0.02;
+/** Desvio máximo padrão entre o modelo de paredes e a superfície da massa (m): 5 cm (a torre M3 com 2 cm bate no limite de 16 passos por nível: ver docs/massa/ESTADO.md), só entra na decisão de partir um passo. */
+export const DESVIO_PAREDE_PADRAO = 0.05;
 /** Passos máximos por nível (potência de 2 na prática, pela bisseção). */
 export const PASSOS_MAXIMOS_PADRAO = 16;
 /** Inclinação abaixo da qual a parede sai vertical (graus): ruído numérico do kernel. */
@@ -31,7 +31,7 @@ export type ModoParedesTorcidas = 'porNivel' | 'porTolerancia';
 export interface OpcoesParedesTorcidas extends OpcoesParedesMassa {
   /** `porNivel`: um passo por nível (tilt do passo único); `porTolerancia` (padrão): parte os passos até o desvio caber em `desvioMax`. */
   modo?: ModoParedesTorcidas;
-  /** Desvio máximo desejado (m); padrão 2 cm. */
+  /** Desvio máximo desejado (m); padrão 5 cm. */
   desvioMax?: number;
   /** Máximo de passos por nível (>= 1); padrão 16. */
   maxPassosPorNivel?: number;
@@ -128,7 +128,8 @@ function segmentosNaAltura(cadeia: CadeiaInclinada, h: number): Segmento[] {
  * fatias reais de baixo, do meio (`cm`) e de cima.
  */
 function avaliarPasso(c0: Vec2[][], cm: Vec2[][], c1: Vec2[][], altura: number, tol: number, minimo: number): Avaliacao {
-  const cima = segmentosDeAneis(c1);
+  // O deslocamento é medido contra o contorno SIMPLIFICADO de cima (a mesma regra da base): num cilindro as duas cadeias são iguais e o tilt dá 0.
+  const cima = segmentosDeAneis(cadeiasDe(c1, tol, minimo));
   const cadeias: CadeiaInclinada[] = [];
   let fundidos = 0;
   let limitadas = 0;

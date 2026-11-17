@@ -110,6 +110,16 @@ describe('paredes inclinadas da massa (frente massa-paredes-torcidas)', () => {
     for (const t of ts) expect(t).toBeLessThan(19.5);
   });
 
+  it('cilindro de 64 lados (extrusão curva): nenhuma parede inclina, apesar da simplificação em cordas', () => {
+    const { p, terreo } = projeto();
+    const circ: Vec2[] = Array.from({ length: 64 }, (_, i) => ({ x: 5 * Math.cos((2 * Math.PI * i) / 64), y: 5 * Math.sin((2 * Math.PI * i) / 64) }));
+    const f = fonteDe(6, () => circ);
+    const r = derivarParedesInclinadasDaMassa(p, 'm1', [terreo], {}, f, f)!;
+    expect(r.nInclinadas).toBe(0);
+    expect(r.nPassos).toBe(1);
+    expect(r.nParedes).toBeGreaterThan(8);
+  });
+
   it('sem kernel (fonte nula) devolve null', () => {
     const { p, terreo } = projeto();
     const nula = { fatias: (): null => null };
