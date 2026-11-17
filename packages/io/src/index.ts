@@ -40,3 +40,4 @@ export {
 // SUPLEMENTOS (Fase D): leitor de zip com limites e pacote `.hestiapkg`.
 export * from './zipRead.ts';
 export * from './pkg.ts';
+export * from './texturasCatalogo.ts';
