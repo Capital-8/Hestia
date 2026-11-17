@@ -126,6 +126,8 @@ pub mod volume_sobreposicao;
 pub mod furo_contorno;
 #[cfg(test)]
 mod furo_contorno_testes;
+pub mod furo_contorno_abi;
+#[cfg(test)] mod furo_contorno_abi_testes;
 #[cfg(test)]
 mod teste_util;
 
