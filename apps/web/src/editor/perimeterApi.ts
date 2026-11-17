@@ -47,6 +47,8 @@ export interface PerimeterActions {
   setOptions: (patch: Partial<PerimeterOptions>) => void;
   /** Botão Concluir: valida, grava o elemento e fecha o modo. Em falha mantém o modo aberto e informa em `status`. */
   finish: () => void;
+  /** Botão "Unir formas": une as formas fechadas e sobrepostas do esboço num contorno só (um passo de desfazer). */
+  unite: () => void;
   /** Botão Cancelar: descarta o rascunho e fecha o modo. */
   cancel: () => void;
   setEdge: (patch: { definesSlope?: boolean; slopePct?: number; overhang?: number }) => void;

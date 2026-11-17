@@ -179,6 +179,14 @@ export class PerimeterMode {
     this.dizer(s.editing ? { key: 'edc_perim_cancelled' } : { key: 'edc_perim_discarded' });
   }
 
+  /** "Unir formas": a ferramenta une as formas fechadas do esboço; o resultado (ou o motivo da recusa) vai à barra de status. */
+  unite(): void {
+    this.comSessao((s) => {
+      this.desligaComando(s);
+      s.tool.uniteShapes();
+    });
+  }
+
   /** Forma da galeria. Escolher uma forma desliga o comando de Modificar ligado. */
   setShape(f: PerimeterShape): void {
     this.comSessao((s) => {

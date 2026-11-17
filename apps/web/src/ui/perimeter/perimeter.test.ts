@@ -13,7 +13,7 @@ const ok: SketchResult = { loops: [], issues: [], ok: true };
 const aberto: SketchResult = { loops: [], issues: [{ code: 'open', message: 'aberto', segIds: ['s1'] }], ok: false };
 
 const ribbon = (target: SketchTarget, result: SketchResult | null = null): string => {
-  const props: PerimeterRibbonProps = { target, result, lineKind: 'boundary', shape: 'line', onLineKind: noop, onShape: noop, onFinish: noop, onCancel: noop };
+  const props: PerimeterRibbonProps = { target, result, lineKind: 'boundary', shape: 'line', onLineKind: noop, onShape: noop, onFinish: noop, onCancel: noop, onUnite: noop };
   return renderToStaticMarkup(createElement(PerimeterRibbonPanels, props));
 };
 
@@ -22,6 +22,10 @@ const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const botao = (markup: string, label: string): string => markup.match(new RegExp(`<button[^>]*aria-label="${escapeRe(label)}"[^>]*>`))?.[0] ?? '';
 
 describe('painéis Modo e Desenhar', () => {
+  it('tem o botão "Unir formas" em todos os alvos', () => {
+    for (const alvo of ['roof', 'floor', 'slab', 'ceiling', 'mass'] as const) expect(botao(ribbon(alvo), 'Unir formas')).toContain('id="pm-unite"');
+  });
+
   it('renderiza Modo, Desenhar, linha de limite e a galeria com as formas do alvo', () => {
     const m = ribbon('floor');
     expect(m).toContain('aria-label="Modo"');

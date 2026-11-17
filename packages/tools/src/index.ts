@@ -122,6 +122,7 @@ export * from './sketchPickFace.ts';
 export * from './sketchByPerimeter.ts';
 export * from './perimeterModify.ts';
 export * from './perimeterTool.ts';
+export { LADOS_ESBOCO_MAX, LADOS_ESBOCO_MIN, LADOS_ESBOCO_PADRAO, ladosDoEsboco } from './perimeterToolShape.ts';
 export * from './perimeterCommit.ts';
 export * from './perimeterModifyKind.ts';
 export * from './dims/index.ts';

@@ -31,6 +31,18 @@ export interface ShapeStep {
 /** Entradas que pedem valor. As de sinalizador (ex.: sentido anti-horário) são opções com Tab, não passos. */
 export const stepsOf = (shape: ShapeKind): ShapeKind['inputs'][number][] => shape.inputs.filter((i) => i.kind !== 'flag');
 
+/**
+ * Passos do esboço do perímetro: como `stepsOf`, sem a contagem de lados dos polígonos. Ela vem do campo "Lados" da barra
+ * (`options.sketchSides`, padrão 6) e já entra em `vals.sides` ao criar o passo, então o 2º clique conclui o polígono.
+ */
+export const stepsDoEsboco = (shape: ShapeKind): ShapeKind['inputs'][number][] => stepsOf(shape).filter((i) => i.kind !== 'count' || i.key !== 'sides');
+
+/** Lados do polígono: padrão, limites (3 a 64, como o polígono regular da massa) e leitura da opção. */
+export const LADOS_ESBOCO_PADRAO = 6;
+export const LADOS_ESBOCO_MIN = 3;
+export const LADOS_ESBOCO_MAX = 64;
+export const ladosDoEsboco = (v: number | undefined): number => (v !== undefined && Number.isInteger(v) && v >= LADOS_ESBOCO_MIN && v <= LADOS_ESBOCO_MAX ? v : LADOS_ESBOCO_PADRAO);
+
 export const kindOf = (id: ShapeKindId): ShapeKind => SHAPE_KINDS.find((k) => k.id === id)!;
 
 const isPoint = (v: unknown): v is Vec2 => typeof v === 'object' && v !== null && 'x' in v && 'y' in v;
@@ -99,9 +111,8 @@ export function buildShape(id: ShapeKindId, v: Record<string, unknown>, flags: R
  * Prévia de um passo com o valor que o cursor daria à entrada pendente. Mostra os pontos dados; se o valor fecha a
  * forma, desenha a forma inteira; senão, a guia da âncora até o cursor.
  */
-export function stepPreview(step: ShapeStep, value: unknown, anchor: Vec2 | null, cursor: Vec2 | null, flags: Record<string, boolean>): PreviewItem[] {
+export function stepPreview(step: ShapeStep, value: unknown, anchor: Vec2 | null, cursor: Vec2 | null, flags: Record<string, boolean>, steps: ShapeKind['inputs'][number][] = stepsOf(step.shape)): PreviewItem[] {
   const out: PreviewItem[] = pointsOf(step).map((at) => ({ kind: 'point', at }));
-  const steps = stepsOf(step.shape);
   const key = steps[step.idx]?.key;
   if (key !== undefined && value !== null && step.idx === steps.length - 1) {
     for (const s of buildShape(step.shape.id, { ...step.vals, [key]: value }, flags)) out.push(...segLines(s, { dashed: true }));
