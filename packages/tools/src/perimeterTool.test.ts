@@ -89,15 +89,36 @@ describe('PerimeterTool: formas com entradas próprias', () => {
     expect(t.draft().segs.every((s) => s.sag !== undefined)).toBe(true);
   });
 
-  it('polígono inscrito pede os lados, digitados', () => {
+  it('polígono inscrito: o 2º clique conclui com 6 lados (padrão do campo), sem pedir digitação', () => {
     const { t } = setup();
     t.setShape('inscribedPolygon');
     clickAt(t, 0, 0);
+    expect(t.inputPrompt()).toBeNull();
     clickAt(t, 1, 0);
-    expect(t.inputPrompt()).toBe('Lados');
-    expect(t.type('2')).toBe(false);
-    expect(t.type('6')).toBe(true);
     expect(t.draft().segs).toHaveLength(6);
+    expect(t.closeInfo().ok).toBe(true);
+  });
+
+  it('polígono usa options.sketchSides (8) e a prévia já mostra 8 lados antes do 2º clique', () => {
+    const { t, options } = setup();
+    options.sketchSides = 8;
+    t.setShape('circumscribedPolygon');
+    clickAt(t, 0, 0);
+    t.move({ raw: { x: 1, y: 0 }, shift: false, ctrl: false, alt: false } as never);
+    expect(t.preview().filter((i) => i.kind === 'line')).toHaveLength(8);
+    clickAt(t, 1, 0);
+    expect(t.draft().segs).toHaveLength(8);
+  });
+
+  it('número digitado entre o centro e o vértice vale para aquele polígono (5 lados); fora de 3 a 64 é recusado', () => {
+    const { t } = setup();
+    t.setShape('inscribedPolygon');
+    clickAt(t, 0, 0);
+    expect(t.type('2')).toBe(false);
+    expect(t.type('65')).toBe(false);
+    expect(t.type('5')).toBe(true);
+    clickAt(t, 1, 0);
+    expect(t.draft().segs).toHaveLength(5);
   });
 
   it('filete entre duas linhas do rascunho troca as duas pelas aparadas e acrescenta o arco', () => {

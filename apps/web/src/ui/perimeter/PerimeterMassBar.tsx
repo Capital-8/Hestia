@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { PerimeterModifyKind } from '@hestia/tools';
 import { useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
+import { SketchSidesField } from './SketchSidesField.tsx';
 import { NumField } from '../fields.tsx';
 import { MassCotasBar } from '../MassCotasBar.tsx';
 import { ajustarOpcoesMassa, opcoesDaMassa } from '../MassOptionsBar.tsx';
@@ -24,6 +25,7 @@ export function PerimeterMassBar({ modify, editing }: { modify?: PerimeterModify
   return (
     <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
       <span className="tool-name">{cmd ? `${tool} · ${t(cmd)}` : tool}</span>
+      <SketchSidesField />
       {!editing && (
         <>
           <label>

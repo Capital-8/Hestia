@@ -7,7 +7,7 @@ import { lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
 import { SKETCH_DEFAULTS, addSegs, closeAnalysis, finish as finishSketch, newDraft, removeSegs, selectAllSegs, type FinishResult, type SketchOrigin } from './perimeterSession.ts';
-import { anchorOf, buildShape, kindOf, promptOf, shapeName, stepPreview, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
+import { anchorOf, buildShape, kindOf, ladosDoEsboco, LADOS_ESBOCO_MAX, LADOS_ESBOCO_MIN, promptOf, shapeName, stepPreview, stepsDoEsboco, type ShapeStep } from './perimeterToolShape.ts';
 import { SELECT_PX, boxRing, hitSeg, roomClick, roomHover, segLines } from './perimeterToolPick.ts';
 import { topDefaultFor } from './sketchPickFace.ts';
 import { boxPick, facePick, selectClick, shapeHintOf } from './perimeterToolInput.ts';
@@ -279,7 +279,7 @@ export class PerimeterTool extends ToolBase {
   override inputPrompt(): string | null {
     if (this.mod.active()) return this.mod.prompt();
     const st = this.step;
-    const input = st ? stepsOf(st.shape)[st.idx] : undefined;
+    const input = st ? stepsDoEsboco(st.shape)[st.idx] : undefined;
     if (!st || !input) return null;
     if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') return shapeInputLabel(input.label, this.uiLang());
     return input.kind === 'point' && st.shape.id === 'line' && anchorOf(st) ? this.t('tl_inp_length') : null;
@@ -386,8 +386,16 @@ export class PerimeterTool extends ToolBase {
   override type(text: string): boolean {
     if (this.mod.active()) return this.mod.type(text);
     const st = this.step;
-    const input = st ? stepsOf(st.shape)[st.idx] : undefined;
+    const input = st ? stepsDoEsboco(st.shape)[st.idx] : undefined;
     if (!st || !input) return false;
+    // Polígono: um número digitado no meio (centro e vértice) é o atalho dos lados e vale também para os próximos polígonos.
+    if (input.kind === 'point' && 'sides' in st.vals && /^\d+$/.test(text.trim())) {
+      const n = Number(text.trim());
+      if (n < LADOS_ESBOCO_MIN || n > LADOS_ESBOCO_MAX) return refuse(this.env, this.t('tl_msg_sides_int'));
+      st.vals.sides = n;
+      this.env.say(this.t('tl_msg_sides_set', { n }));
+      return true;
+    }
     const q = input.kind === 'length' ? 'length' : input.kind === 'angle' ? 'angle' : null;
     const v = q ? parseQuantityText(text, unitsOf(this.env.project()), q) : parseNumber(text);
     if (input.kind === 'length' || input.kind === 'angle' || input.kind === 'count') {
@@ -426,9 +434,16 @@ export class PerimeterTool extends ToolBase {
     this.env.say(r.say);
   }
 
+  /** Passo novo da forma; polígonos já levam os lados, então o 2º clique conclui sem pedir digitação. */
+  private novoPasso(id: ShapeKindId): ShapeStep {
+    const shape = kindOf(id);
+    const vals: Record<string, unknown> = shape.inputs.some((i) => i.key === 'sides') ? { sides: ladosDoEsboco(this.env.options().sketchSides) } : {};
+    return { shape, idx: 0, vals };
+  }
+
   private moveShape(p: PointerInfo, id: ShapeKindId): void {
-    const st: ShapeStep = this.step ?? { shape: kindOf(id), idx: 0, vals: {} };
-    const input = stepsOf(st.shape)[st.idx];
+    const st: ShapeStep = this.step ?? this.novoPasso(id);
+    const input = stepsDoEsboco(st.shape)[st.idx];
     if (!input) return;
     const anchor = anchorOf(st);
     if (input.kind === 'segment') {
@@ -454,7 +469,7 @@ export class PerimeterTool extends ToolBase {
     } else if (input.kind === 'angle' && anchor) {
       value = angleOf(sub(p.raw, anchor));
     }
-    this.items.push(...stepPreview(st, value, anchor, cursor, this.flags));
+    this.items.push(...stepPreview(st, value, anchor, cursor, this.flags, stepsDoEsboco(st.shape)));
     if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
     this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
@@ -475,8 +490,8 @@ export class PerimeterTool extends ToolBase {
   }
 
   private clickShape(p: PointerInfo, id: ShapeKindId): void {
-    const st = this.step ?? (this.step = { shape: kindOf(id), idx: 0, vals: {} });
-    const input = stepsOf(st.shape)[st.idx];
+    const st = this.step ?? (this.step = this.novoPasso(id));
+    const input = stepsDoEsboco(st.shape)[st.idx];
     if (!input) return;
     const anchor = anchorOf(st);
     if (input.kind === 'point') {
@@ -508,14 +523,14 @@ export class PerimeterTool extends ToolBase {
     st.vals[key] = value;
     st.idx += 1;
     this.items = [];
-    if (st.idx >= stepsOf(st.shape).length) this.complete(st);
+    if (st.idx >= stepsDoEsboco(st.shape).length) this.complete(st);
     else this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
 
   private complete(st: ShapeStep): void {
     const segs = buildShape(st.shape.id, st.vals, this.flags);
     if (segs.length === 0) {
-      const last = stepsOf(st.shape)[st.idx - 1]!;
+      const last = stepsDoEsboco(st.shape)[st.idx - 1]!;
       st.idx -= 1;
       delete st.vals[last.key];
       this.env.say(this.t('tl_msg_degenerate_shape'));
