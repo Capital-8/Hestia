@@ -7,6 +7,7 @@ import { TextField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { MaterialPreview, type PreviewShape } from './materials/MaterialPreview.tsx';
 import { MaterialList } from './materials/MaterialList.tsx';
+import { TexturasOnline } from './materials/TexturasOnline.tsx';
 import { TabIdentidade } from './materials/TabIdentidade.tsx';
 import { TabGraficos } from './materials/TabGraficos.tsx';
 import { TabAparencia } from './materials/TabAparencia.tsx';
@@ -38,6 +39,7 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
   const [aba, setAba] = useState<Aba>('identidade');
   const [forma, setForma] = useState<PreviewShape>('sphere');
   const [cenario, setCenario] = useState(true);
+  const [texturas, setTexturas] = useState(false);
   const stored = p.materials[sel];
   const [draft, setDraft] = useState<Material | undefined>(stored ? { ...stored } : undefined);
   useEffect(() => setDraft(p.materials[sel] ? { ...p.materials[sel]! } : undefined), [sel, p.materials]);
@@ -63,6 +65,8 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
     if (draft) commit({ ...draft, name: nome });
   };
   const close = (): void => {
+    // Com o painel de texturas aberto, Esc e o ✕ fecham só o painel (ele é tratado à parte).
+    if (texturas) return;
     commit();
     if (onClose) onClose();
     else useUi.setState({ dialog: null, dialogArg: null });
@@ -105,84 +109,90 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
     }
   };
 
+  // Com o painel de texturas aberto, o trap de Tab fica só com ele (dois traps de foco brigariam).
   return (
-    <Dialog
-      title={t('dlt_mat_title')}
-      sub={t(total === 1 ? 'dlt_mat_count_one' : 'dlt_mat_count_many', { n: total })}
-      onClose={close}
-      z={60}
-      size="wide"
-      footer={
-        <>
-          {onPick && draft && (
-            <button className="btn primary" onClick={() => { commit(); onPick(draft.id); }}>{t('dlt_mat_use')}</button>
-          )}
-          <button className="btn" onClick={close}>{onPick ? t('stt_cancel') : t('stt_close')}</button>
-        </>
-      }
-    >
-      <div className="mat-nav">
-        <MaterialList
-          grupos={grupos}
-          total={total}
-          sel={sel}
-          q={q}
-          onQ={setQ}
-          onSelect={selecionar}
-          onAdd={() => add()}
-          onDuplicate={() => draft && add(draft)}
-          canDuplicate={!!draft}
-        />
-        {draft ? (
-          <div className="mat-detalhe" onBlur={() => commit()}>
-            <div className="mat-topo">
-              <div className="mat-previa">
-                <MaterialPreview material={draft} shape={forma} size={280} cenario={cenario} />
-                <div className="mat-forma" role="group" aria-label={t('dlt_mat_shape_label')}>
-                  {FORMAS.map((f) => (
-                    <button key={f} className={`btn small${forma === f ? ' primary' : ''}`} aria-pressed={forma === f} onClick={() => setForma(f)}>
-                      {t(ROTULO_FORMA[f])}
+    <>
+      <Dialog
+        title={t('dlt_mat_title')}
+        sub={t(total === 1 ? 'dlt_mat_count_one' : 'dlt_mat_count_many', { n: total })}
+        onClose={close}
+        z={60}
+        size="wide"
+        trapFocus={!texturas}
+        footer={
+          <>
+            <button className="btn" onClick={() => setTexturas(true)}>{t('dlt_tex_open')}</button>
+            {onPick && draft && (
+              <button className="btn primary" onClick={() => { commit(); onPick(draft.id); }}>{t('dlt_mat_use')}</button>
+            )}
+            <button className="btn" onClick={close}>{onPick ? t('stt_cancel') : t('stt_close')}</button>
+          </>
+        }
+      >
+        <div className="mat-nav">
+          <MaterialList
+            grupos={grupos}
+            total={total}
+            sel={sel}
+            q={q}
+            onQ={setQ}
+            onSelect={selecionar}
+            onAdd={() => add()}
+            onDuplicate={() => draft && add(draft)}
+            canDuplicate={!!draft}
+          />
+          {draft ? (
+            <div className="mat-detalhe" onBlur={() => commit()}>
+              <div className="mat-topo">
+                <div className="mat-previa">
+                  <MaterialPreview material={draft} shape={forma} size={280} cenario={cenario} />
+                  <div className="mat-forma" role="group" aria-label={t('dlt_mat_shape_label')}>
+                    {FORMAS.map((f) => (
+                      <button key={f} className={`btn small${forma === f ? ' primary' : ''}`} aria-pressed={forma === f} onClick={() => setForma(f)}>
+                        {t(ROTULO_FORMA[f])}
+                      </button>
+                    ))}
+                    <button className={`btn small${cenario ? ' primary' : ''}`} aria-pressed={cenario} title={t('dlt_mat_cenario_tip')} onClick={() => setCenario((v) => !v)}>
+                      {t('dlt_mat_cenario')}
                     </button>
-                  ))}
-                  <button className={`btn small${cenario ? ' primary' : ''}`} aria-pressed={cenario} title={t('dlt_mat_cenario_tip')} onClick={() => setCenario((v) => !v)}>
-                    {t('dlt_mat_cenario')}
+                  </div>
+                </div>
+                <div className="mat-topo-campos">
+                  <div className="field-row">
+                    <label htmlFor="mat-name">{t('dlt_fld_name')}</label>
+                    <TextField id="mat-name" value={draft.name} onCommit={renomear} />
+                  </div>
+                </div>
+              </div>
+              <div className="dtabs" role="tablist" aria-label={t('dlt_mat_tabs_label')} onKeyDown={teclaAba}>
+                {ABAS.map((a) => (
+                  <button
+                    key={a}
+                    ref={(el) => { abaRefs.current[a] = el; }}
+                    id={`mat-tab-${a}`}
+                    role="tab"
+                    type="button"
+                    aria-selected={aba === a}
+                    aria-controls="mat-painel"
+                    tabIndex={aba === a ? 0 : -1}
+                    className={`dtab${aba === a ? ' on' : ''}`}
+                    onClick={() => setAba(a)}
+                  >
+                    {t(ROTULO_ABA[a])}
                   </button>
-                </div>
+                ))}
               </div>
-              <div className="mat-topo-campos">
-                <div className="field-row">
-                  <label htmlFor="mat-name">{t('dlt_fld_name')}</label>
-                  <TextField id="mat-name" value={draft.name} onCommit={renomear} />
-                </div>
+              <div id="mat-painel" role="tabpanel" aria-labelledby={`mat-tab-${aba}`} tabIndex={0}>
+                {conteudo(draft)}
               </div>
+              <p className="hint" style={{ padding: '6px 0' }}>{t(used === 1 ? 'dlt_mat_usage_one' : 'dlt_mat_usage_many', { n: used })}</p>
             </div>
-            <div className="dtabs" role="tablist" aria-label={t('dlt_mat_tabs_label')} onKeyDown={teclaAba}>
-              {ABAS.map((a) => (
-                <button
-                  key={a}
-                  ref={(el) => { abaRefs.current[a] = el; }}
-                  id={`mat-tab-${a}`}
-                  role="tab"
-                  type="button"
-                  aria-selected={aba === a}
-                  aria-controls="mat-painel"
-                  tabIndex={aba === a ? 0 : -1}
-                  className={`dtab${aba === a ? ' on' : ''}`}
-                  onClick={() => setAba(a)}
-                >
-                  {t(ROTULO_ABA[a])}
-                </button>
-              ))}
-            </div>
-            <div id="mat-painel" role="tabpanel" aria-labelledby={`mat-tab-${aba}`} tabIndex={0}>
-              {conteudo(draft)}
-            </div>
-            <p className="hint" style={{ padding: '6px 0' }}>{t(used === 1 ? 'dlt_mat_usage_one' : 'dlt_mat_usage_many', { n: used })}</p>
-          </div>
-        ) : (
-          <p className="hint">{t('dlt_mat_nothing_selected')}</p>
-        )}
-      </div>
-    </Dialog>
+          ) : (
+            <p className="hint">{t('dlt_mat_nothing_selected')}</p>
+          )}
+        </div>
+      </Dialog>
+    {texturas ? <TexturasOnline materialSelecionado={stored} onCriado={setSel} onClose={() => setTexturas(false)} /> : null}
+    </>
   );
 }
