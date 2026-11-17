@@ -122,6 +122,10 @@ mod massa_testes_r2;
 #[cfg(test)]
 mod massa_testes_r2_fuzz;
 pub mod volume_sobreposicao;
+// Spike do furo por contorno (docs/estudo-esquadrias/19).
+pub mod furo_contorno;
+#[cfg(test)]
+mod furo_contorno_testes;
 #[cfg(test)]
 mod teste_util;
 
