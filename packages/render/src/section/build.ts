@@ -4,6 +4,7 @@ import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
+import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
 import { thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
@@ -174,11 +175,12 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       return;
     }
     silhouetteParts.push(b.polygons);
-    const base = pt.color ?? p.materials[b.materialId]?.color ?? '#999999';
+    const cpB = corPadraoSuperficie(p.materials[b.materialId], { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: b.hatch ?? 'none' });
+    const base = pt.color ?? cpB.fundo;
     if (!noFill) {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
       const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-      const hatch = hatchFor(b.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
+      const hatch = cpB.padrao ? hatchFor(cpB.padrao.kind, halftone(cpB.padrao.color, pt)) : undefined;
       fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
     }
     const line = mix(theme.ink, paper, 0.5 * (b.depth / maxDepth));
@@ -348,10 +350,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
         silhouetteParts.push(polygons);
         const m = p.materials[r.materialId];
         if (!noFill) {
-          const base = pt.color ?? m?.color ?? '#999999';
+          const cp = corPadraoCorte(m, { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: r.hatch });
+          const base = pt.color ?? cp.fundo;
           const color = pt.visual === 'shaded' ? base : mix(base, paper, input.dark ? 0.5 : 0.58);
-          const hatchKind = r.hatch ?? m?.hatch;
-          const hatch = hatchFor(hatchKind, halftone(mix(pt.color ?? m?.color ?? '#999999', input.dark ? '#ffffff' : '#000000', 0.45), pt));
+          const hatch = cp.padrao ? hatchFor(cp.padrao.kind, halftone(cp.padrao.color, pt)) : undefined;
           fills.push({ polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
         }
         const line = halftone(mix(theme.ink, paper, 0.35), pt);
@@ -378,10 +380,11 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const line = halftone(mix(theme.ink, paper, 0.5 * (rd.depth / maxDepth)), pt);
     if (!noFill) {
       for (const f of rd.fills) {
-        const base = pt.color ?? p.materials[f.materialId]?.color ?? '#999999';
+        const cpF = corPadraoSuperficie(p.materials[f.materialId], { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: f.sample.hatch ?? 'none' });
+        const base = pt.color ?? cpF.fundo;
         const fade = 0.55 + 0.35 * (f.sample.depth / maxDepth);
         const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-        const hatch = hatchFor(f.sample.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
+        const hatch = cpF.padrao ? hatchFor(cpF.padrao.kind, halftone(cpF.padrao.color, pt)) : undefined;
         fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
       }
     }

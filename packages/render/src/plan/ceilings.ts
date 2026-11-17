@@ -3,6 +3,7 @@ import { resolveCeilings, type ResolvedCeiling } from '@hestia/engine';
 import type { DetailLevel, Id, Project } from '@hestia/model';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoSuperficie } from './materialPlan.ts';
 import { unitsOf } from '@hestia/model';
 import { fmtArea, labelPoint, outlineSelectionOps, SURFACE_TEXT_MM, type FloorOps } from './floors.ts';
 import { defaultPaint, espessuraDeCorte, surfaceColor, type PlanPaint } from './style.ts';
@@ -38,8 +39,9 @@ export function ceilingFills(
     if (hidden?.has(c.ceilingId)) continue;
     const materialId = ceilingFillMaterial(c);
     const m = materialId ? p.materials[materialId] : undefined;
-    const color = surfaceColor(m?.color ?? '#999999', fillBase, dark ? 0.38 : 0.6, paint);
-    const hatch = m && m.hatch !== 'none' && detail !== 'coarse' ? { kind: m.hatch, color: mix(paint.color ?? m.color, dark ? '#ffffff' : '#000000', 0.45), ...(fine ? {} : { zoomMin: 40 }) } : undefined;
+    const cp = corPadraoSuperficie(m, { dark, detail, paint });
+    const color = surfaceColor(cp.fundo, fillBase, dark ? 0.38 : 0.6, paint);
+    const hatch = cp.padrao ? { ...cp.padrao, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
     out.fills.push({ polygons: c.polygon, color, alpha: 1, hatch });
     const at = labelPoint(c.polygon);
     if (detail !== 'coarse') {
