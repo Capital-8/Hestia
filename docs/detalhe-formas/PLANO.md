@@ -68,3 +68,11 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Render: `plan/notes.ts` (planta e corte compartilham; tracejado contínuo por polilinha) e realce em `planOverlay.ts`. Hit: `section/handles.ts` e `annotationPick.ts` (`detailItemAt`). DXF: `dxfNotes.ts`, `dxfSectionNotes.ts` (1 LINE por segmento).
 - Cotas/ângulo (`angularDimension.ts`, `dims/providers/line.ts`): usam a CORDA a→b; documentado em comentário, comportamento inalterado. Pendente: caixa de seleção por área (`annotationIdsInBoxOf`) segue pela corda.
 - Testes literais: semicírculo (corda 2, sag ±1): meio (1, ±1), 8 segmentos, comprimento π; sag 0,5: raio 1,25, centro (1, -0,75), comprimento 2,3182; sag 5 clampado = π.
+
+### S1-B (sonnet) — DetailLineTool sobre o núcleo de formas
+- `detailLineTool.ts` reescrito no molde da viga: `ShapeStep`/`buildShape`/`anchorOf`; removidos `shapeSegments`/`arcThreePt`. Novo `detailLineToolShapes.ts` (`DETAIL_SHAPE_KIND`, `normalizeDetailSegs`, `buildDetailShapeSegs`, `previewDetailShapeStep`, `initDetailShapeStep`, `detailPolygonSides`; prompt/parse reaproveitam os genéricos da viga).
+- Arco/círculo = linhas com `sag` (círculo = 2 arcos de 180°); elipse = cordas, juntadas até >= 0,05 m (`ROOM_SEPARATOR_MIN_LENGTH`, mínimo do comando `addDetailLine`, que lança abaixo disso; por isso o filtro é 0,05 e não 0,01).
+- Polígono: `ToolOptions.detailLinePolygonSides` (3..64, padrão 6; sem default em `state.ts`, ausente = 6). Lados vêm da opção, o passo "Lados" é pulado.
+- Mantidos: sem encadeamento, Esc, comprimento digitado, `tempDims`, prévia de ângulo na forma `line`, uma transação 'Linha de detalhe' (planta e corte). Orto/Polar: `contextoDeTraco(anchorOf(step))` (S1-C só testa).
+- Tab alterna o sentido (flag `ccw`) em arco centro-extremidades. S1-C liga na UI: campo de lados (`detailLinePolygonSides`) quando a forma é polígono; retângulo girado ainda não mapeado em `WallDrawShape`.
+- Testes: `detailLineToolShapes.test.ts` (12, valores literais); nenhum teste existente alterado.
