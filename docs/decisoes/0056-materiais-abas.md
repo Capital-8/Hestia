@@ -8,13 +8,13 @@ Data: 2026-11-17. Status: proposta. Esta decisão ainda não tem aprovação do 
 - Os blocos novos ficam em `packages/model/src/materialBlocks.ts`: `identidade`, `graficos` (sombreamento, superfície e corte), `aparencia` (com textura reservada), `fisico` e `termico`. Todos são opcionais.
 - `materialEfetivo(m)` é a leitura que devolve tudo preenchido. Sem blocos, devolve exatamente o que o render lia antes.
 - `normalizarMaterial(m)` roda dentro de `migrateProject` e descarta valores inválidos (cor fora de `#rrggbb`, hachura desconhecida, números `NaN` ou infinitos). Material sem blocos passa com a mesma referência.
-- `SCHEMA_VERSION` está em 24 (`packages/model/src/types.ts`). A migração 24 → 25 é da Fase 4 de vistas (decisão 0055), e esta decisão não deve competir com ela.
+- `SCHEMA_VERSION` está em 28 (`packages/model/src/types.ts`). Outras linhas de trabalho (ex.: Fase 4 de vistas, decisão 0055) também mexem no schema, e esta decisão não deve competir com elas.
 
 **2. Decisão.**
 
 2.1 *Blocos opcionais em `Material`.* `identidade`, `graficos`, `aparencia`, `fisico` e `termico` são campos opcionais. Ausente = comportamento anterior. Nenhum projeto antigo muda de aparência.
 
-2.2 *Sem bump de `SCHEMA_VERSION`.* Os campos são opcionais e a leitura trata a ausência. Um bump agora colidiria com a migração 24 → 25 da Fase 4 de vistas. A validação entra em `normalizarMaterial`, que roda sem nova versão, como já ocorre com as fontes de viewport de prancha.
+2.2 *Sem bump de `SCHEMA_VERSION`.* Os campos são opcionais e a leitura trata a ausência. Um bump agora colidiria com outras linhas que também sobem a versão. A validação entra em `normalizarMaterial`, que roda sem nova versão, como já ocorre com as fontes de viewport de prancha.
 
 2.3 *Precedência de cor e hachura.* Quando dois valores disputam o mesmo campo, vale a ordem abaixo:
 1. o tipo do elemento (por exemplo, a hachura definida no tipo de piso ou de forro);
@@ -37,6 +37,6 @@ Os ganchos com `TODO` no código são a textura por imagem e o cálculo térmico
 **3. Consequências.**
 - Projetos existentes não mudam de aparência, porque a ausência dos blocos cai na reserva.
 - Um material com blocos inválidos é normalizado na carga, sem erro. O usuário não perde o projeto por causa de um campo ruim.
-- Os campos novos ficam fora da migração 24 → 25, que segue como está no plano de vistas.
+- Os campos novos não exigem migração própria.
 - A parte física e térmica fica só como dado, sem efeito no cálculo, até a etapa do kernel.
 - Quem desenha passa a depender de `materialEfetivo`. Qualquer leitura direta de `color`, `hatch` ou `gloss` no render é um desvio e deve ser corrigida.

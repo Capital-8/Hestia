@@ -156,9 +156,9 @@ describe('migrateProject com material de blocos inválidos', () => {
     };
     raw.materials.mat_gesso = { ...raw.materials.mat_gesso, graficos: { corte: { primeiroPlano: { padrao: 'cross' } } } };
 
-    expect(SCHEMA_VERSION).toBe(24);
+    expect(SCHEMA_VERSION).toBe(28);
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(24);
+    expect(p.schemaVersion).toBe(28);
     expect(p.materials.mat_tinta!.graficos).toBeUndefined();
     expect(p.materials.mat_tinta!.aparencia).toBeUndefined();
     expect(p.materials.mat_gesso!.graficos).toEqual({ corte: { primeiroPlano: { padrao: 'cross' } } });
