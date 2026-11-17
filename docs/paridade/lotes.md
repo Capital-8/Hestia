@@ -50,3 +50,7 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: linhas de proprieda
 - [ ] F6 Textos frente, lateral e fundo em dicionário local pt e en (`render/plan/lote.ts`), no lugar das chaves `md_lt_lado_*` do i18n. Pendente: a edição de `packages/model/src/i18n.ts` foi negada ao agente (P2); o ESTADO manda mover para `md_lt_lado_*` na U1 ou na Q1.
 - [ ] F7 Sinal do norte verdadeiro confirmado pelo dono. Pendente: foi decidido pelo fiscal (E4), o dono não respondeu; reverter se ele discordar.
 - [x] F8 Verificação no navegador do lote: tabela de rumos com fechamento zero e primeiro lado a 120° (azimute 90 + norte 30, regra E4), recuos gravados, área edificável de 198 m² e a tabela de índices com 25,00 % (E2E, passos 7 e 8; `docs/terreno/evidencias/final/07-lote.png` e `08-indices.png`). Alças do lote e o lote na prancha não foram exercitados.
+
+## G · Família do lote (frente anotar-familias-e-apagar)
+- [x] G1 Família do lote (`settings.lotFamilies`): estilo, espessura e cor da linha de propriedade; fonte, altura, cor, negrito, itálico, unidade e casas do texto dos lados; mostrar o papel e a medida; `TypeSelector` e "Editar tipo" no painel do lote (E2E `anotar-familias.mjs`, passo 7)
+- [x] G2 Traço-ponto (aproximado por traço curto, F5 segue pendente para o traço-dois-pontos exato)
