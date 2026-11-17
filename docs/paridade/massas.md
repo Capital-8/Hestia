@@ -141,4 +141,7 @@ Nenhum item `[ ]` está pendente: o que ficou de fora está em `[-]`, com o moti
 - [-] F9 Mistura, loft e bulbo seguem pela ferramenta de perfis (círculo, elipse, polígono, livre); o 2º perfil pela galeria não foi feito
 - [-] F10 Duplo clique para editar o contorno: não existe para piso nem laje; vale o botão, o menu de contexto e a faixa
 - [-] F11 Botão "Unir formas" automático: a união se faz por TR (como no piso); a união 2D (`uniaoDeAneis`) segue só para os pisos da massa
+- [x] F12 Campo "Lados" para polígono inscrito e circunscrito (2º clique conclui) em todos os alvos do esboço — `packages/tools/src/perimeterTool.test.ts`, `tests/e2e/massa-uniao.mjs`
+- [x] F13 Botão "Unir formas" (massa, piso, laje, forro, telhado): une formas fechadas sobrepostas num contorno, desfazer em 1 passo — `packages/tools/src/perimeterUnite.test.ts`, `tests/e2e/massa-uniao.mjs`
+- [-] F14 União preserva arcos: não (cordas de 2 mm); Concluir não une sozinho
 
