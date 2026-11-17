@@ -4,7 +4,7 @@
  * Uso: npx vite-node scripts/texturas-catalogo.mts -- [--saida <pasta>] [--sem-miniaturas]
  *   (ou: npm run texturas:catalogo -- [--saida <pasta>] [--sem-miniaturas])
  * Credenciais: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL em process.env
- * ou em C:\Users\Eng\.hestia\r2.env. O script só LÊ do bucket; o envio de `textures/_catalogo` é manual.
+ * ou em ~/.hestia/r2.env. O script só LÊ do bucket; o envio de `textures/_catalogo` é manual.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -28,17 +28,29 @@ const saida = path.resolve(valorDe('--saida') ?? path.join(os.homedir(), '.hesti
 const pastaCatalogo = path.join(saida, 'textures', '_catalogo');
 const cache = path.join(os.tmpdir(), 'hestia-texturas-cache');
 
-/** Executável do Chromium instalado pelo Playwright (o mais recente). */
+/** Executável do Chromium: HESTIA_CHROMIUM, o do Playwright (Windows/Linux/macOS) ou um Chrome/Chromium do sistema. */
 function acharChromium(): string {
-  const base = path.join(process.env.LOCALAPPDATA ?? '', 'ms-playwright');
-  const pastas = fs.existsSync(base) ? fs.readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort((a, b) => Number(b.slice(9)) - Number(a.slice(9))) : [];
-  for (const d of pastas) {
-    for (const sub of ['chrome-win64', 'chrome-win']) {
-      const exe = path.join(base, d, sub, 'chrome.exe');
-      if (fs.existsSync(exe)) return exe;
+  const env = process.env.HESTIA_CHROMIUM;
+  if (env && fs.existsSync(env)) return env;
+  const bases = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'ms-playwright'),
+    path.join(os.homedir(), '.cache', 'ms-playwright'),
+    path.join(os.homedir(), 'Library', 'Caches', 'ms-playwright'),
+  ].filter((b): b is string => Boolean(b) && fs.existsSync(b as string));
+  for (const base of bases) {
+    const pastas = fs.readdirSync(base).filter((d) => /^chromium-\d+$/.test(d)).sort((a, b) => Number(b.slice(9)) - Number(a.slice(9)));
+    for (const d of pastas) {
+      for (const rel of ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe', 'chrome-linux/chrome', 'chrome-linux64/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
+        const exe = path.join(base, d, rel);
+        if (fs.existsSync(exe)) return exe;
+      }
     }
   }
-  throw new Error('Chromium do Playwright não encontrado em %LOCALAPPDATA%\\ms-playwright');
+  for (const exe of ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']) {
+    if (fs.existsSync(exe)) return exe;
+  }
+  throw new Error('Chromium não encontrado: instale o do Playwright, um Chrome/Chromium do sistema, ou defina HESTIA_CHROMIUM.');
 }
 
 /** Baixa o Color.jpg para o cache (com retomada: arquivo já baixado é reaproveitado). Devolve o caminho ou null. */
