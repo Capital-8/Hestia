@@ -380,6 +380,8 @@ export interface SpotAnnotation {
   elbow?: Vec2;
   familyId?: Id;
   showLeader?: boolean;
+  /** Cota do ponto medido em PLANTA (z do projeto, m); ausente = a cota do nível da vista. No corte vale `target.y`. */
+  z?: number;
 }
 
 /** Nuvem de revisão única com arcos paramétricos. */
