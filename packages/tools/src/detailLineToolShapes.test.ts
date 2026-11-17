@@ -47,8 +47,10 @@ describe('linha de detalhe sobre o núcleo de formas', () => {
   it('arco por 3 pontos (0,0), (1,1), (2,0): UMA linha a=(0,0) b=(2,0) com sag +1 (esquerda de a para b)', () => {
     const { lines } = desenha('arc', [[0, 0], [1, 1], [2, 0]]);
     expect(lines).toHaveLength(1);
-    expect(lines[0]!.a).toEqual({ x: 0, y: 0 });
-    expect(lines[0]!.b).toEqual({ x: 2, y: 0 });
+    expect(lines[0]!.a.x).toBeCloseTo(0, 9);
+    expect(lines[0]!.a.y).toBeCloseTo(0, 9);
+    expect(lines[0]!.b.x).toBeCloseTo(2, 9);
+    expect(lines[0]!.b.y).toBeCloseTo(0, 9);
     expect(lines[0]!.sag).toBeCloseTo(1, 6);
   });
 
@@ -81,7 +83,11 @@ describe('linha de detalhe sobre o núcleo de formas', () => {
     expect(t.type('0')).toBe(true);
     const ls = dl(store);
     expect(ls.length).toBeGreaterThanOrEqual(8);
-    for (const l of ls) expect(l.a.x ** 2 / 4 + l.a.y ** 2).toBeCloseTo(1, 9);
+    for (const l of ls) {
+      expect(l.sag).toBeUndefined();
+      expect(len(l)).toBeGreaterThanOrEqual(0.05);
+      expect(l.a.x ** 2 / 4 + l.a.y ** 2).toBeCloseTo(1, 9);
+    }
   });
 
   it('linha: comprimento digitado 3 + Enter a partir de (0,0) na direção (1,0) grava (0,0)-(3,0)', () => {
@@ -128,6 +134,7 @@ describe('linha de detalhe sobre o núcleo de formas', () => {
     expect(detailPolygonSides(100)).toBe(64);
     const segs = normalizeDetailSegs([
       { id: 's1', a: { x: 0, y: 0 }, b: { x: 0.005, y: 0 } },
+      { id: 's0', a: { x: 5, y: 5 }, b: { x: 5.04, y: 5 } },
       { id: 's2', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, sag: 0.2 },
     ]);
     expect(segs).toEqual([{ a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, sag: 0.2 }]);

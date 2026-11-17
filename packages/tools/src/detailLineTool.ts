@@ -17,7 +17,7 @@ import {
   skipCountInputs,
   type DetailSeg,
 } from './detailLineToolShapes.ts';
-import { anchorOf, kindOf, shapeName, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
+import { anchorOf, kindOf, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
 import { shapeInputLabel } from './sketchShapes.ts';
 import type { PointerInfo, WallDrawShape } from './types.ts';
 

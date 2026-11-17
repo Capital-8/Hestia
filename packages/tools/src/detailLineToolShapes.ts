@@ -1,5 +1,5 @@
 import { angleOf, dist, sub, type SketchSeg, type Vec2 } from '@hestia/geom';
-import { detailLineSegments } from '@hestia/model';
+import { ROOM_SEPARATOR_MIN_LENGTH, detailLineSegments } from '@hestia/model';
 import { buildShape, anchorOf, kindOf, pointsOf, stepsOf, type ShapeStep } from './perimeterToolShape.ts';
 import type { ShapeKindId } from './sketchShapes.ts';
 import type { PreviewItem, WallDrawShape } from './types.ts';
@@ -22,10 +22,10 @@ export const DETAIL_SHAPE_KIND: Record<WallDrawShape, ShapeKindId> = {
 export const DETAIL_POLYGON_DEFAULT_SIDES = 6;
 export const DETAIL_POLYGON_MIN_SIDES = 3;
 export const DETAIL_POLYGON_MAX_SIDES = 64;
-/** Comprimento mínimo de um trecho gravado (m). */
-export const DETAIL_MIN_LEN = 0.01;
+/** Comprimento mínimo de um trecho gravado (m): o do comando `addDetailLine`. */
+export const DETAIL_MIN_LEN = ROOM_SEPARATOR_MIN_LENGTH;
 
-/** Número de lados válido (inteiro 3..64); fora disso, o padrão (6) ou o limite. */
+/** Número de lados válido (inteiro 3..64); ausente, o padrão (6). */
 export function detailPolygonSides(n: number | undefined): number {
   if (n === undefined || !Number.isFinite(n)) return DETAIL_POLYGON_DEFAULT_SIDES;
   return Math.min(DETAIL_POLYGON_MAX_SIDES, Math.max(DETAIL_POLYGON_MIN_SIDES, Math.round(n)));
@@ -33,9 +33,31 @@ export function detailPolygonSides(n: number | undefined): number {
 
 export interface DetailSeg { a: Vec2; b: Vec2; sag: number }
 
-/** Converte os trechos do núcleo em `{a,b,sag}`: arco continua UMA linha com `sag`; descarta trechos < 0,01 m. */
+/** Junta cordas retas consecutivas curtas (ex.: elipse) até somarem o comprimento mínimo; arcos ficam intactos. */
+function mergeShortChords(segs: readonly SketchSeg[]): DetailSeg[] {
+  const out: DetailSeg[] = [];
+  let run: DetailSeg | null = null;
+  const flush = (): void => { if (run) out.push(run); run = null; };
+  for (const s of segs) {
+    if (s.sag) { flush(); out.push({ a: s.a, b: s.b, sag: s.sag }); continue; }
+    if (run && dist(run.b, s.a) < 1e-9 && dist(run.a, run.b) < DETAIL_MIN_LEN) run = { a: run.a, b: s.b, sag: 0 };
+    else { flush(); run = { a: s.a, b: s.b, sag: 0 }; }
+  }
+  flush();
+  const tail = out[out.length - 1];
+  const prev = out[out.length - 2];
+  if (tail && prev && !tail.sag && !prev.sag && dist(tail.a, tail.b) < DETAIL_MIN_LEN && dist(prev.b, tail.a) < 1e-9) {
+    out.splice(out.length - 2, 2, { a: prev.a, b: tail.b, sag: 0 });
+  }
+  return out;
+}
+
+/**
+ * Converte os trechos do núcleo em `{a,b,sag}`: arco continua UMA linha com `sag`; cordas retas muito curtas se
+ * juntam; o que ainda ficar abaixo do comprimento mínimo é descartado.
+ */
 export function normalizeDetailSegs(segs: readonly SketchSeg[]): DetailSeg[] {
-  return segs.map((s) => ({ a: s.a, b: s.b, sag: s.sag ?? 0 })).filter((s) => dist(s.a, s.b) >= DETAIL_MIN_LEN);
+  return mergeShortChords(segs).filter((s) => dist(s.a, s.b) >= DETAIL_MIN_LEN);
 }
 
 /** Avança sobre entradas de contagem (os lados do polígono vêm da opção, já em `vals.sides`). */
@@ -52,9 +74,8 @@ export function initDetailShapeStep(shape: WallDrawShape, sides: number | undefi
 
 /** Trechos finais da forma concluída; vazio se degenerada (algum trecho < 0,01 m). */
 export function buildDetailShapeSegs(step: ShapeStep, flags: Record<string, boolean>): DetailSeg[] {
-  const raw = buildShape(step.shape.id, step.vals, flags);
-  const segs = normalizeDetailSegs(raw);
-  return segs.length > 0 && segs.length === raw.length ? segs : [];
+  const merged = mergeShortChords(buildShape(step.shape.id, step.vals, flags));
+  return merged.length > 0 && merged.every((s) => dist(s.a, s.b) >= DETAIL_MIN_LEN) ? merged : [];
 }
 
 /** Linhas de prévia (tracejadas) de um trecho; o arco vira polilinha pelo helper do modelo. */
