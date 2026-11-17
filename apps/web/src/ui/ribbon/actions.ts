@@ -356,20 +356,20 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   roofProjection: { label: t('Projeção da cobertura', 'Roof Projection'), icon: 'roof', run: toggleRoofProjection, pressed: (c) => c.showRoofProjection },
   showMass: {
     label: t('Mostrar massa', 'Show Mass'),
-    icon: 'cube',
+    icon: 'massShow',
     run: alternarMassaNaVista,
     pressed: (c) => massaVisivelNaVista(c.p),
     disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Does not apply to sheets.') : false),
   },
   pisosDaMassa: {
     label: t('Pisos da massa', 'Floors from Mass'),
-    icon: 'floor',
+    icon: 'massFloors',
     run: openDialog('massPisos'),
     disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
   },
   paredesDaMassa: {
     label: t('Paredes da massa', 'Walls from Mass'),
-    icon: 'wall',
+    icon: 'massWalls',
     run: openDialog('massParedes'),
     disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
   },

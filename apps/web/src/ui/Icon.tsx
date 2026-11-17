@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { ICONES_MASSA_TERRENO } from './iconesMassaTerreno.ts';
 
 /**
  * Ícones de ferramenta no estilo da faixa do Revit: sólidos cinza sombreados em 3D (luz de cima-esquerda),
@@ -34,6 +35,7 @@ const R: Record<string, string> = {
     p('bl', 'M4 5H28V27H4Z') +
     p('s1', 'M8 12H24V20H8Z') +
     p('ac', 'M11 16H21'),
+  ...ICONES_MASSA_TERRENO,
   roomsep: p('s1', 'M3 3H29V29H3Z') + p('bl', 'M7 11H25V25H7Z') + p('ln', 'M1 18H31'),
   // Seleção e edição
   select: p('s1', 'M8 3V24L13 19L16.5 27L19.8 25.6L16.5 18.2L23 18Z'),
