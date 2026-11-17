@@ -18,6 +18,7 @@ import type { PlanView } from './planView.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
+import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdentidade, MaterialTermico } from './materialBlocks.ts';
 
 export type Id = string;
 export const SCHEMA_VERSION = 24;
@@ -46,6 +47,12 @@ export interface Material {
   cost: number;
   /** Unidade do custo/quantitativo. */
   unit: 'm2' | 'm3' | 'm';
+  /** Blocos opcionais (decisão 0056). Ausente = comportamento anterior. Leia sempre por `materialEfetivo`. */
+  identidade?: MaterialIdentidade;
+  graficos?: MaterialGraficos;
+  aparencia?: MaterialAparencia;
+  fisico?: MaterialFisico;
+  termico?: MaterialTermico;
 }
 
 export interface Layer {

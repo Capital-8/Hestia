@@ -1,3 +1,4 @@
+import { normalizarMaterial } from './materialBlocks.ts';
 import { DEFAULT_MATERIALS, createEmptyProject } from './defaults.ts';
 import { DEFAULT_FLOOR_TYPES } from './floor.ts';
 import { DEFAULT_CEILING_TYPES } from './ceiling.ts';
@@ -301,5 +302,6 @@ export function migrateProject(raw: unknown): Project {
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');
-  return { ...base, ...p, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
+  const materials = Object.fromEntries(Object.entries(p.materials).map(([id, m]) => [id, normalizarMaterial(m)]));
+  return { ...base, ...p, materials, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
 }
