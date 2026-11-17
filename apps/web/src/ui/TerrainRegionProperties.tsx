@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { servicoTerreno } from '@hestia/engine';
-import { cotaDoProjeto, cotaExibida, isTerrain, TERRENO_LIMITES, type Command, type PapelRegiaoTerreno, type Project, type TerrainRegion } from '@hestia/model';
+import { camposDoPapel, cotaDoProjeto, cotaExibida, isTerrain, TERRENO_LIMITES, type Command, type PapelRegiaoTerreno, type Project, type TerrainRegion } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
@@ -20,8 +20,11 @@ const PAPEIS: ReadonlyArray<{ value: PapelRegiaoTerreno; chave: keyof Dict }> = 
 /** Cor com que a região é desenhada quando não tem `color` (a mesma do desenho em planta). */
 export const corPadraoDaRegiao = (papel: PapelRegiaoTerreno): string => (papel === 'subdivisao' ? '#9bb08a' : papel === 'plataforma' ? '#b0a58f' : '#c4a77d');
 
-/** Os campos de plano (cota, inclinação, direção) só existem na plataforma e na nivelada: a subdivisão os esconde. */
-export const temPlano = (r: Pick<TerrainRegion, 'papel'>): boolean => r.papel !== 'subdivisao';
+/** Os campos de plano (cota, inclinação, direção) só têm efeito na plataforma e na nivelada: a subdivisão os esconde. */
+export const temPlano = (r: Pick<TerrainRegion, 'papel'>): boolean => camposDoPapel(r.papel).plano;
+
+/** Os taludes de corte e aterro só têm efeito nos mesmos papéis de plano (o kernel só os aplica em regiões planas): a subdivisão os esconde. */
+export const temTalude = (r: Pick<TerrainRegion, 'papel'>): boolean => camposDoPapel(r.papel).talude;
 
 /** Leituras calculadas de UMA região (área e volumes). Valores do kernel: sem ele, "—". */
 export function RegiaoLeituras({ leituras }: { leituras: LeiturasRegiao }): ReactElement {
@@ -38,8 +41,9 @@ export function RegiaoLeituras({ leituras }: { leituras: LeiturasRegiao }): Reac
 }
 
 /**
- * Propriedades da região de terreno (A.3 e A.6): nome, terreno, papel, plano (cota, inclinação, direção de subida: escondido na subdivisão),
- * taludes de corte e aterro, área permeável, material e cor, mais as leituras de área e volumes. A região NÃO é de família: sem tipo.
+ * Propriedades da região de terreno (A.3 e A.6): nome, terreno, papel, plano (cota, inclinação, direção de subida) e taludes de corte e aterro
+ * (plano e taludes só nos papéis de plano: a subdivisão os esconde), área permeável, material e cor, mais as leituras de área e volumes.
+ * A região NÃO é de família: sem tipo.
  * A cota é a EXIBIDA (`cotaExibida`); o valor digitado passa por `cotaDoProjeto`.
  */
 export function TerrainRegionProperties({ regions }: { regions: TerrainRegion[] }): ReactElement {
@@ -48,6 +52,7 @@ export function TerrainRegionProperties({ regions }: { regions: TerrainRegion[] 
   const kernel = useKernelTerreno();
   const ids = regions.map((r) => r.id);
   const idsPlano = regions.filter(temPlano).map((r) => r.id);
+  const idsTalude = regions.filter(temTalude).map((r) => r.id);
   const patch = (campos: PatchRegiao, alvo: readonly string[] = ids): void =>
     aplicarEmTodos(alvo, t('ui_tn_r_rotulo_undo'), (id) => ({ type: 'updateTerrainRegion', id, patch: campos }));
   const nome = comum(regions, (r) => r.name);
@@ -57,8 +62,9 @@ export function TerrainRegionProperties({ regions }: { regions: TerrainRegion[] 
   const cota = comum(plano.length > 0 ? plano : regions, (r) => r.cota);
   const incl = comum(plano.length > 0 ? plano : regions, (r) => r.inclinacao);
   const dir = comum(plano.length > 0 ? plano : regions, (r) => r.direcao);
-  const corte = comum(regions, (r) => r.taludeCorte);
-  const aterro = comum(regions, (r) => r.taludeAterro);
+  const comTalude = regions.filter(temTalude);
+  const corte = comum(comTalude.length > 0 ? comTalude : regions, (r) => r.taludeCorte);
+  const aterro = comum(comTalude.length > 0 ? comTalude : regions, (r) => r.taludeAterro);
   const perm = comum(regions, (r) => r.permeavel);
   const material = comum(regions, (r) => r.materialId ?? '');
   const cor = comum(regions, (r) => r.color ?? '');
@@ -86,10 +92,12 @@ export function TerrainRegionProperties({ regions }: { regions: TerrainRegion[] 
           <Row label={t('ui_tn_r_direcao')} htmlFor="p-rg-dir"><NumField id="p-rg-dir" suffix="°" decimals={2} value={radParaGraus(dir.value)} mixed={dir.mixed} onCommit={(v) => patch({ direcao: grausParaRad(v) }, idsPlano)} /></Row>
         </Group>
       ) : null}
-      <Group title={t('ui_tn_g_taludes')} stateKey="regiao-taludes">
-        <Row label={t('ui_tn_r_talude_corte')} htmlFor="p-rg-tcorte"><NumField id="p-rg-tcorte" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={corte.value} mixed={corte.mixed} onCommit={(v) => patch({ taludeCorte: v })} /></Row>
-        <Row label={t('ui_tn_r_talude_aterro')} htmlFor="p-rg-taterro"><NumField id="p-rg-taterro" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={aterro.value} mixed={aterro.mixed} onCommit={(v) => patch({ taludeAterro: v })} /></Row>
-      </Group>
+      {comTalude.length > 0 ? (
+        <Group title={t('ui_tn_g_taludes')} stateKey="regiao-taludes">
+          <Row label={t('ui_tn_r_talude_corte')} htmlFor="p-rg-tcorte"><NumField id="p-rg-tcorte" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={corte.value} mixed={corte.mixed} onCommit={(v) => patch({ taludeCorte: v }, idsTalude)} /></Row>
+          <Row label={t('ui_tn_r_talude_aterro')} htmlFor="p-rg-taterro"><NumField id="p-rg-taterro" suffix=":1" decimals={2} min={0} max={TERRENO_LIMITES.taludeMax} value={aterro.value} mixed={aterro.mixed} onCommit={(v) => patch({ taludeAterro: v }, idsTalude)} /></Row>
+        </Group>
+      ) : null}
       <Group title={t('ui_tn_g_aparencia')} stateKey="regiao-aparencia">
         <Row label={t('ui_tn_r_permeavel')} htmlFor="p-rg-perm"><Check id="p-rg-perm" checked={perm.value} mixed={perm.mixed} onChange={(v) => patch({ permeavel: v })} /></Row>
         <MaterialRow id="p-rg-material" value={material.value === '' ? undefined : material.value} mixed={material.mixed} onChange={(v) => patch({ materialId: v })} />

@@ -175,7 +175,7 @@ describe('regiões de terreno', () => {
   it('addTerrainRegion recusa terreno inexistente e região inválida', () => {
     const s = comTerreno();
     expect(() => s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'nada', contorno: tri }) })).toThrow(msg('md_tn_reg_terreno'));
-    expect(() => s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: tri, inclinacao: 2 }) })).toThrow();
+    expect(() => s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: tri, papel: 'plataforma', inclinacao: 2 }) })).toThrow();
     expect(() => s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'nao_existe', terrenoId: 'tn1', contorno: tri }) })).toThrow();
     expect(s.project.elements['tr1']).toBeUndefined();
   });
