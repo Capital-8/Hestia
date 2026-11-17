@@ -18,6 +18,7 @@ import { ES_PROPS_CORE } from '../../areas/props-core.ts';
 import { ES_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { ES_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { ES_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
+import { ES_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas.ts';
 import { ES_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { ES_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { ES_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
@@ -65,6 +66,7 @@ export const ES_ALL = {
   ...ES_DIALOGS_MISC,
   ...ES_PACKAGES_MODEL,
   ...ES_DIALOGS_TYPES,
+  ...ES_DIALOGS_MATERIAIS,
   ...ES_DIALOGS_OPENING,
   ...ES_DIALOGS_CAD,
   ...ES_EDITOR_CONTEXT,
