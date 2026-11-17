@@ -17,14 +17,14 @@ describe('operação IFC das famílias novas de janela', () => {
     expect(windowOperation({ plan: 'pivotwin' }, false)).toBe('PIVOTVERTICAL');
   });
 
-  it('veneziana: TILTANDTURN mais próximo, invertido por flipHand', () => {
-    expect(windowOperation({ plan: 'louver' }, false)).toBe('TILTANDTURNLEFTHAND');
-    expect(windowOperation({ plan: 'louver' }, true)).toBe('TILTANDTURNRIGHTHAND');
+  it('veneziana: OTHEROPERATION (TILTANDTURN é giro com basculamento, não veneziana)', () => {
+    expect(windowOperation({ plan: 'louver' }, false)).toBe('OTHEROPERATION');
+    expect(windowOperation({ plan: 'louver' }, true)).toBe('OTHEROPERATION');
   });
 
   it('mantém o mapeamento das famílias antigas', () => {
     expect(windowOperation({ plan: 'casement' }, false)).toBe('TOPHUNG');
-    expect(windowOperation({ plan: 'tilt' }, false)).toBe('BOTTOMHUNG');
+    expect(windowOperation({ plan: 'tilt' }, false)).toBe('PIVOTHORIZONTAL');
     expect(windowOperation({ plan: 'sliding' }, false)).toBe('SLIDINGHORIZONTAL');
     expect(windowOperation({ plan: 'fixed' }, false)).toBe('FIXEDCASEMENT');
   });

@@ -182,7 +182,7 @@ describe('exportIfc: catálogo completo no mostruário', () => {
     expect(count(text, 'IFCRELFILLSELEMENT')).toBe(opens.length);
   });
 
-  it('tem uma Operation por porta e um painel por janela, sem NOTDEFINED', () => {
+  it('tem uma Operation por porta e um painel por folha de janela, sem NOTDEFINED', () => {
     for (const o of portas) {
       const t = p.openingTypes[o.typeId]!;
       expect(doorOperation(t, o.flipHand), `${o.id} ${t.plan}`).not.toBe('NOTDEFINED');
@@ -191,7 +191,11 @@ describe('exportIfc: catálogo completo no mostruário', () => {
       const t = p.openingTypes[o.typeId]!;
       expect(windowOperation(t, o.flipHand), `${o.id} ${t.plan}`).not.toBe('NOTDEFINED');
     }
-    expect(count(text, 'IFCWINDOWPANELPROPERTIES')).toBe(janelas.length + new Set(janelas.map((o) => o.typeId)).size);
+    // Um painel por folha (B6): janela de uma folha tem um painel; janela de duas ou mais, um por folha. Vale na instância e no tipo.
+    const paineis = (typeId: string): number => Math.max(1, p.openingTypes[typeId]!.leaves >= 2 ? p.openingTypes[typeId]!.leaves : 1);
+    const tiposJanela = new Set(janelas.map((o) => o.typeId));
+    const esperados = janelas.reduce((soma, o) => soma + paineis(o.typeId), 0) + [...tiposJanela].reduce((soma, id) => soma + paineis(id), 0);
+    expect(count(text, 'IFCWINDOWPANELPROPERTIES')).toBe(esperados);
     expect(text.includes("'NOTDEFINED'")).toBe(false);
   });
 
@@ -201,7 +205,8 @@ describe('exportIfc: catálogo completo no mostruário', () => {
     expect(doorTypes).toHaveLength(new Set(portas.map((o) => o.typeId)).size);
     for (const line of doorTypes) {
       const a = attrsOf(line);
-      expect(a[9]).toBe('.DOOR.');
+      // A porta de garagem (seccionada) sai GATE; as demais, DOOR.
+      expect(a[9]).toMatch(/^\.(DOOR|GATE)\.$/);
       expect(a[10], line).toMatch(/^\.[A-Z_]+\.$/);
       expect(a[10], line).not.toBe('.NOTDEFINED.');
       expect(a[0]!.replace(/^'|'$/g, '')).toMatch(/^[0-9A-Za-z_$]{22}$/);
@@ -387,24 +392,26 @@ describe('exportIfc', () => {
     for (const line of [...doorCommon, ...windowCommon]) {
       const props = propsOfPset(line, byId);
       expect(props.get('IsExternal'), line).toMatch(/^IFCBOOLEAN\(\.(T|F)\.\)$/);
-      expect(props.get('Reference'), line).toMatch(/^IFCLABEL\('.*'\)$/);
+      expect(props.get('Reference'), line).toMatch(/^IFCIDENTIFIER\('.*'\)$/);
     }
-    for (const line of windowCommon) expect(propsOfPset(line, byId).get('GlazingAreaFraction'), line).toMatch(/^IFCREAL\(/);
+    for (const line of windowCommon) expect(propsOfPset(line, byId).get('GlazingAreaFraction'), line).toMatch(/^IFCPOSITIVERATIOMEASURE\(/);
   });
 
-  it('Pset da abertura traz FireRating/uValue do tipo e Reference = mark do vão', () => {
+  it('Pset da abertura traz FireRating/uValue do tipo com o tipo de medida do IFC, e Reference = código do tipo', () => {
     const t = p.openingTypes.ot_p90!;
     const opening = Object.values(p.elements).find((e): e is Opening => isOpening(e) && e.typeId === 'ot_p90')!;
     const q: Project = {
       ...p,
-      openingTypes: { ...p.openingTypes, ot_p90: { ...t, fireRating: 'EI 30', uValue: 2.1, acousticRw: 32 } },
+      openingTypes: { ...p.openingTypes, ot_p90: { ...t, code: 'P-90', fireRating: 'EI 30', uValue: 2.1, acousticRw: 32 } },
       elements: { ...p.elements, [opening.id]: { ...opening, mark: 'D-99' } },
     };
     const out = exportIfc(q, geo, { timestamp: TS });
     expect(out).toContain("IFCPROPERTYSINGLEVALUE('FireRating',$,IFCLABEL('EI 30'),$)");
-    expect(out).toContain("IFCPROPERTYSINGLEVALUE('ThermalTransmittance',$,IFCREAL(2.100000),$)");
+    expect(out).toContain("IFCPROPERTYSINGLEVALUE('ThermalTransmittance',$,IFCTHERMALTRANSMITTANCEMEASURE(2.100000),$)");
     expect(out).toContain("IFCPROPERTYSINGLEVALUE('AcousticRating',$,IFCLABEL('32 dB'),$)");
-    expect(out).toContain("IFCPROPERTYSINGLEVALUE('Reference',$,IFCLABEL('D-99'),$)");
+    // Reference é o código do TIPO (IfcIdentifier); a marca da instância (D-99) fica em IfcDoor.Tag.
+    expect(out).toContain("IFCPROPERTYSINGLEVALUE('Reference',$,IFCIDENTIFIER('P-90'),$)");
+    expect(out).not.toContain("IFCLABEL('D-99')"); 
   });
 
   it('GlobalIds das entidades com raiz são de 22 caracteres e únicos', () => {

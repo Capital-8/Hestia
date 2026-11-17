@@ -25,8 +25,8 @@ import { addGrids } from './ifcGrids.ts';
 import { addQuantities } from './ifcQuantities.ts';
 import { addSpaces } from './ifcSpaces.ts';
 import { addItemStyles, addStyles } from './ifcStyles.ts';
-import { addTypeRelations, doorOperation, openingCommonProps, openingTypeEntity, windowOperation, windowPartition } from './ifcOpeningTypes.ts';
-export { doorOperation, glazingAreaFraction, windowOperation, windowPartition } from './ifcOpeningTypes.ts';
+import { addTypeRelations, doorOperationOf, doorPredefinedType, openingCommonProps, openingGlazingProps, openingTypeEntity, windowPanels, windowPartitionOf } from './ifcOpeningTypes.ts';
+export { doorOperation, doorOperationOf, glazingAreaFraction, windowLeafOperation, windowOperation, windowPartition, windowPartitionOf } from './ifcOpeningTypes.ts';
 import { gid, langOf, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
 import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf, tiltBrepSolid, tiltExtrudeSolid } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, StepWriter, stepString } from './ifcStep.ts';
@@ -237,29 +237,26 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
     const shape = items.length > 0 ? bodyShape(c.w, c.ctx, 'SweptSolid', items) : null;
     const family = stepString(openingFamilyName(t) ?? t.name);
     const name = stepString(t.name);
+    // Porta: operação e `UserDefinedOperationType` (só o `PIVOT`); janela: divisão de painéis e o rótulo `USERDEFINED`.
     const fillId =
       o.kind === 'door'
-        ? c.w.add('IFCDOOR', [gid(`door:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en('DOOR'), en(doorOperation(t, o.flipHand)), OMIT])
-        : c.w.add('IFCWINDOW', [gid(`window:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en('WINDOW'), en(windowPartition(t.leaves)), OMIT]);
+        ? (() => {
+            const operation = doorOperationOf(t, o.flipHand);
+            return c.w.add('IFCDOOR', [gid(`door:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en(doorPredefinedType(t)), en(operation.operation), optStr(operation.userDefined)]);
+          })()
+        : (() => {
+            const partition = windowPartitionOf(t);
+            return c.w.add('IFCWINDOW', [gid(`window:${g.openingId}`), OMIT, name, OMIT, family, ref(atZ(g.sillZ - st.elev)), shape === null ? OMIT : ref(shape), optStr(o.mark), num(height), num(g.width), en('WINDOW'), en(partition.partition), optStr(partition.userDefined)]);
+          })();
     st.contained.push(fillId);
     c.w.add('IFCRELFILLSELEMENT', [gid(`rfill:${g.openingId}`), OMIT, OMIT, OMIT, ref(voidId), ref(fillId)]);
     // Material de fallback na instância: o web-ifc 0.0.78 ainda não propaga a associação do tipo para a ocorrência.
     // As peças com IFCSTYLEDITEM continuam com a cor específica; sem elas, a esquadria sai no material do batente.
     c.w.add('IFCRELASSOCIATESMATERIAL', [gid(`mat:${o.kind}:${g.openingId}`), OMIT, OMIT, OMIT, list([ref(fillId)]), ref(materialOf(c, t.frameMaterialId))]);
     if (o.kind === 'window') {
-      // O atributo Operation do IFC4 fica no IFCWINDOWPANELPROPERTIES, não no IFCWINDOW: um painel por janela.
-      const panel = c.w.add('IFCWINDOWPANELPROPERTIES', [
-        gid(`winpanel:${g.openingId}`),
-        OMIT,
-        name,
-        OMIT,
-        en(windowOperation(t, o.flipHand)),
-        en('NOTDEFINED'),
-        OMIT,
-        OMIT,
-        OMIT,
-      ]);
-      c.w.add('IFCRELDEFINESBYPROPERTIES', [gid(`winpanelrel:${g.openingId}`), OMIT, OMIT, OMIT, list([ref(fillId)]), ref(panel)]);
+      // O atributo Operation do IFC4 fica no IFCWINDOWPANELPROPERTIES, não no IFCWINDOW: um painel por folha.
+      const panels = windowPanels(c, t, o.flipHand, `winpanel:${g.openingId}`);
+      c.w.add('IFCRELDEFINESBYPROPERTIES', [gid(`winpanelrel:${g.openingId}`), OMIT, OMIT, OMIT, list([ref(fillId)]), list(panels.map(ref))]);
     }
     openingTypeEntity(c, t);
     const members = c.openingTypeMembers.get(t.id);
@@ -267,6 +264,7 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
     else c.openingTypeMembers.set(t.id, [fillId]);
     const external = isWall(host) && c.external.has(host.id);
     addPropertySet(c, `pset:${o.kind}:${g.openingId}`, o.kind === 'door' ? 'Pset_DoorCommon' : 'Pset_WindowCommon', openingCommonProps(o, t, external), fillId);
+    addPropertySet(c, `pset:glazing:${g.openingId}`, 'Pset_DoorWindowGlazingType', openingGlazingProps(t), fillId);
   }
   addTypeRelations(c);
 }

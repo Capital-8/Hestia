@@ -29,8 +29,8 @@ function circle(r: number, n = 32): Pt2[] {
 }
 
 /**
- * Pontos de uma curva 2D do IFC. Arcos saem como cordas (o Hestia discretiza depois, com a tolerância dele); o que não é
- * reconhecido devolve `null` e o sólido cai para malha/ignorado.
+ * Pontos de uma curva 2D do IFC. Arcos (`IfcArcIndex` e `IfcTrimmedCurve`) saem amostrados com corda de até 1 mm; o que não
+ * é reconhecido devolve `null` e o sólido cai para malha/ignorado.
  */
 export function curvePoints(f: IfcFile, curve: StepEntity | undefined, depth = 0): Pt2[] | null {
   if (!curve || depth > 8) return null;
@@ -39,17 +39,8 @@ export function curvePoints(f: IfcFile, curve: StepEntity | undefined, depth = 0
       const pts = f.list(curve, 0).map((p) => f.point(p ? { k: 'ref', id: p.id } : undefined));
       return pts.filter((p): p is Pt3 => !!p).map(to2);
     }
-    case 'IFCINDEXEDPOLYCURVE': {
-      const coords = f.ent(curve, 0);
-      if (!coords) return null;
-      const list = listOf(coords.args[0]);
-      const out: Pt2[] = [];
-      for (const item of list) {
-        const nums = listOf(item).map((x) => numOf(x) ?? 0);
-        if (nums.length >= 2) out.push({ x: (nums[0] ?? 0) * f.units.length, y: (nums[1] ?? 0) * f.units.length });
-      }
-      return out.length >= 2 ? out : null;
-    }
+    case 'IFCINDEXEDPOLYCURVE':
+      return indexedPoints(f, curve);
     case 'IFCCOMPOSITECURVE': {
       const out: Pt2[] = [];
       for (const seg of f.list(curve, 0)) {
@@ -69,6 +60,78 @@ export function curvePoints(f: IfcFile, curve: StepEntity | undefined, depth = 0
     default:
       return null;
   }
+}
+
+/** Erro máximo (m) da amostragem de arcos: a corda fica a no máximo 1 mm do arco real. */
+const ARC_TOLERANCE = 0.001;
+/** Teto de segmentos por arco (um arco gigante com raio enorme não pode gerar milhares de pontos). */
+const ARC_MAX_STEPS = 512;
+
+/**
+ * `IfcIndexedPolyCurve`: pontos (índice 1-based) e `Segments`. `IfcLineIndex` é uma reta entre os índices; `IfcArcIndex`
+ * é um arco pelos três pontos, amostrado. Sem `Segments`, vale a ordem dos pontos.
+ */
+function indexedPoints(f: IfcFile, curve: StepEntity): Pt2[] | null {
+  const coords = f.ent(curve, 0);
+  if (!coords) return null;
+  const L = f.units.length;
+  const pts: Pt2[] = listOf(coords.args[0]).map((item) => {
+    const nums = listOf(item).map((x) => numOf(x) ?? 0);
+    return { x: (nums[0] ?? 0) * L, y: (nums[1] ?? 0) * L };
+  });
+  const at = (i: number): Pt2 | undefined => pts[i - 1];
+  const out: Pt2[] = [];
+  const add = (p: Pt2 | undefined): void => {
+    if (!p) return;
+    const last = out[out.length - 1];
+    if (last && Math.hypot(last.x - p.x, last.y - p.y) < 1e-9) return;
+    out.push(p);
+  };
+  const segments = listOf(curve.args[1]);
+  if (!segments.length) pts.forEach(add);
+  for (const seg of segments) {
+    if (seg.k !== 'type') continue;
+    const idx = listOf(seg.arg).map((v) => numOf(v) ?? 0);
+    if (seg.name === 'IFCARCINDEX' && idx.length === 3) {
+      const [a, b, c] = [at(idx[0] ?? 0), at(idx[1] ?? 0), at(idx[2] ?? 0)];
+      if (a && b && c) arcPoints(a, b, c).forEach(add);
+    } else {
+      for (const i of idx) add(at(i));
+    }
+  }
+  return out.length >= 2 ? out : null;
+}
+
+/**
+ * Amostra o arco que passa por `a`, `b` e `c` (círculo pelos três pontos), com `a` e `c` nas pontas e a corda a no máximo
+ * `ARC_TOLERANCE` do arco real. Pontos colineares viram reta. O arco segue para o lado em que está `b`.
+ */
+export function arcPoints(a: Pt2, b: Pt2, c: Pt2): Pt2[] {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+  if (Math.abs(d) < 1e-12) return [a, c];
+  const a2 = a.x * a.x + a.y * a.y;
+  const b2 = b.x * b.x + b.y * b.y;
+  const c2 = c.x * c.x + c.y * c.y;
+  const cx = (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d;
+  const cy = (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d;
+  const r = Math.hypot(a.x - cx, a.y - cy);
+  const TAU = Math.PI * 2;
+  const ccw = (from: number, to: number): number => (((to - from) % TAU) + TAU) % TAU;
+  const angA = Math.atan2(a.y - cy, a.x - cx);
+  const angB = Math.atan2(b.y - cy, b.x - cx);
+  const angC = Math.atan2(c.y - cy, c.x - cx);
+  const forward = ccw(angA, angB) < ccw(angA, angC);
+  const sweep = forward ? ccw(angA, angC) : ccw(angC, angA);
+  const dir = forward ? 1 : -1;
+  const step = r > ARC_TOLERANCE ? 2 * Math.acos(1 - ARC_TOLERANCE / r) : Math.PI;
+  const n = Math.min(ARC_MAX_STEPS, Math.max(2, Math.ceil(sweep / step)));
+  const out: Pt2[] = [a];
+  for (let i = 1; i < n; i++) {
+    const t = angA + (dir * sweep * i) / n;
+    out.push({ x: cx + r * Math.cos(t), y: cy + r * Math.sin(t) });
+  }
+  out.push(c);
+  return out;
 }
 
 /** `IfcTrimmedCurve`: reta (dois pontos) ou arco de círculo (amostrado). */

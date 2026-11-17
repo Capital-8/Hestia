@@ -59,10 +59,12 @@ describe('fabricante e fator solar no IFC: exportação', () => {
     for (const l of tipos) expect(l).toMatch(/,\(#\d+/);
   });
 
-  it('fator solar sai em Pset_WindowCommon da janela como SolarHeatGainTransmittance', () => {
+  it('fator solar sai em Pset_DoorWindowGlazingType da janela, com IfcNormalisedRatioMeasure, e não em Pset_WindowCommon', () => {
     const texto = exportar(casa({ solarFactor: 0.35 }));
-    expect(texto).toContain("IFCPROPERTYSINGLEVALUE('SolarHeatGainTransmittance',$,IFCREAL(0.350000),$)");
-    expect(texto).toContain("'Pset_WindowCommon'");
+    expect(texto).toContain("IFCPROPERTYSINGLEVALUE('SolarHeatGainTransmittance',$,IFCNORMALISEDRATIOMEASURE(0.350000),$)");
+    expect(texto).toContain("'Pset_DoorWindowGlazingType'");
+    const comum = texto.split('\n').filter((l) => l.includes("'Pset_WindowCommon'"));
+    expect(comum.join('\n')).not.toContain('SolarHeatGainTransmittance');
   });
 
   it('porta não recebe fator solar, mesmo informado no tipo', () => {
@@ -80,7 +82,9 @@ describe('fabricante e fator solar no IFC: exportação', () => {
 });
 
 describe('fabricante e fator solar no IFC: ida e volta', () => {
-  it('exporta e reimporta mantendo fabricante da janela e da porta e o fator solar da janela', () => {
+  // O importador (ifcImport/elementTypes.ts) ainda lê o fator solar só de Pset_WindowCommon (B9, lado da importação, fora
+  // desta entrega). Por isso o fator solar NÃO volta por IFC de terceiros; volta pelo Pset_Hestia (ida e volta do próprio Hestia).
+  it('exporta e reimporta mantendo fabricante da janela e da porta (fator solar: ver comentário acima)', () => {
     const texto = exportar(casa({ manufacturer: 'Acme Esquadrias', solarFactor: 0.35 }, { manufacturer: 'Portas SA' }));
     const { project, report } = importIfc(semExtensaoHestia(texto));
     // Sem o registro do Hestia, as aberturas voltam pela leitura comum (ids novos), não pelo registro nativo.
@@ -95,7 +99,7 @@ describe('fabricante e fator solar no IFC: ida e volta', () => {
     const janela = tipoDe('window');
     const porta = tipoDe('door');
     expect(janela?.manufacturer).toBe('Acme Esquadrias');
-    expect(janela?.solarFactor).toBe(0.35);
+    expect(janela?.solarFactor).toBeUndefined();
     expect(porta?.manufacturer).toBe('Portas SA');
     expect(porta?.solarFactor).toBeUndefined();
   });

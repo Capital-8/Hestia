@@ -83,6 +83,36 @@ export function typePropertyOf(f: IfcFile, type: StepEntity, pset: string, name:
   return undefined;
 }
 
+/**
+ * Definições de propriedade ligadas ao elemento (`IfcRelDefinesByProperties`) e ao tipo (relações e `HasPropertySets`),
+ * sem repetição e na ordem em que aparecem: o elemento vem antes do tipo.
+ */
+export function propertyDefsOf(f: IfcFile, product: StepEntity, type?: StepEntity): StepEntity[] {
+  const index = indexOf(f);
+  const defs = [...(index.byObject.get(product.id) ?? [])];
+  if (type) {
+    defs.push(...(index.byObject.get(type.id) ?? []));
+    defs.push(...f.list(type, 5));
+  }
+  return [...new Set(defs)];
+}
+
+/**
+ * Valor de uma propriedade de um conjunto escolhido pelo nome (`Pset_WindowCommon`...), no elemento ou no tipo. Ao
+ * contrário de `propertiesOf`, não se perde quando outro conjunto traz o mesmo nome. `undefined` se ausente ou vazia.
+ */
+export function psetValueOf(f: IfcFile, product: StepEntity, type: StepEntity | undefined, pset: string, name: string): Scalar | undefined {
+  for (const def of propertyDefsOf(f, product, type)) {
+    if (def.type !== 'IFCPROPERTYSET' || f.text(def, 2).trim() !== pset) continue;
+    for (const prop of f.list(def, 4)) {
+      if (!READABLE.test(prop.type) || f.text(prop, 0).trim() !== name) continue;
+      const value = scalar(prop.args[2]);
+      if (value != null) return value;
+    }
+  }
+  return undefined;
+}
+
 function readDefinition(f: IfcFile, def: StepEntity, out: Map<string, { value: Scalar; pset: string }>): void {
   const pset = f.text(def, 2).trim() || 'Pset';
   if (def.type === 'IFCPROPERTYSET') {
