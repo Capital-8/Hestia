@@ -1190,5 +1190,13 @@
     "fr": "Ferme par un prisme la marche entre murs continus d'inclinaisons différentes (alterne avec la marche ouverte).",
     "it": "Chiude con un prisma il gradino tra pareti continue di inclinazioni diverse (alterna con il gradino aperto).",
     "pl": "Zamyka graniastosłupem uskok między ścianami ciągłymi o różnych nachyleniach (przełącza z otwartym uskokiem)."
+  },
+  {
+    "pt": "Massas",
+    "es": "Masas",
+    "de": "Massen",
+    "fr": "Masses",
+    "it": "Masse",
+    "pl": "Bryły"
   }
 ]
