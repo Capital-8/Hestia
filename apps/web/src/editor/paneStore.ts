@@ -4,7 +4,6 @@ import { activeViewOf, sameView, type ActiveViewFields } from './openViews.ts';
 import { layoutTreeOps, loadPanes, nextPaneId, savePanes } from './layoutTree.ts';
 import {
   DEFAULT_SYNC,
-  MAX_PANES,
   findPane,
   leaves,
   type LayoutNode,
@@ -18,7 +17,9 @@ import {
   type SplitPath,
 } from './panes.ts';
 import { useUi } from './state.ts';
+import { viewsForPreset } from './paneViews.ts';
 import { tabOf } from './viewTabActions.ts';
+import { editor } from './controller.ts';
 
 /** Id do painel único inicial. */
 export const FIRST_PANE_ID: PaneId = 'p1';
@@ -78,16 +79,6 @@ export function sanitizeLayoutViews(l: PaneLayout, p: Project, fallbackView: Pan
   return leaves(l.root).reduce((acc, pane) => (tabOf(p, pane.view) === null ? withPaneView(acc, pane.id, fallbackView) : acc), l);
 }
 
-/**
- * Ordem das vistas para um layout pronto: a do painel ativo vem primeiro (ele mantém a própria vista ao aplicar),
- * depois as vistas abertas na ordem das abas. Completa com a vista ativa até cobrir todos os painéis possíveis.
- */
-function vistasDoPreset(abertas: readonly PaneView[], ativa: PaneView): PaneView[] {
-  const resto = abertas.filter((v) => !sameView(v, ativa));
-  const padding = Array.from({ length: MAX_PANES }, (): PaneView => ativa);
-  return [ativa, ...resto, ...padding];
-}
-
 export interface PanesState {
   layout: PaneLayout;
   setLayout: (l: PaneLayout) => void;
@@ -108,7 +99,7 @@ export interface PanesState {
   toggleMaximize: (paneId: PaneId) => void;
   setPaneView: (paneId: PaneId, view: PaneView) => void;
   setPaneStyle: (paneId: PaneId, patch: PaneStyle) => void;
-  /** Aplica um layout pronto com as vistas abertas (e a do painel ativo). */
+  /** Aplica um layout pronto com vistas diversas (ver `viewsForPreset`); painéis de mesmo id e vista são preservados. */
   applyPreset: (preset: LayoutPresetId) => void;
 }
 
@@ -148,7 +139,7 @@ export const usePanes = create<PanesState>((set, get) => {
       aplica((l) => {
         const ativa = findPane(l, l.activeId)?.view;
         if (!ativa) return l;
-        return layoutTreeOps.applyPreset(l, preset, vistasDoPreset(abertas, ativa), PRESET_IDS);
+        return layoutTreeOps.applyPreset(l, preset, viewsForPreset(editor.project, ativa, abertas), PRESET_IDS);
       });
     },
   };

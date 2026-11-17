@@ -35,14 +35,19 @@ export function usePaneCanvas(paneIdProp?: PaneId): PaneCanvas {
   const activeId = usePanes((s) => s.layout.activeId);
   const isActive = paneId === undefined || paneId === activeId;
   const fields = usePaneView(paneId);
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
   const idRef = useRef(paneId);
   idRef.current = paneId;
+  // Lê o painel ativo direto da store: um painel recém-ativado (ao pousar o mouse) não pode ficar com leitura obsoleta
+  // até a próxima renderização.
+  const isActiveRef = useRef<{ readonly current: boolean }>({
+    get current(): boolean {
+      return idRef.current === undefined || idRef.current === usePanes.getState().layout.activeId;
+    },
+  }).current as RefObject<boolean>;
   const state = useCallback((): UiState => {
     const ui = useUi.getState();
     return isActiveRef.current ? ui : { ...withViewFields(ui, paneViewFieldsNow(idRef.current)), hover: null };
-  }, []);
+  }, [isActiveRef]);
   const ownCamera = useRef<OwnCameraRef['current']>(null) as OwnCameraRef;
   const saved2d = useCallback((): PaneCamera2D | null => (idRef.current === undefined ? null : (findPane(usePanes.getState().layout, idRef.current)?.camera2d ?? null)), []);
   return { paneId, isActive, isActiveRef, ownCamera, saved2d, fields, state };

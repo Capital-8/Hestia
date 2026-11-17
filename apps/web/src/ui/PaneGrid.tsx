@@ -1,13 +1,14 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
 import type { Project } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
-import { useT } from '../editor/i18n.ts';
-import { activatePane } from '../editor/paneActivation.ts';
+import { useI18n, useT } from '../editor/i18n.ts';
+import { activatePane, choosePaneView } from '../editor/paneActivation.ts';
+import { activatePaneOnEnter } from '../editor/paneMouseActivation.ts';
+import { listPaneViews } from '../editor/paneViews.ts';
 import { reconcilePanes, usePanes } from '../editor/paneStore.ts';
-import { viewKey, sameView, type OpenView } from '../editor/openViews.ts';
+import { viewKey } from '../editor/openViews.ts';
 import { MAX_PANES, SPLIT_LIMITS, leaves, type LayoutNode, type Pane, type PaneLayout, type SplitPath } from '../editor/panes.ts';
 import { tabOf } from '../editor/viewTabActions.ts';
-import { useUi } from '../editor/state.ts';
 import { SheetView } from './SheetView.tsx';
 import { ViewportCanvas } from './ViewportCanvas.tsx';
 import { fracaoDoPonteiro, passoDaTecla } from './paneGridMath.ts';
@@ -17,7 +18,6 @@ import './paneGrid.css';
 interface GridCtx {
   layout: PaneLayout;
   project: Project;
-  openViews: readonly OpenView[];
   /** Há mais de um painel: só então existem cabeçalhos e botões de painel. */
   multi: boolean;
 }
@@ -36,12 +36,11 @@ const contem = (n: LayoutNode, id: string): boolean => leaves(n).some((p) => p.i
 export function PaneGrid(): ReactElement {
   const layout = usePanes((s) => s.layout);
   const project = useProject();
-  const openViews = useUi((s) => s.openViews);
   // Ao abrir ou trocar de projeto, painel com vista que sumiu volta para a vista ativa do app.
   useEffect(() => {
     reconcilePanes(project);
   }, [project]);
-  const ctx: GridCtx = { layout, project, openViews, multi: leaves(layout.root).length > 1 };
+  const ctx: GridCtx = { layout, project, multi: leaves(layout.root).length > 1 };
   return (
     <div className="pane-grid">
       <NodeView node={layout.root} ctx={ctx} oculto={false} path={[]} />
@@ -120,16 +119,17 @@ function SplitView({ node, ctx, oculto, path }: { node: Extract<LayoutNode, { ki
 /** Painel: cabeçalho (só com 2+ painéis) e a vista. A vista de prancha usa `SheetView`; as demais, o canvas do painel. */
 function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: boolean }): ReactElement {
   const { t } = useT();
-  const { layout, project, openViews, multi } = ctx;
+  const { layout, project, multi } = ctx;
   const ativo = layout.activeId === pane.id;
   const maximizado = layout.maximizedId === pane.id;
   const cheio = leaves(layout.root).length >= MAX_PANES;
   const nome = tabOf(project, pane.view)?.label ?? t('pane_view_missing');
-  const { splitPane, closePane, toggleMaximize, setPaneView } = usePanes.getState();
+  const lang = useI18n((s) => s.lang);
+  const { splitPane, closePane, toggleMaximize } = usePanes.getState();
 
-  // Vistas abertas (rotuladas pela aba) e, se a do painel não estiver entre elas, ela própria.
-  const opcoes: OpenView[] = openViews.filter((v) => tabOf(project, v) !== null);
-  if (!opcoes.some((v) => sameView(v, pane.view))) opcoes.unshift(pane.view);
+  // Todas as vistas do projeto, em grupos. Se a do painel não existe mais, ela aparece à parte como indisponível.
+  const grupos = listPaneViews(project, lang);
+  const existe = grupos.some((g) => g.options.some((o) => o.key === viewKey(pane.view)));
 
   return (
     <section
@@ -137,6 +137,7 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
       aria-label={t('pane_aria', { name: nome })}
       className={`pane${multi && ativo ? ' is-active' : ''}`}
       style={oculto ? OCULTO : undefined}
+      onPointerEnter={(e) => activatePaneOnEnter(pane.id, e.buttons)}
     >
       {multi && (
         <header className="pane-head" onPointerDown={() => activatePane(pane.id)}>
@@ -146,14 +147,19 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
             title={t('pane_view_select')}
             value={viewKey(pane.view)}
             onChange={(e) => {
-              const v = opcoes.find((o) => viewKey(o) === e.target.value);
-              if (v) setPaneView(pane.id, v);
+              const v = grupos.flatMap((g) => g.options).find((o) => o.key === e.target.value)?.view;
+              if (v) choosePaneView(pane.id, v);
             }}
           >
-            {opcoes.map((v) => (
-              <option key={viewKey(v)} value={viewKey(v)}>
-                {tabOf(project, v)?.label ?? t('pane_view_missing')}
-              </option>
+            {!existe && <option value={viewKey(pane.view)}>{t('pane_view_missing')}</option>}
+            {grupos.map((g) => (
+              <optgroup key={g.id} label={g.label}>
+                {g.options.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <span className="pane-head-spacer" />

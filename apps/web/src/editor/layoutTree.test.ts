@@ -406,6 +406,18 @@ describe('applyPreset', () => {
     expect(ops.applyPreset(l, 'grid', VIEWS, [])).toBe(l);
   });
 
+  it('preserva painel de mesmo id e mesma vista (estilo, sync, câmeras); troca vista recria', () => {
+    const p1: Pane = { id: 'p1', view: PLAN0, style: { edges: true }, sync: { followLevel: false, followSelection: true, lockCameraTo: 'p2' }, camera3d: null, camera2d: { zoom: 50, center: { x: 1, y: 2 } } };
+    const p2: Pane = { id: 'p2', view: V3D, style: { shadows: true }, sync: { followLevel: true, followSelection: true, lockCameraTo: null }, camera3d: null, camera2d: null };
+    const l: PaneLayout = { root: { kind: 'split', direction: 'row', ratio: 0.5, first: { kind: 'leaf', pane: p1 }, second: { kind: 'leaf', pane: p2 } }, activeId: 'p1', maximizedId: null };
+    const r = ops.applyPreset(l, 'twoColumns', [PLAN0, PLAN1], IDS);
+    const [a, b] = leaves(r.root);
+    expect(a).toBe(p1);
+    expect(b?.id).toBe('p2');
+    expect(b?.view).toEqual({ kind: 'plan', levelId: 'lv_1' });
+    expect(b?.style).toEqual({});
+  });
+
   it('ids repetidos não geram painel duplicado', () => {
     const r = ops.applyPreset(base(), 'twoColumns', VIEWS, ['p1', 'p1', 'p2']);
     expect(shape(r.root)).toBe('row@0.5(p1,p2)');

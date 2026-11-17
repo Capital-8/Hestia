@@ -1,5 +1,12 @@
 /** Shard de dicionário: multitelas (grade de painéis, cabeçalho e menu de layout). PT/EN; os demais idiomas caem em EN. */
 export const PT_PAINEIS = {
+  pane_group_floor: 'Plantas de piso',
+  pane_group_roof: 'Plantas de cobertura',
+  pane_group_area: 'Plantas de área',
+  pane_group_3d: 'Modelo 3D',
+  pane_group_section: 'Cortes',
+  pane_group_elevation: 'Elevações',
+  pane_group_sheet: 'Pranchas',
   pane_layout_btn: 'Layout de painéis',
   pane_layout_single: 'Um painel',
   pane_layout_two_columns: 'Duas colunas',
@@ -19,6 +26,13 @@ export const PT_PAINEIS = {
 } as const;
 
 export const EN_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Floor plans',
+  pane_group_roof: 'Roof plans',
+  pane_group_area: 'Area plans',
+  pane_group_3d: '3D model',
+  pane_group_section: 'Sections',
+  pane_group_elevation: 'Elevations',
+  pane_group_sheet: 'Sheets',
   pane_layout_btn: 'Panel layout',
   pane_layout_single: 'Single pane',
   pane_layout_two_columns: 'Two columns',
@@ -38,6 +52,13 @@ export const EN_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
 };
 
 export const ES_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Plantas de piso',
+  pane_group_roof: 'Plantas de cubierta',
+  pane_group_area: 'Plantas de área',
+  pane_group_3d: 'Modelo 3D',
+  pane_group_section: 'Cortes',
+  pane_group_elevation: 'Alzados',
+  pane_group_sheet: 'Láminas',
   pane_layout_btn: 'Disposición de paneles',
   pane_layout_single: 'Un panel',
   pane_layout_two_columns: 'Dos columnas',
@@ -57,6 +78,13 @@ export const ES_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
 };
 
 export const DE_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Grundrisse',
+  pane_group_roof: 'Dachpläne',
+  pane_group_area: 'Flächenpläne',
+  pane_group_3d: '3D-Modell',
+  pane_group_section: 'Schnitte',
+  pane_group_elevation: 'Ansichten',
+  pane_group_sheet: 'Pläne',
   pane_layout_btn: 'Fensteranordnung',
   pane_layout_single: 'Ein Fenster',
   pane_layout_two_columns: 'Zwei Spalten',
@@ -76,6 +104,13 @@ export const DE_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
 };
 
 export const FR_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Plans des étages',
+  pane_group_roof: 'Plans de toiture',
+  pane_group_area: 'Plans de surfaces',
+  pane_group_3d: 'Modèle 3D',
+  pane_group_section: 'Coupes',
+  pane_group_elevation: 'Élévations',
+  pane_group_sheet: 'Planches',
   pane_layout_btn: 'Disposition des volets',
   pane_layout_single: 'Un volet',
   pane_layout_two_columns: 'Deux colonnes',
@@ -95,6 +130,13 @@ export const FR_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
 };
 
 export const IT_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Piante dei piani',
+  pane_group_roof: 'Piante di copertura',
+  pane_group_area: 'Piante delle aree',
+  pane_group_3d: 'Modello 3D',
+  pane_group_section: 'Sezioni',
+  pane_group_elevation: 'Prospetti',
+  pane_group_sheet: 'Tavole',
   pane_layout_btn: 'Layout dei pannelli',
   pane_layout_single: 'Un pannello',
   pane_layout_two_columns: 'Due colonne',
@@ -114,6 +156,13 @@ export const IT_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
 };
 
 export const PL_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
+  pane_group_floor: 'Rzuty pięter',
+  pane_group_roof: 'Rzuty dachu',
+  pane_group_area: 'Rzuty powierzchni',
+  pane_group_3d: 'Model 3D',
+  pane_group_section: 'Przekroje',
+  pane_group_elevation: 'Elewacje',
+  pane_group_sheet: 'Arkusze',
   pane_layout_btn: 'Układ paneli',
   pane_layout_single: 'Jeden panel',
   pane_layout_two_columns: 'Dwie kolumny',

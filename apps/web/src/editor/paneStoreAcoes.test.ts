@@ -121,7 +121,7 @@ describe('applyPreset com as vistas abertas', () => {
     expect(leaves(l.root).map((p) => p.view)).toEqual([
       { kind: 'plan', levelId: 'lv_1' },
       { kind: '3d' },
-      { kind: 'plan', levelId: 'lv_1' },
+      { kind: 'plan', levelId: 'lv_0' },
       { kind: 'plan', levelId: 'lv_1' },
     ]);
   });
