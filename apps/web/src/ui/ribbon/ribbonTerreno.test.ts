@@ -55,9 +55,9 @@ describe('faixa: botões da fase 3 do terreno', () => {
     expect(ferramentas).toEqual(['terrainLabel', 'terrainSpot']);
   });
 
-  it('os painéis da massa não foram tocados', () => {
-    expect(painel('massa', 'mas-massa').items).toHaveLength(3);
-    expect(folhas(painel('massa', 'mas-massa').items).every((it) => it.kind === 'soon')).toBe(true);
+  it('os painéis da massa (da main) continuam na aba, ao lado dos do terreno', () => {
+    // A massa real (ferramenta `mass` e botões) veio da main; o terreno só acrescentou os painéis dele na mesma aba.
+    expect(folhas(painel('massa', 'mas-massa').items).some((it) => it.kind === 'tool' && it.tool === 'mass')).toBe(true);
     expect(nomes(painel('massa', 'mas-por-massa').items).length + folhas(painel('massa', 'mas-por-massa').items).length).toBeGreaterThan(0);
   });
 
