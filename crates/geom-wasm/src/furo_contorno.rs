@@ -162,3 +162,12 @@ pub fn furar_parede(
     }
     Ok(res)
 }
+
+#[no_mangle]
+pub extern "C" fn sonda_furo_tmp(n: u32) -> f64 {
+    let r = 0.45;
+    let mut c = vec![[r, 0.0]];
+    for i in 0..=n { let a = std::f64::consts::PI * i as f64 / n as f64; c.push([r * a.cos(), 0.95 + r * a.sin()]); }
+    c.push([-r, 0.0]);
+    furar_parede(&[Vao { contorno: c, x: 1.5, soleira: 0.0 }], &[0.015, 0.02, 0.09, 0.02, 0.015], 3.0, 2.8).map(|r| r.volume).unwrap_or(-1.0)
+}
