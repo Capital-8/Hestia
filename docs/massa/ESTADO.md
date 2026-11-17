@@ -67,3 +67,15 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 
 ## Tempos medidos (A.8 item 5; WASM real, flor de 12 pétalas)
 - `massa_malha` lod 1: 0,9 a 1,5 ms (alvo 50 ms; 22156 triângulos). `massa_corte`: 1,5 a 2,8 ms (alvo 50 ms; 63 linhas). `massa_planta`: 0,6 a 0,8 ms (alvo 10 ms; 66 linhas). Teste: `packages/engine/src/massaDesempenho.perf.test.ts`.
+
+## Frente massa-forma-livre (cotas, caixa de formas, união por TR)
+- Cotas absolutas (m, zero do projeto): base = elevação do nível da massa + `baseOffset`; topo = base + altura (z da última seção). Editar a BASE move a pilha (só `baseOffset`); editar ALTURA ou TOPO reescala todos os z (z·nova/atual), preservando forma, interpolação e a distribuição da torção. Altura <= 0 recusada com mensagem i18n; um `updateMass` = um desfazer (`apps/web/src/ui/massCotas.ts`).
+- "De nível a nível": base = elevação do nível inicial, topo = a do final (final mais alto); no painel e na barra de criação (que também tem Altura, Cota da base e Cota do topo; `options.mass.cotaBase`).
+- A massa é o 5º alvo do esboço (`SketchTarget 'mass'`): a extrusão (botões Massa e Extrusão) abre o esboço com a galeria completa, TR, Excluir e validação. Mistura, loft e bulbo continuam na ferramenta de perfis; `options.mass.galeria = false` volta a extrusão por perfis (usado pelos E2E antigos).
+- Concluir grava o laço externo como perfil `livre` (3 a 256 pontos), duas seções (z 0 e altura). Arcos e círculos já chegam em cordas de 2 mm; acima de 256 pontos, Douglas-Peucker dobrando a tolerância (2, 4, 8... até 50 mm).
+- Furos: o perfil da seção não tem furos, então laço interno é RECUSADO com mensagem (não se mexeu no formato salvo nem em M1 a M5).
+- Editar contorno (painel, menu de contexto, "Editar perímetro"): carrega o anel da base (círculo em 64 cordas) e, ao concluir, troca o perfil das seções iguais à base (extrusão) ou só o da base (mistura/loft), mantendo z, cotas, torção e arranjo.
+- Achado e correção: a tecla C nunca fechava o contorno livre (massa, lote, guarda-corpo, terreno), porque a letra inicial não entra no campo numérico; agora as ferramentas com `fechaComC` recebem 'c' do controlador.
+- Faixa: Extrusão, Mistura, Loft e Bulbo empilhados (pilha de 4 com botões de 16 px; `rb-stack-4`), e os botões "ainda não" em pilhas; em 1760 px o último painel termina em x = 1362.
+- Sem verificar: massa do esboço em corte/elevação e o kernel Rust (nada de Rust foi tocado).
+
