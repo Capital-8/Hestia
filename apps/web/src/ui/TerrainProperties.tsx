@@ -1,10 +1,11 @@
 import { useMemo, type ReactElement } from 'react';
 import { servicoTerreno } from '@hestia/engine';
-import { cotaExibida, TERRENO_LIMITES, type Command, type Project, type Terrain } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, defaultTerrainTextFamilyIdOf, terrainTextFamiliesOf, TERRENO_LIMITES, type Command, type Project, type Terrain } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { abrirImportTerreno } from '../editor/terrenoImport.ts';
 import { useUi } from '../editor/state.ts';
+import { TypeSelector } from './TypeSelector.tsx';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
 import { editarTerreno } from './terrainActions.ts';
@@ -35,7 +36,7 @@ export function TerrainLeituras({ p, leituras }: { p: Project; leituras: Leitura
 
 /**
  * Propriedades do terreno (A.3 e A.6): nome, nível, curvas de nível (intervalo, mestra a cada N, espessura da base, mostrar o existente),
- * material e cor, mais as leituras calculadas pelo kernel e os botões "Editar terreno" e "Importar…". O terreno NÃO é de família: sem tipo.
+ * material e cor, mais as leituras calculadas pelo kernel e os botões "Editar terreno" e "Importar…". Os textos do terreno (rótulo de curva e cota de ponto) têm família, com `TypeSelector` e "Editar tipo".
  */
 export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactElement {
   const { t } = useT();
@@ -53,6 +54,10 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
   const existente = comum(terrains, (x) => x.mostrarExistente);
   const material = comum(terrains, (x) => x.materialId ?? '');
   const cor = comum(terrains, (x) => x.color ?? '');
+  const famRotulo = comum(terrains, (x) => x.rotuloFamilyId ?? defaultTerrainTextFamilyIdOf(p.settings, 'contour'));
+  const famCotado = comum(terrains, (x) => x.cotadoFamilyId ?? defaultTerrainTextFamilyIdOf(p.settings, 'spot'));
+  const assunto = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
+  const opcoes = (kind: 'contour' | 'spot') => terrainTextFamiliesOf(p.settings, kind).map((f) => ({ id: f.id, name: f.name, code: '', family: t(kind === 'contour' ? 'ui_fam_family_contour' : 'ui_fam_family_spot'), subject: assunto }));
   const leituras = useMemo(() => (void kernel, terrains.map((x) => leiturasDoTerreno(p, x, servicoTerreno()))), [p, terrains, kernel]);
   return (
     <>
@@ -64,6 +69,30 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
             {p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </Row>
+      </Group>
+      <Group title={t('ui_fam_prop_contour')} stateKey="terreno-fam-rotulo">
+        <TypeSelector
+          triggerId="prop-tn-rotulofamily"
+          label={t('ui_fam_family_contour')}
+          categoryLabel={t('ui_fam_family_contour')}
+          options={opcoes('contour')}
+          selectedId={famRotulo.mixed ? null : famRotulo.value}
+          editDisabled={famRotulo.mixed}
+          onSelect={(id) => patch({ rotuloFamilyId: id })}
+          onEdit={() => useUi.setState({ dialog: 'terrainContourFamilies', dialogArg: famRotulo.value })}
+        />
+      </Group>
+      <Group title={t('ui_fam_prop_spot')} stateKey="terreno-fam-cotado">
+        <TypeSelector
+          triggerId="prop-tn-cotadofamily"
+          label={t('ui_fam_family_spot')}
+          categoryLabel={t('ui_fam_family_spot')}
+          options={opcoes('spot')}
+          selectedId={famCotado.mixed ? null : famCotado.value}
+          editDisabled={famCotado.mixed}
+          onSelect={(id) => patch({ cotadoFamilyId: id })}
+          onEdit={() => useUi.setState({ dialog: 'terrainSpotFamilies', dialogArg: famCotado.value })}
+        />
       </Group>
       <Group title={t('ui_tn_g_curvas')} stateKey="terreno-curvas">
         <Row label={t('ui_tn_p_intervalo')} htmlFor="p-tn-intervalo"><NumField id="p-tn-intervalo" quantity="length" min={TERRENO_LIMITES.intervaloMin} value={intervalo.value} mixed={intervalo.mixed} onCommit={(v) => patch({ intervaloCurvas: v })} /></Row>

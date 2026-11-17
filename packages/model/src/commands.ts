@@ -72,6 +72,10 @@ import {
   writeNorthArrowFamily, writeRevisionCloudFamily, writeSpotFamily, writeTextFamily,
   type NorthArrowFamily, type RevisionCloudFamily, type SpotFamily, type TextFamily,
 } from './annotationFamilies.ts';
+import {
+  removeLotFamilyFrom, removeTerrainTextFamilyFrom, writeLotFamily, writeTerrainTextFamily,
+  type LotFamily, type TerrainTextFamily,
+} from './terrainLotFamilies.ts';
 import type { MarkAssignment } from './marks.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
@@ -167,13 +171,13 @@ export type Command =
   | { type: 'setNormaGuardaCorpo'; id: Id }
   // Terreno, região de terreno, lote e localização (A.3 item 4): tratados em terrainCommands.ts e lotCommands.ts; apagar usa `deleteElements`.
   | { type: 'addTerrain'; terrain: Omit<Terrain, 'order'> }
-  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color'>> }
+  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color' | 'rotuloFamilyId' | 'cotadoFamilyId'>> }
   | { type: 'editTerrainFontes'; terrenoId: Id; ops: OpTerreno[] }
   | { type: 'addTerrainRegion'; regiao: Omit<TerrainRegion, 'order'> }
   | { type: 'updateTerrainRegion'; id: Id; patch: Partial<Omit<TerrainRegion, 'id' | 'kind' | 'order' | 'contorno' | 'terrenoId'>> }
   | { type: 'setTerrainRegionContorno'; id: Id; contorno: Vec2[] }
   | { type: 'addLot'; lot: Omit<Lot, 'order'> }
-  | { type: 'updateLot'; id: Id; patch: Partial<Pick<Lot, 'name' | 'limites' | 'mostrarEdificavel' | 'color'>> }
+  | { type: 'updateLot'; id: Id; patch: Partial<Pick<Lot, 'name' | 'limites' | 'mostrarEdificavel' | 'color' | 'familyId'>> }
   | { type: 'setLotContorno'; id: Id; contorno: Vec2[]; lados: Lot['lados'] }
   | { type: 'setLocalizacao'; localizacao: Localizacao | null }
   // Massa conceitual (A.3 item 4): tratados em massCommands.ts; apagar usa `deleteElements`.
@@ -269,6 +273,10 @@ export type Command =
   | { type: 'upsertNorthArrowFamily'; family: NorthArrowFamily }
   | { type: 'removeNorthArrowFamily'; id: Id }
   | { type: 'setDefaultNorthArrowFamily'; id: Id }
+  | { type: 'upsertTerrainTextFamily'; family: TerrainTextFamily }
+  | { type: 'removeTerrainTextFamily'; id: Id }
+  | { type: 'upsertLotFamily'; family: LotFamily }
+  | { type: 'removeLotFamily'; id: Id }
   | { type: 'setMarks'; assignments: MarkAssignment[] }
   | { type: 'setDxfLayerStyle'; layer: string; style: DxfLayerStyle }
   | { type: 'resetDxfLayers' }
@@ -847,6 +855,18 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       break;
     case 'setDefaultNorthArrowFamily':
       p.settings = { ...p.settings, defaultNorthArrowFamilyId: c.id };
+      break;
+    case 'upsertTerrainTextFamily':
+      p.settings = writeTerrainTextFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeTerrainTextFamily':
+      p.settings = removeTerrainTextFamilyFrom(p.settings, c.id);
+      break;
+    case 'upsertLotFamily':
+      p.settings = writeLotFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeLotFamily':
+      p.settings = removeLotFamilyFrom(p.settings, c.id);
       break;
     case 'setMarks': {
       for (const a of c.assignments) {

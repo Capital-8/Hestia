@@ -37,6 +37,9 @@ export interface Terrain {
   linhasRotulo: number[];
   /** Pontos cotados: x, y por ponto. Cada um mostra a cota do terreno proposto ali. */
   pontosCotados: number[];
+  /** Famílias de texto (`ProjectSettings.terrainTextFamilies`) do rótulo de curva e da cota de ponto; ausente = a padrão. */
+  rotuloFamilyId?: Id;
+  cotadoFamilyId?: Id;
   materialId?: Id;
   color?: string;
   order: number;

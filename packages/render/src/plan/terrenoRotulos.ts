@@ -1,6 +1,6 @@
 import { intersectSegments } from '@hestia/geom';
 import type { CurvaNivelTN } from '@hestia/engine';
-import { cotaExibida, formatQuantity, unitsOf, type Project, type Terrain } from '@hestia/model';
+import { FAMILY_FONT_PADRAO, cotaExibida, formatLengthByFamily, formatQuantity, terrainTextFamilyFor, unitsOf, type Project, type Terrain, type TerrainTextFamily } from '@hestia/model';
 import type { LabelOp } from './types.ts';
 
 /** Corpo do texto dos rótulos de cota, em mm de papel. */
@@ -22,8 +22,19 @@ export function textoDaCota(p: Project, z: number): string {
 }
 
 /** Rótulo do ponto cotado: o valor ao lado da cruz. */
-export function rotuloDeCota(p: Project, at: Pt, z: number, escala: number): LabelOp {
-  return { at, text: textoDaCota(p, z), dx: 7, dy: -7, tone: 'soft', papel: { escala, fontMm: COTA_TEXTO_MM } };
+export function rotuloDeCota(p: Project, at: Pt, z: number, escala: number, fam?: TerrainTextFamily): LabelOp {
+  const f = fam ?? terrainTextFamilyFor(p.settings, 'spot');
+  return { at, text: textoDaFamilia(p, z, f), dx: 7, dy: -7, tone: 'soft', ...estiloDaFamilia(f), papel: { escala, fontMm: f.textMm } };
+}
+
+/** Cota exibida com prefixo, unidade e casas da família. */
+export function textoDaFamilia(p: Project, z: number, f: TerrainTextFamily): string {
+  return `${f.prefix}${formatLengthByFamily(p, cotaExibida(p, z), f)}`;
+}
+
+/** Cor, negrito, itálico e fonte da família no rótulo (só o que a família define). */
+export function estiloDaFamilia(f: TerrainTextFamily): Pick<LabelOp, 'color' | 'bold' | 'italic' | 'fontFamily'> {
+  return { ...(f.color ? { color: f.color } : {}), ...(f.bold ? { bold: true } : {}), ...(f.italic ? { italic: true } : {}), ...(f.font !== FAMILY_FONT_PADRAO ? { fontFamily: f.font } : {}) };
 }
 
 /**
@@ -31,6 +42,7 @@ export function rotuloDeCota(p: Project, at: Pt, z: number, escala: number): Lab
  * alinhado à curva (o segmento cruzado). Recebe só as curvas mestras do terreno, já vindas do kernel.
  */
 export function rotulosDeCurva(p: Project, t: Terrain, mestras: readonly CurvaNivelTN[], escala: number): LabelOp[] {
+  const f = terrainTextFamilyFor(p.settings, 'contour', t.rotuloFamilyId);
   const out: LabelOp[] = [];
   for (let k = 0; k + 3 < t.linhasRotulo.length; k += 4) {
     const a = { x: t.linhasRotulo[k]!, y: t.linhasRotulo[k + 1]! };
@@ -47,7 +59,7 @@ export function rotulosDeCurva(p: Project, t: Terrain, mestras: readonly CurvaNi
         if (!x) continue;
         if (vistos.some((v) => Math.hypot(v.x - x.x, v.y - x.y) < 1e-6)) continue;
         vistos.push(x);
-        out.push({ at: x, text: textoDaCota(p, c.z), center: true, rotation: anguloLegivel(q1.x - q0.x, q1.y - q0.y), tone: 'soft', papel: { escala, fontMm: COTA_TEXTO_MM } });
+        out.push({ at: x, text: textoDaFamilia(p, c.z, f), center: true, rotation: anguloLegivel(q1.x - q0.x, q1.y - q0.y), tone: 'soft', ...estiloDaFamilia(f), papel: { escala, fontMm: f.textMm } });
       }
     }
   }

@@ -1,5 +1,7 @@
 import { useMemo, type ReactElement } from 'react';
-import { isLot, LOTE_LIMITES, type Command, type Lot, type PapelLadoLote } from '@hestia/model';
+import { defaultLotFamilyIdOf, dimensionStyleOf, isLot, lotFamiliesOf, LOTE_LIMITES, type Command, type Lot, type PapelLadoLote } from '@hestia/model';
+import { useUi } from '../editor/state.ts';
+import { TypeSelector } from './TypeSelector.tsx';
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, useT, type Dict } from '../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
@@ -51,10 +53,11 @@ function LoteLados({ lote }: { lote: Lot }): ReactElement {
 /**
  * Propriedades do lote (A.3 e A.6): nome, limites da lei local (taxa de ocupação, coeficiente, permeabilidade, gabarito: vazio = sem limite),
  * mostrar a área edificável, cor, e por lote as leituras (área, perímetro, área edificável) com a tabela de lados editável (papel e recuo).
- * O lote NÃO é de família: sem tipo. Mudar papel ou recuo grava `setLotContorno` (mesmo contorno, outros lados), um passo de desfazer.
+ * A linha de propriedade e o texto dos lados têm família (`TypeSelector` e "Editar tipo"). Mudar papel ou recuo grava `setLotContorno` (mesmo contorno, outros lados), um passo de desfazer.
  */
 export function LotProperties({ lots }: { lots: Lot[] }): ReactElement {
   const { t } = useT();
+  const p = useProject();
   const ids = lots.map((l) => l.id);
   const patch = (campos: PatchLote): void => aplicarEmTodos(ids, t('ui_lt_rotulo_undo'), (id) => ({ type: 'updateLot', id, patch: campos }));
   const limite = (chave: ChaveLimite, valor: number | undefined): void =>
@@ -62,6 +65,7 @@ export function LotProperties({ lots }: { lots: Lot[] }): ReactElement {
       const l = editor.project.elements[id];
       return { type: 'updateLot', id, patch: { limites: comLimite(isLot(l) ? l.limites : {}, chave, valor) } };
     });
+  const fam = comum(lots, (l) => l.familyId ?? defaultLotFamilyIdOf(p.settings));
   const nome = comum(lots, (l) => l.name);
   const edificavel = comum(lots, (l) => l.mostrarEdificavel);
   const cor = comum(lots, (l) => l.color ?? '');
@@ -76,6 +80,18 @@ export function LotProperties({ lots }: { lots: Lot[] }): ReactElement {
   const pct = (v: number | null): number | null => (v === null ? null : fracaoParaPercentual(v));
   return (
     <>
+      <Group title={t('ui_fam_prop_lot')} stateKey="lote-familia">
+        <TypeSelector
+          triggerId="prop-lt-family"
+          label={t('ui_fam_family_lot')}
+          categoryLabel={t('ui_fam_family_lot')}
+          options={lotFamiliesOf(p.settings).map((f) => ({ id: f.id, name: f.name, code: '', family: t('ui_fam_family_lot'), subject: { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) } }))}
+          selectedId={fam.mixed ? null : fam.value}
+          editDisabled={fam.mixed}
+          onSelect={(id) => patch({ familyId: id })}
+          onEdit={() => useUi.setState({ dialog: 'lotFamilies', dialogArg: fam.value })}
+        />
+      </Group>
       <Group title={t('prc_pgrp_identity')} stateKey="lote-id">
         <Row label={t('ui_tn_p_nome')} htmlFor="p-lt-nome"><TextField id="p-lt-nome" value={nome.value} mixed={nome.mixed} onCommit={(v) => v.trim() !== '' && patch({ name: v.trim() })} /></Row>
         <Row label={t('ui_lt_edificavel')} htmlFor="p-lt-edif"><Check id="p-lt-edif" checked={edificavel.value} mixed={edificavel.mixed} onChange={(v) => patch({ mostrarEdificavel: v })} /></Row>

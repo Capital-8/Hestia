@@ -411,6 +411,14 @@ export function labelOf(c: Command): string {
       return 'Excluir família de cota de ponto';
     case 'setDefaultSpotFamily':
       return 'Definir família de cota de ponto padrão';
+    case 'upsertTerrainTextFamily':
+      return 'Editar família de texto do terreno';
+    case 'removeTerrainTextFamily':
+      return 'Excluir família de texto do terreno';
+    case 'upsertLotFamily':
+      return 'Editar família de lote';
+    case 'removeLotFamily':
+      return 'Excluir família de lote';
     case 'upsertRevisionCloudFamily':
       return 'Editar família de nuvem de revisão';
     case 'removeRevisionCloudFamily':

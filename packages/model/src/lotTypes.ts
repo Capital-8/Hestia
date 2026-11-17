@@ -31,6 +31,8 @@ export interface Lot {
   /** Desenha a área edificável (lote menos recuos) tracejada. Padrão true. */
   mostrarEdificavel: boolean;
   color?: string;
+  /** Família do lote (`ProjectSettings.lotFamilies`): linha de propriedade e texto dos lados; ausente = a padrão. */
+  familyId?: Id;
   order: number;
 }
 
