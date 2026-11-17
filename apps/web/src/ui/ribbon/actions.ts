@@ -502,19 +502,19 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   terrenoPontos: {
     label: t('Colocar pontos', 'Place Points'),
-    icon: 'dimension',
+    icon: 'terrPoints',
     hint: t('Cada clique coloca um ponto do terreno na cota do campo "Cota".', 'Each click places a terrain point at the elevation of the "Elevation" field.'),
     run: () => void ativarTopografia('pontos', editor),
   },
   terrenoCurvas: {
     label: t('Desenhar curvas', 'Draw Contours'),
-    icon: 'detailLine',
+    icon: 'terrContours',
     hint: t('Desenha curvas de nível; Enter conclui a curva e a cota avança pelo "Passo".', 'Draws contour lines; Enter finishes the curve and the elevation advances by the "Step".'),
     run: () => void ativarTopografia('curvas', editor),
   },
   regiaoSubdivisao: {
     label: t('Subdivisão', 'Subregion'),
-    icon: 'filledRegion',
+    icon: 'terrSubregion',
     hint: t('Desenha um polígono sobre o terreno: divide a superfície e define o material e a permeabilidade.', 'Draws a polygon over the terrain: splits the surface and sets its material and permeability.'),
     run: () => ativarRegiao('subdivisao'),
     pressed: regiaoAtiva('subdivisao'),
@@ -522,7 +522,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   regiaoPlataforma: {
     label: t('Plataforma', 'Building Pad'),
-    icon: 'slab',
+    icon: 'terrPad',
     hint: t('Desenha um plano de cota fixa sobre o terreno (bordas verticais); corta e aterra o terreno existente.', 'Draws a flat pad at a fixed elevation over the terrain (vertical edges); cuts and fills the existing terrain.'),
     run: () => ativarRegiao('plataforma'),
     pressed: regiaoAtiva('plataforma'),
@@ -530,7 +530,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   regiaoPlataformaElemento: {
     label: t('Plataforma por elemento', 'Building Pad by Element'),
-    icon: 'slab',
+    icon: 'terrPadElem',
     hint: t('Clique numa laje ou piso: copia o contorno e usa a face inferior como cota da plataforma.', 'Click a slab or floor: copies its outline and uses its bottom face as the pad elevation.'),
     run: () => ativarRegiao('plataforma', true),
     pressed: regiaoAtiva('plataforma', true),
@@ -538,7 +538,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   regiaoNivelada: {
     label: t('Região nivelada', 'Graded Region'),
-    icon: 'slope',
+    icon: 'terrGraded',
     hint: t('Desenha um plano de cota fixa com taludes (1,5 de corte e 2 de aterro por padrão) sobre o terreno.', 'Draws a flat region at a fixed elevation with side slopes (1.5 cut and 2 fill by default) over the terrain.'),
     run: () => ativarRegiao('nivelada'),
     pressed: regiaoAtiva('nivelada'),
@@ -546,32 +546,32 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   loteDesenhar: {
     label: t('Desenhar', 'Draw'),
-    icon: 'detailLine',
+    icon: 'lotDraw',
     hint: t('Desenha o polígono do lote (linhas de propriedade); o primeiro lado desenhado é a frente.', 'Draws the lot polygon (property lines); the first side drawn is the front.'),
     run: () => editor.setTool('lot'),
     pressed: (c) => c.tool === 'lot',
   },
   lotePorTabela: {
     label: t('Por tabela…', 'From Table…'),
-    icon: 'open',
+    icon: 'lotTable',
     hint: t('Cria o lote por uma tabela de azimutes e distâncias, com o erro de fechamento ao vivo.', 'Creates the lot from a table of azimuths and distances, with a live closing error.'),
     run: abrirLoteRumos,
   },
   indicesLote: {
     label: t('Índices do lote', 'Lot Indices'),
-    icon: 'schedule',
+    icon: 'lotIndices',
     hint: t('Abre a tabela dos índices de cada lote (taxa de ocupação, coeficiente e permeabilidade) com os limites, a marca e exportação em CSV.', 'Opens the table of each lot\'s indices (site coverage, floor area ratio and permeability) with the limits, the mark and CSV export.'),
     run: abrirLoteSchedule,
   },
   importTerreno: {
     label: t('Importar levantamento…', 'Import Survey…'),
-    icon: 'open',
+    icon: 'terrImport',
     hint: t('Cria o terreno a partir de um levantamento DXF ou CSV.', 'Creates the terrain from a DXF or CSV survey.'),
     run: abrirImportTerreno,
   },
   editTerreno: {
     label: t('Editar terreno', 'Edit Terrain'),
-    icon: 'editperimeter',
+    icon: 'terrEdit',
     hint: t('Edita pontos, curvas, linhas de quebra e borda do terreno selecionado.', 'Edits points, contours, breaklines and boundary of the selected terrain.'),
     run: () => {
       const c = ctxNow();
@@ -586,13 +586,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   corteAterro: {
     label: t('Corte e aterro', 'Cut and Fill'),
-    icon: 'schedule',
+    icon: 'terrCutFill',
     hint: t('Abre a tabela de volumes de corte e aterro por região e por terreno, com exportação em CSV.', 'Opens the cut and fill volume table per region and per terrain, with CSV export.'),
     run: abrirTerrenoSchedule,
   },
   mapaCorteAterro: {
     label: t('Mapa de corte e aterro', 'Cut and Fill Map'),
-    icon: 'filledRegion',
+    icon: 'terrCutFillMap',
     hint: t('Pinta na planta o corte de vermelho e o aterro de azul.', 'Paints cut red and fill blue on the plan.'),
     run: () => {
       const ligar = !useUi.getState().mapaCorteAterro;
