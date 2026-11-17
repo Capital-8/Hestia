@@ -13,7 +13,7 @@ interface Camera3d {
 }
 
 /**
- * Barra de navegação (canto da vista, como no Revit): roda de navegação (ainda não disponível), aproximar, afastar e
+ * Barra de navegação (canto da vista, como no Revit): aproximar, afastar e
  * enquadrar tudo. No 3D fica logo abaixo do ViewCube.
  */
 export function NavBar({ model, center, view, paneId }: { model: Camera3d; center: () => { x: number; y: number }; view: ViewKind; paneId?: PaneId }): ReactElement {
@@ -37,7 +37,6 @@ export function NavBar({ model, center, view, paneId }: { model: Camera3d; cente
   };
   return (
     <div className={`navbar${view === '3d' ? ' below-cube' : ''}`} role="toolbar" aria-label={t('shc_nav_aria')} onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
-      <button disabled className="soon" title={`${t('shc_nav_steering')}\n— ${t('shc_nav_not_available')}`} aria-label={t('shc_nav_steering')}><Icon name="nav" size={16} /></button>
       <button title={t('shc_nav_zoom_in')} aria-label={t('shc_nav_zoom_in')} onClick={() => zoom(1)}><Icon name="zoom" size={16} /></button>
       <button title={t('shc_nav_zoom_out')} aria-label={t('shc_nav_zoom_out')} onClick={() => zoom(-1)}><span className="navminus">−</span></button>
       <button title={t('shc_nav_fit')} aria-label={t('shc_nav_fit')} onClick={fit}><Icon name="fit" size={16} /></button>

@@ -263,6 +263,8 @@ try {
     await ir(i3d);
     assert.deepEqual(await posicoes(), ref, 'a barra de cada painel não muda de lugar quando o painel ativo muda');
     assert.ok(ref[i2d].startsWith('topo') && ref[i3d].startsWith('abaixo-cubo'), `barras no lugar certo: ${ref}`);
+    assert.equal(await page.locator('.navbar button').count(), 6, 'cada barra tem 3 botões (aproximar, afastar, enquadrar), sem a roda de navegação');
+    assert.equal(await page.locator('.navbar button:disabled').count(), 0, 'nenhum botão desativado');
     const btn = (i, nome) => page.locator('.pane-body').nth(i).locator(`button[aria-label^="${nome}"]`);
     const zoom = () => page.evaluate(() => window.__hestia.editor.viewport()?.zoom);
     await ir(i2d);
