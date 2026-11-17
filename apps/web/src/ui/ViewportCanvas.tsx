@@ -2,7 +2,7 @@
 import { vperf } from '../editor/vperf.ts';
 import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
+import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
@@ -105,6 +105,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const { t, lang } = useT();
   const pane = usePaneCanvas(paneId);
   const { state: paneState, isActiveRef, ownCamera, saved2d } = pane;
+  // Cache da lista do corte deste painel quando inativo (o ativo usa o global): dois cortes não disputam o mesmo cache.
+  const ownSectionFrame = useRef<SectionFrame | null>(null);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const host = useRef<HTMLDivElement>(null);
@@ -455,7 +457,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
       vperf?.mark('b_ini');
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang, pEstilo);
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
       vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;

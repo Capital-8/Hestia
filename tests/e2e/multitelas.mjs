@@ -112,6 +112,37 @@ try {
   assert.equal((await S()).ui.openViews, abas, 'reabrir vistas já abertas não cria aba nova');
   ok('sem aba duplicada');
 
+  // 6b. Regressão: o corte INATIVO desenha o próprio conteúdo (antes ficava em branco e piscava ao passar o mouse).
+  {
+    const e = await S();
+    const iCorte = e.panes.findIndex((p) => p.kind === 'section');
+    const iOutra = e.panes.findIndex((p) => p.kind !== 'section');
+    const tam = async () => (await page.locator('.pane-body').nth(iCorte).screenshot()).length;
+    const bc = await body(iCorte);
+    const bo = await body(iOutra);
+    await page.mouse.move(5, 5);
+    await page.mouse.move(bc.x + bc.width / 2, bc.y + bc.height / 2, { steps: 4 });
+    await page.waitForTimeout(900);
+    const comoAtivo = await tam();
+    await page.mouse.move(bo.x + bo.width / 2, bo.y + bo.height / 2, { steps: 4 });
+    await page.waitForTimeout(900);
+    assert.notEqual((await S()).active, e.panes[iCorte].id, 'o corte ficou inativo');
+    const comoInativo = await tam();
+    // Em branco o PNG tem ~1/3 do tamanho do desenhado (3610 contra 11147 medidos): exige mais da metade.
+    assert.ok(comoInativo > comoAtivo * 0.5, `corte inativo desenhado (${comoInativo} B contra ${comoAtivo} B ativo)`);
+    // Estável: voltar e ir de novo repete o mesmo desenho, sem piscar.
+    const amostras = [];
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(bc.x + bc.width / 2, bc.y + bc.height / 2, { steps: 3 });
+      await page.waitForTimeout(500);
+      await page.mouse.move(bo.x + bo.width / 2, bo.y + bo.height / 2, { steps: 3 });
+      await page.waitForTimeout(500);
+      amostras.push(await tam());
+    }
+    assert.equal(new Set(amostras).size, 1, `corte inativo estável entre ativações: ${amostras}`);
+    ok(`corte inativo desenha (${comoInativo} B de ${comoAtivo} B) e não pisca`);
+  }
+
   // 7. Ativar ao pousar o mouse, sem clicar.
   s = await S();
   const alvo = s.panes.find((p) => p.id !== s.active).id;
@@ -181,17 +212,19 @@ try {
   assert.equal(view3dDepois, view3dAntes, 'o projeto não foi alterado pelo estilo do painel');
   ok('estilo por painel: independente e sem gravar no projeto');
 
-  // 11. Persistência ao recarregar.
+  // 11. Persistência ao recarregar. Com 2 painéis: 4 contextos WebGL por software derrubam o Chrome em máquina com pouca RAM.
+  await preset('Duas colunas');
   const antesReload = await S();
+  assert.equal(antesReload.panes.length, 2);
   await page.waitForTimeout(300);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__hestia);
   const guardado = await page.evaluate(() => JSON.parse(localStorage.getItem('hestia.panes') ?? 'null'));
   assert.ok(guardado, 'layout guardado');
   const folhasGuardadas = JSON.stringify(guardado).match(/"kind":"leaf"/g)?.length;
-  assert.equal(folhasGuardadas, 4, 'quatro painéis guardados');
+  assert.equal(folhasGuardadas, 2, 'dois painéis guardados');
   const restaurado = await S();
-  assert.equal(restaurado.panes.length, 4, 'layout restaurado no store após recarregar');
+  assert.equal(restaurado.panes.length, 2, 'layout restaurado no store após recarregar');
   assert.deepEqual(restaurado.panes.map((p) => p.style.style ?? null), antesReload.panes.map((p) => p.style.style ?? null), 'estilos por painel restaurados');
   ok(`layout e estilos restaurados após recarregar (${restaurado.panes.length} painéis)`);
 
