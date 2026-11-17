@@ -7,7 +7,7 @@ Documento de passagem. Branch de trabalho: `claude/eager-albattani-d9xyel` (no G
 - Base: `ccr-25143eb2-08pwa4` (a branch de integração do dono, com desempenho 3D R1/A1, esquadrias v2 e o perímetro).
 - Mesclados nela: `perim/integracao2` (perímetro, Aparar/Estender, Alinhar universal, snap de aberturas) e `perim/T1` (acabamento do telhado em planta).
 - A `main` do repositório continua em 22/10 e não foi tocada.
-- **Não mesclados** (continuam nas suas branches): GPU `gpu/a1b-opening`, `gpu/r2-visibility`, `gpu/r3-picking`, `gpu/r5-plan` (WIP, base antiga) e esquadrias v3 `feat/esquadrias-v3` (108 testes quebrados de propósito). Ver `HANDOFF-GPU-2026-10-26.md` e `docs/aberturas/HANDOFF-ESQUADRIAS-v3-2026-10-27.md` nas respectivas branches.
+- **Não mesclados** (continuam nas suas branches): GPU `gpu/a1b-opening`, `gpu/r2-visibility`, `gpu/r3-picking`, `gpu/r5-plan` (WIP, base antiga) e esquadrias v3 `feat/esquadrias-v3` (108 testes quebrados de propósito) — **atualização 2026-11-17: a v3 já está no `main` e a suíte de esquadrias passa**. Ver `HANDOFF-GPU-2026-10-26.md` e `docs/aberturas/HANDOFF-ESQUADRIAS-v3-2026-10-27.md` nas respectivas branches.
 
 ## 2. O que foi entregue nesta sessão
 

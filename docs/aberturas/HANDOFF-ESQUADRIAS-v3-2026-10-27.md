@@ -1,5 +1,7 @@
 # HANDOFF · Esquadrias v3 (2026-10-27): como continuar em outro computador
 
+> **ATUALIZAÇÃO (2026-11-17): documento histórico.** A v3 já foi integrada ao `main` (campos `frameDepthMode`, `tiltAxis`, `reveal`, `glassKind`, `openingNominal` presentes; ver `F-PROGRESSO.md` e `docs/PENDENCIAS-2026-10-28-cotas-padroes-esquadrias.md`). Os "108 testes quebrados" e as branches `feat/esquadrias-v3` e `feat/esq-BRD` abaixo não valem mais. Em 2026-11-17, 51 arquivos / 681 testes de esquadrias (model, engine, io, web) passaram no `main`. Pendências reais: validar alizar e maçanetas no 3D, IFC com peças, F8 (bay/bow/canto), baselines visuais, lacunas L-5 a L-16 do documento B.
+
 Estado ao desligar: trabalho **interrompido no meio da integração da v3**. Nada foi perdido: tudo está commitado e enviado ao GitHub nas branches abaixo.
 
 ## 1 · Branches (repositório `engdennylsonsantos-cloud/Hestia`)
