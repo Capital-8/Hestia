@@ -1,5 +1,5 @@
 import { useMemo, type ReactElement } from 'react';
-import type { ScheduleCell } from '@hestia/model';
+import { formatScheduleValue, projectUnitSymbol, scheduleColumnQuantities, type ResolvedUnits, type ScheduleCell, type ScheduleQuantity } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
 import { entregarArquivo } from '../editor/entregarArquivo.ts';
 import { fmtNum, useT, type Lang } from '../editor/i18n.ts';
@@ -7,14 +7,18 @@ import { useUi } from '../editor/state.ts';
 import { buildPluginSchedule, scheduleCsvFile } from '../plugins/pluginSchedules.ts';
 import { pluginRegistry, usePluginRegistryVersion } from '../plugins/registry.ts';
 import { Dialog } from './dialogs/Dialog.tsx';
+import { useUnits } from './useUnits.ts';
 import { txt } from './ribbon/model.ts';
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
 
-/** Número com até 3 casas (medidas em metro, metro quadrado e metro cúbico); texto e booleano saem como estão. */
-function celula(c: ScheduleCell, lang: Lang): string {
+/**
+ * Célula da tabela. Coluna de comprimento, área ou volume sai nas unidades e casas decimais do projeto; outro número
+ * sai com até 3 casas; texto e booleano saem como estão.
+ */
+function celula(c: ScheduleCell, q: ScheduleQuantity | undefined, u: ResolvedUnits, lang: Lang): string {
   if (c === null) return '';
-  if (typeof c === 'number') return fmtNum(c, Number.isInteger(c) ? 0 : 3, lang);
+  if (typeof c === 'number') return q ? formatScheduleValue(u, q, c, lang) : fmtNum(c, Number.isInteger(c) ? 0 : 3, lang);
   return String(c);
 }
 
@@ -28,6 +32,7 @@ export function PluginSchedule(): ReactElement | null {
   const arg = useUi((s) => s.dialogArg);
   const version = usePluginRegistryVersion();
   const project = useProject();
+  const units = useUnits();
   const reg = useMemo(() => (arg ? pluginRegistry.schedule(arg) : undefined), [arg, version]); // eslint-disable-line react-hooks/exhaustive-deps
   const built = useMemo(() => (reg ? buildPluginSchedule(project, reg, lang) : null), [reg, project, lang]);
   if (!arg) return null;
@@ -39,7 +44,8 @@ export function PluginSchedule(): ReactElement | null {
     );
   }
   const { table } = built;
-  const exportar = (): void => { void entregarArquivo(scheduleCsvFile(reg, table, lang, t('sup_e_total'))); };
+  const quantities = scheduleColumnQuantities(table);
+  const exportar = (): void => { void entregarArquivo(scheduleCsvFile(reg, table, lang, t('sup_e_total'), units)); };
   return (
     <Dialog
       title={txt(reg.title, lang)}
@@ -56,14 +62,14 @@ export function PluginSchedule(): ReactElement | null {
       {table.rows.length === 0 ? <p>{t('sup_e_empty')}</p> : (
         <table className="layers wsched">
           <thead>
-            <tr>{table.columns.map((c) => <th key={c.key} scope="col">{c.unit ? `${c.title} (${c.unit})` : c.title}</th>)}</tr>
+            <tr>{table.columns.map((c, j) => { const q = quantities[j]; const unit = q ? projectUnitSymbol(units, q) : c.unit; return <th key={c.key} scope="col">{unit ? `${c.title} (${unit})` : c.title}</th>; })}</tr>
           </thead>
           <tbody>
-            {table.rows.map((r, i) => <tr key={i}>{r.cells.map((c, j) => <td key={j} className={typeof c === 'number' ? 'num' : undefined}>{celula(c, lang)}</td>)}</tr>)}
+            {table.rows.map((r, i) => <tr key={i}>{r.cells.map((c, j) => <td key={j} className={typeof c === 'number' ? 'num' : undefined}>{celula(c, quantities[j], units, lang)}</td>)}</tr>)}
           </tbody>
           {table.totals && (
             <tfoot>
-              <tr>{table.totals.map((c, j) => <th key={j} scope="row" className={typeof c === 'number' ? 'num' : undefined}>{j === 0 && c === null ? t('sup_e_total') : celula(c, lang)}</th>)}</tr>
+              <tr>{table.totals.map((c, j) => <th key={j} scope="row" className={typeof c === 'number' ? 'num' : undefined}>{j === 0 && c === null ? t('sup_e_total') : celula(c, quantities[j], units, lang)}</th>)}</tr>
             </tfoot>
           )}
         </table>
