@@ -146,13 +146,35 @@ function trocar(src: string, de: string, por: string): { src: string; ok: boolea
   return src.includes(de) ? { src: src.replace(de, por), ok: true } : { src, ok: false };
 }
 
+export interface UniformesTriplanar {
+  tpMap: { value: THREE.Vector4 };
+  tpOff: { value: THREE.Vector2 };
+  tpColor?: { value: THREE.Texture };
+  tpNormal?: { value: THREE.Texture };
+  tpRough?: { value: THREE.Texture };
+}
+
+/** Uniforms do mapeamento e dos mapas; mudar o `value` vale na próxima imagem, sem recompilar o programa. */
+function criarUniformes(mapas: MapasTextura3D, map: MapeamentoTextura): UniformesTriplanar {
+  const u: UniformesTriplanar = { tpMap: { value: new THREE.Vector4() }, tpOff: { value: new THREE.Vector2() } };
+  if (mapas.cor) u.tpColor = { value: mapas.cor };
+  if (mapas.normal) u.tpNormal = { value: mapas.normal };
+  if (mapas.rugosidade) u.tpRough = { value: mapas.rugosidade };
+  atualizarUniformes(u, mapas, map);
+  return u;
+}
+
+function atualizarUniformes(u: UniformesTriplanar, mapas: MapasTextura3D, map: MapeamentoTextura): void {
+  u.tpMap.value.set(map.frequencia, map.cos, map.sen, 0);
+  u.tpOff.value.set(map.deslocamento[0], map.deslocamento[1]);
+  if (u.tpColor && mapas.cor) u.tpColor.value = mapas.cor;
+  if (u.tpNormal && mapas.normal) u.tpNormal.value = mapas.normal;
+  if (u.tpRough && mapas.rugosidade) u.tpRough.value = mapas.rugosidade;
+}
+
 /** Injeta a projeção triplanar nos trechos do shader padrão do three. Puro sobre o texto; devolve o que foi trocado. */
-export function injetarTriplanar(shader: ShaderLike, mapas: MapasTextura3D, map: MapeamentoTextura): InjecaoTriplanar {
-  shader.uniforms.tpMap = { value: new THREE.Vector4(map.frequencia, map.cos, map.sen, 0) };
-  shader.uniforms.tpOff = { value: new THREE.Vector2(map.deslocamento[0], map.deslocamento[1]) };
-  if (mapas.cor) shader.uniforms.tpColor = { value: mapas.cor };
-  if (mapas.normal) shader.uniforms.tpNormal = { value: mapas.normal };
-  if (mapas.rugosidade) shader.uniforms.tpRough = { value: mapas.rugosidade };
+export function injetarTriplanar(shader: ShaderLike, mapas: MapasTextura3D, map: MapeamentoTextura, uniformes: UniformesTriplanar = criarUniformes(mapas, map)): InjecaoTriplanar {
+  Object.assign(shader.uniforms, uniformes);
 
   let v = trocar(shader.vertexShader, '#include <common>', `#include <common>\n${GLSL_VERTEX_DECL}`);
   const vA = v.ok;
@@ -181,15 +203,52 @@ export function prepararMapa(t: THREE.Texture, cor: boolean, repetir = true, ani
   return t;
 }
 
+interface EstadoTriplanar {
+  /** Quais mapas o programa usa (cor, normal, rugosidade). */
+  assinatura: string;
+  /** Sobe a cada vez que o material troca de programa (com textura, sem ela, outros mapas). */
+  geracao: number;
+  uniformes: UniformesTriplanar;
+}
+
+const estadoDe = (mat: THREE.Material): EstadoTriplanar | undefined => mat.userData.triplanar as EstadoTriplanar | undefined;
+const geracaoDe = (mat: THREE.Material): number => (mat.userData.triplanarGeracao as number | undefined) ?? 0;
+
 /**
  * Aplica a textura ao material: projeção triplanar (cor, rugosidade e normal). A cor do material vira branca quando há
  * mapa de cor (a imagem é quem dá a cor). Devolve o próprio material.
+ *
+ * O three guarda o programa compilado POR MATERIAL pela chave `customProgramCacheKey` e só chama `onBeforeCompile` quando
+ * a chave é nova para ele. Por isso: com os mesmos mapas, só os uniforms mudam (sem recompilar); quando o material troca
+ * de programa e volta (com textura, sem ela, outros mapas), a chave leva a geração, para os uniforms serem refeitos.
  */
 export function aplicarTexturaTriplanar<T extends THREE.MeshStandardMaterial>(mat: T, mapas: MapasTextura3D, textura: MaterialTextura): T {
   const map = mapeamentoDaTextura(textura);
   if (mapas.cor) mat.color.set(0xffffff);
-  mat.onBeforeCompile = (shader) => { injetarTriplanar(shader, mapas, map); };
-  mat.customProgramCacheKey = () => `tp:${mapas.cor ? 'c' : ''}${mapas.normal ? 'n' : ''}${mapas.rugosidade ? 'r' : ''}`;
+  const assinatura = `${mapas.cor ? 'c' : ''}${mapas.normal ? 'n' : ''}${mapas.rugosidade ? 'r' : ''}`;
+  const atual = estadoDe(mat);
+  if (atual && atual.assinatura === assinatura) {
+    atualizarUniformes(atual.uniformes, mapas, map);
+    return mat;
+  }
+  if (atual) mat.userData.triplanarGeracao = geracaoDe(mat) + 1;
+  const geracao = geracaoDe(mat);
+  const uniformes = criarUniformes(mapas, map);
+  mat.userData.triplanar = { assinatura, geracao, uniformes } satisfies EstadoTriplanar;
+  mat.onBeforeCompile = (shader) => { injetarTriplanar(shader, mapas, map, uniformes); };
+  mat.customProgramCacheKey = () => `tp:${assinatura}:${geracao}`;
+  mat.needsUpdate = true;
+  return mat;
+}
+
+/** Tira a textura do material (volta ao programa padrão). Seguro de chamar sem textura aplicada. */
+export function removerTexturaTriplanar<T extends THREE.MeshStandardMaterial>(mat: T): T {
+  if (!estadoDe(mat)) return mat;
+  mat.userData.triplanar = undefined;
+  mat.userData.triplanarGeracao = geracaoDe(mat) + 1;
+  mat.onBeforeCompile = () => undefined;
+  const geracao = geracaoDe(mat);
+  mat.customProgramCacheKey = () => `plano:${geracao}`;
   mat.needsUpdate = true;
   return mat;
 }

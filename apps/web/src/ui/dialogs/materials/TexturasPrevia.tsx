@@ -12,7 +12,6 @@ interface Props {
   mb: string;
   podeAplicar: boolean;
   semMaterial: boolean;
-  aviso: string;
   /** O material selecionado já usa esta textura. */
   atual: boolean;
   onCriar: () => void;
@@ -27,7 +26,7 @@ const MAPAS_PREVIA: ReadonlyArray<{ chave: ChaveMapa; rotulo: 'dlt_tex_map_color
 ];
 
 /** Pré-visualização da textura em tamanho original (cor, normal ou rugosidade; cada mapa só baixa quando escolhido) e as duas ações. */
-export function TexturasPrevia({ item, base, lang, mb, podeAplicar, semMaterial, aviso, atual, onCriar, onAplicar }: Props): ReactElement {
+export function TexturasPrevia({ item, base, lang, mb, podeAplicar, semMaterial, atual, onCriar, onAplicar }: Props): ReactElement {
   const { t } = useT();
   const [mapa, setMapa] = useState<ChaveMapa>('cor');
   const disponiveis = MAPAS_PREVIA.filter((m) => item.mapas[m.chave] !== undefined);
@@ -60,9 +59,7 @@ export function TexturasPrevia({ item, base, lang, mb, podeAplicar, semMaterial,
         </button>
         {semMaterial ? <p id="tex-sem-material" className="hint">{t('dlt_tex_apply_none')}</p> : null}
       </div>
-      {atual && !aviso ? <p className="tex-atual">✓ {t('dlt_tex_current')}</p> : null}
-      {/* Região sempre presente (leitores de tela anunciam a mudança); a faixa só aparece com mensagem. */}
-      <div role="status" aria-live="polite">{aviso ? <p className="tex-aviso">✓ {aviso}</p> : null}</div>
+      {atual ? <p className="tex-atual">✓ {t('dlt_tex_current')}</p> : null}
     </>
   );
 }

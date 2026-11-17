@@ -100,12 +100,15 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
 
   const total = itens.length;
   return (
+    <>
     <Dialog
       title={t('dlt_tex_title')}
       sub={catalogo ? t(total === 1 ? 'dlt_tex_count_one' : 'dlt_tex_count_many', { n: total }) : undefined}
-      onClose={onClose}
+      // Com o aviso aberto, Esc e o ✕ fecham só o aviso.
+      onClose={aviso ? () => setAviso('') : onClose}
       z={70}
       size="wide"
+      trapFocus={!aviso}
       footer={<button className="btn" onClick={onClose}>{t('stt_close')}</button>}
     >
       {estado.fase === 'carregando' ? <p className="hint" role="status">{t('dlt_tex_loading')}</p> : null}
@@ -156,7 +159,6 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
                 mb={fmtNum(megabytes(escolhida.bytes), 1, lang)}
                 podeAplicar={podeAplicar}
                 semMaterial={materialSelecionado === undefined}
-                aviso={aviso}
                 atual={texturaEhAtual(materialSelecionado, escolhida)}
                 onCriar={criar}
                 onAplicar={aplicar}
@@ -168,5 +170,18 @@ export function TexturasOnline({ materialSelecionado, onCriado, onClose }: Props
         </div>
       ) : null}
     </Dialog>
+      {aviso ? (
+        <Dialog
+          title={t('dlt_tex_notice_title')}
+          onClose={() => setAviso('')}
+          z={80}
+          size="narrow"
+          trapFocus
+          footer={<button className="btn primary" data-autofocus onClick={() => setAviso('')}>{t('dlt_tex_ok')}</button>}
+        >
+          <p role="alert" className="tex-aviso-msg">✓ {aviso}</p>
+        </Dialog>
+      ) : null}
+    </>
   );
 }

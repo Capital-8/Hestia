@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Material } from '@hestia/model';
-import { aplicarTexturaTriplanar } from '@hestia/render';
+import { aplicarTexturaTriplanar, removerTexturaTriplanar } from '@hestia/render';
 import { texturas3d } from '../../../editor/texturas3d.ts';
 import { FRESTA, RAIO_CANTO, TONS_LADRILHO, gerarLadrilhos, gradeLadrilhos, parametrosMaterial } from './sceneMaterial.ts';
 
@@ -109,11 +109,10 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
       aplicarTexturaTriplanar(mat, mapas, textura);
       comTextura = true;
     } else if (comTextura) {
-      mat.onBeforeCompile = () => undefined;
-      mat.customProgramCacheKey = () => '';
-      mat.needsUpdate = true;
+      removerTexturaTriplanar(mat);
       comTextura = false;
-    } else if (mudouTransp) mat.needsUpdate = true;
+    }
+    if (mudouTransp) mat.needsUpdate = true;
   };
   aplicarMaterial(material);
 

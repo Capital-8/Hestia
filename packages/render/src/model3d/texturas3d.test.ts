@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import type { Material } from '@hestia/model';
-import { aplicarTexturaTriplanar, chaveDaTextura, injetarTriplanar, mapeamentoDaTextura, type MapasTextura3D, type TexturasProvedor3D } from './texturas3d.ts';
+import { aplicarTexturaTriplanar, chaveDaTextura, injetarTriplanar, mapeamentoDaTextura, removerTexturaTriplanar, type MapasTextura3D, type TexturasProvedor3D } from './texturas3d.ts';
 
 const tex = (): THREE.Texture => new THREE.Texture();
 const textura = { imagemId: 'catalogo:A1', escalaMetros: 0.5, rotacao: 90, deslocamento: [0.25, 0] as [number, number], repetir: true };
@@ -47,9 +47,58 @@ describe('texturas 3D (triplanar, escala real)', () => {
     const m = new THREE.MeshStandardMaterial({ color: '#336699' });
     aplicarTexturaTriplanar(m, { cor: tex(), normal: tex() }, textura);
     expect(m.color.getHexString()).toBe('ffffff');
-    expect(m.customProgramCacheKey()).toBe('tp:cn');
+    expect(m.customProgramCacheKey()).toBe('tp:cn:0');
     const so = new THREE.MeshStandardMaterial({ color: '#336699' });
     aplicarTexturaTriplanar(so, { normal: tex() }, textura);
     expect(so.color.getHexString()).toBe('336699');
+  });
+
+  const rodarCompilacao = (m: THREE.Material): Record<string, { value: unknown }> => {
+    const shader = { uniforms: {} as Record<string, { value: unknown }>, vertexShader: THREE.ShaderLib.standard.vertexShader, fragmentShader: THREE.ShaderLib.standard.fragmentShader };
+    m.onBeforeCompile(shader as never, undefined as never);
+    return shader.uniforms;
+  };
+
+  it('com os mesmos mapas, só os uniforms mudam: a chave do programa não muda (sem recompilar)', () => {
+    const m = new THREE.MeshStandardMaterial();
+    const mapas = { cor: tex(), rugosidade: tex() };
+    aplicarTexturaTriplanar(m, mapas, textura);
+    const chave = m.customProgramCacheKey();
+    const uniformes = rodarCompilacao(m);
+    aplicarTexturaTriplanar(m, mapas, { ...textura, escalaMetros: 2 });
+    expect(m.customProgramCacheKey()).toBe(chave);
+    expect((uniformes.tpMap!.value as THREE.Vector4).x).toBeCloseTo(0.5, 10);
+  });
+
+  it('textura -> sem textura -> textura de novo: a chave muda a cada troca (o three só refaz os uniforms com chave nova)', () => {
+    const m = new THREE.MeshStandardMaterial();
+    const mapas = { cor: tex(), normal: tex() };
+    aplicarTexturaTriplanar(m, mapas, textura);
+    const k1 = m.customProgramCacheKey();
+    removerTexturaTriplanar(m);
+    const k2 = m.customProgramCacheKey();
+    aplicarTexturaTriplanar(m, mapas, textura);
+    const k3 = m.customProgramCacheKey();
+    expect(new Set([k1, k2, k3]).size).toBe(3);
+    // A nova compilação traz uniforms completos (os mapas voltam a existir).
+    expect(Object.keys(rodarCompilacao(m)).sort()).toEqual(['tpColor', 'tpMap', 'tpNormal', 'tpOff']);
+  });
+
+  it('outros mapas no mesmo material também trocam a chave; materiais novos com os mesmos mapas compartilham o programa', () => {
+    const a = new THREE.MeshStandardMaterial();
+    const b = new THREE.MeshStandardMaterial();
+    aplicarTexturaTriplanar(a, { cor: tex() }, textura);
+    aplicarTexturaTriplanar(b, { cor: tex() }, textura);
+    expect(a.customProgramCacheKey()).toBe(b.customProgramCacheKey());
+    const k = a.customProgramCacheKey();
+    aplicarTexturaTriplanar(a, { cor: tex(), normal: tex() }, textura);
+    expect(a.customProgramCacheKey()).not.toBe(k);
+  });
+
+  it('remover sem textura aplicada não faz nada', () => {
+    const m = new THREE.MeshStandardMaterial();
+    const v = m.version;
+    expect(removerTexturaTriplanar(m)).toBe(m);
+    expect(m.version).toBe(v);
   });
 });
