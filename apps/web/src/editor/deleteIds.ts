@@ -1,4 +1,5 @@
 import { annotationRemovals, areaPlanOf, isColumn, isFooting, isRoom, levelRoomSeparators, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { removerItensDeTerreno, itemDeTerrenoDoId } from '@hestia/tools';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
@@ -82,7 +83,9 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   const noteIds = new Set(notes.map((c) => c.id));
   const viewIds = new Set(views.map((c) => c.id));
   const sepIds = new Set(separators);
-  const elems = ids.filter((id) => !noteIds.has(id) && !viewIds.has(id) && !sepIds.has(id) && !gridIds.has(id));
+  // Cotas de ponto e linhas de rótulo do terreno (itens sem id próprio, `<terreno>#cotado:<i>`): editTerrainFontes.
+  const terrainItems = removerItensDeTerreno(store.project, ids);
+  const elems = ids.filter((id) => !noteIds.has(id) && !viewIds.has(id) && !sepIds.has(id) && !gridIds.has(id) && !itemDeTerrenoDoId(id));
   const deletedColIds = new Set(elems.filter((id) => isColumn(store.project.elements[id])));
   const unlinkedFootings = deletedColIds.size > 0
     ? Object.values(store.project.elements)
@@ -91,6 +94,7 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
     : [];
   const commands: Command[] = [
     ...notes,
+    ...terrainItems,
     ...(elems.length ? [{ type: 'deleteElements' as const, ids: elems }] : []),
     ...(unlinkedFootings.length ? [{ type: 'updateElements' as const, ids: unlinkedFootings, patch: { columnId: null } }] : []),
     ...views,
