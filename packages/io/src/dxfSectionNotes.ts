@@ -4,6 +4,7 @@ import {
   type Id,
   type Project,
   type TextNote,
+  detailLineSegments,
 } from '@hestia/model';
 import {
   DXF_LAYER_DETALHE,
@@ -59,7 +60,7 @@ export function sectionNotesDxfOf(p: Project, sectionId: Id, scale: number): Dxf
     if (t.leader) for (let i = 1; i < t.leader.length; i++) out.otherLines!.push({ a: t.leader[i - 1]!, b: t.leader[i]!, layer: DXF_LAYER_TEXTOS });
     out.texts.push({ at: t.at, text: t.text, height: textHeightMm(t) * mPerMm, rotation: t.rotation, layer: DXF_LAYER_TEXTOS });
   }
-  for (const line of annotations.detailLines) out.otherLines!.push({ a: line.a, b: line.b, layer: DXF_LAYER_DETALHE });
+  for (const line of annotations.detailLines) for (const [a, b] of detailLineSegments(line)) out.otherLines!.push({ a, b, layer: DXF_LAYER_DETALHE });
   tagTextsOf(p, annotations.tags, out, mPerMm);
   return { ...out, regions: annotations.detailRegions.map((r) => r.boundary) };
 }

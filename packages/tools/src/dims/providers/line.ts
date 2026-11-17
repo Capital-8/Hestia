@@ -49,6 +49,7 @@ export function detailLinePreviewDim(a: Vec2, b: Vec2): TempDim {
   };
 }
 
+// Linha com `sag` (arco): as cotas usam a CORDA a→b; mover/editar o comprimento preserva o `sag` (patch parcial).
 function findLine(project: Project, levelId: Id, id: Id) {
   return project.levels.find((l) => l.id === levelId)?.detailLines?.find((x) => x.id === id) ?? null;
 }

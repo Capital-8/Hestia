@@ -84,3 +84,28 @@ describe('captura de linhas de detalhe pela ferramenta Linha de detalhe (ToolBas
     expect(r.point.y).toBeCloseTo(0, 9);
   });
 });
+
+describe('captura de linha de detalhe em arco (sag)', () => {
+  /** Semicírculo: corda (0,0)-(2,0), sag 1 (abaula à esquerda de a→b, ou seja, para y positivo): centro (1,0), raio 1. */
+  const comArco = () => {
+    const store = new ProjectStore(createEmptyProject());
+    store.exec({ type: 'addDetailLine', levelId: LV0, item: { id: 'dl_a', a: v(0, 0), b: v(2, 0), sag: 1 } });
+    return store.project;
+  };
+
+  it('detailEdges: vários segmentos, todos com as pontas a 1 m do centro (1,0)', () => {
+    const edges = detailEdges(comArco(), LV0);
+    expect(edges.length).toBeGreaterThan(2);
+    for (const e of edges) {
+      expect(Math.hypot(e.a.x - 1, e.a.y)).toBeCloseTo(1, 9);
+      expect(Math.hypot(e.b.x - 1, e.b.y)).toBeCloseTo(1, 9);
+      expect(e.hostId).toBe('dl_a');
+    }
+  });
+
+  it('detailPoints: o ponto médio é o meio do arco (1,1), e não o da corda (1,0)', () => {
+    const mid = detailPoints(comArco(), LV0).find((q) => q.kind === 'midpoint')!;
+    expect(mid.x).toBeCloseTo(1, 9);
+    expect(mid.y).toBeCloseTo(1, 9);
+  });
+});

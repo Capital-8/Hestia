@@ -50,6 +50,7 @@ function refLine(p: Project, levelId: Id, key: string): WallRefLine | null {
   const detail = /^(.+):detalhe$/.exec(key);
   if (detail) {
     const l = p.levels.find((x) => x.id === levelId)?.detailLines?.find((x) => x.id === detail[1]);
+    // Linha de detalhe com `sag` (arco): o ângulo usa a CORDA a→b, não a tangente do arco.
     return l ? segmentRef(l.a, l.b) : null;
   }
   const sep = /^(.+):separador$/.exec(key);

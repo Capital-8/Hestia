@@ -8,6 +8,7 @@ import {
   type Id,
   type SectionAnnotations,
   type TextNote,
+  detailLineSegments,
 } from '@hestia/model';
 import { alcaDoTextoEm, textBlockModel } from '../plan/notes.ts';
 
@@ -269,7 +270,7 @@ export function pickSectionAnnotation(
     }
   }
   for (const text of annotations.texts) if (textHit(text, point, tol, s, textTol)) return { id: text.id, kind: 'text' };
-  for (const line of annotations.detailLines) if (hitSegment(point, line.a, line.b, tol)) return { id: line.id, kind: 'detailLine' };
+  for (const line of annotations.detailLines) if (detailLineSegments(line).some(([p, q]) => hitSegment(point, p, q, tol))) return { id: line.id, kind: 'detailLine' };
   for (const region of annotations.detailRegions) if (regionHit(region, point, tol)) return { id: region.id, kind: 'detailRegion' };
   for (const dim of annotations.dimensions) if (dimensionHit(dim, point, tol, s, textTol)) return { id: dim.id, kind: 'dimension' };
   return null;

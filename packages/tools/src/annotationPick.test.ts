@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProjectStore, angularDimensionData, angularDimensionGeometry, createEmptyProject, levelDimensions, levelTexts } from '@hestia/model';
-import { DIM_GRIP_PX, DIM_TEXT_GRIP_PX, annotationAt, annotationIdsInBox, dimGripAt, dimHitGeometry, dimTextGripAt } from './annotationPick.ts';
+import { DIM_GRIP_PX, DIM_TEXT_GRIP_PX, annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimHitGeometry, dimTextGripAt } from './annotationPick.ts';
 import { clickAt, makeEnv, tool } from './testEnv.ts';
 
 /** Texto 'Quarto' colocado em (9, 2) m, com a planta na escala padrão; o cursor mede 0,01 m por pixel. */
@@ -110,5 +110,14 @@ describe('alças de cota: raios em pixels de tela (DIM_GRIP_PX = 9, DIM_TEXT_GRI
     const store = cria({});
     expect(dimGripAt(store.project, 'lv_0', ['d1'], { x: 2, y: 1.08 }, MPP)).toBe('d1');
     expect(dimGripAt(store.project, 'lv_0', ['d1'], { x: 2, y: 1.1 }, MPP)).toBeNull();
+  });
+});
+
+describe('linha de detalhe em arco', () => {
+  it('acerta o meio do arco (1, 1) e nao a corda (1, 0)', () => {
+    const ctx = makeEnv();
+    ctx.store.exec({ type: 'addDetailLine', levelId: 'lv_0', item: { id: 'dl', a: { x: 0, y: 0 }, b: { x: 2, y: 0 }, sag: 1 } });
+    expect(detailItemAt(ctx.store.project, 'lv_0', { x: 1, y: 1.02 }, MPP)).toBe('dl');
+    expect(detailItemAt(ctx.store.project, 'lv_0', { x: 1, y: 0 }, MPP)).toBeNull();
   });
 });

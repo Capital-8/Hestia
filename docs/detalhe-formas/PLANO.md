@@ -76,3 +76,11 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Planta: `dimBodyAt` (annotationPick.ts) + `down` do Select: cota já selecionada (única, linear, não `locked`) pressionada no texto entra em `dimtext`, na linha/extensões em `dimgrip`; mesma lógica de commit. Folga de 4 px: clique ou tremor não grava nada. Cota não selecionada segue só selecionando. Teste: `selectDimBody.test.ts`.
 - Corte: `pickSectionDimensionGrip` devolve `kind:'offset'` com `body:true` para linha/extensões; `ViewportCanvas.tsx` ignora o `up` sem arrasto (4 px) quando `body`. Teste novo em `render/src/section/handles.test.ts`.
 - Gap (cursor): o Select continua sem API de cursor por hover (fixa a seta; só o corte pede `move`); não implementado. Alça da cota no corte segue sem desenho (só pick).
+
+### S1-A (sonnet) — arco real na linha de detalhe
+- `DetailLine.sag?` (m; positivo abaula à esquerda de a→b; ausente = reta). Comandos `addDetailLine`/`updateDetailLine` já espalham o objeto: o campo é preservado (patch parcial de `b` mantém o `sag`); cópia/clone de anotações usa spread.
+- Nomes públicos novos (`@hestia/model`, `packages/model/src/detailLineGeom.ts`): `detailLineSegments(l, maxSegLen?)` => `Array<[Vec2, Vec2]>` (S1-B usa este), `detailLinePoints(l, maxSegLen?)` (polilinha a..b, usada nos traços), `detailLineLength(l)`, `detailLineSag(l)` (flecha efetiva, clamp |sag| <= corda/2), `DETAIL_ARC_SEGMENTS_PER_HALF_TURN = 8`.
+- Arco via `arcFromSagitta`/`arcPointAt` de `@hestia/geom`; segmentos = ceil(|varredura|/π · 8), mínimo 2; `maxSegLen` só aumenta o número.
+- Render: `plan/notes.ts` (planta e corte compartilham; tracejado contínuo por polilinha) e realce em `planOverlay.ts`. Hit: `section/handles.ts` e `annotationPick.ts` (`detailItemAt`). DXF: `dxfNotes.ts`, `dxfSectionNotes.ts` (1 LINE por segmento).
+- Cotas/ângulo (`angularDimension.ts`, `dims/providers/line.ts`): usam a CORDA a→b; documentado em comentário, comportamento inalterado. Pendente: caixa de seleção por área (`annotationIdsInBoxOf`) segue pela corda.
+- Testes literais: semicírculo (corda 2, sag ±1): meio (1, ±1), 8 segmentos, comprimento π; sag 0,5: raio 1,25, centro (1, -0,75), comprimento 2,3182; sag 5 clampado = π.

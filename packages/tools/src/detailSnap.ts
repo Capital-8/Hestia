@@ -1,14 +1,21 @@
 import type { Vec2 } from '@hestia/geom';
-import type { DetailLine, Id, Project } from '@hestia/model';
+import { detailLineSag, detailLineSegments, type DetailLine, type Id, type Project } from '@hestia/model';
 import { viewAnnotationsOf } from './annotationPick.ts';
 import type { SnapPoint } from './infer.ts';
 
-/**
- * Segmentos de uma linha de detalhe para a captura. Hoje a linha é reta (a→b). Este é o ÚNICO ponto a trocar quando a
- * linha ganhar arco: a versão com `detailLineSegments` (modelo) entra aqui, e o resto do módulo não muda.
- */
+/** Segmentos de uma linha de detalhe para a captura: a reta, ou o arco aproximado por segmentos quando há `sag`. */
 export function segmentosDaLinha(l: DetailLine): Array<{ a: Vec2; b: Vec2 }> {
-  return [{ a: l.a, b: l.b }];
+  return detailLineSegments(l).map(([a, b]) => ({ a, b }));
+}
+
+/** Meio da linha: o ponto médio da corda, deslocado da flecha (à esquerda de a→b) quando é arco. */
+export function meioDaLinha(l: DetailLine): Vec2 {
+  const mx = (l.a.x + l.b.x) / 2;
+  const my = (l.a.y + l.b.y) / 2;
+  const sag = detailLineSag(l);
+  const c = Math.hypot(l.b.x - l.a.x, l.b.y - l.a.y);
+  if (!sag || c < 1e-12) return { x: mx, y: my };
+  return { x: mx - ((l.b.y - l.a.y) / c) * sag, y: my + ((l.b.x - l.a.x) / c) * sag };
 }
 
 /**
@@ -29,7 +36,7 @@ export function detailPoints(p: Project, levelId: Id, planId?: Id, hidden?: Read
   return linhasDaVista(p, levelId, planId, hidden).flatMap((l) => [
     { x: l.a.x, y: l.a.y, hostId: l.id, kind: 'endpoint' as const },
     { x: l.b.x, y: l.b.y, hostId: l.id, kind: 'endpoint' as const },
-    { x: (l.a.x + l.b.x) / 2, y: (l.a.y + l.b.y) / 2, hostId: l.id, kind: 'midpoint' as const },
+    { ...meioDaLinha(l), hostId: l.id, kind: 'midpoint' as const },
   ]);
 }
 
@@ -70,6 +77,6 @@ function pontasDaLinha(l: DetailLine): SnapPoint[] {
   return [
     { x: l.a.x, y: l.a.y, hostId: l.id, kind: 'endpoint' },
     { x: l.b.x, y: l.b.y, hostId: l.id, kind: 'endpoint' },
-    { x: (l.a.x + l.b.x) / 2, y: (l.a.y + l.b.y) / 2, hostId: l.id, kind: 'midpoint' },
+    { ...meioDaLinha(l), hostId: l.id, kind: 'midpoint' },
   ];
 }

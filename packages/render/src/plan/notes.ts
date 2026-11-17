@@ -1,4 +1,4 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote, detailLinePoints } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
@@ -302,7 +302,7 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   }
   for (const line of detailLines) {
     const selected = picked(line.id);
-    out.strokes.push({ pts: [line.a, line.b], closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
+    out.strokes.push({ pts: detailLinePoints(line), closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
   }
   for (const region of detailRegions) {
     const ink = picked(region.id) ? look.select : color;
