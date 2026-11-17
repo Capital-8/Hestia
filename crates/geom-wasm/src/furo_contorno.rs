@@ -104,7 +104,7 @@ fn dentro_da_caixa(p: [f64; 2], q: [f64; 2], r: [f64; 2]) -> bool {
 }
 
 /// Segmentos ab e cd se tocam (cruzamento próprio ou toque de vértice/encosto).
-fn segmentos_se_tocam(a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2]) -> bool {
+pub(crate) fn segmentos_se_tocam(a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2]) -> bool {
     let (s1, s2, s3, s4) = (sinal(c, d, a), sinal(c, d, b), sinal(a, b, c), sinal(a, b, d));
     let propria = s1 * s2 < 0 && s3 * s4 < 0;
     propria
@@ -148,7 +148,7 @@ fn anel_se_cruza(anel: &[[f64; 2]]) -> bool {
 }
 
 /// Checa o anel de um vão, sem olhar a parede: finito, sem pontos repetidos, simples, com área positiva.
-fn validar_anel(i: usize, anel: &[[f64; 2]]) -> Result<(), ErroFuro> {
+pub(crate) fn validar_anel(i: usize, anel: &[[f64; 2]]) -> Result<(), ErroFuro> {
     let n = anel.len();
     if n < 3 || anel.iter().any(|p| !p[0].is_finite() || !p[1].is_finite()) {
         return Err(ErroFuro::ContornoInvalido(i));
@@ -213,7 +213,7 @@ fn cortador(v: &Vao, y0: f64, y1: f64) -> Manifold {
 }
 
 /// União em árvore balanceada (pares), em vez de sequencial.
-fn unir(mut partes: Vec<Manifold>) -> Option<Manifold> {
+pub(crate) fn unir(mut partes: Vec<Manifold>) -> Option<Manifold> {
     while partes.len() > 1 {
         let mut prox = Vec::with_capacity(partes.len().div_ceil(2));
         let mut it = partes.into_iter();

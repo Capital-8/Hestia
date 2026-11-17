@@ -161,8 +161,14 @@ impl Estado {
 
     /// Executa o furo. As saídas anteriores são sempre descartadas primeiro.
     pub fn furar(&mut self, e: &Entradas) -> u32 {
+        self.guardar(furar_planos(e))
+    }
+
+    /// Guarda o resultado de uma operação de furo (saídas ou erro); descarta as saídas anteriores primeiro.
+    /// Usado também por `furo_contorno_prisma` (`furo_prisma_furar`), que compartilha os accessors `furo_saida_*`.
+    pub fn guardar(&mut self, r: Result<Vec<Saida>, (u32, String)>) -> u32 {
         self.saidas = Vec::new();
-        match furar_planos(e) {
+        match r {
             Ok(s) => {
                 self.saidas = s;
                 self.erro = String::new();
@@ -208,7 +214,7 @@ static mut ESTADO: Option<Estado> = None;
 
 /// Acesso ao estado global. SAFETY: wasm single-thread e funções `extern "C"` não reentrantes;
 /// ninguém guarda a referência entre chamadas.
-fn estado() -> &'static mut Estado {
+pub(crate) fn estado() -> &'static mut Estado {
     // SAFETY: ver acima.
     unsafe { ESTADO.get_or_insert_with(Estado::novo) }
 }
@@ -220,7 +226,7 @@ fn memoria_linear_bytes() -> u64 {
 
 /// Lê `n` elementos de tipo `T` a partir de `ptr`. Recusa ponteiro nulo (com `n > 0`), desalinhado ou
 /// fora da memória linear. `n == 0` -> vazio. Mesma regra de `abi2::fatia`.
-fn fatia<'a, T>(ptr: u32, n: usize) -> Option<&'a [T]> {
+pub(crate) fn fatia<'a, T>(ptr: u32, n: usize) -> Option<&'a [T]> {
     if n == 0 {
         return Some(&[]);
     }

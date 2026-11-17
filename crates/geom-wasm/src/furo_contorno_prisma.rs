@@ -1,0 +1,414 @@
+//! Furo por contorno sobre o PRISMA EM PLANTA da camada (docs/estudo-esquadrias/25-furo-prisma-abi.md).
+//!
+//! `furar_parede` (furo_contorno.rs) fura uma placa `L x e x H`. A camada real, depois da junção, é um polígono
+//! em planta (esquadrejado, com cantos em esquadria ou chanfro, possivelmente vazado) extrudado entre `z0` e
+//! `z1`. Aqui o alvo da booleana é esse prisma: o cortador é o contorno do vão ([x, z]) extrudado na direção
+//! s, atravessando a camada com folga. Nada de faixas nem colunas.
+//!
+//! Referencial (o da parede): u ao longo, s na espessura, z para cima. Na malha de saída, x = u, y = s, z = z.
+//! Cada camada é um multipolígono em planta: polígonos, cada um com anel externo (primeiro) e furos.
+//! Orientação de entrada livre: o anel externo é normalizado para anti-horário e os furos para horário.
+//!
+//! Validação (antes de qualquer booleana, porque o `manifold-rust` pode entrar em panic e o produto compila
+//! com `panic = "abort"`): contornos de vão com as regras de `furo_contorno` (`validar_anel`); cada anel de
+//! planta é simples (mesma função); furos dentro do externo, sem tocar nem cruzar o externo ou outros furos.
+
+use crate::consultas::Saida;
+use crate::esquema::{ENTRADA, LIMITE};
+use crate::furo_contorno::{area_com_sinal, segmentos_se_tocam, unir, validar_anel, ErroFuro, Vao};
+use manifold_rust::linalg::{Vec2, Vec3};
+use manifold_rust::manifold::Manifold;
+use manifold_rust::types::{Error as ErroManifold, OpType};
+
+/// Folga (m) do cortador além do prisma em s, para não deixar faces coplanares.
+const FOLGA_S: f64 = 0.05;
+
+/// Um polígono em planta: anel externo + furos, em [u, s] (m).
+pub type PoligonoPlanta = Vec<Vec<[f64; 2]>>;
+
+/// Uma camada: multipolígono em planta + faixa de z.
+#[derive(Debug, Clone)]
+pub struct CamadaPrisma {
+    pub poligonos: Vec<PoligonoPlanta>,
+    pub z0: f64,
+    pub z1: f64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MalhaPrisma {
+    pub z0: f64,
+    pub z1: f64,
+    /// x, y, z intercalados (m); x = u, y = s.
+    pub vertices: Vec<f64>,
+    pub indices: Vec<u32>,
+    pub volume: f64,
+    /// Área líquida da planta x (z1 - z0).
+    pub volume_sem_furo: f64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ResultadoPrisma {
+    pub camadas: Vec<MalhaPrisma>,
+    pub volume: f64,
+    pub volume_removido: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ErroPrisma {
+    /// Sem camadas.
+    SemCamadas,
+    /// z0/z1 não finitos ou z1 <= z0 (camada i).
+    AlturaInvalida(usize),
+    /// Camada sem polígono, polígono sem anel ou área líquida nula (camada i).
+    PlantaVazia(usize),
+    /// Anel de planta inválido (camada i, número do anel dentro da camada, motivo de `validar_anel`).
+    AnelPlanta(usize, usize, ErroFuro),
+    /// Furo fora do externo, ou aneis do mesmo polígono que se tocam/cruzam (camada i, polígono j).
+    AneisInconsistentes(usize, usize),
+    /// Erro de vão (contorno, x, soleira, ou fora do envelope do conjunto de camadas).
+    Vao(ErroFuro),
+    Manifold(String),
+}
+
+fn orientar(anel: &[[f64; 2]], ccw: bool) -> Vec<[f64; 2]> {
+    let mut v = anel.to_vec();
+    if (area_com_sinal(&v) > 0.0) != ccw {
+        v.reverse();
+    }
+    v
+}
+
+/// Ponto dentro do anel (ray casting; o ponto não está sobre o anel, o que já foi garantido por "não tocar").
+fn ponto_dentro(p: [f64; 2], anel: &[[f64; 2]]) -> bool {
+    let mut dentro = false;
+    let n = anel.len();
+    for i in 0..n {
+        let (a, b) = (anel[i], anel[(i + 1) % n]);
+        if (a[1] > p[1]) != (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0] {
+            dentro = !dentro;
+        }
+    }
+    dentro
+}
+
+fn aneis_se_tocam(a: &[[f64; 2]], b: &[[f64; 2]]) -> bool {
+    for i in 0..a.len() {
+        let (p, q) = (a[i], a[(i + 1) % a.len()]);
+        for j in 0..b.len() {
+            if segmentos_se_tocam(p, q, b[j], b[(j + 1) % b.len()]) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Valida e normaliza a planta de uma camada; devolve (polígonos orientados, área líquida).
+fn preparar_planta(k: usize, c: &CamadaPrisma) -> Result<(Vec<PoligonoPlanta>, f64), ErroPrisma> {
+    if !(c.z0.is_finite() && c.z1.is_finite() && c.z1 > c.z0) {
+        return Err(ErroPrisma::AlturaInvalida(k));
+    }
+    if c.poligonos.is_empty() || c.poligonos.iter().any(|p| p.is_empty()) {
+        return Err(ErroPrisma::PlantaVazia(k));
+    }
+    let mut saida = Vec::with_capacity(c.poligonos.len());
+    let mut area = 0.0;
+    let mut n_anel = 0usize;
+    for (j, pol) in c.poligonos.iter().enumerate() {
+        let mut aneis: Vec<Vec<[f64; 2]>> = Vec::with_capacity(pol.len());
+        for (r, anel) in pol.iter().enumerate() {
+            // validar_anel exige anti-horário; a orientação final (furo = horário) vem depois.
+            let ccw = orientar(anel, true);
+            validar_anel(n_anel, &ccw).map_err(|e| ErroPrisma::AnelPlanta(k, n_anel, e))?;
+            n_anel += 1;
+            area += if r == 0 { area_com_sinal(&ccw) } else { -area_com_sinal(&ccw) };
+            aneis.push(if r == 0 { ccw } else { orientar(anel, false) });
+        }
+        for r in 1..aneis.len() {
+            if !ponto_dentro(aneis[r][0], &aneis[0]) || aneis_se_tocam(&aneis[0], &aneis[r]) {
+                return Err(ErroPrisma::AneisInconsistentes(k, j));
+            }
+            for s in (r + 1)..aneis.len() {
+                if aneis_se_tocam(&aneis[r], &aneis[s]) || ponto_dentro(aneis[s][0], &aneis[r]) || ponto_dentro(aneis[r][0], &aneis[s]) {
+                    return Err(ErroPrisma::AneisInconsistentes(k, j));
+                }
+            }
+        }
+        saida.push(aneis);
+    }
+    if area <= 1e-12 {
+        return Err(ErroPrisma::PlantaVazia(k));
+    }
+    Ok((saida, area))
+}
+
+/// Cortador: contorno [x, z] extrudado em y cobrindo `[s0 - FOLGA_S, s1 + FOLGA_S]`.
+fn cortador(v: &Vao, s0: f64, s1: f64) -> Manifold {
+    let anel: Vec<Vec2> = v.contorno.iter().map(|p| Vec2::new(p[0], p[1])).collect();
+    let profundidade = (s1 - s0) + 2.0 * FOLGA_S;
+    // Mesma construção de `furo_contorno::cortador`: extrude em +z, rotate(90,0,0) leva (x,y,z) a (x,-z,y).
+    Manifold::extrude(&vec![anel], profundidade, 0, 0.0, Vec2::new(1.0, 1.0))
+        .rotate(90.0, 0.0, 0.0)
+        .translate(Vec3::new(v.x, s1 + FOLGA_S, v.soleira))
+}
+
+/// Fura cada camada (prisma em planta entre z0 e z1) com a união dos cortadores dos vãos.
+pub fn furar_prisma(camadas: &[CamadaPrisma], vaos: &[Vao]) -> Result<ResultadoPrisma, ErroPrisma> {
+    if camadas.is_empty() {
+        return Err(ErroPrisma::SemCamadas);
+    }
+    let mut preparadas = Vec::with_capacity(camadas.len());
+    // Envelope do conjunto (u e z) para validar que o vão está na parede.
+    let (mut u0, mut u1, mut zmin, mut zmax) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for (k, c) in camadas.iter().enumerate() {
+        let (pols, area) = preparar_planta(k, c)?;
+        for p in pols.iter().flat_map(|p| p[0].iter()) {
+            u0 = u0.min(p[0]);
+            u1 = u1.max(p[0]);
+        }
+        zmin = zmin.min(c.z0);
+        zmax = zmax.max(c.z1);
+        preparadas.push((pols, area));
+    }
+    for (i, v) in vaos.iter().enumerate() {
+        if !v.x.is_finite() || !v.soleira.is_finite() {
+            return Err(ErroPrisma::Vao(ErroFuro::ContornoInvalido(i)));
+        }
+        validar_anel(i, &v.contorno).map_err(ErroPrisma::Vao)?;
+        let e = 1e-9;
+        let (mut a0, mut a1, mut b0, mut b1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+        for p in &v.contorno {
+            a0 = a0.min(v.x + p[0]);
+            a1 = a1.max(v.x + p[0]);
+            b0 = b0.min(v.soleira + p[1]);
+            b1 = b1.max(v.soleira + p[1]);
+        }
+        if a0 < u0 - e || a1 > u1 + e || b0 < zmin - e || b1 > zmax + e {
+            return Err(ErroPrisma::Vao(ErroFuro::VaoForaDaParede(i)));
+        }
+    }
+
+    let mut res = ResultadoPrisma::default();
+    for (c, (pols, area)) in camadas.iter().zip(preparadas) {
+        let (mut s0, mut s1) = (f64::MAX, f64::MIN);
+        for p in pols.iter().flat_map(|p| p[0].iter()) {
+            s0 = s0.min(p[1]);
+            s1 = s1.max(p[1]);
+        }
+        let secao: Vec<Vec<Vec2>> = pols.iter().flatten().map(|a| a.iter().map(|p| Vec2::new(p[0], p[1])).collect()).collect();
+        let prisma = Manifold::extrude(&secao, c.z1 - c.z0, 0, 0.0, Vec2::new(1.0, 1.0)).translate(Vec3::new(0.0, 0.0, c.z0));
+        if prisma.status() != ErroManifold::NoError {
+            return Err(ErroPrisma::Manifold(format!("prisma: {:?}", prisma.status())));
+        }
+        let furada = match unir(vaos.iter().map(|v| cortador(v, s0, s1)).collect()) {
+            Some(cut) => prisma.boolean(&cut, OpType::Subtract),
+            None => prisma.clone(),
+        };
+        if furada.status() != ErroManifold::NoError {
+            return Err(ErroPrisma::Manifold(format!("{:?}", furada.status())));
+        }
+        let malha = furada.get_mesh_gl64(-1);
+        let n_prop = malha.num_prop as usize;
+        let mut vertices = Vec::with_capacity(malha.vert_properties.len() / n_prop.max(1) * 3);
+        for v in malha.vert_properties.chunks(n_prop.max(3)) {
+            vertices.extend_from_slice(&v[..3]);
+        }
+        let indices: Vec<u32> = malha.tri_verts.iter().map(|&i| i as u32).collect();
+        let volume = furada.volume();
+        let volume_sem_furo = area * (c.z1 - c.z0);
+        res.volume += volume;
+        res.volume_removido += volume_sem_furo - volume;
+        res.camadas.push(MalhaPrisma { z0: c.z0, z1: c.z1, vertices, indices, volume, volume_sem_furo });
+    }
+    Ok(res)
+}
+
+// ---------------------------------------------------------------------------------------------
+// ABI: `furo_prisma_furar` (layout em docs/estudo-esquadrias/25-furo-prisma-abi.md)
+// ---------------------------------------------------------------------------------------------
+
+/// Versão do layout desta ABI.
+pub const VERSAO_ABI_PRISMA: u32 = 1;
+pub const LIMITE_VAOS: u32 = crate::furo_contorno_abi::LIMITE_VAOS;
+pub const LIMITE_PONTOS_VAO: u32 = crate::furo_contorno_abi::LIMITE_PONTOS;
+pub const LIMITE_PONTOS_POR_VAO: u32 = crate::furo_contorno_abi::LIMITE_PONTOS_POR_VAO;
+pub const LIMITE_CAMADAS: u32 = crate::furo_contorno_abi::LIMITE_CAMADAS;
+/// Nº máximo de polígonos de planta, somando as camadas.
+pub const LIMITE_POLIGONOS: u32 = 1024;
+/// Nº máximo de anéis de planta, somando as camadas.
+pub const LIMITE_ANEIS: u32 = 4096;
+/// Nº máximo de pontos de planta, somando todos os anéis.
+pub const LIMITE_PONTOS_PLANTA: u32 = 65_536;
+/// Nº máximo de pontos de um anel de planta (auto-interseção O(n^2)).
+pub const LIMITE_PONTOS_POR_ANEL: u32 = 4096;
+
+/// Entradas decodificadas (slices sobre os buffers planos).
+pub struct EntradasPrisma<'a> {
+    /// u, s intercalados de todos os anéis de planta (2 * n_pontos_planta f64).
+    pub pontos_planta: &'a [f64],
+    /// Índice do primeiro ponto de cada anel; `n_aneis + 1` u32, o último é `n_pontos_planta`.
+    pub aneis: &'a [u32],
+    /// Índice do primeiro anel de cada polígono (o primeiro é o externo); `n_poligonos + 1` u32.
+    pub poligonos: &'a [u32],
+    /// Índice do primeiro polígono de cada camada; `n_camadas + 1` u32.
+    pub camadas: &'a [u32],
+    /// z0, z1 intercalados de cada camada (2 * n_camadas f64).
+    pub z: &'a [f64],
+    /// Vãos, como em `furo_contorno_abi::Entradas`.
+    pub pontos: &'a [f64],
+    pub vaos: &'a [u32],
+    pub x: &'a [f64],
+    pub soleira: &'a [f64],
+}
+
+fn crescente(v: &[u32], total: usize) -> bool {
+    !v.is_empty() && v[0] == 0 && v[v.len() - 1] as usize == total && v.windows(2).all(|w| w[1] >= w[0])
+}
+
+fn erro_do_prisma(e: ErroPrisma) -> (u32, String) {
+    use crate::esquema::INTERNO;
+    match e {
+        ErroPrisma::SemCamadas => (ENTRADA, "a parede precisa de pelo menos uma camada".into()),
+        ErroPrisma::AlturaInvalida(k) => (ENTRADA, format!("z0/z1 invalidos na camada {k}")),
+        ErroPrisma::PlantaVazia(k) => (ENTRADA, format!("planta vazia ou sem area na camada {k}")),
+        ErroPrisma::AnelPlanta(k, a, e) => (ENTRADA, format!("anel de planta {a} invalido na camada {k} ({e:?})")),
+        ErroPrisma::AneisInconsistentes(k, j) => (ENTRADA, format!("aneis do poligono {j} da camada {k} se tocam, se cruzam ou o furo sai do externo")),
+        ErroPrisma::Vao(e) => match e {
+            ErroFuro::ContornoInvalido(i) => (ENTRADA, format!("contorno invalido no vao {i}")),
+            ErroFuro::PontoRepetido(i) => (ENTRADA, format!("contorno com pontos repetidos consecutivos no vao {i}")),
+            ErroFuro::AutoInterseccao(i) => (ENTRADA, format!("contorno auto-intersectado no vao {i}")),
+            ErroFuro::VaoForaDaParede(i) => (ENTRADA, format!("vao {i} sai da parede")),
+            outro => (ENTRADA, format!("vao invalido ({outro:?})")),
+        },
+        ErroPrisma::Manifold(s) => (INTERNO, format!("kernel: {s}")),
+    }
+}
+
+/// Toda a lógica da ABI sem ponteiros. Saída: os mesmos 5 arrays de `furo_contorno_abi::furar_planos`, com
+/// `[z0, z1, volume, volume_sem_furo]` por camada no array 0 (no lugar de `[y0, y1, ...]`).
+pub fn furar_prisma_planos(e: &EntradasPrisma) -> Result<Vec<Saida>, (u32, String)> {
+    let n_vaos = e.x.len();
+    let n_camadas = e.camadas.len().saturating_sub(1);
+    if e.pontos_planta.len() % 2 != 0
+        || e.pontos.len() % 2 != 0
+        || e.soleira.len() != n_vaos
+        || e.vaos.len() != n_vaos + 1
+        || e.z.len() != 2 * n_camadas
+        || e.aneis.is_empty()
+        || e.poligonos.is_empty()
+        || e.camadas.is_empty()
+    {
+        return Err((ENTRADA, "tamanhos dos buffers incoerentes".into()));
+    }
+    let (n_pts_planta, n_pts_vao) = (e.pontos_planta.len() / 2, e.pontos.len() / 2);
+    let (n_aneis, n_pols) = (e.aneis.len() - 1, e.poligonos.len() - 1);
+    let lim = |n: usize, max: u32, nome: &str| if n > max as usize { Err((LIMITE, format!("{nome} demais ({n} > {max})"))) } else { Ok(()) };
+    lim(n_vaos, LIMITE_VAOS, "vaos")?;
+    lim(n_pts_vao, LIMITE_PONTOS_VAO, "pontos de vao")?;
+    lim(n_camadas, LIMITE_CAMADAS, "camadas")?;
+    lim(n_pols, LIMITE_POLIGONOS, "poligonos")?;
+    lim(n_aneis, LIMITE_ANEIS, "aneis")?;
+    lim(n_pts_planta, LIMITE_PONTOS_PLANTA, "pontos de planta")?;
+    if n_camadas == 0 {
+        return Err((ENTRADA, "a parede precisa de pelo menos uma camada".into()));
+    }
+    if !crescente(e.vaos, n_pts_vao) || !crescente(e.aneis, n_pts_planta) || !crescente(e.poligonos, n_aneis) || !crescente(e.camadas, n_pols) {
+        return Err((ENTRADA, "offsets invalidos".into()));
+    }
+    if e.vaos.windows(2).any(|w| w[1] - w[0] > LIMITE_PONTOS_POR_VAO) {
+        return Err((LIMITE, format!("pontos por vao demais (> {LIMITE_PONTOS_POR_VAO})")));
+    }
+    if e.aneis.windows(2).any(|w| w[1] - w[0] > LIMITE_PONTOS_POR_ANEL) {
+        return Err((LIMITE, format!("pontos por anel de planta demais (> {LIMITE_PONTOS_POR_ANEL})")));
+    }
+    let anel = |r: usize| -> Vec<[f64; 2]> {
+        e.pontos_planta[2 * e.aneis[r] as usize..2 * e.aneis[r + 1] as usize].chunks_exact(2).map(|p| [p[0], p[1]]).collect()
+    };
+    let camadas: Vec<CamadaPrisma> = (0..n_camadas)
+        .map(|k| CamadaPrisma {
+            poligonos: (e.camadas[k] as usize..e.camadas[k + 1] as usize)
+                .map(|j| (e.poligonos[j] as usize..e.poligonos[j + 1] as usize).map(anel).collect())
+                .collect(),
+            z0: e.z[2 * k],
+            z1: e.z[2 * k + 1],
+        })
+        .collect();
+    let vaos: Vec<Vao> = (0..n_vaos)
+        .map(|i| Vao {
+            contorno: e.pontos[2 * e.vaos[i] as usize..2 * e.vaos[i + 1] as usize].chunks_exact(2).map(|p| [p[0], p[1]]).collect(),
+            x: e.x[i],
+            soleira: e.soleira[i],
+        })
+        .collect();
+
+    let res = furar_prisma(&camadas, &vaos).map_err(erro_do_prisma)?;
+    let mut meta = Vec::with_capacity(4 * n_camadas);
+    let mut contagens = Vec::with_capacity(2 * n_camadas);
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+    for c in &res.camadas {
+        meta.extend_from_slice(&[c.z0, c.z1, c.volume, c.volume_sem_furo]);
+        contagens.extend_from_slice(&[(c.vertices.len() / 3) as u32, c.indices.len() as u32]);
+        vertices.extend_from_slice(&c.vertices);
+        indices.extend_from_slice(&c.indices);
+    }
+    Ok(vec![Saida::F64(meta), Saida::U32(contagens), Saida::F64(vertices), Saida::U32(indices), Saida::F64(vec![res.volume, res.volume_removido])])
+}
+
+#[no_mangle]
+pub extern "C" fn furo_prisma_abi_versao() -> u32 {
+    VERSAO_ABI_PRISMA
+}
+
+/// Fura camadas em prisma de planta. Layout dos buffers: docs/estudo-esquadrias/25. Retorno: 0 OK, 3 ENTRADA,
+/// 5 LIMITE, 6 INTERNO. Saídas e erro pelos accessors `furo_saida_*` e `furo_erro_*` (os mesmos de `furo_contorno_furar`).
+#[no_mangle]
+pub extern "C" fn furo_prisma_furar(
+    n_camadas: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_planta: u32,
+    ptr_pontos_planta: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    ptr_camadas: u32,
+    ptr_z: u32,
+    n_vaos: u32,
+    n_pontos: u32,
+    ptr_pontos: u32,
+    ptr_vaos: u32,
+    ptr_x: u32,
+    ptr_soleira: u32,
+) -> u32 {
+    use crate::furo_contorno_abi::{estado, fatia};
+    let st = estado();
+    st.saida_liberar();
+    // Limites checados antes de qualquer leitura de ponteiro (os tamanhos vêm do JS).
+    for (n, max, nome) in [
+        (n_vaos, LIMITE_VAOS, "vaos"),
+        (n_pontos, LIMITE_PONTOS_VAO, "pontos de vao"),
+        (n_camadas, LIMITE_CAMADAS, "camadas"),
+        (n_poligonos, LIMITE_POLIGONOS, "poligonos"),
+        (n_aneis, LIMITE_ANEIS, "aneis"),
+        (n_pontos_planta, LIMITE_PONTOS_PLANTA, "pontos de planta"),
+    ] {
+        if n > max {
+            return st.falha(LIMITE, &format!("{nome} demais ({n} > {max})"));
+        }
+    }
+    let (nv, nc) = (n_vaos as usize, n_camadas as usize);
+    let (Some(pontos_planta), Some(aneis), Some(poligonos), Some(camadas), Some(z), Some(pontos), Some(vaos), Some(x), Some(soleira)) = (
+        fatia::<f64>(ptr_pontos_planta, 2 * n_pontos_planta as usize),
+        fatia::<u32>(ptr_aneis, n_aneis as usize + 1),
+        fatia::<u32>(ptr_poligonos, n_poligonos as usize + 1),
+        fatia::<u32>(ptr_camadas, nc + 1),
+        fatia::<f64>(ptr_z, 2 * nc),
+        fatia::<f64>(ptr_pontos, 2 * n_pontos as usize),
+        fatia::<u32>(ptr_vaos, nv + 1),
+        fatia::<f64>(ptr_x, nv),
+        fatia::<f64>(ptr_soleira, nv),
+    ) else {
+        return st.falha(ENTRADA, "ponteiro invalido");
+    };
+    st.guardar(furar_prisma_planos(&EntradasPrisma { pontos_planta, aneis, poligonos, camadas, z, pontos, vaos, x, soleira }))
+}

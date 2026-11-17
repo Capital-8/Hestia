@@ -132,6 +132,9 @@ pub mod furo_contorno_quant;
 mod furo_contorno_quant_testes;
 pub mod furo_contorno_abi;
 #[cfg(test)] mod furo_contorno_abi_testes;
+// Furo por contorno sobre o prisma em planta da camada pos-juncao (docs/estudo-esquadrias/25).
+pub mod furo_contorno_prisma;
+#[cfg(test)] mod furo_contorno_prisma_testes;
 #[cfg(test)]
 mod teste_util;
 
