@@ -409,11 +409,9 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         for (const r of regions) {
           const m = p.materials[r.materialId];
           const cp = corPadraoCorte(m, { dark: input.dark, detail, paint: paint.wall });
-          const color = surfaceColor(cp.fundo, fillBase, fillT, paint.wall);
           const polys = r.polygons;
           const thick = Math.max(0, ...polys.map((poly) => espessuraEquivalente(poly)));
-          const hatch = hachuraDaRegiao(cp.padrao, thick, fine);
-          wallOps.fills.push({ polygons: polys, color, alpha: 1, hatch });
+          wallOps.fills.push({ polygons: polys, color: surfaceColor(cp.fundo, fillBase, fillT, paint.wall), alpha: 1, hatch: hachuraDaRegiao(cp.padrao, thick, fine) });
           // Linhas de interface entre materiais: só onde cabem sem virar mancha (fino: sempre). Linhas finas: peso de projeção.
           // O traço leva o zoom a partir do qual cabe (`zoomMin`) e o shader o esconde abaixo dele: a geometria não muda com o zoom.
           for (const poly of polys) {
