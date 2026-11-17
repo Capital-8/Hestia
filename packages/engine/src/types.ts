@@ -1,6 +1,6 @@
 import type { Arc, MultiPolygon, Vec2 } from '@hestia/geom';
 import type { TiltCut } from './openingTilt.ts';
-import type { Id, PlanSymbol, ProfilePoint } from '@hestia/model';
+import type { Id, OpeningShape, PlanSymbol, ProfilePoint } from '@hestia/model';
 
 export interface ResolvedLayer {
   layerIndex: number;
@@ -136,4 +136,10 @@ export interface OpeningGeometry {
   curve?: { arc: Arc; sMid: number };
   /** Plano efetivo do vão na parede inclinada (F2.8): presente só quando é 'inclinado' e o vão cabe (arco: w² ≤ 0,4·R). */
   tiltPlane?: 'inclinado';
+  /**
+   * Forma de contorno livre do vão (arco, ogival, círculo...), já dimensionada pelo vão bruto (`openingShapeOf`) e válida.
+   * Ausente = vão retangular (o caso de sempre). Fonte única da forma para 3D, quantitativo, planta e junção; quem decide o
+   * caminho do furo é `rotaDoVao` (`furoContornoDespacho.ts`). Docs/estudo-esquadrias/24.
+   */
+  forma?: OpeningShape;
 }

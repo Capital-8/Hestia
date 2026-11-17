@@ -117,3 +117,4 @@ export * from './pluginFields.ts';
 export * from './pluginChecks.ts';
 export * from './pluginSchedules.ts';
 export * from './openingShape.ts';
+export * from './openingShapeOf.ts';

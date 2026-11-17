@@ -39,6 +39,7 @@ import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
 import { cutHalfOf, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
+import { formaDoVao } from './furoContornoDespacho.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -253,12 +254,13 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipFacing: o.flipFacing,
     offset: o.offset,
     ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2), curve: { arc: f.arc, sMid: f.sMid } } : {}), ...openingTiltPlane(o, f, rough.width),
+    ...formaDoVao(t, height),
   };
 }
 
 function clusterKey(items: Item[], opens: OpeningGeometry[]): string {
   const it = items.map((i) => `${i.wallId}|${i.layerIndex}|${i.materialId}|${i.priority}|${i.order}|${i.through ? 1 : 0}|${round(i.z0)}:${round(i.z1)}:${i.inPlan ? 1 : 0}:${i.outline ? 1 : 0}|${ringsOfShape(i.shape)}`);
-  const op = opens.map((g) => `${g.openingId}|${g.hostId}|${round(g.center.x)},${round(g.center.y)}|${round(g.width)}|${round(g.height)}|${round(g.roughWidth)}|${round(g.roughHeight)}|${round(g.sill)}|${round(g.u.x)},${round(g.u.y)}|${round(g.thickness)}|${round(g.cutHalf ?? 0)}`);
+  const op = opens.map((g) => `${g.openingId}|${g.hostId}|${round(g.center.x)},${round(g.center.y)}|${round(g.width)}|${round(g.height)}|${round(g.roughWidth)}|${round(g.roughHeight)}|${round(g.sill)}|${round(g.u.x)},${round(g.u.y)}|${round(g.thickness)}|${round(g.cutHalf ?? 0)}${g.forma ? `|f:${JSON.stringify(g.forma)}` : ''}`);
   return `${it.join('\n')}\n--\n${op.join('\n')}`;
 }
 

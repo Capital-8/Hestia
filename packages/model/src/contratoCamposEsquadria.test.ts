@@ -103,6 +103,7 @@ const LEITORES: Readonly<Record<string, readonly Leitor[]>> = {
   handleHeight: ['3D', 'quadro', 'verificacoes'],
   handleInset: ['3D', 'verificacoes'],
   composition: ['resolve', 'vao', '3D'],
+  shape: ['vao', 'resolve'],
   'composition.version': ['resolve'],
   'composition.nominal': ['resolve', 'vao'],
   'composition.frame': ['resolve', '3D'],

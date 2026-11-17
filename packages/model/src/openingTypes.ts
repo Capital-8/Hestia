@@ -1,5 +1,6 @@
 import type { Id, IfcProperty, WrapMode } from './types.ts';
 import type { OpeningComposition } from './openingComposition.ts';
+import type { OpeningShape } from './openingShape.ts';
 
 /**
  * Família do símbolo de planta. Portas: arco com folha (swing), dupla, correr, pivotante.
@@ -130,6 +131,12 @@ export interface OpeningType {
   handleInset?: number;
   /** Composição (células + perfis; docs/aberturas/F1-spec-composicao.md). Ausente = derivada dos campos atuais por `openingCompositionOf`. */
   composition?: OpeningComposition;
+  /**
+   * Forma do vão no plano da parede (contorno livre: arco, abatido, ogival, círculo; docs/estudo-esquadrias/24). Ausente, ou
+   * `kind: 'rect'`, = vão retangular `width` x `height`, exatamente como antes. A largura e a altura da forma são só
+   * informativas: o vão vale sempre as do tipo (e a altura da instância), lidas por `openingShapeOf` (`openingShapeOf.ts`).
+   */
+  shape?: OpeningShape;
 }
 
 /** Vínculo da profundidade do batente com a espessura da parede. */
