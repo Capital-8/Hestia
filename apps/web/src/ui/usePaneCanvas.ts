@@ -47,7 +47,7 @@ export function usePaneCanvas(paneIdProp?: PaneId): PaneCanvas {
   const state = useCallback((): UiState => {
     const ui = useUi.getState();
     return isActiveRef.current ? ui : { ...withViewFields(ui, paneViewFieldsNow(idRef.current)), hover: null };
-  }, []);
+  }, [isActiveRef]);
   const ownCamera = useRef<OwnCameraRef['current']>(null) as OwnCameraRef;
   const saved2d = useCallback((): PaneCamera2D | null => (idRef.current === undefined ? null : (findPane(usePanes.getState().layout, idRef.current)?.camera2d ?? null)), []);
   return { paneId, isActive, isActiveRef, ownCamera, saved2d, fields, state };
