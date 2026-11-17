@@ -13,8 +13,7 @@
 import { gid } from './ifcCtx.ts';
 import { en, list, num, OMIT, ref, stepString, type StepWriter } from './ifcStep.ts';
 import { bodyShape, direction } from './ifcSolids.ts';
-// Import direto do código-fonte do modelo: `openingShape` não é reexportado pelo índice de `@hestia/model`.
-import { CHORD_TOL, outline, type OpeningShape } from '../../../model/src/openingShape.ts';
+import { CHORD_TOL, outline, type OpeningShape } from '@hestia/model';
 
 /** Folga por face (m) entre o vazio e as faces da parede. Mesmo valor do cortador de `ifcExport.ts` (`thickness + 0.02`). */
 export const MARGEM_FACE = 0.01;

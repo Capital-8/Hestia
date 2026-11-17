@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outline, type OpeningShape } from '../../../model/src/openingShape.ts';
+import { outline, type OpeningShape } from '@hestia/model';
 import { addOpeningProfile } from './ifcOpeningProfile.ts';
 import { num, OMIT, StepWriter } from './ifcStep.ts';
 import { axis3, localPlacement } from './ifcSolids.ts';
