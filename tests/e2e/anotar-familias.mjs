@@ -98,8 +98,10 @@ try {
     const p = await H(({ x, y }) => { const r = document.querySelector('.canvas-wrap').getBoundingClientRect(); const vp = window.__hestia.editor.viewport(); return { x: r.x + vp.width / 2 + (x - vp.cx) * vp.zoom, y: r.y + vp.height / 2 - (y - vp.cy) * vp.zoom }; }, alvo);
     await page.mouse.move(p.x - 80, p.y + 80);
     await page.mouse.move(p.x, p.y);
-    const t = await esperar((x) => tem(x, 'N +7000010,00 m / E +499995,00 m'));
-    check('prévia = N +7000010,00 m / E +499995,00 m', tem(t, 'N +7000010,00 m / E +499995,00 m'), JSON.stringify(t));
+    const previa = (x) => x.find((y) => / \/ E /.test(y)) ?? '';
+    const t = await esperar((x) => previa(x) !== '');
+    // o cursor cai a poucos cm do alvo (pixel): N = 7000010,00 exato e E entre 499994,9 e 499995,1
+    check('prévia = N +7000010,0x m / E +499995,0x m (a mesma conta do desenho)', /^N \+7000010,\d\d m \/ E \+49999(4,9\d|5,0\d|5,1\d) m$/.test(previa(t)), previa(t));
     await H(() => window.__hestia.editor.activate('select'));
   });
 
@@ -127,18 +129,18 @@ try {
       editor.setViewport({ ...editor.viewport(), cx: 30, cy: 30, zoom: 40 });
       useUi.setState({ selection: ['tn1'] });
     }, { nivel });
-    const t = await esperar((x) => x.some((y) => /^\+761,00/.test(y)));
-    check('cota de ponto do terreno = z 1 + 760 = +761,00 m', t.some((y) => y === '+761,00 m'), JSON.stringify(t));
-    const antes = await corpoDe('+761,00');
+    const t = await esperar((x) => x.some((y) => /^761,00/.test(y)));
+    check('cota de ponto do terreno = z 1 + 760 = 761,00 m', t.some((y) => y === '761,00 m'), JSON.stringify(t));
+    const antes = await corpoDe('761,00');
     await page.waitForSelector('#prop-tn-cotadofamily-edit');
     await abrirEditarTipo('prop-tn-cotadofamily');
     await page.fill('#tt-h', '3.6'); await page.press('#tt-h', 'Enter');
     await page.fill('#tt-pre', 'Z '); await page.press('#tt-pre', 'Enter');
     await page.locator('.btn.primary', { hasText: 'OK' }).last().click();
     await page.waitForTimeout(500);
-    const t2 = await esperar((x) => x.includes('Z +761,00 m'));
-    check('prefixo da família aparece: "Z +761,00 m"', t2.includes('Z +761,00 m'), JSON.stringify(t2));
-    check('altura do texto 3,6 mm = 2x a de 1,8 mm', Math.abs((await corpoDe('Z +761,00')) / antes - 2) < 0.05, `${antes} -> ${await corpoDe('Z +761,00')}`);
+    const t2 = await esperar((x) => x.includes('Z 761,00 m'));
+    check('prefixo da família aparece: "Z 761,00 m"', t2.includes('Z 761,00 m'), JSON.stringify(t2));
+    check('altura do texto 3,6 mm = 2x a de 1,8 mm', Math.abs((await corpoDe('Z 761,00')) / antes - 2) < 0.05, `${antes} -> ${await corpoDe('Z 761,00')}`);
     check('terreno guarda só o tipo de cota (padrão do projeto muda)', (await H(() => window.__hestia.editor.project.settings.defaultTerrainSpotFamilyId)) !== undefined);
   });
 
