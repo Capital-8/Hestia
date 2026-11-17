@@ -159,6 +159,7 @@ export function Ribbon(): ReactElement {
             onShape={perimeterActions.setShape}
             onFinish={perimeterActions.finish}
             onCancel={perimeterActions.cancel}
+            onUnite={perimeterActions.unite}
           />
         ),
       });

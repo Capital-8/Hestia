@@ -68,13 +68,15 @@ export interface PerimeterRibbonProps {
   onShape: (shape: PerimeterShape) => void;
   onFinish: () => void;
   onCancel: () => void;
+  /** "Unir formas": as formas fechadas e sobrepostas viram um contorno só. */
+  onUnite: () => void;
 }
 
 /**
  * Painéis "Modo" (Concluir/Cancelar) e "Desenhar" (linha de limite, seta de inclinação só no telhado, e a galeria de
  * formas em caixa com rolagem). Vêm na aba contextual: ver `perimeterContextTab`.
  */
-export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify, onLineKind, onShape, onFinish, onCancel }: PerimeterRibbonProps): ReactElement {
+export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify, onLineKind, onShape, onFinish, onCancel, onUnite }: PerimeterRibbonProps): ReactElement {
   const { t, lang } = useT();
   const roof = target === 'roof';
   const kind: PerimeterLineKind = roof ? lineKind : 'boundary';
@@ -119,6 +121,13 @@ export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify,
                 <span className="rb-lbl">{t('pro_pm_slope_arrow')}</span>
               </button>
             )}
+            <button className="rb-btn rb-small" id="pm-unite" title={t('pro_pm_unite_title')} aria-label={t('pro_pm_unite')} onClick={onUnite}>
+              <Ic size={16}>
+                <circle className="ic-s1" cx="12" cy="16" r="9" />
+                <circle className="ic-s1" cx="21" cy="16" r="9" />
+              </Ic>
+              <span className="rb-lbl">{t('pro_pm_unite')}</span>
+            </button>
           </div>
           <ShapeGallery shapes={perimeterShapesFor(target)} selected={modify ? null : shape} onSelect={onShape} />
         </div>

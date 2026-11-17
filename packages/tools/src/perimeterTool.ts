@@ -7,6 +7,8 @@ import { lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
 import { SKETCH_DEFAULTS, addSegs, closeAnalysis, finish as finishSketch, newDraft, removeSegs, selectAllSegs, type FinishResult, type SketchOrigin } from './perimeterSession.ts';
+import { unirFormas } from './perimeterUnite.ts';
+import { fmtNumLang } from './i18n.ts';
 import { anchorOf, buildShape, kindOf, ladosDoEsboco, LADOS_ESBOCO_MAX, LADOS_ESBOCO_MIN, promptOf, shapeName, stepPreview, stepsDoEsboco, type ShapeStep } from './perimeterToolShape.ts';
 import { SELECT_PX, boxRing, hitSeg, roomClick, roomHover, segLines } from './perimeterToolPick.ts';
 import { topDefaultFor } from './sketchPickFace.ts';
@@ -411,6 +413,20 @@ export class PerimeterTool extends ToolBase {
     const comp = lerComprimentoDigitado(this.env, text);
     if (comp === null) return false;
     this.setInput(st, input.key, pontoPorComprimento(anchor, this.inf?.point ?? this.raw, comp));
+    return true;
+  }
+
+  /** "Unir formas": as formas fechadas do rascunho viram o contorno da união, num passo de desfazer; recusas só avisam. */
+  uniteShapes(): boolean {
+    const r = unirFormas(this.d);
+    if (!r.ok) {
+      this.env.say(this.t(r.reason === 'few' ? 'tl_msg_unite_few' : r.reason === 'none' ? 'tl_msg_unite_none' : 'tl_msg_unite_separate'));
+      return false;
+    }
+    this.commit(r.draft);
+    this.step = null;
+    this.items = [];
+    this.env.say(this.t('tl_msg_unite_done', { before: r.before, after: r.after, area: fmtNumLang(r.area, 2, this.uiLang()) }));
     return true;
   }
 

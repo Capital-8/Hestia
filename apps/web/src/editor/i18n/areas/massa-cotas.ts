@@ -14,6 +14,8 @@ export const PT_MASSA_COTAS = {
   pro_pm_title_mass: 'Contorno da massa',
   pro_pm_tool_mass: 'Criar contorno da massa',
   pro_pm_saves_mass: 'a massa',
+  pro_pm_unite: "Unir formas",
+  pro_pm_unite_title: "Une as formas fechadas e sobrepostas do esboço num contorno só",
 } as const;
 
 export const EN_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -31,6 +33,8 @@ export const EN_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Mass Outline',
   pro_pm_tool_mass: 'Create Mass Outline',
   pro_pm_saves_mass: 'the mass',
+  pro_pm_unite: "Unite Shapes",
+  pro_pm_unite_title: "Unites the closed, overlapping shapes of the sketch into a single outline",
 };
 
 export const ES_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -48,6 +52,8 @@ export const ES_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Contorno de la masa',
   pro_pm_tool_mass: 'Crear contorno de la masa',
   pro_pm_saves_mass: 'la masa',
+  pro_pm_unite: "Unir formas",
+  pro_pm_unite_title: "Une las formas cerradas y superpuestas del boceto en un solo contorno",
 };
 
 export const DE_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -65,6 +71,8 @@ export const DE_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Massenkontur',
   pro_pm_tool_mass: 'Massenkontur erstellen',
   pro_pm_saves_mass: 'die Masse',
+  pro_pm_unite: "Formen vereinigen",
+  pro_pm_unite_title: "Vereinigt die geschlossenen, überlappenden Formen der Skizze zu einer Kontur",
 };
 
 export const FR_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -82,6 +90,8 @@ export const FR_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Contour de la masse',
   pro_pm_tool_mass: 'Créer le contour de la masse',
   pro_pm_saves_mass: 'la masse',
+  pro_pm_unite: "Unir les formes",
+  pro_pm_unite_title: "Unit les formes fermées qui se chevauchent de l’esquisse en un seul contour",
 };
 
 export const IT_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -99,6 +109,8 @@ export const IT_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Contorno della massa',
   pro_pm_tool_mass: 'Crea contorno della massa',
   pro_pm_saves_mass: 'la massa',
+  pro_pm_unite: "Unisci forme",
+  pro_pm_unite_title: "Unisce le forme chiuse e sovrapposte dello schizzo in un solo contorno",
 };
 
 export const PL_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -116,5 +128,7 @@ export const PL_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   pro_pm_title_mass: 'Obrys bryły',
   pro_pm_tool_mass: 'Utwórz obrys bryły',
   pro_pm_saves_mass: 'bryłę',
+  pro_pm_unite: "Połącz kształty",
+  pro_pm_unite_title: "Łączy zamknięte, nakładające się kształty szkicu w jeden obrys",
 };
 

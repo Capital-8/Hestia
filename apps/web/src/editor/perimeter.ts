@@ -24,5 +24,6 @@ export const perimeterActions: PerimeterActions = {
   setOptions: (patch) => editor.perimetro.setOptions(patch),
   finish: () => editor.perimetro.finish(),
   cancel: () => editor.perimetro.cancel(),
+  unite: () => editor.perimetro.unite(),
   setEdge: (patch) => editor.perimetro.setEdge(patch),
 };
