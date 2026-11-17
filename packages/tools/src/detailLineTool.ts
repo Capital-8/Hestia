@@ -176,6 +176,7 @@ export class DetailLineTool extends ToolBase {
         next.vals.a = end;
         next.idx = 1;
         this.step = next;
+        this.last = null;
         this.items = [];
         this.env.say(detailShapePromptMsg(next, this.uiLang()));
         return;

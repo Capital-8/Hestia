@@ -87,3 +87,16 @@ describe('linha de detalhe: encadeamento', () => {
     expect(dl(e.store)).toHaveLength(8);
   });
 });
+
+describe('linha de detalhe: cota da prévia na cadeia', () => {
+  it('ao encadear, a cota de comprimento zero não aparece até o mouse se mover; depois cota o próximo traço (3,4) -> (3,8) = 4', () => {
+    const { t } = ambiente(true);
+    clickAt(t, 0, 0);
+    t.move({ raw: { x: 3, y: 4 }, shift: false } as never);
+    clickAt(t, 3, 4);
+    expect(t.tempDims!()).toEqual([]);
+    t.move({ raw: { x: 3, y: 8 }, shift: false } as never);
+    const [dim] = t.tempDims!();
+    expect(dim?.value).toBeCloseTo(4, 9);
+  });
+});
