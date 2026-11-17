@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { PerimeterModifyKind } from '@hestia/tools';
 import { useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
+import { NumField } from '../fields.tsx';
 import { MassCotasBar } from '../MassCotasBar.tsx';
 import { ajustarOpcoesMassa, opcoesDaMassa } from '../MassOptionsBar.tsx';
 import { perimeterTool } from './PerimeterStatus.ts';
@@ -23,7 +24,15 @@ export function PerimeterMassBar({ modify, editing }: { modify?: PerimeterModify
   return (
     <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
       <span className="tool-name">{cmd ? `${tool} · ${t(cmd)}` : tool}</span>
-      {!editing && <MassCotasBar o={o} onChange={ajustarOpcoesMassa} />}
+      {!editing && (
+        <>
+          <label>
+            {t('ui_ms_opt_altura')}
+            <NumField id="opt-mass-altura" value={o.altura} quantity="length" min={0.01} onCommit={(v) => ajustarOpcoesMassa({ altura: v })} />
+          </label>
+          <MassCotasBar o={o} onChange={ajustarOpcoesMassa} />
+        </>
+      )}
     </div>
   );
 }
