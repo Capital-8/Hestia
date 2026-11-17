@@ -93,6 +93,7 @@ export * from './dimensionStyle.ts';
 export * from './dimensionFamily.ts';
 export * from './tagFamily.ts';
 export * from './annotationFamilies.ts';
+export * from './terrainLotFamilies.ts';
 export * from './tagText.ts';
 export * from './marks.ts';
 export * from './dimensionRefs.ts';

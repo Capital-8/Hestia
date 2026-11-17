@@ -1,6 +1,7 @@
 /* eslint-disable max-lines */
 import type { DimensionElementRef, DimensionStyle } from './dimensionContract.ts';
 import type { TagFamily } from './tagFamily.ts';
+import type { LotFamily, TerrainTextFamily } from './terrainLotFamilies.ts';
 import type { NorthArrowFamily, RevisionCloudFamily, SpotFamily, TextFamily } from './annotationFamilies.ts';
 import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
@@ -871,6 +872,12 @@ export interface ProjectSettings {
   defaultRevisionCloudFamilyId?: Id;
   northArrowFamilies?: NorthArrowFamily[];
   defaultNorthArrowFamilyId?: Id;
+  /** Famílias do texto do terreno (rótulo de curva e cota de ponto) e do lote (linha de propriedade e texto dos lados). */
+  terrainTextFamilies?: TerrainTextFamily[];
+  defaultTerrainContourFamilyId?: Id;
+  defaultTerrainSpotFamilyId?: Id;
+  lotFamilies?: LotFamily[];
+  defaultLotFamilyId?: Id;
   /** Ponto Base do Projeto (origem local em metros). */
   projectBasePoint?: { x: number; y: number; z: number };
   /** Ponto de Levantamento topográfico (origem georreferenciada e Norte Verdadeiro em graus). */
