@@ -288,6 +288,9 @@ try {
     const dw = dialogo(page, 'Paredes da massa');
     await dw.waitFor({ timeout: 5000 });
     await so(dw, 'mw');
+    // Frente massa-paredes-torcidas: o padrão passou a dividir a altura por tolerância (paredes inclinadas por passo); este aceite confere a CADEIA de
+    // um andar, então usa "Um passo por nível".
+    await dw.locator('#mw-modo').selectOption('porNivel');
     await dw.getByRole('button', { name: 'Gerar', exact: true }).click();
     await dw.waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined);
     pj = await lerProjeto(page);

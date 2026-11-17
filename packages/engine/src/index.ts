@@ -116,6 +116,7 @@ export { t as engineMessageText, type Lang as EngineLang, type DictKey as Engine
 export * from './kernelGuardaCorpoServico.ts';
 export * from './guardaCorpoSchedule.ts';
 export * from './cortinaProjeto.ts';
+export * from './cortinaInclinada.ts';
 export * from './kernelCortina.ts';
 export * from './kernelCortinaServico.ts';
 export * from './cortinaIssues.ts';
@@ -151,3 +152,5 @@ export * from './massaPlanta.ts';
 export * from './massaSchedule.ts';
 export * from './massaDerivaPisos.ts';
 export * from './massaDerivaParedes.ts';
+export * from './massaFatiasEmCotas.ts';
+export * from './massaParedesTorcidas.ts';

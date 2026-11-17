@@ -10,6 +10,7 @@
  * pelas anexações, tipo, tipos de montante e de painel referenciados, instância e sobrescritas). Mudar uma sobrescrita muda o hash da cortina e o do
  * nível; a chave de cache é sempre o hash, nunca a serialização da grade.
  */
+import { alturaInclinada, inclinacaoDaCortina } from './cortinaInclinada.ts';
 import {
   curtainPanelTypesOf,
   isCurtainType,
@@ -228,7 +229,10 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     const inst = w.curtain;
     const painelDaInstancia = inst?.defaultPanelTypeId;
     if (painelDaInstancia && pain[painelDaInstancia]) painUsados.set(painelDaInstancia, pain[painelDaInstancia]!);
-    const zz = z.get(w.id)!;
+    const zz0 = z.get(w.id)!;
+    // Cortina reta inclinada (fase 1b): o kernel mede grade e peças na face inclinada (altura H/cos); a malha é girada depois (`cortinaInclinada.ts`).
+    const tiltCortina = inclinacaoDaCortina(w);
+    const zz = tiltCortina === 0 ? zz0 : { ...zz0, height: alturaInclinada(zz0.height, tiltCortina) };
     // Sobrescritas (fase 2): a referência a montante ou painel ausente sai, e os tipos que elas usam entram na entrada.
     const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain, (id) => openingTypeById(p, id) !== undefined);
     for (const id of sob.montantes) montUsados.set(id, mont[id]!);
@@ -245,6 +249,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       zBase: zz.z0,
       height: zz.height,
       sag: w.sag,
+      ...(tiltCortina !== 0 ? { tilt: tiltCortina } : {}),
       flipped: w.flipped,
       locationLine: w.locationLine,
       ...(inst?.grid && (inst.grid.u || inst.grid.v) ? { grid: { ...(inst.grid.u ? { u: inst.grid.u } : {}), ...(inst.grid.v ? { v: inst.grid.v } : {}) } } : {}),

@@ -7,6 +7,7 @@
  * Cache por ASSINATURA: o projeto muda a cada edição, mas a cena e as respostas só são refeitas quando o hash das cortinas muda (`assinatura` de
  * `cortinaProjeto.ts`). Editar uma parede comum, uma laje ou uma cota não toca no Rust nem nas malhas, e os objetos devolvidos continuam os mesmos.
  */
+import { aplicarInclinacaoNaMalha, planosInclinados } from './cortinaInclinada.ts';
 import { CenaV2, type GerenciadorKernelV2 } from '@hestia/geom';
 import type { Id, Project } from '@hestia/model';
 import { entradaCortinaDoProjeto, temCortina, type EntradaCortinaProjeto } from './cortinaProjeto.ts';
@@ -247,7 +248,9 @@ export class ServicoCortina {
       const mats = inverso(this.entrada!.materialDe);
       const montantes = inverso(this.atual!.montanteDe);
       const paineis = inverso(this.atual!.painelDe);
-      return decodificarMalhaCortina(s, this.wallIdDe(), (n) => mats.get(n) ?? null, (papel, tipo) => (papel === 0 ? montantes : paineis).get(tipo) ?? null);
+      const m = decodificarMalhaCortina(s, this.wallIdDe(), (n) => mats.get(n) ?? null, (papel, tipo) => (papel === 0 ? montantes : paineis).get(tipo) ?? null);
+      // Cortina inclinada (fase 1b): o kernel resolveu o plano vertical com a altura inclinada; aqui a malha gira em torno da linha de base.
+      return aplicarInclinacaoNaMalha(m, planosInclinados(p, new Map(this.entrada!.entrada.cortinas.map((c) => [c.id, c.zBase] as const))));
     });
   }
 

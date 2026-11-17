@@ -84,6 +84,8 @@ export interface CortinaKernel {
   zBase: number;
   height: number;
   sag?: number;
+  /** Inclinação (graus) da cortina reta: o kernel NÃO a lê (recebe `height` inclinada); entra só na assinatura e na rotação da malha em TS. */
+  tilt?: number;
   flipped?: boolean;
   locationLine?: keyof typeof ENUM_CORTINA.locationLine;
   grid?: { u?: EixoGradeParcialKernel; v?: EixoGradeParcialKernel };

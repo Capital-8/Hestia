@@ -6,7 +6,8 @@ import { t, type Lang } from './i18n.ts';
 import { makeSlab } from './slab.ts';
 import { isMass } from './mass.ts';
 import { makeWall } from './wall.ts';
-import { isFloor, isSlab, isWall, type Floor, type Id, type Project, type Slab, type Wall } from './types.ts';
+import { wallTiltIssue } from './wallTilt.ts';
+import { isFloor, isOpening, isSlab, isWall, type Floor, type Id, type LocationLine, type Project, type Slab, type Wall } from './types.ts';
 
 /** Piso ou laje: o que a derivação cria (ficha D1, plano de massa A.7). */
 export type TipoDerivado = 'piso' | 'laje';
@@ -66,6 +67,12 @@ export interface CadeiaDerivadaParedes {
   /** Nível de cima dentro da massa, ou null: a parede vai até `altura` acima da cota do nível (topo da massa). */
   topoNivelId: Id | null;
   altura: number;
+  /** Deslocamento da base acima da cota do nível (passos de parede inclinada); ausente = 0. */
+  baseOffset?: number;
+  /** Inclinação (graus, + = topo à esquerda de a→b) da parede de cada segmento; ausente ou 0 = vertical. */
+  tilts?: number[];
+  /** Tipo de parede por segmento (substitui `typeId` do comando); ausente = `typeId`. */
+  typeIds?: Id[];
 }
 
 export interface DerivaParedesArgs {
@@ -75,6 +82,8 @@ export interface DerivaParedesArgs {
   /** Níveis escolhidos: as paredes geradas antes pela mesma massa neles saem, mesmo que a nova geração não tenha cadeia ali. */
   niveis: Id[];
   cadeias: CadeiaDerivadaParedes[];
+  /** Linha de localização das paredes geradas; ausente = a padrão do modelo (eixo). O diálogo usa `finishExterior`: a face externa fica na massa. */
+  locationLine?: LocationLine;
 }
 
 /** As paredes que uma derivação anterior gerou pela MESMA massa nos níveis escolhidos (`origemMassa` e `levelId` iguais). */
@@ -82,6 +91,15 @@ function paredesAnteriores(p: Project, massaId: Id, niveis: readonly Id[]): Id[]
   return Object.values(p.elements)
     .filter((e): e is Wall => isWall(e) && e.origemMassa?.massaId === massaId && e.origemMassa.nivelId === e.levelId && niveis.includes(e.levelId))
     .map((e) => e.id);
+}
+
+/**
+ * Aberturas (portas, janelas) hospedadas nas paredes que gerar de novo pela mesma massa nos níveis escolhidos vão sair com elas: a política é
+ * GERAR UMA VEZ E TRAVAR (mudar a massa depois não move aberturas), então quem chama avisa o usuário com esta lista antes de substituir.
+ */
+export function aberturasDasParedesDaMassa(p: Project, massaId: Id, niveis: readonly Id[]): Id[] {
+  const paredes = new Set(paredesAnteriores(p, massaId, niveis));
+  return Object.values(p.elements).filter((e) => isOpening(e) && paredes.has(e.hostId)).map((e) => e.id);
 }
 
 /**
@@ -104,17 +122,27 @@ export function comandoDerivarParedes(p: Project, a: DerivaParedesArgs, lang: La
     const origemMassa = { massaId: a.massaId, nivelId: c.nivelId };
     const n = c.pontos.length;
     for (let i = 0; i < n; i++) {
+      const typeId = c.typeIds?.[i] ?? a.typeId;
+      if (!p.wallTypes[typeId]) throw new Error(t(lang, 'md_cmd_element_missing_id', { id: typeId }));
+      const tilt = c.tilts?.[i] ?? 0;
       const wall: Omit<Wall, 'order'> = makeWall({
         id: novoId('wm'),
-        typeId: a.typeId,
+        typeId,
         levelId: c.nivelId,
         a: c.pontos[i]!,
         b: c.pontos[(i + 1) % n]!,
+        baseOffset: c.baseOffset ?? 0,
         topLevelId: c.topoNivelId,
         topOffset: 0,
         height: c.altura,
         origemMassa,
+        ...(a.locationLine ? { locationLine: a.locationLine } : {}),
+        ...(tilt !== 0 ? { tilt } : {}),
       });
+      if (tilt !== 0) {
+        const issue = wallTiltIssue(p, wall, tilt, lang);
+        if (issue) throw new Error(issue);
+      }
       criar.push({ type: 'addWall', wall });
     }
   }
