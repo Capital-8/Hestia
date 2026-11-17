@@ -68,4 +68,14 @@ describe('exportação IFC do projeto (web)', () => {
     const text = projectIfc(p, NOW);
     expect(count(text, 'IFCSTYLEDITEM')).toBeGreaterThan(count(text, 'IFCSURFACESTYLE'));
   });
+
+  it('o vão bruto com folga de altura cresce só para cima: a base do furo é o peitoril (como no motor)', () => {
+    const p0 = buildTemplate('house2');
+    const base = ifcGeometryOf(p0).openings.find((o) => p0.elements[o.openingId]?.kind === 'window')!;
+    const typeId = (p0.elements[base.openingId] as { typeId: string }).typeId;
+    const p = { ...p0, openingTypes: { ...p0.openingTypes, [typeId]: { ...p0.openingTypes[typeId]!, roughOversize: { w: 0.04, h: 0.06 } } } };
+    const o = ifcGeometryOf(p).openings.find((x) => x.openingId === base.openingId)!;
+    expect(o.roughHeight - o.height).toBeCloseTo(0.06, 6);
+    expect(o.roughBottomZ).toBeCloseTo(o.sillZ, 6);
+  });
 });

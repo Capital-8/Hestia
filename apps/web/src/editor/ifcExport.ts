@@ -140,7 +140,7 @@ function openingsOf(p: Project): IfcGeometry['openings'] {
       height: g.height,
       roughWidth: g.roughWidth,
       roughHeight: g.roughHeight,
-      roughBottomZ: sillZ - (g.roughHeight - g.height) / 2,
+      roughBottomZ: sillZ, // a folga de altura cresce só para cima (resolve.ts: sill..sill+roughHeight)
       sillZ,
       thickness: g.thickness,
       parts: openingPartsOf(p, o, g, t, frame),

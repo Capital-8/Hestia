@@ -16,6 +16,7 @@ import {
   type ValidationIssue,
   type Wall,
 } from '@hestia/model';
+import { frameOfWall } from './resolveFrames.ts';
 import { resolveAllFloors } from './floors.ts';
 import { t, type Lang } from './i18nMessages.ts';
 import { resolveAllRoofs } from './roofs.ts';
@@ -53,7 +54,10 @@ export function projectIssues(p: Project, lang: Lang = 'pt'): ValidationIssue[] 
   return out;
 }
 
-/** Abertura cujo `offset + largura` passa do comprimento do eixo da parede (1 mm de folga). */
+/**
+ * Abertura cujo vão sai do eixo da parede (1 mm de folga). `offset` é o CENTRO da abertura (como em `openingGeometry` e
+ * em `validateProject`) e o comprimento do eixo é o do arco nas paredes curvas.
+ */
 function openingOutside(p: Project, lang: Lang): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const e of Object.values(p.elements)) {
@@ -61,16 +65,17 @@ function openingOutside(p: Project, lang: Lang): ValidationIssue[] {
     const host = p.elements[e.hostId];
     const type = openingTypeById(p, e.typeId);
     if (!isWall(host) || !type) continue;
-    const L = dist(host.a, host.b);
-    const end = e.offset + type.width;
-    if (e.offset >= -EPS && end <= L + EPS) continue;
+    const L = frameOfWall(p, host.id)?.length ?? dist(host.a, host.b);
+    const start = e.offset - type.width / 2;
+    const end = e.offset + type.width / 2;
+    if (start >= -EPS && end <= L + EPS) continue;
     out.push({
       severity: 'warning',
       code: 'abertura-fora-da-parede',
       message: t(lang, 'egb_issue_opening_outside_wall', {
         opening: label(e),
         wall: label(host),
-        offset: formatQuantity(unitsOf(p), 'length', e.offset),
+        offset: formatQuantity(unitsOf(p), 'length', start),
         width: formatQuantity(unitsOf(p), 'length', type.width),
         end: formatQuantity(unitsOf(p), 'length', end),
         length: formatQuantity(unitsOf(p), 'length', L),

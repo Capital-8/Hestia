@@ -8,7 +8,7 @@ Regras: agentes não fazem commit (a coordenação faz); arquivos disjuntos por 
 |---|---|---|---|
 | 0 | 0a/0b IFC export: mapeamentos B1-B8 e psets B9-B11 | Haiku | em andamento |
 | 0 | 0c IFC import: aviso de arco, desempenho e operação da janela | Haiku | em andamento |
-| 0 | 0d A-1, A-2, A-6 (offset, roughOversize, sobreposição por altura) | Sonnet | em andamento |
+| 0 | 0d A-1, A-2, A-6 (offset, roughOversize, sobreposição por altura) | Sonnet | concluído |
 | 0 | 0e docs desatualizados | Haiku | pendente |
 | 0 | 0f validações por norma (avisos) | Haiku | pendente |
 | 1 | 1a spike: furo da parede por contorno (meia-lua), só TS | Sonnet | em andamento |

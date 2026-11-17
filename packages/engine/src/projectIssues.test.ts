@@ -36,24 +36,45 @@ const opening = (hostId: string, offset: number, typeId = 'ot_p80'): Opening => 
   mark: '',
 });
 
+/** `addOpening` já prende o offset no hospedeiro; o aviso nasce de parede encurtada ou arquivo antigo: grava direto. */
+function withOffset(p: Project, id: string, offset: number): Project {
+  return { ...p, elements: { ...p.elements, [id]: { ...(p.elements[id] as Opening), offset } } };
+}
+
 describe('abertura-fora-da-parede', () => {
-  it('marca o offset somado à largura que passa do eixo da parede', () => {
-    const p = build([wall('w1', [0, 0], [4, 0])], [], [], [opening('w1', 3.3)]);
-    const [issue] = projectIssues(p).filter((i) => i.code === 'abertura-fora-da-parede');
+  const fora = (p: Project) => projectIssues(p).filter((i) => i.code === 'abertura-fora-da-parede');
+  const base = (offset: number, extra: Partial<W> = {}) => withOffset(build([wall('w1', [0, 0], [4, 0], extra)], [], [], [opening('w1', 2)]), 'o1', offset);
+
+  it('offset é o CENTRO: o vão de 0,8 m centrado em 3,7 passa 0,1 m do fim e avisa', () => {
+    const [issue] = fora(base(3.7));
     expect(issue).toMatchObject({ severity: 'warning', elementId: 'o1', ids: ['o1', 'w1'] });
-    expect(issue!.message).toContain('3,30 m + largura 0,80 m = 4,10 m');
     expect(issue!.message).toContain('eixo tem 4,00 m');
   });
 
-  it('no limite exato do eixo não avisa', () => {
-    const p = build([wall('w1', [0, 0], [4, 0])], [], [], [opening('w1', 3.2)]);
-    expect(projectIssues(p).filter((i) => i.code === 'abertura-fora-da-parede')).toEqual([]);
+  it('offset é o CENTRO: o vão de 0,8 m centrado em 3,6 encosta no fim e não avisa', () => {
+    expect(fora(base(3.6))).toEqual([]);
   });
 
-  it('a casa de alto padrão mantém exatamente os seis casos do dono', () => {
-    const issues = projectIssues(buildTemplate('house-premium')).filter((i) => i.code === 'abertura-fora-da-parede');
-    expect(issues).toHaveLength(6);
-    expect(issues.map((i) => i.elementId).sort()).toEqual(['J8', 'T11', 'T13', 'T14', 'T15', 'T2']);
+  it('offset é o CENTRO: centrado em 0,3 invade 0,1 m antes do início e avisa', () => {
+    expect(fora(base(0.3))).toHaveLength(1);
+  });
+
+  it('offset é o CENTRO: centrado em 0,4 encosta no início e não avisa', () => {
+    expect(fora(base(0.4))).toEqual([]);
+  });
+
+  it('o centro em 3,5 (borda inicial em 3,1, final em 3,9) não avisa', () => {
+    expect(fora(base(3.5))).toEqual([]);
+  });
+
+  it('parede curva: usa o comprimento do arco (~4,64 m), não a corda (4 m)', () => {
+    // Centro em 4,1 + meia largura 0,4 = 4,5 m: cabe no arco, mas passaria da corda.
+    expect(fora(base(4.1, { sag: 1 }))).toEqual([]);
+    expect(fora(base(4.4, { sag: 1 }))).toHaveLength(1);
+  });
+
+  it('a casa de alto padrão não tem aviso: os seis casos antigos eram a leitura de offset como borda inicial', () => {
+    expect(fora(buildTemplate('house-premium'))).toEqual([]);
   });
 
   it.each(['blank', 'house2', 'studio', 'predio10'] as const)('%s não tem abertura fora da parede', (id) => {

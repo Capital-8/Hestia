@@ -141,6 +141,22 @@ describe('validação: aberturas', () => {
     expect(issues[0]!.message).toContain('"d"');
   });
 
+  it('mesma posição ao longo da parede, mas em alturas disjuntas (janela alta sobre porta), não é aviso', () => {
+    // Porta 0 a 2,10 m; janela com peitoril 2,2 m (2,2 a 3,4 m) na mesma posição.
+    const p = build([wall('w', 0, 0, 4, 0)], [opening('d', 'w', 1.5), opening('j', 'w', 1.5, 'ot_j120', { sillOverride: 2.2 })]);
+    expect(codes(validateProject(p))).toEqual([]);
+  });
+
+  it('alturas que se tocam exatamente (topo da porta = peitoril) não se sobrepõem', () => {
+    const p = build([wall('w', 0, 0, 4, 0)], [opening('d', 'w', 1.5), opening('j', 'w', 1.5, 'ot_j120', { sillOverride: 2.1 })]);
+    expect(codes(validateProject(p))).toEqual([]);
+  });
+
+  it('mesma posição e alturas que se cruzam continuam sendo aviso', () => {
+    const p = build([wall('w', 0, 0, 4, 0)], [opening('d', 'w', 1.5), opening('j', 'w', 1.5, 'ot_j120', { sillOverride: 2.0 })]);
+    expect(codes(validateProject(p))).toEqual(['opening-overlap']);
+  });
+
   it('vãos vizinhos sem cruzamento não são aviso', () => {
     expect(validateProject(build([wall('w', 0, 0, 4, 0)], [opening('j', 'w', 1, 'ot_j120'), opening('d', 'w', 2.5)]))).toEqual([]);
   });

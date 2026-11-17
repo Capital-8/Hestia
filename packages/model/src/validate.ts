@@ -14,7 +14,7 @@ import { curtainHostIssues } from './curtainHost.ts';
 import { structuralIssues } from './structuralCommands.ts';
 import { roomIssues } from './validateRooms.ts';
 import { profileError } from './profile.ts';
-import { wallBaseElevation, wallTopElevation } from './queries.ts';
+import { openingHeight, openingSill, wallBaseElevation, wallTopElevation } from './queries.ts';
 import { viewRangeIssues } from './viewRange.ts';
 import { graphicsIssues, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf } from './graphics.ts';
 import { sectionRefIssues, sectionViewIssue } from './sectionView.ts';
@@ -151,14 +151,15 @@ function openingIssues(p: Project, o: Opening): ValidationIssue[] {
   return out;
 }
 
-/** Duas aberturas da mesma parede cujos vãos se cruzam (warning). */
+/** Duas aberturas da mesma parede cujos vãos se cruzam ao longo da parede e na altura (peitoril a peitoril + altura) (warning). */
 function openingOverlaps(p: Project, openings: Opening[]): ValidationIssue[] {
-  const byHost = new Map<Id, Array<{ o: Opening; lo: number; hi: number }>>();
+  const byHost = new Map<Id, Array<{ o: Opening; lo: number; hi: number; z0: number; z1: number }>>();
   for (const o of openings) {
     const type = openingTypeById(p, o.typeId);
     if (!type || !isWall(p.elements[o.hostId])) continue;
     const list = byHost.get(o.hostId) ?? [];
-    list.push({ o, lo: o.offset - type.width / 2, hi: o.offset + type.width / 2 });
+    const z0 = openingSill(type, o);
+    list.push({ o, lo: o.offset - type.width / 2, hi: o.offset + type.width / 2, z0, z1: z0 + openingHeight(type, o) });
     byHost.set(o.hostId, list);
   }
   const out: ValidationIssue[] = [];
@@ -167,7 +168,7 @@ function openingOverlaps(p: Project, openings: Opening[]): ValidationIssue[] {
       for (let j = i + 1; j < list.length; j++) {
         const x = list[i]!;
         const y = list[j]!;
-        if (Math.min(x.hi, y.hi) - Math.max(x.lo, y.lo) > EPS) {
+        if (Math.min(x.hi, y.hi) - Math.max(x.lo, y.lo) > EPS && Math.min(x.z1, y.z1) - Math.max(x.z0, y.z0) > EPS) {
           out.push({
             severity: 'warning',
             code: 'opening-overlap',
