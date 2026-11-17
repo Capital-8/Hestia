@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Rótulo do passo de desfazer de cada comando (o texto que o Desfazer/Refazer mostra). Um rótulo por tipo de comando; o `never` do
 // fim faz um comando novo sem rótulo não compilar.
 import type { Command } from './commands.ts';

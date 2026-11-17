@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
 import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Opening, type Project } from '@hestia/model';

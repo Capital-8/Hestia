@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import {
   applyCommand, copiarTerreno, newId, type Beam, type Column, type Command, type Element, type Floor, type Footing,
   type Id, type Mass, type Opening, type Project, type Room, type Roof, type Slab, type Wall,

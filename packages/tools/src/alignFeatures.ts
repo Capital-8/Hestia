@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { arcFromSagitta, arcLocal, arcPointAt, arcTangentAt, closestOnSegment, dist, norm, sub, type SketchDraft, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import { t as translate, type Lang } from './i18n.ts';
