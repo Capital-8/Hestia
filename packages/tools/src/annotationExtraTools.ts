@@ -1,4 +1,6 @@
 import {
+  coordenadaReal,
+  cotaExibida,
   defaultNorthArrowFamilyIdOf,
   defaultRevisionCloudFamilyIdOf,
   defaultSpotFamilyIdOf,
@@ -30,6 +32,11 @@ function formatSignedLength(p: Project, valueM: number): string {
   const u = unitsOf(p);
   const sign = valueM > 1e-4 ? '+' : valueM < -1e-4 ? '-' : '';
   return `${sign}${formatQuantity(u, 'length', Math.abs(valueM))}`;
+}
+
+/** Coordenadas exibidas na prévia: (leste, norte) reais quando o projeto tem localização; sem ela, as do projeto. */
+function coordenadaExibida(p: Project, pt: Vec2): { leste: number; norte: number } {
+  return p.localizacao !== undefined ? coordenadaReal(p, pt) : { leste: pt.x, norte: pt.y };
 }
 
 function leaderWithElbow(target: Vec2, at: Vec2): Vec2[] {
@@ -75,7 +82,7 @@ export class SpotElevationTool extends ToolBase {
       const z = this.measureZ(pt);
       this.items = [
         { kind: 'point', at: pt },
-        { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), z)}` },
+        { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), cotaExibida(this.env.project(), z))}` },
       ];
       return;
     }
@@ -83,7 +90,7 @@ export class SpotElevationTool extends ToolBase {
     this.items = [
       { kind: 'line', a: pts[0]!, b: pts[1]!, dashed: true },
       { kind: 'line', a: pts[1]!, b: pts[2]!, dashed: true },
-      { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), this.elev)}` },
+      { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), cotaExibida(this.env.project(), this.elev))}` },
     ];
   }
 
@@ -113,6 +120,12 @@ export class SpotElevationTool extends ToolBase {
   }
 }
 
+/** Texto da prévia da coordenada de ponto (`N … / E …`), com as coordenadas exibidas. */
+function rotuloCoordenada(p: Project, pt: Vec2): string {
+  const c = coordenadaExibida(p, pt);
+  return `N ${formatSignedLength(p, c.norte)} / E ${formatSignedLength(p, c.leste)}`;
+}
+
 /**
  * Coordenada de ponto (Revit: Spot Coordinate). Lê N (Y) e E (X) no ponto clicado e posiciona o símbolo paramétrico.
  */
@@ -139,7 +152,7 @@ export class SpotCoordinateTool extends ToolBase {
     if (!this.target) {
       this.items = [
         { kind: 'point', at: pt },
-        { kind: 'label', at: pt, text: `N ${formatSignedLength(this.env.project(), pt.y)} / E ${formatSignedLength(this.env.project(), pt.x)}` },
+        { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), pt) },
       ];
       return;
     }
@@ -147,7 +160,7 @@ export class SpotCoordinateTool extends ToolBase {
     this.items = [
       { kind: 'line', a: pts[0]!, b: pts[1]!, dashed: true },
       { kind: 'line', a: pts[1]!, b: pts[2]!, dashed: true },
-      { kind: 'label', at: pt, text: `N ${formatSignedLength(this.env.project(), this.target.y)} / E ${formatSignedLength(this.env.project(), this.target.x)}` },
+      { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), this.target) },
     ];
   }
 
