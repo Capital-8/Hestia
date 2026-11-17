@@ -86,6 +86,38 @@ try {
 
   await bateria('planta de piso', { levelId: lv });
 
+  // Terreno: cota de ponto e linha de rótulo de curva (itens sem id próprio: <terreno>#cotado:<i> e <terreno>#rotulo:<i>)
+  await passo('terreno: cota de ponto e rótulo de curva', async () => {
+    await H(({ lv }) => {
+      window.__hestia.editor.store.exec({ type: 'addTerrain', terrain: { kind: 'terrain', id: 'tn_e2e', levelId: lv, name: 'Terreno', pontos: [20, 20, 1, 40, 20, 2, 40, 40, 3, 20, 40, 2], curvas: [], quebras: [], intervaloCurvas: 1, mestraCada: 5, espessuraBase: 3, mostrarExistente: false, linhasRotulo: [21, 25, 29, 25], pontosCotados: [25, 30, 35, 30] } });
+      const { editor } = window.__hestia; editor.setViewport({ ...editor.viewport(), cx: 30, cy: 30, zoom: 50 });
+    }, { lv });
+    await page.waitForTimeout(300);
+    const tn = () => H(() => { const t = window.__hestia.editor.project.elements.tn_e2e; return t ? { cot: t.pontosCotados.length / 2, rot: t.linhasRotulo.length / 4 } : null; });
+    check('terreno criado com 2 cotas de ponto e 1 linha de rótulo', JSON.stringify(await tn()) === '{"cot":2,"rot":1}', JSON.stringify(await tn()));
+    await mover(25, 30);
+    check('DESTACA a cota de ponto', (await hover()) === 'tn_e2e#cotado:0', String(await hover()));
+    await clique(25, 30);
+    check('SELECIONA a cota de ponto', JSON.stringify(await sel()) === '["tn_e2e#cotado:0"]', JSON.stringify(await sel()));
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(200);
+    check('APAGA só a cota clicada (sobra 1 e a 2ª é a de (35,30))', JSON.stringify(await H(() => window.__hestia.editor.project.elements.tn_e2e.pontosCotados)) === '[35,30]');
+    await H(() => window.__hestia.editor.undo());
+    await page.waitForTimeout(150);
+    check('Ctrl+Z devolve a cota (2)', (await tn()).cot === 2);
+    await mover(25, 25);
+    check('DESTACA a linha de rótulo', (await hover()) === 'tn_e2e#rotulo:0', String(await hover()));
+    await clique(25, 25);
+    check('SELECIONA a linha de rótulo', JSON.stringify(await sel()) === '["tn_e2e#rotulo:0"]', JSON.stringify(await sel()));
+    await H(() => window.__hestia.editor.deleteSelection());
+    await page.waitForTimeout(200);
+    check('APAGA a linha de rótulo pelo menu (deleteSelection)', (await tn()).rot === 0, JSON.stringify(await tn()));
+    await H(() => window.__hestia.editor.undo());
+    await page.waitForTimeout(150);
+    check('Ctrl+Z devolve a linha de rótulo', (await tn()).rot === 1);
+    await H(() => { const { editor } = window.__hestia; editor.setViewport({ ...editor.viewport(), cx: 8, cy: 2, zoom: 50 }); });
+  });
+
   // Planta de área
   const planId = await H(async () => {
     const { editor, useUi } = window.__hestia;

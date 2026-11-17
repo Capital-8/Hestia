@@ -36,6 +36,7 @@ import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, ty
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
 import { annotationAt, annotationIdsInBox, detailItemAt, dimBodyAt, dimGripAt, dimTextGripAt, elementTagGripAt, overlayAnnotationAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, spotGripAt, symbolGripAt, textAtAcompanhando, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { itemDeTerrenoNoPonto, itensDeTerrenoNaJanela, geometriaDoItemDeTerreno } from './terrainItensPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
@@ -216,6 +217,9 @@ export class SelectTool extends ToolBase {
     if (detail && !hidden?.has(detail)) return { id: detail, kind: 'annotation' };
     const overlay = overlayAnnotationAt(pr, lv, at, mpp, planId);
     if (overlay && !hidden?.has(overlay)) return { id: overlay, kind: 'annotation' };
+    // Cota de ponto e linha de rótulo de curva do terreno (planta de piso): anotações do terreno, por cima do modelo.
+    const itemTn = planId ? null : itemDeTerrenoNoPonto(pr, lv, at, mpp, hidden);
+    if (itemTn) return { id: itemTn, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
@@ -300,6 +304,12 @@ export class SelectTool extends ToolBase {
       for (const id of rings) {
         const ring = roomTagRing(pr, id, this.planId());
         if (ring) this.items.push({ kind: 'polygon', ring, dashed: !this.env.selection().includes(id) });
+        const gi = geometriaDoItemDeTerreno(pr, id);
+        if (gi && 'ponto' in gi) {
+          const r = 8 * this.env.metersPerPixel();
+          const c = gi.ponto;
+          this.items.push({ kind: 'polygon', ring: [{ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y - r }, { x: c.x + r, y: c.y + r }, { x: c.x - r, y: c.y + r }], dashed: !this.env.selection().includes(id) });
+        } else if (gi) this.items.push({ kind: 'line', a: gi.a, b: gi.b, dashed: !this.env.selection().includes(id) });
       }
     }
     this.inf = grip ? { point: grip.at, kind: 'endpoint', guides: [] } : null;
@@ -720,6 +730,7 @@ export class SelectTool extends ToolBase {
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
+          ...(this.planId() ? [] : itensDeTerrenoNaJanela(pr, this.env.levelId(), this.downPt, p.raw, hidden)),
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
         ].filter((id) => !hidden?.has(id));
         const cur = this.env.selection();
