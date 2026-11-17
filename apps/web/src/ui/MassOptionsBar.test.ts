@@ -12,6 +12,9 @@ import type { RibbonItem } from './ribbon/model.ts';
 /** Faz o que o loft faz ao criar a massa (o parâmetro não herda o estreitamento de tipo do teste). */
 const dispara = (t: MassTool, id: string): void => t.aoCriar?.(id);
 
+/** A extrusão pela caixa de formas abre o esboço; estes testes são da ferramenta de perfis. */
+const porPerfis = (): void => useUi.setState((s) => ({ options: { ...s.options, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...s.options.mass, galeria: false } } }));
+
 const opcoesIniciais = useUi.getState().options;
 afterEach(() => {
   useUi.setState({ options: opcoesIniciais, dialog: null, dialogArg: null });
@@ -21,6 +24,7 @@ afterEach(() => {
 const botoesDeModo = (): Array<Extract<RibbonItem, { kind: 'option' }>> =>
   TABS.filter((tb) => tb.id === 'massa')
     .flatMap((tb) => tb.panels.flatMap((p) => p.items))
+    .flatMap((it) => (it.kind === 'stack' ? it.items : [it])) // os 4 modos ficam empilhados numa coluna
     .filter((it): it is Extract<RibbonItem, { kind: 'option' }> => it.kind === 'option');
 
 /** O clique de um botão de modo da faixa (parts.tsx): espalha o patch sobre as opções atuais. */
@@ -59,6 +63,7 @@ describe('barra de opções da massa: ajustes preservados', () => {
   });
 
   it('o ajuste da barra chega à ferramenta ativa (que só lia as opções ao ligar)', () => {
+    porPerfis();
     editor.setTool('mass');
     const tool = editor.activeTool;
     expect(tool).toBeInstanceOf(MassTool);
@@ -89,6 +94,7 @@ describe('aoCriar do loft abre o diálogo "Seções da massa"', () => {
   });
 
   it('ligarMassa liga o callback na ferramenta de massa e devolve a mesma ferramenta', () => {
+    porPerfis();
     editor.setTool('mass');
     const tool = editor.activeTool;
     expect(tool).toBeInstanceOf(MassTool);
@@ -101,6 +107,7 @@ describe('aoCriar do loft abre o diálogo "Seções da massa"', () => {
 
   it('o controlador liga o callback ao ativar a ferramenta (sem ninguém chamar ligarMassa)', () => {
     editor.setTool('select');
+    porPerfis();
     editor.setTool('mass');
     const tool = editor.activeTool;
     expect(tool instanceof MassTool && tool.aoCriar !== null).toBe(true);

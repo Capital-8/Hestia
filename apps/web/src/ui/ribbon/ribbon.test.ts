@@ -33,11 +33,11 @@ describe('faixa guiada por dados', () => {
     }
   });
 
-  it('pilha tem no máximo 3 botões pequenos e só folhas', () => {
+  it('pilha tem no máximo 3 botões pequenos (4 só nas pilhas de botões de 16 px da massa) e só folhas', () => {
     for (const p of allPanels()) {
       for (const it of p.items) {
         if (it.kind !== 'stack') continue;
-        expect(it.items.length, p.id).toBeLessThanOrEqual(3);
+        expect(it.items.length, p.id).toBeLessThanOrEqual(p.id.startsWith('mas-') ? 4 : 3);
         for (const s of it.items) expect(['tool', 'action', 'soon', 'option']).toContain(s.kind);
       }
     }
