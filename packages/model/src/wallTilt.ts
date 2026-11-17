@@ -1,5 +1,5 @@
 import { t, type Lang } from './i18n.ts';
-import { wallThicknessOf } from './wallType.ts';
+import { isCurtainType, wallThicknessOf } from './wallType.ts';
 import type { Project, Wall } from './types.ts';
 
 /** Limite da inclinação de parede, em graus a partir da vertical. */
@@ -38,6 +38,8 @@ export function wallTiltIssue(p: Project, w: WallTiltInput, tilt: number, lang: 
   if (tilt === 0) return null;
   if (w.topProfile) return t(lang, 'md_cmd_tilt_top_profile');
   const s = Math.abs(w.sag);
+  // Parede cortina inclinada: só reta (a grade e os painéis são resolvidos num plano; o arco inclinado seria um cone).
+  if (s > 1e-9 && isCurtainType(p.wallTypes[w.typeId])) return t(lang, 'md_cmd_tilt_curtain_arc');
   if (s <= 1e-9) return null;
   const type = p.wallTypes[w.typeId];
   if (!type) return null;
