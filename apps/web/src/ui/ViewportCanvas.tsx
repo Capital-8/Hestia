@@ -159,6 +159,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
   const previewState = useUi((s) => s.pastePreview);
+  /** Cursor "não permitido": a ferramenta ativa não tem alvo sob o ponteiro. Só re-renderiza quando muda. */
+  const [semAlvo, setSemAlvo] = useState(false);
   const frame = useRef(0);
   const dprRef = useRef(1);
   const planFrame = useRef<PlanFrame | null>(null);
@@ -668,7 +670,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const sectionHandleDrag = useRef<{ handle: SectionHandle } | null>(null);
   const sectionHandlePreview = useRef<number | null>(null);
   /** Alça de cota do corte em arraste e o ponto atual (prévia ao vivo; só grava ao soltar). */
-  const sectionDimDrag = useRef<{ grip: SectionDimensionGrip; at: Pt } | null>(null);
+  const sectionDimDrag = useRef<{ grip: SectionDimensionGrip; at: Pt; start: Pt } | null>(null);
   /** Último clique sem arrasto da Selecionar, para o duplo clique em cota. */
   const ultimoCliqueSel = useRef<CliqueAnterior | null>(null);
   /** Down adiado até a vista existir (D1): `load`/`newProject` limpam o mapa de viewports até o quadro seguinte. */
@@ -879,7 +881,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         const w = screenToWorld(vNow, s);
         const grip = sectionDimensionGripAt(editor.project, stNow.sectionId, stNow.selection, w, 8 / vNow.zoom, 10 / vNow.zoom, editor.viewScale());
         if (grip) {
-          sectionDimDrag.current = { grip, at: w };
+          sectionDimDrag.current = { grip, at: w, start: s };
           drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
           if (paneState().hover) useUi.setState({ hover: null });
           useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
@@ -1001,6 +1003,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         const inf = info(e, s);
         editor.pointer(d.moved ? 'drag' : 'move', inf);
+        marcaSemAlvo();
         // A barra de status também acompanha o corte: as coordenadas já vêm em (t,z) e o tipo de snap é o da inferência.
         useUi.setState({ cursor: inf.raw, snapKind: editor.activeTool.inference()?.kind ?? '' });
         d.last = s;
@@ -1011,7 +1014,10 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         // a prévia e a barra de status acompanharem o cursor mesmo entre cliques (como na planta).
         const inf = editor.viewport() ? info(e, s) : null;
         const ferramentaAtiva = editor.activeTool.id !== 'select';
-        if (inf && ferramentaAtiva) editor.pointer('move', inf);
+        if (inf && ferramentaAtiva) {
+          editor.pointer('move', inf);
+          marcaSemAlvo();
+        }
         if (inf) useUi.setState({ cursor: inf.raw, snapKind: ferramentaAtiva ? (editor.activeTool.inference()?.kind ?? '') : '' });
         if (!ferramentaAtiva) hoverSectionAt(s);
         // Cursor de alça sobre a alça da cota selecionada (o resto do tempo, a seta da Selecionar).
@@ -1048,6 +1054,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     if (d.mode === 'tool') {
       if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
       editor.pointer(d.moved ? 'drag' : 'move', inf);
+      marcaSemAlvo();
       d.last = s;
     } else {
       editor.pointer('move', inf);
@@ -1060,11 +1067,13 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const s = local(e);
     pointers.current.delete(e.pointerId);
     if (sectionDimDrag.current) {
-      const { grip } = sectionDimDrag.current;
+      const { grip, start } = sectionDimDrag.current;
       sectionDimDrag.current = null;
       const v = editor.viewport();
       const sid = paneState().sectionId;
-      const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
+      // Corpo da cota: clique sem arrasto (até 4 px) só seleciona, não grava nada.
+      const clique = grip.body === true && Math.hypot(s.x - start.x, s.y - start.y) <= 4;
+      const cmd = v && sid && !clique ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
       if (cmd) {
         editor.applyCommand(cmd);
         const msg = grip.kind === 'noteText' ? t('cvv_note_moved') : grip.kind === 'text' ? t('cvv_dim_text_moved') : t('cvv_dim_offset_updated');
@@ -1245,7 +1254,15 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   };
 
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
-  const onLeave = (): void => { if (isActiveRef.current && ['3d', 'section'].includes(paneState().view) && paneState().hover) useUi.setState({ hover: null }); };
+  const onLeave = (): void => {
+    if (isActiveRef.current && ['3d', 'section'].includes(paneState().view) && paneState().hover) useUi.setState({ hover: null });
+    setSemAlvo(false);
+  };
+  /** Lê do ponteiro da ferramenta ativa se ela recusa o cursor (sem alvo): o cursor vira "não permitido" (cursor.ts). */
+  const marcaSemAlvo = (): void => {
+    const recusa = editor.activeTool.blocked?.() === true;
+    if (recusa !== semAlvo) setSemAlvo(recusa);
+  };
 
   // Uma única política para as três vistas (cursor.ts): Selecionar é sempre a seta, a mão só existe durante pan/orbit,
   // alças do corte pedem o eixo e as ferramentas de desenho usam texto/mover/mira.
@@ -1258,6 +1275,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode,
     moved: drag.current.moved,
     handle: handleAxis,
+    // A ferramenta confere no próprio render: uma troca de ferramenta não deixa o "não permitido" para trás.
+    blocked: semAlvo && editor.activeTool.blocked?.() === true,
   });
   return (
     <div

@@ -9,6 +9,7 @@ import { OrbitCamera, cameraBasis } from './orbit.ts';
 import { firstSurfaceDistance, prepararPicking } from './pick3d.ts';
 import { faixaDaNevoa } from './nevoa3d.ts';
 import { caixasEPrismasDaAbertura, montarAbertura, montarAberturaDoModelo } from './aberturas3d.ts';
+import { materialNoProjeto } from './glassAppearance.ts';
 import { arestasDaSilhuetaDeCaixas } from './silhuetaCaixas3d.ts';
 import { arestasDosLotes, genericosAcimaDoOrcamento, geometriaDoLote, juntarLotes, loteDeGeometria } from './lotesMalha3d.ts';
 import { SombrasDaCena, SOMBRA_MAX_TRIANGULOS, prepararSombraDoQuadro, type FaixaDeSombra } from './sombras3d.ts';
@@ -291,7 +292,7 @@ export class ModelScene {
     this.sombraMaxTriangulos = opcoes.sombraMaxTriangulos ?? SOMBRA_MAX_TRIANGULOS;
     this.lotes = new LotesPorFaixa({
       caixaUnitaria: this.caixaUnitaria,
-      material: (categoria, materialId, extras) => this.mats.face(extras ?? this.projeto?.materials[materialId], categoria),
+      material: (categoria, materialId, extras) => this.mats.face(extras ?? (this.projeto ? materialNoProjeto(this.projeto.materials, materialId) : undefined), categoria),
       materialArestas: () => this.mats.edge(),
       niveisPorFaixa: opcoes.niveisPorFaixa,
       faixasMax: opcoes.faixasMax,
@@ -616,12 +617,12 @@ export class ModelScene {
         for (const c of a.caixas) caixas.adicionar(o.kind, c.materialId, o.id, c.matriz, false);
         for (const pr of a.prismas) {
           prismas.push(loteDeGeometria(pr.geometry, pr.materialId, o.kind, o.id));
-          this.mats.face(p.materials[pr.materialId], o.kind);
+          this.mats.face(materialNoProjeto(p.materials, pr.materialId), o.kind);
         }
       }
     }
     const novasColecoes = caixas.colecoes();
-    for (const c of novasColecoes) this.mats.face(p.materials[c.materialId], c.categoria);
+    for (const c of novasColecoes) this.mats.face(materialNoProjeto(p.materials, c.materialId), c.categoria);
     this.mats.noNivel = matsAnt;
     // Troca: tira das coleções as caixas dos elementos e acrescenta as novas.
     interface Grupo {
@@ -880,7 +881,7 @@ export class ModelScene {
       if (this.ocultos.has(e.wallId)) continue;
       const m = montarAberturaDoModelo(p, e.opening, e.geometria, e.baseZ, modeloDaEsquadriaCortina(p, e), view, linhas, (parent, geo, mat, cat, edges, ranges) => this.draw(parent, geo, mat, cat, edges, ranges));
       if (!m) continue;
-      this.desenharLotes(m.grupo, m.lotes, linhas, (id) => p.materials[id], m.arestasGrupos);
+      this.desenharLotes(m.grupo, m.lotes, linhas, (id) => materialNoProjeto(p.materials, id), m.arestasGrupos);
       m.grupo.traverse((c) => {
         c.userData.elementId = e.id;
       });
@@ -1316,7 +1317,7 @@ export class ModelScene {
       const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id));
       if (revEstrutural.length) arestasDe(revEstrutural);
     }
-    const materialOf = (id: Id): Material | undefined => p.materials[id] ?? eave.materials[id];
+    const materialOf = (id: Id): Material | undefined => materialNoProjeto(p.materials, id) ?? eave.materials[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os
     // lotes globais por categoria/material (o gestor de GPU os junta e atualiza por faixa).
     const lotes: LoteSolido[] = [];
@@ -1362,7 +1363,7 @@ export class ModelScene {
             const lote = loteDeGeometria(pr.geometry, pr.materialId, o.kind, o.id);
             lotes.push(lote);
             if (!linhas) prismasSemArestas.add(lote);
-            this.mats.face(p.materials[pr.materialId], o.kind);
+            this.mats.face(materialNoProjeto(p.materials, pr.materialId), o.kind);
           }
           for (const matrizes of grupos.values()) caixas.adicionarArestas(arestasDaSilhuetaDeCaixas(matrizes));
           continue;
@@ -1398,7 +1399,7 @@ export class ModelScene {
     let arestasSolidas: Float32Array | undefined;
     let arestas: Float32Array | undefined;
     if (this.instanciar) {
-      for (const c of montadas?.colecoes ?? []) this.mats.face(p.materials[c.materialId], c.categoria);
+      for (const c of montadas?.colecoes ?? []) this.mats.face(materialNoProjeto(p.materials, c.materialId), c.categoria);
       if (this.frame.edges) {
         this.mats.edge();
         if (lotes.length) {

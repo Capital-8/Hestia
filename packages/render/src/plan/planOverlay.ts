@@ -1,6 +1,6 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingBandRing, openingGeometry, resolveAngularDimension, resolveCeilings, wallEndCorners, type ResolvedLevel } from '@hestia/engine';
-import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project } from '@hestia/model';
+import { dimensionStyleOf, angularDimensionGeometry, dimensionGeometry, dimensionPoints, dimensionText, DIM_TEXT_MM, isCad, isGeneric, isOpening, isWall, levelRoomSeparators, unitsOf, type Id, type Project, detailLinePoints } from '@hestia/model';
 import { floorSelectionOps } from './floors.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { slabSelectionOps } from './slabs.ts';
@@ -177,7 +177,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
     const bloco = textBlockModel({ text: dimensionText(p, d, unitsOf(p)), height: textMm }, scale);
     caixa(g.textAt, bloco.w, bloco.h, g.textRotation);
   }
-  for (const l of annotations.detailLines) if (sel.has(l.id)) out.strokes.push({ pts: [l.a, l.b], closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
+  for (const l of annotations.detailLines) if (sel.has(l.id)) out.strokes.push({ pts: detailLinePoints(l), closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
   for (const r of annotations.detailRegions) if (sel.has(r.id)) out.strokes.push({ pts: r.boundary, closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
   for (const s of levelRoomSeparators(p, levelId)) if (sel.has(s.id)) out.strokes.push({ pts: [s.a, s.b], closed: false, widthPx: 2, color: REVEAL, alpha: 1 });
   return out;

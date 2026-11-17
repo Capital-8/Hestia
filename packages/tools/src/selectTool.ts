@@ -31,7 +31,7 @@ import { refuseMoveOverlap } from './wallOverlapGuard.ts';
 import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, type GripFocus, type GripHold } from './selectGrips.ts';
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
-import { annotationAt, annotationIdsInBox, detailItemAt, dimGripAt, dimTextGripAt, elementTagGripAt, overlayAnnotationAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, spotGripAt, symbolGripAt, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { annotationAt, annotationIdsInBox, detailItemAt, dimBodyAt, dimGripAt, dimTextGripAt, elementTagGripAt, overlayAnnotationAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, spotGripAt, symbolGripAt, textAtAcompanhando, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
@@ -80,6 +80,9 @@ export class SelectTool extends ToolBase {
   private openingId: Id | null = null;
   /** Alça de deslocamento da cota selecionada (decisão 0019) e o deslocamento que ela assume ao soltar. */
   private dimGrip: Id | null = null;
+  /** Arrasto pelo corpo da cota: só vale depois de passar da folga de 4 px (o clique simples não altera a cota). */
+  private dimBody = false;
+  private dimBodyMoved = false;
   private dimOffset: number | null = null;
   private dimTextGrip: Id | null = null;
   private dimTextAt: Vec2 | null = null;
@@ -167,6 +170,8 @@ export class SelectTool extends ToolBase {
 
   protected reset(): void {
     this.mode = 'idle';
+    this.dimBody = false;
+    this.dimBodyMoved = false;
     this.items = [];
     this.hold = null;
     this.delta = { x: 0, y: 0 };
@@ -437,9 +442,18 @@ export class SelectTool extends ToolBase {
       return;
     }
     const dt = dimTextGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    this.dimBody = false;
+    this.dimBodyMoved = false;
     if (dt) { this.dimTextGrip = dt; this.dimTextAt = null; this.mode = 'dimtext'; return; }
     const dg = dimGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
     if (dg) { this.dimGrip = dg; this.dimOffset = null; this.mode = 'dimgrip'; return; }
+    // Corpo da cota já selecionada: texto => como a alça do texto; linha/extensões => como a alça do afastamento.
+    const body = dimBodyAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
+    if (body) {
+      this.dimBody = true;
+      if (body.part === 'text') { this.dimTextGrip = body.id; this.dimTextAt = null; this.mode = 'dimtext'; } else { this.dimGrip = body.id; this.dimOffset = null; this.mode = 'dimgrip'; }
+      return;
+    }
     const tg = textGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
     if (tg) { this.textGrip = tg; this.textAt = null; this.mode = 'textmove'; return; }
     const etg = elementTagGripAt(pr, this.env.levelId(), sel, p.raw, mpp, planId);
@@ -480,6 +494,10 @@ export class SelectTool extends ToolBase {
     if (this.mode === 'pending' && moved) this.mode = 'window';
     // Defesa extra: a planta de área nunca chega a `moving` (o `down` não entra em `dragwait` para modelo).
     if (this.mode === 'dragwait' && moved && !this.somenteLeitura) this.mode = 'moving';
+    if (this.dimBody && (this.mode === 'dimgrip' || this.mode === 'dimtext')) {
+      if (moved) this.dimBodyMoved = true;
+      if (!this.dimBodyMoved) return;
+    }
     this.items = [];
     if (this.mode === 'dimgrip') this.dragDimGrip(p);
     if (this.mode === 'dimtext') {
@@ -582,7 +600,13 @@ export class SelectTool extends ToolBase {
       }
       case 'dimgrip': {
         const planId = this.planId();
-        if (this.dimGrip && this.dimOffset !== null) this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimGrip, patch: { offset: this.dimOffset }, ...(planId ? { planId } : {}) });
+        if (this.dimGrip && this.dimOffset !== null) {
+          // O texto puxado pelo usuário (`textAt`) acompanha o afastamento, no MESMO comando (um só desfazer).
+          const d = viewAnnotationsOf(pr, this.env.levelId(), planId).dimensions.find((x) => x.id === this.dimGrip);
+          const pts = d && !d.angular ? dimensionPoints(pr, d) : null;
+          const ta = pts && d ? textAtAcompanhando(pts.a, pts.b, d.offset, this.dimOffset, d.textAt) : undefined;
+          this.env.exec({ type: 'updateDimension', levelId: this.env.levelId(), id: this.dimGrip, patch: ta ? { offset: this.dimOffset, textAt: ta } : { offset: this.dimOffset }, ...(planId ? { planId } : {}) });
+        }
         break;
       }
       case 'dimtext': {

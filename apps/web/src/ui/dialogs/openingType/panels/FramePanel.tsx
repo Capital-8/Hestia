@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { OPENING_FRAME_DEFAULTS, type OpeningFrameDepthMode } from '@hestia/model';
+import { OPENING_FRAME_DEFAULTS, type OpeningFrameDepthMode, type OpeningType } from '@hestia/model';
 import { NumField } from '../../../fields.tsx';
 import { useT, type Dict } from '../../../../editor/i18n.ts';
 import { setRevealDepth } from '../openingTypeControls.ts';
@@ -12,15 +12,17 @@ const MODOS: ReadonlyArray<readonly [OpeningFrameDepthMode, keyof Dict]> = [
 ];
 
 /** Batente: estilo, perfil, profundidade (e como ela se liga à parede) e material. */
-export function FramePanel({ d, onChange, materials }: PanelProps): ReactElement {
+export function FramePanel({ d, onChange, materials, travados }: PanelProps): ReactElement {
   const { t } = useT();
+  const avisoTravado = (campo: keyof OpeningType): string | undefined => (travados?.has(campo) ? t('dlo_h_defined_by_composition') : undefined);
+  const estiloTravado = travados?.has('frameStyle') ?? false;
   const k = usePanelKit(d, onChange);
   const modo = d.frameDepthMode ?? 'wall';
   return (
     <>
       <div className="field-row">
-        <label htmlFor="op-frame">{t('dlo_f_frame_style')}</label>
-        <select id="op-frame" className="select" value={k.frameStyle} onChange={(e) => k.setField('frameStyle', e.target.value, k.frameFallback)}>
+        <label htmlFor="op-frame" title={avisoTravado('frameStyle')}>{t('dlo_f_frame_style')}</label>
+        <select id="op-frame" className="select" value={k.frameStyle} disabled={estiloTravado} title={avisoTravado('frameStyle')} onChange={(e) => k.setField('frameStyle', e.target.value, k.frameFallback)}>
           {FIELD_FRAME.map(([v, labelKey]) => <option key={v} value={v}>{t(labelKey)}</option>)}
         </select>
       </div>
@@ -42,7 +44,7 @@ export function FramePanel({ d, onChange, materials }: PanelProps): ReactElement
       {modo !== 'wall' ? (
         <div className="field-row"><label htmlFor="op-reveal" title={t('dlo_f_frame_reveal_tip')}>{t('dlo_f_frame_reveal')}</label><NumField id="op-reveal" value={d.reveal?.depth ?? 0} quantity="smallLength" min={0} onCommit={(v) => onChange(setRevealDepth(d, v))} /></div>
       ) : null}
-      <MaterialSelect id="op-mat" labelKey="dlo_f_frame_material" value={d.frameMaterialId} materials={materials} onPick={(id) => k.set({ frameMaterialId: id })} />
+      <MaterialSelect id="op-mat" labelKey="dlo_f_frame_material" value={d.frameMaterialId} materials={materials} travado={travados?.has('frameMaterialId')} onPick={(id) => k.set({ frameMaterialId: id })} />
     </>
   );
 }

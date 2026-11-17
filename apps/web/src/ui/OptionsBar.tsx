@@ -7,8 +7,8 @@ import { type Dict, type Lang, t, toolLabel, useT } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
 import { Check, NumField } from './fields.tsx';
+import { DetailShapeFields, WallShapeFields } from './ShapeOptionFields.tsx';
 import { useUnits } from './useUnits.ts';
-import { wallModeOf } from './wallModes.ts';
 import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { DisjoinCheck } from './DisjoinCheck.tsx';
 import { SlabOptionsBar } from './SlabOptionsBar.tsx';
@@ -36,31 +36,7 @@ export function WallTiltField({ o, set }: { o: ToolOptions; set: (patch: Partial
   );
 }
 
-/**
- * Ajustes do modo de parede que pedem número: lados do polígono (3 a 64) e tolerância do ajuste a arcos da elipse e da
- * spline (1 a 50 mm; o padrão 5 mm vale como 0,005 m). Exportado para os testes.
- */
-export function WallShapeFields({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement | null {
-  const { t } = useT();
-  const modo = wallModeOf(o);
-  if (modo === 'polygonIn' || modo === 'polygonOut') {
-    return (
-      <label>
-        {t('pro_poly_sides')}
-        <NumField id="opt-poly-sides" value={o.wallPolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ wallPolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
-      </label>
-    );
-  }
-  if (modo === 'ellipse' || modo === 'spline') {
-    return (
-      <label>
-        {t('pro_fit_tol')}
-        <NumField id="opt-fit-tol" value={o.wallFitTol ?? 0.005} quantity="smallLength" min={0.001} onCommit={(v) => set({ wallFitTol: Math.min(0.05, Math.max(0.001, v)) })} />
-      </label>
-    );
-  }
-  return null;
-}
+export { WallShapeFields } from './ShapeOptionFields.tsx';
 
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -314,6 +290,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'filledRegion' && <Check id="opt-region-mask" checked={o.regionMask === true} onChange={(v) => set({ regionMask: v })}>{t('pro_region_mask')}</Check>}
       {tool === 'filledRegion' && <label>{t('pro_color')}<input className="input" type="color" value={o.regionColor ?? '#f5d782'} onChange={(e) => set({ regionColor: e.target.value })} /></label>}
       {tool === 'detailLine' && <label>{t('pro_line_style')}<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">{t('pro_line_solid')}</option><option value="dashed">{t('pro_line_dashed')}</option><option value="dotted">{t('pro_line_dotted')}</option></select></label>}
+      {tool === 'detailLine' && <DetailShapeFields o={o} set={set} />}
       {tool === 'tag' && (
         <>
           <label>{t('tg_fld_family')}<select className="select" value={o.tagFamilyId ?? defaultTagFamilyIdOf(p.settings)} onChange={(e) => set({ tagFamilyId: e.target.value })}>{tagFamiliesOf(p.settings, lang).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>

@@ -1,8 +1,8 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote, detailLinePoints } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
-import { quadradoEm } from './marcadores.ts';
+import { ALCA_PX, poligonoEm, quadradoEm, tracoEm } from './marcadores.ts';
 import { revisionCloudOps, spotAnnotationOps, symbolAnnotationOps } from './extraAnnotations.ts';
 import { elementTagOps, noteLabel } from './tags.ts';
 import { drawDimension, layoutDimensions, type DimItem } from './dimDraw.ts';
@@ -39,6 +39,8 @@ const MOLDURA_MM = 0.35;
 const SELECAO_MM = 0.8;
 /** Meio lado da alça quadrada do texto, em pixels de tela (o ponto de ancoragem é `text.at`). */
 const ALCA_TEXTO_PX = 4;
+/** Meio lado do losango da alça de texto da cota selecionada, em pixels de tela (o quadrado de afastamento usa `ALCA_PX`). */
+const ALCA_LOSANGO_PX = 6;
 /** Espessura das linhas da cota em destaque (hover/seleção) em relação à normal. */
 const DIM_ESTADO_FATOR = 1.5;
 /** Alfa do realce leve sob o cursor (o preenchimento não esconde o desenho de trás). */
@@ -300,7 +302,7 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
   }
   for (const line of detailLines) {
     const selected = picked(line.id);
-    out.strokes.push({ pts: [line.a, line.b], closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
+    out.strokes.push({ pts: detailLinePoints(line), closed: false, ...(selected ? espessuraVezes(projecao, 1.7) : projecao), color: selected ? look.select : color, alpha: 1, dash: line.style === 'dashed' ? [7, 4] : line.style === 'dotted' ? [1, 3] : undefined });
   }
   for (const region of detailRegions) {
     const ink = picked(region.id) ? look.select : color;
@@ -339,6 +341,37 @@ export function noteOps(p: Project, levelId: Id, pt: PlanPaint, look: NoteLook, 
     out.strokes.push(...sy.strokes);
     out.labels.push(...sy.labels);
   }
+  return out;
+}
+
+/**
+ * Alças da cota selecionada (uma só, linear): quadrado no meio da linha (afastamento) e losango no texto, em pixels de
+ * tela. Compartilhada pela planta (`annotationHighlightOps`) e pelo corte/elevação (`sectionAnnotationOps`), para que as
+ * duas vistas desenhem a mesma alça. Os raios que pegam a alça (`DIM_GRIP_PX`, `DIM_TEXT_GRIP_PX` em tools) são maiores
+ * que estes desenhos. Sem cota única linear na seleção, nada é desenhado.
+ */
+export function alcasDaCotaSelecionadaOps(
+  p: Project,
+  levelId: Id,
+  scale: number,
+  look: Pick<NoteLook, 'select' | 'dimStyle'>,
+  selected: ReadonlySet<Id>,
+  annotations: AreaPlanAnnotations,
+  v?: Viewport,
+): NoteOps {
+  const out: NoteOps = { fills: [], strokes: [], labels: [] };
+  const cotaUnica = selected.size === 1 ? annotations.dimensions.find((d) => selected.has(d.id) && !d.angular) : undefined;
+  if (!cotaUnica) return out;
+  const l = layoutDimensions(dimensionItems(p, levelId, annotations.dimensions, look.dimStyle), { scale, style: look.dimStyle, v }).find((x) => x.item.d.id === cotaUnica.id);
+  if (!l?.g) return out;
+  const [ini, fim] = l.g.line;
+  const meio = { x: (ini!.x + fim!.x) / 2, y: (ini!.y + fim!.y) / 2 };
+  const q = quadradoEm(meio, ALCA_PX);
+  out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
+  out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
+  const losango = [{ x: 0, y: -ALCA_LOSANGO_PX }, { x: ALCA_LOSANGO_PX, y: 0 }, { x: 0, y: ALCA_LOSANGO_PX }, { x: -ALCA_LOSANGO_PX, y: 0 }];
+  out.fills.push({ ...poligonoEm(l.textAt, losango), color: '#ffffff', alpha: 1 });
+  out.strokes.push({ ...tracoEm(l.textAt, losango, true), widthPx: 1.5, color: look.select, alpha: 1 });
   return out;
 }
 
@@ -388,6 +421,9 @@ export function annotationHighlightOps(
     out.fills.push({ ...q.fill, color: '#ffffff', alpha: 1 });
     out.strokes.push({ ...q.traco, widthPx: 1.5, color: look.select, alpha: 1 });
   }
+  const alcas = alcasDaCotaSelecionadaOps(p, levelId, scale, look, selected, a, v);
+  out.fills.push(...alcas.fills);
+  out.strokes.push(...alcas.strokes);
   // Cotas: o hover destaca a cota INTEIRA (linha, chamadas, marcadores e texto) na cor de realce, mais grossa, e cerca o
   // valor com o realce leve; a cota selecionada já sai na cor de seleção em `noteOps`. A disposição é a de `noteOps`.
   if (a.dimensions.some((d) => hover === d.id && !selected.has(d.id))) {

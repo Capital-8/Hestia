@@ -1,3 +1,4 @@
+import type { OpeningGlassKind } from '@hestia/model';
 /**
  * Modelo único da esquadria (docs/aberturas/E-spec-modelo-unico.md). Planta, corte, elevação, 3D e prévia do diálogo
  * desenham as MESMAS peças; nenhuma vista recalcula posição de batente, folha, vidro ou maçaneta por conta própria.
@@ -93,6 +94,8 @@ export interface OpeningPart {
   leaf?: number;
   /** Desenhar tracejada (peça oculta/abaixo/acima): cavidade de embutir, trilho, projeção do portão. */
   dashed?: boolean;
+  /** Tipo de vidro da peça de vidro (`role` 'glass'): simples = o do tipo; composição = o da célula. Ausente = incolor. */
+  glassKind?: OpeningGlassKind;
 }
 
 /** Como a folha se abre, para as linhas de abertura (V) e o arco de giro. */

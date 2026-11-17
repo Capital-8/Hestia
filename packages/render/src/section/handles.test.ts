@@ -109,6 +109,12 @@ describe('seleção de anotações de seção (pickSectionAnnotation)', () => {
     expect(pickSectionAnnotation(a, v(4.6, 2), 0.01)).toBeNull();
   });
 
+  it('linha de detalhe em arco: acerta o meio do arco e nao a corda', () => {
+    const a: SectionAnnotations = { dimensions: [], texts: [], detailRegions: [], tags: [], detailLines: [{ id: 'arc', a: v(0, 0), b: v(2, 0), sag: 1 }] };
+    expect(pickSectionAnnotation(a, v(1, 1), 0.05)).toEqual({ id: 'arc', kind: 'detailLine' });
+    expect(pickSectionAnnotation(a, v(1, 0), 0.05)).toBeNull();
+  });
+
   it('linha e região de detalhe: segmento e interior/borda', () => {
     const a = anotacoes();
     expect(pickSectionAnnotation(a, v(1, 3.05), 0.1)).toEqual({ id: 'ln1', kind: 'detailLine' });
@@ -189,5 +195,27 @@ describe('cota do corte: tolerância separada do texto e alças (pickSectionDime
     expect(pickSectionDimensionGrip(a, [], v(1, 4.5), 0.06)).toBeNull();
     expect(pickSectionDimensionGrip(a, ['d', 'outra'], v(1, 4.5), 0.06)).toBeNull();
     expect(pickSectionDimensionGrip(a, ['outra'], v(1, 4.5), 0.06)).toBeNull();
+  });
+});
+
+describe('cota do corte: corpo da cota selecionada arrasta como a alça do afastamento', () => {
+  const base = (extra: Record<string, unknown> = {}): SectionAnnotations => ({
+    dimensions: [{ id: 'd', a: v(0, 4), b: v(2, 4), offset: 0.5, ...extra }],
+    texts: [],
+    detailLines: [],
+    detailRegions: [],
+    tags: [],
+  });
+
+  it('ponto da linha de cota fora do meio e da extensão: grip offset com body', () => {
+    // Linha em z = 4,5, de x = 0 a 2; (0,3; 4,5) está na linha e longe do meio (1; 4,5) e do texto.
+    expect(pickSectionDimensionGrip(base(), ['d'], v(0.3, 4.5), 0.06, 0.1)).toEqual({ id: 'd', kind: 'offset', at: v(1, 4.5), body: true });
+    // Extensão em x = 0, de z = 4 a 4,5: ponto (0; 4,25).
+    expect(pickSectionDimensionGrip(base(), ['d'], v(0, 4.25), 0.06, 0.1)?.body).toBe(true);
+  });
+
+  it('cota travada não ganha o corpo; longe da cota continua sem alça', () => {
+    expect(pickSectionDimensionGrip(base({ locked: true }), ['d'], v(0.3, 4.5), 0.06, 0.1)).toBeNull();
+    expect(pickSectionDimensionGrip(base(), ['d'], v(0.3, 6), 0.06, 0.1)).toBeNull();
   });
 });

@@ -34,12 +34,12 @@ export function buildSidelights(c: Ctx): void {
   const z1 = c.t.kind === 'window' ? windowLayout(c).z1 : c.transom ? Math.min(c.H - c.J, c.H - c.J - c.transom.height - TRANSOM_BAR) : c.H - c.J;
   const body = { s0: c.Cd - c.D / 2, s1: c.Cd + c.D / 2 };
   if (s.left) {
-    addPart(c, 'sidelight-glass-left', 'glass', 'glass', box(base.t0, base.t0 + s.width, c.Cd - c.G / 2, c.Cd + c.G / 2, z0, z1));
+    addPart(c, 'sidelight-glass-left', 'glass', 'glass', box(base.t0, base.t0 + s.width, c.Cd - c.G / 2, c.Cd + c.G / 2, z0, z1), { glassKind: c.t.glassKind });
     const m0 = base.t0 + s.width;
     addPart(c, 'sidelight-mullion-left', 'leaf', 'frame', box(m0, m0 + SIDELIGHT_MULLION, body.s0, body.s1, z0, z1));
   }
   if (s.right) {
-    addPart(c, 'sidelight-glass-right', 'glass', 'glass', box(base.t1 - s.width, base.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, z0, z1));
+    addPart(c, 'sidelight-glass-right', 'glass', 'glass', box(base.t1 - s.width, base.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, z0, z1), { glassKind: c.t.glassKind });
     const m1 = base.t1 - s.width;
     addPart(c, 'sidelight-mullion-right', 'leaf', 'frame', box(m1 - SIDELIGHT_MULLION, m1, body.s0, body.s1, z0, z1));
   }
@@ -59,7 +59,7 @@ export function buildWindowTransom(c: Ctx): void {
   const { barZ0, barZ1, bandZ0, bandZ1, fixed } = l.transom;
   addPart(c, 'transom-bar', 'muntin', 'frame', box(l.fullT0, l.fullT1, body.s0, body.s1, barZ0, barZ1));
   if (fixed) {
-    addPart(c, 'transom-glass', 'glass', 'glass', box(l.fullT0, l.fullT1, c.Cd - c.G / 2, c.Cd + c.G / 2, bandZ0, bandZ1));
+    addPart(c, 'transom-glass', 'glass', 'glass', box(l.fullT0, l.fullT1, c.Cd - c.G / 2, c.Cd + c.G / 2, bandZ0, bandZ1), { glassKind: c.t.glassKind });
     return;
   }
   // Bandeira maxim-ar: folha pequena com folga em volta, girando no topo para o lado da abertura.
@@ -99,7 +99,7 @@ export function buildTransom(c: Ctx): void {
   const barZ0 = c.H - c.J - tr.height - TRANSOM_BAR;
   const barZ1 = c.H - c.J - tr.height;
   addPart(c, 'transom-bar', 'leaf', 'leaf', box(inner.t0, inner.t1, c.Cd - c.L / 2, c.Cd + c.L / 2, barZ0, barZ1));
-  addPart(c, 'transom-glass', 'glass', 'glass', box(inner.t0, inner.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, barZ1, c.H - c.J));
+  addPart(c, 'transom-glass', 'glass', 'glass', box(inner.t0, inner.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, barZ1, c.H - c.J), { glassKind: c.t.glassKind });
 }
 
 /** Peitoril saliente de janela: projeta além das duas faces, abaixo do vão. */

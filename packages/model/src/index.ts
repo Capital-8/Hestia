@@ -1,4 +1,5 @@
 export * from './types.ts';
+export * from './detailLineGeom.ts';
 export * from './dxfLayerStyle.ts';
 export * from './cad.ts';
 export * from './priority.ts';
@@ -64,6 +65,7 @@ export * from './graphicsCommands.ts';
 export * from './level.ts';
 export * from './elementLevel.ts';
 export * from './opening.ts';
+export * from './openingReveal.ts';
 export * from './openingTypeLibrary.ts';
 export * from './openingExtras.ts';
 export * from './openingNominal.ts';

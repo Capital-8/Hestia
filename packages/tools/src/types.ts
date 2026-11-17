@@ -297,6 +297,8 @@ export interface ToolOptions {
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
   detailLineShape?: WallDrawShape;
+  /** Lados do polígono da linha de detalhe (3..64; padrão 6). */
+  detailLinePolygonSides?: number;
   columnTypeId?: Id;
   columnMode?: 'vertical' | 'slanted';
   columnDepthMode?: 'depth' | 'height';
@@ -433,6 +435,8 @@ export interface Tool {
   drag?(p: PointerInfo): void;
   up?(p: PointerInfo): void;
   preview(): PreviewItem[];
+  /** Cursor "não permitido": verdadeiro quando o clique agora não grava nada (sem alvo válido). Ausente = nunca. */
+  blocked?(): boolean;
   /** Recalcula a prévia no último ponteiro (ex.: o resultado do corte foi publicado depois da última passada). */
   refreshPreviewAtPointer?(): void;
   /** Cotas dinâmicas da prévia (sistema único de cotas); ausente = a ferramenta não mostra cotas ao desenhar. */
