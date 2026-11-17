@@ -5,6 +5,7 @@ import { formatQuantity, isRoof, unitSymbol, unitsOf, view3dOf, type DetailLevel
 import { ARC_TURN_DEG } from '@hestia/tools/src/roofGeom.ts';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoSuperficie } from './materialPlan.ts';
 import { fmtArea, labelPoint, outlineSelectionOps, SURFACE_TEXT_MM, type FloorOps } from './floors.ts';
 import { poligonoEm, tracoEm } from './marcadores.ts';
 import { slopeArrow } from './slabs.ts';
@@ -76,7 +77,7 @@ export function roofFillBase(p: Project, r: ResolvedRoof, theme: PlanTheme, dark
   const top = topLayer(r);
   const m = top ? p.materials[top.materialId] : undefined;
   // Sem cor no material do tipo, a água cai no token de telha (terracota), e não no cinza padrão.
-  const matColor = m?.color?.trim() || theme.roofTile;
+  const matColor = (m ? corPadraoSuperficie(m, { dark, detail: 'medium' }).fundo : '').trim() || theme.roofTile;
   // Pouca mistura com o papel: a água deve ler na cor do material (o telhado é o assunto da vista), e não num tom lavado.
   return surfaceColor(matColor, dark ? theme.bg : '#ffffff', dark ? 0.2 : 0.25, paint);
 }
@@ -301,7 +302,8 @@ export function roofOps(roofs: ResolvedRoof[], p: Project, theme: PlanTheme, dar
     const base = roofFillBase(p, r, theme, dark, paint);
     // Hachura discreta, mas visível: o tom por água continua sendo o que diferencia as superfícies. O zoom mínimo vai
     // para o shader (`zoomMin`) e a geometria não muda com o zoom (o `resolverZoom` faz o mesmo no caminho CPU).
-    const hatch = m && m.hatch !== 'none' && !coarse ? { kind: m.hatch, color: mix(base, dark ? '#ffffff' : '#000000', 0.35), alpha: 0.26, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
+    const cp = corPadraoSuperficie(m, { dark, detail, baseMisturaPadrao: base, misturaPadrao: 0.35 });
+    const hatch = cp.padrao ? { ...cp.padrao, alpha: 0.26, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
     const aresta = corDaAresta(base);
     for (const pl of r.planes) out.fills.push({ polygons: pl.polygon, color: tomDaAgua(base, pl.up, pl.percent, sunAzimuth), alpha, hatch });
     const model = p.elements[r.roofId];

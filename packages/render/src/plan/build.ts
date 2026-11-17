@@ -1,12 +1,13 @@
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
-import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Opening, type Project } from '@hestia/model';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import type { Inference, PreviewItem } from '@hestia/tools';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoCorte } from './materialPlan.ts';
 import { thinStrokes } from './thin.ts';
 import { gridStrokes } from './grid.ts';
 import { gridOps } from './grids.ts';
@@ -139,12 +140,13 @@ const zoomDaEspessura = (emMetros: number, px: number): number => (emMetros > 0 
  * espessura equivalente. Com a hachura procedural, o zoom mínimo vai para o shader (`zoomMin`) e a geometria não muda com
  * o zoom: o fragmento some abaixo dele, e o `resolverZoom` faz o mesmo no caminho CPU.
  */
-function hachuraDaRegiao(m: Material | undefined, espessura: number, fine: boolean, color: string): FillOp['hatch'] {
-  if (!m || m.hatch === 'none') return undefined;
-  if (fine) return { kind: m.hatch, color };
+function hachuraDaRegiao(padrao: { kind: HatchKind; color: string } | undefined, espessura: number, fine: boolean): FillOp['hatch'] {
+  if (!padrao) return undefined;
+  const { kind, color } = padrao;
+  if (fine) return { kind, color };
   const zoomMin = Math.max(40, zoomDaEspessura(espessura, 5));
   if (!(zoomMin <= ZOOM_MAXIMO)) return undefined;
-  return { kind: m.hatch, color, zoomMin };
+  return { kind, color, zoomMin };
 }
 
 /**
@@ -406,10 +408,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         const regions = detail === 'coarse' ? [] : c.regions;
         for (const r of regions) {
           const m = p.materials[r.materialId];
-          const color = surfaceColor(m?.color ?? '#999999', fillBase, fillT, paint.wall);
+          const cp = corPadraoCorte(m, { dark: input.dark, detail, paint: paint.wall });
+          const color = surfaceColor(cp.fundo, fillBase, fillT, paint.wall);
           const polys = r.polygons;
           const thick = Math.max(0, ...polys.map((poly) => espessuraEquivalente(poly)));
-          const hatch = hachuraDaRegiao(m, thick, fine, mix(paint.wall.color ?? m?.color ?? '#999999', input.dark ? '#ffffff' : '#000000', 0.45));
+          const hatch = hachuraDaRegiao(cp.padrao, thick, fine);
           wallOps.fills.push({ polygons: polys, color, alpha: 1, hatch });
           // Linhas de interface entre materiais: só onde cabem sem virar mancha (fino: sempre). Linhas finas: peso de projeção.
           // O traço leva o zoom a partir do qual cabe (`zoomMin`) e o shader o esconde abaixo dele: a geometria não muda com o zoom.
