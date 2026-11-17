@@ -83,7 +83,7 @@ describe('paredes inclinadas da massa: comando', () => {
     s.exec(comandoDerivarParedes(s.project, args));
     const w = paredes(s.project)[0]!;
     const tipoAbertura = Object.keys(s.project.openingTypes)[0]!;
-    s.exec({ type: 'addOpening', opening: { kind: 'door', id: 'porta1', typeId: tipoAbertura, hostId: w.id, offset: 1, flipped: false, mirrored: false, sillHeight: 0 } as never });
+    s.exec({ type: 'addOpening', opening: { kind: 'door', id: 'porta1', typeId: tipoAbertura, hostId: w.id, offset: 1, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
     expect(aberturasDasParedesDaMassa(s.project, 'm1', [terreo])).toEqual(['porta1']);
     expect(aberturasDasParedesDaMassa(s.project, 'm1', [])).toEqual([]);
     s.exec(comandoDerivarParedes(s.project, args));
