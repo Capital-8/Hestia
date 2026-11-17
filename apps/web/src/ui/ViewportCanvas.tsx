@@ -660,10 +660,10 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       ...idsNaCaixaDoCorte(result, wa, wb, hidden),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
       ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
-      // Terreno: as linhas do kernel (solo cortado, perfil existente e silhueta), com a mesma regra de janela e cruzamento.
-      ...terrenosNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden, v.zoom),
       // Massa também é do kernel (consulta 143), fora do resultado do corte: mesma caixa.
       ...massasNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
+      // Terreno: as linhas do kernel (solo cortado, perfil existente e silhueta), com a mesma regra de janela e cruzamento.
+      ...terrenosNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden, v.zoom),
       // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
       ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
     ];
