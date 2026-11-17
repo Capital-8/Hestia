@@ -1,5 +1,6 @@
-import { pickGuardaCorpoNoCorte, pickMassaNoCorte, pickSection, pickSectionAnnotation, screenToWorld, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
-import { sectionAnnotationsOf } from '@hestia/model';
+import type { SectionResult } from '@hestia/engine';
+import { pickGuardaCorpoNoCorte, pickMassaNoCorte, pickSection, pickSectionAnnotation, pickTerrenoNoCorte, screenToWorld, sectionStyleOf, type SectionAnnotationPick, type SectionPick } from '@hestia/render';
+import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { anotacoesSemOcultas } from './viewAnnotations.ts';
@@ -19,6 +20,16 @@ export interface ScreenPt {
 
 /** Alvo sob o cursor no corte: um elemento (parede, abertura...) ou uma anotação da vista (cota, texto, detalhe, etiqueta). */
 export type SectionHit = SectionPick | SectionAnnotationPick;
+
+/**
+ * Terreno sob o ponto (s, z) do corte ou da elevação: o solo cortado vale no interior e na borda; o perfil existente e a silhueta, pela distância à
+ * linha (`TOLERANCE_PX` convertido pelo zoom). As linhas vêm do kernel (`servicoTerreno().corte`); a categoria `site` desligada ou o terreno oculto não
+ * é alvo. O elemento do edifício tem prioridade (quem chama só pergunta pelo terreno quando não achou um).
+ */
+export function terrenoNoPontoDoCorte(p: Project, result: SectionResult, hidden: ReadonlySet<Id> | undefined, zoom: number, point: { x: number; y: number }): SectionPick | null {
+  const id = pickTerrenoNoCorte(p, result, hidden, sectionStyleOf(p, zoom).paint.site, point, TOLERANCE_PX / zoom);
+  return id ? { id, kind: 'site' } : null;
+}
 
 /**
  * Alvo sob o ponto da tela na vista de corte ou elevação aberta (decisão 0016). Anotações da vista (cotas, textos,
@@ -44,7 +55,10 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   // Massa (ficha V3): o contorno cortado ou projetado do kernel é a região clicável; oculta ou categoria desligada não é alvo.
   const massa = pickMassaNoCorte(editor.project, result, hidden, point, TOLERANCE_PX / v.zoom);
   if (massa) return { id: massa, kind: 'mass' };
-  return pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
+  const elemento = pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
+  if (elemento) return elemento;
+  // O terreno fica atrás do edifício: só vale quando nenhum elemento foi achado.
+  return terrenoNoPontoDoCorte(editor.project, result, hidden, v.zoom, point);
 }
 
 let frame = 0;

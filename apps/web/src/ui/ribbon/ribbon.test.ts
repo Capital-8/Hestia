@@ -33,11 +33,11 @@ describe('faixa guiada por dados', () => {
     }
   });
 
-  it('pilha tem no máximo 3 botões pequenos e só folhas', () => {
+  it('pilha tem no máximo 3 botões pequenos (4 só nas pilhas de botões de 16 px da massa) e só folhas', () => {
     for (const p of allPanels()) {
       for (const it of p.items) {
         if (it.kind !== 'stack') continue;
-        expect(it.items.length, p.id).toBeLessThanOrEqual(3);
+        expect(it.items.length, p.id).toBeLessThanOrEqual(p.id.startsWith('mas-') ? 4 : 3);
         for (const s of it.items) expect(['tool', 'action', 'soon', 'option']).toContain(s.kind);
       }
     }
@@ -56,7 +56,8 @@ describe('faixa guiada por dados', () => {
     // Pendente: o modo de perímetro não tem botão de criação na faixa (abre por `perimeterActions.begin`).
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
     // A ferramenta de suplemento ('plugin') é aberta pelos botões que o próprio suplemento contribui (aba Suplementos).
-    const pendente = ['perimeter', 'paste', 'plugin'] as const;
+    // `terrainEdit` entra pelo botão "Editar terreno" (ação `editTerreno`: grava `terrenoEdicao` e depois liga a ferramenta; ver ribbonTerreno.test.ts).
+    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit'] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);

@@ -10,6 +10,7 @@ const TITLE_KEY: Record<SketchTarget, keyof Dict> = {
   floor: 'pro_pm_title_floor',
   slab: 'pro_pm_title_slab',
   ceiling: 'pro_pm_title_ceiling',
+  mass: 'pro_pm_title_mass',
 };
 
 /** Chave do nome da ferramenta: barra de opções e aba "Modificar | …". */
@@ -18,6 +19,7 @@ const TOOL_KEY: Record<SketchTarget, keyof Dict> = {
   floor: 'pro_pm_tool_floor',
   slab: 'pro_pm_tool_slab',
   ceiling: 'pro_pm_tool_ceiling',
+  mass: 'pro_pm_tool_mass',
 };
 
 /** O que Concluir grava, para o rótulo do botão ("grava o telhado"). */
@@ -26,6 +28,7 @@ const SAVES_KEY: Record<SketchTarget, keyof Dict> = {
   floor: 'pro_pm_saves_floor',
   slab: 'pro_pm_saves_slab',
   ceiling: 'pro_pm_saves_ceiling',
+  mass: 'pro_pm_saves_mass',
 };
 
 const ISSUE_KEY: Record<SketchIssueCode, keyof Dict> = {

@@ -40,11 +40,11 @@ export const PERIMETER_SHAPES: readonly ShapeDef[] = [
   { id: 'fillet', label: t('pt', SHAPE_KEY.fillet), isNew: true, icon: <path className="ic-s1" d="M5 28V14A9 9 0 0 1 14 5H28" /> },
   { id: 'ellipse', label: t('pt', SHAPE_KEY.ellipse), isNew: true, icon: <ellipse className="ic-s1" cx="16" cy="16" rx="13" ry="8" /> },
   {
-    id: 'pick-face', label: t('pt', SHAPE_KEY['pick-face']), isNew: true,
+    id: 'pick-face', label: t('pt', SHAPE_KEY['pick-face']), isNew: true, targets: ['roof', 'floor', 'slab', 'ceiling'],
     icon: <><path className="ic-ln" d="M4 8H28V24H4Z" /><path className="ic-s1" d="M4 8H28" /><path className="ic-ac" d="M20 14L28 28L24 22L18 24Z" /></>,
   },
   {
-    id: 'by-perimeter', label: t('pt', SHAPE_KEY['by-perimeter']), isNew: true,
+    id: 'by-perimeter', label: t('pt', SHAPE_KEY['by-perimeter']), isNew: true, targets: ['roof', 'floor', 'slab', 'ceiling'],
     icon: <><path className="ic-ln" d="M3 3H29V29H3Z" strokeDasharray="3 2" /><path className="ic-s1" d="M8 9H24V16H20V23H8Z" /></>,
   },
   {
@@ -68,13 +68,15 @@ export interface PerimeterRibbonProps {
   onShape: (shape: PerimeterShape) => void;
   onFinish: () => void;
   onCancel: () => void;
+  /** "Unir formas": as formas fechadas e sobrepostas viram um contorno só. */
+  onUnite: () => void;
 }
 
 /**
  * Painéis "Modo" (Concluir/Cancelar) e "Desenhar" (linha de limite, seta de inclinação só no telhado, e a galeria de
  * formas em caixa com rolagem). Vêm na aba contextual: ver `perimeterContextTab`.
  */
-export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify, onLineKind, onShape, onFinish, onCancel }: PerimeterRibbonProps): ReactElement {
+export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify, onLineKind, onShape, onFinish, onCancel, onUnite }: PerimeterRibbonProps): ReactElement {
   const { t, lang } = useT();
   const roof = target === 'roof';
   const kind: PerimeterLineKind = roof ? lineKind : 'boundary';
@@ -119,6 +121,13 @@ export function PerimeterRibbonPanels({ target, result, lineKind, shape, modify,
                 <span className="rb-lbl">{t('pro_pm_slope_arrow')}</span>
               </button>
             )}
+            <button className="rb-btn rb-small" id="pm-unite" title={t('pro_pm_unite_title')} aria-label={t('pro_pm_unite')} onClick={onUnite}>
+              <Ic size={16}>
+                <circle className="ic-s1" cx="12" cy="16" r="9" />
+                <circle className="ic-s1" cx="21" cy="16" r="9" />
+              </Ic>
+              <span className="rb-lbl">{t('pro_pm_unite')}</span>
+            </button>
           </div>
           <ShapeGallery shapes={perimeterShapesFor(target)} selected={modify ? null : shape} onSelect={onShape} />
         </div>

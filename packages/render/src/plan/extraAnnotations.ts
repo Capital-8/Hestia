@@ -1,4 +1,6 @@
 import {
+  coordenadaReal,
+  cotaExibida,
   formatQuantity,
   northArrowFamilyFor,
   revisionCloudFamilyFor,
@@ -87,7 +89,9 @@ export function spotAnnotationOps(
           ? (p.settings.projectBasePoint?.z ?? 0)
           : levelElev;
       const zWorld = look.isSection ? spot.target.y : levelElev;
-      const valText = `${fam.prefix}${formatMeasure(p, zWorld - baseZ, fam.unit, fam.precision)}`;
+      // Com localização e base de projeto, a cota é a EXIBIDA (z + cota zero real); sem ela, a conta de sempre.
+      const medida = fam.base === 'project' && p.localizacao !== undefined ? cotaExibida(p, zWorld) : zWorld - baseZ;
+      const valText = `${fam.prefix}${formatMeasure(p, medida, fam.unit, fam.precision)}`;
 
       if (look.isSection) {
         // Símbolo técnico NBR 6492 / Revit em corte: triângulo invertido apoiado na linha horizontal.
@@ -131,7 +135,12 @@ export function spotAnnotationOps(
       // Coordenada de ponto (N/E) relativa ao Ponto Base, Levantamento (com rotação do Norte Verdadeiro) ou Origem.
       let dx = spot.target.x;
       let dy = spot.target.y;
-      if (fam.base === 'project' && p.settings.projectBasePoint) {
+      if (fam.base === 'project' && p.localizacao !== undefined) {
+        // Com localização, N/E são os REAIS (origem + rotação pelo norte verdadeiro); o ponto base do projeto não entra.
+        const real = coordenadaReal(p, spot.target);
+        dx = real.leste;
+        dy = real.norte;
+      } else if (fam.base === 'project' && p.settings.projectBasePoint) {
         dx -= p.settings.projectBasePoint.x;
         dy -= p.settings.projectBasePoint.y;
       } else if (fam.base === 'survey' && p.settings.surveyPoint) {

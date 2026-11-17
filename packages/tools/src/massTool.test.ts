@@ -410,3 +410,17 @@ describe('ferramenta Massa: opções da barra (options.mass, ficha E11)', () => 
     expect(t.altura).toBe(9);
   });
 });
+
+describe('ferramenta Massa: cota absoluta da base', () => {
+  it('cotaBase 7 sobre o nível lv_0 (elevação 0) grava baseOffset 7; sem cotaBase, 0', () => {
+    const { store, t } = criar();
+    t.cotaBase = 7;
+    clickAt(t, 0, 0);
+    clickAt(t, 2, 0);
+    expect(massas(store)[0]!.baseOffset).toBe(7);
+    t.cotaBase = null;
+    clickAt(t, 10, 0);
+    clickAt(t, 12, 0);
+    expect(massas(store)[1]!.baseOffset).toBe(0);
+  });
+});

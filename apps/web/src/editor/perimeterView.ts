@@ -46,7 +46,7 @@ export function formaDaFerramenta(f: FerramentaForma | null): PerimeterShape {
 export const formaDaTela = (f: PerimeterShape): FerramentaForma => PARA_FERRAMENTA[f];
 
 /** Alvo do perímetro para a ferramenta da faixa, ou null se a ferramenta não abre o modo. */
-const ALVO_DA_FERRAMENTA: Partial<Record<ToolId, SketchTarget>> = { roof: 'roof', floor: 'floor', slab: 'slab', ceiling: 'ceiling' };
+const ALVO_DA_FERRAMENTA: Partial<Record<ToolId, SketchTarget>> = { roof: 'roof', floor: 'floor', slab: 'slab', ceiling: 'ceiling', mass: 'mass' };
 export const alvoDaFerramenta = (id: ToolId): SketchTarget | null => ALVO_DA_FERRAMENTA[id] ?? null;
 
 /**

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
-import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, temTerreno, type MalhaTerreno, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
+import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -23,6 +23,7 @@ import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { MoveisDaCena } from './furnitureCena.ts';
 import type { OpcoesMoveis } from './furnitureSolids.ts';
+import { bordaTracejadaDeReserva, chaveDoTerreno, fonteDoServicoTerreno, materialDeCorTN, regioesPorTerreno, solidosDoTerreno, terrenosDoProjeto, type FonteTerreno } from './terreno3d.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
@@ -185,6 +186,18 @@ interface EntradaGuardaCorpo {
   readonly mats: string[];
 }
 
+/** Terreno 3D (um grupo por terreno, com chave própria; ver `atualizarTerreno`). */
+interface EntradaTerreno {
+  readonly terrenoId: Id;
+  readonly chave: string;
+  readonly grupo: THREE.Group;
+  readonly picks: PickSource[];
+  readonly mats: string[];
+}
+
+/** Acima disto (índices de um terreno) as arestas do estilo de linhas não são desenhadas: a malha densa vira uma mancha preta. */
+const ARESTAS_TERRENO_MAX_INDICES = 60_000;
+
 /** Cena 3D do modelo: paredes e pisos por camada com material, esquadrias, luz e chão. */
 export class ModelScene {
   readonly scene = new THREE.Scene();
@@ -253,6 +266,10 @@ export class ModelScene {
   private guardaCorpoNaCena: EntradaGuardaCorpo[] = [];
   /** Lote 3D das paredes cortina (instâncias do kernel), um grupo por nível, com chave própria por hash das cortinas. */
   private cortinaNaCena: EntradaCortina[] = [];
+  /** Terrenos (malha do kernel, categoria `site`), um grupo por terreno: editar um terreno só refaz o grupo dele. */
+  private terrenoNaCena: EntradaTerreno[] = [];
+  /** Fonte da malha do terreno (o serviço do kernel; os testes trocam). */
+  fonteTerreno: FonteTerreno = fonteDoServicoTerreno;
   /** Lote 3D das massas, um grupo por nível, com chave de geometria e chave de cor próprias; o cache de peças por massa fica em `massas`. */
   private massaNaCena: EntradaMassa[] = [];
   private readonly massas = new CacheDeMassas3d();
@@ -365,7 +382,7 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks), ...this.massaNaCena.flatMap((g) => g.picks)];
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks), ...this.massaNaCena.flatMap((g) => g.picks), ...this.terrenoNaCena.flatMap((g) => g.picks)];
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -490,6 +507,7 @@ export class ModelScene {
     for (const e of atuais) this.model.add(e.grupo);
     this.atualizarGuardaCorpo(p, opt, levels);
     this.atualizarCortina(p, opt, levels);
+    this.atualizarTerreno(p, levels, opt);
     this.atualizarMassa(p, opt, levels);
     if (this.instanciar) {
       const wireframe = view.style === 'wireframe';
@@ -541,6 +559,7 @@ export class ModelScene {
     this.ground.visible = view.style !== 'wireframe';
     this.ground.receiveShadow = this.frame.shadows;
     this.scene.background = bg;
+    // Faixa da névoa pela câmera e pela caixa da cena (cobre também o terreno grande, que é enquadrado a centenas de metros).
     const nevoa = faixaDaNevoa(this.orbit.camera.position, this.caixaEnquadramento);
     this.scene.fog = new THREE.Fog(bg, nevoa.near, nevoa.far);
     this.sun.castShadow = this.frame.shadows;
@@ -742,6 +761,7 @@ export class ModelScene {
     for (const e of this.cenaNiveis) this.model.add(e.grupo);
     for (const g of this.guardaCorpoNaCena) this.model.add(g.grupo);
     for (const g of this.cortinaNaCena) this.model.add(g.grupo);
+    for (const g of this.terrenoNaCena) this.model.add(g.grupo);
     for (const g of this.massaNaCena) this.model.add(g.grupo);
     const res = this.lotes.atualizar(this.cenaNiveis, { instanciar: true, arestas: this.frame.edges, sombras: this.frame.shadows }, true);
     for (const m of res.solidas) this.model.add(m);
@@ -903,6 +923,81 @@ export class ModelScene {
   }
 
   private liberarCortina(g: EntradaCortina): void {
+    g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
+    for (const s of g.picks) s.geo.dispose();
+  }
+
+  /**
+   * Terreno 3D (PLANO A.8 item 6): um grupo por terreno, com a chave de `chaveDoTerreno` (fontes, regiões, material e vista). Editar um terreno só refaz o grupo dele;
+   * se todos os terrenos casam com o cache, a malha nem é pedida. A malha vem do kernel (superfície proposta, saia e base); sem kernel (ou com o kernel recusando os
+   * dados) desenha só a borda tracejada de reserva. Categoria `site` desligada, terreno oculto ou nível fora da cena: some.
+   */
+  private atualizarTerreno(p: Project, levels: readonly ResolvedLevel[], opt: Scene3DOptions): void {
+    const anteriores = new Map(this.terrenoNaCena.map((g) => [g.terrenoId, g] as const));
+    const atuais: EntradaTerreno[] = [];
+    const view = this.frame.view;
+    if (view.overrides.site.visible && temTerreno(p)) {
+      const fonte = this.fonteTerreno;
+      const marca = JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, view.overrides.site, fonte.pronto() ? 'k1' : 'k0']);
+      const nivelDe = new Set(levels.map((l) => l.levelId));
+      const regioes = regioesPorTerreno(p);
+      const regiaoOculta = (id: Id): boolean => this.ocultos.has(id);
+      let malhas: Map<Id, MalhaTerreno> | null | undefined;
+      for (const t of terrenosDoProjeto(p)) {
+        if (!nivelDe.has(t.levelId) || this.ocultos.has(t.id)) continue;
+        const regs = regioes.get(t.id) ?? [];
+        const chave = chaveDoTerreno(p, t, regs, marca, regiaoOculta);
+        const velha = anteriores.get(t.id);
+        if (velha?.chave === chave) {
+          for (const k of velha.mats) this.mats.used.add(k);
+          atuais.push(velha);
+          anteriores.delete(t.id);
+          continue;
+        }
+        if (malhas === undefined) malhas = fonte.pronto() ? this.malhasPorTerreno(fonte.malha(p)) : null;
+        atuais.push(this.montarTerreno(p, t, regs, malhas?.get(t.id) ?? null, malhas === null, chave, regiaoOculta));
+      }
+    }
+    this.terrenoNaCena = atuais;
+    for (const g of anteriores.values()) this.liberarTerreno(g);
+    for (const g of atuais) this.model.add(g.grupo);
+  }
+
+  private malhasPorTerreno(m: MalhaTerreno[] | null): Map<Id, MalhaTerreno> | null {
+    return m ? new Map(m.map((x) => [x.terrenoId, x] as const)) : null;
+  }
+
+  private montarTerreno(p: Project, t: Terrain, regs: readonly TerrainRegion[], malha: MalhaTerreno | null, semKernel: boolean, chave: string, regiaoOculta: (id: Id) => boolean): EntradaTerreno {
+    const grupo = new THREE.Group();
+    grupo.userData = { levelId: t.levelId, terrenoId: t.id };
+    const picks: PickSource[] = [];
+    const mats = new Set<string>();
+    if (malha) {
+      const lotes = solidosDoTerreno(p, t, regs, malha, regiaoOculta);
+      const picksAnt = this.picks;
+      const matsAnt = this.mats.noNivel;
+      this.picks = picks;
+      this.mats.noNivel = mats;
+      const indices = lotes.reduce((s, b) => s + b.indices.length, 0);
+      this.desenharLotes(grupo, lotes, this.frame.edges && indices <= ARESTAS_TERRENO_MAX_INDICES, (id) => p.materials[id] ?? materialDeCorTN(id));
+      this.picks = picksAnt;
+      this.mats.noNivel = matsAnt;
+    } else if (semKernel) {
+      const seg = bordaTracejadaDeReserva(t);
+      if (seg) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(seg, 3));
+        const chaveMat = `terreno-reserva|${this.frame.dark}`;
+        mats.add(chaveMat);
+        const linhas = new THREE.LineSegments(g, this.mats.cached(chaveMat, () => new THREE.LineBasicMaterial({ color: this.frame.dark ? 0xc9b98a : 0x7a6a44 })));
+        linhas.userData = { terrenoReserva: true, terrenoId: t.id };
+        grupo.add(linhas);
+      }
+    }
+    return { terrenoId: t.id, chave, grupo, picks, mats: [...mats] };
+  }
+
+  private liberarTerreno(g: EntradaTerreno): void {
     g.grupo.traverse((o) => (o as { geometry?: THREE.BufferGeometry }).geometry?.dispose());
     for (const s of g.picks) s.geo.dispose();
   }
@@ -1558,6 +1653,8 @@ export class ModelScene {
     this.massas.limpar();
     for (const g of this.cortinaNaCena) this.liberarCortina(g);
     this.cortinaNaCena = [];
+    for (const g of this.terrenoNaCena) this.liberarTerreno(g);
+    this.terrenoNaCena = [];
     this.grupoRealceCortina = [];
     this.realceCortina.dispose();
     this.realceSub.dispose();

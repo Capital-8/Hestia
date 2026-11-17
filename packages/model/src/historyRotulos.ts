@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // Rótulo do passo de desfazer de cada comando (o texto que o Desfazer/Refazer mostra). Um rótulo por tipo de comando; o `never` do
 // fim faz um comando novo sem rótulo não compilar.
 import type { Command } from './commands.ts';
@@ -351,6 +352,26 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Excluir perfil de norma';
     case 'setNormaGuardaCorpo':
       return 'Escolher norma do projeto';
+    case 'addTerrain':
+      return 'Adicionar terreno';
+    case 'updateTerrain':
+      return 'Editar terreno';
+    case 'editTerrainFontes':
+      return 'Editar pontos e curvas do terreno';
+    case 'addTerrainRegion':
+      return 'Adicionar região de terreno';
+    case 'updateTerrainRegion':
+      return 'Editar região de terreno';
+    case 'setTerrainRegionContorno':
+      return 'Editar contorno da região de terreno';
+    case 'addLot':
+      return 'Adicionar lote';
+    case 'updateLot':
+      return 'Editar lote';
+    case 'setLotContorno':
+      return 'Editar contorno do lote';
+    case 'setLocalizacao':
+      return 'Definir localização do projeto';
     case 'addMass':
       return 'Adicionar massa';
     case 'updateMass':

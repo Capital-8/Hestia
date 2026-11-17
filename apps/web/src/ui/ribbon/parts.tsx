@@ -201,7 +201,9 @@ function Split({ item, ctx, lang }: { item: Extract<RibbonItem, { kind: 'split' 
 
 export function ItemView({ item, ctx, lang }: { item: RibbonItem; ctx: RibbonCtx; lang: Lang }): ReactElement {
   if (item.kind === 'stack') {
-    return <div className="rb-stack">{item.items.slice(0, 3).map((it, i) => <ItemView key={i} item={it} ctx={ctx} lang={lang} />)}</div>;
+    // Até 3 botões por coluna; 4 cabem na faixa (84 px) com a variante `rb-stack-4`, de botões mais baixos (16 px).
+    const itens = item.items.slice(0, 4);
+    return <div className={itens.length > 3 ? 'rb-stack rb-stack-4' : 'rb-stack'}>{itens.map((it, i) => <ItemView key={i} item={it} ctx={ctx} lang={lang} />)}</div>;
   }
   if (item.kind === 'split') return <Split item={item} ctx={ctx} lang={lang} />;
   return <Leaf item={item} ctx={ctx} lang={lang} />;

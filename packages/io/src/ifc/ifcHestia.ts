@@ -63,6 +63,10 @@ const PRODUCT_PREFIXES: Record<Element['kind'], readonly string[]> = {
   stair: ['stair'],
   ramp: ['ramp'],
   railing: ['railing'],
+  // Terreno, região e lote: a saída IFC do terreno é a ficha X1; lote e região não saem no IFC na v1 (A.7).
+  terrain: [],
+  terrainRegion: [],
+  lot: [],
   // A massa conceitual sai como `IFCBUILDINGELEMENTPROXY` (ficha X1, `ifcMassa.ts`); sem kernel não há produto e o pset não é escrito.
   mass: ['mass'],
   room: ['space', 'room', 'ifcspace'],

@@ -99,6 +99,36 @@ pub mod cortina_quant;
 pub mod cortina_remap;
 pub mod cortina_tipos;
 pub mod secoes_cortina;
+pub mod secoes_terreno;
+// Terreno (PLANO do terreno, fase 1).
+pub mod terreno_avalia;
+pub mod terreno_avisos;
+pub mod terreno_corte;
+pub mod terreno_curvas;
+#[cfg(test)]
+mod terreno_fixture;
+pub mod terreno_malha;
+pub mod terreno_planta;
+pub mod terreno_proposta;
+pub mod terreno_quant;
+pub mod terreno_regioes;
+#[cfg(test)]
+mod terreno_testes;
+#[cfg(test)]
+mod terreno_testes_corte;
+#[cfg(test)]
+mod terreno_testes_curvas;
+#[cfg(test)]
+mod terreno_testes_fuzz;
+#[cfg(test)]
+mod terreno_testes_regioes;
+#[cfg(test)]
+mod terreno_testes_regioes_fuzz;
+#[cfg(test)]
+mod terreno_testes_talude;
+pub mod terreno_tin;
+pub mod terreno_tipos;
+pub mod terreno_volumes;
 pub mod massa_avisos;
 pub mod massa_corte;
 pub mod massa_fatia;

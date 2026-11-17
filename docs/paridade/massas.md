@@ -100,7 +100,9 @@ Nenhum item `[ ]` está pendente: o que ficou de fora está em `[-]`, com o moti
 
 ## Derivação (massa vira projeto)
 - [x] G1 Pisos da massa: um piso ou laje por componente conexo e por nível, contorno estático simplificado (5 mm), `origemMassa`, um desfazer, rodar de novo substitui — `packages/engine/src/massaDerivaPisos.test.ts`, `packages/model/src/massDerivaCommands.test.ts`, `tests/kernel-massa-pisos.wasm.test.ts`
-- [x] G2 Paredes da massa: cadeia fechada de paredes retas (5 cm, segmento mínimo 0,40 m), do nível ao próximo ou ao topo, nota de face inclinada — `packages/engine/src/massaDerivaParedes.test.ts`, `packages/model/src/massDerivaParedesCommands.test.ts`, `tests/kernel-massa-paredes.wasm.test.ts`
+- [x] G2 Paredes da massa: cadeia fechada de paredes (5 cm, segmento mínimo 0,40 m), do nível ao próximo ou ao topo; extrusão reta = paredes verticais; torção, loft e bulbo = paredes retas INCLINADAS por passo de altura (tilt pelo contorno da fatia de cima, desvio medido, passos por tolerância ou por nível), `finishExterior`, alvenaria ou cortina de vidro, tipo por fachada, gerar uma vez e travar — `packages/engine/src/massaParedesTorcidas.test.ts`, `packages/engine/src/massaDerivaParedes.test.ts`, `packages/model/src/massDerivaParedesCommands.test.ts`, `packages/model/src/massDerivaParedesInclinadasCommands.test.ts`, `tests/kernel-massa-paredes.wasm.test.ts`, `tests/kernel-massa-paredes-torcidas.wasm.test.ts`, `tests/kernel-massa-paredes-juncoes.wasm.test.ts`, `tests/e2e/massa-paredes-torcidas.mjs`
+- [~] G2b Cortina de vidro inclinada (só reta; altura inclinada ao kernel e malha 3D girada em TS): planta, corte, junção de topo/canto com vizinhas e esquadrias de célula seguem verticais — `packages/engine/src/cortinaInclinada.test.ts`, `tests/kernel-cortina-inclinada.wasm.test.ts`
+- [-] G2c Superfície exata da face torcida (não plana): a parede reta só a aproxima; o desvio medido vai de 3,9 cm (M3, 16 passos por andar) a 62,6 cm (1 passo por andar); junção inclinada do bulbo com faces curtas e muito inclinadas cai no plano B do motor (38 avisos em 480 paredes)
 - [x] G3 Pisos e paredes na torre torcida pela interface, com Ctrl+Z e Ctrl+Y — `tests/e2e/massa.mjs` (passo 6)
 - [x] G4 Copiar piso, laje ou parede gerados remove `origemMassa` (E16, E17) — `packages/model/src/massDerivaParedesCommands.test.ts`, `packages/model/src/transformPlanar.test.ts`
 - [-] G5 Vínculo automático massa → piso/parede (mudar a massa muda o piso): fora de escopo (A.9); o comando se roda de novo
@@ -126,3 +128,20 @@ Nenhum item `[ ]` está pendente: o que ficou de fora está em `[-]`, com o moti
 - [x] A8 E2E no navegador, sem erro de console — `tests/e2e/massa.mjs`, `tests/e2e/massa-ui.mjs`, `tests/e2e/massa-visual.mjs`
 - [x] A9 `massa_planta` sem kernel e com kernel desligado em tempo de execução: o app recusa abrir projeto sem o kernel no build de produção; o caminho "sem kernel" só existe no modo de desenvolvimento (`?kernel=ts`), onde `tests/e2e/massa.mjs` (passo 7b) o prova
 - [-] A10 Teste de desempenho em máquina de referência fixa: os limites são o dobro do alvo e valem para a máquina de quem roda; os tempos medidos ficam no relatório da ficha Q1
+
+## Cotas, caixa de formas, união por TR e botões (frente massa-forma-livre)
+- [x] F1 Cada botão da aba Massa e terreno ligado à massa tem efeito provado por dados (ferramenta, campos da massa, categoria, `origemMassa`, motivo do desativado) — `tests/e2e/massa-botoes.mjs`
+- [x] F2 Tecla C fecha o contorno livre (massa, lote, guarda-corpo, terreno): a letra não entrava no campo numérico — `apps/web/src/editor/massaFechaComC.test.ts`
+- [x] F3 Cota da base e do topo ABSOLUTAS, altura editável e "de nível a nível", no painel e na barra de criação — `apps/web/src/ui/massCotas.test.ts`, `tests/e2e/massa-forma-livre.mjs`
+- [x] F4 Massa como 5º alvo do esboço (`SketchTarget 'mass'`): galeria de formas, TR, validação e Concluir criam a massa livre — `packages/tools/src/perimeterCommitMass.test.ts`, `tests/e2e/massa-forma-livre.mjs`
+- [x] F5 União de formas: retângulo + círculo sobrepostos, TR forma a forma, Excluir da aresta interna, Concluir (1 contorno, área e volume conferidos) — `tests/e2e/massa-forma-livre.mjs`
+- [x] F6 Editar contorno da massa (botão no painel, menu de contexto e "Editar perímetro" da faixa), conserva cotas e altura — `packages/tools/src/perimeterCommitMass.test.ts`, `tests/e2e/massa-forma-livre.mjs`
+- [x] F7 Os 4 modos da faixa empilhados numa coluna; nenhum painel cortado em 1760 px — `tests/e2e/massa-botoes.mjs` (passo 12)
+- [-] F8 Furos no esboço da massa: recusados com mensagem (o perfil da seção não tem furos; o formato salvo e as fixtures M1 a M5 ficam intactos)
+- [-] F9 Mistura, loft e bulbo seguem pela ferramenta de perfis (círculo, elipse, polígono, livre); o 2º perfil pela galeria não foi feito
+- [-] F10 Duplo clique para editar o contorno: não existe para piso nem laje; vale o botão, o menu de contexto e a faixa
+- [-] F11 Botão "Unir formas" automático: a união se faz por TR (como no piso); a união 2D (`uniaoDeAneis`) segue só para os pisos da massa
+- [x] F12 Campo "Lados" para polígono inscrito e circunscrito (2º clique conclui) em todos os alvos do esboço — `packages/tools/src/perimeterTool.test.ts`, `tests/e2e/massa-uniao.mjs`
+- [x] F13 Botão "Unir formas" (massa, piso, laje, forro, telhado): une formas fechadas sobrepostas num contorno, desfazer em 1 passo — `packages/tools/src/perimeterUnite.test.ts`, `tests/e2e/massa-uniao.mjs`
+- [-] F14 União preserva arcos: não (cordas de 2 mm); Concluir não une sozinho
+

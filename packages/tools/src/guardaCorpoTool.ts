@@ -82,6 +82,8 @@ export function removerGuardaCorpoDeHospedeiro(env: Pick<ToolEnv, 'project' | 'e
  */
 export class GuardaCorpoTool extends ToolBase {
   readonly id = 'railing';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Guarda-corpo';
   override get hint(): string {
     return this.t('tl_hint_railing');

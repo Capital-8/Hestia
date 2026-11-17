@@ -2,6 +2,7 @@ import { DXF_LINE_WEIGHTS, DXF_LINE_WEIGHT_DEFAULT, type DxfLayerStyle, type Gra
 import { DXF_LAYER_COTAS, DXF_LAYER_DETALHE, DXF_LAYER_ETIQUETAS, DXF_LAYER_TEXTOS, dxfTextEntity, type DxfNoteText, type DxfNotes } from './dxfNotes.ts';
 import { writeDxf2000, type DxfDoc, type DxfDocEntity, type DxfDocLayer, type DxfLineType, type DxfUnit } from './dxfDoc.ts';
 import { DXF_LAYER_GENERIC } from './dxfGeneric.ts';
+import { DXF_LAYER_LOTE, DXF_LAYER_LOTE_EDIFICAVEL, DXF_LAYER_TERRENO_BORDA, DXF_LAYER_TERRENO_CURVAS, DXF_LAYER_TERRENO_CURVAS_MESTRAS, DXF_LAYER_TERRENO_REGIAO, type DxfTerrenoPath } from './dxfPlantaTerreno.ts';
 import { DXF_LAYER_BEAM, DXF_LAYER_COLUMN, DXF_LAYER_FOOTING, structuralDxfShapes } from './dxfStructural.ts';
 import { DXF_LAYER_MASS, type DxfMassPath } from './dxfMassa.ts';
 import { dxfLayerCanonical, dxfLayerName, dxfLayerPrefix, t, type Lang } from './i18n.ts';
@@ -150,6 +151,11 @@ export interface DxfLevelGeometry {
    * camada `CORTINA-*` sai. Presente, mesmo vazio, = as quatro camadas entram na tabela LAYER (a `CORTINA-ESQUADRIA` fica vazia até a fase 5).
    */
   curtains?: DxfCurtainPath[];
+  /**
+   * Terreno e lote do nível (ficha X1): curvas de nível (com a elevação da cota exibida no código 38), borda, regiões, lote e área edificável, cada
+   * um na sua camada (`TERRENO_*`, `LOTE`, `LOTE_EDIFICAVEL`). Quem monta é o web (curvas e borda vêm do kernel). Ausente = nenhuma dessas camadas.
+   */
+  terreno?: DxfTerrenoPath[];
   /**
    * Massas conceituais na planta (ficha X1): linhas de `massa_planta` na camada `MASSA`. Ausente = nenhuma massa resolvida pelo kernel (ou categoria
    * oculta, ou sem massa no nível): a camada não sai. Presente e vazio = a camada entra na tabela LAYER sem entidades.
@@ -302,6 +308,8 @@ interface Shape {
   closed?: boolean;
   /** Tracejado no próprio traço (além da camada, quando a camada é contínua). */
   dashed?: boolean;
+  /** Elevação (m) da polilinha: só as curvas de nível do terreno (LWPOLYLINE com o código 38). */
+  elevation?: number;
 }
 
 interface Line {
@@ -357,6 +365,8 @@ export const DXF_CATEGORY_COLORS: Record<GraphicsCategory, number> = {
   roof: 3,
   stair: 6,
   railing: 9,
+  site: 34,
+  lot: 1,
   mass: 8,
   room: 7,
   annotation: 7,
@@ -424,6 +434,13 @@ const FIXED_LINE_ROLE = new Map<string, DxfLineRole>([
   [DXF_LAYER_CURTAIN_GLASS, projection('window')],
   [DXF_LAYER_CURTAIN_SOLID, cut('wall')],
   [DXF_LAYER_CURTAIN_OPENING, cut('window')],
+  // Terreno (categoria `site`) e lote (`lot`): peso de corte da categoria.
+  [DXF_LAYER_TERRENO_CURVAS, cut('site')],
+  [DXF_LAYER_TERRENO_CURVAS_MESTRAS, cut('site')],
+  [DXF_LAYER_TERRENO_BORDA, cut('site')],
+  [DXF_LAYER_TERRENO_REGIAO, cut('site')],
+  [DXF_LAYER_LOTE, cut('lot')],
+  [DXF_LAYER_LOTE_EDIFICAVEL, cut('lot')],
   [DXF_LAYER_COLUMN, cut('wall')],
   [DXF_LAYER_BEAM, projection('slab')],
   [DXF_LAYER_FOOTING, cut('slab')],
@@ -516,6 +533,9 @@ function shapesOf(project: Project, geo: DxfLevelGeometry, levelId?: Id): Shape[
   }
   for (const boundary of geo.notes?.regions ?? []) if (boundary.length >= 3) push(DXF_LAYER_DETALHE, [[boundary]]);
   for (const c of geo.curtains ?? []) out.push({ layer: c.layer, pts: c.pts, closed: c.closed, ...(c.dashed === true ? { dashed: true } : {}) });
+  for (const tn of geo.terreno ?? []) {
+    if (tn.pts.length >= 2) out.push({ layer: tn.layer, pts: tn.pts, closed: tn.closed, ...(tn.dashed === true ? { dashed: true } : {}), ...(tn.elevation === undefined ? {} : { elevation: tn.elevation }) });
+  }
   if (levelId) out.push(...structuralDxfShapes(project, levelId));
   for (const m of geo.masses ?? []) out.push({ layer: DXF_LAYER_MASS, pts: m.pts, closed: m.closed, ...(m.dashed === true ? { dashed: true } : {}) });
   return out;
@@ -559,7 +579,7 @@ export function dxfDocOf(project: Project, levelId: Id, geo: DxfLevelGeometry, l
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
-    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: s.closed !== false, ...(s.dashed === true ? { dashed: true } : {}) })),
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: s.closed !== false, ...(s.dashed === true ? { dashed: true } : {}), ...(s.elevation === undefined ? {} : { elevation: s.elevation }) })),
     ...lines.map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(l.layer, lang), a: l.a, b: l.b })),
     ...texts.map((t) => dxfTextEntity({ ...t, layer: dxfLayerName(t.layer, lang) })),
   ];

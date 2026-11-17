@@ -1,7 +1,8 @@
 import type { SketchDraft } from '@hestia/geom';
-import { followsRoom, isCeiling, isFloor, isRoof, isSlab, type Id, type Project } from '@hestia/model';
+import { followsRoom, isCeiling, isFloor, isMass, isRoof, isSlab, type Id, type Project } from '@hestia/model';
 import { editDraft, finish, SKETCH_DEFAULTS } from './perimeterSession.ts';
 import { areaSides, commitArea } from './perimeterCommitArea.ts';
+import { commitMass, massRing } from './perimeterCommitMass.ts';
 import { commitRoof, roofSides } from './perimeterCommitRoof.ts';
 import { refuse as refuseBase, withDefaults } from './perimeterCommitShared.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult, PerimeterBarOptions } from './perimeterCommitTypes.ts';
@@ -44,6 +45,7 @@ export function perimeterOptionsOf(project: Project, elementId: Id): PerimeterBa
     const linkToWalls = !!el.outlineSource?.linked;
     return { overhang: SKETCH_DEFAULTS.overhang, slopePct: SKETCH_DEFAULTS.slopePct, extendToCore: el.outlineSource?.extend === 'core', heightOffset: el.heightOffset, linkToWalls };
   }
+  if (isMass(el)) return { overhang: SKETCH_DEFAULTS.overhang, slopePct: SKETCH_DEFAULTS.slopePct, extendToCore: false, heightOffset: el.baseOffset };
   if (isCeiling(el)) {
     return { overhang: SKETCH_DEFAULTS.overhang, slopePct: SKETCH_DEFAULTS.slopePct, extendToCore: false, heightOffset: el.heightOffset, followRoom: followsRoom(el) };
   }
@@ -69,6 +71,11 @@ export function draftFromElement(project: Project, elementId: Id): SketchDraft |
     const { outer, holes } = areaSides(project, el);
     return { ...editDraft(el.kind, el.id, outer, holes), defaults };
   }
+  if (isMass(el)) {
+    const base = el.secoes[0]!;
+    const outer = massRing(el.origem, base);
+    return { ...editDraft('mass', el.id, outer, []), defaults };
+  }
   return null;
 }
 
@@ -92,5 +99,6 @@ export function commitPerimeter(project: Project, draft: SketchDraft, opts: Comm
   if (d.target === 'roof') {
     return commitRoof(project, { editing: d.editing, slopeDefault: d.defaults.slopePct }, r.outer, r.holes, r.edges, opts, d.segs, lang);
   }
+  if (d.target === 'mass') return commitMass(project, { editing: d.editing }, r.outer, r.holes, opts, lang);
   return commitArea(project, { target: d.target, editing: d.editing }, r.outer, r.holes, opts, lang);
 }

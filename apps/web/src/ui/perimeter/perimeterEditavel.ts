@@ -1,12 +1,12 @@
-import { isCeiling, isFloor, isRoof, isSlab, type Id, type Project } from '@hestia/model';
+import { isCeiling, isFloor, isMass, isRoof, isSlab, type Id, type Project } from '@hestia/model';
 import type { MenuEntry, MenuLang } from '../../editor/contextMenu.ts';
 import { t } from '../../editor/i18n.ts';
 
-/** Id do único elemento selecionado que tem perímetro (telhado, piso, laje ou forro); null nos demais casos. */
+/** Id do único elemento selecionado que tem perímetro (telhado, piso, laje, forro ou massa); null nos demais casos. */
 export function idPerimetroEditavel(p: Project, selection: readonly Id[]): Id | null {
   if (selection.length !== 1) return null;
   const el = p.elements[selection[0]!];
-  return isRoof(el) || isFloor(el) || isSlab(el) || isCeiling(el) ? el.id : null;
+  return isRoof(el) || isFloor(el) || isSlab(el) || isCeiling(el) || isMass(el) ? el.id : null;
 }
 
 /** Entrada "Editar perímetro" do menu de contexto, logo depois de "Criar semelhante" (só com um elemento editável). */

@@ -7,6 +7,7 @@ import {
   isFurniture,
   isFloor,
   isGeneric,
+  isLot,
   isOpening,
   isGuardaCorpo,
   isMass,
@@ -16,6 +17,8 @@ import {
   isSlab,
   isCeiling,
   isStair,
+  isTerrain,
+  isTerrainRegion,
   isColumn,
   isBeam,
   isFooting,
@@ -65,6 +68,10 @@ import { RampProperties } from './RampProperties.tsx';
 import { GuardaCorpoProperties } from './GuardaCorpoProperties.tsx';
 import { MassProperties } from './MassProperties.tsx';
 import { RoomProperties } from './RoomProperties.tsx';
+import { TerrainProperties } from './TerrainProperties.tsx';
+import { TerrainRegionProperties } from './TerrainRegionProperties.tsx';
+import { LotProperties } from './LotProperties.tsx';
+import { rotuloDoSitio } from './terrainPropsModel.ts';
 import { AreaProfileGroups, activeAreaPlan } from './AreaPlanProperties.tsx';
 import { GenericProps, selectionLabel } from './GenericProps.tsx';
 import { CadProps } from './CadProps.tsx';
@@ -481,20 +488,21 @@ export function Properties(): ReactElement {
   const railings = els.filter(isGuardaCorpo);
   const massas = els.filter(isMass);
   const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad), furnitures = els.filter(isFurniture);
+  const terrains = els.filter(isTerrain), regions = els.filter(isTerrainRegion), lots = els.filter(isLot);
   const columns = els.filter(isColumn);
   const beams = els.filter(isBeam);
   const footings = els.filter(isFooting);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + massas.length + rooms.length + generics.length + cads.length + columns.length + beams.length + footings.length + furnitures.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings, furnitures].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + massas.length + rooms.length + generics.length + cads.length + columns.length + beams.length + footings.length + terrains.length + regions.length + lots.length + furnitures.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings, terrains, regions, lots, furnitures].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
   // Nível selecionado no 3D: só ocupa o painel quando não há elementos na seleção nem ferramenta em colocação.
   const selectedLevel = useUi((s) => s.selectedLevel);
   const nivelSelecionado = count === 0 && !placing ? p.levels.find((l) => l.id === selectedLevel) : undefined;
-  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, columns: columns.length, beams: beams.length, footings: footings.length, furnitures: furnitures.length, grade, view }, lang);
+  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : rotuloDoSitio({ terrains: terrains.length, regions: regions.length, lots: lots.length, outros: count - terrains.length - regions.length - lots.length }, lang) ?? selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, columns: columns.length, beams: beams.length, footings: footings.length, grade, view }, lang);
   return (
     <aside className="side" aria-label={t('properties_title')}>
       <PanelHead panel="props" name={t('properties_title')} closeLabel={t('prc_aria_close_properties')} extra={<span style={{ color: 'var(--fg-faint)', fontWeight: 400 }}>{panelLabel}</span>}>
@@ -515,6 +523,9 @@ export function Properties(): ReactElement {
           : kinds === 1 && rooms.length > 0 ? <RoomProperties rooms={rooms} />
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />
+          : kinds === 1 && terrains.length > 0 ? <TerrainProperties terrains={terrains} />
+          : kinds === 1 && regions.length > 0 ? <TerrainRegionProperties regions={regions} />
+          : kinds === 1 && lots.length > 0 ? <LotProperties lots={lots} />
           : kinds === 1 && columns.length > 0 ? <ColumnProperties items={columns} />
           : kinds === 1 && beams.length > 0 ? <BeamProperties items={beams} />
           : kinds === 1 && footings.length > 0 ? <FootingProperties items={footings} />

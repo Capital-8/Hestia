@@ -50,6 +50,7 @@ const CATEGORY: Record<string, { label: Txt; panels: RibbonPanel[] }> = {
   slab: { label: t('Lajes', 'Slabs'), panels: [panel('editar-forma', t('Editar forma', 'Shape Editing'), tool('slope')), PERIMETRO] },
   ceiling: { label: t('Forros', 'Ceilings'), panels: [PERIMETRO] },
   roof: { label: t('Telhados', 'Roofs'), panels: [panel('modificar-telhado', t('Modificar telhado', 'Modify Roof'), tool('roofarrow')), PERIMETRO] },
+  mass: { label: t('Massas', 'Masses'), panels: [PERIMETRO] },
   stair: { label: t('Escadas', 'Stairs'), panels: [panel('escada', t('Escada', 'Stair'), act('stairSketch'), act('stairTypes'), act('schedStairs', 'large', t('Tabela de escadas', 'Stair Schedule')))] },
   ramp: { label: t('Rampas', 'Ramps'), panels: [panel('rampa', t('Rampa', 'Ramp'), act('rampTypes'), act('schedRamps', 'large', t('Tabela de rampas', 'Ramp Schedule')))] },
   room: { label: t('Ambientes', 'Rooms'), panels: [panel('ambiente', t('Ambiente', 'Room'), tool('roomsep'))] },
@@ -124,6 +125,7 @@ const EDITAR_PERIMETRO: Record<SketchTarget, { pt: string; en: string }> = {
   floor: { pt: 'Editar perímetro do piso', en: 'Edit Floor Perimeter' },
   slab: { pt: 'Editar perímetro da laje', en: 'Edit Slab Perimeter' },
   ceiling: { pt: 'Editar perímetro do forro', en: 'Edit Ceiling Perimeter' },
+  mass: { pt: 'Editar contorno da massa', en: 'Edit Mass Outline' },
 };
 
 /**

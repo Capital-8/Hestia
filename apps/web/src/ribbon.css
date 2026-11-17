@@ -46,6 +46,8 @@
 .rb-large .rb-lbl { display: block; min-height: 24px; }
 .rb-small { display: flex; align-items: center; gap: 4px; height: 20px; padding: 0 4px; text-align: left; white-space: nowrap; }
 .rb-small.rb-iconly { width: 22px; justify-content: center; padding: 0; }
+.rb-stack-4 .rb-small { height: 16px; }
+.rb-stack-4 .rb-small svg { width: 13px; height: 13px; }
 .rb-stack { display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 1px; }
 
 /* Botão dividido: o ícone roda a variante padrão, o rótulo com ▾ abre o menu. */

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
-import { cotasAutomaticas, LevelResolveCache, resolveRooms, subelementosDaCortina, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
+import { cotasAutomaticas, LevelResolveCache, resolveRooms, servicoTerreno, subelementosDaCortina, temTerreno, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
@@ -43,7 +43,7 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { elevationFrameBox, fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
@@ -52,7 +52,9 @@ import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
+import { destinoDoDelete, ligarSincroniaDaEdicao } from './terrenoEdicao.ts';
+import { caixaDoCorteComTerreno } from './terrenoVista.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
@@ -177,6 +179,8 @@ export class Editor {
 
   constructor() {
     this.tool = createTool('select', this.env);
+    // Modo Editar terreno: `terrenoEdicao` volta a null ao trocar para qualquer outra ferramenta (Esc, Concluir, outro botão).
+    ligarSincroniaDaEdicao();
     this.store.subscribe(() => {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
@@ -260,7 +264,7 @@ export class Editor {
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
-    hiddenInView: () => visibilityOf(this.store.project, useUi.getState()).hidden,
+    hiddenInView: () => this.ocultosDaPlanta(),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -273,6 +277,8 @@ export class Editor {
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
+    // Gravidade (G1): a cota do terreno proposto vem do serviço do kernel; sem botão ligado, null.
+    cotaDoTerreno: (x, y) => (useUi.getState().gravidade ? servicoTerreno().cotaDoTerreno(this.store.project, [{ x, y }], 1)?.[0]?.z ?? null : null),
     viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
@@ -362,12 +368,30 @@ export class Editor {
     useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
   }
 
+  /**
+   * Ocultos da planta para a seleção e a captura: os da vista (`visibilityOf`: vista, Hide in View e temporário) mais o terreno, a região e o lote ocultos pela categoria `site` ou `lot` ou pelo
+   * Hide in View (`ocultosDoSitio`). Vale para a ferramenta ativa: oculto não é selecionável nem dá snap.
+   */
+  ocultosDaPlanta(): ReadonlySet<Id> {
+    const p = this.store.project;
+    const st = useUi.getState();
+    const daVista = visibilityOf(p, st).hidden;
+    return ocultosDoSitio(p, daVista, levelGraphicsOf(p, st.levelId), () => daVista);
+  }
+
+  /** Caixa do corte para enquadrar: a do `SectionResult` ampliada na vertical pela faixa de cota do terreno visível (o terreno vem do kernel, fora do `SectionResult`). */
+  private caixaDoCorte(r: SectionResult): PlanBox {
+    const p = this.project;
+    const caixa = sectionBox(r);
+    return temTerreno(p) ? caixaDoCorteComTerreno(caixa, linhasDoTerrenoNoCorte(p, r, visibilityOf(p, useUi.getState()).hidden)) : caixa;
+  }
+
   /** Caixa para enquadrar a vista atual: o nível na planta, o corte na vista de corte. */
   frameBox(f?: ViewKeyFields & { sectionId: Id | null }): PlanBox | null {
     const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const r = this.sectionOf(st.sectionId);
-      return r ? sectionBox(r) : null;
+      return r ? this.caixaDoCorte(r) : null;
     }
     return levelFrameBox(this.project, st.levelId);
   }
@@ -464,7 +488,7 @@ export class Editor {
         if (first && this.sectionToFrame.delete(id)) {
           const key = `sec:${id}`;
           const vp = this.viewports.get(key);
-          const box = sectionBox(value as SectionResult);
+          const box = this.caixaDoCorte(value as SectionResult);
           if (vp && box) this.viewports.set(key, fitBox(vp, box));
         }
         // A prévia da ferramenta foi calculada com o corte anterior: relê a vista no mesmo ponteiro antes de desenhar,
@@ -827,11 +851,15 @@ export class Editor {
     }
     if (k === 'Delete' || k === 'Backspace') {
       // Vértice de piso em foco: a ferramenta o remove antes de a seleção ser excluída.
-      if (this.tool.deleteKey?.()) {
+      const tratou = this.tool.deleteKey?.() === true;
+      if (tratou) {
         // Repinta a barra da ferramenta (contador de espelhos, aviso) sem esperar o próximo clique.
         this.bump();
         return true;
       }
+      // Editar terreno: sem vértice escolhido o Delete não apaga o terreno em edição (que é a seleção).
+      const destino = destinoDoDelete(this.tool.id, tratou);
+      if (destino === 'nada') return true;
       if (ui.selection.length && !this.perimetro.ativo) { this.deleteSelection(); return true; }
     }
     if (/^a$/i.test(k) && !ui.typed && this.tool.adjust?.()) { this.bump(); return true; } // A ajusta a rampa livre em andamento
@@ -856,6 +884,12 @@ export class Editor {
       )
     ) {
       this.tool.space?.();
+      this.bump();
+      return true;
+    }
+    // C fecha o contorno em andamento (massa livre, lote, guarda-corpo, terreno): a letra não entra no campo numérico (só depois
+    // de um dígito), então a ferramenta a recebe aqui; se não houver o que fechar (`type` recusa), a tecla segue aos atalhos.
+    if (this.tool.fechaComC && !ui.typed && !e.altKey && !e.ctrlKey && !e.metaKey && /^c$/i.test(k) && this.tool.type('c')) {
       this.bump();
       return true;
     }

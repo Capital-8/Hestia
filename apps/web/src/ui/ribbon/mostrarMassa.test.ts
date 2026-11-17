@@ -17,7 +17,7 @@ const categoriasOcultas = (): readonly string[] => permanentHiddenOf(editor.proj
 
 describe('botão "Mostrar massa" da faixa', () => {
   it('é um botão real na aba Massa e terreno (não mais "soon")', () => {
-    const itens = TABS.find((tb) => tb.id === 'massa')!.panels.flatMap((p) => p.items);
+    const itens = TABS.find((tb) => tb.id === 'massa')!.panels.flatMap((p) => p.items).flatMap((it) => (it.kind === 'stack' ? it.items : [it]));
     expect(itens.some((it) => it.kind === 'action' && it.action === 'showMass')).toBe(true);
     expect(itens.some((it) => it.kind === 'soon' && typeof it.label !== 'string' && it.label.pt === 'Mostrar massa')).toBe(false);
     // "Massa no local" e "Colocar massa" continuam soon

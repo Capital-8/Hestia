@@ -25,8 +25,15 @@ import { FR_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { FR_TERRENO } from '../../areas/terreno.ts';
+import { FR_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { FR_GRAVIDADE } from '../../areas/gravidade.ts';
+import { FR_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { FR_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { FR_LOTE_UI } from '../../areas/lote-ui.ts';
 import { FR_MASSA } from '../../areas/massa.ts';
 import { FR_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { FR_MASSA_COTAS } from '../../areas/massa-cotas.ts';
 import { FR_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
 import { FR_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { FR_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
@@ -40,8 +47,15 @@ export const FR_ALL = {
   ...FR_STRUCTURAL,
   ...FR_TAGGING,
   ...FR_GUARDA_CORPO,
+  ...FR_TERRENO,
+  ...FR_TERRENO_VISTA,
+  ...FR_GRAVIDADE,
+  ...FR_TERRENO_TABELA,
+  ...FR_LOTE_TABELA,
+  ...FR_LOTE_UI,
   ...FR_MASSA,
   ...FR_MASSA_PISOS,
+  ...FR_MASSA_COTAS,
   ...FR_MASSA_PAREDES,
   ...FR_SUPLEMENTOS,
   ...FR_SUPLEMENTOS_IO,

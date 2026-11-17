@@ -15,6 +15,8 @@ import { anelDoPerfil, capturaCirculo, capturaElipse, capturaLivre, capturaPolig
  */
 export class MassTool extends ToolBase {
   readonly id = 'mass';
+  /** A tecla C (sem número digitado) fecha o contorno: o controlador a entrega a `type('c')`. */
+  readonly fechaComC = true;
   readonly label = 'Massa';
   override get hint(): string {
     return this.t('tl_hint_mass');
@@ -25,6 +27,7 @@ export class MassTool extends ToolBase {
   private perfilAtual: PerfilTipo = 'circulo';
   private alturaAtual = ALTURA_PADRAO;
   private ladosAtual = LADOS_PADRAO;
+  private cotaBaseAtual: number | null = null;
   /** Perfil da base já desenhado (mistura e loft); null enquanto o passo é o da base. */
   private base: CapturaPerfil | null = null;
   /** Centro do perfil em andamento, depois do primeiro clique. */
@@ -55,6 +58,13 @@ export class MassTool extends ToolBase {
   set altura(h: number) {
     if (Number.isFinite(h) && h > 0) this.alturaAtual = h;
   }
+  /** Cota absoluta da base (m, zero do projeto); null = a base nasce na cota do nível atual. */
+  get cotaBase(): number | null {
+    return this.cotaBaseAtual;
+  }
+  set cotaBase(c: number | null) {
+    this.cotaBaseAtual = c !== null && Number.isFinite(c) ? c : null;
+  }
   /** Lados do polígono regular: inteiro de 3 a 64 (fora disso o valor é limitado). */
   get lados(): number {
     return this.ladosAtual;
@@ -71,6 +81,7 @@ export class MassTool extends ToolBase {
       this.perfil = m.perfil;
       this.altura = m.altura;
       this.lados = m.lados;
+      this.cotaBase = m.cotaBase ?? null;
     }
     super.start();
   }
@@ -266,7 +277,9 @@ export class MassTool extends ToolBase {
 
   /** Monta o comando da massa (com a validação do modelo) sem gravar nada. */
   private montar(d: DadosMassa): { massa: Omit<Mass, 'order'>; issue: string | null } {
-    const massa = makeMass({ id: newId('mass'), levelId: this.env.levelId(), origem: d.origem, secoes: normalizarSecoes(d.secoes), interpolacao: d.interpolacao });
+    const levelId = this.env.levelId();
+    const elevacao = this.env.project().levels.find((l) => l.id === levelId)?.elevation ?? 0;
+    const massa = makeMass({ id: newId('mass'), levelId, baseOffset: this.cotaBaseAtual === null ? 0 : this.cotaBaseAtual - elevacao, origem: d.origem, secoes: normalizarSecoes(d.secoes), interpolacao: d.interpolacao });
     return { massa, issue: massIssue({ ...massa, order: 0 }, this.uiLang()) };
   }
 

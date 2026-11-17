@@ -51,6 +51,11 @@ export interface DxfPolylineEntity {
   color?: number;
   /** Largura constante (códigos 40 e 41), em unidades do desenho. */
   width?: number;
+  /**
+   * Elevação (m): com ela a entidade sai como LWPOLYLINE com a elevação no código 38 (as curvas de nível do terreno); sem ela, o POLYLINE 2D de sempre.
+   * Não combina com `width`.
+   */
+  elevation?: number;
 }
 
 /** Linha (LINE) entre dois pontos. */
@@ -359,7 +364,13 @@ export function writeDxf2000(doc: DxfDoc): string {
       rec(100, 'AcDbEntity');
       rec(8, layer);
     };
-    if (e.kind === 'polyline') {
+    if (e.kind === 'polyline' && e.elevation !== undefined) {
+      common(h(), 'LWPOLYLINE');
+      if (e.color !== undefined) rec(62, e.color);
+      if (e.dashed === true) rec(6, 'DASHED');
+      for (const [c, v] of [[100, 'AcDbPolyline'], [90, e.points.length], [70, e.closed === true ? 1 : 0], [38, len(e.elevation)]] as const) rec(c, v);
+      for (const p of e.points) { rec(10, len(p.x)); rec(20, len(p.y)); }
+    } else if (e.kind === 'polyline') {
       const handle = h();
       common(handle, 'POLYLINE');
       if (e.color !== undefined) rec(62, e.color);

@@ -112,6 +112,11 @@ export interface ToolEnv {
   options(): ToolOptions;
   /** Altera opções da barra a partir da ferramenta (ex.: inclinação depois do Ajustar). Ausente = a ferramenta grava no objeto de `options()`. */
   setOptions?(patch: Partial<ToolOptions>): void;
+  /**
+   * Gravidade (ficha G1): cota do terreno proposto (z do projeto) no ponto, ou null (botão desligado, sem kernel ou fora do terreno).
+   * É só o valor inicial do elemento no primeiro clique: sem vínculo. Ausente = sem gravidade.
+   */
+  cotaDoTerreno?(x: number, y: number): number | null;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
   /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */
@@ -376,8 +381,10 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
-  /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
-  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
+  /** Lados dos polígonos inscrito e circunscrito do esboço do perímetro (3 a 64; ausente = 6). */
+  sketchSides?: number;
+  /** Massa (ferramenta `mass`): modo, perfil, altura (m), lados do polígono, cota ABSOLUTA da base (m; ausente = no nível atual) e `galeria` (extrusão pelo esboço com a caixa de formas; ausente = ligada). Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
+  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number; cotaBase?: number; galeria?: boolean };
 }
 
 export interface PointerInfo {
@@ -415,6 +422,8 @@ export interface Tool {
   readonly hover3d?: boolean;
   /** Campo de valor aceita texto livre (letras e espaços), não só números. */
   readonly freeText?: boolean;
+  /** A tecla C, sem número digitado e com o campo de valor aberto, fecha o contorno (vai a `type('c')`). */
+  readonly fechaComC?: boolean;
   start(): void;
   /** Atualiza a pré-visualização. */
   move(p: PointerInfo): void;

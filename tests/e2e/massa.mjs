@@ -73,6 +73,7 @@ const opcao = async (page, id, valor) => { await page.locator(id).fill(String(va
 const nomear = async (page, nome) => { await page.locator('#ms-name').fill(nome); await page.keyboard.press('Enter'); await page.waitForTimeout(150); };
 const ferramentaMassa = async (page, modo) => {
   await aba(page, 'Massa e terreno');
+  await page.evaluate(() => { const { useUi } = window.__hestia; const o = useUi.getState().options; useUi.setState({ options: { ...o, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...o.mass, galeria: false } } }); }); // a extrusão pela caixa de formas tem o teste massa-forma-livre.mjs
   await page.getByRole('button', { name: 'Massa', exact: true }).click();
   await page.getByRole('button', { name: modo, exact: true }).click();
 };
@@ -287,6 +288,9 @@ try {
     const dw = dialogo(page, 'Paredes da massa');
     await dw.waitFor({ timeout: 5000 });
     await so(dw, 'mw');
+    // Frente massa-paredes-torcidas: o padrão passou a dividir a altura por tolerância (paredes inclinadas por passo); este aceite confere a CADEIA de
+    // um andar, então usa "Um passo por nível".
+    await dw.locator('#mw-modo').selectOption('porNivel');
     await dw.getByRole('button', { name: 'Gerar', exact: true }).click();
     await dw.waitFor({ state: 'detached', timeout: 5000 }).catch(() => undefined);
     pj = await lerProjeto(page);

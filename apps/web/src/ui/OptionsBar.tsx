@@ -6,6 +6,7 @@ import { useUi } from '../editor/state.ts';
 import { type Dict, type Lang, t, toolLabel, useT } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
+import { PerimeterMassBar } from './perimeter/PerimeterMassBar.tsx';
 import { Check, NumField } from './fields.tsx';
 import { DetailShapeFields, WallShapeFields } from './ShapeOptionFields.tsx';
 import { useUnits } from './useUnits.ts';
@@ -22,6 +23,7 @@ import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { MassOptionsBar } from './MassOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
+import { TerrainOptionsBar } from './TerrainOptionsBar.tsx';
 import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, defaultTagFamilyIdOf, tagFamiliesOf, type LocationLine } from '@hestia/model';
 
@@ -217,6 +219,7 @@ export function OptionsBar(): ReactElement {
   const invalidDistance = useRef(false);
   const areaPlan = useUi((s) => s.view === 'plan' && s.planKind === 'area' && !!s.areaPlanId);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
+  if (perim.active && perim.target === 'mass') return <PerimeterMassBar modify={perim.modify} editing={perim.editing !== undefined} />;
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {
@@ -365,6 +368,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'array' && <ArrayOptionsBar />}
       {tool === 'grid' && <GridOptionsBar />}
+      {(tool === 'terrain' || tool === 'terrainEdit' || tool === 'terrainRegion') && <TerrainOptionsBar tool={tool} />}
       {(tool === 'column' || tool === 'beam' || tool === 'footing') && <StructuralOptionsBar tool={tool} />}
       {tool === 'align' && (
         <label>

@@ -1,3 +1,4 @@
+import { SketchSidesField } from './SketchSidesField.tsx';
 import type { ReactElement } from 'react';
 import type { SketchTarget } from '@hestia/geom';
 import type { PerimeterModifyKind } from '@hestia/tools';
@@ -51,6 +52,7 @@ export function PerimeterOptionsBar({ target, options: o, modify, onChange }: Pe
   return (
     <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
       <span className="tool-name">{modify ? `${tool} · ${t(MODIFY_KEY[modify])}` : tool}</span>
+      <SketchSidesField />
       {roof && (
         <label>
           {t('pro_overhang')}

@@ -1,7 +1,7 @@
 import type { Vec2 } from './vec.ts';
 
 /** Alvo do esboço de perímetro: qual elemento nasce quando o usuário conclui. */
-export type SketchTarget = 'roof' | 'floor' | 'slab' | 'ceiling';
+export type SketchTarget = 'roof' | 'floor' | 'slab' | 'ceiling' | 'mass';
 
 /**
  * Linha de esboço: segmento reto ou arco (flecha `sag` como em `arcFromSagitta`, 0/ausente = reta).

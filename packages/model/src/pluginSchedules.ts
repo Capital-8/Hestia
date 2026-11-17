@@ -108,7 +108,8 @@ export function buildSchedule(p: Project, spec: PluginScheduleSpec): ScheduleTab
         return null;
       })
     : null;
-  return { columns: cols.map((c) => ({ key: c.key, title: c.title, ...(c.unit ? { unit: c.unit } : {}) })), rows, totals, errors, truncated };
+  // Coluna de contagem (`total: 'count'`) não tem grandeza: a unidade declarada não se aplica e não converte o número.
+  return { columns: cols.map((c) => ({ key: c.key, title: c.title, ...(c.unit && c.total !== 'count' ? { unit: c.unit } : {}) })), rows, totals, errors, truncated };
 }
 
 export interface CsvOptions {

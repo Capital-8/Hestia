@@ -20,6 +20,9 @@ import {
   makeFloor,
   makeFooting,
   makeGuardaCorpo,
+  makeLot,
+  makeTerrain,
+  makeTerrainRegion,
   makeMass,
   makeRamp,
   makeRoof,
@@ -100,6 +103,14 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
+  terrain: { entra: true, projeto: () => com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [80, 80, 1, 90, 80, 2, 85, 90, 3] }) }), alvo: [v(80, 80), v(90, 80), v(85, 90)] },
+  terrainRegion: {
+    entra: true,
+    alvo: [v(80, 80), v(90, 80), v(85, 90)],
+    projeto: () =>
+      com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0' }) }, { type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: [v(80, 80), v(90, 80), v(85, 90)] }) }),
+  },
+  lot: { entra: false, projeto: () => com({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [v(100, 100), v(110, 100), v(110, 110), v(100, 110)], lados: [1, 2, 3, 4].map(() => ({ papel: 'lateral' as const, recuo: 0 })) }) }) },
   mass: { entra: true, projeto: () => com({ type: 'addMass', mass: makeMass({ id: 'ms1', levelId: 'lv_0', secoes: [secaoCirculo(0, 3), secaoCirculo(9, 3)], origem: v(70, 70) }) }), alvo: [v(67, 70), v(73, 70)] },
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
@@ -160,6 +171,10 @@ describe('contrato: todo kind de elemento está classificado na extensão do mod
       }
     });
   }
+
+  it('lot: fora da extensão, com o motivo "lote não aparece em corte nem em elevação"', () => {
+    expect(KINDS_NA_EXTENSAO.lot).toEqual({ entra: false, motivo: 'lote não aparece em corte nem em elevação' });
+  });
 
   it('ramp: entra na caixa e a caixa cobre a pegada da rampa', () => {
     expect(KINDS_NA_EXTENSAO.ramp.entra).toBe(true);

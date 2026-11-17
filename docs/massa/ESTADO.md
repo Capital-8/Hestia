@@ -67,3 +67,48 @@ Modelo dos subagentes: R1 e R2 rodaram com fable (consumiu o limite do dono). **
 
 ## Tempos medidos (A.8 item 5; WASM real, flor de 12 pétalas)
 - `massa_malha` lod 1: 0,9 a 1,5 ms (alvo 50 ms; 22156 triângulos). `massa_corte`: 1,5 a 2,8 ms (alvo 50 ms; 63 linhas). `massa_planta`: 0,6 a 0,8 ms (alvo 10 ms; 66 linhas). Teste: `packages/engine/src/massaDesempenho.perf.test.ts`.
+
+## Frente massa-forma-livre (cotas, caixa de formas, união por TR)
+- Cotas absolutas (m, zero do projeto): base = elevação do nível da massa + `baseOffset`; topo = base + altura (z da última seção). Editar a BASE move a pilha (só `baseOffset`); editar ALTURA ou TOPO reescala todos os z (z·nova/atual), preservando forma, interpolação e a distribuição da torção. Altura <= 0 recusada com mensagem i18n; um `updateMass` = um desfazer (`apps/web/src/ui/massCotas.ts`).
+- "De nível a nível": base = elevação do nível inicial, topo = a do final (final mais alto); no painel e na barra de criação (que também tem Altura, Cota da base e Cota do topo; `options.mass.cotaBase`).
+- A massa é o 5º alvo do esboço (`SketchTarget 'mass'`): a extrusão (botões Massa e Extrusão) abre o esboço com a galeria completa, TR, Excluir e validação. Mistura, loft e bulbo continuam na ferramenta de perfis; `options.mass.galeria = false` volta a extrusão por perfis (usado pelos E2E antigos).
+- Concluir grava o laço externo como perfil `livre` (3 a 256 pontos), duas seções (z 0 e altura). Arcos e círculos já chegam em cordas de 2 mm; acima de 256 pontos, Douglas-Peucker dobrando a tolerância (2, 4, 8... até 50 mm).
+- Furos: o perfil da seção não tem furos, então laço interno é RECUSADO com mensagem (não se mexeu no formato salvo nem em M1 a M5).
+- Editar contorno (painel, menu de contexto, "Editar perímetro"): carrega o anel da base (círculo em 64 cordas) e, ao concluir, troca o perfil das seções iguais à base (extrusão) ou só o da base (mistura/loft), mantendo z, cotas, torção e arranjo.
+- Achado e correção: a tecla C nunca fechava o contorno livre (massa, lote, guarda-corpo, terreno), porque a letra inicial não entra no campo numérico; agora as ferramentas com `fechaComC` recebem 'c' do controlador.
+- Faixa: Extrusão, Mistura, Loft e Bulbo empilhados (pilha de 4 com botões de 16 px; `rb-stack-4`), e os botões "ainda não" em pilhas; em 1760 px o último painel termina em x = 1362.
+- Sem verificar: massa do esboço em corte/elevação e o kernel Rust (nada de Rust foi tocado).
+
+
+## Frente massa-paredes-torcidas (M2, branch massa/paredes-torcidas, 2026-11-17)
+Paredes da massa que respeitam torção, loft e bulbo, de alvenaria ou de cortina de vidro. Código: `packages/engine/src/massaParedesTorcidas.ts` (motor), `massaFatiasEmCotas.ts` (fatias em cotas arbitrárias), `massaParedesGeom.ts`, `cortinaInclinada.ts`; comando em `packages/model/src/massDerivaCommands.ts`; diálogo em `apps/web/src/ui/dialogs/MassParedesDialog.tsx`.
+
+**Decisão geométrica.** A face lateral entre duas fatias de massa torcida NÃO é plana, então uma parede reta só a aproxima. Cada nível vira N passos de altura; em cada passo [z0, z1] cada aresta da fatia de z0 vira uma parede reta com LINHA DE BASE na aresta da fatia inferior (vértices compartilhados: a cadeia fecha em z0 e as junções são as do motor) e `tilt = atan(d/H)`, com d = deslocamento ao longo da normal esquerda (externa) do ponto médio da aresta até o contorno SIMPLIFICADO da fatia z1. A rotação do eixo da face entre as fatias (torção) não cabe num plano: é dividida em passos por bisseção (um passo cujo desvio medido passa de `desvioMax` é partido ao meio, até `maxPassosPorNivel`). `location_line = finishExterior` (face externa na superfície da massa); `baseOffset`/`height` do passo; só o último passo do nível aponta `topLevelId`. Extrusão reta (qualquer contorno igual em todas as cotas, inclusive cilindro) dá tilt 0, nenhum passo extra e as mesmas cadeias de `derivarContornosParedesDaMassa`.
+
+**Fatias em cotas arbitrárias sem duplicar malha:** projeto sintético com níveis auxiliares nas cotas pedidas, fatiado pelo kernel (consulta 142) num segundo `ServicoMassa` (`servicoMassaAuxiliar`); nenhuma mudança de Rust, contrato do kernel e SCHEMA_VERSION (29) intactos.
+
+**Desvio medido** (Hausdorff amostrado em planta entre as arestas das paredes e as fatias reais, na base, no meio e no topo de cada passo; kernel real, `tests/kernel-massa-paredes-torcidas.wasm.test.ts`):
+| Caso | Paredes | Passos | Desvio máx. |
+|---|---|---|---|
+| M3 torre torcida (30 m, 90°), 1 passo por andar (10 níveis) | 40 | 10 | 0,6257 m (= 4·sen 9°) e tilt 0,9522° |
+| M3, tolerância padrão 5 cm | 640 | 160 (16 por andar) | 0,0393 m (= 4·sen 0,5625°) |
+| M3, tolerância 2 cm | 640 | 160 | 0,0393 m, aviso de limite de passos (160) |
+| M4 bulbo (5 níveis), padrão | 480 | 15 | 0,0647 m (aproximação 0,0486) |
+| M4, 1 passo por andar | 160 | 5 | 0,2665 m |
+| M2 cilindro, padrão | 128 | 4 | 0,0241 m (só a corda do contorno de 5 cm), 0 inclinadas |
+| Loft quadrado → círculo (6 m) | 432 | 26 | 0,0819 m, aviso de limite em 4 passos |
+O padrão de desvio ficou em 5 cm (e não 2 cm): com 16 passos por andar o limite do passo domina na torre M3 (0,0393 m); com 2 cm o resultado é o mesmo com 160 avisos de limite. O custo é inerente: o erro é L/2·sen(giro do passo), então torção forte pede centenas de paredes curtas.
+
+**Fase 1a (junções).** Parede de alvenaria com tilt fecha em par com a vizinha da mesma cadeia (`joinStatus` `pair` em todas as pontas; `tests/kernel-massa-paredes-juncoes.wasm.test.ts`): M3, 64 paredes empilhadas num andar, 128 pontas em par, nenhuma junção entre passos empilhados, 0 avisos de junção inclinada. O bulbo M4 (5 níveis, 480 paredes) tem 38 avisos `inclinacaoInviavelNaJuncao` (faces de 0,5 a 1 m com tilt de 27 a 43°): o motor usa o plano B (corte simples), com possíveis frestas pequenas. Correção feita: `wall-overlap` (C14) ignorava a cota e acusava paredes colineares EMPILHADAS (faixas de cota disjuntas); agora as compara por faixa vertical (`packages/model/src/validate.ts`).
+
+**Fase 1b (cortina inclinada).** A cortina NÃO aceitava `tilt` (a validação deixava gravar, mas a grade e a malha saíam verticais). Agora, para cortina RETA: o adaptador entrega ao kernel a altura inclinada H/cos(tilt) (grade, peças e quantidades medidas na face inclinada) e a malha 3D (matrizes das instâncias e vértices das peças avulsas) é girada em torno da linha de base por `tilt` (`cortinaInclinada.ts`); sem Rust. `wallTiltIssue` recusa tilt em cortina em arco (`md_cmd_tilt_curtain_arc`, 7 idiomas). Provado no kernel real: 6×3 m a 30° mantém a grade 4×2, altura vertical 3 m e topo deslocado 1,7321 m (`tests/kernel-cortina-inclinada.wasm.test.ts`). NÃO coberto: planta da cortina (continua a seção vertical na base), corte/elevação, junção de topo e de canto da cortina com vizinhas inclinadas (o kernel as calcula na vertical), esquadrias de célula em cortina inclinada, quantidade de vãos; porta/janela não se hospeda em cortina (ADR 0056 §7: nasce da célula). No diálogo, escolher cortina põe "Um passo por nível" (passos de menos de 0,6 m avisam).
+
+**Diálogo (fase 3).** Seletor de tipo (projeto, incluindo cortina de vidro, e os modelos de cortina ausentes entram na mesma transação), tipo diferente por fachada (quadrante da normal externa N/L/S/O; índice de face não serve porque o início do anel gira com a torção), modo por nível ou por tolerância (desvio e passos máx.), prévia (paredes, passos, inclinadas, desvio máx.) e avisos (limite de passos, inclinação limitada a 60°, fusão de segmentos, cortina fora do limite, aberturas que serão removidas). Política: GERAR UMA VEZ E TRAVAR: mudar a massa depois não move paredes nem aberturas; gerar de novo substitui e, havendo aberturas hospedadas, o botão vira "Confirmar e substituir". O comando aceita `tilts`, `baseOffset`, `typeIds` por parede e `locationLine` (sem eles o comportamento é o de antes).
+**Furos** continuam fora (só o anel externo). **Pendências:** as junções de cantos do bulbo com faces curtas muito inclinadas e a planta/corte da cortina inclinada; porte da cortina inclinada para o Rust (hoje a rotação é em TS no 3D).
+
+### Polígono com campo Lados e "Unir formas" (esboço, todos os alvos)
+- Polígono inscrito e circunscrito: o campo "Lados" da barra do esboço (`options.sketchSides`, padrão 6, 3 a 64) entra no passo ao criá-lo, então o 2º clique conclui sem digitar; digitar um número entre o centro e o vértice vale só para aquele polígono; a prévia já mostra os lados atuais (`stepsDoEsboco`, `perimeterToolShape.ts`).
+- "Unir formas" (botão no painel Desenhar, `perimeterUnite.ts`, `union` de @hestia/geom): todas as formas FECHADAS viram o contorno da união, num passo de desfazer, com cordas retas (arcos não são preservados em nenhum alvo). Recusa com aviso, sem mudar nada, se há menos de 2 formas, se nenhuma se sobrepõe, ou se sobra mais de um componente.
+- Decisão: Concluir NÃO une sozinho (a regra mínima é o botão; unir automático esconderia furos legítimos de piso e laje).
+- Para Mistura/Loft usarem o esboço (não feito, decisão do dono): a ferramenta teria de abrir o esboço duas vezes (base e topo), guardar o 1º anel como `CapturaPerfil` livre (`capturaLivre`) e criar a massa com `pilhaDeDois(base, topo, altura)` em vez de duas seções iguais; o loft ainda abre o diálogo de seções.
+
