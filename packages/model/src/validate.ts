@@ -208,7 +208,7 @@ function collinearOverlap(A: Wall, B: Wall): { length: number } | null {
  * da massa) não se sobrepõem, mesmo com os eixos em planta quase iguais. Parede com nível de topo inexistente: faixa desconhecida (`null`) e a sobreposição vale.
  */
 const faixaVertical = (p: Project, w: Wall): [number, number] | null => {
-  if (!w.topLevelId) return [w.baseOffset, w.baseOffset + w.height];
+  if (!w.topLevelId) return w.height > 0 ? [w.baseOffset, w.baseOffset + w.height] : null; // altura inválida: faixa desconhecida
   const base = p.levels.find((l) => l.id === w.levelId);
   const topo = p.levels.find((l) => l.id === w.topLevelId);
   return base && topo ? [w.baseOffset, topo.elevation + w.topOffset - base.elevation] : null;
