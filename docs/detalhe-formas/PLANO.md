@@ -84,3 +84,11 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Render: `plan/notes.ts` (planta e corte compartilham; tracejado contínuo por polilinha) e realce em `planOverlay.ts`. Hit: `section/handles.ts` e `annotationPick.ts` (`detailItemAt`). DXF: `dxfNotes.ts`, `dxfSectionNotes.ts` (1 LINE por segmento).
 - Cotas/ângulo (`angularDimension.ts`, `dims/providers/line.ts`): usam a CORDA a→b; documentado em comentário, comportamento inalterado. Pendente: caixa de seleção por área (`annotationIdsInBoxOf`) segue pela corda.
 - Testes literais: semicírculo (corda 2, sag ±1): meio (1, ±1), 8 segmentos, comprimento π; sag 0,5: raio 1,25, centro (1, -0,75), comprimento 2,3182; sag 5 clampado = π.
+
+**S2-C (haiku, high)**
+- `textAtAcompanhando(a, b, offsetAntigo, offsetNovo, textAt)` (`packages/tools/src/annotationPick.ts`): o `textAt` desloca pelo delta do afastamento na normal esquerda de a→b (+y para a→b em x, como `dimensionGeometry`); sem `textAt` devolve undefined.
+- Planta: commit `dimgrip` de `selectTool.ts` grava `offset` e `textAt` no mesmo `updateDimension`. Corte: `sectionDimensionGripCommand` (`apps/web/src/editor/sectionHandles.ts`) faz o mesmo. Cota angular e cota sem `textAt` inalteradas.
+- Alças no corte: `alcasDaCotaSelecionadaOps` (`render/src/plan/notes.ts`), extraída de `annotationHighlightOps` e usada também por `sectionAnnotationOps` (`render/src/section/annotations.ts`). Mesmo desenho da planta: quadrado de 4,5 px e losango de 6 px; os raios de pick seguem `DIM_GRIP_PX` 9 e `DIM_TEXT_GRIP_PX` 12.
+- Testes novos: `packages/tools/src/textoAcompanhaAfastamento.test.ts`, `apps/web/src/editor/sectionDimTextAcompanha.test.ts`; acréscimos em `plan/notes.text.test.ts` e `section/annotations.test.ts` (valores binários exatos: linha em y = 0,75, pois 0,2 + 0,4 não é exato em ponto flutuante).
+- Gap (cursor): `ui/cursor.ts` fixa Selecionar em seta por política, e a ferramenta não tem API de cursor de hover. O corte já pinta `move` na alça (`ViewportCanvas.tsx`); a planta não. Não implementado.
+- Lint: eslint nos 34 .ts/.tsx do diff 96b8d0e5..HEAD, sem erro. Typecheck: 1 erro herdado (`shapeName` não usado em `detailLineTool.ts`), corrigido; tsc verde.
