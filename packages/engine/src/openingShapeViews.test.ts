@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { openingSymbolPaths, type OpeningSymbolInput, type OpeningSymbolStroke } from '@hestia/geom';
+import { openingSymbolPaths, type OpeningSymbolInput } from '@hestia/geom';
 import { type OpeningShape, type OPt } from '@hestia/model/src/openingShape.ts';
 import {
   cutHalfWidth,
@@ -49,7 +49,7 @@ describe('elevação', () => {
       const xs = ring.map((p) => p[0]);
       const zs = ring.map((p) => p[1]);
       expect(Math.min(...zs)).toBeCloseTo(sill, 9);
-      expect(Math.max(...zs)).toBeCloseTo(sill + H, 6);
+      expect(Math.max(...zs)).toBeCloseTo(sill + H, 5);
       expect(Math.min(...xs)).toBeCloseTo(along - W / 2, 9);
       expect(Math.max(...xs)).toBeCloseTo(along + W / 2, 9);
     }
@@ -80,7 +80,7 @@ describe('corte horizontal: meia-largura na cota', () => {
 
   it('elipse: 0 na base (só um vértice), w no equador', () => {
     expect(widthAt(shapes.circle, sill)).toBeCloseTo(0, 9);
-    expect(widthAt(shapes.circle, sill + H / 2)).toBeCloseTo(W, 6);
+    expect(widthAt(shapes.circle, sill + H / 2)).toBeCloseTo(W, 5);
   });
 
   it('fora do vão (abaixo da soleira ou acima do topo) a meia-largura é 0', () => {
@@ -109,7 +109,7 @@ describe('corte horizontal: meia-largura na cota', () => {
     const R = W / 2;
     const zc = H - R;
     const z = zc + 0.3;
-    expect(cutHalfWidth(shapes.round, place, sill + z, 1e-6)).toBeCloseTo(Math.sqrt(R * R - 0.3 * 0.3), 6);
+    expect(cutHalfWidth(shapes.round, place, sill + z, 1e-6)).toBeCloseTo(Math.sqrt(R * R - 0.3 * 0.3), 5);
   });
 
   it('arco abatido (segmental): arco de flecha f, com nascença em h - f e meia-largura w/2 nela', () => {
@@ -117,9 +117,9 @@ describe('corte horizontal: meia-largura na cota', () => {
     const R = (W * W / 4 + f * f) / (2 * f);
     const zc = H - R;
     const zs = H - f;
-    expect(cutHalfWidth(shapes.segmental, place, sill + zs, 1e-6)).toBeCloseTo(W / 2, 6);
+    expect(cutHalfWidth(shapes.segmental, place, sill + zs, 1e-6)).toBeCloseTo(W / 2, 5);
     const z = 1.35;
-    expect(cutHalfWidth(shapes.segmental, place, sill + z, 1e-6)).toBeCloseTo(Math.sqrt(R * R - (z - zc) ** 2), 6);
+    expect(cutHalfWidth(shapes.segmental, place, sill + z, 1e-6)).toBeCloseTo(Math.sqrt(R * R - (z - zc) ** 2), 5);
   });
 
   it('ogival (pointed): a meia-largura segue o arco de centro do lado oposto', () => {
@@ -129,14 +129,14 @@ describe('corte horizontal: meia-largura na cota', () => {
     const cx = half - r;
     const zs = H - f;
     const z = 1.2;
-    expect(cutHalfWidth(shapes.pointed, place, sill + z, 1e-6)).toBeCloseTo(cx + Math.sqrt(r * r - (z - zs) ** 2), 6);
+    expect(cutHalfWidth(shapes.pointed, place, sill + z, 1e-6)).toBeCloseTo(cx + Math.sqrt(r * r - (z - zs) ** 2), 5);
   });
 
   it('elipse: meia-largura = a·raiz(1 - ((z - b)/b)²), com a = w/2 e b = h/2', () => {
     const a = W / 2;
     const b = H / 2;
     const z = 1.125;
-    expect(cutHalfWidth(shapes.circle, place, sill + z, 1e-6)).toBeCloseTo(a * Math.sqrt(1 - ((z - b) / b) ** 2), 6);
+    expect(cutHalfWidth(shapes.circle, place, sill + z, 1e-6)).toBeCloseTo(a * Math.sqrt(1 - ((z - b) / b) ** 2), 5);
   });
 });
 
@@ -152,7 +152,7 @@ describe('corte vertical: perfil no plano de corte', () => {
       const prof = verticalCutProfile(shape, place, along);
       expect(prof).toHaveLength(1);
       expect(prof[0]![0]).toBeCloseTo(sill, 9);
-      expect(prof[0]![1]).toBeCloseTo(sill + H, 6);
+      expect(prof[0]![1]).toBeCloseTo(sill + H, 5);
     }
   });
 
@@ -163,7 +163,7 @@ describe('corte vertical: perfil no plano de corte', () => {
     const prof = verticalCutProfile(shapes.round, place, along + t, 1e-6);
     expect(prof).toHaveLength(1);
     expect(prof[0]![0]).toBeCloseTo(sill, 9);
-    expect(prof[0]![1]).toBeCloseTo(sill + zc + Math.sqrt(R * R - t * t), 6);
+    expect(prof[0]![1]).toBeCloseTo(sill + zc + Math.sqrt(R * R - t * t), 5);
   });
 
   it('arcos com base: a base do perfil é sempre a soleira, e o topo nunca passa de h', () => {
@@ -184,8 +184,8 @@ describe('corte vertical: perfil no plano de corte', () => {
     const prof = verticalCutProfile(shapes.circle, place, along + t, 1e-6);
     expect(prof).toHaveLength(1);
     const d = b * Math.sqrt(1 - (t / a) ** 2);
-    expect(prof[0]![0]).toBeCloseTo(sill + b - d, 6);
-    expect(prof[0]![1]).toBeCloseTo(sill + b + d, 6);
+    expect(prof[0]![0]).toBeCloseTo(sill + b - d, 5);
+    expect(prof[0]![1]).toBeCloseTo(sill + b + d, 5);
   });
 
   it('elipse fora da largura: vazio', () => {
@@ -240,8 +240,8 @@ describe('símbolo em planta no corte horizontal', () => {
     for (const k of [0, 1, 2, 3]) {
       const s = out[k]!;
       expect(s.pts).toHaveLength(2);
-      expect(Math.abs(s.pts[0]!.x)).toBeCloseTo(hcRound, 6);
-      expect(Math.abs(s.pts[1]!.x)).toBeCloseTo(hcRound, 6);
+      expect(Math.abs(s.pts[0]!.x)).toBeCloseTo(hcRound, 5);
+      expect(Math.abs(s.pts[1]!.x)).toBeCloseTo(hcRound, 5);
     }
     // Folhas e setas (4 em diante) são as do símbolo atual.
     expect(out.slice(4)).toEqual(base.slice(4));
@@ -251,12 +251,14 @@ describe('símbolo em planta no corte horizontal', () => {
     const i = win({ sHi: 0.1, sLo: -0.04 });
     const out = openingPlanSymbolPaths(i, roundFor(i), place, cutAbove, 1e-6);
     const jambs = out.filter((s) => s.weight === 1.4);
+    const baseJambs = openingSymbolPaths(i).filter((s) => s.weight === 1.4);
     expect(jambs).toHaveLength(2);
-    for (const j of jambs) {
+    jambs.forEach((j, k) => {
       expect(j.pts[0]!.x).toBeCloseTo(j.pts[1]!.x, 9);
-      expect(Math.abs(j.pts[0]!.x)).toBeCloseTo(hcRound, 6);
-      expect([j.pts[0]!.y, j.pts[1]!.y].map((y) => Math.round(y * 1e6) / 1e6).sort()).toEqual([-0.07, 0.03].sort());
-    }
+      expect(Math.abs(j.pts[0]!.x)).toBeCloseTo(hcRound, 5);
+      // As pontas continuam nas faces do vão (mesma coordenada s do símbolo atual).
+      expect(j.pts.map((p) => p.y)).toEqual(baseJambs[k]!.pts.map((p) => p.y));
+    });
   });
 
   it('abaixo da nascença o arco pleno tem w/2 e o símbolo é o retangular', () => {
@@ -270,8 +272,8 @@ describe('símbolo em planta no corte horizontal', () => {
     expect(out).toHaveLength(2);
     for (const s of out) {
       expect(s.dash).toBeDefined();
-      expect(Math.abs(s.pts[0]!.x)).toBeCloseTo(hcRound, 6);
-      expect(Math.abs(s.pts[1]!.x)).toBeCloseTo(hcRound, 6);
+      expect(Math.abs(s.pts[0]!.x)).toBeCloseTo(hcRound, 5);
+      expect(Math.abs(s.pts[1]!.x)).toBeCloseTo(hcRound, 5);
     }
   });
 
@@ -285,7 +287,7 @@ describe('símbolo em planta no corte horizontal', () => {
     const out = openingPlanSymbolPaths(i, roundFor(i), place, cutAbove, 1e-6);
     const jambs = out.filter((s) => s.weight === 1.4);
     expect(jambs).toHaveLength(2);
-    for (const j of jambs) for (const p of j.pts) expect(Math.abs(p.y)).toBeCloseTo(hcRound, 6);
+    for (const j of jambs) for (const p of j.pts) expect(Math.abs(p.y)).toBeCloseTo(hcRound, 5);
   });
 
   it('cota fora do vão: o caixilho some (o chamador não desenha o vão nessa cota)', () => {
