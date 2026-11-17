@@ -7,8 +7,8 @@ import { type Dict, type Lang, t, toolLabel, useT } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
 import { Check, NumField } from './fields.tsx';
+import { DetailShapeFields, WallShapeFields } from './ShapeOptionFields.tsx';
 import { useUnits } from './useUnits.ts';
-import { wallModeOf } from './wallModes.ts';
 import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { DisjoinCheck } from './DisjoinCheck.tsx';
 import { SlabOptionsBar } from './SlabOptionsBar.tsx';
@@ -36,46 +36,7 @@ export function WallTiltField({ o, set }: { o: ToolOptions; set: (patch: Partial
   );
 }
 
-/**
- * Ajustes do modo de parede que pedem número: lados do polígono (3 a 64) e tolerância do ajuste a arcos da elipse e da
- * spline (1 a 50 mm; o padrão 5 mm vale como 0,005 m). Exportado para os testes.
- */
-export function WallShapeFields({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement | null {
-  const { t } = useT();
-  const modo = wallModeOf(o);
-  if (modo === 'polygonIn' || modo === 'polygonOut') {
-    return (
-      <label>
-        {t('pro_poly_sides')}
-        <NumField id="opt-poly-sides" value={o.wallPolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ wallPolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
-      </label>
-    );
-  }
-  if (modo === 'ellipse' || modo === 'spline') {
-    return (
-      <label>
-        {t('pro_fit_tol')}
-        <NumField id="opt-fit-tol" value={o.wallFitTol ?? 0.005} quantity="smallLength" min={0.001} onCommit={(v) => set({ wallFitTol: Math.min(0.05, Math.max(0.001, v)) })} />
-      </label>
-    );
-  }
-  return null;
-}
-
-/**
- * Lados do polígono da linha de detalhe (3 a 64, padrão 6), só com a forma inscrita ou circunscrita. Mesmo padrão do
- * campo de lados da Parede (`WallShapeFields`). Exportado para os testes.
- */
-export function DetailShapeFields({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement | null {
-  const { t } = useT();
-  if (o.detailLineShape !== 'poly-inscribed' && o.detailLineShape !== 'poly-circumscribed') return null;
-  return (
-    <label>
-      {t('pro_poly_sides')}
-      <NumField id="opt-dl-sides" value={o.detailLinePolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ detailLinePolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
-    </label>
-  );
-}
+export { WallShapeFields } from './ShapeOptionFields.tsx';
 
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {

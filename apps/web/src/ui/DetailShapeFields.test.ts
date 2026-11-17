@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEFAULT_OPTIONS } from '../editor/state.ts';
-import { DetailShapeFields } from './OptionsBar.tsx';
+import { DetailShapeFields } from './ShapeOptionFields.tsx';
 import type { WallDrawShape } from '@hestia/tools';
 
 const render = (shape: WallDrawShape, extra: Record<string, unknown> = {}): string =>
