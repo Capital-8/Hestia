@@ -281,6 +281,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
               <option value="ellipse">{t('pro_pm_shape_ellipse')}</option>
             </select>
           </Row>
+          {o.detailLineShape === 'poly-inscribed' || o.detailLineShape === 'poly-circumscribed' ? <Row label={t('pro_poly_sides')} htmlFor="place-dl-sides"><NumField id="place-dl-sides" value={o.detailLinePolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ detailLinePolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} /></Row> : null}
           <Row label={t('pra_fld_line_style')} htmlFor="place-dl-style">
             <select id="place-dl-style" className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as typeof o.detailLineStyle })}>
               <option value="solid">{t('pra_opt_continuous')}</option>

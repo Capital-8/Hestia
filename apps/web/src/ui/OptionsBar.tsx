@@ -62,6 +62,21 @@ export function WallShapeFields({ o, set }: { o: ToolOptions; set: (patch: Parti
   return null;
 }
 
+/**
+ * Lados do polígono da linha de detalhe (3 a 64, padrão 6), só com a forma inscrita ou circunscrita. Mesmo padrão do
+ * campo de lados da Parede (`WallShapeFields`). Exportado para os testes.
+ */
+export function DetailShapeFields({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement | null {
+  const { t } = useT();
+  if (o.detailLineShape !== 'poly-inscribed' && o.detailLineShape !== 'poly-circumscribed') return null;
+  return (
+    <label>
+      {t('pro_poly_sides')}
+      <NumField id="opt-dl-sides" value={o.detailLinePolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ detailLinePolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
+    </label>
+  );
+}
+
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
   wallCenter: 'pro_loc_wall_center',
@@ -314,6 +329,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'filledRegion' && <Check id="opt-region-mask" checked={o.regionMask === true} onChange={(v) => set({ regionMask: v })}>{t('pro_region_mask')}</Check>}
       {tool === 'filledRegion' && <label>{t('pro_color')}<input className="input" type="color" value={o.regionColor ?? '#f5d782'} onChange={(e) => set({ regionColor: e.target.value })} /></label>}
       {tool === 'detailLine' && <label>{t('pro_line_style')}<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">{t('pro_line_solid')}</option><option value="dashed">{t('pro_line_dashed')}</option><option value="dotted">{t('pro_line_dotted')}</option></select></label>}
+      {tool === 'detailLine' && <DetailShapeFields o={o} set={set} />}
       {tool === 'tag' && (
         <>
           <label>{t('tg_fld_family')}<select className="select" value={o.tagFamilyId ?? defaultTagFamilyIdOf(p.settings)} onChange={(e) => set({ tagFamilyId: e.target.value })}>{tagFamiliesOf(p.settings, lang).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
