@@ -73,6 +73,7 @@ const opcao = async (page, id, valor) => { await page.locator(id).fill(String(va
 const nomear = async (page, nome) => { await page.locator('#ms-name').fill(nome); await page.keyboard.press('Enter'); await page.waitForTimeout(150); };
 const ferramentaMassa = async (page, modo) => {
   await aba(page, 'Massa e terreno');
+  await page.evaluate(() => { const { useUi } = window.__hestia; const o = useUi.getState().options; useUi.setState({ options: { ...o, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...o.mass, galeria: false } } }); }); // a extrusão pela caixa de formas tem o teste massa-forma-livre.mjs
   await page.getByRole('button', { name: 'Massa', exact: true }).click();
   await page.getByRole('button', { name: modo, exact: true }).click();
 };

@@ -36,6 +36,8 @@ const mundo = async (x, y) => H(({ x, y }) => {
 }, { x, y });
 const clique = async (x, y) => { const p = await mundo(x, y); await page.mouse.move(p.x, p.y); await page.mouse.click(p.x, p.y); await page.waitForTimeout(60); };
 const mover = async (x, y) => { const p = await mundo(x, y); await page.mouse.move(p.x, p.y); await page.waitForTimeout(60); };
+const semGaleria = () => H(() => { const { useUi } = window.__hestia; const o = useUi.getState().options; useUi.setState({ options: { ...o, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...o.mass, galeria: false } } }); });
+const comGaleria = () => H(() => { const { useUi } = window.__hestia; const o = useUi.getState().options; useUi.setState({ options: { ...o, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...o.mass, galeria: true } } }); });
 const limpaMassas = () => H(() => {
   const { editor } = window.__hestia;
   const ids = Object.values(editor.project.elements).filter((e) => e.kind === 'mass').map((m) => m.id);
@@ -86,9 +88,15 @@ try {
     }
   });
 
-  await passo('3. Botão Massa liga a ferramenta (e Esc volta)', async () => {
+  await passo('3. Botão Massa na extrusão abre o esboço com a caixa de formas (Cancelar volta); sem galeria liga a ferramenta mass', async () => {
     await botao('Modelo de massa', 'Massa').click();
-    check('ferramenta ativa = mass', (await ferramenta()) === 'mass', await ferramenta());
+    const e = await H(() => ({ tool: window.__hestia.useUi.getState().tool, ativo: window.__hestia.editor.perimetro.ativo, alvo: window.__hestia.editor.perimetro.view().target }));
+    check('esboço de massa aberto (ferramenta perimeter, alvo mass)', e.ativo && e.alvo === 'mass' && e.tool === 'perimeter', JSON.stringify(e));
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).first().click();
+    check('Cancelar fecha o esboço', !(await H(() => window.__hestia.editor.perimetro.ativo)));
+    await semGaleria();
+    await botao('Modelo de massa', 'Massa').click();
+    check('sem galeria: ferramenta ativa = mass', (await ferramenta()) === 'mass', await ferramenta());
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     check('Esc sai da ferramenta (select)', (await ferramenta()) === 'select', await ferramenta());
@@ -244,6 +252,30 @@ try {
     const n = await tab.locator('table tbody tr').count();
     check('tabela com linhas das massas', n >= 1, String(n));
     await tab.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+  });
+  await passo('12. Faixa em 1760 px: nenhum painel cortado e os 4 modos empilhados na mesma coluna', async () => {
+    await page.setViewportSize({ width: 1760, height: 950 });
+    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: 'Massa e terreno', exact: true }).click();
+    await page.waitForTimeout(400);
+    const m = await H(() => {
+      const visivel = (el) => el.getBoundingClientRect().height > 0;
+      const fita = [...document.querySelectorAll('.ribbon')].find(visivel);
+      const r = fita.getBoundingClientRect();
+      const paineis = [...fita.querySelectorAll('.rb-panel')].filter(visivel).map((p) => { const b = p.getBoundingClientRect(); return { nome: p.querySelector('.rb-title')?.textContent, l: b.left, r: b.right, t: b.top, b: b.bottom }; });
+      const pa = [...fita.querySelectorAll('.rb-panel')].find((p) => visivel(p) && p.querySelector('.rb-title')?.textContent === 'Modelo de massa');
+      const botoes = ['Extrusão', 'Mistura', 'Loft', 'Bulbo'].map((n) => { const b = pa.querySelector(`button[aria-label="${n}"]`).getBoundingClientRect(); return { n, x: b.x, y: b.y, w: b.width, h: b.height, bottom: b.bottom }; });
+      return { largura: innerWidth, fita: { l: r.left, r: r.right, t: r.top, b: r.bottom }, rolagem: fita.scrollWidth - fita.clientWidth, paineis, botoes };
+    });
+    console.log('  painéis:', m.paineis.map((p) => `${p.nome} ${Math.round(p.l)}-${Math.round(p.r)}`).join(' | '));
+    check('5 painéis na aba (Modelo de massa, Modelo por massa, Terreno, Lote, Análise do terreno)', m.paineis.length === 5, String(m.paineis.length));
+    check('nenhum painel fora da tela em 1760 px (esquerda >= 0 e direita <= 1760)', m.paineis.every((p) => p.l >= 0 && p.r <= m.largura), `último termina em ${Math.round(m.paineis.at(-1).r)}`);
+    check('sem rolagem horizontal na faixa (scrollWidth = clientWidth)', m.rolagem <= 0, String(m.rolagem));
+    check('nenhum painel cortado na vertical (dentro da faixa)', m.paineis.every((p) => p.t >= m.fita.t - 0.5 && p.b <= m.fita.b + 0.5));
+    check('os 4 modos têm o mesmo x', m.botoes.every((b) => Math.abs(b.x - m.botoes[0].x) < 0.01), m.botoes.map((b) => b.x).join(' / '));
+    check('y cresce de cima para baixo: Extrusão < Mistura < Loft < Bulbo', m.botoes.every((b, i) => i === 0 || b.y > m.botoes[i - 1].y), m.botoes.map((b) => b.y).join(' < '));
+    check('os 4 botões ficam dentro da faixa (sem corte)', m.botoes.every((b) => b.y >= m.fita.t && b.bottom <= m.fita.b), m.botoes.map((b) => `${b.y}-${b.bottom}`).join(' | '));
+    check('botões de 15 a 16 px de altura e sem sobreposição', m.botoes.every((b, i) => b.h >= 15 && b.h <= 16 && (i === 0 || b.y >= m.botoes[i - 1].bottom - 0.01)), m.botoes.map((b) => b.h).join('/'));
   });
 } finally {
   console.log('\nerros de console:', erros.length);

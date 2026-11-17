@@ -59,6 +59,7 @@ try {
   // a. Extrusão: círculo de raio 3 m na origem; altura padrão 9 m.
   await passo('a. Extrusão de um círculo na planta', async () => {
     await aba(page, 'Massa e terreno');
+    await page.evaluate(() => { const { useUi } = window.__hestia; const o = useUi.getState().options; useUi.setState({ options: { ...o, mass: { modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6, ...o.mass, galeria: false } } }); }); // a extrusão pela caixa de formas tem o teste massa-forma-livre.mjs
     await page.getByRole('button', { name: 'Massa', exact: true }).click();
     await page.getByRole('button', { name: 'Extrusão', exact: true }).click();
     await clickWorld(page, 0, 0);
