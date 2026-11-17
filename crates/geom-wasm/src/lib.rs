@@ -126,6 +126,10 @@ pub mod volume_sobreposicao;
 pub mod furo_contorno;
 #[cfg(test)]
 mod furo_contorno_testes;
+// Quantitativo do furo por contorno, retorno que segue o contorno (docs/estudo-esquadrias/22).
+pub mod furo_contorno_quant;
+#[cfg(test)]
+mod furo_contorno_quant_testes;
 pub mod furo_contorno_abi;
 #[cfg(test)] mod furo_contorno_abi_testes;
 #[cfg(test)]

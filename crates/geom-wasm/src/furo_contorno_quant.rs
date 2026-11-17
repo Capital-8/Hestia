@@ -18,7 +18,7 @@
 
 use manifold_rust::linalg::{Vec2, Vec3};
 use manifold_rust::manifold::Manifold;
-use manifold_rust::types::{Error as ErroManifold, OpType};
+use manifold_rust::types::Error as ErroManifold;
 
 use crate::furo_contorno::{area_com_sinal, ErroFuro, ResultadoFuro, Vao};
 use crate::ops::{diferenca, interseccao, offset};
