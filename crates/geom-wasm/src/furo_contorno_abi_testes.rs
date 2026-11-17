@@ -212,6 +212,83 @@ fn estado_guarda_saidas_e_limpa_no_erro() {
     assert_eq!(e.saida_n(), 0);
 }
 
+/// Parede 4 x 3 com um vão de contorno `c` (origem x = 2,0; soleira 0,5) e duas camadas.
+fn parede_com_contorno(c: Vec<[f64; 2]>) -> Buffers {
+    Buffers::montar(&[(c, 2.0, 0.5)], &[0.1, 0.2])
+}
+
+#[test]
+fn contornos_nao_simples_e_degenerados_viram_entrada_com_texto() {
+    let mut repetido_no_meio = retangulo(0.9, 1.4);
+    repetido_no_meio.insert(1, repetido_no_meio[1]);
+    let mut repetido_no_fecho = retangulo(0.9, 1.4);
+    repetido_no_fecho.push(repetido_no_fecho[0]);
+    let casos: Vec<(&str, Vec<[f64; 2]>, &str)> = vec![
+        // gravata borboleta (área zero): tem de dar auto-interseção, não área nula
+        ("gravata borboleta", vec![[-0.45, 0.0], [0.45, 1.4], [0.45, 0.0], [-0.45, 1.4]], "auto-intersectado"),
+        ("espicula de ida e volta", vec![[-0.45, 0.0], [0.45, 0.0], [0.0, 0.0], [0.0, 1.4]], "auto-intersectado"),
+        ("ponto repetido no meio", repetido_no_meio, "repetidos consecutivos"),
+        ("ultimo igual ao primeiro", repetido_no_fecho, "repetidos consecutivos"),
+        ("x NaN", vec![[f64::NAN, 0.0], [0.45, 0.0], [0.45, 1.4]], "contorno invalido"),
+        ("z infinito", vec![[-0.45, 0.0], [0.45, f64::INFINITY], [-0.45, 1.4]], "contorno invalido"),
+        ("colineares (area zero)", vec![[0.0, 0.0], [0.5, 0.0], [1.0, 0.0]], "contorno invalido"),
+        ("dois pontos", vec![[0.0, 0.0], [0.5, 0.0]], "contorno invalido"),
+        ("um ponto", vec![[0.0, 0.0]], "contorno invalido"),
+        ("nenhum ponto", vec![], "contorno invalido"),
+    ];
+    for (nome, c, texto) in casos {
+        let b = parede_com_contorno(c);
+        match furar_planos(&b.entradas(4.0, 3.0)) {
+            Err((cod, msg)) => {
+                assert_eq!(cod, ENTRADA, "caso: {nome}");
+                assert!(msg.contains(texto), "caso {nome}: mensagem `{msg}` sem `{texto}`");
+            }
+            Ok(_) => panic!("caso deveria falhar: {nome}"),
+        }
+    }
+}
+
+#[test]
+fn gravata_borboleta_nao_derruba_o_estado_e_limpa_a_saida() {
+    // Pelo Estado (como a exportação faz): falha devolve código ENTRADA, zera as saídas e grava o texto.
+    let mut e = Estado::novo();
+    assert_eq!(e.furar(&parede_um_vao_ok().entradas(4.0, 3.0)), OK);
+    let gravata = parede_com_contorno(vec![[-0.45, 0.0], [0.45, 1.4], [0.45, 0.0], [-0.45, 1.4]]);
+    assert_eq!(e.furar(&gravata.entradas(4.0, 3.0)), ENTRADA);
+    assert_eq!(e.saida_n(), 0);
+    assert_eq!(e.erro(), "entrada invalida: contorno auto-intersectado no vao 0");
+}
+
+fn parede_um_vao_ok() -> Buffers {
+    parede_com_contorno(retangulo(0.9, 1.4))
+}
+
+#[test]
+fn concavo_simples_passa_na_abi() {
+    // L côncavo, sem cruzamento: área 1,05 m2 (1,0 x 0,7 + 0,5 x 0,7), furo nas duas camadas (0,3 m de espessura).
+    let l = vec![[-0.5, 0.0], [0.5, 0.0], [0.5, 0.7], [0.0, 0.7], [0.0, 1.4], [-0.5, 1.4]];
+    let b = parede_com_contorno(l);
+    let mut e = Estado::novo();
+    assert_eq!(e.furar(&b.entradas(4.0, 3.0)), OK);
+    let removido = f64s(e.saida(4).expect("totais"))[1];
+    assert!((removido - 1.05 * 0.3).abs() < 1e-8, "removido {removido}");
+}
+
+#[test]
+fn contorno_com_pontos_demais_por_vao_vira_limite() {
+    let n = (LIMITE_PONTOS_POR_VAO + 1) as usize;
+    let circulo: Vec<[f64; 2]> = (0..n)
+        .map(|i| {
+            let a = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
+            [0.2 * a.cos(), 0.7 + 0.2 * a.sin()]
+        })
+        .collect();
+    let b = parede_com_contorno(circulo);
+    let (c, msg) = furar_planos(&b.entradas(4.0, 3.0)).unwrap_err();
+    assert_eq!(c, LIMITE);
+    assert!(msg.contains("pontos por vao"), "{msg}");
+}
+
 #[test]
 fn wrappers_no_host_recusam_ponteiros() {
     // Único teste que toca o estado global ESTADO: os demais usam o núcleo puro.

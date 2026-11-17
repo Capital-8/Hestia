@@ -11,7 +11,8 @@
 //!   `furo_contorno_furar` ou `furo_saida_liberar`. O JS nunca libera saídas com `abi2_liberar`.
 //! - **Erros**: `furo_contorno_furar` devolve `0` (OK), `3` (ENTRADA), `5` (LIMITE) ou `6` (INTERNO);
 //!   `furo_erro_ptr/len` dão o texto UTF-8 do último erro (vazio depois de sucesso). Nenhuma entrada do JS
-//!   provoca panic: ponteiros são checados e toda a lógica fica em [`furar_planos`], que só recebe slices.
+//!   provoca panic: ponteiros são checados, contornos não simples são recusados (`ENTRADA`) antes da
+//!   booleana, e toda a lógica fica em [`furar_planos`], que só recebe slices.
 //!
 //! ## Estado separado da ABI v2
 //!
@@ -35,6 +36,9 @@ pub const LIMITE_VAOS: u32 = 1024;
 pub const LIMITE_PONTOS: u32 = 65_536;
 /// Nº máximo de camadas da parede.
 pub const LIMITE_CAMADAS: u32 = 32;
+/// Nº máximo de pontos de um único contorno. A checagem de auto-interseção é O(n^2) por contorno; sem este
+/// limite, um contorno de 65 536 pontos levaria ~2e9 comparações dentro do wasm.
+pub const LIMITE_PONTOS_POR_VAO: u32 = 4096;
 
 /// Entradas já decodificadas (slices sobre os buffers planos).
 pub struct Entradas<'a> {
@@ -70,6 +74,8 @@ fn erro_do_furo(e: ErroFuro) -> (u32, String) {
         ErroFuro::ParedeInvalida => (ENTRADA, "parede invalida (comprimento e altura positivos e finitos)".into()),
         ErroFuro::EspessuraInvalida(i) => (ENTRADA, format!("espessura invalida na camada {i}")),
         ErroFuro::ContornoInvalido(i) => (ENTRADA, format!("contorno invalido no vao {i}")),
+        ErroFuro::PontoRepetido(i) => (ENTRADA, format!("contorno com pontos repetidos consecutivos no vao {i}")),
+        ErroFuro::AutoInterseccao(i) => (ENTRADA, format!("contorno auto-intersectado no vao {i}")),
         ErroFuro::VaoForaDaParede(i) => (ENTRADA, format!("vao {i} sai da parede")),
         ErroFuro::Manifold(s) => (INTERNO, format!("kernel: {s}")),
     }
@@ -96,6 +102,9 @@ pub fn furar_planos(e: &Entradas) -> Result<Vec<Saida>, (u32, String)> {
     let n_pontos = e.pontos.len() / 2;
     if e.vaos[0] != 0 || e.vaos[n_vaos] as usize != n_pontos || e.vaos.windows(2).any(|w| w[1] < w[0]) {
         return Err((ENTRADA, "offsets de contorno invalidos".into()));
+    }
+    if e.vaos.windows(2).any(|w| w[1] - w[0] > LIMITE_PONTOS_POR_VAO) {
+        return Err((LIMITE, format!("pontos por vao demais (> {LIMITE_PONTOS_POR_VAO})")));
     }
     let vaos: Vec<Vao> = (0..n_vaos)
         .map(|i| {

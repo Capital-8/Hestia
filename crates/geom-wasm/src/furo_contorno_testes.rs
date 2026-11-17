@@ -189,3 +189,90 @@ fn furo_contorno_entradas_invalidas() {
     assert_eq!(furar_parede(&[v(ok.clone(), 0.2)], &[0.1], 3.0, 2.8).unwrap_err(), ErroFuro::VaoForaDaParede(0));
     assert_eq!(furar_parede(&[v(ok, 1.5)], &[0.1], 3.0, 1.0).unwrap_err(), ErroFuro::VaoForaDaParede(0));
 }
+
+/// Vão de teste na parede 3 x 2,8 (origem em x = 1,5, soleira 0,5); o contorno é recusado antes da booleana.
+fn furar_um_vao(contorno: Vec<[f64; 2]>) -> Result<ResultadoFuro, ErroFuro> {
+    furar_parede(&[Vao { contorno, x: 1.5, soleira: 0.5 }], &[0.1], 3.0, 2.8)
+}
+
+#[test]
+fn furo_contorno_gravata_borboleta_e_recusada() {
+    // Gravata borboleta simétrica: as arestas 0 e 2 se cruzam em (0,5; 0,5) e a área com sinal é zero.
+    let simetrica = vec![[0.0, 0.0], [1.0, 1.0], [1.0, 0.0], [0.0, 1.0]];
+    assert_eq!(furar_um_vao(simetrica).unwrap_err(), ErroFuro::AutoInterseccao(0));
+    // Gravata assimétrica (área positiva): também cruza, então também é recusada.
+    let assimetrica = vec![[0.0, 0.0], [1.0, 1.0], [1.0, 0.0], [0.0, 2.0]];
+    assert!(area_com_sinal(&assimetrica) > 0.0);
+    assert_eq!(furar_um_vao(assimetrica).unwrap_err(), ErroFuro::AutoInterseccao(0));
+}
+
+#[test]
+fn furo_contorno_pontos_repetidos_consecutivos_sao_recusados() {
+    let ok = meia_lua(0.9, 1.4, 24);
+    // repetido no meio
+    let mut meio = ok.clone();
+    meio.insert(5, meio[5]);
+    assert_eq!(furar_um_vao(meio).unwrap_err(), ErroFuro::PontoRepetido(0));
+    // o último igual ao primeiro (anel aberto, mas fechado de fato)
+    let mut fechado = ok.clone();
+    fechado.push(ok[0]);
+    assert_eq!(furar_um_vao(fechado).unwrap_err(), ErroFuro::PontoRepetido(0));
+    // quase repetido (abaixo de 1 nm) também conta
+    let mut quase = ok.clone();
+    quase.insert(3, [quase[3][0] + 1e-12, quase[3][1]]);
+    assert_eq!(furar_um_vao(quase).unwrap_err(), ErroFuro::PontoRepetido(0));
+}
+
+#[test]
+fn furo_contorno_menos_de_3_pontos_e_recusado() {
+    assert_eq!(furar_um_vao(vec![]).unwrap_err(), ErroFuro::ContornoInvalido(0));
+    assert_eq!(furar_um_vao(vec![[0.0, 0.0]]).unwrap_err(), ErroFuro::ContornoInvalido(0));
+    assert_eq!(furar_um_vao(vec![[0.0, 0.0], [0.5, 0.0]]).unwrap_err(), ErroFuro::ContornoInvalido(0));
+}
+
+#[test]
+fn furo_contorno_nan_e_inf_sao_recusados() {
+    let ok = meia_lua(0.9, 1.4, 24);
+    for (nome, p) in [("x NaN", [f64::NAN, 0.5]), ("z inf", [0.5, f64::INFINITY]), ("x -inf", [f64::NEG_INFINITY, 0.5])] {
+        let mut c = ok.clone();
+        c[4] = p;
+        assert_eq!(furar_um_vao(c).unwrap_err(), ErroFuro::ContornoInvalido(0), "caso: {nome}");
+    }
+    // origem do vão (x ou soleira) não finita
+    let v = |x: f64, s: f64| Vao { contorno: ok.clone(), x, soleira: s };
+    assert_eq!(furar_parede(&[v(f64::NAN, 0.0)], &[0.1], 3.0, 2.8).unwrap_err(), ErroFuro::ContornoInvalido(0));
+    assert_eq!(furar_parede(&[v(1.5, f64::INFINITY)], &[0.1], 3.0, 2.8).unwrap_err(), ErroFuro::ContornoInvalido(0));
+}
+
+#[test]
+fn furo_contorno_area_zero_e_recusada() {
+    // três pontos colineares: área nula, sem cruzamento
+    assert_eq!(furar_um_vao(vec![[0.0, 0.0], [0.5, 0.0], [1.0, 0.0]]).unwrap_err(), ErroFuro::ContornoInvalido(0));
+    // quadrado de 0,5 µm de lado: área 2,5e-13 m2, abaixo do mínimo de 1e-12 m2 (não cruza: é só pequeno)
+    let minusculo = vec![[0.0, 0.0], [5e-7, 0.0], [5e-7, 5e-7], [0.0, 5e-7]];
+    assert_eq!(furar_um_vao(minusculo).unwrap_err(), ErroFuro::ContornoInvalido(0));
+}
+
+#[test]
+fn furo_contorno_espicula_de_ida_e_volta_e_recusada() {
+    // a aresta 1 volta sobre a aresta 0 (sobreposição de arestas consecutivas, no vértice (1,0))
+    let espicula = vec![[0.0, 0.0], [1.0, 0.0], [0.5, 0.0], [0.5, 1.0]];
+    assert_eq!(furar_um_vao(espicula).unwrap_err(), ErroFuro::AutoInterseccao(0));
+}
+
+#[test]
+fn furo_contorno_vertice_sobre_aresta_nao_consecutiva_e_recusado() {
+    // o vértice (1,0) cai sobre a aresta (0,0)-(2,0), que não é vizinha dela: toque entre arestas não consecutivas
+    let toque = vec![[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [1.0, 0.0], [0.0, 2.0]];
+    assert_eq!(furar_um_vao(toque).unwrap_err(), ErroFuro::AutoInterseccao(0));
+}
+
+#[test]
+fn furo_contorno_concavo_simples_e_aceito() {
+    // L: côncavo, sem cruzamento. Área 0,75 m2. O furo atravessa a parede inteira (genus 1 por camada).
+    let l = vec![[0.0, 0.0], [1.0, 0.0], [1.0, 0.5], [0.5, 0.5], [0.5, 1.0], [0.0, 1.0]];
+    let area = area_com_sinal(&l);
+    assert!((area - 0.75).abs() < 1e-12);
+    let r = furar_parede(&[Vao { contorno: l, x: 1.0, soleira: 0.3 }], &CAMADAS_5, 3.0, 2.8).unwrap();
+    checar_pilha(&r, &CAMADAS_5, area, 1e-9);
+}

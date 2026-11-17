@@ -10,12 +10,17 @@ Data: 2026-11-17. Continua `10-plano-booleana.md` e `11-rust-booleana-biblioteca
 - Referencial: x ao longo da parede, y na espessura (camada 0 em `[0, e0]`, as demais empilhadas), z para cima. O contorno `[x, z]` (anti-horário, aberto) é posto em `(x do vão, soleira)`.
 - Cada camada: `cube` menos a união dos cortadores de todos os vãos. O cortador é `Manifold::extrude` do contorno, girado 90 graus em x e transladado; cobre a camada com folga de 5 cm em y de cada lado. A união é em árvore balanceada, uma subtração por camada.
 - Saída por camada: `y0`, `y1`, vértices (x, y, z intercalados, f64), índices (u32), volume e volume sem furo. No total: volume e volume removido.
-- Erros tipados: parede inválida, espessura inválida, contorno inválido (menos de 3 pontos, não finito, horário ou área nula), vão fora da parede, falha do kernel.
+- Erros tipados: parede inválida, espessura inválida, contorno inválido (menos de 3 pontos, não finito, horário, colinear ou de área nula), pontos repetidos consecutivos, auto-interseção, vão fora da parede, falha do kernel. Todos são checados antes da booleana, para que o kernel não receba contorno não simples.
 
-## 2. Testes (`cargo test -p geom-wasm furo_contorno`: 8 passam, 0,15 s em debug) [V]
+## 2. Testes (`cargo test --lib furo_contorno` dentro de `crates/geom-wasm`: os 16 de `furo_contorno_testes.rs` passam, junto com os de quant e ABI) [V]
 
 | Teste | Invariante |
 |---|---|
+| gravata borboleta (simétrica, área zero; e assimétrica, área positiva) | recusada com `AutoInterseccao(0)` |
+| pontos repetidos (no meio, último igual ao primeiro, quase iguais a 1e-12) | recusados com `PontoRepetido(0)` |
+| menos de 3 pontos; NaN e inf (x, z, origem do vão); colineares; quadrado de 0,5 µm | recusados com `ContornoInvalido(0)` |
+| espícula de ida e volta; vértice sobre aresta não consecutiva | recusados com `AutoInterseccao(0)` |
+| L côncavo simples (área 0,75 m2) | aceito; volume removido = área x espessura |
 | meia-lua 0,9 x 1,4 (24 e 64 cordas) | volume removido = área do polígono x espessura (erro relativo menor que 1e-9); contra a meia-lua analítica o erro é menor que 0,1% |
 | arco abatido 1,2 x 1,5, flecha 0,2 (48 cordas; raio 1,0 m) | idem |
 | parede de 5 camadas (0,015; 0,02; 0,09; 0,02; 0,015) | por camada: removido = área x espessura; `y0`/`y1` empilham certo; removido/espessura é igual em todas |
@@ -47,7 +52,7 @@ Leitura: o custo de verdade é cerca de **+1,07 MB (+41%)**, e só aparece quand
 - Equivalência com o TypeScript: não há; a comparação é por invariantes, como o doc 11 §4 já previa.
 - Paredes curvas ou inclinadas, retorno do acabamento, folga entre camadas, vãos que atravessam várias paredes: fora do escopo.
 - Tolerância geométrica do kernel (epsilon) não foi estudada; os testes mostram erro de volume menor que 1e-9 relativo nas medidas usadas, não um limite geral.
-- Contorno côncavo ou com auto-interseção: validei só orientação, tamanho e finitude. Auto-interseção não é detectada [I: o `extrude` pode devolver malha vazia ou inválida, e o erro sairia como `Manifold(...)` ou volume errado].
+- Contorno não simples: o spike original validava só orientação, tamanho e finitude. Desde então a função recusa contorno com auto-interseção, pontos repetidos consecutivos e área degenerada, com `ErroFuro::AutoInterseccao`, `PontoRepetido` e `ContornoInvalido` (regras e ordem em `21-abi-furo-contorno.md` §6.1). Côncavo simples (L) é aceito e testado. Não foi medido se o kernel entrava em panic com esses casos antes da validação [I]. Tolerâncias: seno 1e-12 (relativo) e área mínima 1e-12 m².
 
 ## 5. Problemas encontrados
 
