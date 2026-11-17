@@ -154,7 +154,7 @@
 .vcb-btn:disabled { opacity: 0.4; cursor: default; }
 .vcb-btn:disabled svg { filter: grayscale(1); }
 .vcb-sep { flex: none; width: 1px; height: 14px; margin: 0 4px; background: var(--line-strong); }
-.navbar { position: absolute; z-index: 2; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 1px; padding: 2px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line-strong); }
+.navbar { position: absolute; z-index: 15; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 1px; padding: 2px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line-strong); }
 .navbar.below-cube { top: 160px; }
 .navbar button { width: 26px; height: 24px; display: grid; place-items: center; padding: 0; color: var(--fg); background: transparent; border: 1px solid transparent; border-radius: 2px; }
 .navbar button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--line-strong); }

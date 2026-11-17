@@ -6,6 +6,7 @@ import { activateView, closeTab, dropMissingViews, tabOf } from '../editor/viewT
 import { useT } from '../editor/i18n.ts';
 import { useNarrow } from './useNarrow.ts';
 import { Icon } from './Icon.tsx';
+import { PaneLayoutMenu } from './PaneLayoutMenu.tsx';
 
 export function ViewTabs(): ReactElement {
   const p = useProject();
@@ -223,6 +224,7 @@ export function ViewTabs(): ReactElement {
       <span style={{ flex: 1, minWidth: 4 }} />
 
       <div className="vtab-controls" ref={controlsRef}>
+        <PaneLayoutMenu />
         <button className="ibtn" onClick={() => useUi.setState({ propsOpen: !s.propsOpen, ...(narrow && !s.propsOpen ? { browserOpen: false } : {}) })} title={t('shc_viewtabs_toggle_props')} aria-pressed={s.propsOpen}>
           <Icon name="edit" size={16} />
         </button>

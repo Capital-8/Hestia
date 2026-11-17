@@ -1,0 +1,27 @@
+/* Grade de painéis: cada divisão é um flex; o `flex-grow` do primeiro filho é a fração (ratio). Com um painel só, nada disto aparece. */
+.pane-grid { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+.pane-split { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.pane-split.row { flex-direction: row; }
+.pane-split.column { flex-direction: column; }
+.pane-slot { display: flex; flex-direction: column; flex-basis: 0; min-width: 0; min-height: 0; }
+
+/* Divisória de 6 px (DIVISORIA_PX em paneGridMath.ts), arrastável e com foco pelo teclado. */
+.pane-split-bar { flex: 0 0 6px; background: var(--line-strong); touch-action: none; }
+.pane-split-bar.row { cursor: col-resize; }
+.pane-split-bar.column { cursor: row-resize; }
+.pane-split-bar[aria-disabled="true"] { cursor: default; }
+.pane-split-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.pane { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; position: relative; }
+.pane.is-active { box-shadow: inset 0 0 0 2px var(--accent); }
+
+.pane-head { display: flex; align-items: center; gap: 4px; flex-shrink: 0; min-width: 0; height: 28px; padding: 0 4px; background: var(--chrome); border-bottom: 1px solid var(--line-strong); font-size: 12px; }
+.pane-view { min-width: 0; max-width: 220px; height: 22px; padding: 0 4px; font-size: 12px; }
+.pane-head-spacer { flex: 1; min-width: 0; }
+.pane-head .ibtn:disabled { opacity: 0.4; cursor: default; }
+
+.pane-body { display: grid; flex: 1; position: relative; min-width: 0; min-height: 0; }
+
+.pane-style { min-width: 0; max-width: 150px; height: 22px; padding: 0 4px; font-size: 12px; }
+.pane-toggle { width: auto; padding: 0 6px; font-size: 11px; }
+.pane-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg, #fff); }

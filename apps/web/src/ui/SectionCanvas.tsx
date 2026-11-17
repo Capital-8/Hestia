@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
-import { sectionAnnotationsOf, type Id } from '@hestia/model';
+import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
 import { anotacoesSemOcultas } from '../editor/viewAnnotations.ts';
-import { DARK, LIGHT, sectionFrame, type PlanDrawList, type Viewport } from '@hestia/render';
+import { DARK, LIGHT, sectionFrame, type PlanDrawList, type SectionFrame, type Viewport } from '@hestia/render';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT, type Lang } from '../editor/i18n.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
-import { useUi } from '../editor/state.ts';
+import { useUi, type UiState } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
 
 /**
@@ -19,14 +19,18 @@ import { Icon } from './Icon.tsx';
  * tamanho da vista não geram geometria nova. Com GPU, a lista volta como está (o shader aplica `papel`/`zoomMin` com o
  * zoom corrente); sem GPU, ela sai resolvida para o zoom do Canvas2D.
  */
-export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, lang: Lang = 'pt'): PlanDrawList | null {
-  const st = useUi.getState();
+/**
+ * `estado` é o estado da interface "como o painel o vê" (o `sectionId` do próprio painel): sem ele vale o do app. Um painel
+ * de corte inativo precisa do seu, senão desenha vazio. `frame` é o cache de lista do painel (o painel ativo usa o global).
+ */
+export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, lang: Lang = 'pt', projeto?: Project, estado?: UiState, frame: SectionFrame = sectionFrame): PlanDrawList | null {
+  const st = estado ?? useUi.getState();
   const section = editor.sectionOf(st.sectionId);
   if (!section || !st.sectionId) return null;
   const view = editor.project.views.find((x) => x.id === st.sectionId);
   const gpu = st.gpu === 'webgl2' || st.gpu === 'webgpu';
   const entrada = {
-    project: editor.project,
+    project: projeto ?? editor.project,
     version: editor.store.version,
     sectionId: st.sectionId,
     section,
@@ -38,10 +42,10 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
     annotations: view ? anotacoesSemOcultas(sectionAnnotationsOf(view), hidden) : undefined,
     levelExtents: view?.levelExtents,
     highlight: { selection: st.selection, hover: st.hover, aviso: st.avisoParede ? [st.avisoParede] : [] },
-    thinLines: thinLinesOn(editor.project, 'section'),
+    thinLines: thinLinesOn(projeto ?? editor.project, 'section'),
     lang,
   };
-  return sectionFrame.drawList(entrada, v, gpu);
+  return frame.drawList(entrada, v, gpu);
 }
 
 /** Bancada do R4 (`?debug=1`): montagens × reaproveitamentos da lista do corte. */

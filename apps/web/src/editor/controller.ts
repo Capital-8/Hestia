@@ -44,6 +44,7 @@ import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { elevationFrameBox, fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -292,8 +293,8 @@ export class Editor {
    * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que
    * converte mm de papel em metros de desenho — a mesma na tela, na prancha e no DXF.
    */
-  viewScale(): number {
-    const st = useUi.getState();
+  viewScale(f?: ViewKeyFields & { sectionId: Id | null }): number {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
@@ -348,23 +349,21 @@ export class Editor {
 
   // ---------- vistas ----------
   /** Chave do viewport: cada planta tem o seu (a de cobertura tem outro, do mesmo nível); cada corte ou elevação tem o próprio. */
-  private viewKey(): Id {
-    const st = useUi.getState();
-    return st.view === 'section' ? `sec:${st.sectionId}` : st.planKind === 'roof' ? `roof:${st.levelId}` : st.planKind === 'area' ? `area:${st.areaPlanId ?? st.levelId}` : st.levelId;
+  private viewKey(f?: ViewKeyFields): Id { return viewKeyOf(f ?? useUi.getState()); }
+
+  /** Câmera 2D da vista (sem `f`: a vista ativa do app; com `f`: a vista dada, ex.: a de um painel que acabou de sair de cena). */
+  viewport(f?: ViewKeyFields): Viewport | null {
+    return this.viewports.get(this.viewKey(f)) ?? null;
   }
 
-  viewport(): Viewport | null {
-    return this.viewports.get(this.viewKey()) ?? null;
-  }
-
-  setViewport(v: Viewport): void {
-    this.viewports.set(this.viewKey(), v);
+  setViewport(v: Viewport, f?: ViewKeyFields): void {
+    this.viewports.set(this.viewKey(f), v);
     useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
   }
 
   /** Caixa para enquadrar a vista atual: o nível na planta, o corte na vista de corte. */
-  private frameBox(): PlanBox | null {
-    const st = useUi.getState();
+  frameBox(f?: ViewKeyFields & { sectionId: Id | null }): PlanBox | null {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const r = this.sectionOf(st.sectionId);
       return r ? sectionBox(r) : null;
