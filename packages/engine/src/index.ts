@@ -116,6 +116,7 @@ export { t as engineMessageText, type Lang as EngineLang, type DictKey as Engine
 export * from './kernelGuardaCorpoServico.ts';
 export * from './guardaCorpoSchedule.ts';
 export * from './cortinaProjeto.ts';
+export * from './cortinaInclinada.ts';
 export * from './kernelCortina.ts';
 export * from './kernelCortinaServico.ts';
 export * from './cortinaIssues.ts';
