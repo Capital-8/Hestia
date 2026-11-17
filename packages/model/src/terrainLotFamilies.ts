@@ -1,5 +1,6 @@
 import type { Id, Project, ProjectSettings } from './types.ts';
-import { formatQuantity, unitsOf } from './units.ts';
+import { formatQuantity } from './unitsFormat.ts';
+import { unitsOf } from './units.ts';
 
 /**
  * Famílias do texto do terreno (rótulo de curva de nível e cota de ponto do terreno) e do lote (linha de propriedade e
@@ -8,7 +9,7 @@ import { formatQuantity, unitsOf } from './units.ts';
  */
 export type TerrainTextKind = 'contour' | 'spot';
 export type LotLineStyle = 'dashed' | 'solid' | 'dash-dot';
-export type LengthUnit = 'project' | 'm' | 'cm' | 'mm';
+export type FamilyLengthUnit = 'project' | 'm' | 'cm' | 'mm';
 
 export interface TerrainTextFamily {
   id: Id;
@@ -25,7 +26,7 @@ export interface TerrainTextFamily {
   prefix: string;
   /** Casas decimais; ausente = as das unidades do projeto. */
   precision?: 0 | 1 | 2 | 3;
-  unit: LengthUnit;
+  unit: FamilyLengthUnit;
 }
 
 export interface LotFamily {
@@ -47,7 +48,7 @@ export interface LotFamily {
   showLength: boolean;
   /** Casas decimais; ausente = as das unidades do projeto. */
   precision?: 0 | 1 | 2 | 3;
-  unit: LengthUnit;
+  unit: FamilyLengthUnit;
 }
 
 /** Fonte padrão das famílias: o desenho usa a do tema; só uma fonte diferente desta é aplicada ao rótulo. */
@@ -124,7 +125,7 @@ export function removeLotFamilyFrom(s: ProjectSettings, id: Id): ProjectSettings
 }
 
 /** Comprimento (m) formatado pela unidade e pelas casas da família (`project`/ausente = as do projeto). */
-export function formatLengthByFamily(p: Pick<Project, 'settings'>, meters: number, f: { unit: LengthUnit; precision?: 0 | 1 | 2 | 3 }): string {
+export function formatLengthByFamily(p: Pick<Project, 'settings'>, meters: number, f: { unit: FamilyLengthUnit; precision?: 0 | 1 | 2 | 3 }): string {
   return formatQuantity(unitsOf(p), 'length', meters, {
     ...(f.unit === 'project' ? {} : { unit: f.unit }),
     ...(f.precision !== undefined ? { decimals: f.precision } : {}),

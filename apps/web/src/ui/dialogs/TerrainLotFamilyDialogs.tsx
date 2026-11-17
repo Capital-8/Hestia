@@ -5,7 +5,7 @@ import {
   FAMILY_FONT_PADRAO,
   lotFamiliesOf,
   terrainTextFamiliesOf,
-  type LengthUnit,
+  type FamilyLengthUnit,
   type LotFamily,
   type TerrainTextFamily,
   type TerrainTextKind,
@@ -20,7 +20,7 @@ const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 const uid = (prefix: string): string => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
 /** Campos comuns de texto: fonte, cor, unidade e casas. `value` é a família em edição e `patch` grava o rascunho. */
-function TextoFields<T extends { font: string; unit: LengthUnit; precision?: 0 | 1 | 2 | 3; textMm: number; bold?: boolean; italic?: boolean }>({ pre, value, color, onColor, patch }: { pre: string; value: T; color: string | undefined; onColor: (c: string | undefined) => void; patch: (k: Partial<T>) => void }): ReactElement {
+function TextoFields<T extends { font: string; unit: FamilyLengthUnit; precision?: 0 | 1 | 2 | 3; textMm: number; bold?: boolean; italic?: boolean }>({ pre, value, color, onColor, patch }: { pre: string; value: T; color: string | undefined; onColor: (c: string | undefined) => void; patch: (k: Partial<T>) => void }): ReactElement {
   const { t } = useT();
   return (
     <>
@@ -35,7 +35,7 @@ function TextoFields<T extends { font: string; unit: LengthUnit; precision?: 0 |
         <NumField id={`${pre}-h`} value={value.textMm} decimals={1} unit="mm" min={0.5} onCommit={(v) => patch({ textMm: v } as Partial<T>)} />
       </FamilyRow>
       <FamilyRow label={t('ui_fam_unit')} htmlFor={`${pre}-unit`}>
-        <select id={`${pre}-unit`} className="select" value={value.unit} onChange={(e) => patch({ unit: e.target.value as LengthUnit } as Partial<T>)}>
+        <select id={`${pre}-unit`} className="select" value={value.unit} onChange={(e) => patch({ unit: e.target.value as FamilyLengthUnit } as Partial<T>)}>
           <option value="project">{t('ui_fam_unit_project')}</option>
           <option value="m">m</option>
           <option value="cm">cm</option>
