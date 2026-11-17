@@ -2,6 +2,7 @@ import { openingTypeById } from './openingNominal.ts';
 import { openingHeight, openingType, wallHeight, wallType } from './queries.ts';
 import { expandTagFormat, tagFamilyFor, type TagToken } from './tagFamily.ts';
 import { unitsOf } from './units.ts';
+import { wallThicknessOf } from './wallType.ts';
 import { formatQuantity } from './unitsFormat.ts';
 import type { ElementTag, Id, Project } from './types.ts';
 
@@ -34,7 +35,7 @@ export function elementTagValues(p: Project, hostId: Id, withUnit = false): Part
     mark: 'mark' in e ? e.mark : '',
     level: p.levels.find((l) => l.id === levelId)?.name ?? '',
     width: opening ? formatQuantity(units, 'length', openingType(p, e).width, { withUnit })
-      : e.kind === 'wall' ? formatQuantity(units, 'smallLength', wallType(p, e).layers.reduce((s, l) => s + l.thickness, 0), { withUnit })
+      : e.kind === 'wall' ? formatQuantity(units, 'smallLength', wallThicknessOf(wallType(p, e)), { withUnit })
       : e.kind === 'column' || e.kind === 'beam' || e.kind === 'footing'
         ? (type && 'width' in type ? formatQuantity(units, 'smallLength', type.width, { withUnit }) : '')
         : '',

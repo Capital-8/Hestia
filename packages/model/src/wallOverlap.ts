@@ -49,15 +49,15 @@ function curvedWallOverlap(a: Arc, b: Arc): WallOverlap | null {
 
 /**
  * Sobreposição de eixos de duas paredes: colineares (ângulo < 1°), eixos a menos de 1 cm no meio do
- * trecho e trecho comum maior que 5 cm. Para paredes em arco (`sag`), compara os arcos reais (dois
- * semicírculos opostos sobre o mesmo diâmetro não se sobrepõem).
+ * trecho e trecho comum maior que 5 cm. Quando as DUAS paredes são arcos (`sag`), compara os arcos reais
+ * (dois semicírculos opostos sobre o mesmo diâmetro não se sobrepõem); com no máximo um arco, só o eixo a→b entra.
  */
 export function wallOverlap(a: WallAxis, b: WallAxis): WallOverlap | null {
   const arcA = a.sag ? arcFromSagitta(a.a, a.b, a.sag) : null;
   const arcB = b.sag ? arcFromSagitta(b.a, b.b, b.sag) : null;
   if (arcA && arcB) return curvedWallOverlap(arcA, arcB);
-  if (arcA && Math.abs(a.sag ?? 0) >= COLLINEAR_OFFSET) return null;
-  if (arcB && Math.abs(b.sag ?? 0) >= COLLINEAR_OFFSET) return null;
+  // Reta contra arco (ou um só arco): vale o critério dos eixos a→b, como no C14; a guarda das ferramentas
+  // (`wallOverlapGuard.ts`) distingue arcos de mesma corda e flechas diferentes na hora de criar/mover/copiar.
   const la = dist(a.a, a.b);
   const lb = dist(b.a, b.b);
   if (la < MIN_WALL_LENGTH || lb < MIN_WALL_LENGTH) return null;

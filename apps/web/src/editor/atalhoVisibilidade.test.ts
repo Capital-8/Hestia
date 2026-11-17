@@ -38,6 +38,10 @@ describe('atalhos de visibilidade no 3D e no corte', () => {
     expect(editor.project.view3d?.hidden?.elements).toEqual(['A']);
     atalho('R', 'H');
     expect(useUi.getState().viewTemp['3d']?.reveal).toBe(true);
+    // Como no Revit: ocultar tira o elemento da seleção (`pruneHiddenSelection`, ficha de seleção sem ocultos); no modo Reveal ele
+    // volta a ser selecionável, e então "Reexibir elemento" age sobre a seleção.
+    expect(useUi.getState().selection).toEqual([]);
+    useUi.setState({ selection: ['A'] });
     atalho('E', 'U');
     expect(editor.project.view3d?.hidden?.elements).toBeUndefined();
     expect(useUi.getState().viewTemp['3d']?.reveal).toBe(true);

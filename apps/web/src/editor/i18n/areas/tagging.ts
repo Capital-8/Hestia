@@ -33,6 +33,10 @@ export const PT_TAGGING = {
   tg_fld_text_size_unit: 'mm de papel',
   tg_sel_tag_one: 'etiqueta',
   tg_sel_tag_many: 'etiquetas',
+  tool_spotElevation: 'Cota de elevação',
+  tool_spotCoordinate: 'Coordenada de ponto',
+  tool_northArrow: 'Seta norte',
+  tool_revisionCloud: 'Nuvem de revisão',
 } as const;
 
 export const EN_TAGGING: Record<keyof typeof PT_TAGGING, string> = {
@@ -68,6 +72,10 @@ export const EN_TAGGING: Record<keyof typeof PT_TAGGING, string> = {
   tg_fld_text_size_unit: 'paper mm',
   tg_sel_tag_one: 'tag',
   tg_sel_tag_many: 'tags',
+  tool_spotElevation: 'Spot Elevation',
+  tool_spotCoordinate: 'Spot Coordinate',
+  tool_northArrow: 'North Arrow',
+  tool_revisionCloud: 'Revision Cloud',
 };
 
 export const ES_TAGGING: Record<keyof typeof PT_TAGGING, string> = { ...EN_TAGGING };
