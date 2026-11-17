@@ -1,5 +1,6 @@
 export * from './types.ts';
 export * from './detailLineGeom.ts';
+export * from './materialBlocks.ts';
 export * from './dxfLayerStyle.ts';
 export * from './cad.ts';
 export * from './priority.ts';

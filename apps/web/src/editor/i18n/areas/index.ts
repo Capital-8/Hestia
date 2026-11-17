@@ -10,6 +10,7 @@ import { PT_DIALOGS_MISC, EN_DIALOGS_MISC } from './dialogs-misc.ts';
 import { PT_DIALOGS_OPENING, EN_DIALOGS_OPENING } from './dialogs-opening.ts';
 import { PT_DIALOGS_STAIRS, EN_DIALOGS_STAIRS } from './dialogs-stairs.ts';
 import { PT_DIALOGS_TYPES, EN_DIALOGS_TYPES } from './dialogs-types.ts';
+import { PT_DIALOGS_MATERIAIS, EN_DIALOGS_MATERIAIS } from './dialogs-materiais.ts';
 import { PT_DIALOGS, EN_DIALOGS } from './dialogs.ts';
 import { PT_EDITOR_CONTEXT, EN_EDITOR_CONTEXT } from './editor-context.ts';
 import { PT_EDITOR_STATUS, EN_EDITOR_STATUS } from './editor-status.ts';
@@ -73,6 +74,7 @@ export const PT_ALL = {
   ...PT_DIALOGS_OPENING,
   ...PT_DIALOGS_STAIRS,
   ...PT_DIALOGS_TYPES,
+  ...PT_DIALOGS_MATERIAIS,
   ...PT_EDITOR_CONTEXT,
   ...PT_EDITOR_STATUS,
   ...PT_ENGINE,
@@ -126,6 +128,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_DIALOGS_OPENING,
   ...EN_DIALOGS_STAIRS,
   ...EN_DIALOGS_TYPES,
+  ...EN_DIALOGS_MATERIAIS,
   ...EN_EDITOR_CONTEXT,
   ...EN_EDITOR_STATUS,
   ...EN_ENGINE,

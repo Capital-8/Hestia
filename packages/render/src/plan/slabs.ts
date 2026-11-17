@@ -3,6 +3,7 @@ import { fillRegionOf, type ElementJunction, type ResolvedSlab, type ResolvedSla
 import { formatQuantity, unitsOf, type DetailLevel, type Id, type Project } from '@hestia/model';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoCorte } from './materialPlan.ts';
 import { juncaoDoNivel, lajesDoNivel } from './resolucao.ts';
 import { concatOps, fmtArea, labelPoint, membraneLineOps, outlineSelectionOps, SURFACE_TEXT_MM, type FloorOps } from './floors.ts';
 import { holeMarkOps } from './holeMarks.ts';
@@ -80,8 +81,9 @@ export function slabOpsOf(p: Project, s: ResolvedSlab, theme: PlanTheme, dark: b
   const fine = detail === 'fine';
   const layer = structuralLayer(p, s);
   const m = layer ? p.materials[layer.materialId] : undefined;
-  const color = surfaceColor(m?.color ?? '#999999', fillBase, dark ? 0.38 : 0.6, paint);
-  const hatch = m && m.hatch !== 'none' && detail !== 'coarse' ? { kind: m.hatch, color: mix(paint.color ?? m.color, dark ? '#ffffff' : '#000000', 0.45), ...(fine ? {} : { zoomMin: 40 }) } : undefined;
+  const cp = corPadraoCorte(m, { dark, detail, paint });
+  const color = surfaceColor(cp.fundo, fillBase, dark ? 0.38 : 0.6, paint);
+  const hatch = cp.padrao ? { ...cp.padrao, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
   out.fills.push({ polygons: region, color, alpha: 1, hatch });
   out.strokes.push(...holeMarkOps(s.polygon, theme, paint, detail));
   const at = labelPoint(s.polygon);

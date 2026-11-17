@@ -1,0 +1,14 @@
+/* Navegador de materiais: lista à esquerda, prévia e abas à direita. Empilha em telas estreitas. */
+.mat-nav { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.mat-lista-itens { max-height: 420px; overflow: auto; }
+.mat-grupo { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-soft); background: var(--chrome); padding: 6px 8px 2px; }
+.matitem .mat-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mat-topo { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+.mat-topo-campos { flex: 1; min-width: 220px; }
+.mat-previa { display: flex; flex-direction: column; gap: 6px; width: 280px; max-width: 100%; }
+.mat-forma { display: flex; flex-wrap: wrap; gap: 6px; }
+.mat-sec { margin: 12px 0 4px; font-size: 13px; font-weight: 600; }
+.mat-sub { margin: 8px 0 2px; color: var(--fg-soft); font-size: 12px; }
+@media (max-width: 640px) {
+  .mat-nav { grid-template-columns: minmax(0, 1fr); }
+}

@@ -18,6 +18,7 @@ import { DE_PROPS_CORE } from '../../areas/props-core.ts';
 import { DE_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { DE_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { DE_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
+import { DE_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas.ts';
 import { DE_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { DE_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { DE_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
@@ -65,6 +66,7 @@ export const DE_ALL = {
   ...DE_DIALOGS_MISC,
   ...DE_PACKAGES_MODEL,
   ...DE_DIALOGS_TYPES,
+  ...DE_DIALOGS_MATERIAIS,
   ...DE_DIALOGS_OPENING,
   ...DE_DIALOGS_CAD,
   ...DE_EDITOR_CONTEXT,

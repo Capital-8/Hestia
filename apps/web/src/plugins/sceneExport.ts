@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import type { Project } from '@hestia/model';
 import type { SceneContent, SceneEntity, SceneMaterial, SceneMesh } from '@hestia/plugin-api';
 import { IDENTITY_MATRIX } from '@hestia/plugin-api';
+import type { SceneTexture } from '@hestia/plugin-api';
+import type { TexturasCatalogo } from '@hestia/io';
+import { texturasDoMaterial } from './sceneTexturas.ts';
 
 /** Hash FNV-1a de 32 bits sobre posições e índices: igual = geometria igual (o plugin reaproveita o que já tem). */
 function hashMesh(pos: number[], idx: number[]): string {
@@ -63,7 +66,7 @@ function materialIdsOf(p: Project, e: Typed): string[] {
 }
 
 /** Projeto + malhas da cena → conteúdo do contrato. Sem cena 3D montada, as entidades vão sem geometria (`mesh: null`). */
-export function buildSceneContent(project: Project, root: THREE.Object3D | null): SceneContent {
+export function buildSceneContent(project: Project, root: THREE.Object3D | null, texturas: { catalogo: TexturasCatalogo | null; base: string } = { catalogo: null, base: '' }): SceneContent {
   const meshes = root ? extractElementMeshes(root) : new Map<string, SceneMesh>();
   const entities: SceneEntity[] = [];
   for (const el of Object.values(project.elements)) {
@@ -83,7 +86,15 @@ export function buildSceneContent(project: Project, root: THREE.Object3D | null)
     });
   }
   entities.sort((a, b) => (a.id < b.id ? -1 : 1));
-  const materials: SceneMaterial[] = Object.values(project.materials).map((m) => ({ id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity: m.opacity }));
+  const sceneTextures = new Map<string, SceneTexture>();
+  const materials: SceneMaterial[] = Object.values(project.materials).map((m) => {
+    const base: SceneMaterial = { id: m.id, name: m.name, color: m.color, gloss: m.gloss, opacity: m.opacity };
+    const tx = texturasDoMaterial(m, texturas.catalogo, texturas.base);
+    if (!tx) return base;
+    for (const t of tx.texturas) sceneTextures.set(t.id, t);
+    return { ...base, ...tx.campos };
+  });
   materials.sort((a, b) => (a.id < b.id ? -1 : 1));
-  return { projectName: project.name, entities, materials, textures: [] };
+  const textures = [...sceneTextures.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
+  return { projectName: project.name, entities, materials, textures };
 }

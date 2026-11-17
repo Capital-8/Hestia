@@ -27,6 +27,7 @@ import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from
 import type { Column, ColumnType } from './column.ts';
 import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
+import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdentidade, MaterialTermico } from './materialBlocks.ts';
 
 export type Id = string;
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
@@ -63,6 +64,12 @@ export interface Material {
   cost: number;
   /** Unidade do custo/quantitativo. */
   unit: 'm2' | 'm3' | 'm';
+  /** Blocos opcionais (decisão 0056). Ausente = comportamento anterior. Leia sempre por `materialEfetivo`. */
+  identidade?: MaterialIdentidade;
+  graficos?: MaterialGraficos;
+  aparencia?: MaterialAparencia;
+  fisico?: MaterialFisico;
+  termico?: MaterialTermico;
 }
 
 export interface Layer {
