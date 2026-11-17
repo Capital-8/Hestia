@@ -82,9 +82,7 @@ describe('fabricante e fator solar no IFC: exportação', () => {
 });
 
 describe('fabricante e fator solar no IFC: ida e volta', () => {
-  // O importador (ifcImport/elementTypes.ts) ainda lê o fator solar só de Pset_WindowCommon (B9, lado da importação, fora
-  // desta entrega). Por isso o fator solar NÃO volta por IFC de terceiros; volta pelo Pset_Hestia (ida e volta do próprio Hestia).
-  it('exporta e reimporta mantendo fabricante da janela e da porta (fator solar: ver comentário acima)', () => {
+  it('exporta e reimporta mantendo fabricante da janela e da porta e o fator solar da janela', () => {
     const texto = exportar(casa({ manufacturer: 'Acme Esquadrias', solarFactor: 0.35 }, { manufacturer: 'Portas SA' }));
     const { project, report } = importIfc(semExtensaoHestia(texto));
     // Sem o registro do Hestia, as aberturas voltam pela leitura comum (ids novos), não pelo registro nativo.
@@ -99,7 +97,7 @@ describe('fabricante e fator solar no IFC: ida e volta', () => {
     const janela = tipoDe('window');
     const porta = tipoDe('door');
     expect(janela?.manufacturer).toBe('Acme Esquadrias');
-    expect(janela?.solarFactor).toBeUndefined();
+    expect(janela?.solarFactor).toBe(0.35);
     expect(porta?.manufacturer).toBe('Portas SA');
     expect(porta?.solarFactor).toBeUndefined();
   });

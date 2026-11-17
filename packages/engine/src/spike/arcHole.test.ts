@@ -192,7 +192,6 @@ describe('motor real: faixas empilhadas fazem o motor furar por contorno SEM mud
       const removido = vazia.vol - furada.vol;
       const esperado = ringArea(ring) * 0.184; // espessura total do tipo (soma das 5 camadas)
       const erro = removido / esperado - 1;
-      // eslint-disable-next-line no-console
       console.log(`[spike] n=${n} faixas=${sl.length} bandas/camada=${furada.bandas} removido=${removido.toFixed(5)} esperado=${esperado.toFixed(5)} erro=${(erro * 100).toFixed(3)}% resolveLevel=${ms.toFixed(0)}ms (vazia: ${vazia.ms.toFixed(0)}ms)`);
       expect(Math.abs(erro)).toBeLessThan(n >= 24 ? 0.01 : 0.03);
       // Uma banda por faixa do furo (mais as bandas acima e abaixo da meia-lua).
@@ -208,7 +207,6 @@ describe('motor real: arco abatido e retorno do acabamento', () => {
     const vazia = volumeDaParede(paredeFurada([], base));
     const furada = volumeDaParede(paredeFurada(holeSlices(ring, 24, 'mid'), base));
     const erro = (vazia.vol - furada.vol) / (ringArea(ring) * 0.184) - 1;
-    // eslint-disable-next-line no-console
     console.log(`[spike] abatido n=24 bandas/camada=${furada.bandas} erro=${(erro * 100).toFixed(3)}%`);
     expect(Math.abs(erro)).toBeLessThan(0.01);
   });
@@ -219,7 +217,6 @@ describe('motor real: arco abatido e retorno do acabamento', () => {
     const furada = volumeDaParede(paredeFurada(sl, base, 'both'));
     const semRetorno = volumeDaParede(paredeFurada(sl, base, 'none'));
     const retorno = furada.vol - semRetorno.vol;
-    // eslint-disable-next-line no-console
     console.log(`[spike] retorno acrescenta ${retorno.toFixed(5)} m3 (${((retorno / (ringArea(ring) * 0.184)) * 100).toFixed(1)}% do volume furado)`);
     expect(vazia.vol).toBeGreaterThan(0);
     expect(retorno).toBeGreaterThan(0);
