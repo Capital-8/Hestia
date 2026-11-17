@@ -31,9 +31,12 @@ describe('painel de propriedades da massa: campos exibidos', () => {
   it('uma massa mostra nome, nível, base, altura total, interpolação, resolução, torção, arranjo, cor e Editar seções', () => {
     const { massa } = cena();
     const out = html([massa()]);
-    for (const id of ['ms-name', 'prop-level', 'ms-base', 'ms-height', 'ms-interp', 'ms-res', 'ms-torcao', 'ms-arr', 'ms-cor', 'ms-edit-secoes']) expect(out, id).toContain(`id="${id}"`);
-    // altura total é só leitura e vale o z da última seção (24 m)
-    expect(out).toMatch(/id="ms-height"[^>]*readOnly=""|id="ms-height"[^>]*readonly=""/i);
+    for (const id of ['ms-name', 'prop-level', 'ms-base', 'ms-height', 'ms-cota-base', 'ms-cota-topo', 'ms-nivel-ini', 'ms-niveis-aplicar', 'ms-interp', 'ms-res', 'ms-torcao', 'ms-arr', 'ms-cor', 'ms-edit-secoes']) expect(out, id).toContain(`id="${id}"`);
+    // altura agora é EDITÁVEL (frente massa-forma-livre) e vale o z da última seção (24 m); cota do topo = 0 + 24
+    expect(out).not.toMatch(/id="ms-height"[^>]*readonly/i);
+    expect(out).toMatch(/id="ms-height"[^>]*value="24"/);
+    expect(out).toMatch(/id="ms-cota-topo"[^>]*value="24"/);
+    expect(out).toMatch(/id="ms-cota-base"[^>]*value="0"/);
     expect(out).toContain('Torre');
     // sem arranjo ligado, os campos do arranjo não aparecem
     expect(out).not.toContain('id="ms-arr-n"');

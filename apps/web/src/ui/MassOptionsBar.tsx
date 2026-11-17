@@ -4,6 +4,7 @@ import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { NumField } from './fields.tsx';
+import { MassCotasBar } from './MassCotasBar.tsx';
 
 type OpcoesMassa = NonNullable<ToolOptions['mass']>;
 
@@ -26,6 +27,7 @@ export function ajustarOpcoesMassa(patch: Partial<OpcoesMassa>): OpcoesMassa {
     tool.perfil = novas.perfil;
     tool.altura = novas.altura;
     tool.lados = novas.lados;
+    tool.cotaBase = novas.cotaBase ?? null;
   }
   return novas;
 }
@@ -62,6 +64,7 @@ export function MassOptionsFields({ o, onChange }: { o: OpcoesMassa; onChange: (
         {t('ui_ms_opt_altura')}
         <NumField id="opt-mass-altura" value={o.altura} quantity="length" min={0.01} onCommit={(v) => onChange({ altura: v })} />
       </label>
+      <MassCotasBar o={o} onChange={onChange} />
       {!bulbo && o.perfil === 'poligono' && (
         <label>
           {t('ui_ms_opt_lados')}

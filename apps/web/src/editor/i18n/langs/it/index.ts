@@ -33,6 +33,7 @@ import { IT_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { IT_LOTE_UI } from '../../areas/lote-ui.ts';
 import { IT_MASSA } from '../../areas/massa.ts';
 import { IT_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { IT_MASSA_COTAS } from '../../areas/massa-cotas.ts';
 import { IT_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
 import { IT_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { IT_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
@@ -53,6 +54,7 @@ export const IT_ALL = {
   ...IT_LOTE_UI,
   ...IT_MASSA,
   ...IT_MASSA_PISOS,
+  ...IT_MASSA_COTAS,
   ...IT_MASSA_PAREDES,
   ...IT_SUPLEMENTOS,
   ...IT_SUPLEMENTOS_IO,

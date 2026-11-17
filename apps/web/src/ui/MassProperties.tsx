@@ -5,6 +5,7 @@ import { useT, type Lang } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, NumField, Row, TextField } from './fields.tsx';
 import { LevelField } from './LevelField.tsx';
+import { cotaDaBase, cotaDoTopo, definirCotas, definirNiveis, niveisOrdenados } from './massCotas.ts';
 import { alturaTotal, aplicarArranjo, aplicarTorcao, arranjoPadrao, editarMassas, torcaoTotalGraus, type ResultadoEdicao } from './massSecoesForm.ts';
 
 /** Cor padrão do desenho da massa (a categoria 'mass' usa cinza azulado). */
@@ -17,6 +18,8 @@ export interface RotulosMassa {
   edit: string;
   torcao: string;
   arranjo: string;
+  /** Rótulo de desfazer das cotas (opcional: sem ele vale o de editar). */
+  cotas?: string;
 }
 
 /**
@@ -27,6 +30,10 @@ export interface RotulosMassa {
 export function acoesDaMassa(store: ProjectStore, massas: readonly Mass[], r: RotulosMassa, lang: Lang): {
   nome: (v: string) => ResultadoEdicao;
   base: (v: number) => ResultadoEdicao;
+  cotaBase: (v: number) => ResultadoEdicao;
+  cotaTopo: (v: number) => ResultadoEdicao;
+  altura: (v: number) => ResultadoEdicao;
+  niveis: (ini: string, fim: string) => ResultadoEdicao;
   interpolacao: (v: string) => ResultadoEdicao;
   resolucao: (v: number) => ResultadoEdicao;
   cor: (v: string) => ResultadoEdicao;
@@ -40,6 +47,10 @@ export function acoesDaMassa(store: ProjectStore, massas: readonly Mass[], r: Ro
   return {
     nome: (v) => (v.trim() === '' ? OK : editar({ name: v.trim() })),
     base: (v) => editar({ baseOffset: v }),
+    cotaBase: (v) => definirCotas(store, first.id, { cotaBase: v }, r.cotas ?? r.edit, lang),
+    cotaTopo: (v) => definirCotas(store, first.id, { cotaTopo: v }, r.cotas ?? r.edit, lang),
+    altura: (v) => definirCotas(store, first.id, { altura: v }, r.cotas ?? r.edit, lang),
+    niveis: (ini, fim) => definirNiveis(store, first.id, ini, fim, r.cotas ?? r.edit, lang),
     interpolacao: (v) => editar({ interpolacao: v === 'suave' ? 'suave' : 'linear' }),
     resolucao: (v) => editar({ resolucao: v }),
     cor: (v) => editar({ color: v }),
@@ -66,7 +77,7 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
   const ids = massas.map((m) => m.id);
   const same = <K extends keyof Mass>(k: K): boolean => massas.every((m) => m[k] === first[k]);
 
-  const ac = acoesDaMassa(editor.store, massas, { edit: t('ui_ms_undo_edit'), torcao: t('ui_ms_undo_torcao'), arranjo: t('ui_ms_undo_arranjo') }, lang);
+  const ac = acoesDaMassa(editor.store, massas, { edit: t('ui_ms_undo_edit'), torcao: t('ui_ms_undo_torcao'), cotas: t('ui_ms_undo_cotas'), arranjo: t('ui_ms_undo_arranjo') }, lang);
   /** Roda uma edição; a recusa do modelo vira a mensagem do painel. */
   const rodar = (r: ResultadoEdicao): void => {
     setErro(r.erro);
@@ -87,9 +98,18 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
         <NumField id="ms-base" value={first.baseOffset} mixed={!same('baseOffset')} quantity="length" onCommit={(v) => rodar(ac.base(v))} />
       </Row>
       {unica && (
-        <Row label={t('ui_ms_height')} htmlFor="ms-height">
-          <NumField id="ms-height" value={alturaTotal(first)} quantity="length" readOnly onCommit={() => undefined} />
-        </Row>
+        <>
+          <Row label={t('ui_ms_cota_base')} htmlFor="ms-cota-base">
+            <NumField id="ms-cota-base" value={cotaDaBase(editor.project, first)} quantity="length" onCommit={(v) => rodar(ac.cotaBase(v))} />
+          </Row>
+          <Row label={t('ui_ms_cota_topo')} htmlFor="ms-cota-topo">
+            <NumField id="ms-cota-topo" value={cotaDoTopo(editor.project, first)} quantity="length" onCommit={(v) => rodar(ac.cotaTopo(v))} />
+          </Row>
+          <Row label={t('ui_ms_altura')} htmlFor="ms-height">
+            <NumField id="ms-height" value={alturaTotal(first)} quantity="length" min={0.01} onCommit={(v) => rodar(ac.altura(v))} />
+          </Row>
+          <NiveisDaMassa niveis={niveisOrdenados(editor.project)} cota={[cotaDaBase(editor.project, first), cotaDoTopo(editor.project, first)]} onAplicar={(a, b) => rodar(ac.niveis(a, b))} />
+        </>
       )}
       <Row label={t('ui_ms_interp')} htmlFor="ms-interp">
         <select id="ms-interp" className="select" value={same('interpolacao') ? first.interpolacao : ''} onChange={(e) => rodar(ac.interpolacao(e.target.value))}>
@@ -136,5 +156,27 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
       )}
       {erro && <div className="vr-error" role="alert" id="ms-erro">{erro}</div>}
     </div>
+  );
+}
+
+/** "De nível a nível": dois seletores (nível inicial e final) e o botão que leva base e topo às elevações deles. */
+function NiveisDaMassa({ niveis, cota, onAplicar }: { niveis: ReadonlyArray<{ id: string; name: string; elevation: number }>; cota: [number, number]; onAplicar: (ini: string, fim: string) => void }): ReactElement {
+  const { t } = useT();
+  const achar = (c: number): string => niveis.find((l) => Math.abs(l.elevation - c) < 1e-6)?.id ?? niveis[0]?.id ?? '';
+  const [ini, setIni] = useState(achar(cota[0]));
+  const [fim, setFim] = useState(achar(cota[1]));
+  return (
+    <>
+      <Row label={t('ui_ms_nivel_ini')} htmlFor="ms-nivel-ini">
+        <select id="ms-nivel-ini" className="select" value={ini} onChange={(e) => setIni(e.target.value)}>{niveis.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
+      </Row>
+      <Row label={t('ui_ms_nivel_fim')} htmlFor="ms-nivel-fim">
+        <select id="ms-nivel-fim" className="select" value={fim} onChange={(e) => setFim(e.target.value)}>{niveis.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
+      </Row>
+      <div className="prow">
+        <span />
+        <button type="button" id="ms-niveis-aplicar" className="chiplink" title={t('ui_ms_niveis_titulo')} onClick={() => onAplicar(ini, fim)}>{t('ui_ms_niveis_aplicar')}</button>
+      </div>
+    </>
   );
 }

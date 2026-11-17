@@ -381,8 +381,8 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
-  /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
-  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
+  /** Massa (ferramenta `mass`): modo, perfil, altura (m), lados do polígono, cota ABSOLUTA da base (m; ausente = no nível atual) e `galeria` (extrusão pelo esboço com a caixa de formas; ausente = ligada). Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
+  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number; cotaBase?: number; galeria?: boolean };
 }
 
 export interface PointerInfo {

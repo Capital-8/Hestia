@@ -41,6 +41,7 @@ import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
 import { PT_MASSA, EN_MASSA } from './massa.ts';
 import { PT_MASSA_PISOS, EN_MASSA_PISOS } from './massa-pisos.ts';
+import { PT_MASSA_COTAS, EN_MASSA_COTAS } from './massa-cotas.ts';
 import { PT_MASSA_PAREDES, EN_MASSA_PAREDES } from './massa-paredes.ts';
 import { PT_PAREDE_CORTINA, EN_PAREDE_CORTINA } from './parede-cortina-1.ts';
 import { PT_STRUCTURAL, EN_STRUCTURAL } from './structural.ts';
@@ -71,6 +72,7 @@ export const PT_ALL = {
   ...PT_LOTE_UI,
   ...PT_MASSA,
   ...PT_MASSA_PISOS,
+  ...PT_MASSA_COTAS,
   ...PT_MASSA_PAREDES,
   ...PT_PAREDE_CORTINA,
   ...PT_BIBLIOTECA,
@@ -130,6 +132,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_LOTE_UI,
   ...EN_MASSA,
   ...EN_MASSA_PISOS,
+  ...EN_MASSA_COTAS,
   ...EN_MASSA_PAREDES,
   ...EN_PAREDE_CORTINA,
   ...EN_BIBLIOTECA,
