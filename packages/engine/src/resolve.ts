@@ -39,6 +39,8 @@ import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
 import { cutHalfOf, formaDoVao, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
+import { breakpoints, type ZRange } from './resolveQuebras.ts';
+import { contornoDoGrupo, furoDePlanta, nivelComContorno, type ContornoDoCluster } from './resolveContorno.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -268,33 +270,6 @@ interface ClusterCore {
   silhouette: MultiPolygon;
 }
 
-/** Altura absoluta (m) ocupada por uma parede. */
-interface ZRange {
-  z0: number;
-  z1: number;
-}
-
-
-/** Pontos de quebra vertical: bases, topos, limites das faixas e dos vãos de todas as paredes do cluster. */
-function breakpoints(items: Item[], zr: Map<Id, ZRange>, opens: OpeningGeometry[]): number[] {
-  const set = new Set<number>();
-  const add = (z: number): void => void set.add(Math.round(z / EPS_Z) * EPS_Z);
-  for (const r of zr.values()) {
-    add(r.z0);
-    add(r.z1);
-  }
-  for (const i of items) {
-    add(i.z0);
-    add(i.z1);
-  }
-  for (const g of opens) {
-    const w = zr.get(g.hostId);
-    if (!w) continue;
-    for (const z of [w.z0 + g.sill, w.z0 + g.sill + g.roughHeight]) if (z > w.z0 + EPS_Z && z < w.z1 - EPS_Z) add(z);
-  }
-  return [...set].sort((a, b) => a - b);
-}
-
 /** Perfis derivados da parede (topo e base por trecho), relativos à base, só quando existem (decisão 0023 §6, P9). */
 const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profileBottom'> => ({
   ...(z.profile ? { profileTop: z.profile } : {}),
@@ -303,7 +278,9 @@ const perfisDoResolvido = (z: WallZ): Pick<ResolvedWall, 'profileTop' | 'profile
 
 type Returns = Map<string, Array<{ openingId: Id; poly: MultiPolygon }>>;
 
-function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false, isentos?: ReadonlySet<string>): ClusterCore {
+function solveCluster(items: Item[], todos: OpeningGeometry[], zr: Map<Id, ZRange>, returns: Returns, planOpen: (id: Id) => boolean, semRegioes = false, isentos?: ReadonlySet<string>, contorno?: ContornoDoCluster): ClusterCore {
+  // Vão por contorno não corta as faixas (a camada fica inteira; o 3D fura por booleana): só a planta o abre, na cota do corte.
+  const opens = contorno ? todos.filter((g) => !contorno.ids.has(g.openingId)) : todos;
   const compartilhadas = pinturasDoCluster(items, isentos?.size ? [...isentos].sort().join(',') : ''), pintar = (its: Item[]): Map<Item, MultiPolygon> => paint(its, isentos);
   const paintCache = new Map<string, Map<Item, MultiPolygon>>();
   const paintFor = (active: Item[]): Map<Item, MultiPolygon> => {
@@ -364,7 +341,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
     let cut = fragment;
     if (it.inPlan && fragment.length) {
       // Só as aberturas que furam a parede na planta; o retorno do vão sai junto com o seu vão.
-      const rects = opens.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map(openingHole);
+      const rects = todos.filter((g) => g.hostId === it.wallId && planOpen(g.openingId)).map((g) => furoDePlanta(g, contorno, zr.get(it.wallId)!.z0)).filter((m) => m.length > 0);
       cut = rects.length ? difference(fragment, ...rects) : fragment;
       for (const r of returns.get(`${it.wallId}|${it.layerIndex}`) ?? []) if (planOpen(r.openingId)) cut = [...cut, ...clipReturn(r, it.wallId, plan)];
     }
@@ -401,7 +378,7 @@ export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
 /** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  const d = despachanteDeNivel();
+  const d = nivelComContorno(p, levelId) ? null : despachanteDeNivel();
   return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
 }
 
@@ -444,9 +421,13 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     items.forEach((it, i) => {
       it.uid = i;
     });
+    const opens = group.flatMap((f) => openingsOfWall(p, f.wall.id).map((o) => openingGeometry(p, o, f)));
+    const semRegioes = group.some((f) => !!f.wall.tilt), isentos = paresQueSeCruzam(group, estrutura.status);
+    const contorno = contornoDoGrupo(p, group, opens, wz, semRegioes, (id) => opts.cutZ ?? wz.get(id)!.z0 + PLAN_CUT);
     const returns: Returns = new Map();
     for (const f of group) {
       for (const o of openingsOfWall(p, f.wall.id)) {
+        if (contorno?.ids.has(o.id)) continue; // o retorno do vão por contorno segue a forma (3D e quantitativo)
         const ot = openingType(p, o);
         const mode = insertMode(f.type, ot);
         for (const r of insertReturns(f, o.offset, ot.width, mode, { ot, side: o.flipFacing ? -1 : 1 })) {
@@ -455,15 +436,13 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         }
       }
     }
-    const opens = group.flatMap((f) => openingsOfWall(p, f.wall.id).map((o) => openingGeometry(p, o, f)));
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
     const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
-    const semRegioes = group.some((f) => !!f.wall.tilt), isentos = paresQueSeCruzam(group, estrutura.status);
-    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}`;
+    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}${contorno ? `\n--\ncontorno:${[...contorno.ids].sort().join(',')}` : ''}`;
     let core = cache.get(key);
     if (!core) {
-      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes, isentos);
+      core = solveCluster(items, opens, zr, returns, planOpen, semRegioes, isentos, contorno);
       if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
       cache.set(key, core);
     }
@@ -486,6 +465,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
         membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),
+        ...(contorno?.furos.has(f.wall.id) ? { furosContorno: contorno.furos.get(f.wall.id) } : {}),
       };
       out.walls[f.wall.id] = rw;
     }

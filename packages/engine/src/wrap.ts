@@ -98,7 +98,7 @@ export interface InsertFrame {
 }
 
 /** Faixa de s (profundidade na parede) coberta pelo retorno de um lado. */
-function depthRange(f: WallFrame, side: Side, both: boolean): [number, number] {
+export function depthRange(f: WallFrame, side: Side, both: boolean): [number, number] {
   const ext = f.sExt;
   const int = f.sInt;
   if (!both) return [Math.min(ext, int), Math.max(ext, int)];

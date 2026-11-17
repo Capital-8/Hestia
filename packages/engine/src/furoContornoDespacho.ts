@@ -46,16 +46,105 @@ export interface ResultadoFuroParede {
   volumeRemovido: number;
 }
 
-/** Porta do cliente do furo. `null` = não conseguiu (o chamador cai no caminho retangular). */
+/**
+ * Alvo do furo da troca atômica (docs/estudo-esquadrias/25 e 26): UMA camada da parede = prismas em planta pós-junção, um por
+ * faixa de altura. Anéis em [u, s] (u ao longo da parede, s na espessura), `z0`/`z1` relativos à base da parede. Espelha a ABI
+ * `furo_prisma_furar`; no máximo 32 prismas por pedido (limite da ABI).
+ */
+export interface CamadaPrismaPedido {
+  poligonos: Array<Array<Array<[number, number]>>>;
+  z0: number;
+  z1: number;
+}
+
+export interface PedidoFuroPrisma {
+  wallId: string;
+  camadas: CamadaPrismaPedido[];
+  vaos: readonly VaoComContorno[];
+}
+
+/** Malha furada de um prisma (x = u, y = s, z relativo à base da parede). Índices locais ao prisma. */
+export interface MalhaPrismaFurada {
+  z0: number;
+  z1: number;
+  vertices: ArrayLike<number>;
+  indices: ArrayLike<number>;
+  volume: number;
+  volumeSemFuro: number;
+}
+
+export interface ResultadoFuroPrisma {
+  camadas: MalhaPrismaFurada[];
+  volume: number;
+  volumeRemovido: number;
+}
+
+/**
+ * Retorno do acabamento que segue o contorno (`retorno_do_vao`, `ModoRetorno::Contorno`, docs/estudo-esquadrias/22 §1).
+ * `espessura` e `recuo` (soma das camadas envolventes entre esta e o núcleo) vêm do tipo de parede; `y0`/`y1` é a faixa de s.
+ */
+export interface PedidoRetornoVao {
+  contorno: readonly OPt[];
+  x: number;
+  soleira: number;
+  espessura: number;
+  recuo: number;
+  y0: number;
+  y1: number;
+}
+
+export interface ResultadoRetornoVao {
+  vertices: ArrayLike<number>;
+  indices: ArrayLike<number>;
+  volume: number;
+  areaExposta: number;
+}
+
+/**
+ * Porta do cliente do furo. `null` = não conseguiu (o chamador cai no caminho retangular). Os dois últimos métodos são
+ * opcionais: sem `furarPrisma` o vão com forma fura em retângulo na hora de montar a camada; sem `retornoDoVao` não há retorno.
+ */
 export interface ClienteFuroContorno {
   furarParede(pedido: PedidoFuroParede): ResultadoFuroParede | null;
+  furarPrisma?(pedido: PedidoFuroPrisma): ResultadoFuroPrisma | null;
+  retornoDoVao?(pedido: PedidoRetornoVao): ResultadoRetornoVao | null;
 }
 
 let cliente: ClienteFuroContorno | null = null;
+let versao = 0;
+const memo = new Map<string, unknown>();
+const MEMO_LIMITE = 256;
 
 /** Instala (ou, com `null`, remove) o cliente do furo por contorno. É o ponto de injeção; sem ele tudo segue retangular. */
 export function definirClienteFuroContorno(c: ClienteFuroContorno | null): void {
   cliente = c;
+  versao++;
+  memo.clear();
+}
+
+/** Muda a cada troca de cliente: entra nas chaves de cache de quem guarda o resultado do furo (3D). */
+export const versaoClienteFuro = (): number => versao;
+
+function memoizado<T>(chave: string, f: () => T): T {
+  if (memo.has(chave)) return memo.get(chave) as T;
+  const r = f();
+  if (memo.size >= MEMO_LIMITE) memo.delete(memo.keys().next().value as string);
+  memo.set(chave, r);
+  return r;
+}
+
+/** Fura uma camada (prismas pós-junção) pelo cliente; `null` sem cliente, sem `furarPrisma`, sem vão ou em falha. Com memo por conteúdo. */
+export function furarPrismaPorContorno(pedido: PedidoFuroPrisma): ResultadoFuroPrisma | null {
+  const c = cliente;
+  if (!c?.furarPrisma || pedido.vaos.length === 0 || pedido.camadas.length === 0) return null;
+  return memoizado(`p|${JSON.stringify(pedido)}`, () => c.furarPrisma!(pedido));
+}
+
+/** Retorno do acabamento no contorno pelo cliente (memo); `null` sem cliente, sem `retornoDoVao` ou em falha. */
+export function retornoPorContorno(pedido: PedidoRetornoVao): ResultadoRetornoVao | null {
+  const c = cliente;
+  if (!c?.retornoDoVao) return null;
+  return memoizado(`r|${JSON.stringify(pedido)}`, () => c.retornoDoVao!(pedido));
 }
 
 /** O cliente instalado, ou `null` (o padrão). */
@@ -74,10 +163,14 @@ export function formaDoVao(t: Pick<OpeningType, 'width' | 'height' | 'roughOvers
 export interface ParedeDoFuro {
   /** Inclinação da parede (graus); ≠ 0 não é suportada no caminho de contorno. */
   tilt?: number;
+  /** Topo ou base em perfil (telhado, piso, laje): o prisma de planta é plano, então fica no caminho retangular. */
+  perfil?: boolean;
+  /** Parede do mesmo cluster é inclinada: a junção inclinada refaz as faixas, fica no caminho retangular. */
+  clusterInclinado?: boolean;
 }
 
 /** Motivo de o vão com forma NÃO ir pelo contorno (para o aviso e a documentação). */
-export type MotivoRetangular = 'sem-forma' | 'sem-cliente' | 'parede-curva' | 'parede-inclinada';
+export type MotivoRetangular = 'sem-forma' | 'sem-cliente' | 'parede-curva' | 'parede-inclinada' | 'parede-com-perfil' | 'cluster-inclinado';
 
 export interface RotaDoVao {
   via: 'retangular' | 'contorno';
@@ -92,6 +185,8 @@ export function rotaDoVao(g: Pick<OpeningGeometry, 'forma' | 'curve'>, parede: P
   if (!g.forma) return { via: 'retangular', motivo: 'sem-forma' };
   if (g.curve) return { via: 'retangular', motivo: 'parede-curva' };
   if (parede.tilt) return { via: 'retangular', motivo: 'parede-inclinada' };
+  if (parede.clusterInclinado) return { via: 'retangular', motivo: 'cluster-inclinado' };
+  if (parede.perfil) return { via: 'retangular', motivo: 'parede-com-perfil' };
   if (!cliente) return { via: 'retangular', motivo: 'sem-cliente' };
   return { via: 'contorno' };
 }

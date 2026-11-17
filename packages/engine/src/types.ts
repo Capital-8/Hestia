@@ -72,6 +72,17 @@ export interface ResolvedWall {
   profileTop?: ProfilePoint[];
   /** Base por trecho (relativa a baseZ), só quando a base não é uniforme (decisão 0023 §6, P9). */
   profileBottom?: ProfilePoint[];
+  /**
+   * Vãos com forma que furam esta parede por contorno (booleana 3D no cliente do furo, docs/estudo-esquadrias/26). As faixas
+   * de `layers` NÃO têm esses vãos (a camada vem inteira); 3D, quantitativo e planta aplicam o furo. Ausente = nenhum.
+   */
+  furosContorno?: FuroContornoDaParede[];
+}
+
+/** Vão com forma que fura a parede por contorno, mais o retorno do acabamento que segue a forma (camadas envolventes). */
+export interface FuroContornoDaParede {
+  g: OpeningGeometry;
+  retornos: Array<{ layerIndex: number; espessura: number; recuo: number; y0: number; y1: number }>;
 }
 
 export interface Membrane {
