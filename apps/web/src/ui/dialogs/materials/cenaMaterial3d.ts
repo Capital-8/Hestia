@@ -106,7 +106,8 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
     const textura = m.aparencia?.textura;
     const mapas = textura ? texturas3d.obter(textura.imagemId) : undefined;
     if (textura && mapas) {
-      aplicarTexturaTriplanar(mat, mapas, textura);
+      // A prévia gira o objeto: a textura fica presa a ele (espaço do objeto), não ao espaço da cena.
+      aplicarTexturaTriplanar(mat, mapas, textura, 'objeto');
       comTextura = true;
     } else if (comTextura) {
       removerTexturaTriplanar(mat);

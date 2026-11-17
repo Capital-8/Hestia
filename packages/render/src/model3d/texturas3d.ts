@@ -56,16 +56,38 @@ export function chaveDaTextura(m: Material | undefined, provedor: TexturasProved
 
 const GLSL_VERTEX_DECL = `
 varying vec3 vTpPos;
+#ifdef USE_TP_LOCAL
+varying vec3 vTpR0;
+varying vec3 vTpR1;
+varying vec3 vTpR2;
+#endif
 `;
 const GLSL_VERTEX_BODY = `
 vec4 tpWorld = vec4(transformed, 1.0);
 #ifdef USE_INSTANCING
   tpWorld = instanceMatrix * tpWorld;
 #endif
-vTpPos = (modelMatrix * tpWorld).xyz;
+#ifdef USE_TP_LOCAL
+  // Espaço do objeto: a textura acompanha o objeto quando ele gira. Os três vetores levam o espaço do objeto ao da câmera.
+  vTpPos = tpWorld.xyz;
+  mat3 tpRot = mat3(modelViewMatrix);
+  #ifdef USE_INSTANCING
+    tpRot = tpRot * mat3(instanceMatrix);
+  #endif
+  vTpR0 = normalize(tpRot[0]);
+  vTpR1 = normalize(tpRot[1]);
+  vTpR2 = normalize(tpRot[2]);
+#else
+  vTpPos = (modelMatrix * tpWorld).xyz;
+#endif
 `;
 const GLSL_FRAG_DECL = `
 varying vec3 vTpPos;
+#ifdef USE_TP_LOCAL
+varying vec3 vTpR0;
+varying vec3 vTpR1;
+varying vec3 vTpR2;
+#endif
 uniform vec4 tpMap; // frequência, cos, sen, (não usado)
 uniform vec2 tpOff;
 #ifdef USE_TP_COLOR
@@ -127,10 +149,20 @@ const GLSL_NORMAL = `
   ty = vec3(ty.xy + tpN.xz, tpN.y);
   tz = vec3(tz.xy + tpN.xy, tpN.z);
   vec3 tpWorldN = normalize(tx.zyx * tpW.x + ty.xzy * tpW.y + tz.xyz * tpW.z);
-  normal = normalize((viewMatrix * vec4(tpWorldN, 0.0)).xyz);
+  #ifdef USE_TP_LOCAL
+    normal = normalize(mat3(vTpR0, vTpR1, vTpR2) * tpWorldN);
+  #else
+    normal = normalize((viewMatrix * vec4(tpWorldN, 0.0)).xyz);
+  #endif
 }
 #endif
 `;
+
+/**
+ * Onde a textura é fixada: `mundo` (a textura fica parada no espaço; certo para o modelo, que não gira) ou `objeto` (a textura
+ * acompanha o objeto quando ele gira; certo para a prévia do material).
+ */
+export type EspacoTextura = 'mundo' | 'objeto';
 
 /** Resultado da injeção: quais trechos do shader foram de fato substituídos (para teste e diagnóstico). */
 export interface InjecaoTriplanar {
@@ -173,13 +205,14 @@ function atualizarUniformes(u: UniformesTriplanar, mapas: MapasTextura3D, map: M
 }
 
 /** Injeta a projeção triplanar nos trechos do shader padrão do three. Puro sobre o texto; devolve o que foi trocado. */
-export function injetarTriplanar(shader: ShaderLike, mapas: MapasTextura3D, map: MapeamentoTextura, uniformes: UniformesTriplanar = criarUniformes(mapas, map)): InjecaoTriplanar {
+export function injetarTriplanar(shader: ShaderLike, mapas: MapasTextura3D, map: MapeamentoTextura, uniformes: UniformesTriplanar = criarUniformes(mapas, map), espaco: EspacoTextura = 'mundo'): InjecaoTriplanar {
   Object.assign(shader.uniforms, uniformes);
 
   let v = trocar(shader.vertexShader, '#include <common>', `#include <common>\n${GLSL_VERTEX_DECL}`);
   const vA = v.ok;
   v = trocar(v.src, '#include <begin_vertex>', `#include <begin_vertex>\n${GLSL_VERTEX_BODY}`);
-  shader.vertexShader = v.src;
+  const local = espaco === 'objeto' ? '#define USE_TP_LOCAL\n' : '';
+  shader.vertexShader = local + v.src;
 
   let f = trocar(shader.fragmentShader, '#include <common>', `#include <common>\n${GLSL_FRAG_DECL}`);
   const fA = f.ok;
@@ -190,7 +223,7 @@ export function injetarTriplanar(shader: ShaderLike, mapas: MapasTextura3D, map:
   f = trocar(f.src, '#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${GLSL_NORMAL}`);
   const normal = f.ok;
   const defs = `${mapas.cor ? '#define USE_TP_COLOR\n' : ''}${mapas.normal ? '#define USE_TP_NORMAL\n' : ''}${mapas.rugosidade ? '#define USE_TP_ROUGH\n' : ''}`;
-  shader.fragmentShader = defs + f.src;
+  shader.fragmentShader = local + defs + f.src;
   return { vertex: vA && v.ok && fA, cor, rugosidade, normal };
 }
 
@@ -222,10 +255,10 @@ const geracaoDe = (mat: THREE.Material): number => (mat.userData.triplanarGeraca
  * a chave é nova para ele. Por isso: com os mesmos mapas, só os uniforms mudam (sem recompilar); quando o material troca
  * de programa e volta (com textura, sem ela, outros mapas), a chave leva a geração, para os uniforms serem refeitos.
  */
-export function aplicarTexturaTriplanar<T extends THREE.MeshStandardMaterial>(mat: T, mapas: MapasTextura3D, textura: MaterialTextura): T {
+export function aplicarTexturaTriplanar<T extends THREE.MeshStandardMaterial>(mat: T, mapas: MapasTextura3D, textura: MaterialTextura, espaco: EspacoTextura = 'mundo'): T {
   const map = mapeamentoDaTextura(textura);
   if (mapas.cor) mat.color.set(0xffffff);
-  const assinatura = `${mapas.cor ? 'c' : ''}${mapas.normal ? 'n' : ''}${mapas.rugosidade ? 'r' : ''}`;
+  const assinatura = `${mapas.cor ? 'c' : ''}${mapas.normal ? 'n' : ''}${mapas.rugosidade ? 'r' : ''}${espaco === 'objeto' ? 'o' : ''}`;
   const atual = estadoDe(mat);
   if (atual && atual.assinatura === assinatura) {
     atualizarUniformes(atual.uniformes, mapas, map);
@@ -235,7 +268,7 @@ export function aplicarTexturaTriplanar<T extends THREE.MeshStandardMaterial>(ma
   const geracao = geracaoDe(mat);
   const uniformes = criarUniformes(mapas, map);
   mat.userData.triplanar = { assinatura, geracao, uniformes } satisfies EstadoTriplanar;
-  mat.onBeforeCompile = (shader) => { injetarTriplanar(shader, mapas, map, uniformes); };
+  mat.onBeforeCompile = (shader) => { injetarTriplanar(shader, mapas, map, uniformes, espaco); };
   mat.customProgramCacheKey = () => `tp:${assinatura}:${geracao}`;
   mat.needsUpdate = true;
   return mat;

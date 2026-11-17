@@ -101,4 +101,24 @@ describe('texturas 3D (triplanar, escala real)', () => {
     expect(removerTexturaTriplanar(m)).toBe(m);
     expect(m.version).toBe(v);
   });
+
+  it('espaço do objeto: define USE_TP_LOCAL nos dois shaders e muda a chave; o padrão segue no espaço do mundo', () => {
+    const base = THREE.ShaderLib.standard;
+    const mk = () => ({ uniforms: {} as Record<string, { value: unknown }>, vertexShader: base.vertexShader, fragmentShader: base.fragmentShader });
+    const mapas = { cor: tex(), normal: tex() };
+    const mundo = mk();
+    injetarTriplanar(mundo, mapas, mapeamentoDaTextura(textura));
+    expect(mundo.vertexShader).not.toContain('#define USE_TP_LOCAL');
+    expect(mundo.fragmentShader).not.toContain('#define USE_TP_LOCAL');
+    const obj = mk();
+    injetarTriplanar(obj, mapas, mapeamentoDaTextura(textura), undefined, 'objeto');
+    expect(obj.vertexShader.startsWith('#define USE_TP_LOCAL\n')).toBe(true);
+    expect(obj.fragmentShader.startsWith('#define USE_TP_LOCAL\n')).toBe(true);
+    const a = new THREE.MeshStandardMaterial();
+    const b = new THREE.MeshStandardMaterial();
+    aplicarTexturaTriplanar(a, mapas, textura);
+    aplicarTexturaTriplanar(b, mapas, textura, 'objeto');
+    expect(a.customProgramCacheKey()).toBe('tp:cn:0');
+    expect(b.customProgramCacheKey()).toBe('tp:cno:0');
+  });
 });
