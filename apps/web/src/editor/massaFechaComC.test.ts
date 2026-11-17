@@ -9,7 +9,7 @@ const clique = (x: number, y: number): void => editor.activeTool.click({ point: 
 describe('tecla C fecha o perfil livre da massa (a letra não entrava no campo numérico)', () => {
   beforeEach(() => {
     editor.load(new ProjectStore(createEmptyProject()).project, 'teste.hestia.json');
-    useUi.setState({ view: 'plan', dialog: null, typed: '', prompt: null, options: { ...useUi.getState().options, mass: { modo: 'extrusao', perfil: 'livre', altura: 9, lados: 6 } } });
+    useUi.setState({ view: 'plan', dialog: null, typed: '', prompt: null, options: { ...useUi.getState().options, mass: { modo: 'extrusao', perfil: 'livre', altura: 9, lados: 6, galeria: false } } });
     editor.setTool('mass');
   });
 
