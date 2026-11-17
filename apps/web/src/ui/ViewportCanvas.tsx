@@ -640,7 +640,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const sectionHandleDrag = useRef<{ handle: SectionHandle } | null>(null);
   const sectionHandlePreview = useRef<number | null>(null);
   /** Alça de cota do corte em arraste e o ponto atual (prévia ao vivo; só grava ao soltar). */
-  const sectionDimDrag = useRef<{ grip: SectionDimensionGrip; at: Pt } | null>(null);
+  const sectionDimDrag = useRef<{ grip: SectionDimensionGrip; at: Pt; start: Pt } | null>(null);
   /** Último clique sem arrasto da Selecionar, para o duplo clique em cota. */
   const ultimoCliqueSel = useRef<CliqueAnterior | null>(null);
   /** Down adiado até a vista existir (D1): `load`/`newProject` limpam o mapa de viewports até o quadro seguinte. */
@@ -848,7 +848,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         const w = screenToWorld(vNow, s);
         const grip = sectionDimensionGripAt(editor.project, stNow.sectionId, stNow.selection, w, 8 / vNow.zoom, 10 / vNow.zoom, editor.viewScale());
         if (grip) {
-          sectionDimDrag.current = { grip, at: w };
+          sectionDimDrag.current = { grip, at: w, start: s };
           drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
           if (useUi.getState().hover) useUi.setState({ hover: null });
           useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
@@ -1027,11 +1027,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const s = local(e);
     pointers.current.delete(e.pointerId);
     if (sectionDimDrag.current) {
-      const { grip } = sectionDimDrag.current;
+      const { grip, start } = sectionDimDrag.current;
       sectionDimDrag.current = null;
       const v = editor.viewport();
       const sid = useUi.getState().sectionId;
-      const cmd = v && sid ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
+      // Corpo da cota: clique sem arrasto (até 4 px) só seleciona, não grava nada.
+      const clique = grip.body === true && Math.hypot(s.x - start.x, s.y - start.y) <= 4;
+      const cmd = v && sid && !clique ? sectionDimensionGripCommand(editor.project, sid, grip, screenToWorld(v, s)) : null;
       if (cmd) {
         editor.applyCommand(cmd);
         const msg = grip.kind === 'noteText' ? t('cvv_note_moved') : grip.kind === 'text' ? t('cvv_dim_text_moved') : t('cvv_dim_offset_updated');

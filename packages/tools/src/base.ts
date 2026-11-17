@@ -2,6 +2,7 @@ import { newId, type DetailLine, type DetailRegion, type Dimension, type Element
 import type { Inference, PointerInfo, PreviewItem, Tool, ToolEnv } from './types.ts';
 import { infer, type InferContext } from './infer.ts';
 import { floorEdges, floorVertices } from './floorPick.ts';
+import { detailEdges, detailPoints } from './detailSnap.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapIndex } from './componentSnap.ts';
 import { cadSnapIndexes } from './snapCad.ts';
@@ -103,6 +104,7 @@ export abstract class ToolBase implements Tool {
     const project = this.env.project();
     const levelId = this.env.levelId();
     const hidden = this.env.hiddenInView?.();
+    const planId = viewPlanId(this.env);
     const under = this.env.underlayLevelId?.() ?? null;
     const levelsIn = (l: string): string[] => (under ? [l, under] : [l]);
     const visible = hidden ? (w: Wall) => !hidden.has(w.id) : undefined;
@@ -132,11 +134,14 @@ export abstract class ToolBase implements Tool {
       extraPoints: [
         ...levels.flatMap((l) => floorVertices(project, l)),
         ...openings.flatMap((g) => g.points),
+        // Pontas e ponto médio das linhas de detalhe da vista (planta de piso ou de área).
+        ...detailPoints(project, levelId, planId, hidden),
         ...(extra.extraPoints ?? []),
       ],
       extraSegments: [
         ...levels.flatMap((l) => floorEdges(project, l)),
         ...openings.flatMap((g) => g.segments),
+        ...detailEdges(project, levelId, planId, hidden),
         ...(extra.extraSegments ?? []),
       ],
       // Desenhos CAD importados visíveis: o que a vista oculta (temporária ou permanentemente) não se captura.

@@ -61,6 +61,22 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 
 ## Estado (cada executor acrescenta 6 a 8 linhas abaixo, com o id da ficha)
 
+**S2-A (haiku, high)**
+- Linhas de detalhe entram na captura da planta: `packages/tools/src/detailSnap.ts` (`detailEdges`, `detailPoints`), ligadas em `ToolBase.ctx` (`base.ts`) com `viewPlanId`; plantas de área usam só as próprias linhas; as ocultas na vista ficam de fora.
+- Ponto único para arco: `segmentosDaLinha(l)` (hoje reta a→b); trocar por `detailLineSegments` do modelo quando o S1-A entregar.
+- Alças de cota: `DIM_GRIP_PX = 9` (afastamento) e `DIM_TEXT_GRIP_PX = 12` (texto), exportadas de `annotationPick.ts`; testes literais em `annotationPick.test.ts`.
+- Desenho: a cota selecionada (uma, linear) ganha quadrado no meio da linha e losango no texto (`render/src/plan/notes.ts`, `annotationHighlightOps`); antes não havia alça desenhada. Teste em `notes.text.test.ts`.
+- Gap: o cursor não muda sobre as alças. A Selecionar fixa a seta (`cursor.ts`) e a ferramenta não tem API de cursor; o corte já pede `move` (`ViewportCanvas.tsx`). Não tocado.
+- Gap: as alças da cota no corte (`sectionHandles.ts`) não são desenhadas; só o pick. Fica para o S2-B/S2-C.
+- Perpendicular de teste com from (1,3) e pé (1,0), não (2,3): com from (2,3) o ponto médio (2,0), de peso menor, vence o pé no mesmo ponto.
+
+**S2-B (sonnet, medium)**
+- Corte: `sectionInferContext` aceita `detailLines` (opção); `detailSnapDeLinhas` (detailSnap.ts) devolve pontas, meio e segmentos `nearest`, memoizados pela referência do array de linhas (e pelos ocultos que pertencem a ele), então o `snapAccel` vê as mesmas listas a cada movimento. Ligado em `controller.ts` com `sectionAnnotationsOf(view).detailLines`. Teste: `detailSnapCorte.test.ts` (perpendicular (1,3)->(1,0), meio (2,0), ponta, cruzamento (1,0), oculta).
+- Arco: `detailLineSegments` NÃO existe neste ramo (sem `sag` em `DetailLine`); `segmentosDaLinha` segue a corda. Trocar nele quando o S1-A for mesclado (planta e corte mudam juntos).
+- Planta: `dimBodyAt` (annotationPick.ts) + `down` do Select: cota já selecionada (única, linear, não `locked`) pressionada no texto entra em `dimtext`, na linha/extensões em `dimgrip`; mesma lógica de commit. Folga de 4 px: clique ou tremor não grava nada. Cota não selecionada segue só selecionando. Teste: `selectDimBody.test.ts`.
+- Corte: `pickSectionDimensionGrip` devolve `kind:'offset'` com `body:true` para linha/extensões; `ViewportCanvas.tsx` ignora o `up` sem arrasto (4 px) quando `body`. Teste novo em `render/src/section/handles.test.ts`.
+- Gap (cursor): o Select continua sem API de cursor por hover (fixa a seta; só o corte pede `move`); não implementado. Alça da cota no corte segue sem desenho (só pick).
+
 ### S1-A (sonnet) — arco real na linha de detalhe
 - `DetailLine.sag?` (m; positivo abaula à esquerda de a→b; ausente = reta). Comandos `addDetailLine`/`updateDetailLine` já espalham o objeto: o campo é preservado (patch parcial de `b` mantém o `sag`); cópia/clone de anotações usa spread.
 - Nomes públicos novos (`@hestia/model`, `packages/model/src/detailLineGeom.ts`): `detailLineSegments(l, maxSegLen?)` => `Array<[Vec2, Vec2]>` (S1-B usa este), `detailLinePoints(l, maxSegLen?)` (polilinha a..b, usada nos traços), `detailLineLength(l)`, `detailLineSag(l)` (flecha efetiva, clamp |sag| <= corda/2), `DETAIL_ARC_SEGMENTS_PER_HALF_TURN = 8`.
@@ -86,3 +102,11 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Retângulo com F8: como na viga, o 2º canto recebe Orto a partir do 1º (`contextoDeTraco(anchorOf(step))`, beamTool: `startPt`). Pelo código, com F8 ou Shift o canto cai sobre o eixo e o retângulo fica degenerado. NÃO testado em execução; pendência para decidir junto com a viga.
 - Gate: typecheck passou (exit 0, antes de mover `WallShapeFields`); eslint passou nos arquivos finais; vitest 9 arquivos, 87 testes, todos passaram.
 - Novos: `detailLineOrtoPolar.test.ts`, `DetailShapeFields.test.ts`. Nenhum teste existente alterado.
+
+**S2-C (haiku, high)**
+- `textAtAcompanhando(a, b, offsetAntigo, offsetNovo, textAt)` (`packages/tools/src/annotationPick.ts`): o `textAt` desloca pelo delta do afastamento na normal esquerda de a→b (+y para a→b em x, como `dimensionGeometry`); sem `textAt` devolve undefined.
+- Planta: commit `dimgrip` de `selectTool.ts` grava `offset` e `textAt` no mesmo `updateDimension`. Corte: `sectionDimensionGripCommand` (`apps/web/src/editor/sectionHandles.ts`) faz o mesmo. Cota angular e cota sem `textAt` inalteradas.
+- Alças no corte: `alcasDaCotaSelecionadaOps` (`render/src/plan/notes.ts`), extraída de `annotationHighlightOps` e usada também por `sectionAnnotationOps` (`render/src/section/annotations.ts`). Mesmo desenho da planta: quadrado de 4,5 px e losango de 6 px; os raios de pick seguem `DIM_GRIP_PX` 9 e `DIM_TEXT_GRIP_PX` 12.
+- Testes novos: `packages/tools/src/textoAcompanhaAfastamento.test.ts`, `apps/web/src/editor/sectionDimTextAcompanha.test.ts`; acréscimos em `plan/notes.text.test.ts` e `section/annotations.test.ts` (valores binários exatos: linha em y = 0,75, pois 0,2 + 0,4 não é exato em ponto flutuante).
+- Gap (cursor): `ui/cursor.ts` fixa Selecionar em seta por política, e a ferramenta não tem API de cursor de hover. O corte já pinta `move` na alça (`ViewportCanvas.tsx`); a planta não. Não implementado.
+- Lint: eslint nos 34 .ts/.tsx do diff 96b8d0e5..HEAD, sem erro. Typecheck: 1 erro herdado (`shapeName` não usado em `detailLineTool.ts`), corrigido; tsc verde.

@@ -14,6 +14,7 @@ import {
   wallBaseElevation,
 } from '@hestia/model';
 import type { SectionResult } from '@hestia/engine';
+import { textAtAcompanhando } from '@hestia/tools';
 import { pickSectionDimensionGrip, pickSectionHandle, sectionDimensionPoints, type SectionDimensionGrip, type SectionHandle } from '@hestia/render';
 import { useUi } from './state.ts';
 
@@ -100,7 +101,9 @@ export function sectionDimensionGripCommand(p: Project, sectionId: Id, grip: Sec
   const n: Vec2 = { x: -dir.y / l, y: dir.x / l };
   const offset = dot(sub(point, a), n);
   if (Math.abs(offset) < DIM_MIN_LENGTH) return null;
-  return { type: 'updateDimension', levelId, sectionId, id: d.id, patch: { offset } };
+  // O texto puxado (`textAt`) acompanha o afastamento no mesmo comando (um só desfazer), como na planta.
+  const ta = textAtAcompanhando(a, b, d.offset, offset, d.textAt);
+  return { type: 'updateDimension', levelId, sectionId, id: d.id, patch: ta ? { offset, textAt: ta } : { offset } };
 }
 
 /**

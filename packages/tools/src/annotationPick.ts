@@ -5,6 +5,11 @@ import { resolveAngularDimension } from '@hestia/engine';
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
 const END_TOL = 1e-4;
 
+/** Raio (px de tela) da alça de afastamento da cota (o quadrado no meio da linha de cota). */
+export const DIM_GRIP_PX = 9;
+/** Raio (px de tela) da alça de texto da cota (o losango no texto). */
+export const DIM_TEXT_GRIP_PX = 12;
+
 /**
  * Referência a uma extremidade de parede do nível quando o ponto cai nela (a cota passa a acompanhar a parede).
  * Ponto no meio da face ou no vazio: sem referência, a cota fica livre.
@@ -30,6 +35,20 @@ export const signedOffset = (a: Vec2, b: Vec2, q: Vec2): number => {
   const n = leftNormal(a, b);
   return n ? dot(sub(q, a), n) : 0;
 };
+
+/**
+ * Texto que ACOMPANHA o afastamento da cota. Se o usuário puxou o texto (`textAt` presente), ele se desloca pelo mesmo
+ * delta do afastamento (`offsetNovo - offsetAntigo`) ao longo da normal esquerda de a→b, a mesma de `dimensionGeometry`
+ * (offset positivo leva a linha de cota para o lado da normal). Sem `textAt`, devolve `undefined`: o texto já segue a
+ * linha. Delta zero devolve uma cópia do próprio `textAt`. Degenerada (a = b), a normal é (0, 1), como em `dimensionGeometry`.
+ */
+export function textAtAcompanhando(a: Vec2, b: Vec2, offsetAntigo: number, offsetNovo: number, textAt: Vec2 | undefined): Vec2 | undefined {
+  if (!textAt) return undefined;
+  const delta = offsetNovo - offsetAntigo;
+  if (delta === 0) return { x: textAt.x, y: textAt.y };
+  const n = leftNormal(a, b) ?? { x: 0, y: 1 };
+  return { x: textAt.x + n.x * delta, y: textAt.y + n.y * delta };
+}
 
 /** Distância de `q` ao segmento p–r. */
 function distToSegment(q: Vec2, p: Vec2, r: Vec2): number {
@@ -287,7 +306,24 @@ export function dimGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: num
   if (!d || d.angular) return null;
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, { ...d, textAt: undefined }, pts.a, pts.b, va.scale);
-  return dist(at, mid(g.line[0], g.line[1])) <= 6 * mpp ? d.id : null;
+  return dist(at, mid(g.line[0], g.line[1])) <= DIM_GRIP_PX * mpp ? d.id : null;
+}
+
+/**
+ * Corpo da cota JÁ selecionada (seleção única, linear e não travada): o texto (parte `text`) ou a linha de cota e as
+ * extensões (parte `line`). Arrastar o corpo equivale a arrastar a alça da parte: texto move o texto, linha muda o
+ * afastamento. Mesma tolerância do `annotationAt` (10 px no texto, 6 px nas linhas).
+ */
+export function dimBodyAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp: number, planId?: Id): { id: Id; part: 'text' | 'line' } | null {
+  if (sel.length !== 1) return null;
+  const va = viewAnnotationsOf(p, levelId, planId);
+  const d = va.dimensions.find((x) => x.id === sel[0]);
+  if (!d || d.angular || d.locked) return null;
+  const pts = dimensionPoints(p, d);
+  const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
+  if (dist(at, g.textAt) <= 10 * mpp) return { id: d.id, part: 'text' };
+  for (const [s, e] of [g.line, ...g.extensions]) if (distToSegment(at, s, e) <= 6 * mpp) return { id: d.id, part: 'line' };
+  return null;
 }
 
 /** Alça do texto da cota, que pode ser deslocado sem alterar os pontos medidos nem o afastamento da linha. */
@@ -298,11 +334,11 @@ export function dimTextGripAt(p: Project, levelId: Id, sel: Id[], at: Vec2, mpp:
   if (!d) return null;
   if (d.angular) {
     const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
-    return g && dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+    return g && dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
   }
   const pts = dimensionPoints(p, d);
   const g = dimHitGeometry(p, d, pts.a, pts.b, va.scale);
-  return dist(at, g.textAt) <= 9 * mpp ? d.id : null;
+  return dist(at, g.textAt) <= DIM_TEXT_GRIP_PX * mpp ? d.id : null;
 }
 
 /**
