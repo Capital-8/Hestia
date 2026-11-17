@@ -1,16 +1,17 @@
-import { dimRefCandidates, newId, type Command, type DimensionElementRef, type Id, type Project } from '@hestia/model';
+import { matchElementDimRef, newId, type Command, type DimensionElementRef, type Id, type Project } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { TempDim } from './types.ts';
 
 /**
- * Feição de um dos elementos dados cujo ponto coincide com `at` (tolerância em m); undefined se nenhuma. Os provedores
- * usam para gravar `TempDim.refs` só quando a ponta medida É uma feição do elemento (a cota permanente então acompanha).
+ * Feição de um dos elementos dados cujo ponto ou face/aresta coincide com `at` (tolerância em m); undefined se nenhuma.
+ * Os provedores usam para gravar `TempDim.refs` quando a ponta medida É uma feição do elemento (a cota permanente então acompanha).
  */
 export function matchDimRef(project: Project, at: Vec2, elementIds: ReadonlyArray<Id | null | undefined>, tol = 1e-4): DimensionElementRef | undefined {
   for (const id of elementIds) {
     const el = id ? project.elements[id] : undefined;
     if (!el) continue;
-    for (const c of dimRefCandidates(project, el)) if (Math.hypot(c.point.x - at.x, c.point.y - at.y) <= tol && c.ref.elementId === el.id) return c.ref;
+    const hit = matchElementDimRef(project, el, at, tol, true);
+    if (hit && hit.ref.elementId === el.id) return hit.ref;
   }
   return undefined;
 }

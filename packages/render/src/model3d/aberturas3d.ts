@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { buildOpeningModel, frameOfWall, openingGeometry, type OpeningGeometry, type OpeningModel } from '@hestia/engine';
 import { openingTypeById, type GraphicsCategory, type Id, type Material, type Opening, type Project, type View3DSettings } from '@hestia/model';
+import { materialNoProjeto } from './glassAppearance.ts';
 import { pecasDoModelo } from './openingParts.ts';
+import { referencialDaEsquadria } from './referencialInclinado3d.ts';
 import { deslocamentoDaPeca, geometriaDaPeca, geometriaRelativaAoPivo } from './geometriaPeca3d.ts';
 import { arestasDaUniaoDeCaixas, type CaixaAlinhada } from './silhuetaCaixas3d.ts';
 import { loteDeGeometria } from './lotesMalha3d.ts';
@@ -64,14 +66,22 @@ export function montarAberturaDoModelo(
   if (!view.overrides[cat].visible || (model.kind === 'door' && model.void)) return null;
   const t = openingTypeById(p, o.typeId);
   if (!t) return null;
+  const pecas = pecasDoModelo(p, t, model, view.openOpenings === true);
   const grupo = new THREE.Group();
   grupo.rotation.z = Math.atan2(g.u.y, g.u.x);
   grupo.position.set(g.center.x, g.center.y, baseZ + g.sill);
+  // Parede inclinada (C3): o vão inteiro segue o referencial do plano da abertura; parede vertical fica como sempre.
+  const ref = referencialDaEsquadria(p, g, pecas);
+  if (ref) {
+    grupo.updateMatrix();
+    grupo.matrix.multiply(ref);
+    grupo.matrixAutoUpdate = false;
+  }
   const lotes: SolidBatch[] = [];
   const grupos = new Map<string, CaixaAlinhada[]>();
   // Cada peça da esquadria é um elemento inteiro: a faixa cobre a geometria toda (decisão 0016).
   const range = (count: number): ElementRange[] => [{ id: o.id, start: 0, count }];
-  for (const piece of pecasDoModelo(p, t, model, view.openOpenings === true)) {
+  for (const piece of pecas) {
     const d = deslocamentoDaPeca(piece);
     // Folha aberta: a peça é desenhada num grupo na dobradiça, que gira a peça inteira.
     if (piece.hinge) {
@@ -90,7 +100,7 @@ export function montarAberturaDoModelo(
       }
       const geo = geometriaRelativaAoPivo(piece).translate(d.dx, d.dy, d.dz);
       const count = geo.index?.count ?? geo.getAttribute('position').count;
-      desenhar(pivot, geo, p.materials[piece.materialId], cat, linhas, range(count));
+      desenhar(pivot, geo, materialNoProjeto(p.materials, piece.materialId), cat, linhas, range(count));
       grupo.add(pivot);
     } else {
       // Peça fixa (ou folha de correr): a geometria em coordenadas do vão (o grupo leva a transformação), como lote da
@@ -185,8 +195,11 @@ export function caixasEPrismasDoModelo(
   const t = openingTypeById(p, o.typeId);
   if (!t) return null;
   const vao = new THREE.Matrix4().makeRotationZ(Math.atan2(g.u.y, g.u.x)).setPosition(g.center.x, g.center.y, baseZ + g.sill);
+  const pecas = pecasDoModelo(p, t, model, view.openOpenings === true);
+  const ref = referencialDaEsquadria(p, g, pecas);
+  if (ref) vao.multiply(ref);
   const out: AberturaEmCaixas = { caixas: [], prismas: [] };
-  for (const piece of pecasDoModelo(p, t, model, view.openOpenings === true)) {
+  for (const piece of pecas) {
     const d = deslocamentoDaPeca(piece);
     const m = vao.clone();
     let dx = 0;

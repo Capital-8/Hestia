@@ -40,16 +40,21 @@ import { RoomSeparatorTool } from './roomSeparatorTool.ts';
 import { DetailLineTool } from './detailLineTool.ts';
 import { DetailRegionTool } from './detailRegionTool.ts';
 import { TagTool } from './tagTool.ts';
+import { NorthArrowTool, RevisionCloudTool, SpotCoordinateTool, SpotElevationTool } from './annotationExtraTools.ts';
 import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
+import { ColumnTool } from './columnTool.ts';
+import { BeamTool } from './beamTool.ts';
+import { FootingTool } from './footingTool.ts';
+import { MassTool } from './massTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'plugin';
+export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
+  { title: 'Construir', tools: ['wall', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
-  { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'text', 'detailLine', 'filledRegion', 'tag'] },
+  { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'tag', 'northArrow'] },
   { title: 'Medir', tools: ['measure'] },
 ];
 
@@ -164,6 +169,22 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new RehostTool(env);
     case 'section':
       return new SectionTool(env);
+    case 'column':
+      return new ColumnTool(env);
+    case 'beam':
+      return new BeamTool(env);
+    case 'footing':
+      return new FootingTool(env);
+    case 'spotElevation':
+      return new SpotElevationTool(env);
+    case 'spotCoordinate':
+      return new SpotCoordinateTool(env);
+    case 'northArrow':
+      return new NorthArrowTool(env);
+    case 'revisionCloud':
+      return new RevisionCloudTool(env);
+    case 'mass':
+      return new MassTool(env);
   }
 }
 
@@ -207,6 +228,10 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   railing: 'Guarda-corpo',
   dimension: 'Cota',
   angularDimension: 'Cota angular',
+  spotElevation: 'Cota de elevação',
+  spotCoordinate: 'Coordenada de ponto',
+  northArrow: 'Seta norte',
+  revisionCloud: 'Nuvem de revisão',
   grid: 'Grade',
   text: 'Texto',
   room: 'Ambiente',
@@ -215,6 +240,10 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   filledRegion: 'Região preenchida',
   tag: 'Etiqueta',
   perimeter: 'Perímetro',
+  column: 'Pilar',
+  beam: 'Viga',
+  footing: 'Sapata',
+  mass: 'Massa',
 };
 
 /** Rótulo da ferramenta no idioma pedido (PT de `TOOL_LABEL` é o fallback). */

@@ -154,7 +154,7 @@ describe('cloneCategories — genéricos/IFC', () => {
     expect(colado.id).not.toBe(origem.id);
     expect(colado.levelId).toBe('lv_1');
     // lv_1 = 3,00 m; lv_0 = 0,00 m: só o Z muda.
-    expect(colado.mesh.positions).toEqual([0, 0, 3, 1, 0, 3, 0, 1, 5]);
+    expect(Array.from(colado.mesh.positions)).toEqual([0, 0, 3, 1, 0, 3, 0, 1, 5]);
     expect(colado.mesh.indices).toBe(origem.mesh.indices);
     expect(colado.outline).toBe(origem.outline);
     expect(colado.ifcProperties).toBe(origem.ifcProperties);

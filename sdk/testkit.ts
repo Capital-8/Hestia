@@ -43,6 +43,7 @@ export const carregarPasta = (dir: string): SuplementoCarregado => carregarArqui
 
 /** Worker no mesmo processo que roda o runtime REAL do Worker de suplemento (protocolo, portão e limites de produção). */
 function workerEmMemoria(): WorkerLike {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const escopo = { postMessage: (_m: unknown) => undefined, onmessage: null as ((e: { data: unknown }) => void) | null };
   let morto = false;
   const w: WorkerLike = {

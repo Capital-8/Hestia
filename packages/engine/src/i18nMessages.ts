@@ -72,6 +72,10 @@ const PT = {
     'Parede "{id}" está anexada ao telhado, mas o eixo não está sob telhado nenhum; o topo fica na altura normal.',
   egb_issue_wall_roof_partial:
     'Parede "{id}" está anexada ao telhado, mas {length} do eixo estão fora dele; esse trecho fica na altura normal.',
+  egb_issue_tilt_arc_nojoin: 'Parede inclinada "{id}" em arco ou ligada a arco: sem junção exata no topo (corte de topo simples).',
+  egb_issue_tilt_infeasible: 'Parede inclinada "{id}": a inclinação não cabe na junção com a altura real (o canto sai da parede); o topo usa corte simples.',
+  egb_issue_tilt_continuation: 'Inclinações diferentes em parede contínua "{id}": degrau de {valor} no topo.',
+  egb_issue_opening_plane_arc: 'Abertura "{id}" em parede de arco inclinada: o vão é largo demais para o plano inclinado; o corte usa o plano vertical.',
   egb_issue_wall_roof_over:
     'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
@@ -100,6 +104,8 @@ const PT = {
   egb_issue_ventilation_area: 'Área útil de ventilação {area} ({pct} de {w} × {h}).',
   egb_issue_jamb_depth_ok: 'Profundidade do batente {depth} cabe no núcleo de {core}.',
   egb_issue_jamb_depth_over: 'Profundidade do batente {depth} maior que o núcleo de {core}.',
+  egb_issue_reveal_ok: 'Recuo do batente {reveal} cabe na parede de {wall} (limite {max}).',
+  egb_issue_reveal_clamped: 'Recuo do batente {reveal} limitado a {max}: parede de {wall} com batente de {depth}.',
   egb_issue_lintel_ok: 'Verga presente.',
   egb_issue_lintel_missing: 'Verga ausente: o vão fica sem peça de concreto sobre a abertura.',
 
@@ -339,6 +345,10 @@ const EN: Record<DictKey, string> = {
     'Wall "{id}" is attached to the roof, but the axis is under no roof; the top stays at the normal height.',
   egb_issue_wall_roof_partial:
     'Wall "{id}" is attached to the roof, but {length} of the axis lies outside it; that stretch stays at the normal height.',
+  egb_issue_tilt_arc_nojoin: 'Tilted wall "{id}" is curved or joined to a curved wall: no exact joint at the top (simple top cut).',
+  egb_issue_tilt_infeasible: 'Tilted wall "{id}": the tilt does not fit the joint at the real height (the corner leaves the wall); the top uses a simple cut.',
+  egb_issue_tilt_continuation: 'Different tilts in a continuous wall "{id}": {valor} step at the top.',
+  egb_issue_opening_plane_arc: 'Opening "{id}" in a tilted curved wall: the opening is too wide for the inclined plane; the cut uses the vertical plane.',
   egb_issue_wall_roof_over:
     'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:
@@ -365,6 +375,8 @@ const EN: Record<DictKey, string> = {
   egb_issue_ventilation_area: 'Useful ventilation area {area} ({pct} of {w} × {h}).',
   egb_issue_jamb_depth_ok: 'Frame depth {depth} fits the core of {core}.',
   egb_issue_jamb_depth_over: 'Frame depth {depth} is larger than the core of {core}.',
+  egb_issue_reveal_ok: 'Frame reveal {reveal} fits the wall of {wall} (limit {max}).',
+  egb_issue_reveal_clamped: 'Frame reveal {reveal} limited to {max}: wall of {wall} with a frame of {depth}.',
   egb_issue_lintel_ok: 'Lintel present.',
   egb_issue_lintel_missing: 'Lintel missing: the opening has no concrete piece above it.',
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, makeWall } from '@hestia/model';
+import { createEmptyProject, makeWall, normalizeProjectMeshes } from '@hestia/model';
 import { desempacotarProjetoIfc, empacotarProjetoIfc } from './ifcMalha.ts';
 
 /** Projeto mínimo com uma parede e um genérico de malha, para conferir o transporte dos buffers. */
@@ -33,10 +33,10 @@ describe('transporte das malhas entre o worker e a janela', () => {
   it('ida e volta devolve o mesmo projeto', () => {
     const original = projeto();
     const empacotado = empacotarProjetoIfc(original);
-    expect(empacotado.posicoes).toBeInstanceOf(Float64Array);
+    expect(empacotado.posicoes).toBeInstanceOf(Float32Array);
     expect(empacotado.posicoes).toHaveLength(18);
     expect(empacotado.indices).toHaveLength(6);
-    expect(desempacotarProjetoIfc(empacotado)).toEqual(original);
+    expect(desempacotarProjetoIfc(empacotado)).toEqual(normalizeProjectMeshes(projeto()));
   });
 
   it('elementos sem malha atravessam sem alteração', () => {
@@ -47,11 +47,11 @@ describe('transporte das malhas entre o worker e a janela', () => {
 
   it('as faixas de cada malha não se misturam', () => {
     const volta = desempacotarProjetoIfc(empacotarProjetoIfc(projeto()));
-    const g1 = volta.elements.g1 as { mesh: { positions: number[]; indices: number[] } };
-    const g2 = volta.elements.g2 as { mesh: { positions: number[]; indices: number[] } };
-    expect(g1.mesh.positions).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0]);
-    expect(g1.mesh.indices).toEqual([0, 1, 2]);
-    expect(g2.mesh.positions).toEqual([2, 0, 0, 2, 0, 1, 2, 1, 0]);
-    expect(g2.mesh.indices).toEqual([0, 2, 1]);
+    const g1 = volta.elements.g1 as { mesh: { positions: Float32Array; indices: Uint32Array } };
+    const g2 = volta.elements.g2 as { mesh: { positions: Float32Array; indices: Uint32Array } };
+    expect(Array.from(g1.mesh.positions)).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+    expect(Array.from(g1.mesh.indices)).toEqual([0, 1, 2]);
+    expect(Array.from(g2.mesh.positions)).toEqual([2, 0, 0, 2, 0, 1, 2, 1, 0]);
+    expect(Array.from(g2.mesh.indices)).toEqual([0, 2, 1]);
   });
 });

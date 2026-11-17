@@ -8,17 +8,17 @@ const WELD_EPS = 1.5e-3;
  * recortam o mesmo arco em pontos a 0,1 mm, e a tampa e a face lateral usariam pontos diferentes). O primeiro vértice
  * de cada grupo é o representante; anéis que perdem vértices repetidos saem limpos pela união depois.
  */
-export function weldBands(bands: LayerBand[]): LayerBand[] {
+export function weldBands(bands: LayerBand[], eps: number = WELD_EPS): LayerBand[] {
   const reps: Vec2[] = [];
   const grid = new Map<string, number[]>();
   const rep = (v: Vec2): Vec2 => {
-    const ix = Math.floor(v.x / WELD_EPS);
-    const iy = Math.floor(v.y / WELD_EPS);
+    const ix = Math.floor(v.x / eps);
+    const iy = Math.floor(v.y / eps);
     for (let dx = -1; dx <= 1; dx++)
       for (let dy = -1; dy <= 1; dy++)
         for (const r of grid.get(`${ix + dx},${iy + dy}`) ?? []) {
           const w = reps[r]!;
-          if (Math.hypot(w.x - v.x, w.y - v.y) < WELD_EPS) return w;
+          if (Math.hypot(w.x - v.x, w.y - v.y) < eps) return w;
         }
     reps.push(v);
     const k = `${ix},${iy}`;

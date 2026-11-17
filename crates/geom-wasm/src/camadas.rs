@@ -170,7 +170,8 @@ fn e_simples(q: &[V; 4]) -> bool {
 
 /// `passoDoArco`.
 fn passo_do_arco(r: f64) -> f64 {
-    0.5f64.min(0.05f64.max((8.0 * r * 3e-4).sqrt()))
+    let sag = if r > 15.0 { 8e-4 } else { 5e-4 };
+    1.0f64.min(0.05f64.max((8.0 * r * sag).sqrt()))
 }
 
 /// `arcBoundary`: vértices de uma face de arco à profundidade `s`, ordenados por t.

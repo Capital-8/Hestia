@@ -25,13 +25,23 @@ import { FR_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { FR_MASSA } from '../../areas/massa.ts';
+import { FR_MASSA_PISOS } from '../../areas/massa-pisos.ts';
+import { FR_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
 import { FR_SUPLEMENTOS } from '../../areas/suplementos.ts';
 import { FR_SUPLEMENTOS_IO } from '../../areas/suplementos-io.ts';
 import { FR_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { FR_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
+import { FR_STRUCTURAL } from '../../areas/structural.ts';
+import { FR_TAGGING } from '../../areas/tagging.ts';
 
 export const FR_ALL = {
+  ...FR_STRUCTURAL,
+  ...FR_TAGGING,
   ...FR_GUARDA_CORPO,
+  ...FR_MASSA,
+  ...FR_MASSA_PISOS,
+  ...FR_MASSA_PAREDES,
   ...FR_SUPLEMENTOS,
   ...FR_SUPLEMENTOS_IO,
   ...FR_SUPUI,

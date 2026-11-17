@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildTemplate } from '@hestia/model';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
-import { categoryIdsOf, mergeHidden, removeHidden, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
+import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [] }));
+afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null }));
 
 const parede = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'wall')!;
 const porta = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'door')!;
@@ -128,4 +128,31 @@ describe('visibilidade por vista', () => {
       });
     });
   }
+
+  it('ocultar e isolar removem elementos ocultos de selection e limpam subElemento do dono oculto', () => {
+    editor.newProject('house2');
+    const p = editor.project;
+    const w = parede(p);
+    const d = porta(p);
+    const lv = p.levels[0]!;
+    const sub = { wallId: w.id, kind: 'cell' as const, cell: { i: 0, j: 0, s: 0.5, z: 0.5, nu: 1, nv: 1 } };
+
+    // hideInView remove apenas os ocultos, mantendo outros selecionados e zerando subElemento do dono oculto
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: lv.id, selection: [w.id, d.id], subElemento: sub });
+    hideInView([w.id]);
+    expect(useUi.getState().selection).toEqual([d.id]);
+    expect(useUi.getState().subElemento).toBeNull();
+
+    // temporaryHide limpa seleção oculta
+    useUi.setState({ selection: [d.id], subElemento: null });
+    temporaryHide([d.id]);
+    expect(useUi.getState().selection).toEqual([]);
+
+    // temporaryIsolate remove da seleção tudo que não foi isolado
+    const anotherWall = Object.values(p.elements).find((e) => e.kind === 'wall' && e.id !== w.id) ?? w;
+    useUi.setState({ viewTemp: {}, selection: [d.id, anotherWall.id], subElemento: { ...sub, wallId: anotherWall.id } });
+    temporaryIsolate([d.id]);
+    expect(useUi.getState().selection).toEqual([d.id]);
+    expect(useUi.getState().subElemento).toBeNull();
+  });
 });

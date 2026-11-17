@@ -9,8 +9,6 @@
  */
 
 const PRECISAO = 1e4;
-/** Cada vértice tem id < 2^26, então id0 * 2^26 + id1 é exato em ponto flutuante. */
-const BASE = 67108864;
 
 /**
  * Arestas (pares de pontos, `x y z x y z ...`) da malha. `posicoes` são `x y z` por vértice; `indices` (opcional) lista os triângulos, e sem eles
@@ -23,16 +21,20 @@ export function arestasPorAngulo(posicoes: ArrayLike<number>, indices: ArrayLike
   // Posições como no buffer do three (Float32): o hash e o resultado partem dos mesmos valores.
   const pos = posicoes instanceof Float32Array ? posicoes : Float32Array.from(posicoes);
 
-  // Identificação de vértices por posição arredondada: tabela de endereçamento aberto sobre inteiros, com verificação exata.
+  // Identificação de vértices por posição arredondada: UM id por vértice do buffer (calculado uma vez, não a cada canto de triângulo).
+  const nVert = Math.floor(pos.length / 3);
   let capacidade = 1024;
-  while (capacidade < nTri * 6) capacidade *= 2;
+  while (capacidade < nVert * 2) capacidade *= 2;
   const mascara = capacidade - 1;
   const tabela = new Int32Array(capacidade).fill(-1);
-  let rx: Float64Array = new Float64Array(Math.max(16, nTri * 3));
-  let ry: Float64Array = new Float64Array(rx.length);
-  let rz: Float64Array = new Float64Array(rx.length);
+  const rx = new Float64Array(nVert);
+  const ry = new Float64Array(nVert);
+  const rz = new Float64Array(nVert);
+  const idVert = new Int32Array(nVert).fill(-1);
   let nIds = 0;
   const idDe = (v: number): number => {
+    const memo = idVert[v]!;
+    if (memo >= 0) return memo;
     const ax = Math.round(pos[3 * v]! * PRECISAO);
     const ay = Math.round(pos[3 * v + 1]! * PRECISAO);
     const az = Math.round(pos[3 * v + 2]! * PRECISAO);
@@ -40,31 +42,40 @@ export function arestasPorAngulo(posicoes: ArrayLike<number>, indices: ArrayLike
     for (;;) {
       const id = tabela[h]!;
       if (id === -1) break;
-      if (rx[id] === ax && ry[id] === ay && rz[id] === az) return id;
+      if (rx[id] === ax && ry[id] === ay && rz[id] === az) return (idVert[v] = id);
       h = (h + 1) & mascara;
-    }
-    if (nIds === rx.length) {
-      const cresce = (a: Float64Array): Float64Array => {
-        const b = new Float64Array(a.length * 2);
-        b.set(a);
-        return b;
-      };
-      rx = cresce(rx);
-      ry = cresce(ry);
-      rz = cresce(rz);
     }
     rx[nIds] = ax;
     ry[nIds] = ay;
     rz[nIds] = az;
     tabela[h] = nIds;
-    return nIds++;
+    return (idVert[v] = nIds++);
   };
 
-  // Arestas por chave numérica -> posição no registro (ou -1: já combinada com a irmã). A ordem de inserção do Map é a de saída.
-  const arestas = new Map<number, number>();
-  const idx0: number[] = [];
-  const idx1: number[] = [];
-  const normais: number[] = [];
+  // Arestas orientadas (id0, id1) numa tabela de endereçamento aberto sobre typed arrays -> registro. A ordem dos registros é a de inserção (a de saída).
+  const maxArestas = nTri * 3;
+  let capE = 1024;
+  while (capE < maxArestas * 2) capE *= 2;
+  const mascE = capE - 1;
+  const tabE = new Int32Array(capE).fill(-1);
+  const k0 = new Int32Array(maxArestas);
+  const k1 = new Int32Array(maxArestas);
+  const idx0 = new Int32Array(maxArestas);
+  const idx1 = new Int32Array(maxArestas);
+  const vivo = new Uint8Array(maxArestas);
+  const normais = new Float64Array(maxArestas * 3);
+  let nReg = 0;
+  /** Registro da aresta orientada (h0 -> h1), ou -1. */
+  const achar = (h0: number, h1: number): number => {
+    let h = (Math.imul(h0, 0x9e3779b1) ^ Math.imul(h1 + 0x7f4a7c15, 0x85ebca6b)) >>> 0;
+    h = (h ^ (h >>> 15)) & mascE;
+    for (;;) {
+      const r = tabE[h]!;
+      if (r === -1) return -1 - h; // < 0: slot livre (-1 - slot)
+      if (k0[r] === h0 && k1[r] === h1) return r;
+      h = (h + 1) & mascE;
+    }
+  };
   const saida: number[] = [];
   const empurrar = (v: number): void => {
     saida.push(pos[3 * v]!, pos[3 * v + 1]!, pos[3 * v + 2]!);
@@ -104,26 +115,33 @@ export function arestasPorAngulo(posicoes: ArrayLike<number>, indices: ArrayLike
       const h1 = j === 0 ? ib : j === 1 ? ic : ia;
       const v0 = j === 0 ? a : j === 1 ? b : c;
       const v1 = j === 0 ? b : j === 1 ? c : a;
-      const chave = h0 * BASE + h1;
-      const reversa = h1 * BASE + h0;
-      const par = arestas.get(reversa);
-      if (par !== undefined && par >= 0) {
+      const par = achar(h1, h0);
+      if (par >= 0 && vivo[par]) {
         // Aresta irmã: sai se as faces passam do limiar; em qualquer caso, a irmã deixa de valer.
         if (nx * normais[3 * par]! + ny * normais[3 * par + 1]! + nz * normais[3 * par + 2]! <= limiarDot) {
           empurrar(v0);
           empurrar(v1);
         }
-        arestas.set(reversa, -1);
-      } else if (!arestas.has(chave)) {
-        arestas.set(chave, idx0.length);
-        idx0.push(v0);
-        idx1.push(v1);
-        normais.push(nx, ny, nz);
+        vivo[par] = 0;
+      } else {
+        const r = achar(h0, h1);
+        if (r < 0) {
+          const reg = nReg++;
+          tabE[-1 - r] = reg;
+          k0[reg] = h0;
+          k1[reg] = h1;
+          idx0[reg] = v0;
+          idx1[reg] = v1;
+          vivo[reg] = 1;
+          normais[3 * reg] = nx;
+          normais[3 * reg + 1] = ny;
+          normais[3 * reg + 2] = nz;
+        }
       }
     }
   }
-  for (const r of arestas.values()) {
-    if (r < 0) continue;
+  for (let r = 0; r < nReg; r++) {
+    if (!vivo[r]) continue;
     empurrar(idx0[r]!);
     empurrar(idx1[r]!);
   }

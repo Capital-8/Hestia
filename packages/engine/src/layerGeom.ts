@@ -8,10 +8,13 @@ import type { Membrane, ResolvedLayer } from './types.ts';
 
 const MIN_AREA = 1e-9;
 /**
- * Passo (m, em t) do grid que amostra uma face de arco de raio R: flecha de corda ≤ 0,3 mm, isto é, passo² / (8R) ≤ 3e-4,
- * limitado a [0,05; 0,5] m. O passo depende só da parede, então as camadas vizinhas leem a mesma grade.
+ * Passo (m, em t) do grid que amostra uma face de arco de raio R: flecha de corda ≤ 0,5 mm (ou ≤ 0,8 mm acima de
+ * R = 15 m para manter arcos extensos rápidos e abaixo de 1 mm), limitado a [0,05; 1,0] m.
  */
-const passoDoArco = (R: number): number => Math.min(0.5, Math.max(0.05, Math.sqrt(8 * R * 3e-4)));
+const passoDoArco = (R: number): number => {
+  const sag = R > 15 ? 8e-4 : 5e-4;
+  return Math.min(1.0, Math.max(0.05, Math.sqrt(8 * R * sag)));
+};
 
 /** Face da extremidade que vale para `s`: a metade de s maior usa `hi`, a de s menor usa `lo`. */
 export const sideAt = (f: WallFrame, spec: EndSpec, s: number): SideSpec => (s >= f.sMid ? spec.hi : spec.lo);

@@ -8,6 +8,7 @@ import {
   type Id,
   type SectionAnnotations,
   type TextNote,
+  detailLineSegments,
 } from '@hestia/model';
 import { alcaDoTextoEm, textBlockModel } from '../plan/notes.ts';
 
@@ -175,6 +176,8 @@ export interface SectionDimensionGrip {
   id: Id;
   kind: 'offset' | 'text' | 'noteText';
   at: Vec2;
+  /** Pegou pelo corpo (linha de cota/extensões), não pela alça: o clique sem arrasto não altera a cota. */
+  body?: true;
 }
 
 /**
@@ -209,7 +212,10 @@ export function pickSectionDimensionGrip(
   const g = dimensionGeometry(a, b, d.offset, s / 1000, d.textHeight, d.textAt);
   if (distance(point, g.textAt) <= textTol) return { id: d.id, kind: 'text', at: g.textAt };
   const mid = { x: (g.line[0]!.x + g.line[1]!.x) / 2, y: (g.line[0]!.y + g.line[1]!.y) / 2 };
-  return distance(point, mid) <= Math.max(0, tolerance) ? { id: d.id, kind: 'offset', at: mid } : null;
+  if (distance(point, mid) <= Math.max(0, tolerance)) return { id: d.id, kind: 'offset', at: mid };
+  // Corpo da cota selecionada (e não travada): linha de cota e extensões arrastam como a alça do afastamento.
+  if (!d.locked) for (const [s0, e0] of [g.line, ...g.extensions]) if (hitSegment(point, s0!, e0!, Math.max(0, tolerance))) return { id: d.id, kind: 'offset', at: mid, body: true };
+  return null;
 }
 
 /**
@@ -254,8 +260,17 @@ export function pickSectionAnnotation(
   const textTol = Math.max(0, textTolerance);
   const s = Number.isFinite(scale) && scale > 0 ? scale : 100;
   for (const tag of annotations.tags) if (distance(point, tag.at) <= tol) return { id: tag.id, kind: 'tag' };
+  for (const sp of annotations.spots ?? []) if (distance(point, sp.target) <= tol * 1.5 || distance(point, sp.at) <= tol * 2.5) return { id: sp.id, kind: 'text' };
+  for (const sy of annotations.symbols ?? []) if (distance(point, sy.at) <= tol * 2.5) return { id: sy.id, kind: 'text' };
+  for (const rc of annotations.revisionClouds ?? []) {
+    const pts = rc.points;
+    for (let i = 0; i < pts.length; i++) {
+      const next = pts[(i + 1) % pts.length]!;
+      if ((i + 1 < pts.length || rc.closed) && hitSegment(point, pts[i]!, next, tol * 1.5)) return { id: rc.id, kind: 'detailLine' };
+    }
+  }
   for (const text of annotations.texts) if (textHit(text, point, tol, s, textTol)) return { id: text.id, kind: 'text' };
-  for (const line of annotations.detailLines) if (hitSegment(point, line.a, line.b, tol)) return { id: line.id, kind: 'detailLine' };
+  for (const line of annotations.detailLines) if (detailLineSegments(line).some(([p, q]) => hitSegment(point, p, q, tol))) return { id: line.id, kind: 'detailLine' };
   for (const region of annotations.detailRegions) if (regionHit(region, point, tol)) return { id: region.id, kind: 'detailRegion' };
   for (const dim of annotations.dimensions) if (dimensionHit(dim, point, tol, s, textTol)) return { id: dim.id, kind: 'dimension' };
   return null;

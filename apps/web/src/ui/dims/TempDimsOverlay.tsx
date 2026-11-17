@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
-import { worldToScreen } from '@hestia/render';
-import { toPermanent, type TempDim, type Tool, type ToolId } from '@hestia/tools';
-import type { Id, Project } from '@hestia/model';
+import { screenToWorld, worldToScreen } from '@hestia/render';
+import { hitCustomDimTarget, pickRefCommands, toPermanent, type TempDim, type Tool, type ToolId } from '@hestia/tools';
+import { dimRefAt, type Id, type Project } from '@hestia/model';
 import { editor } from '../../editor/controller.ts';
 import { useT } from '../../editor/i18n.ts';
-import { setDimOverride, suspendSelectionDims, useUi, type ViewKind } from '../../editor/state.ts';
+import { clearDimTarget, setDimOverride, setDimTarget, suspendSelectionDims, useUi, type ViewKind } from '../../editor/state.ts';
 import { currentUnits, useFormat } from '../useUnits.ts';
 import { INVALID_FLASH_MS, resolveDimEdit, suspensionAfterConversion } from './dimsActions.ts';
 import { larguraDoCampo } from './dimsBox.ts';
 import { capturaCota, holdsLastPreview, rectAround, swallowsPointerButton, type ScreenRect } from './dimsHit.ts';
 import { placeConvertButton, valueRect } from './dimsLayout.ts';
-import { dimAcionavel, dimText, ocultaDesenhoPermanente, podeConverter, viewOfDim } from './dimsView.ts';
+import { dimAcionavel, dimText, ehPermanente, ehPermanenteAnexada, ocultaDesenhoPermanente, podeConverter, viewOfDim, type GripView } from './dimsView.ts';
 import { toolDims, useDimContext, useSelectionDims } from './useSelectionDims.ts';
 
 const DANGER = 'var(--danger, #d33)';
@@ -73,7 +73,35 @@ interface PreviewCache {
   dims: TempDim[];
 }
 
+interface DragGripState {
+  dim: TempDim;
+  grip: GripView;
+  anchorPx: { x: number; y: number };
+  startPx: { x: number; y: number };
+  currPx: { x: number; y: number };
+  moved: boolean;
+  snapPx: { x: number; y: number } | null;
+}
+
 const semPrevia = (): PreviewCache => ({ tool: null, toolId: 'select', levelId: '', view: 'plan', project: null, dims: [] });
+
+function applyGripClick(g: GripView, dim: TempDim, shiftKey: boolean, undoRefLabel: string): void {
+  if (shiftKey && g.pickable) {
+    // Shift+clique: a próxima escolha na planta (clique numa parede, porta...) vira a referência desta ponta.
+    useUi.setState({ dimRefPick: { dimId: dim.key.split(':')[1] ?? '', slot: g.slot === 'b' ? 'b' : 'a' }, status: { key: 'cvv_dim_pick_ref' } });
+    return;
+  }
+  if (shiftKey && g.dimKey) {
+    clearDimTarget(g.dimKey);
+    return;
+  }
+  if (g.onAlternate) {
+    const cmds = g.onAlternate();
+    if (cmds.length > 0) editor.applyCommands(undoRefLabel, cmds);
+  } else if (g.next) {
+    setDimOverride(g.elementOverrideKey ?? g.overrideKey, g.next);
+  }
+}
 
 /**
  * Cotas dinâmicas (temporárias) de qualquer ferramenta ou seleção: um componente só. Desenha as linhas, o texto azul
@@ -91,6 +119,9 @@ export function TempDimsOverlay(): ReactElement | null {
   const format = useFormat();
   const [editing, setEditing] = useState<{ key: string; text: string } | null>(null);
   const [invalidKey, setInvalidKey] = useState<string | null>(null);
+  const [dragGrip, setDragGrip] = useState<DragGripState | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragGripState | null>(null);
   // Fantasma da última prévia: segura as cotas enquanto o cursor vai da prévia até o valor ou o "I" (C05).
   const lastPreview = useRef<PreviewCache>(semPrevia());
   // `tick` entra só para recalcular quando a ferramenta ou a vista se mexem.
@@ -99,9 +130,71 @@ export function TempDimsOverlay(): ReactElement | null {
 
   useEffect(() => {
     if (!invalidKey) return undefined;
-    const t = setTimeout(() => setInvalidKey(null), INVALID_FLASH_MS);
-    return () => clearTimeout(t);
+    const tm = setTimeout(() => setInvalidKey(null), INVALID_FLASH_MS);
+    return () => clearTimeout(tm);
   }, [invalidKey]);
+
+  const dragging = dragGrip !== null;
+  useEffect(() => {
+    if (!dragging) return undefined;
+    const localPoint = (ev: PointerEvent): { x: number; y: number } => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      return rect ? { x: ev.clientX - rect.left, y: ev.clientY - rect.top } : { x: ev.clientX, y: ev.clientY };
+    };
+    const onMove = (ev: PointerEvent): void => {
+      const cur = dragRef.current;
+      const vp = editor.viewport();
+      if (!cur || !vp) return;
+      const currPx = localPoint(ev);
+      const moved = cur.moved || Math.hypot(currPx.x - cur.startPx.x, currPx.y - cur.startPx.y) >= 4;
+      let snapPx: { x: number; y: number } | null = null;
+      if (moved && (cur.grip.targetDraggable || cur.grip.pickable)) {
+        const worldPt = screenToWorld(vp, currPx);
+        const tol = Math.max(0.15, 14 / vp.zoom);
+        const ownerId = cur.dim.key.split(':')[1] ?? '';
+        const hit = ehPermanente(cur.dim)
+          ? dimRefAt(ctx.project, ctx.levelId, worldPt, tol)
+          : hitCustomDimTarget(ctx.project, ctx.levelId, worldPt, tol, [ownerId]);
+        if (hit) snapPx = worldToScreen(vp, hit.point);
+      }
+      const next = { ...cur, currPx, moved, snapPx };
+      dragRef.current = next;
+      setDragGrip(next);
+    };
+    const onUp = (ev: PointerEvent): void => {
+      const cur = dragRef.current;
+      dragRef.current = null;
+      setDragGrip(null);
+      if (!cur) return;
+      if (!cur.moved) {
+        applyGripClick(cur.grip, cur.dim, ev.shiftKey, t('cvv_dim_undo_ref'));
+        return;
+      }
+      const vp = editor.viewport();
+      if (!vp || !(cur.grip.targetDraggable || cur.grip.pickable)) return;
+      const worldPt = screenToWorld(vp, localPoint(ev));
+      const tol = Math.max(0.15, 14 / vp.zoom);
+      if (ehPermanente(cur.dim)) {
+        const slot = cur.grip.slot === 'b' ? 'b' : 'a';
+        const r = pickRefCommands(ctx.project, ctx.levelId, cur.dim.key.split(':')[1] ?? '', slot, worldPt, tol, lang);
+        if ('commands' in r && r.commands.length > 0) editor.applyCommands(t('cvv_dim_undo_ref'), r.commands);
+        else if ('error' in r) useUi.setState({ status: r.error });
+        return;
+      }
+      const ownerId = cur.dim.key.split(':')[1] ?? '';
+      const hit = hitCustomDimTarget(ctx.project, ctx.levelId, worldPt, tol, [ownerId]);
+      if (hit) setDimTarget(cur.dim.key, hit.target);
+      else clearDimTarget(cur.dim.key);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [dragging, ctx.project, ctx.levelId, lang, t]);
 
   const previewing = tool !== 'select';
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,9 +266,10 @@ export function TempDimsOverlay(): ReactElement | null {
   const widthOf = (d: TempDim): number => larguraDoCampo(editing?.key === d.key ? editing.text : dimText(d, format));
   const valueRects = views.map(({ dim, view }) => valueRect(view.textAt, widthOf(dim)));
   const gripRects = views.flatMap(({ view }) => view.grips.map((g) => rectAround(g.at, 10)));
-  const convert = placeConvertButton(valueRects[0]!, [...valueRects, ...gripRects]);
+  const convIdx = views.findIndex(({ dim }) => podeConverter(dim));
+  const convert = placeConvertButton(valueRects[convIdx >= 0 ? convIdx : 0]!, [...valueRects, ...gripRects]);
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none' }}>
+    <div ref={rootRef} style={{ position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none' }}>
       <svg width={viewport.width} height={viewport.height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} aria-hidden="true">
         {views.map(({ dim, view }) => (
           <g key={view.key} stroke={view.invalid ? DANGER : 'var(--accent)'} fill="none" strokeWidth={1} opacity={ocultaDesenhoPermanente(dim, editing?.key ?? null) ? 0 : 1}>
@@ -188,6 +282,18 @@ export function TempDimsOverlay(): ReactElement | null {
             ))}
           </g>
         ))}
+        {dragGrip?.moved && (
+          <g stroke="var(--accent)" fill="none" strokeWidth={1.25}>
+            <line
+              x1={dragGrip.anchorPx.x}
+              y1={dragGrip.anchorPx.y}
+              x2={(dragGrip.snapPx ?? dragGrip.currPx).x}
+              y2={(dragGrip.snapPx ?? dragGrip.currPx).y}
+              strokeDasharray="4 3"
+            />
+            {dragGrip.snapPx && <circle cx={dragGrip.snapPx.x} cy={dragGrip.snapPx.y} r={6} />}
+          </g>
+        )}
       </svg>
       {views.map(({ dim, view }) => {
         const shown = dimText(dim, format);
@@ -200,7 +306,7 @@ export function TempDimsOverlay(): ReactElement | null {
               aria-label={t('cvv_dim_field_aria', { id: dim.key.split(':').pop() ?? '' })}
               title={view.editable ? t('cvv_dim_edit_tip') : t('cvv_dim_readonly_tip')}
               readOnly={!view.editable}
-              style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
+              style={{ ...BOX, width, left: view.textAt.x, top: view.textAt.y, transform: `translate(-50%, -50%) rotate(${-(view.textRotation ?? 0)}deg)`, appearance: 'none', lineHeight: '22px', textShadow: '0 0 2px var(--panel), 0 0 3px var(--panel)', pointerEvents: captures(valueRect(view.textAt, width), view.editable, 0), ...(view.invalid ? { color: DANGER } : {}), ...(ehPermanenteAnexada(dim) && editing?.key === dim.key ? { background: 'var(--panel)', borderRadius: 3, padding: '0 3px' } : {}), ...(ocultaDesenhoPermanente(dim, editing?.key ?? null) ? { color: 'transparent', textShadow: 'none' } : {}) }}
               value={texto}
               onPointerDown={stop}
               onPointerUp={stop}
@@ -232,23 +338,21 @@ export function TempDimsOverlay(): ReactElement | null {
                 aria-label={g.title}
                 title={g.title}
                 style={{ ...GRIP, left: g.at.x, top: g.at.y, pointerEvents: captures(rectAround(g.at, 10), view.editable) }}
-                onPointerDown={stop}
+                onPointerDown={(e) => {
+                  stop(e);
+                  if (e.button !== 0) return;
+                  const rect = rootRef.current?.getBoundingClientRect();
+                  const startPx = rect ? { x: e.clientX - rect.left, y: e.clientY - rect.top } : { x: e.clientX, y: e.clientY };
+                  const anchorPx = toScreen(g.slot === dim.ends[0].slot ? dim.b : dim.a);
+                  const state: DragGripState = { dim, grip: g, anchorPx, startPx, currPx: startPx, moved: false, snapPx: null };
+                  dragRef.current = state;
+                  setDragGrip(state);
+                }}
                 onPointerUp={stop}
                 onPointerMove={hover}
                 onClick={(e) => {
                   stop(e);
-                  if (e.shiftKey && g.pickable) {
-                    // Shift+clique: a próxima escolha na planta (clique numa parede, porta...) vira a referência desta ponta.
-                    useUi.setState({ dimRefPick: { dimId: dim.key.split(':')[1] ?? '', slot: g.slot === 'b' ? 'b' : 'a' }, status: { key: 'cvv_dim_pick_ref' } });
-                    return;
-                  }
-                  if (g.onAlternate) {
-                    // Cota permanente: a troca é gravada no modelo (um passo de desfazer).
-                    const cmds = g.onAlternate();
-                    if (cmds.length > 0) editor.applyCommands(t('cvv_dim_undo_ref'), cmds);
-                  } else if (g.next) {
-                    setDimOverride(g.overrideKey, g.next);
-                  }
+                  if (e.detail === 0) applyGripClick(g, dim, e.shiftKey, t('cvv_dim_undo_ref'));
                 }}
               />
             ))}

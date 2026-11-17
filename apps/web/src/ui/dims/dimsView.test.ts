@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultUnits, formatQuantity } from '@hestia/model';
 import type { DimEnd, TempDim } from '@hestia/tools';
-import { dimAcionavel, dimText, gripOf, nextRef, podeConverter, providerOf, refLabel, viewOfDim } from './dimsView.ts';
+import { dimAcionavel, dimText, ehPermanenteAnexada, gripOf, nextRef, ocultaDesenhoPermanente, podeConverter, providerOf, refLabel, viewOfDim } from './dimsView.ts';
 
 const end = (slot: string, current: DimEnd['current'], options: DimEnd['options'], x = 0): DimEnd => ({ at: { x, y: 0 }, slot, kind: 'wall', current, options });
 const dim = (over: Partial<TempDim> = {}): TempDim => ({
@@ -90,5 +90,19 @@ describe('dimsView', () => {
     // O "I" sob o cursor engolia o clique do 2º ponto e criava a cota sozinha, sem a posição final.
     expect(podeConverter(dim({ key: 'wall:draft:length', conversivel: false }))).toBe(false);
     expect(podeConverter(dim({ key: 'dimension:d1:a' }))).toBe(false);
+  });
+
+  it('cota permanente anexada oculta o desenho/texto duplicado até entrar em edição e preserva textAt', () => {
+    const attached = dim({
+      key: 'dimension:d1:attached:w1',
+      textAt: { x: 1.5, y: 0.4 },
+      ends: [end('a', 'axis', ['axis'], 0), end('b', 'axis', ['axis'], 2)],
+    });
+    expect(ehPermanenteAnexada(attached)).toBe(true);
+    expect(ocultaDesenhoPermanente(attached, null)).toBe(true);
+    expect(ocultaDesenhoPermanente(attached, 'dimension:d1:attached:w1')).toBe(false);
+    const v = viewOfDim(attached, toScreen, 0.01, null);
+    expect(v.textAt.x).toBeCloseTo(150, 6);
+    expect(v.textAt.y).toBeCloseTo(-40, 6);
   });
 });

@@ -129,31 +129,26 @@ fn preparar(m: &MultiPoligono, escala: f64) -> Result<Formas, u32> {
     Ok(formas)
 }
 
-/// Posição de `p` em relação ao anel (coordenadas inteiras da grade): `1` dentro, `-1` fora, `0` sobre a borda.
-fn posicao_no_anel(p: [f64; 2], anel: &Anel) -> i8 {
+/// Posição de `p` em relação às arestas candidatas `candidatos` (coordenadas inteiras da grade): `1` dentro, `-1` fora, `0` sobre a borda.
+fn posicao_em_arestas(p: [f64; 2], externo: &Anel, candidatos: &[usize]) -> i8 {
     let (px, py) = (p[0] as i128, p[1] as i128);
-    let n = anel.len();
+    let n = externo.len();
     let mut dentro = false;
-    for i in 0..n {
-        let (a, b) = (anel[i], anel[(i + 1) % n]);
+    for &i in candidatos {
+        let (a, b) = (externo[i], externo[(i + 1) % n]);
         let (ax, ay, bx, by) = (a[0] as i128, a[1] as i128, b[0] as i128, b[1] as i128);
         let cruz = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
         if cruz == 0 && px >= ax.min(bx) && px <= ax.max(bx) && py >= ay.min(by) && py <= ay.max(by) {
             return 0;
         }
         if (ay > py) != (by > py) {
-            // x da aresta na altura de p, comparado sem divisão: p.x < ax + (py-ay)(bx-ax)/(by-ay)
             let esquerda = if by > ay { cruz > 0 } else { cruz < 0 };
             if esquerda {
                 dentro = !dentro;
             }
         }
     }
-    if dentro {
-        1
-    } else {
-        -1
-    }
+    if dentro { 1 } else { -1 }
 }
 
 /// Sinal do produto vetorial `(b-a) x (c-a)` em inteiros.
@@ -164,16 +159,87 @@ fn orientacao(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> i8 {
 
 /// O furo está dentro do contorno externo (encostar na borda vale)? Nenhum vértice fora e nenhum cruzamento próprio entre as arestas dos dois anéis.
 fn furo_dentro_do_externo(furo: &Anel, externo: &Anel) -> bool {
-    if furo.iter().any(|&p| posicao_no_anel(p, externo) < 0) {
+    let (nf, ne) = (furo.len(), externo.len());
+    if nf == 0 || ne < 3 {
         return false;
     }
-    let (nf, ne) = (furo.len(), externo.len());
+    let (mut ex_min, mut ex_max, mut ey_min, mut ey_max) = (i128::MAX, i128::MIN, i128::MAX, i128::MIN);
+    for &q in externo {
+        let (qx, qy) = (q[0] as i128, q[1] as i128);
+        ex_min = ex_min.min(qx);
+        ex_max = ex_max.max(qx);
+        ey_min = ey_min.min(qy);
+        ey_max = ey_max.max(qy);
+    }
+    for &p in furo {
+        let (px, py) = (p[0] as i128, p[1] as i128);
+        if px < ex_min || px > ex_max || py < ey_min || py > ey_max {
+            return false;
+        }
+    }
+    // Faixas em Y (CSR plano) evitam O(nf * ne) e múltiplas alocações de Vec em anéis circulares grandes.
+    let n_bins = ne.min(64).max(1);
+    let span = (ey_max - ey_min).max(1);
+    let bin_of = |y: i128| -> usize {
+        (((y - ey_min) * (n_bins as i128 - 1)) / span).clamp(0, n_bins as i128 - 1) as usize
+    };
+    let mut seg_bounds: Vec<(i128, i128, i128, i128, usize, usize)> = Vec::with_capacity(ne);
+    let mut counts: Vec<usize> = vec![0; n_bins];
+    for j in 0..ne {
+        let (c, d) = (externo[j], externo[(j + 1) % ne]);
+        let (cx, cy, dx, dy) = (c[0] as i128, c[1] as i128, d[0] as i128, d[1] as i128);
+        let (x0, x1) = (cx.min(dx), cx.max(dx));
+        let (y0, y1) = (cy.min(dy), cy.max(dy));
+        let (b0, b1) = (bin_of(y0), bin_of(y1));
+        seg_bounds.push((x0, x1, y0, y1, b0, b1));
+        for cnt in &mut counts[b0..=b1] {
+            *cnt += 1;
+        }
+    }
+    let mut offsets: Vec<usize> = Vec::with_capacity(n_bins + 1);
+    let mut total = 0usize;
+    for &c in &counts {
+        offsets.push(total);
+        total += c;
+    }
+    offsets.push(total);
+    let mut cursor = offsets[..n_bins].to_vec();
+    let mut flat_bins: Vec<usize> = vec![0; total];
+    for (j, &(_, _, _, _, b0, b1)) in seg_bounds.iter().enumerate() {
+        for b in b0..=b1 {
+            flat_bins[cursor[b]] = j;
+            cursor[b] += 1;
+        }
+    }
+    for &p in furo {
+        let b = bin_of(p[1] as i128);
+        let slice = &flat_bins[offsets[b]..offsets[b + 1]];
+        if posicao_em_arestas(p, externo, slice) < 0 {
+            return false;
+        }
+    }
+    let mut seen: Vec<u32> = vec![0; ne];
+    let mut stamp: u32 = 0;
     for i in 0..nf {
         let (a, b) = (furo[i], furo[(i + 1) % nf]);
-        for j in 0..ne {
-            let (c, d) = (externo[j], externo[(j + 1) % ne]);
-            if orientacao(a, b, c) * orientacao(a, b, d) < 0 && orientacao(c, d, a) * orientacao(c, d, b) < 0 {
-                return false;
+        let (ax, ay, bx, by) = (a[0] as i128, a[1] as i128, b[0] as i128, b[1] as i128);
+        let (fx0, fx1) = (ax.min(bx), ax.max(bx));
+        let (fy0, fy1) = (ay.min(by), ay.max(by));
+        stamp = stamp.wrapping_add(1);
+        for bin_idx in bin_of(fy0)..=bin_of(fy1) {
+            for &j in &flat_bins[offsets[bin_idx]..offsets[bin_idx + 1]] {
+                if seen[j] == stamp {
+                    continue;
+                }
+                seen[j] = stamp;
+                let (ex0, ex1, ey0, ey1, _, _) = seg_bounds[j];
+                if fx1 < ex0 || fx0 > ex1 || fy1 < ey0 || fy0 > ey1 {
+                    continue;
+                }
+                let (c, d) = (externo[j], externo[(j + 1) % ne]);
+                if orientacao(a, b, c) * orientacao(a, b, d) < 0 && orientacao(c, d, a) * orientacao(c, d, b) < 0 {
+                    return false;
+                }
             }
         }
     }
@@ -186,10 +252,63 @@ fn furo_dentro_do_externo(furo: &Anel, externo: &Anel) -> bool {
 /// zero) são o laço mais curto: um laço de menos de 3 vértices (um ponto, ou ida e volta pela mesma aresta) tem área
 /// exatamente zero, não é região, e por isso é removido (não é descarte por limiar de área).
 fn dividir_em_aneis_simples(anel: Vec<[f64; 2]>) -> Vec<Anel> {
+    const VAZIO: u32 = u32::MAX;
+    const TUMULO: u32 = u32::MAX - 1;
     let mut pilha: Vec<[f64; 2]> = Vec::with_capacity(anel.len());
+    let cap = (anel.len().saturating_mul(2).saturating_add(4)).next_power_of_two().max(8);
+    let mask = cap - 1;
+    let mut slots: Vec<u32> = vec![VAZIO; cap];
+    let hash_de = |kx: i64, ky: i64| -> usize {
+        let h = ((kx as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (ky as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9)).rotate_left(27);
+        (h as usize) & mask
+    };
     let mut saida: Vec<Anel> = Vec::new();
     for p in anel {
-        if let Some(k) = pilha.iter().position(|q| *q == p) {
+        let (kx, ky) = (p[0] as i64, p[1] as i64);
+        let mut s = hash_de(kx, ky);
+        let mut achado: Option<usize> = None;
+        let mut livre: Option<usize> = None;
+        loop {
+            let v = slots[s];
+            if v == VAZIO {
+                if livre.is_none() {
+                    livre = Some(s);
+                }
+                break;
+            }
+            if v == TUMULO {
+                if livre.is_none() {
+                    livre = Some(s);
+                }
+            } else {
+                let q = pilha[v as usize];
+                if (q[0] as i64, q[1] as i64) == (kx, ky) {
+                    achado = Some(v as usize);
+                    break;
+                }
+            }
+            s = (s + 1) & mask;
+        }
+        if let Some(k) = achado {
+            // Remove das entradas ativas os vértices de `k + 1..` antes de `split_off` mover a fatia.
+            for &rem in &pilha[k + 1..] {
+                let (rx, ry) = (rem[0] as i64, rem[1] as i64);
+                let mut rs = hash_de(rx, ry);
+                loop {
+                    let rv = slots[rs];
+                    if rv == VAZIO {
+                        break;
+                    }
+                    if rv != TUMULO {
+                        let rq = pilha[rv as usize];
+                        if (rq[0] as i64, rq[1] as i64) == (rx, ry) {
+                            slots[rs] = TUMULO;
+                            break;
+                        }
+                    }
+                    rs = (rs + 1) & mask;
+                }
+            }
             let laco: Anel = pilha.split_off(k + 1);
             // `pilha[k]` é o próprio vértice repetido: o laço é [p, laco...].
             if laco.len() >= 2 {
@@ -199,6 +318,8 @@ fn dividir_em_aneis_simples(anel: Vec<[f64; 2]>) -> Vec<Anel> {
                 saida.push(a);
             }
         } else {
+            let dst = livre.unwrap_or(s);
+            slots[dst] = pilha.len() as u32;
             pilha.push(p);
         }
     }
@@ -526,17 +647,240 @@ fn offset_em_um(m: &MultiPoligono, delta_em_um: f64) -> Result<MultiPoligono, u3
     Ok(converter(resultado, ESCALA))
 }
 
+fn pt_seg_dist2(px: f64, py: f64, ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
+    let (vx, vy) = (bx - ax, by - ay);
+    let (wx, wy) = (px - ax, py - ay);
+    let len2 = vx * vx + vy * vy;
+    if len2 == 0.0 {
+        return wx * wx + wy * wy;
+    }
+    let t = ((wx * vx + wy * vy) / len2).clamp(0.0, 1.0);
+    let (dx, dy) = (wx - t * vx, wy - t * vy);
+    dx * dx + dy * dy
+}
+
+fn seg_dist2(ax: i64, ay: i64, bx: i64, by: i64, cx: i64, cy: i64, dx: i64, dy: i64) -> f64 {
+    let (fax, fay) = (0.0, 0.0);
+    let (fbx, fby) = ((bx - ax) as f64, (by - ay) as f64);
+    let (fcx, fcy) = ((cx - ax) as f64, (cy - ay) as f64);
+    let (fdx, fdy) = ((dx - ax) as f64, (dy - ay) as f64);
+    let c1 = fbx * fcy - fby * fcx;
+    let c2 = fbx * fdy - fby * fdx;
+    let (cdx, cdy) = (fdx - fcx, fdy - fcy);
+    let c3 = cdx * (fay - fcy) - cdy * (fax - fcx);
+    let c4 = cdx * (fby - fcy) - cdy * (fbx - fcx);
+    if c1 * c2 < 0.0 && c3 * c4 < 0.0 {
+        return 0.0;
+    }
+    pt_seg_dist2(fax, fay, fcx, fcy, fdx, fdy)
+        .min(pt_seg_dist2(fbx, fby, fcx, fcy, fdx, fdy))
+        .min(pt_seg_dist2(fcx, fcy, fax, fay, fbx, fby))
+        .min(pt_seg_dist2(fdx, fdy, fax, fay, fbx, fby))
+}
+
+/// Verdadeiro quando o fechamento morfológico por `eps` pode alterar o polígono (há dobra/canto agudo
+/// ou par de arestas não-adjacentes a menos de `4 * eps`). Um micro-degrau colinear de grade (`<= 2 * eps`)
+/// entre duas arestas que seguem na mesma direção sem vizinhas próximas não dispara `fechar_frestas`.
+fn precisa_fechar_frestas(m: &MultiPoligono, eps: f64) -> Result<bool, u32> {
+    if !eps.is_finite() || eps <= 0.0 {
+        return Ok(true);
+    }
+    let passo = (eps * ESCALA).round();
+    if passo <= 0.0 {
+        return Ok(true);
+    }
+    let min_len = 8.0 * passo;
+    let min_len2 = min_len * min_len;
+    let snap_tick = 2.0 * passo;
+    let snap_tick2 = snap_tick * snap_tick;
+    let pad = (4.0 * passo).ceil() as i64 + 2;
+    let pad2 = (pad as f64) * (pad as f64);
+
+    #[derive(Clone, Copy)]
+    struct Seg {
+        y0: i64,
+        y1: i64,
+        x0: i64,
+        x1: i64,
+        ax: i64,
+        ay: i64,
+        bx: i64,
+        by: i64,
+        ring_id: u32,
+        idx: u32,
+        ring_len: u32,
+        ring_base: u32,
+    }
+
+    let total_pts: usize = m.iter().flat_map(|p| p.iter()).map(|r| r.len()).sum();
+    let mut segs: Vec<Seg> = Vec::with_capacity(total_pts);
+    let mut is_tick: Vec<bool> = Vec::with_capacity(total_pts);
+    let mut pts_buf: Vec<(i64, i64)> = Vec::new();
+    let mut ring_id = 0u32;
+
+    for poli in m {
+        if poli.is_empty() {
+            return Ok(true);
+        }
+        for (ri, anel) in poli.iter().enumerate() {
+            if anel.len() < 3 {
+                return Ok(true);
+            }
+            if (area_com_sinal(anel) > 0.0) != (ri == 0) {
+                return Ok(true);
+            }
+            pts_buf.clear();
+            pts_buf.reserve(anel.len());
+            for &p in anel {
+                let qx = quantizar(p[0], ESCALA)?;
+                let qy = quantizar(p[1], ESCALA)?;
+                if ((qx / ESCALA) - p[0]).abs() > 1e-12 || ((qy / ESCALA) - p[1]).abs() > 1e-12 {
+                    return Ok(true);
+                }
+                pts_buf.push((qx as i64, qy as i64));
+            }
+            let n = pts_buf.len();
+            let ring_base = is_tick.len() as u32;
+            for i in 0..n {
+                let prev = pts_buf[(i + n - 1) % n];
+                let curr = pts_buf[i];
+                let next = pts_buf[(i + 1) % n];
+                let after = pts_buf[(i + 2) % n];
+                let ux = (curr.0 - prev.0) as f64;
+                let uy = (curr.1 - prev.1) as f64;
+                let vx = (next.0 - curr.0) as f64;
+                let vy = (next.1 - curr.1) as f64;
+                let wx = (after.0 - next.0) as f64;
+                let wy = (after.1 - next.1) as f64;
+                let u2 = ux * ux + uy * uy;
+                let v2 = vx * vx + vy * vy;
+                let w2 = wx * wx + wy * wy;
+                let uw_dot = ux * wx + uy * wy;
+                // Degrau de quantização na grade (`curr -> next <= 2*eps`) entre duas arestas longas que continuam para frente.
+                let is_snap_tick = n > 6 && v2 <= snap_tick2 && u2 >= min_len2 && w2 >= min_len2 && uw_dot > 0.0 && uw_dot * uw_dot > 0.25 * u2 * w2;
+                let prev_is_snap_tick = if n > 6 && u2 <= snap_tick2 {
+                    let pprev = pts_buf[(i + n - 2) % n];
+                    let px = (prev.0 - pprev.0) as f64;
+                    let py = (prev.1 - pprev.1) as f64;
+                    let p2 = px * px + py * py;
+                    let pv_dot = px * vx + py * vy;
+                    p2 >= min_len2 && v2 >= min_len2 && pv_dot > 0.0 && pv_dot * pv_dot > 0.25 * p2 * v2
+                } else {
+                    false
+                };
+                if !is_snap_tick && !prev_is_snap_tick {
+                    let dot = ux * vx + uy * vy;
+                    if (u2 < min_len2 || v2 < min_len2) && (n <= 4 || dot <= 0.0 || dot * dot < 0.25 * u2 * v2) {
+                        return Ok(true);
+                    }
+                    if dot < 0.0 && dot * dot > 0.04 * u2 * v2 {
+                        return Ok(true);
+                    }
+                }
+                is_tick.push(is_snap_tick);
+                segs.push(Seg {
+                    y0: curr.1.min(next.1),
+                    y1: curr.1.max(next.1),
+                    x0: curr.0.min(next.0),
+                    x1: curr.0.max(next.0),
+                    ax: curr.0,
+                    ay: curr.1,
+                    bx: next.0,
+                    by: next.1,
+                    ring_id,
+                    idx: i as u32,
+                    ring_len: n as u32,
+                    ring_base,
+                });
+            }
+            ring_id += 1;
+        }
+    }
+
+    segs.sort_unstable_by_key(|s| s.y0);
+    for i in 0..segs.len() {
+        let a = segs[i];
+        let limit_y = a.y1 + pad;
+        for &b in &segs[i + 1..] {
+            if b.y0 > limit_y {
+                break;
+            }
+            if a.ring_id == b.ring_id {
+                let d = a.idx.abs_diff(b.idx);
+                if d <= 1 || d + 1 == a.ring_len {
+                    continue;
+                }
+                if d == 2 || d + 2 == a.ring_len {
+                    let mid = if d == 2 { a.idx.min(b.idx) + 1 } else { (a.idx.max(b.idx) + 1) % a.ring_len };
+                    if is_tick[(a.ring_base + mid) as usize] {
+                        continue;
+                    }
+                }
+            }
+            if a.x1 + pad >= b.x0 && b.x1 + pad >= a.x0 && seg_dist2(a.ax, a.ay, a.bx, a.by, b.ax, b.ay, b.bx, b.by) <= pad2 {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// Normaliza a saída de `outline_fixed_scale_as` já na grade inteira (µm): divide anéis que se tocam (via `poligono_simples`)
+/// e garante orientação canônica (`i == 0` anti-horário, furos horários), evitando roundtrips de float e revalidação de furos.
+fn normalizar_apos_outline(formas: Formas) -> Formas {
+    let mut saida: Formas = Vec::with_capacity(formas.len());
+    for poli in formas {
+        let mut it = poli.into_iter();
+        let Some(ext) = it.next() else { continue };
+        let furos: Vec<Vec<[f64; 2]>> = it.collect();
+        for mut p in poligono_simples(ext, furos) {
+            for (i, anel) in p.iter_mut().enumerate() {
+                if anel.len() >= 3 && (area_com_sinal(anel) > 0.0) != (i == 0) {
+                    anel.reverse();
+                }
+            }
+            if !p.is_empty() {
+                saida.push(p);
+            }
+        }
+    }
+    saida
+}
+
 /// `closeGaps(m, eps)` de `boolean.ts` (A3c): fechamento morfológico, dilata `eps` metros, une (non-zero), contrai `eps` e une de
-/// novo. O TS usa `ClipperOffset(2, ...)` em inteiros de 1 µm; aqui o offset é o de `offset` (i_overlay, miter até 60°), o mesmo
-/// que a ABI v1 já expõe como `offsetMulti`. `eps` vira inteiros de 1 µm exatos (`eps * 1e6` arredondado, 3 para 3e-6).
+/// novo diretamente na grade inteira (µm), evitando roundtrips intermediários de `converter`/`preparar`.
 pub fn fechar_frestas(m: &MultiPoligono, eps: f64) -> Result<MultiPoligono, u32> {
     if m.is_empty() {
         return Ok(Vec::new());
     }
+    if !precisa_fechar_frestas(m, eps)? {
+        return Ok(m.clone());
+    }
     let passo = (eps * ESCALA).round();
-    let dilatado = uniao(&[offset_em_um(m, passo)?])?;
-    let contraido = offset_em_um(&dilatado, -passo)?;
-    uniao(&[contraido])
+    if !passo.is_finite() || passo.abs() > LIMITE_ESCALADO {
+        return Err(ERRO_ENTRADA);
+    }
+    let formas = preparar(m, ESCALA)?;
+    if formas.is_empty() {
+        return Ok(Vec::new());
+    }
+    let estilo_pos = OutlineStyle::new(passo).line_join(LineJoin::Miter(MITER_MINIMO)).miter_min_turn(0.0);
+    let d1 = normalizar_apos_outline(formas.outline_fixed_scale_as::<i64>(&estilo_pos, 1.0).map_err(|_| ERRO_INTERNO)?);
+    if d1.is_empty() {
+        return Ok(Vec::new());
+    }
+    let vazio: Formas = Vec::new();
+    let u1 = aplicar(&d1, &vazio, OverlayRule::Union)?;
+    if u1.is_empty() {
+        return Ok(Vec::new());
+    }
+    let estilo_neg = OutlineStyle::new(-passo).line_join(LineJoin::Miter(MITER_MINIMO)).miter_min_turn(0.0);
+    let d2 = normalizar_apos_outline(u1.outline_fixed_scale_as::<i64>(&estilo_neg, 1.0).map_err(|_| ERRO_INTERNO)?);
+    if d2.is_empty() {
+        return Ok(Vec::new());
+    }
+    let u2 = aplicar(&d2, &vazio, OverlayRule::Union)?;
+    Ok(converter(u2, ESCALA))
 }
 
 /// `closeGapsSafe(m, eps, maxLoss)`: o fechamento só vale se a área não cair mais que `max_perda` nem subir mais que 1e-3 m².

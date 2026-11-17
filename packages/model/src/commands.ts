@@ -1,18 +1,24 @@
 /* eslint-disable max-lines */
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import {
-  isOpening,
   isCeiling,
   isFloor,
   isSlab,
   isRoof,
   isStair,
   isRamp,
+  isOpening,
   isWall,
   isRoom,
   isGeneric,
+  isColumn,
+  isBeam,
+  isFooting,
   type Ceiling,
   type CeilingType,
+  type Column,
+  type Beam,
+  type Footing,
   type Element,
   type Floor,
   type FloorType,
@@ -31,8 +37,10 @@ import {
   type RampType,
   type JoinConfig,
   type Level,
+  type Mass,
   type Material,
   type Opening,
+  type OpeningPlane,
   type OpeningType,
   type Project,
   type SectionView,
@@ -40,13 +48,15 @@ import {
   type Wall,
   type WallType,
 } from './types.ts';
+import { wallTiltIssue, wallTiltOf } from './wallTilt.ts';
 import { splitWall } from './splitWall.ts';
 import { setOpeningHost } from './openingHost.ts';
+import { isOpeningPlane } from './openingPlane.ts';
 import { changesWallEnds, clampOffset, rehostOpenings, wallEndsPatchOf, type WallEndsPatch } from './hostedOffset.ts';
 import { applyElementLevel, hasLevel, type SetElementLevel } from './elementLevel.ts';
 import { transformStair } from './stairTransform.ts';
 import { transformRamp } from './rampTransform.ts';
-import { transformCad, transformCeiling, transformFloor, transformRoof, transformSlab } from './transformPlanar.ts';
+import { semOrigemMassa, transformCad, transformCeiling, transformFloor, transformRoof, transformSlab } from './transformPlanar.ts';
 import { isCad, type CadDrawing } from './cad.ts';
 import { stairTypeIssue } from './stair.ts';
 import { rampTypeIssue } from './ramp.ts';
@@ -56,6 +66,13 @@ import { comTerminoValido } from './termino.ts';
 import { viewRangeIssues, type ViewRange } from './viewRange.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { DimensionStyle } from './dimensionContract.ts';
+import { removeTagFamilyFrom, tagFamiliesOf, tagFamilyIssue, writeTagFamily, type TagFamily } from './tagFamily.ts';
+import {
+  removeNorthArrowFamilyFrom, removeRevisionCloudFamilyFrom, removeSpotFamilyFrom, removeTextFamilyFrom,
+  writeNorthArrowFamily, writeRevisionCloudFamily, writeSpotFamily, writeTextFamily,
+  type NorthArrowFamily, type RevisionCloudFamily, type SpotFamily, type TextFamily,
+} from './annotationFamilies.ts';
+import type { MarkAssignment } from './marks.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
 import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
@@ -78,10 +95,14 @@ import { applySheetCommand, dropOrphanViewports, type SheetCommand } from './she
 import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts';
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
+import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 import { applyGuardaCorpoCommand } from './guardaCorpoCommands.ts';
+import { applyMassCommand } from './massCommands.ts';
+import { isMass, transformMass } from './mass.ts';
+import type { ArranjoMassa, SecaoMassa } from './massTypes.ts';
 import { applyCurtainCommand, prepararTipoParede } from './curtainCommands.ts';
 import type { AddedGridLine, CellOpeningPatch, CurtainHost, CurtainPanelType, LineRef, MullionType } from './wallCurtainTypes.ts';
 import { ajustarCortinasAlteradas, dimensoesCortinas } from './curtainRemap.ts';
@@ -97,7 +118,7 @@ import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
-import { t } from './i18n.ts';
+import { t, textFor } from './i18n.ts';
 
 /** Comando = dados serializáveis. A única forma de escrever no modelo (docs/01 §5). */
 export type Command =
@@ -137,16 +158,27 @@ export type Command =
   | { type: 'upsertPerfilNorma'; perfil: PerfilNorma }
   | { type: 'deletePerfilNorma'; id: Id }
   | { type: 'setNormaGuardaCorpo'; id: Id }
+  // Massa conceitual (A.3 item 4): tratados em massCommands.ts; apagar usa `deleteElements`.
+  | { type: 'addMass'; mass: Omit<Mass, 'order'> }
+  | { type: 'updateMass'; id: Id; patch: Partial<Omit<Mass, 'id' | 'kind' | 'order'>> }
+  | { type: 'setMassSecoes'; id: Id; secoes: SecaoMassa[] }
+  | { type: 'setMassArranjo'; id: Id; arranjo: ArranjoMassa | null }
   | { type: 'upsertSlabType'; slabType: SlabType }
   | { type: 'deleteSlabType'; id: Id }
   | { type: 'upsertFloorType'; floorType: FloorType }
   | { type: 'deleteFloorType'; id: Id }
-  | { type: 'updateElements'; ids: Id[]; patch: Partial<Wall> | Partial<Opening> | Partial<Floor> | Partial<Slab> | Partial<Ceiling> | Partial<Roof> | Partial<Stair> | Partial<Ramp> | Partial<Room> }
+  | { type: 'updateElements'; ids: Id[]; patch: Partial<Wall> | Partial<Opening> | Partial<Floor> | Partial<Slab> | Partial<Ceiling> | Partial<Roof> | Partial<Stair> | Partial<Ramp> | Partial<Room> | Partial<Column> | Partial<Beam> | Partial<Footing> }
   | { type: 'detachOutline'; id: Id }
   | { type: 'relinkOutline'; id: Id }
   | { type: 'detachCeilingRoom'; id: Id }
   | { type: 'relinkCeilingRoom'; id: Id; roomId: Id }
   | { type: 'setWallEnds'; id: Id; a?: Vec2; b?: Vec2 }
+  /** Inclina várias paredes de uma vez (graus; 0 = vertical) em UM passo de desfazer; recusa tudo se alguma for inválida. */
+  | { type: 'setWallTilt'; ids: Id[]; tilt: number }
+  /** Ação D (etapa R): inclinação própria por parede (a cadeia contínua vem do motor, com o sinal por sentido a→b), atômica. */
+  | { type: 'alignTiltOfChain'; items: Array<{ id: Id; tilt: number }> }
+  /** Muda o plano do vão de várias aberturas (null = padrão do tipo) em UM passo de desfazer; recusa tudo se o valor for inválido. */
+  | { type: 'setOpeningPlane'; ids: Id[]; plano: OpeningPlane | null }
   | { type: 'setJoin'; ends: Array<{ wallId: Id; end: 'a' | 'b' }>; config: JoinConfig }
   | { type: 'transform'; ids: Id[]; transform: Transform; copy?: { idMap: Record<Id, Id> } }
   | { type: 'splitWall'; id: Id; newId: Id; t: number; gap?: number; idMap?: Record<Id, Id> }
@@ -204,6 +236,22 @@ export type Command =
   | { type: 'upsertDimensionFamily'; family: DimensionFamily }
   | { type: 'removeDimensionFamily'; id: Id }
   | { type: 'setDefaultDimensionFamily'; id: Id }
+  | { type: 'upsertTagFamily'; family: TagFamily }
+  | { type: 'removeTagFamily'; id: Id }
+  | { type: 'setDefaultTagFamily'; id: Id }
+  | { type: 'upsertTextFamily'; family: TextFamily }
+  | { type: 'removeTextFamily'; id: Id }
+  | { type: 'setDefaultTextFamily'; id: Id }
+  | { type: 'upsertSpotFamily'; family: SpotFamily }
+  | { type: 'removeSpotFamily'; id: Id }
+  | { type: 'setDefaultSpotFamily'; kind: 'elevation' | 'coordinate'; id: Id }
+  | { type: 'upsertRevisionCloudFamily'; family: RevisionCloudFamily }
+  | { type: 'removeRevisionCloudFamily'; id: Id }
+  | { type: 'setDefaultRevisionCloudFamily'; id: Id }
+  | { type: 'upsertNorthArrowFamily'; family: NorthArrowFamily }
+  | { type: 'removeNorthArrowFamily'; id: Id }
+  | { type: 'setDefaultNorthArrowFamily'; id: Id }
+  | { type: 'setMarks'; assignments: MarkAssignment[] }
   | { type: 'setDxfLayerStyle'; layer: string; style: DxfLayerStyle }
   | { type: 'resetDxfLayers' }
   | { type: 'toggleOpeningFavorite'; id: Id }
@@ -224,18 +272,24 @@ export type Command =
   | { type: 'removeRoomCategory'; id: Id }
   | { type: 'upsertColorScheme'; scheme: ColorScheme }
   | { type: 'removeColorScheme'; id: Id }
-  | ({ type: 'setElementLevel' } & SetElementLevel);
-function transformWall(w: Wall, t: Transform): Wall {
+  | ({ type: 'setElementLevel' } & SetElementLevel)
+  | StructuralCommand;
+function transformWall(w: Wall, t: Transform, copy = false): Wall {
   const a = applyTransform(t, w.a);
   const b = applyTransform(t, w.b);
   // Espelhar inverte o lado externo: sem trocar `flipped` a pilha de camadas sairia do lado errado.
   // Espelhar também inverte o lado para o qual o arco abaulava.
-  return { ...w, a, b, flipped: t.kind === 'mirror' ? !w.flipped : w.flipped, sag: t.kind === 'mirror' ? -w.sag : w.sag };
+  const movida = { ...w, a, b, flipped: t.kind === 'mirror' ? !w.flipped : w.flipped, sag: t.kind === 'mirror' ? -w.sag : w.sag };
+  // Espelhar também troca o lado para o qual o topo se inclina (F2.11): o sinal do tilt acompanha o do sag.
+  if (t.kind === 'mirror' && w.tilt) movida.tilt = -w.tilt;
+  // Cópia de parede gerada pela massa não carrega `origemMassa` (ficha D2, emenda E16 item 3).
+  return copy ? semOrigemMassa(movida) : movida;
 }
 
 function removeIds(p: Project, ids: Id[]): void {
   const doomed = new Set(ids);
   for (const e of Object.values(p.elements)) if (isOpening(e) && doomed.has(e.hostId)) doomed.add(e.id);
+  unlinkFootingsOfDeletedColumns(p, doomed);
   for (const id of doomed) delete p.elements[id];
 }
 /**
@@ -272,12 +326,23 @@ function transformEach<E extends Element>(
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
   transformEach(p, c, isRoof, transformRoof);
+  transformEach(p, c, isMass, transformMass);
   transformEach(p, c, isStair, transformStair, (s) => remintComponents(s, (prefix) => newId(prefix)));
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
+  transformEach(p, c, isColumn, transformColumn);
+  transformEach(p, c, isBeam, transformBeam);
+  transformEach(
+    p,
+    c,
+    isFooting,
+    transformFooting,
+    idMap ? (f) => ({ ...f, columnId: f.columnId && idMap[f.columnId] ? idMap[f.columnId] : f.columnId }) : undefined,
+  );
+  syncLinkedFootingsOnTransform(p, c);
   transformEach(p, c, isRoom, (r, t) => ({
     ...r,
     point: applyTransform(t, r.point),
@@ -291,7 +356,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
   const wallIds = new Set(walls.map((w) => w.id));
   for (const w of walls) {
-    const next = transformWall(w, c.transform);
+    const next = transformWall(w, c.transform, !!idMap);
     if (idMap) {
       const nid = idMap[w.id];
       if (!nid) continue;
@@ -347,11 +412,16 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
-    case 'addWall':
+    case 'addWall': {
+      if (c.wall.tilt !== undefined) {
+        const issue = wallTiltIssue(p, c.wall, c.wall.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };
       break;
+    }
     case 'addCadDrawing':
       p.elements[c.cad.id] = { ...c.cad, order: p.nextOrder++ };
       break;
@@ -446,12 +516,60 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       p.elements[c.opening.id] = { ...c.opening, offset: clampOffset(p, c.opening, host) };
       break;
     }
+    case 'setWallTilt': {
+      const walls = c.ids.map((id) => p.elements[id]).filter(isWall);
+      for (const w of walls) {
+        const issue = wallTiltIssue(p, w, c.tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const w of walls) {
+        if (c.tilt === 0) delete w.tilt;
+        else w.tilt = c.tilt;
+      }
+      break;
+    }
+    case 'alignTiltOfChain': {
+      const walls = c.items.map((i) => ({ w: p.elements[i.id], tilt: i.tilt })).filter((x): x is { w: Wall; tilt: number } => isWall(x.w));
+      if (walls.length === 0) throw new Error(t(lang, 'md_cmd_tilt_invalid'));
+      for (const { w, tilt } of walls) {
+        const issue = wallTiltIssue(p, w, tilt, lang);
+        if (issue) throw new Error(issue);
+      }
+      for (const { w, tilt } of walls) {
+        if (tilt === 0) delete w.tilt;
+        else w.tilt = tilt;
+      }
+      break;
+    }
+    case 'setOpeningPlane': {
+      if (c.plano !== null && !isOpeningPlane(c.plano)) throw new Error(t(lang, 'md_cmd_plane_invalid'));
+      for (const id of c.ids) {
+        const o = p.elements[id];
+        if (!isOpening(o)) continue;
+        if (c.plano === null) delete o.plano;
+        else o.plano = c.plano;
+      }
+      break;
+    }
     case 'updateElements': {
+      const patchW = c.patch as Partial<Wall>;
+      if ('tilt' in patchW || 'topProfile' in patchW || 'sag' in patchW) {
+        for (const id of c.ids) {
+          const e = p.elements[id];
+          if (!isWall(e)) continue;
+          const next = { ...e, ...patchW };
+          const issue = wallTiltIssue(p, next, wallTiltOf(next), lang);
+          if (issue) throw new Error(issue);
+        }
+      }
       const ends = wallEndsPatchOf(c.patch as Partial<Wall>);
       const movesEnds = changesWallEnds(c.patch as Partial<Wall>);
+      const colMoves = 'at' in c.patch || 'rotation' in c.patch;
+      const prevCols = new Map<Id, { at: Vec2; rotation: number }>();
       for (const id of c.ids) {
         const e = p.elements[id];
         if (!e) continue;
+        if (colMoves && isColumn(e)) prevCols.set(id, { at: { ...e.at }, rotation: e.rotation });
         if (movesEnds && isWall(e)) {
           const next = { ...e, ...c.patch } as Wall;
           rehostOpenings(p, e, next, ends);
@@ -460,6 +578,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
         }
         p.elements[id] = { ...e, ...c.patch } as Element;
       }
+      syncLinkedFootingsOnColumnPatch(p, c.ids, prevCols);
       for (const id of c.ids) {
         const e = p.elements[id];
         if (isOpening(e)) {
@@ -533,7 +652,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'deleteLevel': {
       if (p.levels.length <= 1) throw new Error(t(lang, 'md_cmd_last_level'));
       // Escada também conta pelo nível de topo explícito; o topo automático segue o nível acima e não prende o nível.
-      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
+      if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id) || (isColumn(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
       p.levels = p.levels.filter((l) => l.id !== c.id);
       dropAreaPlansOfLevel(p, c.id);
       dropOrphanViewports(p);
@@ -551,6 +670,9 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'addDetailLine': case 'updateDetailLine': case 'removeDetailLine':
     case 'addDetailRegion': case 'updateDetailRegion': case 'removeDetailRegion':
     case 'addTag': case 'updateTag': case 'removeTag':
+    case 'addSpot': case 'updateSpot': case 'removeSpot':
+    case 'addRevisionCloud': case 'updateRevisionCloud': case 'removeRevisionCloud':
+    case 'addSymbol': case 'updateSymbol': case 'removeSymbol':
       applyAnnotationCommand(p, c, lang);
       break;
     case 'addSheet':
@@ -648,6 +770,66 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'setDefaultDimensionFamily': {
       if (!dimensionFamiliesOf(p.settings).some((f) => f.id === c.id)) throw new Error(t(lang, 'md_cmd_dim_family_missing'));
       p.settings = { ...p.settings, defaultDimensionFamilyId: c.id };
+      break;
+    }
+    case 'upsertTagFamily': {
+      const others = tagFamiliesOf(p.settings, lang).filter((f) => f.id !== c.family.id);
+      const issue = tagFamilyIssue(c.family, others, lang);
+      if (issue) throw new Error(issue);
+      p.settings = writeTagFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    }
+    case 'removeTagFamily':
+      p.settings = removeTagFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultTagFamily': {
+      if (!tagFamiliesOf(p.settings, lang).some((f) => f.id === c.id)) throw new Error(textFor(lang, 'A família de etiqueta não existe.', 'The tag family does not exist.'));
+      p.settings = { ...p.settings, defaultTagFamilyId: c.id };
+      break;
+    }
+    case 'upsertTextFamily':
+      p.settings = writeTextFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeTextFamily':
+      p.settings = removeTextFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultTextFamily':
+      p.settings = { ...p.settings, defaultTextFamilyId: c.id };
+      break;
+    case 'upsertSpotFamily':
+      p.settings = writeSpotFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeSpotFamily':
+      p.settings = removeSpotFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultSpotFamily':
+      p.settings = c.kind === 'elevation'
+        ? { ...p.settings, defaultSpotElevationFamilyId: c.id }
+        : { ...p.settings, defaultSpotCoordinateFamilyId: c.id };
+      break;
+    case 'upsertRevisionCloudFamily':
+      p.settings = writeRevisionCloudFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeRevisionCloudFamily':
+      p.settings = removeRevisionCloudFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultRevisionCloudFamily':
+      p.settings = { ...p.settings, defaultRevisionCloudFamilyId: c.id };
+      break;
+    case 'upsertNorthArrowFamily':
+      p.settings = writeNorthArrowFamily(p.settings, { ...c.family, name: c.family.name.trim() });
+      break;
+    case 'removeNorthArrowFamily':
+      p.settings = removeNorthArrowFamilyFrom(p.settings, c.id);
+      break;
+    case 'setDefaultNorthArrowFamily':
+      p.settings = { ...p.settings, defaultNorthArrowFamilyId: c.id };
+      break;
+    case 'setMarks': {
+      for (const a of c.assignments) {
+        const e = p.elements[a.id];
+        if (e && 'mark' in e) (e as { mark: string }).mark = a.mark;
+      }
       break;
     }
     case 'setDxfLayerStyle': {

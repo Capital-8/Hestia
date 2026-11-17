@@ -8,12 +8,16 @@ import {
   isGeneric,
   isOpening,
   isGuardaCorpo,
+  isMass,
   isRamp,
   isRoof,
   isRoom,
   isSlab,
   isCeiling,
   isStair,
+  isColumn,
+  isBeam,
+  isFooting,
   isCurtainType,
   isWall,
   type DetailLevel,
@@ -27,14 +31,17 @@ import {
   type Id,
   type LocationLine,
   type Opening,
+  type OpeningPlane,
   type ViewRange,
   type Wall,
   wallArc,
+  wallTiltOf,
 } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
+import { avisoLimiteInclinacao, grauDeRad, inclinarParedes, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
@@ -45,6 +52,7 @@ import { LevelField } from './LevelField.tsx';
 import { LevelProps } from './LevelProps.tsx';
 import { UnderlayRow } from './ViewOptionRows.tsx';
 import { ProfileRow } from './ProfileRow.tsx';
+import { AlturaDaAbertura } from './OpeningHeightRows.tsx';
 import { FloorProperties } from './FloorProperties.tsx';
 import { RoofProperties } from './RoofProperties.tsx';
 import { SlabProperties } from './SlabProperties.tsx';
@@ -54,10 +62,14 @@ import { CeilingProperties } from './CeilingProperties.tsx';
 import { StairProperties } from './StairProperties.tsx';
 import { RampProperties } from './RampProperties.tsx';
 import { GuardaCorpoProperties } from './GuardaCorpoProperties.tsx';
+import { MassProperties } from './MassProperties.tsx';
 import { RoomProperties } from './RoomProperties.tsx';
 import { AreaProfileGroups, activeAreaPlan } from './AreaPlanProperties.tsx';
 import { GenericProps, selectionLabel } from './GenericProps.tsx';
 import { CadProps } from './CadProps.tsx';
+import { ColumnProperties } from './ColumnProperties.tsx';
+import { BeamProperties } from './BeamProperties.tsx';
+import { FootingProperties } from './FootingProperties.tsx';
 import { GridProperties } from './GridProperties.tsx';
 import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
@@ -121,7 +133,8 @@ function JoinRows({ wall }: { wall: Wall }): ReactElement {
       const srcEnd = firstIsMe ? end : partnerEnd;
       const cfg = srcEnd === 'a' ? src.joinStart : src.joinEnd;
       const ends = [{ wallId: wall.id, end }, ...st.partners];
-      const set = (kind: JoinKind, flip: boolean): void => editor.store.exec({ type: 'setJoin', ends, config: { kind, flip } });
+      const set = (kind: JoinKind, flip: boolean, transicao: 'degrau' | 'cunha' | undefined = cfg.transicao): void => editor.store.exec({ type: 'setJoin', ends, config: transicao === 'cunha' ? { kind, flip, transicao } : { kind, flip } });
+      const inclinada = !!wall.tilt || (isWall(partner) && !!partner.tilt);
       return (
         <div key={end}>
           <Row label={t('prc_fld_join_at', { label })} htmlFor={`p-join-${end}`}>
@@ -129,6 +142,14 @@ function JoinRows({ wall }: { wall: Wall }): ReactElement {
               {(['butt', 'miter'] as JoinKind[]).map((k) => <option key={k} value={k}>{t(k === 'butt' ? 'prc_join_butt' : 'prc_join_miter')}</option>)}
             </select>
           </Row>
+          {inclinada && (
+            <Row label={t('prc_fld_join_transition')} htmlFor={`p-jointr-${end}`}>
+              <select id={`p-jointr-${end}`} className="select" value={cfg.transicao ?? 'degrau'} onChange={(e) => set(cfg.kind, cfg.flip, e.target.value as 'degrau' | 'cunha')}>
+                <option value="degrau">{t('prc_join_tr_step')}</option>
+                <option value="cunha">{t('prc_join_tr_wedge')}</option>
+              </select>
+            </Row>
+          )}
           {cfg.kind !== 'miter' && (
             <Row label={t('prc_fld_flip_order')}><Check id={`p-joinflip-${end}`} checked={cfg.flip} onChange={(v) => set(cfg.kind, v)} /></Row>
           )}
@@ -161,6 +182,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
   const noS = common(walls, (w) => w.noJoinStart);
   const noE = common(walls, (w) => w.noJoinEnd);
   const sag = common(walls, (w) => w.sag);
+  const tilt = common(walls, (w) => wallTiltOf(w));
   const mark = common(walls, (w) => w.mark);
   const comments = common(walls, (w) => w.comments);
   const single = walls.length === 1 ? walls[0]! : null;
@@ -216,6 +238,7 @@ function WallProps({ walls }: { walls: Wall[] }): ReactElement {
           </select>
         </Row>
         <Row label={t('prc_fld_arc_sag')} htmlFor="p-sag"><NumField id="p-sag" value={sag.value} mixed={sag.mixed} onCommit={(v) => patch(ids, { sag: v })} quantity="length" /></Row>
+        <Row label={t('prc_fld_tilt')} htmlFor="p-tilt"><NumField id="p-tilt" value={radDeGrau(tilt.value)} mixed={tilt.mixed} quantity="angle" min={-TILT_MAX_RAD} max={TILT_MAX_RAD} strictRange onInvalid={avisoLimiteInclinacao} onCommit={(v) => { const erro = inclinarParedes(editor.store, ids, grauDeRad(v)); if (erro) useUi.setState({ status: erro }); }} /></Row>
         <Row label={t('prc_fld_flip_exterior')}><Check id="p-flip" checked={flipped.value} mixed={flipped.mixed} onChange={(v) => patch(ids, { flipped: v })} /></Row>
         <Row label={t('prc_fld_no_join_start')}><Check id="p-nos" checked={noS.value} mixed={noS.mixed} onChange={(v) => patch(ids, { noJoinStart: v })} /></Row>
         <Row label={t('prc_fld_no_join_end')}><Check id="p-noe" checked={noE.value} mixed={noE.mixed} onChange={(v) => patch(ids, { noJoinEnd: v })} /></Row>
@@ -273,6 +296,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
   const hand = common(items, (o) => o.flipHand);
   const facing = common(items, (o) => o.flipFacing);
   const mark = common(items, (o) => o.mark);
+  const plane = common(items, (o) => o.plano);
   return (
     <>
       <TypeSelector
@@ -297,13 +321,17 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
             {single.sillOverride !== null && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { sillOverride: null })}>{t('prc_btn_use_type_sill')}</button></div>
             )}
-            <Row label={t('prc_fld_opening_height')} htmlFor="p-height">
-              <NumField id="p-height" value={type ? openingHeight(type, single) : 0} onCommit={(v) => patch(ids, { heightOverride: v })} quantity="length" min={0.1} onInvalid={() => useUi.setState({ status: { key: 'prc_msg_invalid_height', args: { v: fmtNum(1.2, 2, lang) } } })} onValid={() => { const st = useUi.getState().status; if (typeof st !== 'string' && st.key === 'prc_msg_invalid_height') useUi.setState({ status: { key: 'prc_msg_ready' } }); }} />
-            </Row>
-            {typeof single.heightOverride === 'number' && (
-              <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { heightOverride: null })}>{t('prc_btn_use_type_height')}</button></div>
-            )}
+            <AlturaDaAbertura ids={ids} abertura={single} tipo={type ?? null} />
           </>
+        )}
+        {items.some((o) => { const h = p.elements[o.hostId]; return !!h && isWall(h) && !!h.tilt; }) && (
+          <Row label={t('prc_fld_opening_plane')} htmlFor="p-plane">
+            <select id="p-plane" className="select" title={t('prc_tip_opening_plane')} value={plane.mixed ? '' : plane.value ?? ''} onChange={(e) => editor.store.exec({ type: 'setOpeningPlane', ids, plano: e.target.value === '' ? null : (e.target.value as OpeningPlane) })}>
+              <option value="">{t('prc_opt_plane_default')}</option>
+              <option value="vertical">{t('prc_opt_plane_vertical')}</option>
+              <option value="inclinado">{t('prc_opt_plane_inclined')}</option>
+            </select>
+          </Row>
         )}
         <Row label={t('prc_fld_flip_hand')} htmlFor="p-hand"><Check id="p-hand" checked={hand.value} mixed={hand.mixed} onChange={(v) => patch(ids, { flipHand: v })} /></Row>
         <Row label={t('prc_fld_flip_facing')} htmlFor="p-facing"><Check id="p-facing" checked={facing.value} mixed={facing.mixed} onChange={(v) => patch(ids, { flipFacing: v })} /></Row>
@@ -449,18 +477,22 @@ export function Properties(): ReactElement {
   const stairs = els.filter(isStair);
   const ramps = els.filter(isRamp);
   const railings = els.filter(isGuardaCorpo);
+  const massas = els.filter(isMass);
   const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad);
+  const columns = els.filter(isColumn);
+  const beams = els.filter(isBeam);
+  const footings = els.filter(isFooting);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + rooms.length + generics.length + cads.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, rooms, generics, cads].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + massas.length + rooms.length + generics.length + cads.length + columns.length + beams.length + footings.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
   // Nível selecionado no 3D: só ocupa o painel quando não há elementos na seleção nem ferramenta em colocação.
   const selectedLevel = useUi((s) => s.selectedLevel);
   const nivelSelecionado = count === 0 && !placing ? p.levels.find((l) => l.id === selectedLevel) : undefined;
-  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, grade, view }, lang);
+  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, columns: columns.length, beams: beams.length, footings: footings.length, grade, view }, lang);
   return (
     <aside className="side" aria-label={t('properties_title')}>
       <PanelHead panel="props" name={t('properties_title')} closeLabel={t('prc_aria_close_properties')} extra={<span style={{ color: 'var(--fg-faint)', fontWeight: 400 }}>{panelLabel}</span>}>
@@ -477,11 +509,15 @@ export function Properties(): ReactElement {
           : kinds === 1 && stairs.length > 0 ? <StairProperties stairs={stairs} />
           : kinds === 1 && ramps.length > 0 ? <RampProperties ramps={ramps} />
           : kinds === 1 && railings.length > 0 ? <GuardaCorpoProperties railings={railings} />
+          : kinds === 1 && massas.length > 0 ? <MassProperties massas={massas} />
           : kinds === 1 && rooms.length > 0 ? <RoomProperties rooms={rooms} />
           : kinds === 1 && generics.length > 0 ? <GenericProps items={generics} />
           : kinds === 1 && cads.length > 0 ? <CadProps items={cads} />
+          : kinds === 1 && columns.length > 0 ? <ColumnProperties items={columns} />
+          : kinds === 1 && beams.length > 0 ? <BeamProperties items={beams} />
+          : kinds === 1 && footings.length > 0 ? <FootingProperties items={footings} />
           : grade ? <GridProperties grid={grade} />
-          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} section={note.section} planId={planId} sectionId={sectionId} />
+          : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} spot={note.spot} revisionCloud={note.revisionCloud} symbol={note.symbol} section={note.section} planId={planId} sectionId={sectionId} />
           : view ? <SectionViewProps view={view} />
           : nivelSelecionado ? <LevelProps />
           : count > 0 ? (

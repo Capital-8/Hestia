@@ -1,4 +1,4 @@
-import { cross, dist, dot, norm, sub, type Vec2 } from '@hestia/geom';
+import { arcFromSagitta, cross, dist, dot, norm, sub, type Arc, type Vec2 } from '@hestia/geom';
 import { isWall, type Id, type Project, type Wall } from './types.ts';
 
 /** Abaixo disso a parede não tem direção definida. */
@@ -17,18 +17,47 @@ export interface WallOverlap {
   lateral: number;
 }
 
-/** O que o critério olha: só o eixo a→b (a curvatura e o resto da parede não entram). */
-export type WallAxis = Pick<Wall, 'a' | 'b'>;
+/** O que o critério olha: o eixo a→b e a curvatura opcional `sag`. */
+export type WallAxis = Pick<Wall, 'a' | 'b'> & { sag?: number };
+
+const TAU = Math.PI * 2;
+const normAngle = (rad: number): number => ((rad % TAU) + TAU) % TAU;
+
+/** Intervalos [lo, hi] em [0, 2π] ocupados por um arco. */
+function arcIntervals(arc: Arc): Array<[number, number]> {
+  const start = normAngle(arc.a0);
+  const end = start + arc.sweep;
+  if (arc.sweep >= 0) return end <= TAU ? [[start, end]] : [[start, TAU], [0, end - TAU]];
+  return end >= 0 ? [[end, start]] : [[0, start], [end + TAU, TAU]];
+}
+
+/** Sobreposição entre duas paredes em arco: mesmo círculo (centro e raio dentro de 1 cm) e trecho angular comum > 5 cm. */
+function curvedWallOverlap(a: Arc, b: Arc): WallOverlap | null {
+  const lateral = dist(a.center, b.center) + Math.abs(a.radius - b.radius);
+  if (lateral >= COLLINEAR_OFFSET) return null;
+  let sharedAngle = 0;
+  for (const [a0, a1] of arcIntervals(a)) {
+    for (const [b0, b1] of arcIntervals(b)) {
+      const lo = Math.max(a0, b0);
+      const hi = Math.min(a1, b1);
+      if (hi > lo) sharedAngle += hi - lo;
+    }
+  }
+  const length = sharedAngle * ((a.radius + b.radius) / 2);
+  return length > WALL_OVERLAP_MIN ? { length, lateral } : null;
+}
 
 /**
  * Sobreposição de eixos de duas paredes: colineares (ângulo < 1°), eixos a menos de 1 cm no meio do
- * trecho e trecho comum maior que 5 cm. É o mesmo critério do item C14 da validação, usado também
- * para impedir que uma parede seja criada em cima de outra (decisão 0044).
- *
- * A conta usa só os eixos (a→b), como o C14: a curvatura (`sag`) não entra.
- * Devolve null quando não há sobreposição; sobreposição parcial conta pelo trecho comum.
+ * trecho e trecho comum maior que 5 cm. Quando as DUAS paredes são arcos (`sag`), compara os arcos reais
+ * (dois semicírculos opostos sobre o mesmo diâmetro não se sobrepõem); com no máximo um arco, só o eixo a→b entra.
  */
 export function wallOverlap(a: WallAxis, b: WallAxis): WallOverlap | null {
+  const arcA = a.sag ? arcFromSagitta(a.a, a.b, a.sag) : null;
+  const arcB = b.sag ? arcFromSagitta(b.a, b.b, b.sag) : null;
+  if (arcA && arcB) return curvedWallOverlap(arcA, arcB);
+  // Reta contra arco (ou um só arco): vale o critério dos eixos a→b, como no C14; a guarda das ferramentas
+  // (`wallOverlapGuard.ts`) distingue arcos de mesma corda e flechas diferentes na hora de criar/mover/copiar.
   const la = dist(a.a, a.b);
   const lb = dist(b.a, b.b);
   if (la < MIN_WALL_LENGTH || lb < MIN_WALL_LENGTH) return null;
@@ -54,8 +83,8 @@ export interface WallConflict {
   overlap: WallOverlap;
 }
 
-/** Parede a conferir: eixo, id e nível bastam (a candidata pode ainda não estar no projeto). */
-export type WallCandidate = Pick<Wall, 'id' | 'levelId' | 'a' | 'b'>;
+/** Parede a conferir: eixo, curvatura opcional, id e nível bastam (a candidata pode ainda não estar no projeto). */
+export type WallCandidate = Pick<Wall, 'id' | 'levelId' | 'a' | 'b'> & { sag?: number };
 
 /**
  * Primeira parede do projeto que fica por baixo de `w` (mesmo nível, eixos sobrepostos).

@@ -223,7 +223,7 @@ describe('pasteAlignedToLevelsCommand', () => {
     if (g.kind === 'generic') {
       expect(g.id).not.toBe('g1');
       expect(g.levelId).toBe('lv_1');
-      expect(g.mesh.positions).toEqual([0, 0, 5, 1, 0, 5, 0, 1, 5]); // +3 m do nível
+      expect(Array.from(g.mesh.positions)).toEqual([0, 0, 5, 1, 0, 5, 0, 1, 5]); // +3 m do nível
       expect(g.outline).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }]);
     }
 
@@ -333,5 +333,35 @@ describe('previewPasteLevels', () => {
     const draft = previewPasteLevels(store.project, clip, ['nada']);
     expect(draft).not.toBe(store.project);
     expect(draft.elements).toEqual(store.project.elements);
+  });
+});
+
+describe('colar alinhado preservando offset relativo entre níveis', () => {
+  it('mantém diferença relativa de andares quando seleção vem de múltiplos níveis', () => {
+    const store = buildProject();
+    wall(store, 'w0', 'lv_0', [0, 0], [4, 0]);
+    wall(store, 'w1', 'lv_1', [0, 2], [4, 2]);
+    const clip = clipboardFrom(store.project, ['w0', 'w1'])!;
+    const res = pasteAlignedToLevelsCommand(store.project, clip, ['lv_2'], { mint: counterMint() })!;
+    store.exec(res.command);
+
+    const onLv2 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_2');
+    const onLv3 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_3');
+    expect(onLv2).toHaveLength(1);
+    expect(onLv3).toHaveLength(1);
+    expect((onLv2[0] as { a: { y: number } }).a.y).toBe(0);
+    expect((onLv3[0] as { a: { y: number } }).a.y).toBe(2);
+  });
+
+  it('quando o deslocamento relativo ultrapassa o último nível, fixa no topo com aviso top-overflow', () => {
+    const store = buildProject();
+    wall(store, 'w0', 'lv_0', [0, 0], [4, 0]);
+    wall(store, 'w1', 'lv_1', [0, 2], [4, 2]);
+    const clip = clipboardFrom(store.project, ['w0', 'w1'])!;
+    const res = pasteAlignedToLevelsCommand(store.project, clip, ['lv_3'], { mint: counterMint() })!;
+    expect(res.warnings.some((w) => w.kind === 'top-overflow')).toBe(true);
+    store.exec(res.command);
+    const onLv3 = Object.values(store.project.elements).filter((e) => e.kind === 'wall' && e.levelId === 'lv_3');
+    expect(onLv3.length).toBeGreaterThanOrEqual(2);
   });
 });

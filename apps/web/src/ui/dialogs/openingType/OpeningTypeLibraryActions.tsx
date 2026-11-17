@@ -1,23 +1,20 @@
 import { useRef, useState, type ReactElement } from 'react';
 import {
-  duplicateOpeningType,
   exportOpeningTypes,
   importOpeningTypes,
   openingFavorites,
   type ImportOpeningTypesResult,
+  type Id,
   type OpeningType,
-  type Project,
 } from '@hestia/model';
 import { editor, useProject } from '../../../editor/controller.ts';
 import { saveText } from '../../../editor/saveText.ts';
 import { useUi } from '../../../editor/state.ts';
 import { resolveText, useT, type Dict, type Lang, type TextLike } from '../../../editor/i18n.ts';
+import { comRascunho, copiaDoRascunho } from './duplicaTipo.ts';
 
 /** Nome do arquivo de tipos de esquadria gerado pela biblioteca (muda com o idioma). */
 const arquivoTipos = (lang: Lang): string => (lang === 'en' ? 'opening-types.hestia-types.json' : 'tipos-esquadrias.hestia-tipos.json');
-
-/** Projeto com o tipo em edição no lugar do gravado: duplicar e exportar levam o que está na tela (o rascunho). */
-const comRascunho = (p: Project, t: OpeningType): Project => ({ ...p, openingTypes: { ...p.openingTypes, [t.id]: t } });
 
 type Traduzir = (key: keyof Dict, args?: Record<string, string | number>) => string;
 
@@ -36,7 +33,7 @@ const linha = { display: 'flex', flexWrap: 'wrap', gap: 4, padding: '4px 8px' } 
  * Ações da biblioteca sobre o tipo em edição: duplicar, exportar (o tipo, ou os favoritos) e importar um arquivo.
  * Cada ação grava (ou gera o arquivo) e mostra o resultado na barra de status e logo abaixo dos botões.
  */
-export function OpeningTypeLibraryActions({ type }: { type: OpeningType }): ReactElement {
+export function OpeningTypeLibraryActions({ type, onDuplicated }: { type: OpeningType; onDuplicated?: (copia: OpeningType, antigoId: Id) => void }): ReactElement {
   const p = useProject();
   const { t, lang } = useT();
   const entrada = useRef<HTMLInputElement>(null);
@@ -50,14 +47,15 @@ export function OpeningTypeLibraryActions({ type }: { type: OpeningType }): Reac
     useUi.setState({ status: texto });
   };
 
-  /** Cópia com nome e código novos; a cópia passa a ser o tipo em edição (como o "Duplicar" do cabeçalho). */
+  /** Cópia com nome e código novos (a mesma do "Duplicar" do cabeçalho); a cópia passa a ser o tipo em edição. */
   const duplica = (): void => {
     try {
-      const copia = duplicateOpeningType(comRascunho(editor.project, type), type.id);
+      const copia = copiaDoRascunho(editor.project, type, lang);
       editor.store.exec({ type: 'upsertOpeningType', openingType: copia }, t('dlo_cmd_duplicate_type'));
       useUi.setState({ dialogArg: copia.id });
       setResultado(null);
       diz({ key: 'dlo_msg_duplicated', args: { name: copia.name } });
+      onDuplicated?.(copia, type.id);
     } catch (e) {
       diz(falha(e));
     }

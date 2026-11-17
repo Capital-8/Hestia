@@ -1,6 +1,21 @@
 import { planFootprint } from './stairs.ts';
+import { pontosDaMassaEmPlanta } from './massa.ts';
 import { resolveRampOne, resolveStairOne } from '@hestia/engine';
-import { isOpening, isRamp, isStair, isWall, type Element, type Id, type Project } from '@hestia/model';
+import {
+  beamPolygon,
+  columnPolygon,
+  findBeamType,
+  findColumnType,
+  findFootingType,
+  footingPolygon,
+  isOpening,
+  isRamp,
+  isStair,
+  isWall,
+  type Element,
+  type Id,
+  type Project,
+} from '@hestia/model';
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
 
 /**
@@ -81,6 +96,8 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  // A massa entra com os contornos de todas as seções e cópias (a caixa do envelope, sem o kernel): é o que a planta e o corte mostram.
+  mass: { entra: true, pontos: (e) => pontosDaMassaEmPlanta(e) },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
   generic: {
     entra: false,
@@ -88,6 +105,9 @@ const COLETORES: Coletores = {
     pontos: nenhum,
   },
   cad: { entra: false, motivo: 'O desenho CAD importado é só de planta (traços 2D); não aparece em corte nem em elevação.', pontos: nenhum },
+  column: { entra: true, pontos: (e, p) => columnPolygon(e, findColumnType(p, e.typeId)) },
+  beam: { entra: true, pontos: (e, p) => beamPolygon(e, findBeamType(p, e.typeId)) },
+  footing: { entra: true, pontos: (e, p) => footingPolygon(e, findFootingType(p, e.typeId)) },
 };
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {

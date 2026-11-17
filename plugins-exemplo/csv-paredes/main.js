@@ -1,3 +1,4 @@
+/* global TextDecoder */
 // Suplemento de exemplo "CSV de paredes" (runtime script; permissões model.read, model.write, io.import, io.export).
 // O script roda num Worker sem DOM e sem rede. Toda porta do host é ASSÍNCRONA: use `await`.
 // Coordenadas em metros (m). Formato do CSV: id;x1;y1;x2;y2 (a primeira linha pode ser o cabeçalho).

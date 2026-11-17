@@ -1,6 +1,6 @@
-import { closestOnSegment, intersection, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
+import { closestOnSegment, intersection, pointInMulti, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
-import { planeZ, type ResolvedRoof } from './roofs.ts';
+import { planeZ, roofTopAt, type ResolvedRoof } from './roofs.ts';
 import { EPS_T, lineIntervals, sectionFrame, type SectionLine } from './sectionGeom.ts';
 import type { SectionBeyond } from './section.ts';
 
@@ -9,10 +9,32 @@ export interface RoofSection {
   /** Corte por água e camada, com o telhado de origem (`roofId`). */
   cut: Array<{ materialId: Id; polygon: Polygon; roofId: Id }>;
   beyond: SectionBeyond[];
+  /** Arestas 3D do telhado (cumeeira, espigão, rincão, beiral, empena) projetadas, com os trechos visíveis entre as águas do próprio telhado. */
+  edges: RoofEdgeCandidate[];
   /** Cotas extremas (Infinity/-Infinity sem telhado na linha). */
   zMin: number;
   zMax: number;
 }
+
+/**
+ * Aresta 3D de um telhado projetada em (t, z). `spans` são os trechos (fração 0..1 de a→b) que nenhuma água do mesmo telhado cobre
+ * mais perto do plano; a oclusão por paredes, pisos etc. é resolvida na montagem do corte. Dados puros (passam pelo worker).
+ */
+export interface RoofEdgeCandidate {
+  roofId: Id;
+  kind: 'ridge' | 'hip' | 'valley' | 'eave' | 'gable' | 'break';
+  a: Vec2;
+  b: Vec2;
+  /** Profundidade ao plano em a e em b. */
+  da: number;
+  db: number;
+  spans: Array<[number, number]>;
+}
+
+/** Folga (m) de profundidade: a aresta só some atrás de uma água que esteja mais perto que isto. */
+const EDGE_DEPTH_EPS = 0.02;
+/** Passo (m) de amostragem ao longo de uma aresta. */
+const EDGE_STEP = 0.03;
 
 /** Envoltória convexa (cadeia monótona), anel anti-horário; com menos de 3 vértices, pontos colineares. */
 function convexHull(pts: Vec2[]): Ring {
@@ -48,7 +70,7 @@ export function squareCutRun(percent: number, thickness: number): number {
  * águas convexas, que é o caso das formas predefinidas).
  */
 export function sectionOfRoofs(roofs: ResolvedRoof[], line: SectionLine): RoofSection {
-  const out: RoofSection = { cut: [], beyond: [], zMin: Infinity, zMax: -Infinity };
+  const out: RoofSection = { cut: [], beyond: [], edges: [], zMin: Infinity, zMax: -Infinity };
   const { length, d, n, slab } = sectionFrame(line);
   if (length < 1e-6) return out;
   const along = (v: Vec2): number => (v.x - line.a.x) * d.x + (v.y - line.a.y) * d.y;
@@ -88,10 +110,12 @@ export function sectionOfRoofs(roofs: ResolvedRoof[], line: SectionLine): RoofSe
         }
         const parts: MultiPolygon[] = [];
         let depth = Infinity;
+        let farDepth = 0;
         for (const piece of view) {
           const outer = piece[0];
           if (!outer || outer.length < 3) continue;
           depth = Math.min(depth, ...outer.map(dist));
+          farDepth = Math.max(farDepth, ...outer.map(dist));
           const mesh = triangulate(piece);
           for (let i = 0; i < mesh.indices.length; i += 3) {
             const pts = [0, 1, 2].flatMap((k) => {
@@ -107,7 +131,20 @@ export function sectionOfRoofs(roofs: ResolvedRoof[], line: SectionLine): RoofSe
         }
         if (!parts.length) continue;
         const polygons = union(...parts);
-        out.beyond.push({ roofId: r.roofId, materialId: l.materialId, layerIndex: l.layerIndex, depth: Math.max(0, depth), polygons });
+        // Água de perfil (a subida é paralela à linha de corte): ela se projeta numa faixa só com a espessura, que a água da frente
+        // (ou a vizinha) já cobre. Com a profundidade do ponto mais próximo ela empatava com a da frente e, pela ordem da lista,
+        // às vezes a escondia, deixando uma diagonal em faixas de um lado só. Pela profundidade do ponto mais longe ela fica
+        // atrás de quem a cobre e continua visível quando nada a cobre (empena vista de topo).
+        const edgeOn = Math.abs(Math.abs(c) - 1) < 1e-6;
+        // De perfil ou quase (até ~3° da vista de ponta): a face não esconde nada e a profundidade por ponto não é confiável.
+        const profile = Math.abs(n.x * pl.up.x + n.y * pl.up.y) < 0.05;
+        // Profundidade em cada ponto (t, z) da água: s = (z − K − G·ud·t) / (G·un), com K a cota da face de cima da camada em a, ud e un os
+        // cossenos da subida com o eixo e com a normal do corte. A água de perfil (un ≈ 0) fica sem plano (profundidade constante).
+        const un = n.x * pl.up.x + n.y * pl.up.y;
+        const Gun = G * un;
+        const K = pl.z0 - l.below + G * ((line.a.x - pl.origin.x) * pl.up.x + (line.a.y - pl.origin.y) * pl.up.y);
+        const depthPlane = Math.abs(Gun) > 1e-9 && !profile ? { c: -K / Gun, a: -(G * c) / Gun, b: 1 / Gun } : undefined;
+        out.beyond.push({ roofId: r.roofId, materialId: l.materialId, layerIndex: l.layerIndex, depth: Math.max(0, edgeOn ? farDepth : depth), ...(depthPlane ? { depthPlane } : {}), ...(profile ? { passive: true } : {}), polygons });
         for (const ring of polygons.flat()) {
           for (const v of ring) {
             out.zMin = Math.min(out.zMin, v.y);
@@ -116,6 +153,88 @@ export function sectionOfRoofs(roofs: ResolvedRoof[], line: SectionLine): RoofSe
         }
       }
     }
+  }
+  for (const r of roofs) out.edges.push(...edgesOfRoof(r, line, length, n, at, along, dist));
+  return out;
+}
+
+/** Arestas 3D de um telhado no corte ou na elevação: projeção, recorte ao quadro e visibilidade entre as águas do próprio telhado. */
+function edgesOfRoof(
+  r: ResolvedRoof,
+  line: SectionLine,
+  length: number,
+  n: Vec2,
+  at: (t: number) => Vec2,
+  along: (v: Vec2) => number,
+  dist: (v: Vec2) => number,
+): RoofEdgeCandidate[] {
+  const out: RoofEdgeCandidate[] = [];
+  const topZ = (p: Vec2, toward: Vec2): number | null => {
+    const z = roofTopAt(r, p);
+    if (z !== null) return z;
+    return roofTopAt(r, { x: p.x + (toward.x - p.x) * 1e-3, y: p.y + (toward.y - p.y) * 1e-3 });
+  };
+  for (const l of r.lines) {
+    const za = topZ(l.a, l.b);
+    const zb = topZ(l.b, l.a);
+    if (za === null || zb === null) continue;
+    // Recorte ao quadro: dist em [0, depth] e t em [0, length], linear ao longo da aresta.
+    let u0 = 0;
+    let u1 = 1;
+    const clip = (va: number, vb: number, lo: number, hi: number): boolean => {
+      // mantém lo <= va + (vb - va) u <= hi
+      const dv = vb - va;
+      if (Math.abs(dv) < 1e-12) return va >= lo - 1e-9 && va <= hi + 1e-9;
+      let ua = (lo - va) / dv;
+      let ub = (hi - va) / dv;
+      if (ua > ub) [ua, ub] = [ub, ua];
+      u0 = Math.max(u0, ua);
+      u1 = Math.min(u1, ub);
+      return u1 - u0 > 1e-9;
+    };
+    if (!clip(dist(l.a), dist(l.b), 0, line.depth) || !clip(along(l.a), along(l.b), 0, length)) continue;
+    const P = (u: number): { p: Vec2; z: number } => ({ p: { x: l.a.x + (l.b.x - l.a.x) * u, y: l.a.y + (l.b.y - l.a.y) * u }, z: za + (zb - za) * u });
+    const A = P(u0);
+    const B = P(u1);
+    const len3 = Math.hypot(B.p.x - A.p.x, B.p.y - A.p.y, B.z - A.z);
+    if (len3 < 1e-4) continue;
+    // A projeção de uma aresta que aponta para o observador vira um ponto: não há o que desenhar.
+    if (Math.hypot(along(B.p) - along(A.p), B.z - A.z) < 1e-4) continue;
+    const steps = Math.max(2, Math.ceil(len3 / EDGE_STEP));
+    const vis: boolean[] = [];
+    for (let k = 0; k <= steps; k++) {
+      const u = u0 + ((u1 - u0) * k) / steps;
+      const { p, z } = P(u);
+      const t = along(p);
+      const dp = dist(p);
+      const base = at(t);
+      let hidden = false;
+      for (const pl of r.planes) {
+        const G = pl.percent / 100;
+        const Bn = G * (n.x * pl.up.x + n.y * pl.up.y);
+        if (Math.abs(Bn) < 1e-9) continue;
+        const s = (z - planeZ(pl, base)) / Bn;
+        if (s < -1e-9 || s >= dp - EDGE_DEPTH_EPS) continue;
+        // 1 mm além do ponto de entrada: a aresta de uma água (o beiral da frente) fica na borda do polígono e a borda não conta como dentro.
+        if (pointInMulti({ x: base.x + n.x * (s + 1e-3), y: base.y + n.y * (s + 1e-3) }, pl.polygon)) {
+          hidden = true;
+          break;
+        }
+      }
+      vis.push(!hidden);
+    }
+    const spans: Array<[number, number]> = [];
+    let start = -1;
+    for (let k = 0; k <= steps; k++) {
+      if (vis[k] && start < 0) start = k;
+      if ((!vis[k] || k === steps) && start >= 0) {
+        const end = vis[k] ? k : k - 1;
+        if (end > start) spans.push([start / steps, end / steps]);
+        start = -1;
+      }
+    }
+    if (spans.length === 0) continue;
+    out.push({ roofId: r.roofId, kind: l.kind, a: { x: along(A.p), y: A.z }, b: { x: along(B.p), y: B.z }, da: dist(A.p), db: dist(B.p), spans });
   }
   return out;
 }

@@ -15,11 +15,33 @@
  * - Guarda-corpo: eixo (o caminho no manual; o eixo que o kernel desenha no hospedado) e os contornos que o kernel desenha
  *   em planta para poste (cantos e centro), trilho, corrimão e painel. Balaústres, cabos, travessas e suportes ficam de fora
  *   (peças repetidas e minúsculas só poluiriam a captura). Sem o kernel pronto, só o eixo do guarda-corpo manual.
+ * - Massa: vértice, meio de cada aresta e arestas do anel cortado no nível dela, pelo kernel (sem kernel, apoio vazio).
  */
 import { dist, ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import { definirProvedorDeApoio, type Element, type GuardaCorpo, type Project, type Ramp, type Stair } from '@hestia/model';
+import {
+  beamMidPoint,
+  beamPolygon,
+  columnPolygon,
+  definirProvedorDeApoio,
+  findBeamType,
+  findColumnType,
+  findFootingType,
+  footingPolygon,
+  type Beam,
+  type Column,
+  type Element,
+  type Footing,
+  type GuardaCorpo,
+  type Mass,
+  type Project,
+  type Ramp,
+  type Stair,
+  viewRangeOf,
+} from '@hestia/model';
+import { ESTILO_PLANTA_MASSA } from './kernelMassa.ts';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
+import { servicoMassa, type LinhaPlantaMassaProjeto } from './massaServico.ts';
 import { resolveRampOne } from './ramps.ts';
 import { stairArrivalTop } from './stairArrival.ts';
 import { stairArrivalFrame } from './stairBody.ts';
@@ -52,6 +74,9 @@ export interface ApoioDoElemento {
 /** Cota (m acima do nível) do plano de corte da planta do guarda-corpo, quando a vista não traz outra. */
 export const CORTE_PADRAO_PLANTA_GC = 1.2;
 
+/** Cota (m acima do nível) do plano de corte do anel cortado da massa para a captura; o mesmo padrão da planta. */
+export const CORTE_PADRAO_PLANTA_MASSA = 1.2;
+
 /** Papéis de peça do guarda-corpo (`PAPEL_GC`) que entram na captura: poste, trilho, corrimão e painel. */
 const PAPEIS_COM_APOIO = new Set([0, 2, 3, 5]);
 const PAPEL_POSTE = 0;
@@ -77,8 +102,10 @@ class Montador {
   private readonly segmentos: SegmentoApoio[] = [];
   private readonly vistos = new Set<string>();
   private readonly arestas = new Set<string>();
+  private readonly chaves = new Map<string, Vec2>();
 
   ponto(chave: string, q: Vec2, tipo: TipoApoio): void {
+    this.chaves.set(chave, { x: q.x, y: q.y });
     const k = `${tipo}|${posKey(q)}`;
     if (this.vistos.has(k)) return;
     this.vistos.add(k);
@@ -130,7 +157,7 @@ class Montador {
   }
 
   fim(): ApoioDoElemento {
-    const porChave = new Map<string, Vec2>();
+    const porChave = new Map<string, Vec2>(this.chaves);
     for (const q of this.pontos) porChave.set(q.chave, { x: q.x, y: q.y });
     return { pontos: this.pontos, segmentos: this.segmentos, porChave };
   }
@@ -323,15 +350,75 @@ function apoioDoGuarda(p: Project, g: GuardaCorpo): ApoioDoElemento {
   return apoio;
 }
 
+export function apoioDoPilar(p: Project, el: Column): ApoioDoElemento {
+  const m = new Montador();
+  const type = findColumnType(p, el.typeId);
+  m.anel('col', columnPolygon(el, type), true, type.shape === 'round');
+  m.ponto('col.c', el.at, 'center');
+  return m.fim();
+}
+
+export function apoioDaViga(p: Project, el: Beam): ApoioDoElemento {
+  const m = new Montador();
+  const type = findBeamType(p, el.typeId);
+  const curvo = Boolean(el.sag && Math.abs(el.sag) > 1e-6);
+  m.anel('beam', beamPolygon(el, type), true, curvo);
+  if (!curvo) m.linha('eixo', [el.a, el.b]);
+  m.ponto('eixo.m', beamMidPoint(el), 'midpoint');
+  m.ponto('eixo.a', el.a, 'endpoint');
+  m.ponto('eixo.b', el.b, 'endpoint');
+  return m.fim();
+}
+
+export function apoioDaSapata(p: Project, el: Footing): ApoioDoElemento {
+  const m = new Montador();
+  const type = findFootingType(p, el.typeId);
+  m.anel('foot', footingPolygon(el, type), true);
+  m.ponto('foot.c', el.at, 'center');
+  return m.fim();
+}
+
+/** Apoio da massa por elemento: o anel cortado muda só quando o kernel devolve outras linhas (o serviço memoriza por parâmetros). */
+const massas = new WeakMap<Mass, { linhas: readonly LinhaPlantaMassaProjeto[] | null; apoio: ApoioDoElemento }>();
+
+/**
+ * Pontos de apoio da massa: vértice (`endpoint`), meio de cada aresta (`midpoint`) e as arestas (`nearest`) do ANEL CORTADO no nível
+ * dela, pelas mesmas linhas da planta (consulta 141, filtradas por massa). A chave é `m<cópia>.l<laço>.v<índice>` (`.m<índice>` no meio
+ * e `.s<índice>` na aresta): estável enquanto a própria massa não muda, mesmo que uma massa irmã mude. Sem kernel pronto o apoio sai
+ * vazio, sem lançar (A.5: nada de TypeScript no lugar do kernel).
+ */
+function apoioDaMassa(p: Project, m: Mass): ApoioDoElemento {
+  const s = servicoMassa();
+  const nivel = p.levels.find((l) => l.id === m.levelId);
+  const faixa = viewRangeOf(p, m.levelId);
+  const linhas = nivel && s.pronto() ? s.planta(p, null, nivel.elevation + CORTE_PADRAO_PLANTA_MASSA, nivel.elevation + faixa.bottom, nivel.elevation + faixa.top) : null;
+  const guardado = massas.get(m);
+  if (guardado && guardado.linhas === linhas) return guardado.apoio;
+  const b = new Montador();
+  if (linhas) {
+    const laco = new Map<number, number>();
+    for (const l of linhas) {
+      if (l.massaId !== m.id || l.estilo !== ESTILO_PLANTA_MASSA.cortado) continue;
+      const k = laco.get(l.copia) ?? 0;
+      laco.set(l.copia, k + 1);
+      b.anel(`m${l.copia}.l${k}`, l.pontos);
+    }
+  }
+  const apoio = b.fim();
+  massas.set(m, { linhas, apoio });
+  return apoio;
+}
+
 /** Cache por projeto (escada e rampa): uma edição cria outro projeto, e o que depende só do elemento reaproveita o cálculo (caches acima). */
 const porProjeto = new WeakMap<Project, Map<string, ApoioDoElemento | null>>();
 
 /**
- * Pontos de apoio em planta da escada, rampa ou guarda-corpo, ou `null` quando o elemento não é um deles ou não tem
- * geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
+ * Pontos de apoio em planta da escada, rampa, guarda-corpo, pilar, viga ou sapata, ou `null` quando o elemento não é um
+ * deles ou não tem geometria resolvida (escada com topo abaixo da base, croqui inválido); a captura então cai no croqui, como antes.
  */
 export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoElemento | null {
-  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing')) return null;
+  if (!el || (el.kind !== 'stair' && el.kind !== 'ramp' && el.kind !== 'railing' && el.kind !== 'column' && el.kind !== 'beam' && el.kind !== 'footing' && el.kind !== 'mass')) return null;
+  if (el.kind === 'mass') return apoioDaMassa(p, el);
   // O guarda-corpo depende do kernel, que pode ficar pronto sem o projeto mudar: ele tem cache próprio (por elemento e pelas linhas do kernel).
   if (el.kind === 'railing') return apoioDoGuarda(p, el);
   let mapa = porProjeto.get(p);
@@ -340,7 +427,12 @@ export function apoioDoElemento(p: Project, el: Element | undefined): ApoioDoEle
     porProjeto.set(p, mapa);
   }
   if (mapa.has(el.id)) return mapa.get(el.id)!;
-  const apoio = el.kind === 'stair' ? apoioDaEscada(p, el) : apoioDaRampa(p, el);
+  let apoio: ApoioDoElemento | null = null;
+  if (el.kind === 'stair') apoio = apoioDaEscada(p, el);
+  else if (el.kind === 'ramp') apoio = apoioDaRampa(p, el);
+  else if (el.kind === 'column') apoio = apoioDoPilar(p, el);
+  else if (el.kind === 'beam') apoio = apoioDaViga(p, el);
+  else if (el.kind === 'footing') apoio = apoioDaSapata(p, el);
   mapa.set(el.id, apoio);
   return apoio;
 }

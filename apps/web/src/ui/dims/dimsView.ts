@@ -13,6 +13,10 @@ export interface GripView {
   slot: string;
   /** Chave de `dimOverrides`: `${provedor}:${ponta}`. */
   overrideKey: string;
+  /** Chave específica desta cota para persistir alternância Face/Eixo por elemento. */
+  elementOverrideKey?: string;
+  /** Chave da cota temporária (`TempDim.key`) para salvar alvo personalizado em `dimTargets`. */
+  dimKey?: string;
   at: Vec2;
   /** Cota dinâmica de parede/esquadria: a troca é a referência da sessão (`dimOverrides`). */
   current?: DimRef;
@@ -21,6 +25,8 @@ export interface GripView {
   onAlternate?: () => Command[];
   /** Aceita escolher outro elemento (Shift+clique abre o modo de escolha na planta). */
   pickable?: boolean;
+  /** Aceita arrastar a alça para prender em outra referência na planta. */
+  targetDraggable?: boolean;
   title: string;
 }
 
@@ -50,9 +56,13 @@ export function refLabel(ref: DimRef, lang: Lang = 'pt'): string {
 
 /**
  * Cota permanente selecionada: o desenho dela já sai do renderizador da planta (na cor de seleção). A cota dinâmica
- * fica só com alças e campo de valor; o desenho dela some para não duplicar o texto. Enquanto se digita, o texto aparece.
+ * fica só com alças e campo de valor; o desenho dela some para não duplicar o texto. Já a cota permanente amarrada a um
+ * elemento selecionado (`dimension:<id>:attached:<elId>`) aparece em azul sobre a cota preta do canvas para permitir edição direta.
  */
 export const ehPermanente = (dim: TempDim): boolean => providerOf(dim) === 'dimension';
+
+export const ehPermanenteAnexada = (dim: TempDim): boolean =>
+  ehPermanente(dim) && dim.key.includes(':attached:');
 
 export const ocultaDesenhoPermanente = (dim: TempDim, editingKey: string | null): boolean =>
   ehPermanente(dim) && editingKey !== dim.key;
@@ -85,31 +95,39 @@ export function dimText(dim: TempDim, format: DimFormatter): string {
 
 export function gripOf(dim: TempDim, end: DimEnd, toScreen: (p: Vec2) => Vec2, lang: Lang = 'pt'): GripView {
   const alt = end.alt;
+  const elementOverrideKey = `${dim.key}:${end.slot}`;
+  const targetDraggable = end.targetRef === true || Boolean(alt);
   if (alt) {
     const n = alt.options.length;
     const next = alt.options[(alt.current + 1) % n]!;
     return {
       slot: end.slot,
       overrideKey: `${providerOf(dim)}:${end.slot}`,
+      elementOverrideKey,
+      dimKey: dim.key,
       at: toScreen(end.at),
       onAlternate: () => alt.apply(next),
       pickable: true,
+      targetDraggable,
       title: t(lang, 'cvv_dim_grip_alt', { label: dimElementRefLabel(alt.options[alt.current]!, lang) }),
     };
   }
   return {
     slot: end.slot,
     overrideKey: `${providerOf(dim)}:${end.slot}`,
+    elementOverrideKey,
+    dimKey: dim.key,
     at: toScreen(end.at),
     current: end.current,
     next: nextRef(end.options, end.current),
+    ...(targetDraggable ? { targetDraggable: true } : {}),
     title: t(lang, 'cvv_dim_grip', { label: refLabel(end.current, lang) }),
   };
 }
 
 /** Geometria de tela de uma cota dinâmica; `invalidKey` destaca em vermelho a cota recusada. */
 export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPixel: number, invalidKey: string | null, lang: Lang = 'pt'): DimView {
-  const g = dimensionGeometry(dim.a, dim.b, dim.offset, metersPerPixel * PX_PER_MM);
+  const g = dimensionGeometry(dim.a, dim.b, dim.offset, metersPerPixel * PX_PER_MM, undefined, dim.textAt);
   const seg = ([a, b]: [Vec2, Vec2]): [Vec2, Vec2] => [toScreen(a), toScreen(b)];
   return {
     key: dim.key,
@@ -121,6 +139,6 @@ export function viewOfDim(dim: TempDim, toScreen: (p: Vec2) => Vec2, metersPerPi
     editable: dimAcionavel(dim),
     invalid: dim.tone === 'invalid' || invalidKey === dim.key,
     // Ponta com uma só referência não tem o que alternar: sem alça (ela só cobriria as alças de vértice do elemento).
-    grips: dim.ends.filter((e) => e.options.length >= 2 || (e.alt?.options.length ?? 0) >= 2).map((e) => gripOf(dim, e, toScreen, lang)),
+    grips: dim.ends.filter((e) => e.options.length >= 2 || (e.alt?.options.length ?? 0) >= 2 || e.targetRef === true).map((e) => gripOf(dim, e, toScreen, lang)),
   };
 }

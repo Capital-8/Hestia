@@ -1,8 +1,8 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
-import { copyLinkOf, isCeiling, isFloor, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp } from '@hestia/model';
-import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, type PerimeterModifyKind, type ShortcutCommand, type ToolOptions } from '@hestia/tools';
+import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
+import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, type PerimeterModifyKind, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
-import { tagAllNotTagged } from '../../editor/tagActions.ts';
+import { numberOpeningMarks } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { pedirAlerta } from '../../editor/alertaPrompt.ts';
 import { editor } from '../../editor/controller.ts';
@@ -15,10 +15,13 @@ import { addSheetAction } from '../../editor/sheetActions.ts';
 import { sheetsPerLevelAction } from '../../editor/sheetInsert.ts';
 import { setSnap, toggleRoofProjection, useUi, type DialogKind, type UiState } from '../../editor/state.ts';
 import { transfer } from '../../editor/transfer.ts';
+import { alternarMassaNaVista, massaVisivelNaVista } from '../../editor/viewVisibility.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
+import { massaUnicaSelecionada } from '../dialogs/massPisosForm.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
@@ -80,6 +83,9 @@ function typeDialogFor(c: RibbonCtx): { dialog: DialogKind; arg: string } | null
       case 'roof': case 'roofextrusion': case 'roofarrow': return o.roofTypeId ? { dialog: 'roofType', arg: o.roofTypeId } : null;
       case 'stair': case 'stairrun': return o.stair?.typeId ? { dialog: 'stairType', arg: o.stair.typeId } : null;
       case 'grid': return { dialog: 'gridType', arg: gridToolOf(o, c.p).typeId };
+      case 'column': return { dialog: 'columnType', arg: o.columnTypeId ?? Object.keys(c.p.columnTypes ?? {})[0] ?? '' };
+      case 'beam': return { dialog: 'beamType', arg: o.beamTypeId ?? Object.keys(c.p.beamTypes ?? {})[0] ?? '' };
+      case 'footing': return { dialog: 'footingType', arg: o.footingTypeId ?? Object.keys(c.p.footingTypes ?? {})[0] ?? '' };
       case 'ramp': {
         const id = o.ramp?.typeId ?? Object.keys(c.p.rampTypes)[0];
         return id ? { dialog: 'rampType', arg: id } : null;
@@ -97,6 +103,9 @@ function typeDialogFor(c: RibbonCtx): { dialog: DialogKind; arg: string } | null
   if (isRoof(e)) return { dialog: 'roofType', arg: e.typeId };
   if (isStair(e)) return { dialog: 'stairType', arg: e.typeId };
   if (isRamp(e)) return { dialog: 'rampType', arg: e.typeId };
+  if (isColumn(e)) return { dialog: 'columnType', arg: e.typeId };
+  if (isBeam(e)) return { dialog: 'beamType', arg: e.typeId };
+  if (isFooting(e)) return { dialog: 'footingType', arg: e.typeId };
   return null;
 }
 
@@ -106,15 +115,16 @@ const noSel = (c: RibbonCtx): Txt | false => (c.selection.length === 0 ? t('Sele
 const naoTransferivel = (verbo: 'Copiar' | 'Recortar'): Txt =>
   verbo === 'Copiar'
     ? t(
-        'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
-        'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
-      )
+      'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+      'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+    )
     : t(
-        'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
-        'Cut only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
-      );
+      'Recortar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas (com a parede selecionada).',
+      'Cut only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings (with the host wall selected).',
+    );
 const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) => c.p.elements[id]).filter(isStair);
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
+const wallsIn = (c: RibbonCtx): Wall[] => c.selection.map((id) => c.p.elements[id]).filter(isWall);
 
 function thinTarget(): { levelId: Id } | 'section' {
   const ui = useUi.getState();
@@ -135,6 +145,26 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     icon: 'dimension',
     hint: t('Aparência nomeada das cotas (marcador, texto, leitura e formato); a família padrão é a da cota nova.', 'Named dimension appearance (marker, text, read convention and format); the default family is used for new dimensions.'),
     run: openDialog('dimensionFamilies'),
+  },
+  tagFamilies: {
+    label: t('Famílias de etiquetas', 'Tag Types'),
+    icon: 'tag',
+    hint: t('Modelo de rótulo com parâmetros, contorno (círculo, hexágono, retângulo) e tamanho em mm de papel.', 'Label format with parameters, outline shape (circle, hexagon, rectangle) and size in paper mm.'),
+    run: openDialog('tagFamilies'),
+  },
+  numberMarks: {
+    label: t('Numerar marcas', 'Number Marks'),
+    icon: 'tag',
+    hint: t('Numera automaticamente P01, J01… nas portas e janelas sem marca e verifica duplicatas.', 'Automatically numbers P01, J01… on unmarked doors and windows and checks duplicates.'),
+    run: () => { numberOpeningMarks(false); },
+  },
+  tagRoom: {
+    label: t('Etiquetar ambiente', 'Tag Room'),
+    icon: 'tagRoom',
+    hint: t('Ativa a etiqueta na categoria de ambiente para clicar no ambiente e rotulá-lo.', 'Activates tagging for rooms so you can click a room to tag it.'),
+    run: () => {
+      editor.setTool('tag');
+    },
   },
   typeProps: {
     label: t('Propriedades de tipo', 'Type Properties'),
@@ -183,7 +213,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
         });
         return;
       }
-      tagAllNotTagged();
+      useUi.setState({ dialog: 'tagAll' });
     },
   },
   wallTags: {
@@ -228,7 +258,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: () => { startCreateSimilar(editor.project, (id) => editor.setTool(id)); },
     disabled: (c) => (createSimilarTarget(c.p, c.selection)
       ? false
-      : t('Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro ou telhado).', 'Select one element of a single type (wall, door, window, floor, slab, ceiling or roof).')),
+      : t('Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro, telhado, pilar, viga ou sapata).', 'Select one element of a single type (wall, door, window, floor, slab, ceiling, roof, column, beam or footing).')),
   },
   moveLevel: {
     label: t('Nível…', 'Level…'),
@@ -324,6 +354,25 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },
   underlay: { label: t('Subpavimento', 'Underlay'), icon: 'layers', hint: t('Mostra o pavimento abaixo, apagado.', 'Show the level below, faded.'), run: () => useUi.setState((s) => ({ showUnderlay: !s.showUnderlay })), pressed: (c) => c.showUnderlay },
   roofProjection: { label: t('Projeção da cobertura', 'Roof Projection'), icon: 'roof', run: toggleRoofProjection, pressed: (c) => c.showRoofProjection },
+  showMass: {
+    label: t('Mostrar massa', 'Show Mass'),
+    icon: 'massShow',
+    run: alternarMassaNaVista,
+    pressed: (c) => massaVisivelNaVista(c.p),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Does not apply to sheets.') : false),
+  },
+  pisosDaMassa: {
+    label: t('Pisos da massa', 'Floors from Mass'),
+    icon: 'massFloors',
+    run: openDialog('massPisos'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
+  paredesDaMassa: {
+    label: t('Paredes da massa', 'Walls from Mass'),
+    icon: 'massWalls',
+    run: openDialog('massParedes'),
+    disabled: (c) => (massaUnicaSelecionada(c.p, c.selection) ? false : t('Selecione uma massa.', 'Select a mass.')),
+  },
   graphicsVisibility: {
     label: t('Visibilidade/Gráficos', 'Visibility/Graphics'),
     icon: 'layers',
@@ -433,6 +482,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   schedRamps: sched(t('Tabela de rampas', 'Ramp Schedule'), 'rampSchedule'),
   schedRooms: sched(t('Tabela de ambientes', 'Room Schedule'), 'roomSchedule'),
   schedOpenings: sched(t('Tabela de portas e janelas', 'Door/Window Schedule'), 'openingSchedule'),
+  schedMass: sched(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
   stairSketch: {
     label: t('Editar croqui', 'Edit Sketch'),
     icon: 'stair',
@@ -458,6 +508,36 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
     disabled: (c) => (rampsIn(c).length > 0 ? false : t('Selecione uma rampa.', 'Select a ramp.')),
   },
+  wallTilt: {
+    label: t('Inclinar', 'Tilt'),
+    icon: 'slope',
+    hint: t('Inclina as paredes selecionadas pelo ângulo digitado (positivo: topo à esquerda de a→b).', 'Tilts the selected walls by the typed angle (positive: top to the left of a→b).'),
+    run: openDialog('wallTilt'),
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltFollow: {
+    label: t('Acompanhar inclinação', 'Follow tilt'),
+    icon: 'slope',
+    hint: t('Aplica a inclinação da primeira parede selecionada a toda a cadeia de paredes contínuas (sinal por sentido a→b), num só desfazer.', 'Applies the first selected wall tilt to its whole chain of continuous walls (sign per a→b direction), in a single undo.'),
+    run: () => {
+      const erro = acompanharInclinacao(editor.store, useUi.getState().selection);
+      if (erro) useUi.setState({ status: erro });
+    },
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
+  tiltWedge: {
+    label: t('Cunha', 'Wedge'),
+    icon: 'slope',
+    hint: t('Fecha com um prisma o degrau entre paredes contínuas de inclinações diferentes (alterna com o degrau aberto).', 'Closes with a prism the step between continuous walls of different tilts (toggles with the open step).'),
+    run: () => {
+      const sel = useUi.getState().selection;
+      const ref = editor.project.elements[sel.find((id) => isWall(editor.project.elements[id])) ?? ''];
+      const j = isWall(ref) ? ref.joinEnd : undefined;
+      const erro = definirTransicaoDaCadeia(editor.store, sel, !(j?.transicao === 'cunha'));
+      if (erro) useUi.setState({ status: erro });
+    },
+    disabled: (c) => (wallsIn(c).length > 0 ? false : t('Selecione paredes primeiro.', 'Select walls first.')),
+  },
   railingForHost: {
     label: t('Guarda-corpo da escada ou rampa', 'Railing for stair or ramp'),
     icon: 'railing',
@@ -477,6 +557,93 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       if ('error' in r) pedirAlerta(r.error);
     },
     disabled: (c) => (c.selection.some((id) => isStair(c.p.elements[id]) || isRamp(c.p.elements[id])) ? false : t('Selecione uma escada ou uma rampa.', 'Select a stair or a ramp.')),
+  },
+  schedColumns: sched(t('Tabela de pilares', 'Column Schedule'), 'columnSchedule'),
+  schedBeams: sched(t('Tabela de vigas', 'Beam Schedule'), 'beamSchedule'),
+  schedFootings: sched(t('Tabela de sapatas', 'Footing Schedule'), 'footingSchedule'),
+  column: {
+    label: t('Pilar', 'Column'),
+    icon: 'column',
+    hint: t('Insere um pilar estrutural no projeto.', 'Places a structural column in the project.'),
+    run: () => editor.setTool('column'),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Not available for sheets.') : false),
+  },
+  beam: {
+    label: t('Viga', 'Beam'),
+    icon: 'beam',
+    hint: t('Desenha uma viga estrutural entre dois pontos.', 'Draws a structural beam between two points.'),
+    run: () => editor.setTool('beam'),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Not available for sheets.') : false),
+  },
+  footing: {
+    label: t('Sapata', 'Footing'),
+    icon: 'footing',
+    hint: t('Insere uma sapata isolada sob um pilar ou livre no projeto.', 'Places an isolated footing under a column or free in the project.'),
+    run: () => editor.setTool('footing'),
+    disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Not available for sheets.') : false),
+  },
+  structuralEditType: {
+    label: t('Editar tipo', 'Edit Type'),
+    icon: 'type',
+    hint: t('Abre o diálogo de propriedades de tipo da seleção estrutural.', 'Opens the type properties dialog for structural selection.'),
+    run: () => {
+      const d = typeDialogFor(ctxNow());
+      if (d) useUi.setState({ dialog: d.dialog, dialogArg: d.arg });
+    },
+    disabled: (c) => (typeDialogFor(c) ? false : t('Selecione um elemento com tipo, ou ative uma ferramenta de criação.', 'Select an element with a type.')),
+  },
+  structuralRotate90: {
+    label: t('Girar 90°', 'Rotate 90°'),
+    icon: 'rotate',
+    hint: t('Gira 90 graus a rotação do pilar ou sapata (na colocação ou nos selecionados).', 'Rotates column or footing by 90 degrees.'),
+    run: () => {
+      const c = ctxNow();
+      if (c.tool === 'column') {
+        const cur = c.options.columnRotation ?? 0;
+        useUi.setState((s) => ({ options: { ...s.options, columnRotation: (cur + Math.PI / 2) % (2 * Math.PI) } }));
+        return;
+      }
+      if (c.tool === 'footing') {
+        const cur = c.options.footingRotation ?? 0;
+        useUi.setState((s) => ({ options: { ...s.options, footingRotation: (cur + Math.PI / 2) % (2 * Math.PI) } }));
+        return;
+      }
+      const cols = c.selection.map((id) => c.p.elements[id]).filter(isColumn);
+      const fts = c.selection.map((id) => c.p.elements[id]).filter(isFooting);
+      for (const col of cols) {
+        editor.store.exec({ type: 'updateElements', ids: [col.id], patch: { rotation: (col.rotation + Math.PI / 2) % (2 * Math.PI) } });
+      }
+      for (const ft of fts) {
+        editor.store.exec({ type: 'updateElements', ids: [ft.id], patch: { rotation: (ft.rotation + Math.PI / 2) % (2 * Math.PI) } });
+      }
+    },
+    disabled: (c) => {
+      if (c.tool === 'column' || c.tool === 'footing') return false;
+      const hasStructural = c.selection.some((id) => {
+        const el = c.p.elements[id];
+        return isColumn(el) || isFooting(el);
+      });
+      return hasStructural ? false : t('Selecione pilares ou sapatas para girar.', 'Select columns or footings to rotate.');
+    },
+  },
+  footingAtColumns: {
+    label: t('Nos pilares', 'At Columns'),
+    icon: 'footing',
+    hint: t('Insere sapatas isoladas alinhadas aos pilares do nível ativo.', 'Places isolated footings aligned to columns on the active level.'),
+    run: () => {
+      const c = ctxNow();
+      const selectedColIds = c.selection.filter((id) => isColumn(c.p.elements[id]));
+      const env = {
+        project: () => editor.project,
+        levelId: () => useUi.getState().levelId,
+        options: () => useUi.getState().options,
+        transaction: (label: string, fn: () => void) => editor.store.transaction(label, fn),
+        exec: (cmd: Parameters<typeof editor.store.exec>[0]) => editor.store.exec(cmd),
+        setSelection: (ids: Id[]) => useUi.setState({ selection: ids }),
+        say: (msg: string) => useUi.setState({ status: msg }),
+      } as unknown as ToolEnv;
+      placeFootingsAtColumns(env, selectedColIds.length > 0 ? selectedColIds : undefined);
+    },
   },
 };
 

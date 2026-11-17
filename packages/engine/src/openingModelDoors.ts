@@ -195,7 +195,7 @@ function addDoorLeaf(
     addPart(c, `leaf-${index}-top`, 'leaf', 'leaf', box(innerL, innerR, sSpan.s0, sSpan.s1, innerZ1, z.z1), opts);
     addPart(c, `leaf-${index}-bottom`, 'leaf', 'leaf', box(innerL, innerR, sSpan.s0, sSpan.s1, z.z0, innerZ0), opts);
     const sMid = (sSpan.s0 + sSpan.s1) / 2;
-    addPart(c, `glass-${index}`, 'glass', 'glass', box(innerL, innerR, sMid - c.G / 2, sMid + c.G / 2, innerZ0, innerZ1), opts);
+    addPart(c, `glass-${index}`, 'glass', 'glass', box(innerL, innerR, sMid - c.G / 2, sMid + c.G / 2, innerZ0, innerZ1), { ...opts, glassKind: c.t.glassKind });
   } else {
     addPart(c, `leaf-${index}`, 'leaf', 'leaf', box(ta, tb, sSpan.s0, sSpan.s1, z.z0, z.z1), opts);
     addLeafDetails(c, index, ta, tb, sSpan, z.z0, z.z1, motion);

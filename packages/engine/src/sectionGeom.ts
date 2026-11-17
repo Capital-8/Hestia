@@ -83,3 +83,58 @@ export function sectionFrame(line: SectionLine): { length: number; d: Vec2; n: V
   const cy = line.a.y + d.y * (length / 2) + n.y * (line.depth / 2);
   return { length, d, n, slab: [[orientedRect(cx, cy, d.x, d.y, length / 2, line.depth / 2)]] };
 }
+
+/** Largura equivalente (m) abaixo da qual um furo da união é fresta numérica entre peças vizinhas, não vão do desenho. */
+export const FRESTA_MIN = 0.03;
+
+/** Largura equivalente de um anel: 2 × área ÷ perímetro, a largura de uma faixa fina. */
+function larguraDoAnel(ring: Ring): number {
+  let a2 = 0;
+  let per = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    a2 += p.x * q.y - q.x * p.y;
+    per += Math.hypot(q.x - p.x, q.y - p.y);
+  }
+  return per < 1e-12 ? 0 : Math.abs(a2) / per;
+}
+
+/**
+ * Tira da união os furos que são só frestas (anéis de largura equivalente < `FRESTA_MIN`) e os anéis externos degenerados.
+ * As águas de um telhado vizinhas, vistas de perfil, deixavam furos de espessura nula ao longo da divisa (x constante), e o
+ * contorno desenhava cada um como uma linha vertical sem sentido sobre o telhado.
+ */
+export function semFrestas(m: MultiPolygon, minFuro = FRESTA_MIN): MultiPolygon {
+  return m
+    .map((poly) => poly.filter((ring, i) => (i === 0 ? larguraDoAnel(ring) > 1e-9 && perimetroDoAnel(ring) >= ANEL_MIN : larguraDoAnel(ring) >= minFuro)))
+    .filter((poly) => poly.length > 0);
+}
+
+/** Perímetro (m) abaixo do qual um anel externo é resíduo numérico (um traço de poucos mm), não aresta do desenho. */
+const ANEL_MIN = 0.05;
+
+function perimetroDoAnel(ring: Ring): number {
+  let per = 0;
+  for (let i = 0; i < ring.length; i++) per += Math.hypot(ring[(i + 1) % ring.length]!.x - ring[i]!.x, ring[(i + 1) % ring.length]!.y - ring[i]!.y);
+  return per;
+}
+
+/**
+ * Anéis limpos: sem vértices consecutivos repetidos (também o último igual ao primeiro) e sem anel de menos de 3 vértices. O
+ * fecho convexo e a união das águas deixavam vértices repetidos e anéis que se tocam, e a lista de desenho traçava cada um.
+ */
+export function limpaAneis(m: MultiPolygon, eps = 1e-9): MultiPolygon {
+  const clean = (ring: Ring): Ring => {
+    const out: Ring = [];
+    for (const v of ring) {
+      const last = out[out.length - 1];
+      if (!last || Math.abs(last.x - v.x) > eps || Math.abs(last.y - v.y) > eps) out.push(v);
+    }
+    while (out.length > 1 && Math.abs(out[0]!.x - out[out.length - 1]!.x) <= eps && Math.abs(out[0]!.y - out[out.length - 1]!.y) <= eps) out.pop();
+    return out;
+  };
+  return m
+    .map((poly) => poly.map(clean).filter((ring, i) => ring.length >= 3 && (i > 0 || larguraDoAnel(ring) > 1e-12)))
+    .filter((poly) => poly.length > 0 && poly[0]!.length >= 3);
+}

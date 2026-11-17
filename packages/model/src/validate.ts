@@ -11,6 +11,7 @@ import { curtainWallIssues } from './wallCurtain.ts';
 import { curtainOrphanIssues } from './curtainRemap.ts';
 import { curtainOpeningIssues } from './curtainOpening.ts';
 import { curtainHostIssues } from './curtainHost.ts';
+import { structuralIssues } from './structuralCommands.ts';
 import { roomIssues } from './validateRooms.ts';
 import { profileError } from './profile.ts';
 import { wallBaseElevation, wallTopElevation } from './queries.ts';
@@ -325,5 +326,6 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...curtainOrphanIssues(p),
     ...curtainOpeningIssues(p),
     ...curtainHostIssues(p),
+    ...structuralIssues(p),
   ];
 }

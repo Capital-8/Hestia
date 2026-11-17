@@ -1,0 +1,285 @@
+[
+ {
+  "id": "P1",
+  "nome": "Junção em toda a altura (L 15° + 30°)",
+  "checks": [
+   {
+    "nm": "L 15°+30° (ambas inclinam para dentro): malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido 0.7235 erro 0; B medido 1.5588 erro 0"
+   },
+   {
+    "nm": "L 15°+30° (ambas inclinam para dentro): cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [2 avisos]",
+    "ok": false,
+    "val": "z=0.05 ext=0 int=0 sobra=0.0173 Pext=(4.0577,-0.0642) Pint=(3.8649,0.1086); z=1.4 ext=0 int=0 sobra=0.7967 Pext=(3.2783,0.2975) Pint=(3.0855,0.4704); z=2.75 ext=0 int=0 sobra=1.5761 Pext=(2.4989,0.6592) Pint=(2.3061,0.8321)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "L -15°+-30° (inclinam para fora): malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido -0.7235 erro 0; B medido -1.5588 erro 0"
+   },
+   {
+    "nm": "L -15°+-30° (inclinam para fora): cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [2 avisos]",
+    "ok": false,
+    "val": "z=0.05 ext=0.0405 int=0.0021 sobra=0 Pext=(4.1155,-0.091) Pint=(3.9226,0.0818); z=1.4 ext=0.5278 int=0.3554 sobra=0 Pext=(4.8949,-0.4528) Pint=(4.7021,-0.2799); z=2.75 ext=0.8895 int=0.7169 sobra=0 Pext=(5.6743,-0.8145) Pint=(5.4815,-0.6416)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "L 15°+-30° (mista de sinal): malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido 0.7235 erro 0; B medido -1.5588 erro 0"
+   },
+   {
+    "nm": "L 15°+-30° (mista de sinal): cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [2 avisos]",
+    "ok": false,
+    "val": "z=0.05 ext=0.0405 int=0 sobra=0 Pext=(4.1155,-0.0642) Pint=(3.9226,0.1086); z=1.4 ext=0 int=0 sobra=0.2225 Pext=(4.8949,0.2975) Pint=(4.7021,0.4704); z=2.75 ext=0 int=0 sobra=0.5842 Pext=(5.6743,0.6592) Pint=(5.4815,0.8321)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": false,
+  "shots": [
+   "P1-L15-30-externo.png",
+   "P1-L15-30-interno.png",
+   "P1-L-15-30-externo.png",
+   "P1-L-15-30-interno.png",
+   "P1-L15--30-externo.png",
+   "P1-L15--30-interno.png"
+  ]
+ },
+ {
+  "id": "P2",
+  "nome": "Cache: mudar o tilt de UMA parede isolada",
+  "checks": [
+   {
+    "nm": "modelo: tilt = 20 (campo Inclinação (Propriedades))",
+    "ok": true,
+    "val": "20"
+   },
+   {
+    "nm": "3D (sem criar outra parede): topo desloca 1.0191 m em y",
+    "ok": true,
+    "val": "antes y=0 depois y=1.0807"
+   },
+   {
+    "nm": "planta (corte z=1,2): faixa em y=0.4368",
+    "ok": true,
+    "val": "0.4368"
+   },
+   {
+    "nm": "corte vertical: topo deslocado 1.0191 da base",
+    "ok": true,
+    "val": "base 3 topo 4.0191"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": true,
+  "shots": [
+   "P2-antes-vertical.png",
+   "P2-depois-tilt20.png"
+  ]
+ },
+ {
+  "id": "P3",
+  "nome": "Misto: parede inclinada 20° + vertical numa ponta",
+  "checks": [
+   {
+    "nm": "L 20°+vertical: malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido 0.9827 erro 0; B medido 0 erro 0"
+   },
+   {
+    "nm": "L 20°+vertical: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "ok": false,
+    "val": "z=0.05 ext=0 int=0 sobra=0.0284 Pext=(4.092,-0.0616) Pint=(3.908,0.1161); z=1.4 ext=0 int=0 sobra=0.5197 Pext=(4.092,0.4297) Pint=(3.908,0.6075); z=2.75 ext=0 int=0 sobra=1.0111 Pext=(4.092,0.9211) Pint=(3.908,1.0988)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "L -20°+vertical: malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido -0.9827 erro 0; B medido 0 erro 0"
+   },
+   {
+    "nm": "L -20°+vertical: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "ok": false,
+    "val": "z=0.05 ext=0.008 int=0 sobra=0 Pext=(4.092,-0.098) Pint=(3.908,0.0797); z=1.4 ext=0.017 int=0 sobra=0 Pext=(4.092,-0.5894) Pint=(3.908,-0.4117); z=2.75 ext=0.017 int=0 sobra=0 Pext=(4.092,-1.0807) Pint=(3.908,-0.903)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "L vertical+20°: malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido 0 erro 0; B medido 0.9827 erro 0"
+   },
+   {
+    "nm": "L vertical+20°: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "ok": false,
+    "val": "z=0.05 ext=0 int=0 sobra=0.0304 Pext=(4.0616,-0.092) Pint=(3.8839,0.092); z=1.4 ext=0 int=0 sobra=0.5217 Pext=(3.5703,-0.092) Pint=(3.3925,0.092); z=2.75 ext=0 int=0 sobra=1.0131 Pext=(3.0789,-0.092) Pint=(2.9012,0.092)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "L vertical+-20°: malha 3D inclina (desvio do deslocamento esperado, m)",
+    "ok": true,
+    "val": "A medido 0 erro 0; B medido -0.9827 erro 0"
+   },
+   {
+    "nm": "L vertical+-20°: cantos sem fresta nem saliência (<= 2 mm) em z=0,05/1,4/2,75 [1 aviso]",
+    "ok": false,
+    "val": "z=0.05 ext=0.006 int=0 sobra=0 Pext=(4.098,-0.092) Pint=(3.9203,0.092); z=1.4 ext=0.167 int=0 sobra=0 Pext=(4.5894,-0.092) Pint=(4.4117,0.092); z=2.75 ext=0.167 int=0 sobra=0 Pext=(5.0807,-0.092) Pint=(4.903,0.092)"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": false,
+  "shots": [
+   "P3-L20-0-externo.png",
+   "P3-L20-0-interno.png",
+   "P3-L-20-0-externo.png",
+   "P3-L-20-0-interno.png",
+   "P3-L0-20-externo.png",
+   "P3-L0-20-interno.png",
+   "P3-L0--20-externo.png",
+   "P3-L0--20-interno.png"
+  ]
+ },
+ {
+  "id": "P5",
+  "nome": "Aberturas em parede inclinada 20°",
+  "checks": [
+   {
+    "nm": "plano efetivo da janela = inclinado",
+    "ok": true,
+    "val": "inclinado"
+   },
+   {
+    "nm": "plano efetivo da porta = vertical",
+    "ok": true,
+    "val": "vertical"
+   },
+   {
+    "nm": "corte do vão inclinado só na janela (tiltCuts: 1 entrada em cx=1,5)",
+    "ok": true,
+    "val": "[{\"cx\":1.5,\"z0\":1.1,\"z1\":2.3,\"hw\":0.6}]"
+   },
+   {
+    "nm": "esquadria 3D da janela dentro da parede em toda a altura (desvio do eixo inclinado <= 0,12 m)",
+    "ok": false,
+    "val": "384 vértices; desvio máx 0.9291 m"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": false,
+  "shots": [
+   "P5-aberturas-3d.png",
+   "P5-aberturas-3d-b.png"
+  ]
+ },
+ {
+  "id": "P6",
+  "nome": "Criação: opção Inclinação visível e aplicada ao desenhar",
+  "checks": [
+   {
+    "nm": "campo #place-wall-tilt existe no DOM",
+    "ok": true,
+    "val": ""
+   },
+   {
+    "nm": "visível na viewport sem rolar (ratio >= 0,99, rolagem 0)",
+    "ok": true,
+    "val": "ratio=1 y=325 rolagem=0"
+   },
+   {
+    "nm": "opção wallTilt guardada (graus) = 15",
+    "ok": true,
+    "val": "15"
+   },
+   {
+    "nm": "desenhou 1 parede por cliques",
+    "ok": true,
+    "val": "1"
+   },
+   {
+    "nm": "a parede nasce com tilt 15",
+    "ok": true,
+    "val": "15"
+   },
+   {
+    "nm": "sem erro de console",
+    "ok": true,
+    "val": ""
+   }
+  ],
+  "pass": true,
+  "shots": [
+   "P6-painel-colocacao.png",
+   "P6-parede-desenhada-3d.png"
+  ]
+ },
+ {
+  "id": "P7",
+  "nome": "Desempenho: 30 paredes, corte e elevação < 100 ms",
+  "checks": [
+   {
+    "nm": "30 paredes inclinadas criadas",
+    "ok": true,
+    "val": "30"
+   },
+   {
+    "nm": "corte (30 paredes 15°) < 100 ms",
+    "ok": false,
+    "val": "99999.0 ms [99999.0,99999.0,99999.0]"
+   },
+   {
+    "nm": "elevação (30 paredes 15°) < 100 ms",
+    "ok": false,
+    "val": "99999.0 ms [99999.0,99999.0,99999.0]"
+   },
+   {
+    "nm": "linha de base: corte (30 verticais)",
+    "ok": true,
+    "val": "163.7 ms [163.7,203.0,132.1]"
+   },
+   {
+    "nm": "linha de base: elevação (30 verticais)",
+    "ok": true,
+    "val": "99.5 ms [99.5,94.1,111.9]"
+   }
+  ],
+  "pass": false,
+  "shots": []
+ }
+]

@@ -38,6 +38,14 @@ export function planOpeningTypeChange(p: Project, ids: Id[], typeId: Id): Openin
 }
 
 /**
+ * Tira a altura própria das aberturas (`heightOverride`): voltam a seguir a altura do tipo. É um comando como os demais,
+ * então um Ctrl+Z restaura a altura própria.
+ */
+export function usarAlturaDoTipo(store: ProjectStore, ids: Id[]): void {
+  store.exec({ type: 'updateElements', ids, patch: { heightOverride: null } });
+}
+
+/**
  * Troca o tipo das aberturas selecionadas (um só Ctrl+Z) e avisa na barra de status quando alguma foi deslocada para
  * caber. Recusada, nada é gravado e a barra mostra o motivo.
  */

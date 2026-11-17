@@ -14,6 +14,8 @@ export * from './registry.ts';
 export * from './pluginTool.ts'; // SUPLEMENTOS (fase H)
 export * from './guardaCorpoTool.ts';
 export * from './guardaCorpoGrips.ts';
+export { MassTool } from './massTool.ts';
+export { ALTURA_PADRAO, LADOS_MAX, LADOS_MIN, LADOS_PADRAO, MODOS_MASSA, PERFIS_MASSA, type ModoMassa, type PerfilTipo } from './massToolOpcoes.ts';
 export * from './railingPick.ts';
 export { ToolBase } from './base.ts';
 export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from './levelTool.ts';
@@ -113,3 +115,8 @@ export { sectionInferContext, type SectionInferOptions } from './sectionContext.
 export { sectionSnapIndex, type SectionSnapIndex } from './sectionSnapIndex.ts';
 export { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
 export { resolveSectionAnnotations, resolveSectionDimensions, resolveSectionDimRef, sectionDimRefAt } from './sectionDimRefs.ts';
+export * from './columnTool.ts';
+export * from './beamTool.ts';
+export * from './footingTool.ts';
+export * from './structuralPresets.ts';
+export * from './wallShapes.ts';

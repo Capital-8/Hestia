@@ -267,6 +267,9 @@ export function SchedulesTree(): ReactElement {
     { label: t('cvn_br_sched_floors'), dialog: 'floorSchedule', n: count('floor') },
     { label: t('cvn_br_sched_openings'), dialog: 'openingSchedule', n: count('door', 'window') },
     { label: t('cvn_br_sched_roofs'), dialog: 'roofSchedule', n: count('roof') },
+    { label: t('sched_title_column'), dialog: 'columnSchedule', n: count('column') },
+    { label: t('sched_title_beam'), dialog: 'beamSchedule', n: count('beam') },
+    { label: t('sched_title_footing'), dialog: 'footingSchedule', n: count('footing') },
   ];
   return (
     <Node id="g:schedules" label={t('cvn_br_schedules_node')} icon="schedule" group>

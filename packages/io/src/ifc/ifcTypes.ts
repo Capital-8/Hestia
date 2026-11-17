@@ -32,6 +32,8 @@ export interface IfcWallGeo {
   footprints: IfcPolygon[];
   baseZ: number;
   height: number;
+  /** Parede inclinada: mapa de planta (x, y, z relativa à base) e se o eixo é reto (extrusão oblíqua) ou em arco (malha); `zs` = cotas intermediárias (junção exata de arco, J4) em que a malha parte as laterais. */
+  tilt?: { map: (x: number, y: number, z: number) => [number, number]; straight: boolean; zs?: number[] };
 }
 
 /**
@@ -144,6 +146,22 @@ export interface IfcGeometry {
    * genérica (`IFCWALL`, em `walls`) e o exportador registra o aviso.
    */
   curtains?: IfcCurtainGeo;
+  /**
+   * Massas conceituais resolvidas pelo kernel (ficha X1): a malha `lod 2` de cada massa, uma casca por cópia do arranjo. Ausente (ou massa que não
+   * está na lista, por exemplo sem kernel) = a massa não é exportada e o exportador registra o aviso.
+   */
+  masses?: IfcMassaGeo[];
+}
+
+/** Massa conceitual resolvida pelo kernel: a malha `massa_malha` (lod 2) já separada por massa, com as quantidades de `quant_massa` quando existem. */
+export interface IfcMassaGeo {
+  massaId: Id;
+  /** Posições (x, y, z de mundo) e índices de triângulos; as cascas das cópias do arranjo vão na mesma malha, uma depois da outra. */
+  mesh: { positions: number[]; indices: number[] };
+  /** Número de cascas (cópias do arranjo) na malha. */
+  copias: number;
+  /** Volume, áreas e altura somados sobre as cópias; ausente = sem `Pset_Hestia_Massa` de quantidades. */
+  quantidades?: { volume: number; areaLateral: number; areaBase: number; areaTopo: number; altura: number };
 }
 
 /** Protótipo de montante ou de painel do kernel: uma geometria de comprimento unitário, compartilhada por todas as instâncias dele. */
@@ -158,7 +176,7 @@ export interface IfcCurtainPrototypeGeo {
   shape?: string;
   materialId: Id | null;
   /** Malha do protótipo em coordenadas locais (metros, comprimento unitário): posições em triplas x, y, z e índices de triângulos. */
-  mesh: { positions: readonly number[]; indices: readonly number[] };
+  mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> };
 }
 
 /** Instância de um protótipo: a matriz 3 × 4 (12 números, linha-maior, `[r0 r1 r2 t]`) que leva o protótipo ao mundo (cota absoluta). */
@@ -203,7 +221,7 @@ export type IfcPapelGC = 'poste' | 'balaustre' | 'trilho' | 'corrimao' | 'suport
 export interface IfcParteGC {
   papel: IfcPapelGC;
   materialId: Id;
-  mesh: { positions: readonly number[]; indices: readonly number[] };
+  mesh: { positions: ArrayLike<number>; indices: ArrayLike<number> };
   /** Painel de vidro (`CURTAIN_PANEL`); os demais painéis saem `SHEET`. */
   vidro?: boolean;
   /** Número de peças no grupo (balaústres, painéis...), só para o nome. */

@@ -26,6 +26,8 @@ export interface DxfSectionGeometry {
   cut: DxfSectionItem[];
   /** O que está além do plano, visível (peso de projeção). */
   beyond: DxfSectionItem[];
+  /** Linhas soltas do que está além do plano (divisas entre águas do telhado: cumeeira, espigão, rincão), no peso de projeção. */
+  lines?: Array<{ category: GraphicsCategory; a: DxfPoint; b: DxfPoint }>;
   /** Vãos visíveis: corte ou projeção, com a categoria porta/janela. */
   openings?: Array<DxfSectionItem & { cut: boolean }>;
   /** Contorno externo do desenho (peso de corte da parede). */
@@ -58,6 +60,7 @@ const CATEGORY_LAYER: Record<GraphicsCategory, string> = {
   roof: 'CORTE_TELHADO',
   stair: 'CORTE_ESCADA',
   railing: 'CORTE_GUARDA_CORPO',
+  mass: 'CORTE_MASSA',
   room: 'CORTE_AMBIENTE',
   annotation: 'CORTE_ANOTACAO',
   generic: 'CORTE_IMPORTADO',
@@ -130,7 +133,7 @@ function shapesOf(geo: DxfSectionGeometry): Shape[] {
 
 /** Nomes das camadas que `exportSectionDxf` põe na tabela (a base de `lineWeights`). */
 export function dxfSectionLayersOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): string[] {
-  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer), ...noteLayersOf(geo.notes)])].map((name) => dxfLayerName(name, lang)).sort();
+  return [...new Set(['0', ...shapesOf(geo).map((s) => s.layer), ...(geo.lines ?? []).map((l) => dxfSectionLayerOf(l.category, 'projection')), ...noteLayersOf(geo.notes)])].map((name) => dxfLayerName(name, lang)).sort();
 }
 
 /** Estilo padrão de uma camada do corte: cor da categoria (cinza na projeção), contínua e a espessura pedida. */
@@ -153,13 +156,15 @@ export function sectionDxfDocOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): Dxf
   const noteLeaders = (notes?.otherLines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(l.layer, lang), a: l.a, b: l.b }));
   const noteRegions = (notes?.regions ?? []).filter((r) => r.length >= 3).map((r): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(DXF_LAYER_DETALHE, lang), points: r, closed: true }));
   const noteTexts = (notes?.texts ?? []).map((text) => dxfTextEntity({ ...text, layer: dxfLayerName(text.layer, lang) }));
-  const layerNames = [...new Set(['0', ...shapes.map((s) => s.layer), ...noteLayersOf(notes)])].sort();
+  const lineLayers = (geo.lines ?? []).map((l) => dxfSectionLayerOf(l.category, 'projection'));
+  const layerNames = [...new Set(['0', ...shapes.map((s) => s.layer), ...lineLayers, ...noteLayersOf(notes)])].sort();
   const layers: DxfDocLayer[] = layerNames.map((name) => {
     const style = geo.layerStyles?.[name] ?? dxfSectionLayerStyleOf(name, geo.lineWeights?.[name] ?? DXF_LINE_WEIGHT_DEFAULT);
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
     ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: true })),
+    ...(geo.lines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(dxfSectionLayerOf(l.category, 'projection'), lang), a: l.a, b: l.b })),
     ...noteRegions,
     ...noteLines,
     ...noteLeaders,
@@ -167,6 +172,7 @@ export function sectionDxfDocOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): Dxf
   ];
   const all = [
     ...shapes.flatMap((s) => s.pts),
+    ...(geo.lines ?? []).flatMap((l) => [l.a, l.b]),
     ...(notes?.lines ?? []).flatMap(([a, b]) => [a, b]),
     ...(notes?.otherLines ?? []).flatMap((l) => [l.a, l.b]),
     ...(notes?.texts ?? []).map((t) => t.at),

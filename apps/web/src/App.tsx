@@ -24,12 +24,13 @@ import { TitleBar } from './ui/TitleBar.tsx';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
 import { ViewTabs } from './ui/ViewTabs.tsx';
-import { ViewportCanvas } from './ui/ViewportCanvas.tsx';
+import { startPaneSync } from './editor/paneStore.ts';
+import { PaneGrid } from './ui/PaneGrid.tsx';
 import { useNarrow } from './ui/useNarrow.ts';
-import { SheetView } from './ui/SheetView.tsx';
 import { SheetDialog } from './ui/dialogs/SheetDialog.tsx';
 import { AddViewDialog } from './ui/dialogs/AddViewDialog.tsx';
 import { RenumberSheetsDialog } from './ui/dialogs/RenumberSheetsDialog.tsx';
+import { WallTiltDialog } from './ui/dialogs/WallTiltDialog.tsx';
 import { RevisionDialog } from './ui/dialogs/RevisionDialog.tsx';
 import { PublishDialog } from './ui/dialogs/PublishDialog.tsx';
 import { AutoCotaDialog } from './ui/dialogs/AutoCotaDialog.tsx';
@@ -58,10 +59,14 @@ import { WallTypeDialog } from './ui/dialogs/WallTypeDialog.tsx';
 import { StairTypeDialog } from './ui/dialogs/StairTypeDialog.tsx';
 import { StairScheduleDialog } from './ui/dialogs/StairScheduleDialog.tsx';
 import { RampTypeDialog } from './ui/dialogs/RampTypeDialog.tsx';
+import { MassSecoesDialog } from './ui/dialogs/MassSecoesDialog.tsx';
 import { GuardaCorpoTypeDialog } from './ui/dialogs/guardaCorpoType/index.tsx';
 import { NormaGuardaCorpoDialog } from './ui/dialogs/normaGuardaCorpo/index.tsx';
 import { RampScheduleDialog } from './ui/dialogs/RampScheduleDialog.tsx';
 import { GuardaCorpoScheduleDialog } from './ui/dialogs/GuardaCorpoScheduleDialog.tsx';
+import { MassScheduleDialog } from './ui/dialogs/MassScheduleDialog.tsx';
+import { MassPisosDialog } from './ui/dialogs/MassPisosDialog.tsx';
+import { MassParedesDialog } from './ui/dialogs/MassParedesDialog.tsx';
 import { OpeningScheduleDialog } from './ui/dialogs/OpeningScheduleDialog.tsx';
 import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.tsx';
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
@@ -89,6 +94,7 @@ import { GridTypeDialog } from './ui/dialogs/GridTypeDialog.tsx';
 import { TextDialog, useCaixaDeTextoAberta } from './ui/dialogs/TextDialog.tsx';
 import { SelectLevelsDialog } from './ui/dialogs/SelectLevelsDialog.tsx';
 import { SalvarSemPastaDialog } from './ui/dialogs/SalvarSemPastaDialog.tsx';
+import { DialogoExtra } from './ui/dialogs/DialogoExtra.tsx';
 
 /**
  * Host do diálogo "Selecionar níveis": lê o projeto e o buffer da área de transferência fora do switch de diálogos
@@ -152,12 +158,20 @@ function Dialogs(): ReactElement | null {
       return arg ? <RampTypeDialog typeId={arg} /> : null;
     case 'guardaCorpoType':
       return arg ? <GuardaCorpoTypeDialog typeId={arg} /> : null;
+    case 'massSecoes':
+      return arg ? <MassSecoesDialog massaId={arg} /> : null;
     case 'normaGuardaCorpo':
       return <NormaGuardaCorpoDialog />;
     case 'rampSchedule':
       return <RampScheduleDialog />;
     case 'guardaCorpoSchedule':
       return <GuardaCorpoScheduleDialog />;
+    case 'massPisos':
+      return <MassPisosDialog />;
+    case 'massParedes':
+      return <MassParedesDialog />;
+    case 'massSchedule':
+      return <MassScheduleDialog />;
     case 'openingSchedule':
       return <OpeningScheduleDialog />;
     case 'openingType':
@@ -194,6 +208,8 @@ function Dialogs(): ReactElement | null {
       return arg ? <AddViewDialog sheetId={arg} /> : null;
     case 'renumberSheets':
       return <RenumberSheetsDialog />;
+    case 'wallTilt':
+      return <WallTiltDialog />;
     case 'publish':
       return <PublishDialog />;
     case 'revision':
@@ -237,7 +253,8 @@ function Dialogs(): ReactElement | null {
     case 'salvarSemPasta':
       return <SalvarSemPastaDialog />;
     default:
-      return null;
+      // Famílias de anotação (etiquetas, texto, cotas de nível/coordenada, nuvem, norte) e a tríade estrutural.
+      return <DialogoExtra kind={d} arg={arg} />;
   }
 }
 
@@ -247,8 +264,8 @@ function Dialogs(): ReactElement | null {
  */
 function Palco(): ReactElement {
   const openViews = useUi((s) => s.openViews);
-  const view = useUi((s) => s.view);
-  const sheetId = useUi((s) => s.sheetId);
+  // O painel ativo acompanha a vista ativa do app.
+  useEffect(() => startPaneSync(), []);
   // Sem nenhuma aba válida, a área de desenho mostra o estado vazio (o navegador continua acessível).
   const semVistas = useProjetoDerivado((p) => !openViews.some((v) => tabOf(p, v) !== null));
   return (
@@ -258,7 +275,7 @@ function Palco(): ReactElement {
       <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Tutorial />
         <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'grid' }}>
-          {semVistas ? <EmptyViews /> : view === 'sheet' && sheetId ? <SheetView sheetId={sheetId} /> : <ViewportCanvas />}
+          {semVistas ? <EmptyViews /> : <PaneGrid />}
         </div>
       </div>
       {!semVistas && <ViewControlBar />}
@@ -376,9 +393,14 @@ export function App(): ReactElement {
         return;
       }
       const t = e.target as HTMLElement | null;
-      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+      const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
       // Na tela de projetos não há documento aberto: nenhum atalho do editor vale ali.
       if (useUi.getState().tela === 'home' || dialog || caixaTextoAberta || typing) return;
+      if (t?.tagName === 'BUTTON' && e.key === 'Enter') return;
+      if (t?.tagName === 'SELECT' || t?.tagName === 'BUTTON') {
+        t.blur();
+        if (e.key === ' ') e.preventDefault();
+      }
       if (editor.key(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);

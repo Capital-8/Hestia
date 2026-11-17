@@ -64,3 +64,18 @@ describe('arestasPorAngulo: igual ao THREE.EdgesGeometry', () => {
     expect(arestasPorAngulo(pos, idx, 28)).toEqual(viaThree(pos, idx, 28));
   });
 });
+
+describe('arestasPorAngulo: malha soldada pequena igual à implementação anterior (ordem inclusive)', () => {
+  it('cubos com vértices compartilhados, degenerados e duplicados dão as mesmas arestas que o three', () => {
+    const r = rng(23);
+    const pos: number[] = [];
+    const idx: number[] = [];
+    for (let i = 0; i < 40; i++) {
+      const k = cubo(Math.round(r() * 8) / 2, Math.round(r() * 8) / 2, 0, 0.5);
+      idx.push(...k.idx.map((x) => x + pos.length / 3));
+      pos.push(...k.pos);
+    }
+    idx.push(0, 0, 1, 2, 2, 2);
+    for (const ang of [5, 28, 80]) expect(arestasPorAngulo(pos, idx, ang)).toEqual(viaThree(pos, idx, ang));
+  });
+});

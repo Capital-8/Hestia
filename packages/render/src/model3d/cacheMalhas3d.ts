@@ -1,7 +1,7 @@
 import type { BufferGeometry, Group, Object3D } from 'three';
 import type { GraphicsCategory, Id, Material } from '@hestia/model';
 import type { ColecaoCaixas } from './caixasDoNivel3d.ts';
-import type { ElementRange, SolidBatch } from './solids.ts';
+import type { ElementRange, LoteSolido } from './solids.ts';
 
 /**
  * Teto padrão do cache de malhas por nível, em bytes estimados (vértices, normais, índices e arestas). 128 MB: cabe no
@@ -40,7 +40,7 @@ export interface EntradaNivel {
   /** Arestas das caixas por parede (as mesmas de `arestasCaixas`, para trocar só as de uma parede). */
   readonly arestasParedes?: ReadonlyMap<Id, readonly number[]>;
   /** Sólidos do nível fora das caixas (pisos, lajes, telhados, beirais, escadas e paredes não retangulares). */
-  readonly lotes?: readonly SolidBatch[];
+  readonly lotes?: readonly LoteSolido[];
   /** Arestas dos sólidos do nível (pares de pontos), quando a vista as pede. */
   readonly arestasSolidas?: Float32Array;
   /** Arestas de sólidos e caixas do nível já juntas (o que o gestor de GPU envia). */
@@ -63,7 +63,7 @@ export function bytesDeNivel(
   picks: PickSource[],
   instancias: readonly ColecaoCaixas[] = [],
   arestasCaixas?: Float32Array,
-  lotes: readonly SolidBatch[] = [],
+  lotes: readonly LoteSolido[] = [],
   arestasSolidas?: Float32Array,
 ): number {
   const geos = new Set<BufferGeometry>();
@@ -76,7 +76,7 @@ export function bytesDeNivel(
   for (const g of geos) total += bytesDeGeometria(g);
   for (const c of instancias) total += c.matrizes.byteLength;
   for (const b of lotes) {
-    total += b.positions.length * 4 + b.normals.length * 4 + b.indices.length * 4;
+    total += b.positions.length * 4 + (b.normals?.length ?? 0) * 4 + b.indices.length * 4;
   }
   total += arestasCaixas?.byteLength ?? 0;
   total += arestasSolidas?.byteLength ?? 0;

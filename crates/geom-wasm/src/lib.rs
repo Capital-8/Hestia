@@ -99,6 +99,28 @@ pub mod cortina_quant;
 pub mod cortina_remap;
 pub mod cortina_tipos;
 pub mod secoes_cortina;
+pub mod massa_avisos;
+pub mod massa_corte;
+pub mod massa_fatia;
+pub mod massa_malha;
+pub mod massa_perfil;
+pub mod massa_pilha;
+pub mod massa_planta;
+pub mod massa_quant;
+pub mod massa_tipos;
+pub mod secoes_massa;
+#[cfg(test)]
+mod massa_corte_testes;
+#[cfg(test)]
+mod massa_fixture;
+#[cfg(test)]
+mod massa_testes;
+#[cfg(test)]
+mod massa_testes_fuzz;
+#[cfg(test)]
+mod massa_testes_r2;
+#[cfg(test)]
+mod massa_testes_r2_fuzz;
 pub mod volume_sobreposicao;
 #[cfg(test)]
 mod teste_util;

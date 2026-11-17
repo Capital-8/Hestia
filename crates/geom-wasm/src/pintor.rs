@@ -6,7 +6,7 @@
 use std::cmp::Ordering;
 
 use crate::itens::{caixas_se_cruzam, Item};
-use crate::ops::{diferenca_com_escala, ESCALA_FINA};
+use crate::ops::{diferenca_de_preparadas, preparar_forma, FormasPreparadas, ESCALA_FINA};
 use crate::{Anel, MultiPoligono};
 
 /// `MIN_AREA` de `resolve.ts`.
@@ -59,6 +59,8 @@ pub fn pintar(itens: &[&Item]) -> Result<Vec<MultiPoligono>, u32> {
     let mut ordenados: Vec<usize> = (0..itens.len()).collect();
     ordenados.sort_by(|&i, &j| comparar(itens[i], itens[j]));
     let mut resultado: Vec<MultiPoligono> = vec![Vec::new(); itens.len()];
+    let mut preparadas: Vec<Option<FormasPreparadas>> = vec![None; itens.len()];
+    let mut todos = Vec::new();
     let mut mais_fortes: Vec<usize> = Vec::new();
     let mut i = 0;
     while i < ordenados.len() {
@@ -70,25 +72,32 @@ pub fn pintar(itens: &[&Item]) -> Result<Vec<MultiPoligono>, u32> {
         let mut aceitos: Vec<usize> = Vec::new();
         for &k in grupo {
             let it = itens[k];
-            let mut subs: Vec<&MultiPoligono> = Vec::new();
+            let mut indices: Vec<usize> = Vec::new();
             for &h in &mais_fortes {
                 if caixas_se_cruzam(&itens[h].caixa, &it.caixa) {
-                    subs.push(&itens[h].forma);
+                    indices.push(h);
                 }
             }
             // Mesma prioridade: o mais antigo vence, então a camada nova não duplica a área do canto.
             for &g in &aceitos {
                 if itens[g].parede != it.parede && caixas_se_cruzam(&itens[g].caixa, &it.caixa) {
-                    subs.push(&itens[g].forma);
+                    indices.push(g);
                 }
             }
-            let visivel: MultiPoligono = if subs.is_empty() {
+            let visivel: MultiPoligono = if indices.is_empty() {
                 it.forma.clone()
             } else {
-                let mut args: Vec<MultiPoligono> = Vec::with_capacity(subs.len() + 1);
-                args.push(it.forma.clone());
-                args.extend(subs.into_iter().cloned());
-                diferenca_com_escala(&args, ESCALA_FINA).map_err(traduz)?
+                if preparadas[k].is_none() {
+                    preparadas[k] = Some(preparar_forma(&it.forma, ESCALA_FINA).map_err(traduz)?);
+                }
+                for &idx in &indices {
+                    if preparadas[idx].is_none() {
+                        preparadas[idx] = Some(preparar_forma(&itens[idx].forma, ESCALA_FINA).map_err(traduz)?);
+                    }
+                }
+                let a = preparadas[k].as_ref().expect("forma preparada");
+                let subs: Vec<&FormasPreparadas> = indices.iter().map(|&idx| preparadas[idx].as_ref().expect("subtraendo preparado")).collect();
+                diferenca_de_preparadas(&it.forma, a, &subs, ESCALA_FINA, &mut todos).map_err(traduz)?
             };
             resultado[k] = visivel.into_iter().filter(|p| area_do_poligono(p) > AREA_MINIMA).collect();
             aceitos.push(k);

@@ -13,7 +13,8 @@ export function useDimContext(): DimContext {
   const project = useProject();
   const levelId = useUi((s) => s.levelId);
   const overrides = useUi((s) => s.dimOverrides);
-  return useMemo(() => ({ project, levelId, settings: dimensionSettingsOf(project), overrides }), [project, levelId, overrides]);
+  const customTargets = useUi((s) => s.dimTargets);
+  return useMemo(() => ({ project, levelId, settings: dimensionSettingsOf(project), overrides, customTargets }), [project, levelId, overrides, customTargets]);
 }
 
 /**

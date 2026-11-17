@@ -31,7 +31,7 @@ function addGridMuntins(c: Ctx, t0: number, t1: number, z0: number, z1: number):
 function buildFixedWindow(c: Ctx): void {
   buildWindowFrame(c);
   const l = windowLayout(c);
-  addPart(c, 'glass-0', 'glass', 'glass', box(l.t0, l.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, l.z0, l.z1));
+  addPart(c, 'glass-0', 'glass', 'glass', box(l.t0, l.t1, c.Cd - c.G / 2, c.Cd + c.G / 2, l.z0, l.z1), { glassKind: c.t.glassKind });
   addGridMuntins(c, l.t0, l.t1, l.z0, l.z1);
   c.openings.push({
     leaf: 0,

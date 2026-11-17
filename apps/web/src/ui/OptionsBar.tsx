@@ -7,7 +7,9 @@ import { type Dict, type Lang, t, toolLabel, useT } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterOptionsBar } from './perimeter/PerimeterOptionsBar.tsx';
 import { Check, NumField } from './fields.tsx';
+import { DetailShapeFields, WallShapeFields } from './ShapeOptionFields.tsx';
 import { useUnits } from './useUnits.ts';
+import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { DisjoinCheck } from './DisjoinCheck.tsx';
 import { SlabOptionsBar } from './SlabOptionsBar.tsx';
 import { CeilingOptionsBar } from './CeilingOptionsBar.tsx';
@@ -17,9 +19,24 @@ import { StairOptionsBar } from './StairOptionsBar.tsx';
 import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
+import { MassOptionsBar } from './MassOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
-import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, type LocationLine } from '@hestia/model';
+import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
+import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, defaultTagFamilyIdOf, tagFamiliesOf, type LocationLine } from '@hestia/model';
+
+/** Inclinação das paredes novas (graus no campo; o mesmo valor `wallTilt` do painel de Propriedades). Exportado para os testes. */
+export function WallTiltField({ o, set }: { o: ToolOptions; set: (patch: Partial<ToolOptions>) => void }): ReactElement {
+  const { t } = useT();
+  return (
+    <label>
+      {t('prc_fld_tilt')}
+      <NumField id="opt-wall-tilt" value={radDeGrau(o.wallTilt ?? 0)} quantity="angle" min={-TILT_MAX_RAD} max={TILT_MAX_RAD} strictRange onInvalid={avisoLimiteInclinacao} onCommit={(v) => set({ wallTilt: grauDeRad(v) })} />
+    </label>
+  );
+}
+
+export { WallShapeFields } from './ShapeOptionFields.tsx';
 
 /** Chave do dicionário de cada linha de localização da parede. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -203,7 +220,14 @@ export function OptionsBar(): ReactElement {
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {
-    return <div className="optbar" role="group" aria-label={t('pro_tool_options')}><span className="tool-name">{toolLabel(tool, lang)}</span><span style={{ color: 'var(--fg-soft)' }}>{t('pro_settings_in_props')}</span></div>;
+    return (
+      <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
+        <span className="tool-name">{toolLabel(tool, lang)}</span>
+        <span style={{ color: 'var(--fg-soft)' }}>{t('pro_settings_in_props')}</span>
+        {tool === 'wall' && <WallShapeFields o={o} set={set} />}
+        {tool === 'wall' && <WallTiltField o={o} set={set} />}
+      </div>
+    );
   }
   return (
     <div className="optbar" role="group" aria-label={t('pro_tool_options')}>
@@ -222,10 +246,16 @@ export function OptionsBar(): ReactElement {
           </label>
           <label>
             {t('pro_shape')}
-            <select id="opt-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as 'line' | 'arc' | 'rect' })}>
-              <option value="line">{t('pro_shape_line')}</option>
-              <option value="arc">{t('pro_shape_arc3')}</option>
-              <option value="rect">{t('pro_shape_rect')}</option>
+            <select id="opt-shape" className="select" value={o.wallShape} onChange={(e) => set({ wallShape: e.target.value as typeof o.wallShape })}>
+              <option value="line">{t('pro_pm_shape_line')}</option>
+              <option value="rect">{t('pro_pm_shape_rect')}</option>
+              <option value="poly-inscribed">{t('pro_pm_shape_poly_in')}</option>
+              <option value="poly-circumscribed">{t('pro_pm_shape_poly_circ')}</option>
+              <option value="circle">{t('pro_pm_shape_circle')}</option>
+              <option value="arc">{t('pro_pm_shape_arc3')}</option>
+              <option value="arc-center">{t('pro_pm_shape_arc_center')}</option>
+              <option value="arc-tangent">{t('pro_pm_shape_arc_tangent')}</option>
+              <option value="ellipse">{t('pro_pm_shape_ellipse')}</option>
             </select>
           </label>
           <label>
@@ -240,6 +270,7 @@ export function OptionsBar(): ReactElement {
             {t('pro_height')}
             <NumField id="opt-height" value={o.wallHeight} onCommit={(v) => set({ wallHeight: v })} quantity="length" min={0.1} />
           </label>
+          <WallTiltField o={o} set={set} />
           <Check id="opt-chain" checked={o.chain} onChange={(v) => set({ chain: v })}>{t('pro_chain')}</Check>
         </>
       )}
@@ -259,9 +290,10 @@ export function OptionsBar(): ReactElement {
       {tool === 'filledRegion' && <Check id="opt-region-mask" checked={o.regionMask === true} onChange={(v) => set({ regionMask: v })}>{t('pro_region_mask')}</Check>}
       {tool === 'filledRegion' && <label>{t('pro_color')}<input className="input" type="color" value={o.regionColor ?? '#f5d782'} onChange={(e) => set({ regionColor: e.target.value })} /></label>}
       {tool === 'detailLine' && <label>{t('pro_line_style')}<select className="select" value={o.detailLineStyle ?? 'solid'} onChange={(e) => set({ detailLineStyle: e.target.value as 'solid' | 'dashed' | 'dotted' })}><option value="solid">{t('pro_line_solid')}</option><option value="dashed">{t('pro_line_dashed')}</option><option value="dotted">{t('pro_line_dotted')}</option></select></label>}
+      {tool === 'detailLine' && <DetailShapeFields o={o} set={set} />}
       {tool === 'tag' && (
         <>
-          <label>{t('pro_tag_info')}<select className="select" value={o.tagProperty ?? 'type'} onChange={(e) => set({ tagProperty: e.target.value as NonNullable<typeof o.tagProperty> })}><option value="type">{t('pro_type')}</option><option value="name">{t('pro_name')}</option><option value="mark">{t('pro_mark')}</option><option value="level">{t('pro_level')}</option><option value="width">{t('pro_width')}</option><option value="height">{t('pro_height')}</option></select></label>
+          <label>{t('tg_fld_family')}<select className="select" value={o.tagFamilyId ?? defaultTagFamilyIdOf(p.settings)} onChange={(e) => set({ tagFamilyId: e.target.value })}>{tagFamiliesOf(p.settings, lang).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label>
           <label>{t('pro_orientation')}<select className="select" value={o.tagOrientation ?? 'horizontal'} onChange={(e) => set({ tagOrientation: e.target.value as 'horizontal' | 'vertical' })}><option value="horizontal">{t('pro_horizontal')}</option><option value="vertical">{t('pro_vertical')}</option></select></label>
           <Check id="opt-tag-leader" checked={o.tagLeader !== false} onChange={(v) => set({ tagLeader: v })}>{t('pro_leader_label')}</Check>
         </>
@@ -290,6 +322,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'stairrun' && <StairRunOptionsBar />}
       {tool === 'ramp' && <RampOptionsBar />}
       {tool === 'railing' && <GuardaCorpoOptionsBar />}
+      {tool === 'mass' && <MassOptionsBar />}
       {(tool === 'door' || tool === 'window') && (
         <OpeningTypePicker
           kind={tool}
@@ -332,6 +365,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'array' && <ArrayOptionsBar />}
       {tool === 'grid' && <GridOptionsBar />}
+      {(tool === 'column' || tool === 'beam' || tool === 'footing') && <StructuralOptionsBar tool={tool} />}
       {tool === 'align' && (
         <label>
           {t('pro_align_prefer')}
@@ -370,6 +404,7 @@ export function OptionsBar(): ReactElement {
             />
           </label>
           <Check id="opt-ocopy" checked={o.offsetCopy} onChange={(v) => set({ offsetCopy: v })}>{t('tool_copy')}</Check>
+          <Check id="opt-ochain" checked={o.offsetChain ?? true} onChange={(v) => set({ offsetChain: v })}>{t('tool_chain')}</Check>
         </>
       )}
       {tool === 'parallel' && (

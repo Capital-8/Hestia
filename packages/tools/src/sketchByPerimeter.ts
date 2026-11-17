@@ -1,5 +1,5 @@
-import { arcFromSagitta, arcSample, asMulti, boxOf, closeGapsSafe, dist, intersectSegments, ringArea, sagFromThreePoints, union, type Box, type Ring, type SketchSeg, type Vec2 } from '@hestia/geom';
-import { levelFrames, wallFacesCached } from '@hestia/engine';
+import { arcFromSagitta, arcSample, asMulti, boxOf, closeGapsSafe, closestOnSegment, dist, intersectSegments, ringArea, sagFromThreePoints, union, type Box, type Ring, type SketchSeg, type Vec2 } from '@hestia/geom';
+import { cleanOutlineRing, levelFrames, wallFacesCached, wallTopFacesCached, type WallTopFaces } from '@hestia/engine';
 import { newId, wallsOnLevel, type Wall } from '@hestia/model';
 import { circleIndexOf, makeSeg, sameDirection, visibleIn, type Circle, type SketchCtx } from './sketchPickFaceGeom.ts';
 import { t as translate } from './i18n.ts';
@@ -28,15 +28,40 @@ function axisTouchesBox(w: Wall, box: Box): boolean {
   return pts.some((q, i) => i > 0 && corners.some((c, k) => intersectSegments(pts[i - 1]!, q, c, corners[(k + 1) % 4]!) !== null));
 }
 
-/** Circunferências da face externa das paredes curvas da seleção (a face externa fica em `sExt`). */
-function exteriorCircles(ctx: SketchCtx, walls: Wall[]): Circle[] {
+/** Circunferências da face externa das paredes curvas da seleção (a face externa fica em `sExt`; no topo, a da aresta superior). */
+function exteriorCircles(ctx: SketchCtx, walls: Wall[], tops: Map<string, WallTopFaces>): Circle[] {
   const p = ctx.project();
   const levelId = ctx.levelId();
   const ids = new Set(walls.map((w) => w.id));
   return levelFrames(p, levelId)
     .filter((f) => ids.has(f.wall.id) && f.arc)
-    .map((f) => ({ c: f.arc!.center, r: f.arc!.radius + f.arc!.k * f.sExt }));
+    .map((f): Circle => {
+      const tf = tops.get(f.wall.id);
+      const pts = tf?.exterior;
+      if (pts && pts.length >= 3) {
+        const a = pts[0]!, b = pts[pts.length - 1]!, m = pts[Math.floor(pts.length / 2)]!;
+        const sag = sagFromThreePoints(a, m, b);
+        const arc = arcFromSagitta(a, b, sag);
+        if (arc) return { c: arc.center, r: arc.radius };
+      }
+      return { c: f.arc!.center, r: f.arc!.radius + f.arc!.k * f.sExt };
+    });
 }
+
+/** Distância de `q` à polilinha fechada `ring`. */
+function distToRing(q: Vec2, ring: Vec2[]): number {
+  let m = Infinity;
+  for (let i = 0; i < ring.length; i++) m = Math.min(m, dist(q, closestOnSegment(q, ring[i]!, ring[(i + 1) % ring.length]!)));
+  return m;
+}
+
+/** O contorno superior da parede difere do da base em planta (inclinação, ou junção inclinada vizinha): mais de 0,1 mm. */
+function topDiffers(top: Vec2[], base: Vec2[]): boolean {
+  return top.some((q) => distToRing(q, base) > 1e-4);
+}
+
+/** Anel em sentido anti-horário (o contorno de `wallFaces` já vem assim). */
+const ccw = (ring: Vec2[]): Vec2[] => (ringArea(ring) < 0 ? [...ring].reverse() : ring);
 
 /** Remove pontos repetidos seguidos e o fechamento repetido no fim. */
 function cleanRing(ring: Ring): Ring {
@@ -60,7 +85,9 @@ function arcThrough(pts: Vec2[]): SketchSeg {
  * fundidas.
  */
 function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
-  const ring = cleanRing(ring0);
+  // Limpeza do anel da união das paredes: paredes que quase se alinham deixam arestas de milímetros e vértices em reta (ver `ringClean.ts`).
+  // Os vértices sobre o arco de uma parede curva ficam como estão.
+  const ring = cleanOutlineRing(cleanRing(ring0), undefined, undefined, (q) => circleIndexOf(q, circles) >= 0);
   const n = ring.length;
   if (n < 3) return [];
   const on = ring.map((q) => circleIndexOf(q, circles));
@@ -78,9 +105,16 @@ function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
   let s = -1;
   for (let i = 0; i < n && s < 0; i++) if (!arcEdge((i + n - 1) % n)) s = i;
   if (s < 0) {
-    const h = Math.floor(n / 2);
-    const pts = ring.map((_, i) => at(i));
-    out.push(arcThrough(pts.slice(0, h + 1)), arcThrough([...pts.slice(h), pts[0]!]));
+    // Círculo inteiro: dois semicírculos entre `at(0)` e o ponto diametralmente oposto, exato sobre a circunferência ajustada.
+    // Partir no vértice de índice n/2 não serve: o anel da união começa num vértice qualquer e a corda deixaria de ser o diâmetro
+    // (a flecha sairia menor que o raio).
+    const { c } = circles[on[0]!]!;
+    const a = at(0);
+    const b = { x: 2 * c.x - a.x, y: 2 * c.y - a.y };
+    out.push(
+      makeSeg(newId('sk'), a, b, sagFromThreePoints(a, at(Math.floor(n / 4)), b)),
+      makeSeg(newId('sk'), b, a, sagFromThreePoints(b, at(Math.floor((3 * n) / 4)), a)),
+    );
     return out;
   }
 
@@ -121,7 +155,7 @@ function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
  * furos internos (divisórias e vazios) são ignorados. Avisos: contorno aberto (a seleção não fecha circuito), mais de um
  * contorno separado (usa o maior) e nenhuma parede na caixa.
  */
-export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2): PerimeterResult {
+export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2, opts: { top?: boolean } = {}): PerimeterResult {
   const p = ctx.project();
   const levelId = ctx.levelId();
   const lang = ctx.lang?.() ?? 'pt';
@@ -132,7 +166,16 @@ export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2): Pe
 
   const ids = new Set(walls.map((w) => w.id));
   const outlines = wallFacesCached(p, levelId).filter((w) => ids.has(w.wallId));
-  const shape = closeGapsSafe(union(...outlines.map((w) => asMulti(w.outline))));
+  // Topo (telhado e forro): cada parede cujo topo difere da base em planta entra pelo contorno superior (`wallTopFaces`).
+  const tops = new Map<string, WallTopFaces>();
+  if (opts.top) {
+    const all = new Map(wallTopFacesCached(p, levelId).map((t) => [t.wallId, t] as const));
+    for (const o of outlines) {
+      const t = all.get(o.wallId);
+      if (t && topDiffers(t.outline, o.outline)) tops.set(o.wallId, t);
+    }
+  }
+  const shape = closeGapsSafe(union(...outlines.map((w) => asMulti(tops.has(w.wallId) ? ccw(tops.get(w.wallId)!.outline.map((q) => ({ x: q.x, y: q.y }))) : w.outline))));
   if (shape.length === 0) return { segs: [], warnings: [translate(lang, 'tl_msg_box_walls_no_geom')] };
 
   const warnings: string[] = [];
@@ -141,7 +184,7 @@ export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2): Pe
   if (shape.length > 1) warnings.push(translate(lang, 'tl_msg_box_multi_loops', { n: shape.length }));
   if (!shape.some((poly) => poly.length > 1)) warnings.push(translate(lang, 'tl_msg_box_open_loop'));
 
-  const segs = ringToSegs(best[0]!, exteriorCircles(ctx, walls));
+  const segs = ringToSegs(best[0]!, exteriorCircles(ctx, walls, tops));
   if (segs.length === 0) warnings.push(translate(lang, 'tl_msg_box_no_area'));
   return { segs, warnings };
 }

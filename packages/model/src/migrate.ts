@@ -7,6 +7,9 @@ import { DEFAULT_STAIR_OPENING_MARGIN, DEFAULT_STAIR_POST_MATERIAL_ID, DEFAULT_S
 import { DEFAULT_AREA_SCALE, mergeAreaGraphics } from './viewProfile.ts';
 import { DEFAULT_RAMP_TYPES } from './ramp.ts';
 import { tiposGuardaCorpo } from './guardaCorpo.ts';
+import { DEFAULT_COLUMN_TYPES } from './column.ts';
+import { DEFAULT_BEAM_TYPES } from './beam.ts';
+import { DEFAULT_FOOTING_TYPES } from './footing.ts';
 import { DEFAULT_STAIR_CALC_RULE } from './stairTypes.ts';
 import { SCHEMA_VERSION, type PlanSymbol, type Project } from './types.ts';
 import { DEFAULT_VIEW_RANGE } from './viewRange.ts';
@@ -272,7 +275,23 @@ const migrations: Record<number, Migration> = {
   // `mullionTypes` nem `curtainPanelTypes`: ausente = parede básica e padrões por leitura. Nada a converter; a migração
   // só avança a versão, e assim um programa antigo recusa um arquivo com cortina.
   24: (raw) => ({ ...raw }),
+  // v25 → v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas e `elements` as aceita sem
+  // conversão. A migração só avança a versão, e assim um programa antigo recusa um arquivo com massa.
+  25: (raw) => ({ ...raw }),
+  // v26 → v27: parede inclinada (`Wall.tilt`, opcional; ausente = vertical). Nenhum elemento é reescrito; a migração só
+  // avança a versão, e assim um programa antigo recusa um arquivo com parede inclinada.
+  26: (raw) => ({ ...raw }),
+  // v27 → v28: tríade estrutural (pilar, viga, sapata). Popula columnTypes, beamTypes, footingTypes usando
+  // os tipos padrão caso ausentes, preservando os existentes no JSON.
+  27: (raw) => ({
+    ...raw,
+    columnTypes: { ...Object.fromEntries(DEFAULT_COLUMN_TYPES.map((t) => [t.id, t])), ...((raw.columnTypes as object) ?? {}) },
+    beamTypes: { ...Object.fromEntries(DEFAULT_BEAM_TYPES.map((t) => [t.id, t])), ...((raw.beamTypes as object) ?? {}) },
+    footingTypes: { ...Object.fromEntries(DEFAULT_FOOTING_TYPES.map((t) => [t.id, t])), ...((raw.footingTypes as object) ?? {}) },
+  }),
 };
+
+import { normalizeProjectMeshes } from './meshArrays.ts';
 
 export class SchemaError extends Error {}
 
@@ -304,5 +323,6 @@ export function migrateProject(raw: unknown): Project {
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');
-  return { ...base, ...p, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
+  const out = { ...base, ...p, defaults: { ...base.defaults, ...(p.defaults ?? {}) }, settings: { ...base.settings, ...(p.settings ?? {}) } } as Project;
+  return normalizeProjectMeshes(out);
 }

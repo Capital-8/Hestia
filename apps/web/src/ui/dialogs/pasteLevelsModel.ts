@@ -76,12 +76,14 @@ export function createPasteLevelsModel(input: PasteLevelsInput, lang: Lang = use
   const levels = [...input.levels].sort((a, b) => a.elevation - b.elevation || cmpTexto(a.name, b.name, lang));
   const known = new Set(levels.map((l) => l.id));
   const origins = new Set(input.originLevelIds.filter((id) => known.has(id)));
+  const originLevelIds = levels.filter((l) => origins.has(l.id)).map((l) => l.id);
+  const baseOrigin = originLevelIds[0];
   const wanted = new Set(input.initialSelected);
   return {
     levels,
-    originLevelIds: levels.filter((l) => origins.has(l.id)).map((l) => l.id),
+    originLevelIds,
     elementCount: elementsOf(input.elementCount),
-    selected: levels.filter((l) => wanted.has(l.id) && !origins.has(l.id)).map((l) => l.id),
+    selected: levels.filter((l) => wanted.has(l.id) && l.id !== baseOrigin).map((l) => l.id),
     link: input.initialLink === true,
   };
 }
@@ -91,9 +93,9 @@ export function levelOf(m: PasteLevelsModel, id: Id): PasteLevelsLevel | null {
   return m.levels.find((l) => l.id === id) ?? null;
 }
 
-/** O nível é de origem (referência da cópia)? */
+/** O nível é de origem base (a referência do Δh que nunca pode ser destino)? */
 export function isOriginLevel(m: PasteLevelsModel, id: Id): boolean {
-  return m.originLevelIds.includes(id);
+  return m.originLevelIds[0] === id;
 }
 
 /** Elevação do nível de origem mais baixo — a base do Δh; `null` quando não há origem. */
@@ -110,10 +112,10 @@ export function deltaOf(m: PasteLevelsModel, id: Id): number | null {
   return level.elevation - reference;
 }
 
-/** Seleção na ordem de `levels`, sem origem e sem repetição. */
+/** Seleção na ordem de `levels`, sem origem base e sem repetição. */
 function orderedSelection(m: PasteLevelsModel, ids: Iterable<Id>): Id[] {
   const wanted = new Set(ids);
-  return m.levels.filter((l) => wanted.has(l.id) && !m.originLevelIds.includes(l.id)).map((l) => l.id);
+  return m.levels.filter((l) => wanted.has(l.id) && !isOriginLevel(m, l.id)).map((l) => l.id);
 }
 
 /** Novo modelo com a seleção dada; devolve o mesmo objeto quando nada muda (bom para `setState`). */
@@ -201,6 +203,6 @@ export function validate(m: PasteLevelsModel, lang: Lang = useI18n.getState().la
   const known = new Set(m.levels.map((l) => l.id));
   const missing = m.selected.find((id) => !known.has(id));
   if (missing !== undefined) return t(lang, 'dlm_err_level_missing', { id: missing });
-  if (m.selected.some((id) => m.originLevelIds.includes(id))) return t(lang, 'dlm_err_origin_level');
+  if (m.selected.some((id) => isOriginLevel(m, id))) return t(lang, 'dlm_err_origin_level');
   return null;
 }

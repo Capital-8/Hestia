@@ -1,3 +1,4 @@
+import { meshShiftedZ } from './meshArrays.ts';
 import { isCad } from './cad.ts';
 import type { Command } from './commands.ts';
 import { hasLevel } from './elementLevel.ts';
@@ -12,7 +13,13 @@ import {
   isSlab,
   isStair,
   isWall,
+  isColumn,
+  isBeam,
+  isFooting,
   type Ceiling,
+  type Column,
+  type Beam,
+  type Footing,
   type Element,
   type Generic,
   type Id,
@@ -145,11 +152,7 @@ function remapLinkedId(link: CopyLink, targetMember: CopyLinkMember, sourceId: I
 }
 
 /** Desloca o Z (terceira coordenada) de uma lista x, y, z... sem tocar nas demais coordenadas. */
-function shiftZ(positions: readonly number[], dz: number): number[] {
-  const out = positions.slice();
-  for (let i = 2; i < out.length; i += 3) out[i] = out[i]! + dz;
-  return out;
-}
+const shiftZ = meshShiftedZ;
 
 /**
  * Vínculo do forro com o ambiente. Só remapeia quando o ambiente também está no vínculo; sem ele, o
@@ -181,6 +184,9 @@ function syncOne(
   switch (from.kind) {
     // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
     case 'railing':
+      return null;
+    // massa: ficha T1 (copiar/colar e vínculo de andar-tipo da massa); a cópia fica sem sincronização.
+    case 'mass':
       return null;
     case 'wall': {
       if (!isWall(target)) return null;
@@ -264,6 +270,30 @@ function syncOne(
         mesh: dz === 0 ? from.mesh : { positions: shiftZ(from.mesh.positions, dz), indices: from.mesh.indices },
       };
       return { type: 'updateGeneric', id: target.id, patch };
+    }
+    case 'column': {
+      if (!isColumn(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Column> = {
+        ...rest,
+        topLevelId: remapTopLevel(levels, fromLevelId, toLevelId, from.topLevelId),
+      };
+      return { type: 'updateElements', ids: [target.id], patch };
+    }
+    case 'beam': {
+      if (!isBeam(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Beam> = rest;
+      return { type: 'updateElements', ids: [target.id], patch };
+    }
+    case 'footing': {
+      if (!isFooting(target)) return null;
+      const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
+      const patch: Partial<Footing> = {
+        ...rest,
+        columnId: remapLinkedId(link, targetMember, from.columnId ?? undefined) ?? null,
+      };
+      return { type: 'updateElements', ids: [target.id], patch };
     }
   }
 }

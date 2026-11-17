@@ -31,8 +31,8 @@ export function shapeIdOf(shape: ShapeKindId | 'pickFace' | 'byPerimeter' | 'pic
 }
 
 /** Prévia da face sob o cursor no modo de seleção da forma: realce e aviso, acrescentados à prévia corrente. */
-export function faceMove(env: ToolEnv, at: Vec2, cycle: number, items: PreviewItem[], lang: Lang = 'pt'): void {
-  const r = facePreview(env, at, cycle, lang);
+export function faceMove(env: ToolEnv, at: Vec2, cycle: number, items: PreviewItem[], lang: Lang = 'pt', topDefault = false): void {
+  const r = facePreview(env, at, cycle, lang, topDefault);
   items.push(...r.items);
   env.say(r.msg);
 }

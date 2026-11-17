@@ -9,6 +9,7 @@ import { ES_BASE_CORE_2, DE_BASE_CORE_2, FR_BASE_CORE_2, IT_BASE_CORE_2, PL_BASE
 import { ES_BASE_CORE_3, DE_BASE_CORE_3, FR_BASE_CORE_3, IT_BASE_CORE_3, PL_BASE_CORE_3 } from './i18n/areas/base-core-3.ts';
 import type { Lang } from './i18n/tipos.ts';
 import { PT_ALL, EN_ALL } from './i18n/areas/index.ts';
+import { PT_PAINEIS, EN_PAINEIS, ES_PAINEIS, DE_PAINEIS, FR_PAINEIS, IT_PAINEIS, PL_PAINEIS } from './i18n/areas/paineis.ts';
 import { ES_ALL } from './i18n/langs/es/index.ts';
 import { DE_ALL } from './i18n/langs/de/index.ts';
 import { FR_ALL } from './i18n/langs/fr/index.ts';
@@ -57,6 +58,7 @@ export const useI18n = create<I18nState>((set) => ({
 export const I18N = {
   pt: {
     ...PT_ALL,
+    ...PT_PAINEIS,
     ...PT_TABELAS,
     // Abas do Ribbon
     ribbon_arch: 'Arquitetura',
@@ -107,11 +109,13 @@ export const I18N = {
     tool_filledRegion: 'Região preenchida',
     tool_tag: 'Etiqueta',
     tool_perimeter: 'Perímetro',
+    tool_mass: 'Massa',
     tool_cotasAuto: 'Cotas automáticas',
 
     // Modificadores
     tool_move: 'Mover',
     tool_copy: 'Copiar',
+    tool_chain: 'Cadeia',
     tool_paste: 'Colar',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
@@ -409,6 +413,7 @@ export const I18N = {
   },
   en: {
     ...EN_ALL,
+    ...EN_PAINEIS,
     ...EN_TABELAS,
     // Ribbon Tabs
     ribbon_arch: 'Architecture',
@@ -459,11 +464,13 @@ export const I18N = {
     tool_filledRegion: 'Filled Region',
     tool_tag: 'Tag by Category',
     tool_perimeter: 'Perimeter',
+    tool_mass: 'Mass',
     tool_cotasAuto: 'Auto Dimensions',
 
     // Modifiers
     tool_move: 'Move',
     tool_copy: 'Copy',
+    tool_chain: 'Chain',
     tool_paste: 'Paste',
     tool_rotate: 'Rotate',
     tool_mirror: 'Mirror',
@@ -762,11 +769,11 @@ export const I18N = {
   },
   // Idiomas em preenchimento: cada chave do PT/EN precisa ganhar tradução aqui.
   // A ausência faz `_I18nParityEs/De/Fr/It/Pl` abaixo falhar no typecheck de propósito — é o checklist de tradução.
-  es: { ...ES_ALL, ...ES_TABELAS, ...ES_BASE_CORE_1, ...ES_BASE_CORE_2, ...ES_BASE_CORE_3 },
-  de: { ...DE_ALL, ...DE_TABELAS, ...DE_BASE_CORE_1, ...DE_BASE_CORE_2, ...DE_BASE_CORE_3 },
-  fr: { ...FR_ALL, ...FR_TABELAS, ...FR_BASE_CORE_1, ...FR_BASE_CORE_2, ...FR_BASE_CORE_3 },
-  it: { ...IT_ALL, ...IT_TABELAS, ...IT_BASE_CORE_1, ...IT_BASE_CORE_2, ...IT_BASE_CORE_3 },
-  pl: { ...PL_ALL, ...PL_TABELAS, ...PL_BASE_CORE_1, ...PL_BASE_CORE_2, ...PL_BASE_CORE_3 },
+  es: { ...ES_ALL, ...ES_PAINEIS, ...ES_TABELAS, ...ES_BASE_CORE_1, ...ES_BASE_CORE_2, ...ES_BASE_CORE_3 },
+  de: { ...DE_ALL, ...DE_PAINEIS, ...DE_TABELAS, ...DE_BASE_CORE_1, ...DE_BASE_CORE_2, ...DE_BASE_CORE_3 },
+  fr: { ...FR_ALL, ...FR_PAINEIS, ...FR_TABELAS, ...FR_BASE_CORE_1, ...FR_BASE_CORE_2, ...FR_BASE_CORE_3 },
+  it: { ...IT_ALL, ...IT_PAINEIS, ...IT_TABELAS, ...IT_BASE_CORE_1, ...IT_BASE_CORE_2, ...IT_BASE_CORE_3 },
+  pl: { ...PL_ALL, ...PL_PAINEIS, ...PL_TABELAS, ...PL_BASE_CORE_1, ...PL_BASE_CORE_2, ...PL_BASE_CORE_3 },
 } as const;
 
 /** Dicionário derivado do PT: toda chave do dicionário é uma string. */

@@ -45,7 +45,11 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   stair: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaEscada' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   ramp: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaRampa' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   railing: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDoGuarda' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
+  column: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDoPilar' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
+  beam: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaViga' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
+  footing: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaSapata' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   cad: { fonte: { arquivo: 'tools/src/snapCad.ts', simbolo: 'addCadSnaps' }, ligacao: { arquivo: 'tools/src/infer.ts', simbolo: 'addCadSnaps' } },
+  mass: { fonte: { arquivo: 'engine/src/apoioDeSnap.ts', simbolo: 'apoioDaMassa' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'componentSnapIndex' } },
   ceiling: { fonte: null, ligacao: null, motivo: 'TODO: o forro não entra na captura de planta (só pisos e lajes têm vértices e arestas); o contorno do forro ainda não é ponto de snap.' },
   roof: { fonte: null, ligacao: null, motivo: 'TODO: o telhado não entra na captura de planta (beirais e cumeeiras ainda não são pontos de snap).' },
   room: { fonte: null, ligacao: null, motivo: 'TODO: o ambiente não tem geometria própria (o contorno é derivado das paredes, que já fornecem os pontos).' },
@@ -61,6 +65,17 @@ describe('contrato: todo kind de elemento está classificado na captura (snap) d
       expect((m.fonte === null) === (m.ligacao === null), `${kind}: fonte e ligação são nulas juntas`).toBe(true);
     });
   }
+
+  it('massa: `geometryOfLevel` (componentSnap.ts) percorre os elementos `mass` do nível pela fonte única `apoioDoElemento`', () => {
+    const codigo = ler('tools/src/componentSnap.ts');
+    expect(codigo).toContain('isMass(e)');
+    expect(codigo).toMatch(/isMass\(e\)[\s\S]{0,200}apoioDoElemento\(p, e\)/);
+  });
+
+  it('massa: a cota associativa (`dimRefAt`, model) lista a massa entre os apoios `part`, como escada, rampa e guarda-corpo', () => {
+    const codigo = ler('model/src/dimensionRefs.ts');
+    expect(codigo).toMatch(/dimRefAt[\s\S]*el\.kind !== 'mass'/);
+  });
 
   it('o motor único serve a todas as ferramentas: a fonte dos pontos é montada em `ToolBase.ctx`, não em cada ferramenta', () => {
     // Nenhuma ferramenta consulta a geometria de escada/guarda-corpo por conta própria: só `base.ts` chama o fornecedor.

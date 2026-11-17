@@ -69,6 +69,20 @@ export function propertiesOf(f: IfcFile, product: StepEntity, type?: StepEntity)
     .map(([name, entry]) => ({ name, value: entry.value, pset: entry.pset }));
 }
 
+/**
+ * Valor de uma propriedade de um conjunto ligado ao próprio tipo (`HasPropertySets` do `IfcTypeObject`, que não passa
+ * por `IfcRelDefinesByProperties`). `undefined` quando o tipo não traz o conjunto ou a propriedade, ou ela é vazia.
+ */
+export function typePropertyOf(f: IfcFile, type: StepEntity, pset: string, name: string): Scalar | undefined {
+  for (const def of f.list(type, 5)) {
+    if (def.type !== 'IFCPROPERTYSET' || f.text(def, 2).trim() !== pset) continue;
+    for (const prop of f.list(def, 4)) {
+      if (READABLE.test(prop.type) && f.text(prop, 0).trim() === name) return scalar(prop.args[2]) ?? undefined;
+    }
+  }
+  return undefined;
+}
+
 function readDefinition(f: IfcFile, def: StepEntity, out: Map<string, { value: Scalar; pset: string }>): void {
   const pset = f.text(def, 2).trim() || 'Pset';
   if (def.type === 'IFCPROPERTYSET') {

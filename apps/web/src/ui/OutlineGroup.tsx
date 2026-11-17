@@ -3,7 +3,7 @@ import { resolveBoundary } from '@hestia/engine';
 import { isFloor, isSlab, type Id, type OutlineSource, type ProjectStore } from '@hestia/model';
 import { editor } from '../editor/controller.ts';
 import { t, useT, type Lang } from '../editor/i18n.ts';
-import { Group } from './fields.tsx';
+import { Group, Row } from './fields.tsx';
 
 /** Só o que o grupo lê de um piso ou laje (decisão 0023 §8.2). */
 export interface OutlineHolder {
@@ -80,13 +80,46 @@ export function runOutlineAction(store: Pick<ProjectStore, 'project' | 'transact
   });
 }
 
+/** "Seguir: Base | Topo da parede" (T-F): grava `reference` na origem de cada elemento vinculado, num único passo de desfazer. */
+export function runOutlineReference(store: Pick<ProjectStore, 'project' | 'transaction' | 'exec'>, ids: Id[], reference: 'base' | 'top'): void {
+  const alvo = ids.filter((id) => {
+    const el = store.project.elements[id];
+    return !!el && (isFloor(el) || isSlab(el)) && !!el.outlineSource?.linked && (el.outlineSource.reference ?? 'base') !== reference;
+  });
+  if (alvo.length === 0) return;
+  store.transaction('msc_undo_outline_follow', () => {
+    for (const id of alvo) {
+      const el = store.project.elements[id];
+      if (!el || !(isFloor(el) || isSlab(el)) || !el.outlineSource) continue;
+      store.exec({ type: 'updateElements', ids: [id], patch: { outlineSource: { ...el.outlineSource, reference } } });
+    }
+  });
+}
+
+/** "Seguir" comum aos vinculados: 'base', 'top' ou null (misto). */
+export function outlineReferenceOf(els: readonly OutlineHolder[]): 'base' | 'top' | null {
+  const refs = new Set(els.filter((e) => e.outlineSource?.linked).map((e) => e.outlineSource!.reference ?? 'base'));
+  return refs.size === 1 ? [...refs][0]! : null;
+}
+
 /** Grupo "Contorno" do painel de piso e de laje: estado do vínculo às paredes e os botões Desvincular / Revincular. */
 export function OutlineGroup({ elements }: { elements: readonly OutlineHolder[] }): ReactElement {
   const { t, lang } = useT();
   const view = outlineView(elements, lang);
+  const linkedIds = elements.filter((e) => e.outlineSource?.linked).map((e) => e.id);
+  const reference = outlineReferenceOf(elements);
   return (
     <Group title={t('msc_outline_title')}>
       <div className="hint" id="p-outline-state">{view.text}</div>
+      {linkedIds.length > 0 && (
+        <Row label={t('msc_outline_follow')} htmlFor="p-outline-ref">
+          <select id="p-outline-ref" className="select" value={reference ?? ''} onChange={(e) => runOutlineReference(editor.store, linkedIds, e.target.value === 'top' ? 'top' : 'base')}>
+            {reference === null && <option value="" disabled />}
+            <option value="base">{t('msc_outline_follow_base')}</option>
+            <option value="top">{t('msc_outline_follow_top')}</option>
+          </select>
+        </Row>
+      )}
       <div className="row">
         <button className="btn small" disabled={view.detachIds.length === 0} onClick={() => runOutlineAction(editor.store, 'detach', view.detachIds)}>
           {t('msc_outline_detach')}

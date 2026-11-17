@@ -1,4 +1,4 @@
-import { difference, intersection, perp, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
+import { difference, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import {
   coreRange,
   openingCasing,
@@ -7,7 +7,7 @@ import {
   type WallType,
   type WrapMode,
 } from '@hestia/model';
-import { pointAt, tangentAt, type WallFrame } from './frame.ts';
+import { pointAt, type WallFrame } from './frame.ts';
 import { jambSection, openingFrameDims } from './openingModelContext.ts';
 
 export type Side = 'exterior' | 'interior';
@@ -57,17 +57,9 @@ export const insertMode = (wt: WallType, ot: OpeningType): WrapMode => {
   return ot.leaves > 0 && openingFrameStyle(ot) !== 'block' ? 'none' : wt.wrapInserts;
 };
 
-/**
- * Ponto do mundo em (t, s) no sistema do VÃO. Parede reta: o próprio `pointAt`. Parede curva: o sistema é RETO, orientado
- * pela tangente no centro do vão (o mesmo do furo em `resolve.ts`, do batente e da folha); um `pointAt` radial não
- * coincide com o furo e deixa cunhas de acabamento junto às ombreiras.
- */
-export function vaoPoint(f: WallFrame, offset: number): (t: number, s: number) => Vec2 {
-  if (!f.arc) return (t, s) => pointAt(f, t, s);
-  const c = pointAt(f, offset, f.sMid);
-  const u = tangentAt(f, offset);
-  const n = perp(u);
-  return (t, s) => ({ x: c.x + u.x * (t - offset) + n.x * (s - f.sMid), y: c.y + u.y * (t - offset) + n.y * (s - f.sMid) });
+/** Ponto do mundo em (t, s) no sistema da parede (acompanha o arco nas paredes curvas). */
+export function vaoPoint(f: WallFrame, _offset: number): (t: number, s: number) => Vec2 {
+  return (t, s) => pointAt(f, t, s);
 }
 
 /** Contorno do batente na planta, em coordenadas do mundo: o que o retorno do acabamento não pode invadir. */
@@ -125,16 +117,10 @@ function wallBand(f: WallFrame, t0: number, t1: number, s0: number, s1: number):
   return [[[...ts.map((t) => pointAt(f, t, s1)), ...[...ts].reverse().map((t) => pointAt(f, t, s0))]]];
 }
 
-/**
- * Retângulo do retorno no sistema do vão. Parede curva: as bordas laterais são retas (as do furo), mas a faixa de profundidade
- * [s0, s1] segue as curvas da parede (faces e plano médio), senão a divisão entre as faces externa e interna sai deslocada.
- */
-function rect(f: WallFrame, offset: number, t0: number, t1: number, s0: number, s1: number): MultiPolygon {
-  const at = vaoPoint(f, offset);
-  if (!f.arc) return [[[at(t0, s0), at(t1, s0), at(t1, s1), at(t0, s1)]]];
-  const big = f.thickness + 0.5;
-  const tall: MultiPolygon = [[[at(t0, f.sMid - big), at(t1, f.sMid - big), at(t1, f.sMid + big), at(t0, f.sMid + big)]]];
-  return intersection(tall, wallBand(f, Math.min(t0, t1) - 0.2, Math.max(t0, t1) + 0.2, s0, s1));
+/** Retângulo do retorno no sistema da parede: setor anular em parede curva, retângulo na reta. */
+function rect(f: WallFrame, _offset: number, t0: number, t1: number, s0: number, s1: number): MultiPolygon {
+  if (!f.arc) return [[[pointAt(f, t0, s0), pointAt(f, t1, s0), pointAt(f, t1, s1), pointAt(f, t0, s1)]]];
+  return wallBand(f, t0, t1, s0, s1);
 }
 
 export interface LayerReturn {

@@ -2,14 +2,16 @@ import type { DimRef, TempDim } from './dims/types.ts';
 import type { HostedLoss } from './hostedLoss.ts';
 import type { Vec2 } from '@hestia/geom';
 import type { ParedeSubelementos, SectionResult } from '@hestia/engine';
-import type { Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
+import type { BeamJustify, Command, Id, LocationLine, Project, SectionAnnotations, SubelementoCortina } from '@hestia/model';
 import type { InferContext } from './infer.ts';
 import type { StairToolOptions, StairTone } from './stairSketchState.ts';
 import type { StairRunToolOptions } from './stairRunPlan.ts';
 import type { RampToolOptions } from './rampOptions.ts';
+import type { StructuralAnchorPreset } from './structuralPresets.ts';
 import type { Lang } from './i18n.ts';
+import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
-export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'none';
+export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'none';
 
 export interface Guide {
   from: Vec2;
@@ -23,6 +25,8 @@ export interface Inference {
   guides: Guide[];
   /** Parede sobre a qual o cursor está (para portas e janelas). */
   hostId?: Id;
+  /** Cota z absoluta (m) do ponto capturado, quando a captura vem da face superior da parede (`topFace` em planta). */
+  z?: number;
 }
 
 /** Tom da prévia: os da escada e o de erro (abertura sem espaço, em vermelho). */
@@ -150,6 +154,8 @@ export interface SnapOptions {
   midpoint?: boolean;
   /** Captura nos desenhos CAD importados (DXF): vértices, meios, pontos e cruzamentos das linhas. */
   cad?: boolean;
+  /** Face superior das paredes (arestas e cantos do topo, com a cota z). Padrão: ligada; depende de Faces (e de Núcleo para o núcleo). */
+  topFaces?: boolean;
 }
 
 export const DEFAULT_SNAP: SnapOptions = {
@@ -166,6 +172,7 @@ export const DEFAULT_SNAP: SnapOptions = {
   midpoint: true,
   // O DXF importado serve de referência por padrão: é para isso que ele entra no projeto.
   cad: true,
+  topFaces: true,
 };
 
 /** Padrões do "Desconectar": Mover e Espelhar acompanham a vizinha (falso) e Rotacionar é livre (verdadeiro). */
@@ -184,6 +191,30 @@ export interface AngleMode {
   polarIncrementDeg: number;
 }
 
+export type WallDrawShape =
+  | 'line'
+  | 'arc'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse';
+
+export type BeamDrawShape =
+  | 'line'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc'
+  | 'arc-3pt'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse'
+  | 'pick-face';
+
 export interface ToolOptions {
   /** Capturas ligadas; ausente = padrão. */
   snap?: SnapOptions;
@@ -196,8 +227,18 @@ export interface ToolOptions {
   wallTopOffset?: number;
   wallFlipped?: boolean;
   chain: boolean;
-  /** Forma da parede ao desenhar: reta, arco por três pontos ou retângulo por dois cantos opostos. */
-  wallShape: 'line' | 'arc' | 'rect';
+  /**
+   * Forma da parede ao desenhar: reta, arco por três pontos, retângulo por dois cantos opostos, polígono regular
+   * (centro + raio), círculo (centro + raio), elipse (centro, semieixo, ponto do outro semieixo) ou spline (pontos).
+   */
+  wallShape: 'line' | 'arc' | 'arc-center' | 'arc-tangent' | 'rect' | 'polygon' | 'circle' | 'ellipse' | 'spline';
+  /** Polígono: número de lados (3 a 64; padrão 6) e se é circunscrito ao raio (padrão: inscrito). */
+  wallPolygonSides?: number;
+  wallPolygonCircumscribed?: boolean;
+  /** Inclinação (graus, + = topo à esquerda de a→b) das paredes criadas; ausente = 0 (vertical). Limite e validação no modelo. */
+  wallTilt?: number;
+  /** Elipse e spline: tolerância do ajuste a arcos, em metros (padrão 0,005). */
+  wallFitTol?: number;
   doorTypeId: Id;
   windowTypeId: Id;
   /** Porta/janela na cortina: "preencher célula" (`cell`, padrão) ou "ajustar grade à porta" (`grid`), e o alinhamento da grade. */
@@ -230,6 +271,11 @@ export interface ToolOptions {
   textRotation?: number;
   textWidth?: number;
   textLeader?: 'none' | 'straight' | 'elbow';
+  textFamilyId?: Id | null;
+  spotElevationFamilyId?: Id | null;
+  spotCoordinateFamilyId?: Id | null;
+  revisionCloudFamilyId?: Id | null;
+  northArrowFamilyId?: Id | null;
   dimensionMode?: 'auto' | 'aligned' | 'horizontal' | 'vertical';
   dimensionString?: 'single' | 'continuous' | 'baseline';
   /** Família de cotas da cota nova (ausente/null = família padrão do projeto). */
@@ -243,11 +289,37 @@ export interface ToolOptions {
   dimensionTextHeight?: number;
   dimensionTickStyle?: 'slash' | 'arrow' | 'dot';
   tagProperty?: 'type' | 'name' | 'mark' | 'level' | 'width' | 'height';
+  /** Família das etiquetas novas (ausente = a padrão do projeto). */
+  tagFamilyId?: Id;
   tagLeader?: boolean;
   tagOrientation?: 'horizontal' | 'vertical';
   regionMask?: boolean;
   regionColor?: string;
   detailLineStyle?: 'solid' | 'dashed' | 'dotted';
+  detailLineShape?: WallDrawShape;
+  /** Lados do polígono da linha de detalhe (3..64; padrão 6). */
+  detailLinePolygonSides?: number;
+  columnTypeId?: Id;
+  columnMode?: 'vertical' | 'slanted';
+  columnDepthMode?: 'depth' | 'height';
+  columnTopLevelId?: Id | null;
+  columnBaseOffset?: number;
+  columnTopOffset?: number;
+  columnHeight?: number;
+  columnRotation?: number;
+  /** Ponto de ancoragem/lançamento em planta para colocação de pilares (centrado por padrão). */
+  columnAnchor?: StructuralAnchorPreset;
+  beamTypeId?: Id;
+  beamJustify?: BeamJustify;
+  beamZOffset?: number;
+  beamShape?: BeamDrawShape;
+  footingTypeId?: Id;
+  footingMode?: 'free' | 'atColumns';
+  footingRotation?: number;
+  footingHeightOffset?: number;
+  footingEccentric?: boolean;
+  footingEccentricityX?: number;
+  footingEccentricityY?: number;
   /** Guarda-corpo: tipo usado pela ferramenta ao criar. Ausente = o padrão do projeto. */
   railingTypeId?: Id;
   orthoLock: boolean;
@@ -268,6 +340,8 @@ export interface ToolOptions {
   rotateCopy: boolean;
   mirrorCopy: boolean;
   offsetCopy: boolean;
+  /** Deslocar: "Cadeia" desloca todas as paredes ligadas (junção pair) à clicada, pelo mesmo lado, recalculando os cantos. Ausente = verdadeiro. */
+  offsetChain?: boolean;
   /** Mover: "Desconectar" solta a ponta das vizinhas em vez de esticá-las. Ausente = falso (padrão do Revit). */
   moveDisjoin?: boolean;
   /** Rotacionar: "Desconectar" solta a ponta das vizinhas. Ausente = verdadeiro (giro livre). */
@@ -302,6 +376,8 @@ export interface ToolOptions {
   stairRun?: StairRunToolOptions;
   /** Rampa (ferramenta `ramp`). Ausente = reta, modo comprimento e padrões do tipo. */
   ramp?: RampToolOptions;
+  /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
+  mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
 }
 
 export interface PointerInfo {
@@ -349,6 +425,8 @@ export interface Tool {
   tab(reverso?: boolean): void;
   /** Espaço alterna uma opção secundária quando a ferramenta declara suporte. */
   space?(): void;
+  /** Tecla avulsa tratada pela ferramenta antes dos atalhos globais; retorne `true` se consumida. */
+  onKey?(key: string): boolean | void;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
   cancel(): void;
   confirm(): void;
@@ -357,6 +435,8 @@ export interface Tool {
   drag?(p: PointerInfo): void;
   up?(p: PointerInfo): void;
   preview(): PreviewItem[];
+  /** Cursor "não permitido": verdadeiro quando o clique agora não grava nada (sem alvo válido). Ausente = nunca. */
+  blocked?(): boolean;
   /** Recalcula a prévia no último ponteiro (ex.: o resultado do corte foi publicado depois da última passada). */
   refreshPreviewAtPointer?(): void;
   /** Cotas dinâmicas da prévia (sistema único de cotas); ausente = a ferramenta não mostra cotas ao desenhar. */
