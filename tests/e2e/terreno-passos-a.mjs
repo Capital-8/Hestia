@@ -1,12 +1,16 @@
 // Passos 1 a 4 do roteiro B.5 (localização, importação, edição de ponto, rótulos e corte).
+import { abreVista3d } from './helpers.mjs';
 import { aba, botao, clicar, digitar, DXF, medirDesenho, menuDividido, paraTela, shot, terreno } from './terreno-base.mjs';
 
 /** Tempos medidos (ms), preenchidos pelos passos e impressos no fim. */
 export const tempos = {};
 
-/** Abre o 3D como a lista do navegador de projeto (clique no item "Modelo 3D"). */
-export const abrir3d = (page) => page.getByRole('treeitem', { name: /Modelo 3D/ }).first().dblclick();
-export const abrirPlanta = (page) => page.getByRole('treeitem', { name: /^Térreo$/ }).first().dblclick();
+/**
+ * Abre o 3D e volta à planta. Com as multitelas (integração com a main) o duplo clique no item da árvore deixou de abrir a vista em
+ * ambiente sem painéis abertos: passa pela mesma API que a barra de vistas usa.
+ */
+export const abrir3d = (page) => abreVista3d(page);
+export const abrirPlanta = (page) => page.evaluate(() => window.__hestia.editor.setView('plan'));
 
 export async function passo1(rep, { page }) {
   await rep.step('1. Gerenciar > Localização (norte 30°, cota zero 740) [interface]', async () => {

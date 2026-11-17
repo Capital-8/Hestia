@@ -8,7 +8,8 @@ import { passo10 } from './terreno-passos-d.mjs';
 import { medicoes } from './terreno-medicoes.mjs';
 
 const rep = makeReporter();
-const ctx = await abrir();
+// Largura maior: com os painéis da massa (main) na mesma aba, a faixa passou a cortar o painel "Análise do terreno" em 1760 px.
+const ctx = await abrir({ width: 2560 });
 try {
   await passo1(rep, ctx);
   await passo2(rep, ctx);

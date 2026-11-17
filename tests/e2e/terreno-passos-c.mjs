@@ -1,6 +1,6 @@
 // Passos 7 a 9 do roteiro B.5 (lote por tabela com recuos, índices do lote, gravidade).
 import { aba, botao, clicar, digitar, menuDividido, paraTela, shot } from './terreno-base.mjs';
-import { perimetroPorPontos, pressTool } from './helpers.mjs';
+import { abreVista3d, perimetroPorPontos, pressTool } from './helpers.mjs';
 import { enquadrar, nPontos } from './terreno-passos-b.mjs';
 import { abrirPlanta } from './terreno-passos-a.mjs';
 
@@ -106,7 +106,7 @@ export async function passo9(rep, { page }) {
     await enquadrar(page, { minX: 66, minY: 15, maxX: 90, maxY: 29 });
     await page.waitForTimeout(900);
     await shot(page, '09-gravidade.png');
-    await page.getByRole('treeitem', { name: /Modelo 3D/ }).first().dblclick();
+    await abreVista3d(page);
     await page.waitForTimeout(1500);
     await page.locator('.navbar button[aria-label="Enquadrar tudo"]').click();
     await page.waitForTimeout(1500);
