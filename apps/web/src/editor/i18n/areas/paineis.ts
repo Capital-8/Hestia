@@ -23,6 +23,15 @@ export const PT_PAINEIS = {
   pane_restore: 'Restaurar painel',
   pane_close: 'Fechar painel',
   pane_divider_aria: 'Redimensionar painéis',
+  pane_style_select: 'Estilo visual do painel',
+  pane_style_inherit: 'Estilo do projeto',
+  pane_style_wireframe: 'Aramado',
+  pane_style_hiddenLine: 'Linhas ocultas',
+  pane_style_shaded: 'Sombreado',
+  pane_style_consistentColors: 'Cores consistentes',
+  pane_style_realistic: 'Realista',
+  pane_style_shadows: 'Sombras',
+  pane_style_edges: 'Arestas',
 } as const;
 
 export const EN_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -49,6 +58,15 @@ export const EN_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Restore pane',
   pane_close: 'Close pane',
   pane_divider_aria: 'Resize panes',
+  pane_style_select: 'Pane visual style',
+  pane_style_inherit: 'Project style',
+  pane_style_wireframe: 'Wireframe',
+  pane_style_hiddenLine: 'Hidden line',
+  pane_style_shaded: 'Shaded',
+  pane_style_consistentColors: 'Consistent colors',
+  pane_style_realistic: 'Realistic',
+  pane_style_shadows: 'Shadows',
+  pane_style_edges: 'Edges',
 };
 
 export const ES_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -75,6 +93,15 @@ export const ES_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Restaurar panel',
   pane_close: 'Cerrar panel',
   pane_divider_aria: 'Redimensionar paneles',
+  pane_style_select: 'Estilo visual del panel',
+  pane_style_inherit: 'Estilo del proyecto',
+  pane_style_wireframe: 'Alámbrico',
+  pane_style_hiddenLine: 'Líneas ocultas',
+  pane_style_shaded: 'Sombreado',
+  pane_style_consistentColors: 'Colores consistentes',
+  pane_style_realistic: 'Realista',
+  pane_style_shadows: 'Sombras',
+  pane_style_edges: 'Aristas',
 };
 
 export const DE_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -101,6 +128,15 @@ export const DE_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Fenster wiederherstellen',
   pane_close: 'Fenster schließen',
   pane_divider_aria: 'Fenstergröße ändern',
+  pane_style_select: 'Darstellungsstil des Fensters',
+  pane_style_inherit: 'Projektstil',
+  pane_style_wireframe: 'Drahtmodell',
+  pane_style_hiddenLine: 'Verdeckte Linien',
+  pane_style_shaded: 'Schattiert',
+  pane_style_consistentColors: 'Einheitliche Farben',
+  pane_style_realistic: 'Realistisch',
+  pane_style_shadows: 'Schatten',
+  pane_style_edges: 'Kanten',
 };
 
 export const FR_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -127,6 +163,15 @@ export const FR_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Restaurer le volet',
   pane_close: 'Fermer le volet',
   pane_divider_aria: 'Redimensionner les volets',
+  pane_style_select: 'Style visuel du volet',
+  pane_style_inherit: 'Style du projet',
+  pane_style_wireframe: 'Fil de fer',
+  pane_style_hiddenLine: 'Lignes cachées',
+  pane_style_shaded: 'Ombré',
+  pane_style_consistentColors: 'Couleurs cohérentes',
+  pane_style_realistic: 'Réaliste',
+  pane_style_shadows: 'Ombres',
+  pane_style_edges: 'Arêtes',
 };
 
 export const IT_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -153,6 +198,15 @@ export const IT_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Ripristina pannello',
   pane_close: 'Chiudi pannello',
   pane_divider_aria: 'Ridimensiona i pannelli',
+  pane_style_select: 'Stile visivo del pannello',
+  pane_style_inherit: 'Stile del progetto',
+  pane_style_wireframe: 'Wireframe',
+  pane_style_hiddenLine: 'Linee nascoste',
+  pane_style_shaded: 'Ombreggiato',
+  pane_style_consistentColors: 'Colori coerenti',
+  pane_style_realistic: 'Realistico',
+  pane_style_shadows: 'Ombre',
+  pane_style_edges: 'Spigoli',
 };
 
 export const PL_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
@@ -179,4 +233,13 @@ export const PL_PAINEIS: Record<keyof typeof PT_PAINEIS, string> = {
   pane_restore: 'Przywróć panel',
   pane_close: 'Zamknij panel',
   pane_divider_aria: 'Zmień rozmiar paneli',
+  pane_style_select: 'Styl wizualny panelu',
+  pane_style_inherit: 'Styl projektu',
+  pane_style_wireframe: 'Siatka',
+  pane_style_hiddenLine: 'Linie ukryte',
+  pane_style_shaded: 'Cieniowany',
+  pane_style_consistentColors: 'Spójne kolory',
+  pane_style_realistic: 'Realistyczny',
+  pane_style_shadows: 'Cienie',
+  pane_style_edges: 'Krawędzie',
 };

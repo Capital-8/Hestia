@@ -34,7 +34,7 @@ if (new URLSearchParams(location.search).has('debug')) {
     estado: estadoKernel,
     medicao: medicaoOperacoes,
   };
-  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model'), import('./editor/paneStore.ts'), import('./editor/layoutTree.ts')]).then(([c, s, e, t, m, ps, lt]) => {
+  void Promise.all([import('./editor/controller.ts'), import('./editor/state.ts'), import('@hestia/engine'), import('@hestia/tools'), import('@hestia/model'), import('./editor/paneStore.ts'), import('./editor/layoutTree.ts'), import('./editor/paneStyle.ts')]).then(([c, s, e, t, m, ps, lt, pst]) => {
     (window as unknown as { __hestia: unknown }).__hestia = {
       editor: c.editor,
       abrirPorFases: (t: string, n: string) => import('./editor/aberturaProjeto.ts').then((a) => a.abrirProjetoPorFases(t, n)),
@@ -42,6 +42,7 @@ if (new URLSearchParams(location.search).has('debug')) {
       useUi: s.useUi,
       usePanes: ps.usePanes,
       layoutTreeOps: lt.layoutTreeOps,
+      descreverEstiloAplicado: pst.descreverEstiloAplicado,
       resolveSlabs: e.resolveSlabs,
       resolveFloors: e.resolveFloors,
       resolveStairs: e.resolveStairs,

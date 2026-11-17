@@ -21,3 +21,7 @@
 .pane-head .ibtn:disabled { opacity: 0.4; cursor: default; }
 
 .pane-body { display: grid; flex: 1; position: relative; min-width: 0; min-height: 0; }
+
+.pane-style { min-width: 0; max-width: 150px; height: 22px; padding: 0 4px; font-size: 12px; }
+.pane-toggle { width: auto; padding: 0 6px; font-size: 11px; }
+.pane-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg, #fff); }

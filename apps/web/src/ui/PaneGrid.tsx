@@ -10,6 +10,7 @@ import { viewKey } from '../editor/openViews.ts';
 import { MAX_PANES, SPLIT_LIMITS, leaves, type LayoutNode, type Pane, type PaneLayout, type SplitPath } from '../editor/panes.ts';
 import { tabOf } from '../editor/viewTabActions.ts';
 import { SheetView } from './SheetView.tsx';
+import { PaneStyleSelect } from './PaneStyleSelect.tsx';
 import { ViewportCanvas } from './ViewportCanvas.tsx';
 import { fracaoDoPonteiro, passoDaTecla } from './paneGridMath.ts';
 import './paneGrid.css';
@@ -162,6 +163,7 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
               </optgroup>
             ))}
           </select>
+          <PaneStyleSelect pane={pane} />
           <span className="pane-head-spacer" />
           <button
             type="button"
