@@ -24,7 +24,8 @@ import type { PointerInfo, WallDrawShape } from './types.ts';
 /**
  * Linha de detalhe: traço 2D independente da geometria do modelo, com as formas da galeria vindas do núcleo comum
  * (`buildShape`), no molde da viga. Arco é UMA linha com `sag`; o polígono usa `detailLinePolygonSides`.
- * Não encadeia: cada forma é concluída e a ferramenta recomeça.
+ * A forma "Linha" encadeia pela opção `chain` (como a Parede): cada traço começa onde o anterior terminou e a cadeia
+ * acaba com Esc ou ao fechar no ponto inicial. As demais formas se concluem sozinhas e a ferramenta recomeça.
  */
 export class DetailLineTool extends ToolBase {
   readonly id = 'detailLine';
@@ -38,12 +39,17 @@ export class DetailLineTool extends ToolBase {
   private flags: Record<string, boolean> = {};
   private last: Vec2 | null = null;
   private lastPointer: PointerInfo | null = null;
+  /** Início da cadeia de linhas em andamento (para fechar o circuito) e a sessão que junta os traços num só desfazer. */
+  private chainStart: Vec2 | null = null;
+  private session: object | null = null;
 
   protected reset(): void {
     this.step = null;
     this.flags = {};
     this.last = null;
     this.lastPointer = null;
+    this.chainStart = null;
+    this.session = null;
     this.items = [];
     this.inf = null;
   }
@@ -161,6 +167,21 @@ export class DetailLineTool extends ToolBase {
       return;
     }
     this.commit(segs);
+    const end = segs[segs.length - 1]!.b;
+    if (this.shape() === 'line' && this.env.options().chain !== false) {
+      this.chainStart ??= st.vals.a as Vec2;
+      if (dist(end, this.chainStart) >= 0.02) {
+        // Cadeia: o próximo traço parte do ponto final deste.
+        const next = initDetailShapeStep('line', this.env.options().detailLinePolygonSides);
+        next.vals.a = end;
+        next.idx = 1;
+        this.step = next;
+        this.items = [];
+        this.env.say(detailShapePromptMsg(next, this.uiLang()));
+        return;
+      }
+      this.env.say('Circuito fechado.');
+    }
     this.reset();
     this.env.say(this.hint);
   }
@@ -169,11 +190,12 @@ export class DetailLineTool extends ToolBase {
     const style = this.env.options().detailLineStyle ?? 'solid';
     const levelId = this.env.levelId();
     const planId = viewPlanId(this.env);
+    const session = (this.session ??= {});
     this.env.transaction('Linha de detalhe', () => {
       for (const s of segs) {
         const item: DetailLine = { id: newId('dl'), a: s.a, b: s.b, style, ...(s.sag ? { sag: s.sag } : {}) };
         if (!addSectionDetailLine(this.env, item)) this.env.exec({ type: 'addDetailLine', levelId, planId, item });
       }
-    });
+    }, session);
   }
 }

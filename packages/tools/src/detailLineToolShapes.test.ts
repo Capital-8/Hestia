@@ -104,8 +104,9 @@ describe('linha de detalhe sobre o núcleo de formas', () => {
     expect(ls[0]!.sag).toBeUndefined();
   });
 
-  it('linha não encadeia: o segundo clique grava e o terceiro começa outra linha', () => {
-    const { store, env } = makeEnv();
+  it('linha com chain desligado não encadeia: o segundo clique grava e o terceiro começa outra linha (o encadeamento está em detailLineCadeia.test.ts)', () => {
+    const { store, env, options } = makeEnv();
+    options.chain = false;
     const t = tool('detailLine', env);
     clickAt(t, 0, 0);
     clickAt(t, 2, 0);

@@ -137,6 +137,10 @@ export function Ribbon(): ReactElement {
       if (activeId === 'ctx' && ctx.tool === 'wall' && ctxTab?.key === 'tool:wall') {
         items.push({ key: 'desenhar', priority: 2, node: <WallDrawPanel options={ctx.options} onPatch={(patch) => useUi.setState((s) => ({ options: { ...s.options, ...patch } }))} /> });
       }
+      // Linha de detalhe: a aba contextual não tem painel `desenhar` próprio; a galeria entra como a da Parede.
+      if (activeId === 'ctx' && ctx.tool === 'detailLine' && ctxTab?.key === 'tool:detailLine' && !items.some((i) => i.key === 'desenhar')) {
+        items.push({ key: 'desenhar', priority: 2, node: <DrawGalleryPanel tool="detailLine" /> });
+      }
       return items;
     }
     return pTab.slots.map((slot) => slot.kind === 'panel'
