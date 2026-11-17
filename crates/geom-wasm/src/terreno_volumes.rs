@@ -163,7 +163,9 @@ pub fn consulta_terreno_corte_aterro(cena: &Cena, nivel: u32) -> Result<Vec<Said
         let mut por_tipo: [Vec<f64>; 2] = [Vec::new(), Vec::new()];
         percorrer(&p, |s| {
             let media = (s.d[0] + s.d[1] + s.d[2]) / 3.0;
-            if media.abs() > TOL_MAPA {
+            // Triângulo de P quase colinear (cruzamentos do pé do talude em fila) pode dar subtriângulo de área nula por arredondamento: fica fora do mapa.
+            let area2 = (s.p[1][0] - s.p[0][0]) * (s.p[2][1] - s.p[0][1]) - (s.p[1][1] - s.p[0][1]) * (s.p[2][0] - s.p[0][0]);
+            if media.abs() > TOL_MAPA && area2 > 0.0 {
                 por_tipo[usize::from(media > 0.0)].extend(s.p.iter().flatten());
             }
         });
