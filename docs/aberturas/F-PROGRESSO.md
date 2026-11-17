@@ -18,7 +18,7 @@ Como retomar: `git fetch origin && git checkout claude/fervent-newton-rfgz3y`, l
 | F5b | 3D | Haiku | concluída e mesclada |
 | F5c | Quadro de esquadrias, IFC, DXF | Haiku | concluída (quadro e DXF; IFC fora: cada vão sai como caixa única) |
 | F6 | Interface: editor de composição (F6a células, F6b perfis/alizar/vidro) | Haiku | concluída, ligada em components.ts |
-| F7 | Catálogo de composições e mostruário (24 tipos, 130 no total) | Haiku | concluída e mesclada |
+| F7 | Catálogo de composições e mostruário (24 tipos novos; o catálogo tem 154 tipos hoje: 94 portas e 60 janelas) | Haiku | concluída e mesclada |
 | F9 | Goldens, e2e, revisão independente do motor, suíte completa, publicar no artifact | Haiku + Sonnet | concluída (suíte 6098 testes verde; lint 0 erros; e2e de acabamento OK; planta, elevação e 3D conferidos em captura) |
 | F8 | Bay, bow, canto | Sonnet | opcional, fora desta rodada |
 

@@ -62,7 +62,7 @@ Levantamento original (mantido como registro): ~355 `toFixed(` em 107 arquivos, 
 ## D. Esquadrias (composição): pendências conhecidas
 - **Validar o alizar no 3D** pelo dono (recuo de 14 mm na face de abertura; alternativa: alizar colado ao batente aceitando a folha tocá-lo).
 - **Maçanetas:** conferir de perto no 3D (só a elevação foi vista). Com a folha aberta a maçaneta passa a linha do vão em t (isenta no teste).
-- **IFC:** cada vão sai como caixa única; exportar membros e vidro por peça.
+- **IFC:** cada vão sai como um só IFCDOOR/IFCWINDOW, com um sólido por peça (`SweptSolid`, com `IFCSTYLEDITEM`; o caminho de compatibilidade sem `parts` ainda grava um corpo único). Faltam `IfcMember`/`IfcPlate` por peça e `*LiningProperties`.
 - **Bay, bow e janela de canto** (F8): exigem células não coplanares.
 - **Vidro:** rebaixo, folga e baguete são estimativas "a validar"; aço e catálogos de fabricantes sem pesquisa; NBR 10821 e 7199 não lidas.
 - **Ids de célula** com hífen podem colidir com ids internos da folha (baixo).
