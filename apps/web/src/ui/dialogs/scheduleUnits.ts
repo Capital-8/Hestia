@@ -7,6 +7,7 @@ export function scheduleCell(units: ResolvedUnits, q: Quantity, si: number, deci
 
 /** Número sem grandeza (Rw, U, fator solar) com o separador decimal do projeto. */
 export function scheduleNumber(units: ResolvedUnits, v: number, decimals: number): string {
+  // units-ok: número de coluna do quadro (custo em moeda e contagens), não é grandeza com unidade do projeto
   return v.toFixed(decimals).replace('.', units.decimalSymbol);
 }
 

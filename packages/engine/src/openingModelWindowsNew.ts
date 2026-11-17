@@ -1,4 +1,4 @@
-import { openingFamilyOf, type OpeningHandle, type OpeningLeafStyle, type OpeningType } from '@hestia/model';
+import { openingFamilyOf, type OpeningGlassKind, type OpeningHandle, type OpeningLeafStyle, type OpeningType } from '@hestia/model';
 import type { OpeningGeometry } from './types.ts';
 import type {
   LeafOpening,
@@ -64,6 +64,7 @@ interface AddOptions {
   motion?: PartMotion;
   leaf?: number;
   dashed?: boolean;
+  glassKind?: OpeningGlassKind;
 }
 
 function addPart(c: WindowCtx, id: string, role: PartRole, material: PartMaterial, b: PartBox, opts: AddOptions = {}): void {

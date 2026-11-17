@@ -8,7 +8,6 @@ import {
   isOpening,
   isWall,
   openingHeight,
-  openingHeight,
   openingSill,
   openingType,
   sectionAnnotationsOf,

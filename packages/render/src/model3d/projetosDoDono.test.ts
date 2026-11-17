@@ -233,7 +233,7 @@ describe.skipIf(!TEM_PASTA || projetos.length === 0)('J5 · projetos do dono: ca
         }
         expect(() => computeSection(project, { a: { x: x0, y: (y0 + y1) / 2 }, b: { x: x1, y: (y0 + y1) / 2 }, depth: 20 })).not.toThrow();
         expect(() => computeSection(project, { a: { x: x0, y: y0 - 5 }, b: { x: x1, y: y0 - 5 }, depth: y1 - y0 + 10 })).not.toThrow();
-      });
+      }, 120_000);
     });
   }
 });

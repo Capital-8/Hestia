@@ -321,7 +321,7 @@ function OpeningProps({ items }: { items: Opening[] }): ReactElement {
             {single.sillOverride !== null && (
               <div className="prow"><span /><button className="chiplink" onClick={() => patch(ids, { sillOverride: null })}>{t('prc_btn_use_type_sill')}</button></div>
             )}
-            <AlturaDaAbertura ids={ids} abertura={single} tipo={type} />
+            <AlturaDaAbertura ids={ids} abertura={single} tipo={type ?? null} />
           </>
         )}
         {items.some((o) => { const h = p.elements[o.hostId]; return !!h && isWall(h) && !!h.tilt; }) && (

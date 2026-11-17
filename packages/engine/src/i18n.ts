@@ -812,7 +812,7 @@ const IT: Record<EngineScheduleKey, string> = {
   egs_csv_col_fabricante: 'Produttore',
   egs_csv_col_custo_unitario: 'Costo unitario',
   egs_csv_col_custo_total: 'Costo totale',
-  egs_csv_col_fator_solare: 'Fattore solare',
+  egs_csv_col_fator_solar: 'Fattore solare',
 
   egs_csv_total: 'Totale',
   egs_room_subtotal: 'Subtotale {level}',

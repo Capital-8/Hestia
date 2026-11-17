@@ -90,7 +90,7 @@ export class CurtainGridLineTool extends ToolBase {
     this.bloqueado = false;
   }
 
-  override blocked(): boolean {
+  blocked(): boolean {
     return this.bloqueado;
   }
 

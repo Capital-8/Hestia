@@ -16,6 +16,7 @@ export function scheduleCsvCell(units: ResolvedUnits, q: Quantity, si: number, d
 
 /** Número sem grandeza (Rw, U, fator solar) de um quadro exportado, com o separador decimal do CSV. */
 export function scheduleCsvNumber(units: ResolvedUnits, v: number, decimals: number, lang: Lang = 'pt'): string {
+  // units-ok: número de coluna do quadro (custo em moeda e contagens), não é grandeza com unidade do projeto
   return v.toFixed(decimals).replace('.', csvDecimalSymbol(units, lang));
 }
 
