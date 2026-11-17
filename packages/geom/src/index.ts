@@ -33,3 +33,4 @@ export { ErroKernelLeve, ErroKernelGrave } from './kernel/v2/erros.ts';
 export { baixarAsset as baixarAssetDoWasm } from './kernel/carregador.ts';
 export * from './curveFit.ts';
 export { carregarFuroContorno, furarParedePorContorno, furoContornoCarregado, type MalhaCamadaFuro, type ResultadoFuroParede, type VaoContorno } from './furoContorno.ts';
+export { carregarFuroPrisma, furarPrismas, furoPrismaCarregado, type CamadaPrisma, type MalhaCamadaPrisma, type PoligonoPlanta, type ResultadoPrismas } from './furoPrisma.ts';
