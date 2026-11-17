@@ -13,7 +13,7 @@ export interface FonteFatiasEmCotas {
 }
 
 /** Chave estável de uma cota (nanômetro): as cotas viram chaves de mapa. */
-export const chaveCota = (z: number): string => z.toFixed(9);
+export const chaveCota = (z: number): string => z.toFixed(9); // units-ok: chave de mapa (nanômetro), não é exibição
 
 /**
  * Contornos externos (anel externo da UNIÃO 2D das cópias, um por componente) da massa em cada cota pedida. `null` se a fonte devolve `null`
