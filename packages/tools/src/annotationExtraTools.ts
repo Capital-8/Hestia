@@ -1,6 +1,7 @@
 import {
-  coordenadaReal,
-  cotaExibida,
+  coordenadaDaBase,
+  elevacaoDaBase,
+  spotFamilyFor,
   defaultNorthArrowFamilyIdOf,
   defaultRevisionCloudFamilyIdOf,
   defaultSpotFamilyIdOf,
@@ -34,9 +35,11 @@ function formatSignedLength(p: Project, valueM: number): string {
   return `${sign}${formatQuantity(u, 'length', Math.abs(valueM))}`;
 }
 
-/** Coordenadas exibidas na prévia: (leste, norte) reais quando o projeto tem localização; sem ela, as do projeto. */
-function coordenadaExibida(p: Project, pt: Vec2): { leste: number; norte: number } {
-  return p.localizacao !== undefined ? coordenadaReal(p, pt) : { leste: pt.x, norte: pt.y };
+/** Texto da prévia da elevação: a MESMA conta do desenho (base da família escolhida, com a Localização do projeto). */
+function rotuloElevacao(p: Project, levelId: Id, z: number, familyId: Id | null | undefined): string {
+  const fam = spotFamilyFor(p.settings, 'elevation', familyId ?? undefined);
+  const nivel = p.levels.find((l) => l.id === levelId)?.elevation ?? 0;
+  return `EL ${fam.prefix}${formatSignedLength(p, elevacaoDaBase(p, fam.base, z, nivel))}`;
 }
 
 function leaderWithElbow(target: Vec2, at: Vec2): Vec2[] {
@@ -82,7 +85,7 @@ export class SpotElevationTool extends ToolBase {
       const z = this.measureZ(pt);
       this.items = [
         { kind: 'point', at: pt },
-        { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), cotaExibida(this.env.project(), z))}` },
+        { kind: 'label', at: pt, text: rotuloElevacao(this.env.project(), this.env.levelId(), z, this.env.options().spotElevationFamilyId) },
       ];
       return;
     }
@@ -90,7 +93,7 @@ export class SpotElevationTool extends ToolBase {
     this.items = [
       { kind: 'line', a: pts[0]!, b: pts[1]!, dashed: true },
       { kind: 'line', a: pts[1]!, b: pts[2]!, dashed: true },
-      { kind: 'label', at: pt, text: `EL ${formatSignedLength(this.env.project(), cotaExibida(this.env.project(), this.elev))}` },
+      { kind: 'label', at: pt, text: rotuloElevacao(this.env.project(), this.env.levelId(), this.elev, this.env.options().spotElevationFamilyId) },
     ];
   }
 
@@ -111,6 +114,7 @@ export class SpotElevationTool extends ToolBase {
       at: { ...pt },
       showLeader: true,
       familyId,
+      ...(this.isSection() ? {} : { z: this.elev }),
     };
     if (!addSectionSpot(this.env, spot)) {
       this.env.exec({ type: 'addSpot', levelId: this.env.levelId(), planId: viewPlanId(this.env), item: spot });
@@ -121,8 +125,8 @@ export class SpotElevationTool extends ToolBase {
 }
 
 /** Texto da prévia da coordenada de ponto (`N … / E …`), com as coordenadas exibidas. */
-function rotuloCoordenada(p: Project, pt: Vec2): string {
-  const c = coordenadaExibida(p, pt);
+function rotuloCoordenada(p: Project, pt: Vec2, familyId: Id | null | undefined): string {
+  const c = coordenadaDaBase(p, spotFamilyFor(p.settings, 'coordinate', familyId ?? undefined).base, pt);
   return `N ${formatSignedLength(p, c.norte)} / E ${formatSignedLength(p, c.leste)}`;
 }
 
@@ -152,7 +156,7 @@ export class SpotCoordinateTool extends ToolBase {
     if (!this.target) {
       this.items = [
         { kind: 'point', at: pt },
-        { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), pt) },
+        { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), pt, this.env.options().spotCoordinateFamilyId) },
       ];
       return;
     }
@@ -160,7 +164,7 @@ export class SpotCoordinateTool extends ToolBase {
     this.items = [
       { kind: 'line', a: pts[0]!, b: pts[1]!, dashed: true },
       { kind: 'line', a: pts[1]!, b: pts[2]!, dashed: true },
-      { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), this.target) },
+      { kind: 'label', at: pt, text: rotuloCoordenada(this.env.project(), this.target, this.env.options().spotCoordinateFamilyId) },
     ];
   }
 
