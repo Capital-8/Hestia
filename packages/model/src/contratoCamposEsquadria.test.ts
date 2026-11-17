@@ -131,8 +131,8 @@ function camposDeInterface(rel: string, nome: string): string[] {
   if (ini < 0) throw new Error(`interface ${nome} não encontrada em ${rel}`);
   const campos: string[] = [];
   for (let i = ini + 1; i < linhas.length && linhas[i] !== '}'; i++) {
-    const m = /^ {2}([A-Za-z_]\w*)\??:/.exec(linhas[i]);
-    if (m) campos.push(m[1]);
+    const m = /^ {2}([A-Za-z_]\w*)\??:/.exec(linhas[i] ?? '');
+    if (m) campos.push(m[1]!);
   }
   return campos;
 }
@@ -200,7 +200,7 @@ describe('contrato: campos do tipo de porta e janela', () => {
   });
 
   it('todo ui-apenas tem motivo e todo motivo aponta para um ui-apenas', () => {
-    const uiApenas = Object.keys(LEITORES).filter((c) => LEITORES[c].length === 1 && LEITORES[c][0] === 'ui-apenas');
+    const uiApenas = Object.keys(LEITORES).filter((c) => (LEITORES[c] ?? []).length === 1 && LEITORES[c]?.[0] === 'ui-apenas');
     expect(uiApenas.filter((c) => !MOTIVO_UI_APENAS[c]), 'ui-apenas sem motivo em MOTIVO_UI_APENAS').toEqual([]);
     expect(Object.keys(MOTIVO_UI_APENAS).filter((c) => !uiApenas.includes(c)), 'motivo ui-apenas sem campo ui-apenas').toEqual([]);
   });
@@ -223,7 +223,7 @@ describe('contrato: campos do tipo de porta e janela', () => {
     for (const { campo, motivo } of EXCECOES_CONHECIDAS) {
       expect(motivo.trim().length, `exceção ${campo} sem motivo`).toBeGreaterThan(0);
       expect(LEITORES[campo], `exceção ${campo} precisa estar em LEITORES`).toBeDefined();
-      expect(leitoresReais(campo, LEITORES[campo]), `exceção ${campo} já é lida em produção: remova-a de EXCECOES_CONHECIDAS`).toEqual([]);
+      expect(leitoresReais(campo, LEITORES[campo] ?? []), `exceção ${campo} já é lida em produção: remova-a de EXCECOES_CONHECIDAS`).toEqual([]);
     }
   });
 });
