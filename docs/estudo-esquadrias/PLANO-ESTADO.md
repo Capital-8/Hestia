@@ -12,6 +12,7 @@ Regras: agentes não fazem commit (a coordenação faz); arquivos disjuntos por 
 | 0 | 0e docs desatualizados | Haiku | pendente |
 | 0 | 0f validações por norma (avisos) | Haiku | pendente |
 | 1 | 1a spike: furo da parede por contorno (meia-lua), só TS | Sonnet | concluído: viável com ressalvas (docs/estudo-esquadrias/09-spike-furo-por-contorno.md) |
+| 1 | 1a-C spike caminho C (colunas inclinadas), só TS | Sonnet | concluído: viável com ressalvas (docs/estudo-esquadrias/12-spike-colunas-inclinadas.md); falta decisão A x C pelo dono |
 | 1 | 1b modelo `OpeningShape`, `outline()`, migração | Sonnet | pendente (após 1a) |
 | 2 | peças, planta/corte/elevação, 3D, DXF, composição | Haiku/Sonnet | pendente |
 | 3 | IFC com perfil, Rust (furo e retorno), esquema | Haiku/Sonnet | pendente |
