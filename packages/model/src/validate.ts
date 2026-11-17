@@ -203,8 +203,19 @@ function collinearOverlap(A: Wall, B: Wall): { length: number } | null {
   return lateral < COLLINEAR_OFFSET ? { length } : null;
 }
 
+/**
+ * Faixa de cota (acima do nível) de uma parede de altura conhecida (sem nível de topo): paredes EMPILHADAS no mesmo nível (passos das paredes inclinadas
+ * da massa) não se sobrepõem, mesmo com os eixos em planta quase iguais. Parede com nível de topo inexistente: faixa desconhecida (`null`) e a sobreposição vale.
+ */
+const faixaVertical = (p: Project, w: Wall): [number, number] | null => {
+  if (!w.topLevelId) return [w.baseOffset, w.baseOffset + w.height];
+  const base = p.levels.find((l) => l.id === w.levelId);
+  const topo = p.levels.find((l) => l.id === w.topLevelId);
+  return base && topo ? [w.baseOffset, topo.elevation + w.topOffset - base.elevation] : null;
+};
+
 /** Paredes colineares do mesmo nível com trechos em comum (item C14, warning). */
-function wallOverlaps(walls: Wall[]): ValidationIssue[] {
+function wallOverlaps(p: Project, walls: Wall[]): ValidationIssue[] {
   const valid = walls.filter((w) => dist(w.a, w.b) >= MIN_WALL_LENGTH);
   const out: ValidationIssue[] = [];
   for (let i = 0; i < valid.length; i++) {
@@ -212,6 +223,9 @@ function wallOverlaps(walls: Wall[]): ValidationIssue[] {
       const A = valid[i]!;
       const B = valid[j]!;
       if (A.levelId !== B.levelId) continue;
+      const za = faixaVertical(p, A);
+      const zb = faixaVertical(p, B);
+      if (za && zb && Math.min(za[1], zb[1]) - Math.max(za[0], zb[0]) <= EPS) continue;
       const hit = collinearOverlap(A, B);
       if (!hit) continue;
       out.push({
@@ -314,7 +328,7 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...openings.flatMap((o) => openingIssues(p, o)),
     ...openingOverlaps(p, openings),
     // Só leem paredes: editar uma esquadria não os recalcula.
-    ...memoSemEsquadrias('validar:paredes', p, () => [...wallOverlaps(walls), ...unjoinedEndIssues(p, walls), ...nearMissIssues(p, walls), ...curveJoinDomainIssues(p, walls)]),
+    ...memoSemEsquadrias('validar:paredes', p, () => [...wallOverlaps(p, walls), ...unjoinedEndIssues(p, walls), ...nearMissIssues(p, walls), ...curveJoinDomainIssues(p, walls)]),
     ...floorIssues(p),
     ...slabIssues(p),
     ...roofIssues(p),
