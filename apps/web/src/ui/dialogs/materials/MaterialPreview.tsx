@@ -92,7 +92,7 @@ export function MaterialPreview({ material, shape, size = 220, low = false, cena
   // Arrastar com o mouse gira o objeto.
   const drag = useRef<{ x: number; y: number } | null>(null);
   const girar = (dyaw: number, dpitch: number): void => {
-    rot.current = { yaw: rot.current.yaw + dyaw, pitch: Math.max(-1.2, Math.min(1.2, rot.current.pitch + dpitch)) };
+    rot.current = { yaw: rot.current.yaw + dyaw, pitch: Math.max(-1.5, Math.min(1.5, rot.current.pitch + dpitch)) };
     desenharRef.current();
   };
   const onTecla = (e: KeyboardEvent<HTMLCanvasElement>): void => {

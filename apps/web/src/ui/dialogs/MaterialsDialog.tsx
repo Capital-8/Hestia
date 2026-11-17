@@ -136,8 +136,8 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
         {draft ? (
           <div className="mat-detalhe" onBlur={() => commit()}>
             <div className="mat-topo">
-              <MaterialPreview material={draft} shape={forma} size={168} cenario={cenario} />
-              <div className="mat-topo-campos">
+              <div className="mat-previa">
+                <MaterialPreview material={draft} shape={forma} size={280} cenario={cenario} />
                 <div className="mat-forma" role="group" aria-label={t('dlt_mat_shape_label')}>
                   {FORMAS.map((f) => (
                     <button key={f} className={`btn small${forma === f ? ' primary' : ''}`} aria-pressed={forma === f} onClick={() => setForma(f)}>
@@ -148,6 +148,8 @@ export function MaterialsDialog({ pickFor, onPick, onClose }: { pickFor?: string
                     {t('dlt_mat_cenario')}
                   </button>
                 </div>
+              </div>
+              <div className="mat-topo-campos">
                 <div className="field-row">
                   <label htmlFor="mat-name">{t('dlt_fld_name')}</label>
                   <TextField id="mat-name" value={draft.name} onCommit={renomear} />

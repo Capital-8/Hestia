@@ -97,7 +97,8 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
     mat.clearcoat = p.clearcoat;
     mat.clearcoatRoughness = p.clearcoatRoughness;
     mat.envMapIntensity = p.envMapIntensity;
-    mat.side = p.transparent ? THREE.DoubleSide : THREE.FrontSide;
+    // Duas faces sempre: o plano tem verso visível quando se gira o objeto (e o vidro mostra o interior).
+    mat.side = THREE.DoubleSide;
     if (mudouTransp) mat.needsUpdate = true;
   };
   aplicarMaterial(material);
@@ -153,23 +154,34 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
   );
 
   // Objeto
+  // `elevador` assenta o objeto no piso; `grupo` gira em torno do CENTRO do objeto (nada de pêndulo em volta do chão).
+  const elevador = new THREE.Group();
+  scene.add(elevador);
   const grupo = new THREE.Group();
-  scene.add(grupo);
+  elevador.add(grupo);
   const esfera = new THREE.Mesh(new THREE.SphereGeometry(0.9, low ? 32 : 64, low ? 24 : 48), mat);
-  esfera.position.y = 0.9;
   const cubo = new THREE.Mesh(new RoundedBoxGeometry(1.5, 1.5, 1.5, 3, 0.08), mat);
-  cubo.position.y = 0.75;
   const plano = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), mat);
-  plano.position.y = 1.1;
   geos.push(esfera.geometry, cubo.geometry, plano.geometry);
   for (const o of [esfera, cubo, plano]) {
     o.castShadow = !low;
     grupo.add(o);
   }
+  let atual: THREE.Mesh = esfera;
+  const caixa = new THREE.Box3();
+  /** Apoia o ponto mais baixo do objeto girado no piso: ele encosta e não atravessa. */
+  const assentar = (): void => {
+    elevador.position.y = 0;
+    scene.updateMatrixWorld(true);
+    caixa.setFromObject(atual);
+    elevador.position.y = -caixa.min.y + 0.002;
+  };
   const definirForma = (s: PreviewShape): void => {
     esfera.visible = s === 'sphere';
     cubo.visible = s === 'cube';
     plano.visible = s === 'plane';
+    atual = s === 'sphere' ? esfera : s === 'cube' ? cubo : plano;
+    assentar();
   };
   definirForma(forma);
 
@@ -216,7 +228,10 @@ export function criarCena(env: THREE.Texture, forma: PreviewShape, material: Mat
       cenario.visible = visivel;
     },
     girar(yaw, pitch) {
-      grupo.rotation.set(Math.max(-1.2, Math.min(1.2, pitch)), yaw, 0, 'YXZ');
+      // Ordem XYZ: o giro vertical é sempre em torno do eixo X da TELA (com YXZ ele acompanhava o giro horizontal e
+      // ficava invertido depois de virar o objeto).
+      grupo.rotation.set(Math.max(-1.5, Math.min(1.5, pitch)), yaw, 0, 'XYZ');
+      assentar();
     },
     dispose() {
       geos.forEach((g) => g.dispose());
