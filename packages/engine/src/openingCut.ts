@@ -4,6 +4,9 @@ import { openingPlaneOf, type Opening } from '@hestia/model';
 import { inclinedFitsArc, type TiltCut } from './openingTilt.ts';
 import type { OpeningGeometry } from './types.ts';
 
+/** A forma de contorno livre do vão entra na geometria por aqui (despacho do furo em `furoContornoDespacho.ts`). */
+export { formaDoVao } from './furoContornoDespacho.ts';
+
 /** Folga do furo além das faces (m). */
 const CUT_MARGIN = 0.02;
 

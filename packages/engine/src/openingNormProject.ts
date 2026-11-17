@@ -4,8 +4,8 @@ import { openingNormIssues, type PortaNormaInput } from './openingNormIssues.ts'
 /** Vidro classificado como seguro (laminado ou temperado); `undefined` quando o tipo não informa o vidro. */
 const vidroSeguroDe = (t: OpeningType): boolean | undefined => (t.glassKind === undefined ? undefined : t.glassKind === 'laminated' || t.glassKind === 'tempered');
 
-/** Porta com painel de vidro: folha de vidro (`glass`, `fullglass`) ou porta com `glassRatio` informado. */
-const comVidroDe = (t: OpeningType): boolean => t.leafStyle === 'glass' || t.leafStyle === 'fullglass' || t.glassRatio !== undefined;
+/** Porta com painel de vidro: folha de vidro (`glass`, `fullglass`). */
+const comVidroDe = (t: OpeningType): boolean => t.leafStyle === 'glass' || t.leafStyle === 'fullglass';
 
 /**
  * Dados normativos de cada PORTA do projeto, resolvidos do modelo (docs/estudo-esquadrias/24, §3). Vão livre = o próprio vão do tipo, SEM

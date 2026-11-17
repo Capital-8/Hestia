@@ -38,8 +38,7 @@ import { flatEnd } from './joinSides.ts';
 import { layerCoreFlags } from './junctionPlanar.ts';
 import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
-import { cutHalfOf, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
-import { formaDoVao } from './furoContornoDespacho.ts';
+import { cutHalfOf, formaDoVao, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -253,8 +252,7 @@ export function openingGeometry(p: Project, o: Opening, f: WallFrame): OpeningGe
     flipHand: o.flipHand,
     flipFacing: o.flipFacing,
     offset: o.offset,
-    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2), curve: { arc: f.arc, sMid: f.sMid } } : {}), ...openingTiltPlane(o, f, rough.width),
-    ...formaDoVao(t, height),
+    ...(f.arc ? { cutHalf: cutHalfOf(f, rough.width / 2), curve: { arc: f.arc, sMid: f.sMid } } : {}), ...openingTiltPlane(o, f, rough.width), ...formaDoVao(t, height),
   };
 }
 
