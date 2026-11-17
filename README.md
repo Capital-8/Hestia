@@ -73,7 +73,8 @@ importadores, quantitativos), documentação e suporte aos usuários.
 
 [![Apoiar no GitHub Sponsors](https://img.shields.io/badge/%E2%99%A5%20Apoiar%20no%20GitHub%20Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/engdennylsonsantos-cloud)
 
-Se não puder apoiar com dinheiro, ajuda muito: dar uma estrela no repositório, relatar problemas
+Você tambem pode apoiar este projeto de várias formas, relatando problemas/bugs, fazendo indicações e sugestões, e *CONTRIBUINDO* diretamente no código, ajudando no desenvolvimento do projeto, alem de claro, compartilhando nosso projeto com pessoas interessadas neste tipo de ferramenta.
+Apoie o projeto dando um estrela no nosso repositório.
 em [Issues](https://github.com/engdennylsonsantos-cloud/Hestia/issues), compartilhar o projeto
 com colegas e testar o programa em projetos reais.
 
