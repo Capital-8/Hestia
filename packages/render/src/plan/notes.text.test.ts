@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyProject, ProjectStore, type AreaPlanAnnotations } from '@hestia/model';
-import { alcaDoTextoEm, annotationHighlightOps, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, textBlockModel } from './notes.ts';
+import { alcaDoTextoEm, alcasDaCotaSelecionadaOps, annotationHighlightOps, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, textBlockModel } from './notes.ts';
 import { defaultPaint } from './style.ts';
 
 const LV0 = 'lv_0';
@@ -140,5 +140,31 @@ describe('alças da cota selecionada na planta (quadrado do afastamento e losang
     const losango = naCota(2, 1.5);
     expect(losango).toHaveLength(1);
     expect(losango[0]!.deslocamentoPx).toEqual([{ x: 0, y: -6 }, { x: 6, y: 0 }, { x: 0, y: 6 }, { x: -6, y: 0 }]);
+  });
+});
+
+describe('alças da cota selecionada: função compartilhada com o corte', () => {
+  const comCota = (textAt = { x: 2, y: 1.5 }) => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addDimension', levelId: LV0, dimension: { id: 'd1', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, offset: 1, textAt } });
+    return s.project;
+  };
+  const ANOT = (p: ReturnType<typeof comCota>) => drawnAnnotations(p, LV0);
+  const LOOK_ALCA = { select: LOOK.select };
+
+  it('uma cota linear selecionada: quadrado em (2; 1) e losango em (2; 1,5), em pixels de tela', () => {
+    const p = comCota();
+    const ops = alcasDaCotaSelecionadaOps(p, LV0, SCALE, LOOK_ALCA, new Set(['d1']), ANOT(p));
+    const naCota = (x: number, y: number) => ops.strokes.filter((st) => st.deslocamentoPx && st.pts.every((q) => q.x === x && q.y === y));
+    expect(naCota(2, 1)).toHaveLength(1);
+    expect(naCota(2, 1)[0]!.deslocamentoPx).toEqual([{ x: -4.5, y: -4.5 }, { x: 4.5, y: -4.5 }, { x: 4.5, y: 4.5 }, { x: -4.5, y: 4.5 }]);
+    expect(naCota(2, 1.5)).toHaveLength(1);
+    expect(ops.fills.filter((f) => f.deslocamentoPx)).toHaveLength(2);
+  });
+
+  it('sem cota única selecionada (vazia ou duas), nada é desenhado', () => {
+    const p = comCota();
+    expect(alcasDaCotaSelecionadaOps(p, LV0, SCALE, LOOK_ALCA, new Set(), ANOT(p))).toEqual({ fills: [], strokes: [], labels: [] });
+    expect(alcasDaCotaSelecionadaOps(p, LV0, SCALE, LOOK_ALCA, new Set(['d1', 'x']), ANOT(p))).toEqual({ fills: [], strokes: [], labels: [] });
   });
 });

@@ -1,5 +1,5 @@
 import { dimensionStyleOf, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type SectionAnnotations } from '@hestia/model';
-import { noteOps, type NoteOps } from '../plan/notes.ts';
+import { alcasDaCotaSelecionadaOps, noteOps, type NoteOps } from '../plan/notes.ts';
 import { defaultPaint, type PlanPaint } from '../plan/style.ts';
 import type { SectionInput } from './build.ts';
 
@@ -138,5 +138,9 @@ export function sectionAnnotationOps(input: SectionInput, opts: SectionAnnotatio
   // `annotations` sempre definido: além de substituir as do nível, impede as linhas de separação de ambiente (que são da
   // planta) de entrarem no corte. Sem nível de referência (projeto sem níveis), as cotas/textos/detalhes ainda saem;
   // só as etiquetas ficam de fora, porque dependem do nível para serem encontradas.
-  return noteOps(p, levelId ?? '', paint, look, opts.scale && opts.scale > 0 ? opts.scale : SECTION_ANNOTATION_SCALE, input.viewport, notes);
+  const scale = opts.scale && opts.scale > 0 ? opts.scale : SECTION_ANNOTATION_SCALE;
+  const ops = noteOps(p, levelId ?? '', paint, look, scale, input.viewport, notes);
+  // Alças da cota selecionada (quadrado do afastamento e losango do texto), as mesmas da planta.
+  const alcas = alcasDaCotaSelecionadaOps(p, levelId ?? '', scale, look, new Set(look.selection), notes, input.viewport);
+  return { fills: [...ops.fills, ...alcas.fills], strokes: [...ops.strokes, ...alcas.strokes], labels: ops.labels };
 }

@@ -36,6 +36,20 @@ export const signedOffset = (a: Vec2, b: Vec2, q: Vec2): number => {
   return n ? dot(sub(q, a), n) : 0;
 };
 
+/**
+ * Texto que ACOMPANHA o afastamento da cota. Se o usuário puxou o texto (`textAt` presente), ele se desloca pelo mesmo
+ * delta do afastamento (`offsetNovo - offsetAntigo`) ao longo da normal esquerda de a→b, a mesma de `dimensionGeometry`
+ * (offset positivo leva a linha de cota para o lado da normal). Sem `textAt`, devolve `undefined`: o texto já segue a
+ * linha. Delta zero devolve uma cópia do próprio `textAt`. Degenerada (a = b), a normal é (0, 1), como em `dimensionGeometry`.
+ */
+export function textAtAcompanhando(a: Vec2, b: Vec2, offsetAntigo: number, offsetNovo: number, textAt: Vec2 | undefined): Vec2 | undefined {
+  if (!textAt) return undefined;
+  const delta = offsetNovo - offsetAntigo;
+  if (delta === 0) return { x: textAt.x, y: textAt.y };
+  const n = leftNormal(a, b) ?? { x: 0, y: 1 };
+  return { x: textAt.x + n.x * delta, y: textAt.y + n.y * delta };
+}
+
 /** Distância de `q` ao segmento p–r. */
 function distToSegment(q: Vec2, p: Vec2, r: Vec2): number {
   const d = sub(r, p);

@@ -178,3 +178,19 @@ describe('anotações do corte: escala e visibilidade da vista', () => {
     expect(draw.labels.some((l) => l.text === '3,00 m')).toBe(false);
   });
 });
+
+describe('alças da cota selecionada no corte (as mesmas da planta)', () => {
+  it('cota linear (0;0,2)-(3;0,2), afastamento 0,4 e texto em (2;1,2): quadrado em (1,5; 0,6) e losango em (2; 1,2)', async () => {
+    const { sectionAnnotationOps } = await import('./annotations.ts');
+    const input = baseInput(true, { dimensions: [{ id: 'd1', a: v(0, 0.2), b: v(3, 0.2), offset: 0.4, textAt: v(2, 1.2) }] });
+    const sel = sectionAnnotationOps(input, { selectedIds: ['d1'] });
+    const naCota = (x: number, y: number) => sel.strokes.filter((s) => s.deslocamentoPx && s.pts.every((q) => q.x === x && q.y === y));
+    // Linha de cota em a + n·0,4 = (0; 0,6) até (3; 0,6): o meio é (1,5; 0,6).
+    expect(naCota(1.5, 0.6)).toHaveLength(1);
+    expect(naCota(1.5, 0.6)[0]!.deslocamentoPx).toEqual([{ x: -4.5, y: -4.5 }, { x: 4.5, y: -4.5 }, { x: 4.5, y: 4.5 }, { x: -4.5, y: 4.5 }]);
+    expect(naCota(2, 1.2)).toHaveLength(1);
+    expect(naCota(2, 1.2)[0]!.deslocamentoPx).toEqual([{ x: 0, y: -6 }, { x: 6, y: 0 }, { x: 0, y: 6 }, { x: -6, y: 0 }]);
+    // Sem seleção, nenhuma alça.
+    expect(sectionAnnotationOps(input, { selectedIds: [] }).strokes.some((s) => s.deslocamentoPx)).toBe(false);
+  });
+});
