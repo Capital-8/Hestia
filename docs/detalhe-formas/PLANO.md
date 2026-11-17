@@ -76,3 +76,13 @@ Modelos: haiku 5.5 high ou sonnet 5.5 medium. Nunca Fable nem Opus.
 - Mantidos: sem encadeamento, Esc, comprimento digitado, `tempDims`, prévia de ângulo na forma `line`, uma transação 'Linha de detalhe' (planta e corte). Orto/Polar: `contextoDeTraco(anchorOf(step))` (S1-C só testa).
 - Tab alterna o sentido (flag `ccw`) em arco centro-extremidades. S1-C liga na UI: campo de lados (`detailLinePolygonSides`) quando a forma é polígono; retângulo girado ainda não mapeado em `WallDrawShape`.
 - Testes: `detailLineToolShapes.test.ts` (12, valores literais); nenhum teste existente alterado.
+
+### S1-C (haiku) — campo de lados, Orto/Polar e pendências da galeria
+- Campo "Lados" (`pro_poly_sides`, já existente pt/en; nenhuma chave nova) só com `poly-inscribed`/`poly-circumscribed`: `DetailShapeFields` em `ShapeOptionFields.tsx` (barra, `opt-dl-sides`) e `Row` em `PlacementProperties.tsx` (`place-dl-sides`). Clamp 3..64 no `onCommit`, padrão 6 sem default em `state.ts`.
+- `WallShapeFields` foi movido para `ShapeOptionFields.tsx` e reexportado por `OptionsBar.tsx` (o limite `max-lines` 420 da OptionsBar estourava com o campo novo). Teste da parede inalterado.
+- Galeria (`DrawGalleryPanel.tsx`): sem campo de lados. A barra de opções já mostra o campo na mesma tela; igual à Parede, que também não o põe na galeria.
+- Retângulo girado: NÃO mapeado. `ShapeKindId` 'rotatedRectangle' existe no núcleo (`sketchShapes.ts`, `perimeterToolShape.ts`), mas `PERIMETER_SHAPES` não tem ícone para ele, `WallDrawShape`/`BeamDrawShape` não têm id e a viga não o usa. Pendência: desenhar ícone e decidir o id (`rect-rotated`) antes de incluir na galeria.
+- Orto/Polar testados em `detailLineOrtoPolar.test.ts` (5, valores literais): linha Orto (3; 0,4) -> (3; 0) e (0,4; 3) -> (0; 3); polar 45 graus, (2; 2,1) -> (2,05; 2,05); polígono inscrito, vértice (2; 0,3) -> (2; 0), raio 2; círculo, ponto do raio (1,5; 0,2) -> (1,5; 0).
+- Retângulo com F8: como na viga, o 2º canto recebe Orto a partir do 1º (`contextoDeTraco(anchorOf(step))`, beamTool: `startPt`). Pelo código, com F8 ou Shift o canto cai sobre o eixo e o retângulo fica degenerado. NÃO testado em execução; pendência para decidir junto com a viga.
+- Gate: typecheck passou (exit 0, antes de mover `WallShapeFields`); eslint passou nos arquivos finais; vitest 9 arquivos, 87 testes, todos passaram.
+- Novos: `detailLineOrtoPolar.test.ts`, `DetailShapeFields.test.ts`. Nenhum teste existente alterado.
