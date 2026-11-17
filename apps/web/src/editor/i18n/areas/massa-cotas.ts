@@ -11,6 +11,9 @@ export const PT_MASSA_COTAS = {
   ui_ms_niveis_invalidos: 'O nível final precisa ficar acima do inicial.',
   ui_ms_undo_cotas: 'Cotas da massa',
   ui_ms_editar_contorno: 'Editar contorno',
+  pro_pm_title_mass: 'Contorno da massa',
+  pro_pm_tool_mass: 'Criar contorno da massa',
+  pro_pm_saves_mass: 'a massa',
 } as const;
 
 export const EN_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -25,6 +28,9 @@ export const EN_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'The end level must be above the start level.',
   ui_ms_undo_cotas: 'Mass elevations',
   ui_ms_editar_contorno: 'Edit outline',
+  pro_pm_title_mass: 'Mass Outline',
+  pro_pm_tool_mass: 'Create Mass Outline',
+  pro_pm_saves_mass: 'the mass',
 };
 
 export const ES_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -39,6 +45,9 @@ export const ES_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'El nivel final debe quedar por encima del inicial.',
   ui_ms_undo_cotas: 'Cotas de la masa',
   ui_ms_editar_contorno: 'Editar contorno',
+  pro_pm_title_mass: 'Contorno de la masa',
+  pro_pm_tool_mass: 'Crear contorno de la masa',
+  pro_pm_saves_mass: 'la masa',
 };
 
 export const DE_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -53,6 +62,9 @@ export const DE_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'Die Endebene muss über der Startebene liegen.',
   ui_ms_undo_cotas: 'Höhen der Masse',
   ui_ms_editar_contorno: 'Kontur bearbeiten',
+  pro_pm_title_mass: 'Massenkontur',
+  pro_pm_tool_mass: 'Massenkontur erstellen',
+  pro_pm_saves_mass: 'die Masse',
 };
 
 export const FR_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -67,6 +79,9 @@ export const FR_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'Le niveau d’arrivée doit être au-dessus du niveau de départ.',
   ui_ms_undo_cotas: 'Cotes de la masse',
   ui_ms_editar_contorno: 'Modifier le contour',
+  pro_pm_title_mass: 'Contour de la masse',
+  pro_pm_tool_mass: 'Créer le contour de la masse',
+  pro_pm_saves_mass: 'la masse',
 };
 
 export const IT_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -81,6 +96,9 @@ export const IT_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'Il livello finale deve essere sopra quello iniziale.',
   ui_ms_undo_cotas: 'Quote della massa',
   ui_ms_editar_contorno: 'Modifica contorno',
+  pro_pm_title_mass: 'Contorno della massa',
+  pro_pm_tool_mass: 'Crea contorno della massa',
+  pro_pm_saves_mass: 'la massa',
 };
 
 export const PL_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
@@ -95,5 +113,8 @@ export const PL_MASSA_COTAS: Record<keyof typeof PT_MASSA_COTAS, string> = {
   ui_ms_niveis_invalidos: 'Poziom końcowy musi leżeć powyżej początkowego.',
   ui_ms_undo_cotas: 'Rzędne bryły',
   ui_ms_editar_contorno: 'Edytuj kontur',
+  pro_pm_title_mass: 'Obrys bryły',
+  pro_pm_tool_mass: 'Utwórz obrys bryły',
+  pro_pm_saves_mass: 'bryłę',
 };
 

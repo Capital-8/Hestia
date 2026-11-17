@@ -2,6 +2,7 @@ import type { SketchDraft, SketchTarget } from '@hestia/geom';
 import type { PerimeterModifyKind } from '@hestia/tools';
 import { DEFAULT_CEILING_HEIGHT, isFloor, isSlab, type Id, type Project } from '@hestia/model';
 import {
+  ALTURA_PADRAO,
   OUTLINE_LOCKED_MSG,
   PerimeterTool,
   type ToolId,
@@ -66,6 +67,8 @@ function iniciais(target: SketchTarget, o: ToolOptions): { typeId?: Id; opts: Pe
       return { typeId: o.slabTypeId, opts: { ...padrao, extendToCore: false, heightOffset: o.slabOffset } };
     case 'ceiling':
       return { typeId: o.ceilingTypeId, opts: { ...padrao, extendToCore: false, heightOffset: o.ceilingOffset ?? DEFAULT_CEILING_HEIGHT } };
+    case 'mass':
+      return { opts: { ...padrao, extendToCore: false, heightOffset: 0 } };
   }
 }
 
@@ -78,8 +81,15 @@ function opcoesDe(s: Sessao, env: ToolEnv): CommitPerimeterOptions {
   const base = { typeId: s.typeId, levelId: s.levelId, origin: s.tool.origin(), ...(env.cotaDoTerreno ? { cotaDoTerreno: env.cotaDoTerreno.bind(env) } : {}) };
   const o = s.opts;
   if (s.target === 'roof') return { ...base, overhang: o.overhang, slopePct: o.slopePct };
+  if (s.target === 'mass') {
+    const m = useUi.getState().options.mass;
+    return { ...base, massa: { altura: m?.altura ?? ALTURA_PADRAO, cotaBase: m?.cotaBase ?? null } };
+  }
   return { ...base, extendToCore: o.extendToCore, heightOffset: o.heightOffset, linkToWalls: o.linkToWalls, followRoom: o.followRoom };
 }
+
+/** A ferramenta Massa abre o esboço (caixa de formas) na extrusão com `galeria` ligada (padrão). */
+export const massaPeloEsboco = (m: ToolOptions['mass']): boolean => (m?.modo ?? 'extrusao') === 'extrusao' && m?.galeria !== false;
 
 /**
  * Modo "Criar/Editar perímetro". Abre a ferramenta de perímetro para um alvo (ou para editar um elemento), guarda a
@@ -292,6 +302,9 @@ export class PerimeterMode {
   intercepta(id: ToolId): boolean {
     if (!this.ativo) {
       const alvo = alvoDaFerramenta(id);
+      // Massa: só a extrusão com a caixa de formas abre o esboço; mistura, loft e bulbo (ou a extrusão com a galeria desligada)
+      // seguem na ferramenta Massa de perfis (círculo, elipse, polígono, livre).
+      if (alvo === 'mass' && !massaPeloEsboco(useUi.getState().options.mass)) return false;
       if (alvo) this.begin(alvo);
       return alvo !== null;
     }

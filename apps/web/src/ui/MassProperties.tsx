@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import type { ArranjoMassa, Mass, ProjectStore } from '@hestia/model';
 import { editor } from '../editor/controller.ts';
+import { perimeterActions } from '../editor/perimeter.ts';
 import { useT, type Lang } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, NumField, Row, TextField } from './fields.tsx';
@@ -151,6 +152,7 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
       {unica && (
         <div className="prow">
           <span />
+          <button type="button" id="ms-edit-contorno" className="chiplink" onClick={() => perimeterActions.edit(first.id)}>{t('ui_ms_editar_contorno')}</button>
           <button type="button" id="ms-edit-secoes" className="chiplink" title={secoesHint} onClick={() => useUi.setState({ dialog: 'massSecoes', dialogArg: first.id })}>{t('ui_ms_editar_secoes')}</button>
         </div>
       )}

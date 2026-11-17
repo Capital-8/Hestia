@@ -47,6 +47,8 @@ export interface CommitPerimeterOptions {
   origin?: SketchOrigin;
   mark?: string;
   comments?: string;
+  /** Só massa, ao criar: altura (m) e cota ABSOLUTA da base (m; ausente/null = cota do nível). */
+  massa?: { altura: number; cotaBase?: number | null };
 }
 
 /** Resultado de `commitPerimeter`. Quando `ok` é falso, nenhum comando é gerado: o motivo vai em `message`. */
