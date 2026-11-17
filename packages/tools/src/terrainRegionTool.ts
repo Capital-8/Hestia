@@ -51,15 +51,19 @@ const CHAVE_NOME = { subdivisao: 'tl_tn_rg_papel_subdivisao', plataforma: 'tl_tn
 export class TerrainRegionTool extends ToolBase {
   readonly id = 'terrainRegion';
   readonly label = 'Região de terreno';
-  private predef: PredefinicaoRegiao = 'plataforma';
+  /**
+   * A ferramenta nasce em Subdivisão (a predefinição que NÃO altera a superfície): atalho, menu "Região de terreno" e a barra de
+   * opções abrem sem mexer no terreno; Plataforma e Região nivelada, que cortam e aterram, só por escolha explícita.
+   */
+  private predef: PredefinicaoRegiao = 'subdivisao';
   private porElementoV = false;
   /** z do projeto da cota do plano. */
   private cotaZ = COTA_REGIAO_PADRAO;
   private inclV = 0;
   private direcaoV = 0;
-  private corteV = PADROES_REGIAO.plataforma.taludeCorte;
-  private aterroV = PADROES_REGIAO.plataforma.taludeAterro;
-  private permeavelV = PADROES_REGIAO.plataforma.permeavel;
+  private corteV = PADROES_REGIAO.subdivisao.taludeCorte;
+  private aterroV = PADROES_REGIAO.subdivisao.taludeAterro;
+  private permeavelV = PADROES_REGIAO.subdivisao.permeavel;
   private r = new RascunhoPolilinha();
   /** Terreno sob o primeiro clique do polígono em traçado. */
   private terrenoId: Id | null = null;
