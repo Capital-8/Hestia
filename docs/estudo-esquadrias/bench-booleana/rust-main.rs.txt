@@ -1,0 +1,47 @@
+use manifold_rust::linalg::{Vec2, Vec3};
+use manifold_rust::manifold::Manifold;
+use std::time::Instant;
+
+// meia-lua: base reta, topo semicircular; cordas de ~1 mm
+fn half_moon(w: f64, h: f64, segs: usize) -> Vec<Vec2> {
+    let r = w / 2.0;
+    let spring = h - r;
+    let mut p = vec![Vec2::new(r, 0.0)];
+    for i in 0..=segs {
+        let a = std::f64::consts::PI * i as f64 / segs as f64;
+        p.push(Vec2::new(r * a.cos(), spring + r * a.sin()));
+    }
+    p.push(Vec2::new(-r, 0.0));
+    p
+}
+
+fn main() {
+    let layers = [0.015, 0.02, 0.09, 0.02, 0.015]; // 5 camadas, espessura 0,16
+    let hgt = 2.8;
+    for &(segs, n_open) in &[(24usize, 1usize), (64, 1), (64, 4), (64, 20), (256, 20)] {
+        let t0 = Instant::now();
+        let mut y = 0.0;
+        let mut tri = 0usize;
+        let mut vol = 0.0;
+        for th in layers {
+            let len = 1.5 * n_open as f64 + 0.6; let slab = Manifold::cube(Vec3::new(len, th, hgt), false).translate(Vec3::new(0.0, y, 0.0));
+            let mut hole_union: Option<Manifold> = None;
+            for k in 0..n_open {
+                let w = 0.9;
+                let prof = vec![half_moon(w, 1.4, segs)];
+                // extrusão em Z; gira para atravessar Y
+                let pr = Manifold::extrude(&prof, th + 0.1, 0, 0.0, Vec2::new(1.0, 1.0));
+                let x = 0.75 + 1.5 * k as f64;
+                // pr: perfil em XY extrudado em Z -> rotaciona 90° em X: Z->-Y, Y->Z
+                let pr = pr.rotate(90.0, 0.0, 0.0).translate(Vec3::new(x, y + th + 0.05, 0.6));
+                hole_union = Some(match hole_union { None => pr, Some(u) => u.union(&pr) });
+            }
+            let cut = match hole_union { Some(h) => slab.difference(&h), None => slab };
+            tri += cut.num_tri();
+            vol += cut.volume();
+            y += th;
+        }
+        let dt = t0.elapsed();
+        println!("cordas={segs:3} aberturas={n_open:2} camadas=5 -> {:7.1} ms, triângulos={tri}, volume={vol:.4}", dt.as_secs_f64()*1000.0);
+    }
+}

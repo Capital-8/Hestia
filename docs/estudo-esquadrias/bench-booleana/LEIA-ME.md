@@ -1,0 +1,3 @@
+# Código da medição de booleana 3D (documento 11)
+
+Arquivos com sufixo `.txt` de propósito, para o lint e os testes do repositório não os enxergarem. Para reproduzir: copie para uma pasta fora do repositório, renomeie (`rust-lib.rs.txt` vira `src/lib.rs`, `rust-main.rs.txt` vira `src/main.rs`, `Cargo.toml.txt` vira `Cargo.toml`, `run-wasm.mjs.txt` vira `run.mjs`, `manifold3d-js.mjs.txt` vira `b.mjs`), use o `rust-toolchain.toml` do Hestia na pasta, e rode `cargo build --release --target wasm32-unknown-unknown --lib` seguido de `node run.mjs target/wasm32-unknown-unknown/release/bm.wasm`; para o JS, `npm i manifold-3d` e `node b.mjs`.

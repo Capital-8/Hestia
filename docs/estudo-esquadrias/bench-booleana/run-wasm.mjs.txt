@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const buf = fs.readFileSync(process.argv[2]);
+const mod = await WebAssembly.compile(buf);
+console.log('imports', WebAssembly.Module.imports(mod).map(i=>i.module+'.'+i.name).join(',')||'nenhum');
+const { exports } = await WebAssembly.instantiate(mod, {});
+for (const [s,n] of [[24,1],[24,20],[24,60],[64,20]]) {
+  exports.run(s,n);
+  const t=performance.now(); const v=exports.run(s,n); const dt=performance.now()-t;
+  console.log(`cordas=${s} aberturas=${n} -> ${dt.toFixed(1)} ms volume=${v.toFixed(4)}`);
+}

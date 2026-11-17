@@ -1,0 +1,17 @@
+[package]
+name = "bm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+manifold-rust = "0.19.2"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

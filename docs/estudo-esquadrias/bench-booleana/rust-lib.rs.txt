@@ -1,0 +1,28 @@
+use manifold_rust::linalg::{Vec2, Vec3};
+use manifold_rust::manifold::Manifold;
+fn half_moon(w: f64, h: f64, segs: usize) -> Vec<Vec2> {
+    let r = w / 2.0; let spring = h - r;
+    let mut p = vec![Vec2::new(r, 0.0)];
+    for i in 0..=segs { let a = std::f64::consts::PI * i as f64 / segs as f64; p.push(Vec2::new(r * a.cos(), spring + r * a.sin())); }
+    p.push(Vec2::new(-r, 0.0)); p
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn run(segs: u32, n_open: u32) -> f64 {
+    let layers = [0.015, 0.02, 0.09, 0.02, 0.015];
+    let (segs, n_open) = (segs as usize, n_open as usize);
+    let mut y = 0.0; let mut vol = 0.0;
+    for th in layers {
+        let len = 1.5 * n_open as f64 + 0.6;
+        let slab = Manifold::cube(Vec3::new(len, th, 2.8), false).translate(Vec3::new(0.0, y, 0.0));
+        let mut u: Option<Manifold> = None;
+        for k in 0..n_open {
+            let prof = vec![half_moon(0.9, 1.4, segs)];
+            let pr = Manifold::extrude(&prof, th + 0.1, 0, 0.0, Vec2::new(1.0, 1.0));
+            let pr = pr.rotate(90.0, 0.0, 0.0).translate(Vec3::new(0.75 + 1.5 * k as f64, y + th + 0.05, 0.6));
+            u = Some(match u { None => pr, Some(a) => a.union(&pr) });
+        }
+        let cut = match u { Some(h) => slab.difference(&h), None => slab };
+        vol += cut.volume(); y += th;
+    }
+    vol
+}

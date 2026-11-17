@@ -1,0 +1,22 @@
+import Module from 'manifold-3d';
+const wasm = await Module(); wasm.setup();
+const { Manifold } = wasm;
+function halfMoon(w,h,segs){const r=w/2,sp=h-r;const p=[[r,0]];for(let i=0;i<=segs;i++){const a=Math.PI*i/segs;p.push([r*Math.cos(a),sp+r*Math.sin(a)]);}p.push([-r,0]);return p;}
+function run(segs,n){
+  const layers=[0.015,0.02,0.09,0.02,0.015];let y=0,vol=0;
+  for(const th of layers){
+    const len=1.5*n+0.6;
+    const slab=Manifold.cube([len,th,2.8],false).translate([0,y,0]);
+    const holes=[];
+    for(let k=0;k<n;k++){
+      holes.push(Manifold.extrude([halfMoon(0.9,1.4,segs)],th+0.1).rotate([90,0,0]).translate([0.75+1.5*k,y+th+0.05,0.6]));
+    }
+    const cut = n>0 ? slab.subtract(Manifold.union(holes)) : slab;
+    vol+=cut.volume(); y+=th;
+  }
+  return vol;
+}
+for (const [s,n] of [[24,1],[24,20],[24,60],[64,20]]) {
+  run(s,n); const t=performance.now(); const v=run(s,n); const dt=performance.now()-t;
+  console.log(`cordas=${s} aberturas=${n} -> ${dt.toFixed(1)} ms volume=${v.toFixed(4)}`);
+}
