@@ -3,6 +3,8 @@ export * from './detailLineGeom.ts';
 export * from './materialBlocks.ts';
 export * from './dxfLayerStyle.ts';
 export * from './cad.ts';
+export * from './componentes.ts';
+export * from './componentCommands.ts';
 export * from './priority.ts';
 export * from './termino.ts';
 export * from './membrane.ts';
@@ -130,3 +132,5 @@ export * from './pluginFields.ts';
 export * from './pluginChecks.ts';
 export * from './pluginSchedules.ts';
 export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unidades do projeto
+export * from './familia/index.ts';
+export * from './furniture/index.ts';

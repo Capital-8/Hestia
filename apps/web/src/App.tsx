@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- a raiz do app junta as camadas (integração com as paletas de móveis); extrair os atalhos depois. */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { editor } from './editor/controller.ts';
 import { transfer } from './editor/transfer.ts';
@@ -21,6 +22,11 @@ import { OptionsBar } from './ui/OptionsBar.tsx';
 import { Ribbon } from './ui/Ribbon.tsx';
 import { StatusBar } from './ui/StatusBar.tsx';
 import { TitleBar } from './ui/TitleBar.tsx';
+import { FamilyEditor } from './ui/familia/FamilyEditor.tsx';
+import { OrcamentoProjeto } from './ui/OrcamentoProjeto.tsx';
+import { PaletaMoveis } from './ui/PaletaMoveis.tsx';
+import { MontarFila } from './ui/MontarFila.tsx';
+import { useFamilia } from './ui/familia/familiaStore.ts';
 import { Tutorial } from './ui/Tutorial.tsx';
 import { ViewControlBar } from './ui/ViewControlBar.tsx';
 import { ViewTabs } from './ui/ViewTabs.tsx';
@@ -77,6 +83,7 @@ import { LocalizacaoDialog } from './ui/dialogs/LocalizacaoDialog.tsx';
 import { TerrenoScheduleDialog } from './ui/dialogs/TerrenoScheduleDialog.tsx';
 import { LoteScheduleDialog } from './ui/dialogs/LoteScheduleDialog.tsx';
 import { LoteRumosDialog } from './ui/dialogs/LoteRumosDialog.tsx';
+import { ImportFurnitureDialog } from './ui/dialogs/ImportFurnitureDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
@@ -227,6 +234,8 @@ function Dialogs(): ReactElement | null {
       return <DxfExportDialog />;
     case 'importCad':
       return <ImportCadDialog />;
+    case 'importFurniture':
+      return <ImportFurnitureDialog />;
     case 'manageCad':
       return <ManageCadDialog />;
     case 'experimentos':
@@ -304,6 +313,8 @@ export function App(): ReactElement {
   const sectionId = useUi((s) => s.sectionId);
   const abas = useUi((s) => s.openViews);
   const lang = useI18n((s) => s.lang);
+  // Com a aba de família à frente, as teclas do projeto (atalhos de ferramenta) não disparam por baixo dela.
+  const familiaAberta = useFamilia((s) => s.aberta);
   const narrow = useNarrow();
   // A restauração do projeto só acontece na montagem; a dica de status acompanha o idioma.
   const initialized = useRef(false);
@@ -400,7 +411,7 @@ export function App(): ReactElement {
       const t = e.target as HTMLElement | null;
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
       // Na tela de projetos não há documento aberto: nenhum atalho do editor vale ali.
-      if (useUi.getState().tela === 'home' || dialog || caixaTextoAberta || typing) return;
+      if (useUi.getState().tela === 'home' || dialog || familiaAberta || caixaTextoAberta || typing) return;
       if (t?.tagName === 'BUTTON' && e.key === 'Enter') return;
       if (t?.tagName === 'SELECT' || t?.tagName === 'BUTTON') {
         t.blur();
@@ -410,7 +421,7 @@ export function App(): ReactElement {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dialog, caixaTextoAberta]);
+  }, [dialog, familiaAberta, caixaTextoAberta]);
 
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent): void => {
@@ -467,6 +478,10 @@ export function App(): ReactElement {
       <LoteRumosDialog />
       <FileMenu />
       <IfcImportOverlay />
+      <FamilyEditor />
+      <OrcamentoProjeto />
+      <PaletaMoveis />
+      <MontarFila />
     </div>
   );
 }

@@ -2,10 +2,11 @@ import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, ty
 import { frameOfWall, openingGeometry } from '@hestia/engine';
 import {
   beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn,
-  isFloor, isFooting, isLot, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall,
+  isFloor, isFooting, isFurniture, isLot, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall,
   mapaDeIdsDeGuardaCorpos, newId,
   sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project,
 } from '@hestia/model';
+import { furnitureOutline } from './furnitureFootprint.ts';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
@@ -32,6 +33,8 @@ export { selectedBeams, selectedColumns, selectedFootings } from './structuralPi
 export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isWall(p.elements[id]));
 export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isOpening(p.elements[id]));
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
+/** Móveis importados dentro da seleção (movem, giram, espelham e copiam como um objeto só). */
+export const selectedFurnitures = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isFurniture(p.elements[id]));
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
 /** Paredes, pisos, lajes, telhados, massas, terreno (com as suas regiões; a região sozinha também), lote e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
 export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
@@ -43,6 +46,7 @@ export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedRamps(p, ids),
   ...selectedRooms(p, ids),
   ...selectedCads(p, ids),
+  ...selectedFurnitures(p, ids),
   ...selectedGuardaCorpos(p, ids),
   ...selectedColumns(p, ids),
   ...selectedBeams(p, ids),
@@ -92,6 +96,7 @@ export function makeIdMap(p: Project, ids: Id[]): Record<Id, Id> {
     else if (isRamp(e)) map[id] = newId('rp');
     else if (isRoom(e)) map[id] = newId('rm');
     else if (isCad(e)) map[id] = newId('cad');
+    else if (isFurniture(e)) map[id] = newId('fu');
     else if (isLot(e)) map[id] = newId('lt');
     // Terreno e região NÃO entram aqui: a cópia deles tem o `terrenoId` remapeado e sai de `comandosCopiaTerreno`.
     else if (isColumn(e)) map[id] = newId('col');
@@ -176,6 +181,11 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
       const type = findFootingType(p, fl.typeId);
       const poly = footingPolygon(fl, type);
       out.push({ kind: 'polygon', ring: poly.map((q) => applyTransform(t, q)), dashed: true });
+      continue;
+    }
+    if (isFurniture(fl)) {
+      const asset = p.furniture?.assets[fl.assetId];
+      if (asset) out.push({ kind: 'polygon', ring: furnitureOutline(fl, asset).map((q) => applyTransform(t, q)), dashed: true });
       continue;
     }
     const f = frameOfWall(p, id);

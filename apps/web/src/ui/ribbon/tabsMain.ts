@@ -16,7 +16,10 @@ export const TAB_ARQUITETURA: RibbonTab = {
       // Porta e janela na cortina ficam no menu das esquadrias (o mesmo ícone), como o Revit tem a porta de cortina.
       split(tool('door'), [tool('curtainDoor', 'small', { icon: 'door' })]),
       split(tool('window'), [tool('curtainWindow', 'small', { icon: 'window' }), tool('curtainGridLine', 'small', { icon: 'grid' })]),
-      soon(t('Componente', 'Component'), 'component'),
+      tool('component', 'large', { label: t('Componente', 'Component') }),
+      act('componentLibrary', 'large', t('Biblioteca', 'Library')),
+      stack(act('groupComponents', 'small', t('Agrupar', 'Group')), act('ungroupComponents', 'small', t('Desagrupar', 'Ungroup'))),
+      stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor')), act('componentBudget', 'small', t('Orçamento', 'Budget')), act('componentRun', 'small', t('Fila', 'Run'))),
       soon(t('Pilar', 'Column'), 'column'),
       split(tool('roof', 'large', { label: t('Telhado', 'Roof'), icon: 'roof' }), [
         tool('roof', 'small', { label: t('Telhado por perímetro', 'Roof by Footprint') }),
@@ -174,6 +177,7 @@ export const TAB_INSERIR: RibbonTab = {
       soon(t('Importar PDF', 'Import PDF'), 'sheet'),
       soon(t('Imagem', 'Image'), 'sheet'),
     ),
+    panel('ins-moveis', t('Móveis', 'Furniture'), act('importFurniture', 'large'), act('myBlocks', 'large'), tool('furniture', 'large', { label: t('Colocar móvel', 'Place furniture'), icon: 'component' })),
     panel(
       'ins-biblioteca',
       t('Carregar da biblioteca', 'Load from Library'),

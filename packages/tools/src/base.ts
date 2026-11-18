@@ -5,6 +5,7 @@ import { floorEdges, floorVertices } from './floorPick.ts';
 import { detailEdges, detailPoints } from './detailSnap.ts';
 import { openingSnapGeometry } from './openingSnapPoints.ts';
 import { componentSnapIndex } from './componentSnap.ts';
+import { moveisSnapIndex } from './moveisSnapPlanta.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import { TOP_FACE_TOOLS } from './snapTopFace.ts';
 import type { Vec2 } from '@hestia/geom';
@@ -112,7 +113,7 @@ export abstract class ToolBase implements Tool {
     // Aberturas entram na captura com cantos, centro e ombreiras; na inserção de abertura (só paredes) ficam de fora.
     const openings = extra.onWallsOnly ? [] : levels.flatMap((l) => openingSnapGeometry(project, l, visible));
     // Escadas, rampas e guarda-corpos entram indexados (vértices, meios, centros e arestas): milhares de pontos custam só o que está perto do cursor.
-    const components = extra.onWallsOnly ? [] : levels.map((l) => componentSnapIndex(project, l));
+    const components = extra.onWallsOnly ? [] : levels.flatMap((l) => [componentSnapIndex(project, l), moveisSnapIndex(project, l)]);
     const options = this.env.options();
     const angle = options.angleMode;
     return {

@@ -22,6 +22,8 @@ import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from '
 import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
+import type { Familia } from './familia/tipos.ts';
+import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
@@ -33,6 +35,7 @@ import type { Column, ColumnType } from './column.ts';
 import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
 import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdentidade, MaterialTermico } from './materialBlocks.ts';
+import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
 /** v29: terreno, região de terreno, lote e `localizacao` do projeto: a migração 28 → 29 só avança a versão (terreno virou 29 ao integrar com a main, que usou 26 a 28 para massa, parede inclinada e tríade estrutural). */
@@ -78,6 +81,11 @@ export interface Material {
   aparencia?: MaterialAparencia;
   fisico?: MaterialFisico;
   termico?: MaterialTermico;
+  /**
+   * Categoria de material (`wood`, `metal`, `glass`...; texto minúsculo, até 32 caracteres). Opcional: ausente = sem
+   * categoria. Usada pelos blocos importados. Sem migração de esquema.
+   */
+  category?: string;
 }
 
 export interface Layer {
@@ -833,7 +841,51 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | Generic | CadDrawing | Column | Beam | Footing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | Generic | CadDrawing | Column | Beam | Footing | Component | Furniture;
+/**
+ * Instância de um componente (móvel, louça, equipamento) no projeto (ADR 0049). Aponta para uma família do projeto
+ * (`Project.componentFamilies`); a geometria sai da resolução da família, nunca é gravada aqui. Mundo = `R(rotation) · E · local + (x, y)`,
+ * com `E` espelhando o eixo X local quando `mirrored`; o local está em metros com origem no canto mínimo da família.
+ */
+export interface Component {
+  id: Id;
+  kind: 'component';
+  familyId: Id;
+  /** Tipo da família; `null` = padrão da família. */
+  typeId: Id | null;
+  levelId: Id;
+  order: number;
+  /** Posição no plano (m), deslocamento sobre o nível (m) e rotação anti-horária (rad). */
+  x: number;
+  y: number;
+  z: number;
+  rotation: number;
+  mirrored: boolean;
+  /** Valores de parâmetros desta instância (mm), sobre o tipo. */
+  values?: Record<string, number | string | boolean>;
+  mark: string;
+  /** Conjunto ou fila a que o componente pertence (`Project.componentGroups`); ausente = solto. Um componente está em no máximo um. */
+  groupId?: Id;
+}
+
+/** União entre módulos de um conjunto: o que o encaixe faz nas faces em contato. */
+export type RegraUniao = 'lateral-compartilhada' | 'alinhar-topo' | 'alinhar-frente';
+
+/**
+ * Conjunto de componentes que se movem, giram e copiam juntos (Promob: módulos unidos). Com `linha` é uma FILA: os módulos ficam
+ * lado a lado ao longo da linha-base no plano, na ordem de `membros`, de `linha.a` para `linha.b` (metros).
+ * Fica em `Project.componentGroups`, fora de `elements`; os membros guardam o `groupId`.
+ */
+export interface ComponentGroup {
+  id: Id;
+  nome: string;
+  levelId: Id;
+  /** Ids dos componentes, na ordem ao longo da fila (conjunto livre: ordem de inclusão). */
+  membros: Id[];
+  linha?: { a: Vec2; b: Vec2; /** Parede de apoio, quando a fila foi montada contra uma. */ paredeId?: Id | null };
+  regras?: RegraUniao[];
+}
+
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -992,6 +1044,12 @@ export interface Project {
   /** Tipos de guarda-corpo e corrimão (decisão 0055). Mesmo papel dos demais mapas de tipos; a migração 23 → 24 semeia os iniciais. */
   tiposGuardaCorpo: Record<Id, TipoGuardaCorpo>;
   openingTypes: Record<Id, OpeningType>;
+  /** Famílias de componentes do projeto (ADR 0049), por id; ausente = nenhuma. As instâncias (`Component`) apontam para elas. */
+  componentFamilies?: Record<Id, Familia>;
+  /** Conjuntos e filas de componentes (modelagem fluida), por id; ausente = nenhum. */
+  componentGroups?: Record<Id, ComponentGroup>;
+  /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
+  catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
   openingProfiles?: Record<Id, ProfilePreset>;
   /** Perfis de norma do guarda-corpo (decisão 0055 §4.3). Ausente = os presets por leitura; a primeira escrita grava o conjunto. */
@@ -1025,6 +1083,8 @@ export interface Project {
   view3d?: View3DSettings;
   /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */
   plugins?: import('./pluginData.ts').PluginProjectData;
+  /** Moveis importados (assets de malha; instancias sao elementos `furniture`). Ausente = nenhum. Sem migracao. */
+  furniture?: FurnitureProjectData;
   /**
    * Pontos de vista 3D salvos (decisão 0040): catálogo do projeto, referenciado pelas pranchas. Ausente = nenhum.
    * Ver `view3dPoints.ts`.
@@ -1071,3 +1131,4 @@ export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === '
 export const isColumn = (e: Element | undefined): e is Column => e?.kind === 'column';
 export const isBeam = (e: Element | undefined): e is Beam => e?.kind === 'beam';
 export const isFooting = (e: Element | undefined): e is Footing => e?.kind === 'footing';
+export const isComponent = (e: Element | undefined): e is Component => e?.kind === 'component';

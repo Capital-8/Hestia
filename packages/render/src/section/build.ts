@@ -3,7 +3,8 @@ import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits } from '@hestia/model';
+import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
 import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
 import { thinStrokes } from '../plan/thin.ts';
@@ -66,6 +67,9 @@ const fmt = (u: ResolvedUnits, z: number): string => `${z >= 0 ? '+' : '−'}${f
 
 /** Categoria gráfica de uma origem do motor (parede, piso, laje, telhado ou escada). */
 const categoryOf = (o: SectionOrigin): GraphicsCategory => ownerOf(o)?.kind ?? 'wall';
+
+const materialComponente = (id: Id): Material | undefined =>
+  MATERIAIS_DE_COMPONENTE[id] ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!) : undefined);
 
 /**
  * Lista de desenho do corte/elevação: x = distância ao longo da linha, y = cota. Os polígonos já são a parte visível
@@ -180,7 +184,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       return;
     }
     silhouetteParts.push(b.polygons);
-    const cpB = corPadraoSuperficie(p.materials[b.materialId], { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: b.hatch ?? 'none' });
+    const cpB = corPadraoSuperficie(p.materials[b.materialId] ?? materialComponente(b.materialId), { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: b.hatch ?? 'none' });
     const base = pt.color ?? cpB.fundo;
     if (!noFill) {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
@@ -353,7 +357,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       cut: true,
       draw: () => {
         silhouetteParts.push(polygons);
-        const m = p.materials[r.materialId];
+        const m = p.materials[r.materialId] ?? materialComponente(r.materialId);
         if (!noFill) {
           const cp = corPadraoCorte(m, { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: r.hatch });
           const base = pt.color ?? cp.fundo;

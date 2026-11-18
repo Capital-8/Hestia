@@ -56,7 +56,9 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   ceiling: { fonte: null, ligacao: null, motivo: 'TODO: o forro não entra na captura de planta (só pisos e lajes têm vértices e arestas); o contorno do forro ainda não é ponto de snap.' },
   roof: { fonte: null, ligacao: null, motivo: 'TODO: o telhado não entra na captura de planta (beirais e cumeeiras ainda não são pontos de snap).' },
   room: { fonte: null, ligacao: null, motivo: 'TODO: o ambiente não tem geometria própria (o contorno é derivado das paredes, que já fornecem os pontos).' },
+  component: { fonte: null, ligacao: null, motivo: 'TODO: o componente encaixa na parede e nos vizinhos pelo próprio arrasto (componentDrag); a pegada dele ainda não alimenta o índice de snap da planta.' },
   generic: { fonte: null, ligacao: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; ainda não há pontos de snap derivados dela.' },
+  furniture: { fonte: null, ligacao: null, motivo: 'TODO: a planta desenha só um contorno simples do móvel (overlay da interface, `furnitureFootprint`); os cantos e arestas dele ainda não são pontos de snap.' },
 };
 
 describe('contrato: todo kind de elemento está classificado na captura (snap) de planta', () => {

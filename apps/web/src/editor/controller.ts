@@ -47,7 +47,7 @@ import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
+import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
@@ -62,6 +62,7 @@ import type { PastaId } from './biblioteca/tipos.ts';
 import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
 import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
+import { avisarTamanhoDoProjeto } from './furniture/saveWarning.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
@@ -887,6 +888,8 @@ export class Editor {
         || this.tool.id === 'column'
         || this.tool.id === 'beam'
         || this.tool.id === 'footing'
+        || this.tool.id === 'component'
+        || this.tool.id === 'furniture'
       )
     ) {
       this.tool.space?.();
@@ -904,6 +907,8 @@ export class Editor {
       this.bump();
       return true;
     }
+    // Teclas próprias da ferramenta (Componente: R gira, Shift+R gira ao contrário, M espelha), sem sequência de atalho em andamento.
+    if (this.tool.key && !mod && useAtalhos.getState().pendente === '' && this.tool.key(k, e.shiftKey)) { this.bump(); return true; }
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });
@@ -1348,6 +1353,7 @@ export class Editor {
       this.store.markSaved();
       safeSet(AUTOSAVE_SALVO_KEY, text);
       useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
+      avisarTamanhoDoProjeto(text.length);
       return;
     }
     if (entrega === 'cancelado') {
@@ -1363,6 +1369,7 @@ export class Editor {
     } catch {
       useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated', args: { name } } : { key: 'eds_msg_download_failed' } });
     }
+    avisarTamanhoDoProjeto(text.length);
   }
 
   /**
@@ -1437,6 +1444,7 @@ export class Editor {
           ? { key: 'bib_saved_elsewhere' as const, args: { name: projeto.pasta } }
           : { key: pasta === null ? ('bib_saved_new' as const) : ('bib_saved' as const), args: { name: projeto.pasta } };
       useUi.setState({ status });
+      avisarTamanhoDoProjeto(conteudo.length);
       return true;
     } catch {
       useUi.setState({ status: { key: 'bib_save_error' } });

@@ -40,6 +40,8 @@ export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from '.
 export * from './wallGeom.ts';
 export * from './clipboard.ts';
 export * from './pasteTool.ts';
+export * from './furnitureTool.ts';
+export * from './furnitureFootprint.ts';
 export * from './pasteLevels/types.ts';
 export * from './pasteLevels/command.ts';
 export * from './lengthEdit.ts';
@@ -78,6 +80,9 @@ export * from './stairStroke.ts';
 export * from './stairPick.ts';
 export * from './componentEdge.ts';
 export * from './componentOps.ts';
+export * from './componentGhost.ts';
+export * from './componentGroupActions.ts';
+export { ComponentTool } from './componentTool.ts';
 // `offsetEdge` do componente colide com o de roofEdges; no barrel ele sai como `offsetEdgeCommand`.
 export {
   commitComponentEdge,

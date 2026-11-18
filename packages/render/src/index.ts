@@ -12,11 +12,14 @@ export * from './plan/grid.ts';
 export * from './plan/cpuPlan.ts';
 export * from './plan/gpuPlan.ts';
 export * from './model3d/solids.ts';
+export { furnitureViewBudget, AVISO_TRIANGULOS_MOVEIS, type OrcamentoDeMoveis, type OpcoesOrcamento } from './model3d/furnitureBudget.ts';
+export { moveisIdDaInstancia, type OpcoesMoveis } from './model3d/furnitureSolids.ts';
 export * from './model3d/orbit.ts';
 export * from './model3d/scene3d.ts';
 export * from './model3d/texturas3d.ts';
 export * from './model3d/pick3d.ts';
 export * from './model3d/selecaoPorCaixa3d.ts';
+export * from './model3d/previaComponente3d.ts';
 export * from './model3d/cad3d.ts';
 // Prévia do Colar alinhado: camada violeta translúcida, fora do picking e do realce.
 export { CamadaFantasmas, COR_DO_FANTASMA, OPACIDADE_DO_FANTASMA, type OpcoesFantasmas } from './model3d/ghost.ts';
@@ -69,3 +72,8 @@ export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, 
 export * from './section/guardaCorpo.ts';
 export * from './section/terreno.ts';
 export * from './plan/terrenoEdicaoOverlay.ts';
+export * from './familia/index.ts';
+export * from './familia/usinagensMarcadores.ts';
+export * from './model3d/componentSolids.ts';
+export * from './model3d/gizmoComponenteTipos.ts';
+export { GizmoComponente3D } from './model3d/gizmoComponente3d.ts';
