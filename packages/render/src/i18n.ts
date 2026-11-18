@@ -23,6 +23,7 @@ const PT = {
   rn_snap_center: 'Centro',
   rn_snap_tangent: 'Tangente ao arco',
   rn_snap_top_face: 'Face superior',
+  rn_snap_contour: 'Curva de nível',
   rn_snap_host_wall: 'parede',
   rn_snap_host_wall_mark: 'parede {mark}',
 
@@ -88,6 +89,7 @@ const EN: Record<DictKey, string> = {
   rn_snap_center: 'Center',
   rn_snap_tangent: 'Tangent',
   rn_snap_top_face: 'Top face',
+  rn_snap_contour: 'Contour line',
   rn_snap_host_wall: 'wall',
   rn_snap_host_wall_mark: 'wall {mark}',
 
@@ -161,6 +163,7 @@ const ES: Record<DictKey, string> = {
   rn_snap_center: 'Centro',
   rn_snap_tangent: 'Tangente al arco',
   rn_snap_top_face: 'Cara superior',
+  rn_snap_contour: 'Curva de nivel',
   rn_snap_host_wall: 'pared',
   rn_snap_host_wall_mark: 'pared {mark}',
 
@@ -219,6 +222,7 @@ const DE: Record<DictKey, string> = {
   rn_snap_center: 'Mittelpunkt',
   rn_snap_tangent: 'Bogentangente',
   rn_snap_top_face: 'Oberseite',
+  rn_snap_contour: 'Höhenlinie',
   rn_snap_host_wall: 'Wand',
   rn_snap_host_wall_mark: 'Wand {mark}',
 
@@ -277,6 +281,7 @@ const FR: Record<DictKey, string> = {
   rn_snap_center: 'Centre',
   rn_snap_tangent: 'Tangent à l\'arc',
   rn_snap_top_face: 'Face supérieure',
+  rn_snap_contour: 'Courbe de niveau',
   rn_snap_host_wall: 'mur',
   rn_snap_host_wall_mark: 'mur {mark}',
 
@@ -335,6 +340,7 @@ const IT: Record<DictKey, string> = {
   rn_snap_center: 'Centro',
   rn_snap_tangent: 'Tangente all\'arco',
   rn_snap_top_face: 'Faccia superiore',
+  rn_snap_contour: 'Curva di livello',
   rn_snap_host_wall: 'parete',
   rn_snap_host_wall_mark: 'parete {mark}',
 
@@ -393,6 +399,7 @@ const PL: Record<DictKey, string> = {
   rn_snap_center: 'Środek',
   rn_snap_tangent: 'Styczna do łuku',
   rn_snap_top_face: 'Górna powierzchnia',
+  rn_snap_contour: 'Poziomica',
   rn_snap_host_wall: 'ściana',
   rn_snap_host_wall_mark: 'ściana {mark}',
 

@@ -11,7 +11,7 @@ import type { StructuralAnchorPreset } from './structuralPresets.ts';
 import type { Lang } from './i18n.ts';
 import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
-export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'none';
+export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'contour' | 'none';
 
 export interface Guide {
   from: Vec2;
@@ -25,7 +25,7 @@ export interface Inference {
   guides: Guide[];
   /** Parede sobre a qual o cursor está (para portas e janelas). */
   hostId?: Id;
-  /** Cota z absoluta (m) do ponto capturado, quando a captura vem da face superior da parede (`topFace` em planta). */
+  /** Cota z absoluta (m) do ponto capturado: face superior da parede (`topFace` em planta) ou curva de nível (`contour`). */
   z?: number;
 }
 

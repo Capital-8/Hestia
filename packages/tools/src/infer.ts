@@ -128,6 +128,8 @@ const WEIGHT: Record<SnapKind, number> = {
   tangent: 0.3,
   // Face superior: mesmo custo da face de base; as ferramentas de topo (telhado, forro, piso, laje, Alinhar) usam pesos menores (`snapTopFace.ts`).
   topFace: 0.1,
+  // Curva de nível do terreno (só Rótulo de curva e Cota de ponto): acima da grade e do alinhamento, abaixo de vértice, meio e perpendicular.
+  contour: 0.5,
   none: 9,
 };
 /** Cruzamento de duas restrições (x × y, x × face, face × face): o ponto que o usuário mira. */
@@ -327,8 +329,8 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
     onRay.push({ point: lock.point, kind: lock.kind, weight: LOCK_WEIGHT, guides: [{ from: origin, to: lock.point, kind: lock.kind }] });
     return bestOf(onRay, cursor, tol, ctx.previous, ctx.cycle, [], undefined);
   };
-  const add = (point: Vec2, kind: SnapKind, guides: Guide[] = [], hostId?: Id, weight: number = WEIGHT[kind]): void => {
-    cands.push({ point, kind, weight, guides, hostId });
+  const add = (point: Vec2, kind: SnapKind, guides: Guide[] = [], hostId?: Id, weight: number = WEIGHT[kind], z?: number): void => {
+    cands.push({ point, kind, weight, guides, hostId, ...(z !== undefined ? { z } : {}) });
   };
 
   const ends: Vec2[] = [];
