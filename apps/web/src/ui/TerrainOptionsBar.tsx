@@ -1,6 +1,6 @@
 import { useReducer, type ReactElement } from 'react';
 import { TERRENO_LIMITES, type PapelRegiaoTerreno } from '@hestia/model';
-import { TerrainRegionTool, type TerrainEditTool, type TerrainTool } from '@hestia/tools';
+import { FLECHA_MAX, FLECHA_MIN, FLECHA_PADRAO, TerrainRegionTool, type TerrainEditTool, type TerrainTool, type ToolOptions } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
@@ -23,6 +23,32 @@ const SUBMODOS: ReadonlyArray<{ value: ModoEdicaoTerreno; chave: keyof Dict }> =
   { value: 'borda', chave: 'ui_tn_o_borda' },
 ];
 
+/**
+ * Campos da forma da curva de nível (galeria "Desenhar"): flecha máxima da discretização (m, com as unidades do projeto) e, nos polígonos,
+ * o número de lados. Some com a forma "Linha". As opções vivem no estado de interface, como as da Parede e da linha de detalhe.
+ */
+export function FormaCurvaCampos(): ReactElement | null {
+  const { t } = useT();
+  const o = useUi((s) => s.options);
+  const forma = o.terrainShape ?? 'line';
+  if (forma === 'line') return null;
+  const set = (patch: Partial<ToolOptions>): void => useUi.setState((s) => ({ options: { ...s.options, ...patch } }));
+  return (
+    <>
+      <label>
+        {t('ui_tn_o_flecha')}
+        <NumField id="opt-tn-flecha" quantity="smallLength" value={o.terrainFlecha ?? FLECHA_PADRAO} min={FLECHA_MIN} max={FLECHA_MAX} onCommit={(v) => set({ terrainFlecha: Math.min(FLECHA_MAX, Math.max(FLECHA_MIN, v)) })} />
+      </label>
+      {forma === 'poly-inscribed' || forma === 'poly-circumscribed' ? (
+        <label>
+          {t('pro_poly_sides')}
+          <NumField id="opt-tn-lados" value={o.terrainPolygonSides ?? 6} decimals={0} min={3} max={64} onCommit={(v) => set({ terrainPolygonSides: Math.min(64, Math.max(3, Math.round(v))) })} />
+        </label>
+      ) : null}
+    </>
+  );
+}
+
 /** Campos da Topografia: modo (pontos ou curvas), Cota (exibida) e Passo. A ferramenta guarda o estado; `onChange` pede um novo desenho. */
 export function TopografiaOpcoes({ tool, onChange }: { tool: TerrainTool; onChange: () => void }): ReactElement {
   const { t } = useT();
@@ -42,6 +68,7 @@ export function TopografiaOpcoes({ tool, onChange }: { tool: TerrainTool; onChan
         {t('ui_tn_o_passo')}
         <NumField id="opt-tn-passo" quantity="length" value={tool.passo} onCommit={(v) => { tool.definirPasso(v); onChange(); }} />
       </label>
+      {tool.modoAtual === 'curvas' ? <FormaCurvaCampos /> : null}
     </>
   );
 }
@@ -64,6 +91,7 @@ export function EdicaoOpcoes({ tool, onChange, onConcluir }: { tool: TerrainEdit
         {t('ui_tn_o_cota')}
         <NumField id="opt-tn-edit-cota" quantity="length" value={cota} onCommit={(v) => { tool.definirCotaDoCampo(v); onChange(); }} />
       </label>
+      {tool.modoAtual === 'curva' ? <FormaCurvaCampos /> : null}
       <button type="button" className="btn small" onClick={onConcluir}>{t('ui_tn_o_concluir')}</button>
     </>
   );
