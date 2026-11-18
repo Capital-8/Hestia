@@ -29,7 +29,7 @@ Marcas: **[V]** = verificado por código, teste ou comparação de arquivo gerad
 - Forma em `forma` já vem dimensionada pelo vão bruto (`openingShapeOf`, `packages/model/src/openingShapeOf.ts:12`), igual ao `roughWidth`/`roughHeight` do retângulo. **[V]**
 - **Retângulo idêntico [V].** Comparei o STEP exportado do `house2` antes e depois da mudança, normalizando as referências `#n` (a numeração muda porque as entidades novas entram no meio). Vãos (`IFCOPENINGELEMENT`), portas, janelas e paredes, expandidos até os valores, saem idênticos: 32 linhas canônicas nos dois lados, sem diferença. A comparação não é linha a linha porque a numeração muda.
 - **[I] Limitações do vão com forma no export:**
-  - Os batentes e folhas do corpo da esquadria continuam retangulares dentro do vão arqueado; sobra vazio nos cantos do arco. Não visto em visualizador.
+  - Os batentes e folhas do corpo da esquadria continuavam retangulares dentro do vão arqueado; sobrava vazio nos cantos do arco. **Superado pela §8**: as peças com seção real saem recortadas. Não visto em visualizador.
   - Parede inclinada ou curva: o vazio segue o eixo reto da parede, a mesma limitação do retângulo no caminho de `addOpenings`. Não testado com forma.
   - Forma inválida (`validateOpeningShape` não vazio) cai em retângulo sem aviso. **[V]** código; **[I]** o usuário não é avisado.
 
@@ -103,7 +103,54 @@ O tipo ganha a forma (`elementTypes.ts:98`): o identificador inclui o tipo e a f
 1. `LiningDepth` e `PanelWidth`: dependem da parede ou da instância. Ficam fora do tipo; falta um conjunto por ocorrência com `ParameterTakesPrecedence`.
 2. `TransomThickness`, `MullionThickness`: o modelo não guarda espessura de travessa nem de montante.
 3. `FrameDepth`/`FrameThickness` da janela: não preenchidos (ver §3).
-4. Corpo da esquadria dentro de vão arqueado: continua retangular.
+4. Corpo da esquadria dentro de vão arqueado: **superado pela §8** para as peças com seção (batente em ts, travessa, folha, vidro, maçaneta). Batente de janela em arco continua caixa.
 5. Validação em visualizador ou `ifcopenshell.validate`: pendente.
 6. `IFC4.3`: os psets equivalentes (`Pset_DoorLiningProperties` etc., `06` §4) não foram gravados.
 7. `docs/estudo-esquadrias/23-ifc-perfil-contorno.md` §5 (itens 2 e 4) ficou desatualizado: o módulo já está ligado ao export. Não foi editado, por ser outro documento.
+
+## 8. Peças em arco no IFC (vão com forma)
+
+Antes, cada peça da esquadria saía como caixa em z: num vão em arco, a peça era a caixa envolvente, maior que o arco. Agora a peça recortada pelo contorno sai com a seção real. **[V]** para as quatro formas testadas abaixo; visualizador e `ifcopenshell.validate` continuam pendentes.
+
+### 8.1 O que mudou (arquivo:linha)
+
+| Arquivo | Mudança |
+|---|---|
+| `packages/io/src/ifc/ifcTypes.ts:50-60` | `IfcOpeningPartGeo.profile?` (plano `ts`/`sz`/`tz` e pontos). Ausente = caixa, como antes. |
+| `packages/io/src/ifc/ifcOpeningParts.ts` (novo) | `openingPartSolid`: sólido da peça pelo plano. Sem `profile`, o caminho é o retângulo de sempre (`extrudeSolid`, mesmas linhas). `rectOfPart` saiu de `ifcExport.ts`. |
+| `packages/io/src/ifc/ifcExport.ts:231` | Peças do vão passam por `openingPartSolid`. 378 para 367 linhas. |
+| `apps/web/src/editor/ifcExport.ts:` `openingPartsOf` | Repassa `profile` **só** quando `g.forma` existe. 394 linhas (limite 420). |
+| `apps/web/src/editor/ifcExportPecasArco.test.ts` (novo) | 7 testes (ver 8.3). |
+
+### 8.2 Planos e eixos da extrusão
+
+Coordenadas do sistema local do vão (t ao longo da parede, s na espessura, z acima do peitoril), as mesmas da caixa. O `IfcAxis2Placement3D` do sólido só troca o plano da seção.
+
+| Plano | Pontos da seção | Extrusão | Position (origem; eixo Z; X) |
+|---|---|---|---|
+| `ts` | (t, s) | +z de z0 a z1 | padrão (sem placement próprio) |
+| `sz` | (s, z) | +t de t0 a t1 | (t0, 0, 0); Z = +t; X = +s; Y = +z |
+| `tz` | (t, z) | -s de s1 a s0 | (0, s1, 0); Z = -s; X = +t; Y = +z |
+
+Em todos os casos Z × X = Y, então a seção fica no plano certo. [V] pelos testes de caixa do mundo (8.3).
+
+### 8.3 Verificação [V]
+
+- **Vão retangular idêntico.** Exportei os seis modelos de partida (`blank`, `esquadrias`, `house-premium`, `house2`, `predio10`, `studio`) antes e depois, com a mesma data. O texto STEP sai **byte a byte igual** nos seis. É mais forte que a comparação normalizada de §2, que ficou só por causa da numeração. O snapshot era temporário e foi apagado.
+- **Peças em arco, 4 casos.** Porta `ot_p90` com arco pleno (`round` 0,9 × 2,1) e abatido (`segmental` 0,9 × 2,1, flecha 0,3); janela `ot_j120` com arco pleno (`round` 1,2 × 1,2) e abatido (flecha 0,3). Para cada peça, o teste lê o texto de volta com `parseStep` (o leitor do importador) e confere:
+  - **número de peças**: uma por peça do modelo, sem cavidade, tracejada, verga nem soleira;
+  - **caixa do mundo** do sólido lido = caixa da peça (1 µm). Isso valida plano e eixo da extrusão;
+  - **volume** do sólido = `partQuantity(peça).volume` do engine, com tolerância perímetro da seção × profundidade × 1 µm. Essa é a precisão da escrita (`num`, 6 casas). Uma tolerância relativa de 1e-5 falhou na roseta da maçaneta (1,4e-5 m³), por isso a tolerância é absoluta por peça;
+  - vidro e folha em arco têm volume **menor** que a caixa envolvente.
+- **Cobertura dos planos.** Porta: batente em `ts`, travessa, folha e roseta em `tz`, alavanca da maçaneta em `sz`. Janela: travessa, folha e vidro em `tz`. [V] pelo levantamento das peças de cada caso.
+- **Regressão do IFC.** 43 arquivos de IFC (`packages/io/src/ifc`, `packages/io/src/ifcImport`, `apps/web` de export, `wallShapesIntegracao`, `wallTiltIfcDxf`, `wallTiltJuncaoIfc`): 328 testes verdes. `tsc`: nenhum erro nos arquivos tocados; os erros que restam são de `engine/furoContornoDespacho.ts`, `engine/openingModelContorno.ts` (importa `openingModelMuntinsContorno.ts`, que ainda não existe) e `model/openingExtras.ts`, de outras frentes. `eslint` nos arquivos tocados: limpo. `check-boundaries`: "fronteiras ok".
+
+### 8.4 Decisões e limites
+
+- **Só vão com forma.** O perfil entra apenas quando o vão tem `forma`. Motivo: a maçaneta (roseta `tz`, alavanca `sz`) e o rebaixo do batente (`ts`) também têm perfil em vão retangular. Exportá-los mudaria o IFC retangular, que tem que ficar idêntico.
+  - Consequência [V]: num vão com forma, a maçaneta sai com a roseta de verdade (disco), e o batente em `ts` sai com o rebaixo. No vão retangular a mesma peça continua caixa.
+  - [I] Generalizar o perfil para o vão retangular é uma mudança de IFC retangular. Fica para decisão, não para este passo.
+- **Batente de janela em arco continua caixa.** No modelo de `ot_j120`, a ombreira não tem perfil `ts`; o arco é coberto pela travessa e pela folha. [V] pelo levantamento das peças.
+- **Não validado externamente.** Sem visualizador e sem `ifcopenshell` nesta sessão. A orientação dos planos foi checada pela caixa do mundo que o próprio leitor reconstrói, não visualmente. [I] a leitura pelo web-ifc e pelo IfcOpenShell.
+- **Alizar em arco não tem teste dedicado.** O caminho é o mesmo (`tz` do grupo), mas os casos acima não têm alizar configurado. [I]
+- **Quantitativos IFC intocados.** O Qto do `IfcOpeningElement` (§4) continua calculado pelo contorno do vão, não pelas peças. As quantidades de peça do engine (`partQuantity`) não foram ligadas ao IFC.
