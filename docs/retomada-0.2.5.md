@@ -98,3 +98,13 @@ Em um computador com Visual Studio Build Tools não é preciso.
 3. Mesclar o PR #39 (instalador do macOS), se for na release.
 4. Gerar o instalador de teste com o workflow `build-desktop` (não publica nada) e testar.
 5. Só então criar a tag `v0.2.5`.
+
+## Suavização — TS/UI (executor TS, commit `6af3cc88`)
+- Modelo: `suavizarCurvas` (ausente = exata) e `toleranciaSuavizacao` (m). Tolerância inválida ou fora de [0,001; 0,5] cai em 0,02; `toleranciaCurvasDoTerreno` devolve 0 para exata.
+- `terrainTypeIssue` recusa tolerância fora dos limites com `md_tn_tolerancia` (params em metros); só checa com a suavização ligada.
+- Serviço: `ServicoTerreno.curvas` faz uma consulta `terreno_curvas` por tolerância distinta; a chave de memória ganha `id=tol` só para terrenos suavizados.
+- DXF, planta, pranchas e snap usam `servico.curvas()`, então herdam a tolerância. Não há chamada direta a `terreno_curvas` no TS.
+- UI: Editar tipo tem select Exata/Suavizada e campo de tolerância em `quantity="length"` (unidade do projeto; sem "cm" fixo, que o check-units proíbe). Propriedades do terreno mostram a opção e a tolerância só de leitura.
+- Testes (17 novos, valores literais) passam; pastas de model, engine, UI de terreno e i18n passam sem falha. Typecheck RC=0; eslint limpo nos arquivos tocados.
+- Pendente: `check-units` falha por `pranchasEstabilidadeSuite.ts`, `pranchasFixture.ts` e `model3d/solids.ts` (outra frente). `check-i18n-placeholders` tem 1 divergência pré-existente (`pct_mullion_copy_name`).
+- Depende do Rust: a consulta 161 com 3º argumento `tolerancia` precisa do wasm novo para as curvas suavizadas saírem certas na tela; o teste de memória usa cena falsa.
