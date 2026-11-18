@@ -232,6 +232,44 @@ describe('terreno, ficha R3: superfície proposta, corte e aterro pela ABI real'
     cena.destruir();
   });
 
+  it.skipIf(!bytes)('terreno_corte_aterro: rampa com região nivelada e taludes 1,5/2 tem corte e aterro, fronteira exata em x = 10 e cobertura sem buracos', () => {
+    // E: z = 0,5·x. Nivelada na cota 5 em (5,5)-(15,15): aterro onde E < 5 (x < 10), corte onde E > 5 (x > 10).
+    const rampa: TerrenoDeTeste = { id: 8, z: (x) => 0.5 * x, regioes: [{ id: 4, papel: 2, quadrado: [5, 5, 10], cota: 5, taludeCorte: 1.5, taludeAterro: 2 }] };
+    const cena = cenaCom([rampa]);
+    const m = cena.consultar('terreno_corte_aterro', [0]);
+    const g = Array.from(m['grupos']!);
+    expect([[g[0], g[1]], [g[4], g[5]]]).toEqual([[8, 0], [8, 1]]);
+    const p = m['pontos']!;
+    const dentro = [0, 0];
+    for (const tipo of [0, 1]) {
+      for (let k = g[4 * tipo + 2]!; k < g[4 * tipo + 2]! + g[4 * tipo + 3]!; k += 3) {
+        const xs = [p[2 * k]!, p[2 * k + 2]!, p[2 * k + 4]!];
+        const ys = [p[2 * k + 1]!, p[2 * k + 3]!, p[2 * k + 5]!];
+        const [ax, ay, bx, by, cx, cy] = [xs[0]!, ys[0]!, xs[1]!, ys[1]!, xs[2]!, ys[2]!];
+        const area = ((bx - ax) * (cy - ay) - (by - ay) * (cx - ax)) / 2;
+        expect(area).toBeGreaterThan(0);
+        for (const x of xs) expect(x).toBeGreaterThanOrEqual(0);
+        const [mx, my] = [(ax + bx + cx) / 3, (ay + by + cy) / 3];
+        if (mx > 5 && mx < 15 && my > 5 && my < 15) {
+          dentro[tipo]! += area;
+          // Dentro da região plana a diferença é 5 − 0,5·x: nenhum canto do lado errado da reta x = 10.
+          for (const x of xs) expect(tipo === 0 ? x : 20 - x).toBeGreaterThanOrEqual(10 - 1e-9);
+        }
+      }
+    }
+    // Cada metade da plataforma tem 50 m²; só falta a faixa de ±1 cm em torno da reta de zero (≈ 0,2 m² em cada).
+    expect(dentro[0]!).toBeGreaterThan(49.5);
+    expect(dentro[0]!).toBeLessThanOrEqual(50 + 1e-9);
+    expect(dentro[1]!).toBeGreaterThan(49.5);
+    expect(dentro[1]!).toBeLessThanOrEqual(50 + 1e-9);
+    // Nada fora do terreno (0,0)-(20,20).
+    for (let i = 0; i < p.length; i++) {
+      expect(p[i]!).toBeGreaterThanOrEqual(0);
+      expect(p[i]!).toBeLessThanOrEqual(20);
+    }
+    cena.destruir();
+  });
+
   it.skipIf(!bytes)('terreno_avisos: regiões sobrepostas (3) e fora do terreno (6); T5 não avisa nada', () => {
     const cruzadas: TerrenoDeTeste = {
       id: 3,
