@@ -2,6 +2,7 @@ import { OPENING_FRAME_DEFAULTS, openingHeight, type Opening, type OpeningType }
 import { gid, materialOf, optStr, type IfcCtx } from './ifcCtx.ts';
 import { en, list, OMIT, ref, stepString } from './ifcStep.ts';
 import { singleValue, type PropInput } from './ifcProperties.ts';
+import { liningPanelIds } from './ifcOpeningLining.ts';
 
 /**
  * `Pset_ManufacturerTypeInformation` do tipo (IFC4: ligado pelo `HasPropertySets` do próprio tipo, não por
@@ -212,6 +213,8 @@ export function openingTypeEntity(c: IfcCtx, t: OpeningType): number {
   if (known !== undefined) return known;
   const properties: number[] = [];
   if (t.kind === 'window') properties.push(...windowPanels(c, t, false, `wintypepanel:${t.id}`));
+  // Lining e painéis de porta/janela (`IfcDoorLiningProperties` etc.): conjuntos do tipo, ver `ifcOpeningLining.ts`.
+  properties.push(...liningPanelIds(c, t));
   const manufacturer = manufacturerSet(c, t);
   if (manufacturer !== undefined) properties.push(manufacturer);
   const isDoor = t.kind === 'door';

@@ -144,6 +144,7 @@ function openingsOf(p: Project): IfcGeometry['openings'] {
       sillZ,
       thickness: g.thickness,
       parts: openingPartsOf(p, o, g, t, frame),
+      ...(g.forma ? { forma: g.forma } : {}),
     });
   }
   return out;

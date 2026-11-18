@@ -98,7 +98,9 @@ describe('vão com perfil não retangular', () => {
     expect(tipo.width).toBeCloseTo(1, 2);
     expect(tipo.height).toBeCloseTo(2, 2);
     expect(janelas[0]!.hostId).toBe(lista<Wall>(project, 'wall')[0]!.id);
-    expect(report.warnings.some((m) => m.startsWith('Janela "J1": o vão não é retangular') && m.includes('caixa envolvente'))).toBe(true);
+    // O arco é um semicírculo exato de 1,00 m de largura (raio 0,5 m): é reconhecido como arco pleno, sem aviso de forma.
+    expect(tipo.shape?.kind).toBe('round');
+    expect(report.warnings.some((m) => m.includes('não é retangular') || m.includes('forma livre'))).toBe(false);
   });
 
   it('janela retangular não gera o aviso de forma', () => {

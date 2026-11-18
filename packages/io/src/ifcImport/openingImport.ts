@@ -5,11 +5,12 @@ import { guid, noteGeometry, psetOf } from './mappingUtil.ts';
 import { hostByGeometry } from './openingHost.ts';
 import { panelHandOf, windowPanelOperations } from './openingBim.ts';
 import { profileLoops } from './profiles.ts';
+import { fitOpeningShape, nomeDaForma } from './openingShapeFit.ts';
 import type { Ctx } from './mapping.ts';
 import type { IfcFile, Pt2 } from './ifc.ts';
 import type { StepEntity } from './step.ts';
 import { t } from '../i18n.ts';
-import type { Id, Opening } from '@hestia/model';
+import type { Id, Opening, OpeningShape } from '@hestia/model';
 
 /** Porta/janela que não coube no modelo nativo: vira objeto genérico; só fica de fora se não tiver corpo. */
 function fallbackOpening(ctx: Ctx, filler: StepEntity, reason: string): void {
@@ -34,6 +35,11 @@ function areaOf(loop: Pt2[]): number {
  * arco? Compara a área do contorno com a da caixa envolvente; um contorno retangular com pontos extras na reta não conta.
  */
 export function outlineIsNotRect(f: IfcFile, owner: StepEntity): boolean {
+  return nonRectLoopOf(f, owner) !== null;
+}
+
+/** Primeiro contorno externo do vão que não é retângulo (o perfil 2D, como vem do IFC), ou `null` se todos são retângulos. */
+export function nonRectLoopOf(f: IfcFile, owner: StepEntity): Pt2[] | null {
   for (const rep of f.list(f.ent(owner, 6), 2)) {
     for (const item of f.list(rep, 3)) {
       if (item.type !== 'IFCEXTRUDEDAREASOLID') continue;
@@ -42,10 +48,10 @@ export function outlineIsNotRect(f: IfcFile, owner: StepEntity): boolean {
       const xs = outer.map((p) => p.x);
       const ys = outer.map((p) => p.y);
       const box = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
-      if (box > 0 && Math.abs(areaOf(outer) - box) / box > 1e-3) return true;
+      if (box > 0 && Math.abs(areaOf(outer) - box) / box > 1e-3) return outer;
     }
   }
-  return false;
+  return null;
 }
 
 /** Sentido da dobradiça da janela pelos painéis (`IfcWindowPanelProperties`); undefined = sem informação, mantém o padrão. */
@@ -81,10 +87,19 @@ export function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'
   const loop = prism?.loops[0] ?? [];
   const cloud = prism ? loop.map((p) => ({ x: p.x, y: p.y, z: prism.z0 })) : bodyPoints(body);
   if (cloud.length < 3) return fallbackOpening(ctx, filler, t(ctx.lang, 'io_ifc_warn_opening_few_points'));
-  if (outlineIsNotRect(f, owner)) {
-    const nome = f.text(filler, 2).trim() || `#${filler.id}`;
+  // Forma do perfil: arco pleno, abatido, ogival, círculo (exatos, sem aviso) ou forma livre (a mais próxima, com aviso
+  // do desvio). O que não chega perto de nenhuma forma segue como caixa envolvente, com o aviso de sempre.
+  const profileLoop = nonRectLoopOf(f, owner);
+  const fit = profileLoop ? fitOpeningShape(profileLoop) : null;
+  const nome = f.text(filler, 2).trim() || `#${filler.id}`;
+  const quem = kind === 'door' ? 'Porta' : 'Janela';
+  let shape: OpeningShape | undefined;
+  if (fit && fit.shape.kind !== 'rect') {
+    shape = fit.shape;
+    if (!fit.exact) ctx.warn(`${quem} "${nome}": o vão tem forma livre; foi aproximado por ${nomeDaForma(fit.shape)} (desvio máximo ${Math.round(fit.dev * 1000)} mm).`);
+  } else if (profileLoop && !(fit && fit.exact)) {
     ctx.warn(
-      `${kind === 'door' ? 'Porta' : 'Janela'} "${nome}": o vão não é retangular (por exemplo, tem topo em arco). ` +
+      `${quem} "${nome}": o vão não é retangular (por exemplo, tem topo em arco). ` +
         'Foi aproximado por um retângulo que o envolve (caixa envolvente); a forma original não é mantida.',
     );
   }
@@ -105,7 +120,7 @@ export function addOpening(ctx: Ctx, filler: StepEntity, kind: 'door' | 'window'
   const height = Math.max(0.3, z1 - z0);
   const baseZ = ctx.p.levels.find((l) => l.id === wall.levelId)?.elevation ?? 0;
   const sill = z0 - (baseZ + wall.baseOffset);
-  const typeId = openingType(ctx, filler, kind, width, height, sill);
+  const typeId = openingType(ctx, filler, kind, width, height, sill, shape);
   const offset = Math.max(0, Math.min(len - width / 2, center));
   const id = `o_${guid(f, filler)}`;
   const hand = kind === 'window' ? windowHand(ctx, filler) : undefined;

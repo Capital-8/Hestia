@@ -1,4 +1,4 @@
-import type { CeilingType, FloorType, Id, OpeningType, Project, SlabType, WallType } from '@hestia/model';
+import type { CeilingType, FloorType, Id, OpeningShape, OpeningType, Project, SlabType, WallType } from '@hestia/model';
 import type { IfcFile } from './ifc.ts';
 import { styleOf, type IfcStyle } from './psets.ts';
 import { bimFieldsOf, isOperablePanel, windowPanelOperations } from './openingBim.ts';
@@ -88,12 +88,14 @@ export function openingType(
   w: number,
   h: number,
   sill: number,
+  shape?: OpeningShape,
 ): Id {
   const f = ctx.f;
   const declared = ctx.typeOf.get(filler.id);
   const name = f.text(declared, 2).trim() || f.text(filler, 2).trim() || tr(ctx.lang ?? 'pt', kind === 'door' ? 'io_ifc_default_door' : 'io_ifc_default_window');
   const op = operationOf(declared) || operationOf(filler);
-  const mm = `${Math.round(w * 1000)}x${Math.round(h * 1000)}`;
+  // Com forma, o tipo leva a forma no identificador: arco e retângulo de mesmas medidas são tipos diferentes.
+  const mm = `${Math.round(w * 1000)}x${Math.round(h * 1000)}${shape ? `-${shape.kind}${'rise' in shape ? Math.round(shape.rise * 1000) : ''}` : ''}`;
   const key = `open|${kind}|${name}|${mm}`;
   const hit = ctx.types.get(key);
   if (hit) return hit;
@@ -116,6 +118,7 @@ export function openingType(
     glassMaterialId: 'mat_vidro',
     closure: 'inherit',
     ...bimFieldsOf(ctx.f, filler, declared, kind),
+    ...(shape ? { shape } : {}),
   };
   ctx.p.openingTypes[id] = type;
   ctx.types.set(key, id);

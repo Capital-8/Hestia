@@ -8,10 +8,13 @@ import {
   openingRough,
   openingTypeById,
   profileHeightAt,
+  validateOpeningShape,
   type Project,
   type Wall,
   type WallType,
 } from '@hestia/model';
+import { addOpeningProfile } from './ifcOpeningProfile.ts';
+import { addOpeningQto } from './ifcOpeningLining.ts';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
 import { addStructural } from './ifcStructural.ts';
 import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './ifcCurtainWall.ts';
@@ -191,6 +194,16 @@ function addWalls(c: IfcCtx, walls: readonly IfcWallGeo[]): void {
 }
 
 /**
+ * Vazio retangular do vão bruto (o de sempre): cortador `rough` + 1 cm por face, no vão bruto. `place` é chamado só depois
+ * de o sólido existir, para manter a mesma ordem de entidades (e o mesmo texto STEP) do caminho retangular.
+ */
+function rectVoid(c: IfcCtx, g: IfcOpeningGeo, name: string, place: () => number, roughHeight: number): number {
+  const voidSolid = extrudeSolid(c.w, rectOf(g.roughWidth, g.thickness + 0.02), 0, roughHeight);
+  const voidShape = bodyShape(c.w, c.ctx, 'SweptSolid', [voidSolid]);
+  return c.w.add('IFCOPENINGELEMENT', [gid(`void:${g.openingId}`), OMIT, stepString(name), OMIT, OMIT, ref(place()), ref(voidShape), OMIT, en('OPENING')]);
+}
+
+/**
  * Vãos: IFCOPENINGELEMENT (furo do vão bruto, ligado à parede por IFCRELVOIDSELEMENT) e a porta ou janela que o preenche
  * (IFCDOOR/IFCWINDOW por IFCRELFILLSELEMENT). Porta e janela têm placement no vão (eixo X = direção da parede) e um
  * corpo de caixa com a espessura da parede; o furo tem a cota do vão bruto. Cada abertura recebe o tipo do projeto
@@ -212,9 +225,11 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
     const roughHeight = openingRough({ ...t, height }).height;
     // O cortador atravessa a parede 1 cm para cada lado: as faces laterais não ficam coplanares com as faces da parede,
     // que é o caso clássico de CSG com arestas soltas no web-ifc. O furo na face continua com o vão bruto.
-    const voidSolid = extrudeSolid(c.w, rectOf(g.roughWidth, g.thickness + 0.02), 0, roughHeight);
-    const voidShape = bodyShape(c.w, c.ctx, 'SweptSolid', [voidSolid]);
-    const voidId = c.w.add('IFCOPENINGELEMENT', [gid(`void:${g.openingId}`), OMIT, stepString(t.name), OMIT, OMIT, ref(atZ(g.roughBottomZ - st.elev)), ref(voidShape), OMIT, en('OPENING')]);
+    // Vão com forma (arco, ogival, círculo): o vazio segue o contorno, no peitoril. Forma inválida cai no retângulo.
+    const voidId =
+      g.forma && validateOpeningShape(g.forma).length === 0
+        ? addOpeningProfile(c.w, c.ctx, atZ(g.sillZ - st.elev), `void:${g.openingId}`, t.name, g.forma, { thickness: g.thickness }).opening
+        : rectVoid(c, g, t.name, () => atZ(g.roughBottomZ - st.elev), roughHeight);
     c.w.add('IFCRELVOIDSELEMENT', [gid(`rvoid:${g.openingId}`), OMIT, OMIT, OMIT, ref(wallId), ref(voidId)]);
     // Esquadria detalhada do modelo único (batente, folha, vidro, montante, maçaneta...). Cada peça é um sólido com o
     // seu `IFCSTYLEDITEM`; o vidro usa o material transparente do projeto. Sem `parts` (contrato antigo), mantém o corpo
@@ -250,6 +265,7 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
           })();
     st.contained.push(fillId);
     c.w.add('IFCRELFILLSELEMENT', [gid(`rfill:${g.openingId}`), OMIT, OMIT, OMIT, ref(voidId), ref(fillId)]);
+    addOpeningQto(c, g, t, fillId);
     // Material de fallback na instância: o web-ifc 0.0.78 ainda não propaga a associação do tipo para a ocorrência.
     // As peças com IFCSTYLEDITEM continuam com a cor específica; sem elas, a esquadria sai no material do batente.
     c.w.add('IFCRELASSOCIATESMATERIAL', [gid(`mat:${o.kind}:${g.openingId}`), OMIT, OMIT, OMIT, list([ref(fillId)]), ref(materialOf(c, t.frameMaterialId))]);

@@ -1,4 +1,4 @@
-import type { Id } from '@hestia/model';
+import type { Id, OpeningShape } from '@hestia/model';
 
 /** Ponto em planta, em metros (x para a direita, y para cima). */
 export interface IfcPoint {
@@ -71,6 +71,11 @@ export interface IfcOpeningGeo {
   sillZ: number;
   thickness: number;
   parts?: IfcOpeningPartGeo[];
+  /**
+   * Forma do vão (arco, abatido, ogival, círculo), já dimensionada pelo vão bruto (`openingShapeOf`). Ausente = retângulo
+   * `roughWidth` × `roughHeight`, como sempre. Com forma, o vazio segue o contorno no peitoril (`sillZ`).
+   */
+  forma?: OpeningShape;
 }
 
 /** Lance de escada resolvido: peças do corpo (degraus, chegada, poste) e contagens. */

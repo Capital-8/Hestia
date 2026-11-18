@@ -41,7 +41,7 @@ function entitiesByGuid(c: IfcCtx): Map<string, number> {
 }
 
 /** `IFCELEMENTQUANTITY` (`Qto_*BaseQuantities`) com as quantidades finitas, ligado ao elemento por `IFCRELDEFINESBYPROPERTIES`. */
-function addSet(c: IfcCtx, key: string, setName: string, objectId: number, quantities: readonly Quantity[]): void {
+export function addSet(c: IfcCtx, key: string, setName: string, objectId: number, quantities: readonly Quantity[]): void {
   const values: number[] = [];
   for (const [kind, name, value] of quantities) {
     if (!Number.isFinite(value)) continue;
