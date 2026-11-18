@@ -30,7 +30,6 @@ jobs:
             args: "--bundles appimage,deb,rpm"
           - platform: macos-latest
             args: "--target universal-apple-darwin --bundles app,dmg"
-            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
             # macOS é EXPERIMENTAL: sem assinatura da Apple e ainda não testado em Mac real.
             # Se este job falhar, Windows e Linux seguem publicados (continue-on-error).
             experimental: true
@@ -51,8 +50,13 @@ jobs:
 
       - name: Instalar toolchain Rust (stable)
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust_targets }}
+
+      # O projeto fixa o Rust em rust-toolchain.toml: os alvos do binário universal precisam ser
+      # adicionados NESSE toolchain (rodando dentro da pasta do projeto), não no stable acima.
+      - name: Adicionar alvos do macOS (só no macOS)
+        if: matrix.platform == 'macos-latest'
+        working-directory: desktop/src-tauri
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Instalar dependências do Linux (só no Linux)
         if: matrix.platform == 'ubuntu-22.04'
