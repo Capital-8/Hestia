@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_NOME_PASTA, nomeDePasta, nomeDePastaUnico, nomeDoProjeto } from './nomes.ts';
+import { MAX_NOME_PASTA, nomeDePasta, nomeDePastaUnico, nomeDoProjeto, novoNomeDePasta } from './nomes.ts';
 import { comProjeto, indiceVazio, lerIndice, MAX_MINIATURA, mesclarDescobertos, miniaturaValida, ordenarProjetos, semProjeto, serializarIndice } from './indice.ts';
 import type { ProjetoDaBiblioteca } from './tipos.ts';
 
@@ -48,6 +48,26 @@ describe('nome da pasta do projeto', () => {
   it('nome do projeto a partir da pasta descarta o sufixo de cópia', () => {
     expect(nomeDoProjeto('Casa (2)')).toBe('Casa');
     expect(nomeDoProjeto('Casa')).toBe('Casa');
+  });
+});
+
+describe('novo nome da pasta quando o projeto é renomeado', () => {
+  it('muda quando o nome do projeto não bate mais com a pasta', () => {
+    expect(novoNomeDePasta('Projeto sem título', 'teste', [])).toBe('teste');
+  });
+  it('mantém a pasta quando já bate, com sufixo de cópia ou só em maiúsculas', () => {
+    expect(novoNomeDePasta('Casa', 'Casa', ['Casa'])).toBeNull();
+    expect(novoNomeDePasta('Casa (2)', 'Casa', ['Casa', 'Casa (2)'])).toBeNull();
+    expect(novoNomeDePasta('casa', 'Casa', [])).toBeNull();
+  });
+  it('evita pastas ocupadas por outros e ignora a própria', () => {
+    expect(novoNomeDePasta('x', 'teste', ['teste', 'x'])).toBe('teste (2)');
+    expect(novoNomeDePasta('x', 'x', ['x'])).toBeNull();
+  });
+  it('aplica a limpeza de nome (caracteres inválidos, reservados, vazio)', () => {
+    expect(novoNomeDePasta('a', 'a/b:c', [])).toBe('a b c');
+    expect(novoNomeDePasta('a', 'CON', [])).toBe('_CON');
+    expect(novoNomeDePasta('a', '   ', [])).toBe('Projeto');
   });
 });
 
