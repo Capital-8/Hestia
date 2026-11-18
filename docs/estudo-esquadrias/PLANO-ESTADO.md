@@ -19,7 +19,9 @@ Regras: agentes não fazem commit (a coordenação faz); arquivos disjuntos por 
 | 2 | quantitativo e retorno do vão com contorno (Rust, 12 testes, doc 22) | Sonnet | concluído; junção de paredes só em plano (doc 22 §4.3); verga/soleira no retorno é decisão do dono |
 | 2 | vistas do contorno: elevação, corte horizontal/vertical, símbolo em planta (`openingShapeViews.ts`, 29 testes) | Haiku | concluído; não ligado à planta |
 | 2 | IFC: perfil do vão em contorno livre (`ifcOpeningProfile.ts`, 18 testes, doc 23) | Haiku | concluído; não ligado ao export; sem validação em visualizador |
-| 2 | ligar tudo: campo de forma em `OpeningType`/vão, `resolve.ts` chamando o Rust, 3D, DXF, composição | Haiku/Sonnet | pendente (mexe em código existente) |
-| 3 | integração: `npm run build:wasm` (+1,07 MB), NOTICE (manifold-rust Apache-2.0, clipper2-rust BSL-1.0, dashu, rustc-hash), cliente TS da ABI, esquema, goldens | Haiku/Sonnet | pendente |
+| 2 | ligar o furo: forma em `OpeningType`, despacho, 3D, planta, quantitativo e quadro (docs 24, 26, 27) | Sonnet | concluído e verificado com o Rust real (18 testes e2e wasm); vão retangular idêntico; falta rodar no navegador e medir tempo |
+| 2 | ainda retangulares com forma: vista de corte, elevação, DXF, IFC (módulo pronto, não ligado ao export), retorno em canto, `furo_quant_parede` não chamada | Haiku/Sonnet | pendente |
+| 3 | build:wasm (3,70 MB, teto 4 MB), NOTICE, cliente TS da ABI e instalação em `kernelDespacho.ts` | Sonnet | concluído |
+| 3 | goldens visuais, esquema da cena v20, interface (alças, catálogo com arcos), carga sob demanda do furo para reduzir o wasm | Haiku/Sonnet | pendente |
 | 4 | UI, alças, catálogo, quadro, interoperabilidade | Haiku/Sonnet | pendente |
 | 5 | objetos compostos (opcional) | - | a decidir |

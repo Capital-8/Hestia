@@ -34,3 +34,4 @@ export { baixarAsset as baixarAssetDoWasm } from './kernel/carregador.ts';
 export * from './curveFit.ts';
 export { carregarFuroContorno, furarParedePorContorno, furoContornoCarregado, type MalhaCamadaFuro, type ResultadoFuroParede, type VaoContorno } from './furoContorno.ts';
 export { carregarFuroPrisma, furarPrismas, furoPrismaCarregado, type CamadaPrisma, type MalhaCamadaPrisma, type PoligonoPlanta, type ResultadoPrismas } from './furoPrisma.ts';
+export { carregarFuroQuant, furoQuantCarregado, quantificarParede, quantificarVao, retornoDoContorno, type EntradaRetornoContorno, type PontoContorno, type QuantidadeCamadaFurada, type QuantidadeParede, type QuantidadeVao, type ResultadoRetornoContorno, type VaoQuant } from './furoQuant.ts';

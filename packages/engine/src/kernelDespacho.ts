@@ -26,6 +26,7 @@ import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
 import { CONFIG_PADRAO, type ConfigDespacho } from './kernelDespachoConfig.ts';
+import { instalarClienteFuroReal } from './furoClienteReal.ts';
 export { aoMudarKernelPendente, KernelPendente } from './kernelPendente.ts';
 export { CONFIG_PADRAO, K_0049_FATIA_B, type ConfigDespacho } from './kernelDespachoConfig.ts';
 import type { ElementoB1 } from './kernelB.ts';
@@ -469,6 +470,10 @@ export function iniciarDespachoKernel(config: ConfigDespacho, carregar: Carregad
         }
         // v1: o mesmo wasm; `ativarKernelExperimental` nunca lança (a falha fica no motivo do kernel e vira `ErroKernelV1` nas operações).
         await ativarKernelExperimental({ bytes: copiaV1 });
+        // Furo por contorno (docs/estudo-esquadrias/27): os mesmos bytes trazem `furo_prisma_*` e `furo_retorno_vao`. Nunca lança; módulo sem as
+        // exportações, ou com cliente já instalado, deixa o furo retangular como estava. Antes de `carregamentoConcluido`: o pedido que
+        // esperou o wasm (`KernelPendente`) já roda com o cliente.
+        await instalarClienteFuroReal(u);
       }
       carregamentoConcluido = true;
       avisarKernelPendente();

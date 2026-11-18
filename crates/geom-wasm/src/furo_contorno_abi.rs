@@ -69,7 +69,7 @@ fn verificar_limites(n_vaos: usize, n_pontos: usize, n_camadas: usize) -> Result
     Ok(())
 }
 
-fn erro_do_furo(e: ErroFuro) -> (u32, String) {
+pub(crate) fn erro_do_furo(e: ErroFuro) -> (u32, String) {
     match e {
         ErroFuro::ParedeInvalida => (ENTRADA, "parede invalida (comprimento e altura positivos e finitos)".into()),
         ErroFuro::EspessuraInvalida(i) => (ENTRADA, format!("espessura invalida na camada {i}")),

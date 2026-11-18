@@ -41,6 +41,7 @@ export { openingNormProjectIssues, portasParaNorma } from './openingNormProject.
 export * from './furoContornoDespacho.ts';
 export * from './furoContornoParede.ts';
 export { clienteFuroContornoFalso, type ClienteFalso } from './furoContornoFalso.ts';
+export { clienteFuroContornoReal, diagnosticoFuroReal, instalarClienteFuroReal, type DiagnosticoFuroReal, type ResultadoInstalacao } from './furoClienteReal.ts';
 export type { NodeWarp } from './wallTiltNo.ts';
 export { analyzeLevelTilt, cadeiaContinua, projetoTemParedeInclinada, type Cunha, wallTiltJoinIssues, type LevelTiltAnalysis, type TiltAviso, type TiltAvisoCode, type WallTiltJoin, type WallTiltJoinLayer } from './wallTiltJoinLevel.ts';
 export { casadorDeVertices, tiltPlanMap, wallJoinPlanMap, type PlanMap } from './wallTiltPlan.ts';
