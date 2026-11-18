@@ -10,6 +10,7 @@ import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { useFormat } from './useUnits.ts';
 import { editarTerreno } from './terrainActions.ts';
 import { leiturasDoTerreno, type LeiturasTerreno } from './terrainPropsModel.ts';
+import { PontoSelecionadoAtivo } from './TerrainPontoProperties.tsx';
 import { aplicarEmTodos, comum, CorRow, Leitura, MaterialRow, useKernelTerreno } from './terrainPanelParts.tsx';
 
 /** Cor com que o terreno é desenhado quando não tem `color` (a mesma do desenho em planta). */
@@ -65,6 +66,7 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
   const leituras = useMemo(() => (void kernel, terrains.map((x) => leiturasDoTerreno(p, x, servicoTerreno()))), [p, terrains, kernel]);
   return (
     <>
+      {terrains.length === 1 ? <PontoSelecionadoAtivo terreno={terrains[0]!} /> : null}
       <Group title={t('ui_tn_tipo_grupo')} stateKey="terreno-tipo">
         <TypeSelector
           triggerId="prop-tn-tipo"

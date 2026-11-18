@@ -1,9 +1,11 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import { aplicarOpsFontes, cotaDoProjeto, cotaExibida, defaultTerrainTypeIdOf, formatQuantity, isTerrain, isTerrainRegion, makeTerrain, newId, TERRENO_LIMITES, terrainIssue, unitsOf, type Id, type Terrain } from '@hestia/model';
 import { ToolBase } from './base.ts';
+import { shapeInputLabel } from './sketchShapes.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
+import { DesenhoDeForma, type ResultadoForma } from './terrainFormaCurva.ts';
 import { cabeMais, curvaDoRascunho, fontesVazias, opsAcrescentar, opSubstituir, previaDasFontes, semFontes, verticesDasFontes, type FontesPendentes } from './terrainToolCurva.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -35,10 +37,14 @@ export class TerrainTool extends ToolBase {
   private passoV = PASSO_PADRAO;
   private fontes: FontesPendentes = semFontes();
   private r = new RascunhoPolilinha();
+  /** Curvas por forma (arco, círculo, elipse, retângulo, polígono, spline): vale no modo `curvas` com forma diferente de "Linha". */
+  private forma = new DesenhoDeForma(this.env, () => this.uiLang());
   private ultimoPt: Vec2 | null = null;
 
   override get hint(): string {
-    return this.t(this.modo === 'pontos' ? 'tl_tn_hint_pontos' : 'tl_tn_hint_curvas', { cota: this.fmtCota(this.cotaZ), passo: this.fmtLen(this.passoV) });
+    const args = { cota: this.fmtCota(this.cotaZ), passo: this.fmtLen(this.passoV), flecha: this.fmtLen(this.forma.flecha) };
+    if (this.modo === 'curvas' && this.forma.ativa) return this.t(this.forma.forma() === 'spline' ? 'tl_tn_hint_spline' : 'tl_tn_hint_forma', args);
+    return this.t(this.modo === 'pontos' ? 'tl_tn_hint_pontos' : 'tl_tn_hint_curvas', args);
   }
 
   // ---- estado da barra de opções (ficha U1) ------------------------------------------------------------------------------
@@ -52,6 +58,7 @@ export class TerrainTool extends ToolBase {
     if (m === this.modo) return;
     this.modo = m;
     this.r.limpar();
+    this.forma.limpar();
     this.items = [];
     this.env.say(this.hint);
   }
@@ -101,13 +108,14 @@ export class TerrainTool extends ToolBase {
   protected reset(): void {
     this.fontes = semFontes();
     this.r.limpar();
+    this.forma.limpar();
     this.ultimoPt = null;
     this.items = [];
     this.inf = null;
   }
 
   protected busy(): boolean {
-    return this.r.ativo || !fontesVazias(this.fontes);
+    return this.r.ativo || this.forma.emCurso || !fontesVazias(this.fontes);
   }
 
   private fmtLen(m: number): string {
@@ -120,6 +128,7 @@ export class TerrainTool extends ToolBase {
 
   /** Último ponto confirmado (rascunho ou ponto solto): origem do Orto, Polar e rastreios, como na parede. */
   private origem(): Vec2 | null {
+    if (this.modo === 'curvas' && this.forma.ativa) return this.forma.ancora();
     return this.r.ultimo ?? this.ultimoPt;
   }
 
@@ -129,12 +138,21 @@ export class TerrainTool extends ToolBase {
 
   private ultimoCursor: Vec2 | null = null;
 
+  /** Vértices que ainda cabem no terreno (teto de `TERRENO_LIMITES.vertices`, contando as fontes pendentes). */
+  private capacidade(): number {
+    return TERRENO_LIMITES.vertices - verticesDasFontes(this.fontes);
+  }
+
   private atualizaPrevia(q: Vec2 | null): void {
     const itens: PreviewItem[] = previaDasFontes(this.fontes);
     const pts = this.r.pts;
-    for (let i = 1; i < pts.length; i++) itens.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]! });
-    const fim = this.r.ultimo;
-    if (q && fim) itens.push({ kind: 'line', a: fim, b: q, dashed: true });
+    const porForma = this.modo === 'curvas' && this.forma.ativa;
+    if (porForma) itens.push(...this.forma.previa(q, this.capacidade()));
+    else {
+      for (let i = 1; i < pts.length; i++) itens.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]! });
+      const fim = this.r.ultimo;
+      if (q && fim) itens.push({ kind: 'line', a: fim, b: q, dashed: true });
+    }
     if (q) itens.push({ kind: 'point', at: q }, { kind: 'label', at: q, text: this.t('tl_tn_cota_rotulo', { cota: this.fmtCota(this.cotaZ) }) });
     this.items = itens;
   }
@@ -147,17 +165,19 @@ export class TerrainTool extends ToolBase {
 
   /** Cota dinâmica do trecho em traçado (mesmo provedor da parede). */
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
-    const fim = this.r.ultimo;
+    const fim = this.modo === 'curvas' && this.forma.ativa ? this.forma.ancora() : this.r.ultimo;
     return this.modo === 'curvas' && fim && this.ultimoCursor ? [segmentLengthDim(fim, this.ultimoCursor)] : [];
   }
 
   override inputPrompt(): string | null {
+    if (this.modo === 'curvas' && this.forma.ativa) return this.forma.inputPrompt(this.t('tl_inp_length'));
     return this.modo === 'curvas' && this.r.ativo ? this.t('tl_inp_length') : null;
   }
 
   override click(p: PointerInfo): void {
     const q = this.captura(p);
     if (this.modo === 'pontos') this.novoPonto(q);
+    else if (this.forma.ativa) this.aplicarForma(this.forma.click(q, this.capacidade(), 8 * this.env.metersPerPixel()));
     else if (this.r.pts.length >= 3 && dist(q, this.r.pts[0]!) <= 8 * this.env.metersPerPixel()) this.concluirCurva(true);
     else this.novoVertice(q);
     this.atualizaPrevia(q);
@@ -185,6 +205,18 @@ export class TerrainTool extends ToolBase {
   /** `C` fecha a curva (três pontos ou mais) e conclui; comprimento digitado + Enter acrescenta um ponto na direção do cursor. */
   override type(text: string): boolean {
     if (this.modo !== 'curvas') return false;
+    if (this.forma.ativa) {
+      if (text.toLowerCase() === 'c') {
+        this.aplicarForma(this.forma.fecharSpline(this.capacidade()));
+        return true;
+      }
+      const r = this.forma.digitado(text, this.inf?.point ?? this.raw, this.capacidade());
+      if (!r) return false;
+      this.aplicarForma(r);
+      this.ultimoCursor = null;
+      this.atualizaPrevia(null);
+      return true;
+    }
     if (text.toLowerCase() === 'c' && this.r.pts.length >= 3) {
       this.concluirCurva(true);
       return true;
@@ -199,6 +231,13 @@ export class TerrainTool extends ToolBase {
 
   /** Enter: conclui a curva em curso (dois pontos ou mais); sem curva em curso, cria o terreno. */
   override confirm(): void {
+    if (this.modo === 'curvas' && this.forma.ativa) {
+      const n = this.forma.pontosDeControle.length;
+      if (n >= 2) this.aplicarForma(this.forma.confirmar(this.capacidade()));
+      else if (n === 1 || this.forma.emCurso) this.env.say(this.t('tl_tn_msg_curva_min'));
+      else this.criar();
+      return;
+    }
     if (this.modo === 'curvas' && this.r.pts.length >= 2) this.concluirCurva(false);
     else if (this.modo === 'curvas' && this.r.pts.length === 1) this.env.say(this.t('tl_tn_msg_curva_min'));
     else this.criar();
@@ -206,6 +245,12 @@ export class TerrainTool extends ToolBase {
 
   /** Esc: cancela a curva em curso; com fontes pendentes, descarta tudo; sem nada, sai da ferramenta. */
   override cancel(): void {
+    if (this.forma.emCurso) {
+      this.forma.limpar();
+      this.atualizaPrevia(this.ultimoCursor);
+      this.env.say(this.hint);
+      return;
+    }
     if (this.r.ativo) {
       this.r.limpar();
       this.atualizaPrevia(this.ultimoCursor);
@@ -216,12 +261,33 @@ export class TerrainTool extends ToolBase {
     } else this.env.done();
   }
 
-  private concluirCurva(fechada: boolean): void {
-    const z = this.cotaZ;
-    this.fontes.curvas.push(curvaDoRascunho(this.r.pts, z, fechada));
-    this.r.limpar();
-    this.cotaZ = z + this.passoV;
+  /** Tab alterna o sinalizador da forma (ex.: sentido do arco centro-extremidades). */
+  override tab(): void {
+    const f = this.modo === 'curvas' && this.forma.ativa ? this.forma.alternarFlag() : null;
+    if (f) this.env.say(this.t('tl_msg_flag_toggle', { label: shapeInputLabel(f.key, this.uiLang()), value: f.value ? this.t('tl_yes') : this.t('tl_no') }));
+  }
+
+  /** Resultado de um gesto de forma: a curva pronta entra nas fontes pendentes (como a curva por cliques); recusas e avisos saem na barra de status. */
+  private aplicarForma(r: ResultadoForma): void {
+    if (r.kind === 'recusa') {
+      this.env.say(r.motivo === 'limite' ? this.t('tl_tn_msg_limite', { max: TERRENO_LIMITES.vertices }) : this.t('tl_msg_degenerate_shape'));
+    } else if (r.kind === 'pronta') {
+      this.fixarCurva(r.forma.pts, r.forma.fechada);
+      if (r.reduzida) this.env.say(this.t('tl_tn_msg_flecha_aumentada', { flecha: this.fmtLen(r.forma.flecha), max: TERRENO_LIMITES.vertices }));
+    } else this.env.say(this.forma.mensagem() ?? this.t('tl_tn_msg_spline_ponto', { n: this.forma.pontosDeControle.length }));
     this.atualizaPrevia(this.ultimoCursor);
+  }
+
+  private concluirCurva(fechada: boolean): void {
+    this.fixarCurva(this.r.pts, fechada);
+    this.r.limpar();
+    this.atualizaPrevia(this.ultimoCursor);
+  }
+
+  private fixarCurva(pts: readonly Vec2[], fechada: boolean): void {
+    const z = this.cotaZ;
+    this.fontes.curvas.push(curvaDoRascunho(pts, z, fechada));
+    this.cotaZ = z + this.passoV;
     this.env.say(this.t('tl_tn_msg_curva_feita', { cota: this.fmtCota(z), proxima: this.fmtCota(this.cotaZ) }));
   }
 

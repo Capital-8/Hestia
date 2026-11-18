@@ -304,6 +304,10 @@ export interface ToolOptions {
   detailLineShape?: WallDrawShape;
   /** Lados do polígono da linha de detalhe (3..64; padrão 6). */
   detailLinePolygonSides?: number;
+  /** Topografia (curvas de nível): forma da galeria (ou 'spline'), flecha máxima da discretização (m) e lados do polígono. */
+  terrainShape?: WallDrawShape | 'spline';
+  terrainFlecha?: number;
+  terrainPolygonSides?: number;
   columnTypeId?: Id;
   columnMode?: 'vertical' | 'slanted';
   columnDepthMode?: 'depth' | 'height';
