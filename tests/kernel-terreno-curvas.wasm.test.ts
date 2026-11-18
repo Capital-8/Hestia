@@ -159,9 +159,13 @@ describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela AB
       for (const p of l[k]!.pontos) expect(Math.abs(p[0]! - x)).toBeLessThan(1e-9);
       expect(Math.abs(comprimento(l[k]!) - 20)).toBeLessThan(1e-9);
     });
+    // As curvas saem suavizadas (Chaikin, 2 rodadas): o quadrado de 4 pontos vira 16, de cantos cortados. O comprimento
+    // fica menor que o do quadrado cru (ele corta os cantos) mas na mesma ordem de grandeza (mais de 3/4 e no máximo igual).
     [64, 48, 32, 16].forEach((perimetro, k) => {
-      expect(l[4 + k]!.pontos.length).toBe(4);
-      expect(Math.abs(comprimento(l[4 + k]!) - perimetro)).toBeLessThan(1e-9);
+      expect(l[4 + k]!.pontos.length).toBe(16);
+      const c = comprimento(l[4 + k]!);
+      expect(c).toBeLessThanOrEqual(perimetro + 1e-9);
+      expect(c).toBeGreaterThan(perimetro * 0.75);
     });
     // A proposta é igual à existente enquanto não há regiões (ficha R3).
     const p = cena.consultar('terreno_curvas', [NIVEL_TODOS, 1]);
