@@ -306,7 +306,7 @@ export const EN_MOVEIS: D = {
   mov_menu_girar: 'Rotate 90°',
   mov_menu_girar_menos: 'Rotate −90°',
   mov_menu_espelhar: 'Mirror',
-  mov_menu_duplicar: 'Duplicate to the side',
+  mov_menu_duplicar: 'Duplicate to the Side',
   mov_menu_tipo_sem_familia: 'Select components of one family only',
   mov_menu_agrupar_motivo: 'Select at least two loose components',
   mov_menu_desagrupar_motivo: 'No selected component is in a group',
