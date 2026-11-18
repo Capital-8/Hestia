@@ -24,6 +24,7 @@ function listar(dir: string): string[] {
 
 /** Diálogos de tipo que já usam o esqueleto comum (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo). */
 const MIGRADOS = [
+  'TerrainTypeDialog.tsx',
   'WallTypeDialog.tsx',
   'StairTypeDialog.tsx',
   'RampTypeDialog.tsx',
@@ -48,7 +49,7 @@ const PECAS = ['StairTypeSections.tsx', 'StairCalculatorPanel.tsx', 'StairBlonde
  * - openingType/OpeningTypeDialog: diálogo XL com biblioteca, prévia 3D e painéis próprios (cotas e esquadrias).
  * - DimensionFamiliesDialog: famílias de cota, editor de lista com estilos próprios.
  */
-const EXCECOES_TODO = ['GridTypeDialog.tsx', 'openingType/OpeningTypeDialog.tsx', 'DimensionFamiliesDialog.tsx', 'TagFamiliesDialog.tsx', 'TerrainTypeDialog.tsx'];
+const EXCECOES_TODO = ['GridTypeDialog.tsx', 'openingType/OpeningTypeDialog.tsx', 'DimensionFamiliesDialog.tsx', 'TagFamiliesDialog.tsx'];
 
 const usaEsqueleto = (arq: string): boolean => /<FamilyTypeDialog\b/.test(fonte(arq)) && /from '(\.\.?)\/familia\/index\.ts'/.test(fonte(arq));
 
