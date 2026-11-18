@@ -4,7 +4,7 @@ export const PT_CANVAS_SHEET = {
   // ---- palco da prancha ----------------------------------------------------------------------------------
   cvs_sheet_missing: 'Prancha inexistente.',
   cvs_empty: 'Folha vazia.',
-  cvs_empty_hint: 'Arraste uma vista do Navegador para cá · roda do mouse para zoom · botão do meio para pan',
+  cvs_empty_hint: 'Arraste uma vista do Navegador para cá · roda do mouse para zoom · Espaço + arrastar ou botão do meio para pan',
   cvs_add_view: 'Adicionar vista',
   cvs_refused: 'Operação recusada.',
   cvs_locked_hint: 'A vista está travada. Use Travar na barra para destravar.',
@@ -167,7 +167,7 @@ export const PT_CANVAS_SHEET = {
 export const EN_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Sheet not found.',
   cvs_empty: 'Empty sheet.',
-  cvs_empty_hint: 'Drag a view from the Browser here · mouse wheel to zoom · middle button to pan',
+  cvs_empty_hint: 'Drag a view from the Browser here · mouse wheel to zoom · Space + drag or middle button to pan',
   cvs_add_view: 'Add View',
   cvs_refused: 'Operation refused.',
   cvs_locked_hint: 'The view is locked. Use Lock on the bar to unlock it.',
@@ -321,7 +321,7 @@ export const EN_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
 export const ES_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Plano inexistente.',
   cvs_empty: 'Plano vacío.',
-  cvs_empty_hint: 'Arrastre una vista desde el Navegador hasta aquí · rueda del ratón para zoom · botón central para pan',
+  cvs_empty_hint: 'Arrastre una vista desde el Navegador hasta aquí · rueda del ratón para zoom · Espacio + arrastrar o botón central para pan',
   cvs_add_view: 'Añadir vista',
   cvs_refused: 'Operación rechazada.',
   cvs_locked_hint: 'La vista está bloqueada. Use Bloquear en la barra para desbloquearla.',
@@ -475,7 +475,7 @@ export const ES_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
 export const DE_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Plan nicht vorhanden.',
   cvs_empty: 'Leerer Plan.',
-  cvs_empty_hint: 'Ziehen Sie eine Ansicht aus dem Browser hierher · Mausrad zum Zoomen · mittlere Taste zum Verschieben',
+  cvs_empty_hint: 'Ziehen Sie eine Ansicht aus dem Browser hierher · Mausrad zum Zoomen · Leertaste + Ziehen oder mittlere Taste zum Verschieben',
   cvs_add_view: 'Ansicht hinzufügen',
   cvs_refused: 'Vorgang abgelehnt.',
   cvs_locked_hint: 'Die Ansicht ist gesperrt. Verwenden Sie Sperren in der Leiste, um sie zu entsperren.',
@@ -629,7 +629,7 @@ export const DE_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
 export const FR_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Feuille inexistante.',
   cvs_empty: 'Feuille vide.',
-  cvs_empty_hint: 'Faites glisser une vue depuis le Navigateur ici · molette pour zoomer · bouton central pour le panoramique',
+  cvs_empty_hint: 'Faites glisser une vue depuis le Navigateur ici · molette pour zoomer · Espace + glisser ou bouton central pour le panoramique',
   cvs_add_view: 'Ajouter une vue',
   cvs_refused: 'Opération refusée.',
   cvs_locked_hint: 'La vue est verrouillée. Utilisez Verrouiller dans la barre pour la déverrouiller.',
@@ -783,7 +783,7 @@ export const FR_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
 export const IT_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Foglio inesistente.',
   cvs_empty: 'Foglio vuoto.',
-  cvs_empty_hint: 'Trascina una vista dal Browser qui · rotella del mouse per lo zoom · pulsante centrale per la panoramica',
+  cvs_empty_hint: 'Trascina una vista dal Browser qui · rotella del mouse per lo zoom · Spazio + trascinare o pulsante centrale per la panoramica',
   cvs_add_view: 'Aggiungi vista',
   cvs_refused: 'Operazione rifiutata.',
   cvs_locked_hint: 'La vista è bloccata. Usa Blocca nella barra per sbloccarla.',
@@ -937,7 +937,7 @@ export const IT_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
 export const PL_CANVAS_SHEET: Record<keyof typeof PT_CANVAS_SHEET, string> = {
   cvs_sheet_missing: 'Arkusz nie istnieje.',
   cvs_empty: 'Pusty arkusz.',
-  cvs_empty_hint: 'Przeciągnij widok z Przeglądarki tutaj · kółko myszy do zoomu · środkowy przycisk do przesuwania',
+  cvs_empty_hint: 'Przeciągnij widok z Przeglądarki tutaj · kółko myszy do zoomu · Spacja + przeciąganie lub środkowy przycisk do przesuwania',
   cvs_add_view: 'Dodaj widok',
   cvs_refused: 'Operacja odrzucona.',
   cvs_locked_hint: 'Widok jest zablokowany. Użyj Zablokuj na pasku, aby go odblokować.',
