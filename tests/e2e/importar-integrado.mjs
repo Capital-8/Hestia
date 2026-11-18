@@ -92,7 +92,8 @@ try {
   const accept = await page.locator('[data-testid=fur-file]').getAttribute('accept');
   for (const e of ['.skp', '.glb', '.gltf', '.obj', '.dae', '.fbx', '.zip']) assert.ok(accept.includes(e), `aceita ${e}`);
   const multiplo = await page.locator('[data-testid=fur-file]').getAttribute('multiple');
-  ok('diálogo abre; seletor aceita', `${accept} multiple=${multiplo !== null} (um arquivo por vez; vários arquivos = .zip)`);
+  assert.notEqual(multiplo, null, 'seletor aceita vários arquivos');
+  ok('diálogo abre; seletor aceita', `${accept} multiple=${multiplo !== null}`);
 
   // 2. importar o .glb (Worker) e medir o tempo
   const glb = glbCilindro();
@@ -159,6 +160,23 @@ try {
   const caixa = m.assets.find((a) => a.fmt === 'obj');
   assert.equal(caixa.tri, 12);
   ok('caixa.obj importada', JSON.stringify(caixa.bbox));
+
+  // 5b. lote: dois arquivos de uma vez (um deles inválido) -> um bloco novo e um erro, sem abortar
+  await page.evaluate(() => window.__hestia.useUi.setState({ dialog: 'importFurniture', dialogArg: null }));
+  await page.waitForSelector('[data-testid=fur-file]');
+  await page.locator('[data-testid=fur-file]').setInputFiles([
+    { name: 'caixa2.obj', mimeType: 'text/plain', buffer: objCaixa() },
+    { name: 'nota.txt', mimeType: 'text/plain', buffer: Buffer.from('nao e modelo') },
+    { name: 'cilindro2.glb', mimeType: 'model/gltf-binary', buffer: glb.buf },
+  ]);
+  await page.locator('[data-testid=fur-batch-start]').click();
+  await page.waitForSelector('[data-testid=fur-batch-blocks]', { timeout: 120_000 });
+  const estados = await page.locator('[data-testid=fur-batch-list] li').evaluateAll((l) => l.map((x) => x.getAttribute('data-status')));
+  assert.deepEqual(estados, ['done', 'error', 'done']);
+  m = await moveis();
+  assert.equal(m.assets.length, 4, 'lote criou 2 blocos');
+  await page.evaluate(() => window.__hestia.useUi.setState({ dialog: null, dialogArg: null }));
+  ok('lote de 3 arquivos: 2 blocos e 1 erro', estados.join(','));
 
   // 6. mover/copiar pelo transform e apagar/desfazer
   const inst = m.inst[0].id;
