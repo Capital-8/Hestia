@@ -195,10 +195,11 @@ fn fuzz_200_completo() {
             assert!(g.2.iter().all(|t| area_tri(t) > 0.0 && t.iter().flatten().all(|x| x.is_finite())), "caso {caso}: subtriângulos anti-horários");
         }
         // Curvas da superfície proposta: cada ponto na cota da curva e dentro do domínio (pela consulta 163 da mesma superfície).
-        for l in curvas(&mut cena, 0, 1) {
+        let linhas_p = curvas(&mut cena, 0, 1);
+        crate::terreno_testes_curvas::conferir_perto_da_curva_crua(&mut cena, 1, fx.intervalo, &linhas_p, caso);
+        for l in linhas_p {
             for (pt, c) in l.pontos.iter().zip(cotas(&mut cena, &l.pontos, 1)) {
                 assert_eq!(c.0, 1, "caso {caso}: ponto {pt:?} da curva {} fora do domínio", l.z);
-                assert!((c.1 - l.z).abs() < 1e-7, "caso {caso}: ponto {pt:?} na cota {} e não em {}", c.1, l.z);
             }
             n_curvas += 1;
         }

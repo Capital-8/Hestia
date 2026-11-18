@@ -216,14 +216,23 @@ fn anel_de_distancia(r: &Regiao, d: f64) -> Vec<V> {
 /// fica no teto e a região volta na lista devolvida (aviso 7).
 pub fn definir_alcances(regioes: &mut [Regiao], e: &Malha) -> Vec<AlcanceCurto> {
     let mut curtos = Vec::new();
-    for r in regioes.iter_mut().filter(|r| r.plana()) {
-        if r.talude_corte <= 0.0 && r.talude_aterro <= 0.0 {
-            r.alcance = ALCANCE_MIN;
+    for i in 0..regioes.len() {
+        if !regioes[i].plana() {
             continue;
         }
+        if regioes[i].talude_corte <= 0.0 && regioes[i].talude_aterro <= 0.0 {
+            regioes[i].alcance = ALCANCE_MIN;
+            continue;
+        }
+        // O talude da região i é medido sobre o que as regiões ANTERIORES (já com o alcance final) deixaram: um talude que só aparece por cima do
+        // talude de outra região também precisa de alcance.
+        let r = regioes[i].clone();
         let mut sozinha = r.clone();
         sozinha.alcance = f64::MAX / 4.0;
-        let ativo = |p: V| -> bool { e.cota(p.x, p.y).is_some_and(|z| (aplicar(std::slice::from_ref(&sozinha), p, z) - z).abs() > 1e-9) };
+        let antes: Vec<Regiao> = regioes[..i].to_vec();
+        let mut com = antes.clone();
+        com.push(sozinha.clone());
+        let ativo = |p: V| -> bool { e.cota(p.x, p.y).is_some_and(|z| (aplicar(&com, p, z) - aplicar(&antes, p, z)).abs() > 1e-9) };
         let anel_ativo = |d: f64| -> bool { anel_de_distancia(&sozinha, d).into_iter().filter(|&p| sozinha.mais_proximo(p).1 >= d * 0.98).any(ativo) };
         let mut d = r.h;
         for q in &e.v {
@@ -242,7 +251,7 @@ pub fn definir_alcances(regioes: &mut [Regiao], e: &Malha) -> Vec<AlcanceCurto> 
         if d >= ALCANCE_MAX && anel_ativo(d) {
             curtos.push((r.id, d));
         }
-        r.alcance = d;
+        regioes[i].alcance = d;
     }
     curtos
 }
