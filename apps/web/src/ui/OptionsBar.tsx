@@ -338,7 +338,7 @@ export function OptionsBar(): ReactElement {
           <select
             id="opt-trimmode"
             className="select"
-            value={o.trimMode ?? 'unico'}
+            value={o.trimMode ?? 'canto'}
             onChange={(e) => {
               // Trocar o modo recomeça a escolha (como no modo do Piso).
               useUi.setState({ options: { ...useUi.getState().options, trimMode: e.target.value as 'canto' | 'unico' | 'varios' } });
