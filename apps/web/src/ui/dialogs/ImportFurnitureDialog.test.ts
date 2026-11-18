@@ -68,9 +68,9 @@ describe('diálogo Importar móvel: estados', () => {
     expect(html).toContain('multiple');
     expect(html).toContain('Tamanho final');
     expect(html).toContain('Manter proporção');
-    expect(html).toMatch(/id="fur-size-0"[^>]*value="0,80 m"/);
-    expect(html).toMatch(/id="fur-size-1"[^>]*value="0,40 m"/);
-    expect(html).toMatch(/id="fur-size-2"[^>]*value="0,50 m"/);
+    expect(html).toMatch(/id="fur-size-0"[^>]*value="0,8"/);
+    expect(html).toMatch(/id="fur-size-1"[^>]*value="0,4"/);
+    expect(html).toMatch(/id="fur-size-2"[^>]*value="0,5"/);
     expect(html).toContain('Pés');
     expect(html).toContain('Z para cima');
     expect(html).toContain('Textura .webp ignorada.');

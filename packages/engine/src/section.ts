@@ -59,8 +59,7 @@ export interface SectionOrigin {
   stairId?: Id;
   rampId?: Id;
   componentId?: Id;
-  /** Móvel importado (malha de arquivo). */
-  furnitureId?: Id;
+  furnitureId?: Id; // móvel importado (malha de arquivo)
   openingId?: Id;
   columnId?: Id;
   beamId?: Id;
@@ -338,16 +337,9 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   for (const c of st.cut) addCut(c.materialId, c.polygon, c.origin);
   beyond.push(...st.beyond);
   grow(st.zMin, st.zMax);
-  // Componentes (móveis paramétricos): peças sólidas em (t, z) no corte e além dele.
-  const cm = sectionOfComponents(p, levelId, line);
-  for (const c of cm.cut) addCut(c.materialId, c.polygon, c.origin);
-  beyond.push(...cm.beyond);
-  grow(cm.zMin, cm.zMax);
-  // Móveis importados: silhueta além do plano e região cortada (`sectionFurniture.ts`).
-  const fu = sectionOfFurniture(p, levelId, line);
-  for (const c of fu.cut) addCut(c.materialId, c.polygon, c.origin);
-  beyond.push(...fu.beyond);
-  grow(fu.zMin, fu.zMax);
+  for (const m of [sectionOfComponents(p, levelId, line), sectionOfFurniture(p, levelId, line)]) { // componentes e móveis importados
+    m.cut.forEach((c) => addCut(c.materialId, c.polygon, c.origin)); beyond.push(...m.beyond); grow(m.zMin, m.zMax);
+  }
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;
