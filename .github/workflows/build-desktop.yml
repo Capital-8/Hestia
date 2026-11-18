@@ -96,5 +96,8 @@ jobs:
             desktop/src-tauri/target/release/bundle/*/*.rpm
             desktop/src-tauri/target/release/bundle/*/*.exe
             desktop/src-tauri/target/release/bundle/*/*.sig
+            desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/*/release/bundle/macos/*.tar.gz
+            desktop/src-tauri/target/*/release/bundle/macos/*.sig
           if-no-files-found: error
           retention-days: 14
