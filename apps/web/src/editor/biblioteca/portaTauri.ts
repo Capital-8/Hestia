@@ -116,6 +116,19 @@ export class PortaTauri implements PortaBiblioteca {
     };
   }
 
+  async renomear(raiz: PastaId, de: string, para: string): Promise<void> {
+    try {
+      await this.invoke()('biblioteca_renomear', { raiz, de, para });
+    } catch (e) {
+      throw new ErroBiblioteca(typeof e === 'string' && e ? e : msg('bib_err_rename'), 'io');
+    }
+  }
+
+  async escolherDestino(): Promise<PastaId | null> {
+    const resposta = await this.invoke()('biblioteca_escolher_destino');
+    return texto(resposta);
+  }
+
   async gravarIndice(raiz: PastaId, textoIndice: string): Promise<void> {
     await this.invoke()('biblioteca_gravar_indice', { raiz, texto: textoIndice });
   }

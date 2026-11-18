@@ -1,5 +1,5 @@
 import { comProjeto, indiceVazio, lerIndice, mesclarDescobertos, semProjeto, serializarIndice } from './indice.ts';
-import { nomeDePastaUnico, nomeDoProjeto } from './nomes.ts';
+import { nomeDePastaUnico, nomeDoProjeto, novoNomeDePasta } from './nomes.ts';
 import { criarPorta, type PortaBiblioteca } from './porta.ts';
 import type { IndiceBiblioteca, OrigemBiblioteca, PastaId, ProjetoDaBiblioteca, ProjetoGravado } from './tipos.ts';
 import { VERSAO_INDICE } from './tipos.ts';
@@ -93,15 +93,46 @@ export class Biblioteca {
    * Grava o documento e atualiza a biblioteca. A pasta é criada quando `pasta` é `null` (nunca sobrescreve outro
    * projeto por causa de nome repetido: a porta resolve com `(2)`, `(3)`…). O índice é cache: falhar nele não falha o
    * salvamento.
+   *
+   * Quando o nome do projeto mudou, a pasta acompanha: grava PRIMEIRO na pasta atual e só depois a renomeia. Se o
+   * renomear falhar (pasta aberta em outro programa, destino existente…), o projeto já está salvo na pasta antiga, que
+   * continua valendo (`renomearFalhou` avisa o editor).
    */
   async salvar(doc: DocumentoDoEditor): Promise<ProjetoGravado> {
     const raiz = this.raizNecessaria();
-    // O nome da pasta é decidido aqui (uma vez, em TS): a porta só cria/grava com o nome que receber.
-    const pasta = doc.pasta ?? nomeDePastaUnico(doc.nome, this.projetos.map((p) => p.pasta));
-    const gravado = await this.porta.gravar(raiz, { pasta, nome: doc.nome, conteudo: doc.conteudo, miniatura: doc.miniatura });
-    this.projetos = comProjeto(this.indice(), gravado.projeto).projetos;
+    const gravado = await this.gravarAcompanhandoNome(raiz, doc, this.projetos.map((p) => p.pasta));
+    const base = gravado.renomeadoDe ? semProjeto(this.indice(), gravado.renomeadoDe) : this.indice();
+    this.projetos = comProjeto(base, gravado.projeto).projetos;
     await this.gravarIndice();
     return gravado;
+  }
+
+  /**
+   * Grava o projeto em OUTRA pasta escolhida pelo usuário (`destino`, de `porta.escolherDestino()`), numa subpasta com o
+   * nome do projeto. Modelo: o projeto fica ligado a esse local e a biblioteca não o indexa (a raiz continua listando só
+   * o que está nela; o que ficou na raiz é uma cópia que deixa de ser atualizada). Escolher a própria raiz equivale a
+   * gravar na biblioteca. Também acompanha o nome do projeto: passe `pasta` das gravações seguintes.
+   */
+  async salvarEm(destino: PastaId, doc: DocumentoDoEditor): Promise<ProjetoGravado> {
+    if (destino === this.raiz) return this.salvar(doc);
+    const ocupados = (await this.porta.listarPastas(destino)).map((p) => p.pasta);
+    return this.gravarAcompanhandoNome(destino, doc, ocupados);
+  }
+
+  private async gravarAcompanhandoNome(raiz: PastaId, doc: DocumentoDoEditor, ocupados: readonly string[]): Promise<ProjetoGravado> {
+    // O nome da pasta é decidido aqui (uma vez, em TS): a porta só cria/grava com o nome que receber.
+    const pasta = doc.pasta ?? nomeDePastaUnico(doc.nome, ocupados);
+    const gravado = await this.porta.gravar(raiz, { pasta, nome: doc.nome, conteudo: doc.conteudo, miniatura: doc.miniatura });
+    if (doc.pasta === null) return gravado;
+    const alvo = novoNomeDePasta(gravado.projeto.pasta, doc.nome, ocupados);
+    if (!alvo) return gravado;
+    try {
+      await this.porta.renomear(raiz, gravado.projeto.pasta, alvo);
+    } catch {
+      return { ...gravado, renomearFalhou: true };
+    }
+    // O `.bak` e o resto da pasta foram junto com ela.
+    return { ...gravado, projeto: { ...gravado.projeto, pasta: alvo }, renomeadoDe: gravado.projeto.pasta };
   }
 
   /** Esquece a pasta escolhida (a pasta e os projetos continuam no disco). */
