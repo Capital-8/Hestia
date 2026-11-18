@@ -6,6 +6,7 @@ import { ColumnScheduleDialog } from './ColumnScheduleDialog.tsx';
 import { ColumnTypeDialog } from './ColumnTypeDialog.tsx';
 import { NorthArrowFamiliesDialog, RevisionCloudFamiliesDialog, SpotFamiliesDialog, TextFamiliesDialog } from './ExtraAnnotationFamilyDialogs.tsx';
 import { LotFamiliesDialog, TerrainTextFamiliesDialog } from './TerrainLotFamilyDialogs.tsx';
+import { TerrainTypeDialog } from './TerrainTypeDialog.tsx';
 import { FootingScheduleDialog } from './FootingScheduleDialog.tsx';
 import { FootingTypeDialog } from './FootingTypeDialog.tsx';
 import { TagAllDialog } from './TagAllDialog.tsx';
@@ -26,6 +27,8 @@ export function DialogoExtra({ kind, arg }: { kind: DialogKind; arg: string | nu
       return <RevisionCloudFamiliesDialog />;
     case 'northArrowFamilies':
       return <NorthArrowFamiliesDialog />;
+    case 'terrainTypes':
+      return <TerrainTypeDialog />;
     case 'terrainContourFamilies':
       return <TerrainTextFamiliesDialog kind="contour" />;
     case 'terrainSpotFamilies':
