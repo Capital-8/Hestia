@@ -174,3 +174,11 @@ Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de te
 - Antes/depois (Chrome headless, sem GPU): drop p95 5279 -> 89 ms (até o DOM da vista: 45 ms); quadro p95 de zoom 66,7 -> 16,8, pan 216,6 -> 16,8, mover 83,3 -> 16,7 ms; nenhum quadro > 100 ms.
 - Limite: o p95 do drop (89 ms) passa da meta de ~50 ms pela métrica do script (2 quadros depois do DOM); o resto é React (~29 ms por drop, inclui painéis laterais) e criação dos nós SVG, não cálculo.
 - Risco: a camada é esticada durante o gesto (nitidez volta em 140 ms); vista 3D não entra no cache; falta conferir em tela com GPU real e o PDF/DXF visualmente.
+
+## Decisões do dono (18/11/2026, depois dos testes parciais)
+1. **Móveis entram na 0.2.5** (Biblioteca, planta real, famílias novas só com o que o editor permite, importador de blocos). Eles ficam no branch `teste/0.2.5-com-moveis` até a mescla na `integracao/0.2.5`.
+2. **Esquema do arquivo sobe de 29 para 30** (junto com a mescla dos móveis; migração 29 -> 30 e atualizar a nota da release).
+3. **Tipo de terreno NÃO é aplicado aos terrenos já existentes** (só aos novos).
+4. **Cores padrão do terreno** (superfície `#7f9f5c`, solo `#8b6b4a`, curvas marrons): mantidas.
+5. **Aba contextual "Colocar Topografia"**: mantida (a galeria de formas e a spline ficam nela, no modo Curvas).
+6. **Alt+Shift sobre vista na prancha deixa de alternar a seleção**: aceito. Espaço segurado + arrastar continua reposicionando (pan) também na PLANTA, no 3D e nos cortes (`ViewportCanvas`, sem mudança nesta rodada); na prancha faz o pan do conteúdo da vista.
