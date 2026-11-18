@@ -1,6 +1,7 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { CLOSED, openingLinePaths, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits } from '@hestia/model';
+import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
 import { thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
@@ -60,6 +61,9 @@ const fmt = (u: ResolvedUnits, z: number): string => `${z >= 0 ? '+' : '−'}${f
 
 /** Categoria gráfica de uma origem do motor (parede, piso, laje, telhado ou escada). */
 const categoryOf = (o: SectionOrigin): GraphicsCategory => ownerOf(o)?.kind ?? 'wall';
+
+const materialComponente = (id: Id): Material | undefined =>
+  MATERIAIS_DE_COMPONENTE[id] ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!) : undefined);
 
 /**
  * Lista de desenho do corte/elevação: x = distância ao longo da linha, y = cota. Os polígonos já são a parte visível
@@ -129,7 +133,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const pt = paint[cat];
     if (!pt.visible) return;
     silhouetteParts.push(b.polygons);
-    const base = pt.color ?? p.materials[b.materialId]?.color ?? '#999999';
+    const base = pt.color ?? (p.materials[b.materialId] ?? materialComponente(b.materialId))?.color ?? '#999999';
     if (!noFill) {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
       const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
@@ -282,7 +286,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       cut: true,
       draw: () => {
         silhouetteParts.push(polygons);
-        const m = p.materials[r.materialId];
+        const m = p.materials[r.materialId] ?? materialComponente(r.materialId);
         if (!noFill) {
           const base = pt.color ?? m?.color ?? '#999999';
           const color = pt.visual === 'shaded' ? base : mix(base, paper, input.dark ? 0.5 : 0.58);

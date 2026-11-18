@@ -91,6 +91,7 @@ describe('Hide in View no corte/elevação', () => {
     { name: 'piso', id: 'f1', patch: () => ({ beyond: [beyond({ floorId: 'f1' })] }) },
     { name: 'telhado', id: 'r1', patch: () => ({ beyond: [beyond({ roofId: 'r1' })] }) },
     { name: 'escada', id: 'st1', patch: () => ({ beyond: [beyond({ stairId: 'st1' })] }) },
+    { name: 'componente', id: 'cp1', patch: () => ({ beyond: [beyond({ componentId: 'cp1' })] }) },
     { name: 'vão', id: 'o1', patch: () => ({ openings: [windowOpening('o1')] }) },
     { name: 'parede cortada', id: 'w2', patch: () => ({ cut: [region({ wallId: 'w2' })] }) },
   ];

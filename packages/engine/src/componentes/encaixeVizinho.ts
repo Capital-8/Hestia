@@ -6,6 +6,19 @@ import type { CaixaLocal, Corpo, EncaixeNoVizinho, Guia, LadoDeUniao, Pose } fro
 const PASSO = Math.PI / 2;
 /** Tolerância das comparações de rotação e de retas (rad e m). */
 const EPS = 1e-9;
+/** Tolerância (m) para considerar duas cotas de base como estando na mesma altura. */
+const TOL_ALTURA = 0.001;
+
+/** Verdadeiro se os dois corpos têm a mesma cota mínima no mundo (|ΔzMin| ≤ 1 mm) ou se sobrepõem em altura. */
+function compartilhaAltura(poseA: Pose, caixaA: CaixaLocal, poseB: Pose, caixaB: CaixaLocal): boolean {
+  const zMin = poseA.z + caixaA.min[2];
+  const zMax = poseA.z + caixaA.max[2];
+  const vzMin = poseB.z + caixaB.min[2];
+  const vzMax = poseB.z + caixaB.max[2];
+  const mesmaBase = Math.abs(zMin - vzMin) <= TOL_ALTURA;
+  const sobrepoeEmAltura = Math.min(zMax, vzMax) - Math.max(zMin, vzMin) > EPS;
+  return mesmaBase || sobrepoeEmAltura;
+}
 
 /** Matriz que leva o sistema local do móvel ao sistema local do vizinho quando a rotação já foi alinhada. */
 interface MatrizLocal {
@@ -92,13 +105,7 @@ export function encaixarNoVizinho(
     const rotacao = vizinho.pose.rotation + k * PASSO;
     if (Math.abs(pose.rotation - rotacao) > anguloMax) continue;
 
-    const zMin = pose.z + caixa.min[2];
-    const zMax = pose.z + caixa.max[2];
-    const vzMin = vizinho.pose.z + vizinho.caixa.min[2];
-    const vzMax = vizinho.pose.z + vizinho.caixa.max[2];
-    const mesmaBase = Math.abs(pose.z - vizinho.pose.z) <= 0.001;
-    const sobrepoeEmAltura = Math.min(zMax, vzMax) - Math.max(zMin, vzMin) > EPS;
-    if (!mesmaBase && !sobrepoeEmAltura) continue;
+    if (!compartilhaAltura(pose, caixa, vizinho.pose, vizinho.caixa)) continue;
 
     const m = matrizLocal(k, vizinho.pose.mirrored, pose.mirrored);
     const transformada = caixaTransformada(caixa, m);
@@ -156,6 +163,8 @@ export function encaixarNoVizinho(
 
 /** Ordem estável dos tipos de guia, como declarada em `Guia.tipo`. */
 const ORDEM_DAS_GUIAS: readonly Guia['tipo'][] = ['frente', 'fundo', 'esquerda', 'direita', 'centro-x', 'centro-y'];
+/** Guias verticais em planta (alinhamento lateral/central) permitidas também entre móveis em alturas diferentes. */
+const GUIAS_VERTICAIS: readonly Guia['tipo'][] = ['esquerda', 'direita', 'centro-x'];
 
 /** Uma reta de alinhamento: um ponto de passagem e a direção unitária. */
 interface Reta {
@@ -205,7 +214,8 @@ export function guiasDeAlinhamento(pose: Pose, caixa: CaixaLocal, outros: readon
 
     const retasOutro = retasDoCorpo(outro.pose, outro.caixa);
     const cantosOutro = retanguloNoMundo(outro.pose, outro.caixa);
-    for (const tipo of ORDEM_DAS_GUIAS) {
+    const tipos = compartilhaAltura(pose, caixa, outro.pose, outro.caixa) ? ORDEM_DAS_GUIAS : GUIAS_VERTICAIS;
+    for (const tipo of tipos) {
       const reta = retasMovel[tipo];
       const normal = { x: -reta.direcao.y, y: reta.direcao.x };
       const deslocamentoMovel = reta.ponto.x * normal.x + reta.ponto.y * normal.y;

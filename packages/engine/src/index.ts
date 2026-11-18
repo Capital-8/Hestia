@@ -12,6 +12,7 @@ export * from './genericQuantities.ts';
 export * from './schedule.ts';
 export * from './wrap.ts';
 export * from './section.ts';
+export * from './sectionComponents.ts';
 export * from './sectionMembrane.ts';
 export * from './sectionStairs.ts';
 export * from './sectionRamps.ts';
