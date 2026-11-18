@@ -37,12 +37,13 @@ export function gruposDeVistas(p: Project, lang: Lang): GrupoVistas[] {
     ...projectView3DPoints(p).map((ponto) => ({ key: `3d:${ponto.id}`, label: ponto.name, view: { kind: '3d' as const, pointId: ponto.id } })),
     { key: '3d', label: t(lang, 'dlc_src_3d_default'), view: { kind: '3d' } },
   ];
-  return [
+  const grupos: GrupoVistas[] = [
     { tipo: 'plan', titulo: t(lang, 'cvs_ins_group_plan'), fontes: plantas },
     { tipo: 'section', titulo: t(lang, 'cvs_ins_group_section'), fontes: porTipo('section') },
     { tipo: 'elevation', titulo: t(lang, 'cvs_ins_group_elevation'), fontes: porTipo('elevation') },
     { tipo: '3d', titulo: t(lang, 'cvs_ins_group_3d'), fontes: modelos },
-  ].filter((g) => g.fontes.length > 0);
+  ];
+  return grupos.filter((g) => g.fontes.length > 0);
 }
 
 /** Uma lista só, com o cabeçalho de cada grupo antes das vistas dele. */
