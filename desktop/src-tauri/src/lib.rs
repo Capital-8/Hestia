@@ -68,6 +68,8 @@ pub fn run() {
             verificar_atualizacao,
             instalar_atualizacao,
             biblioteca::biblioteca_escolher_raiz,
+            biblioteca::biblioteca_escolher_destino,
+            biblioteca::biblioteca_renomear,
             biblioteca::biblioteca_raiz_lembrada,
             biblioteca::biblioteca_esquecer,
             biblioteca::biblioteca_ler_indice,
