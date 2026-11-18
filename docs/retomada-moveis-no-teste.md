@@ -99,3 +99,24 @@ Nenhuma entrada leva ao editor: a ação `familyEditor` da faixa está `disabled
 - Desempenho (`componentsPlanOps`, 300 mesas redondas de 64 lados + 4 pés, sombreado): grosseiro (= antes) ~100 ms, médio ~105 ms.
 - Ver em tela: mesa redonda/oval (tampo redondo e pés), mesa de vidro (pés visíveis através), aéreo recortado, troca de detalhe grosseiro/médio/fino, aramado e rotação/espelho. Ferragens ainda não entram na planta.
 - Testes antigos: nenhuma expectativa alterada.
+
+## Editor de famílias reativado (branch `moveis/editor-familias`)
+
+- Reativado: "Editor de famílias" (faixa Construir) volta a abrir o editor, sem `disabled`; "Criar/editar modelo" na paleta Biblioteca; aviso "Experimental" no cabeçalho (chaves `fam_` nos 7 idiomas, o resto segue em português fixo); "Meus modelos" ganhou Exportar (`meus-modelos.hestia-familia.json`) e Importar (valida, ignora inválidos, recusa arquivo ruim com mensagem; nunca executa o arquivo).
+- Smoke `tests/e2e/familias-editor.mjs` (Chrome do sistema, Vite na 4700, saída 0): abrir o app 6,2 s; botão habilitado com dica experimental; editor abre em 2,7 s com aviso; Novo > Armário baixo > Criar (0,3 s); peça adicionada pela store (10 para 11) e resolvida; Guardar em Meus modelos (0,2 s); Carregar no projeto (0,6 s): `componentFamilies` e ferramenta Componente; volta ao projeto e reabre sem perder a família; clique na planta cria 1 component (0,3 s); desfazer tira só o component, refazer devolve; exportar, importar válido e recusa de inválido; fechar com projeto intacto; Biblioteca abre o editor; sem pageerror e sem console.error.
+- Limitações medidas: as abas Inserir, Modificar, Vista e Gerenciar estão desabilitadas (`FamiliaFaixa.tsx:168`); o smoke põe a peça pela store (`executar`), não pelo diálogo de peça, então esse caminho de UI não foi exercitado; ao abrir aparece um 404 de recurso no console, não identificado (não é resposta HTTP capturada no smoke).
+
+Limitações do editor hoje (não tratadas nesta ficha):
+- Peças não se movem com o mouse; sem captura de vértice, aresta ou face (ver `docs/componentes-familias/PROGRESSO.md`).
+- Só peças planas (chapas) com contorno, vazios e usinagens; nada de superfície curva.
+- Módulos não aparecem em cortes e elevações; 3D sem texturas (`Material` sem UV).
+- Textos fixos em português em `ui/familia/*` (~560 literais): migrar depois; só os textos novos têm i18n.
+- Menu de contexto de componente não tem "Editar modelo…": não há entrada, nem desativada (`ui/componenteMenu.ts`); não foi adicionada.
+- Mensagens de erro da importação vêm do pacote `model` (`familia/arquivo.ts`), em português.
+
+Roteiro curto para o dono criar uma mesa:
+1. Arquitetura > Construir > Editor de famílias (ou Biblioteca > Criar/editar modelo).
+2. "+ Novo módulo…", busque "Mesa 1200", Criar (ou duplo clique); edite os parâmetros e peças na aba Criar.
+3. Abrir e salvar > Guardar em Meus modelos; depois Carregar no projeto.
+4. Na planta, com a ferramenta Componente ativa, clique para colocar; Ctrl+Z desfaz.
+5. Para virar biblioteca padrão depois: Novo > Meus modelos > Exportar meus modelos e leve o arquivo ao código.

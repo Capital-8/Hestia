@@ -363,3 +363,12 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - Sem parede cortina sem grade: mantém a mensagem do kernel. Célula não achada na cortina: `tl_msg_curtain_no_cell`. Linha fora do vão e linha duplicada também recusam o cursor.
 - Botão "Criar parede cortina" NÃO foi feito: não há comando simples para isso (os três tipos predefinidos já vêm no projeto, em `wallTypes`); a mensagem só indica onde escolher o tipo.
 - Testes novos: `packages/tools/src/curtainSemAlvo.test.ts`. Existente editado (único): `curtainGridLineTool.test.ts`, caso "fora de qualquer parede" (agora espera o aviso em vez da dica pura).
+
+## Ficha editor-familias-reativado (2026-11-18, branch moveis/editor-familias)
+
+- Reativação: a ação `familyEditor` da faixa Construir volta a chamar `useFamilia.abrir()`, sem `disabled`; hint "Experimental: cria e edita móveis paramétricos (Meus modelos)." (`ribbon-i18n-4.json`, 7 idiomas).
+- Textos novos (aviso, Criar/editar modelo, exportar/importar) em shard próprio `editor/i18n/areas/familias.ts` (prefixo `fam_`); os ~560 literais antigos do editor ficaram em português (fora de escopo).
+- Exportar e importar ficam na galeria Novo > Meus modelos, não na faixa: reaproveitam `exportarFamilias`/`lerArquivo`; arquivo inválido vira mensagem; importação mescla por id e respeita o limite de 100.
+- "Editar modelo…" no menu de contexto NÃO foi adicionado: não havia entrada desativada no código (`ui/componenteMenu.ts`).
+- Smoke novo `tests/e2e/familias-editor.mjs`: 13 passos e 12b, todos ok (detalhes em `docs/retomada-moveis-no-teste.md`, seção "Editor de famílias reativado").
+- Testes: `ui/ribbon/familyEditorAcao.test.ts` (novo); `ui/familia/meusModelos.test.ts` ganhou blocos novos; nenhum teste existente foi alterado. Vitest de familia, ribbon, i18n e model/familia: 454 verdes em 48 arquivos.
