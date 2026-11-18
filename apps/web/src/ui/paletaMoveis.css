@@ -203,3 +203,5 @@
   border-radius: 4px;
 }
 .pal-importar:hover { filter: brightness(1.08); }
+.pal-importar.pal-criar { color: var(--accent); background: transparent; }
+.pal-importar.pal-criar:hover { background: var(--accent-soft); filter: none; }

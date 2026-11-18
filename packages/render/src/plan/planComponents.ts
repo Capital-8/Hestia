@@ -1,8 +1,9 @@
-import { ringArea, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { caixaDoComponente, pegadaDoComponente, resolverComponente, type PecaResolvida } from '@hestia/engine';
-import { levelElevation, MAPA_ACABAMENTOS, materialDoAcabamento, resolverMaterialVisualPeca, type Component, type PapelPeca, type Project } from '@hestia/model';
-import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
+import type { MultiPolygon } from '@hestia/geom';
+import { caixaDoComponente, pecaNaPlanta, pegadaDoComponente, resolverComponente, type DetalhePlanta, type PecaResolvida } from '@hestia/engine';
+import { levelElevation, type Component, type Project } from '@hestia/model';
 import { mix } from './color.ts';
+import { anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoMundo } from './planComponentsGeo.ts';
+import { aneisDasPecas, desenharPecasEmPlanta } from './planComponentsPecas.ts';
 import type { FillOp, PlanTheme, StrokeOp } from './types.ts';
 
 /** Cota mínima (m) relativa ao pavimento a partir da qual o móvel é considerado aéreo (projeção tracejada). */
@@ -10,44 +11,6 @@ const COTA_AEREO_M = 1.1;
 
 /** Cota mínima e máxima aproximada dos recortes de tampo quando há peça tampo explícita. */
 const RECORTE_REGEX = /cuba|cooktop|recorte/i;
-
-/** Cor (hex) do acabamento que o 3D usa para o papel da peça: overrides `acabCorpo/acabPorta/acabTampo`, material especial ou padrão do papel. */
-function corDoPapel(c: Component, papel: PapelPeca, materialPeca?: string): string | undefined {
-  const id = resolverMaterialVisualPeca(c, papel, materialPeca);
-  return MATERIAIS_DE_COMPONENTE[id]?.color ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!).color : undefined);
-}
-
-function pontoNoMundo(c: Component, lx: number, ly: number): Vec2 {
-  const cos = Math.cos(c.rotation);
-  const sen = Math.sin(c.rotation);
-  const sx = c.mirrored ? -lx : lx;
-  return { x: c.x + sx * cos - ly * sen, y: c.y + sx * sen + ly * cos };
-}
-
-function anelRetangulo(c: Component, x0: number, y0: number, x1: number, y1: number): Ring {
-  const ring = [
-    pontoNoMundo(c, x0, y0),
-    pontoNoMundo(c, x1, y0),
-    pontoNoMundo(c, x1, y1),
-    pontoNoMundo(c, x0, y1),
-  ];
-  if (ringArea(ring) < 0) ring.reverse();
-  return ring;
-}
-
-function anelDaPecaEmPlanta(c: Component, peca: PecaResolvida): Ring {
-  const [ox, oy] = peca.origem;
-  if (peca.eixo === 'z' && peca.contorno !== null && peca.contorno.length >= 6) {
-    const ring: Ring = [];
-    for (let i = 0; i + 1 < peca.contorno.length; i += 2) {
-      ring.push(pontoNoMundo(c, ox + peca.contorno[i]!, oy + peca.contorno[i + 1]!));
-    }
-    if (ringArea(ring) < 0) ring.reverse();
-    return ring;
-  }
-  const [ex, ey] = peca.extensao;
-  return anelRetangulo(c, ox, oy, ox + ex, oy + ey);
-}
 
 function desenharRecorte(
   c: Component,
@@ -79,13 +42,16 @@ function desenharTamposERecortes(
   fills: FillOp[],
   strokes: StrokeOp[],
   sombreado: boolean,
+  soRecortes = false,
 ): void {
   const tampos = pecas.filter((q) => !q.vazio && q.papel === 'tampo');
   const tampoPolys: MultiPolygon = [];
   for (const t of tampos) {
-    const ring = anelDaPecaEmPlanta(c, t);
-    tampoPolys.push([ring]);
-    strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    if (!soRecortes) {
+      const ring = anelDaPecaEmPlanta(c, t);
+      tampoPolys.push([ring]);
+      strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    }
     if (t.eixo === 'z') {
       const [ox, oy] = t.origem;
       for (const u of t.usinagens) {
@@ -103,7 +69,9 @@ function desenharTamposERecortes(
   // Peças explícitas de recorte/cuba/cooktop ou genéricas sobre o tampo (inclusive peças vazias `vazio: true`).
   const tampoZMin = tampos.length > 0 ? Math.min(...tampos.map((t) => t.origem[2])) - 0.05 : -Infinity;
   for (const q of pecas) {
-    const ehRecorte = q.vazio || q.papel === 'generica' || RECORTE_REGEX.test(q.id) || RECORTE_REGEX.test(q.nome);
+    const nomeado = RECORTE_REGEX.test(q.id) || RECORTE_REGEX.test(q.nome);
+    // Na projeção real a peça genérica é sólida e já foi desenhada; só vazios e peças de recorte seguem como recorte.
+    const ehRecorte = q.vazio || nomeado || (q.papel === 'generica' && !soRecortes);
     if (!ehRecorte) continue;
     if (tampos.length > 0 && q.origem[2] + q.extensao[2] < tampoZMin) continue;
     const [ox, oy] = q.origem;
@@ -112,7 +80,7 @@ function desenharTamposERecortes(
   }
 }
 
-function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: string, fills: FillOp[], strokes: StrokeOp[], sombreado: boolean): void {
+function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: string, fills: FillOp[], strokes: StrokeOp[], sombreado: boolean, soPuxador = false): void {
   const vistas = new Set<string>();
   for (const q of pecas) {
     if (q.vazio || (q.papel !== 'porta' && q.papel !== 'frente_gaveta')) continue;
@@ -123,10 +91,12 @@ function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: s
     if (vistas.has(chave)) continue;
     vistas.add(chave);
 
-    const anel = anelRetangulo(c, ox, oy, ox + ex, oy + ey);
-    const corFrente = sombreado ? corDoPapel(c, q.papel, q.material ?? undefined) : undefined;
-    if (corFrente) fills.push({ polygons: [[anel]], color: corFrente, alpha: 1 });
-    strokes.push({ pts: anel, closed: true, widthPx: 0.9, color, alpha: 0.75 });
+    if (!soPuxador) {
+      const anel = anelRetangulo(c, ox, oy, ox + ex, oy + ey);
+      const corFrente = sombreado ? corDoPapel(c, q.papel, q.material ?? undefined) : undefined;
+      if (corFrente) fills.push({ polygons: [[anel]], color: corFrente, alpha: 1 });
+      strokes.push({ pts: anel, closed: true, widthPx: 0.9, color, alpha: 0.75 });
+    }
     const largPux = Math.min(0.12, ex * 0.35);
     if (largPux >= 0.03) {
       const cx = ox + ex / 2;
@@ -156,6 +126,8 @@ export function desenharComponenteEmPlanta(
   strokes: StrokeOp[],
   sombreado = false,
   fillsAereos: FillOp[] = fills,
+  detalhe: DetalhePlanta = 'medium',
+  aramado = false,
 ): void {
   const res = resolverComponente(p, c);
   const caixa = caixaDoComponente(p, c, res);
@@ -163,16 +135,27 @@ export function desenharComponenteEmPlanta(
   const pegada = pegadaDoComponente(p, c, res);
   if (pegada.length === 0) return;
 
+  const visiveis = res.pecas.filter((q) => pecaNaPlanta(q, detalhe));
   const zMinNoNivel = caixa.min[2] - levelElevation(p, c.levelId);
   if (zMinNoNivel >= COTA_AEREO_M) {
     // Aéreo sombreado: véu leve na cor do corpo (alpha 0,25), emitido ANTES dos móveis de piso para nunca cobri-los.
     const corAereo = sombreado ? corDoPapel(c, 'lateral') : undefined;
     if (corAereo) fillsAereos.push({ polygons: pegada, color: corAereo, alpha: 0.25 });
-    for (const poly of pegada) {
-      for (const ring of poly) {
-        strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [4, 3] });
-      }
+    // Silhueta real tracejada (as peças); no grosseiro ou sem peças visíveis, a pegada.
+    const aneis = visiveis.length > 0 ? aneisDasPecas(c, visiveis) : pegada.flat();
+    for (const ring of aneis) strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [4, 3] });
+    return;
+  }
+
+  if (visiveis.length > 0) {
+    // Projeção real: a pegada só forra o fundo quando há caixa fechada (base, topo ou fundo); mesa, banco e estrutura aberta não.
+    if (!aramado && res.pecas.some((q) => !q.vazio && (q.papel === 'base' || q.papel === 'topo' || q.papel === 'fundo'))) {
+      const corCorpo = sombreado ? corDoPapel(c, 'lateral') : undefined;
+      fills.push({ polygons: pegada, color: corCorpo ?? mix(theme.bg, theme.inkSoft, 0.07), alpha: corCorpo ? 1 : 0.85 });
     }
+    desenharPecasEmPlanta(c, visiveis, theme, fills, strokes, sombreado, aramado, detalhe === 'fine');
+    desenharFrentes(c, res.pecas, theme.inkSoft, fills, strokes, sombreado, true);
+    desenharTamposERecortes(c, res.pecas, theme, fills, strokes, sombreado, true);
     return;
   }
 
@@ -194,13 +177,15 @@ export function componentsPlanOps(
   theme: PlanTheme,
   hidden: ReadonlySet<string> | undefined,
   sombreado = false,
+  detalhe: DetalhePlanta = 'medium',
+  aramado = false,
 ): { fills: FillOp[]; strokes: StrokeOp[] } {
   const fills: FillOp[] = [];
   const aereos: FillOp[] = [];
   const strokes: StrokeOp[] = [];
   for (const e of Object.values(p.elements)) {
     if (e.kind === 'component' && e.levelId === levelId && !hidden?.has(e.id)) {
-      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos);
+      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado);
     }
   }
   return { fills: [...aereos, ...fills], strokes };

@@ -1,6 +1,6 @@
-import { FAMILIA_ARMARIO, type Familia } from '@hestia/model';
+import { exportarFamilias, FAMILIA_ARMARIO, importarFamilias, lerArquivo, serializar, type Familia } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
-import { CHAVE_MEUS_MODELOS, guardarModelo, lerMeusModelos, removerModelo, type Armazenamento } from './meusModelos.ts';
+import { CHAVE_MEUS_MODELOS, guardarModelo, lerMeusModelos, mesclarMeusModelos, removerModelo, type Armazenamento } from './meusModelos.ts';
 
 interface Memoria extends Armazenamento {
   dados: Map<string, string>;
@@ -92,5 +92,47 @@ describe('guardarModelo e removerModelo', () => {
     const restantes = removerModelo(storage, a.id);
     expect(restantes.map((f) => f.id)).toEqual(['fam_outra']);
     expect(lerMeusModelos(storage).map((f) => f.id)).toEqual(['fam_outra']);
+  });
+});
+
+describe('exportar e importar "Meus modelos" (arquivo hestia-familia)', () => {
+  it('ida e volta pelo arquivo preserva id, nome e parâmetros', () => {
+    const storage = memoria();
+    guardarModelo(storage, clone());
+    const texto = serializar(exportarFamilias(lerMeusModelos(storage)));
+    const r = lerArquivo(texto);
+    expect(r.ignoradas).toEqual([]);
+    expect(r.familias).toHaveLength(1);
+    const lida = r.familias[0]!;
+    expect(lida.id).toBe('fam_armario_baixo');
+    expect(lida.nome).toBe('Armário baixo');
+    expect(lida.parametros[0]).toMatchObject({ id: 'L', nome: 'Largura', padrao: 800 });
+    expect(lida.parametros.find((p) => p.id === 'corpo')).toMatchObject({ nome: 'Chapa do corpo', padrao: 'mdf18' });
+  });
+
+  it('importação mescla: a de mesmo id é substituída e as demais ficam', () => {
+    const storage = memoria();
+    const antiga = clone();
+    antiga.nome = 'Versão antiga';
+    guardarModelo(storage, antiga);
+    const outra = clone();
+    outra.id = 'fam_mesa';
+    outra.nome = 'Mesa';
+    const lista = mesclarMeusModelos(storage, [clone(), outra]);
+    expect(lista.map((f) => f.id)).toEqual(['fam_armario_baixo', 'fam_mesa']);
+    expect(lerMeusModelos(storage).map((f) => f.nome)).toEqual(['Armário baixo', 'Mesa']);
+  });
+
+  it('arquivo de outro formato ou JSON quebrado é recusado com mensagem', () => {
+    expect(() => lerArquivo('{quebrado')).toThrow('Arquivo inválido');
+    expect(() => lerArquivo(JSON.stringify({ formato: 'outro', versao: 1, familias: [] }))).toThrow('O arquivo não é de famílias do Hestia.');
+  });
+
+  it('família ruim dentro de arquivo válido é ignorada e as boas entram', () => {
+    const texto = JSON.stringify({ formato: 'hestia-familia', versao: 1, familias: [{ id: 'x' }, clone()] });
+    const r = importarFamilias(JSON.parse(texto));
+    expect(r.familias.map((f) => f.id)).toEqual(['fam_armario_baixo']);
+    expect(r.ignoradas).toHaveLength(1);
+    expect(r.ignoradas[0]!.nome).toBe('(sem nome)');
   });
 });

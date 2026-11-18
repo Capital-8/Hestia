@@ -198,6 +198,7 @@ function resolverPeca(p: Peca, env: Record<string, Valor>, chapas: ReadonlySet<s
       veio: p.veio ?? null,
       grupo: p.grupo ?? null,
       deAninhado: null,
+      ...(p.detalhe3d !== undefined ? { detalhe3d: [...p.detalhe3d] } : {}),
     });
   }
   return saida;

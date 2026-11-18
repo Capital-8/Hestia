@@ -1,0 +1,140 @@
+/**
+ * Shard de dicionário: editor de famílias (reativado como EXPERIMENTAL) e "Meus modelos" (exportar/importar arquivo).
+ * Prefixo `fam_`. Só os textos NOVOS da reativação passam por aqui; o resto do editor segue em português fixo.
+ * Paridade PT/EN/ES/DE/FR/IT/PL pelo tipo `Record<keyof typeof PT_FAMILIAS, string>`.
+ */
+
+export const PT_FAMILIAS = {
+  fam_exp_selo: 'Experimental',
+  fam_exp_aviso: 'Experimental: nada entra no projeto até “Carregar no projeto”.',
+  fam_exp_dica: 'Editor de famílias em teste: controles e formato do arquivo podem mudar.',
+  fam_criar_modelo: 'Criar/editar modelo',
+  fam_criar_modelo_dica: 'Abre o editor de famílias (experimental) para criar ou editar um móvel',
+  fam_meus_exportar: 'Exportar meus modelos',
+  fam_meus_exportar_dica: 'Baixa um arquivo com todos os modelos guardados em Meus modelos',
+  fam_meus_importar: 'Importar modelos',
+  fam_meus_importar_dica: 'Lê um arquivo de famílias e guarda os modelos válidos em Meus modelos',
+  fam_meus_nada_exportar: 'Nenhum modelo guardado para exportar.',
+  fam_meus_exportado: '{n} modelo(s) exportado(s) em “{nome}”.',
+  fam_meus_importado: '{n} modelo(s) guardado(s) em Meus modelos.',
+  fam_meus_ignorados: '{n} modelo(s) ignorado(s): {motivos}',
+  fam_meus_erro_importar: 'Não foi possível importar: {motivo}',
+  fam_meus_nenhum: 'nenhum modelo válido no arquivo',
+  fam_meus_sem_armazenamento: 'O navegador não permite guardar modelos.',
+} as const;
+
+type D = Record<keyof typeof PT_FAMILIAS, string>;
+
+export const EN_FAMILIAS: D = {
+  fam_exp_selo: 'Experimental',
+  fam_exp_aviso: 'Experimental: nothing enters the project until “Load into project”.',
+  fam_exp_dica: 'Family editor under testing: controls and file format may change.',
+  fam_criar_modelo: 'Create/edit model',
+  fam_criar_modelo_dica: 'Opens the family editor (experimental) to create or edit a piece of furniture',
+  fam_meus_exportar: 'Export my models',
+  fam_meus_exportar_dica: 'Downloads a file with all models saved in My models',
+  fam_meus_importar: 'Import models',
+  fam_meus_importar_dica: 'Reads a family file and saves the valid models in My models',
+  fam_meus_nada_exportar: 'No saved model to export.',
+  fam_meus_exportado: '{n} model(s) exported to “{nome}”.',
+  fam_meus_importado: '{n} model(s) saved in My models.',
+  fam_meus_ignorados: '{n} model(s) skipped: {motivos}',
+  fam_meus_erro_importar: 'Could not import: {motivo}',
+  fam_meus_nenhum: 'no valid model in the file',
+  fam_meus_sem_armazenamento: 'The browser does not allow saving models.',
+};
+
+export const ES_FAMILIAS: D = {
+  fam_exp_selo: 'Experimental',
+  fam_exp_aviso: 'Experimental: nada entra en el proyecto hasta “Cargar en el proyecto”.',
+  fam_exp_dica: 'Editor de familias en prueba: los controles y el formato del archivo pueden cambiar.',
+  fam_criar_modelo: 'Crear/editar modelo',
+  fam_criar_modelo_dica: 'Abre el editor de familias (experimental) para crear o editar un mueble',
+  fam_meus_exportar: 'Exportar mis modelos',
+  fam_meus_exportar_dica: 'Descarga un archivo con todos los modelos guardados en Mis modelos',
+  fam_meus_importar: 'Importar modelos',
+  fam_meus_importar_dica: 'Lee un archivo de familias y guarda los modelos válidos en Mis modelos',
+  fam_meus_nada_exportar: 'No hay ningún modelo guardado para exportar.',
+  fam_meus_exportado: '{n} modelo(s) exportado(s) en “{nome}”.',
+  fam_meus_importado: '{n} modelo(s) guardado(s) en Mis modelos.',
+  fam_meus_ignorados: '{n} modelo(s) ignorado(s): {motivos}',
+  fam_meus_erro_importar: 'No se pudo importar: {motivo}',
+  fam_meus_nenhum: 'ningún modelo válido en el archivo',
+  fam_meus_sem_armazenamento: 'El navegador no permite guardar modelos.',
+};
+
+export const DE_FAMILIAS: D = {
+  fam_exp_selo: 'Experimentell',
+  fam_exp_aviso: 'Experimentell: Nichts gelangt ins Projekt, bis „In Projekt laden“ verwendet wird.',
+  fam_exp_dica: 'Familieneditor in Erprobung: Steuerung und Dateiformat können sich ändern.',
+  fam_criar_modelo: 'Modell erstellen/bearbeiten',
+  fam_criar_modelo_dica: 'Öffnet den Familieneditor (experimentell), um ein Möbelstück zu erstellen oder zu bearbeiten',
+  fam_meus_exportar: 'Meine Modelle exportieren',
+  fam_meus_exportar_dica: 'Lädt eine Datei mit allen in Meine Modelle gespeicherten Modellen herunter',
+  fam_meus_importar: 'Modelle importieren',
+  fam_meus_importar_dica: 'Liest eine Familiendatei und speichert die gültigen Modelle in Meine Modelle',
+  fam_meus_nada_exportar: 'Kein gespeichertes Modell zum Exportieren.',
+  fam_meus_exportado: '{n} Modell(e) in „{nome}“ exportiert.',
+  fam_meus_importado: '{n} Modell(e) in Meine Modelle gespeichert.',
+  fam_meus_ignorados: '{n} Modell(e) übersprungen: {motivos}',
+  fam_meus_erro_importar: 'Import nicht möglich: {motivo}',
+  fam_meus_nenhum: 'kein gültiges Modell in der Datei',
+  fam_meus_sem_armazenamento: 'Der Browser erlaubt das Speichern von Modellen nicht.',
+};
+
+export const FR_FAMILIAS: D = {
+  fam_exp_selo: 'Expérimental',
+  fam_exp_aviso: 'Expérimental : rien n\'entre dans le projet avant « Charger dans le projet ».',
+  fam_exp_dica: 'Éditeur de familles en test : les commandes et le format de fichier peuvent changer.',
+  fam_criar_modelo: 'Créer/modifier un modèle',
+  fam_criar_modelo_dica: 'Ouvre l\'éditeur de familles (expérimental) pour créer ou modifier un meuble',
+  fam_meus_exportar: 'Exporter mes modèles',
+  fam_meus_exportar_dica: 'Télécharge un fichier avec tous les modèles enregistrés dans Mes modèles',
+  fam_meus_importar: 'Importer des modèles',
+  fam_meus_importar_dica: 'Lit un fichier de familles et enregistre les modèles valides dans Mes modèles',
+  fam_meus_nada_exportar: 'Aucun modèle enregistré à exporter.',
+  fam_meus_exportado: '{n} modèle(s) exporté(s) dans « {nome} ».',
+  fam_meus_importado: '{n} modèle(s) enregistré(s) dans Mes modèles.',
+  fam_meus_ignorados: '{n} modèle(s) ignoré(s) : {motivos}',
+  fam_meus_erro_importar: 'Impossible d\'importer : {motivo}',
+  fam_meus_nenhum: 'aucun modèle valide dans le fichier',
+  fam_meus_sem_armazenamento: 'Le navigateur ne permet pas d\'enregistrer des modèles.',
+};
+
+export const IT_FAMILIAS: D = {
+  fam_exp_selo: 'Sperimentale',
+  fam_exp_aviso: 'Sperimentale: niente entra nel progetto finché non si usa «Carica nel progetto».',
+  fam_exp_dica: 'Editor di famiglie in prova: comandi e formato del file possono cambiare.',
+  fam_criar_modelo: 'Crea/modifica modello',
+  fam_criar_modelo_dica: 'Apre l\'editor di famiglie (sperimentale) per creare o modificare un mobile',
+  fam_meus_exportar: 'Esporta i miei modelli',
+  fam_meus_exportar_dica: 'Scarica un file con tutti i modelli salvati in I miei modelli',
+  fam_meus_importar: 'Importa modelli',
+  fam_meus_importar_dica: 'Legge un file di famiglie e salva i modelli validi in I miei modelli',
+  fam_meus_nada_exportar: 'Nessun modello salvato da esportare.',
+  fam_meus_exportado: '{n} modello/i esportato/i in «{nome}».',
+  fam_meus_importado: '{n} modello/i salvato/i in I miei modelli.',
+  fam_meus_ignorados: '{n} modello/i ignorato/i: {motivos}',
+  fam_meus_erro_importar: 'Impossibile importare: {motivo}',
+  fam_meus_nenhum: 'nessun modello valido nel file',
+  fam_meus_sem_armazenamento: 'Il browser non consente di salvare i modelli.',
+};
+
+export const PL_FAMILIAS: D = {
+  fam_exp_selo: 'Eksperymentalne',
+  fam_exp_aviso: 'Eksperymentalne: nic nie trafia do projektu, dopóki nie użyjesz „Wczytaj do projektu”.',
+  fam_exp_dica: 'Edytor rodzin w fazie testów: sterowanie i format pliku mogą się zmienić.',
+  fam_criar_modelo: 'Utwórz/edytuj model',
+  fam_criar_modelo_dica: 'Otwiera edytor rodzin (eksperymentalny), aby utworzyć lub edytować mebel',
+  fam_meus_exportar: 'Eksportuj moje modele',
+  fam_meus_exportar_dica: 'Pobiera plik ze wszystkimi modelami zapisanymi w Moje modele',
+  fam_meus_importar: 'Importuj modele',
+  fam_meus_importar_dica: 'Odczytuje plik rodzin i zapisuje poprawne modele w Moje modele',
+  fam_meus_nada_exportar: 'Brak zapisanego modelu do eksportu.',
+  fam_meus_exportado: 'Wyeksportowano modele ({n}) do „{nome}”.',
+  fam_meus_importado: 'Zapisano modele ({n}) w Moje modele.',
+  fam_meus_ignorados: 'Pominięto modele ({n}): {motivos}',
+  fam_meus_erro_importar: 'Nie udało się zaimportować: {motivo}',
+  fam_meus_nenhum: 'brak poprawnych modeli w pliku',
+  fam_meus_sem_armazenamento: 'Przeglądarka nie pozwala zapisywać modeli.',
+};

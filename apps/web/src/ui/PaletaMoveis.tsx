@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
+import { useFamilia } from './familia/familiaStore.ts';
 import { tm } from './moveisTextos.ts';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
 import { ABAS_PALETA, filtrarItensDaPaleta, montarItensDaPaleta, type CategoriaPaleta, type ItemPaleta } from './paletaMoveis.ts';
@@ -187,6 +188,9 @@ export function PaletaMoveis(): ReactElement | null {
         />
         <button type="button" className="pal-importar" data-testid="pal-importar" title={t('fur_import_sub')} onClick={() => useUi.setState({ dialog: 'importFurniture', dialogArg: null })}>
           {t('fur_import_title')}
+        </button>
+        <button type="button" className="pal-importar pal-criar" data-testid="pal-criar-modelo" title={t('fam_criar_modelo_dica')} onClick={() => useFamilia.getState().abrir()}>
+          {t('fam_criar_modelo')}
         </button>
         <div className="pal-abas" role="tablist" aria-label={tm('mov_categorias')}>
           {ABAS_PALETA.map((aba) => (

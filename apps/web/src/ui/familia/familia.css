@@ -16,6 +16,7 @@
 .fam-doctabs > .fam-aba::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: var(--revit-green); border-radius: 2px; }
 .fam-doctabs > .fam-novo-btn { margin-left: 8px; border-color: transparent; background: transparent; color: var(--accent); }
 .fam-aviso { margin-left: auto; padding: 0 8px 4px; color: var(--warn); font-size: 11px; }
+.fam-selo-exp { align-self: center; margin-left: 8px; padding: 0 6px; border-radius: 8px; font-size: 10px; font-weight: 600; background: var(--warn); color: var(--chrome); }
 
 .fam-novo { margin-left: 4px; font-style: normal; font-size: 9px; font-weight: 600; padding: 0 4px; border-radius: 8px; background: var(--revit-green-soft); color: var(--revit-green); }
 .fam-pequeno { display: flex; align-items: center; gap: 5px; padding: 1px 6px 1px 3px; white-space: nowrap; }

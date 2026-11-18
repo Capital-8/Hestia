@@ -188,3 +188,36 @@ Leitura:
 - Normal map e ORM (metal/rugosidade empacotado) são lidos e NÃO aplicados (o contrato do bloco ainda não tem esse slot): é limite do importador, não do arquivo; o brilho vem só da rugosidade média.
 - Vidro: 9 arquivos tinham material de vidro OPACO (6 com "glass" de baseColorFactor azul-esverdeado e alfa 1; 3 "…_glass" com textura, dois deles BLEND sem alfa no fator: o alfa estaria na textura, que não é lida). Corrigido no importador: 35% de opacidade para vidro opaco, com aviso. O relógio de parede (`KHR_materials_transmission` 1 com alfa 0,4) já saía translúcido pelo alfa; agora a transmissão também conta.
 - Dado ruim do arquivo (só relato): escalas heterogêneas (bacia 0,63 × 0,95 × 0,90 m: a altura de 0,90 m é alta demais para uma bacia; mesa-redonda 1,39 × 1,60 e cama-casal 1,91 × 2,25 também merecem conferência; use o campo de tamanho do diálogo; tapete 1,84 × 1,84 × 0,02 é fino mesmo. Origem do arquivo fora do centro é tratada pelo recentrar do bloco.
+
+## Planta real dos móveis (branch moveis/planta-real)
+- `planComponents.ts` projeta cada peça vista de cima (`planComponentsPecas.ts`, geometria em `planComponentsGeo.ts`): polígono real (eixo z) ou retângulo `extensao` x × y (eixos x/y), ordenado pela cota superior (a mais alta por último e cobre a de baixo).
+- Níveis (`DetailLevel` da planta): grosseiro = só pegada, tampo e frentes como antes; médio = peças sem travessa e rodapé (regra do 3D, `pecaNaPlanta` no engine); fino = todas. `detalhe3d` da peça (agora copiado para `PecaResolvida`) vale o menor nível listado.
+- Pegada só forra o fundo quando há caixa fechada (base, topo ou fundo); mesa, banco e estrutura aberta mostram só as peças. Peça `vazio` nunca é sólida (segue só como recorte).
+- Vidro (material com "vidro" ou grupo vidro): alpha 0,25, não encobre; peça opaca totalmente sob outra opaca mais alta fica sem contorno (médio) ou tracejada fraca (fino); portas e frentes mantêm contorno.
+- Aramado: só contornos (`aramado` vem de `wire` em `build.ts`). Aéreo (zMin >= 1,10 m): silhueta real tracejada [4,3] das peças + véu 0,25 na cor do corpo; no grosseiro, a pegada.
+- Snaps (`moveisSnapPlanta.ts`): cantos, meios e arestas de cada peça do detalhe médio (dedupe por chave); testes de 300 móveis seguem verdes.
+- Elevação/corte (`sectionComponents.ts`): já projeta peça a peça com `resolverMaterialVisualPeca`; nada a corrigir.
+- Desempenho (`componentsPlanOps`, 300 mesas redondas de 64 lados + 4 pés, sombreado): grosseiro (= antes) ~100 ms, médio ~105 ms.
+- Ver em tela: mesa redonda/oval (tampo redondo e pés), mesa de vidro (pés visíveis através), aéreo recortado, troca de detalhe grosseiro/médio/fino, aramado e rotação/espelho. Ferragens ainda não entram na planta.
+- Testes antigos: nenhuma expectativa alterada.
+
+## Editor de famílias reativado (branch `moveis/editor-familias`)
+
+- Reativado: "Editor de famílias" (faixa Construir) volta a abrir o editor, sem `disabled`; "Criar/editar modelo" na paleta Biblioteca; aviso "Experimental" no cabeçalho (chaves `fam_` nos 7 idiomas, o resto segue em português fixo); "Meus modelos" ganhou Exportar (`meus-modelos.hestia-familia.json`) e Importar (valida, ignora inválidos, recusa arquivo ruim com mensagem; nunca executa o arquivo).
+- Smoke `tests/e2e/familias-editor.mjs` (Chrome do sistema, Vite na 4700, saída 0): abrir o app 6,2 s; botão habilitado com dica experimental; editor abre em 2,7 s com aviso; Novo > Armário baixo > Criar (0,3 s); peça adicionada pela store (10 para 11) e resolvida; Guardar em Meus modelos (0,2 s); Carregar no projeto (0,6 s): `componentFamilies` e ferramenta Componente; volta ao projeto e reabre sem perder a família; clique na planta cria 1 component (0,3 s); desfazer tira só o component, refazer devolve; exportar, importar válido e recusa de inválido; fechar com projeto intacto; Biblioteca abre o editor; sem pageerror e sem console.error.
+- Limitações medidas: as abas Inserir, Modificar, Vista e Gerenciar estão desabilitadas (`FamiliaFaixa.tsx:168`); o smoke põe a peça pela store (`executar`), não pelo diálogo de peça, então esse caminho de UI não foi exercitado; ao abrir aparece um 404 de recurso no console, não identificado (não é resposta HTTP capturada no smoke).
+
+Limitações do editor hoje (não tratadas nesta ficha):
+- Peças não se movem com o mouse; sem captura de vértice, aresta ou face (ver `docs/componentes-familias/PROGRESSO.md`).
+- Só peças planas (chapas) com contorno, vazios e usinagens; nada de superfície curva.
+- Módulos não aparecem em cortes e elevações; 3D sem texturas (`Material` sem UV).
+- Textos fixos em português em `ui/familia/*` (~560 literais): migrar depois; só os textos novos têm i18n.
+- Menu de contexto de componente não tem "Editar modelo…": não há entrada, nem desativada (`ui/componenteMenu.ts`); não foi adicionada.
+- Mensagens de erro da importação vêm do pacote `model` (`familia/arquivo.ts`), em português.
+
+Roteiro curto para o dono criar uma mesa:
+1. Arquitetura > Construir > Editor de famílias (ou Biblioteca > Criar/editar modelo).
+2. "+ Novo módulo…", busque "Mesa 1200", Criar (ou duplo clique); edite os parâmetros e peças na aba Criar.
+3. Abrir e salvar > Guardar em Meus modelos; depois Carregar no projeto.
+4. Na planta, com a ferramenta Componente ativa, clique para colocar; Ctrl+Z desfaz.
+5. Para virar biblioteca padrão depois: Novo > Meus modelos > Exportar meus modelos e leve o arquivo ao código.

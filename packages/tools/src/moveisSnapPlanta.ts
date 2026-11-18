@@ -1,4 +1,4 @@
-import { pegadaDoComponente, resolverComponente, type PecaResolvida } from '@hestia/engine';
+import { pecaNaPlanta, pegadaDoComponente, resolverComponente, type PecaResolvida } from '@hestia/engine';
 import type { Ring, Vec2 } from '@hestia/geom';
 import { isComponent, type Component, type Id, type Project } from '@hestia/model';
 import { SnapIndexado, type ArestaIndexada, type PontoIndexado } from './snapIndexado.ts';
@@ -50,10 +50,9 @@ function aneisDoComponente(p: Project, c: Component): Ring[] {
   for (const q of res.pecas) {
     const [ox, oy] = q.origem;
     const [ex, ey] = q.extensao;
-    if (!q.vazio && (q.papel === 'porta' || q.papel === 'frente_gaveta')) {
-      if (ex > 1e-4 && ey > 1e-4) aneis.push(retangulo(c, ox, oy, ox + ex, oy + ey));
-    } else if (!q.vazio && q.papel === 'tampo') {
-      aneis.push(anelDaPeca(c, q));
+    // Projeção real (detalhe médio): cantos e arestas de cada peça vista de cima (pés, assentos, tampo redondo...).
+    if (pecaNaPlanta(q, 'medium')) aneis.push(anelDaPeca(c, q));
+    if (!q.vazio && q.papel === 'tampo') {
       if (q.eixo === 'z') {
         for (const u of q.usinagens) {
           if (u.tipo === 'recorte' && u.comprimento > 1e-4 && u.largura > 1e-4) aneis.push(retangulo(c, ox + u.u, oy + u.v, ox + u.u + u.comprimento, oy + u.v + u.largura));

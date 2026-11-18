@@ -1,6 +1,6 @@
 import { exportarFamilias, serializar, type Familia } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
-import { armazenamentoDoNavegador, guardarModelo, lerMeusModelos } from './meusModelos.ts';
+import { armazenamentoDoNavegador, baixarTexto, guardarModelo, lerMeusModelos } from './meusModelos.ts';
 
 interface Mensagem {
   texto: string;
@@ -12,16 +12,7 @@ export function FamiliaArquivoSalvar({ familia }: { familia: Familia }): ReactEl
   const [mensagem, setMensagem] = useState<Mensagem | null>(null);
 
   const baixar = (): void => {
-    const texto = serializar(exportarFamilias([familia]));
-    const blob = new Blob([texto], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const ancora = document.createElement('a');
-    ancora.href = url;
-    ancora.download = `${familia.id}.hestia-familia.json`;
-    document.body.append(ancora);
-    ancora.click();
-    ancora.remove();
-    URL.revokeObjectURL(url);
+    baixarTexto(`${familia.id}.hestia-familia.json`, serializar(exportarFamilias([familia])));
     setMensagem({ texto: `Arquivo “${familia.id}.hestia-familia.json” gerado.`, erro: false });
   };
 

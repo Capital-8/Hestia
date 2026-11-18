@@ -1,4 +1,4 @@
-import type { Eixo, Familia, PapelPeca, Valor } from '@hestia/model';
+import type { Eixo, Familia, NivelDetalhe, PapelPeca, Valor } from '@hestia/model';
 
 /*
  * CONTRATO das peças resolvidas (ADR 0049 §5.1). É a FRONTEIRA com o Rust: só números (metros, arredondados a 1 µm),
@@ -59,6 +59,8 @@ export interface PecaResolvida {
   usinagens: UsinagemResolvida[];
   /** Id do `Aninhado` de que a peça veio (peças da própria família: `null`). */
   deAninhado: string | null;
+  /** Níveis de detalhe em que a peça aparece (da `Peca`); ausente = decide o papel. */
+  detalhe3d?: NivelDetalhe[];
 }
 
 /** Ferragem resolvida (quantidade já calculada) para a lista de peças e o custo. */
