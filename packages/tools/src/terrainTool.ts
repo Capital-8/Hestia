@@ -1,5 +1,5 @@
 import { dist, type Vec2 } from '@hestia/geom';
-import { aplicarOpsFontes, cotaDoProjeto, cotaExibida, formatQuantity, isTerrain, isTerrainRegion, makeTerrain, newId, TERRENO_LIMITES, terrainIssue, unitsOf, type Id, type Terrain } from '@hestia/model';
+import { aplicarOpsFontes, cotaDoProjeto, cotaExibida, defaultTerrainTypeIdOf, formatQuantity, isTerrain, isTerrainRegion, makeTerrain, newId, TERRENO_LIMITES, terrainIssue, unitsOf, type Id, type Terrain } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
@@ -255,7 +255,7 @@ export class TerrainTool extends ToolBase {
     this.env.transaction(this.t(alvo ? 'tl_tn_undo_acrescentar' : 'tl_tn_undo_criar'), () => {
       if (alvo) this.env.exec({ type: 'editTerrainFontes', terrenoId: id, ops: opsAcrescentar(f) });
       else {
-        this.env.exec({ type: 'addTerrain', terrain: makeTerrain({ id, levelId: this.env.levelId() }) });
+        this.env.exec({ type: 'addTerrain', terrain: makeTerrain({ id, levelId: this.env.levelId(), tipoId: defaultTerrainTypeIdOf(this.env.project().settings) }) });
         this.env.exec({ type: 'editTerrainFontes', terrenoId: id, ops: [opSubstituir(f)] });
       }
     });

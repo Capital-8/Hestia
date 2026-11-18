@@ -102,6 +102,21 @@ describe('terreno no corte: operações de desenho', () => {
     expect(com.fills[0]!.hatch?.kind).toBe('cross');
   });
 
+  it('o corpo cortado usa a cor do SOLO do tipo (não a da superfície); sem solo no tipo, a da superfície', () => {
+    falso(T2);
+    const tipo = { id: 'tt_s', name: 'S', intervaloCurvas: 1, mestraCada: 5, curvaPeso: 1, mestraPeso: 1.6, rotularCurvas: false, rotularCada: 1 };
+    const cor = (t: object, patch: object): string => {
+      const st = new ProjectStore(projetoTerreno('T2'));
+      st.exec({ type: 'upsertTerrainType', tipo: { ...tipo, ...t } } as never);
+      st.exec({ type: 'updateTerrain', id: 'tn_t2', patch: { tipoId: 'tt_s', ...patch } });
+      return buildSectionDrawList(entrada(st.project, secao())).fills[0]!.color;
+    };
+    const base = cor({ superficieColor: '#00aa00', soloColor: '#663300' }, {});
+    expect(cor({ superficieColor: '#ff00ff', soloColor: '#663300' }, {})).toBe(base);
+    expect(cor({ superficieColor: '#00aa00', soloColor: '#112233' }, {})).not.toBe(base);
+    expect(cor({ superficieColor: '#663300' }, {})).toBe(base);
+  });
+
   it('é desenhado ANTES do edifício: o preenchimento e o contorno do terreno vêm primeiro nas listas', () => {
     falso(T2);
     const st = new ProjectStore(projetoTerreno('T2'));

@@ -1,5 +1,5 @@
 import { guardaCorpoNoPonto, guardaCorposNaCaixa, linhasVisiveisGC, planoDaSecao, servicoTerreno, ServicoTerreno, type LinhaCorteTN, type LinhaVistaGC, type SectionResult } from '@hestia/engine';
-import type { HatchKind, Id, Project, Terrain } from '@hestia/model';
+import { soloDoTerreno, terrenoComTipo, type HatchKind, type Id, type Project, type Terrain } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { FillOp, PlanTheme, StrokeOp } from '../plan/types.ts';
@@ -71,9 +71,13 @@ export function terrenoCorteOps(
   const { noFill, hatchFor, halftone } = opcoes;
   for (const l of linhasDoTerrenoNoCorte(p, s, hidden)) {
     const pts = emPlano(l);
-    const t = p.elements[l.terrenoId] as Terrain | undefined;
-    const material = t?.materialId ? p.materials[t.materialId] : undefined;
-    const base = paint.color ?? material?.color ?? t?.color ?? COR_PADRAO_TERRENO;
+    const bruto = p.elements[l.terrenoId] as Terrain | undefined;
+    // O corpo cortado é o SOLO: o do tipo do terreno; sem tipo (ou sem solo no tipo), a aparência da superfície, como antes do tipo.
+    const solo = bruto ? soloDoTerreno(p.settings, bruto) : undefined;
+    const t = bruto ? terrenoComTipo(p.settings, bruto) : undefined;
+    const donoDaCor = solo ?? t;
+    const material = donoDaCor?.materialId ? p.materials[donoDaCor.materialId] : undefined;
+    const base = paint.color ?? material?.color ?? donoDaCor?.color ?? COR_PADRAO_TERRENO;
     if (l.papel === 'cortado') {
       if (!noFill && pts.length >= 3) {
         const cor = paint.visual === 'shaded' ? base : mix(base, papel, dark ? 0.5 : 0.58);
