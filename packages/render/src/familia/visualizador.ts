@@ -11,6 +11,14 @@ import {
   type NivelDetalhe3d,
 } from './logica.ts';
 import { marcadoresDaPeca, marcadoresVisiveis } from './usinagensMarcadores.ts';
+import type {
+  CliqueFace3D,
+  CliqueVao3D,
+  HoverVao3D,
+  ModoInteracao3DFamilia,
+  VaoResolvido,
+} from './tiposVisualizador.ts';
+import { VaosOverlay } from './vaosOverlay.ts';
 
 /*
  * Visualizador 3D da família (three.js). FICHA E3-visual. Não tem teste de unidade (precisa de WebGL): o
@@ -93,11 +101,16 @@ export class VisualizadorFamilia {
     polygonOffsetUnits: -2,
   });
   private readonly ouvintes = new Set<(indice: number | null) => void>();
+  private readonly ouvintesPassarVao = new Set<(hover: HoverVao3D | null) => void>();
+  private readonly ouvintesClicarVao = new Set<(clique: CliqueVao3D) => void>();
+  private readonly ouvintesClicarFace = new Set<(clique: CliqueFace3D) => void>();
   private readonly indiceDoObjeto = new WeakMap<THREE.Object3D, number>();
+  private readonly vaosOverlay = new VaosOverlay();
   private visuais: PecaNaCena[] = [];
   private pecas: readonly PecaResolvida[] = [];
   private esfera: { centro: [number, number, number]; raio: number } = { centro: [0, 0, 0], raio: 1 };
   private selecionada: number | null = null;
+  private modoInteracao: ModoInteracao3DFamilia = 'selecionar';
   private fatorExplosao = 0;
   private opacidade = 1;
   private detalhe: NivelDetalhe3d = 'fino';
@@ -125,9 +138,12 @@ export class VisualizadorFamilia {
     const hemisferica = new THREE.HemisphereLight(0xffffff, 0x5a5a5a, 2.2);
     const direcional = new THREE.DirectionalLight(0xffffff, 2.4);
     direcional.position.set(3, -4, 6);
+    this.raiz.add(this.vaosOverlay.grupo);
     this.cena.add(hemisferica, direcional, this.raiz);
 
     canvas.addEventListener('pointerdown', this.aoPointerDown);
+    canvas.addEventListener('pointermove', this.aoPointerMove);
+    canvas.addEventListener('pointerleave', this.aoPointerLeave);
     canvas.addEventListener('pointerup', this.aoPointerUp);
     canvas.addEventListener('pointercancel', this.aoPointerCancel);
 
@@ -160,6 +176,7 @@ export class VisualizadorFamilia {
       this.raiz.add(mesh);
       this.visuais.push({ peca, mesh, material, geometria, arestas, materialArestas, marcadores });
     });
+    this.vaosOverlay.definirPecasLimites(this.pecas);
     this.selecionada = selecionadaAnterior !== null && selecionadaAnterior < this.visuais.length ? selecionadaAnterior : null;
     this.aplicarSelecao();
     if (!this.enquadrou && this.visuais.length > 0) {
@@ -182,6 +199,60 @@ export class VisualizadorFamilia {
     this.ouvintes.add(cb);
     return () => {
       this.ouvintes.delete(cb);
+    };
+  }
+
+  /** Define os vãos resolvidos da caixaria para picking, destaque e chapa fantasma no 3D. */
+  definirVaos(vaos: readonly VaoResolvido[]): void {
+    if (this.destruido) return;
+    const estavaEmHover = this.vaosOverlay.obterHoverVaoAtual() !== null;
+    this.vaosOverlay.definirVaos(vaos);
+    if (estavaEmHover && this.vaosOverlay.obterHoverVaoAtual() === null) {
+      this.notificarPassarVao(null);
+    }
+    this.agendarDesenho();
+  }
+
+  /** Define o modo de interação 3D (seleção, inserção em vãos ou faces externas) e a espessura padrão (mm) para a chapa fantasma. */
+  definirModoInteracao(modo: ModoInteracao3DFamilia, espessuraPadraoMm = 18): void {
+    if (this.destruido) return;
+    const estavaEmHover = this.vaosOverlay.obterHoverVaoAtual() !== null;
+    this.modoInteracao = modo;
+    this.vaosOverlay.definirModo(modo, espessuraPadraoMm);
+    if (estavaEmHover && this.vaosOverlay.obterHoverVaoAtual() === null) {
+      this.notificarPassarVao(null);
+    }
+    this.agendarDesenho();
+  }
+
+  /** Realça o vão com `vaoId` (ou limpa o destaque quando `null`). */
+  selecionarVao(vaoId: string | null): void {
+    if (this.destruido) return;
+    this.vaosOverlay.selecionarVao(vaoId);
+    this.agendarDesenho();
+  }
+
+  /** Registra ouvinte de hover sobre vãos no 3D. Devolve a função que cancela. */
+  aoPassarVao(cb: (hover: HoverVao3D | null) => void): () => void {
+    this.ouvintesPassarVao.add(cb);
+    return () => {
+      this.ouvintesPassarVao.delete(cb);
+    };
+  }
+
+  /** Registra ouvinte de clique em vão no 3D (clique sem arrasto). Devolve a função que cancela. */
+  aoClicarVao(cb: (clique: CliqueVao3D) => void): () => void {
+    this.ouvintesClicarVao.add(cb);
+    return () => {
+      this.ouvintesClicarVao.delete(cb);
+    };
+  }
+
+  /** Registra ouvinte de clique em face externa (modos tampo, tamponamento e recorte). Devolve a função que cancela. */
+  aoClicarFaceExterna(cb: (clique: CliqueFace3D) => void): () => void {
+    this.ouvintesClicarFace.add(cb);
+    return () => {
+      this.ouvintesClicarFace.delete(cb);
     };
   }
 
@@ -265,15 +336,22 @@ export class VisualizadorFamilia {
       this.quadro = null;
     }
     this.canvas.removeEventListener('pointerdown', this.aoPointerDown);
+    this.canvas.removeEventListener('pointermove', this.aoPointerMove);
+    this.canvas.removeEventListener('pointerleave', this.aoPointerLeave);
     this.canvas.removeEventListener('pointerup', this.aoPointerUp);
     this.canvas.removeEventListener('pointercancel', this.aoPointerCancel);
     this.controles.removeEventListener('change', this.aoMudarControles);
     this.controles.dispose();
     this.limparPecas();
+    this.vaosOverlay.destruir();
+    this.raiz.remove(this.vaosOverlay.grupo);
     this.geoDisco.dispose();
     this.geoCaixa.dispose();
     this.matMarcador.dispose();
     this.ouvintes.clear();
+    this.ouvintesPassarVao.clear();
+    this.ouvintesClicarVao.clear();
+    this.ouvintesClicarFace.clear();
     this.cena.clear();
     this.renderer.dispose();
   }
@@ -335,19 +413,37 @@ export class VisualizadorFamilia {
     });
   }
 
-  /** Índice da peça visível sob o pixel (CSS), ou null. */
-  private pecaSob(clientX: number, clientY: number): number | null {
+  /** Prepara o raycaster a partir da posição do ponteiro em coordenadas CSS; devolve falso se o canvas não tem área. */
+  private prepararRaycaster(clientX: number, clientY: number): boolean {
     const retangulo = this.canvas.getBoundingClientRect();
-    if (retangulo.width <= 0 || retangulo.height <= 0) return null;
+    if (retangulo.width <= 0 || retangulo.height <= 0) return false;
     const ndc = new THREE.Vector2(
       ((clientX - retangulo.left) / retangulo.width) * 2 - 1,
       -((clientY - retangulo.top) / retangulo.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(ndc, this.camera);
+    return true;
+  }
+
+  /** Índice da peça visível sob o pixel (CSS), ou null. */
+  private pecaSob(clientX: number, clientY: number): number | null {
+    if (!this.prepararRaycaster(clientX, clientY)) return null;
     const alvos = this.visuais.filter((visual) => visual.mesh.visible).map((visual) => visual.mesh);
     const primeiro = this.raycaster.intersectObjects(alvos, false)[0];
     if (!primeiro) return null;
     return this.indiceDoObjeto.get(primeiro.object) ?? null;
+  }
+
+  private notificarPassarVao(hover: HoverVao3D | null): void {
+    for (const cb of Array.from(this.ouvintesPassarVao)) cb(hover);
+  }
+
+  private notificarClicarVao(clique: CliqueVao3D): void {
+    for (const cb of Array.from(this.ouvintesClicarVao)) cb(clique);
+  }
+
+  private notificarClicarFace(clique: CliqueFace3D): void {
+    for (const cb of Array.from(this.ouvintesClicarFace)) cb(clique);
   }
 
   private agendarDesenho(): void {
@@ -367,14 +463,69 @@ export class VisualizadorFamilia {
     this.inicioToque = { x: evento.clientX, y: evento.clientY };
   };
 
+  private readonly aoPointerMove = (evento: PointerEvent): void => {
+    if (this.destruido || evento.buttons !== 0) return;
+    if (!this.prepararRaycaster(evento.clientX, evento.clientY)) return;
+    const bloqueadoPorPeca = this.modoInteracao === 'selecionar' && this.pecaSob(evento.clientX, evento.clientY) !== null;
+    const resultado = this.vaosOverlay.atualizarHover(
+      this.raycaster,
+      evento.clientX,
+      evento.clientY,
+      bloqueadoPorPeca,
+    );
+    if (resultado.mudouHoverVao) this.notificarPassarVao(resultado.hoverVao);
+    if (resultado.mudouVisual) this.agendarDesenho();
+  };
+
+  private readonly aoPointerLeave = (): void => {
+    if (this.destruido) return;
+    const { mudouHoverVao, mudouVisual } = this.vaosOverlay.limparHover();
+    if (mudouHoverVao) this.notificarPassarVao(null);
+    if (mudouVisual) this.agendarDesenho();
+  };
+
   private readonly aoPointerUp = (evento: PointerEvent): void => {
     const inicio = this.inicioToque;
     this.inicioToque = null;
     if (this.destruido || inicio === null || evento.button !== 0) return;
     if (Math.hypot(evento.clientX - inicio.x, evento.clientY - inicio.y) > 4) return;
-    const indice = this.pecaSob(evento.clientX, evento.clientY);
-    this.selecionar(indice);
-    for (const cb of Array.from(this.ouvintes)) cb(indice);
+
+    if (this.modoInteracao === 'tampo' || this.modoInteracao === 'tamponamento' || this.modoInteracao === 'recorte') {
+      if (!this.prepararRaycaster(evento.clientX, evento.clientY)) return;
+      let face = this.vaosOverlay.clicarFaceExterna(this.raycaster);
+      if (face === null) {
+        const indice = this.pecaSob(evento.clientX, evento.clientY);
+        const peca = indice === null ? undefined : this.pecas[indice];
+        if (peca !== undefined && (peca.papel === 'tampo' || peca.papel === 'topo')) {
+          face = 'topo';
+        }
+      }
+      if (face !== null) {
+        this.notificarClicarFace({ face, clientX: evento.clientX, clientY: evento.clientY });
+      }
+      return;
+    }
+
+    if (this.modoInteracao === 'selecionar') {
+      const indice = this.pecaSob(evento.clientX, evento.clientY);
+      this.selecionar(indice);
+      for (const cb of Array.from(this.ouvintes)) cb(indice);
+      if (indice === null && this.prepararRaycaster(evento.clientX, evento.clientY)) {
+        const clique = this.vaosOverlay.clicarVao(this.raycaster, evento.clientX, evento.clientY);
+        this.selecionarVao(clique?.vaoId ?? null);
+        if (clique !== null) this.notificarClicarVao(clique);
+      } else {
+        this.selecionarVao(null);
+      }
+      return;
+    }
+
+    if (!this.prepararRaycaster(evento.clientX, evento.clientY)) return;
+    const clique = this.vaosOverlay.clicarVao(this.raycaster, evento.clientX, evento.clientY);
+    if (clique !== null) {
+      this.selecionarVao(clique.vaoId);
+      this.notificarClicarVao(clique);
+    }
   };
 
   private readonly aoPointerCancel = (): void => {

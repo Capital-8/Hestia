@@ -12,7 +12,7 @@ import {
   type Pose,
   type ResultadoArrasto,
 } from '@hestia/engine';
-import { isComponent, levelElevation, type Component, type Id, type Project } from '@hestia/model';
+import { isComponent, levelElevation, normalizarAngulo, type Component, type Id, type Project } from '@hestia/model';
 
 /** Dependências do arrasto; nos testes podem ser trocadas por versões simuladas. */
 export interface DepsArrasto3D {
@@ -31,6 +31,34 @@ const DEPS_REAIS: DepsArrasto3D = {
 
 /** Caixa de emergência para um componente sem peças: mantém o arrasto utilizável sem encaixe geométrico. */
 const CAIXA_VAZIA: CaixaLocal = { min: [0, 0, 0], max: [0, 0, 0] };
+
+/** Distância máxima (m) do cursor/fundo à face travada antes de liberar a trava da parede. */
+const DISTANCIA_SOLTAR_TRAVA = 0.45;
+
+function distanciaAoSegmento(p: { x: number; y: number }, f: FaceDeParede): number {
+  const dx = f.b.x - f.a.x;
+  const dy = f.b.y - f.a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - f.a.x, p.y - f.a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - f.a.x) * dx + (p.y - f.a.y) * dy) / len2));
+  return Math.hypot(p.x - (f.a.x + t * dx), p.y - (f.a.y + t * dy));
+}
+
+function fundoNoMundo(pose: Pose, caixa: CaixaLocal): { x: number; y: number } {
+  const lx = (caixa.min[0] + caixa.max[0]) / 2;
+  const ex = pose.mirrored ? -lx : lx;
+  const ly = caixa.max[1];
+  const cos = Math.cos(pose.rotation);
+  const sin = Math.sin(pose.rotation);
+  return { x: pose.x + ex * cos - ly * sin, y: pose.y + ex * sin + ly * cos };
+}
+
+/** Opções de um passo do arrasto 3D. */
+export interface OpcoesMover3D {
+  semEncaixe: boolean;
+  cameraPos?: { x: number; y: number };
+  pontoNaParede?: { x: number; y: number };
+}
 
 /** Pose no plano que o arrasto devolve para cada membro. */
 export interface PoseNoPlano {
@@ -74,6 +102,10 @@ export class Arrasto3D {
   private readonly caixa: CaixaLocal;
   private outros: Corpo[] | null = null;
   private faces: FaceDeParede[] | null = null;
+  private rotacaoExtra = 0;
+  private faceTravada: number | undefined = undefined;
+  private ultimoPonto: { x: number; y: number };
+  private ultimasOpcoes: OpcoesMover3D = { semEncaixe: false };
 
   constructor({ projeto, ids, levelId, ponteiro, deps }: OpcoesArrasto3D) {
     if (ids.length === 0) throw new Error('O arrasto precisa de ao menos um componente.');
@@ -82,6 +114,7 @@ export class Arrasto3D {
     this.lider = this.ids[0]!;
     this.levelId = levelId;
     this.ponteiro = { ...ponteiro };
+    this.ultimoPonto = { ...ponteiro };
     this.deps = { ...DEPS_REAIS, ...deps };
     const elevacao = levelElevation(projeto, levelId);
     for (const id of this.ids) {
@@ -93,19 +126,46 @@ export class Arrasto3D {
     this.caixa = (isComponent(lider) ? this.deps.caixaLocalDoComponente(projeto, lider) : null) ?? CAIXA_VAZIA;
   }
 
+  /** Soma `deltaRad` à rotação desejada do líder e recalcula o passo atual do arrasto. */
+  girar(deltaRad: number): ResultadoMover3D {
+    this.rotacaoExtra = normalizarAngulo(this.rotacaoExtra + deltaRad);
+    return this.mover(this.ultimoPonto, this.ultimasOpcoes);
+  }
+
   /** Move o líder para o deslocamento do ponteiro e devolve as poses finais de todos os membros. */
-  mover(ponto: { x: number; y: number }, opcoes: { semEncaixe: boolean }): ResultadoMover3D {
+  mover(ponto: { x: number; y: number }, opcoes: OpcoesMover3D): ResultadoMover3D {
+    this.ultimoPonto = { ...ponto };
+    this.ultimasOpcoes = { ...opcoes };
     const inicialDoLider = this.iniciais.get(this.lider)!;
     const desejada: Pose = {
       ...inicialDoLider,
       x: inicialDoLider.x + (ponto.x - this.ponteiro.x),
       y: inicialDoLider.y + (ponto.y - this.ponteiro.y),
+      rotation: normalizarAngulo(inicialDoLider.rotation + this.rotacaoExtra),
     };
     const { outros, faces } = this.entorno();
+    if (opcoes.semEncaixe) {
+      this.faceTravada = undefined;
+    } else if (this.faceTravada !== undefined) {
+      const face = faces[this.faceTravada];
+      const ref = opcoes.pontoNaParede ?? fundoNoMundo(desejada, this.caixa);
+      if (!face || distanciaAoSegmento(ref, face) > DISTANCIA_SOLTAR_TRAVA) {
+        this.faceTravada = undefined;
+      }
+    }
+
+    const opcoesArrasto: OpcoesArrasto = {
+      semEncaixe: opcoes.semEncaixe,
+      ...(this.faceTravada !== undefined ? { faceTravada: this.faceTravada } : {}),
+      ...(opcoes.cameraPos ? { cameraPos: opcoes.cameraPos } : {}),
+      ...(opcoes.pontoNaParede ? { pontoNaParede: opcoes.pontoNaParede } : {}),
+    };
     const resultado = this.deps.posarArrastado(
       { alvo: { id: this.lider, pose: desejada, caixa: this.caixa }, outros, faces },
-      { semEncaixe: opcoes.semEncaixe },
+      opcoesArrasto,
     );
+    this.faceTravada = opcoes.semEncaixe ? undefined : resultado.parede;
+
     const poses = posarGrupoRigido({ lider: this.lider, iniciais: this.iniciais, poseFinalDoLider: resultado.pose });
     return {
       poses,

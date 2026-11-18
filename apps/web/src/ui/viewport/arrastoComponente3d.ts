@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { componentesDoGrupo, isComponent, levelElevation, type Id, type Project } from '@hestia/model';
+import { posarGrupoRigido, type Pose } from '@hestia/engine';
+import { componentesDoGrupo, isComponent, levelElevation, normalizarAngulo, type Component, type Id, type Project } from '@hestia/model';
 import { Arrasto3D, type ResultadoMover3D } from '../../editor/arrasto3d.ts';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
@@ -86,17 +87,7 @@ export function armarArrasto3d(args: ArmarArrasto3DArgs): ArrastoComponente3D | 
   };
 }
 
-/** Um passo do arrasto: move no plano e aplica as poses na sessão única de desfazer. */
-export function moverArrasto3d(
-  estado: ArrastoComponente3D | null,
-  camera: THREE.Camera,
-  ndc: { x: number; y: number },
-  semEncaixe: boolean,
-): void {
-  if (!estado) return;
-  const ponto = pontoNoPlanoHorizontal(camera, ndc, estado.planoZ);
-  if (!ponto) return;
-  const resultado = estado.arrasto.mover(ponto, { semEncaixe });
+function aplicarResultadoArrasto(estado: ArrastoComponente3D, resultado: ResultadoMover3D): void {
   const versao = editor.store.version;
   editor.store.transaction(
     'Mover componente',
@@ -109,6 +100,89 @@ export function moverArrasto3d(
   );
   if (editor.store.version !== versao) estado.aplicou = true;
   useUi.setState({ status: textoStatusArrasto(editor.project, resultado) });
+}
+
+/** Um passo do arrasto: move no plano e aplica as poses na sessão única de desfazer. */
+export function moverArrasto3d(
+  estado: ArrastoComponente3D | null,
+  camera: THREE.Camera,
+  ndc: { x: number; y: number },
+  semEncaixe: boolean,
+  pontoNaParede?: { x: number; y: number },
+): void {
+  if (!estado) return;
+  const ponto = pontoNoPlanoHorizontal(camera, ndc, estado.planoZ) ?? pontoNaParede;
+  if (!ponto) return;
+  const cameraPos = { x: camera.position.x, y: camera.position.y };
+  const resultado = estado.arrasto.mover(ponto, {
+    semEncaixe,
+    cameraPos,
+    ...(pontoNaParede ? { pontoNaParede } : {}),
+  });
+  aplicarResultadoArrasto(estado, resultado);
+}
+
+/** Gira o componente (ou grupo) durante o arrasto 3D, na mesma sessão de desfazer. */
+export function girarArrasto3d(estado: ArrastoComponente3D | null, deltaRad: number): boolean {
+  if (!estado) return false;
+  const resultado = estado.arrasto.girar(deltaRad);
+  aplicarResultadoArrasto(estado, resultado);
+  return true;
+}
+
+/**
+ * Gira componentes selecionados no 3D em uma única transação de desfazer: individualmente em torno do próprio ponto
+ * quando há apenas 1 componente, ou em grupo rígido em torno do centro médio quando há mais de 1.
+ */
+export function girarComponentesSelecionados(projeto: Project, ids: readonly Id[], deltaRad: number): boolean {
+  const vistos = new Set<Id>();
+  const componentes: Component[] = [];
+  for (const id of ids) {
+    if (vistos.has(id)) continue;
+    const e = projeto.elements[id];
+    if (!isComponent(e)) continue;
+    vistos.add(id);
+    componentes.push(e);
+  }
+  if (componentes.length === 0) return false;
+
+  if (componentes.length === 1) {
+    const c = componentes[0]!;
+    editor.store.transaction('Girar componente', () => {
+      editor.store.exec({ type: 'updateComponent', id: c.id, patch: { rotation: normalizarAngulo(c.rotation + deltaRad) } });
+    });
+    return true;
+  }
+
+  const cx = componentes.reduce((s, c) => s + c.x, 0) / componentes.length;
+  const cy = componentes.reduce((s, c) => s + c.y, 0) / componentes.length;
+  const iniciais = new Map<Id, Pose>();
+  for (const c of componentes) {
+    iniciais.set(c.id, { x: c.x, y: c.y, rotation: c.rotation, mirrored: c.mirrored, z: c.z });
+  }
+  const lider = componentes[0]!;
+  const cos = Math.cos(deltaRad);
+  const sin = Math.sin(deltaRad);
+  const lx = lider.x - cx;
+  const ly = lider.y - cy;
+  const poseFinalDoLider: Pose = {
+    x: cx + lx * cos - ly * sin,
+    y: cy + lx * sin + ly * cos,
+    rotation: lider.rotation + deltaRad,
+    mirrored: lider.mirrored,
+    z: lider.z,
+  };
+  const poses = posarGrupoRigido({ lider: lider.id, iniciais, poseFinalDoLider });
+  editor.store.transaction('Girar componente', () => {
+    for (const [id, pose] of poses) {
+      editor.store.exec({
+        type: 'updateComponent',
+        id,
+        patch: { x: pose.x, y: pose.y, rotation: normalizarAngulo(pose.rotation) },
+      });
+    }
+  });
+  return true;
 }
 
 /** Arma o arrasto a partir do ponto local do canvas (px), sem o chamador montar o NDC. */
@@ -130,8 +204,9 @@ export function moverArrastoNoPonto(
   ponto: { x: number; y: number },
   tamanho: { width: number; height: number },
   semEncaixe: boolean,
+  pontoNaParede?: { x: number; y: number },
 ): void {
-  moverArrasto3d(estado, camera, ndcDoPonto(ponto, tamanho), semEncaixe);
+  moverArrasto3d(estado, camera, ndcDoPonto(ponto, tamanho), semEncaixe, pontoNaParede);
 }
 
 /** Cancela o gesto: desfaz a sessão inteira, sem deixar passo novo no histórico. */
