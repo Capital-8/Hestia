@@ -10,6 +10,7 @@ import { viewKey } from '../editor/openViews.ts';
 import { MAX_PANES, SPLIT_LIMITS, leaves, type LayoutNode, type Pane, type PaneLayout, type SplitPath } from '../editor/panes.ts';
 import { tabOf } from '../editor/viewTabActions.ts';
 import { SheetView } from './SheetView.tsx';
+import { FaceStudioView } from './faceStudio/FaceStudioView.tsx';
 import { PaneStyleSelect } from './PaneStyleSelect.tsx';
 import { ViewportCanvas } from './ViewportCanvas.tsx';
 import { fracaoDoPonteiro, passoDaTecla } from './paneGridMath.ts';
@@ -203,6 +204,8 @@ function PaneFrame({ pane, ctx, oculto }: { pane: Pane; ctx: GridCtx; oculto: bo
       <div className="pane-body">
         {pane.view.kind === 'sheet' ? (
           <SheetView sheetId={pane.view.sheetId} />
+        ) : pane.view.kind === 'face' ? (
+          <FaceStudioView elementId={pane.view.elementId} face={pane.view.face} layer={pane.view.layer} />
         ) : (
           <ViewportCanvas paneId={pane.id} onActivate={activatePane} visible={!oculto} />
         )}

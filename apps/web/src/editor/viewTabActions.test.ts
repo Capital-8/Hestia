@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEmptyProject } from '@hestia/model';
+import { createEmptyProject, makeWall } from '@hestia/model';
 import { editor } from './controller.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
-import { activateView } from './viewTabActions.ts';
+import { activateView, openFaceStudioTab, tabOf } from './viewTabActions.ts';
 
 /** Projeto vazio e opções padrão: o modo de perímetro abre pela ferramenta Piso. */
 function iniciar(): void {
@@ -41,5 +41,14 @@ describe('activateView com o modo de perímetro aberto', () => {
     useUi.setState({ openViews: [] });
     activateView({ kind: 'plan', levelId });
     expect(useUi.getState().openViews).toEqual([{ kind: 'plan', levelId }]);
+  });
+
+  it('openFaceStudioTab abre a aba do estúdio da face quando o elemento existe e é pintável', () => {
+    editor.store.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } }) });
+    openFaceStudioTab('w1', 'sideExt', 'all');
+    expect(useUi.getState().view).toBe('face');
+    expect(useUi.getState().faceView).toEqual({ elementId: 'w1', face: 'sideExt', layer: 'all' });
+    expect(tabOf(editor.project, { kind: 'face', elementId: 'w1', face: 'sideExt', layer: 'all' })).toEqual({ icon: 'elevation', label: 'Face · sideExt' });
+    expect(tabOf(editor.project, { kind: 'face', elementId: 'missing', face: 'sideExt', layer: 'all' })).toBeNull();
   });
 });

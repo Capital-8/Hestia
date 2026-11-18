@@ -87,7 +87,20 @@ describe('planta com elemento selecionado', () => {
 
   it('ordem do Revit com seleção', () => {
     const m = buildContextMenu(sel);
-    expect(ids(m)).toEqual(['copySelection', 'pasteAligned', 'pasteAlignedLevels', 'repeat', 'recentes', 'hide', 'isolate', 'override', 'createSimilar', 'selectAll', 'delete', 'locate', 'zoomRegion', 'zoomOut2x', 'zoomFit', 'panPrev', 'panNext', 'browser', 'properties']);
+    expect(ids(m)).toEqual(['copySelection', 'pasteAligned', 'pasteAlignedLevels', 'repeat', 'recentes', 'hide', 'isolate', 'override', 'createSimilar', 'selectAll', 'faceStudio', 'facePaint3d', 'clearFacePaints', 'delete', 'locate', 'zoomRegion', 'zoomOut2x', 'zoomFit', 'panPrev', 'panNext', 'browser', 'properties']);
+  });
+
+  it('entradas de pintura de face aparecem só para seleção única de parede, piso ou laje', () => {
+    for (const kind of ['wall', 'floor', 'slab']) {
+      const m = buildContextMenu({ ...sel, selectionKinds: [kind] });
+      expect(ids(m)).toEqual(expect.arrayContaining(['faceStudio', 'facePaint3d', 'clearFacePaints']));
+    }
+    for (const kinds of [['door'], ['room'], ['wall', 'wall'], ['wall', 'floor']]) {
+      const m = buildContextMenu({ ...sel, selectionKinds: kinds });
+      expect(ids(m)).not.toContain('faceStudio');
+      expect(ids(m)).not.toContain('facePaint3d');
+      expect(ids(m)).not.toContain('clearFacePaints');
+    }
   });
 
   it('Ocultar na vista é submenu com Elementos, Categoria e Por filtro (só o filtro é futuro)', () => {

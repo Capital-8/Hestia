@@ -1,0 +1,223 @@
+import { useRef, type ChangeEvent, type ReactElement } from 'react';
+import { v2 } from '@hestia/geom';
+import { unwrapElementFace, type UnwrappedFace } from '@hestia/engine';
+import { parseDxfText } from '@hestia/io';
+import {
+  findExactFacePaint,
+  isFacePaintableElement,
+  newId,
+  type FaceDxfOverlay,
+  type Id,
+} from '@hestia/model';
+import { editor, useProject } from '../../editor/controller.ts';
+import { useI18n, type Lang } from '../../editor/i18n.ts';
+import { useUi, type FaceStudioShape } from '../../editor/state.ts';
+import { activateView } from '../../editor/viewTabActions.ts';
+import { Icon } from '../Icon.tsx';
+import { PERIMETER_SHAPES } from '../perimeter/PerimeterRibbonPanels.tsx';
+import { Ic, ShapeGallery, type PerimeterShape } from '../perimeter/ShapeGallery.tsx';
+import '../perimeter/perimeter.css';
+
+const FACE_SHAPE_IDS = new Set<PerimeterShape>([
+  'line',
+  'rect',
+  'poly-inscribed',
+  'poly-circumscribed',
+  'circle',
+  'arc-3pt',
+  'arc-center',
+  'arc-tangent',
+  'ellipse',
+]);
+
+const FACE_SHAPES = PERIMETER_SHAPES.filter((s) => FACE_SHAPE_IDS.has(s.id));
+
+function buildDxfOverlay(
+  text: string,
+  fileName: string,
+  unwrapped: UnwrappedFace,
+  materialId: Id,
+  lang: Lang,
+): FaceDxfOverlay | null {
+  const parsed = parseDxfText(text, fileName.replace(/\.dxf$/i, ''), lang);
+  const validPaths = parsed.paths.filter((path) => path.pts.length >= 2);
+  if (validPaths.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const path of validPaths) {
+    for (const pt of path.pts) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+  }
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const dxfW = Math.max(1e-4, maxX - minX);
+  const dxfH = Math.max(1e-4, maxY - minY);
+  const faceW = Math.max(0.1, unwrapped.width);
+  const faceH = Math.max(0.1, unwrapped.height);
+  const needsFit = dxfW > faceW || dxfH > faceH || (dxfW < 0.01 && dxfH < 0.01);
+  const scale = needsFit ? Math.min((faceW * 0.85) / dxfW, (faceH * 0.85) / dxfH) : 1;
+
+  return {
+    id: newId('dxf'),
+    name: parsed.name || 'DXF',
+    paths: validPaths.map((path) => ({
+      closed: path.closed,
+      pts: path.pts.map((pt) => v2(pt.x - cx, pt.y - cy)),
+    })),
+    offset: v2(unwrapped.width / 2, unwrapped.height / 2),
+    rotationDeg: 0,
+    scale,
+    separatorWidth: 0.01,
+    materialId,
+    baseOffset: 0,
+    thickness: 0,
+  };
+}
+
+/** Painéis da aba contextual do Estúdio da Face 2D na faixa de ferramentas. */
+export function FaceStudioRibbonPanels(): ReactElement {
+  const p = useProject();
+  const faceView = useUi((s) => s.faceView);
+  const fs = useUi((s) => s.faceStudio);
+  const lang = useI18n((s) => s.lang);
+  const pt = lang === 'pt';
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const el = faceView ? p.elements[faceView.elementId] : undefined;
+  const paintable = isFacePaintableElement(el) ? el : null;
+  const unwrapped = faceView && paintable ? unwrapElementFace(p, faceView.elementId, faceView.face, faceView.layer) : null;
+  const entry = faceView && paintable
+    ? (findExactFacePaint(paintable.facePaints, faceView.face, faceView.layer) ?? { face: faceView.face, layer: faceView.layer })
+    : null;
+  const defaultMat = unwrapped?.defaultMaterialId || Object.keys(p.materials)[0] || '';
+  const effectiveMatId = fs.activeMaterialId && p.materials[fs.activeMaterialId] ? fs.activeMaterialId : defaultMat;
+
+  const handleDxfFile = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !faceView || !unwrapped || !entry) return;
+    const text = await file.text();
+    const overlay = buildDxfOverlay(text, file.name, unwrapped, effectiveMatId, lang);
+    if (!overlay) {
+      useUi.setState({ status: pt ? 'DXF sem traços importáveis.' : 'DXF has no importable paths.' });
+      return;
+    }
+    editor.store.exec({
+      type: 'setFacePaint',
+      elementId: faceView.elementId,
+      entry: { ...entry, dxfOverlays: [...(entry.dxfOverlays ?? []), overlay] },
+    });
+    useUi.setState((s) => ({
+      faceStudio: { ...s.faceStudio, tool: 'select', selection: { kind: 'dxf', id: overlay.id } },
+    }));
+  };
+
+  return (
+    <>
+      <div className="rb-panel" role="group" aria-label={pt ? 'Selecionar e Pintar' : 'Select & Paint'}>
+        <div className="rb-cols">
+          <button
+            type="button"
+            className={`rb-btn rb-large${fs.tool === 'select' ? ' on' : ''}`}
+            aria-pressed={fs.tool === 'select'}
+            title={pt ? 'Selecionar região ou DXF' : 'Select region or DXF'}
+            onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, tool: 'select' } }))}
+          >
+            <Icon name="select" size={32} />
+            <span className="rb-lbl">{pt ? 'Selecionar' : 'Select'}</span>
+          </button>
+          <button
+            type="button"
+            className={`rb-btn rb-large${fs.tool === 'paintBucket' ? ' on' : ''}`}
+            aria-pressed={fs.tool === 'paintBucket'}
+            title={pt ? 'Balde de Tinta' : 'Paint Bucket'}
+            onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, tool: 'paintBucket' } }))}
+          >
+            <Icon name="paintBucket" size={32} />
+            <span className="rb-lbl">{pt ? 'Balde de Tinta' : 'Paint Bucket'}</span>
+          </button>
+          <input ref={fileRef} type="file" accept=".dxf" hidden onChange={(e) => { void handleDxfFile(e); }} />
+          <button
+            type="button"
+            className="rb-btn rb-large"
+            disabled={!unwrapped}
+            title={pt ? 'Importar traços DXF para a face' : 'Import DXF paths onto face'}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Icon name="open" size={32} />
+            <span className="rb-lbl">{pt ? 'Importar DXF' : 'Import DXF'}</span>
+          </button>
+        </div>
+        <div className="rb-title">{pt ? 'Selecionar e Pintar' : 'Select & Paint'}</div>
+      </div>
+
+      <div className="rb-panel" role="group" aria-label={pt ? 'Desenhar' : 'Draw'}>
+        <div className="rb-cols">
+          <div className="rb-stack">
+            <button
+              type="button"
+              className={`rb-btn rb-small${!fs.asBand ? ' on' : ''}`}
+              aria-pressed={!fs.asBand}
+              title={pt ? 'Região preenchida' : 'Filled region'}
+              onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, asBand: false } }))}
+            >
+              <Ic size={16}>
+                <path className="ic-bl" d="M4 6H28V26H4Z" />
+                <path className="ic-s1" d="M4 6H28V26H4Z" />
+              </Ic>
+              <span className="rb-lbl">{pt ? 'Região preenchida' : 'Filled region'}</span>
+            </button>
+            <button
+              type="button"
+              className={`rb-btn rb-small${fs.asBand ? ' on' : ''}`}
+              aria-pressed={fs.asBand}
+              title={pt ? 'Faixa (friso)' : 'Band (strip)'}
+              onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, asBand: true } }))}
+            >
+              <Ic size={16}>
+                <path className="ic-s1" d="M4 11H28V21H4Z" />
+                <path className="ic-ac" d="M4 16H28" strokeDasharray="3 2" />
+              </Ic>
+              <span className="rb-lbl">{pt ? 'Faixa (friso)' : 'Band (strip)'}</span>
+            </button>
+          </div>
+          <ShapeGallery
+            shapes={FACE_SHAPES}
+            selected={fs.tool === 'shape' ? fs.shape : null}
+            onSelect={(id) =>
+              useUi.setState((s) => ({
+                faceStudio: { ...s.faceStudio, tool: 'shape', shape: id as FaceStudioShape },
+              }))
+            }
+          />
+        </div>
+        <div className="rb-title">{pt ? 'Desenhar' : 'Draw'}</div>
+      </div>
+
+      <div className="rb-panel" role="group" aria-label={pt ? 'Modo' : 'Mode'}>
+        <div className="rb-cols">
+          <button
+            type="button"
+            className="rb-btn rb-large"
+            title={pt ? 'Concluir edição da face e voltar ao 3D' : 'Finish face editing and return to 3D'}
+            aria-label={pt ? 'Concluir' : 'Finish'}
+            onClick={() => activateView({ kind: '3d' })}
+          >
+            <Ic size={32}>
+              <path d="M5 17L12.5 24.5L27 7" fill="none" style={{ stroke: 'var(--revit-green)' }} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+            </Ic>
+            <span className="rb-lbl">{pt ? 'Concluir' : 'Finish'}</span>
+          </button>
+        </div>
+        <div className="rb-title">{pt ? 'Modo' : 'Mode'}</div>
+      </div>
+    </>
+  );
+}

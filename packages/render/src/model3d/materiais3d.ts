@@ -67,13 +67,13 @@ export class Materiais3D {
     const colorOf = ov.color ?? m?.color ?? fallback;
     const color = ov.halftone ? mix(colorOf, '#ffffff', 0.5) : colorOf;
     const tx = style === 'realistic' ? chaveDaTextura(m, this.texturas) : '';
-    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx].join('|');
+    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, m?.aparencia?.metal ?? '', m?.aparencia?.rugosidade ?? ''].join('|');
     return this.cached(key, () => {
       const opacity = base * (1 - t);
       // `generic`: malha soldada sem normais por vértice; o sombreamento chapado sai das derivadas no shader.
       const props = { color: new THREE.Color(color), transparent: opacity < 1, opacity, side: THREE.FrontSide, ...(cat === 'generic' ? { flatShading: true } : {}) };
       if (style === 'realistic') {
-        const mat = new THREE.MeshStandardMaterial({ ...props, roughness: 1 - gloss * 0.75, metalness: m && m.id === 'mat_aluminio' ? 0.5 : 0 });
+        const mat = new THREE.MeshStandardMaterial({ ...props, roughness: m?.aparencia?.rugosidade ?? (1 - gloss * 0.75), metalness: m?.aparencia?.metal ?? (m && m.id === 'mat_aluminio' ? 0.5 : 0) });
         const textura = m?.aparencia?.textura;
         const mapas = tx && textura ? this.texturas?.obter(textura.imagemId) : undefined;
         return mapas && textura ? aplicarTexturaTriplanar(mat, mapas, textura) : mat;

@@ -16,8 +16,9 @@ import { useRibbonCtx } from './ribbon/useCtx.ts';
 const QUICK: RibbonItem[] = [tool('measure', 'small'), tool('dimension', 'small'), tool('text', 'small'), act('view3d', 'small'), tool('section', 'small'), act('thinLines', 'small')];
 
 /** "Planta de piso: Térreo", "Planta de cobertura: Cobertura", "Vista 3D: Modelo 3D"… como o Revit mostra na barra de título. */
-function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planKind: PlanKind, areaPlanId: string | null): string {
+function viewTitle(p: Project, view: string, levelId: string, sectionId: string | null, sheetId: string | null, lang: Lang, planKind: PlanKind, areaPlanId: string | null, faceView?: { face: string } | null): string {
   if (view === '3d') return t(lang, 'shc_title_view_3d');
+  if (view === 'face') return `Face · ${faceView?.face ?? ''}`;
   if (view === 'section') {
     const v = p.views.find((x) => x.id === sectionId);
     const key = v?.kind === 'elevation' ? 'shc_title_elevation' : 'shc_title_section';
@@ -49,9 +50,10 @@ export function TitleBar(): ReactElement {
   const sheetId = useUi((s) => s.sheetId);
   const planKind = useUi((s) => s.planKind);
   const areaPlanId = useUi((s) => s.areaPlanId);
+  const faceView = useUi((s) => s.faceView);
   const fileRef = useRef<HTMLInputElement>(null);
   const store = editor.store;
-  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planKind, areaPlanId)}`;
+  const title = `Hestia - [${project.name}${store.dirty ? ' *' : ''}] - ${viewTitle(project, ctx.view, ctx.levelId, sectionId, sheetId, lang, planKind, areaPlanId, faceView)}`;
   const open = t('btn_open');
   const save = t('btn_save');
   const undo = t('btn_undo');

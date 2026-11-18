@@ -8,6 +8,7 @@ const T2: OpenView = { kind: 'plan', levelId: 'lv_2' };
 const V3D: OpenView = { kind: '3d' };
 const SEC: OpenView = { kind: 'section', viewId: 'sv_1' };
 const SHEET: OpenView = { kind: 'sheet', sheetId: 'sh_1' };
+const FACE: OpenView = { kind: 'face', elementId: 'w_1', face: 'sideExt', layer: 'all' };
 
 describe('chave e comparação de vistas', () => {
   it('cada tipo de vista tem chave própria', () => {
@@ -15,6 +16,7 @@ describe('chave e comparação de vistas', () => {
     expect(viewKey(V3D)).toBe('3d');
     expect(viewKey(SEC)).toBe('section:sv_1');
     expect(viewKey(SHEET)).toBe('sheet:sh_1');
+    expect(viewKey(FACE)).toBe('face:w_1:sideExt:all');
   });
 
   it('planta de nível diferente não é a mesma vista', () => {
@@ -148,6 +150,11 @@ describe('vista ativa (activeViewOf)', () => {
   it('prancha sem id definido não tem vista ativa', () => {
     expect(activeViewOf({ ...base, view: 'sheet' })).toBeNull();
     expect(activeViewOf({ ...base, view: 'sheet', sheetId: 'sh_1' })).toEqual(SHEET);
+  });
+
+  it('estúdio da face sem faceView não tem vista ativa', () => {
+    expect(activeViewOf({ ...base, view: 'face' })).toBeNull();
+    expect(activeViewOf({ ...base, view: 'face', faceView: { elementId: 'w_1', face: 'sideExt', layer: 'all' } })).toEqual(FACE);
   });
 });
 

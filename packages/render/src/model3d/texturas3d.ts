@@ -114,7 +114,7 @@ const GLSL_COLOR = `
 {
   vec3 tpN = normalize(cross(dFdx(vTpPos), dFdy(vTpPos)));
   vec3 tpW = tpBlend(tpN);
-  vec3 tpC = texture2D(tpColor, tpUv(vTpPos.zy)).rgb * tpW.x
+  vec3 tpC = texture2D(tpColor, tpUv(vTpPos.yz)).rgb * tpW.x
            + texture2D(tpColor, tpUv(vTpPos.xz)).rgb * tpW.y
            + texture2D(tpColor, tpUv(vTpPos.xy)).rgb * tpW.z;
   diffuseColor.rgb *= tpC;
@@ -127,7 +127,7 @@ float roughnessFactor = roughness;
 {
   vec3 tpN = normalize(cross(dFdx(vTpPos), dFdy(vTpPos)));
   vec3 tpW = tpBlend(tpN);
-  float tpR = texture2D(tpRough, tpUv(vTpPos.zy)).g * tpW.x
+  float tpR = texture2D(tpRough, tpUv(vTpPos.yz)).g * tpW.x
             + texture2D(tpRough, tpUv(vTpPos.xz)).g * tpW.y
             + texture2D(tpRough, tpUv(vTpPos.xy)).g * tpW.z;
   roughnessFactor *= tpR;
@@ -140,15 +140,15 @@ const GLSL_NORMAL = `
   vec3 tpN = normalize(cross(dFdx(vTpPos), dFdy(vTpPos)));
   vec3 tpW = tpBlend(tpN);
   // Mapa DirectX: o verde aponta para baixo; troca o sinal para o padrão OpenGL.
-  vec3 tx = texture2D(tpNormal, tpUv(vTpPos.zy)).xyz * 2.0 - 1.0;
+  vec3 tx = texture2D(tpNormal, tpUv(vTpPos.yz)).xyz * 2.0 - 1.0;
   vec3 ty = texture2D(tpNormal, tpUv(vTpPos.xz)).xyz * 2.0 - 1.0;
   vec3 tz = texture2D(tpNormal, tpUv(vTpPos.xy)).xyz * 2.0 - 1.0;
   tx.y = -tx.y; ty.y = -ty.y; tz.y = -tz.y;
   // Mistura UDN: soma a inclinação do mapa à normal geométrica e leva cada projeção para o mundo.
-  tx = vec3(tx.xy + tpN.zy, tpN.x);
+  tx = vec3(tx.xy + tpN.yz, tpN.x);
   ty = vec3(ty.xy + tpN.xz, tpN.y);
   tz = vec3(tz.xy + tpN.xy, tpN.z);
-  vec3 tpWorldN = normalize(tx.zyx * tpW.x + ty.xzy * tpW.y + tz.xyz * tpW.z);
+  vec3 tpWorldN = normalize(tx.zxy * tpW.x + ty.xzy * tpW.y + tz.xyz * tpW.z);
   #ifdef USE_TP_LOCAL
     normal = normalize(mat3(vTpR0, vTpR1, vTpR2) * tpWorldN);
   #else

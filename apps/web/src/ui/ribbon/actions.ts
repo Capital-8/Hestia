@@ -76,6 +76,10 @@ export interface RibbonCtx {
   sides: DockLayout['sides'];
   options: ToolOptions;
   p: Project;
+  /** Pintura direta de faces no 3D ativa. */
+  facePaintActive?: boolean;
+  /** Modo da ferramenta de pintura de faces no 3D. */
+  facePaintMode?: 'paint' | 'studioPick';
   /** Com o modo de perímetro aberto: o comando de Modificar ligado sobre o esboço (null = seleção de linhas). */
   perimetro?: { modify: PerimeterModifyKind | null; selecting?: boolean } | null;
 }
@@ -774,6 +778,37 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       placeFootingsAtColumns(env, selectedColIds.length > 0 ? selectedColIds : undefined);
     },
   },
+  paintFace3d: {
+    label: t('Pintar face (3D)', 'Paint Face (3D)'),
+    icon: 'paintBucket',
+    hint: t('Ativa a pintura de faces diretamente na vista 3D (Shift+clique abre o Estúdio 2D).', 'Activates direct face painting in the 3D view (Shift+click opens the 2D Studio).'),
+    run: () => {
+      const cur = useUi.getState();
+      const nextActive = !(cur.view === '3d' && cur.facePaint.active && cur.facePaint.mode === 'paint');
+      if (nextActive && cur.view !== '3d') activateView({ kind: '3d' });
+      editor.setTool('select');
+      useUi.setState((s) => ({
+        facePaint: { ...s.facePaint, active: nextActive, mode: 'paint', hoverHit: null },
+      }));
+    },
+    pressed: (c) => c.view === '3d' && c.facePaintActive === true && c.facePaintMode === 'paint',
+  },
+  openFaceStudio: {
+    label: t('Estúdio da face (2D)', 'Face Studio (2D)'),
+    icon: 'faceStudio',
+    hint: t('Ativa a escolha de face no 3D para abrir o Estúdio da Face (2D).', 'Activates face picking in 3D to open the Face Studio (2D).'),
+    run: () => {
+      const cur = useUi.getState();
+      const nextActive = !(cur.view === '3d' && cur.facePaint.active && cur.facePaint.mode === 'studioPick');
+      if (nextActive && cur.view !== '3d') activateView({ kind: '3d' });
+      editor.setTool('select');
+      useUi.setState((s) => ({
+        facePaint: { ...s.facePaint, active: nextActive, mode: nextActive ? 'studioPick' : 'paint', hoverHit: null },
+        status: nextActive ? translate(useI18n.getState().lang, 'pro_fp_studio_pick_hint') : { key: 'eds_ready' },
+      }));
+    },
+    pressed: (c) => c.view === '3d' && c.facePaintActive === true && c.facePaintMode === 'studioPick',
+  },
 };
 
 /** Contexto lido na hora do clique (os `run` nunca usam o valor de um render antigo). */
@@ -784,6 +819,8 @@ export function ctxNow(): RibbonCtx {
     tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
+    facePaintActive: s.facePaint.active,
+    facePaintMode: s.facePaint.mode,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,
   };
 }

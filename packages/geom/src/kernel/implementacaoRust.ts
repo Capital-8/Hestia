@@ -137,6 +137,25 @@ export async function criarImplKernelDoWasm(fonte: ArrayBuffer | Uint8Array): Pr
     },
   };
 
+  if (typeof exports.executar_ripas === 'function') {
+    const executarRipas = exports.executar_ripas;
+    impl.ripas = (regiao: MultiPolygon, largura: number, fresta: number, anguloGraus: number): MultiPolygon[] => {
+      garantirAtivo();
+      if (regiao.length === 0) return [];
+      const args = [regiao];
+      const contagem = contarEntrada(args);
+      if (contagem.vertices === 0 || contagem.aneis === 0 || contagem.poligonos === 0) return [];
+      const basePtr = exports.preparar_entrada(contagem.vertices, contagem.aneis, contagem.poligonos, contagem.args);
+      escreverEntrada(exports.memory, basePtr, args, contagem);
+      const codigo = executarRipas(largura, fresta, anguloGraus);
+      if (codigo !== ERRO.OK) {
+        if (codigo === ERRO.NAO_IMPLEMENTADO || codigo === ERRO.ENTRADA) throw new ErroNaoImplementado('ripas');
+        throw new Error('kernel wasm: ' + codigo);
+      }
+      return lerSaida(exports.memory, exports).map((p) => [p]);
+    };
+  }
+
   // Smoke test de ida e volta: dois quadrados 1×1 disjuntos, união de área 2.
   // Se o wasm for só o esqueleto (ops.rs ainda devolvendo erro), a mensagem diz isso.
   try {

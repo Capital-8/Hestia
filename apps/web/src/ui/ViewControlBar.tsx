@@ -41,7 +41,7 @@ export function ViewControlBar(): ReactElement | null {
   const { t } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
-  if (view === 'sheet') return null;
+  if (view === 'sheet' || view === 'face') return null;
 
   const is3d = view === '3d';
   const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, levelId);

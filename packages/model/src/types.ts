@@ -27,6 +27,7 @@ import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
+import type { FacePaintEntry } from './facePaint.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 import type { Column, ColumnType } from './column.ts';
 import type { Beam, BeamType } from './beam.ts';
@@ -470,6 +471,8 @@ export interface Wall {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de piso: camadas do topo para baixo (acabamento, contrapiso, estrutura). `wraps` não é usado. */
@@ -538,6 +541,8 @@ export interface Floor {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de laje: camadas do topo para baixo (regularização, estrutura). */
@@ -579,6 +584,8 @@ export interface Slab {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de forro: camadas do topo para baixo (estrutura, placa, acabamento visível). Mesmo papel do tipo de piso. */
