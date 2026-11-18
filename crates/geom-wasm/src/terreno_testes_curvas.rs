@@ -170,6 +170,91 @@ fn t3_curvas_suavizadas_respeitam_a_tolerancia() {
     }
 }
 
+/// Malha em grade `n x n` (passo `passo`), cotas pseudo-aleatórias em `[0, amp]` (gerador congruencial: sem dependência nova).
+fn malha_aleatoria(n: usize, passo: f64, amp: f64, semente: u64) -> crate::terreno_avalia::Malha {
+    let mut s = semente;
+    let mut v = Vec::new();
+    for j in 0..n {
+        for i in 0..n {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            v.push([i as f64 * passo, j as f64 * passo, ((s >> 33) as f64 / (1u64 << 31) as f64) * amp]);
+        }
+    }
+    let ids: Vec<u32> = (0..v.len() as u32).collect();
+    let mut t = Vec::new();
+    for j in 0..n - 1 {
+        for i in 0..n - 1 {
+            let a = (j * n + i) as u32;
+            let (b, c, d) = (a + 1, a + n as u32, a + n as u32 + 1);
+            t.push([a, b, d]);
+            t.push([a, d, c]);
+        }
+    }
+    crate::terreno_avalia::Malha::nova(v, ids, t, Vec::new())
+}
+
+#[test]
+fn tolerancia_zero_devolve_a_polilinha_crua() {
+    for semente in 1..=6u64 {
+        let m = malha_aleatoria(8, 1.5, 4.0, semente);
+        let cruas = crate::terreno_curvas::curvas_filtradas(&m, 0.5, 5, &[]).expect("curvas");
+        assert!(!cruas.is_empty());
+        let exatas = crate::terreno_curvas::curvas_suaves(&m, 0.5, 5, &[], 0.0).expect("curvas");
+        assert_eq!(exatas, cruas, "semente {semente}: tolerância 0 = polilinha crua");
+    }
+}
+
+#[test]
+fn tolerancia_fuzz_leve_desvio_e_pontos_de_borda_fixos() {
+    for semente in 1..=8u64 {
+        let m = malha_aleatoria(8, 1.5, 4.0, semente);
+        let max = 7.0 * 1.5;
+        let na_borda = |p: &[f64; 2]| p[0].abs() < 1e-6 || p[1].abs() < 1e-6 || (p[0] - max).abs() < 1e-6 || (p[1] - max).abs() < 1e-6;
+        let cruas = crate::terreno_curvas::curvas_filtradas(&m, 0.5, 5, &[]).expect("curvas");
+        let mut algum_suavizado = false;
+        for tol in [0.02, 0.2] {
+            let suaves = crate::terreno_curvas::curvas_suaves(&m, 0.5, 5, &[], tol).expect("curvas");
+            assert_eq!(suaves.len(), cruas.len(), "mesmo número de curvas");
+            for (s, c) in suaves.iter().zip(&cruas) {
+                let n = c.pontos.len();
+                let nsegs = if c.fechada { n } else { n - 1 };
+                for p in &s.pontos {
+                    let d = (0..nsegs).map(|k| dist_seg(*p, c.pontos[k], c.pontos[(k + 1) % n])).fold(f64::INFINITY, f64::min);
+                    assert!(d <= tol + 1e-9, "semente {semente} tol {tol}: ponto {p:?} a {d} da curva crua");
+                }
+                for p in c.pontos.iter().filter(|p| na_borda(p)) {
+                    assert!(s.pontos.contains(p), "semente {semente} tol {tol}: ponto de borda {p:?} deve ficar fixo");
+                }
+                if !c.fechada {
+                    assert_eq!((s.pontos.first(), s.pontos.last()), (c.pontos.first(), c.pontos.last()), "extremidades fixas");
+                }
+                algum_suavizado |= s.pontos.len() != c.pontos.len();
+            }
+        }
+        assert!(algum_suavizado, "semente {semente}: com 20 cm ao menos uma curva é suavizada");
+    }
+}
+
+#[test]
+fn canto_agudo_com_tolerancia_pequena_fica_intacto() {
+    // Triângulo muito fino (canto de ~1,1 graus): cortar o vértice agudo desvia muito mais que 2 cm, então ele não se move.
+    let cru = [[0.0, 0.0], [20.0, 0.2], [0.0, 0.4]];
+    let s = crate::terreno_curvas::suavizar_tol(&cru, &[false; 3], true, 2, 0.02);
+    assert!(s.contains(&[20.0, 0.2]), "vértice agudo preservado: {s:?}");
+    // Com tolerância folgada o mesmo vértice é cortado.
+    let largo = crate::terreno_curvas::suavizar_tol(&cru, &[false; 3], true, 2, 5.0);
+    assert!(!largo.contains(&[20.0, 0.2]));
+}
+
+#[test]
+fn tolerancia_negativa_ou_nao_finita_e_erro_de_entrada() {
+    let mut cena = cena_com(&[t3(1)]);
+    for tol in [-0.01, f64::NAN, f64::INFINITY] {
+        let r = executar(&mut cena, CONSULTA_TERRENO_CURVAS, &[0.0, 0.0, tol]);
+        assert!(matches!(r, Err(crate::esquema::ENTRADA)), "tol {tol}: {:?}", r.err());
+    }
+}
+
 #[test]
 fn curva_mestra_a_cada_n() {
     let mestras = |fx: TerrenoFx| curvas(&mut cena_com(&[fx]), 0, 0).iter().map(|l| (l.z, l.marca)).collect::<Vec<_>>();
