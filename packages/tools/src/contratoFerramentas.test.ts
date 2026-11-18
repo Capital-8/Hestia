@@ -63,7 +63,7 @@ const EXCECOES_TODO: Record<string, string> = {
 /** Ferramentas que não traçam elemento linear (seleção, edição, inserção por clique único, anotação pontual). */
 const SEM_TRACADO = new Set([
   'select', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'move', 'copy', 'rotate', 'mirror', 'array',
-  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste', 'column', 'footing',
+  'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste', 'column', 'footing', 'furniture',
   // Anotações pontuais (um clique): cota de nível, cota de coordenada e seta de norte; e a cota de ponto do terreno.
   'spotElevation', 'spotCoordinate', 'northArrow', 'terrainSpot',
 ]);

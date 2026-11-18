@@ -72,6 +72,7 @@ import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
+import { ImportFurnitureDialog } from './ui/dialogs/ImportFurnitureDialog.tsx';
 import { ImportTerrenoDialog } from './ui/dialogs/ImportTerrenoDialog.tsx';
 import { LocalizacaoDialog } from './ui/dialogs/LocalizacaoDialog.tsx';
 import { TerrenoScheduleDialog } from './ui/dialogs/TerrenoScheduleDialog.tsx';
@@ -227,6 +228,8 @@ function Dialogs(): ReactElement | null {
       return <DxfExportDialog />;
     case 'importCad':
       return <ImportCadDialog />;
+    case 'importFurniture':
+      return <ImportFurnitureDialog />;
     case 'manageCad':
       return <ManageCadDialog />;
     case 'experimentos':

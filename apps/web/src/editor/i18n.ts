@@ -117,6 +117,8 @@ export const I18N = {
     tool_copy: 'Copiar',
     tool_chain: 'Cadeia',
     tool_paste: 'Colar',
+
+    tool_furniture: 'Móvel',
     tool_terrain: 'Topografia',
     tool_terrainEdit: 'Editar terreno',
     tool_terrainLabel: 'Rótulo de curva',
@@ -478,6 +480,8 @@ export const I18N = {
     tool_copy: 'Copy',
     tool_chain: 'Chain',
     tool_paste: 'Paste',
+
+    tool_furniture: 'Furniture',
     tool_terrain: 'Toposurface',
     tool_terrainEdit: 'Edit Terrain',
     tool_terrainLabel: 'Contour Label',

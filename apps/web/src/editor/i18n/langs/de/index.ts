@@ -41,6 +41,7 @@ import { DE_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { DE_PAREDE_CORTINA } from '../../areas/parede-cortina-2.ts';
 import { DE_STRUCTURAL } from '../../areas/structural.ts';
 import { DE_TAGGING } from '../../areas/tagging.ts';
+import { DE_FURNITURE } from '../../areas/furniture.ts';
 
 export const DE_ALL = {
   ...DE_STRUCTURAL,
@@ -85,4 +86,5 @@ export const DE_ALL = {
   ...DE_PROPS_OPTIONS,
   ...DE_PACKAGES_IO,
   ...DE_BIBLIOTECA,
+  ...DE_FURNITURE,
 };

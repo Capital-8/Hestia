@@ -16,6 +16,7 @@ import { PT_EDITOR_STATUS, EN_EDITOR_STATUS } from './editor-status.ts';
 import { PT_ENGINE, EN_ENGINE } from './engine.ts';
 import { PT_EXPORTS, EN_EXPORTS } from './exports.ts';
 import { PT_GEOM, EN_GEOM } from './geom.ts';
+import { PT_FURNITURE, EN_FURNITURE } from './furniture.ts';
 import { PT_IO, EN_IO } from './io.ts';
 import { PT_MISC_UI, EN_MISC_UI } from './misc-ui.ts';
 import { PT_MODEL, EN_MODEL } from './model.ts';
@@ -92,6 +93,7 @@ export const PT_ALL = {
   ...PT_ENGINE,
   ...PT_EXPORTS,
   ...PT_GEOM,
+  ...PT_FURNITURE,
   ...PT_IO,
   ...PT_MISC_UI,
   ...PT_MODEL,
@@ -152,6 +154,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_ENGINE,
   ...EN_EXPORTS,
   ...EN_GEOM,
+  ...EN_FURNITURE,
   ...EN_IO,
   ...EN_MISC_UI,
   ...EN_MODEL,

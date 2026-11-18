@@ -90,6 +90,12 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
+  furniture: {
+    mover: null,
+    colar: null,
+    alinhar: null,
+    motivo: 'TODO: o móvel importado é editado pelos comandos próprios (`addFurniture`/`updateFurniture`/`deleteFurniture`: posição, giro e espelho nas Propriedades); o `transform` (Mover, Girar, Espelhar, Copiar, Matriz), o Copiar/Colar e o Alinhar da planta ainda não o levam.',
+  },
 };
 
 /**
@@ -135,6 +141,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   column: { mover: 'isColumn', alinhar: 'isColumn', previa: 'movidos' },
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o móvel importado é uma malha 3D que o corte e a elevação ainda não projetam, então não há desenho para mover ou alinhar nessas vistas.' },
 };
 
 /**

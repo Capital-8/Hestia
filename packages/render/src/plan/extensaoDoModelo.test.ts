@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import {
   ProjectStore,
+  buildFurnitureAsset,
   createEmptyProject,
   defaultStairTypeId,
   makeBeam,
@@ -129,7 +130,25 @@ const CASOS: Record<Element['kind'], Caso> = {
     projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'ft_iso_100x100', levelId: 'lv_0', at: v(35, 35) }) }),
     alvo: [v(35, 35)],
   },
+  furniture: { entra: false, projeto: () => projetoComMovel() },
 };
+
+/** Projeto só com um móvel importado (bloco 1 x 1 x 1 m) longe da origem: a caixa do modelo tem de continuar vazia. */
+function projetoComMovel(): Project {
+  const positions = new Float32Array([70, 70, 0, 71, 70, 0, 71, 71, 0, 70, 71, 0, 70, 70, 1, 71, 70, 1, 71, 71, 1, 70, 71, 1]);
+  const asset = buildFurnitureAsset({
+    name: 'Caixa',
+    sourceFileName: 'caixa.glb',
+    sourceFormat: 'glb',
+    defs: [{ id: 'd', name: 'd', positions, normals: new Float32Array(24), uvs: new Float32Array(0), indices: new Uint32Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]), groups: [{ start: 0, count: 12, materialIndex: 0 }] }],
+    materials: [{ name: 'm', color: [1, 1, 1], opacity: 1 }],
+    textures: [],
+  });
+  return com(
+    { type: 'addFurnitureAsset', asset },
+    { type: 'addFurniture', furniture: { id: 'fu1', kind: 'furniture', assetId: asset.id, levelId: 'lv_0', x: 0, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'Caixa' } },
+  );
+}
 
 const contem = (b: CaixaPlano, pts: Vec2[]): boolean => pts.every((q) => q.x >= b.minX - 1e-9 && q.x <= b.maxX + 1e-9 && q.y >= b.minY - 1e-9 && q.y <= b.maxY + 1e-9);
 

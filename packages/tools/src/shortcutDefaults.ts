@@ -23,7 +23,7 @@ export const PERFIL_REVIT: ShortcutMap = {
   column: 'CL', beam: 'BM', footing: 'FT',
   move: 'MV', copy: 'CO', rotate: 'RO', mirror: 'MM', array: 'AR', offset: 'OF', parallel: 'PP', trim: 'TR', align: 'AL', joins: 'UG',
   split: 'SL', measure: 'ME', level: 'LL', section: 'CT', rehost: 'TH', atalhos: 'KS', unidades: 'UN', createSimilar: 'CS',
-  detailLine: 'DL', filledRegion: 'RP', tag: 'TG', grid: 'GR', mass: 'MA',
+  detailLine: 'DL', filledRegion: 'RP', tag: 'TG', grid: 'GR', mass: 'MA', furniture: 'MO',
   spotElevation: 'EL', spotCoordinate: 'SC', revisionCloud: 'RC', northArrow: 'NA',
   terrain: 'TP', terrainEdit: 'ET', terrainLabel: 'RL', terrainSpot: 'PC', terrainRegion: 'RG', lot: 'LP',
   // Visibilidade (Revit): HH/HC/HI/IC/HR são temporários; EH/VH são permanentes na vista; RH revela; EU/VU reexibe.
@@ -42,7 +42,7 @@ export const PERFIL_SIMPLES: ShortcutMap = {
   parallel: 'G', trim: 'T', align: 'L', joins: 'N', split: 'P', measure: 'E', level: 'VL', section: 'K', rehost: 'H', stair: 'I', stairrun: 'Q', ramp: ',', railing: 'VC',
   dimension: 'Y', angularDimension: 'VD', text: 'X', room: 'Z', column: 'VP', beam: 'VB', footing: 'VF',
   ceiling: '1', slope: '2', roofarrow: '3', roofextrusion: '4', attachroof: '5', detachroof: '6', roomsep: '7', atalhos: '8', unidades: 'VU', createSimilar: 'VS',
-  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG', mass: 'VM',
+  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG', mass: 'VM', furniture: 'VI',
   spotElevation: 'VO', spotCoordinate: 'VN', revisionCloud: 'VV', northArrow: 'VA',
   // Terreno e lote: V + letra livre (VP, VB, VO e VA já são pilar, viga, cota pontual e norte).
   terrain: 'VW', terrainEdit: 'VE', terrainLabel: 'VQ', terrainSpot: 'VX', terrainRegion: 'VY', lot: 'VZ',

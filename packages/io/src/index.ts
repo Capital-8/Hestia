@@ -44,3 +44,11 @@ export {
 // SUPLEMENTOS (Fase D): leitor de zip com limites e pacote `.hestiapkg`.
 export * from './zipRead.ts';
 export * from './pkg.ts';
+// Importação de móveis/blocos (skp, glb, gltf, obj, dae, fbx, zip) em Web Worker.
+export { importInWorker, type ImportInWorkerOptions, type WorkerFactory, type WorkerLike } from './furniture/importInWorker.ts';
+export {
+  IMPORT_LIMITS,
+  type ImportedModel as FurnitureImportedModel,
+  type ImportedMaterial as FurnitureImportedMaterial,
+  type ImportCategory as FurnitureImportCategory,
+} from './furniture/types.ts';

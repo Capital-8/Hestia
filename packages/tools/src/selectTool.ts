@@ -11,7 +11,7 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { cotaDeCorteCortina, proximoSubelemento, sNaParede, subelementoEmPonto, type ParedeSubelementos } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
+import { furnitureAt, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
@@ -274,6 +274,8 @@ export class SelectTool extends ToolBase {
     // Massa: o anel cortado do kernel (ou a base, sem kernel); o clique no piso, na laje, no telhado ou no objeto que estão sob ela continua ganhando (a massa é estudo volumétrico); vem antes do ambiente.
     const ms = pickMassAt(pr, lv, at, mpp, this.env.hiddenInView?.());
     if (ms) return { id: ms, kind: 'mass' };
+    const fu = furnitureAt(pr, lv, at, mpp);
+    if (fu) return { id: fu, kind: 'generic' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };

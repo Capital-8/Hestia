@@ -4,6 +4,7 @@ import { contextoDaVista } from '@hestia/render';
 import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hestia/engine';
 import {
   isCad,
+  isFurniture,
   isFloor,
   isGeneric,
   isLot,
@@ -77,6 +78,7 @@ import { CadProps } from './CadProps.tsx';
 import { ColumnProperties } from './ColumnProperties.tsx';
 import { BeamProperties } from './BeamProperties.tsx';
 import { FootingProperties } from './FootingProperties.tsx';
+import { FurnitureProps } from './FurnitureProps.tsx';
 import { GridProperties } from './GridProperties.tsx';
 import { gradeDaSelecao } from './gridUi.ts';
 import { LabelScroll } from './LabelScroll.tsx';
@@ -485,15 +487,15 @@ export function Properties(): ReactElement {
   const ramps = els.filter(isRamp);
   const railings = els.filter(isGuardaCorpo);
   const massas = els.filter(isMass);
-  const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad);
+  const rooms = els.filter(isRoom), generics = els.filter(isGeneric), cads = els.filter(isCad), furnitures = els.filter(isFurniture);
   const terrains = els.filter(isTerrain), regions = els.filter(isTerrainRegion), lots = els.filter(isLot);
   const columns = els.filter(isColumn);
   const beams = els.filter(isBeam);
   const footings = els.filter(isFooting);
   // Grade é do projeto, não elemento: a seleção dela é um id que não está em `elements`.
   const grade = gradeDaSelecao(p, sel);
-  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + massas.length + rooms.length + generics.length + cads.length + columns.length + beams.length + footings.length + terrains.length + regions.length + lots.length;
-  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings, terrains, regions, lots].filter((g) => g.length > 0).length;
+  const count = walls.length + ops.length + floors.length + slabs.length + ceilings.length + roofs.length + stairs.length + ramps.length + railings.length + massas.length + rooms.length + generics.length + cads.length + columns.length + beams.length + footings.length + terrains.length + regions.length + lots.length + furnitures.length;
+  const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings, terrains, regions, lots, furnitures].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
   const perim = usePerimeter();
@@ -527,6 +529,7 @@ export function Properties(): ReactElement {
           : kinds === 1 && columns.length > 0 ? <ColumnProperties items={columns} />
           : kinds === 1 && beams.length > 0 ? <BeamProperties items={beams} />
           : kinds === 1 && footings.length > 0 ? <FootingProperties items={footings} />
+          : kinds === 1 && furnitures.length > 0 ? <FurnitureProps items={furnitures} />
           : grade ? <GridProperties grid={grade} />
           : note ? <AnnotationProps dim={note.dim} text={note.text} line={note.line} region={note.region} tag={note.tag} spot={note.spot} revisionCloud={note.revisionCloud} symbol={note.symbol} section={note.section} planId={planId} sectionId={sectionId} />
           : view ? <SectionViewProps view={view} />
