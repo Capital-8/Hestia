@@ -1,7 +1,7 @@
 import { planFootprint } from './stairs.ts';
 import { bordaDeReserva } from './terreno.ts';
 import { pontosDaMassaEmPlanta } from './massa.ts';
-import { resolveRampOne, resolveStairOne } from '@hestia/engine';
+import { pegadaDoComponente, resolveRampOne, resolveStairOne } from '@hestia/engine';
 import {
   beamPolygon,
   columnPolygon,
@@ -113,6 +113,8 @@ const COLETORES: Coletores = {
   column: { entra: true, pontos: (e, p) => columnPolygon(e, findColumnType(p, e.typeId)) },
   beam: { entra: true, pontos: (e, p) => beamPolygon(e, findBeamType(p, e.typeId)) },
   footing: { entra: true, pontos: (e, p) => footingPolygon(e, findFootingType(p, e.typeId)) },
+  // O móvel entra pela pegada em planta (as peças dele aparecem no corte e na elevação).
+  component: { entra: true, pontos: (e, p) => pontosDeMulti(pegadaDoComponente(p, e)) },
 };
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {

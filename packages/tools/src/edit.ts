@@ -1,7 +1,7 @@
 import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, type Transform, type Vec2 } from '@hestia/geom';
 import { frameOfWall, openingGeometry } from '@hestia/engine';
 import {
-  beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn,
+  beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn, isComponent,
   isFloor, isFooting, isLot, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall,
   mapaDeIdsDeGuardaCorpos, newId,
   sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project,
@@ -33,6 +33,8 @@ export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) =>
 export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isOpening(p.elements[id]));
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
+/** Componentes (móveis, louças, equipamentos) dentro da seleção: o `transform` os move, gira, espelha e copia. */
+export const selectedComponents = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isComponent(p.elements[id]));
 /** Paredes, pisos, lajes, telhados, massas, terreno (com as suas regiões; a região sozinha também), lote e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
 export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedWalls(p, ids),
@@ -51,6 +53,7 @@ export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedTerrenosComRegioes(p, ids),
   ...regioesSozinhas(p, ids),
   ...selectedLots(p, ids),
+  ...selectedComponents(p, ids),
 ];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */

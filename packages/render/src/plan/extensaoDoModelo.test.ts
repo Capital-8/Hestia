@@ -10,7 +10,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import {
+  FAMILIA_ARMARIO,
   ProjectStore,
+  type Component,
   createEmptyProject,
   defaultStairTypeId,
   makeBeam,
@@ -75,6 +77,8 @@ interface Caso {
 const generico: Omit<Generic, 'order'> = { id: 'g1', kind: 'generic', levelId: 'lv_0', name: 'Viga', sourceClass: 'IFCBEAM', mesh: { positions: [30, 30, 0, 34, 30, 0, 34, 31, 3], indices: [0, 1, 2] }, outline: rect(30, 30, 34, 31) };
 const cad: Omit<CadDrawing, 'order'> = { id: 'cad1', kind: 'cad', levelId: 'lv_0', name: 'Planta', source: 'dxf', unit: 'm', layers: [{ name: '0', color: 7 }], paths: [{ layer: '0', closed: false, pts: [v(40, 40), v(45, 45)] }], texts: [] };
 
+const armario: Component = { id: 'cm1', kind: 'component', familyId: FAMILIA_ARMARIO.id, typeId: 'A80', levelId: 'lv_0', order: 1, x: 90, y: 90, z: 0, rotation: 0, mirrored: false, mark: '' };
+
 const CASOS: Record<Element['kind'], Caso> = {
   wall: { entra: true, projeto: () => com({ type: 'addWall', wall: parede() }), alvo: [v(0, 0), v(10, 0)] },
   door: { entra: true, projeto: () => com({ type: 'addWall', wall: parede() }, { type: 'addOpening', opening: abertura('door') }), alvo: [v(7, 0)] },
@@ -128,6 +132,11 @@ const CASOS: Record<Element['kind'], Caso> = {
     entra: true,
     projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'ft_iso_100x100', levelId: 'lv_0', at: v(35, 35) }) }),
     alvo: [v(35, 35)],
+  },
+  component: {
+    entra: true,
+    projeto: () => com({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) }, { type: 'addComponent', component: armario }),
+    alvo: [v(90, 90)],
   },
 };
 

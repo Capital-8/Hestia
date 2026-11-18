@@ -90,6 +90,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
+  component: { mover: 'selectedComponents', colar: 'components', alinhar: null, motivo: 'TODO: o componente (móvel) se encaixa por pegada e vizinhos no próprio arrasto; alinhar pelas arestas dele ainda não existe.' },
 };
 
 /**
@@ -135,6 +136,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   column: { mover: 'isColumn', alinhar: 'isColumn', previa: 'movidos' },
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
+  component: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o componente ainda não aparece como peça movível no corte e na elevação (o desenho do corte o mostra, mas mover pela vista não existe).' },
 };
 
 /**

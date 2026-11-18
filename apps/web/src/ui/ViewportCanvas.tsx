@@ -201,14 +201,12 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     if (!pane.isActive) return;
     registrarOrbita3D(m.orbit);
     registrarCena3D({ scene: m.scene, camera: m.orbit.camera });
-    return () => { registrarOrbita3D(null); registrarCena3D(null); };
     const gizmo = new GizmoComponente3D();
     gizmoComp.current = gizmo;
     m.scene.add(gizmo.group);
     const previaBloco = new PreviaComponente3D();
     previaBlocoRef.current = previaBloco;
     m.scene.add(previaBloco.grupo);
-    return () => {
     return () => {
       registrarOrbita3D(null);
       registrarCena3D(null);
