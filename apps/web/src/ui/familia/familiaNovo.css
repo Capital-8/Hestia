@@ -36,3 +36,6 @@
 @media (max-width: 760px) {
   .fam-arquivo { grid-template-columns: 1fr; }
 }
+
+.fam-meus-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0; }
+.fam-meus-acoes > label.fam-bt { cursor: pointer; }

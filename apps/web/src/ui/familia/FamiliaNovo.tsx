@@ -1,10 +1,11 @@
-import { BIBLIOTECA_BASE, criarFamiliaCaixaria, type Familia } from '@hestia/model';
-import { useMemo, useState, type ReactElement } from 'react';
+import { BIBLIOTECA_BASE, criarFamiliaCaixaria, exportarFamilias, lerArquivo, serializar, type Familia, type ResultadoImportacao } from '@hestia/model';
+import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
+import { useT } from '../../editor/i18n.ts';
 import { FamiliaNovoCartao } from './FamiliaNovoCartao.tsx';
 import { CATEGORIAS, criarCopiaDeFamilia, filtrarFamilias, type CategoriaGaleria } from './familiaNovo.ts';
 import { useFamilia } from './familiaStore.ts';
 import { Janela } from './FamiliaJanela.tsx';
-import { lerMeusModelosDoNavegador, removerModeloDoNavegador } from './meusModelos.ts';
+import { armazenamentoDoNavegador, baixarTexto, lerMeusModelos, lerMeusModelosDoNavegador, mesclarMeusModelos, removerModeloDoNavegador } from './meusModelos.ts';
 import './familiaNovo.css';
 
 /** Diálogo "Novo módulo": árvore de categorias, busca e galeria da biblioteca base (mais "Meus modelos"). */
@@ -29,6 +30,8 @@ export function FamiliaNovo(): ReactElement {
   const [meus, setMeus] = useState<Familia[]>(() => lerMeusModelosDoNavegador());
   const [sel, setSel] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; erro: boolean } | null>(null);
+  const { t } = useT();
 
   const contagem = useMemo(() => ({ ...contarPorCategoria(BIBLIOTECA_BASE), meus: meus.length }), [meus.length]);
   const fonte = categoria === 'meus' ? meus : BIBLIOTECA_BASE;
@@ -39,6 +42,55 @@ export function FamiliaNovo(): ReactElement {
     setCategoria(id);
     setSel(null);
     setConfirmando(null);
+    setAviso(null);
+  };
+
+  /** Baixa "Meus modelos" inteiro num arquivo `hestia-familia` (o mesmo formato de Abrir e salvar). */
+  const exportar = (): void => {
+    if (meus.length === 0) {
+      setAviso({ texto: t('fam_meus_nada_exportar'), erro: true });
+      return;
+    }
+    const nome = 'meus-modelos.hestia-familia.json';
+    baixarTexto(nome, serializar(exportarFamilias(meus)));
+    setAviso({ texto: t('fam_meus_exportado', { n: meus.length, nome }), erro: false });
+  };
+
+  /** Lê um arquivo `hestia-familia` e guarda as famílias válidas em "Meus modelos"; só lê dados, nunca executa nada. */
+  const importar = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const arquivo = e.target.files?.[0];
+    e.target.value = '';
+    if (!arquivo) return;
+    let resultado: ResultadoImportacao;
+    try {
+      resultado = lerArquivo(await arquivo.text());
+    } catch (falha) {
+      setAviso({ texto: t('fam_meus_erro_importar', { motivo: falha instanceof Error ? falha.message : t('fam_meus_nenhum') }), erro: true });
+      return;
+    }
+    if (resultado.familias.length === 0) {
+      setAviso({ texto: t('fam_meus_erro_importar', { motivo: t('fam_meus_nenhum') }), erro: true });
+      return;
+    }
+    const storage = armazenamentoDoNavegador();
+    if (storage === null) {
+      setAviso({ texto: t('fam_meus_sem_armazenamento'), erro: true });
+      return;
+    }
+    mesclarMeusModelos(storage, resultado.familias);
+    const salvos = lerMeusModelos(storage);
+    setMeus(salvos);
+    if (salvos.length === 0) {
+      setAviso({ texto: t('fam_meus_sem_armazenamento'), erro: true });
+      return;
+    }
+    const guardadas = resultado.familias.filter((f) => salvos.some((x) => x.id === f.id)).length;
+    const partes = [t('fam_meus_importado', { n: guardadas })];
+    if (resultado.ignoradas.length > 0) {
+      const motivos = resultado.ignoradas.map((i) => `${i.nome} (${i.motivo})`).join('; ');
+      partes.push(t('fam_meus_ignorados', { n: resultado.ignoradas.length, motivos }));
+    }
+    setAviso({ texto: partes.join(' '), erro: false });
   };
 
   const criarFamilia = (familia: Familia | null): void => {
@@ -101,6 +153,18 @@ export function FamiliaNovo(): ReactElement {
               onChange={(e) => setBusca(e.target.value)}
             />
           </div>
+          {categoria === 'meus' && (
+            <div className="fam-meus-acoes">
+              <button type="button" className="fam-bt" title={t('fam_meus_exportar_dica')} onClick={exportar}>{t('fam_meus_exportar')}</button>
+              <label className="fam-bt" title={t('fam_meus_importar_dica')}>
+                {t('fam_meus_importar')}
+                <input type="file" accept=".json,application/json" hidden aria-label={t('fam_meus_importar')} onChange={(e) => { void importar(e); }} />
+              </label>
+              {aviso !== null && (
+                <span className={`fam-msg${aviso.erro ? ' erro' : ''}`} role={aviso.erro ? 'alert' : 'status'}>{aviso.texto}</span>
+              )}
+            </div>
+          )}
           <div className="fam-gal-scroll">
             {lista.length === 0 ? (
               <div className="fam-hint">

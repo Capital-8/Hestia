@@ -47,11 +47,36 @@ export function guardarModelo(storage: Armazenamento, familia: Familia): Familia
   return lista;
 }
 
+/**
+ * Acrescenta várias famílias de uma vez (importação de arquivo): a de mesmo id é substituída; acima do limite, as mais
+ * antigas saem. Devolve a lista resultante.
+ */
+export function mesclarMeusModelos(storage: Armazenamento, novas: readonly Familia[]): Familia[] {
+  const ids = new Set(novas.map((f) => f.id));
+  const atuais = lerMeusModelos(storage).filter((f) => !ids.has(f.id));
+  const todas = [...atuais, ...novas.map((f) => structuredClone(f))];
+  const lista = todas.slice(Math.max(0, todas.length - LIMITE_MEUS_MODELOS));
+  gravar(storage, lista);
+  return lista;
+}
+
 /** Remove pelo id e devolve a lista restante. */
 export function removerModelo(storage: Armazenamento, id: string): Familia[] {
   const lista = lerMeusModelos(storage).filter((f) => f.id !== id);
   gravar(storage, lista);
   return lista;
+}
+
+/** Baixa um texto como arquivo (blob + link temporário). Só roda no navegador. */
+export function baixarTexto(nome: string, texto: string, tipo = 'application/json'): void {
+  const url = URL.createObjectURL(new Blob([texto], { type: tipo }));
+  const ancora = document.createElement('a');
+  ancora.href = url;
+  ancora.download = nome;
+  document.body.append(ancora);
+  ancora.click();
+  ancora.remove();
+  URL.revokeObjectURL(url);
 }
 
 /** localStorage do navegador, ou `null` quando não existe ou o acesso é bloqueado. */

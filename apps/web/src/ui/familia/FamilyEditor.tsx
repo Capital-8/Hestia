@@ -1,6 +1,7 @@
 import type { ModoInteracao3DFamilia } from '@hestia/render';
 import { useEffect, type ReactElement } from 'react';
 import { useProject } from '../../editor/controller.ts';
+import { useT } from '../../editor/i18n.ts';
 import { Familia3D } from './Familia3D.tsx';
 import { FamiliaDialogos } from './FamiliaDialogos.tsx';
 import { FamiliaFaixa } from './FamiliaFaixa.tsx';
@@ -89,6 +90,7 @@ export function FamilyEditor(): ReactElement | null {
   const res = useResolucao();
   const projeto = useProject();
   useAtalhos();
+  const { t } = useT();
   if (!aberta) return null;
   const set = useFamilia.getState().set;
   const tipo = familia.tipos.find((t) => t.id === tipoId);
@@ -98,7 +100,8 @@ export function FamilyEditor(): ReactElement | null {
         <button onClick={() => useFamilia.getState().ocultar()} title="Voltar ao projeto (a família fica guardada)">{projeto.name}</button>
         <span className="on fam-aba">Família: {familia.nome}</span>
         <button className="fam-novo-btn" onClick={() => set({ dialogo: 'novo' })}>+ Novo módulo…</button>
-        <span className="fam-aviso">Protótipo de interface: nada é gravado no projeto</span>
+        <span className="fam-selo-exp" title={t('fam_exp_dica')}>{t('fam_exp_selo')}</span>
+        <span className="fam-aviso">{t('fam_exp_aviso')}</span>
       </div>
       <FamiliaFaixa />
       <div className="fam-body">

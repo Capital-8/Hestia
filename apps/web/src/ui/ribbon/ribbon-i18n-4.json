@@ -1248,20 +1248,12 @@
     "pl": "Edytor rodzin"
   },
   {
-    "pt": "Desativado por enquanto até alinhar os controles 3D.",
-    "es": "Desactivado por ahora hasta alinear los controles 3D.",
-    "de": "Vorübergehend deaktiviert, bis die 3D-Steuerung abgestimmt ist.",
-    "fr": "Désactivé provisoirement, le temps d'aligner les commandes 3D.",
-    "it": "Disattivato per ora, fino a rifinire i comandi 3D.",
-    "pl": "Chwilowo wyłączone, do czasu dopracowania sterowania 3D."
-  },
-  {
-    "pt": "Criação/edição de móveis desativada temporariamente.",
-    "es": "Creación/edición de muebles desactivada temporalmente.",
-    "de": "Erstellen/Bearbeiten von Möbeln vorübergehend deaktiviert.",
-    "fr": "Création/modification de meubles temporairement désactivée.",
-    "it": "Creazione/modifica di mobili temporaneamente disattivata.",
-    "pl": "Tworzenie/edycja mebli chwilowo wyłączone."
+    "pt": "Experimental: cria e edita móveis paramétricos (Meus modelos).",
+    "es": "Experimental: crea y edita muebles paramétricos (Mis modelos).",
+    "de": "Experimentell: erstellt und bearbeitet parametrische Möbel (Meine Modelle).",
+    "fr": "Expérimental : crée et modifie des meubles paramétriques (Mes modèles).",
+    "it": "Sperimentale: crea e modifica mobili parametrici (I miei modelli).",
+    "pl": "Eksperymentalne: tworzy i edytuje meble parametryczne (Moje modele)."
   },
   {
     "pt": "Biblioteca",

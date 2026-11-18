@@ -28,6 +28,7 @@ import { abrirLoteSchedule } from '../dialogs/loteScheduleAberta.ts';
 import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
 import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { useFamilia } from '../familia/familiaStore.ts';
 import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
 import { usePaletaMoveis } from '../PaletaMoveis.tsx';
 import { useMontarFila } from '../MontarFila.tsx';
@@ -496,7 +497,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   units: { label: t('Unidades do projeto', 'Project Units'), icon: 'type', hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'), shortcut: 'unidades', run: openDialog('units') },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
-  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'familyEditor', hint: t('Desativado por enquanto até alinhar os controles 3D.', 'Temporarily disabled until 3D controls are finalized.'), disabled: () => t('Criação/edição de móveis desativada temporariamente.', 'Furniture creation/editing temporarily disabled.'), run: () => {} },
+  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'familyEditor', hint: t('Experimental: cria e edita móveis paramétricos (Meus modelos).', 'Experimental: creates and edits parametric furniture (My models).'), run: () => useFamilia.getState().abrir() },
   componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'componentLibrary', hint: t('Paleta de móveis padrão: clique ou arraste para posicionar no 3D ou na planta.', 'Standard furniture palette: click or drag to place in 3D or plan.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
   componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'componentBudget', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
   componentRun: { label: t('Montar fila', 'Build Run'), icon: 'componentRun', hint: t('Monta uma fila de módulos contra a face de uma parede reta selecionada.', 'Builds a run of modules against the face of a selected straight wall.'), run: () => useMontarFila.getState().abrir() },
