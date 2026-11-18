@@ -29,6 +29,7 @@ const hexRgb = (hex: string): Rgb => [
 
 const SPECS: Readonly<Record<string, SpecAcabamento>> = {
   comp_carvalho: { kind: 'madeira', base: hexRgb('#c9a176'), escuro: hexRgb('#a17548'), claro: hexRgb('#deb98e'), roughness: 0.62, bumpStrength: 1, seed: 101 },
+  comp_madeira_clara: { kind: 'madeira', base: hexRgb('#e2c9a0'), escuro: hexRgb('#c4a778'), claro: hexRgb('#f0dcb8'), roughness: 0.6, bumpStrength: 1, seed: 105 },
   comp_freijo: { kind: 'madeira', base: hexRgb('#9e6b43'), escuro: hexRgb('#6e4424'), claro: hexRgb('#ba865b'), roughness: 0.58, bumpStrength: 1, seed: 202 },
   comp_nogueira: { kind: 'madeira', base: hexRgb('#5c3c28'), escuro: hexRgb('#392214'), claro: hexRgb('#7a533a'), roughness: 0.56, bumpStrength: 1, seed: 303 },
   comp_corpo: { kind: 'madeira', base: hexRgb('#c9a176'), escuro: hexRgb('#a17548'), claro: hexRgb('#deb98e'), roughness: 0.62, bumpStrength: 0.9, seed: 404 },
@@ -43,11 +44,15 @@ const SPECS: Readonly<Record<string, SpecAcabamento>> = {
 
   comp_calacatta: { kind: 'marmore', base: hexRgb('#f2efe8'), veio: hexRgb('#8b8378'), ouro: hexRgb('#b89a6a'), intensidadeVeio: 1, roughness: 0.22, seed: 701 },
   comp_tampo: { kind: 'marmore', base: hexRgb('#e9e5dc'), veio: hexRgb('#b1a99c'), ouro: hexRgb('#cbb795'), intensidadeVeio: 0.65, roughness: 0.24, seed: 702 },
+  comp_marmore_escuro: { kind: 'marmore', base: hexRgb('#2b2d31'), veio: hexRgb('#c9c6bd'), ouro: hexRgb('#b89a6a'), intensidadeVeio: 0.8, roughness: 0.2, seed: 704 },
   comp_preto_sg: { kind: 'granito', base: hexRgb('#25272b'), escuro: hexRgb('#17181b'), claro: hexRgb('#4c515a'), brilho: hexRgb('#8d94a0'), roughness: 0.2, metalness: 0.06, seed: 703 },
 
   comp_aluminio: { kind: 'metal', base: hexRgb('#b9bec4'), escuro: hexRgb('#9ea5ad'), claro: hexRgb('#d3d8de'), roughness: 0.28, metalness: 0.72, seed: 801 },
   comp_cobre: { kind: 'metal', base: hexRgb('#b47a4c'), escuro: hexRgb('#8f5b32'), claro: hexRgb('#cf9668'), roughness: 0.28, metalness: 0.72, seed: 802 },
 
+  comp_vidro_incolor: { kind: 'vidro', base: hexRgb('#cfe6ea'), brilho: hexRgb('#eaf6f8'), roughness: 0.06, metalness: 0.1, opacity: 0.3, seed: 902 },
+  comp_vidro_bronze: { kind: 'vidro', base: hexRgb('#8a6a4a'), brilho: hexRgb('#b08d68'), roughness: 0.08, metalness: 0.15, opacity: 0.4, seed: 903 },
+  comp_vidro_verde: { kind: 'vidro', base: hexRgb('#5f8f7f'), brilho: hexRgb('#86b5a4'), roughness: 0.08, metalness: 0.15, opacity: 0.4, seed: 904 },
   comp_vidro_fume: { kind: 'vidro', base: hexRgb('#49525c'), brilho: hexRgb('#65717e'), roughness: 0.08, metalness: 0.15, opacity: 0.42, seed: 901 },
 };
 
