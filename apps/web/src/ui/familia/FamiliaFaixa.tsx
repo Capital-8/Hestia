@@ -1,3 +1,5 @@
+import { criarFamiliaCaixaria, type EstiloPorta } from '@hestia/model';
+import type { ModoInteracao3DFamilia } from '@hestia/render';
 import { useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { editor } from '../../editor/controller.ts';
@@ -9,8 +11,7 @@ import type { DialogoFamilia } from './familiaStore.ts';
 
 /*
  * Faixa do editor de famílias, no mesmo molde da faixa do app (abas → painéis → itens; botão grande, pilha de
- * pequenos, botão dividido). Por enquanto só os botões "Parâmetros", "Tipos" e "Lista de peças" fazem algo (abrem a
- * tabela); os demais marcam a ferramenta na barra de status. Ícones: os que o app já tem; os novos entram na fase F7.
+ * pequenos, botão dividido). Inclui o painel funcional de Caixaria 3D por vãos e as ações do editor.
  */
 
 interface Item {
@@ -19,8 +20,10 @@ interface Item {
   /** Variantes (botão dividido): só entram 2 ou mais, como manda a decisão 0032. */
   variantes?: string[];
   abre?: Exclude<DialogoFamilia, null>;
-  /** Botões de desfazer/refazer (leem o histórico do editor) ou de carregar a família no projeto. */
-  acao?: 'desfazer' | 'refazer' | 'carregar';
+  /** Botões de desfazer/refazer, carregar no projeto ou criar nova caixaria. */
+  acao?: 'desfazer' | 'refazer' | 'carregar' | 'nova_caixaria';
+  /** Modo de interação 3D ativado por este botão. */
+  modo3d?: ModoInteracao3DFamilia;
   novo?: boolean;
   desligado?: boolean;
   dica?: string;
@@ -30,7 +33,36 @@ interface Painel { id: string; titulo: string; itens: Slot[] }
 
 const I = (rotulo: string, icone: string, o: Partial<Item> = {}): Item => ({ rotulo, icone, ...o });
 
+const ESTILOS_PORTA_POR_VARIANTE: Readonly<Record<string, EstiloPorta>> = {
+  '1 folha': 'giro_1',
+  '2 folhas': 'giro_2',
+  Basculante: 'basculante',
+  Correr: 'correr',
+};
+
 const PAINEIS: Painel[] = [
+  {
+    id: 'caixaria',
+    titulo: 'Caixaria 3D',
+    itens: [
+      I('Nova caixaria', 'component', { acao: 'nova_caixaria', novo: true, dica: 'Cria uma caixaria paramétrica do zero pronta para modelar por vãos no 3D' }),
+      I('Selecionar', 'select', { modo3d: 'selecionar', dica: 'Seleciona peças ou vãos no 3D (Esc)' }),
+      I('Prateleira', 'beam', { modo3d: 'prateleira', dica: 'Clique em um vão no 3D para inserir prateleira horizontal (H)' }),
+      I('Divisória', 'column', { modo3d: 'divisoria', dica: 'Clique em um vão no 3D para inserir divisória vertical (V)' }),
+      I('Porta', 'door', { modo3d: 'porta', variantes: ['1 folha', '2 folhas', 'Basculante', 'Correr'], dica: 'Escolhe o estilo de porta e preenche o vão clicado no 3D' }),
+      I('Gavetas', 'schedule', { modo3d: 'gavetas', dica: 'Insere conjunto de gavetas no vão clicado no 3D' }),
+      I('Tampo', 'slab', { modo3d: 'tampo', dica: 'Clique na face superior no 3D para alternar tampo' }),
+      I('Tamponamento', 'wall', { modo3d: 'tamponamento', dica: 'Clique numa face externa no 3D para alternar tamponamento' }),
+      [
+        I('Cabideiro', 'beam', { modo3d: 'cabideiro', dica: 'Insere cabideiro no vão clicado no 3D' }),
+        I('Ripado', 'curtain', { modo3d: 'ripado', dica: 'Insere ripado no vão clicado no 3D' }),
+      ],
+      [
+        I('Sapateira', 'layers', { modo3d: 'sapateira', dica: 'Insere sapateira no vão clicado no 3D' }),
+        I('Recorte', 'trim', { modo3d: 'recorte', dica: 'Clique no tampo no 3D para alternar recorte de pia/cooktop' }),
+      ],
+    ],
+  },
   { id: 'chapa', titulo: 'Peças de chapa', itens: [I('Painel', 'wall', { variantes: ['Lateral', 'Base', 'Travessa / topo', 'Prateleira', 'Divisória', 'Fundo', 'Rodapé'] }), I('Tampo', 'slab'), I('Porta', 'door', { variantes: ['De abrir', 'De correr', 'Basculante', 'Dobradiça dupla'] }), I('Gaveta', 'schedule', { novo: true, dica: 'Peça composta: frente, laterais, traseira, fundo e corrediça' })] },
   { id: 'livre', titulo: 'Forma livre', itens: [I('Bloco', 'cube'), I('Vazio', 'opening', { dica: 'Corta os sólidos da família' }), [I('Cilindro', 'cube', { desligado: true }), I('Extrusão', 'cube', { desligado: true }), I('Revolução', 'cube', { desligado: true })]] },
   { id: 'ferragens', titulo: 'Ferragens', itens: [[I('Puxador', 'type'), I('Dobradiça', 'type'), I('Corrediça', 'type')], [I('Pé regulável', 'type'), I('Cabideiro', 'type'), I('Outra…', 'type')]] },
@@ -53,18 +85,39 @@ function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: str
   );
 }
 
+function aplicarFerramenta(it: Item, nomeVariante?: string): void {
+  const s = useFamilia.getState();
+  if (it.abre) {
+    s.set({ dialogo: it.abre });
+    return;
+  }
+  if (it.modo3d !== undefined) {
+    const patch: { modo3d: ModoInteracao3DFamilia; ferramenta: null; estiloPorta?: EstiloPorta } = {
+      modo3d: it.modo3d,
+      ferramenta: null,
+    };
+    if (it.modo3d === 'porta' && nomeVariante !== undefined) {
+      const estilo = ESTILOS_PORTA_POR_VARIANTE[nomeVariante];
+      if (estilo !== undefined) patch.estiloPorta = estilo;
+    }
+    s.set(patch);
+    return;
+  }
+  s.set({ ferramenta: nomeVariante ?? it.rotulo });
+}
+
 function Botao({ it, grande, aoCarregar }: { it: Item; grande: boolean; aoCarregar?: () => void }): ReactElement {
   const ferramenta = useFamilia((s) => s.ferramenta);
+  const modo3d = useFamilia((s) => s.modo3d);
   const podeDesfazer = useFamilia((s) => s.historico.podeDesfazer);
   const podeRefazer = useFamilia((s) => s.historico.podeRefazer);
   const rotuloDesfazer = useFamilia((s) => s.historico.rotuloDesfazer);
   const rotuloRefazer = useFamilia((s) => s.historico.rotuloRefazer);
   const [ancora, setAncora] = useState<DOMRect | null>(null);
-  const marca = (nome: string): void => {
-    if (it.abre) useFamilia.getState().set({ dialogo: it.abre });
-    else useFamilia.getState().set({ ferramenta: nome });
-  };
-  const on = ferramenta === it.rotulo || (it.variantes?.includes(ferramenta ?? '') ?? false);
+
+  const on = it.modo3d !== undefined
+    ? modo3d === it.modo3d
+    : ferramenta === it.rotulo || (it.variantes?.includes(ferramenta ?? '') ?? false);
   const rotuloHistorico = it.acao === 'desfazer' ? rotuloDesfazer : it.acao === 'refazer' ? rotuloRefazer : null;
   const dica = [it.rotulo, it.acao === 'desfazer' || it.acao === 'refazer' ? (rotuloHistorico ?? (it.acao === 'desfazer' ? 'Nada para desfazer' : 'Nada para refazer')) : '', it.dica, it.novo ? 'Novo nesta proposta (ampliar ADR 0049)' : '', it.desligado ? 'Fora do v1' : ''].filter(Boolean).join('\n— ');
   const desabilitado = it.desligado === true || (it.acao === 'desfazer' && !podeDesfazer) || (it.acao === 'refazer' && !podeRefazer);
@@ -72,8 +125,15 @@ function Botao({ it, grande, aoCarregar }: { it: Item; grande: boolean; aoCarreg
     if (it.acao === 'desfazer') { useFamilia.getState().desfazer(); return; }
     if (it.acao === 'refazer') { useFamilia.getState().refazer(); return; }
     if (it.acao === 'carregar') { aoCarregar?.(); return; }
+    if (it.acao === 'nova_caixaria') {
+      const nova = criarFamiliaCaixaria();
+      const estado = useFamilia.getState();
+      estado.novaFamilia(nova);
+      estado.set({ modo3d: 'prateleira', vista: '3d', vaoSel: nova.caixaria?.raiz.id ?? null, ferramenta: null });
+      return;
+    }
     if (it.variantes) setAncora(e.currentTarget.getBoundingClientRect());
-    else marca(it.rotulo);
+    else aplicarFerramenta(it);
   };
   return (
     <>
@@ -81,7 +141,7 @@ function Botao({ it, grande, aoCarregar }: { it: Item; grande: boolean; aoCarreg
         <Icon name={it.icone} size={grande ? 28 : 16} />
         {grande && <span className="rb-lbl">{it.rotulo}{it.variantes ? ' ▾' : ''}{it.novo ? <em className="fam-novo">novo</em> : null}</span>}
       </button>
-      {ancora && it.variantes && <Menu ancora={ancora} itens={it.variantes} fechar={() => setAncora(null)} escolher={(v) => marca(v)} />}
+      {ancora && it.variantes && <Menu ancora={ancora} itens={it.variantes} fechar={() => setAncora(null)} escolher={(v) => aplicarFerramenta(it, v)} />}
     </>
   );
 }
@@ -117,8 +177,8 @@ export function FamiliaFaixa(): ReactElement {
           <div key={p.id} className="rb-panel" role="group" aria-label={p.titulo}>
             <div className="rb-cols">
               {p.itens.map((slot, i) => Array.isArray(slot)
-                ? <div key={i} className="rb-stack">{slot.map((it) => <PequenoComRotulo key={it.rotulo} it={it} />)}</div>
-                : <Botao key={slot.rotulo} it={slot} grande aoCarregar={carregar} />)}
+                ? <div key={i} className="rb-stack">{slot.map((it) => <PequenoComRotulo key={`${p.id}-${it.rotulo}`} it={it} />)}</div>
+                : <Botao key={`${p.id}-${slot.rotulo}`} it={slot} grande aoCarregar={carregar} />)}
             </div>
             <div className="rb-title">{p.titulo}</div>
           </div>
@@ -131,8 +191,16 @@ export function FamiliaFaixa(): ReactElement {
 /** Na pilha o botão pequeno mostra o rótulo ao lado do ícone (a faixa do app mostra só o ícone; aqui ajuda a validar). */
 function PequenoComRotulo({ it }: { it: Item }): ReactElement {
   const ferramenta = useFamilia((s) => s.ferramenta);
+  const modo3d = useFamilia((s) => s.modo3d);
+  const on = it.modo3d !== undefined ? modo3d === it.modo3d : ferramenta === it.rotulo;
   return (
-    <button className={`rb-btn rb-small fam-pequeno${ferramenta === it.rotulo ? ' on' : ''}${it.desligado ? ' soon' : ''}`} title={it.rotulo} disabled={it.desligado} onClick={() => useFamilia.getState().set({ ferramenta: it.rotulo })}>
+    <button
+      className={`rb-btn rb-small fam-pequeno${on ? ' on' : ''}${it.desligado ? ' soon' : ''}`}
+      title={it.dica ?? it.rotulo}
+      aria-pressed={on || undefined}
+      disabled={it.desligado}
+      onClick={() => aplicarFerramenta(it)}
+    >
       <Icon name={it.icone} size={16} /><span>{it.rotulo}</span>
     </button>
   );

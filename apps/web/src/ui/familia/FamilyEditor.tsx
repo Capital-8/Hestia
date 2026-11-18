@@ -1,3 +1,4 @@
+import type { ModoInteracao3DFamilia } from '@hestia/render';
 import { useEffect, type ReactElement } from 'react';
 import { useProject } from '../../editor/controller.ts';
 import { Familia3D } from './Familia3D.tsx';
@@ -17,21 +18,54 @@ import './familia.css';
 const VISTAS: Array<[VistaFamilia, string]> = [['3d', 'Vista 3D'], ['frente', 'Frente'], ['lateral', 'Lateral'], ['planta', 'Planta']];
 const DETALHES: DetalheFamilia[] = ['grosso', 'medio', 'fino'];
 
-/** Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z no editor; não dispara quando o foco está num campo de texto. */
+const DICAS_MODO_3D: Readonly<Record<ModoInteracao3DFamilia, string>> = {
+  selecionar: 'Modo 3D: Selecionar — clique em uma peça ou vão para inspecionar (H = Prateleira, V = Divisória)',
+  prateleira: 'Modo 3D: Prateleira — passe o mouse dentro de um vão e clique para inserir (Esc volta para Selecionar)',
+  divisoria: 'Modo 3D: Divisória — passe o mouse dentro de um vão e clique para inserir (Esc volta para Selecionar)',
+  porta: 'Modo 3D: Porta — passe o mouse sobre um vão e clique para preencher (Esc volta para Selecionar)',
+  gavetas: 'Modo 3D: Gavetas — passe o mouse sobre um vão e clique para inserir conjunto de gavetas (Esc volta para Selecionar)',
+  cabideiro: 'Modo 3D: Cabideiro — clique em um vão para inserir cabideiro (Esc volta para Selecionar)',
+  ripado: 'Modo 3D: Ripado — clique em um vão para inserir painel ripado (Esc volta para Selecionar)',
+  sapateira: 'Modo 3D: Sapateira — clique em um vão para inserir prateleiras de sapateira (Esc volta para Selecionar)',
+  tampo: 'Modo 3D: Tampo — clique na face superior do móvel para ativar/remover o tampo (Esc volta para Selecionar)',
+  tamponamento: 'Modo 3D: Tamponamento — clique em uma face externa (esquerda/direita/topo/base) para alternar (Esc volta para Selecionar)',
+  recorte: 'Modo 3D: Recorte — clique no tampo para alternar recorte de pia/cooktop (Esc volta para Selecionar)',
+};
+
+/** Atalhos de teclado no editor (Ctrl+Z/Y e ferramentas 3D Esc/H/V); ignora quando o foco está em campo editável. */
 function useAtalhos(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (!useFamilia.getState().aberta) return;
+      const s = useFamilia.getState();
+      if (!s.aberta) return;
       const alvo = e.target as HTMLElement | null;
       const digitando = alvo !== null && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT' || alvo.isContentEditable);
-      if (digitando || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+      if (digitando) return;
       const tecla = e.key.toLowerCase();
-      if (tecla === 'z' && !e.shiftKey) {
+
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        if (tecla === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          s.desfazer();
+        } else if (tecla === 'y' || (tecla === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          s.refazer();
+        }
+        return;
+      }
+
+      if (e.altKey || s.dialogo !== null) return;
+      if (e.key === 'Escape') {
+        if (s.modo3d !== 'selecionar') {
+          e.preventDefault();
+          s.set({ modo3d: 'selecionar' });
+        }
+      } else if (tecla === 'h') {
         e.preventDefault();
-        useFamilia.getState().desfazer();
-      } else if (tecla === 'y' || (tecla === 'z' && e.shiftKey)) {
+        s.set({ modo3d: 'prateleira', ferramenta: null });
+      } else if (tecla === 'v') {
         e.preventDefault();
-        useFamilia.getState().refazer();
+        s.set({ modo3d: 'divisoria', ferramenta: null });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -51,6 +85,7 @@ export function FamilyEditor(): ReactElement | null {
   const sel = useFamilia((s) => s.sel);
   const tipoId = useFamilia((s) => s.tipoId);
   const ferramenta = useFamilia((s) => s.ferramenta);
+  const modo3d = useFamilia((s) => s.modo3d);
   const res = useResolucao();
   const projeto = useProject();
   useAtalhos();
@@ -78,7 +113,7 @@ export function FamilyEditor(): ReactElement | null {
           </div>
           <div className="fam-canvas">
             {vista === '3d'
-              ? <Familia3D key={familia.id} pecas={res.pecas} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} opacidade={opacidade} corte={corte} portas={portas} detalhe={detalhe} />
+              ? <Familia3D key={familia.id} familia={familia} env={res.env} pecas={res.pecas} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} opacidade={opacidade} corte={corte} portas={portas} detalhe={detalhe} />
               : <FamiliaVista pecas={res.pecas} vista={vista} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={0} portas={portas} detalhe={detalhe} />}
           </div>
           <div className="fam-vcb"><span>1:10</span><span>Detalhe: {detalhe}</span><span>Estilo: sombreado</span><span style={{ marginLeft: 'auto' }}>Tipo: {tipo?.nome}</span></div>
@@ -87,7 +122,8 @@ export function FamilyEditor(): ReactElement | null {
       </div>
       <div className="fam-status">
         <span><span className="fam-dot" />Motor: TS</span><span>Peças resolvidas: {res.pecas.length}</span><span>arredondado a 1 µm</span>
-        {ferramenta && <span>Ferramenta: {ferramenta} (ainda não cria peças)</span>}
+        <span>{DICAS_MODO_3D[modo3d]}</span>
+        {ferramenta && <span>Ferramenta: {ferramenta}</span>}
         <span style={{ flex: 1 }} /><span>Alterações não carregadas no projeto</span>
       </div>
       <FamiliaDialogos />

@@ -1,5 +1,17 @@
-import { CATALOGO_PADRAO, FAMILIA_ARMARIO, HistoricoFamilia, familiaDaBiblioteca, type Catalogo, type Familia, type Valor } from '@hestia/model';
+import {
+  CATALOGO_PADRAO,
+  FAMILIA_ARMARIO,
+  HistoricoFamilia,
+  encontrarVao,
+  familiaDaBiblioteca,
+  type Catalogo,
+  type EstiloPorta,
+  type Familia,
+  type MontagemFrente,
+  type Valor,
+} from '@hestia/model';
 import { resolverFamilia, type ResolucaoFamilia } from '@hestia/engine';
+import type { HoverVao3D, ModoInteracao3DFamilia } from '@hestia/render';
 import { editor } from '../../editor/controller.ts';
 import { create } from 'zustand';
 
@@ -44,6 +56,13 @@ export interface FamiliaState {
   cavilhas: boolean;
   /** Última ação de ferramenta clicada na faixa (a faixa ainda não executa nada). */
   ferramenta: string | null;
+  modo3d: ModoInteracao3DFamilia;
+  vaoSel: string | null;
+  hoverVao: HoverVao3D | null;
+  estiloPorta: EstiloPorta;
+  montagemFrente: MontagemFrente;
+  qtdGavetas: number;
+  partesDivisao: number;
   abrir: () => void;
   ocultar: () => void;
   familia: () => Familia;
@@ -75,6 +94,11 @@ const estadoInicial = (f: Familia): { tipoId: string | null; valores: Record<str
   valores: {},
 });
 
+const vaoValidoNaFamilia = (f: Familia, vaoId: string | null): string | null => {
+  if (vaoId === null || !f.caixaria?.raiz) return null;
+  return encontrarVao(f.caixaria.raiz, vaoId) !== null ? vaoId : null;
+};
+
 const inicial = structuredClone(FAMILIA_ARMARIO);
 const historicoInicial = new HistoricoFamilia<Familia>(inicial);
 
@@ -88,6 +112,7 @@ export const useFamilia = create<FamiliaState>((set, get) => {
         historico: h,
         versao: s.versao + 1,
         sel: s.sel !== null && h.atual.pecas.some((p) => p.id === s.sel) ? s.sel : null,
+        vaoSel: vaoValidoNaFamilia(h.atual, s.vaoSel),
       }));
     });
   };
@@ -113,6 +138,13 @@ export const useFamilia = create<FamiliaState>((set, get) => {
     catalogo: structuredClone(CATALOGO_PADRAO),
     cavilhas: false,
     ferramenta: null,
+    modo3d: 'selecionar',
+    vaoSel: null,
+    hoverVao: null,
+    estiloPorta: 'giro_2',
+    montagemFrente: 'sobreposta',
+    qtdGavetas: 3,
+    partesDivisao: 1,
     abrir: () => set({ aberta: true }),
     ocultar: () => set({ aberta: false, dialogo: null, aninhadoEmEdicao: null }),
     familia: () => get().historico.atual,
@@ -148,7 +180,15 @@ export const useFamilia = create<FamiliaState>((set, get) => {
       const novo = new HistoricoFamilia<Familia>(structuredClone(f));
       ligar(novo);
       const estado = estadoInicial(novo.atual);
-      set((s) => ({ historico: novo, versao: s.versao + 1, ...estado, sel: null, aninhadoEmEdicao: null }));
+      set((s) => ({
+        historico: novo,
+        versao: s.versao + 1,
+        ...estado,
+        sel: null,
+        vaoSel: null,
+        hoverVao: null,
+        aninhadoEmEdicao: null,
+      }));
     },
     setCatalogo: (c) => set({ catalogo: c }),
     set: (patch) => {

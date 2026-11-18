@@ -1,4 +1,4 @@
-import { BIBLIOTECA_BASE, type Familia } from '@hestia/model';
+import { BIBLIOTECA_BASE, criarFamiliaCaixaria, type Familia } from '@hestia/model';
 import { useMemo, useState, type ReactElement } from 'react';
 import { FamiliaNovoCartao } from './FamiliaNovoCartao.tsx';
 import { CATEGORIAS, criarCopiaDeFamilia, filtrarFamilias, type CategoriaGaleria } from './familiaNovo.ts';
@@ -52,6 +52,14 @@ export function FamiliaNovo(): ReactElement {
 
   const criar = (): void => criarFamilia(selecionada);
 
+  const criarCaixariaDoZero = (): void => {
+    const nova = criarFamiliaCaixaria({ nome: 'Móvel modulado' });
+    const estado = useFamilia.getState();
+    estado.novaFamilia(nova);
+    estado.selecionarPeca(null);
+    estado.set({ dialogo: null, modo3d: 'prateleira', vista: '3d', vaoSel: nova.caixaria?.raiz.id ?? null });
+  };
+
   const remover = (id: string): void => {
     setMeus(removerModeloDoNavegador(id));
     setConfirmando(null);
@@ -65,6 +73,7 @@ export function FamiliaNovo(): ReactElement {
       rodape={
         <>
           <button type="button" className="fam-bt pri" disabled={selecionada === null} onClick={criar}>Criar</button>
+          <button type="button" className="fam-bt" onClick={criarCaixariaDoZero}>Criar caixaria do zero</button>
           <span className="fam-mut">{selecionada === null ? 'Escolha um modelo da galeria' : `Cópia de “${selecionada.nome}”`}</span>
         </>
       }

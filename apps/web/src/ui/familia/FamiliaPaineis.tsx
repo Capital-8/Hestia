@@ -1,8 +1,19 @@
 import { excluirAninhado } from '@hestia/model/src/familia/edicaoAninhados.ts';
-import { BIBLIOTECA_BASE, compilar, escreverCampo, lerCampo, type CampoPeca, type PapelPeca, type Peca } from '@hestia/model';
+import {
+  BIBLIOTECA_BASE,
+  compilar,
+  desvincularPecaCaixaria,
+  escreverCampo,
+  lerCampo,
+  revincularPecaCaixaria,
+  type CampoPeca,
+  type PapelPeca,
+  type Peca,
+} from '@hestia/model';
 import type { ReactElement, ReactNode } from 'react';
 import { useProject } from '../../editor/controller.ts';
 import { familiasParaAninhar, nomeDaFamilia } from './familiaAninhado.ts';
+import { FamiliaCaixariaPainel } from './FamiliaCaixariaPainel.tsx';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
 import { FamiliaUsinagens } from './FamiliaUsinagens.tsx';
@@ -102,7 +113,14 @@ function Campo({ peca, campo, rotulo, promover = false }: { peca: Peca; campo: C
       id={id}
       className={`fam-f mono${erro !== undefined ? ' bad' : ''}`}
       value={texto}
-      onChange={(e) => executarPeca(`Editar ${rotulo}`, (f) => escreverCampo(f, peca.id, campo, e.target.value))}
+      onChange={(e) => executarPeca(`Editar ${rotulo}`, (f) => {
+        const erroEscrita = escreverCampo(f, peca.id, campo, e.target.value);
+        if (erroEscrita !== null) return erroEscrita;
+        if (f.caixaria && peca.id.startsWith('cx_')) {
+          desvincularPecaCaixaria(f, peca.id);
+        }
+        return null;
+      })}
       aria-invalid={erro !== undefined ? true : undefined}
     />
   );
@@ -151,14 +169,32 @@ export function PropriedadesFamilia(): ReactElement {
     });
   };
 
+  const pecaDesvinculada = p !== undefined && (familia.caixaria?.pecasDesvinculadas?.includes(p.id) ?? false);
+
   return (
     <>
       <AtalhosPeca />
       {erro !== null && <div className="fam-aviso-erro" role="alert">{erro}</div>}
       <Flexionar />
       <Validacao />
+      <FamiliaCaixariaPainel />
       {p === undefined ? <div className="fam-hint">Selecione uma peça.</div> : (
         <>
+          {pecaDesvinculada && (
+            <div className="fam-cx-desvinc" role="status">
+              <span>Peça editada manualmente (desvinculada da caixaria).</span>
+              <button
+                type="button"
+                className="fam-bt"
+                onClick={() => executarPeca('Re-vincular peça à caixaria', (f) => {
+                  revincularPecaCaixaria(f, p.id);
+                  return null;
+                })}
+              >
+                Re-vincular à caixaria
+              </button>
+            </div>
+          )}
           <div className="fam-grp"><div className="fam-gh">Identidade</div>
             <div className="fam-row"><label htmlFor={`pc-${p.id}-nome`}>Nome</label>
               <input id={`pc-${p.id}-nome`} className="fam-f" value={p.nome} onChange={(e) => renomear(e.target.value)} />
