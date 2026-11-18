@@ -1,12 +1,13 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { definirMapaCorteAterro } from '@hestia/engine';
 import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
-import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
+import { furnitureToPlace, criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { numberOpeningMarks } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
 import { pedirAlerta } from '../../editor/alertaPrompt.ts';
 import { editor } from '../../editor/controller.ts';
+import { startPlacing } from '../../editor/furniture/actions.ts';
 import { createSimilarTarget, startCreateSimilar } from '../../editor/createSimilar.ts';
 import { resetDock, setDock } from '../../editor/dockActions.ts';
 import type { DockLayout, DockPanel, DockSide } from '../../editor/dockLayout.ts';
@@ -93,6 +94,19 @@ export interface ActionDef {
   pressed?: (c: RibbonCtx) => boolean;
   /** Devolve o motivo quando a ação não pode rodar agora; `false` quando pode. */
   disabled?: (c: RibbonCtx) => Txt | false;
+}
+
+/** Botão Componente (aba Arquitetura): mesmo fluxo de Inserir > Móveis. Sem blocos no projeto, abre a importação com aviso. */
+function placeComponent(): void {
+  const assets = Object.keys(editor.project.furniture?.assets ?? {});
+  if (assets.length === 0) {
+    useUi.setState({ dialog: 'importFurniture', dialogArg: null, status: { key: 'fur_component_empty' } });
+    return;
+  }
+  const pend = furnitureToPlace();
+  if (pend && assets.includes(pend)) startPlacing(pend);
+  else if (assets.length === 1) startPlacing(assets[0]!);
+  else useUi.setState({ dialog: 'importFurniture', dialogArg: 'blocks' });
 }
 
 const openDialog = (dialog: DialogKind, dialogArg: string | null = null): (() => void) => () => useUi.setState({ dialog, dialogArg });
@@ -484,6 +498,16 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     run: openDialog('importCad'),
   },
   importFurniture: { label: t('Importar móvel', 'Import furniture'), icon: 'open', hint: t('Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.', 'Brings a 3D piece of furniture from a file (.skp, .glb, .obj...) into the project.'), run: openDialog('importFurniture') },
+  placeComponent: {
+    label: t('Componente', 'Component'),
+    icon: 'component',
+    hint: t(
+      'Coloca um bloco 3D importado (móvel, árvore, carro...). Os blocos vêm dos seus arquivos .skp, .glb, .obj...; sem nenhum no projeto, abre a importação.',
+      'Places an imported 3D block (furniture, tree, car...). Blocks come from your .skp, .glb, .obj... files; with none in the project, it opens the import dialog.',
+    ),
+    run: placeComponent,
+    disabled: (c) => (c.view === 'plan' || c.view === '3d' ? false : t('Só em planta e 3D (não vale em prancha nem em corte).', 'Only in plan and 3D (not on sheets or sections).')),
+  },
   myBlocks: { label: t('Meus blocos', 'My blocks'), icon: 'layers', hint: t('Lista os blocos do projeto para colocar mais cópias.', 'Lists the project blocks so you can place more copies.'), run: openDialog('importFurniture', 'blocks') },
   manageCad: {
     label: t('Gerenciar CAD', 'Manage CAD'),

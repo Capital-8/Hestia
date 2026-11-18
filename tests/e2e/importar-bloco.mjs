@@ -85,12 +85,31 @@ try {
   await page.waitForSelector('.canvas-wrap canvas');
   await page.waitForTimeout(1200);
 
+  // 0. botão Componente (aba Arquitetura) com projeto vazio abre o diálogo Importar móvel com aviso
+  const botao = page.getByRole('button', { name: 'Componente', exact: true }).first();
+  await botao.waitFor({ timeout: 30_000 });
+  assert.equal(await botao.isDisabled(), false, 'Componente habilitado na planta');
+  await botao.click();
+  await page.waitForSelector('[data-testid=fur-drop]', { timeout: 30_000 });
+  const st0 = await page.evaluate(() => window.__hestia.useUi.getState());
+  assert.equal(st0.dialog, 'importFurniture');
+  assert.equal(st0.status?.key, 'fur_component_empty');
+  await page.evaluate(() => window.__hestia.useUi.setState({ dialog: null, dialogArg: null }));
+  ok('Componente com projeto vazio abre a importação com aviso');
+
   // 1. importar o cubo pelo diálogo
   await importar('cubo.obj', objCubo());
   let r = await resumo();
   assert.equal(r.assets.length, 1, 'um asset');
   assert.equal(r.assets[0].triangles, 12, 'cubo: 12 triângulos');
   ok('cubo.obj importado pelo diálogo', JSON.stringify(r.assets[0].bbox));
+
+  // 1b. Componente com 1 bloco ativa a ferramenta de colocar
+  await page.getByRole('button', { name: 'Componente', exact: true }).first().click();
+  const ferr = await page.evaluate(() => window.__hestia.useUi.getState().tool);
+  assert.equal(ferr, 'furniture', 'Componente ativa a ferramenta de colocar bloco');
+  await page.evaluate(() => window.__hestia.editor.setTool('select'));
+  ok('Componente com 1 bloco ativa a ferramenta furniture');
 
   // 2. instância com escala e posição conhecidas
   const lv = await page.evaluate(() => window.__hestia.editor.project.levels[0].id);
