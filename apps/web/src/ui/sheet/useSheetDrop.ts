@@ -5,6 +5,7 @@ import { useUi } from '../../editor/state.ts';
 import type { TextLike } from '../../editor/i18n.ts';
 import { addViewportAtAction, dragPlacement, type DragPlacement } from '../../editor/sheetInsert.ts';
 import { draggedSheetView, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
+import { encodeInsertArg } from '../../editor/sheetInsertArg.ts';
 import { snapMove, type SnapGuide } from './sheetSnap.ts';
 import { clampBoxToInner, type InnerBox, type PaperPoint } from './sheetSelection.ts';
 
@@ -28,7 +29,8 @@ export interface SheetDropApi {
 /**
  * Arrastar uma vista do Navegador de projeto para a prancha (estilo Revit): durante o `dragover` desenha o retângulo
  * tracejado com nome e escala, encaixa nas outras vistas e, ao soltar, insere centrada no ponteiro na escala natural
- * (ou na maior que cabe), deixando a vista nova selecionada. Um passo de desfazer.
+ * (ou na maior que cabe), deixando a vista nova selecionada. Um passo de desfazer. Com Shift ao soltar, abre a janela
+ * "Inserir vistas" (prévia grande, escolha da escala) centrada no ponto solto.
  */
 export function useSheetDrop(args: {
   sheetId: string;
@@ -96,6 +98,11 @@ export function useSheetDrop(args: {
       setDrop(null);
       endSheetDrag();
       if (!src) return;
+      // Shift ao soltar: abre a janela grande com a escala a escolher, centrada onde soltou (senão insere direto, como o Revit).
+      if (e.shiftKey) {
+        useUi.setState({ dialog: 'addView', dialogArg: encodeInsertArg({ sheetId, view: src.view, centre: paperAt(e) }) });
+        return;
+      }
       const placement = planned?.placement ?? dragPlacement(editor.project, sheet, src.view, paperAt(e));
       if (!placement) {
         say({ key: 'cvs_drop_too_big' });
