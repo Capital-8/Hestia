@@ -130,6 +130,7 @@ import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
 import { applyFurnitureCommand, type FurnitureCommand } from './furniture/commands.ts';
+import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
@@ -374,6 +375,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
   // A cópia de um componente nasce solta: o conjunto do original não a conhece (`membros`), então o `groupId` não pode ir junto.
+  transformEach(p, c, isFurniture, transformFurniture);
   transformEach(p, c, isComponent, transformComponent, ({ groupId: _grupo, ...solto }) => solto);
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));

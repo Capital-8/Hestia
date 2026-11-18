@@ -1,3 +1,5 @@
+import { applyTransform, type Transform } from '@hestia/geom';
+import { normalizarAngulo } from '../componentes.ts';
 import type { Project } from '../types.ts';
 import type { Id } from '../types.ts';
 import type { Furniture, FurnitureAsset, FurnitureBBox, FurniturePart } from './types.ts';
@@ -96,4 +98,13 @@ export function assetParts(asset: FurnitureAsset): FurniturePart[] {
 /** Local da definicao -> mundo para uma peca de uma instancia: `mundo(instancia) * peca`. */
 export function furniturePartWorldTransform(inst: Furniture, part: FurniturePart, asset?: FurnitureAsset, levelElevation = 0): FurnitureMat4 {
   return mat4Mul(furnitureWorldTransform(inst, asset, levelElevation), part.transform);
+}
+
+/** Mover, girar, espelhar ou copiar o bloco (mesma convenção do componente: mundo = R(rotation) · Espelho · local + (x, y)). */
+export function transformFurniture(f: Furniture, t: Transform): Furniture {
+  const pos = applyTransform(t, { x: f.x, y: f.y });
+  if (t.kind === 'translate') return { ...f, x: pos.x, y: pos.y };
+  if (t.kind === 'rotate') return { ...f, x: pos.x, y: pos.y, rotation: normalizarAngulo(f.rotation + t.angle) };
+  const fi = Math.atan2(t.b.y - t.a.y, t.b.x - t.a.x);
+  return { ...f, x: pos.x, y: pos.y, rotation: normalizarAngulo(2 * fi - f.rotation + Math.PI), mirrored: !f.mirrored };
 }

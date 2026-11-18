@@ -190,3 +190,16 @@
   color: var(--fg-faint);
   text-align: center;
 }
+
+.pal-importar {
+  align-self: stretch;
+  margin: 0 0 6px;
+  padding: 5px 8px;
+  font: inherit;
+  cursor: pointer;
+  color: var(--accent-text, #fff);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+.pal-importar:hover { filter: brightness(1.08); }

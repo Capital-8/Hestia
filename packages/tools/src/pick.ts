@@ -4,7 +4,7 @@ import { isComponent, isFurniture, isGeneric, wallsOnLevel, type Id, type Projec
 import { pegadaDoComponente, toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
-import { furnitureFootprint } from './furnitureFootprint.ts';
+import { furnitureOutline } from './furnitureFootprint.ts';
 
 export interface Hit {
   id: Id;
@@ -250,7 +250,7 @@ export function furnitureAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id 
     if (!isFurniture(e) || e.levelId !== levelId) continue;
     const asset = p.furniture?.assets[e.assetId];
     if (!asset) continue;
-    const ring = furnitureFootprint(e, asset);
+    const ring = furnitureOutline(e, asset);
     if (!insideOrNear(ring, at, tol)) continue;
     const area = Math.abs(ringArea(ring));
     if (!best || area < best.area) best = { id: e.id, area };

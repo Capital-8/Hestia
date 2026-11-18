@@ -9,6 +9,7 @@ import {
   findColumnType,
   findFootingType,
   footingPolygon,
+  furnitureBounds,
   isOpening,
   isRamp,
   isStair,
@@ -115,12 +116,16 @@ const COLETORES: Coletores = {
   footing: { entra: true, pontos: (e, p) => footingPolygon(e, findFootingType(p, e.typeId)) },
   // O móvel entra pela pegada em planta (as peças dele aparecem no corte e na elevação).
   component: { entra: true, pontos: (e, p) => pontosDeMulti(pegadaDoComponente(p, e)) },
-  furniture: {
-    entra: false,
-    motivo: 'TODO: o móvel importado é uma malha 3D; a planta mostra só um contorno simples (overlay da interface) e o corte e a elevação ainda não projetam a malha, então não há o que enquadrar.',
-    pontos: nenhum,
-  },
+  // O móvel importado entra pela caixa da malha em planta (a planta desenha o contorno dela; corte e elevação ainda não projetam a malha).
+  furniture: { entra: true, pontos: (e, p) => pontosDoMovel(e, p) },
 };
+
+function pontosDoMovel(e: Do<'furniture'>, p: Project): Pontos {
+  const asset = p.furniture?.assets[e.assetId];
+  if (!asset) return [];
+  const { min, max } = furnitureBounds(e, asset);
+  return [{ x: min[0], y: min[1] }, { x: max[0], y: max[1] }];
+}
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {
   const host = p.elements[e.hostId];

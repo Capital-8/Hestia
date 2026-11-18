@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type PointerEvent as RPointerEvent, type Rea
 import type { Familia } from '@hestia/model';
 import { create } from 'zustand';
 import { useProject } from '../editor/controller.ts';
+import { useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { tm } from './moveisTextos.ts';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
@@ -145,7 +146,7 @@ export function PaletaMoveis(): ReactElement | null {
   const [busca, setBusca] = useState('');
   const [posicao, setPosicao] = useState(POSICAO_INICIAL);
   const arrasteJanela = useRef<{ dx: number; dy: number } | null>(null);
-  useT();
+  const { t } = useT();
 
   const itens = useMemo(() => montarItensDaPaleta(p), [p]);
   const filtrados = useMemo(() => filtrarItensDaPaleta(itens, categoria, busca), [itens, categoria, busca]);
@@ -184,6 +185,9 @@ export function PaletaMoveis(): ReactElement | null {
           aria-label={tm('mov_busca_movel')}
           onChange={(e) => setBusca(e.target.value)}
         />
+        <button type="button" className="pal-importar" data-testid="pal-importar" title={t('fur_import_sub')} onClick={() => useUi.setState({ dialog: 'importFurniture', dialogArg: null })}>
+          {t('fur_import_title')}
+        </button>
         <div className="pal-abas" role="tablist" aria-label={tm('mov_categorias')}>
           {ABAS_PALETA.map((aba) => (
             <button

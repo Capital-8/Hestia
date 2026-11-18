@@ -1,7 +1,7 @@
 import { useMemo, type ReactElement } from 'react';
 import { isFurniture } from '@hestia/model';
 import { worldToScreen } from '@hestia/render';
-import { furnitureFootprint } from '@hestia/tools';
+import { furnitureOutline } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 
@@ -28,7 +28,7 @@ export function FurniturePlanOverlay(): ReactElement | null {
       {items.map((f) => {
         const asset = p.furniture?.assets[f.assetId];
         if (!asset) return null;
-        const pts = furnitureFootprint(f, asset).map((q) => worldToScreen(viewport, q));
+        const pts = furnitureOutline(f, asset).map((q) => worldToScreen(viewport, q));
         const on = sel.has(f.id);
         const c = pts.reduce((a, q) => ({ x: a.x + q.x / pts.length, y: a.y + q.y / pts.length }), { x: 0, y: 0 });
         return (
@@ -40,8 +40,6 @@ export function FurniturePlanOverlay(): ReactElement | null {
               stroke={on ? 'var(--accent)' : 'currentColor'}
               strokeWidth={on ? 2 : 1}
             />
-            <line x1={pts[0]!.x} y1={pts[0]!.y} x2={pts[2]!.x} y2={pts[2]!.y} stroke="currentColor" strokeOpacity={0.35} />
-            <line x1={pts[1]!.x} y1={pts[1]!.y} x2={pts[3]!.x} y2={pts[3]!.y} stroke="currentColor" strokeOpacity={0.35} />
             <text x={c.x} y={c.y} fontSize={11} textAnchor="middle" fill="currentColor" style={{ paintOrder: 'stroke' }}>{f.name}</text>
           </g>
         );
