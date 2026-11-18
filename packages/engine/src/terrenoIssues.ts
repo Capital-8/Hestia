@@ -36,6 +36,7 @@ export const CODIGO_AVISO_TN: Record<number, string> = {
   [AVISO_TN.precisaoReduzida]: 'terreno-precisao-reduzida',
   [AVISO_TN.semTriangulos]: 'terreno-sem-triangulos',
   [AVISO_TN.regiaoFora]: 'terreno-regiao-fora',
+  [AVISO_TN.taludeNaoAlcanca]: 'terreno-talude-nao-alcanca',
 };
 
 /** `avisos` `[terreno_num, codigo, regiao_num, indice]` e `valores` `[medido, limite, x, y, z]`. Código ou terreno desconhecido é ignorado. */
@@ -48,7 +49,7 @@ export function decodificarAvisosTN(avisos: ArrayLike<number>, valores: ArrayLik
     if (terrenoId === undefined || !CODIGO_AVISO_TN[codigo]) continue;
     const regiaoNum = avisos[4 * i + 2]!;
     const indiceBruto = avisos[4 * i + 3]!;
-    const comRegiao = codigo === AVISO_TN.regioesSobrepostas || codigo === AVISO_TN.precisaoReduzida || codigo === AVISO_TN.regiaoFora;
+    const comRegiao = codigo === AVISO_TN.regioesSobrepostas || codigo === AVISO_TN.precisaoReduzida || codigo === AVISO_TN.regiaoFora || codigo === AVISO_TN.taludeNaoAlcanca;
     out.push({
       terrenoId,
       codigo,
@@ -75,6 +76,7 @@ const MSG = {
     'terreno-precisao-reduzida': 'Terreno {nome}: a região {a} é grande demais para o passo pedido; a malha usa passo de {medido} em vez de {limite}.',
     'terreno-sem-triangulos': 'Terreno {nome}: faltam pontos para formar a superfície (são precisos ao menos 3, não alinhados).',
     'terreno-regiao-fora': 'Terreno {nome}: {medido} do contorno da região {a} fica fora do terreno.',
+    'terreno-talude-nao-alcanca': 'Terreno {nome}: o talude da região {a} não encontra o terreno em {limite}; o pé fica cortado nesse alcance.',
   },
   en: {
     'terreno-sem-kernel': 'Terrain {nome}: the geometry kernel is off; only the boundary is shown.',
@@ -85,6 +87,7 @@ const MSG = {
     'terreno-precisao-reduzida': 'Terrain {nome}: region {a} is too large for the requested step; the mesh uses a {medido} step instead of {limite}.',
     'terreno-sem-triangulos': 'Terrain {nome}: not enough points to form the surface (at least 3, not in a line).',
     'terreno-regiao-fora': 'Terrain {nome}: {medido} of the outline of region {a} lies outside the terrain.',
+    'terreno-talude-nao-alcanca': 'Terrain {nome}: the slope of region {a} does not meet the terrain within {limite}; the toe is cut at that reach.',
   },
 } as const;
 type Codigo = keyof (typeof MSG)['pt'];

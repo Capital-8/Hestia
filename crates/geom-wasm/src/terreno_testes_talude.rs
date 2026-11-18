@@ -76,6 +76,10 @@ fn erro_do_pe(fx: TerrenoFx, folga: f64) -> (f64, [f64; 2]) {
     let z = cotas(&mut cena, &pts.iter().map(|p| [p.x, p.y]).collect::<Vec<_>>(), 1);
     let mut pior = (0.0, [0.0, 0.0]);
     for (p, z) in pts.iter().zip(&z) {
+        let ref_z = aplicar(&regs, *p, ex.e.cota(p.x, p.y).expect("em E"));
+        if (z.1 - ref_z).abs() > 0.5 {
+            eprintln!("DEBUG ({:.3},{:.3}) malha {:.4} ref {:.4}", p.x, p.y, z.1, ref_z);
+        }
         assert_ne!(z.0, ID_AUSENTE);
         let ref_z = aplicar(&regs, *p, ex.e.cota(p.x, p.y).expect("em E"));
         let e = (z.1 - ref_z).abs();
