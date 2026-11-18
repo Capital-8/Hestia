@@ -439,7 +439,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
     const heights = new Map(group.map((f) => [f.wall.id, wz.get(f.wall.id)!.height] as const));
     const zr = new Map(group.map((f) => { const { z0, height } = wz.get(f.wall.id)!; return [f.wall.id, { z0, z1: z0 + height }] as const; }));
     const retSig = [...returns].map(([k, v]) => `${k}=${v.map((x) => `${x.openingId}:${ringsOfShape(x.poly)}`).join('+')}`).join('\n');
-    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}${contorno ? `\n--\ncontorno:${[...contorno.ids].sort().join(',')}` : ''}`;
+    const key = `${clusterKey(items, opens)}\n--\n${[...zr].map(([k, v]) => `${k}:${round(v.z0)}:${round(v.z1)}`).join(',')}\n--\n${retSig}\n--\n${planSig}${semRegioes ? '\n--\ninclinada' : ''}${isentos.size ? `\n--\ncruza:${[...isentos].sort().join(',')}` : ''}${contorno ? `\n--\ncontorno:${[...contorno.ids].sort().join(',')}@${[...contorno.furos.keys()].sort().map((id) => round(contorno.cutZ(id))).join(',')}` : ''}`;
     let core = cache.get(key);
     if (!core) {
       core = solveCluster(items, opens, zr, returns, planOpen, semRegioes, isentos, contorno);
