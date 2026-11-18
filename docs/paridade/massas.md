@@ -144,4 +144,7 @@ Nenhum item `[ ]` está pendente: o que ficou de fora está em `[-]`, com o moti
 - [x] F12 Campo "Lados" para polígono inscrito e circunscrito (2º clique conclui) em todos os alvos do esboço — `packages/tools/src/perimeterTool.test.ts`, `tests/e2e/massa-uniao.mjs`
 - [x] F13 Botão "Unir formas" (massa, piso, laje, forro, telhado): une formas fechadas sobrepostas num contorno, desfazer em 1 passo — `packages/tools/src/perimeterUnite.test.ts`, `tests/e2e/massa-uniao.mjs`
 - [-] F14 União preserva arcos: não (cordas de 2 mm); Concluir não une sozinho
+- [x] F15 Mistura e Loft pelo esboço (base, topo com fantasma da base; Cancelar no topo volta à base) — `packages/tools/src/perimeterCommitMass.test.ts`, `tests/e2e/massa-mistura.mjs`
+- [x] F16 Editar contorno da base OU do topo de massa com perfis diferentes — `tests/e2e/massa-mistura.mjs`
+- [x] F17 Interpolação livre 4 pontos -> livre 64 pontos no kernel real — `tests/kernel-massa-mistura-livre.wasm.test.ts`
 
