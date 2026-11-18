@@ -383,6 +383,10 @@ export interface ToolOptions {
   ramp?: RampToolOptions;
   /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
   mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
+  /** Componente (ferramenta `component`): família escolhida na barra de opções. Ausente = nenhuma. */
+  componentFamilyId?: Id;
+  /** Tipo da família (`null` = tipo padrão da família). */
+  componentTypeId?: Id | null;
 }
 
 export interface PointerInfo {
@@ -432,6 +436,8 @@ export interface Tool {
   space?(): void;
   /** Tecla avulsa tratada pela ferramenta antes dos atalhos globais; retorne `true` se consumida. */
   onKey?(key: string): boolean | void;
+  /** Tecla de atalho da ferramenta (ex.: R gira e M espelha no Componente). Devolve true se consumiu a tecla. */
+  key?(tecla: string, shift?: boolean): boolean;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
   cancel(): void;
   confirm(): void;

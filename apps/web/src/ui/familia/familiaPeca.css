@@ -1,0 +1,132 @@
+/* Ações sobre peças: barra do navegador, popovers, campo com "→P", fabricação e faixa de recusa. */
+
+.fam-peca-acoes-li { padding: 2px 6px 2px 18px !important; }
+.fam-peca-acoes-li:hover { background: transparent !important; }
+
+.fam-peca-acoes {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.fam-peca-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--ribbon);
+  color: var(--fg);
+  cursor: pointer;
+}
+.fam-peca-btn:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); }
+.fam-peca-btn:disabled { opacity: 0.45; cursor: default; }
+
+.fam-peca-confirma {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 3px 4px;
+  font-size: 11px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  border-radius: 3px;
+}
+.fam-peca-confirma .fam-bt { padding: 1px 7px; }
+
+.fam-aviso-erro {
+  margin: 4px 6px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--line));
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--danger) 16%, var(--sheet));
+  color: var(--danger);
+  font-size: 11.5px;
+}
+
+.fam-campo-promover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 2px;
+  align-items: center;
+  min-width: 0;
+}
+.fam-campo-promover .fam-f { min-width: 0; }
+
+.fam-promover {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  height: 22px;
+  padding: 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--ribbon);
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+.fam-promover:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+.fam-fita {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 6px;
+  padding: 3px 8px 5px;
+}
+.fam-fita-lado { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 3px; align-items: center; }
+.fam-fita-lado label { color: var(--fg-soft); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fam-fita-lado .fam-f { min-width: 0; height: 20px; font-size: 11px; }
+
+.fam-row.acao { grid-template-columns: 46% auto; }
+.fam-acao-rotulo { color: var(--fg-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Popover (portal): fundo transparente que captura o clique fora e a caixa ancorada no botão. */
+.fam-pop-fundo { position: fixed; inset: 0; z-index: 89; }
+.fam-pop {
+  position: fixed;
+  z-index: 90;
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+}
+.fam-pop-titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--ribbon);
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+.fam-pop-fechar {
+  margin-left: auto;
+  font: inherit;
+  border: 0;
+  background: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+}
+.fam-pop-fechar:hover { color: var(--fg); }
+.fam-pop-corpo { padding: 6px 8px 8px; }
+.fam-pop-corpo .fam-row { grid-template-columns: 38% minmax(0, 1fr); padding-left: 0; padding-right: 0; }
+.fam-pop-corpo .fam-hint { padding-left: 0; padding-right: 0; }
+.fam-pop-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}

@@ -7,6 +7,7 @@ export * from './csvPontos.ts';
 export * from './simplificarPolilinha.ts';
 export * from './dxfGeneric.ts';
 export * from './dxfMassa.ts';
+export * from './dxfComponentes.ts';
 export * from './dxfSection.ts';
 export * from './dxfSectionNotes.ts';
 export * from './ifc/ifcExport.ts';
@@ -45,3 +46,4 @@ export {
 export * from './zipRead.ts';
 export * from './pkg.ts';
 export * from './texturasCatalogo.ts';
+export * from './dxfPecas.ts';

@@ -10,6 +10,7 @@ import {
   isOpening,
   isWall,
   isRoom,
+  isComponent,
   isGeneric,
   isColumn,
   isBeam,
@@ -100,6 +101,8 @@ import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts'
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
+import { ajustarLinhasDeGrupos, applyComponentCommand, removerMembrosExcluidos, type ComponentCommand } from './componentCommands.ts';
+import { transformComponent } from './componentes.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
@@ -242,6 +245,7 @@ export type Command =
   | PluginDataCommand
   | PluginContentCommand // SUPLEMENTOS:
   | GridCommand
+  | ComponentCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
@@ -322,6 +326,7 @@ function removeIds(p: Project, ids: Id[]): void {
   for (const e of Object.values(p.elements)) if (isTerrainRegion(e) && doomed.has(e.terrenoId)) doomed.add(e.id);
   unlinkFootingsOfDeletedColumns(p, doomed);
   for (const id of doomed) delete p.elements[id];
+  removerMembrosExcluidos(p, doomed);
 }
 /**
  * Ids novos dos componentes do croqui na cópia, com os mesmos prefixos do Copiar/Colar (escada 'r'/'p', rampa 'rc').
@@ -356,6 +361,7 @@ function transformEach<E extends Element>(
 
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
+  if (!idMap) ajustarLinhasDeGrupos(p, c.ids, c.transform);
   transformEach(p, c, isRoof, transformRoof);
   transformEach(p, c, isTerrain, transformTerrain);
   transformEach(p, c, isTerrainRegion, transformTerrainRegion);
@@ -365,6 +371,8 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
+  // A cópia de um componente nasce solta: o conjunto do original não a conhece (`membros`), então o `groupId` não pode ir junto.
+  transformEach(p, c, isComponent, transformComponent, ({ groupId: _grupo, ...solto }) => solto);
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
   transformEach(p, c, isColumn, transformColumn);
@@ -730,6 +738,16 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'removeView3DPoint':
     case 'setView3DPointOrder':
       applyView3DPointCommand(p, c, lang);
+      break;
+    case 'addComponent':
+    case 'updateComponent':
+    case 'upsertFamily':
+    case 'deleteFamily':
+    case 'upsertComponentGroup':
+    case 'deleteComponentGroup':
+    case 'moveComponentGroup':
+    case 'rotateComponentGroup':
+      applyComponentCommand(p, c);
       break;
     case 'addGrid':
     case 'updateGrid':

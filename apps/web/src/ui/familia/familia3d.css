@@ -1,0 +1,32 @@
+/* Vista 3D do editor de famílias: o canvas ocupa a área e a barra de controles flutua no canto superior esquerdo. */
+.fam3d-root { position: absolute; inset: 0; overflow: hidden; }
+.fam3d-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.fam3d-controles {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  max-width: calc(100% - 16px); padding: 6px 8px;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  box-shadow: var(--shadow); color: var(--fg-soft); font-size: 11.5px;
+}
+.fam3d-grupo { display: flex; gap: 2px; }
+.fam3d-controles button {
+  font: inherit; padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: 3px;
+  background: var(--ribbon); color: var(--fg); cursor: pointer;
+}
+.fam3d-controles button:hover { background: var(--accent-soft); }
+.fam3d-campo { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.fam3d-campo input[type='range'] { width: 86px; }
+.fam3d-campo input[type='range']:disabled { opacity: 0.45; }
+.fam3d-campo select {
+  height: 20px; padding: 0 4px; font: inherit; color: var(--fg);
+  background: var(--sheet); border: 1px solid var(--line-strong); border-radius: 2px;
+}
+.fam3d-controles button:focus-visible,
+.fam3d-controles input:focus-visible,
+.fam3d-controles select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fam3d-aviso {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  margin: 0; padding: 24px; color: var(--danger); text-align: center;
+}

@@ -22,6 +22,7 @@ import { grupoSoEixos, montarGrupoCortina } from './cortinaGrupo3d.ts';
 import { RealceSubelementoCortina } from './cortinaSub3d.ts';
 import { buildGenericSolids } from './genericSolids.ts';
 import { bordaTracejadaDeReserva, chaveDoTerreno, fonteDoServicoTerreno, materialDeCorTN, regioesPorTerreno, solidosDoTerreno, terrenosDoProjeto, type FonteTerreno } from './terreno3d.ts';
+import { buildComponentSolids, MATERIAIS_DE_COMPONENTE } from './componentSolids.ts';
 import { buildCadLines } from './cad3d.ts';
 import { buildLevels, disposeLevels, layoutLevels } from './levels3d.ts';
 import { LEVEL_LINE_OFFSET, levelProjectBox } from './levelsData.ts';
@@ -313,7 +314,7 @@ export class ModelScene {
     this.sombraMaxTriangulos = opcoes.sombraMaxTriangulos ?? SOMBRA_MAX_TRIANGULOS;
     this.lotes = new LotesPorFaixa({
       caixaUnitaria: this.caixaUnitaria,
-      material: (categoria, materialId, extras) => this.mats.face(extras ?? (this.projeto ? materialNoProjeto(this.projeto.materials, materialId) : undefined), categoria),
+      material: (categoria, materialId, extras) => this.mats.face(extras ?? (this.projeto ? materialNoProjeto(this.projeto.materials, materialId) : undefined) ?? MATERIAIS_DE_COMPONENTE[materialId], categoria),
       materialArestas: () => this.mats.edge(),
       niveisPorFaixa: opcoes.niveisPorFaixa,
       faixasMax: opcoes.faixasMax,
@@ -1372,6 +1373,7 @@ export class ModelScene {
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    const componentes = shown('generic') ? buildComponentSolids(pGen, lv.levelId) : [];
     const batches: LoteSolido[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao),
@@ -1383,6 +1385,8 @@ export class ModelScene {
       ...buildRampSolids(rampasNivel),
       ...genericos,
       ...buildStructuralSolids(p, lv.levelId, oculto),
+      ...componentes,
+      ...componentes,
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
     // As paredes em caixas usam as arestas da união das caixas; o resto usa as arestas dos sólidos, no mesmo ângulo.
@@ -1421,8 +1425,9 @@ export class ModelScene {
       if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
       const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id));
       if (revEstrutural.length) arestasDe(revEstrutural);
+      if (shown('generic')) arestasDe(buildComponentSolids(this.soRevelados ?? p, lv.levelId));
     }
-    const materialOf = (id: Id): Material | undefined => materialNoProjeto(p.materials, id) ?? eave.materials[id];
+    const materialOf = (id: Id): Material | undefined => materialNoProjeto(p.materials, id) ?? eave.materials[id] ?? MATERIAIS_DE_COMPONENTE[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os
     // lotes globais por categoria/material (o gestor de GPU os junta e atualiza por faixa).
     const lotes: LoteSolido[] = [];

@@ -1,0 +1,19 @@
+/* Diálogo "Montar fila": acrescenta às classes fam-* que ele reaproveita (familia.css). */
+
+.mf-corpo { display: flex; flex-direction: column; gap: 10px; max-height: 70vh; overflow: auto; }
+.mf-topo { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
+.mf-parede { display: flex; align-items: baseline; gap: 6px; }
+.mf-campos { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
+.mf-campos > label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.mf-check { flex-direction: row !important; align-items: center; gap: 6px !important; }
+.mf-linhas { display: flex; flex-direction: column; gap: 6px; }
+.mf-linhas-cab { display: flex; align-items: center; gap: 8px; }
+.mf-linha { display: grid; grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 1fr) 96px auto; gap: 6px; align-items: center; }
+.mf-acoes { display: flex; gap: 4px; }
+.mf-acoes .fam-bt { padding: 2px 6px; }
+.mf-previa { max-height: 220px; }
+.mf-contas { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; }
+.mf-avisos { padding: 6px 8px; border: 1px solid var(--line-strong); border-left: 3px solid var(--danger); background: var(--sheet); font-size: 12px; }
+.mf-avisos ul { margin: 3px 0 0; padding-left: 18px; }
+.mf-avisos li { padding: 1px 0; overflow-wrap: anywhere; }
+.mf-aviso { margin: 0; padding: 8px; border: 1px solid var(--line-strong); border-left: 3px solid var(--danger); background: var(--sheet); color: var(--danger); font-weight: 600; }

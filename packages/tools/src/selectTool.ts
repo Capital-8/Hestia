@@ -1,9 +1,9 @@
 /* eslint-disable max-lines -- seleção reúne alças, arrastes e as etiquetas de ambiente da vista (decisão 0039). */
 import { add, boxOf, dist, dot, mul, norm, sub, type Vec2 } from '@hestia/geom';
-import { ceilingOutline, frameOfWall } from '@hestia/engine';
+import { ceilingOutline, frameOfWall, pegadaDoComponente } from '@hestia/engine';
 import {
   angularDimensionGeometry, areaPlanOf, beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType,
-  footingPolygon, formatQuantity, isBeam, isCeiling, isColumn, isFloor, isFooting, isGuardaCorpo, isOpening, isRamp,
+  footingPolygon, formatQuantity, isBeam, isCeiling, isColumn, isComponent, isFloor, isFooting, isGuardaCorpo, isOpening, isRamp,
   isRoof, isSlab, isStair, isWall, resolveViewProfile, unitsOf, type Id, type ProfileLayers, type Project,
   type ResolvedUnits, type SubelementoCortina,
 } from '@hestia/model';
@@ -11,7 +11,7 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { cotaDeCorteCortina, proximoSubelemento, sNaParede, subelementoEmPonto, type ParedeSubelementos } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
+import { componentAt, componentIdsInBox, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
@@ -19,6 +19,8 @@ import { registrarAlcasDoLote, removerVerticeDoFocoDoLote } from './lotHandles.t
 import { lotIdsInBox, pickLoteAt } from './lotPick.ts';
 import { massIdsInBox, pickMassAt } from './massPick.ts';
 import { massHandlePreview } from './massHandles.ts';
+import { componentGhostItemsNasPoses } from './componentGhost.ts';
+import { ArrastoComponentes, textoStatusArrastoComponentes, type ResultadoArrastoComponentes } from './componentDrag.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -56,7 +58,7 @@ type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'op
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'mass' | 'terrain' | 'lot' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'mass' | 'terrain' | 'lot' | 'generic' | 'component' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -64,11 +66,32 @@ const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'lengt
 /** Shift ou Ctrl (Cmd no Mac): o clique e a janela somam à seleção (Ctrl alterna quem já está selecionado). */
 const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
 
+/** Ids do conjunto do componente (o próprio id quando está solto). */
+function membrosDoConjunto(p: Project, id: Id): Id[] {
+  const e = p.elements[id];
+  if (!isComponent(e) || e.groupId === undefined) return [id];
+  return p.componentGroups?.[e.groupId]?.membros ?? [id];
+}
+
+/** Expande ids para os conjuntos inteiros tocados, sem repetir e mantendo a ordem de entrada. */
+function expandirConjuntos(p: Project, ids: readonly Id[]): Id[] {
+  const out: Id[] = [];
+  const vistos = new Set<Id>();
+  for (const id of ids) {
+    for (const membro of membrosDoConjunto(p, id)) {
+      if (vistos.has(membro)) continue;
+      vistos.add(membro);
+      out.push(membro);
+    }
+  }
+  return out;
+}
+
 /**
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'terrain', 'lot', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'terrain', 'lot', 'generic', 'component', 'room', 'grid', 'column', 'beam', 'footing']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -104,6 +127,12 @@ export class SelectTool extends ToolBase {
   private tagAt: Vec2 | null = null;
   /** Cache do projeto sem os elementos que o perfil da vista oculta (planta de área). */
   private viewCache: { pr: Project; key: string; view: Project } | null = null;
+  /** Arrasto de componentes da seleção, com o encaixe na parede/vizinho (criado no início do arrasto). */
+  private compArrasto: ArrastoComponentes | null = null;
+  /** Última prévia do arrasto de componentes: é ela que o `up` aplica. */
+  private compPoses: ResultadoArrastoComponentes | null = null;
+  /** Componente sob o cursor no `down`: o líder do movimento rígido. */
+  private compLider: Id | null = null;
 
   /** Camadas do perfil da planta de área aberta (null na planta de piso: tudo visível). */
   private layers(): ProfileLayers | null {
@@ -192,6 +221,9 @@ export class SelectTool extends ToolBase {
     this.textAt = null;
     this.tagGrip = null;
     this.tagAt = null;
+    this.compArrasto = null;
+    this.compPoses = null;
+    this.compLider = null;
   }
 
   protected busy(): boolean {
@@ -274,6 +306,9 @@ export class SelectTool extends ToolBase {
     // Massa: o anel cortado do kernel (ou a base, sem kernel); o clique no piso, na laje, no telhado ou no objeto que estão sob ela continua ganhando (a massa é estudo volumétrico); vem antes do ambiente.
     const ms = pickMassAt(pr, lv, at, mpp, this.env.hiddenInView?.());
     if (ms) return { id: ms, kind: 'mass' };
+    // Componente (móvel, louça, equipamento): pegada em planta, logo depois do genérico e antes do ambiente.
+    const cp = componentAt(pr, lv, at, mpp);
+    if (cp) return { id: cp, kind: 'component' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };
@@ -470,6 +505,7 @@ export class SelectTool extends ToolBase {
     const planId = this.planId();
     const somenteLeitura = this.somenteLeitura;
     const hit = this.hitAt(p.raw);
+    this.compLider = hit?.kind === 'component' ? hit.id : null;
     // Na planta de área a alça de modelo não pega o clique (não existe alça desenhada); a do separador de ambiente,
     // que é anotação, continua. As alças de cota/texto são testadas logo abaixo, depois deste bloco.
     const hold = somenteLeitura
@@ -600,14 +636,21 @@ export class SelectTool extends ToolBase {
         break;
       }
       case 'moving': {
-        const els = selectedMovables(pr, this.env.selection());
-        const grids = selectedGrids(pr, this.env.selection());
+        const sel = this.env.selection();
+        const els = selectedMovables(pr, sel);
+        const grids = selectedGrids(pr, sel);
+        const comps = sel.filter((id) => isComponent(pr.elements[id]));
         // Sem `ignore`: arrastar uma escada/rampa também captura os vértices dela como base e destino.
         this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }).point;
         const inf = this.snap(p, { from: this.moveBase });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
-        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, this.env.selection(), t), ...gridGhosts(pr, grids, this.delta));
+        this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta));
+        if (comps.length) {
+          const resultado = this.calcularArrastoComponentes(pr, comps, p.alt);
+          this.items.push(...componentGhostItemsNasPoses(pr, resultado.poses));
+          this.env.say(textoStatusArrastoComponentes(pr, resultado));
+        }
         break;
       }
       case 'opening': {
@@ -695,12 +738,14 @@ export class SelectTool extends ToolBase {
         const els = selectedMovables(pr, sel);
         const views = selectedViews(pr, sel);
         const grids = selectedGrids(pr, sel);
-        if ((els.length || views.length || grids.length) && (this.delta.x || this.delta.y)) {
+        const comps = sel.filter((id) => isComponent(pr.elements[id]));
+        if ((els.length || views.length || grids.length || comps.length) && (this.delta.x || this.delta.y)) {
           // Decisão 0044: as setas também não deixam uma parede em cima de outra.
           if (els.length && refuseMoveOverlap(this.env, els, { kind: 'translate', d: this.delta })) break;
           if (els.length) moveWalls(this.env, els, this.delta, true, p.alt);
           if (views.length) transformViews(this.env, views, { kind: 'translate', d: this.delta });
           if (grids.length) this.env.transaction('Mover grade', () => moveGrids(this.env, grids, this.delta, false));
+          if (comps.length && this.compPoses && this.compArrasto) this.compArrasto.aplicar(this.env, this.compPoses.poses);
         }
         break;
       }
@@ -727,6 +772,7 @@ export class SelectTool extends ToolBase {
           ...columnIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...beamIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...footingIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...componentIdsInBox(pr, this.env.levelId(), this.downPt, p.raw),
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
@@ -734,7 +780,8 @@ export class SelectTool extends ToolBase {
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
         ].filter((id) => !hidden?.has(id));
         const cur = this.env.selection();
-        this.env.setSelection(soma(p) ? [...new Set([...cur, ...ids])] : ids);
+        const escolhidos = expandirConjuntos(pr, ids);
+        this.env.setSelection(soma(p) ? [...new Set([...cur, ...escolhidos])] : escolhidos);
         break;
       }
       default:
@@ -748,17 +795,38 @@ export class SelectTool extends ToolBase {
           this.env.setSelection([]);
           this.env.setSubelemento?.(null);
         }
-      } else if (soma(p)) {
-        this.env.setSelection(cur.includes(hit.id) ? cur.filter((x) => x !== hit.id) : [...cur, hit.id]);
-        this.env.setSubelemento?.(null);
       } else {
-        // Parede cortina já selecionada sozinha: o clique escolhe a linha ou a célula sob o cursor; sem nada, a parede inteira.
-        const sub = cur.length === 1 && cur[0] === hit.id && this.env.setSubelemento ? this.subelementoSobCursor(hit.id, p.raw) : null;
-        this.env.setSelection([hit.id]);
-        this.env.setSubelemento?.(sub);
+        // Componente de um conjunto seleciona o conjunto inteiro (os demais elementos: só o próprio id).
+        const membros = membrosDoConjunto(pr, hit.id);
+        if (soma(p)) {
+          const todos = membros.every((id) => cur.includes(id));
+          this.env.setSelection(todos ? cur.filter((x) => !membros.includes(x)) : [...cur, ...membros.filter((id) => !cur.includes(id))]);
+          this.env.setSubelemento?.(null);
+        } else {
+          // Parede cortina já selecionada sozinha: o clique escolhe a linha ou a célula sob o cursor; sem nada, a parede inteira.
+          const sub = membros.length === 1 && cur.length === 1 && cur[0] === hit.id && this.env.setSubelemento ? this.subelementoSobCursor(hit.id, p.raw) : null;
+          this.env.setSelection(membros);
+          this.env.setSubelemento?.(sub);
+        }
       }
     }
     this.reset();
+  }
+
+  /**
+   * Passo do arrasto de componentes: o líder é o componente sob o cursor (ou o primeiro da seleção) e os demais acompanham por
+   * movimento rígido. O encaixe e o entorno são resolvidos uma única vez por gesto (`ArrastoComponentes`).
+   */
+  private calcularArrastoComponentes(pr: Project, comps: readonly Id[], alt: boolean): ResultadoArrastoComponentes {
+    if (this.compArrasto === null) {
+      const lider = this.compLider && comps.includes(this.compLider) ? this.compLider : comps[0]!;
+      const ids = [lider, ...comps.filter((id) => id !== lider)];
+      const c = pr.elements[lider];
+      this.compArrasto = new ArrastoComponentes(pr, isComponent(c) ? c.levelId : this.env.levelId(), ids, lider);
+    }
+    const resultado = this.compArrasto.mover(this.delta, alt);
+    this.compPoses = resultado;
+    return resultado;
   }
 
   /** Caixa envolvente da seleção, para zoom e dimensões. */
@@ -774,7 +842,9 @@ export class SelectTool extends ToolBase {
       else if (isColumn(e)) pts.push(...columnPolygon(e, findColumnType(pr, e.typeId)));
       else if (isBeam(e)) pts.push(...beamPolygon(e, findBeamType(pr, e.typeId)));
       else if (isFooting(e)) pts.push(...footingPolygon(e, findFootingType(pr, e.typeId)));
-      else {
+      else if (isComponent(e)) {
+        for (const poly of pegadaDoComponente(pr, e)) if (poly[0]) pts.push(...poly[0]);
+      } else {
         const v = pr.views.find((x) => x.id === id);
         if (v) {
           const p = sectionPoints(pr, v);

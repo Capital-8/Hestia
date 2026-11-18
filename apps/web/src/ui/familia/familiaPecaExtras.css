@@ -1,0 +1,43 @@
+/* Controles novos das propriedades da peça: vazio e contorno poligonal. */
+
+.fam-vazio-rotulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.fam-contorno {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fam-contorno-vertice {
+  align-items: center;
+  gap: 4px;
+}
+
+.fam-contorno-indice {
+  min-width: 16px;
+  color: var(--fg-soft);
+  font-size: 11px;
+  text-align: right;
+}
+
+.fam-contorno-vertice .fam-f {
+  min-width: 0;
+  flex: 1;
+}
+
+.fam-contorno-bt {
+  padding: 1px 5px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.fam-contorno-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

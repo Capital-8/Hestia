@@ -21,6 +21,7 @@ import type { SectionSnapRing } from './sectionSnapRings.ts';
 import { sectionOfRamps } from './sectionRamps.ts';
 import { sectionOfStructural } from './sectionStructural.ts';
 import { visibleRoofEdges } from './sectionRoofEdgesVis.ts';
+import { sectionOfComponents } from './sectionComponents.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
@@ -56,6 +57,7 @@ export interface SectionOrigin {
   roofId?: Id;
   stairId?: Id;
   rampId?: Id;
+  componentId?: Id;
   openingId?: Id;
   columnId?: Id;
   beamId?: Id;
@@ -333,6 +335,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   for (const c of st.cut) addCut(c.materialId, c.polygon, c.origin);
   beyond.push(...st.beyond);
   grow(st.zMin, st.zMax);
+  // Componentes (móveis paramétricos): peças sólidas em (t, z) no corte e além dele.
+  const cm = sectionOfComponents(p, levelId, line);
+  for (const c of cm.cut) addCut(c.materialId, c.polygon, c.origin);
+  beyond.push(...cm.beyond);
+  grow(cm.zMin, cm.zMax);
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;

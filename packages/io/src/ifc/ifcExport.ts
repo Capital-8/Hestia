@@ -12,6 +12,7 @@ import {
   type Wall,
   type WallType,
 } from '@hestia/model';
+import { addComponents } from './ifcComponentes.ts';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
 import { addStructural } from './ifcStructural.ts';
 import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './ifcCurtainWall.ts';
@@ -349,6 +350,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addMasses(c, geo);
   addGenerics(c);
   addTerrenos(c, geo, { id: site, place: sitePlace });
+  addComponents(c);
   addSpaces(c);
   addGrids(c);
   addQuantities(c, geo);

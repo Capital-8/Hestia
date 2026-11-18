@@ -2,11 +2,50 @@ import * as THREE from 'three';
 import { view3dOf, type GraphicsCategory, type Material, type View3DSettings } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { aplicarTexturaTriplanar, chaveDaTextura, type TexturasProvedor3D } from './texturas3d.ts';
+import { obterTexturasAcabamento } from './texturasMobiliario.ts';
 
 /** Cor do papel nas linhas ocultas: branco no claro e cinza escuro no escuro (a cor do chão escuro). */
 const PAPER = { light: 0xffffff, dark: 0x2a2f36 };
+const TRIPLANAR_ESCALA = 1.35;
 
 const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
+
+/**
+ * Injeta projeção box/triplanar no vertex shader usando `transformed` e `objectNormal` (em metros),
+ * permitindo usar `map` e `bumpMap` em geometrias sem atributo `uv` (ex.: `SolidBatch`).
+ */
+export function aplicarMapeamentoTriplanar<T extends THREE.Material>(mat: T): T {
+  mat.customProgramCacheKey = () => 'triplanar-v1';
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+vec4 triPos = vec4( transformed, 1.0 );
+vec3 triNorm = objectNormal;
+#ifdef USE_INSTANCING
+  triPos = instanceMatrix * triPos;
+  triNorm = mat3( instanceMatrix ) * triNorm;
+#endif
+vec3 absTriNorm = abs( triNorm );
+vec2 triUv;
+if ( absTriNorm.z >= absTriNorm.x && absTriNorm.z >= absTriNorm.y ) {
+  triUv = triPos.xy;
+} else if ( absTriNorm.y >= absTriNorm.x ) {
+  triUv = triPos.xz;
+} else {
+  triUv = triPos.yz;
+}
+triUv *= ${TRIPLANAR_ESCALA.toFixed(2)}; // units-ok: escala UV de shader GLSL
+#ifdef USE_MAP
+  vMapUv = ( mapTransform * vec3( triUv, 1.0 ) ).xy;
+#endif
+#ifdef USE_BUMPMAP
+  vBumpMapUv = ( bumpMapTransform * vec3( triUv, 1.0 ) ).xy;
+#endif`,
+    );
+  };
+  return mat;
+}
 
 /** O que define o tipo dos materiais: a vista 3D e o tema. */
 export interface MarcoMateriais {
@@ -62,23 +101,45 @@ export class Materiais3D {
         polygonOffsetUnits: 1,
       }));
     }
+    const tex = m?.id ? obterTexturasAcabamento(m.id) : null;
     const gloss = m?.gloss ?? 0.1;
-    const base = m?.opacity ?? 1;
+    const base = tex?.opacity ?? m?.opacity ?? 1;
     const colorOf = ov.color ?? m?.color ?? fallback;
     const color = ov.halftone ? mix(colorOf, '#ffffff', 0.5) : colorOf;
     const tx = style === 'realistic' ? chaveDaTextura(m, this.texturas) : '';
-    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx].join('|');
+    // Mapas procedurais do mobiliário (acabamentos de componentes): só quando o material não tem textura do catálogo.
+    const usarMapa = Boolean(tex?.map && !tx && !ov.color && !ov.halftone && (style === 'realistic' || style === 'shaded'));
+    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, usarMapa ? 'tex' : ''].join('|');
     return this.cached(key, () => {
       const opacity = base * (1 - t);
+      const corFinal = usarMapa ? 0xffffff : color;
       // `generic`: malha soldada sem normais por vértice; o sombreamento chapado sai das derivadas no shader.
-      const props = { color: new THREE.Color(color), transparent: opacity < 1, opacity, side: THREE.FrontSide, ...(cat === 'generic' ? { flatShading: true } : {}) };
+      const props = {
+        color: new THREE.Color(corFinal),
+        transparent: opacity < 1,
+        opacity,
+        side: THREE.FrontSide,
+        ...(cat === 'generic' ? { flatShading: true } : {}),
+        ...(m?.id === 'comp_vidro_fume' ? { depthWrite: false } : {}),
+      };
       if (style === 'realistic') {
+        if (usarMapa && tex) {
+          return aplicarMapeamentoTriplanar(new THREE.MeshStandardMaterial({
+            ...props,
+            ...(tex.map ? { map: tex.map } : {}),
+            ...(tex.bumpMap ? { bumpMap: tex.bumpMap, bumpScale: 0.002 } : {}),
+            roughness: tex.roughness,
+            metalness: tex.metalness,
+          }));
+        }
         const mat = new THREE.MeshStandardMaterial({ ...props, roughness: 1 - gloss * 0.75, metalness: m && m.id === 'mat_aluminio' ? 0.5 : 0 });
         const textura = m?.aparencia?.textura;
         const mapas = tx && textura ? this.texturas?.obter(textura.imagemId) : undefined;
         return mapas && textura ? aplicarTexturaTriplanar(mat, mapas, textura) : mat;
       }
-      if (style === 'shaded') return new THREE.MeshLambertMaterial(props);
+      if (style === 'shaded' && usarMapa && tex?.map) {
+        return aplicarMapeamentoTriplanar(new THREE.MeshLambertMaterial({ ...props, map: tex.map }));
+      }
       return new THREE.MeshBasicMaterial(props);
     });
   }

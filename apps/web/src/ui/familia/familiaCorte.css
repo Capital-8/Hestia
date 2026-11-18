@@ -1,0 +1,57 @@
+/* Aviso de peças que não couberam no plano de corte, no topo da aba. */
+
+.fam-lista-nao-coube {
+  border: 1px solid var(--warn);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warn) 12%, var(--sheet));
+  color: var(--warn);
+  padding: 8px 10px;
+}
+
+.fam-lista-nao-coube-titulo {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.fam-lista-nao-coube ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fam-lista-nao-coube li {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(180px, 2fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  border-top: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  padding-top: 6px;
+}
+
+.fam-lista-nao-coube-nome {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.fam-lista-nao-coube-medida {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.fam-lista-nao-coube-motivo {
+  color: var(--fg);
+}
+
+.fam-lista-nao-coube-dica {
+  grid-column: 1 / -1;
+  color: var(--fg-soft);
+}
+
+@media (max-width: 720px) {
+  .fam-lista-nao-coube li {
+    grid-template-columns: 1fr auto;
+  }
+}

@@ -41,6 +41,7 @@ import { tracoEm } from './marcadores.ts';
 import { resolverZoom } from './zoomOps.ts';
 import { anotacoesSemOcultos, planContext, semAnotacoesOcultas, semElementosOcultos } from './planContext.ts';
 import { cadPlanOps } from './cad.ts';
+import { componentsPlanOps } from './planComponents.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
 
 import { buildPlanOverlay } from './planOverlay.ts';
@@ -537,13 +538,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId))));
   separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
-
-  // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.
+  // Objetos importados (viga, pilar, mobiliário...) e componentes (móveis), em planta: leitura fiel ao 3D.
   if (profile.generic && paint.generic.visible) {
-    for (const e of Object.values(p.elements)) {
-      if (!isGeneric(e) || e.levelId !== input.levelId || !e.outline?.length || hidden?.has(e.id)) continue;
-      strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
-    }
+    for (const e of Object.values(p.elements)) if (isGeneric(e) && e.levelId === input.levelId && !hidden?.has(e.id) && e.outline?.length) strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
+    const comp = componentsPlanOps(p, input.levelId, theme, hidden);
+    fills.push(...surfaces(comp.fills)); strokes.push(...comp.strokes);
     // CAD importado (fase 5): os traços e textos do desenho, finos e na cor de cada camada/entidade.
     const cad = cadPlanOps(semElementosOcultos(p, hidden), input.levelId, theme, style.scale);
     strokes.push(...cad.strokes);

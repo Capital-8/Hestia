@@ -1,0 +1,38 @@
+/* Galeria "Novo módulo" e diálogo "Abrir e salvar". Reaproveita os tokens e as classes de familia.css. */
+
+.fam-novo-main { min-width: 0; display: flex; flex-direction: column; }
+.fam-novo-busca { padding: 8px 8px 0; }
+.fam-novo-busca .fam-f { width: 100%; height: 26px; }
+.fam-novo-categorias > li:not(.h) { padding: 0; }
+.fam-novo-categorias > li > button {
+  display: flex; align-items: center; gap: 6px; width: 100%; font: inherit; text-align: left;
+  padding: 1px 8px 1px 32px; border: 0; background: none; color: inherit; cursor: pointer;
+}
+.fam-novo-categorias > li > button:hover { background: var(--accent-soft); }
+.fam-novo-categorias > li.sel > button { background: var(--accent-soft); color: var(--accent); }
+.fam-novo-cont { margin-left: auto; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+.fam-novo-card { position: relative; display: flex; }
+.fam-novo-card > .fam-tpl { width: 100%; }
+.fam-novo-card.sel > .fam-tpl { border-color: var(--accent); background: var(--accent-soft); }
+.fam-novo-card > .fam-tpl > b, .fam-novo-card > .fam-tpl > small { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fam-novo-rem {
+  position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; line-height: 1; padding: 0;
+  font: inherit; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--sheet); color: var(--fg-faint); cursor: pointer;
+}
+.fam-novo-rem:hover { color: var(--danger); border-color: var(--danger); }
+.fam-novo-conf {
+  position: absolute; right: 2px; bottom: 2px; display: flex; align-items: center; gap: 4px;
+  padding: 2px 4px; font-size: 11px; background: var(--sheet); border: 1px solid var(--line-strong); border-radius: 3px;
+}
+
+.fam-arquivo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fam-arq-bloco { min-width: 0; padding: 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--sheet); }
+.fam-arq-bloco h3 { margin: 0 0 6px; font-size: 12px; }
+.fam-arq-bloco input[type='file'] { max-width: 100%; font: inherit; }
+.fam-arq-nome { margin-bottom: 6px; }
+.fam-arq-acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.fam-arq-ignoradas ul { margin: 4px 0 0; padding-left: 18px; }
+.fam-arq-ignoradas li { margin: 2px 0; }
+@media (max-width: 760px) {
+  .fam-arquivo { grid-template-columns: 1fr; }
+}

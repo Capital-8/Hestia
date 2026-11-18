@@ -20,6 +20,7 @@ import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { MassOptionsBar } from './MassOptionsBar.tsx';
+import { ComponentOptionsBar } from './ComponentOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
 import { TerrainOptionsBar } from './TerrainOptionsBar.tsx';
@@ -324,6 +325,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'ramp' && <RampOptionsBar />}
       {tool === 'railing' && <GuardaCorpoOptionsBar />}
       {tool === 'mass' && <MassOptionsBar />}
+      {tool === 'component' && <ComponentOptionsBar />}
       {(tool === 'door' || tool === 'window') && (
         <OpeningTypePicker
           kind={tool}
