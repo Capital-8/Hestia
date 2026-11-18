@@ -67,10 +67,12 @@ describe('chanfro de canto agudo', () => {
     expectCoherent(out.roof);
     expect(out.res.planes.length).toBeGreaterThan(0);
     expect(roofProblem(out.store.project, [out.roof])).toBeNull();
-    // O vértice mais avançado do beiral está a no máximo MITER_LIMIT x balanço (mais a meia largura) da ponta.
+    // O beiral avança para trás da ponta (eixo x negativo) no máximo MITER_LIMIT x balanço: o chanfro corta a esquadria
+    // (sem chanfro ela iria a 0,5/sin(4,3°) = 6,7 m). Só olha o lado da ponta: o lado largo do triângulo fica a 8 m.
     const tip = P(0, 0);
-    const far = Math.max(...out.roof.boundary.map((q) => Math.hypot(q.x - tip.x, q.y - tip.y)));
-    expect(far).toBeLessThan(MITER_LIMIT * 0.5 * 1.05);
+    const recuo = Math.max(...out.roof.boundary.map((q) => tip.x - q.x));
+    expect(recuo).toBeGreaterThan(MITER_LIMIT * 0.5 * 0.9);
+    expect(recuo).toBeLessThan(MITER_LIMIT * 0.5 * 1.05);
   });
 
   it('canto de 60° não é chanfrado (esquadria curta)', () => {
