@@ -59,6 +59,7 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
   const tipoIds = comum(terrains, (x) => (tipoDoTerreno(p.settings, x) ? x.tipoId! : ''));
   const comTipo = !tipoIds.mixed && tipoIds.value !== '';
   const algumTipo = terrains.some((x) => tipoDoTerreno(p.settings, x));
+  const tolCurvas = terrains[0] ? toleranciaCurvasDoTerreno(p.settings, terrains[0]) : 0;
   const assunto = { kind: 'dimension' as const, style: dimensionStyleOf(p.settings) };
   const opcoes = (kind: 'contour' | 'spot') => terrainTextFamiliesOf(p.settings, kind).map((f) => ({ id: f.id, name: f.name, code: '', family: t(kind === 'contour' ? 'ui_fam_family_contour' : 'ui_fam_family_spot'), subject: assunto }));
   const leituras = useMemo(() => (void kernel, terrains.map((x) => leiturasDoTerreno(p, x, servicoTerreno()))), [p, terrains, kernel]);
@@ -120,6 +121,7 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
       <Group title={t('ui_tn_g_curvas')} stateKey="terreno-curvas">
         {algumTipo ? null : <Row label={t('ui_tn_p_intervalo')} htmlFor="p-tn-intervalo"><NumField id="p-tn-intervalo" quantity="length" min={TERRENO_LIMITES.intervaloMin} value={intervalo.value} mixed={intervalo.mixed} onCommit={(v) => patch({ intervaloCurvas: v })} /></Row>}
         {algumTipo ? null : <Row label={t('ui_tn_p_mestra')} htmlFor="p-tn-mestra"><NumField id="p-tn-mestra" decimals={0} min={1} max={TERRENO_LIMITES.mestraMax} value={mestra.value} mixed={mestra.mixed} onCommit={(v) => patch({ mestraCada: Math.round(v) })} /></Row>}
+        {algumTipo && terrains.length === 1 ? <Row label={t('ui_tn_tipo_suavizar')} htmlFor="p-tn-suavizar"><span id="p-tn-suavizar">{tolCurvas > 0 ? `${t('ui_tn_tipo_suav_suave')} (${t('ui_tn_tipo_tolerancia')}: ${Math.round(tolCurvas * 10000) / 100})` : t('ui_tn_tipo_suav_exata')}</span></Row> : null}
         <Row label={t('ui_tn_p_base')} htmlFor="p-tn-base"><NumField id="p-tn-base" quantity="length" min={TERRENO_LIMITES.espessuraMin} max={TERRENO_LIMITES.espessuraMax} value={base.value} mixed={base.mixed} onCommit={(v) => patch({ espessuraBase: v })} /></Row>
         <Row label={t('ui_tn_p_existente')} htmlFor="p-tn-existente"><Check id="p-tn-existente" checked={existente.value} mixed={existente.mixed} onChange={(v) => patch({ mostrarExistente: v })} /></Row>
       </Group>
