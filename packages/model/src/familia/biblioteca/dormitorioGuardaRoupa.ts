@@ -8,9 +8,9 @@ import { booleano, chapaCorpo, comprimento, derivado, FITA, FUNDO_ESP, inteiro }
  */
 
 const PARAMETROS_MODULO: Parametro[] = [
-  comprimento('L', 'Largura', 900, 450, 1200, 10),
-  comprimento('A', 'Altura', 2400, 1800, 2600, 10),
-  comprimento('P', 'Profundidade', 600, 500, 700, 10),
+  comprimento('L', 'Largura', 900, 300, 2400, 10),
+  comprimento('A', 'Altura', 2400, 1200, 2700, 10),
+  comprimento('P', 'Profundidade', 600, 350, 950, 10),
   chapaCorpo('mdf18'),
   booleano('divisoria', 'Divisória central', false),
   inteiro('nPortas', 'Portas', 2, 1, 2),
@@ -55,6 +55,7 @@ export const FAMILIA_GUARDA_ROUPA_MODULO: Familia = {
     { id: 'divAlta', nome: 'Divisória superior', papel: 'divisoria', eixo: 'x', origem: ['xDiv', '0', 'zPrat1 + esp'], tamanho: ['P - fundoEsp', 'zPrat2 - zPrat1 - esp'], espessura: 'esp', material: 'corpo', fita: { n: FITA }, veio: 'b', quando: 'divisoria' },
     { id: 'barra', nome: 'Barra de cabides', papel: 'bloco', eixo: 'z', origem: ['esp', '100', 'zBarra'], tamanho: ['L - 2 * esp', '40'], espessura: '30', material: 'corpo', veio: 'a' },
     { id: 'porta', nome: 'Porta', papel: 'porta', eixo: 'y', origem: ['(i - 1) * (L / nPortas) + 2', '-portaEsp', '0'], tamanho: ['L / nPortas - 4', 'A'], espessura: 'portaEsp', material: 'mat_porta', fita: { n: FITA, s: FITA, l: FITA, o: FITA }, veio: 'b', repetir: 'nPortas' },
+    { id: 'puxador', nome: 'Puxador perfil', papel: 'generica', eixo: 'y', origem: ['i == 1 ? (nPortas == 1 ? L - 28 : L / nPortas - 26) : (i - 1) * (L / nPortas) + 14', '-portaEsp - 12', 'clamp(A * 0.42, 700, 1050)'], tamanho: ['12', 'min(320, A * 0.25)'], espessura: '12', material: 'mat_metal', repetir: 'nPortas' },
   ],
   aninhados: [],
   ferragens: [
@@ -73,10 +74,10 @@ export const FAMILIA_GUARDA_ROUPA_MODULO: Familia = {
 };
 
 const PARAMETROS_CONJUNTO: Parametro[] = [
-  comprimento('L', 'Largura total', 1800, 450, 7200, 10),
-  comprimento('A', 'Altura', 2400, 1800, 2600, 10),
-  comprimento('P', 'Profundidade', 600, 500, 700, 10),
-  comprimento('larguraModulo', 'Largura do módulo', 900, 450, 1200, 10),
+  comprimento('L', 'Largura total', 1800, 300, 7200, 10),
+  comprimento('A', 'Altura', 2400, 1200, 2700, 10),
+  comprimento('P', 'Profundidade', 600, 350, 950, 10),
+  comprimento('larguraModulo', 'Largura do módulo', 900, 300, 1600, 10),
   inteiro('nModulos', 'Módulos', 2, 1, 6),
   chapaCorpo('mdf18'),
   booleano('divisoria', 'Divisória central dos módulos', false),

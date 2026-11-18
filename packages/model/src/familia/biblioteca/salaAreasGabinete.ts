@@ -10,9 +10,9 @@ import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComu
 const ESP_TAMPO = '25';
 
 const PARAMETROS = [
-  comprimento('L', 'Largura', 800, 600, 1000),
-  comprimento('A', 'Altura', 500, 400, 700),
-  comprimento('P', 'Profundidade', 450, 350, 600),
+  comprimento('L', 'Largura', 800, 350, 2400),
+  comprimento('A', 'Altura', 500, 250, 1000),
+  comprimento('P', 'Profundidade', 450, 250, 850),
   comprimento('zFixacao', 'Cota de fixação', 450, 300, 1500),
   comprimento('cubaL', 'Largura da cuba', 400, 200, 500, 10, 'tipo'),
   comprimento('cubaP', 'Profundidade da cuba', 300, 150, 400, 10, 'tipo'),
@@ -37,6 +37,11 @@ const PECAS: Peca[] = [
     origem: ['(i - 1) * (L / 2) + 2', '-18', 'zBase + 2'],
     tamanho: ['L / 2 - 4', 'hPorta'], espessura: '18', material: 'mat_porta',
     fita: { n: 'fita_pvc', s: 'fita_pvc', l: 'fita_pvc', o: 'fita_pvc' },
+  },
+  {
+    id: 'puxador', nome: 'Puxador perfil', papel: 'generica', eixo: 'y', repetir: '2',
+    origem: ['i == 1 ? L / 2 - 26 : L / 2 + 14', '-30', 'zBase + hPorta - 16 - min(140, max(40, hPorta - 40))'],
+    tamanho: ['12', 'min(140, max(40, hPorta - 40))'], espessura: '12', material: 'mat_metal',
   },
   {
     id: 'tampo', nome: 'Tampo com recorte da cuba', papel: 'tampo', eixo: 'z',

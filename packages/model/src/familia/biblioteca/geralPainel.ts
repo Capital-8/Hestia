@@ -13,9 +13,9 @@ export const FAMILIA_PAINEL_RIPADO: Familia = {
   hospedagem: 'parede',
   origem: 'canto',
   parametros: [
-    comprimento('L', 'Largura', 1200, 300, 3000),
-    comprimento('A', 'Altura', 2400, 600, 3000),
-    comprimento('P', 'Profundidade', 60, 40, 120),
+    comprimento('L', 'Largura', 1200, 250, 3600),
+    comprimento('A', 'Altura', 2400, 300, 3000),
+    comprimento('P', 'Profundidade', 60, 40, 150),
     comprimento('larguraRipa', 'Largura da ripa', 60, 20, 200, 5),
     comprimento('vaoRipa', 'Vão entre ripas', 20, 0, 100, 5),
     comprimento('larguraMoldura', 'Largura da moldura', 50, 20, 100, 5),

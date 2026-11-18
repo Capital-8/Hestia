@@ -38,6 +38,13 @@ const ETIQUETAS: Record<string, string> = {
   fam_modulo_branco: 'modulo',
   fam_bloco_livre: 'modulo',
   fam_gaveta: 'peca',
+  fam_ilha_gourmet: 'base',
+  fam_cristaleira_vidro: 'torre',
+  fam_balcao_cava: 'base',
+  fam_aereo_vidro: 'aereo',
+  fam_roupeiro_correr: 'torre',
+  fam_painel_ripado_rack: 'painel',
+  fam_bancada_cuba: 'base',
 };
 
 const FAMILIAS = [FAMILIA_ARMARIO, ...BIBLIOTECA_BASE.filter((f) => f.id !== FAMILIA_ARMARIO.id)];

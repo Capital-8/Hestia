@@ -10,9 +10,9 @@ const ESP_TAMPO = '25';
 const Z_PRATELEIRA = '200';
 
 const PARAMETROS = [
-  comprimento('L', 'Largura', 1200, 900, 1800),
-  comprimento('A', 'Altura', 740, 700, 800),
-  comprimento('P', 'Profundidade', 600, 450, 750),
+  comprimento('L', 'Largura', 1200, 600, 2400),
+  comprimento('A', 'Altura', 740, 600, 1100),
+  comprimento('P', 'Profundidade', 600, 350, 950),
   chapaCorpo(),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),
   derivado('hTampo', 'Altura dos painéis (até o tampo)', `A - ${ESP_TAMPO}`),

@@ -5,6 +5,7 @@ import { DORMITORIO } from './dormitorio.ts';
 import { GERAL } from './geral.ts';
 import { SALA_AREAS } from './salaAreas.ts';
 import { FAMILIA_GAVETA } from './gaveta.ts';
+import { ALTO_PADRAO } from './altoPadrao.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -13,7 +14,7 @@ import { FAMILIA_GAVETA } from './gaveta.ts';
  */
 
 export { FAMILIA_GAVETA };
-export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL];
+export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {

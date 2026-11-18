@@ -23,9 +23,9 @@ export const FAMILIA_GAVETA: Familia = {
   hospedagem: 'nivel',
   origem: 'canto',
   parametros: [
-    comp('L', 'Largura da frente', 600, 250, 1500, 10),
-    comp('A', 'Altura da frente', 150, 80, 400, 10),
-    comp('P', 'Profundidade da caixa', 500, 250, 700, 10),
+    comp('L', 'Largura da frente', 600, 200, 2400, 10),
+    comp('A', 'Altura da frente', 150, 80, 600, 10),
+    comp('P', 'Profundidade da caixa', 500, 200, 950, 10),
     { id: 'corpo', nome: 'Chapa da caixa', tipo: 'chapa', escopo: 'tipo', padrao: 'mdf15', grupo: 'Material', opcoes: [{ valor: 'mdf15', rotulo: 'MDF 15 mm', esp: 15 }, { valor: 'mdf18', rotulo: 'MDF 18 mm', esp: 18 }] },
     derivado('esp', 'Espessura da caixa', 'corpo.esp'),
     derivado('folga', 'Folga lateral da corrediça', '13'),
@@ -36,6 +36,7 @@ export const FAMILIA_GAVETA: Familia = {
   planos: [],
   pecas: [
     { id: 'frente', nome: 'Frente', papel: 'frente_gaveta', eixo: 'y', origem: ['0', '-18', '0'], tamanho: ['L', 'A'], espessura: '18', material: 'mat_porta', fita: { n: 'fita_pvc', s: 'fita_pvc', l: 'fita_pvc', o: 'fita_pvc' }, veio: 'a' },
+    { id: 'puxador', nome: 'Puxador perfil', papel: 'generica', eixo: 'y', origem: ['(L - min(L - 40, 200)) / 2', '-28', 'A - 30'], tamanho: ['min(L - 40, 200)', '12'], espessura: '10', material: 'mat_metal' },
     { id: 'latE', nome: 'Lateral esquerda', papel: 'lateral', eixo: 'x', origem: ['folga', '0', '25'], tamanho: ['pc', 'hc'], espessura: 'esp', material: 'corpo', fita: { n: 'fita_pvc' }, veio: 'a' },
     { id: 'latD', nome: 'Lateral direita', papel: 'lateral', eixo: 'x', origem: ['L - folga - esp', '0', '25'], tamanho: ['pc', 'hc'], espessura: 'esp', material: 'corpo', fita: { n: 'fita_pvc' }, veio: 'a' },
     { id: 'traseira', nome: 'Traseira', papel: 'painel', eixo: 'y', origem: ['folga + esp', 'pc - esp', '25'], tamanho: ['li', 'hc'], espessura: 'esp', material: 'corpo', veio: 'a' },

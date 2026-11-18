@@ -13,9 +13,9 @@ export const FAMILIA_PRATELEIRA: Familia = {
   hospedagem: 'parede',
   origem: 'canto',
   parametros: [
-    comprimento('L', 'Largura', 800, 300, 1200),
-    comprimento('A', 'Altura máxima de fixação', 2400, 300, 3000),
-    comprimento('P', 'Profundidade', 250, 150, 500),
+    comprimento('L', 'Largura', 800, 250, 2400),
+    comprimento('A', 'Altura máxima de fixação', 2400, 250, 3000),
+    comprimento('P', 'Profundidade', 250, 150, 750),
     comprimento('zFixacao', 'Cota da fixação', 1200, 300, 2400),
     chapa('prateleiraChapa', 'Chapa da prateleira', 'mdf25', ['mdf25']),
     derivado('esp', 'Espessura da prateleira', 'prateleiraChapa.esp'),

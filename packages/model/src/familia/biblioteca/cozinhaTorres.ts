@@ -24,7 +24,9 @@ const PECAS_TORRE_FORNO: Peca[] = [
   { id: 'divBaixa', nome: 'Divisória inferior do forno', papel: 'divisoria', eixo: 'z', origem: ['esp', '0', 'zNicho - esp'], tamanho: ['L - 2 * esp', 'yFundo'], espessura: 'esp', material: 'corpo', fita: { n: FITA }, veio: 'a' },
   { id: 'divAlta', nome: 'Divisória superior do forno', papel: 'divisoria', eixo: 'z', origem: ['esp', '0', 'zFornoTopo'], tamanho: ['L - 2 * esp', 'yFundo'], espessura: 'esp', material: 'corpo', fita: { n: FITA }, veio: 'a' },
   { id: 'portaBaixa', nome: 'Porta inferior', papel: 'porta', eixo: 'y', origem: ['2', '-18', 'zBase + 2'], tamanho: ['L - 4', 'hBaixo - 4'], espessura: '18', material: 'mat_porta', fita: { n: FITA, s: FITA, l: FITA, o: FITA }, veio: 'b' },
+  { id: 'puxadorBaixo', nome: 'Puxador inferior', papel: 'generica', eixo: 'y', origem: ['L - 28', '-30', 'zBase + hBaixo - 20 - min(160, hBaixo - 50)'], tamanho: ['12', 'min(160, hBaixo - 50)'], espessura: '12', material: 'mat_metal' },
   { id: 'portaAlta', nome: 'Porta superior', papel: 'porta', eixo: 'y', origem: ['2', '-18', 'zFornoTopo + esp'], tamanho: ['L - 4', 'hCima - esp - 2'], espessura: '18', material: 'mat_porta', fita: { n: FITA, s: FITA, l: FITA, o: FITA }, veio: 'b' },
+  { id: 'puxadorAlto', nome: 'Puxador superior', papel: 'generica', eixo: 'y', origem: ['L - 28', '-30', 'zFornoTopo + esp + 20'], tamanho: ['12', 'min(160, max(40, hCima - esp - 42))'], espessura: '12', material: 'mat_metal' },
 ];
 
 const TIPOS_TORRE_FORNO: Tipo[] = [
@@ -38,9 +40,9 @@ export const FAMILIA_TORRE_FORNO: Familia = familia({
   nome: 'Torre de forno',
   descricao: 'Torre alta de cozinha com nicho de forno sem porta, armário inferior e armário superior.',
   parametros: [
-    comprimento('L', 'Largura', 600, 600, 700, 10),
-    comprimento('A', 'Altura', 2100, 1800, 2400, 10),
-    comprimento('P', 'Profundidade', 580, 520, 650, 10),
+    comprimento('L', 'Largura', 600, 350, 1400, 10),
+    comprimento('A', 'Altura', 2100, 1400, 2700, 10),
+    comprimento('P', 'Profundidade', 580, 350, 950, 10),
     comprimento('hForno', 'Altura do nicho do forno', 600, 500, 700, 10, 'tipo'),
     comprimento('rodape', 'Altura do rodapé', 100, 80, 120, 10, 'tipo'),
     chapaCorpo(),
@@ -74,9 +76,9 @@ export const FAMILIA_PANELEIRO: Familia = familia({
   nome: 'Paneleiro',
   descricao: 'Torre baixa de cozinha com carcaça completa e quatro gavetas altas empilhadas.',
   parametros: [
-    comprimento('L', 'Largura', 400, 400, 500, 10),
-    comprimento('A', 'Altura', 900, 800, 1000, 10),
-    comprimento('P', 'Profundidade', 560, 500, 650, 10),
+    comprimento('L', 'Largura', 400, 250, 1200, 10),
+    comprimento('A', 'Altura', 900, 600, 2400, 10),
+    comprimento('P', 'Profundidade', 560, 250, 950, 10),
     comprimento('rodape', 'Altura do rodapé', 100, 80, 120, 10, 'tipo'),
     chapaCorpo(),
     enumerado('tampo', 'Tampo', 'comum', TAMPAS),

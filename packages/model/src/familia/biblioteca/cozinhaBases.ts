@@ -14,9 +14,9 @@ const TAMPAS = [
 ];
 
 const PARAMETROS_BASE = [
-  comprimento('L', 'Largura', 800, 600, 1200, 10),
-  comprimento('A', 'Altura', 720, 650, 900, 10),
-  comprimento('P', 'Profundidade', 560, 500, 650, 10),
+  comprimento('L', 'Largura', 800, 250, 2400, 10),
+  comprimento('A', 'Altura', 720, 450, 1400, 10),
+  comprimento('P', 'Profundidade', 560, 250, 950, 10),
   comprimento('rodape', 'Altura do rodapé', 100, 80, 120, 10, 'tipo'),
   chapaCorpo(),
   enumerado('tampo', 'Tampo', 'comum', TAMPAS),
@@ -81,9 +81,9 @@ export const FAMILIA_BASE_GAVETAS: Familia = familia({
 });
 
 const PARAMETROS_PIA = [
-  comprimento('L', 'Largura', 800, 700, 1300, 10),
-  comprimento('A', 'Altura', 720, 650, 900, 10),
-  comprimento('P', 'Profundidade', 560, 500, 650, 10),
+  comprimento('L', 'Largura', 800, 250, 2400, 10),
+  comprimento('A', 'Altura', 720, 400, 1400, 10),
+  comprimento('P', 'Profundidade', 560, 250, 950, 10),
   comprimento('cubaL', 'Largura da cuba', 500, 400, 600, 10, 'tipo'),
   comprimento('cubaP', 'Profundidade da cuba', 400, 350, 450, 10, 'tipo'),
   comprimento('rodape', 'Altura do rodapé', 100, 80, 120, 10, 'tipo'),
@@ -96,6 +96,8 @@ const DERIVADOS_PIA = [
   derivado('zBase', 'Cota do topo da base', 'rodape + esp'),
   derivado('hCorpo', 'Altura do corpo', 'A - 25'),
   derivado('yFundo', 'Face frontal do fundo (Y)', 'P - 21'),
+  derivado('cubaLUsada', 'Largura útil do recorte', 'clamp(cubaL, 100, L - 40)'),
+  derivado('cubaPUsada', 'Profundidade útil do recorte', 'clamp(cubaP, 100, P - 20)'),
 ];
 
 const PECAS_PIA: Peca[] = [
@@ -106,6 +108,7 @@ const PECAS_PIA: Peca[] = [
   { id: 'trT', nome: 'Travessa traseira', papel: 'travessa', eixo: 'z', origem: ['esp', 'yFundo - 80', 'hCorpo - esp'], tamanho: ['L - 2 * esp', '80'], espessura: 'esp', material: 'corpo', veio: 'a' },
   { id: 'fundo', nome: 'Fundo', papel: 'fundo', eixo: 'y', origem: ['esp', 'yFundo', 'zBase'], tamanho: ['L - 2 * esp', 'hCorpo - zBase'], espessura: '6', material: 'mat_fundo', veio: 'livre' },
   { id: 'porta', nome: 'Porta', papel: 'porta', eixo: 'y', origem: ['(i - 1) * (L / nPortas) + 2', '-18', 'rodape + 2'], tamanho: ['L / nPortas - 4', 'hCorpo - rodape - 4'], espessura: '18', material: 'mat_porta', fita: { n: FITA, s: FITA, l: FITA, o: FITA }, veio: 'b', repetir: 'nPortas', quando: 'nPortas > 0' },
+  { id: 'puxador', nome: 'Puxador perfil', papel: 'generica', eixo: 'y', origem: ['i == 1 ? (nPortas == 1 ? L - 28 : L / nPortas - 26) : (i - 1) * (L / nPortas) + 14', '-30', 'hCorpo - 20 - min(180, max(60, hCorpo - rodape - 40))'], tamanho: ['12', 'min(180, max(60, hCorpo - rodape - 40))'], espessura: '12', material: 'mat_metal', repetir: 'nPortas', quando: 'nPortas > 0' },
   { id: 'rodap', nome: 'Rodapé', papel: 'rodape', eixo: 'y', origem: ['esp', '50', '0'], tamanho: ['L - 2 * esp', 'rodape'], espessura: 'esp', material: 'corpo', fita: { n: FITA }, veio: 'a', quando: 'rodape > 0' },
   {
     id: 'tampo',
@@ -123,9 +126,9 @@ const PECAS_PIA: Peca[] = [
         id: 'cuba',
         tipo: 'recorte',
         face: 'b',
-        posicao: ['(L - cubaL) / 2', '(P + 20 - cubaP) / 2'],
-        largura: 'cubaP',
-        comprimento: 'cubaL',
+        posicao: ['(L - cubaLUsada) / 2', '(P + 20 - cubaPUsada) / 2'],
+        largura: 'cubaPUsada',
+        comprimento: 'cubaLUsada',
         profundidade: '10',
       },
     ],
@@ -155,9 +158,9 @@ export const FAMILIA_BASE_PIA: Familia = familia({
 });
 
 const PARAMETROS_COOKTOP = [
-  comprimento('L', 'Largura', 600, 600, 800, 10),
-  comprimento('A', 'Altura', 720, 650, 900, 10),
-  comprimento('P', 'Profundidade', 560, 560, 650, 10),
+  comprimento('L', 'Largura', 600, 300, 2400, 10),
+  comprimento('A', 'Altura', 720, 400, 1400, 10),
+  comprimento('P', 'Profundidade', 560, 250, 950, 10),
   comprimento('recorteL', 'Largura do recorte', 560, 460, 560, 10, 'tipo'),
   comprimento('recorteP', 'Profundidade do recorte', 490, 390, 490, 10, 'tipo'),
   comprimento('rodape', 'Altura do rodapé', 100, 80, 120, 10, 'tipo'),
@@ -173,6 +176,8 @@ const DERIVADOS_COOKTOP = [
   derivado('li', 'Largura interna', 'L - 2 * esp'),
   derivado('pg', 'Profundidade da gaveta', 'P - 30'),
   derivado('gavA', 'Altura do gavetão', 'min(250, vao - 20)'),
+  derivado('recorteLUsada', 'Largura útil do recorte', 'clamp(recorteL, 100, L - 40)'),
+  derivado('recortePUsada', 'Profundidade útil do recorte', 'clamp(recorteP, 100, P - 20)'),
 ];
 
 const PECAS_COOKTOP: Peca[] = PECAS_BASE.map((p) =>
@@ -187,9 +192,9 @@ const PECAS_COOKTOP: Peca[] = PECAS_BASE.map((p) =>
             id: 'cooktop',
             tipo: 'recorte',
             face: 'b',
-            posicao: ['(L - recorteL) / 2', '(P + 20 - recorteP) / 2'],
-            largura: 'recorteP',
-            comprimento: 'recorteL',
+            posicao: ['(L - recorteLUsada) / 2', '(P + 20 - recortePUsada) / 2'],
+            largura: 'recortePUsada',
+            comprimento: 'recorteLUsada',
             profundidade: '10',
           },
         ],

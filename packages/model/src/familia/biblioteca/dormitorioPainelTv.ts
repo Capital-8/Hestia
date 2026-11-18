@@ -8,9 +8,9 @@ import { chapaCorpo, comprimento, derivado, FITA } from './dormitorioApoio.ts';
  */
 
 const PARAMETROS: Parametro[] = [
-  comprimento('L', 'Largura do painel', 1800, 1200, 2400, 10),
-  comprimento('A', 'Altura', 1200, 900, 1400, 10),
-  comprimento('P', 'Profundidade', 300, 250, 400, 10),
+  comprimento('L', 'Largura do painel', 1800, 800, 3200, 10),
+  comprimento('A', 'Altura', 1200, 600, 2700, 10),
+  comprimento('P', 'Profundidade', 300, 200, 600, 10),
   chapaCorpo('mdf18'),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),
   derivado('zInt', 'Topo da base', 'esp'),

@@ -11,9 +11,9 @@ const ALTURA_GAVETA = 150;
 const LADO_PE = 40;
 
 const PARAMETROS: Parametro[] = [
-  comprimento('L', 'Largura', 500, 450, 600, 10),
-  comprimento('A', 'Altura', 500, 400, 600, 10),
-  comprimento('P', 'Profundidade', 400, 350, 450, 10),
+  comprimento('L', 'Largura', 500, 300, 900, 10),
+  comprimento('A', 'Altura', 500, 350, 900, 10),
+  comprimento('P', 'Profundidade', 400, 250, 700, 10),
   comprimento('peAltura', 'Altura dos pés', 80, 60, 120, 10, 'tipo'),
   chapaCorpo('mdf18'),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),

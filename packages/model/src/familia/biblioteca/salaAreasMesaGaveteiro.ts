@@ -11,9 +11,9 @@ import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComu
 const ESP_TAMPO = '25';
 
 const PARAMETROS = [
-  comprimento('L', 'Largura', 1400, 1000, 2000),
-  comprimento('A', 'Altura', 740, 680, 900),
-  comprimento('P', 'Profundidade', 650, 500, 800),
+  comprimento('L', 'Largura', 1400, 700, 2400),
+  comprimento('A', 'Altura', 740, 550, 1100),
+  comprimento('P', 'Profundidade', 650, 350, 950),
   chapaCorpo(),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),
   derivado('hGav', 'Altura até a face inferior do tampo', `A - ${ESP_TAMPO}`),

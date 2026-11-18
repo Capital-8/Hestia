@@ -8,9 +8,9 @@ import { chapaCorpo, comprimento, derivado, FITA, FUNDO_ESP } from './dormitorio
  */
 
 const PARAMETROS: Parametro[] = [
-  comprimento('L', 'Largura', 1000, 800, 1400, 10),
-  comprimento('A', 'Altura', 900, 700, 1000, 10),
-  comprimento('P', 'Profundidade', 480, 400, 560, 10),
+  comprimento('L', 'Largura', 1000, 400, 2400, 10),
+  comprimento('A', 'Altura', 900, 550, 1400, 10),
+  comprimento('P', 'Profundidade', 480, 300, 850, 10),
   comprimento('rodape', 'Altura do rodapé', 80, 0, 120, 10, 'tipo'),
   chapaCorpo('mdf18'),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),

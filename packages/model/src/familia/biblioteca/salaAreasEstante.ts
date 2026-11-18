@@ -8,9 +8,9 @@ import { chapaCorpo, comprimento, criarFamilia, derivado, inteiro } from './sala
  */
 
 const PARAMETROS = [
-  comprimento('L', 'Largura', 800, 400, 1600),
-  comprimento('A', 'Altura', 1800, 600, 2400),
-  comprimento('P', 'Profundidade', 300, 200, 500),
+  comprimento('L', 'Largura', 800, 250, 2400),
+  comprimento('A', 'Altura', 1800, 300, 2700),
+  comprimento('P', 'Profundidade', 300, 200, 750),
   chapaCorpo(),
   inteiro('nPrat', 'Prateleiras', 3, 1, 8),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),

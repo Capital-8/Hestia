@@ -10,9 +10,9 @@ import { chapaCorpo, comprimento, criarFamilia, derivado } from './salaAreasComu
 const N_PRATELEIRAS = '3';
 
 const PARAMETROS = [
-  comprimento('L', 'Largura', 800, 600, 1000),
-  comprimento('A', 'Altura', 1800, 1200, 2400),
-  comprimento('P', 'Profundidade', 400, 300, 600),
+  comprimento('L', 'Largura', 800, 350, 2400),
+  comprimento('A', 'Altura', 1800, 600, 2700),
+  comprimento('P', 'Profundidade', 400, 250, 850),
   comprimento('rodape', 'Altura do rodapé', 100, 0, 150, 10, 'tipo'),
   chapaCorpo(),
   derivado('esp', 'Espessura do corpo', 'corpo.esp'),
@@ -37,6 +37,11 @@ const PECAS: Peca[] = [
     origem: ['(i - 1) * (L / 2) + 2', '-18', 'zBase + 2'],
     tamanho: ['L / 2 - 4', 'hPorta'], espessura: '18', material: 'mat_porta',
     fita: { n: 'fita_pvc', s: 'fita_pvc', l: 'fita_pvc', o: 'fita_pvc' },
+  },
+  {
+    id: 'puxador', nome: 'Puxador perfil', papel: 'generica', eixo: 'y', repetir: '2',
+    origem: ['i == 1 ? L / 2 - 26 : L / 2 + 14', '-30', 'zBase + clamp(hPorta * 0.45, 200, 950)'],
+    tamanho: ['12', 'min(240, max(60, hPorta - 100))'], espessura: '12', material: 'mat_metal',
   },
   {
     id: 'prat', nome: 'Prateleira', papel: 'prateleira', eixo: 'z', repetir: 'nPrat',
