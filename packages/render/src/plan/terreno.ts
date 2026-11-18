@@ -1,9 +1,9 @@
 import { envoltoriaDasFontes, type CotaDoTerreno, type CurvaNivelTN, type LinhaPlantaTN, type MapaCorteAterroTN } from '@hestia/engine';
-import { terrainTextFamilyFor, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
+import { terrainTextFamilyFor, terrenoComTipo, tipoDoTerreno, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
 import { mix } from './color.ts';
 import type { FloorOps } from './floors.ts';
 import { tracoEm } from './marcadores.ts';
-import { rotulosDeCurva, rotuloDeCota } from './terrenoRotulos.ts';
+import { rotulosAutomaticosDeCurva, rotulosDeCurva, rotuloDeCota, type OcupadoRotulo } from './terrenoRotulos.ts';
 import { espessuraDeCorte, espessuraDeProjecao, type PlanPaint } from './style.ts';
 import type { PlanTheme, StrokeOp } from './types.ts';
 
@@ -62,6 +62,13 @@ export function espessuraMestra(paint: PlanPaint): Pick<StrokeOp, 'widthPx' | 'p
   return out;
 }
 
+/** Espessura de projeção multiplicada por um fator (peso de curva do tipo de terreno). */
+function pesoVezes(e: Pick<StrokeOp, 'widthPx' | 'papel'>, fator: number): Pick<StrokeOp, 'widthPx' | 'papel'> {
+  const out: Pick<StrokeOp, 'widthPx' | 'papel'> = { widthPx: e.widthPx * fator };
+  if (e.papel) out.papel = { ...e.papel, fator: (e.papel.fator ?? 1) * fator };
+  return out;
+}
+
 const par = (q: Pt): Pt => ({ x: q.x, y: q.y });
 
 /** Borda de reserva (sem kernel): a borda do modelo, ou a envoltória convexa das fontes. */
@@ -92,13 +99,18 @@ export function regiaoOps(p: Project, r: TerrainRegion, dark: boolean, paint: Pl
 }
 
 /** Desenho de um terreno: curvas (proposta, existente), borda, pontos cotados e rótulos; reserva tracejada sem kernel. */
-export function terrenoOps(p: Project, t: Terrain, dados: DadosTerreno, theme: PlanTheme, dark: boolean, paint: PlanPaint, scale: number): FloorOps {
+export function terrenoOps(p: Project, bruto: Terrain, dados: DadosTerreno, theme: PlanTheme, dark: boolean, paint: PlanPaint, scale: number): FloorOps {
   const out: FloorOps = { fills: [], strokes: [], labels: [] };
   const base = dark ? theme.bg : '#ffffff';
-  const cor = paint.color ?? t.color ?? mix('#8a6a3a', dark ? '#ffffff' : '#000000', 0.1);
+  // Com tipo: a equidistância, a família do rótulo e o peso/cor das curvas vêm dele; as curvas não herdam o verde da superfície.
+  const tipo = tipoDoTerreno(p.settings, bruto);
+  const t = terrenoComTipo(p.settings, bruto);
+  const corPadrao = mix('#8a6a3a', dark ? '#ffffff' : '#000000', 0.1);
+  const cor = paint.color ?? (tipo ? (tipo.curvaCor ?? corPadrao) : (t.color ?? corPadrao));
   const suave = mix(cor, base, 0.45);
-  const proj = espessuraDeProjecao(paint);
-  const mestra = espessuraMestra(paint);
+  const projBase = espessuraDeProjecao(paint);
+  const proj = tipo ? pesoVezes(projBase, tipo.curvaPeso) : projBase;
+  const mestra = tipo ? pesoVezes(projBase, tipo.mestraPeso) : espessuraMestra(paint);
   const doTerreno = (l: CurvaNivelTN[] | null): CurvaNivelTN[] => (l ?? []).filter((c) => c.terrenoId === t.id && c.pontos.length >= 2);
   const proposta = doTerreno(dados.propostas);
   if (t.mostrarExistente) {
@@ -111,17 +123,20 @@ export function terrenoOps(p: Project, t: Terrain, dados: DadosTerreno, theme: P
     for (const b of linhas) out.strokes.push({ pts: b.pontos.map(par), closed: b.fechada, ...espessuraDeCorte(paint), color: cor, alpha: 1 });
   } else {
     const r = bordaDeReserva(t);
-    if (r.length >= 3) out.strokes.push({ pts: r, closed: true, ...proj, color: cor, alpha: 1, dash: RESERVA_TRACO });
+    if (r.length >= 3) out.strokes.push({ pts: r, closed: true, ...projBase, color: cor, alpha: 1, dash: RESERVA_TRACO });
   }
-  out.labels.push(...rotulosDeCurva(p, t, proposta.filter((c) => c.mestra), scale));
+  const mestras = proposta.filter((c) => c.mestra);
+  const ocupados: OcupadoRotulo[] = [];
+  out.labels.push(...rotulosDeCurva(p, t, mestras, scale, ocupados));
+  if (tipo?.rotularCurvas) out.labels.push(...rotulosAutomaticosDeCurva(p, t, mestras, scale, tipo.rotularCada, ocupados));
   // Pontos cotados: cruz (em px) e o valor da cota do terreno proposto; sem kernel, só a cruz.
   const alvos: Pt[] = [];
   for (let i = 0; i + 1 < t.pontosCotados.length; i += 2) alvos.push({ x: t.pontosCotados[i]!, y: t.pontosCotados[i + 1]! });
   const cotas = alvos.length > 0 ? dados.cotas(alvos) : null;
   alvos.forEach((q, i) => {
     const h = CRUZ_PX;
-    out.strokes.push({ ...tracoEm(q, [{ x: -h, y: 0 }, { x: h, y: 0 }], false), ...proj, color: cor, alpha: 1 });
-    out.strokes.push({ ...tracoEm(q, [{ x: 0, y: -h }, { x: 0, y: h }], false), ...proj, color: cor, alpha: 1 });
+    out.strokes.push({ ...tracoEm(q, [{ x: -h, y: 0 }, { x: h, y: 0 }], false), ...projBase, color: cor, alpha: 1 });
+    out.strokes.push({ ...tracoEm(q, [{ x: 0, y: -h }, { x: 0, y: h }], false), ...projBase, color: cor, alpha: 1 });
     const c = cotas?.[i];
     if (c) out.labels.push(rotuloDeCota(p, q, c.z, scale, terrainTextFamilyFor(p.settings, 'spot', t.cotadoFamilyId)));
   });
