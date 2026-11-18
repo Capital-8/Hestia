@@ -67,7 +67,8 @@ describe('terreno no corte e na elevação (kernel real)', () => {
     const r = desenho(projetoTerreno('T5'), corte);
     expect(r.lista.fills).toHaveLength(1);
     const t = tracejados(r);
-    expect(t).toHaveLength(1);
+    // Dois tracejados: o perfil do terreno existente no plano de corte (papel 1) e a silhueta do existente além do plano (papel 3, nova).
+    expect(t).toHaveLength(2);
     expect(t[0]!.closed).toBe(false);
     expect(t[0]!.widthPx).toBe(r.paint.site.proj.widthPx);
     // O perfil existente é o terreno plano em z = 10; o solo cortado desce a 8 na plataforma.

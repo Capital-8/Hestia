@@ -144,7 +144,13 @@ describe('terreno, ficha E1: serviço sobre o WASM real, T1 a T9 por todas as fu
     const curvas = srv.curvas(p)!;
     expect(curvas.map((x) => x.z)).toEqual([1, 2, 3, 4]);
     expect(curvas.every((x) => x.fechada)).toBe(true);
-    curvas.forEach((x, k) => perto(perimetro(x.pontos, true), [64, 48, 32, 16][k]!, 1e-9));
+    // Curvas suavizadas (Chaikin): o perímetro de cada quadrado cru diminui (cantos cortados), sem passar do cru e sem cair abaixo de 3/4.
+    curvas.forEach((x, k) => {
+      const crua = [64, 48, 32, 16][k]!;
+      const per = perimetro(x.pontos, true);
+      expect(per).toBeLessThanOrEqual(crua + 1e-9);
+      expect(per).toBeGreaterThan(crua * 0.75);
+    });
     const silhueta = srv.corte(p, { x: -5, y: 10 }, { x: 1, y: 0 }, 100)!.filter((x) => x.papel === 'silhueta');
     expect(silhueta).toHaveLength(1);
     perto(Math.max(...silhueta[0]!.pontos.map((q) => q.z)), 5, 1e-9);
