@@ -641,8 +641,10 @@ export class SelectTool extends ToolBase {
         const grids = selectedGrids(pr, sel);
         const comps = sel.filter((id) => isComponent(pr.elements[id]));
         // Sem `ignore`: arrastar uma escada/rampa também captura os vértices dela como base e destino.
-        this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }).point;
-        const inf = this.snap(p, { from: this.moveBase });
+        // Móvel arrastado: seus próprios cantos e arestas saem da captura (o deslocamento dele vem do encaixe de `ArrastoComponentes`).
+        const proprios = comps.length > 0 ? { ignore: new Set<Id>(comps) } : {};
+        this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }, proprios).point;
+        const inf = this.snap(p, { from: this.moveBase, ...proprios });
         this.delta = sub(inf.point, this.moveBase);
         const t = { kind: 'translate' as const, d: this.delta };
         this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta));

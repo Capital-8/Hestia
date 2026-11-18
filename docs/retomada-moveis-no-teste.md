@@ -67,3 +67,13 @@ Nenhuma entrada leva ao editor: a ação `familyEditor` da faixa está `disabled
 - Trocar os textos fixos por chaves i18n.
 - Reativar o editor de famílias quando o gizmo estiver final.
 - O estado de 17/11 de `docs/componentes-familias/PROGRESSO.md` segue desatualizado (data de 06/11).
+
+## Cor e snaps (ficha moveis-cor-snaps)
+
+- Planta `shaded`: o móvel pinta a pegada na cor do acabamento do corpo (`acabCorpo`), as frentes de porta/gaveta na cor de `acabPorta` e o tampo na de `acabTampo` (mesma resolução do 3D: `resolverMaterialVisualPeca` + `MATERIAIS_DE_COMPONENTE`). `hiddenLine` mantém o cinza de antes e `wireframe` só linhas. `consistentColors` não existe na planta/corte (3 estilos), então cai em `hiddenLine`; nenhum estilo realista foi criado.
+- Aéreo (zMin >= 1,10 m): segue tracejado; em `shaded` ganha um véu na cor do corpo (alpha 0,25), emitido ANTES dos fills de piso para nunca cobrir os balcões (os fills dos balcões vêm por cima e os traços de todos por último).
+- Corte/elevação: já usava a cor do acabamento (`materialComponente`); conferido por teste em shaded (cor literal), hiddenLine (cor esmaecida rumo ao papel) e wireframe (sem fill). Categoria gráfica `generic`: hachura e contorno seguem as demais camadas.
+- Snaps na planta: novo `packages/tools/src/moveisSnapPlanta.ts` (`moveisSnapIndex`, `SnapIndexado` por projeto e nível, ligado em `ToolBase.ctx` junto do `componentSnapIndex`; NÃO tem relação com o `componentSnap` de escada/rampa nem com o encaixe). Pontos: cantos (endpoint) e meios (midpoint); arestas: nearest/perpendicular, da pegada, frentes, tampo e recortes. `hostId` = id do componente, então `ignore` e ocultar na vista funcionam; `endpoint`/`midpoint`/`faces` são respeitados.
+- Corte: o índice já recebia os contornos (cortados e `beyond`), mas sem dono: `sectionOriginId` ignorava `componentId`. Corrigido (e região com várias origens do mesmo dono agora tem dono), então ignore/ocultar valem para o móvel no corte.
+- Limites: o meio da frente cai na fresta entre duas portas, onde o canto da porta (a 2 mm) vence; peças internas (laterais, prateleiras) só aparecem no corte, não na planta; contornos de usinagem que não sejam recorte retangular de tampo não são capturados; a elevação/corte só enxerga o que o motor deixa visível (oclusão).
+- A mão: planta em Sombreado com armário de acabamentos diferentes (cor do corpo, portas e tampo); aéreo sobre balcão; Cota/Medir/Alinhar pegando canto, meio e aresta do móvel (planta, corte e elevação); arrastar o móvel sem capturar a si mesmo; desempenho com muitos móveis (teste automático com 300 passou).
