@@ -1,5 +1,5 @@
 import { areaEdificavel } from '@hestia/engine';
-import { formatQuantity, unitsOf, type Id, type Lot, type PapelLadoLote, type Project } from '@hestia/model';
+import { FAMILY_FONT_PADRAO, formatLengthByFamily, lotFamilyFor, type Id, type Lot, type PapelLadoLote, type Project } from '@hestia/model';
 import type { Lang } from '../i18n.ts';
 import { mix } from './color.ts';
 import type { FloorOps } from './floors.ts';
@@ -18,6 +18,8 @@ import type { PlanTheme } from './types.ts';
 /** [traço, vão] em pixels do contorno do lote (longo: o mais perto de traço-dois-pontos que o traço da planta permite). */
 export const LOTE_TRACO: [number, number] = [16, 5];
 /** [traço, vão] em pixels da área edificável (curto, para se distinguir do contorno). */
+/** Traço-ponto aproximado (a planta só tem o par traço/vão). */
+export const LOTE_TRACO_PONTO: [number, number] = [9, 3];
 export const EDIFICAVEL_TRACO: [number, number] = [5, 4];
 /** Corpo do texto dos lados, em mm de papel. */
 export const LOTE_TEXTO_MM = 1.5;
@@ -69,17 +71,20 @@ export function loteOps(p: Project, l: Lot, theme: PlanTheme, dark: boolean, pai
   const out: FloorOps = { fills: [], strokes: [], labels: [] };
   const n = l.contorno.length;
   if (n < 3) return out;
-  const base = dark ? theme.bg : '#ffffff';
-  const cor = paint.color ?? l.color ?? mix(theme.ink, base, 0.15);
-  const suave = paint.color ?? l.color ?? mix(theme.ink, base, 0.45);
-  const proj = espessuraDeProjecao(paint);
-  out.strokes.push({ pts: l.contorno.map((q) => ({ x: q.x, y: q.y })), closed: true, ...proj, color: cor, alpha: 1, dash: LOTE_TRACO });
+  const fundo = dark ? theme.bg : '#ffffff';
+  const cor = paint.color ?? l.color ?? mix(theme.ink, fundo, 0.15);
+  const suave = paint.color ?? l.color ?? mix(theme.ink, fundo, 0.45);
+  const fam = lotFamilyFor(p.settings, l.familyId);
+  const base = espessuraDeProjecao(paint);
+  const proj = fam.lineWeight === 1 ? base : { ...base, widthPx: base.widthPx * fam.lineWeight, ...(base.papel ? { papel: { ...base.papel, fator: (base.papel.fator ?? 1) * fam.lineWeight } } : {}) };
+  const corLinha = fam.lineColor ?? cor;
+  const traco = fam.lineStyle === 'solid' ? undefined : fam.lineStyle === 'dash-dot' ? LOTE_TRACO_PONTO : LOTE_TRACO;
+  out.strokes.push({ pts: l.contorno.map((q) => ({ x: q.x, y: q.y })), closed: true, ...proj, color: corLinha, alpha: 1, ...(traco ? { dash: traco } : {}) });
   if (l.mostrarEdificavel) {
     for (const poly of areaEdificavel(l.contorno, l.lados)) {
       for (const ring of poly) if (ring.length >= 3) out.strokes.push({ pts: ring.map((q) => ({ x: q.x, y: q.y })), closed: true, ...proj, color: suave, alpha: 1, dash: EDIFICAVEL_TRACO });
     }
   }
-  const u = unitsOf(p);
   const ccw = sentido(l.contorno) >= 0 ? 1 : -1;
   l.contorno.forEach((a, i) => {
     const b = l.contorno[(i + 1) % n]!;
@@ -92,11 +97,15 @@ export function loteOps(p: Project, l: Lot, theme: PlanTheme, dark: boolean, pai
     const ny = (-(b.x - a.x) / len) * ccw;
     out.labels.push({
       at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      text: `${textoDoPapel(lang, lado.papel)} ${formatQuantity(u, 'length', len)}`,
+      text: [fam.showPaper ? textoDoPapel(lang, lado.papel) : '', fam.showLength ? formatLengthByFamily(p, len, fam) : ''].filter(Boolean).join(' '),
       center: true,
       rotation: anguloLegivel(b.x - a.x, b.y - a.y),
       tone: 'soft',
-      papel: { escala: scale, fontMm: LOTE_TEXTO_MM, desvio: { mm: LOTE_TEXTO_AFASTA_MM, ux: nx + 0, uy: 0 - ny } },
+      ...(fam.textColor ? { color: fam.textColor } : {}),
+      ...(fam.bold ? { bold: true } : {}),
+      ...(fam.italic ? { italic: true } : {}),
+      ...(fam.font !== FAMILY_FONT_PADRAO ? { fontFamily: fam.font } : {}),
+      papel: { escala: scale, fontMm: fam.textMm, desvio: { mm: LOTE_TEXTO_AFASTA_MM, ux: nx + 0, uy: 0 - ny } },
     });
   });
   return out;

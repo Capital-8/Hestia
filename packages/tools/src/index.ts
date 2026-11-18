@@ -23,6 +23,7 @@ export * from './terrainToolCurva.ts';
 export * from './terrainHandles.ts';
 export * from './terrainEditPick.ts';
 export * from './terrainEditGestos.ts';
+export * from './terrainItensPick.ts';
 export * from './terrainEditTool.ts';
 export * from './terrainLabelTool.ts';
 export * from './terrainRegionTool.ts';

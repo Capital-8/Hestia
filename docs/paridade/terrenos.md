@@ -86,3 +86,8 @@ Fonte: [docs/05](../05-REFERENCIA-REVIT-ARCHICAD.md) (Revit: Toposurface, Subreg
 - [-] I13 Imagem ou PDF como fundo: A.9; o DXF importado já serve de fundo para traçar
 - [-] I14 Terreno visível na planta de outros níveis: A.9; o terreno aparece no nível em que foi desenhado (decisão 0058, §3)
 - [ ] I15 Rastreamento e Referência (Fase 7): opcional (fase 7), depende do aceite do dono (decisão 0058, D9)
+
+## Famílias de texto e seleção das anotações do terreno (frente anotar-familias-e-apagar)
+- [x] G1 Cota de ponto e linha de rótulo do terreno selecionam, destacam e apagam na Selecionar (ids `<terreno>#cotado:i` e `<terreno>#rotulo:i`; `terrainItensPick.ts`; E2E `anotar-apagar.mjs`)
+- [x] G2 Família "Rótulo de curva de nível" e família "Cota de ponto do terreno" (`settings.terrainTextFamilies`; fonte, altura, cor, negrito, itálico, prefixo, unidade, casas), com `TypeSelector` e "Editar tipo" no painel do terreno (E2E `anotar-familias.mjs`, passo 6)
+- [-] G3 Mover e copiar cota de ponto e rótulo pela Selecionar: só no modo Editar terreno (I12 segue valendo)

@@ -1,6 +1,6 @@
 import {
-  coordenadaReal,
-  cotaExibida,
+  coordenadaDaBase,
+  elevacaoDaBase,
   formatQuantity,
   northArrowFamilyFor,
   revisionCloudFamilyFor,
@@ -83,14 +83,8 @@ export function spotAnnotationOps(
     const r = (fam.symbolMm / 2) * mPerMm;
 
     if (spot.kind === 'elevation') {
-      const baseZ = fam.base === 'survey'
-        ? (p.settings.surveyPoint?.z ?? 0)
-        : fam.base === 'project'
-          ? (p.settings.projectBasePoint?.z ?? 0)
-          : levelElev;
-      const zWorld = look.isSection ? spot.target.y : levelElev;
-      // Com localização e base de projeto, a cota é a EXIBIDA (z + cota zero real); sem ela, a conta de sempre.
-      const medida = fam.base === 'project' && p.localizacao !== undefined ? cotaExibida(p, zWorld) : zWorld - baseZ;
+      const zWorld = look.isSection ? spot.target.y : (spot.z ?? levelElev);
+      const medida = elevacaoDaBase(p, fam.base, zWorld, levelElev);
       const valText = `${fam.prefix}${formatMeasure(p, medida, fam.unit, fam.precision)}`;
 
       if (look.isSection) {
@@ -133,23 +127,7 @@ export function spotAnnotationOps(
       }
     } else {
       // Coordenada de ponto (N/E) relativa ao Ponto Base, Levantamento (com rotação do Norte Verdadeiro) ou Origem.
-      let dx = spot.target.x;
-      let dy = spot.target.y;
-      if (fam.base === 'project' && p.localizacao !== undefined) {
-        // Com localização, N/E são os REAIS (origem + rotação pelo norte verdadeiro); o ponto base do projeto não entra.
-        const real = coordenadaReal(p, spot.target);
-        dx = real.leste;
-        dy = real.norte;
-      } else if (fam.base === 'project' && p.settings.projectBasePoint) {
-        dx -= p.settings.projectBasePoint.x;
-        dy -= p.settings.projectBasePoint.y;
-      } else if (fam.base === 'survey' && p.settings.surveyPoint) {
-        const sx = dx - p.settings.surveyPoint.x;
-        const sy = dy - p.settings.surveyPoint.y;
-        const rad = ((p.settings.surveyPoint.trueNorthDeg ?? 0) * Math.PI) / 180;
-        dx = sx * Math.cos(rad) + sy * Math.sin(rad);
-        dy = -sx * Math.sin(rad) + sy * Math.cos(rad);
-      }
+      const { leste: dx, norte: dy } = coordenadaDaBase(p, fam.base, spot.target);
       const c = spot.target;
       if (fam.planSymbol === 'target-bw') {
         fills.push({ polygons: [[quadrantPts(c, r, 0)]], color, alpha: 1 });

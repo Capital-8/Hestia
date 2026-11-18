@@ -1,5 +1,5 @@
 import { envoltoriaDasFontes, type CotaDoTerreno, type CurvaNivelTN, type LinhaPlantaTN, type MapaCorteAterroTN } from '@hestia/engine';
-import type { Id, Project, Terrain, TerrainRegion } from '@hestia/model';
+import { terrainTextFamilyFor, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
 import { mix } from './color.ts';
 import type { FloorOps } from './floors.ts';
 import { tracoEm } from './marcadores.ts';
@@ -123,7 +123,7 @@ export function terrenoOps(p: Project, t: Terrain, dados: DadosTerreno, theme: P
     out.strokes.push({ ...tracoEm(q, [{ x: -h, y: 0 }, { x: h, y: 0 }], false), ...proj, color: cor, alpha: 1 });
     out.strokes.push({ ...tracoEm(q, [{ x: 0, y: -h }, { x: 0, y: h }], false), ...proj, color: cor, alpha: 1 });
     const c = cotas?.[i];
-    if (c) out.labels.push(rotuloDeCota(p, q, c.z, scale));
+    if (c) out.labels.push(rotuloDeCota(p, q, c.z, scale, terrainTextFamilyFor(p.settings, 'spot', t.cotadoFamilyId)));
   });
   return out;
 }

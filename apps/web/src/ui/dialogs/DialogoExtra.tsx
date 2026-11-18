@@ -5,6 +5,7 @@ import { BeamTypeDialog } from './BeamTypeDialog.tsx';
 import { ColumnScheduleDialog } from './ColumnScheduleDialog.tsx';
 import { ColumnTypeDialog } from './ColumnTypeDialog.tsx';
 import { NorthArrowFamiliesDialog, RevisionCloudFamiliesDialog, SpotFamiliesDialog, TextFamiliesDialog } from './ExtraAnnotationFamilyDialogs.tsx';
+import { LotFamiliesDialog, TerrainTextFamiliesDialog } from './TerrainLotFamilyDialogs.tsx';
 import { FootingScheduleDialog } from './FootingScheduleDialog.tsx';
 import { FootingTypeDialog } from './FootingTypeDialog.tsx';
 import { TagAllDialog } from './TagAllDialog.tsx';
@@ -25,6 +26,12 @@ export function DialogoExtra({ kind, arg }: { kind: DialogKind; arg: string | nu
       return <RevisionCloudFamiliesDialog />;
     case 'northArrowFamilies':
       return <NorthArrowFamiliesDialog />;
+    case 'terrainContourFamilies':
+      return <TerrainTextFamiliesDialog kind="contour" />;
+    case 'terrainSpotFamilies':
+      return <TerrainTextFamiliesDialog kind="spot" />;
+    case 'lotFamilies':
+      return <LotFamiliesDialog />;
     case 'columnType':
       return <ColumnTypeDialog typeId={arg ?? undefined} />;
     case 'beamType':
