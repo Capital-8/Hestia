@@ -58,7 +58,7 @@ describe('esquema gerado (cena-v11.json)', () => {
     type Saida = [string, string, number | string];
     const consultas: Record<string, [number, string[], Saida[]]> = {
       terreno_malha: [160, ['nivel_num', 'superficie'], [['grupos', 'u32', '5n'], ['vertices', 'f64', '3n'], ['indices', 'u32', 'n']]],
-      terreno_curvas: [161, ['nivel_num', 'superficie'], [['linhas', 'u32', '4n'], ['pontos', 'f64', '2n'], ['cotas', 'f64', 'n']]],
+      terreno_curvas: [161, ['nivel_num', 'superficie', 'tolerancia'], [['linhas', 'u32', '4n'], ['pontos', 'f64', '2n'], ['cotas', 'f64', 'n']]],
       terreno_planta: [162, ['nivel_num', 'superficie'], [['linhas', 'u32', '4n'], ['pontos', 'f64', '2n']]],
       terreno_cotas: [163, ['superficie'], [['linhas', 'u32', '2n'], ['valores', 'f64', '2n']]],
       terreno_corte: [164, ['nivel_num', 'ox', 'oy', 'dx', 'dy', 'profundidade'], [['linhas', 'u32', '4n'], ['pontos', 'f64', '2n']]],
