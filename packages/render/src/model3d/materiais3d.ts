@@ -34,7 +34,7 @@ if ( absTriNorm.z >= absTriNorm.x && absTriNorm.z >= absTriNorm.y ) {
 } else {
   triUv = triPos.yz;
 }
-triUv *= ${TRIPLANAR_ESCALA.toFixed(2)};
+triUv *= ${TRIPLANAR_ESCALA.toFixed(2)}; // units-ok: escala UV de shader GLSL
 #ifdef USE_MAP
   vMapUv = ( mapTransform * vec3( triUv, 1.0 ) ).xy;
 #endif

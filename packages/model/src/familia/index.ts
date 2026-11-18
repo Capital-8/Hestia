@@ -1,4 +1,5 @@
 export * from './tipos.ts';
+export * from './acabamentos.ts';
 export * from './tiposCaixaria.ts';
 export * from './caixaria.ts';
 export * from './caixariaCompilar.ts';

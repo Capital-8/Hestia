@@ -209,7 +209,8 @@ export class ModelScene {
     this.sombraMaxTriangulos = opcoes.sombraMaxTriangulos ?? SOMBRA_MAX_TRIANGULOS;
     this.lotes = new LotesPorFaixa({
       caixaUnitaria: this.caixaUnitaria,
-      material: (categoria, materialId, extras) => this.mats.face(extras ?? this.projeto?.materials[materialId], categoria),
+      material: (categoria, materialId, extras) =>
+        this.mats.face(extras ?? this.projeto?.materials[materialId] ?? MATERIAIS_DE_COMPONENTE[materialId], categoria),
       materialArestas: () => this.mats.edge(),
       niveisPorFaixa: opcoes.niveisPorFaixa,
       faixasMax: opcoes.faixasMax,
