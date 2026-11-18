@@ -58,7 +58,7 @@ const AXIS_EPS = 1e-7;
 
 /** Id do elemento de origem (a esquadria tem id próprio, não o da parede hospedeira: ocultar a parede não esconde o vão) (para `ignore`/`hidden` e para o tooltip). */
 export function sectionOriginId(o: SectionOrigin): Id | undefined {
-  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId;
+  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.componentId;
 }
 
 const finite = (p: Vec2): boolean => Number.isFinite(p.x) && Number.isFinite(p.y);
@@ -222,7 +222,9 @@ export function buildSectionSnapIndex(section: SectionResult): SectionSnapIndex 
 
   // Cortes por material: contornos visíveis das paredes, pisos, lajes e telhados atravessados pelo plano.
   for (const region of section.cut) {
-    const host = region.sources.length === 1 ? sectionOriginId(region.sources[0]!) : undefined;
+    // Várias origens do MESMO elemento (as peças de um móvel unidas por material) ainda têm dono único.
+    const dono = new Set(region.sources.map(sectionOriginId));
+    const host = dono.size === 1 ? [...dono][0] : undefined;
     addPolygons(draft, region.polygons, host);
     if (host !== undefined && region.sources[0]!.wallId === host) addWallTop(draft, region.polygons, host);
   }
