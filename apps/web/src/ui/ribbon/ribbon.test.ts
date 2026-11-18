@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { describe, expect, it } from 'vitest';
 import { TOOL_LABEL } from '@hestia/tools';
 import { createEmptyProject, type Project } from '@hestia/model';
@@ -57,7 +58,8 @@ describe('faixa guiada por dados', () => {
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
     // A ferramenta de suplemento ('plugin') é aberta pelos botões que o próprio suplemento contribui (aba Suplementos).
     // `terrainEdit` entra pelo botão "Editar terreno" (ação `editTerreno`: grava `terrenoEdicao` e depois liga a ferramenta; ver ribbonTerreno.test.ts).
-    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit'] as const;
+    // 0.2.5: a massa está escondida da faixa (`MASSA_NA_FAIXA` = false): a ferramenta `mass` fica sem botão de propósito.
+    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit', ...(MASSA_NA_FAIXA ? [] : (['mass'] as const))] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);

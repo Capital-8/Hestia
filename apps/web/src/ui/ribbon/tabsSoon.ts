@@ -1,5 +1,6 @@
 import { ALTURA_PADRAO, LADOS_PADRAO, type ModoMassa, type ToolOptions } from '@hestia/tools';
 import { useUi } from '../../editor/state.ts';
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { act, panel, soon, soonS, split, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
@@ -62,16 +63,27 @@ export const TABS_SOON: RibbonTab[] = [
   ),
   tab('massa', t('Massa e terreno', 'Massing & Site'),
     panel('mas-massa', t('Modelo de massa', 'Conceptual Mass'),
-      tool('mass', 'large', { label: t('Massa', 'Mass'), icon: 'mass' }),
-      modoMassa('extrusao', t('Extrusão', 'Extrusion'), 'massExtrude'),
-      modoMassa('mistura', t('Mistura', 'Blend'), 'massBlend'),
-      modoMassa('loft', t('Loft', 'Loft'), 'massLoft'),
-      modoMassa('bulbo', t('Bulbo', 'Bulb'), 'massBulb'),
-      act('showMass'),
+      ...(MASSA_NA_FAIXA
+        ? [
+            tool('mass', 'large', { label: t('Massa', 'Mass'), icon: 'mass' }),
+            modoMassa('extrusao', t('Extrusão', 'Extrusion'), 'massExtrude'),
+            modoMassa('mistura', t('Mistura', 'Blend'), 'massBlend'),
+            modoMassa('loft', t('Loft', 'Loft'), 'massLoft'),
+            modoMassa('bulbo', t('Bulbo', 'Bulb'), 'massBulb'),
+            act('showMass'),
+          ]
+        : [
+            soon(t('Massa', 'Mass'), 'mass'),
+            soonS(t('Extrusão', 'Extrusion'), 'massExtrude'),
+            soonS(t('Mistura', 'Blend'), 'massBlend'),
+            soonS(t('Loft', 'Loft'), 'massLoft'),
+            soonS(t('Bulbo', 'Bulb'), 'massBulb'),
+            soon(t('Mostrar massa', 'Show Mass'), 'massShow'),
+          ]),
       soon(t('Massa no local', 'In-Place Mass'), 'massInPlace'),
       soon(t('Colocar massa', 'Place Mass'), 'massPlace'),
     ),
-    panel('mas-por-massa', t('Modelo por massa', 'Model by Face'), act('pisosDaMassa'), act('paredesDaMassa'), soon(t('Telhado por face', 'Roof by Face'), 'massRoofFace'), soon(t('Parede por face', 'Wall by Face'), 'massWallFace'), soon(t('Forro por face', 'Ceiling by Face'), 'massCeilFace'), soon(t('Piso por face', 'Floor by Face'), 'massFloorFace')),
+    panel('mas-por-massa', t('Modelo por massa', 'Model by Face'), ...(MASSA_NA_FAIXA ? [act('pisosDaMassa'), act('paredesDaMassa')] : [soon(t('Pisos da massa', 'Floors from Mass'), 'massFloors'), soon(t('Paredes da massa', 'Walls from Mass'), 'massWalls')]), soon(t('Telhado por face', 'Roof by Face'), 'massRoofFace'), soon(t('Parede por face', 'Wall by Face'), 'massWallFace'), soon(t('Forro por face', 'Ceiling by Face'), 'massCeilFace'), soon(t('Piso por face', 'Floor by Face'), 'massFloorFace')),
     // Terreno, lote e análise (frente do terreno): Topografia e Editar terreno, Rótulo de curva e Cota de ponto já funcionam; o resto é das fichas T3, P3 a P5 e U2.
     panel('mas-terreno', t('Terreno', 'Site Modeling'),
       split(tool('terrain', 'large', { label: t('Topografia', 'Toposurface'), icon: 'terrTopo' }), [act('terrenoPontos', 'small'), act('terrenoCurvas', 'small'), act('importTerreno', 'small')], t('Topografia', 'Toposurface')),
