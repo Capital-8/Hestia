@@ -7,212 +7,34 @@ import type {
   ModoInteracao3DFamilia,
   VaoResolvido,
 } from './tiposVisualizador.ts';
-
-interface CaixaLimites {
-  min: [number, number, number];
-  max: [number, number, number];
-}
-
-interface HitVao {
-  vao: VaoResolvido;
-  hit: THREE.Intersection;
-  volume: number;
-}
-
-interface BlocoVisual {
-  grupo: THREE.Group;
-  mesh: THREE.Mesh;
-  material: THREE.MeshBasicMaterial;
-  arestas: THREE.LineSegments;
-  materialArestas: THREE.LineBasicMaterial;
-}
-
-interface FaceExternaVisual {
-  face: FaceExternaCaixa;
-  mesh: THREE.Mesh;
-  arestas: THREE.LineSegments;
-}
-
-const FACES_EXTERNAS: readonly FaceExternaCaixa[] = [
-  'esquerda',
-  'direita',
-  'topo',
-  'base',
-  'frente',
-  'fundo',
-];
-
-const TOLERANCIA_IMA_MEIO = 0.03;
-const ESPESSURA_FACE_EXTERNA = 0.003;
-const MARGEM_BORDA_PORTA_MAX = 0.045;
-const FRACAO_BORDA_PORTA = 0.14;
-
-const COR_HOVER_VAO = 0x00a8ff;
-const COR_SEL_VAO = 0x0078d4;
-const COR_FANTASMA = 0x10b981;
-const COR_FANTASMA_ARESTA = 0x059669;
-const COR_FANTASMA_IMA = 0x06b6d4;
-const COR_FANTASMA_IMA_ARESTA = 0x0e7490;
-const COR_FACE_HOVER = 0x0078d4;
-const COR_SETA_FRENTE = 0x64748b;
-
-function modoUsaFaceExterna(modo: ModoInteracao3DFamilia): boolean {
-  return modo === 'tampo' || modo === 'tamponamento' || modo === 'recorte';
-}
-
-function modoUsaChapaFantasma(modo: ModoInteracao3DFamilia): boolean {
-  return modo === 'prateleira' || modo === 'divisoria';
-}
-
-function eixoDoModo(modo: ModoInteracao3DFamilia): 'x' | 'z' {
-  return modo === 'divisoria' ? 'x' : 'z';
-}
-
-function volumeVao(vao: VaoResolvido): number {
-  return (
-    Math.max(0, vao.max[0] - vao.min[0]) *
-    Math.max(0, vao.max[1] - vao.min[1]) *
-    Math.max(0, vao.max[2] - vao.min[2])
-  );
-}
-
-function pertoDaBordaDoVao(ponto: THREE.Vector3, vao: VaoResolvido): boolean {
-  const lx = Math.max(0, vao.max[0] - vao.min[0]);
-  const lz = Math.max(0, vao.max[2] - vao.min[2]);
-  const mx = Math.min(MARGEM_BORDA_PORTA_MAX, lx * FRACAO_BORDA_PORTA);
-  const mz = Math.min(MARGEM_BORDA_PORTA_MAX, lz * FRACAO_BORDA_PORTA);
-  return (
-    ponto.x - vao.min[0] <= mx ||
-    vao.max[0] - ponto.x <= mx ||
-    ponto.z - vao.min[2] <= mz ||
-    vao.max[2] - ponto.z <= mz
-  );
-}
-
-/** Calcula os limites [min, max] das peças sólidas (ou todas se só houver vazias). */
-function limitesDasPecas(pecas: readonly PecaResolvida[]): CaixaLimites | null {
-  const filtrarSolid = pecas.some((p) => !p.vazio);
-  const min: [number, number, number] = [Infinity, Infinity, Infinity];
-  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
-  let tem = false;
-  for (const p of pecas) {
-    if (filtrarSolid && p.vazio) continue;
-    tem = true;
-    for (let i = 0; i < 3; i++) {
-      const inicio = p.origem[i]!;
-      const fim = inicio + p.extensao[i]!;
-      if (inicio < min[i]!) min[i] = inicio;
-      if (fim > max[i]!) max[i] = fim;
-    }
-  }
-  return tem ? { min, max } : null;
-}
-
-/** Calcula a união [min, max] dos vãos quando ainda não há peças. */
-function limitesDosVaos(vaos: readonly VaoResolvido[]): CaixaLimites | null {
-  if (vaos.length === 0) return null;
-  const min: [number, number, number] = [Infinity, Infinity, Infinity];
-  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
-  for (const v of vaos) {
-    for (let i = 0; i < 3; i++) {
-      if (v.min[i]! < min[i]!) min[i] = v.min[i]!;
-      if (v.max[i]! > max[i]!) max[i] = v.max[i]!;
-    }
-  }
-  return { min, max };
-}
-
-/** Ponto médio do segmento do raio dentro da AABB do vão (fallback para incidência perpendicular ao eixo). */
-function pontoMedioRaioNaCaixa(
-  raio: THREE.Ray,
-  min: readonly [number, number, number],
-  max: readonly [number, number, number],
-): THREE.Vector3 | null {
-  let tMin = -Infinity;
-  let tMax = Infinity;
-  const orig = [raio.origin.x, raio.origin.y, raio.origin.z] as const;
-  const dir = [raio.direction.x, raio.direction.y, raio.direction.z] as const;
-  for (let i = 0; i < 3; i++) {
-    const d = dir[i]!;
-    const o = orig[i]!;
-    if (Math.abs(d) < 1e-8) {
-      if (o < min[i]! || o > max[i]!) return null;
-    } else {
-      let t1 = (min[i]! - o) / d;
-      let t2 = (max[i]! - o) / d;
-      if (t1 > t2) [t1, t2] = [t2, t1];
-      tMin = Math.max(tMin, t1);
-      tMax = Math.min(tMax, t2);
-      if (tMin > tMax) return null;
-    }
-  }
-  const t = Math.max(0, (Math.max(0, tMin) + Math.max(0, tMax)) / 2);
-  return raio.at(t, new THREE.Vector3());
-}
-
-/** Calcula posição normalizada (com imã no meio 0.5 ± 3%) e distâncias em mm até início/fim internos do vão. */
-function calcularPosicaoNoVao(
-  vao: VaoResolvido,
-  pontoLocal: THREE.Vector3,
-  eixo: 'x' | 'z',
-  espessuraPadraoMm: number,
-): { posicaoNormalizada: number; medidaInicioMm: number; medidaFimMm: number } {
-  const idx = eixo === 'x' ? 0 : 2;
-  const inicio = vao.min[idx]!;
-  const fim = vao.max[idx]!;
-  const extensao = Math.max(0, fim - inicio);
-  const coord = eixo === 'x' ? pontoLocal.x : pontoLocal.z;
-  const bruto = extensao > 1e-6 ? Math.max(0, Math.min(1, (coord - inicio) / extensao)) : 0.5;
-  const posicaoNormalizada = Math.abs(bruto - 0.5) <= TOLERANCIA_IMA_MEIO ? 0.5 : bruto;
-  const extensaoMm = extensao * 1000;
-  const meiaEspMm = Math.min(Math.max(0, espessuraPadraoMm) / 2, extensaoMm / 2);
-  const medidaInicioMm = Math.round(Math.max(0, posicaoNormalizada * extensaoMm - meiaEspMm));
-  const medidaFimMm = Math.round(Math.max(0, (1 - posicaoNormalizada) * extensaoMm - meiaEspMm));
-  return { posicaoNormalizada, medidaInicioMm, medidaFimMm };
-}
-
-/** Seta discreta no plano XY apontando para -Y (frente do móvel). */
-function criarGeometriaSetaFrente(): THREE.ShapeGeometry {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, -0.045);
-  shape.lineTo(0.042, -0.005);
-  shape.lineTo(0.014, -0.005);
-  shape.lineTo(0.014, 0.045);
-  shape.lineTo(-0.014, 0.045);
-  shape.lineTo(-0.014, -0.005);
-  shape.lineTo(-0.042, -0.005);
-  shape.closePath();
-  return new THREE.ShapeGeometry(shape);
-}
-
-/** Calcula centro e dimensões da placa externa correspondente à face. */
-function geometriaFaceExterna(
-  face: FaceExternaCaixa,
-  limites: CaixaLimites,
-): { centro: [number, number, number]; escala: [number, number, number] } {
-  const { min, max } = limites;
-  const dx = Math.max(0.02, max[0] - min[0]);
-  const dy = Math.max(0.02, max[1] - min[1]);
-  const dz = Math.max(0.02, max[2] - min[2]);
-  const cx = (min[0] + max[0]) / 2;
-  const cy = (min[1] + max[1]) / 2;
-  const cz = (min[2] + max[2]) / 2;
-  const offset = ESPESSURA_FACE_EXTERNA / 2;
-  switch (face) {
-    case 'esquerda':
-      return { centro: [min[0] - offset, cy, cz], escala: [ESPESSURA_FACE_EXTERNA, dy, dz] };
-    case 'direita':
-      return { centro: [max[0] + offset, cy, cz], escala: [ESPESSURA_FACE_EXTERNA, dy, dz] };
-    case 'frente':
-      return { centro: [cx, min[1] - offset, cz], escala: [dx, ESPESSURA_FACE_EXTERNA, dz] };
-    case 'fundo':
-      return { centro: [cx, max[1] + offset, cz], escala: [dx, ESPESSURA_FACE_EXTERNA, dz] };
-    case 'base':
-      return { centro: [cx, cy, min[2] - offset], escala: [dx, dy, ESPESSURA_FACE_EXTERNA] };
-    case 'topo':
-      return { centro: [cx, cy, max[2] + offset], escala: [dx, dy, ESPESSURA_FACE_EXTERNA] };
-  }
-}
+import {
+  COR_FACE_HOVER,
+  COR_FANTASMA,
+  COR_FANTASMA_ARESTA,
+  COR_FANTASMA_IMA,
+  COR_FANTASMA_IMA_ARESTA,
+  COR_HOVER_VAO,
+  COR_SEL_VAO,
+  COR_SETA_FRENTE,
+  FACES_EXTERNAS,
+  calcularPontoLocalNoVao,
+  calcularPosicaoNoVao,
+  criarBlocoVisual,
+  criarGeometriaSetaFrente,
+  descartarBlocoVisual,
+  eixoDoModo,
+  geometriaFaceExterna,
+  limitesDasPecas,
+  limitesDosVaos,
+  modoUsaChapaFantasma,
+  modoUsaFaceExterna,
+  selecionarCandidatoVao,
+  volumeVao,
+  type BlocoVisual,
+  type CaixaLimites,
+  type FaceExternaVisual,
+  type HitVao,
+} from './vaosOverlayApoio.ts';
 
 /**
  * Gerencia overlays 3D interativos para Caixaria por Vãos: caixas de picking de vãos, highlight de hover/seleção,
@@ -286,10 +108,10 @@ export class VaosOverlay {
     this.grupoFacesExternas.name = 'faces_externas';
     this.grupoFacesExternas.visible = false;
 
-    this.highlightHoverVao = this.criarBlocoVisual('vao_hover', COR_HOVER_VAO, 0.14, COR_HOVER_VAO, 0.85);
-    this.highlightSelVao = this.criarBlocoVisual('vao_selecionado', COR_SEL_VAO, 0.18, COR_SEL_VAO, 0.95);
-    this.chapaFantasma = this.criarBlocoVisual('chapa_fantasma', COR_FANTASMA, 0.48, COR_FANTASMA_ARESTA, 0.95);
-    this.highlightFaceHover = this.criarBlocoVisual('face_externa_hover', COR_FACE_HOVER, 0.3, COR_FACE_HOVER, 0.95);
+    this.highlightHoverVao = criarBlocoVisual(this.geoCaixa, this.geoArestas, 'vao_hover', COR_HOVER_VAO, 0.14, COR_HOVER_VAO, 0.85);
+    this.highlightSelVao = criarBlocoVisual(this.geoCaixa, this.geoArestas, 'vao_selecionado', COR_SEL_VAO, 0.18, COR_SEL_VAO, 0.95);
+    this.chapaFantasma = criarBlocoVisual(this.geoCaixa, this.geoArestas, 'chapa_fantasma', COR_FANTASMA, 0.48, COR_FANTASMA_ARESTA, 0.95);
+    this.highlightFaceHover = criarBlocoVisual(this.geoCaixa, this.geoArestas, 'face_externa_hover', COR_FACE_HOVER, 0.3, COR_FACE_HOVER, 0.95);
 
     for (const face of FACES_EXTERNAS) {
       const mesh = new THREE.Mesh(this.geoCaixa, this.matFaceBase);
@@ -495,10 +317,10 @@ export class VaosOverlay {
   destruir(): void {
     if (this.destruido) return;
     this.destruido = true;
-    this.descartarBlocoVisual(this.highlightHoverVao);
-    this.descartarBlocoVisual(this.highlightSelVao);
-    this.descartarBlocoVisual(this.chapaFantasma);
-    this.descartarBlocoVisual(this.highlightFaceHover);
+    descartarBlocoVisual(this.highlightHoverVao);
+    descartarBlocoVisual(this.highlightSelVao);
+    descartarBlocoVisual(this.chapaFantasma);
+    descartarBlocoVisual(this.highlightFaceHover);
     this.geoCaixa.dispose();
     this.geoArestas.dispose();
     this.geoSeta.dispose();
@@ -509,40 +331,6 @@ export class VaosOverlay {
     this.grupo.clear();
     this.meshesVaos = [];
     this.vaoPorId.clear();
-  }
-
-  private criarBlocoVisual(
-    nome: string,
-    cor: number,
-    opacidade: number,
-    corArestas: number,
-    opacidadeArestas: number,
-  ): BlocoVisual {
-    const grupo = new THREE.Group();
-    grupo.name = nome;
-    grupo.visible = false;
-    const material = new THREE.MeshBasicMaterial({
-      color: cor,
-      transparent: true,
-      opacity: opacidade,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(this.geoCaixa, material);
-    const materialArestas = new THREE.LineBasicMaterial({
-      color: corArestas,
-      transparent: true,
-      opacity: opacidadeArestas,
-    });
-    const arestas = new THREE.LineSegments(this.geoArestas, materialArestas);
-    grupo.add(mesh, arestas);
-    return { grupo, mesh, material, arestas, materialArestas };
-  }
-
-  private descartarBlocoVisual(bloco: BlocoVisual): void {
-    bloco.material.dispose();
-    bloco.materialArestas.dispose();
-    bloco.grupo.clear();
   }
 
   private obterLimitesEfetivos(): CaixaLimites | null {
@@ -662,6 +450,8 @@ export class VaosOverlay {
   }
 
   private resolverVaoSob(
+
+  private resolverVaoSob(
     raycaster: THREE.Raycaster,
     clientX: number,
     clientY: number,
@@ -680,8 +470,8 @@ export class VaosOverlay {
     const candidatos = Array.from(porId.values());
     if (candidatos.length === 0) return null;
 
-    const escolhido = this.selecionarCandidatoVao(candidatos);
-    const pontoLocal = this.calcularPontoLocalNoVao(raycaster, escolhido);
+    const escolhido = selecionarCandidatoVao(candidatos, this.modo, this.grupo);
+    const pontoLocal = calcularPontoLocalNoVao(this.grupo, raycaster, escolhido, this.modo);
     const eixo = eixoDoModo(this.modo);
     const { posicaoNormalizada, medidaInicioMm, medidaFimMm } = calcularPosicaoNoVao(
       escolhido.vao,
@@ -703,43 +493,5 @@ export class VaosOverlay {
         clientY,
       },
     };
-  }
-
-  private selecionarCandidatoVao(candidatos: HitVao[]): HitVao {
-    if (this.modo === 'porta') {
-      const divisoesNaBorda = candidatos.filter((c) => {
-        if (!c.vao.temDivisao) return false;
-        const pt = this.grupo.worldToLocal(c.hit.point.clone());
-        return pertoDaBordaDoVao(pt, c.vao);
-      });
-      if (divisoesNaBorda.length > 0) {
-        divisoesNaBorda.sort((a, b) => a.volume - b.volume || a.hit.distance - b.hit.distance);
-        return divisoesNaBorda[0]!;
-      }
-    }
-
-    const folhas = candidatos.filter((c) => c.vao.folha);
-    if (folhas.length > 0) {
-      folhas.sort((a, b) => a.hit.distance - b.hit.distance || a.volume - b.volume);
-      return folhas[0]!;
-    }
-
-    candidatos.sort((a, b) => a.volume - b.volume || a.hit.distance - b.hit.distance);
-    return candidatos[0]!;
-  }
-
-  private calcularPontoLocalNoVao(raycaster: THREE.Raycaster, escolhido: HitVao): THREE.Vector3 {
-    const pontoLocal = this.grupo.worldToLocal(escolhido.hit.point.clone());
-    if (!modoUsaChapaFantasma(this.modo) || escolhido.hit.face == null) return pontoLocal;
-
-    const eixo = eixoDoModo(this.modo);
-    const normal = escolhido.hit.face.normal;
-    const incidiuPerpendicular =
-      (eixo === 'z' && Math.abs(normal.z) > 0.5) || (eixo === 'x' && Math.abs(normal.x) > 0.5);
-    if (!incidiuPerpendicular) return pontoLocal;
-
-    const matrizInversa = new THREE.Matrix4().copy(this.grupo.matrixWorld).invert();
-    const raioLocal = raycaster.ray.clone().applyMatrix4(matrizInversa);
-    return pontoMedioRaioNaCaixa(raioLocal, escolhido.vao.min, escolhido.vao.max) ?? pontoLocal;
   }
 }

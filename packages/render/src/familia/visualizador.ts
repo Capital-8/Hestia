@@ -1,8 +1,7 @@
-import { malhaDasPecas, type Malha, type PecaResolvida } from '@hestia/engine';
+import { malhaDasPecas, type PecaResolvida } from '@hestia/engine';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-  corDaPeca,
   deslocamentoDeExplosao,
   distanciaDeEnquadramento,
   esferaDeEnquadramento,
@@ -10,7 +9,7 @@ import {
   pecaVisivel,
   type NivelDetalhe3d,
 } from './logica.ts';
-import { marcadoresDaPeca, marcadoresVisiveis } from './usinagensMarcadores.ts';
+import { marcadoresVisiveis } from './usinagensMarcadores.ts';
 import type {
   CliqueFace3D,
   CliqueVao3D,
@@ -38,47 +37,7 @@ export interface CortePlano {
   posicao: number;
 }
 
-/** Uma peça na cena: malha, material próprio (opacidade/seleção), geometria e arestas de realce e marcadores de usinagem. */
-interface PecaNaCena {
-  peca: PecaResolvida;
-  mesh: THREE.Mesh;
-  material: THREE.MeshStandardMaterial;
-  geometria: THREE.BufferGeometry;
-  arestas: THREE.LineSegments;
-  materialArestas: THREE.LineBasicMaterial;
-  marcadores: THREE.Mesh[];
-}
-
-/** Extrai de uma malha combinada só os triângulos da peça `indice`, para uma geometria própria por peça. */
-function malhaDaPeca(m: Malha, indice: number): Malha {
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-  const pecaDoTriangulo: number[] = [];
-  for (let t = 0; t < m.pecaDoTriangulo.length; t++) {
-    if (m.pecaDoTriangulo[t] !== indice) continue;
-    const base = positions.length / 3;
-    for (let v = 0; v < 3; v++) {
-      const vertice = m.indices[t * 3 + v]!;
-      positions.push(m.positions[vertice * 3]!, m.positions[vertice * 3 + 1]!, m.positions[vertice * 3 + 2]!);
-      normals.push(m.normals[vertice * 3]!, m.normals[vertice * 3 + 1]!, m.normals[vertice * 3 + 2]!);
-    }
-    indices.push(base, base + 1, base + 2);
-    pecaDoTriangulo.push(indice);
-  }
-  return { positions, normals, indices, pecaDoTriangulo };
-}
-
-/** Direção (do centro para a câmera) de cada vista rápida; a de 'planta' olha de cima. */
-const DIRECOES_DE_VISTA: Readonly<Record<'iso' | 'frente' | 'lateral' | 'planta', THREE.Vector3>> = {
-  iso: new THREE.Vector3(0.8, -1.1, 0.7).normalize(),
-  frente: new THREE.Vector3(0, -1, 0),
-  lateral: new THREE.Vector3(1, 0, 0),
-  planta: new THREE.Vector3(0, 0, 1),
-};
-
-/** Eixo Y unitário: o disco do marcador (cilindro do three) aponta para ele e é girado para a normal da face. */
-const EIXO_Y = new THREE.Vector3(0, 1, 0);
+import { DIRECOES_DE_VISTA, criarMaterialPeca, malhaDaPeca, montarMarcadoresPeca, type PecaNaCena } from './visualizadorPecas.ts';
 
 export class VisualizadorFamilia {
   private readonly canvas: HTMLCanvasElement;
@@ -161,7 +120,7 @@ export class VisualizadorFamilia {
     const { solidas, vazios } = malhaDasPecas(this.pecas);
     this.pecas.forEach((peca, indice) => {
       const geometria = geometriaDaMalha(malhaDaPeca(peca.vazio ? vazios : solidas, indice));
-      const material = this.criarMaterial(peca);
+      const material = criarMaterialPeca(peca, this.materiais, this.opacidade);
       const mesh = new THREE.Mesh(geometria, material);
       mesh.name = `${peca.nome} #${peca.indice}`;
       mesh.position.fromArray(deslocamentoDeExplosao(peca, this.fatorExplosao, this.esfera.centro));
@@ -171,7 +130,7 @@ export class VisualizadorFamilia {
       const arestas = new THREE.LineSegments(new THREE.EdgesGeometry(geometria), materialArestas);
       arestas.visible = false;
       mesh.add(arestas);
-      const marcadores = this.montarMarcadores(peca);
+      const marcadores = montarMarcadoresPeca(peca, this.geoDisco, this.geoCaixa, this.matMarcador);
       for (const marcador of marcadores) mesh.add(marcador);
       this.raiz.add(mesh);
       this.visuais.push({ peca, mesh, material, geometria, arestas, materialArestas, marcadores });
@@ -356,40 +315,7 @@ export class VisualizadorFamilia {
     this.renderer.dispose();
   }
 
-  /** Constrói os meshes-filho dos marcadores de usinagem da peça (geometrias e material compartilhados; `limparPecas` não libera os compartilhados). */
-  private montarMarcadores(peca: PecaResolvida): THREE.Mesh[] {
-    const criados: THREE.Mesh[] = [];
-    for (const m of marcadoresDaPeca(peca)) {
-      const mesh = new THREE.Mesh(m.forma === 'disco' ? this.geoDisco : this.geoCaixa, this.matMarcador);
-      mesh.position.fromArray(m.centro);
-      if (m.forma === 'disco') {
-        mesh.quaternion.setFromUnitVectors(EIXO_Y, new THREE.Vector3(m.normal[0], m.normal[1], m.normal[2]));
-        mesh.scale.set(m.raio, m.altura, m.raio);
-      } else {
-        mesh.scale.set(m.dimensoes[0], m.dimensoes[1], m.dimensoes[2]);
-      }
-      criados.push(mesh);
-    }
-    return criados;
-  }
 
-  /** Material da peça: cor de `corDaPeca`, chapado; vazias translúcidas e sem escrever profundidade. */
-  private criarMaterial(peca: PecaResolvida): THREE.MeshStandardMaterial {
-    const vazio = peca.vazio;
-    const opacidade = vazio ? 0.35 : this.opacidade;
-    return new THREE.MeshStandardMaterial({
-      color: corDaPeca(peca, this.materiais),
-      flatShading: true,
-      metalness: 0.02,
-      roughness: 0.72,
-      side: THREE.DoubleSide,
-      transparent: vazio || opacidade < 1,
-      opacity: opacidade,
-      depthWrite: !vazio,
-    });
-  }
-
-  /** Remove da cena e libera todas as peças montadas. */
   private limparPecas(): void {
     for (const visual of this.visuais) {
       this.raiz.remove(visual.mesh);

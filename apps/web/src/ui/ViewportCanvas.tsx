@@ -36,6 +36,7 @@ import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, cent
 import { GizmoInput3D, type AlcaDimGizmo, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
 import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
 import { idDaFamiliaArrastada, prepararArrastoDeFamilia, soltarDaPaleta } from '../editor/soltarFamilia.ts';
+import { useFamilia } from './familia/familiaStore.ts';
 
 interface Pt {
   x: number;
@@ -592,6 +593,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       const alvo = e.target as HTMLElement | null;
       if (st.view === '3d' && (e.key === 'r' || e.key === 'R')) {
+        if (useFamilia.getState().aberta) return;
         if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT')) return;
         const delta = e.shiftKey ? Math.PI / 2 : -Math.PI / 2;
         if (arrastoComp.current) {
