@@ -62,7 +62,14 @@ const R: Record<string, string> = {
   editperimeter: p('bl', 'M3 4H17V13H24V24H3Z') + p('ac', 'M3 4H17V13H24V24H3Z') + p('fa', 'M1.8 2.8H4.2V5.2H1.8ZM15.8 2.8H18.2V5.2H15.8ZM15.8 11.8H18.2V14.2H15.8Z') + p('s1', 'M16.6 22.6L24.6 14.6L27.4 17.4L19.4 25.4Z') + p('s3', 'M24.6 14.6L26.2 13L29 15.8L27.4 17.4Z') + p('s3', 'M16.6 22.6L19.4 25.4L13.5 28.5Z') + p('fa', 'M15.2 25.3L16.7 26.8L13.5 28.5Z'),
 
   // Elementos de arquitetura
-  wall: p('s1', 'M4 12L12 7H28L20 12Z') + p('s2', 'M4 12H20V25H4Z') + p('s3', 'M20 12L28 7V20L20 25Z'),
+  // Parede: longa e fina, com fiadas de tijolo na frente (lê como parede, não como cubo) e o eixo laranja com seta (a ferramenta desenha ao longo dele).
+  wall:
+    p('s1', 'M3 8L7 5H29L25 8Z') +
+    p('s2', 'M3 8H25V23H3Z') +
+    p('s3', 'M25 8L29 5V20L25 23Z') +
+    p('ln', 'M3 13H25M3 18H25M9 8V13M16 8V13M22 8V13M6 13V18M12.5 13V18M19 13V18M9 18V23M16 18V23M22 18V23') +
+    p('ac', 'M3 28H22') +
+    p('fa', 'M21 25.5L28 28L21 30.5Z'),
   door: p('s3', 'M8 4H24V28H8Z') + p('s2', 'M8 4L19 6.5V30L8 28Z') + '<circle class="ic-fa" cx="16" cy="18" r="1.3"/>',
   window: p('s2', 'M5 3H27V26H5Z') + p('gl', 'M8 6H15V13H8Z') + p('gl', 'M17 6H24V13H17Z') + p('gl', 'M8 15H15V22H8Z') + p('gl', 'M17 15H24V22H17Z') + p('s3', 'M3 26H29V29H3Z'),
   floor: p('bl', 'M3 14L16 7L29 14L16 21Z') + p('s2', 'M3 14L16 21V25L3 18Z') + p('s3', 'M16 21L29 14V18L16 25Z'),
