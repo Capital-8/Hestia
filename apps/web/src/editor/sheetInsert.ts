@@ -1,4 +1,3 @@
-import { computeSection } from '@hestia/engine';
 import {
   areaPlanOf,
   levelGraphicsOf,
@@ -16,7 +15,7 @@ import {
   type SheetViewport,
   type SheetViewSource,
 } from '@hestia/model';
-import { levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
+import { computeSectionCached, levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
 import { t, useI18n } from './i18n.ts';
 import { defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
 
@@ -72,7 +71,7 @@ export function contentSizeMm(p: Project, view: SheetViewSource, scale: number):
     const section = p.views.find((v) => v.id === view.sectionId);
     if (!section) return fallbackSize(view);
     const pts = sectionPoints(p, section);
-    const box = sectionBox(computeSection(p, { a: pts.a, b: pts.b, depth: section.depth }));
+    const box = sectionBox(computeSectionCached(p, { a: pts.a, b: pts.b, depth: section.depth }));
     return {
       w: (box.maxX - box.minX + SECTION_PADDING_M) * mmPerM,
       h: (box.maxY - box.minY + SECTION_PADDING_M) * mmPerM,

@@ -1,0 +1,171 @@
+{
+  "when": "2026-11-18T20:50:43.313Z",
+  "drops": [
+    {
+      "label": "Planta Térreo",
+      "node": "plan:lv_0",
+      "ms": 243.6,
+      "msFromUp": 249.4,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Planta Pav. 2",
+      "node": "plan:lv_1",
+      "ms": 388.7,
+      "msFromUp": 394.7,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Planta Pav. 3",
+      "node": "plan:lv_2",
+      "ms": 547.7,
+      "msFromUp": 552,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Planta Pav. 4",
+      "node": "plan:lv_3",
+      "ms": 633.5,
+      "msFromUp": 635.5,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Planta Cobertura (último pavimento)",
+      "node": "plan:lv_9",
+      "ms": 680.4,
+      "msFromUp": 682.9,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Corte AA",
+      "node": "view:PD-AA",
+      "ms": 1591.7,
+      "msFromUp": 2077.4,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Corte BB",
+      "node": "view:PD-BB",
+      "ms": 2338.9,
+      "msFromUp": 3065.4,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Elevação Sul",
+      "node": "view:PD-ES",
+      "ms": 2996.4,
+      "msFromUp": 3463.3,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Elevação Norte",
+      "node": "view:PD-EN",
+      "ms": 3696.3,
+      "msFromUp": 4195.5,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Elevação Leste",
+      "node": "view:PD-EL",
+      "ms": 4381.4,
+      "msFromUp": 4833.2,
+      "added": true,
+      "scale": 100
+    },
+    {
+      "label": "Elevação Oeste",
+      "node": "view:PD-EO",
+      "ms": 4826.7,
+      "msFromUp": 5278.9,
+      "added": true,
+      "scale": 100
+    }
+  ],
+  "dropStats": {
+    "n": 11,
+    "p50": 2077.4,
+    "p95": 5278.9,
+    "max": 5278.9
+  },
+  "gestures": {
+    "zoom": {
+      "frame": {
+        "n": 424,
+        "p50": 16.7,
+        "p95": 66.7,
+        "max": 183.3
+      },
+      "longtasks": 51,
+      "longMax": 190,
+      "over100": 1
+    },
+    "pan-ajustada": {
+      "frame": {
+        "n": 251,
+        "p50": 100,
+        "p95": 216.6,
+        "max": 250
+      },
+      "longtasks": 159,
+      "longMax": 260,
+      "over100": 125
+    },
+    "pan-aproximada": {
+      "frame": {
+        "n": 188,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 33.3
+      },
+      "longtasks": 0,
+      "longMax": 0,
+      "over100": 0
+    },
+    "mover-vista": {
+      "frame": {
+        "n": 182,
+        "p50": 16.7,
+        "p95": 83.3,
+        "max": 216.7
+      },
+      "longtasks": 60,
+      "longMax": 203,
+      "over100": 2
+    },
+    "mover-vista-soltar": {
+      "frame": {
+        "n": 5,
+        "p50": 16.7,
+        "p95": 166.7,
+        "max": 166.7
+      }
+    }
+  },
+  "pathsPerViewport": [
+    1391,
+    3139,
+    3132,
+    3134,
+    3140,
+    3737,
+    6600,
+    1912,
+    1933,
+    855,
+    876
+  ],
+  "svgNodes": 30219,
+  "moveOk": true,
+  "errors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

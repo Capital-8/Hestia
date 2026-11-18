@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
 import { projectView3DPoints, sheetDimsMm, sheetInnerBox, sheetOf, viewportBox, type SheetViewport } from '@hestia/model';
-import { buildSheetDrawList } from '@hestia/render';
+import { buildSheetLayers, lazyDrawListOfLayers } from '@hestia/render';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { useT, type TextLike } from '../../editor/i18n.ts';
@@ -11,8 +11,6 @@ import { SheetControlBar } from './SheetControlBar.tsx';
 import { panBy } from './sheetCamera.ts';
 import { commitMove, commitNudge, commitRemove } from './sheetCommit.ts';
 import { cursorForHandle, hitBox, hitHandle, type HandleId, type PaperBox } from './sheetSelection.ts';
-import type { SnapLine } from './sheetSnap.ts';
-import { snapLinesOf } from './sheetSnap.ts';
 import { movedBoxes, resolveGesture, type GestureContext, type SheetGesture } from './sheetGestures.ts';
 import { gestoDoBotaoNaPrancha } from './sheetGestoBotao.ts';
 import { useSheetAlign } from './useSheetAlign.ts';
@@ -20,6 +18,8 @@ import { useSheetCamera } from './useSheetCamera.ts';
 import { useSheetDrop } from './useSheetDrop.ts';
 import { useSheetKeys } from './useSheetKeys.ts';
 import { useSheetMove } from './useSheetMove.ts';
+import { useSheetPrefetch } from './useSheetPrefetch.ts';
+import { useSheetSnapLines } from './useSheetSnapLines.ts';
 
 const say = (status: TextLike): void => useUi.setState({ status });
 const refused = (e: unknown): TextLike => (e instanceof Error ? e.message : { key: 'cvs_refused' });
@@ -51,7 +51,9 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
   const [snap, setSnap] = useState(true);
   const [fitScale, setFitScale] = useState(true);
 
-  const list = useMemo(() => buildSheetDrawList(p, sheetId, lang), [p, sheetId, lang]);
+  // Camadas por vista com cache (desenho de cada vista só é refeito quando o modelo ou a vista mudam); `list` = coordenadas de papel.
+  const layers = useMemo(() => buildSheetLayers(p, sheetId, lang), [p, sheetId, lang]);
+  const list = useMemo(() => (layers ? lazyDrawListOfLayers(layers) : null), [layers]);
   const paper = useMemo(() => (sheet ? sheetDimsMm(sheet) : { w: 420, h: 297 }), [sheet]);
   const { view, camera, setCamera, fit, zoomStep, actualSize, zoomTo, paperAt } = useSheetCamera(sheetId, paper, boxRef);
 
@@ -69,8 +71,9 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
 
   const align = useSheetAlign({ sheet: sheet ?? null, sheetId, drawList: list, zoom: camera.zoom });
   const move = useSheetMove({ sheet: sheet ?? null, sheetId, drawList: list, zoom: camera.zoom, selection: sel, setSelection: setSel });
-  const snapLines = useMemo((): SnapLine[] => (sheet && list ? snapLinesOf(list, sheet.viewports) : []), [sheet, list]);
+  const getSnapLines = useSheetSnapLines(sheet ?? null, list);
 
+  useSheetPrefetch(p, sheet ?? null);
   const drop = useSheetDrop({
     sheetId,
     sheet: sheet ?? null,
@@ -105,7 +108,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
     gridStep: grid ? 5 : undefined,
     zoom: camera.zoom,
     shift,
-    lines: snapLines,
+    lines: getSnapLines(),
   });
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
@@ -305,7 +308,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
   );
   useSheetKeys(keyActions, space);
 
-  if (!sheet || !list) return <p className="tree-empty">{t('cvs_sheet_missing')}</p>;
+  if (!sheet || !list || !layers) return <p className="tree-empty">{t('cvs_sheet_missing')}</p>;
 
   const patchSelected = (patch: Partial<Omit<SheetViewport, 'id'>>, label: string): void => {
     if (!single) return;
@@ -358,7 +361,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
         style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}
       >
         <SheetCanvas
-          list={list}
+          layers={layers}
           sheet={sheet}
           camera={camera}
           view={view}
