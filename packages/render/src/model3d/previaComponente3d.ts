@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { levelElevation, type Component, type Project } from '@hestia/model';
 import { buildComponentSolids, MATERIAIS_DE_COMPONENTE } from './componentSolids.ts';
 import { arestasDosLotes, geometriaDoLote } from './lotesMalha3d.ts';
+import { aplicarMapeamentoTriplanar } from './materiais3d.ts';
+import { obterTexturasAcabamento } from './texturasMobiliario.ts';
 
 /**
  * Prévia 3D em tempo real de um componente sendo posicionado da biblioteca: compila as malhas locais uma única vez
@@ -24,7 +26,8 @@ export class PreviaComponente3D {
       this.grupo.visible = false;
       return;
     }
-    const chave = `${componente.familyId}|${componente.typeId ?? ''}|${componente.mirrored ? '1' : '0'}`;
+    const v = componente.values;
+    const chave = `${componente.familyId}|${componente.typeId ?? ''}|${componente.mirrored ? '1' : '0'}|${v?.acabCorpo ?? ''}|${v?.acabPorta ?? ''}|${v?.acabTampo ?? ''}`;
     if (chave !== this.assinatura) {
       this.reconstruir(projeto, componente);
       this.assinatura = chave;
@@ -51,14 +54,20 @@ export class PreviaComponente3D {
     const lotes = buildComponentSolids(rascunhoProjeto, componente.levelId);
     for (const lote of lotes) {
       const geo = geometriaDoLote(lote);
-      const corHex = MATERIAIS_DE_COMPONENTE[lote.materialId]?.color ?? '#d8b98b';
+      const def = MATERIAIS_DE_COMPONENTE[lote.materialId];
+      const tex = obterTexturasAcabamento(lote.materialId);
+      const corHex = def?.color ?? '#c9a176';
+      const opacidadeBase = tex?.opacity ?? def?.opacity ?? 1;
+      const opacity = Math.min(0.84, opacidadeBase * 0.86);
       const mat = new THREE.MeshLambertMaterial({
-        color: corHex,
+        color: tex?.map ? 0xffffff : corHex,
+        ...(tex?.map ? { map: tex.map } : {}),
         transparent: true,
-        opacity: 0.78,
-        depthWrite: true,
+        opacity,
+        depthWrite: opacidadeBase >= 1,
         side: THREE.DoubleSide,
       });
+      if (tex?.map) aplicarMapeamentoTriplanar(mat);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.userData = { ghost: true, semPick: true };
       this.grupo.add(mesh);
