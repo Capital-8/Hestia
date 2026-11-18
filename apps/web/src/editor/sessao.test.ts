@@ -65,6 +65,25 @@ describe('sessão da aba', () => {
     });
   });
 
+  it('aceita vista e aba do estúdio da face quando válidos', () => {
+    expect(sessaoValida({
+      view: 'face',
+      levelId: 'lv_0',
+      planKind: 'floor',
+      faceView: { elementId: 'w_1', face: 'sideExt', layer: 0 },
+      openViews: [{ kind: 'face', elementId: 'w_1', face: 'sideExt', layer: 'all' }],
+    })).toEqual({
+      pasta: null,
+      view: 'face',
+      levelId: 'lv_0',
+      planKind: 'floor',
+      areaPlanId: null,
+      sectionId: null,
+      faceView: { elementId: 'w_1', face: 'sideExt', layer: 0 },
+      openViews: [{ kind: 'face', elementId: 'w_1', face: 'sideExt', layer: 'all' }],
+    });
+  });
+
   it('texto corrompido no armazenamento vira "sem sessão"', () => {
     const armazem = armazemFalso();
     armazem.setItem('hestia.sessao', '{{{');

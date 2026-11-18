@@ -1,13 +1,15 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
+import * as THREE from 'three';
 import { vperf } from '../editor/vperf.ts';
 import { idDoProjetoDoPick, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, servicoTerreno, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { texturas3d } from '../editor/texturas3d.ts';
-import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
-import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
+import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, faceHighlightMesh, idsNaCaixaDaTela, pickDimension, pickElement, pickFace, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
+import { findExactFacePaint, formatQuantity, isFacePaintableElement, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
+import { openFaceStudioTab } from '../editor/viewTabActions.ts';
 import { transfer } from '../editor/transfer.ts';
 import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, montarPrevia, previaPreparada, restaurarCamera, type CameraDaPrevia } from '../editor/pastePreview.ts';
 import { visibilityKeyOf, visibilityOf } from '../editor/viewVisibility.ts';
@@ -124,6 +126,18 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   model.current.texturas = texturas3d;
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
+  const faceHighlightRef = useRef<THREE.Mesh | null>(null);
+  const faceHighlightKeyRef = useRef('');
+  const clearFaceHighlight = useCallback((): void => {
+    const prev = faceHighlightRef.current;
+    if (!prev) return;
+    prev.removeFromParent();
+    prev.geometry.dispose();
+    if (Array.isArray(prev.material)) prev.material.forEach((mat) => mat.dispose());
+    else prev.material.dispose();
+    faceHighlightRef.current = null;
+    faceHighlightKeyRef.current = '';
+  }, []);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
   const previaRascunho = useRef<Project | null>(null);
   const cameraAntesDaPrevia = useRef<CameraDaPrevia | null>(null);
@@ -161,6 +175,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const uiBase = useUi(useShallow((s) => ({ gpu: s.gpu, prompt: s.prompt, typed: s.typed, hover: s.hover, tool: s.tool })));
   const ui = useMemo(() => ({ ...uiBase, view: pane.fields.view }), [uiBase, pane.fields.view]);
   const selection = useUi((s) => s.selection);
+  const facePaintMode = useUi((s) => (s.facePaint.active ? s.facePaint.mode : null));
   const revealing = useUi((s) => { const k = visibilityKeyOf(s); return k ? s.viewTemp[k]?.reveal === true : false; });
   /** Prévia do Colar alinhado (só reage ao estado; quem o preenche é o controlador). */
   const previewState = useUi((s) => s.pastePreview);
@@ -238,8 +253,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       controlador.current = null;
       fantasmas.current?.dispose();
       fantasmas.current = null;
+      clearFaceHighlight();
     };
-  }, [lang]);
+  }, [lang, clearFaceHighlight]);
 
   const safeRender = (g: { gpu: GpuContext }, scene: Parameters<GpuContext['render']>[0], camera: Parameters<GpuContext['render']>[1]): void => {
     try { g.gpu.render(scene, camera); } catch { controlador.current?.falhouRender(); }
@@ -429,6 +445,24 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
         m.highlight(st.selection, st.hover, st.avisoParede ? [st.avisoParede] : []);
         m.highlightSubelemento(p, st.subElemento);
+        if (st.facePaint.active && st.facePaint.hoverHit) {
+          const hit = st.facePaint.hoverHit;
+          const hlKey = `${editor.store.version}|${st.facePaint.mode}|${st.facePaint.layerMode}|${hit.elementId}|${hit.face}|${hit.layerIndex}`;
+          if (hlKey !== faceHighlightKeyRef.current) {
+            clearFaceHighlight();
+            faceHighlightKeyRef.current = hlKey;
+            const color = st.facePaint.mode === 'studioPick' ? 0x10b981 : 0x3b82f6;
+            const hlMesh = faceHighlightMesh(p, hit, st.facePaint.layerMode, color);
+            if (hlMesh) {
+              m.scene.add(hlMesh);
+              faceHighlightRef.current = hlMesh;
+            }
+          } else if (faceHighlightRef.current && faceHighlightRef.current.parent !== m.scene) {
+            m.scene.add(faceHighlightRef.current);
+          }
+        } else {
+          clearFaceHighlight();
+        }
         // Prévia do Colar alinhado: fantasmas violeta do rascunho, enquadrados uma vez por rascunho.
         const camada = (fantasmas.current ??= new CamadaFantasmas());
         if (st.pastePreview) {
@@ -472,6 +506,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       publish(NO_LABELS, null);
       return;
     }
+    clearFaceHighlight();
     // Painel inativo: câmera 2D própria do canvas, enquadrando a vista dele; o ativo usa a do controlador (como sempre).
     const ativo = isActiveRef.current;
     const antes = ativo ? editor.viewport() : (ownCamera.current?.v ?? null);
@@ -617,7 +652,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, paneId, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d]);
+  }, [size, ready, dark, sketch, paneId, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d, clearFaceHighlight]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
@@ -783,9 +818,25 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     hover3d.current.frame = requestAnimationFrame(() => {
       hover3d.current.frame = 0;
       const at = hover3d.current.at;
-      if (!at || paneState().view !== '3d') return;
+      const stNow = paneState();
+      if (!at || stNow.view !== '3d') return;
+      if (stNow.facePaint.active) {
+        const r = host.current?.getBoundingClientRect();
+        if (!r || r.width <= 0 || r.height <= 0) return;
+        const ndc = { x: (at.x / r.width) * 2 - 1, y: 1 - (at.y / r.height) * 2 };
+        const hit = pickFace(model.current.scene, model.current.orbit.camera, ndc, editor.project);
+        const prev = stNow.facePaint.hoverHit;
+        const sameHit = prev === hit || (prev !== null && hit !== null && prev.elementId === hit.elementId && prev.face === hit.face && prev.layerIndex === hit.layerIndex);
+        if (!sameHit || stNow.hover !== null) {
+          useUi.setState((u) => ({
+            hover: null,
+            facePaint: sameHit ? u.facePaint : { ...u.facePaint, hoverHit: hit },
+          }));
+        }
+        return;
+      }
       const id = elementAt3d(at)?.id ?? null;
-      if (paneState().hover !== id) useUi.setState({ hover: id });
+      if (stNow.hover !== id) useUi.setState({ hover: id });
     });
   };
   const modsDe = (e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }): Mods => ({
@@ -874,7 +925,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     if (e.button === 2) { if (emPrevia) return; rightPress.current = { start: s, moved: false }; return; }
     if (view === '3d') {
       // Clique na etiqueta/linha de cota: abre o editor ali mesmo, sem começar a órbita.
-      if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey) {
+      if (!emPrevia && !paneState().facePaint.active && e.button === 0 && !spaceDown.current && !e.altKey) {
         const r = host.current!.getBoundingClientRect();
         const dim = pickDimension(model.current.scene, model.current.orbit.camera, {
           x: (s.x / r.width) * 2 - 1,
@@ -889,6 +940,12 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Selecionar + botão esquerdo sem Alt nem Espaço: o arrasto desenha a caixa de seleção (janela ou cruzamento) em vez
       // de orbitar. Alt+esquerdo, Espaço, meio e Shift+meio seguem como antes. Com a prévia do Colar, a órbita fica.
       if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey && editor.activeTool.id === 'select') {
+        if (paneState().facePaint.active) {
+          drag.current = { mode: 'orbit', start: s, last: s, moved: false, pick: true };
+          iniciarGesto();
+          if (paneState().hover) useUi.setState({ hover: null });
+          return;
+        }
         drag.current = { mode: 'marquee', start: s, last: s, moved: false, pick: true };
         if (paneState().hover) useUi.setState({ hover: null });
         return;
@@ -1173,30 +1230,63 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Sem essa ferramenta (seleção): seleciona o elemento sob o cursor; Shift/Ctrl acrescenta ou alterna (decisão 0016 §3).
     // Clique no vazio deseleciona.
     if (!d.moved && d.pick && paneState().view === '3d') {
-      const hit = pick3dAt(s);
-      const bruto = elementBrutoAt3d(s);
-      const el = comoElementoDoProjeto(bruto);
-      if (editor.activeTool.pick3d) {
-        if (hit || el) {
-          editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
-        } else {
-          // Clique no vazio cancela/sai para a ferramenta de seleção
-          editor.activeTool.cancel();
-          clickSelect3d(null, false);
-          useUi.setState({ status: { key: 'cvv_select_mode' } });
+      const fp = paneState().facePaint;
+      if (fp.active) {
+        const r = host.current!.getBoundingClientRect();
+        const ndc = { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 };
+        const hit = pickFace(model.current.scene, model.current.orbit.camera, ndc, editor.project);
+        if (hit) {
+          if (fp.mode === 'studioPick' || e.shiftKey) {
+            openFaceStudioTab(hit.elementId, hit.face, fp.layerMode === 'layer' ? hit.layerIndex : 'all');
+            useUi.setState((u) => ({
+              facePaint: { ...u.facePaint, active: false, mode: 'paint', hoverHit: null },
+            }));
+          } else if (fp.eraseMode) {
+            editor.store.exec({
+              type: 'removeFacePaint',
+              elementId: hit.elementId,
+              face: hit.face,
+              ...(fp.layerMode === 'layer' ? { layer: hit.layerIndex } : {}),
+            });
+          } else {
+            const p = editor.project;
+            const materialId = p.materials[fp.materialId] ? fp.materialId : (Object.keys(p.materials)[0] ?? fp.materialId);
+            const targetLayer = fp.layerMode === 'layer' ? hit.layerIndex : 'all';
+            const el = p.elements[hit.elementId];
+            const prev = isFacePaintableElement(el) ? findExactFacePaint(el.facePaints, hit.face, targetLayer) : undefined;
+            editor.store.exec({
+              type: 'setFacePaint',
+              elementId: hit.elementId,
+              entry: { ...prev, face: hit.face, layer: targetLayer, materialId },
+            });
+          }
         }
       } else {
-        // Um elemento sob o cursor tem prioridade: a anotação do nível (texto/bolha) não pode bloquear parede/telhado.
-        if (el) {
-          const antes = paneState().selection;
-          const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
-          clickSelect3d(el.id, !comum);
-          // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
-          // Parede cortina já selecionada sozinha: o clique sobre a linha ou o painel escolhe o subelemento (sem nada, a parede inteira).
-          const daEsquadria = comum && bruto ? subelementoDaEsquadriaCortina(editor.project, bruto.id) : null;
-          useUi.setState({ subElemento: daEsquadria ?? (comum && antes.length === 1 && antes[0] === el.id ? subelementoDaCortinaEm(editor.project, el.id, el.point, TOLERANCIA_SUB_3D) : null) });
+        const hit = pick3dAt(s);
+        const bruto = elementBrutoAt3d(s);
+        const el = comoElementoDoProjeto(bruto);
+        if (editor.activeTool.pick3d) {
+          if (hit || el) {
+            editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
+          } else {
+            // Clique no vazio cancela/sai para a ferramenta de seleção
+            editor.activeTool.cancel();
+            clickSelect3d(null, false);
+            useUi.setState({ status: { key: 'cvv_select_mode' } });
+          }
+        } else {
+          // Um elemento sob o cursor tem prioridade: a anotação do nível (texto/bolha) não pode bloquear parede/telhado.
+          if (el) {
+            const antes = paneState().selection;
+            const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
+            clickSelect3d(el.id, !comum);
+            // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
+            // Parede cortina já selecionada sozinha: o clique sobre a linha ou o painel escolhe o subelemento (sem nada, a parede inteira).
+            const daEsquadria = comum && bruto ? subelementoDaEsquadriaCortina(editor.project, bruto.id) : null;
+            useUi.setState({ subElemento: daEsquadria ?? (comum && antes.length === 1 && antes[0] === el.id ? subelementoDaCortinaEm(editor.project, el.id, el.point, TOLERANCIA_SUB_3D) : null) });
+          }
+          else if (!selecionarNivelNoClique(model.current, host.current!.getBoundingClientRect(), s)) clickSelect3d(null, e.shiftKey || e.ctrlKey || e.metaKey);
         }
-        else if (!selecionarNivelNoClique(model.current, host.current!.getBoundingClientRect(), s)) clickSelect3d(null, e.shiftKey || e.ctrlKey || e.metaKey);
       }
     }
     // Clique sem arrasto no corte ou na elevação: o mesmo caminho da 3D (clickSelect3d, que usa selectionAfterClick).
@@ -1288,7 +1378,13 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
 
   /** Saiu do canvas: o realce do 3D e o do corte somem (o da planta não é tocado). */
   const onLeave = (): void => {
-    if (isActiveRef.current && ['3d', 'section'].includes(paneState().view) && paneState().hover) useUi.setState({ hover: null });
+    const stNow = paneState();
+    if (isActiveRef.current && ['3d', 'section'].includes(stNow.view)) {
+      if (stNow.hover) useUi.setState({ hover: null });
+      if (stNow.facePaint.active && stNow.facePaint.hoverHit) {
+        useUi.setState((u) => ({ facePaint: { ...u.facePaint, hoverHit: null } }));
+      }
+    }
     setSemAlvo(false);
   };
   /** Lê do ponteiro da ferramenta ativa se ela recusa o cursor (sem alvo): o cursor vira "não permitido" (cursor.ts). */
@@ -1310,6 +1406,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     handle: handleAxis,
     // A ferramenta confere no próprio render: uma troca de ferramenta não deixa o "não permitido" para trás.
     blocked: semAlvo && editor.activeTool.blocked?.() === true,
+    facePaintMode: ui.view === '3d' ? facePaintMode : null,
   });
   return (
     <div

@@ -121,4 +121,19 @@ describe('texturas 3D (triplanar, escala real)', () => {
     expect(a.customProgramCacheKey()).toBe('tp:cn:0');
     expect(b.customProgramCacheKey()).toBe('tp:cno:0');
   });
+
+  it('orientação triplanar em faces verticais: mantém o eixo vertical Z alinhado com V (vTpPos.yz e vTpPos.xz, nunca vTpPos.zy) e UDN consistente', () => {
+    const base = THREE.ShaderLib.standard;
+    const shader = { uniforms: {} as Record<string, { value: unknown }>, vertexShader: base.vertexShader, fragmentShader: base.fragmentShader };
+    const mapas: MapasTextura3D = { cor: tex(), rugosidade: tex(), normal: tex() };
+    const r = injetarTriplanar(shader, mapas, mapeamentoDaTextura(textura));
+    expect(r).toEqual({ vertex: true, cor: true, rugosidade: true, normal: true });
+    expect(shader.fragmentShader).toContain('tpUv(vTpPos.yz)');
+    expect(shader.fragmentShader).toContain('tpUv(vTpPos.xz)');
+    expect(shader.fragmentShader).not.toContain('vTpPos.zy');
+    expect(shader.fragmentShader).toContain('tx = vec3(tx.xy + tpN.yz, tpN.x);');
+    expect(shader.fragmentShader).not.toContain('tpN.zy');
+    expect(shader.fragmentShader).toContain('tx.zxy * tpW.x');
+    expect(shader.fragmentShader).not.toContain('tx.zyx');
+  });
 });

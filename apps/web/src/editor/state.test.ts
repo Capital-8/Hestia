@@ -58,3 +58,32 @@ describe('Gravidade (G1): campo do estado', () => {
     expect(lerGravidade()).toBe(false);
   });
 });
+
+describe('facePaint no 3D', () => {
+  afterEach(() => useUi.setState({ view: 'plan', tool: 'select', facePaint: { active: false, mode: 'paint', materialId: 'mat_tinta', layerMode: 'all', eraseMode: false, hoverHit: null } }));
+
+  it('desativa facePaint ao sair da vista 3D ou trocar de ferramenta', () => {
+    useUi.setState({ view: '3d', tool: 'select', facePaint: { active: true, mode: 'paint', materialId: 'mat_tinta', layerMode: 'all', eraseMode: false, hoverHit: null } });
+    expect(useUi.getState().facePaint.active).toBe(true);
+    useUi.setState({ tool: 'wall' });
+    expect(useUi.getState().facePaint.active).toBe(false);
+    useUi.setState({ tool: 'select', facePaint: { active: true, mode: 'studioPick', materialId: 'mat_tinta', layerMode: 'all', eraseMode: false, hoverHit: null } });
+    expect(useUi.getState().facePaint.active).toBe(true);
+    expect(useUi.getState().facePaint.mode).toBe('studioPick');
+    useUi.setState({ view: 'plan' });
+    expect(useUi.getState().facePaint.active).toBe(false);
+    expect(useUi.getState().facePaint.mode).toBe('paint');
+  });
+
+  it('inicializa faceStudio com estado padrão do estúdio 2D', () => {
+    expect(useUi.getState().faceStudio).toEqual({
+      tool: 'select',
+      shape: 'rect',
+      activeMaterialId: 'mat_tinta',
+      bandWidth: 0.15,
+      asBand: false,
+      snapGrid: false,
+      selection: { kind: 'base' },
+    });
+  });
+});

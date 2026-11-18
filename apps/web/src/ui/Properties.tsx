@@ -90,6 +90,7 @@ import { hasPlacementProperties, PlacementProperties } from './PlacementProperti
 import { usePerimeter } from '../editor/perimeter.ts';
 import { PerimeterEdgePanel } from './perimeter/PerimeterEdgePanel.tsx';
 import { PERIMETER_TITLE } from './perimeter/PerimeterStatus.ts';
+import { FaceStudioProperties } from './faceStudio/FaceStudioProperties.tsx';
 
 
 
@@ -496,18 +497,20 @@ export function Properties(): ReactElement {
   const kinds = [walls, ops, floors, slabs, ceilings, roofs, stairs, ramps, railings, massas, rooms, generics, cads, columns, beams, footings, terrains, regions, lots].filter((g) => g.length > 0).length;
   const tool = useUi((s) => s.tool);
   const placing = count === 0 && hasPlacementProperties(tool);
+  const activeView = useUi((s) => s.view);
   const perim = usePerimeter();
   // Nível selecionado no 3D: só ocupa o painel quando não há elementos na seleção nem ferramenta em colocação.
   const selectedLevel = useUi((s) => s.selectedLevel);
   const nivelSelecionado = count === 0 && !placing ? p.levels.find((l) => l.id === selectedLevel) : undefined;
-  const panelLabel = perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : rotuloDoSitio({ terrains: terrains.length, regions: regions.length, lots: lots.length, outros: count - terrains.length - regions.length - lots.length }, lang) ?? selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, columns: columns.length, beams: beams.length, footings: footings.length, grade, view }, lang);
+  const panelLabel = activeView === 'face' ? t('pro_fp_studio_pick_title') : perim.active ? PERIMETER_TITLE[perim.target] : placing ? t('prc_msg_placing_tool', { tool: toolLabel(tool, lang) }) : nivelSelecionado ? t('prc_msg_level_name', { name: nivelSelecionado.name }) : rotuloDoSitio({ terrains: terrains.length, regions: regions.length, lots: lots.length, outros: count - terrains.length - regions.length - lots.length }, lang) ?? selectionLabel({ walls: walls.length, ops: ops.length, floors: floors.length, slabs: slabs.length, ceilings: ceilings.length, roofs: roofs.length, stairs: stairs.length, ramps: ramps.length, rooms: rooms.length, generics: generics.length, cads: cads.length, columns: columns.length, beams: beams.length, footings: footings.length, grade, view }, lang);
   return (
     <aside className="side" aria-label={t('properties_title')}>
       <PanelHead panel="props" name={t('properties_title')} closeLabel={t('prc_aria_close_properties')} extra={<span style={{ color: 'var(--fg-faint)', fontWeight: 400 }}>{panelLabel}</span>}>
         {t('properties_title')}
       </PanelHead>
       <LabelScroll>
-        {perim.active ? <PerimeterEdgePanel />
+        {activeView === 'face' ? <FaceStudioProperties />
+          : perim.active ? <PerimeterEdgePanel />
           : kinds === 1 && walls.length > 0 ? <WallProps walls={walls} />
           : kinds === 1 && ops.length > 0 ? <OpeningProps items={ops} />
           : kinds === 1 && floors.length > 0 ? <FloorProperties floors={floors} />

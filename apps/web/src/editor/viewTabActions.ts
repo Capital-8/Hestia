@@ -1,4 +1,4 @@
-import { sheetOf, type Id, type Project } from '@hestia/model';
+import { isFacePaintableElement, sheetOf, type FaceLayerTarget, type FaceSlot, type Id, type Project } from '@hestia/model';
 import { openAreaPlan } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
 import { t, useI18n } from './i18n.ts';
@@ -28,6 +28,11 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
     case 'sheet': {
       const sh = sheetOf(p, v.sheetId);
       return sh ? { icon: 'plan', label: `${sh.number} ${sh.name}` } : null;
+    }
+    case 'face': {
+      const el = p.elements[v.elementId];
+      if (!isFacePaintableElement(el)) return null;
+      return { icon: 'elevation', label: `Face · ${v.face}` };
     }
   }
 }
@@ -66,7 +71,16 @@ function navega(v: OpenView): boolean {
       if (editor.perimetro.bloqueiaNavegacao()) return false;
       useUi.setState({ view: 'sheet', sheetId: v.sheetId });
       return true;
+    case 'face':
+      if (editor.perimetro.bloqueiaNavegacao()) return false;
+      useUi.setState({ view: 'face', faceView: { elementId: v.elementId, face: v.face, layer: v.layer } });
+      return true;
   }
+}
+
+/** Abre ou ativa a aba do Estúdio da Face (2D) para o elemento, face e camada escolhidos. */
+export function openFaceStudioTab(elementId: Id, face: FaceSlot = 'sideExt', layer: FaceLayerTarget = 'all'): void {
+  activateView({ kind: 'face', elementId, face, layer });
 }
 
 /**

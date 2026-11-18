@@ -105,6 +105,9 @@ const TEXTOS = {
   noPrevious: 'edc_ctx_no_previous',
   oneType: 'edc_ctx_one_type',
   notCopyable: 'edc_ctx_not_copyable',
+  faceStudio: 'edc_ctx_face_studio',
+  facePaint3d: 'edc_ctx_face_paint_3d',
+  clearFacePaints: 'edc_ctx_clear_face_paints',
 } as const;
 
 type Chave = keyof typeof TEXTOS;
@@ -222,6 +225,13 @@ export function buildContextMenu(ctx: ContextMenuCtx): MenuEntry[] {
       ...(kind === 'door' || kind === 'window' ? [soon('editFamily', T('editFamily'))] : []),
       selecionarTodas,
     ]);
+    if (ctx.selectionKinds.length === 1 && (kind === 'wall' || kind === 'floor' || kind === 'slab')) {
+      grupos.push([
+        { id: 'faceStudio', label: T('faceStudio') },
+        { id: 'facePaint3d', label: T('facePaint3d') },
+        { id: 'clearFacePaints', label: T('clearFacePaints') },
+      ]);
+    }
     grupos.push([{ id: 'delete', label: T('delete') }, ...locate]);
     grupos.push([...steer, ...zoom]);
   } else {

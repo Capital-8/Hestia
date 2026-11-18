@@ -102,7 +102,7 @@ export function limparPreviaPreparada(): void {
 
 /** Vista de onde o diálogo "Selecionar níveis" foi aberto (antes de pré-aquecer o 3D atrás dele). */
 export interface OrigemDoColar {
-  view: 'plan' | '3d' | 'section' | 'sheet';
+  view: 'plan' | '3d' | 'section' | 'sheet' | 'face';
   levelId: Id;
   sectionId: Id | null;
   planKind: 'floor' | 'roof' | 'area';

@@ -6,18 +6,20 @@ import { t, useI18n, type Lang } from '../editor/i18n.ts';
 import { perimeterActions, usePerimeter } from '../editor/perimeter.ts';
 import { useUi, setRibbonMin } from '../editor/state.ts';
 import { Icon } from './Icon.tsx';
-import { txt, type RibbonPanel, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
+import { t as tRibbon, txt, type RibbonPanel, type RibbonTab, type RibbonTabId } from './ribbon/model.ts';
 import { PanelView } from './ribbon/parts.tsx';
 import { FitRow, type FitItem } from './ribbon/FitRow.tsx';
 import { contextTab, pasteLevelsTab, perimeterTab } from './ribbon/context.ts';
 import { ConfirmCancelPanel } from './ribbon/ConfirmCancelPanel.tsx';
 import { DrawGalleryPanel, isGalleryDrawTool } from './ribbon/DrawGalleryPanel.tsx';
+import { P_PROPS } from './ribbon/panelsShared.ts';
 import { TABS } from './ribbon/tabs.ts';
 import { usePluginRibbonPanels, suplementosTab } from './ribbon/pluginRibbon.ts';
 import { useRibbonCtx } from './ribbon/useCtx.ts';
 import { prioridadeDoPainel } from './ribbon/panelPriority.ts';
 import { WallDrawPanel } from './WallDrawPanel.tsx';
 import { PerimeterRibbonPanels } from './perimeter/PerimeterRibbonPanels.tsx';
+import { FaceStudioRibbonPanels } from './faceStudio/FaceStudioRibbonPanels.tsx';
 import './perimeter/perimeter.css';
 
 /** Aba fixa pelo id; na Suplementos acrescenta os painéis dos suplementos ativos. */
@@ -83,9 +85,13 @@ export function Ribbon(): ReactElement {
   // A prévia do Colar alinhado manda na aba contextual: vale mais que o perímetro e que a seleção.
   const pasteTab = useMemo(() => (pastePreview ? pasteLevelsTab(pastePreview) : null), [pastePreview]);
   const pTab = useMemo(() => (pasteTab ? null : perim.active ? perimeterTab(perim.target, perim.editing) : null), [pasteTab, perim.active, perim.target, perim.editing]);
-  const ctxTab = useMemo(() => (pasteTab || pTab ? null : contextTab(ctx.tool, ctx.selection, ctx.p)), [pasteTab, pTab, ctx.tool, ctx.selection, ctx.p]);
-  const key = pasteTab?.key ?? pTab?.key ?? ctxTab?.key ?? null;
-  const ctxLabel = pasteTab?.tab.label ?? pTab?.label ?? ctxTab?.tab.label;
+  const faceTab = useMemo(
+    () => (pasteTab || pTab || ctx.view !== 'face' ? null : { key: 'faceStudio', label: tRibbon('Modificar | Estúdio da Face', 'Modify | Face Studio') }),
+    [pasteTab, pTab, ctx.view],
+  );
+  const ctxTab = useMemo(() => (pasteTab || pTab || faceTab ? null : contextTab(ctx.tool, ctx.selection, ctx.p)), [pasteTab, pTab, faceTab, ctx.tool, ctx.selection, ctx.p]);
+  const key = pasteTab?.key ?? pTab?.key ?? faceTab?.key ?? ctxTab?.key ?? null;
+  const ctxLabel = pasteTab?.tab.label ?? pTab?.label ?? faceTab?.label ?? ctxTab?.tab.label;
 
   // A aba contextual é selecionada sozinha quando nasce (ou quando o assunto muda) e, ao sumir, devolve a aba de antes.
   useEffect(() => {
@@ -121,6 +127,12 @@ export function Ribbon(): ReactElement {
         ),
       });
       return items;
+    }
+    if (activeId === 'ctx' && faceTab) {
+      return [
+        { key: P_PROPS.id, priority: 1, node: <PanelView panel={P_PROPS} ctx={ctx} lang={lang} /> },
+        { key: 'face-studio', priority: 2, node: <FaceStudioRibbonPanels /> },
+      ];
     }
     if (activeId !== 'ctx' || !pTab) {
       const items: FitItem[] = active?.panels.map((panel) => ({

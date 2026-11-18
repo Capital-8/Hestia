@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
+import type { FaceLayerTarget, FaceSlot, Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
-import type { Backend } from '@hestia/render';
+import type { Backend, FaceHit } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type DimCustomTarget, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
 import { safeGet, safeSet } from './storage.ts';
 import { guardarGravidade, lerGravidade } from './sessao.ts';
@@ -14,8 +14,32 @@ import type { PastePreviewState } from './pasteLevels/types.ts';
 import type { ProgressoImportacao } from './ifcImport.ts';
 import { fmtNum, useI18n, type TextLike } from './i18n.ts';
 
-export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
+export type ViewKind = 'plan' | '3d' | 'section' | 'sheet' | 'face';
 export type ThemePref = 'system' | 'light' | 'dark';
+
+export type FaceStudioShape =
+  | 'line'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc-3pt'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse';
+
+export type FaceStudioTool = 'select' | 'paintBucket' | 'shape';
+export type FaceStudioSelection = { kind: 'base' } | { kind: 'region'; id: string } | { kind: 'dxf'; id: string };
+
+export interface FaceStudioState {
+  tool: FaceStudioTool;
+  shape: FaceStudioShape;
+  activeMaterialId: Id;
+  bandWidth: number;
+  asBand: boolean;
+  snapGrid: boolean;
+  selection: FaceStudioSelection;
+}
 /**
  * Tema ao abrir o app: claro, mesmo que o sistema esteja no escuro (o app não herda a preferência do Windows).
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
@@ -31,6 +55,12 @@ export interface UiState {
   sectionId: Id | null;
   /** Prancha aberta quando `view` é 'sheet' (decisão 0022). */
   sheetId: Id | null;
+  /** Estúdio da face (2D) ativo quando `view` é 'face'. */
+  faceView: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
+  /** Modo de pintura direta de faces no 3D. */
+  facePaint: { active: boolean; mode: 'paint' | 'studioPick'; materialId: Id; layerMode: 'all' | 'layer'; eraseMode: boolean; hoverHit: FaceHit | null };
+  /** Estado da barra contextual e propriedades do Estúdio da Face (2D). */
+  faceStudio: FaceStudioState;
   /** Planta de piso, de cobertura ou de área quando `view` é 'plan' (sessão; a cobertura liga `roofPlanMode`). */
   planKind: PlanKind;
   /** Planta de área ativa quando `planKind` é 'area'. */
@@ -375,6 +405,9 @@ export const useUi = create<UiState>(() => ({
   viewTemp: {},
   sectionId: null,
   sheetId: null,
+  faceView: null,
+  facePaint: { active: false, mode: 'paint', materialId: 'mat_tinta', layerMode: 'all', eraseMode: false, hoverHit: null },
+  faceStudio: { tool: 'select', shape: 'rect', activeMaterialId: 'mat_tinta', bandWidth: 0.15, asBand: false, snapGrid: false, selection: { kind: 'base' } },
   selection: [],
   terrenoEdicao: null,
   mapaCorteAterro: false,
@@ -450,7 +483,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);
@@ -459,6 +492,13 @@ useUi.subscribe((s, prev) => {
   if (telaEstreita()) {
     const cur = useUi.getState();
     if (cur.propsOpen || cur.browserOpen) useUi.setState({ propsOpen: false, browserOpen: false });
+  }
+});
+
+useUi.subscribe((s, prev) => {
+  if (!s.facePaint.active) return;
+  if (s.view !== '3d' || (prev.facePaint.active && s.tool !== prev.tool)) {
+    useUi.setState({ facePaint: { ...s.facePaint, active: false, mode: 'paint', hoverHit: null } });
   }
 });
 

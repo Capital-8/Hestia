@@ -151,3 +151,5 @@ export * from './massaPlanta.ts';
 export * from './massaSchedule.ts';
 export * from './massaDerivaPisos.ts';
 export * from './massaDerivaParedes.ts';
+export * from './faceUnwrap.ts';
+export * from './facePaintQuantities.ts';

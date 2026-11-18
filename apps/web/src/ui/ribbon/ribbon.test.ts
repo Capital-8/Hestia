@@ -229,4 +229,15 @@ describe('copiar, recortar, colar e criar semelhante na faixa', () => {
     const nomes = allCommands('pt').map((c) => c.label);
     expect(nomes).toEqual(expect.arrayContaining(['Copiar', 'Recortar', 'Colar', 'Criar semelhante']));
   });
+
+  it('paintFace3d e openFaceStudio alternam modos distintos no 3D sem exigir seleção prévia', () => {
+    expect(ACTIONS.openFaceStudio.disabled).toBeUndefined();
+    expect(ACTIONS.paintFace3d.icon).toBe('paintBucket');
+    expect(ACTIONS.openFaceStudio.icon).toBe('faceStudio');
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(true);
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'studioPick' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: 'plan', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
+    expect(ACTIONS.openFaceStudio.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'studioPick' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(true);
+    expect(ACTIONS.openFaceStudio.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
+  });
 });

@@ -1,4 +1,4 @@
-import type { Id } from '@hestia/model';
+import type { FaceLayerTarget, FaceSlot, Id } from '@hestia/model';
 
 /**
  * Planta de piso (padrão), de cobertura ou de área. A de cobertura é a planta do nível com o telhado completo
@@ -14,11 +14,12 @@ export type OpenView =
   | { kind: 'plan'; levelId: Id; planKind?: PlanKind; areaPlanId?: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
-  | { kind: 'sheet'; sheetId: Id };
+  | { kind: 'sheet'; sheetId: Id }
+  | { kind: 'face'; elementId: Id; face: FaceSlot; layer: FaceLayerTarget };
 
 /** Campos de vista da interface que determinam a vista ativa (subconjunto de `UiState`). */
 export interface ActiveViewFields {
-  view: 'plan' | '3d' | 'section' | 'sheet';
+  view: 'plan' | '3d' | 'section' | 'sheet' | 'face';
   levelId: Id;
   sectionId: Id | null;
   sheetId: Id | null;
@@ -26,6 +27,8 @@ export interface ActiveViewFields {
   planKind?: PlanKind;
   /** Planta de área ativa quando `planKind` é 'area'. */
   areaPlanId?: Id | null;
+  /** Estúdio da face (2D) ativo quando `view` é 'face'. */
+  faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
 
 /** Tipo da planta de uma vista: 'floor' para qualquer vista que não seja de cobertura ou de área. */
@@ -50,6 +53,8 @@ export function viewKey(v: OpenView): string {
       return `section:${v.viewId}`;
     case 'sheet':
       return `sheet:${v.sheetId}`;
+    case 'face':
+      return `face:${v.elementId}:${v.face}:${v.layer}`;
   }
 }
 
@@ -132,5 +137,7 @@ export function activeViewOf(ui: ActiveViewFields): OpenView | null {
       return ui.sectionId ? { kind: 'section', viewId: ui.sectionId } : null;
     case 'sheet':
       return ui.sheetId ? { kind: 'sheet', sheetId: ui.sheetId } : null;
+    case 'face':
+      return ui.faceView ? { kind: 'face', elementId: ui.faceView.elementId, face: ui.faceView.face, layer: ui.faceView.layer } : null;
   }
 }

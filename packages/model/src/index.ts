@@ -130,3 +130,4 @@ export * from './pluginFields.ts';
 export * from './pluginChecks.ts';
 export * from './pluginSchedules.ts';
 export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unidades do projeto
+export * from './facePaint.ts';

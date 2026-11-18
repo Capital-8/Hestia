@@ -435,6 +435,10 @@ export function labelOf(c: Command): string {
       return 'Excluir família de seta norte';
     case 'setDefaultNorthArrowFamily':
       return 'Definir família de seta norte padrão';
+    case 'setFacePaint':
+      return 'Pintar face';
+    case 'removeFacePaint':
+      return 'Remover pintura da face';
     default: {
       const _nunca: never = c;
       return _nunca;

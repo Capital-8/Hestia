@@ -68,6 +68,7 @@ pub mod itens;
 pub mod juncoes;
 pub mod perfil_quant;
 pub mod pintor;
+pub mod pintura_face;
 pub mod quantidades;
 pub mod indice;
 pub mod memoria;
@@ -257,6 +258,27 @@ pub extern "C" fn executar(op: u32, n_args: u32, param: f64) -> u32 {
     };
     let resultado = executar_op(op, &args, param);
     match resultado {
+        Ok(m) => {
+            let area = area_total(&m);
+            publicar(&m, area);
+            ERRO_OK
+        }
+        Err(codigo) => codigo,
+    }
+}
+
+/// Gera tiras de ripado a partir do multipolígono 0 na arena de entrada e publica cada ripa recortada na saída.
+#[no_mangle]
+pub extern "C" fn executar_ripas(largura: f64, fresta: f64, angulo_graus: f64) -> u32 {
+    let entrada = unsafe { &ENTRADA };
+    if entrada.base.is_null() || entrada.n_args != 1 {
+        return ERRO_ENTRADA;
+    }
+    let Some(args) = ler_entrada(entrada) else {
+        return ERRO_ENTRADA;
+    };
+    let spec = pintura_face::EspecificacaoRipas { largura, fresta, angulo_graus };
+    match pintura_face::gerar_ripas(&args[0], spec) {
         Ok(m) => {
             let area = area_total(&m);
             publicar(&m, area);

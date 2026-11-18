@@ -32,6 +32,7 @@ export const P_GEOMETRY: RibbonPanel = panel(
   t('Geometria', 'Geometry'),
   soon(t('Cortar', 'Cope'), 'cut'),
   stack(soonS(t('Cortar geometria', 'Cut'), 'cut'), tool('joins', 'small'), soonS(t('Entalhar', 'Notch'), 'soon')),
+  stack(act('paintFace3d', 'small'), act('openFaceStudio', 'small')),
 );
 
 export const P_VIEW_MOD: RibbonPanel = panel('vista-mod', t('Vista', 'View'), soon(t('Ocultar em vista', 'Hide in View'), 'hide'), soon(t('Substituir gráficos', 'Override Graphics'), 'layers'));
