@@ -6,7 +6,7 @@
  * seções (mudou cor, nome, rótulos, uma parede...), a memória fica.
  */
 import { CenaV2, type GerenciadorKernelV2 } from '@hestia/geom';
-import { isTerrain, type Id, type Project, type ValidationIssue } from '@hestia/model';
+import { isTerrain, toleranciaCurvasDoTerreno, type Id, type Project, type ValidationIssue } from '@hestia/model';
 import type { Lang } from './i18nMessages.ts';
 import { gerenciadorDoKernel } from './kernelDespacho.ts';
 import { aoMudarKernelPendente } from './kernelPendente.ts';
@@ -158,11 +158,28 @@ export class ServicoTerreno {
     });
   }
 
-  /** Curvas de nível (com a marca de mestra) de cada terreno. */
+  /**
+   * Curvas de nível (com a marca de mestra) de cada terreno. Cada terreno sai com a tolerância de suavização do seu TIPO (0 = exatas, o padrão): o kernel
+   * recebe uma tolerância por consulta, então há uma consulta por tolerância distinta e cada uma fica com os seus terrenos. A tolerância de cada terreno
+   * entra na chave de memória: trocar a opção do tipo redesenha.
+   */
   curvas(p: Project, superficie: SuperficieTN = 1, nivelId: Id | null = null): CurvaNivelTN[] | null {
-    return this.memoizar(p, `curvas|${superficie}|${nivelId}`, (cena, c) => {
-      const s = cena.consultar('terreno_curvas', [this.nivel(c, nivelId), superficie]);
-      return decodificarCurvasTN(s['linhas']!, s['pontos']!, s['cotas']!, ServicoTerreno.ids(c).terreno);
+    const tols = new Map<Id, number>();
+    for (const e of Object.values(p.elements)) if (isTerrain(e)) tols.set(e.id, toleranciaCurvasDoTerreno(p.settings, e));
+    const chaveTol = [...tols].filter(([, v]) => v !== 0).map(([id, v]) => `${id}=${v}`).join(',');
+    return this.memoizar(p, `curvas|${superficie}|${nivelId}|${chaveTol}`, (cena, c) => {
+      const ids = ServicoTerreno.ids(c);
+      const distintas = [...new Set([...c.terrenoDe.keys()].map((id) => tols.get(id) ?? 0))].sort((x, y) => x - y);
+      const out: CurvaNivelTN[] = [];
+      for (const tol of distintas) {
+        const s = cena.consultar('terreno_curvas', [this.nivel(c, nivelId), superficie, tol]);
+        for (const cv of decodificarCurvasTN(s['linhas']!, s['pontos']!, s['cotas']!, ids.terreno)) if ((tols.get(cv.terrenoId) ?? 0) === tol) out.push(cv);
+      }
+      if (distintas.length > 1) {
+        const ordem = new Map([...c.terrenoDe].map(([id, n]) => [id, n]));
+        out.sort((x, y) => (ordem.get(x.terrenoId) ?? 0) - (ordem.get(y.terrenoId) ?? 0));
+      }
+      return out;
     });
   }
 
