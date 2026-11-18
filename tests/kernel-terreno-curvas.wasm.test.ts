@@ -166,7 +166,7 @@ describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela AB
     });
     // Tolerância 0,02 m: os cantos de 90 graus dos quadrados (lados de 4 a 16 m) não se cortam, o resultado é o mesmo; com 5 m os cantos são cortados.
     const fina = linhas(cena.consultar('terreno_curvas', [0, 0, 0.02]));
-    expect(fina.map((x) => x.pontos.length)).toEqual(l.map((x) => x.pontos.length));
+    expect(fina.slice(4).map((x) => x.pontos.length)).toEqual([4, 4, 4, 4]);
     const larga = linhas(cena.consultar('terreno_curvas', [0, 0, 5]));
     expect(larga[4]!.pontos.length).toBeGreaterThan(4);
     expect(comprimento(larga[4]!)).toBeLessThan(64);

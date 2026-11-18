@@ -108,3 +108,11 @@ Em um computador com Visual Studio Build Tools não é preciso.
 - Testes (17 novos, valores literais) passam; pastas de model, engine, UI de terreno e i18n passam sem falha. Typecheck RC=0; eslint limpo nos arquivos tocados.
 - Pendente: `check-units` falha por `pranchasEstabilidadeSuite.ts`, `pranchasFixture.ts` e `model3d/solids.ts` (outra frente). `check-i18n-placeholders` tem 1 divergência pré-existente (`pct_mullion_copy_name`).
 - Depende do Rust: a consulta 161 com 3º argumento `tolerancia` precisa do wasm novo para as curvas suavizadas saírem certas na tela; o teste de memória usa cena falsa.
+
+## 8. Suavização — Rust/wasm (executor Rust, 18/11/2026)
+- Consulta 161 `terreno_curvas(nivel, superficie, tolerancia)`: tolerância 0 = polilinha crua da malha; > 0 = Chaikin por vértice com desvio acumulado <= tolerância; negativa ou não finita = erro ENTRADA (3).
+- Só `consultas.rs` chama `consulta_terreno_curvas`; seções, cortes (`terreno_corte.rs`) e avaliações usam a malha e nunca as curvas, então nada precisou mudar (decisão: exato onde não há argumento do terreno).
+- Esquema coerente sem subir versão: `esquema.rs`, `cena-v11.json` e `esquema.gerado.ts` já traziam o 3º argumento. O texto da descrição da 161 ainda diz "Ainda sem implementação" (antigo; só corrigir junto de um próximo rebuild).
+- Testes novos (Rust): tolerância 0 = crua, fuzz leve (malhas aleatórias, tol 0,02 e 0,2: desvio <= tol, pontos de borda e extremidades fixos), canto agudo intacto, tolerância negativa/NaN/inf -> ENTRADA. Quadrado 64/48/32/16 volta ao exato literal.
+- `cargo test --lib terreno -- --test-threads=2`: 106/106 (695 s). `wasm:check` ok (blob 788dfa04ebe0, fontes 6b606cb68dee). wasm de terreno (`tests/kernel-terreno-*`): 51/51 com a tolerância passada nas chamadas.
+- clippy: 42 avisos na crate (base 39); nenhum em `terreno_curvas.rs`/`consultas.rs`; os 3 a mais vêm de outras frentes integradas (não tocados).
