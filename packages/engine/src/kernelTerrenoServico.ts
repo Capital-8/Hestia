@@ -176,8 +176,7 @@ export class ServicoTerreno {
         for (const cv of decodificarCurvasTN(s['linhas']!, s['pontos']!, s['cotas']!, ids.terreno)) if ((tols.get(cv.terrenoId) ?? 0) === tol) out.push(cv);
       }
       if (distintas.length > 1) {
-        const ordem = new Map([...c.terrenoDe].map(([id, n]) => [id, n]));
-        out.sort((x, y) => (ordem.get(x.terrenoId) ?? 0) - (ordem.get(y.terrenoId) ?? 0));
+        out.sort((x, y) => (c.terrenoDe.get(x.terrenoId) ?? 0) - (c.terrenoDe.get(y.terrenoId) ?? 0));
       }
       return out;
     });

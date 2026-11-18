@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { servicoTerreno } from '@hestia/engine';
-import { cotaExibida, dimensionStyleOf, defaultTerrainTextFamilyIdOf, defaultTerrainTypeIdOf, terrainTextFamiliesOf, terrainTypesOf, tipoDoTerreno, TERRENO_LIMITES, type Command, type Project, type Terrain } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, defaultTerrainTextFamilyIdOf, defaultTerrainTypeIdOf, terrainTextFamiliesOf, terrainTypesOf, tipoDoTerreno, TERRENO_LIMITES, toleranciaCurvasDoTerreno, type Command, type Project, type Terrain } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { abrirImportTerreno } from '../editor/terrenoImport.ts';
@@ -121,7 +121,8 @@ export function TerrainProperties({ terrains }: { terrains: Terrain[] }): ReactE
       <Group title={t('ui_tn_g_curvas')} stateKey="terreno-curvas">
         {algumTipo ? null : <Row label={t('ui_tn_p_intervalo')} htmlFor="p-tn-intervalo"><NumField id="p-tn-intervalo" quantity="length" min={TERRENO_LIMITES.intervaloMin} value={intervalo.value} mixed={intervalo.mixed} onCommit={(v) => patch({ intervaloCurvas: v })} /></Row>}
         {algumTipo ? null : <Row label={t('ui_tn_p_mestra')} htmlFor="p-tn-mestra"><NumField id="p-tn-mestra" decimals={0} min={1} max={TERRENO_LIMITES.mestraMax} value={mestra.value} mixed={mestra.mixed} onCommit={(v) => patch({ mestraCada: Math.round(v) })} /></Row>}
-        {algumTipo && terrains.length === 1 ? <Row label={t('ui_tn_tipo_suavizar')} htmlFor="p-tn-suavizar"><span id="p-tn-suavizar">{tolCurvas > 0 ? `${t('ui_tn_tipo_suav_suave')} (${t('ui_tn_tipo_tolerancia')}: ${Math.round(tolCurvas * 10000) / 100})` : t('ui_tn_tipo_suav_exata')}</span></Row> : null}
+        {algumTipo && terrains.length === 1 ? <Row label={t('ui_tn_tipo_suavizar')} htmlFor="p-tn-suavizar"><span id="p-tn-suavizar">{tolCurvas > 0 ? t('ui_tn_tipo_suav_suave') : t('ui_tn_tipo_suav_exata')}</span></Row> : null}
+        {algumTipo && terrains.length === 1 && tolCurvas > 0 ? <Row label={t('ui_tn_tipo_tolerancia')} htmlFor="p-tn-tolerancia"><NumField id="p-tn-tolerancia" quantity="length" readOnly value={tolCurvas} onCommit={() => undefined} /></Row> : null}
         <Row label={t('ui_tn_p_base')} htmlFor="p-tn-base"><NumField id="p-tn-base" quantity="length" min={TERRENO_LIMITES.espessuraMin} max={TERRENO_LIMITES.espessuraMax} value={base.value} mixed={base.mixed} onCommit={(v) => patch({ espessuraBase: v })} /></Row>
         <Row label={t('ui_tn_p_existente')} htmlFor="p-tn-existente"><Check id="p-tn-existente" checked={existente.value} mixed={existente.mixed} onChange={(v) => patch({ mostrarExistente: v })} /></Row>
       </Group>

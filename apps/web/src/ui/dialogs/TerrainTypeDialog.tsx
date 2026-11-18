@@ -117,7 +117,7 @@ export function TerrainTypeDialog(): ReactElement {
           </select>
         </FamilyRow>
         <FamilyRow label={t('ui_tn_tipo_tolerancia')} htmlFor="tt-tolerancia" dim={!draft.suavizarCurvas}>
-          <NumField id="tt-tolerancia" decimals={2} min={TERRAIN_TYPE_LIMITES.toleranciaMin * 100} max={TERRAIN_TYPE_LIMITES.toleranciaMax * 100} disabled={!draft.suavizarCurvas} value={(draft.toleranciaSuavizacao ?? TOLERANCIA_SUAVIZACAO_PADRAO) * 100} onCommit={(v) => patch({ toleranciaSuavizacao: v / 100 })} />
+          <NumField id="tt-tolerancia" quantity="length" min={TERRAIN_TYPE_LIMITES.toleranciaMin} max={TERRAIN_TYPE_LIMITES.toleranciaMax} disabled={!draft.suavizarCurvas} value={draft.toleranciaSuavizacao ?? TOLERANCIA_SUAVIZACAO_PADRAO} onCommit={(v) => patch({ toleranciaSuavizacao: v })} />
         </FamilyRow>
         <FamilyRow label={t('ui_tn_tipo_curva_cor')} htmlFor="tt-curva-cor"><CorOpcional id="tt-curva-cor" value={draft.curvaCor} padrao="#8a6a3a" onChange={(c) => patch({ curvaCor: c })} /></FamilyRow>
         <FamilyRow label={t('ui_tn_tipo_curva_peso')} htmlFor="tt-curva-peso"><NumField id="tt-curva-peso" decimals={2} min={TERRAIN_TYPE_LIMITES.pesoMin} max={TERRAIN_TYPE_LIMITES.pesoMax} value={draft.curvaPeso} onCommit={(v) => patch({ curvaPeso: v })} /></FamilyRow>
