@@ -142,3 +142,15 @@ Cada arquivo foi rodado isolado, com `pvitest.sh`, um por vez, na máquina livre
 | packages/render/src/model3d/wallTiltJuncaoArco.test.ts | 7/7 nas 2 rodadas (limite 200 ms para 20 paredes) | (A) | Desempenho dentro do limite | Nenhuma |
 
 Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de tempo), não regressão desta integração. Nenhum volume laje x parede, junção ou predio10 falhou isolado. Sobra para o dono: decidir se a suíte ampla deve ser repetida em horário livre (com `pesado.sh`, sem paralelismo extra) para confirmar a zeragem; se os limites de desempenho do wallTiltMulticamada devem ser apertados até a meta de 100 ms do corte.
+
+## Desempenho da prancha
+
+- Prédio: template `predio10` (10 pavimentos, 2 cortes) + 4 elevações; prancha A0 com 11 vistas. Script `tests/perf/prancha-predio.mjs`, números em `tests/perf/prancha-baseline.md` e `prancha-resultado.md`.
+- Causa (perfil CDP): `buildSheetDrawList` refazia TODAS as vistas (planta e corte inteiros) a cada comando; o drop da 11ª vista custava 5,3 s e o SVG chegava a 30 mil nós; pan/zoom/mover repintavam o SVG vetorial inteiro (quadros de 100 a 250 ms).
+- Cache: `packages/render/src/sheet/partsCache.ts` guarda as partes de cada vista (chave: idioma, fonte, escala, tamanho e âncora relativa; validade: referências de todos os campos do projeto menos `sheets`). Mover vista só translada; editar o modelo invalida (testado). O `computeSection` também tem cache (por linha, validado pelo modelo).
+- PDF/DXF: `buildSheetDrawList` só aceita acerto de cache na mesma posição, então a saída é idêntica ao cálculo direto (teste com JSON igual).
+- Tela: cada vista vira uma camada `<svg>` posicionada por CSS (`transform`); pan, zoom e arraste só mudam o transform e o navegador reaproveita o raster; 140 ms depois de parar (ou esticado além de 2x/0,4x) a camada é rasterizada de novo, nítida. Traços consecutivos de mesmo estilo foram fundidos num só `<path>` (30 mil -> 6,6 mil nós).
+- Drop: o arraste (`dragover`) e a prancha parada (`useSheetPrefetch`, 500 ms sem gesto) preparam o desenho das vistas do Navegador, então soltar vira acerto de cache; linhas de encaixe só são montadas quando um gesto precisa.
+- Antes/depois (Chrome headless, sem GPU): drop p95 5279 -> 89 ms (até o DOM da vista: 45 ms); quadro p95 de zoom 66,7 -> 16,8, pan 216,6 -> 16,8, mover 83,3 -> 16,7 ms; nenhum quadro > 100 ms.
+- Limite: o p95 do drop (89 ms) passa da meta de ~50 ms pela métrica do script (2 quadros depois do DOM); o resto é React (~29 ms por drop, inclui painéis laterais) e criação dos nós SVG, não cálculo.
+- Risco: a camada é esticada durante o gesto (nitidez volta em 140 ms); vista 3D não entra no cache; falta conferir em tela com GPU real e o PDF/DXF visualmente.
