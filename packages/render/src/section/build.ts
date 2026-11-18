@@ -3,7 +3,7 @@ import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
 import { thinStrokes } from '../plan/thin.ts';
@@ -156,7 +156,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
-      text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
+      text: `${l.name} ${fmt(unitsOf(input.project), cotaExibida(input.project, l.z))}`,
       papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 4.5, ux: -1, uy: -1.1 } },
       // Alinhado à direita: o texto termina depois da ponta da linha de nível e cresce para dentro do desenho (não
       // estoura a moldura da vista, como acontecia com o rótulo ancorado à esquerda).
