@@ -81,8 +81,8 @@ try {
   await page.waitForTimeout(1500);
 
   // 1. botão da faixa Inserir: existe e está ativo (não `soon`, não disabled)
-  await page.getByRole('tab', { name: /^Inserir$|^Insert$/ }).first().click().catch(async () => { await page.getByText(/^Inserir$/).first().click(); });
-  const botao = page.getByRole('button', { name: /Importar móvel/ }).first();
+  await page.locator('.rtab:visible', { hasText: /^(Inserir|Insert)$/ }).first().click();
+  const botao = page.locator('.rb-btn:visible', { hasText: /Importar móvel|Import furniture/ }).first();
   await botao.waitFor({ timeout: 20_000 });
   const dis = await botao.evaluate((b) => ({ disabled: b.disabled || b.getAttribute('aria-disabled') === 'true', soon: /soon/.test(b.className) }));
   assert.equal(dis.disabled, false, 'botão Importar móvel ativo');
@@ -92,7 +92,7 @@ try {
   const accept = await page.locator('[data-testid=fur-file]').getAttribute('accept');
   for (const e of ['.skp', '.glb', '.gltf', '.obj', '.dae', '.fbx', '.zip']) assert.ok(accept.includes(e), `aceita ${e}`);
   const multiplo = await page.locator('[data-testid=fur-file]').getAttribute('multiple');
-  ok('diálogo abre; seletor aceita', `${accept} multiple=${multiplo !== null}`);
+  ok('diálogo abre; seletor aceita', `${accept} multiple=${multiplo !== null} (um arquivo por vez; vários arquivos = .zip)`);
 
   // 2. importar o .glb (Worker) e medir o tempo
   const glb = glbCilindro();
@@ -101,14 +101,16 @@ try {
   await page.waitForSelector('[data-testid=fur-ready]', { timeout: 120_000 });
   const msImport = Date.now() - t0;
   await page.locator('[data-testid=fur-add-place]').click();
-  await page.waitForTimeout(500);
+  await page.waitForFunction(() => Object.keys(window.__hestia.editor.project.furniture?.assets ?? {}).length === 1, null, { timeout: 120_000 });
+  const msTotal = Date.now() - t0;
+  await page.waitForTimeout(300);
   let m = await moveis();
   assert.equal(m.assets.length, 1);
   assert.equal(m.assets[0].fmt, 'glb');
   assert.equal(m.assets[0].tri, glb.tri, 'triângulos do cilindro');
   const tool = await page.evaluate(() => window.__hestia.useUi.getState().tool);
   assert.equal(tool, 'furniture', 'Adicionar e colocar ativa a ferramenta');
-  ok('cilindro.glb importado e ferramenta ativa', `${msImport} ms, ${m.assets[0].tri} tri, bbox ${JSON.stringify(m.assets[0].bbox)}`);
+  ok('cilindro.glb importado e ferramenta ativa', `leitura ${msImport} ms, até gravar ${msTotal} ms, ${m.assets[0].tri} tri, bbox ${JSON.stringify(m.assets[0].bbox)}`);
 
   // 3. colocar na planta: clique no canvas
   await page.evaluate(() => window.__hestia.useUi.setState({ view: 'plan' }));
@@ -136,7 +138,8 @@ try {
 
   // 5. caixa .obj pelo botão Importar da paleta Biblioteca
   await page.evaluate(() => window.__hestia.useUi.setState({ tool: 'select' }));
-  await page.getByRole('button', { name: /^Biblioteca$|Library/ }).first().click().catch(() => {});
+  await page.locator('.rtab:visible', { hasText: /^(Arquitetura|Architecture)$/ }).first().click();
+  await page.locator('.rb-btn:visible', { hasText: /^Biblioteca$|^Library$/ }).first().click();
   const pal = page.locator('[data-testid=pal-importar]');
   if (await pal.count()) {
     await pal.click();
@@ -204,6 +207,7 @@ try {
   ok('sem erros de console');
 } catch (e) {
   console.error('FALHA', e);
+  console.error('DIALOGO:', (await page.locator('.modal, [role=dialog]').allInnerTexts().catch(() => [])).join(' | ').slice(0, 600));
   console.error(errors.slice(0, 10));
   process.exitCode = 1;
 } finally {
