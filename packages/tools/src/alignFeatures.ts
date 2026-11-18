@@ -25,6 +25,7 @@ import {
   planViewOf,
   projectGrids,
   viewAnnotationsOf,
+  viewOwnAnnotationsOf,
   wallsOnLevel,
   type Id,
   type Project,
@@ -414,7 +415,7 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
     }
   }
   const plan = planId ? planViewOf(p, planId) : undefined;
-  const details = plan ? viewAnnotationsOf(p, plan.id).detailLines : viewAnnotationsOf(p, floorViewId(levelId)).detailLines;
+  const details = plan ? viewOwnAnnotationsOf(p, plan.id).detailLines : viewAnnotationsOf(p, floorViewId(levelId)).detailLines;
   for (const l of details) {
     const d = segmentDistance(at, l.a, l.b);
     if (d > tol) continue;
