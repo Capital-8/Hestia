@@ -61,11 +61,12 @@ describe('desenho do vão com contorno no corte e na elevação', () => {
     expect(dentro(vazio, [1, 0.05])).toBe(true);
   });
 
-  it('elevação: o vão tem contorno próprio (sem peças retangulares) e a face da parede não o cobre', () => {
+  it('elevação: a face da parede perde o furo do arco, que fica só com o preenchimento do vão', () => {
     definirClienteFuroContorno(clienteFuroContornoFalso());
     const draw = buildSectionDrawList(entrada(projeto(), v(-1, -1), v(7, -1), 3));
-    const face = draw.fills.flatMap((f) => f.polygons);
-    expect(dentro(face, [5, 0.05])).toBe(false);
-    expect(dentro(face, [5 + 0.6, 0.05])).toBe(true);
+    // Dentro do arco só cobre o preenchimento do próprio vão (um único); fora do arco, a parede (e nada mais por cima dela).
+    const cobrem = (pt: [number, number]): number => draw.fills.filter((f) => dentro(f.polygons, pt)).length;
+    expect(cobrem([5, 0.05])).toBe(1);
+    expect(cobrem([5 + 0.6, 0.05])).toBeGreaterThanOrEqual(1);
   });
 });

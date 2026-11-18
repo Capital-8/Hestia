@@ -12,7 +12,7 @@ const ARCO: OpeningShape = { kind: 'round', width: 0.9, height: 2.4 };
 /** Parede de 6 m com uma janela em x = 4 (o tipo `ot_arco`), com forma ou sem ela. */
 function projeto(forma: boolean): Project {
   const base = structuredClone(buildTemplate('blank'));
-  base.openingTypes.ot_arco = { ...base.openingTypes.ot_j120!, id: 'ot_arco', width: 0.9, height: 2.4, leaves: 0, closure: 'none', ...(forma ? { shape: ARCO } : {}) };
+  base.openingTypes.ot_arco = { ...base.openingTypes.ot_p90!, id: 'ot_arco', width: 0.9, height: 2.4, leaves: 0, closure: 'none', ...(forma ? { shape: ARCO } : {}) };
   const s = new ProjectStore(base);
   s.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: base.defaults.wallTypeId, levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 6, y: 0 }, height: 3 }) });
   const janela: Opening = { id: 'o_arco', kind: 'window', typeId: 'ot_arco', hostId: 'w1', offset: 4, flipHand: false, flipFacing: false, sillOverride: null, mark: '' };
