@@ -40,6 +40,8 @@ export interface Terrain {
   /** Famílias de texto (`ProjectSettings.terrainTextFamilies`) do rótulo de curva e da cota de ponto; ausente = a padrão. */
   rotuloFamilyId?: Id;
   cotadoFamilyId?: Id;
+  /** Tipo de terreno (`ProjectSettings.terrainTypes`). Com ele, equidistância, mestra, superfície, solo, curvas e rótulo vêm do tipo; ausente = campos próprios (arquivos antigos). */
+  tipoId?: Id;
   materialId?: Id;
   color?: string;
   order: number;

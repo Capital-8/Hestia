@@ -110,6 +110,7 @@ import { isTerrain, isTerrainRegion, transformTerrain, transformTerrainRegion } 
 import { isLot, transformLot } from './lot.ts';
 import type { Localizacao } from './localizacao.ts';
 import type { OpTerreno, Terrain, TerrainRegion } from './terrainTypes.ts';
+import type { TerrainType } from './terrainTipo.ts';
 import type { Lot } from './lotTypes.ts';
 import { applyMassCommand } from './massCommands.ts';
 import { isMass, transformMass } from './mass.ts';
@@ -171,7 +172,9 @@ export type Command =
   | { type: 'setNormaGuardaCorpo'; id: Id }
   // Terreno, região de terreno, lote e localização (A.3 item 4): tratados em terrainCommands.ts e lotCommands.ts; apagar usa `deleteElements`.
   | { type: 'addTerrain'; terrain: Omit<Terrain, 'order'> }
-  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color' | 'rotuloFamilyId' | 'cotadoFamilyId'>> }
+  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color' | 'rotuloFamilyId' | 'cotadoFamilyId'>> & { tipoId?: Id | null } }
+  | { type: 'upsertTerrainType'; tipo: TerrainType }
+  | { type: 'removeTerrainType'; id: Id }
   | { type: 'editTerrainFontes'; terrenoId: Id; ops: OpTerreno[] }
   | { type: 'addTerrainRegion'; regiao: Omit<TerrainRegion, 'order'> }
   | { type: 'updateTerrainRegion'; id: Id; patch: Partial<Omit<TerrainRegion, 'id' | 'kind' | 'order' | 'contorno' | 'terrenoId'>> }

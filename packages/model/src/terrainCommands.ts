@@ -6,12 +6,13 @@ import { aplicarOpsFontes } from './terrainFontes.ts';
 import { neutralizarCamposNaoUsados, normalizarEdicaoRegiao } from './terrainPapel.ts';
 import type { Terrain, TerrainRegion } from './terrainTypes.ts';
 import { contornoRegiaoIssue, terrainIssue, terrainRegionIssue } from './validateTerrain.ts';
+import { removeTerrainTypeFrom, terrainTypeIssue, writeTerrainType } from './terrainTipo.ts';
 import type { Project } from './types.ts';
 
 /** Comando de terreno, de região e de localização, sem o `switch` de `commands.ts` (aquele arquivo passa do limite de linhas). */
 export type TerrainCommand = Extract<
   Command,
-  { type: 'addTerrain' | 'updateTerrain' | 'editTerrainFontes' | 'addTerrainRegion' | 'updateTerrainRegion' | 'setTerrainRegionContorno' | 'setLocalizacao' }
+  { type: 'addTerrain' | 'updateTerrain' | 'editTerrainFontes' | 'addTerrainRegion' | 'updateTerrainRegion' | 'setTerrainRegionContorno' | 'setLocalizacao' | 'upsertTerrainType' | 'removeTerrainType' }
 >;
 
 /** Normaliza o sentido da borda e valida; lança com a mensagem do modelo se o terreno for inválido. */
@@ -48,7 +49,21 @@ export function applyTerrainCommand(p: Project, c: Command, lang: Lang = 'pt'): 
       const e = p.elements[c.id];
       if (!isTerrain(e)) throw new Error(t(lang, 'md_cmd_terrain_missing'));
       if (c.patch.levelId && !nivelExiste(p, c.patch.levelId)) throw new Error(t(lang, 'md_cmd_level_missing_id', { id: c.patch.levelId }));
-      p.elements[c.id] = { ...aceitarTerreno({ ...e, ...c.patch }, lang), id: e.id, kind: 'terrain', order: e.order };
+      const { tipoId, ...resto } = c.patch;
+      const next: Terrain = { ...e, ...resto };
+      if (tipoId === null) delete next.tipoId;
+      else if (tipoId !== undefined) next.tipoId = tipoId;
+      p.elements[c.id] = { ...aceitarTerreno(next, lang), id: e.id, kind: 'terrain', order: e.order };
+      return true;
+    }
+    case 'upsertTerrainType': {
+      const issue = terrainTypeIssue(c.tipo);
+      if (issue) throw new Error(t(lang, issue.key, issue.params));
+      p.settings = writeTerrainType(p.settings, { ...c.tipo, name: c.tipo.name.trim() || c.tipo.id });
+      return true;
+    }
+    case 'removeTerrainType': {
+      p.settings = removeTerrainTypeFrom(p.settings, c.id);
       return true;
     }
     case 'editTerrainFontes': {

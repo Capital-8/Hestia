@@ -353,6 +353,10 @@ export function labelOf(c: Command): string {
       return 'Adicionar terreno';
     case 'updateTerrain':
       return 'Editar terreno';
+    case 'upsertTerrainType':
+      return 'Editar tipo de terreno';
+    case 'removeTerrainType':
+      return 'Excluir tipo de terreno';
     case 'editTerrainFontes':
       return 'Editar pontos e curvas do terreno';
     case 'addTerrainRegion':
