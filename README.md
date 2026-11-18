@@ -68,14 +68,22 @@ para WebGL2) e o núcleo geométrico é separado da interface, escrito em Rust.
 ## Apoie o projeto
 
 O Hestia é open source e gratuito, e continua assim. Ele é desenvolvido com tempo e cuidado,
-e o seu apoio ajuda a manter isso: correção de problemas, novos recursos (render,
+e as **doações** ajudam a manter isso: correção de problemas, novos recursos (render,
 importadores, quantitativos), documentação e suporte aos usuários.
 
 [![Apoiar no GitHub Sponsors](https://img.shields.io/badge/%E2%99%A5%20Apoiar%20no%20GitHub%20Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/engdennylsonsantos-cloud)
 
-Se não puder apoiar com dinheiro, ajuda muito: dar uma estrela no repositório, relatar problemas
-em [Issues](https://github.com/engdennylsonsantos-cloud/Hestia/issues), compartilhar o projeto
-com colegas e testar o programa em projetos reais.
+## Participe do projeto
+
+Você não precisa programar para fazer o Hestia melhor. Toda ajuda conta:
+
+- **Teste o programa** em projetos reais e conte o que achou estranho ou não funcionou, em
+  [Issues](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new/choose).
+  Usa Mac? O instalador do macOS é experimental e precisa de testes.
+- **Dê sugestões**: ferramentas que faltam, fluxos que poderiam ser mais simples, comparações com o
+  programa que você já usa.
+- **Compartilhe** o projeto com colegas e dê uma estrela no repositório.
+- **Quer contribuir com código?** Veja [CONTRIBUTING.md](CONTRIBUTING.md): toda contribuição é bem-vinda.
 
 ---
 
