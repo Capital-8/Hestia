@@ -132,7 +132,7 @@ Cada arquivo foi rodado isolado, com `pvitest.sh`, um por vez, na máquina livre
 | packages/render/src/openingCatalogoVistas.test.ts | 8/8 | (A) | Carga da suíte | Nenhuma |
 | packages/render/src/plan/zoomSemRecriar.test.ts | 5/5 | (A) | Carga da suíte | Nenhuma |
 | packages/engine/src/wallTiltJoin.test.ts | 19/19 nas 2 rodadas (fuzz S1 2347 e 2433 ms; limite 2 ms/par) | (A) | Desempenho sob carga; oscila pouco | Nenhuma |
-| packages/engine/src/wallTiltJoinArco.test.ts | 6/6 nas 2 rodadas (J1 níveis 0,88 e 1,21 ms/par, limite 3; níveis+anéis 2,37 e 2,98, limite 8) | (A) | Desempenho; oscila cerca de 35 %, folga de mais de 2x | Nenhuma |
+| packages/engine/src/wallTiltJoinArco.test.ts | 6/6 nas 2 rodadas (J1 níveis 0,88 e 1,21 ms/par, limite 3; níveis+anéis 2,37 e 2,98, limite 8) | (A) | Desempenho; oscila 26 a 37 % entre rodadas, folga de mais de 2x | Nenhuma |
 | packages/engine/src/wallTiltJoinLevelArco.test.ts | 7/7 nas 2 rodadas (limite 5 ms/par) | (A) | Desempenho dentro do limite | Nenhuma |
 | packages/engine/src/wallTiltMulticamada.test.ts | 3/3 nas 2 rodadas (30 paredes a 15°: junção 43/46 ms, corte 131/149, elevação 24/29; limite 500) | (A) | Desempenho dentro do limite | Nenhuma; obs.: o corte passa de 100 ms, a meta citada no comentário |
 | packages/engine/src/wallTiltJoinExato.test.ts | 15/15 | (A) | Carga da suíte | Nenhuma |
