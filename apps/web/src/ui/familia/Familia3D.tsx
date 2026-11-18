@@ -49,11 +49,13 @@ function tratarCliqueVao(clique: CliqueVao3D): void {
     const eixo = s.modo3d === 'divisoria' ? 'x' : 'z';
     if (s.partesDivisao >= 2) {
       executarPeca(`Dividir vão em ${s.partesDivisao} partes`, (f) =>
-        dividirVaoEmIguais(f, clique.vaoId, eixo, s.partesDivisao),
+        dividirVaoEmIguais(f, clique.vaoId, eixo, s.partesDivisao, s.recuoFrentePadrao),
       );
     } else {
       const rotulo = s.modo3d === 'divisoria' ? 'Inserir divisória' : 'Inserir prateleira';
-      executarPeca(rotulo, (f) => dividirVao(f, clique.vaoId, eixo, 'proporcional', clique.posicaoNormalizada));
+      executarPeca(rotulo, (f) =>
+        dividirVao(f, clique.vaoId, eixo, 'proporcional', clique.posicaoNormalizada, s.recuoFrentePadrao),
+      );
     }
     return;
   }
@@ -188,6 +190,7 @@ export function Familia3D({
   const [indisponivel, setIndisponivel] = useState(false);
 
   const modo3d = useFamilia((s) => s.modo3d);
+  const alvoPorta = useFamilia((s) => s.alvoPorta);
   const vaoSel = useFamilia((s) => s.vaoSel);
   const hoverVao = useFamilia((s) => s.hoverVao);
 
@@ -267,6 +270,10 @@ export function Familia3D({
   }, [modo3d, espessuraPadrao]);
 
   useEffect(() => {
+    visualizadorRef.current?.definirAlvoPorta(alvoPorta);
+  }, [alvoPorta]);
+
+  useEffect(() => {
     visualizadorRef.current?.selecionarVao(vaoSel);
   }, [vaoSel]);
 
@@ -317,6 +324,15 @@ export function Familia3D({
               <span className="fam3d-badge-medida">
                 {Math.round(hoverVao.medidaInicioMm)} mm | {Math.round(hoverVao.medidaFimMm)} mm
               </span>
+              {modo3d === 'porta' && (
+                <button
+                  type="button"
+                  className="fam3d-badge-voltar"
+                  onClick={() => useFamilia.getState().set({ alvoPorta: alvoPorta === 'inteiro' ? 'vao' : 'inteiro' })}
+                >
+                  {alvoPorta === 'inteiro' ? 'Alvo: Módulo inteiro' : 'Alvo: Só este vão'}
+                </button>
+              )}
               {modo3d !== 'selecionar' && (
                 <button
                   type="button"

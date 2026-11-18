@@ -184,6 +184,12 @@ export class VisualizadorFamilia {
     this.agendarDesenho();
   }
 
+  /** Define se `porta` no 3D aplica no módulo inteiro (cobrindo divisórias) ou só no sub-vão clicado. */
+  definirAlvoPorta(alvo: 'inteiro' | 'vao'): void {
+    if (this.destruido) return;
+    this.vaosOverlay.definirAlvoPorta(alvo);
+  }
+
   /** Realça o vão com `vaoId` (ou limpa o destaque quando `null`). */
   selecionarVao(vaoId: string | null): void {
     if (this.destruido) return;

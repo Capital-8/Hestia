@@ -63,14 +63,10 @@ const PAINEIS: Painel[] = [
       ],
     ],
   },
-  { id: 'chapa', titulo: 'Peças de chapa', itens: [I('Painel', 'wall', { variantes: ['Lateral', 'Base', 'Travessa / topo', 'Prateleira', 'Divisória', 'Fundo', 'Rodapé'] }), I('Tampo', 'slab'), I('Porta', 'door', { variantes: ['De abrir', 'De correr', 'Basculante', 'Dobradiça dupla'] }), I('Gaveta', 'schedule', { novo: true, dica: 'Peça composta: frente, laterais, traseira, fundo e corrediça' })] },
-  { id: 'livre', titulo: 'Forma livre', itens: [I('Bloco', 'cube'), I('Vazio', 'opening', { dica: 'Corta os sólidos da família' }), [I('Cilindro', 'cube', { desligado: true }), I('Extrusão', 'cube', { desligado: true }), I('Revolução', 'cube', { desligado: true })]] },
-  { id: 'ferragens', titulo: 'Ferragens', itens: [[I('Puxador', 'type'), I('Dobradiça', 'type'), I('Corrediça', 'type')], [I('Pé regulável', 'type'), I('Cabideiro', 'type'), I('Outra…', 'type')]] },
-  { id: 'usinagem', titulo: 'Usinagem', itens: [[I('Furo', 'trim'), I('Rasgo', 'trim'), I('Recorte', 'trim')]] },
-  { id: 'referencia', titulo: 'Referência', itens: [I('Plano de referência', 'plan'), I('Repetir', 'array'), I('Módulo aninhado', 'component', { dica: 'Família dentro de família (guarda-roupa, cozinha)' })] },
-  { id: 'propriedades', titulo: 'Propriedades', itens: [I('Parâmetros', 'type', { abre: 'parametros' }), I('Tipos', 'layers', { abre: 'tipos' }), I('Encaixe', 'joins', { abre: 'encaixe', dica: 'Conectores e escolhas do módulo' }), I('Catálogo', 'style', { abre: 'catalogo', dica: 'Chapas, fitas de borda e ferragens' }), I('Categoria e hospedagem', 'level')] },
-  { id: 'testar', titulo: 'Testar', itens: [I('Flexionar', 'fit'), I('Validar', 'select'), I('Lista de peças', 'schedule', { abre: 'pecas' })] },
-  { id: 'editor', titulo: 'Editor de família', itens: [I('Abrir e salvar', 'sheet', { abre: 'arquivo', dica: 'Abre e salva famílias em arquivo hestia-familia' }), I('Carregar no projeto', 'paste', { acao: 'carregar', dica: 'Grava a família no projeto num único passo de desfazer e abre a ferramenta Componente' }), I('Carregar e fechar', 'paste'), I('Desfazer', 'undo', { acao: 'desfazer' }), I('Refazer', 'redo', { acao: 'refazer' })] },
+  { id: 'referencia', titulo: 'Referência', itens: [I('Módulo aninhado', 'component', { dica: 'Família dentro de família (guarda-roupa, cozinha)' })] },
+  { id: 'propriedades', titulo: 'Propriedades', itens: [I('Parâmetros', 'type', { abre: 'parametros' }), I('Tipos', 'layers', { abre: 'tipos' }), I('Encaixe', 'joins', { abre: 'encaixe', dica: 'Conectores e escolhas do módulo' }), I('Catálogo', 'style', { abre: 'catalogo', dica: 'Chapas, fitas de borda e ferragens' })] },
+  { id: 'testar', titulo: 'Testar', itens: [I('Lista de peças', 'schedule', { abre: 'pecas' })] },
+  { id: 'editor', titulo: 'Editor de família', itens: [I('Abrir e salvar', 'sheet', { abre: 'arquivo', dica: 'Abre e salva famílias em arquivo hestia-familia' }), I('Carregar no projeto', 'paste', { acao: 'carregar', dica: 'Grava a família no projeto num único passo de desfazer e abre a ferramenta Componente' }), I('Desfazer', 'undo', { acao: 'desfazer' }), I('Refazer', 'redo', { acao: 'refazer' })] },
 ];
 
 function Menu({ ancora, itens, fechar, escolher }: { ancora: DOMRect; itens: string[]; fechar: () => void; escolher: (s: string) => void }): ReactElement {

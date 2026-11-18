@@ -202,7 +202,7 @@ function compilarVaoRecursivo(
     const { posicoes, intervalos } = dividirIntervaloAfim(caixa.z0, caixa.z1, div.itens);
     contagemPrateleiras.total += div.itens.length;
     div.itens.forEach((item, k) => {
-      const recuo = Math.max(0, item.recuoFrente ?? 0);
+      const recuo = item.recuoFrente ?? 0;
       const yPrat = addAfim(caixa.y0, afim(0, 0, recuo));
       pecas.push({
         id: idUnico(`cx_prat_${limparId(item.id)}`, pecasUsadas),
@@ -232,7 +232,7 @@ function compilarVaoRecursivo(
   } else {
     const { posicoes, intervalos } = dividirIntervaloAfim(caixa.x0, caixa.x1, div.itens);
     div.itens.forEach((item, k) => {
-      const recuo = Math.max(0, item.recuoFrente ?? 0);
+      const recuo = item.recuoFrente ?? 0;
       const yDiv = addAfim(caixa.y0, afim(0, 0, recuo));
       pecas.push({
         id: idUnico(`cx_div_${limparId(item.id)}`, pecasUsadas),

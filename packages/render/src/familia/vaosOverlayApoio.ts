@@ -253,8 +253,13 @@ export function selecionarCandidatoVao(
   candidatos: HitVao[],
   modo: ModoInteracao3DFamilia,
   grupo: THREE.Object3D,
+  alvoPorta: 'inteiro' | 'vao' = 'inteiro',
 ): HitVao {
   if (modo === 'porta') {
+    if (alvoPorta === 'inteiro') {
+      const ordenados = [...candidatos].sort((a, b) => b.volume - a.volume || a.hit.distance - b.hit.distance);
+      return ordenados[0]!;
+    }
     const divisoesNaBorda = candidatos.filter((c) => {
       if (!c.vao.temDivisao) return false;
       const pt = grupo.worldToLocal(c.hit.point.clone());

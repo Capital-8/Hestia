@@ -149,8 +149,8 @@ function validarItemDivisao(modo: ModoDivisao, valor: number, recuoFrente?: numb
   } else if (valor <= 0) {
     return 'distância fixa precisa ser maior que zero';
   }
-  if (recuoFrente !== undefined && (!numeroFinito(recuoFrente) || recuoFrente < 0)) {
-    return 'recuo frontal precisa ser maior ou igual a zero';
+  if (recuoFrente !== undefined && (!numeroFinito(recuoFrente) || recuoFrente < -500 || recuoFrente > 1000)) {
+    return 'avanço/recuo frontal precisa estar entre -500 e 1000 mm';
   }
   return null;
 }
@@ -272,8 +272,8 @@ export function dividirVaoEmIguais(
   if (!Number.isInteger(partes) || partes < 2 || partes > 32) {
     return 'número de partes precisa ser inteiro entre 2 e 32';
   }
-  if (recuoFrente !== undefined && (!numeroFinito(recuoFrente) || recuoFrente < 0)) {
-    return 'recuo frontal precisa ser maior ou igual a zero';
+  if (recuoFrente !== undefined && (!numeroFinito(recuoFrente) || recuoFrente < -500 || recuoFrente > 1000)) {
+    return 'avanço/recuo frontal precisa estar entre -500 e 1000 mm';
   }
 
   const cx = garantirCaixaria(f);
@@ -346,6 +346,29 @@ export function removerDivisao(f: Familia, vaoId: string): string | null {
   return null;
 }
 
+
+/** Localiza a divisão e o vão dono de uma peça gerada (`cx_prat_*` ou `cx_div_*`). */
+export function encontrarDivisaoPorPecaId(
+  raiz: Vao,
+  pecaId: string,
+): { vaoId: string; eixo: 'x' | 'z'; item: DivisaoItem } | null {
+  if (!raiz || typeof raiz !== 'object') return null;
+  if (raiz.divisao) {
+    const prefixo = raiz.divisao.eixo === 'z' ? 'cx_prat_' : 'cx_div_';
+    for (const item of raiz.divisao.itens) {
+      const limpo = item.id.replace(/[^A-Za-z0-9_]/g, '_') || 'x';
+      if (`${prefixo}${limpo}` === pecaId) {
+        return { vaoId: raiz.id, eixo: raiz.divisao.eixo, item };
+      }
+    }
+  }
+  for (const filho of raiz.filhos ?? []) {
+    if (!filho) continue;
+    const achado = encontrarDivisaoPorPecaId(filho, pecaId);
+    if (achado) return achado;
+  }
+  return null;
+}
 
 export {
   preencherVao,

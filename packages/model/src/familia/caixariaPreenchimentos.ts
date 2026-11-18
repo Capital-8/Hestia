@@ -159,14 +159,17 @@ export function compilarPreenchimento(
         const zBaseFrente = formatarAfim(addAfim(fr.z0, afim(0, 0, folga / 2)), 'A');
         const zBaseCaixa = formatarAfim(addAfim(fr.z0, afim(0, 0, folga / 2 + 20)), 'A');
         const zBaseFundo = formatarAfim(addAfim(fr.z0, afim(0, 0, folga / 2 + 28)), 'A');
-        const rep = String(qty);
+        const rep = qty > 1 ? String(qty) : undefined;
+        const zFrente = rep ? `${zBaseFrente} + (i - 1) * (${slotStr})` : zBaseFrente;
+        const zCaixa = rep ? `${zBaseCaixa} + (i - 1) * (${slotStr})` : zBaseCaixa;
+        const zFundo = rep ? `${zBaseFundo} + (i - 1) * (${slotStr})` : zBaseFundo;
 
         pecas.push(
-          { id: idUnico(`cx_gav_frente_${vid}`, pecasUsadas), nome: 'Frente de gaveta', papel: 'frente_gaveta', eixo: 'y', origem: [formatarAfim(fr.x0, 'L'), fr.y, `${zBaseFrente} + (i - 1) * (${slotStr})`], tamanho: [formatarAfim(pw, 'L'), formatarAfim(hFrente, 'A')], espessura: '18', material: 'mat_porta', fita: fita4, veio: 'a', repetir: rep, grupo: vao.id },
-          { id: idUnico(`cx_gav_latE_${vid}`, pecasUsadas), nome: 'Lateral esquerda gaveta', papel: 'lateral', eixo: 'x', origem: [xLatE, formatarAfim(caixa.y0, 'P'), `${zBaseCaixa} + (i - 1) * (${slotStr})`], tamanho: [profCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', fita: { n: FITA_CAIXARIA }, veio: 'a', repetir: rep, grupo: vao.id },
-          { id: idUnico(`cx_gav_latD_${vid}`, pecasUsadas), nome: 'Lateral direita gaveta', papel: 'lateral', eixo: 'x', origem: [xLatD, formatarAfim(caixa.y0, 'P'), `${zBaseCaixa} + (i - 1) * (${slotStr})`], tamanho: [profCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', fita: { n: FITA_CAIXARIA }, veio: 'a', repetir: rep, grupo: vao.id },
-          { id: idUnico(`cx_gav_tras_${vid}`, pecasUsadas), nome: 'Traseira gaveta', papel: 'painel', eixo: 'y', origem: [xTras, profCaixaMenosEsp, `${zBaseCaixa} + (i - 1) * (${slotStr})`], tamanho: [wCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', veio: 'a', repetir: rep, grupo: vao.id },
-          { id: idUnico(`cx_gav_fundo_${vid}`, pecasUsadas), nome: 'Fundo gaveta', papel: 'fundo', eixo: 'z', origem: [xTras, formatarAfim(caixa.y0, 'P'), `${zBaseFundo} + (i - 1) * (${slotStr})`], tamanho: [wCaixa, profCaixaMenosEsp], espessura: '6', material: 'mat_fundo', veio: 'livre', repetir: rep, grupo: vao.id },
+          { id: idUnico(`cx_gav_frente_${vid}`, pecasUsadas), nome: 'Frente de gaveta', papel: 'frente_gaveta', eixo: 'y', origem: [formatarAfim(fr.x0, 'L'), fr.y, zFrente], tamanho: [formatarAfim(pw, 'L'), formatarAfim(hFrente, 'A')], espessura: '18', material: 'mat_porta', fita: fita4, veio: 'a', ...(rep ? { repetir: rep } : {}), grupo: vao.id },
+          { id: idUnico(`cx_gav_latE_${vid}`, pecasUsadas), nome: 'Lateral esquerda gaveta', papel: 'lateral', eixo: 'x', origem: [xLatE, formatarAfim(caixa.y0, 'P'), zCaixa], tamanho: [profCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', fita: { n: FITA_CAIXARIA }, veio: 'a', ...(rep ? { repetir: rep } : {}), grupo: vao.id },
+          { id: idUnico(`cx_gav_latD_${vid}`, pecasUsadas), nome: 'Lateral direita gaveta', papel: 'lateral', eixo: 'x', origem: [xLatD, formatarAfim(caixa.y0, 'P'), zCaixa], tamanho: [profCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', fita: { n: FITA_CAIXARIA }, veio: 'a', ...(rep ? { repetir: rep } : {}), grupo: vao.id },
+          { id: idUnico(`cx_gav_tras_${vid}`, pecasUsadas), nome: 'Traseira gaveta', papel: 'painel', eixo: 'y', origem: [xTras, profCaixaMenosEsp, zCaixa], tamanho: [wCaixa, formatarAfim(hCaixa, 'A')], espessura: 'esp', material: 'corpo', veio: 'a', ...(rep ? { repetir: rep } : {}), grupo: vao.id },
+          { id: idUnico(`cx_gav_fundo_${vid}`, pecasUsadas), nome: 'Fundo gaveta', papel: 'fundo', eixo: 'z', origem: [xTras, formatarAfim(caixa.y0, 'P'), zFundo], tamanho: [wCaixa, profCaixaMenosEsp], espessura: '6', material: 'mat_fundo', veio: 'livre', ...(rep ? { repetir: rep } : {}), grupo: vao.id },
         );
       } else {
         const pesoTotal = qty + gavetoes;

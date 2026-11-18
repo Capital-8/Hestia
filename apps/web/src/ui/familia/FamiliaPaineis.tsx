@@ -14,6 +14,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { useProject } from '../../editor/controller.ts';
 import { familiasParaAninhar, nomeDaFamilia } from './familiaAninhado.ts';
 import { FamiliaCaixariaPainel } from './FamiliaCaixariaPainel.tsx';
+import { FamiliaCaixariaPecaCtrl } from './FamiliaCaixariaPecaCtrl.tsx';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
 import { FamiliaUsinagens } from './FamiliaUsinagens.tsx';
@@ -143,11 +144,14 @@ const Linha = ({ rotulo, valor }: { rotulo: string; valor: ReactNode }): ReactEl
 export function PropriedadesFamilia(): ReactElement {
   const familia = useFamilia((s) => s.historico.atual);
   const sel = useFamilia((s) => s.sel);
+  const modo3d = useFamilia((s) => s.modo3d);
+  const selecionarPeca = useFamilia((s) => s.selecionarPeca);
   const res = useResolucao();
   const erro = useAvisoPeca((s) => s.erro);
   const p = sel === null ? undefined : familia.pecas.find((x) => x.id === sel);
   const repetidas = sel === null ? [] : res.pecas.filter((x) => x.id === sel);
   const r = repetidas[0];
+  const somentePeca = p !== undefined && modo3d === 'selecionar';
 
   const renomear = (nome: string): void => {
     if (p === undefined) return;
@@ -175,11 +179,22 @@ export function PropriedadesFamilia(): ReactElement {
     <>
       <AtalhosPeca />
       {erro !== null && <div className="fam-aviso-erro" role="alert">{erro}</div>}
-      <Flexionar />
-      <Validacao />
-      <FamiliaCaixariaPainel />
+      {!somentePeca && (
+        <>
+          <Flexionar />
+          <Validacao />
+          <FamiliaCaixariaPainel />
+        </>
+      )}
       {p === undefined ? <div className="fam-hint">Selecione uma peça.</div> : (
         <>
+          {somentePeca && (
+            <div className="fam-cx-voltar-bar">
+              <button type="button" className="fam-bt" onClick={() => selecionarPeca(null)}>← Caixaria geral</button>
+              <span className="fam-cx-voltar-nome">{p.nome}</span>
+            </div>
+          )}
+          <FamiliaCaixariaPecaCtrl familia={familia} peca={p} />
           {pecaDesvinculada && (
             <div className="fam-cx-desvinc" role="status">
               <span>Peça editada manualmente (desvinculada da caixaria).</span>

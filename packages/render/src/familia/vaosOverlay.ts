@@ -95,6 +95,7 @@ export class VaosOverlay {
 
   private limitesPecas: CaixaLimites | null = null;
   private modo: ModoInteracao3DFamilia = 'selecionar';
+  private alvoPorta: 'inteiro' | 'vao' = 'inteiro';
   private espessuraPadraoMm = 18;
   private vaoSelecionadoId: string | null = null;
   private hoverVaoAtual: HoverVao3D | null = null;
@@ -181,6 +182,11 @@ export class VaosOverlay {
     if (this.limitesPecas === null) {
       this.atualizarFacesESeta();
     }
+  }
+
+  /** Define se `porta` seleciona o módulo inteiro (`inteiro`) ou o sub-vão sob o cursor (`vao`). */
+  definirAlvoPorta(alvo: 'inteiro' | 'vao'): void {
+    this.alvoPorta = alvo;
   }
 
   /** Configura o modo de interação e a espessura padrão (mm) da chapa fantasma. */
@@ -447,7 +453,7 @@ export class VaosOverlay {
     const candidatos = Array.from(porId.values());
     if (candidatos.length === 0) return null;
 
-    const escolhido = selecionarCandidatoVao(candidatos, this.modo, this.grupo);
+    const escolhido = selecionarCandidatoVao(candidatos, this.modo, this.grupo, this.alvoPorta);
     const pontoLocal = calcularPontoLocalNoVao(this.grupo, raycaster, escolhido, this.modo);
     const eixo = eixoDoModo(this.modo);
     const { posicaoNormalizada, medidaInicioMm, medidaFimMm } = calcularPosicaoNoVao(

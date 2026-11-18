@@ -9,6 +9,7 @@ import {
   desvincularPecaCaixaria,
   dividirVao,
   dividirVaoEmIguais,
+  encontrarDivisaoPorPecaId,
   encontrarVao,
   garantirCaixaria,
   preencherVao,
@@ -355,5 +356,46 @@ describe('caixaria paramétrica', () => {
     );
     expect(compilarCaixaria(crua).pecas.length).toBeGreaterThan(0);
     expect(validarFamilia(crua)).toEqual([]);
+  });
+
+  it('suporta avanço frontal negativo (-20 mm) em divisórias e localizar peça via encontrarDivisaoPorPecaId', () => {
+    const f = criarFamiliaCaixaria({ L: 800, A: 720, P: 560 });
+    expect(dividirVao(f, 'raiz', 'z', 'proporcional', 0.5, -20)).toBeNull();
+    const divP = f.caixaria!.raiz.divisao!;
+    expect(divP.itens[0]!.recuoFrente).toBe(-20);
+
+    const pecaPrat = f.pecas.find((p) => p.id.startsWith('cx_prat_'))!;
+    expect(pecaPrat).toBeDefined();
+    expect(pecaPrat.origem[1]).toBe('-20');
+    const achadaPrat = encontrarDivisaoPorPecaId(f.caixaria!.raiz, pecaPrat.id);
+    expect(achadaPrat).not.toBeNull();
+    expect(achadaPrat!.eixo).toBe('z');
+    expect(achadaPrat!.item.id).toBe(divP.itens[0]!.id);
+
+    const filhoSup = f.caixaria!.raiz.filhos![1]!;
+    expect(dividirVao(f, filhoSup.id, 'x', 'proporcional', 0.5, -25)).toBeNull();
+    const pecaDiv = f.pecas.find((p) => p.id.startsWith('cx_div_'))!;
+    expect(pecaDiv).toBeDefined();
+    expect(pecaDiv.origem[1]).toBe('-25');
+    const achadaDiv = encontrarDivisaoPorPecaId(f.caixaria!.raiz, pecaDiv.id);
+    expect(achadaDiv).not.toBeNull();
+    expect(achadaDiv!.eixo).toBe('x');
+
+    const env = avaliarFamiliaParaTeste(f);
+    const yEval = tentar(pecaPrat.origem[1], env);
+    expect(yEval.ok && yEval.valor).toBe(-20);
+    verificarTodasPecasAvaliam(f);
+  });
+
+  it('compila exatamente 1 gaveta sem repetir e sem criar prateleira/divisória', () => {
+    const f = criarFamiliaCaixaria({ L: 600, A: 720, P: 560 });
+    expect(preencherVao(f, 'raiz', { tipo: 'gavetas', quantidade: 1, montagem: 'sobreposta' })).toBeNull();
+    const gavPecas = f.pecas.filter((p) => p.id.startsWith('cx_gav_'));
+    expect(gavPecas).toHaveLength(5);
+    for (const p of gavPecas) {
+      expect(p.repetir).toBeUndefined();
+    }
+    expect(f.pecas.some((p) => p.id.startsWith('cx_prat_') || p.id.startsWith('cx_div_'))).toBe(false);
+    verificarTodasPecasAvaliam(f);
   });
 });

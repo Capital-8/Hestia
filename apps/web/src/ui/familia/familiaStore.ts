@@ -60,9 +60,11 @@ export interface FamiliaState {
   vaoSel: string | null;
   hoverVao: HoverVao3D | null;
   estiloPorta: EstiloPorta;
+  alvoPorta: 'inteiro' | 'vao';
   montagemFrente: MontagemFrente;
   qtdGavetas: number;
   partesDivisao: number;
+  recuoFrentePadrao: number;
   abrir: () => void;
   ocultar: () => void;
   familia: () => Familia;
@@ -142,9 +144,11 @@ export const useFamilia = create<FamiliaState>((set, get) => {
     vaoSel: null,
     hoverVao: null,
     estiloPorta: 'giro_2',
+    alvoPorta: 'inteiro',
     montagemFrente: 'sobreposta',
-    qtdGavetas: 3,
+    qtdGavetas: 1,
     partesDivisao: 1,
+    recuoFrentePadrao: 0,
     abrir: () => set({ aberta: true }),
     ocultar: () => set({ aberta: false, dialogo: null, aninhadoEmEdicao: null }),
     familia: () => get().historico.atual,
