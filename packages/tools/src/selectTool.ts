@@ -109,6 +109,8 @@ export class SelectTool extends ToolBase {
   private delta: Vec2 = { x: 0, y: 0 };
   /** Base capturada do arrasto direto (a mesma regra da ferramenta Mover): o deslocamento parte dela, não do clique cru. */
   private moveBase: Vec2 | null = null;
+  /** Ids dos móveis do projeto, fora da captura durante o arrasto (mesmo gesto = mesmo conjunto). */
+  private moveIgnore: { ignore: Set<Id> } | Record<string, never> = {};
   private hover: Id | null = null;
   private openingId: Id | null = null;
   /** Alça de deslocamento da cota selecionada (decisão 0019) e o deslocamento que ela assume ao soltar. */
@@ -501,6 +503,7 @@ export class SelectTool extends ToolBase {
     const mpp = this.env.metersPerPixel();
     this.downPt = p.raw;
     this.moveBase = null;
+    this.moveIgnore = {};
     const sel = this.env.selection();
     const planId = this.planId();
     const somenteLeitura = this.somenteLeitura;
@@ -641,8 +644,10 @@ export class SelectTool extends ToolBase {
         const grids = selectedGrids(pr, sel);
         const comps = sel.filter((id) => isComponent(pr.elements[id]));
         // Sem `ignore`: arrastar uma escada/rampa também captura os vértices dela como base e destino.
-        // Móvel arrastado: seus próprios cantos e arestas saem da captura (o deslocamento dele vem do encaixe de `ArrastoComponentes`).
-        const proprios = comps.length > 0 ? { ignore: new Set<Id>(comps) } : {};
+        // Móveis fora da captura no arrasto: o deslocamento deles vem do encaixe de `ArrastoComponentes` (parede e vizinhos), e
+        // os cantos dos móveis (inclusive os do próprio e os do conjunto) não podem puxar o cursor de quem se move.
+        if (this.moveBase === null && comps.length > 0) this.moveIgnore = { ignore: new Set<Id>(Object.values(pr.elements).filter(isComponent).map((e) => e.id)) };
+        const proprios = this.moveIgnore;
         this.moveBase ??= this.snap({ ...p, raw: this.downPt, shift: false }, proprios).point;
         const inf = this.snap(p, { from: this.moveBase, ...proprios });
         this.delta = sub(inf.point, this.moveBase);
