@@ -11,8 +11,6 @@ import { SheetControlBar } from './SheetControlBar.tsx';
 import { panBy } from './sheetCamera.ts';
 import { commitMove, commitNudge, commitRemove } from './sheetCommit.ts';
 import { cursorForHandle, hitBox, hitHandle, type HandleId, type PaperBox } from './sheetSelection.ts';
-import type { SnapLine } from './sheetSnap.ts';
-import { snapLinesOf } from './sheetSnap.ts';
 import { movedBoxes, resolveGesture, type GestureContext, type SheetGesture } from './sheetGestures.ts';
 import { useSheetAlign } from './useSheetAlign.ts';
 import { useSheetCamera } from './useSheetCamera.ts';
@@ -20,6 +18,7 @@ import { useSheetDrop } from './useSheetDrop.ts';
 import { useSheetKeys } from './useSheetKeys.ts';
 import { useSheetMove } from './useSheetMove.ts';
 import { useSheetPrefetch } from './useSheetPrefetch.ts';
+import { useSheetSnapLines } from './useSheetSnapLines.ts';
 
 const say = (status: TextLike): void => useUi.setState({ status });
 const refused = (e: unknown): TextLike => (e instanceof Error ? e.message : { key: 'cvs_refused' });
@@ -70,16 +69,7 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
 
   const align = useSheetAlign({ sheet: sheet ?? null, sheetId, drawList: list, zoom: camera.zoom });
   const move = useSheetMove({ sheet: sheet ?? null, sheetId, drawList: list, zoom: camera.zoom, selection: sel, setSelection: setSel });
-  // Linhas de encaixe só são montadas quando um gesto precisa delas (varrer todos os pontos do desenho a cada edição custava caro).
-  const snapLinesMemo = useRef<{ list: unknown; sheet: unknown; lines: SnapLine[] } | null>(null);
-  const getSnapLines = (): SnapLine[] => {
-    if (!sheet || !list) return [];
-    const m = snapLinesMemo.current;
-    if (m && m.list === list && m.sheet === sheet) return m.lines;
-    const lines = snapLinesOf(list, sheet.viewports);
-    snapLinesMemo.current = { list, sheet, lines };
-    return lines;
-  };
+  const getSnapLines = useSheetSnapLines(sheet ?? null, list);
 
   useSheetPrefetch(p, sheet ?? null);
   const drop = useSheetDrop({

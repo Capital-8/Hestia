@@ -140,6 +140,10 @@ for (let i = 0; i < (FAST ? 0 : drops.length); i++) {
     window.__drop = null;
     document.addEventListener('drop', () => {
       const t0 = performance.now();
+      window.__marks = { handler: null, dom: null };
+      window.addEventListener('drop', () => { window.__marks.handler = performance.now() - t0; }, { once: true });
+      const mo = new MutationObserver(() => { if (window.__marks.dom === null && document.querySelectorAll('[data-vp-layer]').length >= n) { window.__marks.dom = performance.now() - t0; mo.disconnect(); } });
+      mo.observe(document.querySelector('.sheet-stage'), { childList: true, subtree: true });
       const poll = () => {
         const layers = document.querySelectorAll('[data-vp-layer]');
         const last = layers[layers.length - 1];
@@ -167,7 +171,8 @@ for (let i = 0; i < (FAST ? 0 : drops.length); i++) {
       return { n: vps.length, scale: vps[vps.length - 1]?.scale };
     });
     const fromUp = await page.evaluate(() => window.__dropEpoch);
-    dropResults.push({ label, node, ms: Math.round(ms * 10) / 10, msFromUp: Math.round((fromUp - upAt) * 10) / 10, added: info.n === before + 1, scale: info.scale });
+    const mk = await page.evaluate(() => window.__marks);
+    dropResults.push({ label, node, marks: { handler: Math.round(mk.handler), dom: Math.round(mk.dom) }, ms: Math.round(ms * 10) / 10, msFromUp: Math.round((fromUp - upAt) * 10) / 10, added: info.n === before + 1, scale: info.scale });
   } catch (e) {
     dropResults.push({ label, node, error: 'tempo esgotado: vista não apareceu' });
   }
@@ -264,5 +269,5 @@ console.log('quadros lentos (>400 ms):', JSON.stringify(slow));
 const result = { when: new Date().toISOString(), drops: dropResults, dropStats: stats(dropMs), gestures, pathsPerViewport: layersInfo, svgNodes: domNodes, layerScales, moveOk, errors };
 writeFileSync(OUT, JSON.stringify(result, null, 2));
 console.log(JSON.stringify({ dropStats: result.dropStats, gestures: Object.fromEntries(Object.entries(gestures).map(([k, v]) => [k, v.frame])), svgNodes: domNodes }, null, 1));
-for (const d of dropResults) console.log(d.error ? `FALHA ${d.label}: ${d.error}` : `${d.label}: ${d.msFromUp} ms desde o soltar (${d.ms} ms desde o evento drop; 1:${d.scale})`);
+for (const d of dropResults) console.log(d.error ? `FALHA ${d.label}: ${d.error}` : `${d.label}: ${d.msFromUp} ms desde o soltar (${d.ms} ms desde o evento drop; tratador ${d.marks?.handler} ms, DOM ${d.marks?.dom} ms; 1:${d.scale})`);
 await browser.close();

@@ -7,7 +7,7 @@ import { useI18n, type TextLike } from '../../editor/i18n.ts';
 import { addViewportAtAction, dragPlacement, type DragPlacement } from '../../editor/sheetInsert.ts';
 import { draggedSheetView, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
 import { encodeInsertArg } from '../../editor/sheetInsertArg.ts';
-import { warmLayerStrings } from './SheetCanvas.tsx';
+import { warmLayerStrings } from './SheetGroupContent.tsx';
 import { snapMove, type SnapGuide } from './sheetSnap.ts';
 import { clampBoxToInner, type InnerBox, type PaperPoint } from './sheetSelection.ts';
 

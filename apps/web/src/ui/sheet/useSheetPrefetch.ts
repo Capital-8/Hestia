@@ -3,7 +3,7 @@ import { areaPlansOf, sheetDimsMm, type Project, type Sheet, type SheetViewSourc
 import { prefetchViewportParts } from '@hestia/render';
 import { useI18n } from '../../editor/i18n.ts';
 import { dragPlacement } from '../../editor/sheetInsert.ts';
-import { warmLayerStrings } from './SheetCanvas.tsx';
+import { warmLayerStrings } from './SheetGroupContent.tsx';
 
 /** Quanto tempo sem gesto antes de preparar a próxima vista, e o intervalo entre uma e outra (ms). */
 export const PREFETCH_IDLE_MS = 500;
@@ -64,5 +64,5 @@ export function useSheetPrefetch(project: Project, sheet: Sheet | null): void {
       window.removeEventListener('wheel', touch, true);
       window.removeEventListener('keydown', touch, true);
     };
-  }, [project, sheet?.id, sheet?.size, sheet?.orientation, sheet?.margin]);
+  }, [project, sheet]);
 }
