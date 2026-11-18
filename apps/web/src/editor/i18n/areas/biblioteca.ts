@@ -337,8 +337,8 @@ export const FR_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_no_folder: 'Aucun dossier de projets choisi.',
   bib_err_rename: 'Impossible de renommer le dossier du projet.',
   bib_err_rename_exists: 'Un dossier portant le nouveau nom existe déjà.',
-  bib_err_rename_extra: 'Le dossier contient d'autres fichiers que le projet ; il n'a pas été renommé.',
-  bib_rename_failed: 'Projet enregistré, mais le dossier n'a pas pu être renommé (peut-être ouvert dans un autre programme). L'ancien dossier reste utilisé.',
+  bib_err_rename_extra: "Le dossier contient d'autres fichiers que le projet ; il n'a pas été renommé.",
+  bib_rename_failed: "Projet enregistré, mais le dossier n'a pas pu être renommé (peut-être ouvert dans un autre programme). L'ancien dossier reste utilisé.",
   bib_saved_elsewhere: 'Projet enregistré ailleurs : {name}. Les prochains enregistrements iront là.',
 };
 
@@ -407,7 +407,7 @@ export const IT_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_rename_exists: 'Esiste già una cartella con il nuovo nome.',
   bib_err_rename_extra: 'La cartella contiene altri file oltre al progetto; non è stata rinominata.',
   bib_rename_failed: 'Progetto salvato, ma la cartella non è stata rinominata (forse è aperta in un altro programma). Resta in uso la cartella precedente.',
-  bib_saved_elsewhere: 'Progetto salvato in un'altra posizione: {name}. I prossimi salvataggi andranno lì.',
+  bib_saved_elsewhere: "Progetto salvato in un'altra posizione: {name}. I prossimi salvataggi andranno lì.",
 };
 
 export const PL_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
