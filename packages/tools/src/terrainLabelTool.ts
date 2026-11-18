@@ -4,7 +4,7 @@ import { ToolBase } from './base.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
-import { gravarOps, opsCotado, opsRotulo, terrenoAlvo } from './terrainEditGestos.ts';
+import { contextoComCurvas, gravarOps, opsCotado, opsRotulo, terrenoAlvo } from './terrainEditGestos.ts';
 import type { PointerInfo } from './types.ts';
 
 /**
@@ -42,7 +42,7 @@ export class TerrainLabelTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
-    const q = this.snap(p, contextoDeTraco(this.r.ultimo)).point;
+    const q = this.snap(p, contextoComCurvas(this.env, contextoDeTraco(this.r.ultimo))).point;
     this.ultimoCursor = q;
     this.atualizaPrevia(q);
   }
@@ -80,7 +80,7 @@ export class TerrainLabelTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
-    const q = this.snap(p, contextoDeTraco(this.r.ultimo)).point;
+    const q = this.snap(p, contextoComCurvas(this.env, contextoDeTraco(this.r.ultimo))).point;
     this.ponto(q);
     this.atualizaPrevia(q);
   }
@@ -129,11 +129,11 @@ export class TerrainSpotTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
-    this.items = [{ kind: 'point', at: this.snap(p).point }];
+    this.items = [{ kind: 'point', at: this.snap(p, contextoComCurvas(this.env)).point }];
   }
 
   override click(p: PointerInfo): void {
-    const q = this.snap(p).point;
+    const q = this.snap(p, contextoComCurvas(this.env)).point;
     const tn = terrenoAlvo(this.env.project(), this.env.selection(), this.env.levelId());
     if (!tn) {
       this.env.say(this.t('tl_tn_label_sem_terreno'));

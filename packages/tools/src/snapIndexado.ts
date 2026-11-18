@@ -29,6 +29,8 @@ export interface ArestaIndexada {
   b: Vec2;
   hostId?: Id;
   kind?: SnapKind;
+  /** Cota z da aresta (curva de nível): vai junto com o candidato `contour`. */
+  z?: number;
 }
 
 const CELULA = 1;
@@ -127,13 +129,19 @@ export function addIndexedPoints(ctx: InferContext, sn: SnapOptions, cursor: Vec
 
 /** Arestas indexadas ao alcance do cursor: pé da perpendicular (`nearest`) e pé a partir do ponto anterior, como em `addExtraSegments`. */
 export function addIndexedSegments(ctx: InferContext, sn: SnapOptions, cursor: Vec2, tol: number, add: AddCandidate): void {
-  if (ctx.onWallsOnly || (!sn.faces && !(sn.perpendicular && ctx.from))) return;
+  if (ctx.onWallsOnly) return;
   const reach = tol * tol;
   for (const ix of ctx.indexed ?? []) {
     ix.pertoDe(cursor, tol, (e) => {
       if (fora(ctx, e.hostId) || dist2(e.a, e.b) < 1e-18) return;
       const kind = e.kind ?? 'nearest';
       const foot = closestOnSegment(cursor, e.a, e.b);
+      // Curva de nível: captura própria (não depende de Faces); leva a cota z da curva.
+      if (kind === 'contour') {
+        if (dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId, undefined, e.z);
+        return;
+      }
+      if (!sn.faces && !(sn.perpendicular && ctx.from)) return;
       if (sn.faces && dist2(cursor, foot) <= reach) add(foot, kind, [], e.hostId);
       if (sn.perpendicular && ctx.from) {
         const pf = closestOnSegment(ctx.from, e.a, e.b);
@@ -153,7 +161,7 @@ export function arestasProximas(ctx: InferContext, cursor: Vec2, reach: number):
   const out: ArestaIndexada[] = [];
   const reach2 = reach * reach;
   const aceita = (e: ArestaIndexada): void => {
-    if (fora(ctx, e.hostId) || dist2(e.a, e.b) < 1e-18) return;
+    if (e.kind === 'contour' || fora(ctx, e.hostId) || dist2(e.a, e.b) < 1e-18) return;
     if (dist2(cursor, closestOnSegment(cursor, e.a, e.b)) <= reach2) out.push(e);
   };
   for (const e of ctx.extraSegments ?? []) {

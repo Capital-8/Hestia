@@ -2,6 +2,8 @@ import { aplicarOpsFontes, isTerrain, isTerrainRegion, terrainIssue, type Id, ty
 import type { Lang } from './i18n.ts';
 import type { FonteRef } from './terrainEditPick.ts';
 import type { ToolEnv } from './types.ts';
+import type { InferContext } from './infer.ts';
+import { curvasSnapIndexes } from './snapCurvas.ts';
 
 /**
  * Operações sobre as FONTES do terreno que cada gesto do modo "Editar terreno" produz (A.6). Funções puras: devolvem a lista de `OpTerreno` de UM
@@ -121,4 +123,14 @@ export function gravarOps(env: ToolEnv, tn: Terrain, ops: OpTerreno[], rotulo: s
   }
   env.transaction(rotulo, () => env.exec({ type: 'editTerrainFontes', terrenoId: tn.id, ops }));
   return true;
+}
+
+/**
+ * Contexto de captura de Rótulo de curva e Cota de ponto: soma as curvas de nível (existente e proposta) do nível aos alvos. Só planta;
+ * na vista de corte/elevação (coordenadas t, z) as curvas não são alvo.
+ */
+export function contextoComCurvas(env: ToolEnv, extra: Partial<InferContext> = {}): Partial<InferContext> {
+  if (env.section?.()) return extra;
+  const curvas = curvasSnapIndexes(env.project(), env.levelId());
+  return curvas.length ? { ...extra, indexed: [...(extra.indexed ?? []), ...curvas] } : extra;
 }

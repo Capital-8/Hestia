@@ -80,6 +80,19 @@ describe('contrato: todo kind de elemento está classificado na captura (snap) d
     expect(codigo).toMatch(/dimRefAt[\s\S]*el\.kind !== 'mass'/);
   });
 
+  it('curvas de nível: só Rótulo de curva e Cota de ponto as capturam (`contextoComCurvas`), nunca o motor comum', () => {
+    // As curvas desenhadas vêm do kernel (`ServicoTerreno.curvas`), não do modelo: entram como `indexed` só nessas duas ferramentas.
+    const gestos = ler('tools/src/terrainEditGestos.ts');
+    expect(gestos).toContain('curvasSnapIndexes(');
+    expect(ler('tools/src/snapCurvas.ts')).toContain('.curvas(');
+    const usam = ['terrainLabelTool.ts'].filter((a) => ler(`tools/src/${a}`).includes('contextoComCurvas'));
+    expect(usam).toEqual(['terrainLabelTool.ts']);
+    expect((ler('tools/src/terrainLabelTool.ts').match(/contextoComCurvas\(/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    for (const a of ['base.ts', 'infer.ts', 'snapIndexado.ts', 'componentSnap.ts']) {
+      expect(ler(`tools/src/${a}`), `${a} não pode consultar as curvas do kernel`).not.toContain('curvasSnapIndexes');
+    }
+  });
+
   it('o motor único serve a todas as ferramentas: a fonte dos pontos é montada em `ToolBase.ctx`, não em cada ferramenta', () => {
     // Nenhuma ferramenta consulta a geometria de escada/guarda-corpo por conta própria: só `base.ts` chama o fornecedor.
     const base = ler('tools/src/base.ts');
