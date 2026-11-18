@@ -1,13 +1,14 @@
 import {
-  guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isBeam, isCad, isCeiling, isColumn, isComponent, isFloor, isFooting, isGeneric,
+  guardaCorposDaCopia, hospedeiroDoGuardaCorpo, isBeam, isFurniture, isCad, isCeiling, isColumn, isComponent, isFloor, isFooting, isGeneric,
   isGuardaCorpo, isLot, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall,
   newId, type Beam, type CadDrawing,
-  type Ceiling, type Column, type Command, type Component, type ComponentGroup, type Element, type Familia, type Floor, type Footing, type Generic, type GuardaCorpo,
+  type Ceiling, type Column, type Command, type Component, type ComponentGroup, type Element, type Familia, type Floor, type Footing, type Furniture, type FurnitureAsset, type Generic, type GuardaCorpo,
   type Id, type Lot, type Mass, type Opening, type Project, type Ramp, type Room, type Roof, type Slab, type Stair,
   type Terrain, type TerrainRegion, type Wall,
 } from '@hestia/model';
 import { pasteAlignedToLevelsCommand } from './pasteLevels/command.ts';
 import type { PasteIds } from './pasteLevels/types.ts';
+import { pasteFurnituresCommand } from './furnitureClipboard.ts';
 import { regioesDoTerreno } from './terrainHandles.ts';
 
 /**
@@ -63,6 +64,10 @@ export interface ClipBuffer {
    * parte não entra: os componentes colam soltos.
    */
   groups?: ComponentGroup[];
+  /** Móveis importados (ausente em buffers antigos = nenhum). */
+  furnitures?: Furniture[];
+  /** Blocos (assets) usados pelos móveis copiados: entram no projeto de destino quando ele não os tem. */
+  furnitureAssets?: FurnitureAsset[];
 }
 
 /** Gerador de identificadores; injetável para teste. */
@@ -96,6 +101,7 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
   const lots = ids.map((id) => p.elements[id]).filter(isLot).map((l) => structuredClone(l));
   const railings = guardaCorposDaCopia(p, ids).map((id) => structuredClone(p.elements[id] as GuardaCorpo));
   const components = ids.map((id) => p.elements[id]).filter(isComponent).map((c) => structuredClone(c));
+  const furnitures = ids.map((id) => p.elements[id]).filter(isFurniture).map((f) => structuredClone(f));
   if (
     hostIds.size === 0 &&
     floors.length === 0 &&
@@ -115,7 +121,8 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
     terrains.length === 0 &&
     terrainRegions.length === 0 &&
     lots.length === 0 &&
-    components.length === 0
+    components.length === 0 &&
+    furnitures.length === 0
   ) return null;
   const walls = [...hostIds].map((id) => structuredClone(p.elements[id] as Wall));
   const openings = Object.values(p.elements)
@@ -133,12 +140,14 @@ export function clipboardFrom(p: Project, ids: Id[]): ClipBuffer | null {
   const groups = Object.values(p.componentGroups ?? {})
     .filter((g) => g.membros.length > 0 && g.membros.every((id) => copiados.has(id)))
     .map((g) => structuredClone(g));
-  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, columns, beams, footings, railings, masses, terrains, terrainRegions, lots, components, componentFamilies, groups };
+  // O bloco viaja na cópia (referência, sem clonar o texto base64): o projeto de destino pode não tê-lo.
+  const furnitureAssets = [...new Set(furnitures.map((f) => f.assetId))].map((id) => p.furniture?.assets[id]).filter((a): a is FurnitureAsset => a !== undefined);
+  return { walls, openings, floors, slabs, ceilings, roofs, stairs, ramps, rooms, generics, cad, columns, beams, footings, railings, masses, terrains, terrainRegions, lots, components, componentFamilies, groups, furnitures, furnitureAssets };
 }
 
 /** Elemento que `clipboardFrom` leva por si só: parede, piso, laje, forro, telhado, escada, rampa, ambiente, genérico, CAD ou estrutural. */
 const isCopyableElement = (e: Element | undefined): boolean =>
-  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e) || isColumn(e) || isBeam(e) || isFooting(e) || isMass(e) || isTerrain(e) || isTerrainRegion(e) || isLot(e) || isComponent(e);
+  isWall(e) || isFloor(e) || isSlab(e) || isCeiling(e) || isRoof(e) || isStair(e) || isRamp(e) || isRoom(e) || isGeneric(e) || isCad(e) || isColumn(e) || isBeam(e) || isFooting(e) || isMass(e) || isTerrain(e) || isTerrainRegion(e) || isLot(e) || isComponent(e) || isFurniture(e);
 
 /** Guarda-corpo que `clipboardFrom` leva: o manual ou o hospedado cujo hospedeiro também está na seleção. */
 const copyableRailing = (ids: readonly Id[], e: Element | undefined): boolean => {
@@ -196,6 +205,8 @@ export interface PasteAlignedResult {
   lotIds: Id[];
   massIds: Id[];
   componentIds: Id[];
+  /** Móveis importados colados. */
+  furnitureIds: Id[];
 }
 
 /** Comando de colar componentes: o lote e os ids novos das instâncias. */
@@ -298,7 +309,8 @@ export function pasteAlignedCommand(
   const ids = r?.byLevel[levelId];
   if (r && ids && idsInPaste(ids) > 0) {
     const components = pasteComponentsCommand(p, clip, levelId, mint);
-    const commands: Command[] = components ? [r.command, components.command] : [r.command];
+    const furn = pasteFurnituresCommand(p, clip, levelId, mint);
+    const commands: Command[] = [r.command, ...(components ? [components.command] : []), ...(furn ? [furn.command] : [])];
     return {
       command: commands.length === 1 ? r.command : { type: 'batch', commands },
       wallIds: ids.walls,
@@ -321,12 +333,15 @@ export function pasteAlignedCommand(
       lotIds: ids.lots,
       massIds: ids.masses,
       componentIds: components?.componentIds ?? [],
+      furnitureIds: furn?.furnitureIds ?? [],
     };
   }
   const components = pasteComponentsCommand(p, clip, levelId, mint);
-  if (!components) return null;
+  const furn = pasteFurnituresCommand(p, clip, levelId, mint);
+  if (!components && !furn) return null;
+  const only = [...(components ? [components.command] : []), ...(furn ? [furn.command] : [])];
   return {
-    command: components.command,
+    command: only.length === 1 ? only[0]! : { type: 'batch', commands: only },
     wallIds: [],
     openingIds: [],
     floorIds: [],
@@ -346,7 +361,8 @@ export function pasteAlignedCommand(
     terrainRegionIds: [],
     lotIds: [],
     massIds: [],
-    componentIds: components.componentIds,
+    componentIds: components?.componentIds ?? [],
+    furnitureIds: furn?.furnitureIds ?? [],
   };
 }
 

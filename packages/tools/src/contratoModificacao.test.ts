@@ -93,9 +93,9 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   component: { mover: null, colar: 'components', alinhar: null, motivo: 'o componente (móvel) NÃO entra em `selectedMovables`: o Selecionar o move pelo próprio arrasto (`ArrastoComponentes`, com encaixe na parede e nos vizinhos) e aplica as poses por `updateComponent`; entrar lá moveria duas vezes. Alinhar pelas arestas dele ainda não existe.' },
   furniture: {
     mover: 'selectedFurnitures',
-    colar: null,
+    colar: 'furnitures',
     alinhar: null,
-    motivo: 'TODO: o móvel importado move, gira, espelha e copia pelo `transform` (Mover, Girar, Espelhar, Copiar, Matriz) e se edita nas Propriedades; o Ctrl+C/Ctrl+V ainda não o leva (o asset teria de viajar no buffer; use Copiar da faixa ou "Meus blocos") e o Alinhar não tem linhas dele.',
+    motivo: 'TODO: o móvel importado move, gira, espelha e copia pelo `transform` (Mover, Girar, Espelhar, Copiar, Matriz), cola por Ctrl+C/Ctrl+V (o bloco viaja no buffer) e se edita nas Propriedades; o Alinhar não tem linhas dele.',
   },
 };
 

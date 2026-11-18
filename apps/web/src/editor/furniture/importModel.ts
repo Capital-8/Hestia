@@ -2,9 +2,45 @@ import { buildFurnitureAsset, type FurnitureAsset, type FurnitureCategory, type 
 import { IMPORT_LIMITS, type FurnitureImportedModel } from '@hestia/io';
 
 /** Unidade em que os números do arquivo estão (multiplicador sobre o que o leitor já entregou, em metros). */
-export type FileUnit = 'm' | 'cm' | 'mm' | 'in';
-export const FILE_UNITS: readonly FileUnit[] = ['m', 'cm', 'mm', 'in'];
-export const UNIT_FACTOR: Record<FileUnit, number> = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 };
+export type FileUnit = 'm' | 'cm' | 'mm' | 'in' | 'ft';
+export const FILE_UNITS: readonly FileUnit[] = ['m', 'cm', 'mm', 'in', 'ft'];
+export const UNIT_FACTOR: Record<FileUnit, number> = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254, ft: 0.3048 };
+
+/** Eixo "para cima" do arquivo: `auto` = o padrão do formato (glTF/OBJ/FBX/DAE: Y; SKP: Z). */
+export type UpChoice = 'auto' | 'y' | 'z';
+export const UP_CHOICES: readonly UpChoice[] = ['auto', 'y', 'z'];
+
+/** O leitor já converte para Z para cima; o padrão de cada formato diz de onde ele partiu. */
+export function formatUp(format: string): 'y' | 'z' {
+  return format === 'skp' ? 'z' : 'y';
+}
+
+/** Matriz 3x3 (linhas) a aplicar sobre o modelo já lido para refletir o eixo escolhido; `null` = nada a fazer. */
+export function upCorrection(format: string, choice: UpChoice): number[] | null {
+  const def = formatUp(format);
+  if (choice === 'auto' || choice === def) return null;
+  // arquivo Y-up lido como padrão e na verdade Z-up: desfaz Y->Z; arquivo Z-up (skp) que na verdade é Y-up: aplica Y->Z.
+  return choice === 'z' ? [1, 0, 0, 0, 0, 1, 0, -1, 0] : [1, 0, 0, 0, 0, -1, 0, 1, 0];
+}
+
+/** Dimensões (X, Y, Z) depois da correção de eixo: trocar Y e Z de lugar (a correção é uma rotação de 90° em X). */
+export function orientDims(dims: [number, number, number], format: string, choice: UpChoice): [number, number, number] {
+  return upCorrection(format, choice) ? [dims[0], dims[2], dims[1]] : dims;
+}
+
+/**
+ * Multiplicadores por eixo para o usuário digitar a dimensão final de UM eixo. `dims` são as dimensões atuais SEM o
+ * multiplicador (já com unidade e eixo). Com `keepRatio` os três eixos recebem o mesmo multiplicador.
+ */
+export function scaleForTarget(dims: readonly number[], axis: 0 | 1 | 2, target: number, keepRatio: boolean, current: [number, number, number] = [1, 1, 1]): [number, number, number] {
+  const d = dims[axis]!;
+  if (!(d > 0) || !(target > 0) || !Number.isFinite(target)) return current;
+  const k = target / d;
+  if (keepRatio) return [k, k, k];
+  const out: [number, number, number] = [...current];
+  out[axis] = k;
+  return out;
+}
 
 /** As 17 categorias de material (mesmas do contrato 1.4), na ordem de exibição. */
 export const FURNITURE_CATEGORIES: readonly FurnitureCategory[] = [
@@ -88,7 +124,8 @@ export function modelDims(model: FurnitureImportedModel, factor = 1): [number, n
   return [(hi[0]! - lo[0]!) * factor, (hi[1]! - lo[1]!) * factor, (hi[2]! - lo[2]!) * factor];
 }
 
-export function summarizeModel(model: FurnitureImportedModel, factor = 1): ModelSummary {
+export function summarizeModel(model: FurnitureImportedModel, factor = 1, up: UpChoice = 'auto', axisScale: [number, number, number] = [1, 1, 1]): ModelSummary {
+  const d = orientDims(modelDims(model, factor), model.sourceFormat, up);
   return {
     vertices: model.stats.vertices,
     triangles: model.stats.triangles,
@@ -96,7 +133,7 @@ export function summarizeModel(model: FurnitureImportedModel, factor = 1): Model
     definitions: model.defs.length,
     textures: model.textures.length,
     materials: model.materials.length,
-    dims: modelDims(model, factor),
+    dims: [d[0] * axisScale[0], d[1] * axisScale[1], d[2] * axisScale[2]],
   };
 }
 
@@ -117,6 +154,25 @@ export interface BuildOptions {
   /** Multiplicador de unidade (ver `UNIT_FACTOR`). */
   factor: number;
   materials: MaterialEdit[];
+  /** Eixo "para cima" escolhido (padrão `auto`). */
+  up?: UpChoice;
+  /** Multiplicadores extras por eixo final (X, Y, Z), depois da unidade; padrão 1. */
+  axisScale?: [number, number, number];
+}
+
+const mulMat = (a: number[], b: number[]): number[] => {
+  const o = new Array<number>(16).fill(0);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r]! += a[k * 4 + r]! * b[c * 4 + k]!;
+  return o;
+};
+const ID16 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
+/** Matriz 4x4 (colunas) S·R: correção de eixo e depois multiplicadores por eixo; `null` se for a identidade. */
+function finalMatrix(format: string, up: UpChoice, s: [number, number, number]): number[] | null {
+  const r = upCorrection(format, up);
+  if (!r && s.every((v) => v === 1)) return null;
+  const R = r ? [r[0]!, r[3]!, r[6]!, 0, r[1]!, r[4]!, r[7]!, 0, r[2]!, r[5]!, r[8]!, 0, 0, 0, 0, 1] : ID16;
+  return mulMat([s[0], 0, 0, 0, 0, s[1], 0, 0, 0, 0, s[2], 0, 0, 0, 0, 1], R);
 }
 
 /**
@@ -131,15 +187,19 @@ export function toFurnitureInput(model: FurnitureImportedModel, o: BuildOptions)
     for (let i = 0; i < positions.length; i++) positions[i] = d.positions[i]! * f;
     return { ...d, positions };
   });
-  const instances = model.instances.map((i) => {
-    const m = i.transform.slice();
+  const A = finalMatrix(model.sourceFormat, o.up ?? 'auto', o.axisScale ?? [1, 1, 1]);
+  const source = A && model.instances.length === 0 ? model.defs.map((d) => ({ defId: d.id, name: undefined as string | undefined, transform: ID16 })) : model.instances;
+  const instances = source.map((i) => {
+    let m = i.transform.slice();
     if (f !== 1) {
       m[12] = m[12]! * f;
       m[13] = m[13]! * f;
       m[14] = m[14]! * f;
     }
+    if (A) m = mulMat(A, m);
     return { defId: i.defId, ...(i.name ? { name: i.name } : {}), transform: m };
   });
+  const ms = o.axisScale ? (o.axisScale[0] + o.axisScale[1] + o.axisScale[2]) / 3 : 1;
   return {
     name: o.name.trim() || model.name,
     sourceFileName: model.sourceFileName,
@@ -154,7 +214,7 @@ export function toFurnitureInput(model: FurnitureImportedModel, o: BuildOptions)
         opacity: m.opacity,
         category: e?.category ?? m.category ?? 'other',
         ...(m.textureIndex !== undefined ? { textureIndex: m.textureIndex } : {}),
-        ...(m.sizeM ? { sizeM: [m.sizeM[0] * f, m.sizeM[1] * f] as [number, number] } : {}),
+        ...(m.sizeM ? { sizeM: [m.sizeM[0] * f * ms, m.sizeM[1] * f * ms] as [number, number] } : {}),
         ...(m.metallic !== undefined ? { metallic: m.metallic } : {}),
         ...(m.roughness !== undefined ? { roughness: m.roughness } : {}),
         ...(m.transmission !== undefined ? { transmission: m.transmission } : {}),

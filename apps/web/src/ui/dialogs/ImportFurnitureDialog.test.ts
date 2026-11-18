@@ -6,12 +6,15 @@ import { FLOW_IDLE, type FlowState } from '../../editor/furniture/importFlow.ts'
 import { buildAssetFromModel, initialMaterialEdits } from '../../editor/furniture/importModel.ts';
 import { boxModel } from '../../editor/furniture/testFixtures.ts';
 
-vi.mock('../../editor/controller.ts', () => ({ useProject: () => null, editor: {} }));
+vi.mock('../../editor/controller.ts', () => {
+  const project = { settings: {} };
+  return { useProject: () => null, editor: { project, store: { subscribe: () => () => undefined } } };
+});
 
 const { ImportPanel, flowErrorText } = await import('./ImportFurnitureDialog.tsx');
 
 const render = (state: FlowState): string =>
-  renderToStaticMarkup(createElement(ImportPanel, { state, onFile: () => undefined, onCancel: () => undefined, onAdd: () => undefined }));
+  renderToStaticMarkup(createElement(ImportPanel, { state, onFiles: () => undefined, onCancel: () => undefined, onAdd: () => undefined }));
 
 describe('diálogo Importar móvel: estados', () => {
   it('ocioso: seletor de arquivo e área de soltar, sem barra nem erro', () => {
@@ -62,7 +65,14 @@ describe('diálogo Importar móvel: estados', () => {
     expect(html).toContain('12 triângulos');
     expect(html).toContain('1 peças');
     expect(html).toContain('1 texturas');
-    expect(html).toContain('Dimensões: 0,80 × 0,40 × 0,50 m');
+    expect(html).toContain('multiple');
+    expect(html).toContain('Tamanho final');
+    expect(html).toContain('Manter proporção');
+    expect(html).toMatch(/id="fur-size-0"[^>]*value="0,80 m"/);
+    expect(html).toMatch(/id="fur-size-1"[^>]*value="0,40 m"/);
+    expect(html).toMatch(/id="fur-size-2"[^>]*value="0,50 m"/);
+    expect(html).toContain('Pés');
+    expect(html).toContain('Z para cima');
     expect(html).toContain('Textura .webp ignorada.');
     expect(html).toContain('Metros (padrão)');
     expect(html).toContain('Polegadas');

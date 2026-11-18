@@ -71,6 +71,7 @@ function fallbackCenter(c: ClipBuffer): Vec2 | null {
   }
   // Componente sem pegada resolvida (família ausente) ainda tem a origem como âncora.
   for (const comp of c.components ?? []) add({ x: comp.x, y: comp.y });
+  for (const f of c.furnitures ?? []) add({ x: f.x, y: f.y });
   return Number.isFinite(minX) ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : null;
 }
 
@@ -94,6 +95,7 @@ function elementsOf(c: ClipBuffer): Element[] {
     ...(c.lots ?? []),
     ...(c.masses ?? []),
     ...(c.components ?? []),
+    ...(c.furnitures ?? []),
   ];
 }
 
@@ -116,6 +118,7 @@ function idsOf(c: ClipBuffer): Id[] {
     ...(c.lots ?? []).map((e) => e.id),
     ...(c.masses ?? []).map((e) => e.id),
     ...(c.components ?? []).map((e) => e.id),
+    ...(c.furnitures ?? []).map((e) => e.id),
   ];
 }
 
@@ -210,7 +213,7 @@ export class PasteTool extends ToolBase {
         notifyWallOverlap(this.env, conflito);
         return;
       }
-      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds, ...r.massIds, ...r.terrainIds, ...r.terrainRegionIds, ...r.lotIds, ...r.componentIds];
+      const ids = [...r.wallIds, ...r.openingIds, ...r.floorIds, ...r.slabIds, ...r.ceilingIds, ...r.roofIds, ...r.stairIds, ...r.rampIds, ...r.roomIds, ...r.genericIds, ...r.cadIds, ...r.railingIds, ...r.massIds, ...r.terrainIds, ...r.terrainRegionIds, ...r.lotIds, ...r.componentIds, ...r.furnitureIds];
     this.env.transaction('Colar', () => {
       this.env.exec(r.command);
       if (len(this.delta) > 1e-9) {

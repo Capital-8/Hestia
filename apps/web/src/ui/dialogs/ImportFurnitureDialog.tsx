@@ -1,28 +1,21 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type DragEvent, type ReactElement } from 'react';
-import { importInWorker, type FurnitureImportedModel } from '@hestia/io';
-import { assetUsage, type FurnitureCategory } from '@hestia/model';
+import { importInWorker } from '@hestia/io';
+import { assetUsage } from '@hestia/model';
 import { useProject } from '../../editor/controller.ts';
 import { addAssetToProject, deleteUnusedAsset, startPlacing } from '../../editor/furniture/actions.ts';
 import { assetTriangles } from '../../editor/furniture/budget.ts';
 import { FURNITURE_ACCEPT, ImportFlow, type FlowError, type FlowState, type ImportFn } from '../../editor/furniture/importFlow.ts';
 import { buildAssetOffThread } from '../../editor/furniture/buildAssetOffThread.ts';
-import {
-  FILE_UNITS,
-  FURNITURE_CATEGORIES,
-  initialMaterialEdits,
-  summarizeModel,
-  UNIT_FACTOR,
-  type FileUnit,
-  type MaterialEdit,
-} from '../../editor/furniture/importModel.ts';
+import { BatchImport } from '../../editor/furniture/batchImport.ts';
+import { UNIT_FACTOR } from '../../editor/furniture/importModel.ts';
 import { fmtNum, useT, type Dict } from '../../editor/i18n.ts';
+import { ImportBatchPanel } from './ImportBatchPanel.tsx';
+import { ReviewForm, type AddForm } from './ImportReviewForm.tsx';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from './Dialog.tsx';
 
 type Tr = (k: keyof Dict, a?: Record<string, string | number>) => string;
 
-const UNIT_KEY: Record<FileUnit, keyof Dict> = { m: 'fur_unit_m', cm: 'fur_unit_cm', mm: 'fur_unit_mm', in: 'fur_unit_in' };
-const catKey = (c: FurnitureCategory): keyof Dict => `fur_cat_${c}` as keyof Dict;
 const nextTick = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 
 /** Texto (traduzido) de cada motivo de a importação não ter seguido. */
@@ -36,12 +29,7 @@ export function flowErrorText(e: FlowError, t: Tr): string {
   }
 }
 
-/** Dados do formulário de revisão no momento de adicionar. */
-export interface AddForm {
-  name: string;
-  unit: FileUnit;
-  edits: MaterialEdit[];
-}
+export type { AddForm };
 
 /** Importar móvel: escolher/arrastar o arquivo, ler em Web Worker (barra + cancelar), revisar e adicionar ao projeto. */
 export function ImportFurnitureDialog({ importFn = importInWorker as ImportFn }: { importFn?: ImportFn }): ReactElement {
@@ -51,8 +39,15 @@ export function ImportFurnitureDialog({ importFn = importInWorker as ImportFn }:
   const setTab = (k: 'import' | 'blocks'): void => useUi.setState({ dialogArg: k === 'blocks' ? 'blocks' : null });
   const flow = useMemo(() => new ImportFlow(importFn), [importFn]);
   const state = useSyncExternalStore(flow.subscribe, flow.getState, flow.getState);
+  const batch = useMemo(() => new BatchImport(importFn, buildAssetOffThread, addAssetToProject), [importFn]);
+  const batchState = useSyncExternalStore(batch.subscribe, batch.getState, batch.getState);
+  const [queued, setQueued] = useState<File[]>([]);
   // Fechar o diálogo (ou sair da tela) encerra o Worker.
-  useEffect(() => () => flow.dispose(), [flow]);
+  useEffect(() => () => { flow.dispose(); batch.dispose(); }, [flow, batch]);
+  const onFiles = (files: File[]): void => {
+    if (files.length > 1) setQueued(files);
+    else void flow.start(files[0]);
+  };
 
   const add = async (place: boolean, form: AddForm): Promise<void> => {
     const model = state.model;
@@ -60,7 +55,7 @@ export function ImportFurnitureDialog({ importFn = importInWorker as ImportFn }:
     flow.setAdding();
     await nextTick();
     try {
-      const asset = await buildAssetOffThread(model, { name: form.name, factor: UNIT_FACTOR[form.unit], materials: form.edits });
+      const asset = await buildAssetOffThread(model, { name: form.name, factor: UNIT_FACTOR[form.unit], up: form.up, axisScale: form.axisScale, materials: form.edits });
       addAssetToProject(asset);
       flow.reset();
       if (place) startPlacing(asset.id);
@@ -90,7 +85,19 @@ export function ImportFurnitureDialog({ importFn = importInWorker as ImportFn }:
       {tab === 'blocks' ? (
         <BlocksList />
       ) : (
-        <ImportPanel state={state} onFile={(f) => void flow.start(f)} onCancel={() => flow.cancel()} onAdd={(place, form) => void add(place, form)} />
+        queued.length > 0 || batchState.items.length > 0 ? (
+          <ImportBatchPanel
+            queued={queued.map((f) => f.name)}
+            state={batchState}
+            errorText={(e) => flowErrorText(e, t)}
+            onStart={(o) => void batch.start(queued, o)}
+            onCancel={() => batch.cancel()}
+            onNew={() => { batch.reset(); setQueued([]); }}
+            onBlocks={() => { batch.reset(); setQueued([]); setTab('blocks'); }}
+          />
+        ) : (
+          <ImportPanel state={state} onFiles={onFiles} onCancel={() => flow.cancel()} onAdd={(place, form) => void add(place, form)} />
+        )
       )}
     </Dialog>
   );
@@ -99,12 +106,12 @@ export function ImportFurnitureDialog({ importFn = importInWorker as ImportFn }:
 /** Parte "Importar" do diálogo: desenha o estado do fluxo (testável por marcação estática). */
 export function ImportPanel({
   state,
-  onFile,
+  onFiles,
   onCancel,
   onAdd,
 }: {
   state: FlowState;
-  onFile: (f: File | undefined) => void;
+  onFiles: (files: File[]) => void;
   onCancel: () => void;
   onAdd: (place: boolean, form: AddForm) => void;
 }): ReactElement {
@@ -115,7 +122,7 @@ export function ImportPanel({
   const onDrop = (e: DragEvent): void => {
     e.preventDefault();
     setOver(false);
-    onFile(e.dataTransfer.files?.[0]);
+    onFiles(Array.from(e.dataTransfer.files ?? []));
   };
   return (
     <>
@@ -133,8 +140,9 @@ export function ImportPanel({
             accept={FURNITURE_ACCEPT.join(',')}
             aria-label={t('fur_file')}
             data-testid="fur-file"
+            multiple
             disabled={busy || state.phase === 'adding'}
-            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }}
+            onChange={(e) => { onFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }}
             style={{ marginLeft: 8 }}
           />
         </label>
@@ -169,87 +177,6 @@ export function ImportPanel({
 
       {state.model ? <ReviewForm key={`${state.model.sourceFileName}:${state.model.stats.ms}`} model={state.model} adding={state.phase === 'adding'} onAdd={onAdd} /> : null}
     </>
-  );
-}
-
-/** Revisão do que foi lido: nome, unidade e materiais; "Adicionar" entrega o formulário. */
-function ReviewForm({ model, adding, onAdd }: { model: FurnitureImportedModel; adding: boolean; onAdd: (place: boolean, form: AddForm) => void }): ReactElement {
-  const { t, lang } = useT();
-  const [name, setName] = useState(model.name);
-  const [unit, setUnit] = useState<FileUnit>('m');
-  const [edits, setEdits] = useState<MaterialEdit[]>(() => initialMaterialEdits(model));
-  const summary = useMemo(() => summarizeModel(model, UNIT_FACTOR[unit]), [model, unit]);
-  const fmt = (n: number, d = 2): string => fmtNum(n, d, lang);
-  const form: AddForm = { name, unit, edits };
-  return (
-    <div data-testid="fur-ready">
-      <h4 style={{ margin: '8px 0 4px' }}>{t('fur_read_title')}</h4>
-      <p style={{ margin: 0 }} role="status">
-        <b>{model.sourceFileName}</b> — {t('fur_read_summary', { vertices: fmtNum(summary.vertices, 0, lang), triangles: fmtNum(summary.triangles, 0, lang), parts: summary.parts, textures: summary.textures })}
-      </p>
-      <p style={{ margin: '2px 0 8px' }} data-testid="fur-dims">{t('fur_dims', { x: fmt(summary.dims[0]), y: fmt(summary.dims[1]), z: fmt(summary.dims[2]) })}</p>
-
-      {model.warnings.length > 0 ? (
-        <div style={{ margin: '0 0 10px' }}>
-          <b>{t('fur_warnings')}</b>
-          <ul data-testid="fur-warnings" style={{ margin: '2px 0 0', paddingLeft: 18 }}>
-            {model.warnings.map((w, i) => <li key={i}>{w}</li>)}
-          </ul>
-        </div>
-      ) : null}
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 10px', alignItems: 'center', marginBottom: 10 }}>
-        <label htmlFor="fur-name">{t('fur_name')}</label>
-        <input id="fur-name" className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        <label htmlFor="fur-unit">{t('fur_unit')}</label>
-        <span>
-          <select id="fur-unit" value={unit} onChange={(e) => setUnit(e.target.value as FileUnit)}>
-            {FILE_UNITS.map((u) => <option key={u} value={u}>{t(UNIT_KEY[u])}</option>)}
-          </select>
-          <span style={{ opacity: 0.65, marginLeft: 8 }}>{t('fur_unit_hint')}</span>
-        </span>
-      </div>
-
-      {model.materials.length > 0 ? (
-        <>
-          <h4 style={{ margin: '8px 0 4px' }}>{t('fur_materials')}</h4>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>
-              {model.materials.map((m, i) => {
-                const e = edits[i];
-                if (!e) return null;
-                const patch = (p: Partial<MaterialEdit>): void => setEdits((cur) => cur.map((x, k) => (k === i ? { ...x, ...p } : x)));
-                const hasTex = m.textureIndex !== undefined;
-                return (
-                  <tr key={i}>
-                    <td style={{ padding: '2px 8px 2px 0' }}>{m.name}</td>
-                    <td>
-                      <select aria-label={`${t('fur_mat_category')}: ${m.name}`} value={e.category} onChange={(ev) => patch({ category: ev.target.value as FurnitureCategory })}>
-                        {FURNITURE_CATEGORIES.map((c) => <option key={c} value={c}>{t(catKey(c))}</option>)}
-                      </select>
-                    </td>
-                    <td>
-                      <input type="color" aria-label={`${t('fur_mat_color')}: ${m.name}`} value={e.color} onChange={(ev) => patch({ color: ev.target.value })} />
-                    </td>
-                    <td>
-                      <label style={{ opacity: hasTex ? 1 : 0.5 }}>
-                        <input type="checkbox" aria-label={`${t('fur_mat_texture')}: ${m.name}`} disabled={!hasTex} checked={hasTex && e.useEmbeddedTexture} onChange={(ev) => patch({ useEmbeddedTexture: ev.target.checked })} />
-                        {' '}{t('fur_mat_texture')}
-                      </label>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </>
-      ) : null}
-
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-        <button className="btn" data-testid="fur-add" disabled={adding || !name.trim()} onClick={() => onAdd(false, form)}>{adding ? t('fur_adding') : t('fur_add')}</button>
-        <button className="btn primary" data-testid="fur-add-place" disabled={adding || !name.trim()} onClick={() => onAdd(true, form)}>{t('fur_add_place')}</button>
-      </div>
-    </div>
   );
 }
 

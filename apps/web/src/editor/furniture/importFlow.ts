@@ -34,6 +34,21 @@ export const FLOW_IDLE: FlowState = { phase: 'idle', progress: { fraction: 0, la
 
 const extOf = (n: string): string => /\.([a-z0-9]+)$/i.exec(n)?.[1]?.toLowerCase() ?? '';
 
+/** Recusa antes de ler: extensão não aceita ou arquivo grande demais (`null` = segue). */
+export function precheckFile(file: { name: string; size: number }): FlowError | null {
+  const ext = extOf(file.name);
+  if (!FURNITURE_ACCEPT.includes(`.${ext}` as (typeof FURNITURE_ACCEPT)[number])) return { kind: 'format', ext: ext || '?' };
+  if (fileTooBig(file.size)) return { kind: 'too_big', mb: Math.round(file.size / 1048576) }; // units-ok: MB de arquivo
+  return null;
+}
+
+/** Traduz uma exceção da importação no motivo mostrado ao usuário. */
+export function classifyError(e: unknown): FlowError {
+  if (e instanceof Error && e.name === 'AbortError') return { kind: 'cancelled' };
+  const msg = e instanceof Error ? e.message : String(e);
+  return /modo leve/i.test(msg) ? { kind: 'refused' } : { kind: 'generic', msg };
+}
+
 /**
  * Fluxo da importação (sem React): lê os bytes, importa no Worker com progresso e cancelamento e guarda o resultado.
  * A interface só desenha o estado e chama `start`/`cancel`. Um arquivo novo cancela o anterior; resultado de uma
@@ -63,13 +78,9 @@ export class ImportFlow {
     if (!file) return;
     this.abort?.abort();
     const id = ++this.run;
-    const ext = extOf(file.name);
-    if (!FURNITURE_ACCEPT.includes(`.${ext}` as (typeof FURNITURE_ACCEPT)[number])) {
-      this.set({ ...FLOW_IDLE, error: { kind: 'format', ext: ext || '?' } });
-      return;
-    }
-    if (fileTooBig(file.size)) {
-      this.set({ ...FLOW_IDLE, error: { kind: 'too_big', mb: Math.round(file.size / 1048576) } }); // units-ok: MB de arquivo
+    const bad = precheckFile(file);
+    if (bad) {
+      this.set({ ...FLOW_IDLE, error: bad });
       return;
     }
     const ac = new AbortController();
@@ -93,11 +104,7 @@ export class ImportFlow {
       this.set({ phase: 'ready', model, error: null });
     } catch (e) {
       if (id !== this.run) return;
-      if (e instanceof Error && e.name === 'AbortError') this.set({ ...FLOW_IDLE, error: { kind: 'cancelled' } });
-      else {
-        const msg = e instanceof Error ? e.message : String(e);
-        this.set({ ...FLOW_IDLE, error: /modo leve/i.test(msg) ? { kind: 'refused' } : { kind: 'generic', msg } });
-      }
+      this.set({ ...FLOW_IDLE, error: classifyError(e) });
     }
   }
 
