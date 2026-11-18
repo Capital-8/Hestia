@@ -87,3 +87,44 @@ Nenhuma entrada leva ao editor: a ação `familyEditor` da faixa está `disabled
 - Portões: typecheck limpo; `check-ribbon-i18n` 435/435 com tradução; `check-i18n-placeholders` só `pct_mullion_copy_name` (outra área, já existia); eslint limpo nos 19 arquivos; `check-units` só as 3 falhas antigas; `check-boundaries` ok; vitest (16 arquivos de móveis + i18n + faixa) verde; uma expectativa EN do menu mantida no texto original (`Duplicate to the Side`).
 - Não verificado no navegador: troca de idioma na tela (só por testes e tipos); conferir FR/IT com aspas escapadas em um passe visual.
 - Arrasto de móvel pelo Selecionar: os móveis ficam fora da captura (`ignore` de todos os componentes do projeto) só quando a seleção tem componente, para os cantos dos móveis (inclusive de outro conjunto) não puxarem o deslocamento; o encaixe segue sendo o de `ArrastoComponentes`. Arrastar escada/parede sozinha continua capturando os móveis.
+
+## Importar móvel (ficha importador, 2026-11-18)
+
+Merge de `integracao/0.2.5` (HEAD 20187757) no branch primeiro; depois o importador por cherry-pick.
+
+### Fonte escolhida e por quê
+- `origin/import/blocos-limpo` (commit `4bb5a36b` do importador, mais o ajuste `4ae90976` do teste de esquema 28 para 29). Ele já é "só o importador, sem a pilha de plugins 1.1 a 1.3" e sem `crates/` nem wasm: 113 arquivos, +9800 linhas, quase todos novos. Descartados: `import/moveis-na-main` e `origin/import/moveis-sobre-main` (152 arquivos, +13355; trazem `packages/plugin-api`, `docs/plugins`, `crates/hestia-renderer` e protocolo 1.1 a 1.3, fora desta ficha). `23f00d2a` (botão Componente da aba Arquitetura abrindo o fluxo de blocos) NÃO foi trazido: aqui "Componente" é a ferramenta da Biblioteca de famílias.
+- O 3D do importador é TS/Three (`packages/render/src/model3d/furniture*.ts`, instâncias compartilhando geometria, versão leve em fatias); não depende de `crates/hestia-renderer`. Funciona na versão web.
+
+### Conflitos (23 arquivos, todos aditivos)
+`App.tsx`, `controller.ts` (Espaço gira o encaixe também para `furniture`; aviso de tamanho ao salvar), `i18n`, `state.ts` (diálogo `importFurniture`), `Properties.tsx` (FurnitureProps ao lado de ComponentProperties), `ViewportCanvas.tsx` (`moveis.aoAtualizar`), faixa (`model.ts`, JSON de i18n), `types.ts` (`Element` ganha `Furniture` ao lado de `Component`; `Material.category` ao lado dos blocos da decisão 0056), `commands.ts`, `historyRotulos.ts`, `scene3d.ts` (cena de móveis ao lado de `buildComponentSolids`; chave de nível mantém `versaoTexturas`), `pick.ts`, `selectTool.ts` (móvel importado vence o genérico e fica antes do componente), `registry.ts`, `shortcutDefaults.ts`, contratos (`extensaoDoModelo`, `contratoModificacao`, `contratoFerramentas`, `sheetTools.test`). Furniture (blocos de arquivo) e Component (família paramétrica) são dois kinds; nenhum foi fundido.
+- Atalhos: `furniture` = `MO` e `VW`; `component` = `CM` e `VC`. Sem colisão com os existentes (teste de atalhos da pasta tools passa).
+- Esquema: sem bump; `Project.furniture` é opcional e aditivo (SCHEMA_VERSION continua 29). Arquivo salvo com móveis é aberto por 0.2.5 sem móveis, que ignora o campo.
+
+### O que foi desbloqueado
+- Faixa Inserir, painel "Móveis": "Importar móvel", "Meus blocos" e "Colocar móvel" já são ações ativas (não `soon`). "Carregar família"/"Carregar como grupo" (painel Carregar da biblioteca) continuam `soon` de propósito (são o roteiro do Revit para .rfa, não o importador). Novo botão "Importar móvel" no topo da paleta Biblioteca (`data-testid=pal-importar`), abre o mesmo diálogo.
+- O seletor aceita .skp, .glb, .gltf, .obj, .dae, .fbx e .zip, vários arquivos; diálogo com unidade/escala, nome, categoria e materiais; Worker (`importInWorker`, `buildAssetWorker`), a tela não trava.
+- Colocar: ferramenta `furniture` (clique na planta ou no 3D; R gira 90° e Shift+R ao contrário, Espaço também, Tab espelha, Esc sai). Selecionar, apagar e desfazer; Mover/Copiar/Girar/Espelhar/Matriz da faixa agora levam o móvel (novo `transformFurniture` no comando `transform`, `selectedFurnitures`).
+- Planta: contorno REAL da projeção da malha (casco convexo dos vértices de todas as peças, amostrado até 40 mil vértices por definição; antes era o retângulo da caixa). Seleção por clique e fantasma de mover usam o mesmo contorno. A caixa do modelo (zoom total) inclui o móvel.
+- 3D: malha com cor/textura do arquivo (sombreado e realista pelos materiais do projeto).
+- Orçamento: é o orçamento de TRIÂNGULOS da vista (chip na barra de status; versão leve acima do teto). Móvel importado NÃO entra no orçamento de peças/custo da Biblioteca de famílias (não tem peças nem preço).
+
+### Formatos e limites
+Leitores: glTF/GLB, OBJ, COLLADA e FBX próprios (FBX usa `FBXLoader` do three), SKP por OpenSKP. Aviso acima de 300 mil vértices por bloco e recusa acima de 600 mil (`IMPORT_LIMITS`); arquivo até 50 MB; textura até 8 MiB; asset aviso 40 MB / recusa 128 MB. ZIP: até 50 MB, 500 entradas, 200 MB descompactado, recusa `..` e caminho absoluto (zip-slip, teste `fmt.test.ts`) e ZIP dentro de ZIP.
+
+### Licenças das dependências novas (NOTICE/LICENSING.md não editados)
+`openskp` 1.3.0 MIT; `fflate` 0.8.3 MIT; `flatbuffers` 25.9.23 Apache-2.0; `earcut` 3.2.4 ISC; `three` (FBXLoader) MIT, já dependência do render. `NOTICE`/`LICENSING.md` hoje não listam nenhuma dependência de terceiros: Apache-2.0 do flatbuffers (inclui o texto da licença na distribuição) e a ISC do earcut pedem apenas manter o aviso; decisão do dono se um NOTICE de terceiros é necessário. Atenção: `packages/io` importa `fflate` mas só declara `openskp` (fflate vem hoisted por ele); declarar `fflate` em `packages/io/package.json` seria mais limpo (não alterado para não mexer no lockfile).
+
+### Limites conhecidos
+- Corte e elevação NÃO projetam a malha importada (só a caixa do modelo entra no enquadramento). Pendente.
+- Ctrl+C/Ctrl+V não leva o móvel (o asset teria de viajar no buffer); use Copiar da faixa ou "Meus blocos".
+- Textos novos de UI do importador existem nos 7 idiomas (`i18n/areas/furniture.ts`); a faixa passa em `check-ribbon-i18n`.
+- Testes de `.skp` reais ficam pulados (sem arquivo de fixture).
+
+### Roteiro de teste manual (app em http://localhost:4201 ou o servidor do branch)
+1. Aba Inserir, painel Móveis, "Importar móvel": escolher um .glb (ou .obj/.skp/.zip) baixado. Conferir nome, escala (unidade do arquivo) e categoria; "Adicionar e colocar".
+2. Na planta, mover o cursor (contorno tracejado), apertar R para girar 90°, clicar para colocar; Esc termina.
+3. Ver o contorno do móvel na planta (formato real, não retângulo) e na aba 3D com cor/textura.
+4. Selecionar o móvel e mover/girar/copiar pela faixa; Ctrl+Z desfaz cada passo.
+5. Abrir a Biblioteca e usar o botão "Importar móvel" da paleta; "Meus blocos" lista os blocos para colocar mais cópias.
+6. Salvar, fechar e reabrir: o móvel volta. Importar um arquivo muito grande para ver a mensagem de limite.
