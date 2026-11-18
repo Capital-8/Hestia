@@ -36,7 +36,7 @@ export const FAMILIA_GELADEIRA: Familia = nova({
     bloco('puxadorInferior', 'Puxador do refrigerador', 'L - 70', '0', 'A - fz - 440', '20', '20', '400', IN, { quando: 'portas == "duas"' }),
     bloco('puxadorFreezer', 'Puxador do freezer', 'L - 70', '0', 'A - fz + 40', '20', '20', '200', IN, { quando: 'portas == "duas"' }),
   ],
-  ferragens: [{ id: 'dobradica', nome: 'Dobradiça 35 mm', quantidade: 'portas == "uma" ? 3 : 5' }, CAVILHA],
+  ferragens: [{ id: 'dobradica', nome: 'Dobradiça 35 mm', quantidade: 'portas == "uma" ? ((A - 104) <= 900 ? 2 : ((A - 104) <= 1600 ? 3 : 4)) : (((A - fz - 104) <= 900 ? 2 : ((A - fz - 104) <= 1600 ? 3 : 4)) + ((fz - 4) <= 900 ? 2 : 3))' }, CAVILHA],
   tipos: [
     { id: 'uma_porta', nome: 'Geladeira 1 porta (0,60 × 0,65 × 1,50 m)', valores: { L: 600, P: 650, A: 1500, portas: 'uma' } },
     { id: 'duplex', nome: 'Geladeira duplex 2 portas (0,70 × 0,70 × 1,80 m)', valores: { L: 700, P: 700, A: 1800, portas: 'duas' } },

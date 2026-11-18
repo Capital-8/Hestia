@@ -201,7 +201,7 @@ export const FAMILIA_BOX_RETO: Familia = nova({
   pecas: [
     bloco('trilhoInferior', 'Trilho inferior', '0', '0', '0', 'L', 'P', '20', IN),
     bloco('trilhoSuperior', 'Trilho superior', '0', '0', 'A - 20', 'L', 'P', '20', IN),
-    placaY('fixo', 'Vidro fixo', 'porta', '0', 'P / 2 - ev - 1', '20', 'L / 2', 'A - 40', 'ev', VI),
+    placaY('fixo', 'Vidro fixo', 'painel', '0', 'P / 2 - ev - 1', '20', 'L / 2', 'A - 40', 'ev', VI),
     placaY('porta', 'Porta de correr', 'porta', 'L / 2 - 20', 'P / 2 + 1', '20', 'L / 2 + 20', 'A - 40', 'ev', VI),
     bloco('puxador', 'Puxador', 'L / 2 - 20', 'P / 2 + 1 + ev', 'A * 0.5', '15', '5', '300', IN),
   ],
@@ -231,11 +231,11 @@ export const FAMILIA_BOX_CANTO: Familia = nova({
     bloco('trilhoFrenteSup', 'Trilho frontal superior', '0', '0', 'A - 20', 'L', '30', '20', IN),
     bloco('trilhoLateralSup', 'Trilho lateral superior', 'L - 30', '30', 'A - 20', '30', 'P - 30', '20', IN),
     placaY('porta', 'Porta de abrir', 'porta', '0', '10', '20', 'L * 0.5', 'A - 40', 'ev', VI),
-    placaY('fixoFrente', 'Fixo frontal', 'porta', 'L * 0.5', '10', '20', 'L * 0.5', 'A - 40', 'ev', VI),
-    placaX('fixoLateral', 'Fixo lateral', 'porta', 'L - 30 + 10', '30', '20', 'P - 30', 'A - 40', 'ev', VI),
+    placaY('fixoFrente', 'Fixo frontal', 'painel', 'L * 0.5', '10', '20', 'L * 0.5', 'A - 40', 'ev', VI),
+    placaX('fixoLateral', 'Fixo lateral', 'painel', 'L - 30 + 10', '30', '20', 'P - 30', 'A - 40', 'ev', VI),
     bloco('puxador', 'Puxador', 'L * 0.5 - 40', '0', 'A * 0.5', '15', '10', '300', IN),
   ],
-  ferragens: [{ id: 'dobradica', nome: 'Dobradiça 35 mm', quantidade: '3' }],
+  ferragens: [{ id: 'dobradica', nome: 'Dobradiça 35 mm', quantidade: '(A - 40) <= 900 ? 2 : ((A - 40) <= 1600 ? 3 : ((A - 40) <= 2200 ? 4 : 5))' }],
   tipos: [
     { id: 'canto90', nome: 'Box de canto 900 × 900', valores: { L: 900, P: 900 } },
     { id: 'canto120', nome: 'Box de canto 1200 × 900', valores: { L: 1200, P: 900 } },
