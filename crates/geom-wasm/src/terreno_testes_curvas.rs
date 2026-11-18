@@ -120,15 +120,21 @@ fn t2_curvas_retas() {
 
 #[test]
 fn t3_curvas_quadradas() {
+    // A consulta devolve as curvas suavizadas (Chaikin, 2 rodadas): cada canto do quadrado é cortado, então 4 pontos viram 16, o perímetro e a área
+    // encolhem um pouco e tudo continua dentro do quadrado original e fechado, sem repetir o primeiro ponto.
     let c = curvas(&mut cena_com(&[t3(1)]), 0, 0);
     assert_eq!(c.iter().map(|l| l.z).collect::<Vec<_>>(), vec![1.0, 2.0, 3.0, 4.0], "nenhuma curva em z = 0 nem em z = 5");
     for (l, lado) in c.iter().zip([16.0, 12.0, 8.0, 4.0]) {
         assert!(l.fechada, "curva fechada");
-        assert_eq!(l.pontos.len(), 4, "um canto por aresta da pirâmide, sem repetir o primeiro");
-        assert!((l.comprimento() - 4.0 * lado).abs() < 1e-9, "perímetro {}", l.comprimento());
-        assert!(l.pontos.iter().all(|p| ((p[0] - 10.0).abs() - lado / 2.0).abs() < 1e-9 && ((p[1] - 10.0).abs() - lado / 2.0).abs() < 1e-9), "{:?}", l.pontos);
-        assert!((l.area() - lado * lado).abs() < 1e-9, "anti-horária (o lado alto, de dentro, à esquerda)");
+        assert_eq!(l.pontos.len(), 16, "4 cantos, 2 rodadas de Chaikin");
+        assert!(l.comprimento() < 4.0 * lado && l.comprimento() > 3.4 * lado, "perímetro {}", l.comprimento());
+        assert!(l.pontos.iter().all(|p| (p[0] - 10.0).abs() <= lado / 2.0 + 1e-9 && (p[1] - 10.0).abs() <= lado / 2.0 + 1e-9), "{:?}", l.pontos);
+        assert!(l.area() < lado * lado && l.area() > 0.85 * lado * lado, "anti-horária e um pouco menor que o quadrado: {}", l.area());
     }
+    // Sem suavização (a malha crua) os cantos continuam exatos.
+    let m = crate::terreno_avalia::Malha::nova(vec![[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0], [0.0, 20.0, 0.0], [10.0, 10.0, 5.0]], vec![0, 1, 2, 3, 4], vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]], Vec::new());
+    let cru = crate::terreno_curvas::curvas_da_malha(&m, 1.0, 5).expect("curvas");
+    assert!(cru.iter().all(|c| c.fechada && c.pontos.len() == 4));
 }
 
 #[test]
@@ -237,4 +243,34 @@ fn aviso_linha_cruzada() {
     let sem = avisos(&mut cena_com(&[TerrenoFx::novo(7, vec![[0.0, 0.0, 1.0], [5.0, 0.0, 2.0]])]), NIVEL_TODOS);
     assert_eq!(sem.iter().map(|x| x.0).collect::<Vec<_>>(), vec![[7, AVISO_SEM_TRIANGULOS, ID_AUSENTE, ID_AUSENTE]]);
     assert_eq!(executar(&mut cena, CONSULTA_TERRENO_AVISOS, &[0.5]).err(), Some(ENTRADA));
+}
+
+#[test]
+fn cota_da_regiao_no_nivel_nao_vira_curva_no_perimetro() {
+    // E = 10,25 + 0,1 x (intervalo 0,5); plataforma (5,5)–(15,15) exatamente na cota 11,0 (k · intervalo): nada de curva dentro dela nem laço colado ao perímetro.
+    use crate::terreno_fixture::RegiaoFx;
+    let fx = TerrenoFx { regioes: vec![RegiaoFx::quadrado(1, 1, 5.0, 5.0, 10.0, 11.0)], ..t2(1) };
+    let c = curvas(&mut cena_com(&[fx]), 0, 1);
+    for l in &c {
+        assert!(l.pontos.iter().all(|p| !(p[0] > 5.001 && p[0] < 14.999 && p[1] > 5.001 && p[1] < 14.999)), "curva dentro da região plana: z = {}", l.z);
+        assert!(!(l.fechada && l.comprimento() < 1.0), "laço colado à parede: z = {} comprimento {}", l.z, l.comprimento());
+    }
+}
+
+#[test]
+fn suavizacao_preserva_extremidades_fixos_e_nao_cruza() {
+    use crate::terreno_curvas::suavizar;
+    let zig = [[0.0, 0.0], [1.0, 1.0], [2.0, 0.0], [3.0, 1.0], [4.0, 0.0]];
+    let aberta = suavizar(&zig, &[true, false, false, false, true], false, 2);
+    assert_eq!(aberta.first(), Some(&[0.0, 0.0]));
+    assert_eq!(aberta.last(), Some(&[4.0, 0.0]), "extremidades de curva aberta não se movem");
+    assert!(aberta.len() > zig.len());
+    let quadrado = [[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]];
+    let fechada = suavizar(&quadrado, &[true, false, false, false], true, 2);
+    assert!(fechada.contains(&[0.0, 0.0]), "ponto fixo (sobre a borda) fica exatamente onde estava");
+    assert!(!fechada.contains(&[4.0, 4.0]), "os demais cantos são cortados");
+    // Duas voltas muito próximas: a suavização nunca introduz autointerseção.
+    let estreito = [[0.0, 0.0], [10.0, 0.0], [10.0, 0.1], [0.0, 0.1]];
+    let s = suavizar(&estreito, &[false; 4], true, 2);
+    assert!(!crate::terreno_curvas::se_cruza(&s, true));
 }
