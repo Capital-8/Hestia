@@ -29,6 +29,13 @@ export interface TerrainType {
   /** Multiplicadores do peso de linha das curvas normais e das mestras. */
   curvaPeso: number;
   mestraPeso: number;
+  /**
+   * Suavizar as curvas de nível. Ausente/false = EXATAS (a geometria da malha, sem arredondar: o padrão, também dos projetos anteriores). true = suavizadas
+   * por Chaikin, por vértice, com desvio máximo `toleranciaSuavizacao` em relação à curva exata.
+   */
+  suavizarCurvas?: boolean;
+  /** Tolerância da suavização (m). Ausente = `TOLERANCIA_SUAVIZACAO_PADRAO` (2 cm). Entre `toleranciaMin` e `toleranciaMax`. */
+  toleranciaSuavizacao?: number;
   /** `TerrainTextFamily` (`kind: 'contour'`) do texto dos rótulos; ausente = a padrão do projeto. */
   rotuloFamilyId?: Id;
   /** Desenha as cotas nas curvas sem precisar das linhas de rótulo. */
@@ -37,7 +44,17 @@ export interface TerrainType {
   rotularCada: number;
 }
 
-export const TERRAIN_TYPE_LIMITES = { pesoMin: 0.25, pesoMax: 8 } as const;
+export const TERRAIN_TYPE_LIMITES = { pesoMin: 0.25, pesoMax: 8, toleranciaMin: 0.001, toleranciaMax: 0.5 } as const;
+/** Tolerância padrão da suavização das curvas de nível (m): 2 cm. */
+export const TOLERANCIA_SUAVIZACAO_PADRAO = 0.02;
+
+/** Tolerância (m) com que as curvas do terreno saem do kernel: 0 = EXATAS (sem tipo, ou tipo sem suavização); senão a do tipo (padrão 2 cm). */
+export function toleranciaCurvasDoTerreno(s: Pick<ProjectSettings, 'terrainTypes'> | undefined, t: Pick<Terrain, 'tipoId'>): number {
+  const tipo = tipoDoTerreno(s, t);
+  if (!tipo?.suavizarCurvas) return 0;
+  const v = tipo.toleranciaSuavizacao;
+  return v !== undefined && Number.isFinite(v) && v > 0 ? v : TOLERANCIA_SUAVIZACAO_PADRAO;
+}
 
 export const COR_SUPERFICIE_PADRAO = '#7f9f5c';
 export const COR_SOLO_PADRAO = '#8b6b4a';
@@ -104,11 +121,17 @@ export function removeTerrainTypeFrom(s: ProjectSettings, id: Id): ProjectSettin
 }
 
 /** Problema do tipo (chave de mensagem do modelo e parâmetros), ou null se válido. */
-export function terrainTypeIssue(x: TerrainType): { key: 'md_tn_intervalo' | 'md_tn_mestra'; params: Record<string, number> } | null {
+export function terrainTypeIssue(x: TerrainType): { key: 'md_tn_intervalo' | 'md_tn_mestra' | 'md_tn_tolerancia'; params: Record<string, number> } | null {
   const L = TERRENO_LIMITES;
   if (!Number.isFinite(x.intervaloCurvas) || x.intervaloCurvas < L.intervaloMin) return { key: 'md_tn_intervalo', params: { min: L.intervaloMin } };
   const inteiro = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= L.mestraMax;
   if (!inteiro(x.mestraCada) || !inteiro(x.rotularCada)) return { key: 'md_tn_mestra', params: { max: L.mestraMax } };
+  if (x.suavizarCurvas && x.toleranciaSuavizacao !== undefined) {
+    const { toleranciaMin, toleranciaMax } = TERRAIN_TYPE_LIMITES;
+    if (!Number.isFinite(x.toleranciaSuavizacao) || x.toleranciaSuavizacao < toleranciaMin || x.toleranciaSuavizacao > toleranciaMax) {
+      return { key: 'md_tn_tolerancia', params: { min: toleranciaMin * 100, max: toleranciaMax * 100 } };
+    }
+  }
   return null;
 }
 
