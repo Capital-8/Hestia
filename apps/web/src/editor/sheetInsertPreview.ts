@@ -3,8 +3,9 @@ import { t, useI18n } from './i18n.ts';
 import { addViewportAtAction, addViewsAction, autoScaleForView, contentSizeMm, freeSpotFor, naturalScaleOf } from './sheetInsert.ts';
 
 /**
- * Lógica pura da janela "Inserir vista" (pré-visualização grande com escolha de escala): que escalas oferecer, como
- * ler uma escala digitada, quanto a vista ocupa na folha naquela escala, se cabe e onde ela cairia. A tela só desenha.
+ * Lógica pura da janela "Inserir vistas" (escolha de escala e inserção): que escalas oferecer, como ler uma escala
+ * digitada, a escala de cada modo e a inserção no ponto solto (Shift ao arrastar). Quanto a vista ocupa e se cabe
+ * (`previewInsert`) só decide esse caso; a lista de vistas da janela não tem prévia.
  */
 
 /** Escalas oferecidas na janela (denominadores), de 1:20 a 1:500; qualquer outra entra como personalizada. */

@@ -30,7 +30,7 @@ export interface SheetDropApi {
  * Arrastar uma vista do Navegador de projeto para a prancha (estilo Revit): durante o `dragover` desenha o retângulo
  * tracejado com nome e escala, encaixa nas outras vistas e, ao soltar, insere centrada no ponteiro na escala natural
  * (ou na maior que cabe), deixando a vista nova selecionada. Um passo de desfazer. Com Shift ao soltar, abre a janela
- * "Inserir vistas" (prévia grande, escolha da escala) centrada no ponto solto.
+ * "Inserir vistas" (lista de vistas e escolha da escala), com a vista solta marcada e entrando no ponto solto.
  */
 export function useSheetDrop(args: {
   sheetId: string;

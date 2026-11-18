@@ -142,3 +142,12 @@ Cada arquivo foi rodado isolado, com `pvitest.sh`, um por vez, na máquina livre
 | packages/render/src/model3d/wallTiltJuncaoArco.test.ts | 7/7 nas 2 rodadas (limite 200 ms para 20 paredes) | (A) | Desempenho dentro do limite | Nenhuma |
 
 Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de tempo), não regressão desta integração. Nenhum volume laje x parede, junção ou predio10 falhou isolado. Sobra para o dono: decidir se a suíte ampla deve ser repetida em horário livre (com `pesado.sh`, sem paralelismo extra) para confirmar a zeragem; se os limites de desempenho do wallTiltMulticamada devem ser apertados até a meta de 100 ms do corte.
+
+## Espaço+arrastar e Inserir vistas (executor i025, 18/11/2026)
+
+- **Espaço + arrastar** é o gesto de pan da prancha (conteúdo da vista sob o cursor; fora de vistas, a câmera). Alt continua. Decisão em `gestoDoBotaoNaPrancha` (`ui/sheet/sheetGestoBotao.ts`, 12 testes). Nota da release (`docs/releases/v0.2.5.md`) explica como manter Alt no Linux (tecla Super).
+- **Inserir vistas** sem prévia: lista de vistas agrupada (plantas, cortes, elevações, 3D), Marcar todas/Limpar, escala inicial "Da vista", dica do Shift, Cancelar/Inserir. Janela `size="ins"`: 560 px e 80% da altura, lista com rolagem própria.
+- Lista virtual sempre ativa (faixa visível de linhas, altura medida no DOM): 250 vistas 3D abrem em ~100 ms (1366x768) e ~410 ms (1024x640, ver pendência).
+- Escolha da escala: "Da vista" usa a natural se couber, senão a maior que cabe. Escala fixa que não cabe, ou sem espaço livre, avisa só depois de Inserir (a janela continua aberta).
+- Medido com `tests/e2e/prancha-inserir-layout.mjs` (Chrome do sistema via `CHROME_PATH`, servidor 4200): janela 560x482 (1024x640) e 560x526 (1366x768), lista 256 e 300 px com rolagem, rodapé dentro, nada fora da janela, fonte de 18px sem sobreposição.
+- Pendente: abertura quente de 1024x640 ~410-420 ms (limite de 300 ms não atingido; causa não isolada, suspeita de aquecimento da primeira página no dev server sob carga). Ver em build de produção antes de fechar. `test-i18n-runtime.mjs` não roda aqui (Chromium do Playwright ausente). Ver em tela: a lista, a janela em fonte grande, o gesto Espaço+arrastar em planta de prancha com a tecla Alt indisponível.
