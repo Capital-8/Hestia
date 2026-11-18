@@ -11,7 +11,7 @@
  * Assinatura. Cada terreno tem uma assinatura da geometria das fontes (A.8 item 4): nome, cor, material, rótulos, pontos cotados e `mostrarExistente`
  * não entram, então mudar qualquer um deles não muda nada do que vai ao kernel. A assinatura da proposta soma a das regiões do terreno.
  */
-import { isTerrain, isTerrainRegion, TERRENO_LIMITES, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
+import { isTerrain, isTerrainRegion, terrenoComTipo, TERRENO_LIMITES, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
 
 export * from './kernelTerrenoEnvio.ts';
 
@@ -136,7 +136,8 @@ export function montarCenaTerreno(p: Project, opcoes: OpcoesCenaTN = {}): CenaTN
   const ignorados: Id[] = [];
   const elementos = Object.values(p.elements);
 
-  for (const t of ordenar(elementos.filter(isTerrain))) {
+  for (const bruto of ordenar(elementos.filter(isTerrain))) {
+    const t = terrenoComTipo(p.settings, bruto);
     const nivel = nivelDe.get(t.levelId);
     const num = nivel === undefined || verticesDoTerreno(t) + t.curvas.length + t.quebras.length + 1 >= PASSO_ID_TERRENO ? null : interna(terrenos, t.id, MAX_TERRENO_NUM);
     if (num === null || nivel === undefined) {
