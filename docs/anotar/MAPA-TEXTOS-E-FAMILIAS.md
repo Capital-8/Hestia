@@ -57,4 +57,19 @@ altura (mm de papel), fonte, cor, estilo (negrito/itálico), prefixo, unidade, c
 
 ## Estado ao fim da frente
 
-(preenchido no fechamento; ver relatório final)
+Corrigido: lacunas 1 a 5 (exclusão, seleção e destaque; famílias do terreno e do lote; bases e Localização).
+Esquema: não mudou (SCHEMA_VERSION 29). Todos os campos novos são opcionais com padrão que reproduz o desenho anterior:
+`settings.terrainTextFamilies`, `defaultTerrainContourFamilyId`, `defaultTerrainSpotFamilyId`, `settings.lotFamilies`, `defaultLotFamilyId`,
+`Terrain.rotuloFamilyId`/`cotadoFamilyId`, `Lot.familyId`, `SpotAnnotation.z`.
+
+Famílias novas: `TerrainTextFamily` (kind `contour` ou `spot`: fonte, altura, cor, negrito, itálico, prefixo, unidade, casas) e `LotFamily` (linha de
+propriedade: estilo, espessura, cor; texto dos lados: fonte, altura, cor, negrito, itálico, unidade, casas, mostrar papel e medida).
+Painéis: `TerrainProperties` (dois `TypeSelector`) e `LotProperties` (um), todos com "Editar tipo" (`onEdit`).
+
+Defeito da Localização, causa e correção: a cota de elevação em PLANTA ignorava o z medido (o desenho sempre usava a cota do nível), e a base
+`relative` de coordenada e a `survey` sem ponto de levantamento ignoravam o ponto-base e a Localização. Agora `cotasBase.ts` (modelo) define
+uma única conta usada pelo desenho e pela prévia da ferramenta. O texto só muda depois que o desenho da vista é refeito (poucos centésimos de segundo
+no navegador de teste).
+
+Pendências: etiqueta de ambiente, textos de escada/rampa/piso/telhado e marca de nível com corpo de texto fixo (sem família); mover e copiar cota de
+ponto e rótulo do terreno pela Selecionar; o traço-dois-pontos exato do lote.
