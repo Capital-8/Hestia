@@ -60,3 +60,4 @@ export * from './familia/index.ts';
 export * from './familia/usinagensMarcadores.ts';
 export * from './model3d/componentSolids.ts';
 export * from './model3d/gizmoComponenteTipos.ts';
+export { GizmoComponente3D } from './model3d/gizmoComponente3d.ts';
