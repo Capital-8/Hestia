@@ -10,7 +10,7 @@ function projeto(pecas: Peca[], x = 2, y = 1, extra: Partial<Component> = {}): P
   const f = structuredClone(FAMILIA_ARMARIO);
   Object.assign(f, { id: 'fam_teste_planta', nome: 'Teste', parametros: f.parametros.filter((q) => ['L', 'A', 'P'].includes(q.id)), planos: [], pecas, aninhados: [], ferragens: [], tipos: [], tipoPadrao: undefined, caixaria: undefined, conectores: undefined, escolhas: undefined });
   aplicar(p, { type: 'upsertFamily', family: f });
-  p.elements.c1 = { id: 'c1', kind: 'component', familyId: 'fam_teste_planta', levelId: p.levels[0]!.id, order: 1, x, y, z: 0, rotation: 0, mirrored: false, mark: 'c1', ...extra };
+  p.elements.c1 = { id: 'c1', kind: 'component', familyId: 'fam_teste_planta', typeId: null, levelId: p.levels[0]!.id, order: 1, x, y, z: 0, rotation: 0, mirrored: false, mark: 'c1', ...extra };
   return p;
 }
 
@@ -24,7 +24,8 @@ const caixa = (f: FillOp): number[] => {
 };
 
 /** Contorno de 64 lados, raio 600 mm, centrado em (600, 600) mm. */
-const CIRCULO = Array.from({ length: 64 }, (_, k) => [600 + 600 * Math.cos((2 * Math.PI * k) / 64), 600 + 600 * Math.sin((2 * Math.PI * k) / 64)] as [string, string]).map(([a, b]) => [a.toString(), b.toString()] as [string, string]);
+const CIRCULO = Array.from({ length: 64 }, (_, k): [string, string] => [String(600 + 600 * Math.cos((2 * Math.PI * k) / 64)), String(600 + 600 * Math.sin((2 * Math.PI * k) / 64))]);
+
 /** Largura da caixa em mm inteiros (evita ruído de ponto flutuante). */
 const largura = (f: FillOp): number => Math.round((caixa(f)[2]! - caixa(f)[0]!) * 1000);
 

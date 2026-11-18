@@ -87,3 +87,15 @@ Nenhuma entrada leva ao editor: a ação `familyEditor` da faixa está `disabled
 - Portões: typecheck limpo; `check-ribbon-i18n` 435/435 com tradução; `check-i18n-placeholders` só `pct_mullion_copy_name` (outra área, já existia); eslint limpo nos 19 arquivos; `check-units` só as 3 falhas antigas; `check-boundaries` ok; vitest (16 arquivos de móveis + i18n + faixa) verde; uma expectativa EN do menu mantida no texto original (`Duplicate to the Side`).
 - Não verificado no navegador: troca de idioma na tela (só por testes e tipos); conferir FR/IT com aspas escapadas em um passe visual.
 - Arrasto de móvel pelo Selecionar: os móveis ficam fora da captura (`ignore` de todos os componentes do projeto) só quando a seleção tem componente, para os cantos dos móveis (inclusive de outro conjunto) não puxarem o deslocamento; o encaixe segue sendo o de `ArrastoComponentes`. Arrastar escada/parede sozinha continua capturando os móveis.
+
+## Planta real dos móveis (branch moveis/planta-real)
+- `planComponents.ts` projeta cada peça vista de cima (`planComponentsPecas.ts`, geometria em `planComponentsGeo.ts`): polígono real (eixo z) ou retângulo `extensao` x × y (eixos x/y), ordenado pela cota superior (a mais alta por último e cobre a de baixo).
+- Níveis (`DetailLevel` da planta): grosseiro = só pegada, tampo e frentes como antes; médio = peças sem travessa e rodapé (regra do 3D, `pecaNaPlanta` no engine); fino = todas. `detalhe3d` da peça (agora copiado para `PecaResolvida`) vale o menor nível listado.
+- Pegada só forra o fundo quando há caixa fechada (base, topo ou fundo); mesa, banco e estrutura aberta mostram só as peças. Peça `vazio` nunca é sólida (segue só como recorte).
+- Vidro (material com "vidro" ou grupo vidro): alpha 0,25, não encobre; peça opaca totalmente sob outra opaca mais alta fica sem contorno (médio) ou tracejada fraca (fino); portas e frentes mantêm contorno.
+- Aramado: só contornos (`aramado` vem de `wire` em `build.ts`). Aéreo (zMin >= 1,10 m): silhueta real tracejada [4,3] das peças + véu 0,25 na cor do corpo; no grosseiro, a pegada.
+- Snaps (`moveisSnapPlanta.ts`): cantos, meios e arestas de cada peça do detalhe médio (dedupe por chave); testes de 300 móveis seguem verdes.
+- Elevação/corte (`sectionComponents.ts`): já projeta peça a peça com `resolverMaterialVisualPeca`; nada a corrigir.
+- Desempenho (`componentsPlanOps`, 300 mesas redondas de 64 lados + 4 pés, sombreado): grosseiro (= antes) ~100 ms, médio ~105 ms.
+- Ver em tela: mesa redonda/oval (tampo redondo e pés), mesa de vidro (pés visíveis através), aéreo recortado, troca de detalhe grosseiro/médio/fino, aramado e rotação/espelho. Ferragens ainda não entram na planta.
+- Testes antigos: nenhuma expectativa alterada.
