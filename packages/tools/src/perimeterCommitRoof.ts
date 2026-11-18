@@ -1,6 +1,6 @@
-import type { SketchSeg, Vec2 } from '@hestia/geom';
+import { pointInRing, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { expandRoofArcs } from '@hestia/engine';
-import { isRoof, makeRoof, newId, validateProject, type Project, type Roof } from '@hestia/model';
+import { isRoof, isWall, makeRoof, newId, validateProject, type Project, type Roof } from '@hestia/model';
 import { roofProblem } from './roofCheck.ts';
 import { defaultRoofDir, eaveOutlinePerEdge, roofAutoOffset, roofSlopeError, waterGroupCount } from './roofGeom.ts';
 import type { EditFlags, FinishEdge } from './perimeterSession.ts';
@@ -37,6 +37,11 @@ export function roofSides(roof: Roof): { outer: Vec2[]; holes: Vec2[][]; flags: 
   const footSag = footprintSag(roof, foot);
   const { pts, edgeOf } = sampleSagRing(ring, keep.map((i) => footSag[i] ?? 0));
   return { outer: pts, holes, flags: { outer: edgeOf.map((e) => flagOf(keep[e]!)) } };
+}
+
+/** Paredes do nível, sem topo anexado a telhado, cujo ponto médio do eixo cai dentro da pegada. */
+function wallsUnderFootprint(p: Project, levelId: string, footprint: Vec2[]): number {
+  return Object.values(p.elements).filter((e) => isWall(e) && e.levelId === levelId && e.attachTopToRoof !== true && pointInRing({ x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }, footprint)).length;
 }
 
 /** Águas do telhado: trechos lógicos que definem inclinação, contados no contorno com os arcos subdivididos. */
@@ -129,9 +134,12 @@ function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: Commi
   const problem = roofProblem(p, [candidate]) ?? newError(p, after, id, validateProject);
   if (problem) return refuse(translate(lang, 'tl_msg_roof_create_fail', { problem }));
   const n = waterCount(roof);
-  const message = n === 0
+  const base = n === 0
     ? translate(lang, 'tl_msg_roof_flat_created')
     : translate(lang, 'tl_msg_roof_created', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') });
+  // Oferta de anexo: paredes do nível sob o beiral sem o topo no telhado deixam vão nas empenas (não marca sozinho).
+  const loose = wallsUnderFootprint(p, levelId, f.boundary);
+  const message = loose > 0 ? `${base}${translate(lang, 'tl_msg_roof_walls_unattached', { n: loose })}` : base;
   return { ok: true, id, commands: [{ type: 'addRoof', roof }], message };
 }
 
