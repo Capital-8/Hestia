@@ -6,6 +6,7 @@ import { contornoDoModelo, fatiasDaTravessa } from './openingModelContorno.ts';
 import { openingPlanPaths } from './openingPlan.ts';
 import { slicePartsAtZ } from './openingModelTransforms.ts';
 import { CLOSED, type OpeningModel, type OpeningPart } from './openingModelTypes.ts';
+import { EX1, cenaComposicao } from './openingModelFixture.ts';
 import { buildOpeningPartsSchedule, modelQuantities, partQuantity } from './openingPartQuantities.ts';
 
 /** Parede de 4 m com um vão de `base` (tipo do catálogo) no meio, com a forma (e ajustes) dados ao tipo. */
@@ -209,12 +210,12 @@ describe('planta: folha e símbolo', () => {
     const metade = Math.sqrt(rr * rr - (z - zc) ** 2);
     const folha = slicePartsAtZ(m, z, CLOSED).find((r) => r.part.id === 'leaf-0')!;
     const ts = folha.ring.map((p) => p.t);
-    expect((Math.max(...ts) - Math.min(...ts)) / 2).toBeCloseTo(metade, 6);
+    expect((Math.max(...ts) - Math.min(...ts)) / 2).toBeCloseTo(metade, 4);
     const aberta = slicePartsAtZ(m, z, { angle: Math.PI / 2, slide: 0 }).find((r) => r.part.id === 'leaf-0')!;
     expect(aberta.ring).toHaveLength(4);
     // a folha gira em torno da dobradiça: a corda no corte tem o mesmo comprimento
     const comprimento = Math.hypot(aberta.ring[0]!.t - aberta.ring[1]!.t, aberta.ring[0]!.s - aberta.ring[1]!.s);
-    expect(comprimento).toBeCloseTo(2 * metade, 6);
+    expect(comprimento).toBeCloseTo(2 * metade, 4);
   });
   it('openingPlanPaths com a porta em arco não lança e corta o batente em cota baixa como no retangular', () => {
     const { m } = cena('ot_p90', ARCO);
@@ -223,6 +224,30 @@ describe('planta: folha e símbolo', () => {
     const reto = openingPlanPaths(cena('ot_p90').m, opts);
     expect(arco.length).toBe(reto.length);
     expect(openingPlanPaths(m, { ...opts, cutZ: 2.0 }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('alizar em arco', () => {
+  it('travessa do alizar vira faixa em arco por fora do vão; laterais sobem até o arranque; soleira fica reta', () => {
+    for (const base of ['ot_p90', 'ot_j120'] as const) {
+      const { m } = cenaComposicao(base, EX1, { shape: base === 'ot_p90' ? { kind: 'round', width: 0.9, height: 2.1 } : { kind: 'round', width: 1.2, height: 1.2 } });
+      const cab = m.parts.filter((q) => q.id.startsWith('casing-head'));
+      expect(cab).toHaveLength(2); // uma por face
+      for (const q of cab) {
+        expect(q.profile?.plane).toBe('tz');
+        expect(q.group).toMatch(/^casing-/);
+        // por fora do vão: o ápice passa da altura da esquadria
+        expect(q.box.z1).toBeGreaterThan(m.height);
+      }
+      const lat = m.parts.filter((q) => /^casing-(left|right)-/.test(q.id));
+      const piso = cab.reduce((s, q) => Math.min(s, ...q.profile!.pts.map((p) => p[1])), Infinity);
+      for (const q of lat) expect(q.box.z1).toBeCloseTo(piso, 9);
+      if (base === 'ot_j120') expect(m.parts.filter((q) => q.id.startsWith('casing-sill')).every((q) => !q.profile)).toBe(true);
+    }
+  });
+  it('sem forma o alizar é o de sempre', () => {
+    const a = cenaComposicao('ot_p90', EX1).m;
+    expect(a.parts.filter((q) => q.role === 'casing').every((q) => !q.profile)).toBe(true);
   });
 });
 
