@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { coordenadaDaBase, elevacaoDaBase } from './cotasBase.ts';
 import type { Project } from './types.ts';
 
-const base = (extra: Partial<Project> & { settings?: Partial<Project['settings']> } = {}): Project => ({ settings: { ...(extra.settings ?? {}) }, ...(extra.localizacao ? { localizacao: extra.localizacao } : {}) }) as unknown as Project;
+const base = (extra: Omit<Partial<Project>, 'settings'> & { settings?: Partial<Project['settings']> } = {}): Project => ({ settings: { ...(extra.settings ?? {}) }, ...(extra.localizacao ? { localizacao: extra.localizacao } : {}) }) as unknown as Project;
 const loc = (g: number) => ({ origemE: 500000, origemN: 7000000, cotaZero: 760, norteVerdadeiro: (g * Math.PI) / 180 });
 
 describe('coordenadaDaBase', () => {
