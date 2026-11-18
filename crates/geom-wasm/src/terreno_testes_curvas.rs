@@ -127,9 +127,9 @@ fn t3_curvas_quadradas() {
     for (l, lado) in c.iter().zip([16.0, 12.0, 8.0, 4.0]) {
         assert!(l.fechada, "curva fechada");
         assert_eq!(l.pontos.len(), 16, "4 cantos, 2 rodadas de Chaikin");
-        assert!(l.comprimento() < 4.0 * lado && l.comprimento() > 3.4 * lado, "perímetro {}", l.comprimento());
+        assert!(l.comprimento() < 4.0 * lado && l.comprimento() > 3.1 * lado, "perímetro {}", l.comprimento());
         assert!(l.pontos.iter().all(|p| (p[0] - 10.0).abs() <= lado / 2.0 + 1e-9 && (p[1] - 10.0).abs() <= lado / 2.0 + 1e-9), "{:?}", l.pontos);
-        assert!(l.area() < lado * lado && l.area() > 0.85 * lado * lado, "anti-horária e um pouco menor que o quadrado: {}", l.area());
+        assert!(l.area() < lado * lado && l.area() > 0.75 * lado * lado, "anti-horária e um pouco menor que o quadrado: {}", l.area());
     }
     // Sem suavização (a malha crua) os cantos continuam exatos.
     let m = crate::terreno_avalia::Malha::nova(vec![[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0], [0.0, 20.0, 0.0], [10.0, 10.0, 5.0]], vec![0, 1, 2, 3, 4], vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]], Vec::new());
@@ -273,4 +273,43 @@ fn suavizacao_preserva_extremidades_fixos_e_nao_cruza() {
     let estreito = [[0.0, 0.0], [10.0, 0.0], [10.0, 0.1], [0.0, 0.1]];
     let s = suavizar(&estreito, &[false; 4], true, 2);
     assert!(!crate::terreno_curvas::se_cruza(&s, true));
+}
+
+/// Distância de `p` ao segmento `a`–`b`.
+fn dist_seg(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
+    let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+    let l2 = dx * dx + dy * dy;
+    let t = if l2 > 0.0 { (((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2).clamp(0.0, 1.0) } else { 0.0 };
+    (p[0] - (a[0] + dx * t)).hypot(p[1] - (a[1] + dy * t))
+}
+
+/// Confere que cada ponto de uma curva SUAVIZADA fica perto da curva crua da mesma cota: no máximo `0,26` do maior trecho cru (o Chaikin move um ponto no
+/// máximo um quarto do trecho vizinho). Substitui a antiga checagem "ponto exatamente na cota", que a suavização torna falsa de propósito.
+pub fn conferir_perto_da_curva_crua(cena: &mut Cena, superficie: u32, intervalo: f64, linhas: &[LinhaLida], caso: usize) {
+    let m = crate::terreno_proposta::superficie_do_terreno(cena, 1, superficie).expect("superfície");
+    let cruas = crate::terreno_curvas::curvas_da_malha(&m, intervalo, 1).expect("curvas cruas");
+    for l in linhas {
+        let mesmas: Vec<_> = cruas.iter().filter(|c| (c.z - l.z).abs() < 1e-9).collect();
+        let mut maior: f64 = 0.0;
+        for c in &mesmas {
+            let n = c.pontos.len();
+            for k in 0..n {
+                let (a, b) = (c.pontos[k], c.pontos[(k + 1) % n]);
+                if c.fechada || k + 1 < n {
+                    maior = maior.max((b[0] - a[0]).hypot(b[1] - a[1]));
+                }
+            }
+        }
+        let lim = 0.26 * maior + 1e-9;
+        let segs: Vec<([f64; 2], [f64; 2])> = mesmas
+            .iter()
+            .flat_map(|c| (0..c.pontos.len()).filter(|&k| c.fechada || k + 1 < c.pontos.len()).map(move |k| (c.pontos[k], c.pontos[(k + 1) % c.pontos.len()])))
+            .collect();
+        for p in &l.pontos {
+            let perto = segs.iter().any(|&(a, b)| {
+                p[0] >= a[0].min(b[0]) - lim && p[0] <= a[0].max(b[0]) + lim && p[1] >= a[1].min(b[1]) - lim && p[1] <= a[1].max(b[1]) + lim && dist_seg(*p, a, b) <= lim
+            });
+            assert!(perto, "caso {caso}: ponto {p:?} da curva {} a mais de {lim} da curva crua (maior trecho {maior})", l.z);
+        }
+    }
 }

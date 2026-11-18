@@ -164,10 +164,11 @@ fn fuzz_200_consultas_r2() {
             assert_eq!(l.marca == 1, (k_cota as i64).rem_euclid(i64::from(fx.mestra_cada)) == 0, "caso {caso}: mestra");
             for (pt, cota) in l.pontos.iter().zip(cotas(&mut cena, &l.pontos, 0)) {
                 assert_eq!(cota.0, 1, "caso {caso}: ponto {pt:?} da curva {} fora do domínio", l.z);
-                assert!((cota.1 - l.z).abs() < 1e-9, "caso {caso}: ponto {pt:?} na cota {} e não em {}", cota.1, l.z);
             }
             n_fechadas += usize::from(l.fechada);
         }
+        // Curvas suavizadas (Chaikin): cada ponto fica perto da curva crua da mesma cota.
+        crate::terreno_testes_curvas::conferir_perto_da_curva_crua(&mut cena, 0, fx.intervalo, &c, caso);
         n_curvas += c.len();
         // Borda: laços fechados cuja área soma a área em planta; quantidades coerentes com a malha da consulta 160.
         assert!(p.iter().all(|l| l.fechada), "caso {caso}");
