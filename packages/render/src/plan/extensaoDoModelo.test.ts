@@ -139,10 +139,10 @@ const CASOS: Record<Element['kind'], Caso> = {
     projeto: () => com({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) }, { type: 'addComponent', component: armario }),
     alvo: [v(90, 90)],
   },
-  furniture: { entra: true, projeto: () => projetoComMovel(), alvo: [v(70.5, 70.5)] },
+  furniture: { entra: true, projeto: () => projetoComMovel(), alvo: [v(-0.5, -0.5), v(0.5, 0.5)] },
 };
 
-/** Projeto só com um móvel importado (bloco 1 x 1 x 1 m) longe da origem: a caixa do modelo tem de alcançá-lo. */
+/** Projeto só com um móvel importado (bloco 1 x 1 x 1 m; o asset recentra a base na origem): a caixa do modelo tem de alcançá-lo. */
 function projetoComMovel(): Project {
   const positions = new Float32Array([70, 70, 0, 71, 70, 0, 71, 71, 0, 70, 71, 0, 70, 70, 1, 71, 70, 1, 71, 71, 1, 70, 71, 1]);
   const asset = buildFurnitureAsset({

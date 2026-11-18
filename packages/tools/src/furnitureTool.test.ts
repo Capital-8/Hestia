@@ -99,3 +99,57 @@ describe('ferramenta Móvel', () => {
     expect(furnitureAt(ctx.store.project, 'lv_1', { x: 4, y: 4 }, 0.01)).toBeNull();
   });
 });
+
+describe('contorno real e transformação do móvel importado', () => {
+  /** Triângulo-prisma de base (0,0) (4,0) (0,2) m: o casco é o próprio triângulo (3 vértices), não a caixa de 4 cantos. */
+  function prisma() {
+    const positions = new Float32Array([0, 0, 0, 4, 0, 0, 0, 2, 0, 0, 0, 1, 4, 0, 1, 0, 2, 1]);
+    return buildFurnitureAsset({
+      name: 'Prisma',
+      sourceFileName: 'p.glb',
+      sourceFormat: 'glb',
+      defs: [{ id: 'd', name: 'd', positions, normals: new Float32Array(18), uvs: new Float32Array(0), indices: new Uint32Array([0, 1, 2, 3, 5, 4]), groups: [{ start: 0, count: 6, materialIndex: 0 }] }],
+      materials: [{ name: 'm', color: [1, 1, 1], opacity: 1 }],
+      textures: [],
+    });
+  }
+
+  it('o contorno em planta é o casco da projeção da malha (3 vértices, área 4 m²)', async () => {
+    const { furnitureOutline } = await import('./furnitureFootprint.ts');
+    const a = prisma();
+    const ring = furnitureOutline({ x: 0, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false }, a);
+    expect(ring.length).toBe(3);
+    let area = 0;
+    for (let i = 0; i < ring.length; i++) { const p = ring[i]!, q = ring[(i + 1) % ring.length]!; area += p.x * q.y - q.x * p.y; }
+    expect(Math.abs(area) / 2).toBeCloseTo(4, 9);
+  });
+
+  it('o comando transform move, gira 90° e espelha o móvel (cópia com id novo)', () => {
+    const ctx = setup();
+    ctx.store.exec({ type: 'addFurniture', furniture: { id: 'fu_a', kind: 'furniture', assetId: ctx.a.id, levelId: ctx.store.project.levels[0]!.id, x: 1, y: 2, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'Mesa' } });
+    ctx.store.exec({ type: 'transform', ids: ['fu_a'], transform: { kind: 'translate', d: { x: 3, y: -1 } } });
+    let f = ctx.store.project.elements['fu_a'] as Furniture;
+    expect([f.x, f.y]).toEqual([4, 1]);
+    ctx.store.exec({ type: 'transform', ids: ['fu_a'], transform: { kind: 'rotate', about: { x: 0, y: 0 }, angle: Math.PI / 2 } });
+    f = ctx.store.project.elements['fu_a'] as Furniture;
+    expect(f.x).toBeCloseTo(-1, 9);
+    expect(f.y).toBeCloseTo(4, 9);
+    expect(f.rotation).toBeCloseTo(Math.PI / 2, 9);
+    ctx.store.exec({ type: 'transform', ids: ['fu_a'], transform: { kind: 'translate', d: { x: 1, y: 0 } }, copy: { idMap: { fu_a: 'fu_b' } } });
+    expect(items(ctx).map((i) => i.id).sort()).toEqual(['fu_a', 'fu_b']);
+    expect((ctx.store.project.elements['fu_b'] as Furniture).x).toBeCloseTo(0, 9);
+  });
+
+  it('R gira 90° na ferramenta e Shift+R ao contrário', () => {
+    const ctx = setup();
+    setFurnitureToPlace(ctx.a.id);
+    const t = tool('furniture', ctx.env);
+    t.move(P(10, 10));
+    expect(t.key?.('r')).toBe(true);
+    t.click(P(10, 10));
+    expect(items(ctx)[0]!.rotation).toBeCloseTo(Math.PI / 2, 9);
+    expect(t.key?.('r', true)).toBe(true);
+    t.click(P(12, 12));
+    expect(items(ctx)[1]!.rotation).toBeCloseTo(0, 9);
+  });
+});

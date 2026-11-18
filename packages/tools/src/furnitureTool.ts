@@ -1,7 +1,7 @@
 import type { Vec2 } from '@hestia/geom';
 import { newId, type Id } from '@hestia/model';
 import { ToolBase } from './base.ts';
-import { furnitureFootprint, furniturePoseAt } from './furnitureFootprint.ts';
+import { furnitureOutline, furniturePoseAt } from './furnitureFootprint.ts';
 import type { PointerInfo } from './types.ts';
 
 /**
@@ -61,7 +61,7 @@ export class FurnitureTool extends ToolBase {
     const asset = pendente ? this.env.project().furniture?.assets[pendente.assetId] : undefined;
     if (!pendente || !asset) return;
     const pose = furniturePoseAt(asset, at, pendente.rotation, pendente.mirrored);
-    this.items.push({ kind: 'polygon', ring: furnitureFootprint(pose, asset), dashed: true }, { kind: 'point', at });
+    this.items.push({ kind: 'polygon', ring: furnitureOutline(pose, asset), dashed: true }, { kind: 'point', at });
   }
 
   override move(p: PointerInfo): void {
@@ -74,6 +74,14 @@ export class FurnitureTool extends ToolBase {
     if (!pendente) return;
     pendente.rotation += Math.PI / 2;
     if (this.last) this.draw(this.last);
+  }
+
+  /** R gira 90° (Shift+R ao contrário), como no Componente. */
+  key(tecla: string, shift = false): boolean {
+    if (tecla.toLowerCase() !== 'r' || !pendente) return false;
+    pendente.rotation += shift ? -Math.PI / 2 : Math.PI / 2;
+    if (this.last) this.draw(this.last);
+    return true;
   }
 
   override tab(): void {

@@ -250,6 +250,7 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
         beam: 'isBeam',
         footing: 'isFooting',
         mass: 'transformMass',
+        furniture: 'transformFurniture',
       }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);
