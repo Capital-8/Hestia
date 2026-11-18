@@ -1,5 +1,5 @@
-import { memo, type PointerEvent as ReactPointerEvent, type ReactElement, type RefObject } from 'react';
-import type { SheetDrawList, SheetGroup } from '@hestia/render';
+import { memo, useEffect, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactElement, type RefObject } from 'react';
+import type { SheetGroup, SheetLayer, SheetLayers } from '@hestia/render';
 import type { Sheet } from '@hestia/model';
 import { viewportOffset } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
@@ -16,22 +16,68 @@ const at = (q: { x: number; y: number }, h: number): string => `${n(q.x)} ${n(h 
 
 const ringsD = (rings: { x: number; y: number }[][], h: number): string => rings.map((ring) => `M${ring.map((q) => at(q, h)).join(' L')}Z`).join(' ');
 
+/** Sequência de traços consecutivos de mesmo estilo (cor, espessura, tracejado), fundidos num só `<path>`. */
+export interface StrokeRun {
+  d: string;
+  color: string;
+  widthMm: number;
+  dash: string | undefined;
+}
+
+/**
+ * Funde traços CONSECUTIVOS de mesmo estilo num único elemento: a ordem de pintura não muda (só se juntam vizinhos) e o
+ * tracejado recomeça a cada subcaminho, como antes. Reduz milhares de nós SVG por vista a algumas centenas.
+ */
+export function strokeRuns(paths: readonly SheetGroup['paths'][number][], h: number): StrokeRun[] {
+  const out: StrokeRun[] = [];
+  let cur: StrokeRun | null = null;
+  let key = '';
+  for (const s of paths) {
+    const dash = s.dashMm ? `${n(s.dashMm[0])} ${n(s.dashMm[1])}` : undefined;
+    const k = `${s.color}|${s.widthMm}|${dash ?? ''}`;
+    const d = `M${s.pts.map((q) => at(q, h)).join(' L')}${s.closed ? 'Z' : ''}`;
+    if (cur && k === key) {
+      cur.d += ` ${d}`;
+    } else {
+      cur = { d, color: s.color, widthMm: s.widthMm, dash };
+      key = k;
+      out.push(cur);
+    }
+  }
+  return out;
+}
+
+/** Textos de caminho (`d`) de um grupo, prontos para o React: guardados por objeto de partes para não serem refeitos. */
+interface LayerStrings {
+  h: number;
+  fills: string[];
+  runs: StrokeRun[];
+}
+const stringsOf = new WeakMap<object, LayerStrings>();
+
+export function layerStrings(g: Pick<SheetGroup, 'fills' | 'paths'>, h: number): LayerStrings {
+  const hit = stringsOf.get(g);
+  if (hit && hit.h === h) return hit;
+  const v: LayerStrings = { h, fills: g.fills.map((f) => f.polygons.map((poly) => ringsD(poly, h)).join(' ')), runs: strokeRuns(g.paths, h) };
+  stringsOf.set(g, v);
+  return v;
+}
+
+/** Prepara os textos de caminho de uma vista (ao arrastá-la do Navegador): o soltar só cria os elementos. */
+export function warmLayerStrings(g: Pick<SheetGroup, 'fills' | 'paths'>, h: number): void {
+  layerStrings(g, h);
+}
+
 /** Conteúdo de um grupo (preenchimentos, traços e textos) já em mm de papel. Não muda durante um arraste. */
 export const GroupContent = memo(function GroupContent({ g, h }: { g: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>; h: number }): ReactElement {
+  const st = layerStrings(g, h);
   return (
     <>
       {g.fills.map((f, k) => (
-        <path key={`f${k}`} d={f.polygons.map((poly) => ringsD(poly, h)).join(' ')} fill={f.color} fillRule="evenodd" stroke="none" />
+        <path key={`f${k}`} d={st.fills[k]} fill={f.color} fillRule="evenodd" stroke="none" />
       ))}
-      {g.paths.map((s, k) => (
-        <path
-          key={`p${k}`}
-          d={`M${s.pts.map((q) => at(q, h)).join(' L')}${s.closed ? 'Z' : ''}`}
-          fill="none"
-          stroke={s.color}
-          strokeWidth={s.widthMm}
-          strokeDasharray={s.dashMm ? `${n(s.dashMm[0])} ${n(s.dashMm[1])}` : undefined}
-        />
+      {st.runs.map((r, k) => (
+        <path key={`p${k}`} d={r.d} fill="none" stroke={r.color} strokeWidth={r.widthMm} strokeDasharray={r.dash} />
       ))}
       {g.texts.map((t, k) => (
         <text
@@ -51,50 +97,96 @@ export const GroupContent = memo(function GroupContent({ g, h }: { g: Pick<Sheet
   );
 });
 
+/** Conteúdo vetorial de uma camada (na coordenada do cache). Só é refeito quando o desenho da vista muda. */
+const LayerBody = memo(function LayerBody({ vpId, g, h }: { vpId: string; g: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>; h: number }): ReactElement {
+  return (
+    <g data-vp-layer={vpId}>
+      <GroupContent g={g} h={h} />
+    </g>
+  );
+});
+
+/** Acima desta área (px²) a camada deixa de ser promovida (não vale guardar um bitmap tão grande). */
+const MAX_PROMOTED_PX2 = 6e6;
+
 /**
- * Uma vista na folha: o conteúdo pode ser deslocado (pan) e recortado (crop). O grupo de recorte usa coordenadas de
- * papel; o deslocamento do conteúdo fica num grupo interno para o recorte não se mover junto.
+ * Uma camada da folha (uma vista, ou a moldura e o carimbo): um `<svg>` próprio posicionado por CSS. Durante o pan, o
+ * zoom e o arraste da vista só o `transform` muda: o navegador reaproveita o raster da camada em vez de repintar
+ * milhares de traços a cada quadro. O tamanho CSS é fixo no zoom de referência (`base`) e o zoom corrente entra como
+ * escala; quando o gesto termina o `base` alcança o zoom e a camada é rasterizada de novo, nítida.
  */
-const ViewportLayer = memo(function ViewportLayer({
+function ViewportLayer({
   vpId,
-  clipId,
-  g,
+  parts,
   box,
+  shift,
   offset,
   clip,
   move,
-  h,
+  H,
+  camera,
+  view,
+  base,
 }: {
   vpId: string;
-  clipId: string;
-  g: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>;
+  parts: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>;
   box: PaperBox;
+  shift: { x: number; y: number };
   offset: { x: number; y: number };
   clip: boolean;
   /** Deslocamento do preview de arraste, em mm de papel (move moldura e conteúdo juntos). */
   move: { x: number; y: number } | null;
-  h: number;
+  H: number;
+  camera: SheetCamera;
+  view: SheetSize;
+  base: number;
 }): ReactElement {
-  const body = (
-    <g transform={offset.x !== 0 || offset.y !== 0 ? `translate(${n(offset.x)} ${n(-offset.y)})` : undefined}>
-      <GroupContent g={g} h={h} />
-    </g>
-  );
+  const mv = move ?? { x: 0, y: 0 };
+  const z = camera.zoom;
+  const sx = view.w / 2 + (box.x + mv.x - camera.cx) * z;
+  const sy = view.h / 2 - (box.y + box.h + mv.y - camera.cy) * z;
+  const pxW = Math.max(1, box.w * base);
+  const pxH = Math.max(1, box.h * base);
+  // Mesmo recorte de antes: a caixa da vista; o desenho está na coordenada do cache, então o viewBox absorve o deslocamento.
+  const vb = `${n(box.x - shift.x - offset.x)} ${n(H - box.y - box.h + shift.y + offset.y)} ${n(box.w)} ${n(box.h)}`;
   return (
-    <g data-vp-layer={vpId} transform={move ? `translate(${n(move.x)} ${n(-move.y)})` : undefined}>
-      {clip ? (
-        <>
-          <clipPath id={clipId}>
-            <rect x={n(box.x)} y={n(h - box.y - box.h)} width={n(box.w)} height={n(box.h)} />
-          </clipPath>
-          <g clipPath={`url(#${clipId})`}>{body}</g>
-        </>
-      ) : (
-        body
-      )}
-    </g>
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: pxW,
+        height: pxH,
+        transform: `translate(${n(sx)}px, ${n(sy)}px) scale(${n(z / base)})`,
+        transformOrigin: '0 0',
+        willChange: pxW * pxH <= MAX_PROMOTED_PX2 ? 'transform' : 'auto',
+        pointerEvents: 'none',
+      }}
+    >
+      <svg viewBox={vb} width="100%" height="100%" style={{ display: 'block', overflow: clip ? 'hidden' : 'visible' }} preserveAspectRatio="none" pointerEvents="none">
+        <LayerBody vpId={vpId} g={parts} h={H} />
+      </svg>
+    </div>
   );
-});
+}
+
+/** Razão máxima/mínima entre o zoom corrente e o de referência antes de rasterizar de novo na hora (evita bitmaps enormes ou borrados). */
+const MAX_STRETCH = 2;
+const MIN_STRETCH = 0.4;
+/** Zoom de referência das camadas: acompanha o zoom da câmera só depois de ele parar (refino nítido ao fim do gesto). */
+export const REFINE_DELAY_MS = 140;
+function useRefinedZoom(zoom: number): number {
+  const [base, setBase] = useState(zoom);
+  const ratio = zoom / base;
+  // Zoom muito longe do raster atual: refina já (setState na renderização: o React repete a renderização sem passar pelo DOM).
+  if (ratio > MAX_STRETCH || ratio < MIN_STRETCH) setBase(zoom);
+  useEffect(() => {
+    if (zoom === base) return;
+    const id = window.setTimeout(() => setBase(zoom), REFINE_DELAY_MS);
+    return () => window.clearTimeout(id);
+  }, [zoom, base]);
+  return ratio > MAX_STRETCH || ratio < MIN_STRETCH ? zoom : base;
+}
 
 /** Grade leve da folha (10 mm, com traço mais forte a cada 50 mm). */
 function GridLines({ w, h }: { w: number; h: number }): ReactElement {
@@ -113,7 +205,7 @@ function GridLines({ w, h }: { w: number; h: number }): ReactElement {
 }
 
 export interface SheetCanvasProps {
-  list: SheetDrawList;
+  layers: SheetLayers;
   sheet: Sheet;
   camera: SheetCamera;
   view: SheetSize;
@@ -181,10 +273,11 @@ function AlignLineView({ f, H, W, zoom, color, prefix, solid = false }: { f: She
  * memoizados: durante um arraste só a moldura/seleção muda, a geometria do desenho não é refeita.
  */
 export function SheetCanvas(props: SheetCanvasProps): ReactElement {
-  const { list, sheet, camera, view, selection, preview, contentPreview, dropPreview, align, move, resizingHandle, guides, showGrid, hovered, cursor, svgRef } = props;
+  const { layers, sheet, camera, view, selection, preview, contentPreview, dropPreview, align, move, resizingHandle, guides, showGrid, hovered, cursor, svgRef } = props;
   const { t } = useT();
-  const W = list.widthMm;
-  const H = list.heightMm;
+  const W = layers.widthMm;
+  const H = layers.heightMm;
+  const base = useRefinedZoom(camera.zoom);
   const vb = { x: camera.cx - view.w / (2 * camera.zoom), y: H - camera.cy - view.h / (2 * camera.zoom), w: view.w / camera.zoom, h: view.h / camera.zoom };
   const selected = sheet.viewports.filter((v) => selection.includes(v.id));
   const single = selected.length === 1 ? selected[0]! : null;
@@ -192,34 +285,46 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
   const handleMm = 7 / camera.zoom;
   const inner = { x0: sheet.margin, y0: sheet.margin, x1: W - sheet.margin, y1: H - sheet.margin };
 
-  const viewportLayers = sheet.viewports.map((v, i) => {
-    const g = list.groups[i] ?? null;
-    if (!g) return null;
+  const layerOf = new Map<string, SheetLayer>(layers.layers.map((ly) => [ly.id, ly]));
+  const viewportLayers = sheet.viewports.map((v) => {
+    const ly = layerOf.get(v.id);
+    if (!ly) return null;
     const box = preview?.[v.id] ?? { x: v.at.x, y: v.at.y, w: v.size.w, h: v.size.h };
     const resizing = resizingHandle !== null && single?.id === v.id;
     return (
       <ViewportLayer
         key={v.id}
         vpId={v.id}
-        clipId={`sheet-clip-${i}`}
-        g={g}
+        parts={ly.parts}
         box={box}
+        shift={ly.shift}
         offset={contentPreview?.[v.id] ?? viewportOffset(v)}
         clip={v.clip !== false}
         move={preview?.[v.id] && !resizing ? { x: box.x - v.at.x, y: box.y - v.at.y } : null}
-        h={H}
+        H={H}
+        camera={camera}
+        view={view}
+        base={base}
       />
     );
   });
 
-  const furniture = list.groups[list.groups.length - 1] ?? null;
   const dimsText = (b: PaperBox): string => `${Math.round(b.w)} × ${Math.round(b.h)} mm`;
 
+  const viewBox = `${n(vb.x)} ${n(vb.y)} ${n(vb.w)} ${n(vb.h)}`;
+  const fill: CSSProperties = { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'block' };
   return (
+    <>
+      {/* Sombra e papel (por baixo das camadas das vistas) */}
+      <svg viewBox={viewBox} style={fill} pointerEvents="none" aria-hidden="true">
+        <rect x={2} y={2} width={W} height={H} fill="rgba(0,0,0,.22)" />
+        <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
+      </svg>
+      {viewportLayers}
     <svg
       ref={svgRef}
-      viewBox={`${n(vb.x)} ${n(vb.y)} ${n(vb.w)} ${n(vb.h)}`}
-      style={{ width: '100%', height: '100%', touchAction: 'none', cursor, display: 'block' }}
+      viewBox={viewBox}
+      style={{ ...fill, touchAction: 'none', cursor }}
       onPointerDown={props.onPointerDown}
       onPointerMove={props.onPointerMove}
       onPointerUp={props.onPointerUp}
@@ -233,12 +338,9 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
         n: sheet.viewports.length,
       })}
     >
-      {/* Sombra e papel */}
-      <rect x={2} y={2} width={W} height={H} fill="rgba(0,0,0,.22)" />
-      <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
-
-      {viewportLayers}
-      {furniture ? <GroupContent g={furniture} h={H} /> : null}
+      <g data-sheet-furniture="">
+        <GroupContent g={layers.furniture} h={H} />
+      </g>
       {showGrid ? <GridLines w={W} h={H} /> : null}
 
       {/* Guias de encaixe */}
@@ -434,5 +536,6 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
           })
         : null}
     </svg>
+    </>
   );
 }
