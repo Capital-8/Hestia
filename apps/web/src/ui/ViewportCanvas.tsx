@@ -1,8 +1,9 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import * as THREE from 'three';
-import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
-import { formatQuantity, isComponent, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
+import { pegadaDoComponente } from '@hestia/engine';
+import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, PreviaComponente3D, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
+import { formatQuantity, isComponent, levelElevation, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { transfer } from '../editor/transfer.ts';
@@ -36,6 +37,13 @@ import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, cent
 import { GizmoInput3D, type AlcaDimGizmo, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
 import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
 import { idDaFamiliaArrastada, prepararArrastoDeFamilia, soltarDaPaleta } from '../editor/soltarFamilia.ts';
+import {
+  cancelarInsercaoBloco,
+  confirmarInsercaoBloco,
+  girarInsercaoBloco,
+  moverInsercaoBloco,
+  useInsercaoBloco,
+} from './viewport/inserirBloco.ts';
 import { useFamilia } from './familia/familiaStore.ts';
 
 interface Pt {
@@ -119,6 +127,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const plan = useRef(new PlanScene());
   const model = useRef(new ModelScene());
   const gizmoComp = useRef<GizmoComponente3D | null>(null);
+  const previaBlocoRef = useRef<PreviaComponente3D | null>(null);
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
@@ -135,11 +144,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gizmo = new GizmoComponente3D();
     gizmoComp.current = gizmo;
     m.scene.add(gizmo.group);
+    const previaBloco = new PreviaComponente3D();
+    previaBlocoRef.current = previaBloco;
+    m.scene.add(previaBloco.grupo);
     return () => {
       registrarOrbita3D(null);
       gizmo.group.removeFromParent();
       gizmo.destruir();
       if (gizmoComp.current === gizmo) gizmoComp.current = null;
+      previaBloco.grupo.removeFromParent();
+      previaBloco.destruir();
+      if (previaBlocoRef.current === previaBloco) previaBlocoRef.current = null;
     };
   }, []);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -356,6 +371,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       m.sombra.aplicar(g.gpu.renderer);
       const alvoGizmo = !st.pastePreview && st.selection.length === 1 ? alvoComponente3D(p, st.selection[0]!) : null;
       gizmoComp.current?.atualizar(alvoGizmo);
+      const blocoAtivo = useInsercaoBloco.getState().ativo;
+      previaBlocoRef.current?.atualizar(
+        blocoAtivo ? blocoAtivo.projetoPrevia : null,
+        blocoAtivo && blocoAtivo.ultimoPonto ? blocoAtivo.rascunho : null,
+      );
       safeRender(g, m.scene, m.orbit.camera);
       publish(NO_LABELS, null);
       return;
@@ -459,7 +479,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey].join('|'), atualizar: () => planFrameUpdateOf({ project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed }) });
+    const blocoPlan = useInsercaoBloco.getState().ativo;
+    const previasBloco = blocoPlan && blocoPlan.ultimoPonto
+      ? pegadaDoComponente(blocoPlan.projetoPrevia, blocoPlan.rascunho)
+          .map((poly) => poly[0])
+          .filter((ring): ring is NonNullable<typeof ring> => Boolean(ring && ring.length >= 3))
+          .map((ring) => ({ kind: 'polygon' as const, ring, dashed: true }))
+      : [];
+    const blocoPlanKey = blocoPlan && blocoPlan.ultimoPonto
+      ? `${blocoPlan.familiaId}:${blocoPlan.rascunho.x}:${blocoPlan.rascunho.y}:${blocoPlan.rascunho.rotation}`
+      : '';
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, blocoPlanKey].join('|'), atualizar: () => planFrameUpdateOf({ project: p, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(p, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...editor.activeTool.preview(), ...previasBloco] : editor.activeTool.preview(), inference: editor.activeTool.inference(), resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed }) });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -545,7 +575,20 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
 
   useEffect(() => {
     const down = (e: KeyboardEvent): void => {
-      if (e.code === 'Space') spaceDown.current = true;
+      if (e.code === 'Space') {
+        spaceDown.current = true;
+        if (useInsercaoBloco.getState().ativo) {
+          girarInsercaoBloco(-Math.PI / 2);
+          e.preventDefault();
+          return;
+        }
+      }
+      if (e.key === 'Escape' && useInsercaoBloco.getState().ativo) {
+        cancelarInsercaoBloco();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
       // Esc durante o arrasto de alça do gizmo desfaz a sessão.
       if (e.key === 'Escape' && gizmoDrag.current) {
         if (gizmoDrag.current.aplicou) editor.store.undo();
@@ -598,13 +641,19 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(() => {
     const atalhoDeVisibilidade = (e: KeyboardEvent): void => {
       const st = useUi.getState();
-      if (st.view !== '3d' && st.view !== 'section') return;
+      if (st.view !== '3d' && st.view !== 'section' && !(useInsercaoBloco.getState().ativo && (e.key === 'r' || e.key === 'R'))) return;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       const alvo = e.target as HTMLElement | null;
-      if (st.view === '3d' && (e.key === 'r' || e.key === 'R')) {
+      if ((st.view === '3d' || st.view === 'plan') && (e.key === 'r' || e.key === 'R')) {
         if (useFamilia.getState().aberta) return;
         if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT')) return;
         const delta = e.shiftKey ? Math.PI / 2 : -Math.PI / 2;
+        if (useInsercaoBloco.getState().ativo) {
+          girarInsercaoBloco(delta);
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
         if (arrastoComp.current) {
           girarArrasto3d(arrastoComp.current, delta);
           useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
@@ -739,8 +788,29 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       ferramenta: editor.activeTool.id, selecionandoNoEsboco: editor.perimetro.selecionandoLinhas(),
     });
     const isPanReq = (isMiddleBtn && !e.shiftKey) || (e.button === 0 && (spaceDown.current || shiftPan));
-    // Botão direito: o menu abre ao soltar sem arrasto (onUp). Não cancela a ferramenta: "Cancelar" está no menu.
-    if (e.button === 2) { if (emPrevia) return; rightPress.current = { start: s, moved: false }; return; }
+    if (e.button === 2) {
+      if (useInsercaoBloco.getState().ativo) { cancelarInsercaoBloco(); return; }
+      if (emPrevia) return;
+      rightPress.current = { start: s, moved: false };
+      return;
+    }
+    const insercaoAtiva = useInsercaoBloco.getState().ativo;
+    if (insercaoAtiva && insercaoAtiva.origem === 'clique' && e.button === 0 && !spaceDown.current && !e.altKey && (view === '3d' || view === 'plan')) {
+      if (view === '3d') {
+        const rect = host.current!.getBoundingClientRect();
+        const cam = model.current.orbit.camera;
+        const parede = paredeSobCursor3d(s);
+        const piso = pontoNoPlanoHorizontal(cam, ndcDoPonto(s, rect), levelElevation(editor.project, useUi.getState().levelId));
+        const ponto = parede ?? piso;
+        if (ponto) moverInsercaoBloco(ponto, { semEncaixe: e.altKey, ...(parede ? { pontoNaParede: parede } : {}), cameraPos: { x: cam.position.x, y: cam.position.y } });
+      } else {
+        const v = editor.viewport();
+        if (v) moverInsercaoBloco(screenToWorld(v, s), { semEncaixe: e.altKey });
+      }
+      confirmarInsercaoBloco(e.shiftKey);
+      drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
+      return;
+    }
     if (view === '3d') {
       // Clique na etiqueta/linha de cota: abre o editor ali mesmo, sem começar a órbita.
       if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey) {
@@ -894,6 +964,29 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       return;
     }
     const d = drag.current;
+    const insercao = useInsercaoBloco.getState().ativo;
+    if (insercao && d.mode === 'none') {
+      if (view === '3d') {
+        const rect = host.current!.getBoundingClientRect();
+        const cam = model.current.orbit.camera;
+        const parede = paredeSobCursor3d(s);
+        const piso = pontoNoPlanoHorizontal(cam, ndcDoPonto(s, rect), levelElevation(editor.project, useUi.getState().levelId));
+        const ponto = parede ?? piso;
+        if (ponto) {
+          moverInsercaoBloco(ponto, {
+            semEncaixe: e.altKey,
+            ...(parede ? { pontoNaParede: parede } : {}),
+            cameraPos: { x: cam.position.x, y: cam.position.y },
+          });
+        }
+        return;
+      }
+      if (view === 'plan') {
+        const v = editor.viewport();
+        if (v) moverInsercaoBloco(screenToWorld(v, s), { semEncaixe: e.altKey });
+        return;
+      }
+    }
     if (view === '3d') {
       if (d.mode === 'gizmo') {
         const g = gizmoDrag.current;
@@ -1282,7 +1375,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (!familiaId) return;
     e.preventDefault();
     const st = useUi.getState();
-    soltarDaPaleta({ familiaId, view: st.view, pontoLocal: local(e), tamanho: host.current!.getBoundingClientRect(), camera: model.current.orbit.camera, viewport: editor.viewport(), projeto: editor.project, store: editor.store, levelId: st.levelId });
+    const pt = local(e);
+    const paredeAlvo = st.view === '3d' ? paredeSobCursor3d(pt) : undefined;
+    soltarDaPaleta({ familiaId, view: st.view, pontoLocal: pt, tamanho: host.current!.getBoundingClientRect(), camera: model.current.orbit.camera, viewport: editor.viewport(), projeto: editor.project, store: editor.store, levelId: st.levelId, ...(paredeAlvo ? { paredeAlvo } : {}) });
   };
 
   // Uma única política para as três vistas (cursor.ts): Selecionar é sempre a seta, a mão só existe durante pan/orbit,

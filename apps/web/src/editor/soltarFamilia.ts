@@ -61,6 +61,9 @@ export interface SoltarFamiliaArgs {
   levelId: Id;
   /** Ponto do mundo (m) onde o móvel cai; a vista já converteu o ponteiro. */
   ponto: Vec2;
+  /** Ponto (x, y) da parede sob o cursor no 3D, para priorizar encaixe nessa parede. */
+  paredeAlvo?: Vec2;
+  cameraPos?: Vec2;
   deps?: Partial<DepsSoltarFamilia>;
 }
 
@@ -112,12 +115,14 @@ export interface SoltarDaPaletaArgs {
   projeto: Project;
   store: ProjectStore;
   levelId: Id;
+  paredeAlvo?: Vec2;
 }
 
 /** Ponte do canvas: converte o ponto local da vista e entrega a soltura; fora da planta/3D não faz nada. */
-export function soltarDaPaleta({ familiaId, view, pontoLocal, tamanho, camera, viewport, projeto, store, levelId }: SoltarDaPaletaArgs): ResultadoSoltura | null {
-  const ponto = pontoDeSolturaDaVista(view, pontoLocal, tamanho, camera, viewport, projeto, levelId);
-  return ponto ? soltarFamilia({ store, familiaId, levelId, ponto }) : null;
+export function soltarDaPaleta({ familiaId, view, pontoLocal, tamanho, camera, viewport, projeto, store, levelId, paredeAlvo }: SoltarDaPaletaArgs): ResultadoSoltura | null {
+  const ponto = paredeAlvo ?? pontoDeSolturaDaVista(view, pontoLocal, tamanho, camera, viewport, projeto, levelId);
+  const cameraPos = view === '3d' ? { x: camera.position.x, y: camera.position.y } : undefined;
+  return ponto ? soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, cameraPos }) : null;
 }
 
 function projetoComFamilias(p: Project, familias: readonly Familia[]): Project {
@@ -136,7 +141,7 @@ function mensagemDeInsercao(familia: Familia, resultado: ResultadoArrasto): stri
  * Solta a família no ponto: valida nível e família, resolve a caixa com a família já disponível (para o encaixe), posa pelo
  * `posarArrastado` e grava a carga da família + a instância numa única transação. Devolve o id criado ou o motivo do erro.
  */
-export function soltarFamilia({ store, familiaId, levelId, ponto, deps }: SoltarFamiliaArgs): ResultadoSoltura {
+export function soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, cameraPos, deps }: SoltarFamiliaArgs): ResultadoSoltura {
   const d: DepsSoltarFamilia = { ...DEPS_REAIS, ...deps };
   const projeto = store.project;
 
@@ -185,6 +190,9 @@ export function soltarFamilia({ store, familiaId, levelId, ponto, deps }: Soltar
     },
     outros,
     faces,
+  }, {
+    ...(paredeAlvo ? { pontoNaParede: paredeAlvo } : {}),
+    ...(cameraPos ? { cameraPos } : {}),
   });
 
   const componente: Component = {

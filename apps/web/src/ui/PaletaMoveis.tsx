@@ -1,17 +1,21 @@
-import { useMemo, useRef, useState, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import type { Familia, Id } from '@hestia/model';
+import { useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import type { Familia } from '@hestia/model';
 import { create } from 'zustand';
-import { editor, useProject } from '../editor/controller.ts';
-import { useUi } from '../editor/state.ts';
-import { TIPO_DRAG_FAMILIA } from '../editor/soltarFamilia.ts';
-import { aplicarEscolhaDeFamilia } from './ComponentOptionsBar.tsx';
+import { useProject } from '../editor/controller.ts';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
 import { ABAS_PALETA, filtrarItensDaPaleta, montarItensDaPaleta, type CategoriaPaleta, type ItemPaleta } from './paletaMoveis.ts';
+import {
+  cancelarInsercaoBloco,
+  confirmarInsercaoBloco,
+  iniciarInsercaoBloco,
+  useInsercaoBloco,
+} from './viewport/inserirBloco.ts';
 import './paletaMoveis.css';
 
 /*
- * Paleta de móveis (F3-biblioteca): janela flutuante aberta pelo botão "Biblioteca" da faixa. O cartão pode ser arrastado
- * para a planta/3D (o canvas cria o componente) ou clicado, o que escolhe a família na ferramenta Componente e a ativa.
+ * Paleta de móveis (F3-biblioteca): janela flutuante aberta pelo botão "Biblioteca" da faixa.
+ * Ao clicar ou arrastar um cartão para a planta ou 3D, o módulo real entra em inserção ao vivo
+ * com encaixe magnético em paredes e vizinhos (R gira 90°, Alt solta encaixe, Esc cancela).
  */
 
 interface PaletaState {
@@ -52,23 +56,61 @@ function Miniatura({ familia }: { familia: Familia }): ReactElement {
 
 interface CartaoProps {
   item: ItemPaleta;
-  aoEscolher: (id: Id) => void;
+  ativa: boolean;
 }
 
-function CartaoMovel({ item, aoEscolher }: CartaoProps): ReactElement {
+function CartaoMovel({ item, ativa }: CartaoProps): ReactElement {
   const { familia, doProjeto } = item;
-  const arrastar = (e: RDragEvent<HTMLButtonElement>): void => {
-    e.dataTransfer.setData(TIPO_DRAG_FAMILIA, familia.id);
-    e.dataTransfer.effectAllowed = 'copy';
+
+  const iniciarGestoCartao = (e: RPointerEvent<HTMLButtonElement>): void => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const inicioX = e.clientX;
+    const inicioY = e.clientY;
+    let arrastando = false;
+
+    const aoMover = (ev: PointerEvent): void => {
+      if (!arrastando && Math.hypot(ev.clientX - inicioX, ev.clientY - inicioY) > 6) {
+        arrastando = true;
+        iniciarInsercaoBloco(familia.id, 'arrasto');
+      }
+    };
+
+    const encerrar = (ev: PointerEvent): void => {
+      window.removeEventListener('pointermove', aoMover, true);
+      window.removeEventListener('pointerup', encerrar, true);
+      window.removeEventListener('pointercancel', cancelarGesto, true);
+      if (!arrastando) {
+        iniciarInsercaoBloco(familia.id, 'clique');
+        return;
+      }
+      const alvo = document.elementFromPoint(ev.clientX, ev.clientY);
+      const sobreCanvas = Boolean(alvo?.closest('.canvas-wrap'));
+      if (sobreCanvas && useInsercaoBloco.getState().ativo?.ultimoPonto) {
+        confirmarInsercaoBloco(ev.shiftKey);
+      } else {
+        cancelarInsercaoBloco();
+      }
+    };
+
+    const cancelarGesto = (): void => {
+      window.removeEventListener('pointermove', aoMover, true);
+      window.removeEventListener('pointerup', encerrar, true);
+      window.removeEventListener('pointercancel', cancelarGesto, true);
+      if (arrastando) cancelarInsercaoBloco();
+    };
+
+    window.addEventListener('pointermove', aoMover, true);
+    window.addEventListener('pointerup', encerrar, true);
+    window.addEventListener('pointercancel', cancelarGesto, true);
   };
+
   return (
     <button
       type="button"
-      className={`pal-movel${doProjeto ? ' do-projeto' : ''}`}
-      draggable
-      onDragStart={arrastar}
-      onClick={() => aoEscolher(familia.id)}
-      title={`${familia.nome} — arraste para a planta/3D ou clique para usar a ferramenta Componente`}
+      className={`pal-movel${doProjeto ? ' do-projeto' : ''}${ativa ? ' ativa' : ''}`}
+      onPointerDown={iniciarGestoCartao}
+      title={`${familia.nome} — clique ou arraste direto para a planta/3D com o bloco ao vivo`}
     >
       {doProjeto && <span className="pal-selo">No projeto</span>}
       <Miniatura familia={familia} />
@@ -80,6 +122,7 @@ function CartaoMovel({ item, aoEscolher }: CartaoProps): ReactElement {
 export function PaletaMoveis(): ReactElement | null {
   const aberta = usePaletaMoveis((s) => s.aberta);
   const fechar = usePaletaMoveis((s) => s.fechar);
+  const ativoId = useInsercaoBloco((s) => s.ativo?.familiaId ?? null);
   const p = useProject();
   const [categoria, setCategoria] = useState<CategoriaPaleta>('todas');
   const [busca, setBusca] = useState('');
@@ -88,19 +131,6 @@ export function PaletaMoveis(): ReactElement | null {
 
   const itens = useMemo(() => montarItensDaPaleta(p), [p]);
   const filtrados = useMemo(() => filtrarItensDaPaleta(itens, categoria, busca), [itens, categoria, busca]);
-
-  const escolher = (id: Id): void => {
-    const escolha = aplicarEscolhaDeFamilia(editor.store, id);
-    if (!escolha) {
-      useUi.setState({ status: 'Família de componente não encontrada.' });
-      return;
-    }
-    useUi.setState((s) => ({
-      options: { ...s.options, ...escolha.opcoes },
-      status: `${escolha.familia.nome}: clique na planta ou no 3D para inserir.`,
-    }));
-    editor.setTool('component');
-  };
 
   const iniciarJanela = (e: RPointerEvent<HTMLDivElement>): void => {
     if (e.button !== 0) return;
@@ -154,7 +184,7 @@ export function PaletaMoveis(): ReactElement | null {
           {filtrados.length === 0 ? (
             <div className="pal-vazio">Nenhum móvel encontrado.</div>
           ) : (
-            filtrados.map((item) => <CartaoMovel key={item.familia.id} item={item} aoEscolher={escolher} />)
+            filtrados.map((item) => <CartaoMovel key={item.familia.id} item={item} ativa={ativoId === item.familia.id} />)
           )}
         </div>
       </div>
