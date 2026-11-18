@@ -71,6 +71,10 @@ export interface ProjetoGravado {
   projeto: ProjetoDaBiblioteca;
   /** true quando a pasta do projeto foi criada agora. */
   pastaNova: boolean;
+  /** Nome que a pasta tinha antes de ser renomeada para acompanhar o nome do projeto (`projeto.pasta` já é o novo). */
+  renomeadoDe?: string;
+  /** O projeto foi gravado, mas a pasta não pôde ser renomeada (aberta em outro programa, destino existente…). */
+  renomearFalhou?: boolean;
 }
 
 /** Falha de acesso à pasta, com uma mensagem pronta para o usuário. */
