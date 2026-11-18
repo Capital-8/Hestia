@@ -1,4 +1,5 @@
 import type { Lang } from './i18n.ts';
+import { normalizarMaterial } from './materialBlocks.ts';
 import type { HatchKind, Material } from './types.ts';
 
 const L = (lang: Lang, pt: string, en: string): string => (lang === 'pt' ? pt : en);
@@ -36,6 +37,11 @@ const p = (lang: Lang, id: string, pt: string, en: string, color: string, gloss 
 
 /** Catálogo enxuto de materiais arquitetônicos extras (tintas, vidros, madeiras, tijolos e pedras com texturas locais). */
 export function materiaisExtras(lang: Lang = 'pt'): Material[] {
+  // `normalizarMaterial` fixa a ordem canônica das chaves dos blocos: salvar → abrir → salvar fica byte a byte estável.
+  return materiaisExtrasBrutos(lang).map(normalizarMaterial);
+}
+
+function materiaisExtrasBrutos(lang: Lang): Material[] {
   return [
     // Tintas e Cores Sólidas (7)
     p(lang, 'mat_branco_gelo', 'Tinta Branco Gelo', 'Ice White Paint', '#eef2f5'),
