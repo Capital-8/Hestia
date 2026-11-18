@@ -90,7 +90,7 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
-  component: { mover: 'selectedComponents', colar: 'components', alinhar: null, motivo: 'TODO: o componente (móvel) se encaixa por pegada e vizinhos no próprio arrasto; alinhar pelas arestas dele ainda não existe.' },
+  component: { mover: null, colar: 'components', alinhar: null, motivo: 'o componente (móvel) NÃO entra em `selectedMovables`: o Selecionar o move pelo próprio arrasto (`ArrastoComponentes`, com encaixe na parede e nos vizinhos) e aplica as poses por `updateComponent`; entrar lá moveria duas vezes. Alinhar pelas arestas dele ainda não existe.' },
 };
 
 /**
