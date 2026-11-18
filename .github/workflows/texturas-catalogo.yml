@@ -1,0 +1,91 @@
+name: texturas-catalogo
+
+# Gera o catálogo de texturas online (catalogo.json + atlas de miniaturas) a partir do bucket R2 e o publica no
+# GitHub Pages, em https://<usuario>.github.io/Hestia/texturas/. O app lê o catálogo desse endereço (e do bucket, como
+# reserva), então quem tem uma release antiga também enxerga as texturas novas.
+#
+# Quando roda: a cada release (tag v*, junto com release-desktop) e, quando quiser, pelo botão "Run workflow".
+# O R2 é só LIDO (chave somente leitura nos segredos); este fluxo nunca escreve no bucket.
+#
+# Antes da primeira execução (uma vez, no GitHub):
+#   1. Settings > Pages > Build and deployment > Source: "GitHub Actions".
+#   2. Settings > Secrets and variables > Actions > secrets do repositório:
+#      R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL.
+#   3. Settings > Environments > github-pages > Deployment branches and tags: acrescentar a regra de tag "v*"
+#      (por padrão só a branch principal publica; sem isto a execução disparada por tag é recusada).
+# Detalhes: docs/decisoes/0056-materiais-abas.md (adendo de texturas).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Uma publicação por vez; uma execução nova não cancela outra que já está publicando.
+concurrency:
+  group: texturas-catalogo
+  cancel-in-progress: false
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Os Color.jpg já baixados ficam em cache: a execução seguinte só baixa as texturas novas.
+      - name: Cache dos Color.jpg
+        uses: actions/cache@v4
+        with:
+          path: ~/.hestia/cache-texturas
+          key: texturas-cache-${{ github.run_id }}
+          restore-keys: texturas-cache-
+
+      - name: Gerar catálogo e atlas
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: npm run texturas:catalogo -- --saida site/texturas
+
+      # Catálogo vazio ou sem atlas não pode substituir o que está no ar: o job falha e o Pages segue com a versão anterior.
+      - name: Conferir o resultado
+        run: |
+          node -e '
+            const fs = require("fs");
+            const c = JSON.parse(fs.readFileSync("site/texturas/catalogo.json", "utf8"));
+            if (c.versao !== 1 || !Array.isArray(c.itens) || c.itens.length < 1) throw new Error("catálogo vazio ou de outra versão");
+            if (!c.miniaturas || !fs.existsSync("site/texturas/" + c.miniaturas.arquivo)) throw new Error("atlas ausente");
+            console.log(c.itens.length + " texturas; atlas " + c.miniaturas.arquivo);
+          '
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publicar:
+    needs: gerar
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

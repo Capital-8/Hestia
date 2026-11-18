@@ -9,7 +9,9 @@
 /** Pasta do catálogo dentro do bucket (fora de qualquer pasta de textura). */
 export const CATALOGO_PASTA = 'textures/_catalogo';
 export const CATALOGO_ARQUIVO = `${CATALOGO_PASTA}/catalogo.json`;
-export const CATALOGO_MINIATURAS = `${CATALOGO_PASTA}/miniaturas.jpg`;
+/** Nome do arquivo do atlas de miniaturas: leva o hash do conteúdo, então cada atlas novo tem endereço novo (sem cache velho). */
+export const CATALOGO_MINIATURAS_PREFIXO = 'miniaturas';
+export const nomeDoAtlas = (hash: string): string => `${CATALOGO_MINIATURAS_PREFIXO}.${hash}.jpg`;
 export const CATALOGO_VERSAO = 1;
 
 /** Mapas conhecidos de uma textura, pelo nome do arquivo (sem diferenciar maiúsculas). */
@@ -48,7 +50,10 @@ export interface TexturaItem {
 export interface TexturasCatalogo {
   versao: number;
   gerado: string;
-  /** Atlas de miniaturas: grade de `lado`×`lado` px com `colunas` colunas. */
+  /**
+   * Atlas de miniaturas: grade de `lado`×`lado` px com `colunas` colunas. `arquivo` é relativo à pasta do próprio
+   * `catalogo.json` (o atlas fica ao lado dele); o app o resolve a partir de onde baixou o catálogo.
+   */
   miniaturas?: { arquivo: string; lado: number; colunas: number };
   itens: TexturaItem[];
 }
@@ -100,8 +105,9 @@ export function montarCatalogo(chaves: readonly ChaveBucket[], opts: { gerado?: 
   return { versao: CATALOGO_VERSAO, gerado: opts.gerado ?? new Date().toISOString(), ...(opts.miniaturas ? { miniaturas: opts.miniaturas } : {}), itens };
 }
 
-/** Une a base pública e um caminho do bucket, sem barras duplicadas. */
+/** Une a base pública e um caminho do bucket, sem barras duplicadas. Caminho que já é uma URL absoluta fica como está. */
 export function urlTextura(base: string, caminho: string): string {
+  if (/^https?:\/\//i.test(caminho)) return caminho;
   return `${base.replace(/\/+$/, '')}/${caminho.replace(/^\/+/, '')}`;
 }
 

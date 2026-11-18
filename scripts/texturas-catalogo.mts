@@ -2,15 +2,17 @@
  * Gera o catálogo de texturas online (catalogo.json + atlas de miniaturas) a partir do bucket R2.
  *
  * Uso: npx vite-node scripts/texturas-catalogo.mts -- [--saida <pasta>] [--sem-miniaturas]
+ * Saída: `catalogo.json` + `miniaturas.<hash>.jpg` direto na pasta (atlas ao lado do catálogo, com hash no nome).
  *   (ou: npm run texturas:catalogo -- [--saida <pasta>] [--sem-miniaturas])
  * Credenciais: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL em process.env
  * ou em ~/.hestia/r2.env. O script só LÊ do bucket; o envio de `textures/_catalogo` é manual.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { CATALOGO_MINIATURAS, montarCatalogo, urlTextura, type TexturaItem } from '../packages/io/src/texturasCatalogo.ts';
+import { montarCatalogo, nomeDoAtlas, urlTextura, type TexturaItem } from '../packages/io/src/texturasCatalogo.ts';
 import { lerConfigR2, listarObjetos } from './lib/r2.mts';
 
 const LADO = 96;
@@ -25,7 +27,8 @@ const valorDe = (flag: string): string | undefined => {
 };
 const semMiniaturas = args.includes('--sem-miniaturas');
 const saida = path.resolve(valorDe('--saida') ?? path.join(os.homedir(), '.hestia', 'catalogo-texturas'));
-const pastaCatalogo = path.join(saida, 'textures', '_catalogo');
+// Os arquivos ficam direto em `saida`: é a pasta que o GitHub Pages publica e também a que vai para `textures/_catalogo/` no bucket.
+const pastaCatalogo = saida;
 // Cache persistente: ao acrescentar texturas ao bucket, só as novas são baixadas de novo.
 const cache = path.join(os.homedir(), '.hestia', 'cache-texturas');
 
@@ -96,7 +99,7 @@ async function gerarAtlas(cfgPublica: string, itens: TexturaItem[]): Promise<{ j
     if (feitos % 50 === 0 || feitos === itens.length) console.log(`  download ${feitos}/${itens.length}`);
   });
 
-  const navegador = await chromium.launch({ executablePath: acharChromium(), headless: true });
+  const navegador = await chromium.launch({ executablePath: acharChromium(), headless: true, ...(process.env.CI ? { args: ['--no-sandbox'] } : {}) });
   try {
     const pagina = await navegador.newPage();
     await pagina.goto('about:blank');
@@ -146,34 +149,51 @@ async function gerarAtlas(cfgPublica: string, itens: TexturaItem[]): Promise<{ j
   }
 }
 
+/** O Chromium pode cair com pouca memória (máquina cheia, runner pequeno): refaz a composição (os downloads ficam em cache). */
+async function comNovaTentativa<T>(fn: () => Promise<T>, tentativas = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= tentativas) throw e;
+      console.warn(`  composição falhou (${e instanceof Error ? e.message : String(e)}); nova tentativa ${i + 1}/${tentativas}...`);
+      await new Promise((ok) => setTimeout(ok, 5000 * i));
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const cfg = lerConfigR2(ARQ_ENV);
   console.log('Listando textures/ no bucket...');
   const chaves = await listarObjetos(cfg, 'textures/', (n) => process.stdout.write(`\r  ${n} objetos`));
   console.log('');
-  const miniaturas = { arquivo: CATALOGO_MINIATURAS, lado: LADO, colunas: COLUNAS };
+  // O nome definitivo do atlas (com o hash do conteúdo) só se sabe depois de gerá-lo; o caminho é relativo ao catalogo.json.
+  const miniaturas = { arquivo: nomeDoAtlas('pendente'), lado: LADO, colunas: COLUNAS };
   const catalogo = montarCatalogo(chaves, semMiniaturas ? {} : { miniaturas });
   console.log(`${catalogo.itens.length} texturas.`);
 
   fs.mkdirSync(pastaCatalogo, { recursive: true });
-  const arqAtlas = path.join(pastaCatalogo, 'miniaturas.jpg');
-  if (semMiniaturas) {
-    fs.rmSync(arqAtlas, { force: true });
-  } else {
+  // Atlas de execuções anteriores saem: cada geração tem o seu, com o hash do conteúdo no nome.
+  for (const f of fs.readdirSync(pastaCatalogo)) if (/^miniaturas(\..+)?\.jpg$/.test(f)) fs.rmSync(path.join(pastaCatalogo, f), { force: true });
+  let arqAtlas = '';
+  if (!semMiniaturas) {
     console.log('Gerando atlas de miniaturas...');
-    const { jpeg, ok } = await gerarAtlas(cfg.publicUrl, catalogo.itens);
+    const { jpeg, ok } = await comNovaTentativa(() => gerarAtlas(cfg.publicUrl, catalogo.itens));
     // Texturas sem miniatura (download/decodificação falhou) ficam sem `icone`; as demais mantêm a posição na grade.
     catalogo.itens.forEach((it, i) => {
       if (!ok.has(i)) delete it.icone;
     });
+    const nome = nomeDoAtlas(createHash('sha256').update(jpeg).digest('hex').slice(0, 12));
+    catalogo.miniaturas = { ...miniaturas, arquivo: nome };
+    arqAtlas = path.join(pastaCatalogo, nome);
     fs.writeFileSync(arqAtlas, jpeg);
-    console.log(`Atlas: ${ok.size}/${catalogo.itens.length} miniaturas, ${(jpeg.length / 1024).toFixed(0)} KB.`);
+    console.log(`Atlas: ${ok.size}/${catalogo.itens.length} miniaturas, ${(jpeg.length / 1024).toFixed(0)} KB (${nome}).`);
   }
   const arqJson = path.join(pastaCatalogo, 'catalogo.json');
   fs.writeFileSync(arqJson, JSON.stringify(catalogo));
 
-  console.log(`\nGerado:\n  ${arqJson}${semMiniaturas ? '' : `\n  ${arqAtlas}`}`);
-  console.log(`\nEnvio ao bucket (manual; a chave daqui é só leitura): envie a pasta\n  ${pastaCatalogo}\npara \`textures/_catalogo/\` no bucket (painel do R2 > Upload, ou \`rclone copy "${path.join(saida, 'textures', '_catalogo')}" r2:<bucket>/textures/_catalogo\`).`);
+  console.log(`\nGerado:\n  ${arqJson}${arqAtlas ? `\n  ${arqAtlas}` : ''}`);
+  console.log(`\nA pasta ${pastaCatalogo} é o que o GitHub Pages publica (workflow texturas-catalogo, a cada release).\nCópia de reserva no bucket (manual; a chave daqui é só leitura): envie a pasta para \`textures/_catalogo/\` (painel do R2 > Upload).`);
 }
 
 main().catch((e: unknown) => {
