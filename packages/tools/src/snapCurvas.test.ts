@@ -35,8 +35,8 @@ describe('captura nas curvas de nível (contour)', () => {
     expect(r.point.y).toBeCloseTo(3.07, 12);
     expect(r.z).toBe(5);
     expect(r.hostId).toBe('tn_t3');
-    // Longe da curva (> 10 px): volta à grade.
-    expect(infer({ x: 4.03, y: 3.5 }, base(s, { indexed: ix })).kind).toBe('grid');
+    // Longe da curva (> 10 px): sem captura (a grade vem desligada por padrão).
+    expect(infer({ x: 4.03, y: 3.5 }, base(s, { indexed: ix })).kind).toBe('none');
   });
 
   it('curva fechada: o lado de fecho também é alvo', () => {
@@ -63,7 +63,7 @@ describe('captura nas curvas de nível (contour)', () => {
     vi.restoreAllMocks();
     simular([reta(5, 3)], []);
     const ix = curvasSnapIndexes(s.project, 'lv_0');
-    expect(infer({ x: 5, y: 3.03 }, base(s, { indexed: ix, hiddenIds: new Set(['tn_t3']) })).kind).toBe('grid');
+    expect(infer({ x: 5, y: 3.03 }, base(s, { indexed: ix, hiddenIds: new Set(['tn_t3']) })).kind).toBe('none');
     expect(infer({ x: 5, y: 3.03 }, base(s, { indexed: ix })).kind).toBe('contour');
   });
 
@@ -85,7 +85,7 @@ describe('captura nas curvas de nível (contour)', () => {
     const i1 = curvasSnapIndexes(s.project, 'lv_0')[0];
     expect(i1).not.toBe(i0);
     expect(infer({ x: 5, y: 4.03 }, base(s, { indexed: [i1!] })).kind).toBe('contour');
-    expect(infer({ x: 5, y: 3.03 }, base(s, { indexed: [i1!] })).kind).toBe('grid');
+    expect(infer({ x: 5, y: 3.03 }, base(s, { indexed: [i1!] })).kind).toBe('none');
   });
 
   it('desempenho: milhares de arestas, consulta por quadro barata', () => {
@@ -140,7 +140,7 @@ describe('Rótulo de curva e Cota de ponto gravam o ponto exato sobre a curva', 
     const f = createTool('terrainSpot', ctx.env);
     f.start();
     clickAt(f, 4.5, 8.54);
-    expect(tn().pontosCotados[1]).toBeCloseTo(8.5, 12);
+    expect(tn().pontosCotados[1]).toBeCloseTo(8.54, 12);
     expect(f.inference()?.kind).not.toBe('contour');
   });
 
