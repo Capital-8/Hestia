@@ -7,11 +7,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { intersection, multiArea, pointInMulti, type MultiPolygon } from '@hestia/geom';
-import { ProjectStore, createEmptyProject, makeWall, outline, profileHeightAt, type Opening, type OpeningShape, type Project, type ProfilePoint } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeFloor, makeWall, outline, profileHeightAt, type Opening, type OpeningShape, type Project, type ProfilePoint } from '@hestia/model';
 import {
   areaPerimetroDoContorno, camadaFurada, clienteFuroContorno, definirClienteFuroContorno, frameOfWall, instalarClienteFuroReal, openingGeometry, openingShapeIssues, quantifyLevel, resolveLevel,
   type ClienteFuroContorno, type PedidoQuantParede,
 } from '../packages/engine/src/index.ts';
+import { buildLevelSolids, clearWallLayerCache } from '../packages/render/src/index.ts';
 import { carregarFuroPrisma, carregarFuroQuant, furarPrismas, furoPrismaExtCarregado, furoRetornoExtCarregado, retornoDoContorno } from '../packages/geom/src/index.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 
@@ -398,6 +399,48 @@ describe.skipIf(!temExportacoes)(`furo por contorno, extensões (doc 33; pulado 
       const { area } = areaPerimetroDoContorno(geom(p, 'o_forma').forma!);
       // o arco (topo a 2,4 m) fica abaixo do topo da empena (>= 2,4 + 1,2 u/3...): a diferença é o contorno inteiro
       expect(sem.volume - q.volume).toBeCloseTo(area * espessuras(p).reduce((a, b) => a + b, 0), 6);
+    });
+
+    it('3D: a malha do bloco na parede com empena fura o contorno real (volume = sem vão - área x 0,14)', () => {
+      const vol = (p: Project): number => {
+        clearWallLayerCache();
+        const bs = buildLevelSolids(lv(p)).batches.filter((x) => x.materialId === 'mat_bloco14');
+        let v = 0;
+        for (const b of bs) {
+          for (let i = 0; i < b.indices.length; i += 3) {
+            const q = (k: number) => [b.positions[k * 3]!, b.positions[k * 3 + 1]!, b.positions[k * 3 + 2]!] as const;
+            const [p0, p1, p2] = [q(b.indices[i]!), q(b.indices[i + 1]!), q(b.indices[i + 2]!)];
+            v += (p0[0] * (p1[1] * p2[2] - p1[2] * p2[1]) - p0[1] * (p1[0] * p2[2] - p1[2] * p2[0]) + p0[2] * (p1[0] * p2[1] - p1[1] * p2[0])) / 6;
+          }
+        }
+        return Math.abs(v);
+      };
+      const v: Vao = { id: 'forma', forma: ABATIDO, w: 1.4, h: 2.4, sill: 0, kind: 'door', offset: 1.5 };
+      const p = projeto({ vaos: [v], height: 3.6, topProfile: empena });
+      const { area } = areaPerimetroDoContorno(geom(p, 'o_forma').forma!);
+      expect(vol(projeto({ vaos: [], height: 3.6, topProfile: empena })) - vol(p)).toBeCloseTo(area * 0.14, 6);
+    });
+
+    it('base em perfil (piso cobre só parte da parede, base a 0,05 m): o contorno é cortado pelo piso, sem recuar', () => {
+      const base = createEmptyProject();
+      base.openingTypes.ot_arco = { ...base.openingTypes.ot_p80!, id: 'ot_arco', width: 1.4, height: 2.4, sill: 0, leaves: 0, closure: 'none', shape: ABATIDO };
+      const st = new ProjectStore(base);
+      st.exec({ type: 'addWall', wall: makeWall({ id: 'w1', typeId: 'wt_alv14', levelId: 'lv_0', height: H, a: { x: 0, y: 0 }, b: { x: L, y: 0 }, attachBottomToFloor: true }) });
+      st.exec({ type: 'addFloor', floor: makeFloor({ id: 'f1', typeId: 'ft_ceram', levelId: 'lv_0', boundary: [{ x: -1, y: -1 }, { x: 3.5, y: -1 }, { x: 3.5, y: 1 }, { x: -1, y: 1 }], heightOffset: 0.05 }) });
+      st.exec({ type: 'addOpening', opening: { id: 'o_arco', kind: 'door', typeId: 'ot_arco', hostId: 'w1', offset: 1.5, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+      const p = st.project;
+      const rw = lv(p).walls.w1!;
+      expect(rw.profileBottom, 'a base da parede é perfilada').toBeDefined();
+      expect(rw.furosContorno?.map((f) => f.g.openingId)).toEqual(['o_arco']);
+      const g = rw.furosContorno![0]!.g;
+      const c = outline(g.forma!).map(([x, z]) => ({ x: g.offset + x, y: g.sill + z }));
+      const area = multiArea(intersection([[c]], [[[{ x: -1, y: 0.05 }, { x: L + 1, y: 0.05 }, { x: L + 1, y: H + 1 }, { x: -1, y: H + 1 }]]]));
+      expect(area).toBeLessThan(areaPerimetroDoContorno(g.forma!).area - 1e-3);
+      for (const l of rw.layers) {
+        const cf = camadaFurada(rw, l, l.bands)!;
+        expect(cf.malhas, `camada ${l.layerIndex}: contorno`).not.toBeNull();
+        expect(cf.removido).toBeCloseTo(area * espessuras(p)[l.layerIndex]!, 8);
+      }
     });
 
     it('sem o topo inclinado no cliente a camada recua para o furo retangular (a parede nunca fica sem vão)', () => {

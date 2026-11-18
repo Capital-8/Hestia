@@ -25,6 +25,7 @@ import { PL_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { PL_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { PL_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
 import { PL_MASSA } from '../../areas/massa.ts';
 import { PL_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { PL_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -39,6 +40,7 @@ export const PL_ALL = {
   ...PL_STRUCTURAL,
   ...PL_TAGGING,
   ...PL_GUARDA_CORPO,
+  ...PL_DIALOGS_OPENING_SHAPE,
   ...PL_MASSA,
   ...PL_MASSA_PISOS,
   ...PL_MASSA_PAREDES,

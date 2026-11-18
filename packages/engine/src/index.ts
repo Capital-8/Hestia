@@ -35,6 +35,7 @@ export * from './wallFloorIssues.ts';
 export { ARC_PLANE_RATIO, inclinedFitsArc, openingTiltGeom, tiltCutZ, type OpeningTiltInput, type OpeningTiltResult, type TiltCut } from './openingTilt.ts';
 export { openingPlaneIssues } from './openingPlaneIssues.ts';
 export { openingShapeIssues } from './openingShapeIssues.ts';
+export { formaDaEsquadria, problemasDaEsquadria } from './openingShapeEsquadria.ts';
 export { cutHalfWidth, elevationOutline, openingPlanSymbolPaths, verticalCutProfile } from './openingShapeViews.ts';
 export { contornoDoVaoNaSecao, idsDeContorno, simboloPlantaDoContorno, vaosDeContornoDaParede, type ContornoDoVaoSecao, type SecaoSegmento } from './vaoContornoVistas.ts';
 export * from './openingNormIssues.ts';

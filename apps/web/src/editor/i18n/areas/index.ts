@@ -39,6 +39,7 @@ import { PT_SHELL_RIBBON, EN_SHELL_RIBBON } from './shell-ribbon.ts';
 import { PT_SHELL, EN_SHELL } from './shell.ts';
 import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
+import { PT_DIALOGS_OPENING_SHAPE, EN_DIALOGS_OPENING_SHAPE } from './dialogs-opening-shape.ts';
 import { PT_MASSA, EN_MASSA } from './massa.ts';
 import { PT_MASSA_PISOS, EN_MASSA_PISOS } from './massa-pisos.ts';
 import { PT_MASSA_PAREDES, EN_MASSA_PAREDES } from './massa-paredes.ts';
@@ -57,6 +58,7 @@ export const PT_ALL = {
   ...PT_SUPLEMENTOS_IO,
   ...PT_SUPUI,
   ...PT_GUARDA_CORPO,
+  ...PT_DIALOGS_OPENING_SHAPE,
   ...PT_MASSA,
   ...PT_MASSA_PISOS,
   ...PT_MASSA_PAREDES,
@@ -110,6 +112,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_SUPLEMENTOS_IO,
   ...EN_SUPUI,
   ...EN_GUARDA_CORPO,
+  ...EN_DIALOGS_OPENING_SHAPE,
   ...EN_MASSA,
   ...EN_MASSA_PISOS,
   ...EN_MASSA_PAREDES,

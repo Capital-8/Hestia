@@ -25,6 +25,7 @@ import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { DE_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { DE_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
 import { DE_MASSA } from '../../areas/massa.ts';
 import { DE_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { DE_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -39,6 +40,7 @@ export const DE_ALL = {
   ...DE_STRUCTURAL,
   ...DE_TAGGING,
   ...DE_GUARDA_CORPO,
+  ...DE_DIALOGS_OPENING_SHAPE,
   ...DE_MASSA,
   ...DE_MASSA_PISOS,
   ...DE_MASSA_PAREDES,
