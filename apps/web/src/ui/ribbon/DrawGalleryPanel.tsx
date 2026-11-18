@@ -1,25 +1,44 @@
 import { useRef, useState, type ReactElement, type ReactNode } from 'react';
+import { editor } from '../../editor/controller.ts';
 import type { ToolId, ToolOptions } from '@hestia/tools';
 import { useT, type Dict } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { PERIMETER_SHAPES, type PerimeterShape } from '../perimeter/PerimeterRibbonPanels.tsx';
+import { WALL_SHAPES } from '../WallDrawPanel.tsx';
+import { editorDeTerreno, topografiaAtiva } from '../terrainActions.ts';
 
 /** A Parede tem o painel próprio (`WallDrawPanel`, modos da ferramenta com polígono, elipse e spline). */
-export type GalleryDrawTool = 'beam' | 'detailLine';
+export type GalleryDrawTool = 'beam' | 'detailLine' | 'terrain' | 'terrainEdit';
 
 interface DrawShapeChoice {
   value: string;
-  shapeId: PerimeterShape;
+  shapeId: PerimeterShape | 'spline';
   labelKey: keyof Dict;
 }
 
 interface DrawGallerySpec {
-  optionKey: 'beamShape' | 'detailLineShape';
+  optionKey: 'beamShape' | 'detailLineShape' | 'terrainShape';
   defaultValue: string;
   items: readonly DrawShapeChoice[];
 }
 
+/** Formas das curvas de nível da Topografia: as da Parede (o terreno guarda polilinhas, discretizadas ao concluir) e a spline por pontos. */
+const TERRAIN_ITEMS: readonly DrawShapeChoice[] = [
+  { value: 'line', shapeId: 'line', labelKey: 'pro_pm_shape_line' },
+  { value: 'arc', shapeId: 'arc-3pt', labelKey: 'pro_pm_shape_arc3' },
+  { value: 'arc-center', shapeId: 'arc-center', labelKey: 'pro_pm_shape_arc_center' },
+  { value: 'arc-tangent', shapeId: 'arc-tangent', labelKey: 'pro_pm_shape_arc_tangent' },
+  { value: 'circle', shapeId: 'circle', labelKey: 'pro_pm_shape_circle' },
+  { value: 'ellipse', shapeId: 'ellipse', labelKey: 'pro_pm_shape_ellipse' },
+  { value: 'rect', shapeId: 'rect', labelKey: 'pro_pm_shape_rect' },
+  { value: 'poly-inscribed', shapeId: 'poly-inscribed', labelKey: 'pro_pm_shape_poly_in' },
+  { value: 'poly-circumscribed', shapeId: 'poly-circumscribed', labelKey: 'pro_pm_shape_poly_circ' },
+  { value: 'spline', shapeId: 'spline', labelKey: 'pro_pm_shape_spline' },
+];
+
 const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
+  terrain: { optionKey: 'terrainShape', defaultValue: 'line', items: TERRAIN_ITEMS },
+  terrainEdit: { optionKey: 'terrainShape', defaultValue: 'line', items: TERRAIN_ITEMS },
   beam: {
     optionKey: 'beamShape',
     defaultValue: 'line',
@@ -53,10 +72,10 @@ const DRAW_GALLERIES: Record<GalleryDrawTool, DrawGallerySpec> = {
   },
 };
 
-const SHAPE_ICONS = new Map<PerimeterShape, ReactNode>(PERIMETER_SHAPES.map((s) => [s.id, s.icon]));
+const SHAPE_ICONS = new Map<string, ReactNode>([...PERIMETER_SHAPES, ...WALL_SHAPES.filter((s) => s.id === 'spline')].map((s) => [s.id, s.icon]));
 
 export function isGalleryDrawTool(tool: ToolId): tool is GalleryDrawTool {
-  return tool === 'beam' || tool === 'detailLine';
+  return tool === 'beam' || tool === 'detailLine' || tool === 'terrain' || tool === 'terrainEdit';
 }
 
 const cls = (...c: Array<string | false | null | undefined>): string => c.filter(Boolean).join(' ');
@@ -66,6 +85,7 @@ const STEP = 30;
 export function DrawGalleryPanel({ tool }: { tool: GalleryDrawTool }): ReactElement {
   const { t } = useT();
   const options = useUi((s) => s.options);
+  useUi((s) => s.previewTick);
   const galRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const spec = DRAW_GALLERIES[tool];
@@ -76,6 +96,8 @@ export function DrawGalleryPanel({ tool }: { tool: GalleryDrawTool }): ReactElem
     useUi.setState((s) => ({ options: { ...s.options, [spec.optionKey]: value } as ToolOptions }));
   };
 
+  // Topografia: só o modo de curvas (e, no Editar terreno, o submodo Curva) tem formas.
+  if ((tool === 'terrain' && topografiaAtiva(editor)?.modoAtual === 'pontos') || (tool === 'terrainEdit' && editorDeTerreno(editor)?.modoAtual !== 'curva')) return <></>;
   return (
     <div className="rb-panel" role="group" aria-label={t('pro_pm_panel_draw')}>
       <div className="rb-cols">

@@ -138,8 +138,9 @@ export function Ribbon(): ReactElement {
         items.push({ key: 'desenhar', priority: 2, node: <WallDrawPanel options={ctx.options} onPatch={(patch) => useUi.setState((s) => ({ options: { ...s.options, ...patch } }))} /> });
       }
       // Linha de detalhe: a aba contextual não tem painel `desenhar` próprio; a galeria entra como a da Parede.
-      if (activeId === 'ctx' && ctx.tool === 'detailLine' && ctxTab?.key === 'tool:detailLine' && !items.some((i) => i.key === 'desenhar')) {
-        items.push({ key: 'desenhar', priority: 2, node: <DrawGalleryPanel tool="detailLine" /> });
+      // Topografia e Editar terreno (curvas de nível): a mesma galeria, com a spline; o painel some fora do modo de curvas.
+      if (activeId === 'ctx' && isGalleryDrawTool(ctx.tool) && ctxTab?.key === `tool:${ctx.tool}` && !items.some((i) => i.key === 'desenhar')) {
+        items.push({ key: 'desenhar', priority: 2, node: <DrawGalleryPanel tool={ctx.tool} /> });
       }
       return items;
     }

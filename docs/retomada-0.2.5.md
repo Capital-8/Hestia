@@ -116,3 +116,49 @@ Em um computador com Visual Studio Build Tools não é preciso.
 - Testes novos (Rust): tolerância 0 = crua, fuzz leve (malhas aleatórias, tol 0,02 e 0,2: desvio <= tol, pontos de borda e extremidades fixos), canto agudo intacto, tolerância negativa/NaN/inf -> ENTRADA. Quadrado 64/48/32/16 volta ao exato literal.
 - `cargo test --lib terreno -- --test-threads=2`: 106/106 (695 s). `wasm:check` ok (blob 788dfa04ebe0, fontes 6b606cb68dee). wasm de terreno (`tests/kernel-terreno-*`): 51/51 com a tolerância passada nas chamadas.
 - clippy: 42 avisos na crate (base 39); nenhum em `terreno_curvas.rs`/`consultas.rs`; os 3 a mais vêm de outras frentes integradas (não tocados).
+
+## Diagnóstico das falhas da suíte ampla (18/11/2026)
+
+Cada arquivo foi rodado isolado, com `pvitest.sh`, um por vez, na máquina livre. Nenhum arquivo falhou isolado, então nenhum código foi alterado e não houve comparação com a `main`. Os 16 testes que falharam na suíte ampla não estão identificados nos logs da passagem; por isso a tabela classifica por arquivo.
+
+| Arquivo | Resultado isolado | Classe | Causa provável | Ação |
+|---|---|---|---|---|
+| apps/web/src/editor/sheetInsert.test.ts | 14/14 | (A) | Timeout de 5 s do lote de 3 vistas sob carga | Nenhuma |
+| packages/model/src/contratoCamposEsquadria.test.ts | 5/5 | (A) | Carga da suíte | Nenhuma |
+| apps/web/src/ui/dialogs/openingType/previewViews.test.ts | 14/14 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/junctionReducao.test.ts | 6/6 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/projectIssues.test.ts | 17/17 (inclui predio10) | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/terminoCamada3d.test.ts | 3/3 (volume laje x parede) | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/openingCatalogoVistas.test.ts | 8/8 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/plan/zoomSemRecriar.test.ts | 5/5 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoin.test.ts | 19/19 nas 2 rodadas (fuzz S1 2347 e 2433 ms; limite 2 ms/par) | (A) | Desempenho sob carga; oscila pouco | Nenhuma |
+| packages/engine/src/wallTiltJoinArco.test.ts | 6/6 nas 2 rodadas (J1 níveis 0,88 e 1,21 ms/par, limite 3; níveis+anéis 2,37 e 2,98, limite 8) | (A) | Desempenho; oscila 26 a 37 % entre rodadas, folga de mais de 2x | Nenhuma |
+| packages/engine/src/wallTiltJoinLevelArco.test.ts | 7/7 nas 2 rodadas (limite 5 ms/par) | (A) | Desempenho dentro do limite | Nenhuma |
+| packages/engine/src/wallTiltMulticamada.test.ts | 3/3 nas 2 rodadas (30 paredes a 15°: junção 43/46 ms, corte 131/149, elevação 24/29; limite 500) | (A) | Desempenho dentro do limite | Nenhuma; obs.: o corte passa de 100 ms, a meta citada no comentário |
+| packages/engine/src/wallTiltJoinExato.test.ts | 15/15 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoinLevel.test.ts | 7/7 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoinLevelPar.test.ts | 3/3 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/wallTiltJoinSolid.test.ts | 7/7 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/wallTiltJuncaoArco.test.ts | 7/7 nas 2 rodadas (limite 200 ms para 20 paredes) | (A) | Desempenho dentro do limite | Nenhuma |
+
+Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de tempo), não regressão desta integração. Nenhum volume laje x parede, junção ou predio10 falhou isolado. Sobra para o dono: decidir se a suíte ampla deve ser repetida em horário livre (com `pesado.sh`, sem paralelismo extra) para confirmar a zeragem; se os limites de desempenho do wallTiltMulticamada devem ser apertados até a meta de 100 ms do corte.
+
+## Espaço+arrastar e Inserir vistas (executor i025, 18/11/2026)
+
+- **Espaço + arrastar** é o gesto de pan da prancha (conteúdo da vista sob o cursor; fora de vistas, a câmera). Alt continua. Decisão em `gestoDoBotaoNaPrancha` (`ui/sheet/sheetGestoBotao.ts`, 12 testes). Nota da release (`docs/releases/v0.2.5.md`) explica como manter Alt no Linux (tecla Super).
+- **Inserir vistas** sem prévia: lista de vistas agrupada (plantas, cortes, elevações, 3D), Marcar todas/Limpar, escala inicial "Da vista", dica do Shift, Cancelar/Inserir. Janela `size="ins"`: 560 px e 80% da altura, lista com rolagem própria.
+- Lista virtual sempre ativa (faixa visível de linhas, altura medida no DOM): 250 vistas 3D abrem em ~100 ms (1366x768) e ~410 ms (1024x640, ver pendência).
+- Escolha da escala: "Da vista" usa a natural se couber, senão a maior que cabe. Escala fixa que não cabe, ou sem espaço livre, avisa só depois de Inserir (a janela continua aberta).
+- Medido com `tests/e2e/prancha-inserir-layout.mjs` (Chrome do sistema via `CHROME_PATH`, servidor 4200): janela 560x482 (1024x640) e 560x526 (1366x768), lista 256 e 300 px com rolagem, rodapé dentro, nada fora da janela, fonte de 18px sem sobreposição.
+- Pendente: abertura quente de 1024x640 ~410-420 ms (limite de 300 ms não atingido; causa não isolada, suspeita de aquecimento da primeira página no dev server sob carga). Ver em build de produção antes de fechar. `test-i18n-runtime.mjs` não roda aqui (Chromium do Playwright ausente). Ver em tela: a lista, a janela em fonte grande, o gesto Espaço+arrastar em planta de prancha com a tecla Alt indisponível.
+
+## Topografia: formas, spline e propriedades do ponto (executor i025-topo, 18/11/2026)
+
+- **Galeria de formas** na Topografia (modo Curvas) e no Editar terreno (submodo Curva): linha (atual), 3 arcos, círculo, elipse, retângulo, 2 polígonos e **Spline**. Aba contextual `tool:terrain`/`tool:terrainEdit` com `DrawGalleryPanel` (opção `terrainShape`); a galeria some nos modos sem curva. Estado das formas em `DesenhoDeForma` (`terrainFormaCurva.ts`), reusado pelas duas ferramentas; geometria pura em `terrainFormaGeom.ts`.
+- **Discretização ao concluir**: o terreno só guarda polilinhas, então cada forma vira UMA `CurvaTerreno` na cota do campo. **Flecha máxima padrão 0,01 m** (campo "Flecha máx." na barra, `smallLength`, limitada a 1 mm..1 m). Círculo r=5 m dá 50 vértices; retângulo 4. Círculo, elipse, retângulo e polígono nascem fechados.
+- **Teto**: `TERRENO_LIMITES.vertices` (200 000, descontando o que o terreno ou as fontes pendentes já têm). Passando, a flecha DOBRA até caber (aviso com a flecha usada); só recusa (mensagem de limite) se nem assim couber (ex.: polígono com mais lados que a folga).
+- **Spline**: Catmull-Rom centrípeta (alfa 0,5), passa exatamente pelos pontos de controle; aberta (Enter) ou fechada (C ou clique no 1º ponto, 3+ pontos); pontas abertas usam vizinhos por reflexão. Testada sem autointerseção em V, grampo e zigue-zague agudos.
+- **Ponto selecionado** (grupo no painel Propriedades do terreno): X, Y e Cota (`NumField quantity="length"`, unidades do projeto), E/N reais SÓ LEITURA quando há Localização. Ponte: `TerrainEditTool.pontoSelecionado` e `definirPontoSelecionado` (UM `editTerrainFontes`, um desfazer, via `gravarOps`/`terrainIssue`); o painel relê a cada `previewTick` (alça arrastada atualiza). Vértice de curva: a cota vale para a curva toda (nota no painel). No submodo Ponto o ponto criado fica escolhido.
+- **Limite do modelo**: `terrainIssue` aceita vértices coincidentes (o kernel funde), então mover sobre outro vértice não é recusado; valores fora de ±100 km / ±10 km de cota ou não numéricos são recusados com mensagem.
+- **Ver em tela**: desenhar círculo, elipse, arco e spline em planta (prévia tracejada ao vivo, campo Flecha na barra, Tab no arco centro-extremidades), o terreno com curva de muitos vértices, e o grupo "Ponto selecionado" ao clicar num ponto/vértice e ao arrastar a alça. Sem tela nesta rodada; só testes de unidade.
+- Pendente fora desta ficha: `apps/web/src/editor/sheetInsertSources.ts(40)` falha o typecheck na base (tipo `TipoFonteVista`), é do trabalho de Inserir vistas.

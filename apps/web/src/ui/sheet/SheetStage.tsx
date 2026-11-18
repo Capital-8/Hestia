@@ -14,6 +14,7 @@ import { cursorForHandle, hitBox, hitHandle, type HandleId, type PaperBox } from
 import type { SnapLine } from './sheetSnap.ts';
 import { snapLinesOf } from './sheetSnap.ts';
 import { movedBoxes, resolveGesture, type GestureContext, type SheetGesture } from './sheetGestures.ts';
+import { gestoDoBotaoNaPrancha } from './sheetGestoBotao.ts';
 import { useSheetAlign } from './useSheetAlign.ts';
 import { useSheetCamera } from './useSheetCamera.ts';
 import { useSheetDrop } from './useSheetDrop.ts';
@@ -25,7 +26,8 @@ const refused = (e: unknown): TextLike => (e instanceof Error ? e.message : { ke
 
 /**
  * Palco da prancha (decisões 0022 e 0039): câmera própria (zoom no cursor e pan), seleção com alças para redimensionar
- * o recorte, pan do conteúdo (Alt), encaixe nas outras vistas, arraste do Navegador e as ferramentas Mover e Alinhar.
+ * o recorte, pan do conteúdo (Espaço + arrastar, ou Alt), encaixe nas outras vistas, arraste do Navegador e as ferramentas
+ * Mover e Alinhar. O gesto de cada botão está em `sheetGestoBotao.ts`.
  * Cada gesto grava um único passo de desfazer ao soltar o ponteiro; durante o arraste só o preview muda.
  */
 export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
@@ -108,49 +110,42 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>): void => {
     if (!sheet) return;
-    if (e.button === 1 || (e.button === 0 && space.current)) {
+    const pt = paperAt(e);
+    // Alça da vista selecionada (só com uma); sob ela, Alt redimensiona e Espaço continua sendo pan da câmera.
+    const alca = single ? hitHandle(viewportBox(single), pt, 8 / camera.zoom) : null;
+    const sobre = hitBox(boxesOf(sheet), pt, 0);
+    const gesto = gestoDoBotaoNaPrancha({ botao: e.button, espaco: space.current, alt: e.altKey, sobreVista: sobre !== null, alca: alca !== null, ferramenta: align.on || move.on });
+    if (gesto === 'nada') return;
+    if (gesto === 'camera') {
       e.preventDefault();
       svgRef.current?.setPointerCapture(e.pointerId);
       applyGesture({ kind: 'pan', last: { x: e.clientX, y: e.clientY } });
       return;
     }
-    if (e.button !== 0) return;
-    const pt = paperAt(e);
-    if (align.on) {
+    if (gesto === 'ferramenta') {
       e.preventDefault();
-      align.click(pt, e.ctrlKey || e.metaKey);
+      if (align.on) align.click(pt, e.ctrlKey || e.metaKey);
+      else move.click(pt);
       return;
     }
-    if (move.on) {
-      e.preventDefault();
-      move.click(pt);
-      return;
-    }
-    const tol = 8 / camera.zoom;
-
-    // Alças da vista selecionada (só com uma).
-    if (single) {
-      const hd = hitHandle(viewportBox(single), pt, tol);
-      if (hd) {
-        if (single.locked === true) {
-          say({ key: 'cvs_locked_hint' });
-          return;
-        }
-        svgRef.current?.setPointerCapture(e.pointerId);
-        applyGesture({ kind: 'resize', id: single.id, handle: hd, grab: pt, start: viewportBox(single), box: viewportBox(single) });
+    if (alca && single) {
+      if (single.locked === true) {
+        say({ key: 'cvs_locked_hint' });
         return;
       }
+      svgRef.current?.setPointerCapture(e.pointerId);
+      applyGesture({ kind: 'resize', id: single.id, handle: alca, grab: pt, start: viewportBox(single), box: viewportBox(single) });
+      return;
     }
-
-    const id = hitBox(boxesOf(sheet), pt, 0);
-    if (!id) {
+    if (!sobre) {
       setSel([]);
       svgRef.current?.setPointerCapture(e.pointerId);
       applyGesture({ kind: 'pan', last: { x: e.clientX, y: e.clientY } });
       return;
     }
+    const id = sobre;
     const vp = sheet.viewports.find((v) => v.id === id)!;
-    if (e.shiftKey) {
+    if (gesto === 'selecao' && e.shiftKey) {
       setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
       return;
     }
@@ -161,7 +156,9 @@ export function SheetStage({ sheetId }: { sheetId: string }): ReactElement {
       say({ key: 'cvs_locked_hint_short' });
       return;
     }
-    if (e.altKey) {
+    if (gesto === 'conteudo') {
+      // Espaço ou Alt sobre a vista: arrasta o conteúdo dela (a caixa não se move).
+      e.preventDefault();
       svgRef.current?.setPointerCapture(e.pointerId);
       applyGesture({ kind: 'content', id, grab: pt, start: { x: vp.offset?.x ?? 0, y: vp.offset?.y ?? 0 }, offset: { x: vp.offset?.x ?? 0, y: vp.offset?.y ?? 0 } });
       return;

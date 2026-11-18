@@ -36,7 +36,12 @@ export function useSheetKeys(actions: SheetKeyActions, spaceRef: RefObject<boole
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === ' ') {
-        if (!isField(e.target)) spaceRef.current = true;
+        // Espaço segurado é o pan (Espaço + arrastar). Sem diálogo nem campo com foco, não deixa o botão focado (ribbon)
+        // ou a rolagem da página reagirem à mesma tecla.
+        if (!isField(e.target)) {
+          spaceRef.current = true;
+          if (!useUi.getState().dialog) e.preventDefault();
+        }
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -114,13 +119,21 @@ export function useSheetKeys(actions: SheetKeyActions, spaceRef: RefObject<boole
       }
     };
     const onUp = (e: KeyboardEvent): void => {
-      if (e.key === ' ') spaceRef.current = false;
+      if (e.key !== ' ') return;
+      spaceRef.current = false;
+      if (!isField(e.target) && !useUi.getState().dialog) e.preventDefault();
+    };
+    // Alt-tab com Espaço segurado perde o keyup: sem o reset, todo clique seguinte na prancha viraria pan.
+    const soltar = (): void => {
+      spaceRef.current = false;
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', soltar);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', soltar);
     };
   }, [spaceRef]);
 }

@@ -15,7 +15,7 @@ interface DialogProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  size?: '' | 'narrow' | 'mid' | 'wide' | 'fam';
+  size?: '' | 'narrow' | 'mid' | 'wide' | 'fam' | 'ins';
   z?: number;
   /** Ctrl+Enter dentro do diálogo (tratado em captura; os campos numéricos param a propagação). */
   onSubmit?: () => void;
