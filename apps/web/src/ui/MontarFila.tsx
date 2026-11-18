@@ -3,6 +3,7 @@ import type { ResultadoDeFila } from '@hestia/engine';
 import { create } from 'zustand';
 import { useState, type ReactElement } from 'react';
 import { editor, useProject } from '../editor/controller.ts';
+import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { useUi } from '../editor/state.ts';
 import { useT } from '../editor/i18n.ts';
 import { tm } from './moveisTextos.ts';
@@ -141,10 +142,12 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
             <span className="mf-parede"><b>{t('mov_parede')}</b> {parede.mark || parede.id} <span className="fam-hint">{tipoDaParede}</span></span>
             <label>
               {t('mov_lado_livre')}
-              <select className="fam-f" value={lado} onChange={(e) => setLado(e.target.value as LadoDaParede)}>
-                <option value="esquerdo">{t('mov_lado_esquerdo')}</option>
-                <option value="direito">{t('mov_lado_direito')}</option>
-              </select>
+              <SeletorEstavel
+                className="fam-f"
+                value={lado}
+                opcoes={[{ valor: 'esquerdo', rotulo: t('mov_lado_esquerdo') }, { valor: 'direito', rotulo: t('mov_lado_direito') }]}
+                onChange={(v) => setLado(v as LadoDaParede)}
+              />
             </label>
           </div>
 
@@ -173,22 +176,23 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
               const familia = familiaEscolhida(p, linha.familyId);
               return (
                 <div className="mf-linha" key={indice}>
-                  <select className="fam-f" aria-label={t('mov_familia')} value={linha.familyId} onChange={(e) => alterarLinha(indice, { familyId: e.target.value, typeId: null })}>
-                    {doProjeto.length > 0 && (
-                      <optgroup label={t('mov_grp_projeto')}>
-                        {doProjeto.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                      </optgroup>
-                    )}
-                    {daBiblioteca.length > 0 && (
-                      <optgroup label={t('mov_biblioteca')}>
-                        {daBiblioteca.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                      </optgroup>
-                    )}
-                  </select>
-                  <select className="fam-f" aria-label={t('mov_tipo')} value={linha.typeId ?? ''} onChange={(e) => alterarLinha(indice, { typeId: e.target.value === '' ? null : e.target.value })}>
-                    <option value="">{t('mov_padrao_familia')}</option>
-                    {familia?.tipos.map((tp) => <option key={tp.id} value={tp.id}>{tp.nome}</option>)}
-                  </select>
+                  <SeletorEstavel
+                    className="fam-f"
+                    ariaLabel={t('mov_familia')}
+                    value={linha.familyId}
+                    opcoes={[
+                      ...doProjeto.map((f) => ({ valor: f.id, rotulo: f.nome, grupo: t('mov_grp_projeto') })),
+                      ...daBiblioteca.map((f) => ({ valor: f.id, rotulo: f.nome, grupo: t('mov_biblioteca') })),
+                    ]}
+                    onChange={(v) => alterarLinha(indice, { familyId: v, typeId: null })}
+                  />
+                  <SeletorEstavel
+                    className="fam-f"
+                    ariaLabel={t('mov_tipo')}
+                    value={linha.typeId ?? ''}
+                    opcoes={[{ valor: '', rotulo: t('mov_padrao_familia') }, ...(familia?.tipos ?? []).map((tp) => ({ valor: tp.id, rotulo: tp.nome }))]}
+                    onChange={(v) => alterarLinha(indice, { typeId: v === '' ? null : v })}
+                  />
                   <NumField
                     id={`mf-largura-${indice}`}
                     value={linha.largura ?? null}

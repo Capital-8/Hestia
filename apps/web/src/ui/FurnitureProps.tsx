@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import type { Command, Furniture, FurnitureCategory, FurnitureQuality } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { useUi } from '../editor/state.ts';
 import { startPlacing } from '../editor/furniture/actions.ts';
 import { FURNITURE_CATEGORIES } from '../editor/furniture/importModel.ts';
@@ -66,10 +67,12 @@ export function FurnitureProps({ items }: { items: Furniture[] }): ReactElement 
           <Check id="fu-mirror" checked={first.mirrored} mixed={common('mirrored').mixed} onChange={(v) => patch({ mirrored: v })} />
         </Row>
         <Row label={t('fur_p_quality')} htmlFor="fu-quality">
-          <select id="fu-quality" className="select" value={first.quality ?? 'leve'} onChange={(e) => patch({ quality: e.target.value as FurnitureQuality })}>
-            <option value="leve">{t('fur_q_leve')}</option>
-            <option value="completo">{t('fur_q_completo')}</option>
-          </select>
+          <SeletorEstavel
+            id="fu-quality"
+            value={first.quality ?? 'leve'}
+            opcoes={[{ valor: 'leve', rotulo: t('fur_q_leve') }, { valor: 'completo', rotulo: t('fur_q_completo') }]}
+            onChange={(v) => patch({ quality: v as FurnitureQuality })}
+          />
         </Row>
         <div className="prow">
           <span />
@@ -85,14 +88,12 @@ export function FurnitureProps({ items }: { items: Furniture[] }): ReactElement 
           {asset.materials.map((m, i) => (
             <div key={m.id} className="prow" style={{ flexWrap: 'wrap', gap: 6 }}>
               <span title={m.name} style={{ flex: '1 1 100%' }}>{m.name}</span>
-              <select
-                className="select"
-                aria-label={`${t('fur_mat_category')}: ${m.name}`}
+              <SeletorEstavel
+                ariaLabel={`${t('fur_mat_category')}: ${m.name}`}
                 value={m.category}
-                onChange={(e) => editor.store.exec({ type: 'setFurnitureMaterial', assetId: asset.id, materialId: m.id, patch: { category: e.target.value as FurnitureCategory } })}
-              >
-                {FURNITURE_CATEGORIES.map((c) => <option key={c} value={c}>{t(catKey(c))}</option>)}
-              </select>
+                opcoes={FURNITURE_CATEGORIES.map((c) => ({ valor: c, rotulo: t(catKey(c)) }))}
+                onChange={(v) => editor.store.exec({ type: 'setFurnitureMaterial', assetId: asset.id, materialId: m.id, patch: { category: v as FurnitureCategory } })}
+              />
               <input
                 type="color"
                 id={`fu-mat-color-${i}`}

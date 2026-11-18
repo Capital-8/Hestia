@@ -1,0 +1,8 @@
+.acab-sel-btn { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; cursor: pointer; color: inherit; }
+.acab-sel-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acab-sel-seta { color: var(--fg-faint, #7a8791); font-size: 10px; }
+.acab-sel-amostra { flex: none; width: 14px; height: 14px; border-radius: 2px; border: 1px solid var(--line-strong); background: repeating-conic-gradient(#d0d4d8 0 25%, #fff 0 50%) 0 0 / 8px 8px; }
+.acab-sel-lista { position: fixed; z-index: 1000; overflow-y: auto; background: var(--sheet); border: 1px solid var(--accent); border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); padding: 3px 0; }
+.acab-sel-item { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer; }
+.acab-sel-item.ativo { background: var(--accent-soft); }
+.acab-sel-item.atual .acab-sel-nome { font-weight: 600; }

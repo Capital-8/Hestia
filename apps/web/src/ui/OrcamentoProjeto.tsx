@@ -3,6 +3,7 @@ import { CATALOGO_PADRAO, type Id } from '@hestia/model';
 import { create } from 'zustand';
 import { useMemo, useState, type ReactElement } from 'react';
 import { useProject } from '../editor/controller.ts';
+import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { FamiliaListaCorte } from './familia/FamiliaListaCorte.tsx';
 import { FamiliaListaTabela } from './familia/FamiliaListaTabela.tsx';
@@ -194,9 +195,12 @@ export function OrcamentoProjeto(): ReactElement | null {
             <div className="fam-lista-opcoes">
               <label>
                 {t('mov_nivel')}
-                <select className="fam-f" value={nivelAtual ?? ''} onChange={(e) => setNivelId(e.target.value === '' ? null : e.target.value)}>
-                  {nivelOptions(p).map((o) => <option key={o.id ?? ''} value={o.id ?? ''}>{o.rotulo}</option>)}
-                </select>
+                <SeletorEstavel
+                  className="fam-f"
+                  value={nivelAtual ?? ''}
+                  opcoes={nivelOptions(p).map((o) => ({ valor: o.id ?? '', rotulo: o.rotulo }))}
+                  onChange={(v) => setNivelId(v === '' ? null : v)}
+                />
               </label>
               <span className="fam-lista-msg" role="status">{mensagem === null ? null : t(mensagem)}</span>
               <span className="fam-lista-espaco" />

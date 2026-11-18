@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { type Component, type Escolha, type Familia, type Project, type Valor } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { Check, Group, Row } from './fields.tsx';
 import { comumDe } from './componentPropAcoes.ts';
 import { tm } from './moveisTextos.ts';
@@ -68,20 +69,20 @@ function LinhaEscolha({ p, components, familia, escolha, opcoes }: PropsLinha): 
     const atual = efetivo.misto ? VALOR_MISTO : String(efetivo.valor ?? '');
     const foraDaLista = !efetivo.misto && efetivo.valor !== undefined && !opcoes.some((o) => String(o.valor) === atual);
     entrada = (
-      <select
+      <SeletorEstavel
         id={id}
-        className="select"
         value={atual}
-        onChange={(e) => {
-          if (e.target.value === VALOR_MISTO) return;
-          const escolhida = opcoes.find((o) => String(o.valor) === e.target.value);
+        opcoes={[
+          ...(efetivo.misto ? [{ valor: VALOR_MISTO, rotulo: tm('mov_varios'), desabilitada: true }] : []),
+          ...(foraDaLista ? [{ valor: atual, rotulo: tm('mov_atual', { v: atual }) }] : []),
+          ...opcoes.map((o) => ({ valor: String(o.valor), rotulo: o.rotulo })),
+        ]}
+        onChange={(v) => {
+          if (v === VALOR_MISTO) return;
+          const escolhida = opcoes.find((o) => String(o.valor) === v);
           if (escolhida !== undefined) gravar(escolhida.valor);
         }}
-      >
-        {efetivo.misto && <option value={VALOR_MISTO} disabled>{tm('mov_varios')}</option>}
-        {foraDaLista && <option value={atual}>{tm('mov_atual', { v: atual })}</option>}
-        {opcoes.map((o) => <option key={String(o.valor)} value={String(o.valor)}>{o.rotulo}</option>)}
-      </select>
+      />
     );
   }
 

@@ -1,14 +1,16 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import { caixaDoComponente, resolverComponente } from '@hestia/engine';
-import { ACABAMENTOS_MOVEIS, type ChaveAcabamentoInstancia, type Id, type Parametro, type Valor } from '@hestia/model';
+import { type ChaveAcabamentoInstancia, type Id, type Parametro, type Valor } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
+import { AcabamentoSelect } from './AcabamentoSelect.tsx';
+import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
-import { nomeDoAcabamento, tm } from './moveisTextos.ts';
+import { tm } from './moveisTextos.ts';
 import {
   aplicarAcabamentoComponentes,
   aplicarAlinhamentoFrente,
@@ -190,19 +192,19 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
       case 'enum':
       case 'chapa':
         entrada = (
-          <select
+          <SeletorEstavel
             id={id}
-            className="select"
             value={efetivo.misto ? VALOR_MISTO : String(efetivo.valor ?? '')}
-            onChange={(e) => {
-              if (e.target.value === VALOR_MISTO) return;
-              const escolhida = param.opcoes?.find((o) => String(o.valor) === e.target.value);
+            opcoes={[
+              ...(efetivo.misto ? [{ valor: VALOR_MISTO, rotulo: tm('mov_variados'), desabilitada: true }] : []),
+              ...(param.opcoes ?? []).map((o) => ({ valor: String(o.valor), rotulo: o.rotulo ?? String(o.valor) })),
+            ]}
+            onChange={(v) => {
+              if (v === VALOR_MISTO) return;
+              const escolhida = param.opcoes?.find((o) => String(o.valor) === v);
               if (escolhida) gravarParametro(param, escolhida.valor);
             }}
-          >
-            {efetivo.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
-            {(param.opcoes ?? []).map((o) => <option key={String(o.valor)} value={String(o.valor)}>{o.rotulo ?? String(o.valor)}</option>)}
-          </select>
+          />
         );
         break;
       default:
@@ -278,19 +280,19 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
         )}
         {familia ? (
           <Row label={t('mov_tipo')} htmlFor="p-comp-type">
-            <select
+            <SeletorEstavel
               id="p-comp-type"
-              className="select"
               value={tipoComum.misto ? VALOR_MISTO : tipoComum.valor}
-              onChange={(e) => {
-                if (e.target.value === VALOR_MISTO) return;
-                alterar({ typeId: e.target.value === '' ? null : e.target.value }, 'mov_undo_tipo');
+              opcoes={[
+                ...(tipoComum.misto ? [{ valor: VALOR_MISTO, rotulo: tm('mov_variados'), desabilitada: true }] : []),
+                { valor: '', rotulo: t('mov_padrao_familia') },
+                ...familia.tipos.map((x) => ({ valor: x.id, rotulo: x.nome })),
+              ]}
+              onChange={(v) => {
+                if (v === VALOR_MISTO) return;
+                alterar({ typeId: v === '' ? null : v }, 'mov_undo_tipo');
               }}
-            >
-              {tipoComum.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
-              <option value="">{t('mov_padrao_familia')}</option>
-              {familia.tipos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
-            </select>
+            />
           </Row>
         ) : (
           <div className="hint">{t('mov_sel_mesma_familia')}</div>
@@ -332,26 +334,13 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
           const id = `p-comp-${chave}`;
           return (
             <Row key={chave} label={t(rotulo)} htmlFor={id}>
-              <select
+              <AcabamentoSelect
                 id={id}
-                className="select"
-                value={atual.misto ? VALOR_MISTO : atual.valor}
-                onChange={(e) => {
-                  if (e.target.value === VALOR_MISTO) return;
-                  aplicarAcabamentoComponentes(
-                    editor.store,
-                    components.map((c) => c.id),
-                    chave,
-                    e.target.value,
-                  );
-                }}
-              >
-                {atual.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
-                <option value="">{t('mov_padrao_movel')}</option>
-                {ACABAMENTOS_MOVEIS.map((a) => (
-                  <option key={a.id} value={a.id}>{nomeDoAcabamento(a.id, a.nome)}</option>
-                ))}
-              </select>
+                rotulo={t(rotulo)}
+                valor={atual.misto ? '' : atual.valor}
+                misto={atual.misto}
+                onEscolher={(acabamentoId) => aplicarAcabamentoComponentes(editor.store, components.map((c) => c.id), chave, acabamentoId)}
+              />
             </Row>
           );
         })}
