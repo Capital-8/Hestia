@@ -112,10 +112,10 @@ fn zp_funcao_unica() {
     ] {
         assert!((zp_em(&cena, 1, x, y) - z).abs() < 1e-12, "T5 {onde}: ({x}, {y})");
     }
-    // T6 (nivelada cota 8, talude de corte 1; E = 10): alcance 2 · 1 + 0,25 = 2,25.
+    // T6 (nivelada cota 8, talude de corte 1; E = 10): o talude encontra E a 2 m do contorno; o alcance é o primeiro passo da iteração (D → 1,1 D + h) que passa disso.
     let cena = cena_com(&[t6(1)]);
     let r = regioes_prontas(&cena, 1);
-    assert!((r[0].alcance - 2.25).abs() < 1e-12 && (r[0].h - 0.25).abs() < 1e-12, "D = Hmax · talude + h, h = sqrt(100) / 40");
+    assert!(r[0].alcance >= 2.0 && r[0].alcance < 2.6 && (r[0].h - 0.25).abs() < 1e-12, "D = primeiro passo da iteração além de 2 m: {}", r[0].alcance);
     for (x, y, z, onde) in [
         (7.0, 7.0, 8.0, "dentro"),
         (5.0, 9.0, 8.0, "na borda"),

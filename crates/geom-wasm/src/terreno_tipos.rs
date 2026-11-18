@@ -22,6 +22,8 @@ pub const AVISO_REGIOES_SOBREPOSTAS: u32 = 3;
 pub const AVISO_PRECISAO_REDUZIDA: u32 = 4;
 pub const AVISO_SEM_TRIANGULOS: u32 = 5;
 pub const AVISO_REGIAO_FORA: u32 = 6;
+/// O talude de uma região plana não encontrou E dentro de `ALCANCE_MAX`: o pé fica cortado no teto (medido = alcance usado).
+pub const AVISO_TALUDE_NAO_ALCANCA: u32 = 7;
 
 /// Diferença de cota (m) acima da qual dois vértices fundidos geram o aviso 1.
 pub const TOL_COTA_FUSAO: f64 = 0.001;
