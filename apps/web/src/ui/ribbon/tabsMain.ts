@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { act, panel, soon, soonS, split, stack, t, tool, type RibbonTab } from './model.ts';
 import { P_CLIPBOARD, P_CREATE, P_GEOMETRY, P_MEASURE, P_MODIFY, P_PROPS, P_SELECT, P_SELECTION_EXTRA, P_VIEW_MOD } from './panelsShared.ts';
 
@@ -98,7 +99,7 @@ export const TAB_VISTA: RibbonTab = {
       soon(t('Legendas', 'Legends'), 'soon'),
       split(act('schedWalls', 'large', t('Tabelas', 'Schedules')), [
         act('schedWalls', 'small'), act('schedFloors', 'small'), act('schedSlabs', 'small'), act('schedCeilings', 'small'),
-        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), act('schedMass', 'small'),
+        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), MASSA_NA_FAIXA ? act('schedMass', 'small') : soonS(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
         act('schedColumns', 'small'), act('schedBeams', 'small'), act('schedFootings', 'small'),
       ]),
     ),

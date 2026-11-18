@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createEmptyProject, ProjectStore } from '@hestia/model';
 import { adicionarFixtureTerreno, mapaCorteAterroLigado, definirMapaCorteAterro } from '@hestia/engine';
@@ -57,7 +58,7 @@ describe('faixa: botões da fase 3 do terreno', () => {
 
   it('os painéis da massa (da main) continuam na aba, ao lado dos do terreno', () => {
     // A massa real (ferramenta `mass` e botões) veio da main; o terreno só acrescentou os painéis dele na mesma aba.
-    expect(folhas(painel('massa', 'mas-massa').items).some((it) => it.kind === 'tool' && it.tool === 'mass')).toBe(true);
+    expect(folhas(painel('massa', 'mas-massa').items).some((it) => it.kind === 'tool' && it.tool === 'mass')).toBe(MASSA_NA_FAIXA);
     expect(nomes(painel('massa', 'mas-por-massa').items).length + folhas(painel('massa', 'mas-por-massa').items).length).toBeGreaterThan(0);
   });
 
