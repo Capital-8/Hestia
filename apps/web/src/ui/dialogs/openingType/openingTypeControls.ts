@@ -1,4 +1,4 @@
-import { HARDWARE_DEFAULTS, OPENING_SPAN_GAP_DEFAULTS, formatQuantity, openingSpanGap, type OpeningGlassKind, type OpeningSettingSystem, type OpeningType, type ResolvedUnits } from '@hestia/model';
+import { HARDWARE_DEFAULTS, OPENING_SPAN_GAP_DEFAULTS, SETTING_CLEARANCE_DEFAULTS, formatQuantity, openingSpanGap, type OpeningGlassKind, type OpeningSettingSystem, type OpeningType, type ResolvedUnits } from '@hestia/model';
 import type { Dict } from '../../../editor/i18n.ts';
 import { withOpeningField } from './openingTypeFields.ts';
 
@@ -29,8 +29,17 @@ export function setSettingSystem(t: OpeningType, sistema: OpeningSettingSystem |
   return sistema === '' ? next : { ...next, settingSystem: sistema };
 }
 
-/** Folga de assentamento por lado (m), gravada no tipo; a do sistema vale quando o campo não existe. */
-export const setSettingClearance = (t: OpeningType, metros: number): OpeningType => ({ ...t, settingClearance: arredondaMetros(Math.max(0, metros)) });
+/**
+ * Folga de assentamento por lado (m). Igual ao padrão do sistema (zero sem sistema) tira o campo, que volta ao padrão por
+ * leitura; outro valor grava no tipo.
+ */
+export function setSettingClearance(t: OpeningType, metros: number): OpeningType {
+  const valor = arredondaMetros(Math.max(0, metros));
+  const next: OpeningType = { ...t };
+  delete next.settingClearance;
+  const padrao = t.settingSystem === undefined ? 0 : SETTING_CLEARANCE_DEFAULTS[t.settingSystem];
+  return valor === padrao ? next : { ...next, settingClearance: valor };
+}
 
 /** Recuo do batente (m): zero tira o campo, que volta ao padrão por leitura (0). Preserva a âncora. */
 export function setRevealDepth(t: OpeningType, depth: number): OpeningType {
