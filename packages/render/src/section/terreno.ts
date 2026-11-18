@@ -1,6 +1,7 @@
-import { guardaCorpoNoPonto, guardaCorposNaCaixa, linhasVisiveisGC, planoDaSecao, servicoTerreno, ServicoTerreno, type LinhaCorteTN, type LinhaVistaGC, type SectionResult } from '@hestia/engine';
+import { guardaCorpoNoPonto, mapaCorteAterroLigado, guardaCorposNaCaixa, linhasVisiveisGC, planoDaSecao, servicoTerreno, ServicoTerreno, type LinhaCorteTN, type LinhaVistaGC, type SectionResult } from '@hestia/engine';
 import type { HatchKind, Id, Project, Terrain } from '@hestia/model';
 import { mix } from '../plan/color.ts';
+import { ALFA_MAPA, COR_ATERRO, COR_CORTE } from '../plan/terrenoMapa.ts';
 import type { PlanPaint } from '../plan/style.ts';
 import type { FillOp, PlanTheme, StrokeOp } from '../plan/types.ts';
 
@@ -17,7 +18,9 @@ export const TRACO_PERFIL_EXISTENTE: [number, number] = [6, 4];
  * pela categoria, seleção e realce sobre as mesmas linhas desenhadas. Nenhum caminho TS gera o perfil: sem kernel pronto nada é desenhado. O lote
  * não entra, e a região só altera o perfil (superfície proposta); nenhuma das duas é desenhada como elemento.
  * Papel 0 (cortado): contorno de corte da categoria `site` e preenchimento (hachura do material, senão cor sólida); papel 1 (perfil existente):
- * tracejado fino; papel 2 (silhueta): linha fina.
+ * tracejado fino; papel 2 (silhueta): linha fina; papel 3 (silhueta do existente): tracejado fino, como o papel 1.
+ * Com o mapa de corte e aterro ligado, o perfil proposto e o existente do mesmo terreno delimitam polígonos de corte (existente acima) e de aterro
+ * (proposto acima), nas cores e na transparência do mapa da planta (`corteAterroNaSecaoOps`).
  */
 
 /** Como a vista pinta (vêm do desenho do corte: arame e detalhe grosso sem preenchimento, hachura com o zoom mínimo, meio-tom da categoria). */
@@ -34,7 +37,7 @@ export interface OpsTerrenoCorte {
   reveal: StrokeOp[];
 }
 
-const ORDEM_PAPEL = { silhueta: 0, perfilExistente: 1, cortado: 2 } as const;
+const ORDEM_PAPEL = { silhuetaExistente: 0, silhueta: 1, perfilExistente: 2, cortado: 3 } as const;
 
 /**
  * Linhas do terreno visíveis no plano da vista: vazias sem terreno no projeto, sem plano, sem kernel pronto ou com o terreno oculto. O corte não
@@ -69,7 +72,8 @@ export function terrenoCorteOps(
   if (!paint.visible) return out;
   const papel = dark ? theme.bg : '#ffffff';
   const { noFill, hatchFor, halftone } = opcoes;
-  for (const l of linhasDoTerrenoNoCorte(p, s, hidden)) {
+  const linhas = linhasDoTerrenoNoCorte(p, s, hidden);
+  for (const l of linhas) {
     const pts = emPlano(l);
     const t = p.elements[l.terrenoId] as Terrain | undefined;
     const material = t?.materialId ? p.materials[t.materialId] : undefined;
@@ -81,13 +85,119 @@ export function terrenoCorteOps(
         out.fills.push({ polygons: [[pts]], color: halftone(cor, paint), alpha: paint.alpha, hatch });
       }
       out.strokes.push({ pts, closed: true, ...paint.cut, color: halftone(paint.color ?? mix(theme.ink, papel, 0.35), paint), alpha: 1 });
-    } else if (l.papel === 'perfilExistente') {
+    } else if (l.papel === 'perfilExistente' || l.papel === 'silhuetaExistente') {
       out.strokes.push({ pts, closed: false, ...paint.proj, color: halftone(mix(paint.color ?? theme.ink, papel, 0.45), paint), alpha: 1, dash: TRACO_PERFIL_EXISTENTE });
     } else {
       out.strokes.push({ pts, closed: false, ...paint.proj, color: halftone(mix(paint.color ?? theme.ink, papel, 0.2), paint), alpha: 1 });
     }
     if (revelados?.has(l.terrenoId)) out.reveal.push({ pts, closed: l.papel === 'cortado', widthPx: 2, color: '#2563eb', alpha: 1 });
   }
+  if (mapaCorteAterroLigado()) out.fills.push(...corteAterroNaSecaoOps(linhas));
+  return out;
+}
+
+const EPS_Z = 1e-9;
+const EPS_S = 1e-9;
+
+/**
+ * Cota de uma polilinha em `s` crescente nas pontas do intervalo `[a, b]` (`a < b`), que cai inteiro dentro de um segmento não vertical: assim um degrau
+ * (vértices com o mesmo `s`) dá a cota da esquerda e a da direita, e não uma rampa. `k` é o índice do segmento (só avança).
+ */
+function cotasNoIntervalo(pts: readonly Pt[], k: { i: number }, a: number, b: number): [number, number] {
+  while (k.i < pts.length - 2 && (pts[k.i + 1]!.x - pts[k.i]!.x < EPS_S || pts[k.i + 1]!.x <= a + EPS_S)) k.i++;
+  const p = pts[k.i]!;
+  const q = pts[k.i + 1]!;
+  const f = (x: number): number => (q.x - p.x < EPS_S ? p.y : p.y + ((q.y - p.y) * (x - p.x)) / (q.x - p.x));
+  return [f(a), f(b)];
+}
+
+/** Aresta do polígono de um trecho do perfil proposto: os pontos do solo cortado sem os dois da base (fechamento por baixo). */
+const perfilDeCortado = (l: LinhaCorteTN): Pt[] => l.pontos.slice(0, Math.max(0, l.pontos.length - 2)).map((q) => ({ x: q.s, y: q.z }));
+
+/** Área absoluta (laço de Gauss) de um anel. */
+function areaDoAnel(r: readonly Pt[]): number {
+  let a = 0;
+  for (let i = 0; i < r.length; i++) {
+    const p = r[i]!;
+    const q = r[(i + 1) % r.length]!;
+    a += p.x * q.y - q.x * p.y;
+  }
+  return Math.abs(a) / 2;
+}
+
+/** Polígonos de corte e de aterro entre um trecho de P e um de E (`s` crescente, os dois), na faixa de `s` em que ambos existem. */
+function poligonosEntre(P: readonly Pt[], E: readonly Pt[], corte: Pt[][], aterro: Pt[][]): void {
+  if (P.length < 2 || E.length < 2) return;
+  const lo = Math.max(P[0]!.x, E[0]!.x);
+  const hi = Math.min(P[P.length - 1]!.x, E[E.length - 1]!.x);
+  if (hi - lo < EPS_S) return;
+  const ss = [...new Set([lo, hi, ...P.map((q) => q.x), ...E.map((q) => q.x)].filter((x) => x >= lo && x <= hi))].sort((a, b) => a - b);
+  // Pontos (s, zP, zE): dois por intervalo (cota à direita do começo e à esquerda do fim), com os cruzamentos de sinal de zE - zP inseridos como
+  // pontos de diferença nula (dentro do intervalo ou num degrau).
+  const amostras: Array<{ s: number; zp: number; ze: number }> = [];
+  const poe = (x: number, zp: number, ze: number): void => {
+    const prev = amostras[amostras.length - 1];
+    if (prev) {
+      const d0 = prev.ze - prev.zp;
+      const d1 = ze - zp;
+      if ((d0 > EPS_Z && d1 < -EPS_Z) || (d0 < -EPS_Z && d1 > EPS_Z)) {
+        const t = d0 / (d0 - d1);
+        const zc = prev.zp + (zp - prev.zp) * t;
+        amostras.push({ s: prev.s + (x - prev.s) * t, zp: zc, ze: zc });
+      }
+    }
+    amostras.push({ s: x, zp, ze });
+  };
+  const kp = { i: 0 };
+  const ke = { i: 0 };
+  for (let n = 0; n + 1 < ss.length; n++) {
+    const a = ss[n]!;
+    const b = ss[n + 1]!;
+    if (b - a < EPS_S) continue;
+    const [p0, p1] = cotasNoIntervalo(P, kp, a, b);
+    const [e0, e1] = cotasNoIntervalo(E, ke, a, b);
+    poe(a, p0, e0);
+    poe(b, p1, e1);
+  }
+  const sinal = (a: { zp: number; ze: number }): number => (a.ze - a.zp > EPS_Z ? 1 : a.ze - a.zp < -EPS_Z ? -1 : 0);
+  let i = 0;
+  while (i < amostras.length) {
+    const sg = sinal(amostras[i]!);
+    if (sg === 0) { i++; continue; }
+    let j = i;
+    while (j + 1 < amostras.length && sinal(amostras[j + 1]!) === sg) j++;
+    const trecho = amostras.slice(Math.max(0, i - 1), Math.min(amostras.length, j + 2));
+    // Corte: E acima de P (o solo existente sai); aterro: P acima de E (solo acrescentado).
+    const baixo = trecho.map((a): Pt => ({ x: a.s, y: sg > 0 ? a.zp : a.ze }));
+    const alto = trecho.map((a): Pt => ({ x: a.s, y: sg > 0 ? a.ze : a.zp })).reverse();
+    const anel: Pt[] = [];
+    for (const q of [...baixo, ...alto]) {
+      const u = anel[anel.length - 1];
+      if (!u || Math.abs(u.x - q.x) > EPS_S || Math.abs(u.y - q.y) > EPS_Z) anel.push(q);
+    }
+    if (anel.length >= 3 && areaDoAnel(anel) > 1e-9) (sg > 0 ? corte : aterro).push(anel);
+    i = j + 1;
+  }
+}
+
+/**
+ * Corte e aterro no corte e na elevação: por terreno, une o perfil proposto P (topo do solo cortado, papel 0) e o existente E (papel 1) por `s`, insere
+ * os cruzamentos de sinal de `z_E - z_P` e fecha um polígono por trecho de mesmo sinal. Corte onde E está acima de P, aterro onde P está acima de E,
+ * com as cores e a transparência do mapa da planta. Sem papel 1 (terreno sem plataforma nem região nivelada) E = P e nada sai. Saem no máximo dois
+ * preenchimentos (corte e aterro) com um polígono por trecho. Quem chama decide se o mapa está ligado e entrega só as linhas visíveis.
+ */
+export function corteAterroNaSecaoOps(linhas: readonly LinhaCorteTN[]): FillOp[] {
+  const corte: Pt[][] = [];
+  const aterro: Pt[][] = [];
+  const terrenos = new Set(linhas.map((l) => l.terrenoId));
+  for (const id of terrenos) {
+    const Ps = linhas.filter((l) => l.terrenoId === id && l.papel === 'cortado').map(perfilDeCortado);
+    const Es = linhas.filter((l) => l.terrenoId === id && l.papel === 'perfilExistente').map(emPlano);
+    for (const P of Ps) for (const E of Es) poligonosEntre(P, E, corte, aterro);
+  }
+  const out: FillOp[] = [];
+  if (corte.length > 0) out.push({ polygons: corte.map((r) => [r]), color: COR_CORTE, alpha: ALFA_MAPA });
+  if (aterro.length > 0) out.push({ polygons: aterro.map((r) => [r]), color: COR_ATERRO, alpha: ALFA_MAPA });
   return out;
 }
 

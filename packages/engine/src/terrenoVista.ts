@@ -114,10 +114,10 @@ export function decodificarPlantaTN(linhas: ArrayLike<number>, pontos: ArrayLike
   return out;
 }
 
-export type PapelCorteTN = 'cortado' | 'perfilExistente' | 'silhueta';
-const PAPEL_CORTE: readonly PapelCorteTN[] = ['cortado', 'perfilExistente', 'silhueta'];
+export type PapelCorteTN = 'cortado' | 'perfilExistente' | 'silhueta' | 'silhuetaExistente';
+const PAPEL_CORTE: readonly PapelCorteTN[] = ['cortado', 'perfilExistente', 'silhueta', 'silhuetaExistente'];
 
-/** Linha do terreno num corte ou elevação, em `(s, z)`. `cortado` e `perfilExistente` vêm do plano; `silhueta` é o que se vê além dele. */
+/** Linha do terreno num corte ou elevação, em `(s, z)`. `cortado` e `perfilExistente` vêm do plano; `silhueta` é o que se vê além dele; `silhuetaExistente` é a mesma silhueta do terreno existente (só com plataforma ou região nivelada). */
 export interface LinhaCorteTN {
   terrenoId: Id;
   papel: PapelCorteTN;

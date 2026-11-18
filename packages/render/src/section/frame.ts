@@ -1,4 +1,4 @@
-import type { SectionResult } from '@hestia/engine';
+import { mapaCorteAterroLigado, type SectionResult } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
 import { resolverLista } from '../plan/zoomOps.ts';
 import type { PlanDrawList, PlanTheme } from '../plan/types.ts';
@@ -99,7 +99,7 @@ export class SectionFrame {
     const rev = i.revealed?.size ? `r:${[...i.revealed].sort().join(',')}` : '';
     const ann = i.annotations ? JSON.stringify(i.annotations) : '';
     const ext = i.levelExtents ? JSON.stringify(i.levelExtents) : '';
-    return [i.version, i.sectionId, identidadeDaSecao(i.section), i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
+    return [i.version, i.sectionId, identidadeDaSecao(i.section), i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', mapaCorteAterroLigado() ? 'm' : '-', hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
   }
 
   /**
