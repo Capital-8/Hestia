@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FAMILIA_ARMARIO } from '../exemplos.ts';
 import { validarFamilia } from '../validar.ts';
-import { BIBLIOTECA_BASE } from './index.ts';
+import { BIBLIOTECA_BASE, FAMILIAS_NOVAS } from './index.ts';
 
 /*
  * Conectores da biblioteca base (ficha CONECT-biblioteca): todas as famílias ganham os pontos de encaixe laterais e, com
@@ -47,7 +47,9 @@ const ETIQUETAS: Record<string, string> = {
   fam_bancada_cuba: 'base',
 };
 
-const FAMILIAS = [FAMILIA_ARMARIO, ...BIBLIOTECA_BASE.filter((f) => f.id !== FAMILIA_ARMARIO.id)];
+/** As famílias novas (ficha "famílias novas") têm teste próprio mais abaixo; a tabela acima cobre as anteriores. */
+const IDS_NOVAS = new Set(FAMILIAS_NOVAS.map((f) => f.id));
+const FAMILIAS = [FAMILIA_ARMARIO, ...BIBLIOTECA_BASE.filter((f) => f.id !== FAMILIA_ARMARIO.id && !IDS_NOVAS.has(f.id))];
 
 describe('conectores da biblioteca', () => {
   it('cobre exatamente as famílias da tabela', () => {
@@ -86,6 +88,16 @@ describe('conectores da biblioteca', () => {
     for (const familia of FAMILIAS) {
       const erros = validarFamilia(familia).filter((p) => p.nivel === 'erro');
       expect(erros, familia.id).toEqual([]);
+    }
+  });
+
+  it('as famílias novas têm cesq, cdir e cfundo com a mesma etiqueta nos três conectores', () => {
+    for (const familia of FAMILIAS_NOVAS) {
+      expect(familia.conectores!.map((c) => c.id), familia.id).toEqual(['cesq', 'cdir', 'cfundo']);
+      const etiqueta = familia.conectores![0]!.etiqueta;
+      for (const c of familia.conectores!) expect(c.etiqueta, `${familia.id}:${c.id}`).toBe(etiqueta);
+      expect(familia.conectores![0]!.aceita, familia.id).toEqual([etiqueta, 'painel']);
+      expect(familia.conectores![2]!.aceita, familia.id).toEqual(['parede']);
     }
   });
 });

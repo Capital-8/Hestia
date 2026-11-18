@@ -120,7 +120,7 @@ export class Materiais3D {
         opacity,
         side: THREE.FrontSide,
         ...(cat === 'generic' ? { flatShading: true } : {}),
-        ...(m?.id === 'comp_vidro_fume' ? { depthWrite: false } : {}),
+        ...(m?.id?.startsWith('comp_vidro_') ? { depthWrite: false } : {}),
       };
       if (style === 'realistic') {
         if (usarMapa && tex) {
