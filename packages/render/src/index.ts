@@ -59,3 +59,4 @@ export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, 
 export * from './familia/index.ts';
 export * from './familia/usinagensMarcadores.ts';
 export * from './model3d/componentSolids.ts';
+export * from './model3d/gizmoComponenteTipos.ts';

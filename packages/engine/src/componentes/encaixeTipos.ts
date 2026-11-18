@@ -112,6 +112,12 @@ export interface OpcoesArrasto {
   semEncaixe?: boolean;
   distanciaParede?: number;
   distanciaVizinho?: number;
+  /** Índice de face de parede travado durante um arrasto (impede saltar para a face oposta). */
+  faceTravada?: number;
+  /** Posição da câmera no plano (m) para descartar faces de parede voltadas contra o observador. */
+  cameraPos?: Vec2;
+  /** Ponto (m) em que o raio do cursor atingiu diretamente a parede no 3D (prioriza essa face). */
+  pontoNaParede?: Vec2;
 }
 
 export interface ResultadoArrasto {

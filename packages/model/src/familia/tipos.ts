@@ -7,6 +7,8 @@
  * Eixos locais da família: X = largura (esquerda → direita visto de frente), Y = profundidade (frente → fundo), Z = altura.
  */
 
+import type { Caixaria } from './tiposCaixaria.ts';
+
 export const FAMILIA_FORMATO = 'hestia-familia';
 export const FAMILIA_VERSAO = 1;
 
@@ -215,6 +217,8 @@ export interface Familia {
   conectores?: Conector[];
   /** Escolhas internas por clique (F4); ausente = nenhuma. */
   escolhas?: Escolha[];
+  /** Árvore paramétrica de caixaria/vãos (opcional; sincronizada com `pecas` e `ferragens`). */
+  caixaria?: Caixaria;
   tipos: Tipo[];
   tipoPadrao?: string;
 }

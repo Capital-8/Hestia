@@ -1,4 +1,5 @@
 export * from './tipos.ts';
+export * from './tiposCaixaria.ts';
 export * from './expressao.ts';
 export * from './grafo.ts';
 export * from './validar.ts';
