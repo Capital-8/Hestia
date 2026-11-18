@@ -1,4 +1,4 @@
-import { profileMax, wallBaseElevation, wallMaxHeight, type Project, type ProfilePoint, type Wall } from '@hestia/model';
+import { profileMax, wallBaseElevation, wallMaxHeight, wallThicknessOf, type Project, type ProfilePoint, type Wall } from '@hestia/model';
 import { attachSpans, MIN_HEIGHT, type AttachSpan } from './wallAttach.ts';
 import { resolveAllFloors, type ResolvedFloor } from './floors.ts';
 import { resolveAllRoofs, type ResolvedRoof } from './roofs.ts';
@@ -15,6 +15,12 @@ export interface WallZ {
   profile?: ProfilePoint[];
   /** Perfil da base (relativo a z0), só quando a base não é uniforme: degraus onde o piso ou laje cobre só parte do eixo. */
   bottomProfile?: ProfilePoint[];
+}
+
+/** Metade da espessura (m) usada no corte do topo pelo telhado; 0 sem `attachTopRoofFull` ou sem tipo de parede. */
+function halfThickness(p: Project, w: Wall): number {
+  const t = w.attachTopRoofFull === true ? p.wallTypes[w.typeId] : undefined;
+  return t ? wallThicknessOf(t) / 2 : 0;
 }
 
 /**
@@ -77,7 +83,7 @@ export function wallZRange(
   const bottomProfile = stepProfile(spans, (s) => s.bottom, z0, 0);
   const extra = bottomProfile ? { bottomProfile } : {};
   if (wantsRoof) {
-    const profile = roofWallProfile(w, roofs ?? resolveAllRoofs(p), z0, top0);
+    const profile = roofWallProfile(w, roofs ?? resolveAllRoofs(p), z0, top0, halfThickness(p, w));
     if (profile) return { z0, height: profileMax(profile), profile, ...extra };
   }
   const topProfile = wantsTop ? stepProfile(spans, (s) => s.top, z0, MIN_HEIGHT) : null;

@@ -436,6 +436,12 @@ export interface Wall {
    * Se o telhado não existir mais, a parede fica na altura normal e o aviso C2 aparece.
    */
   attachTopRoofId?: Id;
+  /**
+   * Com `attachTopToRoof`: o topo acompanha a face inferior do telhado em TODA a espessura da parede (o ponto mais baixo
+   * do eixo e das duas faces), como Attach Top/Base do Revit e Trim to Roof do ArchiCAD; a parede nunca fura a água.
+   * Ausente/false (paredes antigas): só o eixo, como antes.
+   */
+  attachTopRoofFull?: boolean;
   locationLine: LocationLine;
   /** Inverte qual lado é o externo (padrão: externo à esquerda de a→b). */
   flipped: boolean;
