@@ -121,6 +121,36 @@ function outwardNormal(a: Vec2, b: Vec2, sign: number): Vec2 {
 }
 
 /**
+ * Lado de comprimento zero na pegada = chanfro de um canto agudo: o lado do beiral correspondente é perpendicular à
+ * bissetriz do canto e fica a `overhang` metros da ponta. Sua normal é a bissetriz das normais vizinhas (a que chega
+ * pelo `ends` do lado anterior, a que sai pelo `starts` do seguinte). Edita `starts` e `ends` no lugar.
+ */
+export function fillBevelNormals(starts: Vec2[], ends: Vec2[], zero: boolean[]): void {
+  const n = zero.length;
+  if (!zero.some(Boolean) || zero.every(Boolean)) return;
+  const prevEnd = (i: number): Vec2 => {
+    let k = (i - 1 + n) % n;
+    while (zero[k]) k = (k - 1 + n) % n;
+    return ends[k]!;
+  };
+  const nextStart = (i: number): Vec2 => {
+    let k = (i + 1) % n;
+    while (zero[k]) k = (k + 1) % n;
+    return starts[k]!;
+  };
+  for (let i = 0; i < n; i++) {
+    if (!zero[i]) continue;
+    const a = prevEnd(i);
+    const b = nextStart(i);
+    const sum = { x: a.x + b.x, y: a.y + b.y };
+    const l = len(sum);
+    const v = l < 1e-9 ? a : { x: sum.x / l, y: sum.y / l };
+    starts[i] = v;
+    ends[i] = v;
+  }
+}
+
+/**
  * Contorno do beiral com balanço por aresta: cada aresta i (de outer[i] a outer[i+1]) anda para fora `overhangs[i]`
  * metros, e cada vértice vira a interseção das duas arestas deslocadas que o cercam (cantos em esquadria). Com todos
  * os balanços iguais, coincide com `eaveOutline`. Balanço zero mantém a aresta no lugar. Em vértice de arestas
@@ -131,6 +161,7 @@ export function eaveOutlinePerEdge(outer: Ring, overhangs: number[]): Ring {
   if (n < 3) return outer;
   const sign = ringArea(outer) >= 0 ? 1 : -1;
   const normals = outer.map((a, i) => outwardNormal(a, outer[(i + 1) % n]!, sign));
+  fillBevelNormals(normals, normals, normals.map((v) => v.x === 0 && v.y === 0));
   return outer.map((p, j) => {
     const i1 = (j - 1 + n) % n;
     const n1 = normals[i1]!;
@@ -233,19 +264,27 @@ function ringCrosses(ring: Ring): boolean {
 }
 
 /**
- * Motivo para o beiral (contorno com balanço) não representar a pegada, ou null. Duas falhas: a esquadria dispara num
- * canto agudo demais (vértice do beiral mais longe que MITER_LIMIT vezes o balanço); e o beiral se corta ou deixa a
- * pegada para fora, o que acontece quando o balanço é maior que o raio de um trecho côncavo e o arco se inverte.
+ * Motivo para o beiral (contorno com balanço) não representar a pegada, ou null. O canto agudo não é mais falha: a
+ * esquadria longa demais vira chanfro (lado de comprimento zero na pegada; veja `bevelSharpCorners`), e este confere só
+ * o que sobra: esquadria que dispara num canto convexo SEM chanfro (contorno montado à mão), e o beiral que se corta ou
+ * deixa a pegada para fora, o que acontece quando o balanço é maior que o raio de um trecho côncavo e o arco se inverte.
+ * Cantos reentrantes (côncavos) não têm limite de esquadria: ali a interseção das paralelas é a resposta correta.
  */
-export function eaveProblem(footprint: Vec2[], eave: Vec2[], overhangs: number[]): string | null {
+export function eaveProblem(footprint: Vec2[], eave: Vec2[], overhangs: number[], lang: Lang = 'pt'): string | null {
   const n = footprint.length;
-  if (eave.length !== n) return 'o beiral não tem o mesmo número de vértices da pegada';
+  if (eave.length !== n) return translate(lang, 'tl_msg_eave_count');
+  const sign = ringArea(footprint) >= 0 ? 1 : -1;
+  const zeroEdge = (i: number): boolean => dist(footprint[i]!, footprint[(i + 1) % n]!) < 1e-9;
   for (let j = 0; j < n; j++) {
-    const d = Math.max(overhangs[j] ?? 0, overhangs[(j - 1 + n) % n] ?? 0);
-    if (d > 1e-9 && dist(footprint[j]!, eave[j]!) > MITER_LIMIT * d) {
-      return 'o balanço não cabe num canto agudo da planta (a esquadria do beiral dispara); reduza o balanço ou aumente o ângulo';
-    }
+    const prev = (j - 1 + n) % n;
+    // Vértice de chanfro: a esquadria já foi cortada de propósito.
+    if (zeroEdge(prev) || zeroEdge(j)) continue;
+    const a = sub(footprint[j]!, footprint[prev]!);
+    const b = sub(footprint[(j + 1) % n]!, footprint[j]!);
+    const convex = sign * cross(a, b) > 1e-12;
+    const d = Math.max(overhangs[j] ?? 0, overhangs[prev] ?? 0);
+    if (convex && d > 1e-9 && dist(footprint[j]!, eave[j]!) > MITER_LIMIT * d + 1e-9) return translate(lang, 'tl_msg_eave_miter');
   }
   const holds = !ringCrosses(eave) && footprint.every((q) => pointInRing(q, eave) || distToRing(q, eave) < 1e-6);
-  return holds ? null : 'o balanço é maior que o raio de um trecho côncavo e o beiral se cruza; reduza o balanço';
+  return holds ? null : translate(lang, 'tl_msg_eave_inverts');
 }
