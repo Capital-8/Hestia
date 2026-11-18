@@ -50,7 +50,8 @@ export function clipConvexo(subject: readonly OPt[], clip: readonly OPt[]): OPt[
 
 /**
  * Peça que desliza: a caixa recortada pela região e pela região deslocada pelo curso inteiro. Região não convexa (arco com
- * prateleira) ou curso nulo: só o recorte da posição fechada. Se a interseção some, mantém o recorte fechado (nunca perde a peça).
+ * prateleira) ou curso nulo: só o recorte da posição fechada. Se a interseção some (peça fina no alto da folha móvel, que não cabe sob o
+ * arco nas duas pontas do curso), devolve [] e a peça sai: a folha móvel fica com montantes e vidro sob o envelope.
  */
 export function clipDeslizante(regiao: readonly OPt[], b: PartBox, m: Extract<PartMotion, { kind: 'slide' }>): OPt[] {
   const fechado = clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
@@ -58,7 +59,7 @@ export function clipDeslizante(regiao: readonly OPt[], b: PartBox, m: Extract<Pa
   const dz = m.dz * m.travel;
   if (fechado.length < 3 || (Math.abs(dt) < EPS && Math.abs(dz) < EPS) || !convexo(regiao)) return fechado;
   const fim = clipConvexo(fechado, regiao.map((p): OPt => [p[0] - dt, p[1] - dz]));
-  return fim.length >= 3 ? fim : fechado;
+  return fim; // [] = a peça não cabe sob o arco em todo o curso (a travessa fina de cima da folha móvel) e sai
 }
 
 /**

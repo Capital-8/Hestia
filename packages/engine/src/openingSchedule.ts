@@ -38,6 +38,8 @@ import { areaDoVaoDoTipo } from './furoContornoParede.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
 import { collationFor, t, type EngineScheduleKey, type Lang } from './i18n.ts';
 import { openingExtraCsvCell, openingExtraCsvHeader, openingOwnMeasureText, openingRowLabel, type OpeningExtraKey } from './openingScheduleExtras.ts';
+import { OPENING_EXEC_KEYS, espelhada, execFieldsOf, openingExecCsvCell, openingExecCsvTotal, openingExecHeader, type OpeningExecFields } from './openingScheduleExec.ts';
+import { buildOpeningPartsSchedule, type OpeningPartsRow } from './openingPartQuantities.ts';
 
 /**
  * Uma linha da tabela de portas e janelas: um TIPO de abertura (Revit: Type) com a contagem das instâncias dele que têm
@@ -103,6 +105,13 @@ export interface OpeningScheduleRow {
   totalCost: number | null;
   /** Fator solar: só janela (null nas portas e quando o tipo não informa). */
   solarFactor: number | null;
+  /** Quadro executivo (só com `executivo: true`): contorno, sistema, vidro, ferragens por unidade e peças. */
+  exec?: OpeningExecFields;
+}
+
+/** Opções do quadro. `executivo` separa as espelhadas em linha própria e liga as colunas executivas (ausente = quadro padrão). */
+export interface OpeningScheduleOptions {
+  executivo?: boolean;
 }
 
 export interface OpeningScheduleTotals {
@@ -256,7 +265,7 @@ function compareRows(a: OpeningScheduleRow, b: OpeningScheduleRow, lang: Lang): 
   if (byName !== 0) return byName;
   const byType = a.typeId.localeCompare(b.typeId, collation);
   if (byType !== 0) return byType;
-  return a.height - b.height || a.sill - b.sill;
+  return a.height - b.height || a.sill - b.sill || Number(a.exec?.mirrored ?? false) - Number(b.exec?.mirrored ?? false);
 }
 
 /** Instâncias de um mesmo tipo com a mesma medida efetiva (altura e peitoril): viram uma linha do quadro. */
@@ -266,10 +275,12 @@ interface MeasureGroup {
   sill: number;
   count: number;
   senses: Set<string>;
+  /** Espelhada: só separa a linha no modo executivo. */
+  mirrored: boolean;
 }
 
 /** Linha do quadro de um grupo (tipo × medida efetiva): os campos do tipo mais a contagem e as áreas do grupo. */
-function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): OpeningScheduleRow {
+function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang, ctxExec: { parts: OpeningPartsRow | null } | null): OpeningScheduleRow {
   const raw = p.openingTypes[g.typeId]!;
   const ot = { ...spanTypeOf(raw), ...openingSpanOf(raw) }; // vão: a composição manda quando há 2+ células
   const leaf = leafSizeOf(raw);
@@ -281,12 +292,15 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
   const cells = compositionCells(comp);
   const multi = cells.length >= 2;
   const unitCost = raw.cost ?? null;
+  const variant = openingOwnMeasureText(u, lang, { height: g.height, sill: g.sill }, { height: ot.height, sill: ot.sill });
+  const composition = multi ? compositionSummary(comp, lang) : '';
+  const hardware = multi ? compositionHardware(ot, cells, u, lang) : hardwareText(ot, u, lang);
   return {
     typeId: g.typeId,
     kind: ot.kind,
     code: ot.code ?? '',
     typeName: ot.name,
-    variant: openingOwnMeasureText(u, lang, { height: g.height, sill: g.sill }, { height: ot.height, sill: ot.sill }),
+    variant,
     familyName: openingFamilyName(ot) ?? '',
     width: ot.width,
     height: g.height,
@@ -307,8 +321,8 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
     frameMaterial: p.materials[ot.frameMaterialId]?.name ?? '',
     sense: ot.leaves === 0 ? '' : [...g.senses].join('; '),
     leafMaterial: (ot.leafMaterialId && p.materials[ot.leafMaterialId]?.name) || '',
-    hardware: multi ? compositionHardware(ot, cells, u, lang) : hardwareText(ot, u, lang),
-    composition: multi ? compositionSummary(comp, lang) : '',
+    hardware,
+    composition,
     fireRating: raw.fireRating ?? '',
     acousticRw: raw.acousticRw ?? null,
     uValue: raw.uValue ?? null,
@@ -317,6 +331,9 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
     unitCost,
     totalCost: unitCost === null ? null : unitCost * g.count,
     solarFactor: ot.kind === 'window' ? (raw.solarFactor ?? null) : null,
+    ...(ctxExec
+      ? { exec: execFieldsOf({ raw, ot, height: g.height, count: g.count, mirrored: g.mirrored, variant, composition, description: raw.description ?? '', parts: ctxExec.parts, lang, units: u }) }
+      : {}),
   };
 }
 
@@ -325,8 +342,9 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
  * quantidade de instâncias. A medida efetiva é a da instância: altura (`heightOverride`) e peitoril (`sillOverride`)
  * próprios viram linha à parte. Tipo de abertura inexistente não conta (a instância aponta para um tipo ausente).
  */
-export function buildOpeningSchedule(p: Project, lang: Lang = 'pt'): OpeningSchedule {
+export function buildOpeningSchedule(p: Project, lang: Lang = 'pt', opts: OpeningScheduleOptions = {}): OpeningSchedule {
   const u = unitsOf(p, lang);
+  const executivo = opts.executivo === true;
   const groups = new Map<string, MeasureGroup>();
   for (const e of Object.values(p.elements)) {
     if (!isOpening(e)) continue;
@@ -334,13 +352,21 @@ export function buildOpeningSchedule(p: Project, lang: Lang = 'pt'): OpeningSche
     const span = openingType(p, e);
     const height = openingHeight(span, e);
     const sill = openingSill(span, e);
-    const key = `${e.typeId}|${height}|${sill}`;
-    const g = groups.get(key) ?? { typeId: e.typeId, height, sill, count: 0, senses: new Set<string>() };
+    const mirrored = executivo && espelhada(e);
+    const key = `${e.typeId}|${height}|${sill}${mirrored ? '|espelhada' : ''}`;
+    const g = groups.get(key) ?? { typeId: e.typeId, height, sill, count: 0, senses: new Set<string>(), mirrored };
     g.count += 1;
     g.senses.add(senseText(e, lang));
     groups.set(key, g);
   }
-  const rows = [...groups.values()].map((g) => rowOf(p, g, u, lang));
+  // Quadro de peças: uma medida por tipo, na medida efetiva (a peça não depende do sentido, então vale para as espelhadas).
+  const pecas = executivo ? new Map(buildOpeningPartsSchedule(p).map((r) => [`${r.typeId}|${r.height}|${r.sill}`, r])) : null;
+  const rows = [...groups.values()].map((g) => rowOf(p, g, u, lang, pecas ? { parts: pecas.get(`${g.typeId}|${g.height}|${g.sill}`) ?? null } : null));
+  if (executivo) {
+    const porTipo = new Map<Id, number>();
+    for (const r of rows) porTipo.set(r.typeId, (porTipo.get(r.typeId) ?? 0) + r.count);
+    for (const r of rows) if (r.exec) r.exec.typeCount = porTipo.get(r.typeId) ?? r.count;
+  }
   rows.sort((a, b) => compareRows(a, b, lang));
   return { rows, totals: sumOpeningRows(rows) };
 }
@@ -392,7 +418,7 @@ const csvHeader = (u: ResolvedUnits, lang: Lang): string[] => [
  * outras tabelas). Uma linha por tipo, seguida de uma linha de total (quantidade de instâncias e área total). `extra` são as
  * colunas opcionais ligadas, na ordem em que saem depois da composição; sem elas, o CSV é o de sempre.
  */
-export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: OpeningScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt', extra: readonly OpeningExtraKey[] = []): string {
+export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: OpeningScheduleTotals, units: ResolvedUnits, lang: Lang = 'pt', extra: readonly OpeningExtraKey[] = [], executivo = false): string {
   const n = (q: 'length' | 'area' | 'currency', v: number, d: number): string => scheduleCsvCell(units, q, v, d, lang);
   const withComposition = rows.some((r) => r.composition !== '');
   const body = rows.map((r) => [
@@ -419,10 +445,12 @@ export function openingScheduleToCsv(rows: OpeningScheduleRow[], totals: Opening
     csvText(r.hardware),
     ...(withComposition ? [csvText(r.composition)] : []),
     ...extra.map((k) => openingExtraCsvCell(r, k, units, lang)),
+    ...(executivo ? OPENING_EXEC_KEYS.map((k) => openingExecCsvCell(r, k, units, lang)) : []),
   ]);
-  const total = [t(lang, 'egs_csv_total'), '', '', '', '', '', '', '', '', '', '', '', String(totals.count), '', n('area', totals.totalArea, 2), '', '', '', '', '', '', ...(withComposition ? [''] : []), ...extra.map((k) => (k === 'totalCost' ? n('currency', totals.totalCost, 2) : ''))];
+  const total = [t(lang, 'egs_csv_total'), '', '', '', '', '', '', '', '', '', '', '', String(totals.count), '', n('area', totals.totalArea, 2), '', '', '', '', '', '', ...(withComposition ? [''] : []), ...extra.map((k) => (k === 'totalCost' ? n('currency', totals.totalCost, 2) : '')), ...(executivo ? OPENING_EXEC_KEYS.map((k) => openingExecCsvTotal(rows, k, units, lang)) : [])];
   const header = csvHeader(units, lang);
   if (withComposition) header.push(t(lang, 'egs_csv_col_composicao'));
   header.push(...extra.map((k) => openingExtraCsvHeader(k, units, lang)));
+  if (executivo) header.push(...OPENING_EXEC_KEYS.map((k) => openingExecHeader(k, units, lang)));
   return csvDocument([header, ...body, total]);
 }

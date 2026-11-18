@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { formatQuantity, type Quantity, type ResolvedUnits } from '@hestia/model';
-import { buildOpeningSchedule, filterOpeningRows, openingRowLabel, openingScheduleToCsv, sumOpeningRows, type OpeningExtraKey, type OpeningScheduleRow } from '@hestia/engine';
+import { OPENING_EXEC_KEYS, OPENING_EXEC_TEXT_KEYS, buildOpeningSchedule, filterOpeningRows, openingExecHeader, openingExecValue, openingRowLabel, openingScheduleToCsv, sumOpeningRows, type OpeningExecKey, type OpeningExtraKey, type OpeningScheduleRow } from '@hestia/engine';
 import { useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { cmpTexto, resolveText, t as translate, useI18n, dictOf, I18N, type Lang, type TextLike } from '../../editor/i18n.ts';
@@ -59,6 +59,21 @@ const OPTIONAL_COLS: Array<Col & { key: OpeningExtraKey }> = [
 /** Colunas da tabela: as fixas e, depois, as opcionais ligadas. */
 export const openingCols = (extras: ReadonlySet<OpeningExtraKey>): Col[] => [...COLS, ...OPTIONAL_COLS.filter((c) => extras.has(c.key))];
 
+/** Coluna do quadro executivo: o texto vem do engine (mesma regra do CSV); não ordena. */
+export interface ExecCol {
+  execKey: OpeningExecKey;
+  label: string;
+  numeric: boolean;
+}
+export type TableCol = Col | ExecCol;
+const isExec = (c: TableCol): c is ExecCol => 'execKey' in c;
+
+/** Colunas da tabela com o quadro executivo ligado: as do quadro padrão e, depois, as executivas. */
+export const openingTableCols = (extras: ReadonlySet<OpeningExtraKey>, executivo: boolean, units: ResolvedUnits, lang: Lang): TableCol[] => [
+  ...openingCols(extras),
+  ...(executivo ? OPENING_EXEC_KEYS.map((k): ExecCol => ({ execKey: k, label: openingExecHeader(k, units, lang), numeric: k !== 'mirrored' && !OPENING_EXEC_TEXT_KEYS.has(k) })) : []),
+];
+
 interface Sort {
   key: keyof OpeningScheduleRow;
   dir: 1 | -1;
@@ -89,35 +104,45 @@ type Dict = ReturnType<typeof dictOf>;
 /** Cabeçalho e linhas da tabela de portas e janelas (ordenação pelo cabeçalho, sem estado próprio). */
 export function OpeningScheduleTable(props: {
   rows: OpeningScheduleRow[];
-  cols: Col[];
+  cols: TableCol[];
   units: ResolvedUnits;
+  /** Idioma das colunas executivas (pt por padrão). */
+  lang?: Lang;
   sort: Sort | null;
   onSort: (key: keyof OpeningScheduleRow) => void;
   t: Dict;
 }): ReactElement {
-  const { rows, cols, units, sort, onSort, t } = props;
+  const { rows, cols, units, lang = 'pt', sort, onSort, t } = props;
   return (
     <table className="layers wsched">
       <thead>
         <tr>
-          {cols.map((c) => (
-            <th key={c.key} className={c.decimals !== undefined ? 'num' : undefined} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
-              <button type="button" className="sortbtn" onClick={() => onSort(c.key)} title={t.sched_sort_col}>
-                {c.quantity ? scheduleHeader(units, t[c.labelKey], c.quantity) : t[c.labelKey]}
-                {sort?.key === c.key ? <Icon name={sort.dir === 1 ? 'up' : 'down'} size={11} /> : null}
-              </button>
-            </th>
-          ))}
+          {cols.map((c) =>
+            isExec(c) ? (
+              <th key={c.execKey} className={c.numeric ? 'num' : undefined}>{c.label}</th>
+            ) : (
+              <th key={c.key} className={c.decimals !== undefined ? 'num' : undefined} aria-sort={sort?.key === c.key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
+                <button type="button" className="sortbtn" onClick={() => onSort(c.key)} title={t.sched_sort_col}>
+                  {c.quantity ? scheduleHeader(units, t[c.labelKey], c.quantity) : t[c.labelKey]}
+                  {sort?.key === c.key ? <Icon name={sort.dir === 1 ? 'up' : 'down'} size={11} /> : null}
+                </button>
+              </th>
+            ),
+          )}
         </tr>
       </thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={`${r.typeId}|${r.height}|${r.sill}`}>
-            {cols.map((c) => (
-              <td key={c.key} className={c.decimals !== undefined ? 'num' : undefined}>
-                {cellValue(r, c, (k) => (k === 'door' ? t.sched_kind_door : t.sched_kind_window), units)}
-              </td>
-            ))}
+          <tr key={`${r.typeId}|${r.height}|${r.sill}|${r.exec?.mirrored ? 'espelhada' : ''}`}>
+            {cols.map((c) =>
+              isExec(c) ? (
+                <td key={c.execKey} className={c.numeric ? 'num' : undefined}>{openingExecValue(r, c.execKey, units, lang) || '—'}</td>
+              ) : (
+                <td key={c.key} className={c.decimals !== undefined ? 'num' : undefined}>
+                  {cellValue(r, c, (k) => (k === 'door' ? t.sched_kind_door : t.sched_kind_window), units)}
+                </td>
+              ),
+            )}
           </tr>
         ))}
       </tbody>
@@ -131,13 +156,14 @@ export function OpeningScheduleDialog(): ReactElement {
   const lang = useI18n((s) => s.lang);
   const t = dictOf(lang);
   const units = useUnits();
-  const schedule = useMemo(() => buildOpeningSchedule(p), [p]);
+  const [executivo, setExecutivo] = useState(false);
+  const schedule = useMemo(() => buildOpeningSchedule(p, lang, { executivo }), [p, lang, executivo]);
   const [kind, setKind] = useState<'' | 'door' | 'window'>('');
   const [sort, setSort] = useState<Sort | null>(null);
   const [extras, setExtras] = useState<ReadonlySet<OpeningExtraKey>>(() => new Set());
   const [msg, setMsg] = useState<TextLike>('');
 
-  const cols = useMemo(() => openingCols(extras), [extras]);
+  const cols = useMemo(() => openingTableCols(extras, executivo, units, lang), [extras, executivo, units, lang]);
   const extraKeys = useMemo(() => OPTIONAL_COLS.map((c) => c.key).filter((k) => extras.has(k)), [extras]);
 
   const visible = useMemo(() => {
@@ -163,7 +189,7 @@ export function OpeningScheduleDialog(): ReactElement {
   const exportCsv = async (): Promise<void> => {
     const base = p.name.trim() || t.scx_csv_default_project;
     // i18n: passar `lang` e os nomes de categoria quando o engine aceitar (cabeçalho, células e separador decimal do CSV).
-    const status = await saveText(`${base}-${t.scx_csv_file_opening}.csv`, openingScheduleToCsv(visible, totals, units, lang, extraKeys));
+    const status = await saveText(`${base}-${t.scx_csv_file_opening}.csv`, openingScheduleToCsv(visible, totals, units, lang, extraKeys, executivo));
     setMsg(status);
     useUi.setState({ status });
   };
@@ -190,6 +216,9 @@ export function OpeningScheduleDialog(): ReactElement {
           <option value="door">{t.sched_cat_door}</option>
           <option value="window">{t.sched_cat_window}</option>
         </select>
+        <button type="button" className="btn" aria-pressed={executivo} onClick={() => setExecutivo((v) => !v)}>
+          {t.sched_exec_toggle}
+        </button>
       </div>
       <fieldset className="wsched-opt">
         <legend>{t.sched_optional_cols}</legend>
@@ -206,7 +235,7 @@ export function OpeningScheduleDialog(): ReactElement {
       ) : (
         <>
           <div className="wsched-scroll">
-            <OpeningScheduleTable rows={visible} cols={cols} units={units} sort={sort} onSort={toggleSort} t={t} />
+            <OpeningScheduleTable rows={visible} cols={cols} units={units} lang={lang} sort={sort} onSort={toggleSort} t={t} />
           </div>
           <div className="total">
             <span>{totals.count} {t[totals.count === 1 ? 'scx_total_opening_one' : 'scx_total_opening_many']}</span>

@@ -1,4 +1,4 @@
-import { HARDWARE_DEFAULTS, OPENING_SPAN_GAP_DEFAULTS, formatQuantity, openingSpanGap, type OpeningGlassKind, type OpeningType, type ResolvedUnits } from '@hestia/model';
+import { HARDWARE_DEFAULTS, OPENING_SPAN_GAP_DEFAULTS, formatQuantity, openingSpanGap, type OpeningGlassKind, type OpeningSettingSystem, type OpeningType, type ResolvedUnits } from '@hestia/model';
 import type { Dict } from '../../../editor/i18n.ts';
 import { withOpeningField } from './openingTypeFields.ts';
 
@@ -21,6 +21,16 @@ export const setHinges = (t: OpeningType, quantidade: number): OpeningType => fe
 export function setSpanGap(t: OpeningType, eixo: 'w' | 'h', metros: number): OpeningType {
   return withOpeningField(t, 'spanGap', { ...openingSpanGap(t), [eixo]: arredondaMetros(metros) }, OPENING_SPAN_GAP_DEFAULTS);
 }
+
+/** Sistema de assentamento: vazio tira o campo (sem sistema, a folga é zero, como antes). */
+export function setSettingSystem(t: OpeningType, sistema: OpeningSettingSystem | ''): OpeningType {
+  const next: OpeningType = { ...t };
+  delete next.settingSystem;
+  return sistema === '' ? next : { ...next, settingSystem: sistema };
+}
+
+/** Folga de assentamento por lado (m), gravada no tipo; a do sistema vale quando o campo não existe. */
+export const setSettingClearance = (t: OpeningType, metros: number): OpeningType => ({ ...t, settingClearance: arredondaMetros(Math.max(0, metros)) });
 
 /** Recuo do batente (m): zero tira o campo, que volta ao padrão por leitura (0). Preserva a âncora. */
 export function setRevealDepth(t: OpeningType, depth: number): OpeningType {

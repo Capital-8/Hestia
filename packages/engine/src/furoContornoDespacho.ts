@@ -1,4 +1,4 @@
-import { outline, openingShapeOf, validateOpeningShape, type OpeningShapeInput, type OPt, type OpeningShape, type OpeningType } from '@hestia/model';
+import { outline, openingShapeOf, validateOpeningShape, type OpeningShapeInput, type OPt, type OpeningShape } from '@hestia/model';
 import type { OpeningGeometry } from './types.ts';
 
 /**

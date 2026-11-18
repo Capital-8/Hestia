@@ -99,6 +99,7 @@ export * from './stairFree.ts';
 export * from './stairFreeEdit.ts';
 export * from './openingSchedule.ts';
 export * from './openingScheduleExtras.ts';
+export * from './openingScheduleExec.ts';
 export * from './openingPartQuantities.ts';
 export * from './openingChecks.ts';
 export * from './rooms.ts';

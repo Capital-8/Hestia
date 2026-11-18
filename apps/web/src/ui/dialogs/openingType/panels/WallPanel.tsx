@@ -1,15 +1,17 @@
 import type { ReactElement } from 'react';
-import { openingLintel, openingSillBeam, type OpeningType } from '@hestia/model';
+import { ACABAMENTO_LIMITES, lintelOverWarning, openingLintel, openingSettingClearance, openingSillBeam, type OpeningSettingSystem, type OpeningType } from '@hestia/model';
 import { Check, NumField } from '../../../fields.tsx';
 import { useT } from '../../../../editor/i18n.ts';
 import { alternarAcabamento } from '../../openingTypeForm.ts';
+import { setSettingClearance, setSettingSystem } from '../openingTypeControls.ts';
 import { usePanelKit, type PanelProps } from './panelKit.tsx';
 
-/** Parede e vão: fechamento, vão bruto (folga) e verga/contraverga. */
+/** Parede e vão: fechamento, vão bruto (folga), folga de assentamento por sistema e verga/contraverga. */
 export function WallPanel({ d, onChange, support }: PanelProps): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
   const { set } = usePanelKit(d, onChange);
   const lin = openingLintel(d);
+  const avisoVerga = lintelOverWarning(d, lang);
   const beam = openingSillBeam(d);
   return (
     <>
@@ -25,6 +27,15 @@ export function WallPanel({ d, onChange, support }: PanelProps): ReactElement {
       </div>
       <div className="field-row"><label htmlFor="ot-ac-fw" title={t('dlo_f_rough_width_tip')}>{t('dlo_f_rough_width')}</label><NumField id="ot-ac-fw" value={d.roughOversize?.w ?? 0} quantity="smallLength" onCommit={(v) => set({ roughOversize: { w: v, h: d.roughOversize?.h ?? 0 } })} /></div>
       <div className="field-row"><label htmlFor="ot-ac-fh" title={t('dlo_f_rough_height_tip')}>{t('dlo_f_rough_height')}</label><NumField id="ot-ac-fh" value={d.roughOversize?.h ?? 0} quantity="smallLength" onCommit={(v) => set({ roughOversize: { w: d.roughOversize?.w ?? 0, h: v } })} /></div>
+      <div className="field-row"><label htmlFor="op-setting" title={t('dlo_f_setting_system_tip')}>{t('dlo_f_setting_system')}</label>
+        <select id="op-setting" className="select" value={d.settingSystem ?? ''} onChange={(e) => onChange(setSettingSystem(d, e.target.value as OpeningSettingSystem | ''))}>
+          <option value="">{t('dlo_f_setting_none')}</option>
+          <option value="grapa">{t('dlo_f_setting_grapa')}</option>
+          <option value="espuma">{t('dlo_f_setting_espuma')}</option>
+          <option value="contramarco">{t('dlo_f_setting_contramarco')}</option>
+        </select>
+      </div>
+      <div className="field-row"><label htmlFor="op-setting-clear" title={t('dlo_f_setting_clearance_tip')}>{t('dlo_f_setting_clearance')}</label><NumField id="op-setting-clear" value={openingSettingClearance(d)} quantity="smallLength" min={0} max={ACABAMENTO_LIMITES.folgaAssentamento} onCommit={(v) => onChange(setSettingClearance(d, v))} /></div>
       {support.lintel ? (
         <>
           <div className="field-row"><label htmlFor="ot-ac-vg" title={t('dlo_f_lintel_tip')}>{t('dlo_f_lintel')}</label><Check id="ot-ac-vg" checked={lin !== null} onChange={(v) => onChange(alternarAcabamento(d, 'lintel', v))} /></div>
@@ -32,6 +43,7 @@ export function WallPanel({ d, onChange, support }: PanelProps): ReactElement {
             <>
               <div className="field-row"><label htmlFor="ot-ac-vgo">{t('dlo_f_lintel_over')}</label><NumField id="ot-ac-vgo" value={lin.over} quantity="smallLength" onCommit={(v) => set({ lintel: { ...lin, over: v } })} /></div>
               <div className="field-row"><label htmlFor="ot-ac-vgh">{t('dlo_f_lintel_height')}</label><NumField id="ot-ac-vgh" value={lin.height} quantity="smallLength" onCommit={(v) => set({ lintel: { ...lin, height: v } })} /></div>
+              {avisoVerga ? <p className="hint" role="status" style={{ padding: '0 0 8px' }}>{avisoVerga}</p> : null}
             </>
           ) : null}
         </>

@@ -5,7 +5,6 @@ import {
   openingHinges,
   openingOptionSupport,
   openingSettingClearance,
-  outline,
   validateOpeningShape,
   type OpeningGlassKind,
   type OpeningSettingSystem,
@@ -83,24 +82,24 @@ type ExecText = Record<OpeningExecKey | 'yes' | 'no' | 'setting_grapa' | 'settin
 
 const TEXT: { pt: ExecText; en: ExecText } = {
   pt: {
-    contourArea: 'Área do contorno unitária (m²)',
-    contourAreaTotal: 'Área do contorno total (m²)',
-    perimeter: 'Perímetro do contorno (m)',
+    contourArea: 'Área do contorno unitária',
+    contourAreaTotal: 'Área do contorno total',
+    perimeter: 'Perímetro do contorno',
     typeCount: 'Quantidade do tipo',
     mirrored: 'Espelhada',
     settingSystem: 'Sistema de assentamento',
-    settingClearance: 'Folga de assentamento por lado (cm)',
+    settingClearance: 'Folga de assentamento por lado',
     glass: 'Vidro',
     hinges: 'Dobradiças por esquadria',
     handles: 'Maçanetas por esquadria',
     hingesTotal: 'Dobradiças (total)',
     handlesTotal: 'Maçanetas (total)',
     observations: 'Observações',
-    frameVolume: 'Batente e soleira, volume por esquadria (m³)',
-    casingVolume: 'Alizar, volume por esquadria (m³)',
-    glassArea: 'Vidro, área por esquadria (m²)',
-    leafVolume: 'Folha, volume por esquadria (m³)',
-    glassAreaTotal: 'Vidro, área total (m²)',
+    frameVolume: 'Batente e soleira, volume por esquadria',
+    casingVolume: 'Alizar, volume por esquadria',
+    glassArea: 'Vidro, área por esquadria',
+    leafVolume: 'Folha, volume por esquadria',
+    glassAreaTotal: 'Vidro, área total',
     yes: 'Sim',
     no: 'Não',
     setting_grapa: 'Grapa',
@@ -117,24 +116,24 @@ const TEXT: { pt: ExecText; en: ExecText } = {
     glass_tempered: 'Temperado',
   },
   en: {
-    contourArea: 'Contour area per unit (m²)',
-    contourAreaTotal: 'Total contour area (m²)',
-    perimeter: 'Contour perimeter (m)',
+    contourArea: 'Contour area per unit',
+    contourAreaTotal: 'Total contour area',
+    perimeter: 'Contour perimeter',
     typeCount: 'Type quantity',
     mirrored: 'Mirrored',
     settingSystem: 'Setting system',
-    settingClearance: 'Setting clearance per side (cm)',
+    settingClearance: 'Setting clearance per side',
     glass: 'Glass',
     hinges: 'Hinges per unit',
     handles: 'Handles per unit',
     hingesTotal: 'Hinges (total)',
     handlesTotal: 'Handles (total)',
     observations: 'Notes',
-    frameVolume: 'Frame and threshold, volume per unit (m³)',
-    casingVolume: 'Casing, volume per unit (m³)',
-    glassArea: 'Glass, area per unit (m²)',
-    leafVolume: 'Leaf, volume per unit (m³)',
-    glassAreaTotal: 'Glass, total area (m²)',
+    frameVolume: 'Frame and threshold, volume per unit',
+    casingVolume: 'Casing, volume per unit',
+    glassArea: 'Glass, area per unit',
+    leafVolume: 'Leaf, volume per unit',
+    glassAreaTotal: 'Glass, total area',
     yes: 'Yes',
     no: 'No',
     setting_grapa: 'Anchor clip',
@@ -152,7 +151,7 @@ const TEXT: { pt: ExecText; en: ExecText } = {
   },
 };
 
-const execText = (lang: Lang, key: keyof ExecText): string => (lang === 'pt' ? TEXT.pt : TEXT.en)[key];
+export const execText = (lang: Lang, key: keyof ExecText): string => (lang === 'pt' ? TEXT.pt : TEXT.en)[key];
 
 const SETTING_KEY: Record<OpeningSettingSystem, keyof ExecText> = { grapa: 'setting_grapa', espuma: 'setting_espuma', contramarco: 'setting_contramarco' };
 const GLASS_KEY: Record<OpeningGlassKind, keyof ExecText> = {
@@ -185,7 +184,10 @@ export function contornoDoVao(ot: Pick<OpeningType, 'width' | 'shape'>, height: 
   const s = ot.shape;
   if (s && s.kind !== 'rect') {
     const forma = { ...s, width: ot.width, height };
-    if (validateOpeningShape(forma).length === 0) return areaPerimetroDoContorno(forma);
+    if (validateOpeningShape(forma).length === 0) {
+      const c = areaPerimetroDoContorno(forma);
+      return { area: c.area, perimeter: c.perimetro };
+    }
   }
   return { area: ot.width * height, perimeter: 2 * (ot.width + height) };
 }
@@ -241,8 +243,11 @@ export function execFieldsOf(i: ExecInput): OpeningExecFields {
   };
 }
 
-/** Cabeçalho CSV de uma coluna executiva, com a grandeza quando a coluna é numérica. */
-export function openingExecCsvHeader(k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
+/** Colunas de texto (o CSV as escapa; as numéricas saem já formatadas). */
+export const OPENING_EXEC_TEXT_KEYS: ReadonlySet<OpeningExecKey> = new Set<OpeningExecKey>(['settingSystem', 'glass', 'observations']);
+
+/** Rótulo da coluna executiva, com a unidade do projeto quando é grandeza. */
+export function openingExecHeader(k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
   const label = execText(lang, k);
   switch (k) {
     case 'contourArea':
@@ -254,51 +259,62 @@ export function openingExecCsvHeader(k: OpeningExecKey, u: ResolvedUnits, lang: 
       return scheduleCsvHeader(u, label, 'length');
     case 'settingClearance':
       return scheduleCsvHeader(u, label, 'smallLength');
+    case 'frameVolume':
+    case 'casingVolume':
+    case 'leafVolume':
+      return scheduleCsvHeader(u, label, 'volume');
     default:
       return label;
   }
 }
 
-/** Célula CSV de uma coluna executiva; vazia quando a linha não tem o dado (ex.: peças sem parede válida). */
-export function openingExecCsvCell(r: OpeningScheduleRow, k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
+/** Valor de uma coluna executiva como texto (sem escape de CSV); vazio quando a linha não tem o dado. */
+export function openingExecValue(r: Pick<OpeningScheduleRow, 'exec'>, k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
   const e = r.exec;
   if (!e) return '';
   const n = (q: 'length' | 'smallLength' | 'area' | 'volume', v: number, d: number): string => scheduleCsvCell(u, q, v, d, lang);
-  const yn = (b: boolean): string => execText(lang, b ? 'yes' : 'no');
+  const opt = (v: number | null, q: 'area' | 'volume', d: number): string => (v === null ? '' : n(q, v, d));
   switch (k) {
     case 'contourArea': return n('area', e.contourArea, 2);
     case 'contourAreaTotal': return n('area', e.contourAreaTotal, 2);
     case 'perimeter': return n('length', e.perimeter, 2);
     case 'typeCount': return String(e.typeCount);
-    case 'mirrored': return yn(e.mirrored);
-    case 'settingSystem': return csvText(e.settingSystem);
+    case 'mirrored': return execText(lang, e.mirrored ? 'yes' : 'no');
+    case 'settingSystem': return e.settingSystem;
     case 'settingClearance': return n('smallLength', e.settingClearance, 1);
-    case 'glass': return csvText(e.glass);
+    case 'glass': return e.glass;
     case 'hinges': return String(e.hingesPerUnit);
     case 'handles': return String(e.handlesPerUnit);
     case 'hingesTotal': return String(e.hingesTotal);
     case 'handlesTotal': return String(e.handlesTotal);
-    case 'observations': return csvText(e.observations);
-    case 'frameVolume': return e.frameVolume === null ? '' : n('volume', e.frameVolume, 3);
-    case 'casingVolume': return e.casingVolume === null ? '' : n('volume', e.casingVolume, 3);
-    case 'glassArea': return e.glassArea === null ? '' : n('area', e.glassArea, 2);
-    case 'leafVolume': return e.leafVolume === null ? '' : n('volume', e.leafVolume, 3);
-    case 'glassAreaTotal': return e.glassAreaTotal === null ? '' : n('area', e.glassAreaTotal, 2);
+    case 'observations': return e.observations;
+    case 'frameVolume': return opt(e.frameVolume, 'volume', 3);
+    case 'casingVolume': return opt(e.casingVolume, 'volume', 3);
+    case 'glassArea': return opt(e.glassArea, 'area', 2);
+    case 'leafVolume': return opt(e.leafVolume, 'volume', 3);
+    case 'glassAreaTotal': return opt(e.glassAreaTotal, 'area', 2);
   }
+}
+
+/** Célula CSV de uma coluna executiva: texto escapado; número já formatado. */
+export function openingExecCsvCell(r: OpeningScheduleRow, k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
+  const v = openingExecValue(r, k, u, lang);
+  return OPENING_EXEC_TEXT_KEYS.has(k) ? csvText(v) : v;
 }
 
 /** Total de uma coluna executiva (só as que somam; as demais ficam vazias). */
 export function openingExecCsvTotal(rows: readonly OpeningScheduleRow[], k: OpeningExecKey, u: ResolvedUnits, lang: Lang): string {
-  const soma = (f: (e: OpeningExecFields) => number | null): number | null => rows.reduce<number | null>((acc, r) => {
-    const v = r.exec ? f(r.exec) : null;
-    return v === null ? acc : (acc ?? 0) + v;
-  }, null);
-  const put = (q: 'area' | 'length', v: number | null): string => (v === null ? '' : scheduleCsvCell(u, q, v, 2, lang));
+  const soma = (f: (e: OpeningExecFields) => number | null): number | null =>
+    rows.reduce<number | null>((acc, r) => {
+      const v = r.exec ? f(r.exec) : null;
+      return v === null ? acc : (acc ?? 0) + v;
+    }, null);
+  const area = (v: number | null): string => (v === null ? '' : scheduleCsvCell(u, 'area', v, 2, lang));
   switch (k) {
-    case 'contourAreaTotal': return put('area', soma((e) => e.contourAreaTotal));
-    case 'glassAreaTotal': return put('area', soma((e) => e.glassAreaTotal));
-    case 'hingesTotal': { const v = soma((e) => e.hingesTotal); return v === null ? '' : String(v); }
-    case 'handlesTotal': { const v = soma((e) => e.handlesTotal); return v === null ? '' : String(v); }
+    case 'contourAreaTotal': return area(soma((e) => e.contourAreaTotal));
+    case 'glassAreaTotal': return area(soma((e) => e.glassAreaTotal));
+    case 'hingesTotal': return String(soma((e) => e.hingesTotal) ?? '');
+    case 'handlesTotal': return String(soma((e) => e.handlesTotal) ?? '');
     default: return '';
   }
 }

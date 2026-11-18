@@ -49,7 +49,8 @@ export function fita(pts: readonly OPt[], w = 2 * HALF): OPt[] {
       const l = Math.hypot(nx, nz) || 1;
       nx /= l;
       nz /= l;
-      const cos = Math.max(0.5, nx * b[0] + nz * b[1]);
+      const ref = b[0] === 0 && b[1] === 0 ? a : b; // nas pontas só há um segmento
+      const cos = Math.max(0.5, nx * ref[0] + nz * ref[1]);
       return [p[0] + (s * (w / 2) * nx) / cos, p[1] + (s * (w / 2) * nz) / cos];
     });
   const ring = [...lados(-1), ...lados(1).reverse()];

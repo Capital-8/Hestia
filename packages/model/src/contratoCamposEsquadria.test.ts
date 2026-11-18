@@ -65,6 +65,8 @@ const LEITORES: Readonly<Record<string, readonly Leitor[]>> = {
   leafThickness: ['resolve', '3D', 'quadro'],
   glassThickness: ['resolve', '3D'],
   roughOversize: ['vao'],
+  settingSystem: ['vao', 'quadro'],
+  settingClearance: ['vao'],
   casing: ['vao', '3D', 'resolve'],
   sillBoard: ['resolve', '3D', 'corte'],
   lintel: ['resolve', '3D', 'quadro', 'verificacoes'],

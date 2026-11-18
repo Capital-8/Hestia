@@ -74,7 +74,8 @@ function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number
   const b = part.box;
   const arcD = Math.max(0, part.role === 'glass' || part.role === 'leaf' ? H - b.z1 : dRef);
   const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
-  const regiao = outlineInset(shape, { side: ladoD, arc: arcD, base: 0 });
+  // Peça que desliza: arco sem prateleira (recuo de arco <= lateral) para a região ser convexa e valer a interseção do curso.
+  const regiao = outlineInset(shape, { side: ladoD, arc: part.motion?.kind === 'slide' ? Math.max(0, Math.min(arcD, ladoD)) : arcD, base: 0 });
   if (regiao.length < 3) return null;
   const poly = part.motion?.kind === 'slide' ? clipDeslizante(regiao, b, part.motion) : clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
   if (poly.length < 3) return [];
