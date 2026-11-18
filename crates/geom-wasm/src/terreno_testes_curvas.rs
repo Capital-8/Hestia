@@ -69,8 +69,14 @@ pub fn ler_linhas(s: &[Saida]) -> Vec<LinhaLida> {
     out
 }
 
+/// Curvas EXATAS (tolerância 0, o padrão).
 pub fn curvas(cena: &mut Cena, nivel: u32, superficie: u32) -> Vec<LinhaLida> {
-    let s = executar(cena, CONSULTA_TERRENO_CURVAS, &[f64::from(nivel), f64::from(superficie)]).expect("terreno_curvas");
+    curvas_tol(cena, nivel, superficie, 0.0)
+}
+
+/// Curvas com a tolerância de suavização `tol` (m); 0 = exatas.
+pub fn curvas_tol(cena: &mut Cena, nivel: u32, superficie: u32, tol: f64) -> Vec<LinhaLida> {
+    let s = executar(cena, CONSULTA_TERRENO_CURVAS, &[f64::from(nivel), f64::from(superficie), tol]).expect("terreno_curvas");
     assert_eq!(s.len(), 3);
     ler_linhas(&s)
 }
@@ -120,21 +126,48 @@ fn t2_curvas_retas() {
 
 #[test]
 fn t3_curvas_quadradas() {
-    // A consulta devolve as curvas suavizadas (Chaikin, 2 rodadas): cada canto do quadrado é cortado, então 4 pontos viram 16, o perímetro e a área
-    // encolhem um pouco e tudo continua dentro do quadrado original e fechado, sem repetir o primeiro ponto.
+    // Modo EXATO (padrão): a polilinha da malha, 4 pontos por curva, perímetros e áreas exatos; fechada sem repetir o primeiro ponto.
     let c = curvas(&mut cena_com(&[t3(1)]), 0, 0);
     assert_eq!(c.iter().map(|l| l.z).collect::<Vec<_>>(), vec![1.0, 2.0, 3.0, 4.0], "nenhuma curva em z = 0 nem em z = 5");
     for (l, lado) in c.iter().zip([16.0, 12.0, 8.0, 4.0]) {
         assert!(l.fechada, "curva fechada");
-        assert_eq!(l.pontos.len(), 16, "4 cantos, 2 rodadas de Chaikin");
-        assert!(l.comprimento() < 4.0 * lado && l.comprimento() > 3.1 * lado, "perímetro {}", l.comprimento());
-        assert!(l.pontos.iter().all(|p| (p[0] - 10.0).abs() <= lado / 2.0 + 1e-9 && (p[1] - 10.0).abs() <= lado / 2.0 + 1e-9), "{:?}", l.pontos);
-        assert!(l.area() < lado * lado && l.area() > 0.75 * lado * lado, "anti-horária e um pouco menor que o quadrado: {}", l.area());
+        assert_eq!(l.pontos.len(), 4, "4 cantos, sem arredondar");
+        assert!((l.comprimento() - 4.0 * lado).abs() < 1e-9, "perímetro {}", l.comprimento());
+        assert!((l.area() - lado * lado).abs() < 1e-9, "área {}", l.area());
     }
-    // Sem suavização (a malha crua) os cantos continuam exatos.
     let m = crate::terreno_avalia::Malha::nova(vec![[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0], [0.0, 20.0, 0.0], [10.0, 10.0, 5.0]], vec![0, 1, 2, 3, 4], vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]], Vec::new());
     let cru = crate::terreno_curvas::curvas_da_malha(&m, 1.0, 5).expect("curvas");
     assert!(cru.iter().all(|c| c.fechada && c.pontos.len() == 4));
+    assert_eq!(cru.iter().map(|c| c.pontos.clone()).collect::<Vec<_>>(), c.iter().map(|l| l.pontos.clone()).collect::<Vec<_>>(), "exata = crua");
+}
+
+#[test]
+fn t3_curvas_suavizadas_respeitam_a_tolerancia() {
+    // Modo SUAVIZADO: Chaikin por vértice enquanto o desvio à curva crua fica <= tolerância.
+    let m = crate::terreno_avalia::Malha::nova(vec![[0.0, 0.0, 0.0], [20.0, 0.0, 0.0], [20.0, 20.0, 0.0], [0.0, 20.0, 0.0], [10.0, 10.0, 5.0]], vec![0, 1, 2, 3, 4], vec![[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]], Vec::new());
+    let cruas = crate::terreno_curvas::curvas_da_malha(&m, 1.0, 5).expect("curvas");
+    for tol in [0.02, 0.5, 5.0] {
+        let suaves = crate::terreno_curvas::curvas_suaves(&m, 1.0, 5, &[], tol).expect("curvas");
+        assert_eq!(suaves.len(), cruas.len());
+        for (s, c) in suaves.iter().zip(&cruas) {
+            let n = c.pontos.len();
+            let segs: Vec<_> = (0..n).map(|k| (c.pontos[k], c.pontos[(k + 1) % n])).collect();
+            for p in &s.pontos {
+                let d = segs.iter().map(|&(a, b)| dist_seg(*p, a, b)).fold(f64::INFINITY, f64::min);
+                assert!(d <= tol + 1e-9, "tol {tol}: ponto {p:?} a {d} da curva crua (z = {})", s.z);
+            }
+            // Os cantos distantes mais que a tolerância ficam; com tolerância folgada a curva é suavizada.
+            assert!(!crate::terreno_curvas::se_cruza(&s.pontos, true));
+        }
+        let de_novo = crate::terreno_curvas::curvas_suaves(&m, 1.0, 5, &[], tol).expect("curvas");
+        assert_eq!(de_novo, suaves, "determinístico");
+        if tol >= 5.0 {
+            assert!(suaves.iter().any(|s| s.pontos.len() > 4), "tolerância folgada suaviza");
+        }
+        if tol <= 0.02 {
+            assert!(suaves.iter().all(|s| s.pontos.len() == 4), "2 cm: cantos a 90 graus de um quadrado de 12+ m não se cortam");
+        }
+    }
 }
 
 #[test]
@@ -159,15 +192,15 @@ fn limite_de_cotas() {
         fx.pontos.iter_mut().for_each(|p| p[2] = 60.0 * p[0]);
         cena_com(&[fx])
     };
-    assert_eq!(executar(&mut rampa(0.5), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(LIMITE), "2401 cotas");
-    assert_eq!(executar(&mut rampa(0.6), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(LIMITE), "2001 cotas");
+    assert_eq!(executar(&mut rampa(0.5), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0, 0.0]).err(), Some(LIMITE), "2401 cotas");
+    assert_eq!(executar(&mut rampa(0.6), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0, 0.0]).err(), Some(LIMITE), "2001 cotas");
     assert_eq!(curvas(&mut rampa(0.75), 0, 0).len(), 1600, "1601 cotas cabem (a de z = 0 é a mínima e não gera curva)");
-    assert_eq!(executar(&mut rampa(0.0), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0]).err(), Some(ENTRADA), "intervalo nulo");
+    assert_eq!(executar(&mut rampa(0.0), CONSULTA_TERRENO_CURVAS, &[0.0, 0.0, 0.0]).err(), Some(ENTRADA), "intervalo nulo");
     let mut cena = rampa(0.5);
     assert!(executar(&mut cena, CONSULTA_TERRENO_PLANTA, &[0.0, 0.0]).is_ok(), "o limite é só das curvas");
-    for args in [[0.0, 2.0], [f64::NAN, 0.0], [0.0, 0.5], [-1.0, 0.0]] {
+    for args in [[0.0, 2.0, 0.0], [f64::NAN, 0.0, 0.0], [0.0, 0.5, 0.0], [-1.0, 0.0, 0.0]] {
         assert_eq!(executar(&mut cena, CONSULTA_TERRENO_CURVAS, &args).err(), Some(ENTRADA), "{args:?}");
-        assert_eq!(executar(&mut cena, CONSULTA_TERRENO_PLANTA, &args).err(), Some(ENTRADA), "{args:?}");
+        assert_eq!(executar(&mut cena, CONSULTA_TERRENO_PLANTA, &args[..2]).err(), Some(ENTRADA), "{args:?}");
     }
 }
 
