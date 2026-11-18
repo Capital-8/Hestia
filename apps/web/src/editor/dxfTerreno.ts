@@ -77,6 +77,6 @@ export function terrenoCorteDxfOf(p: Project, s: SectionResult, visivel: boolean
   if (!linhas) return undefined;
   const out = linhas
     .filter((l) => l.pontos.length >= 2 && !hidden.has(l.terrenoId))
-    .map((l): DxfSectionPath => ({ pts: l.pontos.map((q) => ({ x: q.s, y: q.z })), closed: l.papel === 'cortado', ...(l.papel === 'perfilExistente' ? { dashed: true } : {}) }));
+    .map((l): DxfSectionPath => ({ pts: l.pontos.map((q) => ({ x: q.s, y: q.z })), closed: l.papel === 'cortado', ...(l.papel === 'perfilExistente' || l.papel === 'silhuetaExistente' ? { dashed: true } : {}) }));
   return out.length > 0 ? out : undefined;
 }
