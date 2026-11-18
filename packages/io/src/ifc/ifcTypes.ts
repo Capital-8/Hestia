@@ -52,6 +52,11 @@ export interface IfcOpeningPartGeo {
   materialId: Id;
   /** Papel no modelo único (`jamb`, `leaf`, `glass`, `muntin`, `handle`...), para diagnóstico e testes. */
   role?: string;
+  /**
+   * Seção real da peça quando ela não é a caixa (vão com forma: peça recortada pelo contorno). `ts`: pontos (t, s) extrudados
+   * em z; `sz`: (s, z) extrudados em t; `tz`: (t, z) extrudados em s. Ausente = a caixa `t0..t1 × s0..s1 × z0..z1`.
+   */
+  profile?: { plane: 'ts' | 'sz' | 'tz'; pts: Array<[number, number]> };
 }
 
 /**

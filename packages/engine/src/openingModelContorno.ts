@@ -4,11 +4,14 @@ import {
   outlineInset,
   ringHalves,
   ringSignedArea,
-  validateOpeningShape,
   type OPt,
   type OpeningShape,
 } from '@hestia/model';
 import type { OpeningModel, OpeningPart, PartBox, PartRole } from './openingModelTypes.ts';
+import { prisma } from './openingModelPrisma.ts';
+import { clipDeslizante, trilhoNoContorno } from './openingModelContornoCorrer.ts';
+import { muntinsDecorativos, type MuntinPadrao } from './openingModelMuntinsContorno.ts';
+import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 
 /*
  * Peças da esquadria em vão com forma (docs/estudo-esquadrias/28). Pós-processo do modelo único: o modelo retangular de
@@ -29,20 +32,6 @@ import type { OpeningModel, OpeningPart, PartBox, PartRole } from './openingMode
 const EPS = 1e-9;
 /** Papéis do preenchimento que o contorno recorta. */
 const PREENCHIMENTO: ReadonlySet<PartRole> = new Set<PartRole>(['glass', 'leaf', 'leafPanel', 'muntin', 'bead', 'mullion', 'transom', 'track']);
-
-const boundsOf = (ring: readonly OPt[]): { t0: number; t1: number; z0: number; z1: number } => ({
-  t0: Math.min(...ring.map((p) => p[0])),
-  t1: Math.max(...ring.map((p) => p[0])),
-  z0: Math.min(...ring.map((p) => p[1])),
-  z1: Math.max(...ring.map((p) => p[1])),
-});
-
-/** A peça trocada por um prisma `tz` (seção (t, z), extrudada em `s` entre `s0` e `s1`); caixa = envolvente exata do anel. */
-function prisma(part: OpeningPart, ring: readonly OPt[], extra: Partial<OpeningPart> = {}, s?: { s0: number; s1: number }): OpeningPart {
-  const b = boundsOf(ring);
-  const box: PartBox = { t0: b.t0, t1: b.t1, z0: b.z0, z1: b.z1, s0: s?.s0 ?? part.box.s0, s1: s?.s1 ?? part.box.s1 };
-  return { ...part, ...extra, box, profile: { plane: 'tz', pts: ring.map((p): [number, number] => [p[0], p[1]]) } };
-}
 
 /** Fatia de `s` da travessa: espessura medida do bordo de fora (`a`) ao de dentro (`b`) do contorno. */
 interface Fatia {
@@ -87,7 +76,7 @@ function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number
   const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
   const regiao = outlineInset(shape, { side: ladoD, arc: arcD, base: 0 });
   if (regiao.length < 3) return null;
-  const poly = clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
+  const poly = part.motion?.kind === 'slide' ? clipDeslizante(regiao, b, part.motion) : clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
   if (poly.length < 3) return [];
   return area(poly) >= boxArea(b) - 1e-9 ? null : poly;
 }
@@ -133,12 +122,17 @@ function arco(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
       out.push(...troca);
       continue;
     }
+    const trilho = part.role === 'track' && !part.profile ? trilhoNoContorno(part.id, part.box, shape, H) : null;
+    if (trilho) {
+      trilho.forEach((r, k) => out.push(prisma(part, r, k ? { id: `${part.id}-${k}` } : {})));
+      continue;
+    }
     if (!PREENCHIMENTO.has(part.role) || part.profile || part.dashed || part.material === 'concrete') {
       out.push(part);
       continue;
     }
     const b = part.box;
-    const emTopo = part.role === 'leaf' && part.leaf !== undefined && b.t1 - b.t0 > 1.5 * (b.z1 - b.z0) && Math.abs(b.z1 - (topoPorFolha.get(part.leaf) ?? NaN)) < 1e-6;
+    const emTopo = part.role === 'leaf' && part.motion?.kind !== 'slide' && part.leaf !== undefined && b.t1 - b.t0 > 1.5 * (b.z1 - b.z0) && Math.abs(b.z1 - (topoPorFolha.get(part.leaf) ?? NaN)) < 1e-6;
     let ring = recortada(part, shape, hw, H, dRef);
     if (ring && ring.length >= 3 && emTopo) ring = travessaDaFolha(part, shape, hw, H) ?? ring;
     if (ring === null) out.push(part);
@@ -234,6 +228,11 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
       }
       continue;
     }
+    const trilho = part.role === 'track' && !part.profile ? trilhoNoContorno(part.id, part.box, shape, H) : null;
+    if (trilho) {
+      trilho.forEach((r, k) => out.push(prisma(part, r, k ? { id: `${part.id}-${k}` } : {})));
+      continue;
+    }
     if (!PREENCHIMENTO.has(part.role) || part.profile || part.dashed || part.material === 'concrete') {
       out.push(part);
       continue;
@@ -247,13 +246,14 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
 
 /**
  * Modelo com as peças seguindo o contorno do vão. `forma` é a do vão (`OpeningGeometry.forma`, dimensionada pelo vão bruto):
- * aqui largura e altura viram as da esquadria (`m.width` x `m.height`) e a flecha fica como gravada. Forma ausente, retangular
- * ou que não cabe na esquadria devolve `m` sem alteração.
+ * aqui largura e altura viram as da esquadria (`m.width` x `m.height`, `formaDaEsquadria`) e a flecha fica como gravada. Forma
+ * ausente, retangular ou que não cabe na esquadria devolve `m` sem alteração (o aviso é `forma-esquadria-retangular`).
+ * `padrao` (`OpeningType.muntinPattern`) só vale com forma: monta as divisões decorativas do vidro recortadas pelo contorno.
  */
-export function contornoDoModelo(m: OpeningModel, forma: OpeningShape | undefined): OpeningModel {
+export function contornoDoModelo(m: OpeningModel, forma: OpeningShape | undefined, padrao?: MuntinPadrao | null): OpeningModel {
   if (!forma || forma.kind === 'rect') return m;
-  const shape = { ...forma, width: m.width, height: m.height } as OpeningShape;
-  if (validateOpeningShape(shape).length > 0) return m;
+  const shape = formaDaEsquadria(forma, m.width, m.height);
+  if (!shape) return m;
   const parts = shape.kind === 'circle' ? circulo(m, shape) : arco(m, shape);
-  return { ...m, parts };
+  return { ...m, parts: padrao ? muntinsDecorativos(parts, shape, padrao) : parts };
 }

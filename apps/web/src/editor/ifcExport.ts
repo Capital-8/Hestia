@@ -115,7 +115,9 @@ function openingPartsOf(p: Project, o: Opening, g: OpeningGeometry, t: OpeningTy
     if (part.role === 'pocket' || part.dashed || part.role === 'lintel' || part.role === 'sillBeam') continue;
     const b = part.box;
     if (!(b.t1 - b.t0 > 1e-6 && b.s1 - b.s0 > 1e-6 && b.z1 - b.z0 > 1e-6)) continue;
-    out.push({ ...b, materialId: partMaterialId(p, t, part.material), role: part.role });
+    // Vão com forma: a peça recortada pelo contorno sai com a seção real. Vão retangular fica como caixa, como sempre.
+    const profile = g.forma && part.profile ? { plane: part.profile.plane, pts: part.profile.pts } : undefined;
+    out.push({ ...b, materialId: partMaterialId(p, t, part.material), role: part.role, ...(profile ? { profile } : {}) });
   }
   return out;
 }

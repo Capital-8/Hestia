@@ -1,4 +1,4 @@
-import { outline, openingShapeOf, validateOpeningShape, type OPt, type OpeningShape, type OpeningType } from '@hestia/model';
+import { outline, openingShapeOf, validateOpeningShape, type OpeningShapeInput, type OPt, type OpeningShape, type OpeningType } from '@hestia/model';
 import type { OpeningGeometry } from './types.ts';
 
 /**
@@ -154,7 +154,7 @@ export const clienteFuroContorno = (): ClienteFuroContorno | null => cliente;
  * `{ forma }` para `openingGeometry`: a forma efetiva do vão quando existe e é válida; `{}` (retangular) quando o tipo não tem
  * forma ou ela é inválida (o aviso `forma-vao-invalida` aponta o problema, o vão continua retangular).
  */
-export function formaDoVao(t: Pick<OpeningType, 'width' | 'height' | 'roughOversize' | 'shape'>, height?: number): { forma?: OpeningShape } {
+export function formaDoVao(t: OpeningShapeInput, height?: number): { forma?: OpeningShape } {
   const s = openingShapeOf(t, height);
   return s && validateOpeningShape(s).length === 0 ? { forma: s } : {};
 }

@@ -10,7 +10,7 @@
 import type { MultiPolygon, OpeningSymbolStroke, Ring, Vec2 } from '@hestia/geom';
 import { outlineSegments, type Id, type OpeningSegment } from '@hestia/model';
 import type { FuroContornoDaParede, OpeningGeometry } from './types.ts';
-import { openingPlanSymbolPaths, verticalCutProfile } from './openingShapeViews.ts';
+import { elevationOutline, openingPlanSymbolPaths, verticalCutProfile } from './openingShapeViews.ts';
 
 const EPS = 1e-9;
 /** Tolerância de paralelismo/perpendicularidade entre a linha de corte e o eixo do vão (cosseno). */
@@ -58,6 +58,14 @@ function modoDoVao(g: OpeningGeometry, d: Vec2): 'corte' | 'elevacao' | null {
 const cortePelaLinha = (g: OpeningGeometry, linha: LinhaDeCorte): number => (linha.a.x - g.center.x) * g.u.x + (linha.a.y - g.center.y) * g.u.y;
 
 /** Contorno do vão na vista da elevação: `t = t_centro + sinal(d·u)·x`, `z = soleira + z`. */
+/** Pontos tesselados do contorno na elevação (preenchimento e furo da face): `t = t_centro + sinal(d·u)·x`, `z = soleira + z`. */
+function pontosDaElevacao(v: VaoDeContorno, linha: LinhaDeCorte): Vec2[] {
+  const sgn = v.g.u.x * linha.d.x + v.g.u.y * linha.d.y >= 0 ? 1 : -1;
+  const tc = (v.g.center.x - linha.a.x) * linha.d.x + (v.g.center.y - linha.a.y) * linha.d.y;
+  return elevationOutline(v.g.forma, { along: 0, sill: v.sillAbs }).map(([x, z]): Vec2 => ({ x: tc + sgn * x, y: z }));
+}
+
+/** Segmentos do contorno na elevação (com `bulge`, para o DXF): mesma transformação de `pontosDaElevacao`. */
 function segmentosDaElevacao(v: VaoDeContorno, linha: LinhaDeCorte): SecaoSegmento[] {
   const sgn = v.g.u.x * linha.d.x + v.g.u.y * linha.d.y >= 0 ? 1 : -1;
   const tc = (v.g.center.x - linha.a.x) * linha.d.x + (v.g.center.y - linha.a.y) * linha.d.y;
@@ -108,7 +116,7 @@ export function vazioDoVaoNaVista(vaos: readonly VaoDeContorno[], linha: LinhaDe
         out.push([rectRing(tMin - 1e-3, tMax + 1e-3, a, b)]);
       }
     } else if (modo === 'elevacao') {
-      out.push([segmentosDaElevacao(v, linha).map((s) => s.a)]);
+      out.push([pontosDaElevacao(v, linha)]);
     }
   }
   return out;
@@ -137,10 +145,15 @@ export function contornoDoVaoNaSecao(v: VaoDeContorno, linha: LinhaDeCorte, t0: 
     };
   }
   if (modo === 'elevacao') {
-    const segs = segmentosDaElevacao(v, linha);
-    return { polygons: [[segs.map((s) => s.a)]], aneis: [segs] };
+    return { polygons: [[pontosDaElevacao(v, linha)]], aneis: [segmentosDaElevacao(v, linha)] };
   }
   return null;
+}
+
+/** Contorno do vão `openingId` no corte ou na elevação, se a parede o tem de contorno; `null` (retângulo, oblíquo) senão. */
+export function contornoDoOpeningNaSecao(vaos: readonly VaoDeContorno[], openingId: Id, linha: LinhaDeCorte, t0: number, t1: number): ContornoDoVaoSecao | null {
+  const v = vaos.find((x) => x.g.openingId === openingId);
+  return v ? contornoDoVaoNaSecao(v, linha, t0, t1) : null;
 }
 
 /**

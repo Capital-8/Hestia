@@ -1,4 +1,5 @@
-import type { OpeningType } from './types.ts';
+import { t as translate, type Lang } from './i18n.ts';
+import type { OpeningSettingSystem, OpeningType } from './types.ts';
 
 /**
  * Acabamentos e vão bruto do tipo de abertura. Todos os campos são opcionais no `OpeningType`; aqui ficam o padrão por
@@ -32,14 +33,52 @@ export interface OpeningLintel {
 /** Transpasse padrão da verga e da contraverga, para cada lado (m). A altura padrão é a do pedido do projeto. */
 export const OPENING_LINTEL_DEFAULTS = { over: 0.3, height: 0.2 } as const;
 
+/** Sistemas de assentamento aceitos (o schema é fechado). */
+export const OPENING_SETTING_SYSTEMS: readonly OpeningSettingSystem[] = ['grapa', 'espuma', 'contramarco'];
+
+/**
+ * Folga de assentamento por lado (m) de cada sistema, quando o tipo não informa `settingClearance`. Fonte: manual de
+ * alumínio MGM (fabricante): grapa ~0,5 cm; espuma expansiva sem contramarco ~2 cm; contramarco 25 mm. Outras fontes
+ * divergem (SINAPI 1 cm no contramarco; Hydro 3 a 5 cm): o manual do fabricante prevalece (docs/estudo-esquadrias/05 §6.1).
+ */
+export const SETTING_CLEARANCE_DEFAULTS: Readonly<Record<OpeningSettingSystem, number>> = { grapa: 0.005, espuma: 0.02, contramarco: 0.025 };
+
+/**
+ * Transpasse mínimo de referência da verga, por lado (m). [CONFLITO] 0,20 m é o atribuído à NBR 8545 (texto não lido);
+ * 0,30 m é a prática SINAPI e o padrão do modelo. Abaixo deste valor sai só um aviso: o cálculo estrutural prevalece.
+ */
+export const LINTEL_OVER_MIN = 0.2;
+
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 const nonNeg = (v: unknown): number => Math.max(0, num(v));
 const positive = (v: unknown): number => Math.max(0, num(v));
 const defaulted = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback);
 
-/** Vão bruto do tipo (m): largura e altura do tipo mais `roughOversize`. Ausente ou inválido vale 0. */
-export function openingRough(t: Pick<OpeningType, 'width' | 'height' | 'roughOversize'>): OpeningRough {
-  return { width: t.width + nonNeg(t.roughOversize?.w), height: t.height + nonNeg(t.roughOversize?.h) };
+/**
+ * Folga de assentamento por lado (m): a do tipo (`settingClearance`), ou a do sistema; zero sem sistema, como antes. Um
+ * valor inválido no campo cai para a do sistema.
+ */
+export function openingSettingClearance(t: Pick<OpeningType, 'settingSystem' | 'settingClearance'>): number {
+  const v = t.settingClearance;
+  if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v;
+  const doSistema = t.settingSystem === undefined ? undefined : SETTING_CLEARANCE_DEFAULTS[t.settingSystem];
+  return doSistema ?? 0;
+}
+
+/**
+ * Vão bruto do tipo (m): largura e altura do tipo, mais `roughOversize` e mais 2 × a folga de assentamento por lado
+ * (`openingSettingClearance`). Ausente ou inválido vale 0.
+ */
+export function openingRough(t: Pick<OpeningType, 'width' | 'height' | 'roughOversize' | 'settingSystem' | 'settingClearance'>): OpeningRough {
+  const folga = 2 * openingSettingClearance(t);
+  return { width: t.width + nonNeg(t.roughOversize?.w) + folga, height: t.height + nonNeg(t.roughOversize?.h) + folga };
+}
+
+/** Aviso (não erro) quando o transpasse da verga fica abaixo do mínimo de referência: o estrutural prevalece. */
+export function lintelOverWarning(t: Pick<OpeningType, 'lintel'>, lang: Lang = 'pt'): string | null {
+  const lin = openingLintel(t);
+  if (!lin || lin.over >= LINTEL_OVER_MIN) return null;
+  return translate(lang, 'md_lintel_over_short', { over: Math.round(lin.over * 100), min: Math.round(LINTEL_OVER_MIN * 100) });
 }
 
 /** Alizar do tipo, ou null quando ausente/zerado (o padrão é não desenhar). */
@@ -88,10 +127,11 @@ export const ACABAMENTO_LIMITES = {
   soleiraEspessura: 0.05,
   transpasse: 1,
   alturaVerga: 0.6,
+  folgaAssentamento: 0.05,
 } as const;
 
 /** Campos de acabamento do tipo (os de `OpeningType`, todos opcionais). */
-export type OpeningAcabamento = Pick<OpeningType, 'roughOversize' | 'casing' | 'sillBoard' | 'lintel' | 'sillBeam'>;
+export type OpeningAcabamento = Pick<OpeningType, 'roughOversize' | 'casing' | 'sillBoard' | 'lintel' | 'sillBeam' | 'settingSystem' | 'settingClearance'>;
 
 /**
  * Confere as medidas do acabamento: cada uma tem de ser finita, ≥ 0 e até o limite. Devolve a 1ª mensagem, ou null.
@@ -110,6 +150,8 @@ export function acabamentoIssue(t: OpeningAcabamento): string | null {
     faixa('Verga, transpasse', t.lintel?.over, ACABAMENTO_LIMITES.transpasse) ??
     faixa('Verga, altura', t.lintel?.height, ACABAMENTO_LIMITES.alturaVerga) ??
     faixa('Contraverga, transpasse', t.sillBeam?.over, ACABAMENTO_LIMITES.transpasse) ??
-    faixa('Contraverga, altura', t.sillBeam?.height, ACABAMENTO_LIMITES.alturaVerga)
+    faixa('Contraverga, altura', t.sillBeam?.height, ACABAMENTO_LIMITES.alturaVerga) ??
+    faixa('Folga de assentamento', t.settingClearance, ACABAMENTO_LIMITES.folgaAssentamento) ??
+    (t.settingSystem === undefined || OPENING_SETTING_SYSTEMS.includes(t.settingSystem) ? null : 'Sistema de assentamento: use grapa, espuma ou contramarco.')
   );
 }

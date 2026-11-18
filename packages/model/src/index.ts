@@ -76,6 +76,7 @@ export * from './openingCompositionRules.ts';
 export * from './openingProfiles.ts';
 export * from './openingHardware.ts';
 export * from './openingStyle.ts';
+export * from './openingMuntinPattern.ts';
 export * from './openingSupport.ts';
 export * from './dimension.ts';
 export * from './dimensionContract.ts';

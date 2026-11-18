@@ -73,6 +73,7 @@ const LEITORES: Readonly<Record<string, readonly Leitor[]>> = {
   handle: ['3D', 'quadro'],
   frameStyle: ['resolve', '3D'],
   grid: ['resolve', '3D', 'ifc'],
+  muntinPattern: ['resolve', '3D'],
   transom: ['resolve', '3D', 'vao'],
   sidelights: ['resolve', '3D', 'vao'],
   angle2d: ['resolve', 'planta'],

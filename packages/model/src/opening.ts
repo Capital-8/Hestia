@@ -1,4 +1,5 @@
 import type { Id, OpeningLeaves, OpeningType, PlanSymbol, Project } from './types.ts';
+import { OPENING_MUNTIN_KINDS } from './openingMuntinPattern.ts';
 import { t, type Lang } from './i18n.ts';
 import { OPENING_SPAN_GAP_MAX } from './openingNominal.ts';
 import { acabamentoIssue, openingCasing, type OpeningAcabamento } from './openingExtras.ts';
@@ -15,6 +16,7 @@ type OpeningTypeRuleFields = Partial<
     | 'handle'
     | 'frameStyle'
     | 'grid'
+    | 'muntinPattern'
     | 'transom'
     | 'sidelights'
     | 'angle2d'
@@ -68,6 +70,9 @@ function openingStyleIssue(t: OpeningTypeRules): string | null {
   if (t.angle2d !== undefined && !angleOk(t.angle2d)) return 'Ângulo de abertura 2D: use um valor de 0 a 120°.';
   if (t.angle3d !== undefined && !angleOk(t.angle3d)) return 'Ângulo de abertura 3D: use um valor de 0 a 120°.';
   if (t.grid !== undefined && !gridOk(t.grid)) return 'Divisões do caixilho: use colunas e linhas inteiras de 1 a 8.';
+  if (t.muntinPattern !== undefined && !(OPENING_MUNTIN_KINDS.includes(t.muntinPattern.kind) && gridOk(t.muntinPattern))) {
+    return 'Divisões decorativas: use um desenho conhecido e colunas e linhas inteiras de 1 a 8.';
+  }
   if (t.transom !== undefined) {
     const h = t.transom.height;
     if (typeof h !== 'number' || !Number.isFinite(h) || h <= 0 || (t.height !== undefined && h >= t.height)) {

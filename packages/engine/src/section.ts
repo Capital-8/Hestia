@@ -26,7 +26,7 @@ import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
 import { openingTiltGeom } from './openingTilt.ts';
-import { contornoDoVaoNaSecao, faixasSemVazio, vazioDoVaoNaVista, vaosDeContornoDaParede, vaziosDoCorte, type SecaoSegmento } from './vaoContornoVistas.ts';
+import { contornoDoOpeningNaSecao, faixasSemVazio, vazioDoVaoNaVista, vaosDeContornoDaParede, vaziosDoCorte, type SecaoSegmento } from './vaoContornoVistas.ts';
 import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, limpaAneis, sectionFrame, semFrestas, type SectionLine } from './sectionGeom.ts';
@@ -408,8 +408,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       const model = buildOpeningModel(p, o, g, f);
       const ot = openingType(p, o);
       // Vão com contorno: o perfil no corte e o contorno na elevação; retangular (ou oblíquo) segue `rect`.
-      const cc = vaosCont.find((v) => v.g.openingId === o.id);
-      const contornoVao = cc ? contornoDoVaoNaSecao(cc, { a: line.a, d }, t0, t1) : null;
+      const contornoVao = contornoDoOpeningNaSecao(vaosCont, o.id, { a: line.a, d }, t0, t1);
       // Parede inclinada (F2.8): 'inclinado' ocupa h·cosθ na vertical e o plano do caixilho desloca (s + h·cosθ/2)·tanθ ao
       // longo de n; 'vertical' fica a prumo (topo em s + h), ancorado na face. Parede vertical: nada muda.
       const tg = rw.tilt ? openingTiltGeom({ plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, t: g.thickness, w: g.width, h: g.height, s: g.sill }) : undefined;

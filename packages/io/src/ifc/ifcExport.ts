@@ -15,6 +15,7 @@ import {
 } from '@hestia/model';
 import { addOpeningProfile } from './ifcOpeningProfile.ts';
 import { addOpeningQto } from './ifcOpeningLining.ts';
+import { openingPartSolid } from './ifcOpeningParts.ts';
 import { addPlates, addRamps, addRoofs, addStairs } from './ifcElements.ts';
 import { addStructural } from './ifcStructural.ts';
 import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './ifcCurtainWall.ts';
@@ -49,18 +50,6 @@ export interface IfcExportOptions {
 }
 
 /** Retângulo `width` × `thickness` centrado na origem do sistema local (x ao longo do eixo do vão, y na espessura). */
-
-/** Retângulo da peça no plano local do vão (x = `t`, y = `s`), pronto para a extrusão vertical. */
-function rectOfPart(part: IfcOpeningPartGeo): IfcPolygon {
-  return [
-    [
-      { x: part.t0, y: part.s0 },
-      { x: part.t1, y: part.s0 },
-      { x: part.t1, y: part.s1 },
-      { x: part.t0, y: part.s1 },
-    ],
-  ];
-}
 
 /** Direção unitária do eixo da parede (a→b); comprimento zero devolve `null`. */
 function layerSetOf(c: IfcCtx, type: WallType): number | null {
@@ -239,7 +228,7 @@ function addOpenings(c: IfcCtx, openings: readonly IfcOpeningGeo[]): void {
       for (const part of g.parts) {
         if (!(part.t1 - part.t0 > EPS && part.s1 - part.s0 > EPS && part.z1 - part.z0 > EPS)) continue;
         materialOf(c, part.materialId);
-        const solid = extrudeSolid(c.w, rectOfPart(part), part.z0, part.z1 - part.z0);
+        const solid = openingPartSolid(c.w, part);
         c.itemStyles?.push({ item: solid, materialId: part.materialId });
         items.push(solid);
       }

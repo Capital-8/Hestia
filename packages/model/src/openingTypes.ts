@@ -14,6 +14,9 @@ export type PlanSymbol =
 /** Contagem de folhas de uma abertura. 0 = vão livre (sem folha nem caixilho). As famílias aceitas estão em `opening.ts`. */
 export type OpeningLeaves = 0 | 1 | 2 | 3 | 4;
 
+/** Sistema de assentamento da esquadria (folga por lado, `openingSettingClearance`). */
+export type OpeningSettingSystem = 'grapa' | 'espuma' | 'contramarco';
+
 export interface OpeningType {
   id: Id;
   kind: 'door' | 'window';
@@ -61,6 +64,14 @@ export interface OpeningType {
   lintel?: { over?: number; height?: number };
   sillBeam?: { over?: number; height?: number };
   /*
+   * Folga de assentamento (docs/estudo-esquadrias/05 §6.1). Opcionais: ausente = sem folga de sistema (o vão bruto segue só
+   * `roughOversize`, como antes). A folga por lado soma-se ao vão bruto: 2 × folga em largura e em altura.
+   */
+  /** Sistema de fixação da esquadria na alvenaria: grapa, espuma expansiva ou contramarco. */
+  settingSystem?: OpeningSettingSystem;
+  /** Folga por lado (m) que sobrescreve a do sistema (`SETTING_CLEARANCE_DEFAULTS`). */
+  settingClearance?: number;
+  /*
    * Esquadria v2 (docs/aberturas/E-spec-modelo-unico.md). Todos opcionais: ausente vale o padrão por leitura
    * (`openingStyle.ts`), sem migração e sem mudar a aparência de arquivos antigos.
    */
@@ -72,6 +83,12 @@ export interface OpeningType {
   frameStyle?: OpeningFrameStyle;
   /** Divisões do caixilho/vidro (colunas × linhas de vidro). Padrão 1 × 1. */
   grid?: { cols: number; rows: number };
+  /**
+   * Divisões decorativas do vidro em vão COM FORMA (arco, ogival, círculo): colonial, prairie, losango, leque, cruz ou montantes,
+   * recortadas pelo contorno. `on` 'all' (padrão) troca a grade `grid`; 'transom' só enfeita o vidro da bandeira. Sem forma
+   * (vão retangular) o campo é ignorado: o vão retangular fica idêntico. Densidade: 1..8 colunas e linhas.
+   */
+  muntinPattern?: { kind: OpeningMuntinKind; cols: number; rows: number; on?: 'all' | 'transom' };
   /** Bandeira superior (vidro acima da folha) e bandeiras laterais. Ausente = sem. */
   transom?: { height: number; fixed?: boolean };
   sidelights?: { left?: boolean; right?: boolean; width: number };
@@ -146,6 +163,8 @@ export type OpeningGlassKind = 'clear' | 'ribbed' | 'smoke' | 'green' | 'bronze'
 export type OpeningLeafStyle = 'flush' | 'panel' | 'glass' | 'louver' | 'grille' | 'boards' | 'fullglass';
 export type OpeningHandle = 'none' | 'lever' | 'knob' | 'pull';
 export type OpeningFrameStyle = 'rebate' | 'simple' | 'aduela' | 'block';
+/** Desenho das divisões decorativas do vidro em vão com forma (docs/estudo-esquadrias/28 §6): leque só em arco/círculo. */
+export type OpeningMuntinKind = 'colonial' | 'prairie' | 'diamond' | 'fan' | 'cross' | 'mullions';
 
 /**
  * Convenção da linha de abertura nas elevações e cortes (decisão do dono, 2026-10-26): o vértice do V fica no lado

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { clienteFuroContornoFalso, definirClienteFuroContorno, type Opening } from '@hestia/engine';
-import { buildTemplate, makeWall, ProjectStore, type OpeningShape, type Project } from '@hestia/model';
+import { clienteFuroContornoFalso, definirClienteFuroContorno } from '@hestia/engine';
+import { buildTemplate, makeWall, ProjectStore, type Opening, type OpeningShape, type Project } from '@hestia/model';
 import { dxfGeometryOf, planDxf, sectionDxf } from './dxfExport.ts';
 
 /**

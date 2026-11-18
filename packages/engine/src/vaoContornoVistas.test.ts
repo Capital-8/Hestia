@@ -98,6 +98,10 @@ describe('vão com contorno nas vistas (corte, elevação)', () => {
     expect(dentro(faceParede, [tc, g.sill + 0.05])).toBe(false);
     // Fora do contorno, logo ao lado dele (meia-largura do vão bruto mais 10 cm): parede.
     expect(dentro(faceParede, [tc + g.forma!.width / 2 + 0.1, g.sill + 0.05])).toBe(true);
+    // O arco, não o retângulo bruto: no canto acima da curva (u = 0,4; z = 2,3 está acima do arco de 2,4 m de altura) é parede.
+    expect(dentro(op!.polygons, [tc, 2.3])).toBe(true);
+    expect(dentro(op!.polygons, [tc + 0.4, 2.3])).toBe(false);
+    expect(dentro(faceParede, [tc + 0.4, 2.3])).toBe(true);
   });
 
   it('vão retangular: vistas idênticas com e sem o cliente instalado', () => {

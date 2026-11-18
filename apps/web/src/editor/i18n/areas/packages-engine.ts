@@ -47,6 +47,7 @@ export const PT_PACKAGES_ENGINE = {
   egb_issue_opening_plane_arc: 'Abertura "{id}" em parede de arco inclinada: o vão é largo demais para o plano inclinado; o corte usa o plano vertical.',
   egb_issue_opening_shape_invalid: 'Abertura "{id}": forma de vão inválida ({problems}); o vão é recortado como retângulo.',
   egb_issue_opening_shape_host: 'Abertura "{id}": a forma do vão não é aplicada na parede "{wall}" (curva ou inclinada); o vão é recortado como retângulo.',
+  egb_issue_opening_shape_frame: 'Abertura "{id}": a flecha do arco não cabe na esquadria menor que o vão bruto ({problems}); as peças ficam retangulares (o furo na parede segue a forma).',
   egb_issue_wall_roof_over: 'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
     'A camada {camada} de {elemento} termina na camada da parede {parede}, mas essa parede não tem a função "{funcao}" no lado {lado}: a borda foi para a camada seguinte, em direção ao lado oposto.',
@@ -240,6 +241,7 @@ export const EN_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Opening "{id}" in a tilted curved wall: the opening is too wide for the inclined plane; the cut uses the vertical plane.',
   egb_issue_opening_shape_invalid: 'Opening "{id}": invalid opening shape ({problems}); the opening is cut as a rectangle.',
   egb_issue_opening_shape_host: 'Opening "{id}": the opening shape is not applied in wall "{wall}" (curved or tilted); the opening is cut as a rectangle.',
+  egb_issue_opening_shape_frame: 'Opening "{id}": the arch rise does not fit the frame, which is smaller than the rough opening ({problems}); the parts stay rectangular (the wall hole keeps the shape).',
   egb_issue_wall_roof_over: 'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:
     'Layer {camada} of {elemento} ends at a layer of wall {parede}, but that wall has no "{funcao}" function on the {lado} side: the edge went to the next layer, toward the opposite side.',
@@ -433,6 +435,7 @@ export const ES_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Abertura "{id}" en muro curvo inclinado: el vano es demasiado ancho para el plano inclinado; el corte usa el plano vertical.',
   egb_issue_opening_shape_invalid: 'Apertura "{id}": forma de vano inválida ({problems}); el vano se recorta como rectángulo.',
   egb_issue_opening_shape_host: 'Apertura "{id}": la forma del vano no se aplica en el muro "{wall}" (curvo o inclinado); el vano se recorta como rectángulo.',
+  egb_issue_opening_shape_frame: 'Apertura "{id}": la flecha del arco no cabe en la carpintería, menor que el vano bruto ({problems}); las piezas quedan rectangulares (el hueco del muro conserva la forma).',
   egb_issue_wall_roof_over: 'El muro "{id}" sobresale {length} de la cara inferior del tejado; active la parte superior ajustada al tejado o baje el muro.',
   egb_issue_termino_camada_sem_funcao:
     'La capa {camada} de {elemento} termina en una capa del muro {parede}, pero ese muro no tiene la función "{funcao}" en el lado {lado}: el borde pasó a la capa siguiente, hacia el lado opuesto.',
@@ -626,6 +629,7 @@ export const DE_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Öffnung "{id}" in geneigter gebogener Wand: Die Öffnung ist für die geneigte Ebene zu breit; der Schnitt verwendet die vertikale Ebene.',
   egb_issue_opening_shape_invalid: 'Öffnung "{id}": ungültige Öffnungsform ({problems}); die Öffnung wird als Rechteck ausgeschnitten.',
   egb_issue_opening_shape_host: 'Öffnung "{id}": Die Öffnungsform wird in der Wand "{wall}" (gebogen oder geneigt) nicht angewendet; die Öffnung wird als Rechteck ausgeschnitten.',
+  egb_issue_opening_shape_frame: 'Öffnung "{id}": Der Bogenstich passt nicht in den Rahmen, der kleiner als die Rohöffnung ist ({problems}); die Teile bleiben rechteckig (die Wandöffnung behält die Form).',
   egb_issue_wall_roof_over: 'Wand "{id}" ragt {length} über die Dachunterseite hinaus; aktivieren Sie die dachangepasste Oberkante oder senken Sie die Wand.',
   egb_issue_termino_camada_sem_funcao:
     'Schicht {camada} von {elemento} endet an einer Schicht der Wand {parede}, aber diese Wand hat auf der {lado} Seite keine Funktion "{funcao}": Die Kante ging zur nächsten Schicht, zur gegenüberliegenden Seite.',
@@ -819,6 +823,7 @@ export const FR_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Ouverture "{id}" dans un mur courbe incliné : la baie est trop large pour le plan incliné ; la coupe utilise le plan vertical.',
   egb_issue_opening_shape_invalid: 'Ouverture "{id}" : forme de baie invalide ({problems}) ; la baie est découpée en rectangle.',
   egb_issue_opening_shape_host: 'Ouverture "{id}" : la forme de la baie n\'est pas appliquée dans le mur "{wall}" (courbe ou incliné) ; la baie est découpée en rectangle.',
+  egb_issue_opening_shape_frame: 'Ouverture "{id}" : la flèche de l\'arc ne tient pas dans le cadre, plus petit que la baie brute ({problems}) ; les pièces restent rectangulaires (le trou du mur garde la forme).',
   egb_issue_wall_roof_over: 'Le mur "{id}" dépasse de {length} sous la face inférieure du toit ; activez le sommet ajusté au toit ou abaissez le mur.',
   egb_issue_termino_camada_sem_funcao:
     'La couche {camada} de {elemento} s\'arrête à une couche du mur {parede}, mais ce mur n\'a pas la fonction "{funcao}" du côté {lado} : le bord est passé à la couche suivante, vers le côté opposé.',
@@ -1012,6 +1017,7 @@ export const IT_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Apertura "{id}" in parete curva inclinata: il vano è troppo largo per il piano inclinato; il taglio usa il piano verticale.',
   egb_issue_opening_shape_invalid: 'Apertura "{id}": forma del vano non valida ({problems}); il vano viene tagliato come rettangolo.',
   egb_issue_opening_shape_host: 'Apertura "{id}": la forma del vano non è applicata nella parete "{wall}" (curva o inclinata); il vano viene tagliato come rettangolo.',
+  egb_issue_opening_shape_frame: 'Apertura "{id}": la freccia dell\'arco non entra nel telaio, più piccolo del vano grezzo ({problems}); i pezzi restano rettangolari (il foro nel muro mantiene la forma).',
   egb_issue_wall_roof_over: 'La parete "{id}" sporge di {length} sotto la faccia inferiore del tetto; attiva la sommità adattata al tetto o abbassa la parete.',
   egb_issue_termino_camada_sem_funcao:
     'Lo strato {camada} di {elemento} termina su uno strato della parete {parede}, ma questa parete non ha la funzione "{funcao}" sul lato {lado}: il bordo è passato allo strato successivo, verso il lato opposto.',
@@ -1205,6 +1211,7 @@ export const PL_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_plane_arc: 'Otwór "{id}" w pochylonej ścianie łukowej: otwór jest zbyt szeroki dla płaszczyzny pochylonej; cięcie używa płaszczyzny pionowej.',
   egb_issue_opening_shape_invalid: 'Otwór "{id}": nieprawidłowy kształt otworu ({problems}); otwór jest wycinany jako prostokąt.',
   egb_issue_opening_shape_host: 'Otwór "{id}": kształt otworu nie jest stosowany w ścianie "{wall}" (łukowej lub pochylonej); otwór jest wycinany jako prostokąt.',
+  egb_issue_opening_shape_frame: 'Otwór "{id}": strzałka łuku nie mieści się w ościeżnicy mniejszej od otworu surowego ({problems}); elementy pozostają prostokątne (otwór w ścianie zachowuje kształt).',
   egb_issue_wall_roof_over: 'Ściana "{id}" wystaje {length} poza spód dachu; włącz górę dopasowaną do dachu lub obniż ścianę.',
   egb_issue_termino_camada_sem_funcao:
     'Warstwa {camada} elementu {elemento} kończy się na warstwie ściany {parede}, ale ta ściana nie ma funkcji "{funcao}" po stronie {lado}: krawędź przeszła do następnej warstwy, w stronę przeciwną.',

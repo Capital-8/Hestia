@@ -8,7 +8,7 @@
  * e composição) e se a instância tem override de peitoril e de altura. A largura, a altura efetiva, o vão bruto, o
  * centro, `u`, `n` e o `cutHalf` o Rust calcula a partir do quadro da parede.
  */
-import { openingCasing, openingFrame, openingFrameDepth, openingFrameStyle, openingType, openingsOfWall, type Id, type Opening, type OpeningFrameStyle, type OpeningType, type PlanSymbol, type Project, type WrapMode } from '@hestia/model';
+import { openingCasing, openingFrame, openingFrameDepth, openingFrameStyle, openingRough, openingType, openingsOfWall, type Id, type Opening, type OpeningFrameStyle, type OpeningType, type PlanSymbol, type Project, type WrapMode } from '@hestia/model';
 import { makeReturnClipper } from './clipReturn.ts';
 import type { MultiPolygon } from '@hestia/geom';
 import { levelFrames, openingGeometry, resolveLevelTs, type PlanResolveOptions } from './resolve.ts';
@@ -28,7 +28,6 @@ const MODO: Record<WrapMode, number> = { none: 0, exterior: 1, interior: 2, both
 export const FECHAMENTO_HERDA = 4;
 
 /** `num` de `openingExtras.ts`: o que não é número finito vale 0 (o `max(0, ...)` fica no Rust). */
-const finitoOuZero = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
 export interface CenaA3 {
   secoes: { tipos_abertura: ColunasA1; aberturas: ColunasA1 };
@@ -50,8 +49,9 @@ export function empurrarTipoAbertura(tipos: ColunasA1, tn: number, t: OpeningTyp
   push(tipos, 'largura', t.width);
   push(tipos, 'altura', t.height);
   push(tipos, 'peitoril', t.sill);
-  push(tipos, 'folga_w', finitoOuZero(t.roughOversize?.w));
-  push(tipos, 'folga_h', finitoOuZero(t.roughOversize?.h));
+  // Folga total do vão bruto: a do `roughOversize` mais a de assentamento (2 × por lado), como o furo da parede.
+  push(tipos, 'folga_w', openingRough(t).width - t.width);
+  push(tipos, 'folga_h', openingRough(t).height - t.height);
   push(tipos, 'folhas', t.leaves);
   push(tipos, 'plano', PLANOS.indexOf(t.plan));
   // Colunas da v5 (retornos): o que `insertMode` e `insertReturns` leem do tipo, já resolvido (o Rust não deriva padrões).
