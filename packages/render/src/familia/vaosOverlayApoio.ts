@@ -291,3 +291,35 @@ export function calcularPontoLocalNoVao(
   const raioLocal = raycaster.ray.clone().applyMatrix4(matrizInversa);
   return pontoMedioRaioNaCaixa(raioLocal, escolhido.vao.min, escolhido.vao.max) ?? pontoLocal;
 }
+
+export function atualizarBlocoChapaFantasma(
+  chapaFantasma: BlocoVisual,
+  vao: VaoResolvido,
+  eixo: 'x' | 'z',
+  posicaoNormalizada: number,
+  espessuraPadraoMm: number,
+): void {
+  const espM = Math.max(0.004, espessuraPadraoMm / 1000);
+  const lx = Math.max(1e-4, vao.max[0] - vao.min[0]);
+  const ly = Math.max(1e-4, vao.max[1] - vao.min[1]);
+  const lz = Math.max(1e-4, vao.max[2] - vao.min[2]);
+  const cx = (vao.min[0] + vao.max[0]) / 2;
+  const cy = (vao.min[1] + vao.max[1]) / 2;
+  const cz = (vao.min[2] + vao.max[2]) / 2;
+
+  if (eixo === 'z') {
+    const zPos = vao.min[2] + posicaoNormalizada * lz;
+    chapaFantasma.grupo.position.set(cx, cy, zPos);
+    chapaFantasma.grupo.scale.set(lx, ly, Math.min(espM, lz));
+  } else {
+    const xPos = vao.min[0] + posicaoNormalizada * lx;
+    chapaFantasma.grupo.position.set(xPos, cy, cz);
+    chapaFantasma.grupo.scale.set(Math.min(espM, lx), ly, lz);
+  }
+
+  const noCentro = posicaoNormalizada === 0.5;
+  chapaFantasma.material.color.setHex(noCentro ? COR_FANTASMA_IMA : COR_FANTASMA);
+  chapaFantasma.material.opacity = noCentro ? 0.6 : 0.46;
+  chapaFantasma.materialArestas.color.setHex(noCentro ? COR_FANTASMA_IMA_ARESTA : COR_FANTASMA_ARESTA);
+  chapaFantasma.grupo.visible = true;
+}

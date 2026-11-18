@@ -11,12 +11,11 @@ import {
   COR_FACE_HOVER,
   COR_FANTASMA,
   COR_FANTASMA_ARESTA,
-  COR_FANTASMA_IMA,
-  COR_FANTASMA_IMA_ARESTA,
   COR_HOVER_VAO,
   COR_SEL_VAO,
   COR_SETA_FRENTE,
   FACES_EXTERNAS,
+  atualizarBlocoChapaFantasma,
   calcularPontoLocalNoVao,
   calcularPosicaoNoVao,
   criarBlocoVisual,
@@ -270,7 +269,13 @@ export class VaosOverlay {
     this.highlightHoverVao.grupo.visible = true;
 
     if (modoUsaChapaFantasma(this.modo)) {
-      this.atualizarChapaFantasma(resultado.vao, resultado.hover.eixo, resultado.hover.posicaoNormalizada);
+      atualizarBlocoChapaFantasma(
+        this.chapaFantasma,
+        resultado.vao,
+        resultado.hover.eixo,
+        resultado.hover.posicaoNormalizada,
+        this.espessuraPadraoMm,
+      );
     } else {
       this.chapaFantasma.grupo.visible = false;
     }
@@ -412,32 +417,6 @@ export class VaosOverlay {
     );
   }
 
-  private atualizarChapaFantasma(vao: VaoResolvido, eixo: 'x' | 'z', posicaoNormalizada: number): void {
-    const espM = Math.max(0.004, this.espessuraPadraoMm / 1000);
-    const lx = Math.max(1e-4, vao.max[0] - vao.min[0]);
-    const ly = Math.max(1e-4, vao.max[1] - vao.min[1]);
-    const lz = Math.max(1e-4, vao.max[2] - vao.min[2]);
-    const cx = (vao.min[0] + vao.max[0]) / 2;
-    const cy = (vao.min[1] + vao.max[1]) / 2;
-    const cz = (vao.min[2] + vao.max[2]) / 2;
-
-    if (eixo === 'z') {
-      const zPos = vao.min[2] + posicaoNormalizada * lz;
-      this.chapaFantasma.grupo.position.set(cx, cy, zPos);
-      this.chapaFantasma.grupo.scale.set(lx, ly, Math.min(espM, lz));
-    } else {
-      const xPos = vao.min[0] + posicaoNormalizada * lx;
-      this.chapaFantasma.grupo.position.set(xPos, cy, cz);
-      this.chapaFantasma.grupo.scale.set(Math.min(espM, lx), ly, lz);
-    }
-
-    const noCentro = posicaoNormalizada === 0.5;
-    this.chapaFantasma.material.color.setHex(noCentro ? COR_FANTASMA_IMA : COR_FANTASMA);
-    this.chapaFantasma.material.opacity = noCentro ? 0.6 : 0.46;
-    this.chapaFantasma.materialArestas.color.setHex(noCentro ? COR_FANTASMA_IMA_ARESTA : COR_FANTASMA_ARESTA);
-    this.chapaFantasma.grupo.visible = true;
-  }
-
   private escolherFaceSob(raycaster: THREE.Raycaster): FaceExternaCaixa | null {
     const limites = this.obterLimitesEfetivos();
     if (limites === null) return null;
@@ -448,8 +427,6 @@ export class VaosOverlay {
     if (primeiro === undefined) return null;
     return this.faceDoMesh.get(primeiro.object) ?? null;
   }
-
-  private resolverVaoSob(
 
   private resolverVaoSob(
     raycaster: THREE.Raycaster,
