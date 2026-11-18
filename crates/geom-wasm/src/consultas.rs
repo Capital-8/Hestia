@@ -316,7 +316,11 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
                 return Err(ENTRADA);
             }
             if id == esquema::CONSULTA_TERRENO_CURVAS {
-                crate::terreno_curvas::consulta_terreno_curvas(cena, nivel, superficie)
+                let tol = arg_finito(args[2])?;
+                if tol < 0.0 {
+                    return Err(ENTRADA);
+                }
+                crate::terreno_curvas::consulta_terreno_curvas(cena, nivel, superficie, tol)
             } else {
                 crate::terreno_planta::consulta_terreno_planta(cena, nivel, superficie)
             }

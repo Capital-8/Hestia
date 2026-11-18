@@ -1598,7 +1598,7 @@ pub const CONSULTAS: &[Consulta] = &[
     Consulta {
         id: CONSULTA_TERRENO_CURVAS,
         nome: "terreno_curvas",
-        args: &["nivel_num", "superficie"],
+        args: &["nivel_num", "superficie", "tolerancia"],
         args_variaveis: false,
         saidas: &[
             SaidaDef { nome: "linhas", tipo: Tipo::U32, elementos: Elementos::Multiplo(4) },
