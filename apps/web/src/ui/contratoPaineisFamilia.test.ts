@@ -25,10 +25,12 @@ const COM_FAMILIA = [
   'ColumnProperties.tsx',
   'BeamProperties.tsx',
   'FootingProperties.tsx',
+  'TerrainProperties.tsx',
+  'LotProperties.tsx',
 ];
 
 /** Painéis sem família/tipo (não têm seletor de tipo). */
-const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementProperties.tsx', 'RoomProperties.tsx', 'MassProperties.tsx'];
+const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementProperties.tsx', 'RoomProperties.tsx', 'MassProperties.tsx', 'TerrainRegionProperties.tsx'];
 
 /**
  * Exceções EXPLÍCITAS, com TODO: painel de família fora do padrão. Quando passar a usar o cabeçalho padrão, o teste

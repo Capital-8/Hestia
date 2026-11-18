@@ -1,4 +1,4 @@
-import { unitsOf, type Id, type Project } from '@hestia/model';
+import { cotaExibida, unitsOf, type Id, type Project } from '@hestia/model';
 import { levelBox } from '../plan/build.ts';
 
 /**
@@ -91,7 +91,7 @@ export function levelDataOf(p: Project, offset = LEVEL_LINE_OFFSET): LevelDatum[
       levelId: l.id,
       name: l.name,
       elevation: l.elevation,
-      text: `${l.name} ${levelElevationLabel(l.elevation, unitsOf(p).decimalSymbol)}`,
+      text: `${l.name} ${levelElevationLabel(cotaExibida(p, l.elevation), unitsOf(p).decimalSymbol)}`,
       ...(below === undefined ? {} : { deltaBelow: l.elevation - below.elevation }),
       ...(above === undefined ? {} : { deltaAbove: above.elevation - l.elevation }),
       line: { a: { x: box.minX, y: box.minY, z }, b: { x: box.maxX, y: box.minY, z } },

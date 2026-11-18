@@ -26,6 +26,12 @@ import { DE_PROPS_OPTIONS } from '../../areas/props-options.ts';
 import { DE_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { DE_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { DE_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
+import { DE_TERRENO } from '../../areas/terreno.ts';
+import { DE_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { DE_GRAVIDADE } from '../../areas/gravidade.ts';
+import { DE_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { DE_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { DE_LOTE_UI } from '../../areas/lote-ui.ts';
 import { DE_MASSA } from '../../areas/massa.ts';
 import { DE_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { DE_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -40,6 +46,12 @@ export const DE_ALL = {
   ...DE_STRUCTURAL,
   ...DE_TAGGING,
   ...DE_GUARDA_CORPO,
+  ...DE_TERRENO,
+  ...DE_TERRENO_VISTA,
+  ...DE_GRAVIDADE,
+  ...DE_TERRENO_TABELA,
+  ...DE_LOTE_TABELA,
+  ...DE_LOTE_UI,
   ...DE_MASSA,
   ...DE_MASSA_PISOS,
   ...DE_MASSA_PAREDES,

@@ -9,7 +9,7 @@ import { t as translate, type Lang } from './i18n.ts';
 
 /** Deslocamento calculado pelo Alinhar. `nada` = já alinhado; `erro` = recusa com a explicação em português. */
 export type AlignSolution =
-  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa'; id: Id; d: Vec2; distance: number }
+  | { kind: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa' | 'terreno' | 'regiao' | 'lote'; id: Id; d: Vec2; distance: number }
   | { kind: 'ponta'; wallId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
   | { kind: 'pontaViga'; beamId: Id; end: 'a' | 'b'; to: Vec2; distance: number }
   | { kind: 'abertura'; openingId: Id; offset: number; distance: number }

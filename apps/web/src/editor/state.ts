@@ -4,6 +4,7 @@ import type { Vec2 } from '@hestia/geom';
 import type { Backend } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type DimCustomTarget, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
 import { safeGet, safeSet } from './storage.ts';
+import { guardarGravidade, lerGravidade } from './sessao.ts';
 import { selectionAfterClick } from './selectionClick.ts';
 import { activeViewOf, addView, type OpenView, type PlanKind } from './openViews.ts';
 import type { RibbonTabId } from '../ui/ribbon/model.ts';
@@ -20,7 +21,7 @@ export type ThemePref = 'system' | 'light' | 'dark';
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'terrainContourFamilies' | 'terrainSpotFamilies' | 'lotFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
 
 export interface UiState {
   tool: ToolId;
@@ -43,6 +44,10 @@ export interface UiState {
   /** Hide/isolate/reveal temporários por vista (sessão; não vai para o projeto). */
   viewTemp: Record<string, TempViewVisibility>;
   selection: Id[];
+  /** Modo "Editar terreno" (T2): terreno em edição, ou null fora do modo. Vale só com a ferramenta `terrainEdit` ativa (ver `terrenoEdicao.ts`). */
+  terrenoEdicao: { terrenoId: Id } | null;
+  /** Mapa de corte e aterro ligado na planta (U2): corte em vermelho e aterro em azul sobre o terreno. Desligado por padrão. */
+  mapaCorteAterro: boolean;
   /** Prévia do colar alinhado a vários níveis; null fora do modo de conferência. */
   pastePreview: PastePreviewState | null;
   /** Nível selecionado no 3D (a seleção de elementos fica vazia quando há um). */
@@ -94,6 +99,8 @@ export interface UiState {
   dimEditId: string | null;
   cursor: { x: number; y: number } | null;
   snapKind: string;
+  /** Gravidade (G1): o elemento novo nasce na cota do terreno proposto sob o primeiro clique. Guardada na sessão da aba. */
+  gravidade: boolean;
   seen3d: boolean;
   /** Aba da faixa escolhida; 'ctx' é a aba contextual verde. */
   ribbon: RibbonTabId;
@@ -192,6 +199,14 @@ export function setSnap(patch: Partial<SnapOptions>): void {
   } catch {
     // Armazenamento indisponível (janela privada, dados bloqueados): a captura vale só nesta sessão.
   }
+}
+
+/** Liga/desliga a gravidade (cota inicial do elemento vinda do terreno) e guarda a escolha na sessão. */
+export function toggleGravidade(): boolean {
+  const next = !useUi.getState().gravidade;
+  guardarGravidade(next);
+  useUi.setState({ gravidade: next, status: { key: next ? 'ui_gv_status_on' : 'ui_gv_status_off' } });
+  return next;
 }
 
 /** Liga/desliga o modo ortogonal global (F8): só a projeção nos eixos 0°/90° enquanto ativo. */
@@ -361,6 +376,8 @@ export const useUi = create<UiState>(() => ({
   sectionId: null,
   sheetId: null,
   selection: [],
+  terrenoEdicao: null,
+  mapaCorteAterro: false,
   pastePreview: null,
   selectedLevel: null,
   hover: null,
@@ -394,6 +411,7 @@ export const useUi = create<UiState>(() => ({
   dimEditId: null,
   cursor: null,
   snapKind: '',
+  gravidade: lerGravidade(),
   seen3d: false,
   ribbon: 'arquitetura',
   ribbonBack: 'arquitetura',

@@ -13,6 +13,10 @@ import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
 import { genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
+import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
+import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
+import { registrarAlcasDoLote, removerVerticeDoFocoDoLote } from './lotHandles.ts';
+import { lotIdsInBox, pickLoteAt } from './lotPick.ts';
 import { massIdsInBox, pickMassAt } from './massPick.ts';
 import { massHandlePreview } from './massHandles.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
@@ -32,6 +36,7 @@ import { gripHoldAt, annotationGripHoldAt, previasDeAlcas, ringHandlePreview, ty
 import { pickStairAt, stairEndpoints, stairIdsInBox } from './stairPick.ts';
 import { pickRampAt, rampEndpoints, rampIdsInBox } from './rampPick.ts';
 import { annotationAt, annotationIdsInBox, detailItemAt, dimBodyAt, dimGripAt, dimTextGripAt, elementTagGripAt, overlayAnnotationAt, roomTagAt, roomTagIdsInBox, roomTagRing, signedOffset, spotGripAt, symbolGripAt, textAtAcompanhando, textGripAt, viewAnnotationsOf } from './annotationPick.ts';
+import { itemDeTerrenoNoPonto, itensDeTerrenoNaJanela, geometriaDoItemDeTerreno } from './terrainItensPick.ts';
 import { sectionMarkAt, sectionMarkIdsInBox } from './sectionMarkPick.ts';
 import { DIM_MIN_LENGTH, dimensionGeometry, dimensionPoints, sectionPoints } from '@hestia/model';
 import { gridGhosts, gridHandlePreview, gridIdsInBox, moveGrids, pickGridAt, selectedGrids } from './gridGeom.ts';
@@ -41,12 +46,17 @@ import { spiralHandlePreview } from './stairSpiralGrips.ts';
 import { rampHandlePreview } from './rampGrips.ts';
 import type { PointerInfo } from './types.ts';
 
+// As alças de vértice da região de terreno entram na seleção (uma vez só; ver `terrainRegionHandles.ts`).
+registrarAlcasDaRegiao();
+// As alças de vértice do lote (mover, inserir e remover vértice) entram na seleção do mesmo jeito.
+registrarAlcasDoLote();
+
 type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove' | 'eltagmove' | 'spotmove' | 'symbolmove';
 
 /** Elemento sob o cursor: parede, abertura ou piso. */
 interface AnyHit {
   id: Id;
-  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'mass' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
+  kind: 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'ceiling' | 'roof' | 'stair' | 'ramp' | 'railing' | 'mass' | 'terrain' | 'lot' | 'generic' | 'roomSeparator' | 'room' | 'annotation' | 'view' | 'grid' | 'column' | 'beam' | 'footing';
 }
 
 const fmtLen = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length', m);
@@ -58,7 +68,7 @@ const soma = (p: PointerInfo): boolean => p.shift || p.ctrl;
  * Categorias de modelo: na planta de área elas só se selecionam (clique e janela). Arrasto, alças e fantasmas de mover
  * são de edição, e a planta de área é vista de análise/anotação. Anotação, vista e separador de ambiente não são modelo.
  */
-const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
+const MODELO = new Set<AnyHit['kind']>(['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'terrain', 'lot', 'generic', 'room', 'grid', 'column', 'beam', 'footing']);
 const ehModelo = (kind: AnyHit['kind']): boolean => MODELO.has(kind);
 
 export class SelectTool extends ToolBase {
@@ -207,6 +217,9 @@ export class SelectTool extends ToolBase {
     if (detail && !hidden?.has(detail)) return { id: detail, kind: 'annotation' };
     const overlay = overlayAnnotationAt(pr, lv, at, mpp, planId);
     if (overlay && !hidden?.has(overlay)) return { id: overlay, kind: 'annotation' };
+    // Cota de ponto e linha de rótulo de curva do terreno (planta de piso): anotações do terreno, por cima do modelo.
+    const itemTn = planId ? null : itemDeTerrenoNoPonto(pr, lv, at, mpp, hidden);
+    if (itemTn) return { id: itemTn, kind: 'annotation' };
     // Na planta de área as anotações são o alvo da vista e ficam por cima do modelo desenhado (paredes claras, piso,
     // ambiente): elas vêm antes do modelo para não ficarem inalcançáveis sob um ambiente. Na planta de piso a ordem
     // continua a de sempre (o elemento ganha da anotação).
@@ -252,6 +265,12 @@ export class SelectTool extends ToolBase {
     // Objeto importado (viga, pilar, mobiliário...): contorno em planta; abaixo de piso/laje/telhado e acima de ambiente.
     const gn = genericAt(vp, lv, at, mpp);
     if (gn) return { id: gn, kind: 'generic' };
+    // Terreno e região de terreno: pela borda, curva de nível ou contorno (o interior NÃO seleciona; A.8 item 7).
+    const tn = pickTerrenoAt(pr, lv, at, 6 * mpp, this.env.hiddenInView?.());
+    if (tn) return { id: tn, kind: 'terrain' };
+    // Lote: pelo contorno (o interior NÃO seleciona; A.8 item 7).
+    const lt = pickLoteAt(pr, lv, at, 6 * mpp, this.env.hiddenInView?.());
+    if (lt) return { id: lt, kind: 'lot' };
     // Massa: o anel cortado do kernel (ou a base, sem kernel); o clique no piso, na laje, no telhado ou no objeto que estão sob ela continua ganhando (a massa é estudo volumétrico); vem antes do ambiente.
     const ms = pickMassAt(pr, lv, at, mpp, this.env.hiddenInView?.());
     if (ms) return { id: ms, kind: 'mass' };
@@ -285,6 +304,12 @@ export class SelectTool extends ToolBase {
       for (const id of rings) {
         const ring = roomTagRing(pr, id, this.planId());
         if (ring) this.items.push({ kind: 'polygon', ring, dashed: !this.env.selection().includes(id) });
+        const gi = geometriaDoItemDeTerreno(pr, id);
+        if (gi && 'ponto' in gi) {
+          const r = 8 * this.env.metersPerPixel();
+          const c = gi.ponto;
+          this.items.push({ kind: 'polygon', ring: [{ x: c.x - r, y: c.y - r }, { x: c.x + r, y: c.y - r }, { x: c.x + r, y: c.y + r }, { x: c.x - r, y: c.y + r }], dashed: !this.env.selection().includes(id) });
+        } else if (gi) this.items.push({ kind: 'line', a: gi.a, b: gi.b, dashed: !this.env.selection().includes(id) });
       }
     }
     this.inf = grip ? { point: grip.at, kind: 'endpoint', guides: [] } : null;
@@ -371,6 +396,20 @@ export class SelectTool extends ToolBase {
   /** Delete com vértice de piso em foco: remove o vértice (mantendo ao menos 3). Senão, o Delete exclui a seleção. */
   deleteKey(): boolean {
     const pr = this.env.project();
+    // Vértice de região de terreno em foco: remove o vértice (a região mantém ao menos 3).
+    if (this.focus) {
+      const r = removerVerticeDaRegiao(this.env, this.focus);
+      if (r !== null) {
+        if (r) this.focus = r;
+        return true;
+      }
+      // Vértice de lote em foco: remove o vértice e funde os dois lados (o lote mantém ao menos 3).
+      const lt = removerVerticeDoFocoDoLote(this.env, this.focus);
+      if (lt !== null) {
+        if (lt) this.focus = lt;
+        return true;
+      }
+    }
     const f = this.focus ? pr.elements[this.focus.id] : undefined;
     const ring0 = f && (isFloor(f) || isSlab(f) || isRoof(f) || isCeiling(f)) ? (isCeiling(f) ? ceilingOutline(pr, f).boundary : f.boundary) : null;
     if (!this.focus || !f || ring0 === null || !this.env.selection().includes(f.id) || this.focus.index >= ring0.length) {
@@ -682,6 +721,8 @@ export class SelectTool extends ToolBase {
           ...stairIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...rampIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...roomIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
+          ...pickTerrenosInBox(vp, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
+          ...lotIdsInBox(vp, this.env.levelId(), this.downPt, p.raw, this.env.hiddenInView?.()),
           ...cadIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...columnIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
           ...beamIdsInBox(vp, this.env.levelId(), this.downPt, p.raw),
@@ -689,6 +730,7 @@ export class SelectTool extends ToolBase {
           ...(ly && !ly.grids ? [] : gridIdsInBox(pr, this.downPt, p.raw)),
           ...(ly && !ly.sectionMarks ? [] : sectionMarkIdsInBox(pr, this.env.levelId(), this.downPt, p.raw)),
           ...roomTagIdsInBox(pr, this.downPt, p.raw, this.planId()),
+          ...(this.planId() ? [] : itensDeTerrenoNaJanela(pr, this.env.levelId(), this.downPt, p.raw, hidden)),
           ...annotationIdsInBox(pr, this.env.levelId(), this.downPt, p.raw, this.env.metersPerPixel(), this.planId()),
         ].filter((id) => !hidden?.has(id));
         const cur = this.env.selection();

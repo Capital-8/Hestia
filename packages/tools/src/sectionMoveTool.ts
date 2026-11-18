@@ -5,7 +5,7 @@ import { ToolBase } from './base.ts';
 import { cotaDoDeslocamento, deslocamentoDigitado, fmtDisplacement, SessaoDeCopias } from './gestoDeslocamento.ts';
 import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { aceitaVerticalNoCorte, comandosMoverNoCorte, moveisDoCorte } from './sectionMoverElementos.ts';
-import { fantasmaDoMover, formasDasNotas, SEM_NOTAS, type AlvosDoMover } from './sectionMoverPrevia.ts';
+import { fantasmaDoMover, formasDasNotas, linhasDoTerrenoParaFantasma, SEM_NOTAS, type AlvosDoMover } from './sectionMoverPrevia.ts';
 import { guardaCorpoPieces, moveSectionAnnotations, pickSectionElement, resultPieces, sectionDirection, sectionResult, selectedOpenings } from './sectionEditTools.ts';
 import { refuseCopyOverlap, refuseMoveOverlap } from './wallOverlapGuard.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
@@ -113,7 +113,7 @@ export class SectionMoveTool extends ToolBase {
     this.items.push({ kind: 'line', a: this.base, b: inf.point, dashed: true });
     const result = sectionResult(this.env);
     const u = sectionDirection(this.env);
-    if (result && u) this.items.push(...fantasmaDoMover(this.env.project(), result, resultPieces(result), guardaCorpoPieces(this.env, result), alvos, u, d.x, d.y));
+    if (result && u) this.items.push(...fantasmaDoMover(this.env.project(), result, resultPieces(result), guardaCorpoPieces(this.env, result), alvos, u, d.x, d.y, linhasDoTerrenoParaFantasma(this.env.project(), result)));
     this.items.push({ kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), d) });
   }
 

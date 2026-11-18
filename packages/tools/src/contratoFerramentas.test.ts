@@ -37,6 +37,15 @@ const LINEARES: Record<string, string> = {
   stairrun: 'stairRunTool.ts',
   ramp: 'rampTool.ts',
   angularDimension: 'angularDimensionTool.ts',
+  // Topografia: as curvas de nível são polilinhas desenhadas pelo núcleo comum (os pontos soltos são cliques únicos).
+  terrain: 'terrainTool.ts',
+  // Editar terreno: curva, linha de quebra e borda são polilinhas do núcleo comum. Rótulo de curva: linha de 2 pontos pelo mesmo núcleo.
+  terrainEdit: 'terrainEditTool.ts',
+  terrainLabel: 'terrainLabelTool.ts',
+  // Região de terreno (Subdivisão, Plataforma e Região nivelada): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
+  terrainRegion: 'terrainRegionTool.ts',
+  // Linhas de propriedade (lote): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
+  lot: 'lotTool.ts',
   beam: 'beamTool.ts',
   // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
   plugin: 'pluginTool.ts',
@@ -55,8 +64,8 @@ const EXCECOES_TODO: Record<string, string> = {
 const SEM_TRACADO = new Set([
   'select', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'move', 'copy', 'rotate', 'mirror', 'array',
   'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'measure', 'level', 'rehost', 'attachroof', 'detachroof', 'text', 'room', 'tag', 'paste', 'column', 'footing',
-  // Anotações pontuais (um clique): cota de nível, cota de coordenada e seta de norte.
-  'spotElevation', 'spotCoordinate', 'northArrow',
+  // Anotações pontuais (um clique): cota de nível, cota de coordenada e seta de norte; e a cota de ponto do terreno.
+  'spotElevation', 'spotCoordinate', 'northArrow', 'terrainSpot',
 ]);
 
 function idsDoRegistro(): string[] {

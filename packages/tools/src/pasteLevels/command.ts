@@ -1,5 +1,6 @@
+/* eslint-disable max-lines */
 import {
-  applyCommand, newId, type Beam, type Column, type Command, type Element, type Floor, type Footing,
+  applyCommand, copiarTerreno, newId, type Beam, type Column, type Command, type Element, type Floor, type Footing,
   type Id, type Mass, type Opening, type Project, type Room, type Roof, type Slab, type Wall,
 } from '@hestia/model';
 import { rampTypeId } from '../rampCommands.ts';
@@ -32,6 +33,7 @@ function buildLevel(
   mint: MintId,
   warnings: PasteWarning[],
   calcularAvisos: boolean,
+  comTerreno: boolean,
 ): BuiltLevel {
   const ids = emptyPasteIds();
   const sources = emptySources();
@@ -256,6 +258,40 @@ function buildLevel(
     commands.push({ type: 'addMass', mass: massa });
   }
 
+  // Terreno e regiões (só no colar de um nível): cada região vai para o terreno NOVO; região sem o terreno no buffer fica no original.
+  if (comTerreno) {
+    const terrenoMap = new Map<Id, Id>();
+    for (const tn of clip.terrains ?? []) {
+      const { order: _order, ...rest } = tn;
+      const id = mint('tn');
+      terrenoMap.set(tn.id, id);
+      ids.terrains.push(id);
+      commands.push({ type: 'addTerrain', terrain: { ...copiarTerreno(rest), id, levelId } });
+    }
+    for (const r of clip.terrainRegions ?? []) {
+      // Região do terreno colado: vai para o terreno NOVO. Região colada SEM o terreno no buffer: fica no terreno original (se ainda existir),
+      // no nível dele (o terreno é um só para todos os níveis).
+      const novoTerreno = terrenoMap.get(r.terrenoId);
+      const dono = p.elements[r.terrenoId];
+      const donoTerreno = dono?.kind === 'terrain' ? dono : null;
+      const terrenoId = novoTerreno ?? donoTerreno?.id;
+      const nivel = novoTerreno ? levelId : donoTerreno?.levelId;
+      if (!terrenoId || !nivel) continue;
+      const { order: _order, ...rest } = r;
+      const id = mint('rg');
+      ids.terrainRegions.push(id);
+      commands.push({ type: 'addTerrainRegion', regiao: { ...rest, id, levelId: nivel, terrenoId, contorno: rest.contorno.map((q) => ({ ...q })) } });
+    }
+  }
+
+  // Lotes: 2D, vão a todo nível de destino com os mesmos lados (papel e recuo), cada um com id novo.
+  for (const l of clip.lots ?? []) {
+    const { order: _order, ...rest } = l;
+    const id = mint('lt');
+    ids.lots.push(id);
+    commands.push({ type: 'addLot', lot: { ...rest, id, levelId, contorno: rest.contorno.map((q) => ({ ...q })), lados: rest.lados.map((x) => ({ ...x })), limites: { ...rest.limites } } });
+  }
+
   // Aberturas sempre na parede copiada do MESMO nível de destino.
   for (const o of clip.openings) {
     const hostId = hostMap.get(o.hostId);
@@ -406,7 +442,9 @@ export function pasteAlignedToLevelsCommand(
   levelIds: Id[],
   o: PasteLevelsOptions = {},
 ): PasteLevelsResult | null {
-  if (!hasContent(clip)) return null;
+  // Terreno: cotas absolutas, um só para todos os níveis. Só o colar de um nível o leva (colar entre pavimentos o deixa de fora).
+  const comTerreno = levelIds.length === 1;
+  if (!hasContent(clip, comTerreno)) return null;
   if (levelIds.length === 0) return null;
   if (new Set(levelIds).size !== levelIds.length) return null;
   if (!levelIds.every((id) => p.levels.some((l) => l.id === id))) return null;
@@ -421,7 +459,7 @@ export function pasteAlignedToLevelsCommand(
   const sourcesByLevel: Record<Id, Record<keyof PasteIds, Id[]>> = {};
 
   for (const levelId of levelIds) {
-    const built = buildLevel(p, clip, levelId, srcLevelId, multiLevel, mint, warnings, o.semAvisos !== true);
+    const built = buildLevel(p, clip, levelId, srcLevelId, multiLevel, mint, warnings, o.semAvisos !== true, comTerreno);
     commands.push(...built.commands);
     byLevel[levelId] = built.ids;
     sourcesByLevel[levelId] = built.sources;

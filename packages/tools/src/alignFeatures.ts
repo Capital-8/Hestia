@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { arcFromSagitta, arcLocal, arcPointAt, arcTangentAt, closestOnSegment, dist, norm, sub, type SketchDraft, type Vec2 } from '@hestia/geom';
 import { ceilingOutline, frameOfWall, normalAt, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
 import { t as translate, type Lang } from './i18n.ts';
@@ -11,6 +12,9 @@ import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
 import { planComponentsInLevel, type PlanComponent } from './componentLevels.ts';
 import { distToCurve } from './stairPickLines.ts';
 import { railingPolylines } from './railingPick.ts';
+import { bordasDeTerreno } from './terrainHandles.ts';
+import { bordasDeRegiao } from './terrainRegionHandles.ts';
+import { bordasDoLote } from './lotHandles.ts';
 import { gridPath } from './gridGeom.ts';
 import { buildBeamFeatures, buildColumnFeatures, buildFootingFeatures } from './structuralAlignFeatures.ts';
 import { massFeatures } from './massAlinhar.ts';
@@ -29,6 +33,8 @@ export type AlignKind =
   | 'centroAbertura'
   | 'arestaAnel'
   | 'linhaEsboco'
+  | 'bordaTerreno'
+  | 'bordaRegiao' | 'bordaLote'
   | 'arestaEscada'
   | 'arestaRampa'
   | 'caminhoGuardaCorpo'
@@ -56,7 +62,7 @@ export interface AlignLine {
  * vizinhos acompanham); `esboco` move a linha do esboço; `nenhum` serve só como referência.
  */
 export type AlignMove =
-  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa'; id: Id }
+  | { policy: 'transladar'; target: 'parede' | 'escada' | 'rampa' | 'grade' | 'guardaCorpo' | 'pilar' | 'viga' | 'sapata' | 'massa' | 'terreno' | 'regiao' | 'lote'; id: Id }
   | { policy: 'ponta'; wallId: Id; end: 'a' | 'b' }
   | { policy: 'pontaViga'; beamId: Id; end: 'a' | 'b' }
   | { policy: 'abertura'; openingId: Id; hostId: Id; anchor: 'inicio' | 'fim' | 'centro'; width: number }
@@ -450,6 +456,16 @@ function referenceLineFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, p
   return out;
 }
 
+/**
+ * Contorno de terreno, região de terreno e lote: a aresta translada o elemento (o terreno leva as regiões, no `applyAlign`; região e lote
+ * andam sós). O rótulo reusa "aresta do {type}".
+ */
+function bordasDoSitio(q: AlignQuery): AlignFeature[] {
+  const tol = TOL_PX * q.metersPerPixel; const mk = (id: Id, i: number, nome: string, a: Vec2, b: Vec2, d: number, kind: AlignKind, target: 'terreno' | 'regiao' | 'lote'): AlignFeature =>
+    feature(`${id}:borda:${i}`, kind, translate(q.lang ?? 'pt', 'tl_msg_af_edge', { type: nome }), id, line(a, sub(b, a)), { policy: 'transladar', target, id }, d, { a, b });
+  return [...bordasDeTerreno(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.terrenoId, r.i, r.nome, r.a, r.b, r.d, 'bordaTerreno', 'terreno')), ...bordasDeRegiao(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.regiaoId, r.i, r.nome, r.a, r.b, r.d, 'bordaRegiao', 'regiao')), ...bordasDoLote(q.project, q.levelId, q.at, tol, q.hidden).map((r) => mk(r.loteId, r.i, r.nome, r.a, r.b, r.d, 'bordaLote', 'lote'))];
+}
+
 /** Feições de pilares visíveis no nível: eixos e faces. */
 export function columnFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, hidden?: ReadonlySet<Id>, lang: Lang = 'pt'): AlignFeature[] {
   return columnsOnLevel(p, levelId).filter(isColumn).flatMap((c) => buildColumnFeatures(p, c, at, mpp, hidden, lang));
@@ -479,7 +495,7 @@ export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   if (top) out.push(...top.features);
   out.push(...ringFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...stairRampFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
-  out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
+  out.push(...railingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang), ...bordasDoSitio(q));
   out.push(...columnFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...beamFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));
   out.push(...footingFeatures(q.project, q.levelId, q.at, q.metersPerPixel, q.hidden, q.lang));

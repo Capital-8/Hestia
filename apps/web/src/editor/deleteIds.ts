@@ -1,4 +1,5 @@
-import { annotationRemovals, areaPlanOf, isColumn, isFooting, isRoom, levelRoomSeparators, planAnnotationsOf, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { annotationRemovals, areaPlanOf, isColumn, isFooting, isRoom, levelRoomSeparators, projectGrids, viewRemovals, type Command, type Id, type ProjectStore } from '@hestia/model';
+import { removerItensDeTerreno, itemDeTerrenoDoId } from '@hestia/tools';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
@@ -22,23 +23,11 @@ function executar(store: ProjectStore, commands: readonly Command[]): void {
 function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void | Promise<void> {
   const plan = areaPlanOf(store.project, planId);
   if (!plan) return;
+  // Todas as anotações da planta de área (cotas, textos, detalhes, etiquetas, cotas de ponto, nuvens e símbolos) saem pelos
+  // comandos por item, com `planId`: o mesmo caminho da planta de piso e do corte, um passo de desfazer.
   const want = new Set(ids);
-  const a = planAnnotationsOf(plan);
-  const next = {
-    dimensions: a.dimensions.filter((x) => !want.has(x.id)),
-    texts: a.texts.filter((x) => !want.has(x.id)),
-    detailLines: a.detailLines.filter((x) => !want.has(x.id)),
-    detailRegions: a.detailRegions.filter((x) => !want.has(x.id)),
-    tags: a.tags.filter((x) => !want.has(x.id)),
-  };
-  const annotationIds = new Set<Id>([
-    ...a.dimensions.map((x) => x.id),
-    ...a.texts.map((x) => x.id),
-    ...a.detailLines.map((x) => x.id),
-    ...a.detailRegions.map((x) => x.id),
-    ...a.tags.map((x) => x.id),
-  ]);
-  const removedAnnotations = annotationIds.size - (next.dimensions.length + next.texts.length + next.detailLines.length + next.detailRegions.length + next.tags.length);
+  const removedNotes = annotationRemovals(store.project, plan.levelId, ids, planId).filter((c) => 'planId' in c && c.planId === planId);
+  const removedAnnotations = removedNotes.length;
   // Etiquetas de ambiente (RoomTag) são da vista e ficam em `plan.tags`, fora de `annotations`.
   const tags = plan.tags.filter((t) => want.has(t.id)).map((t) => t.id);
   const rooms = ids.filter((id) => isRoom(store.project.elements[id]));
@@ -48,7 +37,7 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
     return;
   }
   const commands: Command[] = [];
-  if (removedAnnotations > 0) commands.push({ type: 'updateAreaPlan', id: planId, patch: { annotations: next } });
+  commands.push(...removedNotes);
   for (const id of tags) commands.push({ type: 'removeRoomTag', planId, id });
   if (rooms.length > 0) commands.push({ type: 'deleteElements', ids: rooms });
   for (const id of separators) commands.push({ type: 'removeRoomSeparator', levelId: plan.levelId, id });
@@ -94,7 +83,9 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
   const noteIds = new Set(notes.map((c) => c.id));
   const viewIds = new Set(views.map((c) => c.id));
   const sepIds = new Set(separators);
-  const elems = ids.filter((id) => !noteIds.has(id) && !viewIds.has(id) && !sepIds.has(id) && !gridIds.has(id));
+  // Cotas de ponto e linhas de rótulo do terreno (itens sem id próprio, `<terreno>#cotado:<i>`): editTerrainFontes.
+  const terrainItems = removerItensDeTerreno(store.project, ids);
+  const elems = ids.filter((id) => !noteIds.has(id) && !viewIds.has(id) && !sepIds.has(id) && !gridIds.has(id) && !itemDeTerrenoDoId(id));
   const deletedColIds = new Set(elems.filter((id) => isColumn(store.project.elements[id])));
   const unlinkedFootings = deletedColIds.size > 0
     ? Object.values(store.project.elements)
@@ -103,6 +94,7 @@ export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
     : [];
   const commands: Command[] = [
     ...notes,
+    ...terrainItems,
     ...(elems.length ? [{ type: 'deleteElements' as const, ids: elems }] : []),
     ...(unlinkedFootings.length ? [{ type: 'updateElements' as const, ids: unlinkedFootings, patch: { columnId: null } }] : []),
     ...views,

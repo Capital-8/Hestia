@@ -1,8 +1,9 @@
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SketchTarget } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeWall, type Project } from '@hestia/model';
+import { servicoTerreno } from '@hestia/engine';
 import { PerimeterTool, addSegs, newDraft, selectSegs, type NewSeg } from '@hestia/tools';
 import { editor } from './controller.ts';
 import { perimeterActions, usePerimeter } from './perimeter.ts';
@@ -335,5 +336,36 @@ describe('modo de perímetro: seleção ao cancelar a edição', () => {
     expect(useUi.getState().selection).toEqual([]);
     expect(conta('slab')).toBe(0);
     expect(conta('floor')).toBe(1);
+  });
+});
+
+describe('modo de perímetro: gravidade (G1)', () => {
+  beforeEach(iniciar);
+  afterEach(() => { vi.restoreAllMocks(); useUi.setState({ gravidade: false }); });
+
+  const alturaDoPiso = (): number => {
+    const f = Object.values(editor.project.elements).find((e) => e.kind === 'floor');
+    return f && f.kind === 'floor' ? f.heightOffset : Number.NaN;
+  };
+
+  it('ligada: o piso concluído nasce na cota do terreno sob o primeiro vértice (menos a elevação do nível)', () => {
+    vi.spyOn(servicoTerreno(), 'cotaDoTerreno').mockReturnValue([{ z: 1.25, declividade: 0.1, terrenoId: 'tn' }]);
+    useUi.setState({ gravidade: true });
+    editor.setTool('floor');
+    desenhar('floor', retangulo(0, 0, 4, 3));
+    perimeterActions.finish();
+    expect(conta('floor')).toBe(1);
+    expect(alturaDoPiso()).toBeCloseTo(1.25 - (editor.project.levels[0]?.elevation ?? 0), 9);
+  });
+
+  it('desligada: o piso concluído não muda (altura da barra, sem consultar o terreno)', () => {
+    const espiao = vi.spyOn(servicoTerreno(), 'cotaDoTerreno').mockReturnValue([{ z: 1.25, declividade: 0.1, terrenoId: 'tn' }]);
+    useUi.setState({ gravidade: false });
+    editor.setTool('floor');
+    desenhar('floor', retangulo(0, 0, 4, 3));
+    perimeterActions.finish();
+    expect(conta('floor')).toBe(1);
+    expect(alturaDoPiso()).toBe(0);
+    expect(espiao).not.toHaveBeenCalled();
   });
 });

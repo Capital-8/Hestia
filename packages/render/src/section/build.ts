@@ -1,8 +1,9 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
+import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
 import { thinStrokes } from '../plan/thin.ts';
@@ -124,6 +125,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     for (const ring of ringsOf(polygons)) revealStrokes.push({ pts: ring, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 });
   };
 
+  // Terreno (ficha V3): do kernel, ANTES do edifício (fica atrás); a categoria `site` desligada ou o terreno oculto não saem.
+  const terreno = terrenoCorteOps(p, s, theme, input.dark, hidden, paint.site, { noFill, hatchFor, halftone }, revealed);
+  fills.push(...terreno.fills); strokes.push(...terreno.strokes); revealStrokes.push(...terreno.reveal);
+
   // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento. O nome/cota do nível sai como texto de papel
   // (mm × escala da vista), sem a caixa do rótulo de interface: é anotação de nível, como a marca de corte na planta.
   for (const l of s.levels) {
@@ -151,7 +156,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
-      text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
+      text: `${l.name} ${fmt(unitsOf(input.project), cotaExibida(input.project, l.z))}`,
       papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 4.5, ux: -1, uy: -1.1 } },
       // Alinhado à direita: o texto termina depois da ponta da linha de nível e cresce para dentro do desenho (não
       // estoura a moldura da vista, como acontecia com o rótulo ancorado à esquerda).
@@ -434,6 +439,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   massaCorteOps(p, s, theme, input.dark, hidden, paint.mass, fills, strokes, input.highlight);
   guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
+  const realceTN = terrenoCorteRealce(p, s, theme, hidden, paint.site, input.highlight);
+  fills.push(...realceTN.fills); strokes.push(...realceTN.strokes);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
 
   return { background: theme.bg, fills, strokes, labels };

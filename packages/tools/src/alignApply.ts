@@ -4,6 +4,7 @@ import { vizinhaCurta } from './alignNeighbors.ts';
 import type { AlignSolution } from './alignSolve.ts';
 import { transformWalls } from './edit.ts';
 import { commitRingEdit } from './ringTarget.ts';
+import { selectedTerrenosComRegioes } from './terrainHandles.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
 import type { ToolEnv } from './types.ts';
 import { langOf, t as translate } from './i18n.ts';
@@ -45,7 +46,9 @@ export function applyAlign(env: ToolEnv, sol: AlignSolution, hooks: AlignApplyHo
       }
       return true;
     }
-    env.exec({ type: 'transform', ids: [sol.id], transform: { kind: 'translate', d: sol.d } });
+    // Terreno: leva as regiões dele (a seleção do terreno com regiões, regra 3 do contrato de modificação).
+    const ids = sol.target === 'terreno' ? selectedTerrenosComRegioes(env.project(), [sol.id]) : [sol.id];
+    env.exec({ type: 'transform', ids, transform: { kind: 'translate', d: sol.d } });
     return true;
   }
 

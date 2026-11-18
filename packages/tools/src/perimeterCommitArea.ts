@@ -22,6 +22,7 @@ import {
   type ValidationIssue,
 unitsOf,
 } from '@hestia/model';
+import { deslocamentoDoTerreno } from './gravidade.ts';
 import { OUTLINE_LOCKED_MSG } from './outlineEdit.ts';
 import { areaText, keepOrder, longestSideMid, newError, pickTypeId, refuse as refuseBase, sameRing, sameRings, withElement } from './perimeterCommitShared.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult } from './perimeterCommitTypes.ts';
@@ -125,16 +126,17 @@ function createArea(p: Project, target: AreaTarget, outer: Vec2[], holes: Vec2[]
   const boundary = link ? link.boundary : outer;
   const common = { id, levelId, boundary, holes, mark: opts.mark ?? '', comments: opts.comments ?? '' };
   const origin = link ? { outlineSource: link.outline } : opts.extendToCore ? { outlineSource: coreOutline() } : {};
+  const altura = opts.heightOffset ? opts.heightOffset : (outer[0] ? deslocamentoDoTerreno({ cotaDoTerreno: opts.cotaDoTerreno }, p, levelId, outer[0].x, outer[0].y) : null) ?? 0;
   const message = translate(lang, 'tl_msg_area_created', { name: NAME(target, lang), area: areaText(unitsOf(p), boundary, holes), note: unlinkedNote(opts, lang) });
   if (target === 'floor') {
     const typeId = pickTypeId(p.floorTypes, opts.typeId);
     if (!typeId) return refuseBase(translate(lang, 'tl_msg_no_floor_type'));
-    const floor = makeFloor({ ...common, typeId, heightOffset: opts.heightOffset ?? 0, ...origin });
+    const floor = makeFloor({ ...common, typeId, heightOffset: altura, ...origin });
     return checked(p, id, { type: 'addFloor', floor }, { ...floor, order: p.nextOrder }, validateProject, message, lang);
   }
   const typeId = pickTypeId(p.slabTypes, opts.typeId);
   if (!typeId) return refuseBase(translate(lang, 'tl_msg_no_slab_type'));
-  const slab = makeSlab({ ...common, typeId, heightOffset: opts.heightOffset ?? 0, ...origin });
+  const slab = makeSlab({ ...common, typeId, heightOffset: altura, ...origin });
   return checked(p, id, { type: 'addSlab', slab }, { ...slab, order: p.nextOrder }, validateProject, message, lang);
 }
 

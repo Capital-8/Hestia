@@ -32,6 +32,11 @@ export interface CommitPerimeterOptions {
   extendToCore?: boolean;
   /** Deslocamento do nível (m): piso, laje, forro e cota do beiral do telhado. */
   heightOffset?: number;
+  /**
+   * Gravidade (ficha G1): cota do terreno proposto (z do projeto) no ponto; ausente ou null = sem gravidade. Ao criar piso ou laje com
+   * `heightOffset` 0 ou ausente, o primeiro ponto do contorno dá o valor inicial (cota do terreno menos a elevação do nível). Sem vínculo.
+   */
+  cotaDoTerreno?: (x: number, y: number) => number | null;
   /** Só telhado: eixo da cumeeira ou da subida. Ausente = lado maior da pegada ao criar; ao editar, mantém o atual. */
   axis?: Vec2;
   /** Vincular às paredes (piso e laje). Só vincula quando o esboço veio de "Por perímetro" (`origin.walls`). */

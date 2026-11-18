@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
-import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
-import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, type PerimeterModifyKind, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
+import { definirMapaCorteAterro } from '@hestia/engine';
+import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
+import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { numberOpeningMarks } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
@@ -20,9 +21,34 @@ import { activateView } from '../../editor/viewTabActions.ts';
 import { massaUnicaSelecionada } from '../dialogs/massPisosForm.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
+import { abrirLocalizacao } from '../dialogs/localizacaoAberta.ts';
+import { abrirTerrenoSchedule } from '../dialogs/terrenoScheduleAberta.ts';
+import { abrirLoteRumos } from '../dialogs/loteRumosAberto.ts';
+import { abrirLoteSchedule } from '../dialogs/loteScheduleAberta.ts';
+import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
+import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
 import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
 import { t, type ActionId, type Txt } from './model.ts';
+
+/** Liga a ferramenta Região de terreno numa predefinição (Subdivisão, Plataforma ou Região nivelada); `porElemento` só vale na plataforma. */
+function ativarRegiao(predef: PredefinicaoRegiao, porElemento = false): void {
+  editor.setTool('terrainRegion');
+  const ativa = editor.activeTool;
+  if (!(ativa instanceof TerrainRegionTool)) return;
+  ativa.definirPredefinicao(predef);
+  if (porElemento) ativa.definirPorElemento(true);
+}
+
+/** A ferramenta Região de terreno está ativa nesta predefinição (e, na plataforma, neste modo "Por elemento")? */
+const regiaoAtiva = (predef: PredefinicaoRegiao, porElemento = false) => (c: RibbonCtx): boolean => {
+  const ativa = editor.activeTool;
+  return c.tool === 'terrainRegion' && ativa instanceof TerrainRegionTool && ativa.predefinicao === predef && ativa.porElemento === porElemento;
+};
+
+/** A região nasce sobre um terreno: sem terreno no projeto, o botão explica o que fazer antes. */
+const semTerrenoNoProjeto = (c: RibbonCtx): Txt | false =>
+  Object.values(c.p.elements).some(isTerrain) ? false : t('Crie um terreno antes (Topografia).', 'Create a terrain first (Toposurface).');
 
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
 function flipSide(panel: DockPanel): void {
@@ -42,6 +68,8 @@ export interface RibbonCtx {
   showGrid: boolean;
   showUnderlay: boolean;
   showRoofProjection: boolean;
+  /** Mapa de corte e aterro ligado na planta (U2). */
+  mapaCorteAterro: boolean;
   propsOpen: boolean;
   browserOpen: boolean;
   /** Dock de cada painel (Propriedades e Navegador). */
@@ -558,6 +586,107 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
     disabled: (c) => (c.selection.some((id) => isStair(c.p.elements[id]) || isRamp(c.p.elements[id])) ? false : t('Selecione uma escada ou uma rampa.', 'Select a stair or a ramp.')),
   },
+  terrenoPontos: {
+    label: t('Colocar pontos', 'Place Points'),
+    icon: 'terrPoints',
+    hint: t('Cada clique coloca um ponto do terreno na cota do campo "Cota".', 'Each click places a terrain point at the elevation of the "Elevation" field.'),
+    run: () => void ativarTopografia('pontos', editor),
+  },
+  terrenoCurvas: {
+    label: t('Desenhar curvas', 'Draw Contours'),
+    icon: 'terrContours',
+    hint: t('Desenha curvas de nível; Enter conclui a curva e a cota avança pelo "Passo".', 'Draws contour lines; Enter finishes the curve and the elevation advances by the "Step".'),
+    run: () => void ativarTopografia('curvas', editor),
+  },
+  regiaoSubdivisao: {
+    label: t('Subdivisão', 'Subregion'),
+    icon: 'terrSubregion',
+    hint: t('Desenha um polígono sobre o terreno: divide a superfície e define o material e a permeabilidade.', 'Draws a polygon over the terrain: splits the surface and sets its material and permeability.'),
+    run: () => ativarRegiao('subdivisao'),
+    pressed: regiaoAtiva('subdivisao'),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoPlataforma: {
+    label: t('Plataforma', 'Building Pad'),
+    icon: 'terrPad',
+    hint: t('Desenha um plano de cota fixa sobre o terreno (bordas verticais); corta e aterra o terreno existente.', 'Draws a flat pad at a fixed elevation over the terrain (vertical edges); cuts and fills the existing terrain.'),
+    run: () => ativarRegiao('plataforma'),
+    pressed: regiaoAtiva('plataforma'),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoPlataformaElemento: {
+    label: t('Plataforma por elemento', 'Building Pad by Element'),
+    icon: 'terrPadElem',
+    hint: t('Clique numa laje ou piso: copia o contorno e usa a face inferior como cota da plataforma.', 'Click a slab or floor: copies its outline and uses its bottom face as the pad elevation.'),
+    run: () => ativarRegiao('plataforma', true),
+    pressed: regiaoAtiva('plataforma', true),
+    disabled: semTerrenoNoProjeto,
+  },
+  regiaoNivelada: {
+    label: t('Região nivelada', 'Graded Region'),
+    icon: 'terrGraded',
+    hint: t('Desenha um plano de cota fixa com taludes (1,5 de corte e 2 de aterro por padrão) sobre o terreno.', 'Draws a flat region at a fixed elevation with side slopes (1.5 cut and 2 fill by default) over the terrain.'),
+    run: () => ativarRegiao('nivelada'),
+    pressed: regiaoAtiva('nivelada'),
+    disabled: semTerrenoNoProjeto,
+  },
+  loteDesenhar: {
+    label: t('Desenhar', 'Draw'),
+    icon: 'lotDraw',
+    hint: t('Desenha o polígono do lote (linhas de propriedade); o primeiro lado desenhado é a frente.', 'Draws the lot polygon (property lines); the first side drawn is the front.'),
+    run: () => editor.setTool('lot'),
+    pressed: (c) => c.tool === 'lot',
+  },
+  lotePorTabela: {
+    label: t('Por tabela…', 'From Table…'),
+    icon: 'lotTable',
+    hint: t('Cria o lote por uma tabela de azimutes e distâncias, com o erro de fechamento ao vivo.', 'Creates the lot from a table of azimuths and distances, with a live closing error.'),
+    run: abrirLoteRumos,
+  },
+  indicesLote: {
+    label: t('Índices do lote', 'Lot Indices'),
+    icon: 'lotIndices',
+    hint: t('Abre a tabela dos índices de cada lote (taxa de ocupação, coeficiente e permeabilidade) com os limites, a marca e exportação em CSV.', 'Opens the table of each lot\'s indices (site coverage, floor area ratio and permeability) with the limits, the mark and CSV export.'),
+    run: abrirLoteSchedule,
+  },
+  importTerreno: {
+    label: t('Importar levantamento…', 'Import Survey…'),
+    icon: 'terrImport',
+    hint: t('Cria o terreno a partir de um levantamento DXF ou CSV.', 'Creates the terrain from a DXF or CSV survey.'),
+    run: abrirImportTerreno,
+  },
+  editTerreno: {
+    label: t('Editar terreno', 'Edit Terrain'),
+    icon: 'terrEdit',
+    hint: t('Edita pontos, curvas, linhas de quebra e borda do terreno selecionado.', 'Edits points, contours, breaklines and boundary of the selected terrain.'),
+    run: () => {
+      const c = ctxNow();
+      editarTerreno(c.p, c.selection, c.levelId, (id) => editor.setTool(id));
+    },
+  },
+  localizacao: {
+    label: t('Localização', 'Location'),
+    icon: 'nav',
+    hint: t('Coordenadas reais da origem, altitude da cota zero e norte verdadeiro do projeto.', 'Real coordinates of the origin, ground-zero altitude and true north of the project.'),
+    run: abrirLocalizacao,
+  },
+  corteAterro: {
+    label: t('Corte e aterro', 'Cut and Fill'),
+    icon: 'terrCutFill',
+    hint: t('Abre a tabela de volumes de corte e aterro por região e por terreno, com exportação em CSV.', 'Opens the cut and fill volume table per region and per terrain, with CSV export.'),
+    run: abrirTerrenoSchedule,
+  },
+  mapaCorteAterro: {
+    label: t('Mapa de corte e aterro', 'Cut and Fill Map'),
+    icon: 'terrCutFillMap',
+    hint: t('Pinta na planta o corte de vermelho e o aterro de azul.', 'Paints cut red and fill blue on the plan.'),
+    run: () => {
+      const ligar = !useUi.getState().mapaCorteAterro;
+      definirMapaCorteAterro(ligar);
+      useUi.setState((x) => ({ mapaCorteAterro: ligar, previewTick: x.previewTick + 1 }));
+    },
+    pressed: (c) => c.mapaCorteAterro,
+  },
   schedColumns: sched(t('Tabela de pilares', 'Column Schedule'), 'columnSchedule'),
   schedBeams: sched(t('Tabela de vigas', 'Beam Schedule'), 'beamSchedule'),
   schedFootings: sched(t('Tabela de sapatas', 'Footing Schedule'), 'footingSchedule'),
@@ -654,7 +783,7 @@ export function ctxNow(): RibbonCtx {
   return {
     tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
-    showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
+    showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,
   };
 }

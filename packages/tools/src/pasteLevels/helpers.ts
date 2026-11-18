@@ -13,7 +13,7 @@ export const CATEGORY_ORDER: readonly (keyof PasteIds)[] = [
 ];
 
 export function emptySources(): Record<keyof PasteIds, Id[]> {
-  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], columns: [], beams: [], footings: [], railings: [], masses: [] };
+  return { walls: [], openings: [], floors: [], slabs: [], ceilings: [], roofs: [], stairs: [], ramps: [], rooms: [], generics: [], cad: [], columns: [], beams: [], footings: [], railings: [], masses: [], terrains: [], terrainRegions: [], lots: [] };
 }
 
 /** Ids de um nível na ordem canônica (é a ordem de `sourceIds`/`members` do vínculo). */
@@ -22,8 +22,10 @@ export function idsInOrder(ids: PasteIds): Id[] {
 }
 
 /** Há algo colável? Aberturas sozinhas não entram: sem a parede anfitriã não há como colá-las. */
-export function hasContent(c: ClipBuffer): boolean {
+export function hasContent(c: ClipBuffer, comTerreno = true): boolean {
   return (
+    (comTerreno && ((c.terrains?.length ?? 0) > 0 || (c.terrainRegions?.length ?? 0) > 0)) ||
+    (c.lots?.length ?? 0) > 0 ||
     c.walls.length > 0 ||
     c.floors.length > 0 ||
     c.slabs.length > 0 ||
@@ -60,6 +62,9 @@ export function sourceLevelsInClip(p: Project, c: ClipBuffer): Id[] {
     ...(c.footings ?? []).map((e) => e.levelId),
     ...(c.railings ?? []).map((e) => e.levelId),
     ...(c.masses ?? []).map((e) => e.levelId),
+    ...(c.terrains ?? []).map((e) => e.levelId),
+    ...(c.terrainRegions ?? []).map((e) => e.levelId),
+    ...(c.lots ?? []).map((e) => e.levelId),
   ];
   const present = new Set(candidates.filter((id) => p.levels.some((l) => l.id === id)));
   if (present.size === 0) return p.levels[0]?.id ? [p.levels[0].id] : [];

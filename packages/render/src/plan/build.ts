@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
 import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
@@ -23,6 +24,8 @@ import { guardaCorpoOps } from './guardaCorpo.ts';
 import { structuralPlanOps } from './structural.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
+import { loteOpsDaPlanta } from './loteCamada.ts';
+import { terrenoOpsDaPlanta } from './terrenoCamada.ts';
 import { massaOps, ocultosDaMassa } from './massa.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
@@ -359,6 +362,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     }
   }
 
+  // Terreno do nível (ficha V2): regiões, curvas, borda, rótulos e cotas, na categoria `site`; vai atrás de tudo o que é do edifício.
+  if (!areaPlan) addOps(terrenoOpsDaPlanta(input, paint.site, scale), paint.site, !rp);
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
   if (profile.floors) for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
   // Ambientes sobre os pisos (preenchimento leve e etiqueta com nome, número e área) e sob as paredes (decisão 0018).
@@ -377,6 +382,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Lotes do nível (ficha P2): contorno, área edificável e texto dos lados, no estilo da categoria `lot`; só de planta (não entram em corte nem 3D).
+  if (!areaPlan) addOps(loteOpsDaPlanta(input, paint.lot, scale), paint.lot, !rp);
   // Elementos estruturais do nível (sapatas, vigas, pilares): sapatas antes das paredes, pilares em corte.
   if (!rp) addOps(structuralPlanOps(p, input.levelId, theme, input.dark, detail, hidden, paint.wall, paint.slab, scale), paint.wall, true);
   // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
