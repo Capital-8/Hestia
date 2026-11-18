@@ -142,7 +142,7 @@ function area(l: Linha): number {
 describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela ABI real', () => {
   it.skipIf(!bytes)('terreno_curvas: T2 com 4 retas de 20 m e T3 com 4 quadrados fechados', () => {
     const cena = cenaCom([T2, T3]);
-    const r = cena.consultar('terreno_curvas', [0, 0]);
+    const r = cena.consultar('terreno_curvas', [0, 0, 0]);
     const l = linhas(r);
     expect(Array.from(r['cotas']!)).toEqual([10.5, 11, 11.5, 12, 1, 2, 3, 4]);
     expect(l.map((x) => [x.terreno, x.marca, x.fechada])).toEqual([
@@ -159,18 +159,21 @@ describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela AB
       for (const p of l[k]!.pontos) expect(Math.abs(p[0]! - x)).toBeLessThan(1e-9);
       expect(Math.abs(comprimento(l[k]!) - 20)).toBeLessThan(1e-9);
     });
-    // As curvas saem suavizadas (Chaikin, 2 rodadas): o quadrado de 4 pontos vira 16, de cantos cortados. O comprimento
-    // fica menor que o do quadrado cru (ele corta os cantos) mas na mesma ordem de grandeza (mais de 3/4 e no máximo igual).
+    // Tolerância 0 (padrão): curvas EXATAS, a polilinha da malha. Quadrado de 4 pontos, perímetros 64, 48, 32 e 16.
     [64, 48, 32, 16].forEach((perimetro, k) => {
-      expect(l[4 + k]!.pontos.length).toBe(16);
-      const c = comprimento(l[4 + k]!);
-      expect(c).toBeLessThanOrEqual(perimetro + 1e-9);
-      expect(c).toBeGreaterThan(perimetro * 0.75);
+      expect(l[4 + k]!.pontos.length).toBe(4);
+      expect(Math.abs(comprimento(l[4 + k]!) - perimetro)).toBeLessThan(1e-9);
     });
+    // Tolerância 0,02 m: os cantos de 90 graus dos quadrados (lados de 4 a 16 m) não se cortam, o resultado é o mesmo; com 5 m os cantos são cortados.
+    const fina = linhas(cena.consultar('terreno_curvas', [0, 0, 0.02]));
+    expect(fina.map((x) => x.pontos.length)).toEqual(l.map((x) => x.pontos.length));
+    const larga = linhas(cena.consultar('terreno_curvas', [0, 0, 5]));
+    expect(larga[4]!.pontos.length).toBeGreaterThan(4);
+    expect(comprimento(larga[4]!)).toBeLessThan(64);
     // A proposta é igual à existente enquanto não há regiões (ficha R3).
-    const p = cena.consultar('terreno_curvas', [NIVEL_TODOS, 1]);
+    const p = cena.consultar('terreno_curvas', [NIVEL_TODOS, 1, 0]);
     expect(Array.from(p['pontos']!)).toEqual(Array.from(r['pontos']!));
-    expect(cena.consultar('terreno_curvas', [7, 0])['linhas']!.length).toBe(0);
+    expect(cena.consultar('terreno_curvas', [7, 0, 0])['linhas']!.length).toBe(0);
     cena.destruir();
   });
 
@@ -236,8 +239,9 @@ describe('terreno, ficha R2: curvas, planta, corte, quantidades e avisos pela AB
   it.skipIf(!bytes)('limite de cotas e argumento inválido viram erro leve, e a cena continua de pé', () => {
     const ingreme: TerrenoDeTeste = { id: 1, intervalo: 0.5, pontos: cantos((x) => 60 * x) };
     const cena = cenaCom([ingreme]);
-    expect(() => cena.consultar('terreno_curvas', [0, 0])).toThrow(ErroKernelLeve);
-    expect(() => cena.consultar('terreno_curvas', [0, 2])).toThrow(ErroKernelLeve);
+    expect(() => cena.consultar('terreno_curvas', [0, 0, 0])).toThrow(ErroKernelLeve);
+    expect(() => cena.consultar('terreno_curvas', [0, 2, 0])).toThrow(ErroKernelLeve);
+    expect(() => cena.consultar('terreno_curvas', [0, 0, -0.01])).toThrow(ErroKernelLeve);
     expect(() => cena.consultar('terreno_planta', [0, 2])).toThrow(ErroKernelLeve);
     expect(() => cena.consultar('terreno_corte', [0, 0, 10, Number.NaN, 0, 1])).toThrow(ErroKernelLeve);
     expect(cena.consultar('terreno_planta', [0, 0])['linhas']!.length).toBe(4);
