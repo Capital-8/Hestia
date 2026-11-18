@@ -182,3 +182,6 @@ Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de te
 4. **Cores padrão do terreno** (superfície `#7f9f5c`, solo `#8b6b4a`, curvas marrons): mantidas.
 5. **Aba contextual "Colocar Topografia"**: mantida (a galeria de formas e a spline ficam nela, no modo Curvas).
 6. **Alt+Shift sobre vista na prancha deixa de alternar a seleção**: aceito. Espaço segurado + arrastar continua reposicionando (pan) também na PLANTA, no 3D e nos cortes (`ViewportCanvas`, sem mudança nesta rodada); na prancha faz o pan do conteúdo da vista.
+
+## Decisão adicional do dono (18/11/2026): editor de famílias
+O **Editor de famílias fica ATIVO (experimental) na release**, como está no branch de móveis (aviso "Experimental", Meus modelos com exportar e importar). Melhorias do editor ficam para versões futuras (abas Inserir/Modificar/Vista/Gerenciar, mover peças com o mouse, textos em todos os idiomas).
