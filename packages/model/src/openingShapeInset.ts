@@ -5,10 +5,12 @@
  * Mesmo sistema do contorno: x ao longo da parede (origem no meio da base), z para cima (origem na base do vão), metros,
  * anéis anti-horários e abertos. O recuo de arco é CONCÊNTRICO (raio R - d), não uma aproximação por faixas: as cordas têm erro
  * máximo `tol` (padrão 1 mm) como em `outline`. Distância negativa expande (alizar, que fica por fora do vão).
- * Vale para `round`, `segmental`, `pointed` (arco com laterais retas) e `circle` (elipse, recuo paralelo). `rect` só nas
- * funções de região.
+ * Vale para `round`, `segmental`, `pointed`, `horseshoe` (arco com laterais retas) e `circle` (elipse, recuo paralelo). Empena,
+ * trapézio e polígono recuam por reta (`openingShapePolyInset.ts`); não têm coroa. `rect` só nas funções de região.
  */
 import { CHORD_TOL, validateOpeningShape, type OPt, type OpeningShape } from './openingShape.ts';
+import { horseshoeCrown } from './openingShapeHorseshoe.ts';
+import { isPolygonForm, polygonInset } from './openingShapePolyInset.ts';
 
 const EPS = 1e-9;
 
@@ -91,6 +93,7 @@ export function crownOf(shape: OpeningShape, ins: OpeningInset, tol = CHORD_TOL)
     const d = dedupe(pts);
     return { pts: d, spring: Math.min(d[0]![1], d[d.length - 1]![1]), half: xs };
   }
+  if (shape.kind === 'horseshoe') return horseshoeCrown(shape, side, dA, tol);
   if (shape.kind === 'pointed') {
     const f = shape.rise;
     const zs = h - f;
@@ -114,10 +117,10 @@ export function crownOf(shape: OpeningShape, ins: OpeningInset, tol = CHORD_TOL)
 
 /** Anel da região do vão recuada, sem a base: o primeiro ponto é o arranque direito. Interno a `outlineInset`. */
 function ringDeArco(shape: OpeningShape, ins: OpeningInset, tol: number): OPt[] | null {
-  const { side, base } = norm(ins);
+  const { base } = norm(ins);
   const c = crownOf(shape, ins, tol);
   if (!c) return null;
-  const xs = shape.width / 2 - side;
+  const xs = c.half; // meia-largura das ombreiras recuadas (a da ferradura é a do pescoço)
   const baixo = Math.min(0, base) - 1; // anel largo para baixo; o recorte pela base vem depois
   return recortaZ([[xs, baixo], ...c.pts, [-xs, baixo]], base);
 }
@@ -172,6 +175,7 @@ export function outlineInset(shape: OpeningShape, ins: OpeningInset = 0, tol = C
     return xs > EPS && h - arc - base > EPS ? [[xs, base], [xs, h - arc], [-xs, h - arc], [-xs, base]] : [];
   }
   if (shape.kind === 'circle') return elipseRecuada(w / 2, h / 2, Math.max(side, arc), tol);
+  if (isPolygonForm(shape)) return polygonInset(shape, { side, arc, base }, tol); // empena, trapézio e polígono (offset por reta)
   const r = ringDeArco(shape, ins, tol);
   return r && r.length >= 3 && ringSignedArea(r) > EPS ? r : [];
 }

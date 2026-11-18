@@ -138,6 +138,9 @@ pub mod furo_contorno_prisma;
 // ABI do quantitativo e do retorno do vão por contorno (docs/estudo-esquadrias/27).
 pub mod furo_contorno_quant_abi;
 #[cfg(test)] mod furo_contorno_quant_abi_testes;
+// Retorno com base livre e recorte em planta; furo com topo inclinado (docs/estudo-esquadrias/33).
+pub mod furo_contorno_retorno_ext;
+#[cfg(test)] mod furo_contorno_ext_testes;
 #[cfg(test)]
 mod teste_util;
 

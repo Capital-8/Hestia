@@ -40,7 +40,7 @@ import { makeReturnClipper } from './clipReturn.ts';
 import { endReturns, insertMode, insertReturns } from './wrap.ts';
 import { cutHalfOf, formaDoVao, openingHole, openingTiltCuts, openingTiltPlane } from './openingCut.ts';
 import { breakpoints, type ZRange } from './resolveQuebras.ts';
-import { contornoDoGrupo, furoDePlanta, nivelComContorno, type ContornoDoCluster } from './resolveContorno.ts';
+import { acumularRecortes, contornoDoGrupo, furoDePlanta, furosComRecorte, nivelComContorno, type ContornoDoCluster } from './resolveContorno.ts';
 import { attachTargets } from './attachTargets.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
@@ -268,6 +268,8 @@ interface ClusterCore {
   layers: Map<Id, ResolvedLayer[]>;
   regions: Region[];
   silhouette: MultiPolygon;
+  /** Retorno em canto: região onde cada retorno de contorno pode existir (ver `acumularRecortes`). Vazio sem vão por contorno. */
+  recortes: Map<string, MultiPolygon>;
 }
 
 /** Perfis derivados da parede (topo e base por trecho), relativos à base, só quando existem (decisão 0023 §6, P9). */
@@ -300,6 +302,7 @@ function solveCluster(items: Item[], todos: OpeningGeometry[], zr: Map<Id, ZRang
   const layers = new Map<Id, ResolvedLayer[]>();
   const byMaterial = new Map<Id, MultiPolygon[]>();
   const bandsOf = new Map<Item, LayerBand[]>();
+  const recortes = new Map<string, MultiPolygon>();
 
   // Faixas verticais: cada uma resolve a prioridade só entre os itens que existem naquela altura.
   const zs = breakpoints(items, zr, opens);
@@ -311,6 +314,7 @@ function solveCluster(items: Item[], todos: OpeningGeometry[], zr: Map<Id, ZRang
     const active = items.filter((i) => i.z0 <= za + EPS_Z && i.z1 >= zb - EPS_Z);
     if (active.length === 0) continue;
     const painted = paintFor(active);
+    if (contorno) acumularRecortes(contorno, recortes, (id) => zr.get(id)!.z0, mid, (piece, wallId) => clipReturn(piece, wallId, painted));
     for (const it of active) {
       const frag = painted.get(it);
       if (!frag || frag.length === 0) continue;
@@ -354,14 +358,14 @@ function solveCluster(items: Item[], todos: OpeningGeometry[], zr: Map<Id, ZRang
     if (cut.length) byMaterial.set(it.materialId, [...(byMaterial.get(it.materialId) ?? []), cut]);
   }
   // D4: cluster inclinado: `applyTiltToPlan` refaz regiões e silhueta (cortes deslocados); as verticais (~250 ms) seriam descartadas.
-  if (semRegioes) { for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex); return { layers, regions: [], silhouette: [] }; }
+  if (semRegioes) { for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex); return { layers, regions: [], silhouette: [], recortes }; }
   const regions: Region[] = [...byMaterial.entries()].map(([materialId, parts]) => ({ materialId, polygons: parts.length === 1 && parts[0]!.length <= 1 ? parts[0]! : closeGapsSafe(unionClipper(...parts)) }));
   // Silhueta pela união das regiões por material. Unir todos os cortes numa só operação do Clipper foi tentado (semente 18
   // dos testes de propriedade: um bolsão fechado de 0,029 metros quadrados entre três paredes que se cruzam fica preenchido nesta união),
   // mas em outras sementes essa união única preencheu ambientes inteiros (até 8,9 metros quadrados a mais): o erro de 0,1% é o menor.
   const silhouette = regions.length <= 1 ? (regions[0]?.polygons ?? []) : closeGapsSafe(unionClipper(...regions.map((r) => r.polygons)));
   for (const arr of layers.values()) arr.sort((a, b) => a.layerIndex - b.layerIndex);
-  return { layers, regions, silhouette };
+  return { layers, regions, silhouette, recortes };
 }
 
 export type ResolveCache = Map<string, ClusterCore>;
@@ -465,7 +469,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
         layers: withProfile(withBottomProfile(core.layers.get(f.wall.id) ?? [], f, wz.get(f.wall.id)!.bottomProfile), f, wz.get(f.wall.id)!.profile),
         membranes: membranesOf(f, estrutura.ends.get(f.wall.id)!),
         ...perfisDoResolvido(wz.get(f.wall.id)!),
-        ...(contorno?.furos.has(f.wall.id) ? { furosContorno: contorno.furos.get(f.wall.id) } : {}),
+        ...(contorno?.furos.has(f.wall.id) ? { furosContorno: furosComRecorte(contorno.furos.get(f.wall.id)!, contorno, core.recortes) } : {}),
       };
       out.walls[f.wall.id] = rw;
     }

@@ -4,6 +4,7 @@
  * cordas de `outline` (não há arco de elipse no DXF).
  */
 import { outline, type OPt, type OpeningShape } from './openingShape.ts';
+import { horseshoeSegments } from './openingShapeHorseshoe.ts';
 
 /** Segmento do contorno de `a` até `b`. `bulge` = tan(θ/4) do arco (θ = ângulo incluído, positivo = anti-horário); 0 = reta. */
 export interface OpeningSegment {
@@ -55,7 +56,7 @@ function arcosDoVao(shape: Extract<OpeningShape, { kind: 'round' | 'segmental' |
 
 /**
  * Contorno do vão como anel fechado de segmentos, anti-horário, na mesma ordem de `outline`. Retângulo e elipse sem ser círculo
- * saem em retas (`outline`); arco pleno, abatido, ogival e círculo (largura = altura) saem com `bulge` exato. Lança erro se a
+ * saem em retas (`outline`); arco pleno, abatido, ogival, ferradura e círculo (largura = altura) saem com `bulge` exato; empena, trapézio e polígono são só retas. Lança erro se a
  * forma não passa em `validateOpeningShape` (o mesmo de `outline`).
  */
 export function outlineSegments(shape: OpeningShape, tol?: number): OpeningSegment[] {
@@ -71,7 +72,11 @@ export function outlineSegments(shape: OpeningShape, tol?: number): OpeningSegme
     outline(shape, tol); // mesma validação de `outline`
     return arcosDoVao(shape);
   }
-  return cordas(outline(shape, tol));
+  if (shape.kind === 'horseshoe') {
+    outline(shape, tol); // mesma validação de `outline`
+    return horseshoeSegments(shape);
+  }
+  return cordas(outline(shape, tol)); // retângulo, elipse, empena, trapézio e polígono: só retas
 }
 
 /**

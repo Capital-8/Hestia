@@ -23,6 +23,25 @@ use manifold_rust::types::{Error as ErroManifold, OpType};
 /// Folga (m) do cortador além do prisma em s, para não deixar faces coplanares.
 const FOLGA_S: f64 = 0.05;
 
+/// Topo inclinado de uma camada (perfil superior da parede, docs/estudo-esquadrias/33): plano que depende só de u,
+/// `z(u) = h0 + (h1 - h0) (u - t0) / (t1 - t0)`. A camada vai de `z0` até esse plano (`z1` é a maior altura).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TopoInclinado {
+    pub t0: f64,
+    pub t1: f64,
+    pub h0: f64,
+    pub h1: f64,
+}
+
+/// O que fazer com o vão que sai (em parte) do envelope das camadas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ForaDoEnvelope {
+    /// `VaoForaDaParede` (o comportamento de `furar_prisma`).
+    Recusar,
+    /// A booleana remove só o que cabe: o cortador que passa do prisma não leva nada além dele.
+    Recortar,
+}
+
 /// Um polígono em planta: anel externo + furos, em [u, s] (m).
 pub type PoligonoPlanta = Vec<Vec<[f64; 2]>>;
 
@@ -104,7 +123,7 @@ fn aneis_se_tocam(a: &[[f64; 2]], b: &[[f64; 2]]) -> bool {
 }
 
 /// Valida e normaliza a planta de uma camada; devolve (polígonos orientados, área líquida).
-fn preparar_planta(k: usize, c: &CamadaPrisma) -> Result<(Vec<PoligonoPlanta>, f64), ErroPrisma> {
+pub(crate) fn preparar_planta(k: usize, c: &CamadaPrisma) -> Result<(Vec<PoligonoPlanta>, f64), ErroPrisma> {
     if !(c.z0.is_finite() && c.z1.is_finite() && c.z1 > c.z0) {
         return Err(ErroPrisma::AlturaInvalida(k));
     }
@@ -154,14 +173,47 @@ fn cortador(v: &Vao, s0: f64, s1: f64) -> Manifold {
 
 /// Fura cada camada (prisma em planta entre z0 e z1) com a união dos cortadores dos vãos.
 pub fn furar_prisma(camadas: &[CamadaPrisma], vaos: &[Vao]) -> Result<ResultadoPrisma, ErroPrisma> {
+    furar_prisma_gen(camadas, &[], vaos, ForaDoEnvelope::Recusar)
+}
+
+/// Plano do topo inclinado válido para a camada `c`: finito, `t1 > t0` e alturas dentro de `[z0, z1]`.
+fn topo_valido(c: &CamadaPrisma, t: &TopoInclinado) -> bool {
+    let e = 1e-9;
+    [t.t0, t.t1, t.h0, t.h1].iter().all(|v| v.is_finite())
+        && t.t1 > t.t0
+        && t.h0.min(t.h1) >= c.z0 - e
+        && t.h0.max(t.h1) <= c.z1 + e
+        && t.h0.max(t.h1) > c.z0 + e
+}
+
+/// Corta o prisma (já extrudado até `z1`) pelo plano do topo, mantendo o que está abaixo.
+fn aparar_pelo_topo(prisma: Manifold, t: &TopoInclinado) -> Manifold {
+    let k = (t.h1 - t.h0) / (t.t1 - t.t0);
+    let n = (1.0 + k * k).sqrt();
+    // Mantém z <= h0 + k (u - t0): normal (k, 0, -1)/n, deslocamento (k t0 - h0)/n.
+    prisma.trim_by_plane(Vec3::new(k / n, 0.0, -1.0 / n), (k * t.t0 - t.h0) / n)
+}
+
+/// Como `furar_prisma`, com topo inclinado opcional por camada (`topos` vazio ou do tamanho de `camadas`) e política para
+/// o vão que sai do envelope.
+pub fn furar_prisma_gen(camadas: &[CamadaPrisma], topos: &[Option<TopoInclinado>], vaos: &[Vao], fora: ForaDoEnvelope) -> Result<ResultadoPrisma, ErroPrisma> {
     if camadas.is_empty() {
         return Err(ErroPrisma::SemCamadas);
     }
+    if !topos.is_empty() && topos.len() != camadas.len() {
+        return Err(ErroPrisma::AlturaInvalida(topos.len().min(camadas.len())));
+    }
+    let topo_de = |k: usize| -> Option<TopoInclinado> { topos.get(k).copied().flatten() };
     let mut preparadas = Vec::with_capacity(camadas.len());
     // Envelope do conjunto (u e z) para validar que o vão está na parede.
     let (mut u0, mut u1, mut zmin, mut zmax) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for (k, c) in camadas.iter().enumerate() {
         let (pols, area) = preparar_planta(k, c)?;
+        if let Some(t) = topo_de(k) {
+            if !topo_valido(c, &t) {
+                return Err(ErroPrisma::AlturaInvalida(k));
+            }
+        }
         for p in pols.iter().flat_map(|p| p[0].iter()) {
             u0 = u0.min(p[0]);
             u1 = u1.max(p[0]);
@@ -183,20 +235,23 @@ pub fn furar_prisma(camadas: &[CamadaPrisma], vaos: &[Vao]) -> Result<ResultadoP
             b0 = b0.min(v.soleira + p[1]);
             b1 = b1.max(v.soleira + p[1]);
         }
-        if a0 < u0 - e || a1 > u1 + e || b0 < zmin - e || b1 > zmax + e {
+        if fora == ForaDoEnvelope::Recusar && (a0 < u0 - e || a1 > u1 + e || b0 < zmin - e || b1 > zmax + e) {
             return Err(ErroPrisma::Vao(ErroFuro::VaoForaDaParede(i)));
         }
     }
 
     let mut res = ResultadoPrisma::default();
-    for (c, (pols, area)) in camadas.iter().zip(preparadas) {
+    for (k, (c, (pols, area))) in camadas.iter().zip(preparadas).enumerate() {
         let (mut s0, mut s1) = (f64::MAX, f64::MIN);
         for p in pols.iter().flat_map(|p| p[0].iter()) {
             s0 = s0.min(p[1]);
             s1 = s1.max(p[1]);
         }
         let secao: Vec<Vec<Vec2>> = pols.iter().flatten().map(|a| a.iter().map(|p| Vec2::new(p[0], p[1])).collect()).collect();
-        let prisma = Manifold::extrude(&secao, c.z1 - c.z0, 0, 0.0, Vec2::new(1.0, 1.0)).translate(Vec3::new(0.0, 0.0, c.z0));
+        let mut prisma = Manifold::extrude(&secao, c.z1 - c.z0, 0, 0.0, Vec2::new(1.0, 1.0)).translate(Vec3::new(0.0, 0.0, c.z0));
+        if let Some(t) = topo_de(k) {
+            prisma = aparar_pelo_topo(prisma, &t);
+        }
         if prisma.status() != ErroManifold::NoError {
             return Err(ErroPrisma::Manifold(format!("prisma: {:?}", prisma.status())));
         }
@@ -215,7 +270,8 @@ pub fn furar_prisma(camadas: &[CamadaPrisma], vaos: &[Vao]) -> Result<ResultadoP
         }
         let indices: Vec<u32> = malha.tri_verts.iter().map(|&i| i as u32).collect();
         let volume = furada.volume();
-        let volume_sem_furo = area * (c.z1 - c.z0);
+        // Com topo inclinado o volume sem furo é o do prisma aparado (kernel); sem ele, área líquida x altura.
+        let volume_sem_furo = if topo_de(k).is_some() { prisma.volume() } else { area * (c.z1 - c.z0) };
         res.volume += volume;
         res.volume_removido += volume_sem_furo - volume;
         res.camadas.push(MalhaPrisma { z0: c.z0, z1: c.z1, vertices, indices, volume, volume_sem_furo });
@@ -287,6 +343,12 @@ fn erro_do_prisma(e: ErroPrisma) -> (u32, String) {
 /// Toda a lógica da ABI sem ponteiros. Saída: os mesmos 5 arrays de `furo_contorno_abi::furar_planos`, com
 /// `[z0, z1, volume, volume_sem_furo]` por camada no array 0 (no lugar de `[y0, y1, ...]`).
 pub fn furar_prisma_planos(e: &EntradasPrisma) -> Result<Vec<Saida>, (u32, String)> {
+    furar_prisma_planos_gen(e, &[], ForaDoEnvelope::Recusar)
+}
+
+/// `furar_prisma_planos` com topo inclinado e política de vão fora do envelope (docs/estudo-esquadrias/33). `topo` é vazio
+/// (sem topo inclinado) ou tem 4 f64 por camada `[t0, t1, h0, h1]`; `t1 <= t0` (por exemplo, tudo zero) = camada sem topo inclinado.
+pub fn furar_prisma_planos_gen(e: &EntradasPrisma, topo: &[f64], fora: ForaDoEnvelope) -> Result<Vec<Saida>, (u32, String)> {
     let n_vaos = e.x.len();
     let n_camadas = e.camadas.len().saturating_sub(1);
     if e.pontos_planta.len() % 2 != 0
@@ -311,6 +373,9 @@ pub fn furar_prisma_planos(e: &EntradasPrisma) -> Result<Vec<Saida>, (u32, Strin
     lim(n_pts_planta, LIMITE_PONTOS_PLANTA, "pontos de planta")?;
     if n_camadas == 0 {
         return Err((ENTRADA, "a parede precisa de pelo menos uma camada".into()));
+    }
+    if !topo.is_empty() && topo.len() != 4 * n_camadas {
+        return Err((ENTRADA, "buffer do topo inclinado incoerente (4 f64 por camada)".into()));
     }
     if !crescente(e.vaos, n_pts_vao) || !crescente(e.aneis, n_pts_planta) || !crescente(e.poligonos, n_aneis) || !crescente(e.camadas, n_pols) {
         return Err((ENTRADA, "offsets invalidos".into()));
@@ -341,7 +406,11 @@ pub fn furar_prisma_planos(e: &EntradasPrisma) -> Result<Vec<Saida>, (u32, Strin
         })
         .collect();
 
-    let res = furar_prisma(&camadas, &vaos).map_err(erro_do_prisma)?;
+    let topos: Vec<Option<TopoInclinado>> = topo
+        .chunks_exact(4)
+        .map(|q| if q[1] > q[0] { Some(TopoInclinado { t0: q[0], t1: q[1], h0: q[2], h1: q[3] }) } else { None })
+        .collect();
+    let res = furar_prisma_gen(&camadas, &topos, &vaos, fora).map_err(erro_do_prisma)?;
     let mut meta = Vec::with_capacity(4 * n_camadas);
     let mut contagens = Vec::with_capacity(2 * n_camadas);
     let mut vertices = Vec::new();
@@ -360,25 +429,11 @@ pub extern "C" fn furo_prisma_abi_versao() -> u32 {
     VERSAO_ABI_PRISMA
 }
 
-/// Fura camadas em prisma de planta. Layout dos buffers: docs/estudo-esquadrias/25. Retorno: 0 OK, 3 ENTRADA,
-/// 5 LIMITE, 6 INTERNO. Saídas e erro pelos accessors `furo_saida_*` e `furo_erro_*` (os mesmos de `furo_contorno_furar`).
-#[no_mangle]
-pub extern "C" fn furo_prisma_furar(
-    n_camadas: u32,
-    n_poligonos: u32,
-    n_aneis: u32,
-    n_pontos_planta: u32,
-    ptr_pontos_planta: u32,
-    ptr_aneis: u32,
-    ptr_poligonos: u32,
-    ptr_camadas: u32,
-    ptr_z: u32,
-    n_vaos: u32,
-    n_pontos: u32,
-    ptr_pontos: u32,
-    ptr_vaos: u32,
-    ptr_x: u32,
-    ptr_soleira: u32,
+/// Argumentos de ponteiro e tamanho de `furo_prisma_furar`, decodificados e limitados antes de ler qualquer ponteiro.
+#[allow(clippy::too_many_arguments)]
+fn furar_por_ponteiros(
+    n_camadas: u32, n_poligonos: u32, n_aneis: u32, n_pontos_planta: u32, ptr_pontos_planta: u32, ptr_aneis: u32, ptr_poligonos: u32, ptr_camadas: u32, ptr_z: u32,
+    n_vaos: u32, n_pontos: u32, ptr_pontos: u32, ptr_vaos: u32, ptr_x: u32, ptr_soleira: u32, ptr_topo: Option<u32>, fora: ForaDoEnvelope,
 ) -> u32 {
     use crate::furo_contorno_abi::{estado, fatia};
     let st = estado();
@@ -410,5 +465,74 @@ pub extern "C" fn furo_prisma_furar(
     ) else {
         return st.falha(ENTRADA, "ponteiro invalido");
     };
-    st.guardar(furar_prisma_planos(&EntradasPrisma { pontos_planta, aneis, poligonos, camadas, z, pontos, vaos, x, soleira }))
+    let topo: &[f64] = match ptr_topo {
+        None => &[],
+        Some(p) => match fatia::<f64>(p, 4 * nc) {
+            Some(t) => t,
+            None => return st.falha(ENTRADA, "ponteiro invalido"),
+        },
+    };
+    st.guardar(furar_prisma_planos_gen(&EntradasPrisma { pontos_planta, aneis, poligonos, camadas, z, pontos, vaos, x, soleira }, topo, fora))
+}
+
+/// Fura camadas em prisma de planta. Layout dos buffers: docs/estudo-esquadrias/25. Retorno: 0 OK, 3 ENTRADA,
+/// 5 LIMITE, 6 INTERNO. Saídas e erro pelos accessors `furo_saida_*` e `furo_erro_*` (os mesmos de `furo_contorno_furar`).
+#[no_mangle]
+pub extern "C" fn furo_prisma_furar(
+    n_camadas: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_planta: u32,
+    ptr_pontos_planta: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    ptr_camadas: u32,
+    ptr_z: u32,
+    n_vaos: u32,
+    n_pontos: u32,
+    ptr_pontos: u32,
+    ptr_vaos: u32,
+    ptr_x: u32,
+    ptr_soleira: u32,
+) -> u32 {
+    furar_por_ponteiros(
+        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, None, ForaDoEnvelope::Recusar,
+    )
+}
+
+/// Versão do layout de `furo_prisma_furar_ext`.
+pub const VERSAO_ABI_PRISMA_EXT: u32 = 1;
+
+#[no_mangle]
+pub extern "C" fn furo_prisma_ext_abi_versao() -> u32 {
+    VERSAO_ABI_PRISMA_EXT
+}
+
+/// `furo_prisma_furar` com topo inclinado e política de envelope (docs/estudo-esquadrias/33). Os 15 primeiros argumentos
+/// são os de `furo_prisma_furar`; `ptr_topo` aponta 4 f64 por camada `[t0, t1, h0, h1]` (`t1 <= t0` = sem topo inclinado);
+/// `recortar` 0 = vão fora do envelope é recusado, 1 = o furo remove só a parte que cabe no prisma.
+#[no_mangle]
+pub extern "C" fn furo_prisma_furar_ext(
+    n_camadas: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_planta: u32,
+    ptr_pontos_planta: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    ptr_camadas: u32,
+    ptr_z: u32,
+    n_vaos: u32,
+    n_pontos: u32,
+    ptr_pontos: u32,
+    ptr_vaos: u32,
+    ptr_x: u32,
+    ptr_soleira: u32,
+    ptr_topo: u32,
+    recortar: u32,
+) -> u32 {
+    let fora = if recortar != 0 { ForaDoEnvelope::Recortar } else { ForaDoEnvelope::Recusar };
+    furar_por_ponteiros(
+        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, Some(ptr_topo), fora,
+    )
 }

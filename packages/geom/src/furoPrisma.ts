@@ -22,11 +22,30 @@ export type PontoPlanta = readonly [number, number];
 /** Um polígono em planta: primeiro anel é o externo, os demais são furos. Orientação livre (o wasm normaliza). */
 export type PoligonoPlanta = ReadonlyArray<ReadonlyArray<PontoPlanta>>;
 
+/**
+ * Topo inclinado da camada (perfil superior da parede, docs/estudo-esquadrias/33): plano que só depende de u,
+ * `z(u) = h0 + (h1 - h0) (u - t0) / (t1 - t0)`, com `t1 > t0`. `z1` da camada é a maior altura (`max(h0, h1)` no máximo).
+ */
+export interface TopoInclinado {
+  t0: number;
+  t1: number;
+  h0: number;
+  h1: number;
+}
+
 /** Uma camada: multipolígono em planta e a faixa de z. */
 export interface CamadaPrisma {
   poligonos: ReadonlyArray<PoligonoPlanta>;
   z0: number;
   z1: number;
+  /** Só com `furo_prisma_furar_ext` (`furoPrismaExtCarregado()`). */
+  topo?: TopoInclinado;
+}
+
+/** Opções do furo estendido. */
+export interface OpcoesFuroPrisma {
+  /** Vão que sai do envelope das camadas: `true` remove só a parte que cabe; `false` (padrão da ABI antiga) recusa o pedido. */
+  recortar?: boolean;
 }
 
 /** Malha de uma camada furada. `vertices` é x, y, z intercalados (x = u, y = s); `indices` são locais à camada. */
@@ -64,6 +83,26 @@ interface ExportsPrisma extends ExportsMemoriaFuro {
     ptrX: number,
     ptrSoleira: number,
   ): number;
+  furo_prisma_ext_abi_versao?(): number;
+  furo_prisma_furar_ext?(
+    nCamadas: number,
+    nPoligonos: number,
+    nAneis: number,
+    nPontosPlanta: number,
+    ptrPontosPlanta: number,
+    ptrAneis: number,
+    ptrPoligonos: number,
+    ptrCamadas: number,
+    ptrZ: number,
+    nVaos: number,
+    nPontos: number,
+    ptrPontos: number,
+    ptrVaos: number,
+    ptrX: number,
+    ptrSoleira: number,
+    ptrTopo: number,
+    recortar: number,
+  ): number;
 }
 
 type InstanciaPrisma = InstanciaWasmFuro & { readonly exports: ExportsPrisma };
@@ -73,6 +112,9 @@ const SAIDA = { meta: 0, contagens: 1, vertices: 2, indices: 3, totais: 4 } as c
 const SAIDAS_ESPERADAS = 5;
 
 let atual: InstanciaPrisma | null = null;
+/** Versão do layout de `furo_prisma_furar_ext`. */
+export const VERSAO_ABI_PRISMA_EXT = 1;
+let extAtual = false;
 
 /**
  * Compila e instancia o wasm que contém `furo_prisma_*` (o módulo com `abi2_alocar`). Versão errada ou exportações ausentes:
@@ -95,7 +137,16 @@ export async function carregarFuroPrisma(bytes: ArrayBuffer | Uint8Array | WebAs
   }
   if (versao !== VERSAO_ABI_PRISMA) throw new ErroKernelGrave(CODIGOS.VERSAO, `furo_prisma_abi_versao=${versao}, esperado ${VERSAO_ABI_PRISMA}`);
   atual = { exports, memory };
+  // A ABI estendida (topo inclinado e política de envelope) é opcional: um módulo antigo segue servindo a ABI de sempre.
+  try {
+    extAtual = typeof exports.furo_prisma_furar_ext === 'function' && exports.furo_prisma_ext_abi_versao?.() === VERSAO_ABI_PRISMA_EXT;
+  } catch {
+    extAtual = false;
+  }
 }
+
+/** O módulo carregado tem `furo_prisma_furar_ext` (topo inclinado e vão recortado pelo envelope). */
+export const furoPrismaExtCarregado = (): boolean => atual !== null && extAtual;
 
 /** Diz se `carregarFuroPrisma` já rodou com sucesso. */
 export const furoPrismaCarregado = (): boolean => atual !== null;
@@ -112,6 +163,7 @@ interface Empacotado {
   poligonos: Uint32Array;
   camadas: Uint32Array;
   z: Float64Array;
+  topo: Float64Array;
   pontos: Float64Array;
   vaos: Uint32Array;
   x: Float64Array;
@@ -126,7 +178,9 @@ function empacotar(camadas: readonly CamadaPrisma[], vaos: readonly VaoContorno[
   const poligonos: number[] = [0];
   const idxCamadas: number[] = [0];
   const z: number[] = [];
+  const topo: number[] = [];
   for (const c of camadas) {
+    topo.push(...(c.topo ? [c.topo.t0, c.topo.t1, c.topo.h0, c.topo.h1] : [0, 0, 0, 0]));
     for (const poligono of c.poligonos) {
       for (const anel of poligono) {
         for (const [u, s] of anel) pontosPlanta.push(u, s);
@@ -163,6 +217,7 @@ function empacotar(camadas: readonly CamadaPrisma[], vaos: readonly VaoContorno[
     poligonos: Uint32Array.from(poligonos),
     camadas: Uint32Array.from(idxCamadas),
     z: Float64Array.from(z),
+    topo: Float64Array.from(topo),
     pontos,
     vaos: idxVaos,
     x,
@@ -216,8 +271,10 @@ function lerResultado(inst: InstanciaPrisma, camadas: number): ResultadoPrismas 
  * espessura da planta naquele u.
  * Erro de entrada ou de limite: `ErroKernelLeve` (ENTRADA ou LIMITE). Falha interna: `ErroKernelGrave`.
  */
-export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly VaoContorno[]): ResultadoPrismas {
+export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly VaoContorno[], opcoes: OpcoesFuroPrisma = {}): ResultadoPrismas {
   const inst = instanciaCarregada();
+  const ext = camadas.some((c) => c.topo) || opcoes.recortar === true;
+  if (ext && !extAtual) throw new Error('furo de prisma: topo inclinado e vão recortado exigem furo_prisma_furar_ext (módulo sem ela)');
   const e = empacotar(camadas, vaos);
   const nCamadas = camadas.length;
   const nPoligonos = e.poligonos.length - 1;
@@ -236,7 +293,8 @@ export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly Va
     const pVaos = reservar(inst, e.vaos, reservas);
     const pX = reservar(inst, e.x, reservas);
     const pSoleira = reservar(inst, e.soleira, reservas);
-    codigo = inst.exports.furo_prisma_furar(
+    const pTopo = ext ? reservar(inst, e.topo, reservas) : 0;
+    const args = [
       nCamadas,
       nPoligonos,
       nAneis,
@@ -252,7 +310,8 @@ export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly Va
       pVaos,
       pX,
       pSoleira,
-    );
+    ] as const;
+    codigo = ext ? inst.exports.furo_prisma_furar_ext!(...args, pTopo, opcoes.recortar ? 1 : 0) : inst.exports.furo_prisma_furar(...args);
   } catch (err) {
     throw erroDeChamada(err);
   } finally {

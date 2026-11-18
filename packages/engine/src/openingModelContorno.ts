@@ -1,6 +1,7 @@
 import {
   clipRect,
   crownBand,
+  isPolygonForm,
   outlineInset,
   ringHalves,
   ringSignedArea,
@@ -12,6 +13,8 @@ import { prisma } from './openingModelPrisma.ts';
 import { clipDeslizante, trilhoNoContorno } from './openingModelContornoCorrer.ts';
 import { muntinsDecorativos, type MuntinPadrao } from './openingModelMuntinsContorno.ts';
 import { formaDaEsquadria } from './openingShapeEsquadria.ts';
+import { poligonal } from './openingModelContornoPoligono.ts';
+import { ferraduraNoPescoco } from './openingModelContornoFerradura.ts';
 
 /*
  * Peças da esquadria em vão com forma (docs/estudo-esquadrias/28). Pós-processo do modelo único: o modelo retangular de
@@ -31,10 +34,10 @@ import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 
 const EPS = 1e-9;
 /** Papéis do preenchimento que o contorno recorta. */
-const PREENCHIMENTO: ReadonlySet<PartRole> = new Set<PartRole>(['glass', 'leaf', 'leafPanel', 'muntin', 'bead', 'mullion', 'transom', 'track']);
+export const PREENCHIMENTO: ReadonlySet<PartRole> = new Set<PartRole>(['glass', 'leaf', 'leafPanel', 'muntin', 'bead', 'mullion', 'transom', 'track']);
 
 /** Fatia de `s` da travessa: espessura medida do bordo de fora (`a`) ao de dentro (`b`) do contorno. */
-interface Fatia {
+export interface Fatia {
   s0: number;
   s1: number;
   a: number;
@@ -70,7 +73,7 @@ const area = (r: readonly OPt[]): number => Math.abs(ringSignedArea(r));
 const boxArea = (b: PartBox): number => (b.t1 - b.t0) * (b.z1 - b.z0);
 
 /** Recorta uma peça-caixa pelo contorno recuado; `null` = nada a mudar, `[]` = a peça some. */
-function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number, dRef: number): OPt[] | null {
+export function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number, dRef: number): OPt[] | null {
   const b = part.box;
   const arcD = Math.max(0, part.role === 'glass' || part.role === 'leaf' ? H - b.z1 : dRef);
   const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
@@ -139,11 +142,11 @@ function arco(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
     if (ring === null) out.push(part);
     else if (ring.length >= 3) out.push(prisma(part, ring));
   }
-  return out;
+  return shape.kind === 'horseshoe' ? out.map((p) => ferraduraNoPescoco(p, shape)) : out;
 }
 
 /** Peças do alizar de uma face, por papel no desenho (`left`, `right`, `head`, `sill`). */
-interface AlizarDaFace {
+export interface AlizarDaFace {
   left?: OpeningPart;
   right?: OpeningPart;
   head?: OpeningPart;
@@ -151,7 +154,7 @@ interface AlizarDaFace {
 }
 
 /** Alizar agrupado por face (`casing-<face>`), pelo nome das peças (`casing-<lado>-a|b`). */
-function alizares(parts: readonly OpeningPart[]): Map<string, AlizarDaFace> {
+export function alizares(parts: readonly OpeningPart[]): Map<string, AlizarDaFace> {
   const out = new Map<string, AlizarDaFace>();
   for (const p of parts) {
     if (p.role !== 'casing' || !p.group) continue;
@@ -165,7 +168,7 @@ function alizares(parts: readonly OpeningPart[]): Map<string, AlizarDaFace> {
 }
 
 /** Distâncias de recuo do alizar (laterais e topo) ao contorno do vão: negativas, o alizar fica por fora. */
-function recuosDoAlizar(a: AlizarDaFace, hw: number, H: number): { out: { side: number; arc: number }; inn: { side: number; arc: number } } | null {
+export function recuosDoAlizar(a: AlizarDaFace, hw: number, H: number): { out: { side: number; arc: number }; inn: { side: number; arc: number } } | null {
   if (!a.left || !a.head) return null;
   return {
     out: { side: hw + a.left.box.t0, arc: H - a.head.box.z1 },
@@ -245,6 +248,9 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
   return out;
 }
 
+/** O que `poligonal` (formas retas) usa daqui. */
+const APOIO = { recortada, preenchimento: PREENCHIMENTO, fatias: fatiasDaTravessa, alizares, recuos: recuosDoAlizar };
+
 /**
  * Modelo com as peças seguindo o contorno do vão. `forma` é a do vão (`OpeningGeometry.forma`, dimensionada pelo vão bruto):
  * aqui largura e altura viram as da esquadria (`m.width` x `m.height`, `formaDaEsquadria`) e a flecha fica como gravada. Forma
@@ -255,6 +261,6 @@ export function contornoDoModelo(m: OpeningModel, forma: OpeningShape | undefine
   if (!forma || forma.kind === 'rect') return m;
   const shape = formaDaEsquadria(forma, m.width, m.height);
   if (!shape) return m;
-  const parts = shape.kind === 'circle' ? circulo(m, shape) : arco(m, shape);
+  const parts = shape.kind === 'circle' ? circulo(m, shape) : isPolygonForm(shape) ? poligonal(m, shape, APOIO) : arco(m, shape);
   return { ...m, parts: padrao ? muntinsDecorativos(parts, shape, padrao) : parts };
 }

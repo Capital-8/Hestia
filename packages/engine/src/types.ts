@@ -82,7 +82,18 @@ export interface ResolvedWall {
 /** Vão com forma que fura a parede por contorno, mais o retorno do acabamento que segue a forma (camadas envolventes). */
 export interface FuroContornoDaParede {
   g: OpeningGeometry;
-  retornos: Array<{ layerIndex: number; espessura: number; recuo: number; y0: number; y1: number }>;
+  retornos: Array<{
+    layerIndex: number;
+    espessura: number;
+    recuo: number;
+    y0: number;
+    y1: number;
+    /**
+     * Região do mundo (planta) onde o retorno pode existir: a pegada do retorno menos o pintado das paredes vizinhas (canto, T).
+     * Ausente = a pegada inteira; `[]` = a vizinha cobre tudo (sem retorno). docs/estudo-esquadrias/33 §2.2.
+     */
+    recorte?: MultiPolygon;
+  }>;
 }
 
 export interface Membrane {

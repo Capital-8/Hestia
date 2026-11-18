@@ -176,7 +176,10 @@ describe.skipIf(!temExportacoes)(`furo por contorno real, ponta a ponta (pulado 
         const rw = r.walls.w1!;
         const rets = rw.furosContorno![0]!.retornos;
         expect(rets.length).toBeGreaterThan(1);
-        const { perimetro } = areaPerimetroDoContorno(rw.furosContorno![0]!.g.forma!);
+        const { perimetro: perimetroTotal } = areaPerimetroDoContorno(rw.furosContorno![0]!.g.forma!);
+        // Vão que toca o piso (a porta em arco abatido): o retorno não reveste a soleira, como o do vão retangular (doc 33 §2.1).
+        const semBase = rw.furosContorno![0]!.g.sill + Math.min(...outline(rw.furosContorno![0]!.g.forma!).map((q) => q[1])) <= 1e-6;
+        const perimetro = perimetroTotal - (semBase ? FORMAS[forma].w : 0);
         let soma = 0;
         for (const l of rw.layers) {
           const cf = camadaFurada(rw, l, l.bands)!;

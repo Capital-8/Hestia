@@ -1,6 +1,7 @@
 import { openingRough } from './openingExtras.ts';
 import type { OpeningShape, OpeningShapeIssue } from './openingShape.ts';
 import { validateOpeningShape } from './openingShape.ts';
+import { resizeOpeningShape } from './openingShapeKinds.ts';
 import type { OpeningType } from './openingTypes.ts';
 
 /** Campos do tipo que a forma lê (vão, folga do vão e de assentamento e a própria forma). */
@@ -16,7 +17,7 @@ export function openingShapeOf(t: OpeningShapeInput, height?: number): OpeningSh
   const s = t.shape;
   if (!s || s.kind === 'rect') return null;
   const rough = openingRough({ width: t.width, height: height ?? t.height, roughOversize: t.roughOversize, settingSystem: t.settingSystem, settingClearance: t.settingClearance });
-  return { ...s, width: rough.width, height: rough.height };
+  return resizeOpeningShape(s, rough.width, rough.height);
 }
 
 /** Problemas da forma efetiva do vão (vazio = retangular ou forma válida). */

@@ -47,11 +47,11 @@ pub struct EntradaRetornoAbi<'a> {
     pub modo: u32,
 }
 
-fn escalar_ok(v: f64) -> bool {
+pub(crate) fn escalar_ok(v: f64) -> bool {
     v.is_finite() && v.abs() <= LIMITE_ESCALAR
 }
 
-fn contorno_de(pontos: &[f64]) -> Result<Vec<[f64; 2]>, (u32, String)> {
+pub(crate) fn contorno_de(pontos: &[f64]) -> Result<Vec<[f64; 2]>, (u32, String)> {
     if pontos.len() % 2 != 0 {
         return Err((ENTRADA, "tamanho do contorno incoerente".into()));
     }
@@ -68,7 +68,7 @@ fn contorno_de(pontos: &[f64]) -> Result<Vec<[f64; 2]>, (u32, String)> {
     Ok(c)
 }
 
-fn erro_da_quant(e: ErroQuant) -> (u32, String) {
+pub(crate) fn erro_da_quant(e: ErroQuant) -> (u32, String) {
     match e {
         ErroQuant::Furo(f) => erro_do_furo(f),
         ErroQuant::ContornoInvalido => (ENTRADA, "contorno invalido".into()),

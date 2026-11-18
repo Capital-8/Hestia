@@ -55,6 +55,8 @@ export interface CamadaPrismaPedido {
   poligonos: Array<Array<Array<[number, number]>>>;
   z0: number;
   z1: number;
+  /** Topo inclinado em u (perfil superior da parede, docs/estudo-esquadrias/33): `z(u) = h0 + (h1 - h0)(u - t0)/(t1 - t0)`; `z1` é o maior. */
+  topo?: { t0: number; t1: number; h0: number; h1: number };
 }
 
 export interface PedidoFuroPrisma {
@@ -91,6 +93,29 @@ export interface PedidoRetornoVao {
   recuo: number;
   y0: number;
   y1: number;
+  /**
+   * Vão que toca o piso: o retorno não reveste a soleira (ombreiras até o piso e verga ou arco), a regra do retorno do vão
+   * retangular (docs/estudo-esquadrias/33 §2.1).
+   */
+  semBase?: boolean;
+  /** Polígonos de planta [u, s] onde o retorno pode existir (pegada menos as paredes vizinhas, em canto); ausente = sem recorte. */
+  recorte?: Array<Array<Array<[number, number]>>>;
+}
+
+/** Pedido de medição da parede furada (`furo_quant_parede`): placa `comprimento x altura` com os contornos dos vãos. */
+export interface PedidoQuantParede {
+  wallId: string;
+  comprimento: number;
+  altura: number;
+  vaos: readonly VaoComContorno[];
+}
+
+/** O que o engine usa da medição: área do contorno na face, área de face líquida e volume líquido (uma camada de 0,1 m). */
+export interface ResultadoQuantParede {
+  /** Área do(s) contorno(s) na face, recortada pela placa (m²). */
+  areaFuroNaFace: number;
+  /** Área de face líquida da placa (`comprimento x altura` menos o furo, medida na malha). */
+  areaFaceLiquida: number;
 }
 
 export interface ResultadoRetornoVao {
@@ -108,6 +133,10 @@ export interface ClienteFuroContorno {
   furarParede(pedido: PedidoFuroParede): ResultadoFuroParede | null;
   furarPrisma?(pedido: PedidoFuroPrisma): ResultadoFuroPrisma | null;
   retornoDoVao?(pedido: PedidoRetornoVao): ResultadoRetornoVao | null;
+  /** Área de face líquida real da parede com vão de contorno (`furo_quant_parede`); sem ela a área de face cai em volume ÷ espessura. */
+  quantificarParede?(pedido: PedidoQuantParede): ResultadoQuantParede | null;
+  /** O cliente aceita prisma com topo inclinado (`CamadaPrismaPedido.topo`): parede com perfil superior pode ir por contorno. */
+  topoInclinado?: boolean;
 }
 
 let cliente: ClienteFuroContorno | null = null;
@@ -147,6 +176,13 @@ export function retornoPorContorno(pedido: PedidoRetornoVao): ResultadoRetornoVa
   return memoizado(`r|${JSON.stringify(pedido)}`, () => c.retornoDoVao!(pedido));
 }
 
+/** Medição da placa furada pelo cliente (memo); `null` sem cliente, sem `quantificarParede` ou em falha. */
+export function quantificarParedePorContorno(pedido: PedidoQuantParede): ResultadoQuantParede | null {
+  const c = cliente;
+  if (!c?.quantificarParede || pedido.vaos.length === 0) return null;
+  return memoizado(`q|${JSON.stringify(pedido)}`, () => c.quantificarParede!(pedido));
+}
+
 /** O cliente instalado, ou `null` (o padrão). */
 export const clienteFuroContorno = (): ClienteFuroContorno | null => cliente;
 
@@ -163,7 +199,7 @@ export function formaDoVao(t: OpeningShapeInput, height?: number): { forma?: Ope
 export interface ParedeDoFuro {
   /** Inclinação da parede (graus); ≠ 0 não é suportada no caminho de contorno. */
   tilt?: number;
-  /** Topo ou base em perfil (telhado, piso, laje): o prisma de planta é plano, então fica no caminho retangular. */
+  /** Topo ou base em perfil (telhado, piso, laje): o prisma de planta é plano; só o cliente com `topoInclinado` o atende, senão fica retangular. */
   perfil?: boolean;
   /** Parede do mesmo cluster é inclinada: a junção inclinada refaz as faixas, fica no caminho retangular. */
   clusterInclinado?: boolean;
@@ -186,7 +222,8 @@ export function rotaDoVao(g: Pick<OpeningGeometry, 'forma' | 'curve'>, parede: P
   if (g.curve) return { via: 'retangular', motivo: 'parede-curva' };
   if (parede.tilt) return { via: 'retangular', motivo: 'parede-inclinada' };
   if (parede.clusterInclinado) return { via: 'retangular', motivo: 'cluster-inclinado' };
-  if (parede.perfil) return { via: 'retangular', motivo: 'parede-com-perfil' };
+  // Perfil de topo/base: o prisma de planta é plano em z0 e z1, então só o cliente com topo inclinado (docs/estudo-esquadrias/33 §3) o atende.
+  if (parede.perfil && !cliente?.topoInclinado) return { via: 'retangular', motivo: 'parede-com-perfil' };
   if (!cliente) return { via: 'retangular', motivo: 'sem-cliente' };
   return { via: 'contorno' };
 }

@@ -1,8 +1,13 @@
 /**
- * Forma do vão no plano da parede: retângulo, meia-lua, arco abatido, ogival e elipse (círculo quando w = h).
+ * Forma do vão no plano da parede: retângulo, meia-lua, arco abatido, ogival e elipse (círculo quando w = h), mais ferradura,
+ * empena, trapézio e polígono livre (docs/estudo-esquadrias/32; a lógica das quatro novas está em `openingShapeHorseshoe.ts` e
+ * `openingShapePolygon.ts`).
  * Unidades: metros. Sistema do contorno: x ao longo da parede (origem no meio da base), z para cima (origem na base do vão).
  * Adaptado do spike 1a (`packages/engine/src/spike/outline.ts`), sem importar dele.
  */
+
+import { horseshoeRing, validateHorseshoe } from './openingShapeHorseshoe.ts';
+import { polygonFormRing, validatePolygonForm } from './openingShapePolygon.ts';
 
 /**
  * Forma do vão. `rise` (flecha) existe só nas formas de arco com flecha livre.
@@ -16,7 +21,15 @@ export type OpeningShape =
   /** Ogival: dois arcos com centro do lado oposto; a flecha `rise` deve ser >= width / 2 (abaixo disso o arco tem vale). */
   | { kind: 'pointed'; width: number; height: number; rise: number }
   /** Elipse inscrita em `width` x `height` (círculo quando são iguais). */
-  | { kind: 'circle'; width: number; height: number };
+  | { kind: 'circle'; width: number; height: number }
+  /** Empena: ombreiras retas até `height - rise` e dois planos até a cumeeira central em `height` (`rise` em (0, height]). */
+  | { kind: 'gable'; width: number; height: number; rise: number }
+  /** Trapézio simétrico: topo `topWidth`, base `baseWidth` (padrão `width`); o maior dos dois é `width`. */
+  | { kind: 'trapezoid'; width: number; height: number; topWidth: number; baseWidth?: number }
+  /** Ferradura: arco de diâmetro `width` com centro acima da nascença e ombreiras retas separadas por `neck` (< width). */
+  | { kind: 'horseshoe'; width: number; height: number; neck: number }
+  /** Polígono livre: pontos (u, v) em 0..width, 0..height; simples, anti-horário e tocando as quatro bordas. `symmetric` exige simetria em u. */
+  | { kind: 'polygon'; width: number; height: number; points: Array<{ u: number; v: number }>; symmetric?: boolean };
 
 /** Problema de uma forma de vão. Vazio = forma válida. */
 export type OpeningShapeIssue =
@@ -25,7 +38,18 @@ export type OpeningShapeIssue =
   | 'rise-invalid' // flecha não finita, <= 0, ou arco abatido com flecha acima de w / 2
   | 'rise-exceeds-height' // flecha acima da altura: a nascença ficaria abaixo da base
   | 'pointed-rise-below-half' // ogival com flecha < w / 2: vale no meio do arco e estouro da altura
-  | 'round-height-below-half'; // arco pleno com altura < w / 2: o raio não cabe sob o topo
+  | 'round-height-below-half' // arco pleno com altura < w / 2: o raio não cabe sob o topo
+  | 'trapezoid-width-invalid' // topo ou base do trapézio não finito ou <= 0
+  | 'trapezoid-width-mismatch' // nem a base nem o topo igualam a largura (a caixa envolvente)
+  | 'horseshoe-neck-invalid' // ferradura com abertura entre ombreiras não finita, <= 0 ou >= largura
+  | 'horseshoe-height-too-low' // ferradura: a nascença ficaria abaixo da base
+  | 'polygon-points-invalid' // menos de 3 pontos, mais de 4096 ou coordenada não finita
+  | 'polygon-out-of-box' // ponto fora de 0..width, 0..height
+  | 'polygon-degenerate' // área nula depois de tirar pontos repetidos e colineares
+  | 'polygon-self-intersecting' // arestas que se cruzam ou se tocam
+  | 'polygon-clockwise' // anel horário: o contorno tem que ser anti-horário
+  | 'polygon-box-not-filled' // o polígono não toca as quatro bordas da caixa width x height
+  | 'polygon-not-symmetric'; // `symmetric` pedido e o contorno não é simétrico em u
 
 /** Erro máximo (m) entre a corda e o arco verdadeiro. */
 export const CHORD_TOL = 0.001;
@@ -59,6 +83,10 @@ export function validateOpeningShape(shape: OpeningShape): OpeningShapeIssue[] {
         if (shape.rise > h + EPS) issues.push('rise-exceeds-height');
       }
       return issues;
+    case 'horseshoe':
+      return validateHorseshoe(shape);
+    default:
+      return validatePolygonForm(shape);
   }
 }
 
@@ -144,5 +172,9 @@ export function outline(shape: OpeningShape, tol = CHORD_TOL): OPt[] {
       return segmentalRing(w, h, shape.rise, tol);
     case 'pointed':
       return pointedRing(w, h, shape.rise, tol);
+    case 'horseshoe':
+      return horseshoeRing(shape, tol);
+    default:
+      return polygonFormRing(shape);
   }
 }

@@ -78,7 +78,9 @@ const PT = {
   egb_issue_opening_plane_arc: 'Abertura "{id}" em parede de arco inclinada: o vão é largo demais para o plano inclinado; o corte usa o plano vertical.',
   egb_issue_opening_shape_invalid: 'Abertura "{id}": forma de vão inválida ({problems}); o vão é recortado como retângulo.',
   egb_issue_opening_shape_host: 'Abertura "{id}": a forma do vão não é aplicada na parede "{wall}" (curva ou inclinada); o vão é recortado como retângulo.',
+  egb_issue_opening_shape_envelope: 'Abertura "{id}": a forma do vão sai {excess} m do envelope da parede "{wall}"; o furo remove só a parte que cabe na parede.',
   egb_issue_opening_shape_frame: 'Abertura "{id}": a flecha do arco não cabe na esquadria menor que o vão bruto ({problems}); as peças ficam retangulares (o furo na parede segue a forma).',
+  egb_issue_opening_shape_concave: 'Abertura "{id}": polígono de vão côncavo; o recuo das peças pode ser recusado nas reentrâncias (a peça fica como caixa). O furo na parede segue o polígono.',
   egb_issue_wall_roof_over:
     'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
@@ -354,7 +356,9 @@ const EN: Record<DictKey, string> = {
   egb_issue_opening_plane_arc: 'Opening "{id}" in a tilted curved wall: the opening is too wide for the inclined plane; the cut uses the vertical plane.',
   egb_issue_opening_shape_invalid: 'Opening "{id}": invalid opening shape ({problems}); the opening is cut as a rectangle.',
   egb_issue_opening_shape_host: 'Opening "{id}": the opening shape is not applied in wall "{wall}" (curved or tilted); the opening is cut as a rectangle.',
+  egb_issue_opening_shape_envelope: 'Opening "{id}": the opening shape extends {excess} m beyond the envelope of wall "{wall}"; the hole removes only the part that fits in the wall.',
   egb_issue_opening_shape_frame: 'Opening "{id}": the arch rise does not fit the frame, which is smaller than the rough opening ({problems}); the parts stay rectangular (the wall hole keeps the shape).',
+  egb_issue_opening_shape_concave: 'Opening "{id}": concave polygon opening; the inset of the parts may be refused at the notches (the part stays a box). The wall hole keeps the polygon.',
   egb_issue_wall_roof_over:
     'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:

@@ -82,6 +82,7 @@ function centroDoArco(shape: OpeningShape): { cx: number; cz: number } {
   if (shape.kind === 'round') return { cx: 0, cz: h - w / 2 };
   if (shape.kind === 'segmental') return { cx: 0, cz: h - (w * w / 4 + shape.rise * shape.rise) / (2 * shape.rise) };
   if (shape.kind === 'pointed') return { cx: 0, cz: h - shape.rise };
+  if (shape.kind === 'horseshoe') return { cx: 0, cz: h - w / 2 };
   return { cx: 0, cz: h / 2 };
 }
 

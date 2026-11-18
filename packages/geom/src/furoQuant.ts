@@ -8,6 +8,7 @@
  */
 import { ErroKernelGrave } from './kernel/v2/erros.ts';
 import { CODIGOS } from './kernel/v2/esquema.gerado.ts';
+import type { PoligonoPlanta } from './furoPrisma.ts';
 import { erroDeChamada, erroDoCodigo, falhaGrave, type InstanciaWasmFuro, lerErro, lerSaida, liberarTudo, num, reservar, TIPO_F64, TIPO_U32, type ExportsMemoriaFuro, type Reserva } from './furoWasm.ts';
 
 /** Versão do layout desta ABI (`furo_quant_abi_versao`). */
@@ -39,8 +40,13 @@ export interface EntradaRetornoContorno {
   /** Faixa em s (espessura da parede) que o retorno ocupa. */
   y0: number;
   y1: number;
-  /** `'contorno'` (ombreiras, verga/arco e soleira) ou `'ombreiras'`. */
-  modo?: 'contorno' | 'ombreiras';
+  /**
+   * `'contorno'` (ombreiras, verga/arco e soleira), `'ombreiras'`, ou `'contorno-sem-base'` (ombreiras e verga/arco, sem a faixa
+   * da soleira: o vão que toca o piso, docs/estudo-esquadrias/33). Este último e `recorte` exigem `furo_retorno_vao_ext`.
+   */
+  modo?: 'contorno' | 'ombreiras' | 'contorno-sem-base';
+  /** Polígonos de planta [u, s] em que o retorno pode existir (a pegada menos as paredes vizinhas); vazio ou ausente = sem recorte. */
+  recorte?: ReadonlyArray<PoligonoPlanta>;
 }
 
 export interface ResultadoRetornoContorno {
@@ -86,12 +92,17 @@ interface ExportsQuant extends ExportsMemoriaFuro {
   furo_quant_abi_versao(): number;
   furo_quant_vao(nPontos: number, ptrPontos: number): number;
   furo_retorno_vao(nPontos: number, ptrPontos: number, x: number, soleira: number, espessura: number, espessuraAcabamento: number, recuo: number, y0: number, y1: number, modo: number): number;
+  furo_retorno_ext_abi_versao?(): number;
+  furo_retorno_vao_ext?(nPontos: number, ptrPontos: number, x: number, soleira: number, espessura: number, espessuraAcabamento: number, recuo: number, y0: number, y1: number, modo: number, nPoligonos: number, nAneis: number, nPontosRec: number, ptrPontosRec: number, ptrAneis: number, ptrPoligonos: number): number;
   furo_quant_parede(nVaos: number, nPontos: number, ptrPontos: number, ptrVaos: number, ptrX: number, ptrSoleira: number, nCamadas: number, ptrEspessuras: number, comprimento: number, altura: number): number;
 }
 
 type InstanciaQuant = InstanciaWasmFuro & { readonly exports: ExportsQuant };
 
 let atual: InstanciaQuant | null = null;
+/** Versão do layout de `furo_retorno_vao_ext`. */
+export const VERSAO_ABI_RETORNO_EXT = 1;
+let extAtual = false;
 
 /** Compila e instancia o wasm que contém `furo_quant_*`. Versão errada ou exportações ausentes: `ErroKernelGrave(VERSAO)`. */
 export async function carregarFuroQuant(bytes: ArrayBuffer | Uint8Array | WebAssembly.Module): Promise<void> {
@@ -111,7 +122,15 @@ export async function carregarFuroQuant(bytes: ArrayBuffer | Uint8Array | WebAss
   }
   if (versao !== VERSAO_ABI_QUANT) throw new ErroKernelGrave(CODIGOS.VERSAO, `furo_quant_abi_versao=${versao}, esperado ${VERSAO_ABI_QUANT}`);
   atual = { exports, memory };
+  try {
+    extAtual = typeof exports.furo_retorno_vao_ext === 'function' && exports.furo_retorno_ext_abi_versao?.() === VERSAO_ABI_RETORNO_EXT;
+  } catch {
+    extAtual = false;
+  }
 }
+
+/** O módulo carregado tem `furo_retorno_vao_ext` (retorno sem soleira e recortado em planta). */
+export const furoRetornoExtCarregado = (): boolean => atual !== null && extAtual;
 
 /** Diz se `carregarFuroQuant` já rodou com sucesso. */
 export const furoQuantCarregado = (): boolean => atual !== null;
@@ -158,21 +177,47 @@ export function quantificarVao(contorno: readonly PontoContorno[]): QuantidadeVa
   );
 }
 
-/** Retorno do acabamento que segue o contorno (docs/estudo-esquadrias/22 e 27). */
+/** Lê as três saídas do retorno (as mesmas em `furo_retorno_vao` e `furo_retorno_vao_ext`). */
+function lerRetorno(inst: InstanciaQuant, nome: string): ResultadoRetornoContorno {
+  if (inst.exports.furo_saida_n() !== 3) throw falhaGrave(`${nome}: número de saídas inesperado`);
+  const m = lerSaida(inst, 0, TIPO_F64, 'meta') as Float64Array;
+  const vertices = lerSaida(inst, 1, TIPO_F64, 'vertices') as Float64Array;
+  const indices = lerSaida(inst, 2, TIPO_U32, 'indices') as Uint32Array;
+  if (m.length !== 8 || vertices.length % 3 !== 0 || indices.length % 3 !== 0) throw falhaGrave(`${nome}: tamanhos de saída incoerentes`);
+  return { espessura: num(m, 0), limitada: num(m, 1) !== 0, y0: num(m, 2), y1: num(m, 3), areaAnel: num(m, 4), areaLivre: num(m, 5), volume: num(m, 6), areaExposta: num(m, 7), vertices, indices };
+}
+
+/** Retorno do acabamento que segue o contorno (docs/estudo-esquadrias/22, 27 e 33). */
 export function retornoDoContorno(e: EntradaRetornoContorno): ResultadoRetornoContorno {
   const inst = instanciaCarregada();
   const pts = planos(e.contorno);
+  const recorte = e.recorte ?? [];
+  if (e.modo === 'contorno-sem-base' || recorte.length > 0) {
+    if (!extAtual) throw new Error('retorno do vão: base livre e recorte exigem furo_retorno_vao_ext (módulo sem ela)');
+    const pontosRec: number[] = [];
+    const aneis: number[] = [0];
+    const poligonos: number[] = [0];
+    for (const poly of recorte) {
+      for (const anel of poly) {
+        for (const [u, s] of anel) pontosRec.push(u, s);
+        aneis.push(pontosRec.length / 2);
+      }
+      poligonos.push(aneis.length - 1);
+    }
+    const modo = e.modo === 'ombreiras' ? 1 : e.modo === 'contorno-sem-base' ? 2 : 0;
+    const pr = Float64Array.from(pontosRec);
+    const ar = Uint32Array.from(aneis);
+    const po = Uint32Array.from(poligonos);
+    return executar(
+      inst,
+      (r) => inst.exports.furo_retorno_vao_ext!(e.contorno.length, reservar(inst, pts, r), e.x, e.soleira, e.espessura, e.espessuraAcabamento ?? e.espessura, e.recuo ?? 0, e.y0, e.y1, modo, recorte.length, aneis.length - 1, pontosRec.length / 2, reservar(inst, pr, r), reservar(inst, ar, r), reservar(inst, po, r)),
+      () => lerRetorno(inst, 'furo_retorno_vao_ext'),
+    );
+  }
   return executar(
     inst,
     (r) => inst.exports.furo_retorno_vao(e.contorno.length, reservar(inst, pts, r), e.x, e.soleira, e.espessura, e.espessuraAcabamento ?? e.espessura, e.recuo ?? 0, e.y0, e.y1, e.modo === 'ombreiras' ? 1 : 0),
-    () => {
-      if (inst.exports.furo_saida_n() !== 3) throw falhaGrave('furo_retorno_vao: número de saídas inesperado');
-      const m = lerSaida(inst, 0, TIPO_F64, 'meta') as Float64Array;
-      const vertices = lerSaida(inst, 1, TIPO_F64, 'vertices') as Float64Array;
-      const indices = lerSaida(inst, 2, TIPO_U32, 'indices') as Uint32Array;
-      if (m.length !== 8 || vertices.length % 3 !== 0 || indices.length % 3 !== 0) throw falhaGrave('furo_retorno_vao: tamanhos de saída incoerentes');
-      return { espessura: num(m, 0), limitada: num(m, 1) !== 0, y0: num(m, 2), y1: num(m, 3), areaAnel: num(m, 4), areaLivre: num(m, 5), volume: num(m, 6), areaExposta: num(m, 7), vertices, indices };
-    },
+    () => lerRetorno(inst, 'furo_retorno_vao'),
   );
 }
 

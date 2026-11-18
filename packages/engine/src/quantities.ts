@@ -113,7 +113,12 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
       const wt = p.wallTypes[w.typeId];
       const thick = (l.layerIndex >= 0 ? wt?.layers[l.layerIndex]?.thickness : wt?.strips[-l.layerIndex - 1]?.thickness) ?? 0;
       // Com o Rust, a área de face é a dele (volume líquido ÷ espessura da camada).
-      if (thick > 0) faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + (q ? q.areaDeFace : vol / thick);
+      // Camada com vão por contorno: área de face REAL = faixas inteiras menos o corte de piso/laje, ÷ espessura, menos a área do
+      // contorno na face (`furo_quant_parede`, medida na malha); sem a medição, o que a malha removeu ÷ espessura. O retorno do
+      // acabamento NÃO entra: é a reveal do vão, não a face da parede (volume ÷ espessura somava `retorno ÷ espessura` à face).
+      const faceCorte = fc ? cortado : 0;
+      const areaDeFace = q ? q.areaDeFace : fc && thick > 0 ? Math.max(0, fc.areaFuroNaFace !== null ? (fc.volumeBruto - faceCorte) / thick - fc.areaFuroNaFace : (fc.volumeBruto - fc.removido - faceCorte) / thick) : vol / thick;
+      if (thick > 0) faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + areaDeFace;
     }
     for (const m of rw.membranes) {
       const len = Math.hypot(m.pts[1]!.x - m.pts[0]!.x, m.pts[1]!.y - m.pts[0]!.y);

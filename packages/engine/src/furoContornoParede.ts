@@ -3,7 +3,7 @@ import type { MultiPolygon, Vec2 } from '@hestia/geom';
 import { bandVolume } from './profile.ts';
 import { furosDe } from './resolveMemo.ts';
 import { openingHole } from './openingCut.ts';
-import { clienteFuroContorno, formaDoVao, furarPrismaPorContorno, retornoPorContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type ResultadoRetornoVao, type VaoComContorno } from './furoContornoDespacho.ts';
+import { clienteFuroContorno, formaDoVao, furarPrismaPorContorno, quantificarParedePorContorno, retornoPorContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type ResultadoRetornoVao, type VaoComContorno } from './furoContornoDespacho.ts';
 import type { FuroContornoDaParede, LayerBand, OpeningGeometry, ResolvedLayer, ResolvedWall } from './types.ts';
 
 /**
@@ -53,6 +53,19 @@ function bandasRetangulares(bands: LayerBand[], gs: OpeningGeometry[]): LayerBan
 const paraPlanta = (rw: ResolvedWall, m: MultiPolygon): PedidoFuroPrisma['camadas'][number]['poligonos'] =>
   m.map((poly) => poly.map((ring) => ring.map((q: Vec2): [number, number] => [(q.x - rw.a.x) * rw.u.x + (q.y - rw.a.y) * rw.u.y, (q.x - rw.a.x) * rw.n.x + (q.y - rw.a.y) * rw.n.y])));
 
+/**
+ * Topo inclinado de uma faixa no referencial (u, s) da parede, ou `undefined` se a faixa é plana. `null` quando o plano não é
+ * um plano em u da parede (direção ou origem diferentes de `a`, `u`): o chamador recua para faixas retangulares.
+ */
+export function topoDaFaixa(rw: Pick<ResolvedWall, 'a' | 'u'>, b: LayerBand): { t0: number; t1: number; h0: number; h1: number } | undefined | null {
+  const s = b.slope;
+  if (!s) return undefined;
+  const mesmoEixo = Math.abs(s.d.x - rw.u.x) < 1e-9 && Math.abs(s.d.y - rw.u.y) < 1e-9 && Math.hypot(s.o.x - rw.a.x, s.o.y - rw.a.y) < 1e-9;
+  if (!mesmoEixo || !(s.t1 > s.t0)) return null;
+  const c = (h: number): number => Math.min(b.z1, Math.max(b.z0, h));
+  return { t0: s.t0, t1: s.t1, h0: c(s.h0), h1: c(s.h1) };
+}
+
 export interface CamadaFurada {
   /** Faixas efetivas: as mesmas de entrada quando o cliente furou; recortadas em retângulo no recuo. */
   bands: LayerBand[];
@@ -64,6 +77,13 @@ export interface CamadaFurada {
   removido: number;
   /** Volume líquido da camada (m³): faixas, menos o removido, mais os retornos. */
   volume: number;
+  /** Volume das faixas efetivas inteiras, sem o furo e sem o retorno (m³). */
+  volumeBruto: number;
+  /**
+   * Área do(s) contorno(s) na face da camada (m²): a medida na malha da placa pela `furo_quant_parede` (via cliente) quando
+   * há; senão `null` (a área de face cai em `removido` ÷ espessura). Nula no recuo retangular (as faixas já vêm furadas).
+   */
+  areaFuroNaFace: number | null;
 }
 
 const LIMITE_PRISMAS = 32; // limite de camadas por chamada da ABI (doc 25 §4)
@@ -78,11 +98,16 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
   const vaos = vaosDoContorno(fc);
   const prismas = bands.filter((b) => b.poly.length > 0);
   let malhas: CamadaFurada['malhas'] = null;
-  if (prismas.length > 0 && prismas.every((b) => !b.slope)) {
+  const topos = prismas.map((b) => topoDaFaixa(rw, b));
+  // Faixa com topo inclinado só segue por contorno com o cliente que o aceita; sem ele (ou com plano fora do eixo), recua para retângulo.
+  if (prismas.length > 0 && topos.every((t) => t !== null) && (clienteFuroContorno()?.topoInclinado === true || topos.every((t) => t === undefined))) {
     const feitas: NonNullable<CamadaFurada['malhas']> = [];
     for (let i = 0; i < prismas.length; i += LIMITE_PRISMAS) {
       const parte = prismas.slice(i, i + LIMITE_PRISMAS);
-      const r = furarPrismaPorContorno({ wallId: rw.wallId, camadas: parte.map((b) => ({ poligonos: paraPlanta(rw, b.poly), z0: b.z0, z1: b.z1 })), vaos });
+      const r = furarPrismaPorContorno({ wallId: rw.wallId, camadas: parte.map((b, k) => {
+          const topo = topos[i + k];
+          return { poligonos: paraPlanta(rw, b.poly), z0: b.z0, z1: b.z1, ...(topo ? { topo } : {}) };
+        }), vaos });
       if (!r || r.camadas.length !== parte.length) {
         feitas.length = 0;
         break;
@@ -95,14 +120,33 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
   for (const f of fc) {
     for (const r of f.retornos) {
       if (r.layerIndex !== l.layerIndex || !f.g.forma) continue;
-      const res = retornoPorContorno({ contorno: outline(f.g.forma), x: f.g.offset, soleira: f.g.sill, espessura: r.espessura, recuo: r.recuo, y0: r.y0, y1: r.y1 });
+      if (r.recorte && r.recorte.length === 0) continue; // a vizinha cobre toda a pegada do retorno
+      const contorno = outline(f.g.forma);
+      // Vão que toca o piso (peitoril 0): o retorno não reveste a soleira, como o do vão retangular (docs/estudo-esquadrias/33 §2.1).
+      const semBase = f.g.sill + Math.min(...contorno.map((q) => q[1])) <= 1e-6;
+      const res = retornoPorContorno({ contorno, x: f.g.offset, soleira: f.g.sill, espessura: r.espessura, recuo: r.recuo, y0: r.y0, y1: r.y1, ...(semBase ? { semBase } : {}), ...(r.recorte ? { recorte: paraPlanta(rw, r.recorte) } : {}) });
       if (res) retornos.push(res);
     }
   }
   const efetivas = malhas ? bands : bandasRetangulares(bands, fc.map((f) => f.g));
   const removido = malhas ? malhas.reduce((s, m) => s + (m.malha.volumeSemFuro - m.malha.volume), 0) : 0;
-  const volume = efetivas.reduce((s, b) => s + bandVolume(b), 0) - removido + retornos.reduce((s, r) => s + r.volume, 0);
-  return { bands: efetivas, malhas, retornos, removido, volume };
+  const volumeBruto = efetivas.reduce((s, b) => s + bandVolume(b), 0);
+  const volume = volumeBruto - removido + retornos.reduce((s, r) => s + r.volume, 0);
+  return { bands: efetivas, malhas, retornos, removido, volume, volumeBruto, areaFuroNaFace: malhas ? areaFuroNaFaceDaParede(rw, vaos) : null };
+}
+
+/**
+ * Área dos contornos na face da parede, medida na malha da placa pela `furo_quant_parede` (via cliente): contorno recortado pela
+ * placa `comprimento x altura`. `null` sem cliente, sem a medição ou se a placa não comporta os vãos (o cliente recusa; por
+ * exemplo, topo em perfil mais baixo que o arco). A camada é a mesma para qualquer espessura, então a placa é de 0,1 m.
+ */
+function areaFuroNaFaceDaParede(rw: ResolvedWall, vaos: VaoComContorno[]): number | null {
+  // Perfil de topo ou de base: o furo na face é recortado pelo perfil, não pela placa retangular; a malha das faixas é a medida.
+  if (rw.profileTop || rw.profileBottom) return null;
+  const altura = Math.max(...(rw.layers.flatMap((l) => l.bands.map((b) => b.z1))), 0);
+  if (!(altura > 0) || !(rw.length > 0)) return null;
+  const r = quantificarParedePorContorno({ wallId: rw.wallId, comprimento: rw.length, altura, vaos });
+  return r ? r.areaFuroNaFace : null;
 }
 
 /**

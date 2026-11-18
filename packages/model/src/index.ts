@@ -121,3 +121,7 @@ export * from './openingShape.ts';
 export * from './openingShapeSegments.ts';
 export * from './openingShapeInset.ts';
 export * from './openingShapeOf.ts';
+export * from './openingShapeKinds.ts';
+export { MAX_POLYGON_POINTS, polygonRing, ringIsSimple, cleanRing, trapezoidWidths, type PolygonFormShape } from './openingShapePolygon.ts';
+export * from './openingShapePolyInset.ts';
+export { horseshoeGeometry } from './openingShapeHorseshoe.ts';

@@ -1,16 +1,18 @@
 /**
  * Reconhece a forma de um vão a partir do contorno 2D do seu perfil IFC (x = largura ao longo da parede, y = altura).
- * Candidatas: retângulo, círculo/elipse, arco pleno, arco abatido e ogival (a flecha é procurada numa grade e refinada).
- * A forma com menor desvio de Hausdorff (vértices contra segmentos, nos dois sentidos) vence.
+ * Candidatas: retângulo, círculo/elipse, arco pleno, arco abatido, ogival, empena, trapézio e ferradura (a flecha é procurada numa grade e
+ * refinada; o trapézio sai das larguras da base e do topo; a ferradura, da largura da base). A forma com menor desvio de Hausdorff (vértices contra segmentos, nos
+ * dois sentidos) vence.
  *
  * - desvio <= `FORMA_EXATA_TOL`: forma exata, sem aviso;
  * - desvio <= `FORMA_PROXIMA_TOL`: forma livre, aproximada pela mais próxima (quem chama avisa o desvio);
- * - acima disso: `null`, e o vão segue como caixa envolvente.
+ * - acima disso: polígono livre (`polygon`, exato e sem aviso) se o contorno é um polígono simples e válido (docs/estudo-esquadrias/32);
+ *   senão `null`, e o vão segue como caixa envolvente (contorno com auto-interseção, por exemplo).
  *
  * [I] A orientação do perfil (y para cima, base em y mínimo) é a mesma suposição de `outlineIsNotRect`; perfil de cabeça
  * para baixo não é reconhecido e cai na caixa envolvente.
  */
-import { outline, validateOpeningShape, type OpeningShape, type OPt } from '@hestia/model';
+import { MAX_POLYGON_POINTS, cleanRing, outline, ringIsSimple, validateOpeningShape, type OpeningShape, type OPt } from '@hestia/model';
 import type { Pt2 } from './ifc.ts';
 
 /** Desvio (m) abaixo do qual a forma é considerada exata. Cordas de 1 mm nos dois lados, com folga. */
@@ -114,6 +116,34 @@ function bestRise(ring: Ring, lo: number, hi: number, make: (rise: number) => Op
   return dev < best.dev ? { shape: make(rise), dev } : { shape: make(best.rise), dev: best.dev };
 }
 
+/** Largura (extensão em x) dos pontos do anel na cota `z` (tolerância 1 um); 0 se nenhum ponto cai nela. */
+function widthAt(ring: Ring, z: number): number {
+  const xs = ring.filter((p) => Math.abs(p[1] - z) < 1e-6).map((p) => p[0]);
+  return xs.length > 0 ? Math.max(...xs) - Math.min(...xs) : 0;
+}
+
+/** Trapézio simétrico pelas larguras medidas na base e no topo; `null` se alguma é nula. */
+function trapezoidOf(ring: Ring, w: number, h: number): OpeningShape | null {
+  const base = widthAt(ring, 0);
+  const top = widthAt(ring, h);
+  if (!(base > 1e-6 && top > 1e-6)) return null;
+  return { kind: 'trapezoid', width: w, height: h, topWidth: top, ...(Math.abs(base - w) > 1e-9 ? { baseWidth: base } : {}) };
+}
+
+/** Polígono livre do anel normalizado (anti-horário, u a partir da borda esquerda), ou `null` se não é um polígono válido. */
+function polygonOf(ring: Ring, w: number, h: number): OpeningShape | null {
+  const clean = cleanRing(ring);
+  if (clean.length < 3 || clean.length > MAX_POLYGON_POINTS || !ringIsSimple(clean)) return null;
+  let area = 0;
+  clean.forEach((p, i) => {
+    const q = clean[(i + 1) % clean.length]!;
+    area += p[0] * q[1] - q[0] * p[1];
+  });
+  const ccw = area >= 0 ? clean : [...clean].reverse();
+  const shape: OpeningShape = { kind: 'polygon', width: w, height: h, points: ccw.map((p) => ({ u: p[0] + w / 2, v: p[1] })) };
+  return validateOpeningShape(shape).length === 0 ? shape : null;
+}
+
 /**
  * Forma do vão que melhor descreve o contorno do perfil, ou `null` se nenhuma forma do modelo chega perto (desvio acima de
  * `FORMA_PROXIMA_TOL`) ou o contorno é degenerado. `shape.kind === 'rect'` quer dizer que o contorno é um retângulo.
@@ -133,9 +163,18 @@ export function fitOpeningShape(loop: readonly Pt2[]): ShapeFit | null {
   if (abatido) candidates.push(abatido);
   const ogival = bestRise(ring, w / 2, h, (rise) => ({ kind: 'pointed', width: w, height: h, rise }));
   if (ogival) candidates.push(ogival);
+  const empena = bestRise(ring, 1e-3 * h, h, (rise) => ({ kind: 'gable', width: w, height: h, rise }));
+  if (empena) candidates.push(empena);
+  const trapezio = trapezoidOf(ring, w, h);
+  if (trapezio) push(trapezio);
+  const neck = widthAt(ring, 0); // ferradura: a abertura entre as ombreiras é a largura da base
+  if (neck > 1e-6 && neck < w - 1e-6) push({ kind: 'horseshoe', width: w, height: h, neck });
   let best = candidates[0]!;
   for (const c of candidates) if (c.dev < best.dev) best = c;
-  if (!Number.isFinite(best.dev) || best.dev > FORMA_PROXIMA_TOL) return null;
+  if (!Number.isFinite(best.dev) || best.dev > FORMA_PROXIMA_TOL) {
+    const livre = polygonOf(ring, w, h);
+    return livre ? { shape: livre, dev: 0, exact: true } : null;
+  }
   // Abatido ou ogival com flecha igual à metade da largura é o arco pleno (a mesma curva): reporta como `round`.
   const s = best.shape;
   if ((s.kind === 'pointed' || s.kind === 'segmental') && Math.abs(s.rise - w / 2) <= 1e-3) {
@@ -158,5 +197,13 @@ export function nomeDaForma(shape: OpeningShape): string {
       return 'arco abatido';
     case 'pointed':
       return 'ogival';
+    case 'gable':
+      return 'empena';
+    case 'trapezoid':
+      return 'trapézio';
+    case 'horseshoe':
+      return 'ferradura';
+    case 'polygon':
+      return 'polígono livre';
   }
 }

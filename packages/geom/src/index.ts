@@ -33,5 +33,5 @@ export { ErroKernelLeve, ErroKernelGrave } from './kernel/v2/erros.ts';
 export { baixarAsset as baixarAssetDoWasm } from './kernel/carregador.ts';
 export * from './curveFit.ts';
 export { carregarFuroContorno, furarParedePorContorno, furoContornoCarregado, type MalhaCamadaFuro, type ResultadoFuroParede, type VaoContorno } from './furoContorno.ts';
-export { carregarFuroPrisma, furarPrismas, furoPrismaCarregado, type CamadaPrisma, type MalhaCamadaPrisma, type PoligonoPlanta, type ResultadoPrismas } from './furoPrisma.ts';
-export { carregarFuroQuant, furoQuantCarregado, quantificarParede, quantificarVao, retornoDoContorno, type EntradaRetornoContorno, type PontoContorno, type QuantidadeCamadaFurada, type QuantidadeParede, type QuantidadeVao, type ResultadoRetornoContorno, type VaoQuant } from './furoQuant.ts';
+export { carregarFuroPrisma, furarPrismas, furoPrismaCarregado, furoPrismaExtCarregado, type CamadaPrisma, type MalhaCamadaPrisma, type OpcoesFuroPrisma, type PoligonoPlanta, type ResultadoPrismas, type TopoInclinado } from './furoPrisma.ts';
+export { carregarFuroQuant, furoQuantCarregado, furoRetornoExtCarregado, quantificarParede, quantificarVao, retornoDoContorno, type EntradaRetornoContorno, type PontoContorno, type QuantidadeCamadaFurada, type QuantidadeParede, type QuantidadeVao, type ResultadoRetornoContorno, type VaoQuant } from './furoQuant.ts';

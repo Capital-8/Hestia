@@ -13,8 +13,8 @@
  *
  * Módulo sem as exportações: `instalarClienteFuroReal` não instala nada (ou instala só o que o módulo tem) e devolve o motivo.
  */
-import { carregarFuroPrisma, carregarFuroQuant, furarPrismas, furoPrismaCarregado, furoQuantCarregado, retornoDoContorno, type CamadaPrisma, type VaoContorno } from '@hestia/geom';
-import { clienteFuroContorno, definirClienteFuroContorno, type ClienteFuroContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type PedidoRetornoVao, type ResultadoFuroPrisma, type ResultadoRetornoVao } from './furoContornoDespacho.ts';
+import { carregarFuroPrisma, carregarFuroQuant, furarPrismas, furoPrismaCarregado, furoPrismaExtCarregado, furoQuantCarregado, furoRetornoExtCarregado, quantificarParede, retornoDoContorno, type CamadaPrisma, type VaoContorno } from '@hestia/geom';
+import { clienteFuroContorno, definirClienteFuroContorno, type ClienteFuroContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type PedidoQuantParede, type PedidoRetornoVao, type ResultadoFuroPrisma, type ResultadoQuantParede, type ResultadoRetornoVao } from './furoContornoDespacho.ts';
 import { clienteFuroPrisma } from './furoClienteEngine.ts';
 
 export interface DiagnosticoFuroReal {
@@ -77,9 +77,12 @@ export function clienteFuroContornoReal(opcoes: OpcoesClienteReal = {}): Cliente
   const furarPrisma = (pedido: PedidoFuroPrisma): ResultadoFuroPrisma | null => {
     diag.chamadasPrisma++;
     try {
-      const camadas: CamadaPrisma[] = pedido.camadas.map((c) => ({ poligonos: c.poligonos, z0: c.z0, z1: c.z1 }));
+      const ext = furoPrismaExtCarregado();
+      const camadas: CamadaPrisma[] = pedido.camadas.map((c) => ({ poligonos: c.poligonos, z0: c.z0, z1: c.z1, ...(c.topo && ext ? { topo: c.topo } : {}) }));
       const vaos = vaosNoEnvelope(camadas, pedido.vaos.map((v) => ({ contorno: v.contorno, x: v.x, soleira: v.soleira })));
-      const r = furarPrismas(camadas, vaos);
+      // Com a ABI estendida o vão que sai só em parte do envelope é furado pela parte que cabe (docs/estudo-esquadrias/33 §2.3);
+      // sem ela a ABI recusa o pedido e o chamador recua para faixas retangulares.
+      const r = furarPrismas(camadas, vaos, ext ? { recortar: true } : {});
       return {
         camadas: r.camadas.map((m): MalhaPrismaFurada => ({ z0: m.z0, z1: m.z1, vertices: m.vertices, indices: m.indices, volume: m.volume, volumeSemFuro: m.volumeSemFuro })),
         volume: r.volume,
@@ -93,7 +96,9 @@ export function clienteFuroContornoReal(opcoes: OpcoesClienteReal = {}): Cliente
   const retornoDoVao = (p: PedidoRetornoVao): ResultadoRetornoVao | null => {
     diag.chamadasRetorno++;
     try {
-      const r = retornoDoContorno({ contorno: p.contorno, x: p.x, soleira: p.soleira, espessura: p.espessura, espessuraAcabamento: p.espessura, recuo: p.recuo, y0: p.y0, y1: p.y1, modo: 'contorno' });
+      // Base livre e recorte em canto exigem a ABI estendida; sem ela vale o retorno de sempre (contorno inteiro, sem recorte).
+      const ext = furoRetornoExtCarregado();
+      const r = retornoDoContorno({ contorno: p.contorno, x: p.x, soleira: p.soleira, espessura: p.espessura, espessuraAcabamento: p.espessura, recuo: p.recuo, y0: p.y0, y1: p.y1, modo: ext && p.semBase ? 'contorno-sem-base' : 'contorno', ...(ext && p.recorte ? { recorte: p.recorte } : {}) });
       return { vertices: r.vertices, indices: r.indices, volume: r.volume, areaExposta: r.areaExposta };
     } catch (e) {
       // "O retorno não cabe" (contorno estreito para a espessura ou o recuo) é um caso normal: sem retorno, sem alarde.
@@ -102,7 +107,21 @@ export function clienteFuroContornoReal(opcoes: OpcoesClienteReal = {}): Cliente
     }
   };
 
+  const quantificar = (p: PedidoQuantParede): ResultadoQuantParede | null => {
+    try {
+      const r = quantificarParede(p.vaos.map((v) => ({ contorno: v.contorno, x: v.x, soleira: v.soleira })), [0.1], p.comprimento, p.altura);
+      const c = r.camadas[0];
+      return c ? { areaFuroNaFace: c.areaFuroNaFace, areaFaceLiquida: c.areaFaceLiquida } : null;
+    } catch (e) {
+      // Vão que a placa não comporta (sai do retângulo da parede) é um caso normal: sem a medição, a área cai na malha das faixas.
+      if (e instanceof Error && e.name === 'ErroKernelLeve') return null;
+      return falhou(e);
+    }
+  };
+
   return {
+    ...(furoPrismaExtCarregado() ? { topoInclinado: true } : {}),
+    ...(furoQuantCarregado() ? { quantificarParede: quantificar } : {}),
     furarParede: furoPrismaCarregado() ? clienteFuroPrisma().furarParede : () => null,
     ...(furoPrismaCarregado() ? { furarPrisma } : {}),
     ...(furoQuantCarregado() ? { retornoDoVao } : {}),

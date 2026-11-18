@@ -1,4 +1,4 @@
-import { validateOpeningShape, type OpeningShape, type OpeningShapeIssue } from '@hestia/model';
+import { resizeOpeningShape, validateOpeningShape, type OpeningShape, type OpeningShapeIssue } from '@hestia/model';
 
 /*
  * Forma da ESQUADRIA dentro do vão bruto (docs/estudo-esquadrias/28 §7). O vão bruto (`roughOversize`) fura a parede; a esquadria
@@ -11,12 +11,12 @@ import { validateOpeningShape, type OpeningShape, type OpeningShapeIssue } from 
 /** A forma gravada dimensionada pela esquadria; `null` (peças retangulares) quando ela deixa de caber. */
 export function formaDaEsquadria(forma: OpeningShape | undefined, width: number, height: number): OpeningShape | null {
   if (!forma || forma.kind === 'rect') return null;
-  const s = { ...forma, width, height } as OpeningShape;
+  const s = resizeOpeningShape(forma, width, height);
   return validateOpeningShape(s).length === 0 ? s : null;
 }
 
 /** Problemas da forma na esquadria (vazio = cabe ou o tipo não tem forma). */
 export function problemasDaEsquadria(forma: OpeningShape | undefined, width: number, height: number): OpeningShapeIssue[] {
   if (!forma || forma.kind === 'rect') return [];
-  return validateOpeningShape({ ...forma, width, height } as OpeningShape);
+  return validateOpeningShape(resizeOpeningShape(forma, width, height));
 }
