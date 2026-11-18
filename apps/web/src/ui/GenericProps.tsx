@@ -65,6 +65,8 @@ export interface SelectionLabelInput {
   columns?: number;
   beams?: number;
   footings?: number;
+  /** Móveis importados (opcional). */
+  furnitures?: number;
   grade: { name: string } | null | undefined;
   view: { kind: string; name: string } | null;
 }
@@ -87,6 +89,7 @@ export function selectionLabel(c: SelectionLabelInput, lang: Lang = useI18n.getS
   if (c.columns) return plural(c.columns, t(lang, 'str_sel_column_one'), t(lang, 'str_sel_column_many'));
   if (c.beams) return plural(c.beams, t(lang, 'str_sel_beam_one'), t(lang, 'str_sel_beam_many'));
   if (c.footings) return plural(c.footings, t(lang, 'str_sel_footing_one'), t(lang, 'str_sel_footing_many'));
+  if (c.furnitures) return c.furnitures > 1 ? t(lang, 'fur_sel_many', { n: c.furnitures }) : t(lang, 'fur_sel_one');
   if (c.generics) return plural(c.generics, t(lang, 'prc_sel_generic_one'), t(lang, 'prc_sel_generic_many'));
   if (c.view) return `${c.view.kind === 'elevation' ? t(lang, 'prc_sel_view_elevation') : t(lang, 'prc_sel_view_section')} ${c.view.name}`;
   return t(lang, 'prc_sel_view');

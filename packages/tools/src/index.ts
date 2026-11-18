@@ -40,6 +40,8 @@ export { LevelTool, nextLevelName, LEVEL_Z_TOLERANCE, LEVEL_MIN_EXTENT } from '.
 export * from './wallGeom.ts';
 export * from './clipboard.ts';
 export * from './pasteTool.ts';
+export * from './furnitureTool.ts';
+export * from './furnitureFootprint.ts';
 export * from './pasteLevels/types.ts';
 export * from './pasteLevels/command.ts';
 export * from './lengthEdit.ts';

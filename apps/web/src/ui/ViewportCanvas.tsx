@@ -182,6 +182,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   model.current.texturas = texturas3d;
   const gizmoComp = useRef<GizmoComponente3D | null>(null);
   const previaBlocoRef = useRef<PreviaComponente3D | null>(null);
+  // Móveis (texturas e malhas leves chegam aos poucos): pede um quadro quando a cena de móveis termina de atualizar.
+  useEffect(() => { const m = model.current; m.moveis.aoAtualizar = () => useUi.setState((x) => ({ previewTick: x.previewTick + 1 })); return () => { m.moveis.aoAtualizar = null; }; }, []);
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);

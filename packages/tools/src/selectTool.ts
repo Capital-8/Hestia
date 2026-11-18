@@ -11,7 +11,7 @@ import { resolveAngularDimension } from '@hestia/engine';
 import { cotaDeCorteCortina, proximoSubelemento, sNaParede, subelementoEmPonto, type ParedeSubelementos } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { ghostBands, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews } from './edit.ts';
-import { componentAt, componentIdsInBox, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
+import { componentAt, furnitureAt, componentIdsInBox, genericAt, idsInBox, pickAt, cadAt, cadIdsInBox, pickColumnAt, pickBeamAt, pickFootingAt, columnIdsInBox, beamIdsInBox, footingIdsInBox } from './pick.ts';
 import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
@@ -311,6 +311,8 @@ export class SelectTool extends ToolBase {
     // Componente (móvel, louça, equipamento): pegada em planta, logo depois do genérico e antes do ambiente.
     const cp = componentAt(pr, lv, at, mpp);
     if (cp) return { id: cp, kind: 'component' };
+    const fu = furnitureAt(pr, lv, at, mpp);
+    if (fu) return { id: fu, kind: 'generic' };
     // Ambiente: por último entre os elementos de planta (o piso e a parede sob o cursor ganham o clique).
     const rm = pickRoomAt(vp, lv, at);
     if (rm) return { id: rm, kind: 'room' };

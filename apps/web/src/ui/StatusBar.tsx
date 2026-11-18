@@ -6,6 +6,7 @@ import { resolveText, useT, type Dict } from '../editor/i18n.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { Icon } from './Icon.tsx';
 import { IssuesButton } from './IssuesButton.tsx';
+import { FurnitureBudgetChip } from './FurnitureBudgetChip.tsx';
 import { SnapButton } from './SnapButton.tsx';
 import { OrthoButton } from './OrthoButton.tsx';
 import { GravidadeButton } from './GravidadeButton.tsx';
@@ -60,6 +61,7 @@ export function StatusBar(): ReactElement {
         <Icon name="funnel" size={12} />
         <span className="mono">:{nSel}</span>
       </span>
+      <FurnitureBudgetChip />
       <IssuesButton />
       <span className={`badge sb-engine ${gpu === 'cpu' ? 'cpu' : 'gpu'}`} title={t('tip_engine')}>{engine}</span>
     </footer>

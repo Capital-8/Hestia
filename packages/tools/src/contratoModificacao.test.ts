@@ -91,6 +91,12 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
   component: { mover: null, colar: 'components', alinhar: null, motivo: 'o componente (móvel) NÃO entra em `selectedMovables`: o Selecionar o move pelo próprio arrasto (`ArrastoComponentes`, com encaixe na parede e nos vizinhos) e aplica as poses por `updateComponent`; entrar lá moveria duas vezes. Alinhar pelas arestas dele ainda não existe.' },
+  furniture: {
+    mover: null,
+    colar: null,
+    alinhar: null,
+    motivo: 'TODO: o móvel importado é editado pelos comandos próprios (`addFurniture`/`updateFurniture`/`deleteFurniture`: posição, giro e espelho nas Propriedades); o `transform` (Mover, Girar, Espelhar, Copiar, Matriz), o Copiar/Colar e o Alinhar da planta ainda não o levam.',
+  },
 };
 
 /**
@@ -137,6 +143,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
   component: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o componente ainda não aparece como peça movível no corte e na elevação (o desenho do corte o mostra, mas mover pela vista não existe).' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o móvel importado é uma malha 3D que o corte e a elevação ainda não projetam, então não há desenho para mover ou alinhar nessas vistas.' },
 };
 
 /**

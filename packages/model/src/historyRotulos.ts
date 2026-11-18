@@ -3,8 +3,11 @@
 // fim faz um comando novo sem rótulo não compilar.
 import type { Command } from './commands.ts';
 import { componentCommandLabel } from './componentCommands.ts';
+import type { Lang } from './i18n.ts';
+import { furnitureLabel, isFurnitureCommand } from './furniture/commands.ts';
 
-export function labelOf(c: Command): string {
+export function labelOf(c: Command, lang: Lang = 'pt'): string {
+  if (isFurnitureCommand(c)) return furnitureLabel(c, lang);
   switch (c.type) {
     case 'addWall':
       return 'Criar parede';

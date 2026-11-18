@@ -126,6 +126,8 @@ export const I18N = {
     tool_terrainSpot: 'Cota de ponto',
     tool_terrainRegion: 'Região de terreno',
     tool_lot: 'Linhas de propriedade',
+
+    tool_furniture: 'Móvel',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
     tool_array: 'Matriz',
@@ -489,6 +491,8 @@ export const I18N = {
     tool_terrainSpot: 'Spot Elevation',
     tool_terrainRegion: 'Terrain Region',
     tool_lot: 'Property Line',
+
+    tool_furniture: 'Furniture',
     tool_rotate: 'Rotate',
     tool_mirror: 'Mirror',
     tool_array: 'Array',

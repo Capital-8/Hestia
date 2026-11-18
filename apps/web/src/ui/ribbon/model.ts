@@ -30,7 +30,7 @@ export type ActionId =
   | 'regiaoSubdivisao' | 'regiaoPlataforma' | 'regiaoPlataformaElemento' | 'regiaoNivelada'
   | 'corteAterro' | 'mapaCorteAterro'
   | 'loteDesenhar' | 'lotePorTabela' | 'indicesLote'
-  | 'groupComponents' | 'ungroupComponents' | 'familyEditor' | 'componentBudget' | 'componentLibrary' | 'componentRun';
+  | 'groupComponents' | 'ungroupComponents' | 'familyEditor' | 'componentBudget' | 'componentLibrary' | 'componentRun' | 'importFurniture' | 'myBlocks';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

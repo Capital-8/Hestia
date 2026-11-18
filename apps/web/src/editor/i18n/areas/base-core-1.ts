@@ -58,6 +58,8 @@ export const PT_BASE_CORE_1 = {
     tool_terrainSpot: 'Cota de ponto',
     tool_terrainRegion: 'Região de terreno',
     tool_lot: 'Linhas de propriedade',
+
+    tool_furniture: 'Móvel',
     tool_rotate: 'Rotacionar',
     tool_mirror: 'Espelhar',
     tool_array: 'Matriz',
@@ -178,6 +180,8 @@ export const ES_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_terrainSpot: 'Cota de punto',
     tool_terrainRegion: 'Región de terreno',
     tool_lot: 'Líneas de propiedad',
+
+    tool_furniture: 'Mueble',
     tool_rotate: 'Rotar',
     tool_mirror: 'Simetría',
     tool_array: 'Matriz',
@@ -298,6 +302,8 @@ export const DE_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_terrainSpot: 'Höhenpunkt',
     tool_terrainRegion: 'Geländebereich',
     tool_lot: 'Grundstücksgrenzen',
+
+    tool_furniture: 'Möbel',
     tool_rotate: 'Drehen',
     tool_mirror: 'Spiegeln',
     tool_array: 'Reihe',
@@ -418,6 +424,8 @@ export const FR_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_terrainSpot: 'Point coté',
     tool_terrainRegion: 'Région de terrain',
     tool_lot: 'Limites de propriété',
+
+    tool_furniture: 'Meuble',
     tool_rotate: 'Faire pivoter',
     tool_mirror: 'Symétrie',
     tool_array: 'Réseau',
@@ -538,6 +546,8 @@ export const IT_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_terrainSpot: 'Quota puntuale',
     tool_terrainRegion: 'Regione di terreno',
     tool_lot: 'Linee di proprietà',
+
+    tool_furniture: 'Arredo',
     tool_rotate: 'Ruota',
     tool_mirror: 'Simmetria',
     tool_array: 'Matrice',
@@ -658,6 +668,8 @@ export const PL_BASE_CORE_1: Record<keyof typeof PT_BASE_CORE_1, string> = {
     tool_terrainSpot: 'Punkt wysokościowy',
     tool_terrainRegion: 'Obszar terenu',
     tool_lot: 'Granice działki',
+
+    tool_furniture: 'Mebel',
     tool_rotate: 'Obróć',
     tool_mirror: 'Lustrzane odbicie',
     tool_array: 'Szyk',

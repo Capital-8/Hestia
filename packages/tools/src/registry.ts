@@ -54,8 +54,9 @@ import { BeamTool } from './beamTool.ts';
 import { FootingTool } from './footingTool.ts';
 import { MassTool } from './massTool.ts';
 import { ComponentTool } from './componentTool.ts';
+import { FurnitureTool } from './furnitureTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'component' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot' | 'terrainRegion' | 'lot';
+export type ToolId = 'select' | 'wall' | 'component' | 'furniture' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot' | 'terrainRegion' | 'lot';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
   { title: 'Construir', tools: ['wall', 'component', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
@@ -83,6 +84,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
   switch (id) {
     case 'select':
       return new SelectTool(env);
+    case 'furniture':
+      return new FurnitureTool(env);
     case 'paste':
       return new PasteTool(env);
     case 'terrain':
@@ -212,6 +215,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
   plugin: 'Suplemento',
+  furniture: 'Móvel',
   wall: 'Parede',
   component: 'Componente',
   floor: 'Piso',

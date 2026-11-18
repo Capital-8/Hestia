@@ -1326,5 +1326,53 @@
     "fr": "Rangée",
     "it": "Fila",
     "pl": "Szereg"
+  },
+  {
+    "pt": "Móveis",
+    "es": "Muebles",
+    "de": "Möbel",
+    "fr": "Meubles",
+    "it": "Arredi",
+    "pl": "Meble"
+  },
+  {
+    "pt": "Importar móvel",
+    "es": "Importar mueble",
+    "de": "Möbel importieren",
+    "fr": "Importer un meuble",
+    "it": "Importa arredo",
+    "pl": "Importuj mebel"
+  },
+  {
+    "pt": "Meus blocos",
+    "es": "Mis bloques",
+    "de": "Meine Blöcke",
+    "fr": "Mes blocs",
+    "it": "I miei blocchi",
+    "pl": "Moje bloki"
+  },
+  {
+    "pt": "Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.",
+    "es": "Trae un mueble 3D de un archivo (.skp, .glb, .obj...) al proyecto.",
+    "de": "Bringt ein 3D-Möbel aus einer Datei (.skp, .glb, .obj...) ins Projekt.",
+    "fr": "Importe un meuble 3D depuis un fichier (.skp, .glb, .obj...) dans le projet.",
+    "it": "Porta un arredo 3D da un file (.skp, .glb, .obj...) nel progetto.",
+    "pl": "Wprowadza mebel 3D z pliku (.skp, .glb, .obj...) do projektu."
+  },
+  {
+    "pt": "Lista os blocos do projeto para colocar mais cópias.",
+    "es": "Lista los bloques del proyecto para colocar más copias.",
+    "de": "Listet die Blöcke des Projekts, um weitere Kopien zu platzieren.",
+    "fr": "Liste les blocs du projet pour placer d’autres copies.",
+    "it": "Elenca i blocchi del progetto per posizionare altre copie.",
+    "pl": "Wyświetla bloki projektu, aby umieścić kolejne kopie."
+  },
+  {
+    "pt": "Colocar móvel",
+    "es": "Colocar mueble",
+    "de": "Möbel platzieren",
+    "fr": "Placer un meuble",
+    "it": "Posiziona arredo",
+    "pl": "Umieść mebel"
   }
 ]
