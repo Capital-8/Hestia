@@ -541,7 +541,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Objetos importados (viga, pilar, mobiliário...) e componentes (móveis), em planta: leitura fiel ao 3D.
   if (profile.generic && paint.generic.visible) {
     for (const e of Object.values(p.elements)) if (isGeneric(e) && e.levelId === input.levelId && !hidden?.has(e.id) && e.outline?.length) strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
-    const comp = componentsPlanOps(p, input.levelId, theme, hidden);
+    const comp = componentsPlanOps(p, input.levelId, theme, hidden, style.visual === 'shaded');
     fills.push(...surfaces(comp.fills)); strokes.push(...comp.strokes);
     // CAD importado (fase 5): os traços e textos do desenho, finos e na cor de cada camada/entidade.
     const cad = cadPlanOps(semElementosOcultos(p, hidden), input.levelId, theme, style.scale);

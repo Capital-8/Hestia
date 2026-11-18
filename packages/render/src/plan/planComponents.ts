@@ -1,6 +1,7 @@
 import { ringArea, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { caixaDoComponente, pegadaDoComponente, resolverComponente, type PecaResolvida } from '@hestia/engine';
-import { levelElevation, type Component, type Project } from '@hestia/model';
+import { levelElevation, MAPA_ACABAMENTOS, materialDoAcabamento, resolverMaterialVisualPeca, type Component, type PapelPeca, type Project } from '@hestia/model';
+import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from './color.ts';
 import type { FillOp, PlanTheme, StrokeOp } from './types.ts';
 
@@ -9,6 +10,12 @@ const COTA_AEREO_M = 1.1;
 
 /** Cota mínima e máxima aproximada dos recortes de tampo quando há peça tampo explícita. */
 const RECORTE_REGEX = /cuba|cooktop|recorte/i;
+
+/** Cor (hex) do acabamento que o 3D usa para o papel da peça: overrides `acabCorpo/acabPorta/acabTampo`, material especial ou padrão do papel. */
+function corDoPapel(c: Component, papel: PapelPeca, materialPeca?: string): string | undefined {
+  const id = resolverMaterialVisualPeca(c, papel, materialPeca);
+  return MATERIAIS_DE_COMPONENTE[id]?.color ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!).color : undefined);
+}
 
 function pontoNoMundo(c: Component, lx: number, ly: number): Vec2 {
   const cos = Math.cos(c.rotation);
@@ -71,6 +78,7 @@ function desenharTamposERecortes(
   theme: PlanTheme,
   fills: FillOp[],
   strokes: StrokeOp[],
+  sombreado: boolean,
 ): void {
   const tampos = pecas.filter((q) => !q.vazio && q.papel === 'tampo');
   const tampoPolys: MultiPolygon = [];
@@ -87,7 +95,9 @@ function desenharTamposERecortes(
     }
   }
   if (tampoPolys.length > 0) {
-    fills.push({ polygons: tampoPolys, color: mix(theme.bg, '#8c6a4a', 0.14), alpha: 0.85 });
+    // Sombreado: cor do acabamento do tampo (da primeira peça tampo); senão o tom fixo de antes.
+    const corTampo = sombreado ? corDoPapel(c, 'tampo', tampos[0]!.material ?? undefined) : undefined;
+    fills.push({ polygons: tampoPolys, color: corTampo ?? mix(theme.bg, '#8c6a4a', 0.14), alpha: corTampo ? 1 : 0.85 });
   }
 
   // Peças explícitas de recorte/cuba/cooktop ou genéricas sobre o tampo (inclusive peças vazias `vazio: true`).
@@ -102,7 +112,7 @@ function desenharTamposERecortes(
   }
 }
 
-function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: string, strokes: StrokeOp[]): void {
+function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: string, fills: FillOp[], strokes: StrokeOp[], sombreado: boolean): void {
   const vistas = new Set<string>();
   for (const q of pecas) {
     if (q.vazio || (q.papel !== 'porta' && q.papel !== 'frente_gaveta')) continue;
@@ -113,7 +123,10 @@ function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: s
     if (vistas.has(chave)) continue;
     vistas.add(chave);
 
-    strokes.push({ pts: anelRetangulo(c, ox, oy, ox + ex, oy + ey), closed: true, widthPx: 0.9, color, alpha: 0.75 });
+    const anel = anelRetangulo(c, ox, oy, ox + ex, oy + ey);
+    const corFrente = sombreado ? corDoPapel(c, q.papel, q.material ?? undefined) : undefined;
+    if (corFrente) fills.push({ polygons: [[anel]], color: corFrente, alpha: 1 });
+    strokes.push({ pts: anel, closed: true, widthPx: 0.9, color, alpha: 0.75 });
     const largPux = Math.min(0.12, ex * 0.35);
     if (largPux >= 0.03) {
       const cx = ox + ex / 2;
@@ -141,6 +154,8 @@ export function desenharComponenteEmPlanta(
   theme: PlanTheme,
   fills: FillOp[],
   strokes: StrokeOp[],
+  sombreado = false,
+  fillsAereos: FillOp[] = fills,
 ): void {
   const res = resolverComponente(p, c);
   const caixa = caixaDoComponente(p, c, res);
@@ -150,6 +165,9 @@ export function desenharComponenteEmPlanta(
 
   const zMinNoNivel = caixa.min[2] - levelElevation(p, c.levelId);
   if (zMinNoNivel >= COTA_AEREO_M) {
+    // Aéreo sombreado: véu leve na cor do corpo (alpha 0,25), emitido ANTES dos móveis de piso para nunca cobri-los.
+    const corAereo = sombreado ? corDoPapel(c, 'lateral') : undefined;
+    if (corAereo) fillsAereos.push({ polygons: pegada, color: corAereo, alpha: 0.25 });
     for (const poly of pegada) {
       for (const ring of poly) {
         strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [4, 3] });
@@ -158,14 +176,15 @@ export function desenharComponenteEmPlanta(
     return;
   }
 
-  fills.push({ polygons: pegada, color: mix(theme.bg, theme.inkSoft, 0.07), alpha: 0.85 });
+  const corCorpo = sombreado ? corDoPapel(c, 'lateral') : undefined;
+  fills.push({ polygons: pegada, color: corCorpo ?? mix(theme.bg, theme.inkSoft, 0.07), alpha: corCorpo ? 1 : 0.85 });
   for (const poly of pegada) {
     for (const ring of poly) {
       strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 1 });
     }
   }
-  desenharTamposERecortes(c, res.pecas, theme, fills, strokes);
-  desenharFrentes(c, res.pecas, theme.inkSoft, strokes);
+  desenharFrentes(c, res.pecas, theme.inkSoft, fills, strokes, sombreado);
+  desenharTamposERecortes(c, res.pecas, theme, fills, strokes, sombreado);
 }
 
 /** Gera fills e strokes de todos os componentes visíveis do nível para `build.ts`. */
@@ -174,13 +193,15 @@ export function componentsPlanOps(
   levelId: string,
   theme: PlanTheme,
   hidden: ReadonlySet<string> | undefined,
+  sombreado = false,
 ): { fills: FillOp[]; strokes: StrokeOp[] } {
   const fills: FillOp[] = [];
+  const aereos: FillOp[] = [];
   const strokes: StrokeOp[] = [];
   for (const e of Object.values(p.elements)) {
     if (e.kind === 'component' && e.levelId === levelId && !hidden?.has(e.id)) {
-      desenharComponenteEmPlanta(p, e, theme, fills, strokes);
+      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos);
     }
   }
-  return { fills, strokes };
+  return { fills: [...aereos, ...fills], strokes };
 }
