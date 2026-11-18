@@ -4,7 +4,6 @@ import {
   buildTemplate,
   createEmptyProject,
   defaultStairTypeId,
-  floorViewId,
   makeCeiling,
   makeFloor,
   makeRoof,
@@ -145,7 +144,6 @@ export function entradaDe(c: Cenario, zoom: number, over: Partial<PlanInput> = {
   const resolve = (id: Id) => resolveLevel(p, id, new Map());
   return {
     project: p,
-    viewId: floorViewId(c.levelId),
     levelId: c.levelId,
     resolved: resolve(c.levelId),
     ...planBelowOf(p, c.levelId, resolve, c.showUnderlay !== false),
@@ -168,7 +166,6 @@ export function estadoDe(c: Cenario, v: Viewport, gpu = true): PlanViewState {
   return {
     project: p,
     version: 1,
-    viewId: floorViewId(c.levelId),
     levelId: c.levelId,
     v,
     theme: c.dark ? DARK : LIGHT,

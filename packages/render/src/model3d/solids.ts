@@ -1,6 +1,8 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
 import { bandTopAt, fuseBands, layerPartsOf, planeZ, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
-import type { GraphicsCategory, Id } from '@hestia/model';
+import type { GraphicsCategory, Id, Project } from '@hestia/model';
+import { buildPaintedFloorSolids, buildPaintedSlabSolids } from './facePaintPlanar.ts';
+import { buildPaintedLevelSolids, facePaintWallKey, hasFacePaintIn } from './facePaintSolids.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 import { emendaDaAgua } from './roofEmendas3d.ts';
 
@@ -141,7 +143,7 @@ const LINE_EPS = 3e-7;
 const Z_EPS = 1e-9;
 
 /** Triângulos com a normal voltada para `n` (a ordem dos vértices é corrigida pelo produto vetorial). */
-function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
+export function emitFace(b: SolidBatch, poly: MultiPolygon, to3: (u: number, v: number) => [number, number, number], n: [number, number, number]): void {
   for (const p of poly) {
     if (!p[0]) continue;
     const m = triangulate(p);
@@ -348,13 +350,13 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
  * Chave de conteúdo de uma camada: o que a extrusão lê (id da parede, material, cota da base e faixas). Parede que não
  * mudou (sem anexo de telhado, sem edição) dá a mesma chave e reaproveita o sólido, em vez de refazer as uniões.
  */
-function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
-  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}`;
+function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel, p?: Project): string {
+  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${facePaintWallKey(p, rw.wallId)}`;
 }
 
 /** Sólido da camada (do cache, ou extrudado agora e guardado). Quem chama copia os dados; o cache não é alterado. */
-export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): SolidBatch {
-  const key = wallLayerKey(rw, l, jl);
+export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel, p?: Project): SolidBatch {
+  const key = wallLayerKey(rw, l, jl, p);
   const hit = wallLayerCache.get(key);
   if (hit) {
     wallLayerStats.hits++;
@@ -406,10 +408,11 @@ export function filtrarParedesDoNivel(lv: ResolvedLevel, manter: (id: Id) => boo
  * Sólidos de todas as camadas das paredes do nível, por material. Cada camada sai de `wallLayerSolid` (cache por
  * conteúdo): ao anexar uma parede ao telhado, só as camadas dela são extrudadas de novo (decisão 0016, desempenho).
  */
-export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel): LevelSolids {
+export function buildLevelSolids(r: ResolvedLevel, jl?: JunctionLevel, p?: Project): LevelSolids {
+  if (p && hasFacePaintIn(p, Object.keys(r.walls))) return buildPaintedLevelSolids(r, jl, p);
   const byMat = new Map<Id, SolidBatch>();
   for (const rw of Object.values(r.walls)) {
-    for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
+    for (const l of rw.layers) appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl, p));
   }
   return { batches: [...byMat.values()] };
 }
@@ -431,7 +434,8 @@ export function clearWallLayerCache(): void {
  * junção resolvida (`jl`, decisão 0023 §3, P7b), cada camada é extrudada só nas partes em que ela existe: sem faces
  * coincidentes sobrepostas (z-fighting) e com o volume que os quantitativos líquidos reportam.
  */
-export function buildFloorSolids(floors: ResolvedFloor[], jl?: JunctionLevel): SolidBatch[] {
+export function buildFloorSolids(floors: ResolvedFloor[], jl?: JunctionLevel, p?: Project): SolidBatch[] {
+  if (p && hasFacePaintIn(p, floors.map((f) => f.floorId))) return buildPaintedFloorSolids(floors, jl, p);
   const byMat = new Map<Id, SolidBatch>();
   for (const f of floors) {
     // Membrana não tem volume nem sólido (decisão 0023 §5): fica só na planta e no corte.
@@ -468,7 +472,8 @@ export function buildCeilingSolids(ceilings: ResolvedCeiling[]): SolidBatch[] {
  * Sólidos das lajes (D2): uma extrusão por camada, por material, com furos. Com inclinação, topo e base da camada
  * seguem o mesmo plano (a subida de `slabRiseAt`), então a espessura vertical fica constante.
  */
-export function buildSlabSolids(slabs: ResolvedSlab[], jl?: JunctionLevel): SolidBatch[] {
+export function buildSlabSolids(slabs: ResolvedSlab[], jl?: JunctionLevel, p?: Project): SolidBatch[] {
+  if (p && hasFacePaintIn(p, slabs.map((s) => s.slabId))) return buildPaintedSlabSolids(slabs, jl, p);
   const byMat = new Map<Id, SolidBatch>();
   for (const s of slabs) {
     const sl = s.slope;

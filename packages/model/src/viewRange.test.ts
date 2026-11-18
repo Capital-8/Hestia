@@ -9,8 +9,9 @@ import {
   migrateProject,
   validateProject,
   viewRangeIssues,
-  planViewRangeOf,
+  viewRangeOf,
   floorViewId,
+  planViewRangeOf,
   type PlanView,
   type Project,
 } from './index.ts';
@@ -63,8 +64,8 @@ describe('makeLevel e padrão do intervalo de vista', () => {
 
   it('viewRangeOf devolve o intervalo do nível e, sem o nível, o padrão', () => {
     const p = patchFloorOfTest(createEmptyProject(), LV0, { viewRange: { ...DEFAULT_VIEW_RANGE, cut: 1.0 } });
-    expect(planViewRangeOf(p, floorViewId(LV0)).cut).toBe(1.0);
-    expect(planViewRangeOf(p, floorViewId('lv_nao_existe'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(viewRangeOf(p, LV0).cut).toBe(1.0);
+    expect(viewRangeOf(p, 'lv_nao_existe')).toEqual(DEFAULT_VIEW_RANGE);
   });
 });
 
@@ -105,19 +106,19 @@ describe('comando setLevelViewRange', () => {
   it('aplica o patch parcial e mantém o restante do intervalo', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
   });
 
   it('aceita a direção "up" (guardada; a planta ainda desenha como "down")', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { top: 3, direction: 'up' } });
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, top: 3, direction: 'up' });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, top: 3, direction: 'up' });
   });
 
   it('não normaliza em silêncio: o valor aplicado é exatamente o pedido', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { top: 2.8, cut: 1.1, bottom: -0.2, depth: -1 } });
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ top: 2.8, cut: 1.1, bottom: -0.2, depth: -1, direction: 'down' });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ top: 2.8, cut: 1.1, bottom: -0.2, depth: -1, direction: 'down' });
   });
 
   it.each([
@@ -149,14 +150,14 @@ describe('comando setLevelViewRange', () => {
     expect(s.undoLabel).toBe('Alterar intervalo de vista');
 
     s.undo();
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
     s.undo();
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(viewRangeOf(s.project, LV0)).toEqual(DEFAULT_VIEW_RANGE);
 
     s.redo();
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
     s.redo();
-    expect(planViewRangeOf(s.project, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0, top: 3 });
+    expect(viewRangeOf(s.project, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0, top: 3 });
   });
 });
 
@@ -205,7 +206,7 @@ describe('serialização do intervalo de vista (abrir e salvar)', () => {
     s.exec({ type: 'setLevelViewRange', levelId: LV0, patch: { cut: 1.0 } });
     const volta = roundTrip(s.project);
     expect(volta.schemaVersion).toBe(24);
-    expect(planViewRangeOf(volta, floorViewId(LV0))).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
-    expect(planViewRangeOf(volta, floorViewId('lv_m'))).toEqual(DEFAULT_VIEW_RANGE);
+    expect(viewRangeOf(volta, LV0)).toEqual({ ...DEFAULT_VIEW_RANGE, cut: 1.0 });
+    expect(viewRangeOf(volta, 'lv_m')).toEqual(DEFAULT_VIEW_RANGE);
   });
 });

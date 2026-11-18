@@ -60,6 +60,8 @@ export interface ImplKernel {
   diferenca(args: MultiPolygon[], relevante?: boolean): MultiPolygon;
   interseccao(a: MultiPolygon, b: MultiPolygon): MultiPolygon;
   offset(m: MultiPolygon, delta: number): MultiPolygon;
+  /** Gera tiras recortadas de painel ripado para a região informada. */
+  ripas?(regiao: MultiPolygon, largura: number, fresta: number, anguloGraus: number): MultiPolygon[];
   /** Libera a instância (no wasm, nada a fazer; existe para o teste poder desmontar). */
   encerrar?(): void;
 }

@@ -10,8 +10,9 @@ describe('resolvePlanTarget', () => {
   it('viewId inexistente sem levelId é erro', () => {
     expect(() => resolvePlanTarget(p, { viewId: 'nada' })).toThrow();
   });
-  it('cobertura por viewId liga o modo cobertura', () => {
+  it('cobertura por viewId liga o modo cobertura; forma antiga dá o mesmo alvo', () => {
     const novo = resolvePlanTarget(p, { viewId: roofViewId('lv_0') });
     expect(novo).toEqual({ viewId: 'pvr_lv_0', levelId: 'lv_0', roofPlanMode: true });
+    expect(resolvePlanTarget(p, { levelId: 'lv_0', roofPlanMode: true })).toEqual(novo);
   });
 });

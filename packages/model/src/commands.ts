@@ -83,6 +83,7 @@ import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
+import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropElementTags, dropRoomTags, pruneOrphanElementTags } from './areaPlanCommands.ts';
 import { dropViewsOfLevel, syncLevelViews } from './levelViews.ts';
@@ -185,6 +186,7 @@ export type Command =
   | { type: 'removeRoomCategory'; id: Id }
   | { type: 'upsertColorScheme'; scheme: ColorScheme }
   | { type: 'removeColorScheme'; id: Id }
+  | FacePaintCommand
   | ({ type: 'setElementLevel' } & SetElementLevel);
 function transformWall(w: Wall, t: Transform): Wall {
   const a = applyTransform(t, w.a);
@@ -285,7 +287,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
 }
 
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
-  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyPlanViewCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c)) return;
+  if (applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyPlanViewCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyFacePaintCommand(p, c)) return;
   switch (c.type) {
     case 'addWall':
       p.elements[c.wall.id] = { ...c.wall, order: p.nextOrder++ };

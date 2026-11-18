@@ -37,6 +37,7 @@ export interface ExportsKernel {
   versao_abi(): number;
   preparar_entrada(nVertices: number, nAneis: number, nPoligonos: number, nArgs: number): number;
   executar(op: number, nArgs: number, param: number): number;
+  executar_ripas?(largura: number, fresta: number, anguloGraus: number): number;
   saida_vertices_ptr(): number;
   saida_vertices_len(): number;
   saida_aneis_ptr(): number;

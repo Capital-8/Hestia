@@ -489,7 +489,7 @@ export class ModelScene {
     if (entrada.lotes.some((b) => b.ids.some((r) => wallIds.includes(r.id)))) return this.recusar(9);
     const juncao: JunctionLevel = { levelId, elements: new Map(), walls: junctionOfWalls(reduzido, levelId, paredes) };
     const so: ResolvedLevel = { levelId, walls: Object.fromEntries(paredes.map((rw) => [rw.wallId, rw])), clusters: [] };
-    const novasParedes = buildLevelSolidsComCaixas(so, juncao, this.frame.edges);
+    const novasParedes = buildLevelSolidsComCaixas(so, juncao, this.frame.edges, p);
     if (novasParedes.batches.length) return this.recusar(10);
     const pickMeshes = entrada.grupo.children.filter((o) => (o.userData as { caixasPick?: boolean }).caixasPick) as THREE.Mesh[];
     if (pickMeshes.length !== entrada.instancias.length) return this.recusar(11);
@@ -877,7 +877,7 @@ export class ModelScene {
     // Paredes com a junção (0023 F4): cada faixa é extrudada só nas partes que sobram dela, como o corte e a planta. As camadas
     // de prismas retangulares viram caixas instanciadas (`paredesInstanciadas3d.ts`); o resto segue como geometria.
     const caixas = this.instanciar ? new CaixasDoNivel() : null;
-    const paredes = !shown('wall') ? { batches: [], caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() } : caixas ? buildLevelSolidsComCaixas(lv, juncao, this.frame.edges) : { batches: buildLevelSolids(lv, juncao).batches, caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() };
+    const paredes = !shown('wall') ? { batches: [], caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() } : caixas ? buildLevelSolidsComCaixas(lv, juncao, this.frame.edges, p) : { batches: buildLevelSolids(lv, juncao, p).batches, caixas: [], arestas: [], arestasPorParede: new Map<Id, number[]>() };
     for (const c of paredes.caixas) caixas?.adicionar('wall', c.materialId, c.wallId, c.matriz, false);
     caixas?.adicionarArestas(paredes.arestas);
     const floors = shown('floor') ? resolveFloors(p, lv.levelId).filter((f) => !oculto(f.floorId)) : [];
@@ -888,9 +888,9 @@ export class ModelScene {
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
     const batches: SolidBatch[] = [
       ...paredes.batches,
-      ...buildFloorSolids(floors, juncao),
+      ...buildFloorSolids(floors, juncao, p),
       ...buildCeilingSolids(ceilings),
-      ...buildSlabSolids(slabs, juncao),
+      ...buildSlabSolids(slabs, juncao, p),
       ...buildRoofSolids(roofs),
       ...eave.batches,
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),

@@ -409,6 +409,10 @@ export function labelOf(c: Command): string {
       return 'Editar esquema de cores';
     case 'removeColorScheme':
       return 'Excluir esquema de cores';
+    case 'setFacePaint':
+      return 'Pintar face';
+    case 'removeFacePaint':
+      return 'Remover pintura da face';
     default: {
       const _nunca: never = c;
       return _nunca;
