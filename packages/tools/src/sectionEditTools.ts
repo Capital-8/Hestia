@@ -269,7 +269,7 @@ export function resultPieces(result: SectionResult): Piece[] {
 function buildResultPieces(result: SectionResult): Piece[] {
   const out: Piece[] = [];
   const push = (origin: SectionOrigin, polygons: MultiPolygon, depth: number): void => {
-    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId ?? origin.columnId ?? origin.beamId ?? origin.footingId;
+    const hostId = origin.wallId ?? origin.floorId ?? origin.slabId ?? origin.ceilingId ?? origin.roofId ?? origin.stairId ?? origin.rampId ?? origin.openingId ?? origin.columnId ?? origin.beamId ?? origin.footingId ?? origin.furnitureId;
     if (hostId !== undefined) out.push({ hostId, depth, polygons });
   };
   for (const r of result.cut ?? []) {

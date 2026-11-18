@@ -143,7 +143,7 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
   component: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o componente ainda não aparece como peça movível no corte e na elevação (o desenho do corte o mostra, mas mover pela vista não existe).' },
-  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o móvel importado é uma malha 3D que o corte e a elevação ainda não projetam, então não há desenho para mover ou alinhar nessas vistas.' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o corte e a elevação já desenham o móvel importado (silhueta e região cortada, `sectionFurniture.ts`, com `furnitureId` na origem), mas Mover, Alinhar e a prévia da vista ainda não o tratam.' },
 };
 
 /**

@@ -58,7 +58,7 @@ const AXIS_EPS = 1e-7;
 
 /** Id do elemento de origem (a esquadria tem id próprio, não o da parede hospedeira: ocultar a parede não esconde o vão) (para `ignore`/`hidden` e para o tooltip). */
 export function sectionOriginId(o: SectionOrigin): Id | undefined {
-  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.componentId;
+  return o.openingId ?? o.wallId ?? o.floorId ?? o.slabId ?? o.ceilingId ?? o.roofId ?? o.stairId ?? o.rampId ?? o.componentId ?? o.furnitureId;
 }
 
 const finite = (p: Vec2): boolean => Number.isFinite(p.x) && Number.isFinite(p.y);

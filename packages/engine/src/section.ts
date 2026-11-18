@@ -22,6 +22,7 @@ import { sectionOfRamps } from './sectionRamps.ts';
 import { sectionOfStructural } from './sectionStructural.ts';
 import { visibleRoofEdges } from './sectionRoofEdgesVis.ts';
 import { sectionOfComponents } from './sectionComponents.ts';
+import { sectionOfFurniture } from './sectionFurniture.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
@@ -58,6 +59,8 @@ export interface SectionOrigin {
   stairId?: Id;
   rampId?: Id;
   componentId?: Id;
+  /** Móvel importado (malha de arquivo). */
+  furnitureId?: Id;
   openingId?: Id;
   columnId?: Id;
   beamId?: Id;
@@ -340,6 +343,11 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   for (const c of cm.cut) addCut(c.materialId, c.polygon, c.origin);
   beyond.push(...cm.beyond);
   grow(cm.zMin, cm.zMax);
+  // Móveis importados: silhueta além do plano e região cortada (`sectionFurniture.ts`).
+  const fu = sectionOfFurniture(p, levelId, line);
+  for (const c of fu.cut) addCut(c.materialId, c.polygon, c.origin);
+  beyond.push(...fu.beyond);
+  grow(fu.zMin, fu.zMax);
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;
