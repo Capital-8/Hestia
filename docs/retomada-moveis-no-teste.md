@@ -116,8 +116,8 @@ Leitores: glTF/GLB, OBJ, COLLADA e FBX próprios (FBX usa `FBXLoader` do three),
 `openskp` 1.3.0 MIT; `fflate` 0.8.3 MIT; `flatbuffers` 25.9.23 Apache-2.0; `earcut` 3.2.4 ISC; `three` (FBXLoader) MIT, já dependência do render. `NOTICE`/`LICENSING.md` hoje não listam nenhuma dependência de terceiros: Apache-2.0 do flatbuffers (inclui o texto da licença na distribuição) e a ISC do earcut pedem apenas manter o aviso; decisão do dono se um NOTICE de terceiros é necessário. Atenção: `packages/io` importa `fflate` mas só declara `openskp` (fflate vem hoisted por ele); declarar `fflate` em `packages/io/package.json` seria mais limpo (não alterado para não mexer no lockfile).
 
 ### Limites conhecidos
-- Corte e elevação NÃO projetam a malha importada (só a caixa do modelo entra no enquadramento). Pendente.
-- Ctrl+C/Ctrl+V não leva o móvel (o asset teria de viajar no buffer); use Copiar da faixa ou "Meus blocos".
+- Corte e elevação projetam o móvel importado (ver "Importar móvel: acabamento"); falta Mover/Alinhar da vista e conferir em tela.
+- Ctrl+C/Ctrl+V leva o móvel (o bloco viaja no buffer; ver "Importar móvel: acabamento").
 - Textos novos de UI do importador existem nos 7 idiomas (`i18n/areas/furniture.ts`); a faixa passa em `check-ribbon-i18n`.
 - Testes de `.skp` reais ficam pulados (sem arquivo de fixture).
 
@@ -128,3 +128,63 @@ Leitores: glTF/GLB, OBJ, COLLADA e FBX próprios (FBX usa `FBXLoader` do three),
 4. Selecionar o móvel e mover/girar/copiar pela faixa; Ctrl+Z desfaz cada passo.
 5. Abrir a Biblioteca e usar o botão "Importar móvel" da paleta; "Meus blocos" lista os blocos para colocar mais cópias.
 6. Salvar, fechar e reabrir: o móvel volta. Importar um arquivo muito grande para ver a mensagem de limite.
+
+## Importar móvel: acabamento (ficha importador-acabamento, 2026-11-18)
+
+- Vários arquivos: o seletor e a área de soltar do diálogo aceitam vários de uma vez. Com 2 ou mais, abre o painel do lote (unidade e eixo valem para todos), importa em sequência pelo mesmo Worker, com progresso e erro POR arquivo (um erro não aborta os outros; Cancelar pula os que faltam). Cada arquivo vira um bloco em "Meus blocos" e uma entrada de desfazer por arquivo (decisão: por arquivo, porque o Worker é assíncrono e a transação do editor é síncrona). Arquivos soltos na paleta/tela e a lista "No projeto" da paleta (que hoje só lista famílias paramétricas) ficaram de fora: `PaletaMoveis.tsx`/`paletaMoveis.ts` são da frente de famílias; os blocos importados aparecem em "Meus blocos".
+- Tamanho real: o diálogo (arquivo único) mostra Largura, Profundidade e Altura em campos `NumField` na unidade do projeto; unidade de origem mm, cm, m, polegada e pé; digitar um eixo recalcula a escala (com "Manter proporção" os três eixos; sem ela só o eixo digitado, por matriz S·R nas peças); "Voltar ao tamanho do arquivo". Eixo "para cima": padrão do formato (glTF/OBJ/FBX/DAE Y, SKP Z) com opção Y ou Z (rotação de 90° em X). Cálculo puro em `importModel.ts` (`scaleForTarget`, `upCorrection`, `orientDims`); testes com valores literais.
+- Colar: `ClipBuffer.furnitures` e `furnitureAssets` (o bloco viaja; entra no destino por `addFurnitureAsset` só se faltar); `furnitureClipboard.ts`. Um passo de desfazer; seleção e translação do Colar levam o móvel.
+- Corte e elevação: `packages/engine/src/sectionFurniture.ts`. Elevação/além do plano: silhueta REAL da projeção (grade de 160 células na maior dimensão, corridas unidas em polígonos; não é o casco convexo, então vão de cadeira aparece). Plano atravessando o bloco: região cortada por interseção triângulo-plano com preenchimento por paridade por linha da grade (malha aberta com linha ímpar preenche do primeiro ao último cruzamento). Material = o dominante do bloco (já é `Material` do projeto: cor e hachura). Dono: `furnitureId` em `SectionOrigin` (seleção, ocultar e ignorar por id como `componentId`). Cache por móvel + bloco + linha + elevação (WeakMap; nada por quadro). Descarte pela caixa do bloco antes de ler vértices.
+- `fflate` 0.8.3 declarado em `packages/io/package.json` e no espelho do workspace no `package-lock.json` (já era a versão instalada; nada baixado).
+- Orçamento: NÃO somado. A janela "Orçamento do projeto" é do motor de componentes (`engine/componentes/orcamento.ts`, peças e ferragens por família) e da frente de famílias; contar blocos importados pede uma aba/linha nova nela. Fica como pendência (contagem por bloco com `assetUsage`).
+- Vidro: `KHR_materials_transmission` agora vira translucidez (opacidade = 1 − 0,65 × transmissão); material de categoria vidro que o arquivo deixou opaco (sem transmissão nem alfa) recebe 35% de opacidade, com aviso no diálogo.
+
+## Importar móvel: modelos reais
+
+`node tests/perf/importar-modelos-reais.mjs [pasta]` (ou `MODELOS_DIR`; pula com aviso se a pasta não existir) importa cada .glb pelo leitor real (`gltf.ts`) e monta o asset (`buildFurnitureAsset`). 37 arquivos CC0 de `~/hestia-modelos-gratis/cc0` (não copiados para o repositório). Resultado: 37 ok, 0 com erro; leitura de 1 a 160 ms por arquivo (máximo 24 mil triângulos). Caixa em metros, Z para cima, depois de recentrar.
+
+| arquivo | estado | ms | triângulos | caixa X × Y × Z (m) | materiais (textura/transmissão/translúcido) | opac. mín. | avisos |
+|---|---|---|---|---|---|---|---|
+| cadeiras-e-bancos/banco-alto.glb | ok | 26 | 176 | 0.53 × 0.46 × 0.87 | 2 (0/0/0) | 1.00 | - |
+| cadeiras-e-bancos/cadeira-jantar.glb | ok | 164 | 22013 | 0.43 × 0.58 × 0.97 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| cadeiras-e-bancos/cadeira-plastica.glb | ok | 87 | 3356 | 0.64 × 0.63 × 0.88 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| cadeiras-e-bancos/cadeira.glb | ok | 2 | 168 | 0.40 × 0.40 × 0.94 | 1 (0/0/0) | 1.00 | - |
+| camas/cama-casal.glb | ok | 2 | 264 | 1.91 × 2.25 × 0.75 | 4 (0/0/0) | 1.00 | - |
+| camas/cama-divan.glb | ok | 86 | 2715 | 1.97 × 0.85 × 1.13 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| camas/cama-gotica.glb | ok | 121 | 18745 | 1.49 × 2.04 × 1.53 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| camas/cama-solteiro.glb | ok | 2 | 214 | 1.14 × 2.25 × 0.75 | 4 (0/0/0) | 1.00 | - |
+| equipamentos/fogao-eletrico-realista.glb | ok | 106 | 13914 | 0.50 × 0.65 × 0.86 | 2 (2/0/1) | 0.35 | normal/ORM não aplicados; vidro opaco no arquivo → 35% (1) |
+| equipamentos/fogao-eletrico.glb | ok | 2 | 338 | 0.86 × 0.90 × 0.90 | 6 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| equipamentos/geladeira.glb | ok | 1 | 250 | 0.86 × 0.58 × 1.84 | 4 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| equipamentos/maquina-lavar.glb | ok | 3 | 720 | 0.78 × 0.78 × 0.94 | 6 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| equipamentos/micro-ondas-vintage.glb | ok | 68 | 8120 | 1.07 × 0.75 × 0.53 | 2 (2/0/1) | 0.35 | normal/ORM não aplicados; vidro opaco no arquivo → 35% (1) |
+| equipamentos/micro-ondas.glb | ok | 1 | 152 | 0.58 × 0.46 × 0.36 | 4 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| equipamentos/televisao.glb | ok | 1 | 72 | 1.37 × 0.26 × 0.91 | 2 (0/0/0) | 1.00 | - |
+| iluminacao/luminaria-mesa-articulada.glb | ok | 120 | 24102 | 0.20 × 0.61 × 0.89 | 2 (2/0/0) | 1.00 | normal/ORM não aplicados |
+| iluminacao/luminaria-piso.glb | ok | 1 | 76 | 0.30 × 0.35 × 1.72 | 2 (0/0/0) | 1.00 | - |
+| iluminacao/luminaria-teto-moderna.glb | ok | 18 | 5602 | 0.43 × 0.43 × 0.95 | 3 (3/0/1) | 0.35 | normal/ORM não aplicados; vidro opaco no arquivo → 35% (1) |
+| iluminacao/luminaria-teto.glb | ok | 1 | 60 | 0.24 × 0.24 × 0.46 | 2 (0/0/0) | 1.00 | - |
+| louças-e-metais/bacia-sanitaria.glb | ok | 1 | 232 | 0.63 × 0.95 × 0.90 | 4 (0/0/0) | 1.00 | - |
+| louças-e-metais/banheira.glb | ok | 2 | 602 | 2.38 × 1.12 × 0.84 | 3 (0/0/0) | 1.00 | - |
+| louças-e-metais/chuveiro-box.glb | ok | 3 | 810 | 1.12 × 1.16 × 2.19 | 4 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| louças-e-metais/cuba-cozinha.glb | ok | 2 | 318 | 0.86 × 0.90 × 0.98 | 6 (0/0/0) | 1.00 | - |
+| louças-e-metais/lavatorio-coluna.glb | ok | 1 | 316 | 0.68 × 0.58 × 1.12 | 3 (0/0/0) | 1.00 | - |
+| mesas/mesa-centro-redonda.glb | ok | 35 | 4044 | 1.30 × 1.30 × 0.49 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| mesas/mesa-centro-vidro.glb | ok | 1 | 140 | 1.32 × 0.80 × 0.46 | 2 (0/0/1) | 0.35 | vidro opaco no arquivo → 35% (1) |
+| mesas/mesa-jantar-madeira.glb | ok | 56 | 1048 | 2.26 × 1.39 × 0.88 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| mesas/mesa-jantar.glb | ok | 1 | 120 | 1.68 × 0.89 × 0.65 | 1 (0/0/0) | 1.00 | - |
+| mesas/mesa-redonda.glb | ok | 1 | 80 | 1.39 × 1.60 × 0.73 | 1 (0/0/0) | 1.00 | - |
+| outros/estante-fechada.glb | ok | 2 | 372 | 0.80 × 0.50 × 1.70 | 1 (0/0/0) | 1.00 | - |
+| outros/planta-decorativa.glb | ok | 1 | 102 | 0.19 × 0.19 × 0.28 | 2 (0/0/0) | 1.00 | - |
+| outros/relogio-parede.glb | ok | 26 | 3658 | 0.32 × 0.05 × 0.32 | 2 (1/1/1) | 0.35 | normal/ORM não aplicados |
+| outros/tapete-redondo.glb | ok | 1 | 188 | 1.84 × 1.84 × 0.02 | 2 (0/0/0) | 1.00 | - |
+| sofas-e-poltronas/poltrona-meados-seculo.glb | ok | 40 | 6148 | 1.01 × 1.19 × 1.17 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+| sofas-e-poltronas/poltrona-relax.glb | ok | 1 | 188 | 0.98 × 1.35 × 1.26 | 3 (0/0/0) | 1.00 | - |
+| sofas-e-poltronas/sofa-3-lugares.glb | ok | 1 | 128 | 1.96 × 0.82 × 0.92 | 2 (0/0/0) | 1.00 | - |
+| sofas-e-poltronas/sofa-moderno.glb | ok | 10 | 2728 | 1.81 × 0.82 × 0.71 | 1 (1/0/0) | 1.00 | normal/ORM não aplicados |
+
+Leitura:
+- Nenhum falha nem sai escuro; os 12 com textura de cor trazem a imagem embutida (a luminância da cor base é só o fator; a textura vale). Sem textura: cores sólidas do arquivo (luminância média de 0,50 a 0,96).
+- Normal map e ORM (metal/rugosidade empacotado) são lidos e NÃO aplicados (o contrato do bloco ainda não tem esse slot): é limite do importador, não do arquivo; o brilho vem só da rugosidade média.
+- Vidro: 9 arquivos tinham material "glass" OPACO (baseColorFactor azul-esverdeado, alfa 1) e dois "…_glass" com BLEND sem alfa no fator (o alfa estava na textura, que não é lida). Corrigido no importador: 35% de opacidade para vidro opaco, com aviso. O relógio de parede (`KHR_materials_transmission` 1 com alfa 0,4) já saía translúcido pelo alfa; agora a transmissão também conta.
+- Dado ruim do arquivo (só relato): escalas heterogêneas (bacia 0,63 × 0,95 × 0,90 m: a altura de 0,90 m é alta demais para uma bacia, e a "mesa-redonda" 1,39 × 1,60 não é redonda; use o campo de tamanho do diálogo), cama-casal 1,91 × 2,25 e tapete 1,84 × 1,84 × 0,02 (tapete é fino mesmo). Origem do arquivo fora do centro é tratada pelo recentrar do bloco.

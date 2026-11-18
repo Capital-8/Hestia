@@ -266,6 +266,11 @@ function registerTexture(ctx: Ctx, texIndex: number, reader: ReaderContext): num
   return result;
 }
 
+/** Fração de translucidez dada a transmissão total (KHR_materials_transmission = 1 deixa 35% de opacidade). */
+const GLASS_TRANSLUCENCY = 0.65;
+/** Opacidade de um material de vidro que o arquivo deixou opaco. */
+const GLASS_DEFAULT_OPACITY = 0.35;
+
 function buildMaterials(ctx: Ctx, reader: ReaderContext): void {
   for (const [i, m] of (ctx.json.materials ?? []).entries()) {
     const pbr = m.pbrMetallicRoughness ?? {};
@@ -288,7 +293,15 @@ function buildMaterials(ctx: Ctx, reader: ReaderContext): void {
       category: guessCategory(name),
     };
     if (textureIndex !== undefined) mat.textureIndex = textureIndex;
-    if (typeof transmission === 'number' && transmission > 0) mat.transmission = transmission;
+    if (typeof transmission === 'number' && transmission > 0) {
+      mat.transmission = transmission;
+      // Transmissão (vidro): o desenho só tem opacidade; 0,65 x transmissão de translucidez, sem sumir com o material.
+      mat.opacity = Math.min(mat.opacity, 1 - GLASS_TRANSLUCENCY * Math.min(1, transmission));
+    } else if (mat.category === 'glass' && mat.opacity >= 1) {
+      // Vidro que o arquivo deixou opaco (sem transmissão nem alfa): translúcido por padrão; o aviso diz como mudar.
+      mat.opacity = GLASS_DEFAULT_OPACITY;
+      ctx.warnings.push(`Material "${name}": vidro opaco no arquivo; aplicada opacidade de 35% (troque a categoria para outra se não for vidro).`);
+    }
     ctx.materials.push(mat);
     ctx.materialMap.set(i, ctx.materials.length - 1);
     if (m.doubleSided === true) ctx.doubleSidedMats.add(ctx.materials.length - 1);

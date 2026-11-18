@@ -359,3 +359,20 @@ describe('modelos reais (pulados se a pasta nao existir)', () => {
     await expect(importFurnitureFile({ name: 'bathtub.fbx', bytes: all['Models/bathtub.fbx']! })).rejects.toThrow(/Não foi possível ler este FBX/);
   }, 120000);
 });
+
+describe('glTF: vidro', () => {
+  const mat = (m: Record<string, unknown>) => makeTriangleGlb({ materials: [m] });
+  it('transmissao 1 deixa 35% de opacidade (1 - 0,65); transmissao 0,5 deixa 67,5%', async () => {
+    const t1 = await importGltf({ name: 'v.glb', bytes: mat({ name: 'Vidro', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1] }, extensions: { KHR_materials_transmission: { transmissionFactor: 1 } } }) });
+    expect(t1.materials[0]!.opacity).toBeCloseTo(0.35, 6);
+    const t2 = await importGltf({ name: 'v.glb', bytes: mat({ name: 'Vidro', pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1] }, extensions: { KHR_materials_transmission: { transmissionFactor: 0.5 } } }) });
+    expect(t2.materials[0]!.opacity).toBeCloseTo(0.675, 6);
+  });
+  it('material "glass" opaco no arquivo vira 35% com aviso; "Madeira" continua opaco', async () => {
+    const g = await importGltf({ name: 'v.glb', bytes: mat({ name: 'glass', pbrMetallicRoughness: { baseColorFactor: [0.7, 0.8, 0.8, 1] } }) });
+    expect(g.materials[0]!.opacity).toBeCloseTo(0.35, 6);
+    expect(g.warnings.some((w) => /vidro opaco/.test(w))).toBe(true);
+    const w = await importGltf({ name: 'm.glb', bytes: makeTriangleGlb() });
+    expect(w.materials[0]!.opacity).toBe(1);
+  });
+});
