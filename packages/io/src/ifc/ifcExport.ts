@@ -34,7 +34,7 @@ export { doorOperation, doorOperationOf, glazingAreaFraction, windowLeafOperatio
 import { gid, langOf, materialOf, optStr, storeyOf, type IfcCtx, type IfcStorey } from './ifcCtx.ts';
 import { axis3, bodyShape, direction, extrudeSolid, localPlacement, rectOf, tiltBrepSolid, tiltExtrudeSolid } from './ifcSolids.ts';
 import { en, list, num, OMIT, ref, StepWriter, stepString } from './ifcStep.ts';
-import type { IfcGeometry, IfcOpeningGeo, IfcOpeningPartGeo, IfcPoint, IfcPolygon, IfcWallGeo } from './ifcTypes.ts';
+import type { IfcGeometry, IfcOpeningGeo, IfcPoint, IfcPolygon, IfcWallGeo } from './ifcTypes.ts';
 import { t, type Lang } from '../i18n.ts';
 
 const EPS = 1e-9;

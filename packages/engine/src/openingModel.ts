@@ -1,4 +1,4 @@
-import type { Opening, Project } from '@hestia/model';
+import { openingMuntinPattern, type Opening, type Project } from '@hestia/model';
 import type { WallFrame } from './frame.ts';
 import type { OpeningGeometry } from './types.ts';
 import type { OpeningModel } from './openingModelTypes.ts';
@@ -38,11 +38,12 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
       void: g.leaves === 0,
     };
   }
+  const padrao = openingMuntinPattern(p.openingTypes[o.typeId] ?? c.t); // divisões decorativas (só valem em vão com forma)
   // Composição de várias células (bandeira, laterais, combinada): quadro único e células (spec F1 §3).
   const comp = usesComposition(p.openingTypes[o.typeId] ?? c.t, g); // tipo bruto: `c.t` já vem normalizado para o vão
   if (comp) {
     const m = buildCompositionModel(p, o, g, f, comp);
-    if (m) return contornoDoModelo(m, g.forma);
+    if (m) return contornoDoModelo(m, g.forma, padrao);
   }
   if (g.leaves === 0) {
     // Vão livre: sem batente, folha ou vidro; só o acabamento que existir.
@@ -68,5 +69,5 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
     parts: c.parts,
     openings: c.openings,
     void: g.leaves === 0,
-  }, g.forma);
+  }, g.forma, padrao);
 }

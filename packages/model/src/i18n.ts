@@ -14,6 +14,7 @@ export const LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl']
 const PT = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Projeto sem título',
+  md_lintel_over_short: 'Transpasse da verga de {over} cm é menor que o mínimo de referência de {min} cm: o estrutural prevalece. Confira no projeto estrutural.',
   md_doc_level_ground: 'Térreo',
   md_doc_level_n: 'Pavimento {n}',
   md_doc_level_roof: 'Cobertura',
@@ -563,6 +564,7 @@ export type Key = keyof typeof PT;
 
 const EN: Record<Key, string> = {
   md_doc_untitled_project: 'Untitled Project',
+  md_lintel_over_short: 'Lintel bearing of {over} cm is below the reference minimum of {min} cm: the structural design prevails. Check it in the structural drawings.',
   md_doc_level_ground: 'Ground Floor',
   md_doc_level_n: 'Level {n}',
   md_doc_level_roof: 'Roof',
@@ -1176,6 +1178,7 @@ export function sectionName(code: string, lang: Lang = 'pt'): string {
 const ES: Record<Key, string> = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Proyecto sin título',
+  md_lintel_over_short: 'El apoyo de la viga de {over} cm es menor que el mínimo de referencia de {min} cm: prevalece el cálculo estructural. Revísalo en el proyecto estructural.',
   md_doc_level_ground: 'Planta baja',
   md_doc_level_n: 'Nivel {n}',
   md_doc_level_roof: 'Cubierta',
@@ -1724,6 +1727,7 @@ const ES: Record<Key, string> = {
 const DE: Record<Key, string> = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Unbenanntes Projekt',
+  md_lintel_over_short: 'Die Auflagerlänge des Sturzes von {over} cm liegt unter dem Referenzminimum von {min} cm: maßgeblich ist die Tragwerksplanung. Bitte im Tragwerksplan prüfen.',
   md_doc_level_ground: 'Erdgeschoss',
   md_doc_level_n: 'Ebene {n}',
   md_doc_level_roof: 'Dach',
@@ -2272,6 +2276,7 @@ const DE: Record<Key, string> = {
 const FR: Record<Key, string> = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Projet sans titre',
+  md_lintel_over_short: 'Le recouvrement du linteau de {over} cm est inférieur au minimum de référence de {min} cm : le calcul structurel prévaut. Vérifiez-le dans le projet structure.',
   md_doc_level_ground: 'Rez-de-chaussée',
   md_doc_level_n: 'Niveau {n}',
   md_doc_level_roof: 'Toiture',
@@ -2820,6 +2825,7 @@ const FR: Record<Key, string> = {
 const IT: Record<Key, string> = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Progetto senza titolo',
+  md_lintel_over_short: 'L\'appoggio dell\'architrave di {over} cm è inferiore al minimo di riferimento di {min} cm: prevale il calcolo strutturale. Verificarlo nel progetto strutturale.',
   md_doc_level_ground: 'Piano terra',
   md_doc_level_n: 'Livello {n}',
   md_doc_level_roof: 'Copertura',
@@ -3381,6 +3387,7 @@ function dictFor(lang: Lang): Record<Key, string> {
 const PL: Record<Key, string> = {
   // ---- nomes padrão do documento -------------------------------------------------------------------------
   md_doc_untitled_project: 'Projekt bez tytułu',
+  md_lintel_over_short: 'Oparcie nadproża {over} cm jest mniejsze od minimum referencyjnego {min} cm: decyduje projekt konstrukcyjny. Sprawdź go w projekcie konstrukcyjnym.',
   md_doc_level_ground: 'Parter',
   md_doc_level_n: 'Poziom {n}',
   md_doc_level_roof: 'Dach',
