@@ -64,6 +64,8 @@ kernel is separate from the UI, written in Rust.
 
 **On Windows:** download the installer from the [latest release](https://github.com/engdennylsonsantos-cloud/Hestia/releases/latest) and run it.
 
+**On Linux and macOS (experimental):** the same page has `.AppImage`, `.deb`, `.rpm` and `.dmg`. The macOS package has not been tested on a real Mac yet and is not signed by Apple: see [docs/desktop.md](docs/desktop.md) and, if something does not work, [report it here](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new?template=macos.yml).
+
 The interface is currently in Portuguese.
 
 ## Support the project

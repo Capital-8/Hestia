@@ -1,6 +1,6 @@
 name: release-desktop
 
-# Gera os pacotes do Hestia (Tauri) para Windows e Linux e publica no GitHub Releases.
+# Gera os pacotes do Hestia (Tauri) para Windows, Linux e macOS (experimental) e publica no GitHub Releases.
 # Como publicar: veja docs/desktop.md.
 
 on:
@@ -17,7 +17,7 @@ jobs:
     # fail-fast: false para o Linux ainda ser publicado se o Windows falhar (e vice-versa).
     # max-parallel: 1 porque o latest.json do atualizador é um arquivo único: cada job
     # lê o que existe e mescla a sua plataforma, então rodar em paralelo pode perder a
-    # entrada da outra plataforma. Duas plataformas em fila levam ~20 min no total.
+    # entrada da outra plataforma. Três plataformas em fila levam ~30 min no total.
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -27,7 +27,14 @@ jobs:
             args: "--bundles nsis"
           - platform: ubuntu-22.04
             args: "--bundles appimage,deb,rpm"
+          - platform: macos-latest
+            args: "--target universal-apple-darwin --bundles app,dmg"
+            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+            # macOS é EXPERIMENTAL: sem assinatura da Apple e ainda não testado em Mac real.
+            # Se este job falhar, Windows e Linux seguem publicados (continue-on-error).
+            experimental: true
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.experimental == true }}
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
@@ -43,6 +50,8 @@ jobs:
 
       - name: Instalar toolchain Rust (stable)
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
 
       - name: Instalar dependências do Linux (só no Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -94,7 +103,7 @@ jobs:
               echo "FIM_DAS_NOTAS"
             } >> "$GITHUB_OUTPUT"
           else
-            echo "body=Instaladores para Windows (.exe) e Linux (.AppImage, .deb, .rpm). Notas desta versão ainda não foram escritas." >> "$GITHUB_OUTPUT"
+            echo "body=Instaladores para Windows (.exe), Linux (.AppImage, .deb, .rpm) e macOS (.dmg, experimental). Notas desta versão ainda não foram escritas." >> "$GITHUB_OUTPUT"
           fi
 
       - name: Empacotar e publicar

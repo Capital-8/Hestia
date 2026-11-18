@@ -1,0 +1,63 @@
+name: macOS (experimental)
+description: Relate algo estranho ou que não funcionou no Hestia para macOS
+title: "[macOS] "
+labels: ["macos"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        O instalador do macOS é **experimental**: ainda não foi testado em um Mac real. Obrigado por ajudar!
+        Não inclua credenciais, dados de clientes ou projetos reais.
+  - type: input
+    id: mac
+    attributes:
+      label: Modelo do Mac e versão do macOS
+      description: Menu Apple > Sobre este Mac.
+      placeholder: "Ex.: MacBook Air M2, macOS 14.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Processador
+      options:
+        - Apple Silicon (M1, M2, M3, M4...)
+        - Intel
+        - Não sei
+    validations:
+      required: true
+  - type: dropdown
+    id: onde
+    attributes:
+      label: O que você usou
+      options:
+        - Instalador .dmg (app do Hestia)
+        - App no navegador (hestiabim.com/app)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Onde aconteceu
+      multiple: true
+      options:
+        - Instalar ou abrir o app (Gatekeeper)
+        - Vista 3D (órbita, zoom, seleção)
+        - Biblioteca de projetos em pasta
+        - Salvar, abrir ou exportar arquivos
+        - Atualização automática
+        - Desempenho ou travamentos
+        - Outro
+  - type: textarea
+    id: aconteceu
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o que viu, o que esperava e, se possível, como repetir.
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Hestia
+      description: Arquivo > Sobre o Hestia.
+      placeholder: "Ex.: 0.2.5"

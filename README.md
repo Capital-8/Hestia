@@ -65,6 +65,8 @@ para WebGL2) e o núcleo geométrico é separado da interface, escrito em Rust.
 
 **No Windows:** baixe o instalador na [última versão](https://github.com/engdennylsonsantos-cloud/Hestia/releases/latest) e execute.
 
+**No Linux e no macOS (experimental):** na mesma página há `.AppImage`, `.deb`, `.rpm` e `.dmg`. O pacote do macOS ainda não foi testado em um Mac real e não é assinado pela Apple: veja [docs/desktop.md](docs/desktop.md) e, se algo não funcionar, [relate aqui](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new?template=macos.yml).
+
 ## Apoie o projeto
 
 O Hestia é open source e gratuito, e continua assim. Ele é desenvolvido com tempo e cuidado,
