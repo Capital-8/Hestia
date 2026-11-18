@@ -119,3 +119,27 @@ export function limparSessao(): void {
     // Sem armazenamento não há o que limpar.
   }
 }
+
+const CHAVE_GRAVIDADE = 'hestia.sessao.gravidade';
+
+/** Guarda o botão Gravidade na sessão da aba (falha silenciosa). */
+export function guardarGravidade(ligada: boolean): void {
+  const s = armazem();
+  if (!s) return;
+  try {
+    s.setItem(CHAVE_GRAVIDADE, ligada ? '1' : '0');
+  } catch {
+    // Sem armazenamento a escolha vale só até recarregar.
+  }
+}
+
+/** Botão Gravidade guardado na sessão; desligado quando não há nada guardado ou o valor é inválido. */
+export function lerGravidade(): boolean {
+  const s = armazem();
+  if (!s) return false;
+  try {
+    return s.getItem(CHAVE_GRAVIDADE) === '1';
+  } catch {
+    return false;
+  }
+}

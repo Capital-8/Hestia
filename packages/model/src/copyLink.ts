@@ -185,6 +185,13 @@ function syncOne(
     // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
     case 'railing':
       return null;
+    // terreno e região de terreno: as cotas são absolutas e o terreno é um só para todos os níveis, então não entram no vínculo de andar-tipo.
+    case 'terrain':
+    case 'terrainRegion':
+      return null;
+    // lote: ficha P3 (copiar/colar e vínculo de andar-tipo); a cópia fica sem sincronização.
+    case 'lot':
+      return null;
     // massa: ficha T1 (copiar/colar e vínculo de andar-tipo da massa); a cópia fica sem sincronização.
     case 'mass':
       return null;

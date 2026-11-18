@@ -290,6 +290,11 @@ const migrations: Record<number, Migration> = {
     beamTypes: { ...Object.fromEntries(DEFAULT_BEAM_TYPES.map((t) => [t.id, t])), ...((raw.beamTypes as object) ?? {}) },
     footingTypes: { ...Object.fromEntries(DEFAULT_FOOTING_TYPES.map((t) => [t.id, t])), ...((raw.footingTypes as object) ?? {}) },
   }),
+  // v28 → v29: terreno, região de terreno, lote e `Project.localizacao` (todos opcionais). Arquivo antigo não tem nada
+  // disso e `elements` aceita os kinds novos sem conversão. A migração só avança a versão, e assim um programa antigo
+  // recusa um arquivo com terreno ou lote. (O terreno nasceu como 25 → 26, número que a main usou para massa: ao
+  // integrar, virou 28 → 29; arquivo salvo pela versão 26 antiga do terreno segue a cadeia 26 → 27 → 28 → 29 sem perda.)
+  28: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

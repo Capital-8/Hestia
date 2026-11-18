@@ -22,6 +22,7 @@ import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { MassOptionsBar } from './MassOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
+import { TerrainOptionsBar } from './TerrainOptionsBar.tsx';
 import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, defaultTagFamilyIdOf, tagFamiliesOf, type LocationLine } from '@hestia/model';
 
@@ -365,6 +366,7 @@ export function OptionsBar(): ReactElement {
       )}
       {tool === 'array' && <ArrayOptionsBar />}
       {tool === 'grid' && <GridOptionsBar />}
+      {(tool === 'terrain' || tool === 'terrainEdit' || tool === 'terrainRegion') && <TerrainOptionsBar tool={tool} />}
       {(tool === 'column' || tool === 'beam' || tool === 'footing') && <StructuralOptionsBar tool={tool} />}
       {tool === 'align' && (
         <label>

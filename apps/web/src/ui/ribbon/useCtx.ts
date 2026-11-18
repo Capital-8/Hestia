@@ -12,7 +12,7 @@ export function useRibbonCtx(): RibbonCtx {
   const ui = useUi(useShallow((s) => ({
     tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
-    showRoofProjection: s.showRoofProjection, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options,
+    showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options,
   })));
   // A faixa lê a seleção num desenho de prioridade baixa: o clique/caixa não espera o redesenho de todos os botões.
   const selection = useDeferredValue(ui.selection);

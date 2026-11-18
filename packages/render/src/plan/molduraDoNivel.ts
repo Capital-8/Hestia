@@ -1,6 +1,6 @@
 import { add, boxOf, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { resolveAngularDimension } from '@hestia/engine';
-import { angularDimensionGeometry, dimensionPoints, levelDimensions, type Id, type Project } from '@hestia/model';
+import { angularDimensionGeometry, dimensionPoints, isLot, levelDimensions, type Id, type Project } from '@hestia/model';
 import { extensaoDoModelo } from './extensaoDoModelo.ts';
 
 /**
@@ -18,9 +18,11 @@ export function levelBox(p: Project, levelId: Id): { minX: number; minY: number;
  * Caixa para enquadrar a planta na vista: a de `levelBox` mais as cotas. A linha de cota fica deslocada das paredes
  * (`offset`), então sem ela o "Enquadrar" cortava as cotas da borda e deixava a barra de escala por cima delas.
  */
-export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
+export function levelFrameBox(p: Project, levelId: Id, comLotes = true): { minX: number; minY: number; maxX: number; maxY: number } | null {
   const base = levelBox(p, levelId);
   const pts: Vec2[] = [];
+  // O lote aparece só na planta (não entra em corte nem elevação, ver `extensaoDoModelo`), mas "Enquadrar tudo" tem de mostrá-lo (E2E Q1b: o lote ficava fora da tela).
+  if (comLotes) for (const e of Object.values(p.elements)) if (isLot(e) && e.levelId === levelId) pts.push(...e.contorno);
   for (const d of levelDimensions(p, levelId)) {
     if (d.angular) {
       const g = angularDimensionGeometry(resolveAngularDimension(p, levelId, d));
@@ -44,7 +46,7 @@ export function levelFrameBox(p: Project, levelId: Id): { minX: number; minY: nu
  * telhado...) define os limites; null só quando não há nada que apareça em elevação.
  */
 export function elevationFrameBox(p: Project, levelId: Id): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const nivel = levelFrameBox(p, levelId);
+  const nivel = levelFrameBox(p, levelId, false);
   const modelo = extensaoDoModelo(p);
   if (!modelo) return nivel;
   const pad = 0.5;

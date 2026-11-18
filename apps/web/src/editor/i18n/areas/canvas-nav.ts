@@ -171,6 +171,8 @@ export const PT_CANVAS_NAV = {
   // Rótulos de gráficos de vista
   cvn_cat_stair: 'Escada',
   cvn_cat_railing: 'Guarda-corpo',
+  cvn_cat_site: 'Terreno',
+  cvn_cat_lot: 'Lote',
   cvn_cat_mass: 'Massa',
   cvn_cat_annotation: 'Anotação',
   cvn_cat_generic: 'Objeto importado',
@@ -357,6 +359,8 @@ export const EN_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
   // View graphics labels
   cvn_cat_stair: 'Stairs',
   cvn_cat_railing: 'Railing',
+  cvn_cat_site: 'Terrain',
+  cvn_cat_lot: 'Lot',
   cvn_cat_mass: 'Mass',
   cvn_cat_annotation: 'Annotation',
   cvn_cat_generic: 'Imported object',
@@ -533,6 +537,8 @@ export const ES_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
 
   cvn_cat_stair: 'Escalera',
   cvn_cat_railing: 'Barandilla',
+  cvn_cat_site: 'Terreno',
+  cvn_cat_lot: 'Lote',
   cvn_cat_mass: 'Masa',
   cvn_cat_annotation: 'Anotación',
   cvn_cat_generic: 'Objeto importado',
@@ -709,6 +715,8 @@ export const DE_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
 
   cvn_cat_stair: 'Treppe',
   cvn_cat_railing: 'Geländer',
+  cvn_cat_site: 'Gelände',
+  cvn_cat_lot: 'Grundstück',
   cvn_cat_mass: 'Masse',
   cvn_cat_annotation: 'Beschriftung',
   cvn_cat_generic: 'Importiertes Objekt',
@@ -885,6 +893,8 @@ export const FR_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
 
   cvn_cat_stair: 'Escalier',
   cvn_cat_railing: 'Garde-corps',
+  cvn_cat_site: 'Terrain',
+  cvn_cat_lot: 'Lot',
   cvn_cat_mass: 'Masse',
   cvn_cat_annotation: 'Annotation',
   cvn_cat_generic: 'Objet importé',
@@ -1061,6 +1071,8 @@ export const IT_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
 
   cvn_cat_stair: 'Scala',
   cvn_cat_railing: 'Parapetto',
+  cvn_cat_site: 'Terreno',
+  cvn_cat_lot: 'Lotto',
   cvn_cat_mass: 'Massa',
   cvn_cat_annotation: 'Annotazione',
   cvn_cat_generic: 'Oggetto importato',
@@ -1237,6 +1249,8 @@ export const PL_CANVAS_NAV: Record<keyof typeof PT_CANVAS_NAV, string> = {
 
   cvn_cat_stair: 'Schody',
   cvn_cat_railing: 'Balustrada',
+  cvn_cat_site: 'Teren',
+  cvn_cat_lot: 'Działka',
   cvn_cat_mass: 'Bryła',
   cvn_cat_annotation: 'Adnotacja',
   cvn_cat_generic: 'Obiekt importowany',

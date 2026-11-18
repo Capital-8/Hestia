@@ -3,6 +3,7 @@ import { useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { FamiliesTree } from './browser/Families.tsx';
 import { CadTree } from './browser/Cad.tsx';
+import { LotesTree, TerrenosTree } from './browser/Terreno.tsx';
 import { Node, Tree } from './browser/Tree.tsx';
 import { SchedulesTree, SheetsTree, ViewsTree } from './browser/Views.tsx';
 import { PanelHead } from './PanelHead.tsx';
@@ -26,6 +27,8 @@ export function Browser(): ReactElement {
           <SchedulesTree />
           <SheetsTree />
           <CadTree />
+          <TerrenosTree />
+          <LotesTree />
           <FamiliesTree />
           <Node id="g:groups" label={t('shc_browser_groups')} group empty={t('shc_browser_soon')} />
           <Node id="g:links" label={t('shc_browser_links')} group empty={t('shc_browser_soon')} />

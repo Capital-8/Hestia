@@ -48,6 +48,16 @@
       "status": "concluido"
     },
     {
+      "id": "terrenos",
+      "arquivo": "terrenos.md",
+      "status": "concluido"
+    },
+    {
+      "id": "lotes",
+      "arquivo": "lotes.md",
+      "status": "em-curso"
+    },
+    {
       "id": "massas",
       "arquivo": "massas.md",
       "status": "concluido"

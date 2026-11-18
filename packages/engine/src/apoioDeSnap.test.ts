@@ -6,6 +6,7 @@ import {
   defaultStairTypeId,
   isMass,
   makeGuardaCorpo,
+  makeTerrain,
   makeMass,
   makeStair,
   type HospedeiroManual,
@@ -13,10 +14,12 @@ import {
   type Project,
   type StairType,
 } from '@hestia/model';
-import { apoioDoElemento, pontoDeApoio, type ApoioDoElemento } from './apoioDeSnap.ts';
+import { apoioDoElemento, envoltoriaDasFontes, pontoDeApoio, type ApoioDoElemento } from './apoioDeSnap.ts';
+import { adicionarFixtureTerreno, projetoTerreno } from './fixtureTerreno.ts';
 import { ESTILO_PLANTA_MASSA } from './kernelMassa.ts';
 import { servicoMassa, type LinhaPlantaMassaProjeto } from './massaServico.ts';
 import { projetoGuardaCorpo, straight } from './fixtureGuardaCorpo.ts';
+import { loteL1, loteL2, projetoLote } from './fixtureLote.ts';
 import type { LinhaVistaGC } from './guardaCorpoVista.ts';
 import { servicoGuardaCorpo } from './kernelGuardaCorpoServico.ts';
 
@@ -196,6 +199,138 @@ describe('apoio do guarda-corpo', () => {
     const { p } = projetoGuardaCorpo();
     expect(apoioDoElemento(p, undefined)).toBeNull();
     expect(apoioDoElemento(p, { ...p.elements['gc_m']!, kind: 'wall' } as never)).toBeNull();
+  });
+});
+
+describe('apoioDoElemento: lote (ficha P2)', () => {
+  const lote = (p: Project, id: string) => p.elements[id]!;
+  const chaves = (a: ApoioDoElemento): string[] => [...a.porChave.keys()].sort();
+
+  it('L1: vértice, ponto médio e aresta do contorno, com chaves estáveis', () => {
+    const p = projetoLote();
+    const a = apoioDoElemento(p, lote(p, 'lote_l1'))!;
+    expect(a).not.toBeNull();
+    for (const [i, [x, y]] of [[0, 0], [12, 0], [12, 30], [0, 30]].entries()) near(a.porChave.get(`c.v${i}`), x!, y!);
+    near(a.porChave.get('c.m0'), 6, 0);
+    near(a.porChave.get('c.m1'), 12, 15);
+    near(a.porChave.get('c.m2'), 6, 30);
+    near(a.porChave.get('c.m3'), 0, 15);
+    expect(a.pontos.filter((q) => q.chave.startsWith('c.') && q.tipo === 'endpoint')).toHaveLength(4);
+    expect(a.pontos.filter((q) => q.chave.startsWith('c.') && q.tipo === 'midpoint')).toHaveLength(4);
+    expect(a.segmentos.filter((s) => s.chave.startsWith('c.s'))).toHaveLength(4);
+  });
+
+  it('L1: a área edificável (1,5; 5)–(10,5; 27) entra com vértices, meios e arestas', () => {
+    const p = projetoLote();
+    const a = apoioDoElemento(p, lote(p, 'lote_l1'))!;
+    const e = a.pontos.filter((q) => q.chave.startsWith('e0.0.') && q.tipo === 'endpoint');
+    expect(e.length).toBeGreaterThanOrEqual(4);
+    for (const cx of [1.5, 10.5]) for (const cy of [5, 27]) expect(e.some((q) => Math.hypot(q.x - cx, q.y - cy) < 1e-6)).toBe(true);
+    expect(a.pontos.some((q) => q.chave.startsWith('e0.0.m') && q.tipo === 'midpoint')).toBe(true);
+    expect(a.segmentos.some((s) => s.chave.startsWith('e0.0.s'))).toBe(true);
+  });
+
+  it('mostrarEdificavel falso: só o contorno', () => {
+    const p = projetoLote({ ...loteL1(), mostrarEdificavel: false });
+    const a = apoioDoElemento(p, lote(p, 'lote_l1'))!;
+    expect(chaves(a).every((k) => k.startsWith('c.'))).toBe(true);
+  });
+
+  it('L2 (em L): o canto reentrante arredondado gera vértices na área edificável', () => {
+    const p = projetoLote(loteL2());
+    const a = apoioDoElemento(p, lote(p, 'lote_l2'))!;
+    expect(a.pontos.filter((q) => q.chave.startsWith('c.') && q.tipo === 'endpoint')).toHaveLength(6);
+    expect(a.pontos.filter((q) => q.chave.startsWith('e0.0.') && q.tipo === 'endpoint').length).toBeGreaterThan(6);
+  });
+
+  it('as chaves não mudam ao mover o lote, e as posições acompanham', () => {
+    const p = projetoLote();
+    const antes = apoioDoElemento(p, lote(p, 'lote_l1'))!;
+    const s = new ProjectStore(p);
+    s.exec({ type: 'transform', ids: ['lote_l1'], transform: { kind: 'translate', d: { x: 3, y: -2 } } });
+    const depois = apoioDoElemento(s.project, lote(s.project, 'lote_l1'))!;
+    expect(chaves(depois)).toEqual(chaves(antes));
+    near(depois.porChave.get('c.v0'), 3, -2);
+    near(depois.porChave.get('c.m2'), 9, 28);
+    const ea = antes.porChave.get('e0.0.v0')!;
+    near(depois.porChave.get('e0.0.v0'), ea.x + 3, ea.y - 2);
+  });
+
+  it('o apoio do lote é reaproveitado enquanto o lote não muda', () => {
+    const p = projetoLote();
+    const a = apoioDoElemento(p, lote(p, 'lote_l1'));
+    expect(apoioDoElemento(p, lote(p, 'lote_l1'))).toBe(a);
+    expect(pontoDeApoio(p, 'lote_l1', 'c.v1')).toEqual({ x: 12, y: 0 });
+  });
+});
+
+describe('apoio de captura do terreno e da região (ficha V2)', () => {
+  const terr = (p: Project, id: string) => p.elements[id]!;
+
+  it('T8: a borda do modelo vira `b.*` (vértices, arestas, meios) e as fontes viram extremidades `p{i}`', () => {
+    const p = projetoTerreno('T8');
+    const a = apoioDoElemento(p, terr(p, 'tn_t8'))!;
+    expect(a.pontos.filter((q) => q.chave.startsWith('b.v'))).toHaveLength(4);
+    expect(a.pontos.filter((q) => q.chave.startsWith('b.m'))).toHaveLength(4);
+    expect(a.segmentos.filter((s) => s.chave.startsWith('b.s'))).toHaveLength(4);
+    expect(a.porChave.get('p4')).toEqual({ x: 10, y: 10 });
+    expect(a.pontos.filter((q) => /^p\d+$/.test(q.chave))).toHaveLength(5);
+  });
+
+  it('vértices de curvas e de quebras: chaves `c{i}.v{j}` e `q{i}.v{j}`', () => {
+    const p = projetoTerreno('T4');
+    const a = apoioDoElemento(p, terr(p, 'tn_t4'))!;
+    expect(a.porChave.get('q0.v0')).toEqual({ x: 10, y: 0 });
+    expect(a.porChave.get('q0.v1')).toEqual({ x: 10, y: 20 });
+    const s = new ProjectStore(p);
+    s.exec({ type: 'editTerrainFontes', terrenoId: 'tn_t4', ops: [{ op: 'addCurva', z: 1, xy: [1, 1, 2, 2], fechada: false }] } as never);
+    const b = apoioDoElemento(s.project, terr(s.project, 'tn_t4'))!;
+    expect(b.porChave.get('c0.v1')).toEqual({ x: 2, y: 2 });
+  });
+
+  it('sem borda e sem kernel: a borda de captura é a envoltória das fontes; menos de 3 pontos: sem borda', () => {
+    const p = projetoTerreno('T1');
+    const a = apoioDoElemento(p, terr(p, 'tn_t1'))!;
+    expect(a.pontos.filter((q) => q.chave.startsWith('b.v'))).toHaveLength(4);
+    const p3 = projetoTerreno('T3');
+    expect(envoltoriaDasFontes(terr(p3, 'tn_t3') as never)).toHaveLength(4);
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addTerrain', terrain: makeTerrain({ id: 'x', levelId: 'lv_0', pontos: [0, 0, 1, 1, 1, 1] }) });
+    expect(apoioDoElemento(s.project, s.project.elements.x)!.pontos.some((q) => q.chave.startsWith('b.'))).toBe(false);
+  });
+
+  it('o apoio do terreno é reaproveitado enquanto o terreno não muda; editar outro terreno não o refaz', () => {
+    const s = new ProjectStore(createEmptyProject());
+    adicionarFixtureTerreno(s, 'T1');
+    adicionarFixtureTerreno(s, 'T3');
+    const a = apoioDoElemento(s.project, terr(s.project, 'tn_t1'));
+    s.exec({ type: 'editTerrainFontes', terrenoId: 'tn_t3', ops: [{ op: 'addPonto', x: 3, y: 3, z: 1 }] } as never);
+    expect(apoioDoElemento(s.project, terr(s.project, 'tn_t1'))).toBe(a);
+    expect(pontoDeApoio(s.project, 'tn_t1', 'b.v0')).not.toBeNull();
+  });
+
+  it('as chaves do terreno não mudam ao mover; as posições acompanham', () => {
+    const p = projetoTerreno('T8');
+    const antes = apoioDoElemento(p, terr(p, 'tn_t8'))!;
+    const s = new ProjectStore(p);
+    s.exec({ type: 'transform', ids: ['tn_t8'], transform: { kind: 'translate', d: { x: 3, y: -2 } } });
+    const depois = apoioDoElemento(s.project, terr(s.project, 'tn_t8'))!;
+    expect(chaves(depois, '')).toEqual(chaves(antes, ''));
+    near(depois.porChave.get('b.v0'), 8, 3);
+  });
+
+  it('região (T5): contorno em `c.v`, `c.s`, `c.m`, reaproveitado enquanto não muda', () => {
+    const p = projetoTerreno('T5');
+    const a = apoioDoElemento(p, terr(p, 'rg_t5'))!;
+    expect(chaves(a, 'c.v')).toHaveLength(4);
+    expect(a.segmentos).toHaveLength(4);
+    near(a.porChave.get('c.m0'), 10, 5);
+    expect(apoioDoElemento(p, terr(p, 'rg_t5'))).toBe(a);
+  });
+
+  it('projeto sem terreno devolve null para um terreno solto', () => {
+    const p = createEmptyProject();
+    expect(apoioDoElemento(p, makeTerrain({ id: 'z', levelId: 'lv_0' }) as never)).toBeNull();
   });
 });
 

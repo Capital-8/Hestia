@@ -18,6 +18,7 @@ import { addCurtainWalls, avisoCortinaSemKernel, footprintsDaCortina } from './i
 import { addRailings } from './ifcGuardaCorpo.ts';
 import { addMasses } from './ifcMassa.ts';
 import { addGenerics } from './ifcGeneric.ts';
+import { addTerrenos, refElevationDoSitio } from './ifcTerreno.ts';
 import { addHestiaPsets } from './ifcHestia.ts';
 import { addPropertySet, type PropValue } from './ifcProperties.ts';
 import { externalWalls, outwardNormal, wallAxis } from './ifcExterior.ts';
@@ -306,7 +307,7 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   const context = w.add('IFCGEOMETRICREPRESENTATIONCONTEXT', [OMIT, "'Model'", '3', num(1e-5), ref(world), ref(trueNorth)]);
   const project = w.add('IFCPROJECT', [gid('project'), OMIT, stepString(p.name), OMIT, OMIT, OMIT, OMIT, list([ref(context)]), ref(units)]);
   const sitePlace = localPlacement(w, null, [0, 0, 0]);
-  const site = w.add('IFCSITE', [gid('site'), OMIT, stepString(p.name), OMIT, OMIT, ref(sitePlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, OMIT, OMIT, OMIT]);
+  const site = w.add('IFCSITE', [gid('site'), OMIT, stepString(p.name), OMIT, OMIT, ref(sitePlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, refElevationDoSitio(p), OMIT, OMIT]);
   const buildingPlace = localPlacement(w, sitePlace, [0, 0, 0]);
   const building = w.add('IFCBUILDING', [gid('building'), OMIT, stepString(p.name), OMIT, OMIT, ref(buildingPlace), OMIT, OMIT, en('ELEMENT'), OMIT, OMIT, OMIT]);
   const c: IfcCtx = {
@@ -346,7 +347,9 @@ export function exportIfc(p: Project, geo: IfcGeometry, opts: IfcExportOptions =
   addStructural(c);
   addRailings(c, geo);
   addMasses(c, geo);
-  addGenerics(c); addSpaces(c);
+  addGenerics(c);
+  addTerrenos(c, geo, { id: site, place: sitePlace });
+  addSpaces(c);
   addGrids(c);
   addQuantities(c, geo);
   addHestiaPsets(c);

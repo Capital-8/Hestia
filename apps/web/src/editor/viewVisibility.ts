@@ -1,4 +1,4 @@
-import type { GraphicsCategory, Id, Project, ViewHiddenTarget, ViewHidden } from '@hestia/model';
+import type { GraphicsCategory, Id, Project, ViewGraphics, ViewHiddenTarget, ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
@@ -68,6 +68,9 @@ function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
     case 'railing': return 'railing';
     case 'mass': return 'mass';
     case 'room': return 'room';
+    case 'terrain':
+    case 'terrainRegion': return 'site';
+    case 'lot': return 'lot';
     case 'cad':
     case 'generic': return 'generic';
     case 'dimension':
@@ -94,6 +97,41 @@ export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[
     })
     .map((e) => e.id);
   return cats.has('annotation') && st ? [...doModelo, ...annotationIdsOfActiveView(p, st)] : doModelo;
+}
+
+/** Terrenos, regiões e lotes do projeto com a categoria deles (guardado por projeto: a lista só muda com o projeto). */
+const sitioPorProjeto = new WeakMap<Project, Array<{ id: Id; categoria: 'site' | 'lot' }>>();
+
+function elementosDoSitio(p: Project): Array<{ id: Id; categoria: 'site' | 'lot' }> {
+  let lista = sitioPorProjeto.get(p);
+  if (!lista) {
+    lista = [];
+    for (const e of Object.values(p.elements)) {
+      const c = categoriaDoElemento(e);
+      if (c === 'site' || c === 'lot') lista.push({ id: e.id, categoria: c });
+    }
+    sitioPorProjeto.set(p, lista);
+  }
+  return lista;
+}
+
+/**
+ * Ocultos da planta que valem para a seleção e a captura (snaps): os da vista de planta (`base`) mais os terrenos, regiões e lotes ocultos pela
+ * categoria `site` ou `lot` (override de gráficos do nível) ou pelo Hide in View e o temporário (`vista`). Oculto não é selecionável nem dá snap.
+ * `vista` só é lida quando o projeto tem terreno ou lote (`visibilityOf` varre todos os elementos); sem nada a acrescentar devolve o próprio `base`.
+ */
+export function ocultosDoSitio(p: Project, base: ReadonlySet<Id>, graficos: Pick<ViewGraphics, 'overrides'>, vista: () => ReadonlySet<Id>): ReadonlySet<Id> {
+  const lista = elementosDoSitio(p);
+  if (lista.length === 0) return base;
+  const daVista = vista();
+  let out: Set<Id> | null = null;
+  for (const { id, categoria } of lista) {
+    if (base.has(id)) continue;
+    if (graficos.overrides[categoria].visible && !daVista.has(id)) continue;
+    out ??= new Set(base);
+    out.add(id);
+  }
+  return out ?? base;
 }
 
 /** Junta duas ocultações (elementos e categorias, sem repetição). */
