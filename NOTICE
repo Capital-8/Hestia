@@ -26,6 +26,15 @@ iShape-Rust (https://github.com/iShape-Rust) sob a licença **MIT OR Apache-2.0*
 - `i_float` — ponto e aritmética de ponto flutuante
 - `i_tree` e `i_key_sort` — estruturas de apoio
 
+O mesmo binário também contém o furo de vãos por contorno (booleana 3D, docs/estudo-esquadrias/19), que inclui:
+
+- `manifold-rust` 0.19.2 — booleanas 3D (Apache-2.0), porte em Rust do Manifold (https://github.com/elalish/manifold)
+- `clipper2-rust` — dependência do `manifold-rust` (licença Boost BSL-1.0)
+- `dashu-base`, `dashu-int` e `dashu-ratio` — aritmética de precisão arbitrária
+- `rustc-hash` — tabela hash
+
+Conferir as licenças exatas em `crates/geom-wasm/Cargo.lock` e no `LICENSE` de cada crate antes de uma distribuição.
+
 Além delas, `libm` (MIT OR Apache-2.0), usada pela camada de matemática.
 
 Essas licenças valem para esses componentes; o código do Hestia — inclusive o
