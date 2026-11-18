@@ -174,6 +174,7 @@ export function moverInsercaoBloco(ponto: Vec2, opcoes: OpcoesMoverInsercao): In
     },
     {
       semEncaixe: opcoes.semEncaixe,
+      distanciaParede: 0.75,
       ...(opcoes.pontoNaParede ? { pontoNaParede: opcoes.pontoNaParede } : {}),
       ...(opcoes.cameraPos ? { cameraPos: opcoes.cameraPos } : {}),
     },

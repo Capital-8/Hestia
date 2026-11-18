@@ -191,6 +191,7 @@ export function soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, ca
     outros,
     faces,
   }, {
+    distanciaParede: 1,
     ...(paredeAlvo ? { pontoNaParede: paredeAlvo } : {}),
     ...(cameraPos ? { cameraPos } : {}),
   });
