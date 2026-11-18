@@ -33,7 +33,7 @@ describe('quadro executivo (opt-in, o quadro padrão não muda)', () => {
   it('sem `executivo` a linha não tem o bloco executivo e o CSV segue o formato de antes', () => {
     const tab = buildOpeningSchedule(cena().project);
     expect(tab.rows.every((r) => r.exec === undefined)).toBe(true);
-    const linha = openingScheduleToCsv(tab.rows, tab.totals, defaultUnits()).replace(/^ /, '').split('\r\n')[0]!;
+    const linha = openingScheduleToCsv(tab.rows, tab.totals, defaultUnits()).replace(/^\uFEFF/, '').split('\r\n')[0]!;
     expect(linha.split(';')).toHaveLength(21);
   });
 
@@ -99,8 +99,8 @@ describe('quadro executivo (opt-in, o quadro padrão não muda)', () => {
     const s = cena();
     const padrao = buildOpeningSchedule(s.project);
     const exec = buildOpeningSchedule(s.project, 'pt', { executivo: true });
-    const linhasPadrao = openingScheduleToCsv(padrao.rows, padrao.totals, defaultUnits()).replace(/^ /, '').split('\r\n').filter((l) => l !== '');
-    const linhas = openingScheduleToCsv(exec.rows, exec.totals, defaultUnits(), 'pt', [], true).replace(/^ /, '').split('\r\n').filter((l) => l !== '');
+    const linhasPadrao = openingScheduleToCsv(padrao.rows, padrao.totals, defaultUnits()).replace(/^\uFEFF/, '').split('\r\n').filter((l) => l !== '');
+    const linhas = openingScheduleToCsv(exec.rows, exec.totals, defaultUnits(), 'pt', [], true).replace(/^\uFEFF/, '').split('\r\n').filter((l) => l !== '');
     expect(linhas[0]!.startsWith(linhasPadrao[0]! + ';')).toBe(true);
     expect(celulas(linhas[0]!)).toHaveLength(21 + OPENING_EXEC_KEYS.length);
     expect(new Set(linhas.map((l) => celulas(l).length)).size).toBe(1); // cabeçalho, linhas e total com o mesmo número de células
