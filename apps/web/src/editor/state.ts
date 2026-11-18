@@ -322,7 +322,7 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   arrayAnchor: 'second',
   alignPrefer: 'faces',
   offsetDistance: 1,
-  trimMode: 'unico',
+  trimMode: 'canto',
   rotateCopy: false,
   mirrorCopy: true,
   offsetCopy: true,
