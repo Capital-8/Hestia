@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { computeSection, projetoTerreno, servicoTerreno, type LinhaCorteTN, type SectionResult } from '@hestia/engine';
+import { computeSection, definirMapaCorteAterro, projetoTerreno, servicoTerreno, type LinhaCorteTN, type SectionResult } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeWall, type Id, type Project } from '@hestia/model';
 import { elevationFrameBox } from '../plan/molduraDoNivel.ts';
 import { LIGHT } from '../plan/types.ts';
 import { buildSectionDrawList, type SectionInput } from './build.ts';
 import { sectionStyleOf } from './style.ts';
-import { COR_PADRAO_TERRENO, TRACO_PERFIL_EXISTENTE, linhasDoTerrenoNoCorte, pickTerrenoNoCorte, terrenosNaCaixaDoCorte, terrenosVisiveisNoCorte } from './terreno.ts';
+import { ALFA_MAPA, COR_ATERRO, COR_CORTE } from '../plan/terrenoMapa.ts';
+import { SectionFrame } from './frame.ts';
+import { COR_PADRAO_TERRENO, TRACO_PERFIL_EXISTENTE, corteAterroNaSecaoOps, linhasDoTerrenoNoCorte, pickTerrenoNoCorte, terrenosNaCaixaDoCorte, terrenosVisiveisNoCorte } from './terreno.ts';
 
 /**
  * Terreno no corte e na elevação (ficha V3) com linhas simuladas do kernel (a verificação com o Rust real, T2, T3 e T5, está em
@@ -41,7 +43,7 @@ const comOverride = (p: Project, patch: object): Project => {
   return st.project;
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); definirMapaCorteAterro(false); });
 
 describe('terreno no corte: operações de desenho', () => {
   it('T5: solo cortado com preenchimento e contorno de corte, perfil existente tracejado e silhueta em linha fina', () => {
@@ -244,5 +246,142 @@ describe('elevação de edifício num projeto só com terreno', () => {
     expect(s.length).toBeGreaterThan(20);
     const r = buildSectionDrawList(entrada(p, s));
     expect(r.strokes.some((x) => !x.closed && x.pts.length === 3)).toBe(true);
+  });
+});
+
+describe('mapa de corte e aterro no corte e na elevação', () => {
+  type Anel = Array<{ x: number; y: number }>;
+  const area = (r: Anel): number => Math.abs(r.reduce((a, p, i) => { const q = r[(i + 1) % r.length]!; return a + p.x * q.y - q.x * p.y; }, 0)) / 2;
+  const fillsDe = (r: { fills: Array<{ color: string; alpha?: number; polygons: unknown }> }, cor: string) => r.fills.filter((f) => f.color === cor);
+  const aneis = (f: { polygons: unknown }): Anel[] => (f.polygons as Anel[][]).map((p) => p[0]!);
+  /** P cai a 8 entre s = 5 e 15 (degrau) com E em 10: corte; depois P sobe a 12 em 20 com E em 10: aterro. */
+  const MISTO: LinhaCorteTN[] = [
+    { terrenoId: 'tn_m', papel: 'cortado', fechada: true, pontos: [pt(0, 10), pt(5, 10), pt(5, 8), pt(15, 8), pt(15, 10), pt(20, 12), pt(20, 5), pt(0, 5)] },
+    { terrenoId: 'tn_m', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(20, 10)] },
+  ];
+
+  it('T5: um polígono de corte (E acima de P) e um de aterro (P acima de E), nas cores e na transparência do mapa', () => {
+    // T5 do kernel: plataforma em 8 entre s = 5 e 15, existente em 10: só corte, o retângulo (5,8)-(15,8)-(15,10)-(5,10).
+    falso(T5);
+    definirMapaCorteAterro(true);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T5'), secao()));
+    const corte = fillsDe(r, COR_CORTE);
+    expect(corte).toHaveLength(1);
+    expect(corte[0]!.alpha).toBe(ALFA_MAPA);
+    expect(aneis(corte[0]!)).toHaveLength(1);
+    expect(area(aneis(corte[0]!)[0]!)).toBeCloseTo(20, 9);
+    expect(fillsDe(r, COR_ATERRO)).toHaveLength(0);
+    // Com aterro também: P sobe acima de E depois de s = 15.
+    vi.restoreAllMocks();
+    falso(MISTO);
+    const m = buildSectionDrawList(entrada(projetoTerreno('T5'), secao()));
+    expect(fillsDe(m, COR_CORTE)).toHaveLength(1);
+    const aterro = fillsDe(m, COR_ATERRO);
+    expect(aterro).toHaveLength(1);
+    expect(area(aneis(aterro[0]!)[0]!)).toBeCloseTo(5, 9); // triângulo (15,10)-(20,12)-(20,10)
+  });
+
+  it('T2 (sem perfil existente): nada de mapa', () => {
+    falso(T2);
+    definirMapaCorteAterro(true);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T2'), secao()));
+    expect(fillsDe(r, COR_CORTE)).toHaveLength(0);
+    expect(fillsDe(r, COR_ATERRO)).toHaveLength(0);
+    expect(r.fills).toHaveLength(1);
+  });
+
+  it('cruzamento de sinal: P inclinado cruza E e gera corte e aterro com o ponto de cruzamento exato', () => {
+    const l: LinhaCorteTN[] = [
+      { terrenoId: 'tn_x', papel: 'cortado', fechada: true, pontos: [pt(0, 8), pt(10, 12), pt(10, 5), pt(0, 5)] },
+      { terrenoId: 'tn_x', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(10, 10)] },
+    ];
+    const ops = corteAterroNaSecaoOps(l);
+    expect(ops.map((f) => f.color)).toEqual([COR_CORTE, COR_ATERRO]);
+    const c = aneis(ops[0]!)[0]!;
+    expect(area(c)).toBeCloseTo(5, 9); // triângulo (0,8)-(5,10)-(0,10): 5 x 2 / 2
+    expect(area(aneis(ops[1]!)[0]!)).toBeCloseTo(5, 9);
+    expect(c.some((q) => Math.abs(q.x - 5) < 1e-9 && Math.abs(q.y - 10) < 1e-9)).toBe(true);
+  });
+
+  it('degrau de P que atravessa E: o cruzamento entra no degrau', () => {
+    const l: LinhaCorteTN[] = [
+      { terrenoId: 'tn_d', papel: 'cortado', fechada: true, pontos: [pt(0, 8), pt(5, 8), pt(5, 12), pt(10, 12), pt(10, 5), pt(0, 5)] },
+      { terrenoId: 'tn_d', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(10, 10)] },
+    ];
+    const ops = corteAterroNaSecaoOps(l);
+    expect(area(aneis(ops[0]!)[0]!)).toBeCloseTo(10, 9); // 5 x 2
+    expect(area(aneis(ops[1]!)[0]!)).toBeCloseTo(10, 9);
+  });
+
+  it('vários trechos: dois cortes separados por um aterro viram polígonos distintos no mesmo preenchimento', () => {
+    const l: LinhaCorteTN[] = [
+      { terrenoId: 'tn_v', papel: 'cortado', fechada: true, pontos: [pt(0, 8), pt(10, 8), pt(10, 12), pt(20, 12), pt(20, 8), pt(30, 8), pt(30, 5), pt(0, 5)] },
+      { terrenoId: 'tn_v', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(30, 10)] },
+    ];
+    const ops = corteAterroNaSecaoOps(l);
+    expect(ops).toHaveLength(2);
+    expect(aneis(ops[0]!)).toHaveLength(2);
+    expect(aneis(ops[1]!)).toHaveLength(1);
+    // Dois trechos de perfil existente (E com lacuna): só se compara onde os dois existem.
+    const g: LinhaCorteTN[] = [
+      { terrenoId: 'tn_v', papel: 'cortado', fechada: true, pontos: [pt(0, 8), pt(30, 8), pt(30, 5), pt(0, 5)] },
+      { terrenoId: 'tn_v', papel: 'perfilExistente', fechada: false, pontos: [pt(0, 10), pt(10, 10)] },
+      { terrenoId: 'tn_v', papel: 'perfilExistente', fechada: false, pontos: [pt(20, 10), pt(30, 10)] },
+    ];
+    expect(aneis(corteAterroNaSecaoOps(g)[0]!)).toHaveLength(2);
+  });
+
+  it('mapa desligado: nenhum polígono de corte ou aterro', () => {
+    falso(MISTO);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T5'), secao()));
+    expect(fillsDe(r, COR_CORTE)).toHaveLength(0);
+    expect(fillsDe(r, COR_ATERRO)).toHaveLength(0);
+  });
+
+  it('terreno oculto ou categoria site desligada: nada', () => {
+    falso(MISTO);
+    definirMapaCorteAterro(true);
+    const p = projetoTerreno('T5');
+    const oculto = buildSectionDrawList(entrada(p, secao(), { hidden: new Set<Id>(['tn_m']) }));
+    expect(fillsDe(oculto, COR_CORTE)).toHaveLength(0);
+    expect(fillsDe(oculto, COR_ATERRO)).toHaveLength(0);
+    const sem = buildSectionDrawList(entrada(comOverride(p, { overrides: { site: { visible: false } } }), secao()));
+    expect(fillsDe(sem, COR_CORTE)).toHaveLength(0);
+    expect(fillsDe(sem, COR_ATERRO)).toHaveLength(0);
+  });
+
+  it('ordem de desenho: o mapa vem depois do solo cortado e antes dos elementos do edifício', () => {
+    falso(MISTO);
+    definirMapaCorteAterro(true);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T5'), secao()));
+    const solo = r.fills.findIndex((f) => f.color !== COR_CORTE && f.color !== COR_ATERRO);
+    const corte = r.fills.findIndex((f) => f.color === COR_CORTE);
+    const aterro = r.fills.findIndex((f) => f.color === COR_ATERRO);
+    expect(solo).toBeGreaterThanOrEqual(0);
+    expect(corte).toBeGreaterThan(solo);
+    expect(aterro).toBeGreaterThan(corte);
+    expect(tracejados(r)).toHaveLength(1);
+  });
+
+  it('elevação (profundidade grande): o mesmo mapa sobre o perfil do plano', () => {
+    falso(MISTO);
+    definirMapaCorteAterro(true);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T5'), secao(40)));
+    expect(fillsDe(r, COR_CORTE)).toHaveLength(1);
+    expect(fillsDe(r, COR_ATERRO)).toHaveLength(1);
+  });
+
+  it('silhueta do terreno existente (papel 3): tracejada, sem preenchimento', () => {
+    falso([...T5, { terrenoId: 'tn_t5', papel: 'silhuetaExistente', fechada: false, pontos: [pt(0, 10), pt(20, 10)] }]);
+    const r = buildSectionDrawList(entrada(projetoTerreno('T5'), secao(40)));
+    expect(tracejados(r)).toHaveLength(2);
+    expect(r.fills).toHaveLength(1);
+  });
+
+  it('cache do SectionFrame: ligar o mapa muda a chave', () => {
+    const base = { project: projetoTerreno('T5'), section: secao(), sectionId: 'sec1', version: 1, theme: LIGHT, dark: false, showGrid: false } as never;
+    const k0 = SectionFrame.keyOf(base);
+    definirMapaCorteAterro(true);
+    expect(SectionFrame.keyOf(base)).not.toBe(k0);
   });
 });
