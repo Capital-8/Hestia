@@ -32,6 +32,7 @@ function TextoFields<T extends { font: string; unit: FamilyLengthUnit; precision
         </select>
       </FamilyRow>
       <FamilyRow label={t('ui_fam_text_mm')} htmlFor={`${pre}-h`}>
+        {/* units-ok: mm de papel (corpo do texto), não unidade do modelo */}
         <NumField id={`${pre}-h`} value={value.textMm} decimals={1} unit="mm" min={0.5} onCommit={(v) => patch({ textMm: v } as Partial<T>)} />
       </FamilyRow>
       <FamilyRow label={t('ui_fam_unit')} htmlFor={`${pre}-unit`}>
