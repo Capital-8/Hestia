@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import * as THREE from 'three';
-import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
+import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
 import { formatQuantity, isComponent, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
@@ -10,7 +10,7 @@ import { consumirManterCameraDaPrevia, guardarCamera, limparPreviaPreparada, mon
 import { visibilityOf } from '../editor/viewVisibility.ts';
 import { usePerimeter } from '../editor/perimeter.ts';
 import { hoverSectionAt, sectionPickAt } from '../editor/sectionPick.ts';
-import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
+import { gestoDoBotaoNoCorte, idsNaCaixaDoCorte, modoDaCaixa, selecaoComCaixa } from '../editor/sectionBoxSelect.ts';
 import { sectionDimensionGripAt, sectionDimensionGripCommand, sectionHandleAt, sectionHandleCommand, sectionOpeningValues } from '../editor/sectionHandles.ts';
 import { cotaParaEditar, ehDuploClique, type CliqueAnterior } from '../editor/dimDoubleClick.ts';
 import { dimensionGeometry, dimensionText, sectionAnnotationsOf } from '@hestia/model';
@@ -61,8 +61,8 @@ interface DownAdiado {
 
 /** Rótulos vazios com referência fixa: a planta compara por identidade para não atualizar o estado à toa. */
 const NO_LABELS: LabelOp[] = [];
-/** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
-const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
+/** Retângulo da caixa de seleção (3D e corte); começa oculto e o gesto só muda posição, tamanho e traço. */
+const CAIXA_DE_SELECAO_STYLE: CSSProperties = { position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1.5px solid var(--accent)', background: 'color-mix(in srgb, var(--accent) 14%, transparent)', boxSizing: 'border-box' };
 const DRAG_STATUS_COMPONENTE = 'Arraste no 3D · R gira 90° · Alt solta encaixe · Esc cancela';
 
 type AlcaGizmoAtiva = 'girar' | AlcaDimGizmo;
@@ -520,6 +520,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const ids = idsNaCaixaDoCorte(result, screenToWorld(v, a), screenToWorld(v, b));
     useUi.setState({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null });
   };
+  /** Caixa de seleção na 3D (arrasto com Selecionar): pontas da tela viram NDC, como `elementAt3d`; janela ou cruzamento pelo sentido. */
+  const aplicarCaixaDa3d = (a: Pt, b: Pt, somar: boolean): void => {
+    const r = host.current!.getBoundingClientRect();
+    const ndc = (p: Pt): Pt => ({ x: (p.x / r.width) * 2 - 1, y: 1 - (p.y / r.height) * 2 });
+    const na = ndc(a);
+    const nb = ndc(b);
+    const ids = idsNaCaixaDaTela(model.current.scene, model.current.orbit.camera, { x0: na.x, y0: na.y, x1: nb.x, y1: nb.y }, modoDaCaixa(a, b));
+    useUi.setState((st) => ({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null }));
+  };
   const gesture = useRef<{ dist: number; mid: Pt } | null>(null);
   const spaceDown = useRef(false);
   /** Botão direito pressionado: solto sem arrasto (mais de 4 px) abre o menu de contexto. */
@@ -793,6 +802,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           return;
         }
       }
+      // Selecionar + botão esquerdo sem Alt nem Espaço: o arrasto desenha a caixa de seleção (janela ou cruzamento) em vez
+      // de orbitar. Alt+esquerdo, Espaço, meio e Shift+meio seguem como antes. Com a prévia do Colar, a órbita fica.
+      if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey && editor.activeTool.id === 'select') {
+        drag.current = { mode: 'marquee', start: s, last: s, moved: false, pick: true };
+        if (useUi.getState().hover) useUi.setState({ hover: null });
+        return;
+      }
       const mode = isOrbitReq ? 'orbit' : isPanReq ? 'pan' : (e.button === 0 ? 'orbit' : 'none');
       drag.current = { mode, start: s, last: s, moved: false, pick: e.button === 0 && !spaceDown.current && !e.altKey && !emPrevia };
       // Ao pressionar, o realce some: enquanto arrasta, o cursor orbita e não destaca.
@@ -954,6 +970,12 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
         if (d.moved) moverArrastoNoPonto(arrastoComp.current, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), e.altKey, paredeSobCursor3d(s));
         d.last = s;
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        return;
+      }
+      if (d.mode === 'marquee') {
+        if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
+        if (d.moved) mostrarCaixa(d.start, s);
+        d.last = s;
         return;
       }
       if (d.mode === 'orbit') model.current.orbit.orbit(s.x - d.last.x, s.y - d.last.y);
@@ -1141,10 +1163,13 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (d.shiftPending) editor.pointer('down', inf);
       for (const ev of eventosDeSolta(d.moved)) editor.pointer(ev, inf);
     }
-    // Caixa do corte: arrasto solta a caixa; sem arrasto, cai no clique abaixo (seleciona o elemento ou limpa o vazio).
+    // Caixa do 3D e do corte: arrasto solta a caixa; sem arrasto, cai no clique abaixo (seleciona o elemento ou limpa o vazio).
     if (d.mode === 'marquee') {
       ocultarCaixa();
-      if (d.moved) aplicarCaixaDoCorte(d.start, s, e.shiftKey || e.ctrlKey);
+      if (d.moved) {
+        if (useUi.getState().view === '3d') aplicarCaixaDa3d(d.start, s, e.shiftKey || e.ctrlKey);
+        else aplicarCaixaDoCorte(d.start, s, e.shiftKey || e.ctrlKey);
+      }
     }
     // Clique sem arrasto na vista 3D. Com ferramenta que aceita pick3d: vai o ponto da superfície sob o cursor (no plano).
     // Sem essa ferramenta (seleção): seleciona o elemento sob o cursor; Shift/Ctrl acrescenta ou alterna (decisão 0016 §3).

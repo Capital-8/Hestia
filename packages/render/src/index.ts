@@ -12,6 +12,7 @@ export * from './model3d/solids.ts';
 export * from './model3d/orbit.ts';
 export * from './model3d/scene3d.ts';
 export * from './model3d/pick3d.ts';
+export * from './model3d/selecaoPorCaixa3d.ts';
 export * from './model3d/cad3d.ts';
 // Prévia do Colar alinhado: camada violeta translúcida, fora do picking e do realce.
 export { CamadaFantasmas, COR_DO_FANTASMA, OPACIDADE_DO_FANTASMA, type OpcoesFantasmas } from './model3d/ghost.ts';
