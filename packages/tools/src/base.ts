@@ -128,7 +128,7 @@ export abstract class ToolBase implements Tool {
       snap: options.snap,
       topFaceTool: TOP_FACE_TOOLS.has(this.id),
       ...extra,
-      indexed: components,
+      indexed: [...components, ...(extra.indexed ?? [])],
       ...(hidden ? { hiddenIds: hidden } : {}),
       // Vértices dos pisos do nível entram sempre; os pontos que a ferramenta passa (contorno em construção) somam-se a eles.
       extraPoints: [
