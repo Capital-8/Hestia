@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- a raiz do app junta as camadas (integração com as paletas de móveis); extrair os atalhos depois. */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { editor } from './editor/controller.ts';
 import { transfer } from './editor/transfer.ts';
