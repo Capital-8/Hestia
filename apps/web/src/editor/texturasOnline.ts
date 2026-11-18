@@ -4,6 +4,21 @@ import { CATALOGO_ARQUIVO, urlTextura, validarCatalogo, type TexturaItem, type T
 export const URL_TEXTURAS = 'https://pub-8902f5770d27459b9c9a712765874108.r2.dev';
 
 /**
+ * Pasta pública do catálogo (catalogo.json + atlas de miniaturas), publicada no GitHub Pages a cada release pelo workflow
+ * `texturas-catalogo`. Este endereço NÃO pode mudar: as releases já distribuídas leem o catálogo daqui.
+ */
+export const URL_CATALOGO = 'https://engdennylsonsantos-cloud.github.io/Hestia/texturas';
+
+/**
+ * De onde baixar o catálogo, em ordem: com a base padrão (produção), primeiro o GitHub Pages e, se falhar, a cópia no bucket;
+ * com uma base diferente (desenvolvimento, `?texturas=`), só o `textures/_catalogo/` dela.
+ */
+export function urlsDoCatalogo(base: string): string[] {
+  const doBucket = urlTextura(base, CATALOGO_ARQUIVO);
+  return base === URL_TEXTURAS ? [`${URL_CATALOGO}/catalogo.json`, doBucket] : [doBucket];
+}
+
+/**
  * Base usada para baixar o catálogo e os mapas. Em desenvolvimento, `?texturas=<url>` na página troca o bucket
  * (para testar outro catálogo). Em produção o parâmetro é ignorado.
  */
@@ -62,12 +77,28 @@ export function esquecerCatalogo(): void {
   cache = null;
 }
 
-/** Baixa e valida `${base}/${CATALOGO_ARQUIVO}`. Rejeita com `ErroCatalogo` em qualquer falha. */
+/** Baixa e valida o catálogo (ver `urlsDoCatalogo`). Rejeita com `ErroCatalogo` quando nenhum endereço serve. */
 export async function carregarCatalogo(fetchFn: FetchTexturas = fetch, base: string = baseAtual()): Promise<TexturasCatalogo> {
   if (cache && cache.base === base) return cache.catalogo;
+  let ultimo: ErroCatalogo = new ErroCatalogo('rede', 'sem conexão');
+  for (const url of urlsDoCatalogo(base)) {
+    try {
+      const catalogo = await baixarUm(fetchFn, url);
+      cache = { base, catalogo };
+      for (const cb of [...ouvintes]) cb();
+      return catalogo;
+    } catch (e) {
+      if (e instanceof ErroCatalogo) ultimo = e;
+      else throw e;
+    }
+  }
+  throw ultimo;
+}
+
+async function baixarUm(fetchFn: FetchTexturas, url: string): Promise<TexturasCatalogo> {
   let res: Awaited<ReturnType<FetchTexturas>>;
   try {
-    res = await fetchFn(urlTextura(base, CATALOGO_ARQUIVO));
+    res = await fetchFn(url);
   } catch {
     throw new ErroCatalogo('rede', 'sem conexão');
   }
@@ -80,8 +111,8 @@ export async function carregarCatalogo(fetchFn: FetchTexturas = fetch, base: str
   }
   const catalogo = validarCatalogo(raw);
   if (!catalogo) throw new ErroCatalogo('formato', 'catálogo inválido ou de outra versão');
-  cache = { base, catalogo };
-  for (const cb of [...ouvintes]) cb();
+  // O atlas fica ao lado do catálogo que foi baixado (Pages ou bucket): o caminho vira uma URL absoluta.
+  if (catalogo.miniaturas) catalogo.miniaturas = { ...catalogo.miniaturas, arquivo: new URL(catalogo.miniaturas.arquivo, url).href };
   return catalogo;
 }
 

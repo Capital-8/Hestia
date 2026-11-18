@@ -6,14 +6,16 @@ import {
   ErroCatalogo,
   esquecerCatalogo,
   FetchTexturas,
+  URL_CATALOGO as URL_PAGES,
   URL_TEXTURAS,
   urlDoMapa,
+  urlsDoCatalogo,
 } from './texturasOnline.ts';
 
 const CATALOGO_OK = {
   versao: 1,
   gerado: '2026-11-17T00:00:00.000Z',
-  miniaturas: { arquivo: 'textures/_catalogo/miniaturas.jpg', lado: 256, colunas: 10 },
+  miniaturas: { arquivo: 'miniaturas.ab12cd34.jpg', lado: 256, colunas: 10 },
   itens: [
     { id: 'Bricks003', nome: 'Bricks 003', categoria: 'Bricks', bytes: 3000, mapas: { cor: 'textures/Bricks003/Color.jpg' }, icone: 0 },
     { id: 'Wood012', nome: 'Wood 012', categoria: 'Wood', bytes: 500, mapas: { cor: 'textures/Wood012/Color.jpg' } },
@@ -50,7 +52,8 @@ describe('carregarCatalogo', () => {
     const cat = await carregarCatalogo(f.fn, BASE);
     expect(f.chamadas).toEqual([URL_CATALOGO]);
     expect(cat.itens.map((i) => i.id)).toEqual(['Bricks003', 'Wood012']);
-    expect(cat.miniaturas).toEqual({ arquivo: 'textures/_catalogo/miniaturas.jpg', lado: 256, colunas: 10 });
+    // O atlas fica ao lado do catálogo baixado: o caminho vira URL absoluta a partir dele.
+    expect(cat.miniaturas).toEqual({ arquivo: `${BASE}/textures/_catalogo/miniaturas.ab12cd34.jpg`, lado: 256, colunas: 10 });
   });
 
   it('guarda o catálogo válido em memória: a segunda chamada não baixa de novo', async () => {
@@ -130,5 +133,38 @@ describe('urlDoMapa', () => {
   it('une base e caminho sem barras duplicadas', () => {
     expect(urlDoMapa(`${BASE}/`, '/textures/Wood012/Color.jpg')).toBe(`${BASE}/textures/Wood012/Color.jpg`);
     expect(urlDoMapa(BASE, 'textures/Wood012/Color.jpg')).toBe(`${BASE}/textures/Wood012/Color.jpg`);
+  });
+});
+
+describe('catálogo no GitHub Pages com reserva no bucket', () => {
+  it('base padrão: tenta o Pages primeiro e o bucket depois; base de desenvolvimento: só o bucket dela', () => {
+    expect(urlsDoCatalogo(URL_TEXTURAS)).toEqual([`${URL_PAGES}/catalogo.json`, `${URL_TEXTURAS}/textures/_catalogo/catalogo.json`]);
+    expect(urlsDoCatalogo(BASE)).toEqual([URL_CATALOGO]);
+  });
+
+  it('Pages respondeu: não toca no bucket e o atlas vem do Pages', async () => {
+    const f = fetchFalso({ ok: true, status: 200, corpo: CATALOGO_OK });
+    const cat = await carregarCatalogo(f.fn, URL_TEXTURAS);
+    expect(f.chamadas).toEqual([`${URL_PAGES}/catalogo.json`]);
+    expect(cat.miniaturas?.arquivo).toBe(`${URL_PAGES}/miniaturas.ab12cd34.jpg`);
+  });
+
+  it('Pages fora do ar: cai no bucket e o atlas vem do bucket', async () => {
+    const chamadas: string[] = [];
+    const fn: FetchTexturas = async (url) => {
+      chamadas.push(url);
+      if (url.startsWith(URL_PAGES)) return { ok: false, status: 404, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => CATALOGO_OK };
+    };
+    const cat = await carregarCatalogo(fn, URL_TEXTURAS);
+    expect(chamadas).toEqual([`${URL_PAGES}/catalogo.json`, `${URL_TEXTURAS}/textures/_catalogo/catalogo.json`]);
+    expect(cat.miniaturas?.arquivo).toBe(`${URL_TEXTURAS}/textures/_catalogo/miniaturas.ab12cd34.jpg`);
+  });
+
+  it('os dois falham: rejeita com o erro do último', async () => {
+    const f = fetchFalso({ ok: false, status: 503 });
+    const erro = await carregarCatalogo(f.fn, URL_TEXTURAS).catch((e: unknown) => e);
+    expect(f.fn).toHaveBeenCalledTimes(2);
+    expect((erro as ErroCatalogo).message).toContain('503');
   });
 });

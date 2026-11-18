@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoriaDaTextura, mapasDaTextura, montarCatalogo, nomeDaTextura, posicaoIcone, urlTextura, validarCatalogo } from './texturasCatalogo.ts';
+import { categoriaDaTextura, mapasDaTextura, montarCatalogo, nomeDaTextura, nomeDoAtlas, posicaoIcone, urlTextura, validarCatalogo } from './texturasCatalogo.ts';
 
 describe('catálogo de texturas online', () => {
   it('deriva categoria e nome legível do id da pasta', () => {
@@ -42,6 +42,8 @@ describe('catálogo de texturas online', () => {
   it('une base e caminho sem barras duplicadas', () => {
     expect(urlTextura('https://x.dev/', '/textures/a.jpg')).toBe('https://x.dev/textures/a.jpg');
     expect(urlTextura('https://x.dev', 'textures/a.jpg')).toBe('https://x.dev/textures/a.jpg');
+    expect(urlTextura('https://x.dev', 'https://y.io/m.abc.jpg')).toBe('https://y.io/m.abc.jpg');
+    expect(nomeDoAtlas('9f2c')).toBe('miniaturas.9f2c.jpg');
   });
 
   it('valida o JSON baixado: ida e volta, descarta itens ruins e recusa versão errada', () => {
