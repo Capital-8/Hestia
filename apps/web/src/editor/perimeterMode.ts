@@ -1,4 +1,4 @@
-import type { SketchDraft, SketchTarget } from '@hestia/geom';
+import type { SketchDraft, SketchTarget, Vec2 } from '@hestia/geom';
 import type { PerimeterModifyKind } from '@hestia/tools';
 import { DEFAULT_CEILING_HEIGHT, isFloor, isSlab, type Id, type Project } from '@hestia/model';
 import {
@@ -9,6 +9,7 @@ import {
   SKETCH_DEFAULTS,
   commitPerimeter,
   draftFromElement,
+  editDraft,
   perimeterOptionsOf,
   setDefaults,
   setSegSlope,
@@ -18,6 +19,7 @@ import {
   type ToolEnv,
   type ToolOptions,
 } from '@hestia/tools';
+import { abrirSecoesDaMassa } from './massaLigacao.ts';
 import type { PerimeterView } from './perimeterApi.ts';
 import { resolveText, useI18n, type TextLike } from './i18n.ts';
 import { COMANDO_DO_ESBOCO, COMANDO_RECUSADO, SEM_ESBOCO } from './perimeterComandos.ts';
@@ -46,6 +48,14 @@ interface Sessao {
   levelId: Id;
   typeId?: Id;
   opts: PerimeterBarOptions;
+  /** Mistura e loft: 'base' (1ª fase) ou 'topo' (2ª, com o anel da base de fantasma). Ausente = extrusão ou outro alvo. */
+  fase?: 'base' | 'topo';
+  /** Mistura e loft, na fase do topo: o anel da base (também o fantasma). */
+  baseRing?: Vec2[];
+  /** Mistura e loft: o modo, para o loft abrir o diálogo de seções ao criar. */
+  modoMassa?: 'mistura' | 'loft';
+  /** Editar contorno: qual perfil (base ou topo). */
+  qual?: 'base' | 'topo';
 }
 
 const ABERTO_FERRAMENTA: TextLike = { key: 'edc_perim_open_tool' };
@@ -83,13 +93,13 @@ function opcoesDe(s: Sessao, env: ToolEnv): CommitPerimeterOptions {
   if (s.target === 'roof') return { ...base, overhang: o.overhang, slopePct: o.slopePct };
   if (s.target === 'mass') {
     const m = useUi.getState().options.mass;
-    return { ...base, massa: { altura: m?.altura ?? ALTURA_PADRAO, cotaBase: m?.cotaBase ?? null } };
+    return { ...base, massa: { altura: m?.altura ?? ALTURA_PADRAO, cotaBase: m?.cotaBase ?? null, ...(s.baseRing ? { baseRing: s.baseRing } : {}), ...(s.qual ? { editar: s.qual } : {}) } };
   }
   return { ...base, extendToCore: o.extendToCore, heightOffset: o.heightOffset, linkToWalls: o.linkToWalls, followRoom: o.followRoom };
 }
 
 /** A ferramenta Massa abre o esboço (caixa de formas) na extrusão com `galeria` ligada (padrão). */
-export const massaPeloEsboco = (m: ToolOptions['mass']): boolean => (m?.modo ?? 'extrusao') === 'extrusao' && m?.galeria !== false;
+export const massaPeloEsboco = (m: ToolOptions['mass']): boolean => (m?.modo ?? 'extrusao') !== 'bulbo' && m?.galeria !== false;
 
 /**
  * Modo "Criar/Editar perímetro". Abre a ferramenta de perímetro para um alvo (ou para editar um elemento), guarda a
@@ -121,15 +131,18 @@ export class PerimeterMode {
     if (this.recusaSeAberto()) return;
     const ui = useUi.getState();
     const { typeId, opts } = iniciais(target, ui.options);
-    this.abrir({ tool: new PerimeterTool(this.porta.env(), target), target, levelId: ui.levelId, typeId, opts });
+    const modo = target === 'mass' ? ui.options.mass?.modo : undefined;
+    const duplo = modo === 'mistura' || modo === 'loft';
+    this.abrir({ tool: new PerimeterTool(this.porta.env(), target), target, levelId: ui.levelId, typeId, opts, ...(duplo ? { fase: 'base' as const, modoMassa: modo } : {}) });
+    if (duplo) this.dizer({ key: 'edc_perim_fase_base' });
   }
 
   /** "Editar perímetro": abre o modo com o contorno do elemento. Elemento sem perímetro editável é recusado na barra. */
-  edit(id: Id): void {
+  edit(id: Id, qual: 'base' | 'topo' = 'base'): void {
     if (this.recusaSeAberto()) return;
     const p = this.porta.projeto();
     const el = p.elements[id];
-    const d = draftFromElement(p, id);
+    const d = draftFromElement(p, id, qual);
     const opts = perimeterOptionsOf(p, id);
     if (!el || !d || !opts || !('levelId' in el)) {
       this.dizer({ key: 'edc_perim_not_editable' });
@@ -143,7 +156,7 @@ export class PerimeterMode {
     const tool = new PerimeterTool(this.porta.env(), d.target);
     tool.loadDraft(d);
     const selecaoAnterior = [...useUi.getState().selection];
-    this.abrir({ tool, target: d.target, editing: id, levelId: el.levelId, opts, selecaoAnterior });
+    this.abrir({ tool, target: d.target, editing: id, levelId: el.levelId, opts, selecaoAnterior, qual });
   }
 
   /**
@@ -153,6 +166,7 @@ export class PerimeterMode {
   finish(): void {
     const s = this.sessao;
     if (!s) return;
+    if (s.fase === 'base' && this.baseConcluida(s)) return;
     const r = commitPerimeter(this.porta.projeto(), s.tool.draft(), opcoesDe(s, this.porta.env()), useI18n.getState().lang);
     if (!r.ok) {
       this.dizer(r.message);
@@ -165,6 +179,27 @@ export class PerimeterMode {
     this.fechar();
     env.setSelection([r.id]);
     this.dizer(r.message);
+    if (s.modoMassa === 'loft' && !s.editing) abrirSecoesDaMassa(r.id);
+  }
+
+  /**
+   * Mistura/loft, fim da fase da base: valida o esboço, guarda o anel e abre o esboço do topo com a base de fantasma.
+   * Devolve true quando tratou (inclusive recusando, com o motivo na barra); false se não é fase de base.
+   */
+  private baseConcluida(s: Sessao): boolean {
+    const r = s.tool.closeInfo();
+    const ring = r.ok ? r.loops.find((l) => l.role === 'outer')?.ring : undefined;
+    if (!ring || r.loops.length !== 1) {
+      this.dizer(r.ok ? { key: 'edc_perim_fase_furos' } : r.issues[0]?.message ?? { key: 'edc_perim_fase_base' });
+      return true;
+    }
+    const tool = new PerimeterTool(this.porta.env(), 'mass');
+    tool.setGhost(ring);
+    this.sessao = { ...s, tool, fase: 'topo', baseRing: ring.map((p) => ({ ...p })) };
+    this.porta.ativar(tool);
+    tool.setShape('line');
+    this.dizer({ key: 'edc_perim_fase_topo' });
+    return true;
   }
 
   /**
@@ -174,6 +209,16 @@ export class PerimeterMode {
   cancel(): void {
     const s = this.sessao;
     if (!s) return;
+    // Topo da mistura/loft: Cancelar volta ao esboço da base (com o anel que já estava pronto); na base, cancela tudo.
+    if (s.fase === 'topo' && s.baseRing) {
+      const tool = new PerimeterTool(this.porta.env(), 'mass');
+      tool.loadDraft(editDraft('mass', 'base', s.baseRing));
+      this.sessao = { ...s, tool, fase: 'base', baseRing: undefined };
+      this.porta.ativar(tool);
+      tool.setShape('line');
+      this.dizer({ key: 'edc_perim_fase_base' });
+      return;
+    }
     this.fechar();
     if (s.editing) useUi.setState({ selection: s.selecaoAnterior ?? [] });
     this.dizer(s.editing ? { key: 'edc_perim_cancelled' } : { key: 'edc_perim_discarded' });

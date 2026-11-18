@@ -85,6 +85,8 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
     if (!r.ok) setRev((n) => n + 1);
   };
   const arr = first.arranjo;
+  // Base e topo com perfis diferentes (mistura, loft): o contorno a editar se escolhe.
+  const diferentes = first.secoes.length >= 2 && JSON.stringify(first.secoes[0]!.perfil) !== JSON.stringify(first.secoes[first.secoes.length - 1]!.perfil);
   const secoesHint = t('ui_ms_secoes_n', { n: first.secoes.length });
 
   return (
@@ -152,7 +154,14 @@ export function MassProperties({ massas }: { massas: Mass[] }): ReactElement {
       {unica && (
         <div className="prow">
           <span />
-          <button type="button" id="ms-edit-contorno" className="chiplink" onClick={() => perimeterActions.edit(first.id)}>{t('ui_ms_editar_contorno')}</button>
+          {diferentes ? (
+            <>
+              <button type="button" id="ms-edit-contorno" className="chiplink" onClick={() => perimeterActions.edit(first.id, 'base')}>{t('ui_ms_editar_contorno_base')}</button>
+              <button type="button" id="ms-edit-contorno-topo" className="chiplink" onClick={() => perimeterActions.edit(first.id, 'topo')}>{t('ui_ms_editar_contorno_topo')}</button>
+            </>
+          ) : (
+            <button type="button" id="ms-edit-contorno" className="chiplink" onClick={() => perimeterActions.edit(first.id)}>{t('ui_ms_editar_contorno')}</button>
+          )}
           <button type="button" id="ms-edit-secoes" className="chiplink" title={secoesHint} onClick={() => useUi.setState({ dialog: 'massSecoes', dialogArg: first.id })}>{t('ui_ms_editar_secoes')}</button>
         </div>
       )}

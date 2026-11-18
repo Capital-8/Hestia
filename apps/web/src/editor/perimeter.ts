@@ -17,7 +17,7 @@ export const usePerimeter = (): PerimeterView => {
 /** Ações do modo para a tela (faixa, barra de opções, propriedades e botões Concluir e Cancelar). */
 export const perimeterActions: PerimeterActions = {
   begin: (target) => editor.perimetro.begin(target),
-  edit: (id) => editor.perimetro.edit(id),
+  edit: (id, qual) => editor.perimetro.edit(id, qual),
   setShape: (s) => editor.perimetro.setShape(s),
   setLineKind: (k) => editor.perimetro.setLineKind(k),
   setModify: (k) => editor.perimetro.setModify(k),

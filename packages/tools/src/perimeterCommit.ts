@@ -57,7 +57,7 @@ export function perimeterOptionsOf(project: Project, elementId: Id): PerimeterBa
  * inclinação e o balanço próprios), piso, laje ou forro (contorno e furos). Null quando o id não existe ou a forma não
  * é editável por perímetro (telhado livre ou por extrusão).
  */
-export function draftFromElement(project: Project, elementId: Id): SketchDraft | null {
+export function draftFromElement(project: Project, elementId: Id, qual: 'base' | 'topo' = 'base'): SketchDraft | null {
   const el = project.elements[elementId];
   const opts = perimeterOptionsOf(project, elementId);
   if (!el || !opts) return null;
@@ -72,7 +72,7 @@ export function draftFromElement(project: Project, elementId: Id): SketchDraft |
     return { ...editDraft(el.kind, el.id, outer, holes), defaults };
   }
   if (isMass(el)) {
-    const base = el.secoes[0]!;
+    const base = el.secoes[qual === 'topo' ? el.secoes.length - 1 : 0]!;
     const outer = massRing(el.origem, base);
     return { ...editDraft('mass', el.id, outer, []), defaults };
   }

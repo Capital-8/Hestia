@@ -112,3 +112,9 @@ O padrão de desvio ficou em 5 cm (e não 2 cm): com 16 passos por andar o limit
 - Decisão: Concluir NÃO une sozinho (a regra mínima é o botão; unir automático esconderia furos legítimos de piso e laje).
 - Para Mistura/Loft usarem o esboço (não feito, decisão do dono): a ferramenta teria de abrir o esboço duas vezes (base e topo), guardar o 1º anel como `CapturaPerfil` livre (`capturaLivre`) e criar a massa com `pilhaDeDois(base, topo, altura)` em vez de duas seções iguais; o loft ainda abre o diálogo de seções.
 
+### Mistura e Loft pela caixa de formas (opção B do dono)
+- Com `galeria` ligada (padrão), Mistura e Loft abrem o esboço duas vezes: "Forma da base" (galeria, Unir formas, TR, Lados) e, em Concluir, "Forma do topo" com o contorno da base tracejado de fantasma (`PerimeterTool.setGhost`). Concluir do topo cria a massa por `pilhaDeDois` (2 seções livres, z 0 e altura; cotas, de-nível-a-nível e altura das opções); o Loft abre depois o diálogo "Seções da massa". Bulbo não muda (ferramenta de perfis).
+- Decisão: Cancelar no topo VOLTA à base (com o anel que já estava pronto); Cancelar na base cancela tudo. Furos continuam recusados.
+- Editar contorno de massa com base e topo diferentes: o painel mostra "Editar contorno da base" e "do topo" (`perimeterActions.edit(id, qual)`); a base troca também seções iguais a ela, o topo só a última. Extrusão segue com um botão.
+- Interpolação `livre`→`livre` com números de pontos diferentes: já é bem definida no kernel (`massa_perfil.rs`): cada perfil é parametrizado por comprimento de arco normalizado a partir do cruzamento da semirreta +x, e os vértices dos dois entram no conjunto T. Não é preciso reamostrar. Provado no kernel real (quadrado 4 pontos -> círculo 64 pontos, 6 m): malha fechada, topo em z = 6, volume entre 12,5·6 e 16·6, sem avisos de erro (só o 4, face inclinada, informativo) — `tests/kernel-massa-mistura-livre.wasm.test.ts`. Formato salvo intacto.
+
