@@ -9,7 +9,7 @@ import {
   type Id,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { useI18n } from '../../editor/i18n.ts';
+import { t, useI18n } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
 import { FaceStudioCanvas, type FaceStudioCanvasHandle } from './FaceStudioCanvas.tsx';
@@ -26,7 +26,6 @@ export function FaceStudioView({
 }): ReactElement | null {
   const p = useProject();
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
 
   const el = p.elements[elementId];
   const paintable = isFacePaintableElement(el) ? el : null;
@@ -57,9 +56,9 @@ export function FaceStudioView({
     return (
       <div className="fs-root">
         <div className="fs-empty">
-          <p>{pt ? 'Elemento ou face não encontrado.' : 'Element or face not found.'}</p>
+          <p>{t(lang, 'fs_element_or_face_not_found')}</p>
           <button type="button" className="btn primary" onClick={() => activateView({ kind: '3d' })}>
-            {pt ? 'Voltar ao 3D' : 'Back to 3D'}
+            {t(lang, 'fs_back_to_3d')}
           </button>
         </div>
       </div>
@@ -77,12 +76,12 @@ export function FaceStudioView({
           onChangeEntry={commitEntry}
         />
 
-        <div className="fs-zoom-float" role="group" aria-label={pt ? 'Controle de zoom' : 'Zoom controls'}>
+        <div className="fs-zoom-float" role="group" aria-label={t(lang, 'fs_zoom_controls')}>
           <button
             type="button"
             className="btn small"
-            title={pt ? 'Aproximar' : 'Zoom in'}
-            aria-label={pt ? 'Aproximar' : 'Zoom in'}
+            title={t(lang, 'fs_zoom_in')}
+            aria-label={t(lang, 'fs_zoom_in')}
             onClick={() => canvasHandle.current?.zoomIn()}
           >
             +
@@ -90,8 +89,8 @@ export function FaceStudioView({
           <button
             type="button"
             className="btn small"
-            title={pt ? 'Afastar' : 'Zoom out'}
-            aria-label={pt ? 'Afastar' : 'Zoom out'}
+            title={t(lang, 'fs_zoom_out')}
+            aria-label={t(lang, 'fs_zoom_out')}
             onClick={() => canvasHandle.current?.zoomOut()}
           >
             −
@@ -99,10 +98,10 @@ export function FaceStudioView({
           <button
             type="button"
             className="btn small"
-            title={pt ? 'Enquadrar face' : 'Fit face'}
+            title={t(lang, 'fs_fit_face')}
             onClick={() => canvasHandle.current?.zoomFit()}
           >
-            {pt ? 'Enquadrar' : 'Fit'}
+            {t(lang, 'fs_fit')}
           </button>
         </div>
       </div>

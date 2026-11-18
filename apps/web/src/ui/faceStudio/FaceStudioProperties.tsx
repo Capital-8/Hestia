@@ -13,7 +13,7 @@ import {
   type FaceSlot,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { useI18n } from '../../editor/i18n.ts';
+import { t, useI18n } from '../../editor/i18n.ts';
 import { useUi, type FaceStudioState } from '../../editor/state.ts';
 import { openFaceStudioTab } from '../../editor/viewTabActions.ts';
 import { Check, Group, NumField, Row } from '../fields.tsx';
@@ -29,7 +29,6 @@ export function FaceStudioProperties(): ReactElement | null {
   const fs = useUi((s) => s.faceStudio);
   const units = useUnits();
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
 
   const el = faceView ? p.elements[faceView.elementId] : undefined;
   const paintable = isFacePaintableElement(el) ? el : null;
@@ -95,10 +94,10 @@ export function FaceStudioProperties(): ReactElement | null {
   );
 
   const kindLabel = isWall(paintable)
-    ? (pt ? 'Parede · Estúdio da Face' : 'Wall · Face Studio')
+    ? (t(lang, 'fs_wall_face_studio'))
     : isFloor(paintable)
-      ? (pt ? 'Piso · Estúdio da Face' : 'Floor · Face Studio')
-      : (pt ? 'Laje · Estúdio da Face' : 'Slab · Face Studio');
+      ? (t(lang, 'fs_floor_face_studio'))
+      : (t(lang, 'fs_slab_face_studio'));
 
   return (
     <>
@@ -109,8 +108,8 @@ export function FaceStudioProperties(): ReactElement | null {
         </div>
       </div>
 
-      <Group title={pt ? 'Face e Desenho' : 'Face & Draw'} stateKey="fs_face_draw">
-        <Row label={pt ? 'Face' : 'Face'} htmlFor="fs-prop-face">
+      <Group title={t(lang, 'fs_face_draw')} stateKey="fs_face_draw">
+        <Row label={t(lang, 'fs_face')} htmlFor="fs-prop-face">
           <FaceSelect
             id="fs-prop-face"
             value={faceView.face}
@@ -118,12 +117,12 @@ export function FaceStudioProperties(): ReactElement | null {
             onChange={(v) => openFaceStudioTab(faceView.elementId, v as FaceSlot, faceView.layer)}
           />
         </Row>
-        <Row label={pt ? 'Camada' : 'Layer'} htmlFor="fs-prop-layer">
+        <Row label={t(lang, 'fs_layer')} htmlFor="fs-prop-layer">
           <FaceSelect
             id="fs-prop-layer"
             value={faceView.layer === 'all' ? 'all' : String(faceView.layer)}
             options={[
-              { value: 'all', label: pt ? 'Todas as camadas' : 'All layers' },
+              { value: 'all', label: t(lang, 'fs_all_layers') },
               ...layers.map((l) => ({ value: String(l.index), label: l.label })),
             ]}
             onChange={(raw) => {
@@ -132,7 +131,7 @@ export function FaceStudioProperties(): ReactElement | null {
             }}
           />
         </Row>
-        <Row label={pt ? 'Material ativo' : 'Active material'} htmlFor="fs-prop-mat">
+        <Row label={t(lang, 'fs_active_material')} htmlFor="fs-prop-mat">
           <MatSelect
             id="fs-prop-mat"
             className="fs-mat-pick"
@@ -141,28 +140,28 @@ export function FaceStudioProperties(): ReactElement | null {
             onChange={(activeMaterialId) => setFs({ activeMaterialId })}
           />
         </Row>
-        <Row label={pt ? 'Traçado' : 'Draw mode'} htmlFor="fs-prop-mode">
+        <Row label={t(lang, 'fs_draw_mode')} htmlFor="fs-prop-mode">
           <FaceSelect
             id="fs-prop-mode"
             value={fs.asBand ? 'band' : 'region'}
             options={[
-              { value: 'region', label: pt ? 'Região preenchida' : 'Filled region' },
-              { value: 'band', label: pt ? 'Faixa (friso)' : 'Band (strip)' },
+              { value: 'region', label: t(lang, 'fs_filled_region') },
+              { value: 'band', label: t(lang, 'fs_band_strip') },
             ]}
             onChange={(v) => setFs({ asBand: v === 'band' })}
           />
         </Row>
         {fs.asBand && (
-          <Row label={pt ? 'Largura da faixa' : 'Band width'} htmlFor="fs-prop-bw">
+          <Row label={t(lang, 'fs_band_width')} htmlFor="fs-prop-bw">
             <NumField id="fs-prop-bw" value={fs.bandWidth} quantity="smallLength" min={0.004} onCommit={(bandWidth) => setFs({ bandWidth })} />
           </Row>
         )}
-        <Row label={pt ? 'Capturar na grade' : 'Snap to grid'} htmlFor="fs-prop-grid">
+        <Row label={t(lang, 'fs_snap_to_grid')} htmlFor="fs-prop-grid">
           <Check id="fs-prop-grid" checked={fs.snapGrid} onChange={(snapGrid) => setFs({ snapGrid })} />
         </Row>
         <div className="fs-insp-actions">
           <button type="button" className="btn danger small" disabled={!hasContent} onClick={clearFace}>
-            {pt ? 'Restaurar / Limpar pintura' : 'Restore / Clear paint'}
+            {t(lang, 'fs_restore_clear_paint')}
           </button>
         </div>
       </Group>
@@ -172,7 +171,6 @@ export function FaceStudioProperties(): ReactElement | null {
           region={selectedRegion}
           materials={p.materials}
           unwrapped={unwrapped}
-          pt={pt}
           lang={lang}
           onPatch={(patch) =>
             commitEntry({
@@ -194,7 +192,7 @@ export function FaceStudioProperties(): ReactElement | null {
           dxf={selectedDxf}
           materials={p.materials}
           defaultMatId={baseMatId}
-          pt={pt}
+          lang={lang}
           onPatch={(patch) =>
             commitEntry({
               ...entry,
@@ -211,8 +209,8 @@ export function FaceStudioProperties(): ReactElement | null {
           onBackToBase={() => setFs({ selection: { kind: 'base' } })}
         />
       ) : (
-        <Group title={pt ? 'Face base' : 'Base face'} stateKey="fs_base">
-          <Row label={pt ? 'Material base' : 'Base material'} htmlFor="fs-base-mat">
+        <Group title={t(lang, 'fs_base_face')} stateKey="fs_base">
+          <Row label={t(lang, 'fs_base_material')} htmlFor="fs-base-mat">
             <MatSelect
               id="fs-base-mat"
               value={baseMatId}
@@ -227,13 +225,13 @@ export function FaceStudioProperties(): ReactElement | null {
               disabled={!entry.materialId}
               onClick={() => commitEntry({ ...entry, materialId: undefined })}
             >
-              {pt ? 'Restaurar material da camada' : 'Restore layer material'}
+              {t(lang, 'fs_restore_layer_material')}
             </button>
           </div>
         </Group>
       )}
 
-      <Group title={pt ? 'Itens na Face' : 'Face Items'} stateKey="fs_items">
+      <Group title={t(lang, 'fs_face_items')} stateKey="fs_items">
         {(entry.regions?.length ?? 0) > 0 || (entry.dxfOverlays?.length ?? 0) > 0 ? (
           <div className="fs-item-list">
             {(entry.regions ?? []).map((r) => {
@@ -246,7 +244,7 @@ export function FaceStudioProperties(): ReactElement | null {
                   onClick={() => setFs({ selection: { kind: 'region', id: r.id } })}
                 >
                   <span className="fs-swatch" style={{ background: p.materials[r.materialId]?.color ?? '#ccc' }} />
-                  <span>{r.name || (pt ? 'Região' : 'Region')}</span>
+                  <span>{r.name || (t(lang, 'fs_region'))}</span>
                   <span className="fs-item-tag">#{r.order}</span>
                 </button>
               );
@@ -268,25 +266,25 @@ export function FaceStudioProperties(): ReactElement | null {
             })}
           </div>
         ) : (
-          <div className="hint">{pt ? 'Nenhuma região ou DXF na face.' : 'No regions or DXF on this face.'}</div>
+          <div className="hint">{t(lang, 'fs_no_regions_or_dxf_on_this_face')}</div>
         )}
       </Group>
 
-      <Group title={pt ? 'Dimensões da Face' : 'Face Dimensions'} stateKey="fs_summary">
-        <Row label={pt ? 'Largura' : 'Width'} readOnly>
+      <Group title={t(lang, 'fs_face_dimensions')} stateKey="fs_summary">
+        <Row label={t(lang, 'fs_width')} readOnly>
           <span className="val">{formatQuantity(units, 'length', unwrapped.width, { lang })}</span>
         </Row>
-        <Row label={pt ? 'Altura' : 'Height'} readOnly>
+        <Row label={t(lang, 'fs_height')} readOnly>
           <span className="val">{formatQuantity(units, 'length', unwrapped.height, { lang })}</span>
         </Row>
-        <Row label={pt ? 'Área líquida' : 'Net area'} readOnly>
+        <Row label={t(lang, 'fs_net_area')} readOnly>
           <span className="val">{formatQuantity(units, 'area', totalArea, { lang })}</span>
         </Row>
-        <Row label={pt ? 'Área pintada' : 'Painted area'} readOnly>
+        <Row label={t(lang, 'fs_painted_area')} readOnly>
           <span className="val">{formatQuantity(units, 'area', paintedArea, { lang })}</span>
         </Row>
         {unwrapped.isCurved && unwrapped.curveRadius !== null && (
-          <Row label={pt ? 'Raio' : 'Radius'} readOnly>
+          <Row label={t(lang, 'fs_radius')} readOnly>
             <span className="val">{formatQuantity(units, 'length', unwrapped.curveRadius, { lang })}</span>
           </Row>
         )}

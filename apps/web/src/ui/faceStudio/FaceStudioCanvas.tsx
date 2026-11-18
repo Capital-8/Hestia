@@ -14,7 +14,7 @@ import {
 import { dist, partitionFacePaint, type Vec2 } from '@hestia/geom';
 import { faceEntryToArtItems, type UnwrappedFace } from '@hestia/engine';
 import { formatQuantity, newId, type FacePaintEntry, type FaceRegion, type Material } from '@hestia/model';
-import { useI18n } from '../../editor/i18n.ts';
+import { t, useI18n } from '../../editor/i18n.ts';
 import { useUi, type FaceStudioState } from '../../editor/state.ts';
 import { PAINT_BUCKET_CURSOR } from '../cursor.ts';
 import { useDark } from '../useDark.ts';
@@ -67,7 +67,6 @@ export function FaceStudioCanvas(props: FaceStudioCanvasProps): ReactElement {
 
   const { tool, shape, activeMaterialId, bandWidth, asBand, snapGrid, selection } = useUi((s) => s.faceStudio);
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
   const dark = useDark();
   const units = useUnits();
 
@@ -407,9 +406,9 @@ export function FaceStudioCanvas(props: FaceStudioCanvasProps): ReactElement {
       {unwrapped.isCurved && unwrapped.curveRadius !== null && (
         <div className="fs-badge-curved">
           <span>
-            {pt ? 'Planificação cilíndrica' : 'Cylindrical unwrap'} · R ={' '}
+            {t(lang, 'fs_cylindrical_unwrap')} · R ={' '}
             {formatQuantity(units, 'length', unwrapped.curveRadius, { lang })} (
-            {unwrapped.concave ? (pt ? 'côncava' : 'concave') : (pt ? 'convexa' : 'convex')})
+            {unwrapped.concave ? (t(lang, 'fs_concave')) : (t(lang, 'fs_convex'))})
           </span>
         </div>
       )}

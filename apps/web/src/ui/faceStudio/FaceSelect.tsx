@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { Material } from '@hestia/model';
-import { useI18n } from '../../editor/i18n.ts';
+import { t, useI18n } from '../../editor/i18n.ts';
 import './faceStudio.css';
 
 export interface FaceSelectOption {
@@ -83,7 +83,6 @@ export function FaceSelect({
   onChange,
 }: FaceSelectProps): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [menuPos, setMenuPos] = useState<MenuPos>({ left: 0, width: MENU_MIN_W, top: 0, maxHeight: MENU_MAX_H });
@@ -184,8 +183,8 @@ export function FaceSelect({
     ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
   };
 
-  const placeholder = searchPlaceholder ?? (pt ? 'Buscar…' : 'Search…');
-  const emptyText = noResultsLabel ?? (pt ? 'Nenhum item encontrado.' : 'No items found.');
+  const placeholder = searchPlaceholder ?? (t(lang, 'fs_search'));
+  const emptyText = noResultsLabel ?? (t(lang, 'fs_no_items_found'));
 
   return (
     <div className={className ? `fs-sel-wrap ${className}` : 'fs-sel-wrap'} ref={wrapRef}>
@@ -272,7 +271,6 @@ export function MatSelect({
   onChange: (matId: string) => void;
 }): ReactElement {
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
 
   const options = useMemo<FaceSelectOption[]>(() => {
     const list: FaceSelectOption[] = Object.values(materials).map((m) => ({
@@ -292,8 +290,8 @@ export function MatSelect({
       value={value}
       options={options}
       searchable
-      searchPlaceholder={pt ? 'Buscar material…' : 'Search material…'}
-      noResultsLabel={pt ? 'Nenhum material encontrado.' : 'No materials found.'}
+      searchPlaceholder={t(lang, 'fs_search_material')}
+      noResultsLabel={t(lang, 'fs_no_materials_found')}
       className={className}
       onChange={onChange}
     />

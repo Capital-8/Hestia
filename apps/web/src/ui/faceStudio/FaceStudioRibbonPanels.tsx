@@ -10,7 +10,7 @@ import {
   type Id,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { useI18n, type Lang } from '../../editor/i18n.ts';
+import { t, useI18n, type Lang } from '../../editor/i18n.ts';
 import { useUi, type FaceStudioShape } from '../../editor/state.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
 import { Icon } from '../Icon.tsx';
@@ -87,7 +87,6 @@ export function FaceStudioRibbonPanels(): ReactElement {
   const faceView = useUi((s) => s.faceView);
   const fs = useUi((s) => s.faceStudio);
   const lang = useI18n((s) => s.lang);
-  const pt = lang === 'pt';
   const fileRef = useRef<HTMLInputElement>(null);
 
   const el = faceView ? p.elements[faceView.elementId] : undefined;
@@ -106,7 +105,7 @@ export function FaceStudioRibbonPanels(): ReactElement {
     const text = await file.text();
     const overlay = buildDxfOverlay(text, file.name, unwrapped, effectiveMatId, lang);
     if (!overlay) {
-      useUi.setState({ status: pt ? 'DXF sem traços importáveis.' : 'DXF has no importable paths.' });
+      useUi.setState({ status: t(lang, 'fs_dxf_has_no_importable_paths') });
       return;
     }
     editor.store.exec({
@@ -121,71 +120,71 @@ export function FaceStudioRibbonPanels(): ReactElement {
 
   return (
     <>
-      <div className="rb-panel" role="group" aria-label={pt ? 'Selecionar e Pintar' : 'Select & Paint'}>
+      <div className="rb-panel" role="group" aria-label={t(lang, 'fs_select_paint')}>
         <div className="rb-cols">
           <button
             type="button"
             className={`rb-btn rb-large${fs.tool === 'select' ? ' on' : ''}`}
             aria-pressed={fs.tool === 'select'}
-            title={pt ? 'Selecionar região ou DXF' : 'Select region or DXF'}
+            title={t(lang, 'fs_select_region_or_dxf')}
             onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, tool: 'select' } }))}
           >
             <Icon name="select" size={32} />
-            <span className="rb-lbl">{pt ? 'Selecionar' : 'Select'}</span>
+            <span className="rb-lbl">{t(lang, 'fs_select')}</span>
           </button>
           <button
             type="button"
             className={`rb-btn rb-large${fs.tool === 'paintBucket' ? ' on' : ''}`}
             aria-pressed={fs.tool === 'paintBucket'}
-            title={pt ? 'Balde de Tinta' : 'Paint Bucket'}
+            title={t(lang, 'fs_paint_bucket')}
             onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, tool: 'paintBucket' } }))}
           >
             <Icon name="paintBucket" size={32} />
-            <span className="rb-lbl">{pt ? 'Balde de Tinta' : 'Paint Bucket'}</span>
+            <span className="rb-lbl">{t(lang, 'fs_paint_bucket')}</span>
           </button>
           <input ref={fileRef} type="file" accept=".dxf" hidden onChange={(e) => { void handleDxfFile(e); }} />
           <button
             type="button"
             className="rb-btn rb-large"
             disabled={!unwrapped}
-            title={pt ? 'Importar traços DXF para a face' : 'Import DXF paths onto face'}
+            title={t(lang, 'fs_import_dxf_paths_onto_face')}
             onClick={() => fileRef.current?.click()}
           >
             <Icon name="open" size={32} />
-            <span className="rb-lbl">{pt ? 'Importar DXF' : 'Import DXF'}</span>
+            <span className="rb-lbl">{t(lang, 'fs_import_dxf')}</span>
           </button>
         </div>
-        <div className="rb-title">{pt ? 'Selecionar e Pintar' : 'Select & Paint'}</div>
+        <div className="rb-title">{t(lang, 'fs_select_paint')}</div>
       </div>
 
-      <div className="rb-panel" role="group" aria-label={pt ? 'Desenhar' : 'Draw'}>
+      <div className="rb-panel" role="group" aria-label={t(lang, 'fs_draw')}>
         <div className="rb-cols">
           <div className="rb-stack">
             <button
               type="button"
               className={`rb-btn rb-small${!fs.asBand ? ' on' : ''}`}
               aria-pressed={!fs.asBand}
-              title={pt ? 'Região preenchida' : 'Filled region'}
+              title={t(lang, 'fs_filled_region')}
               onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, asBand: false } }))}
             >
               <Ic size={16}>
                 <path className="ic-bl" d="M4 6H28V26H4Z" />
                 <path className="ic-s1" d="M4 6H28V26H4Z" />
               </Ic>
-              <span className="rb-lbl">{pt ? 'Região preenchida' : 'Filled region'}</span>
+              <span className="rb-lbl">{t(lang, 'fs_filled_region')}</span>
             </button>
             <button
               type="button"
               className={`rb-btn rb-small${fs.asBand ? ' on' : ''}`}
               aria-pressed={fs.asBand}
-              title={pt ? 'Faixa (friso)' : 'Band (strip)'}
+              title={t(lang, 'fs_band_strip')}
               onClick={() => useUi.setState((s) => ({ faceStudio: { ...s.faceStudio, asBand: true } }))}
             >
               <Ic size={16}>
                 <path className="ic-s1" d="M4 11H28V21H4Z" />
                 <path className="ic-ac" d="M4 16H28" strokeDasharray="3 2" />
               </Ic>
-              <span className="rb-lbl">{pt ? 'Faixa (friso)' : 'Band (strip)'}</span>
+              <span className="rb-lbl">{t(lang, 'fs_band_strip')}</span>
             </button>
           </div>
           <ShapeGallery
@@ -198,25 +197,25 @@ export function FaceStudioRibbonPanels(): ReactElement {
             }
           />
         </div>
-        <div className="rb-title">{pt ? 'Desenhar' : 'Draw'}</div>
+        <div className="rb-title">{t(lang, 'fs_draw')}</div>
       </div>
 
-      <div className="rb-panel" role="group" aria-label={pt ? 'Modo' : 'Mode'}>
+      <div className="rb-panel" role="group" aria-label={t(lang, 'fs_mode')}>
         <div className="rb-cols">
           <button
             type="button"
             className="rb-btn rb-large"
-            title={pt ? 'Concluir edição da face e voltar ao 3D' : 'Finish face editing and return to 3D'}
-            aria-label={pt ? 'Concluir' : 'Finish'}
+            title={t(lang, 'fs_finish_face_editing_and_return_to_3d')}
+            aria-label={t(lang, 'fs_finish')}
             onClick={() => activateView({ kind: '3d' })}
           >
             <Ic size={32}>
               <path d="M5 17L12.5 24.5L27 7" fill="none" style={{ stroke: 'var(--revit-green)' }} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
             </Ic>
-            <span className="rb-lbl">{pt ? 'Concluir' : 'Finish'}</span>
+            <span className="rb-lbl">{t(lang, 'fs_finish')}</span>
           </button>
         </div>
-        <div className="rb-title">{pt ? 'Modo' : 'Mode'}</div>
+        <div className="rb-title">{t(lang, 'fs_mode')}</div>
       </div>
     </>
   );

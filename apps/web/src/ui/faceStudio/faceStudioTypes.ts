@@ -28,7 +28,7 @@ import {
   type Project,
 } from '@hestia/model';
 import { arcCenterEnds, arcTangent, arcThreePoints } from '@hestia/tools';
-import type { Lang } from '../../editor/i18n.ts';
+import { t, type Lang } from '../../editor/i18n.ts';
 import type { FaceStudioSelection, FaceStudioShape, FaceStudioTool } from '../../editor/state.ts';
 
 export type { FaceStudioSelection, FaceStudioShape, FaceStudioTool };
@@ -43,30 +43,29 @@ const MIN_SPAN = 1e-4;
 
 /** Translates a `FaceSlot` identifier into a human-readable label. */
 export function faceSlotLabel(face: FaceSlot, lang: Lang): string {
-  const pt = lang === 'pt';
-  if (face === 'sideExt') return pt ? 'Face externa' : 'Exterior face';
-  if (face === 'sideInt') return pt ? 'Face interna' : 'Interior face';
-  if (face === 'endA') return pt ? 'Topo inicial (A)' : 'Start end (A)';
-  if (face === 'endB') return pt ? 'Topo final (B)' : 'End cap (B)';
-  if (face === 'top') return pt ? 'Topo' : 'Top';
-  if (face === 'bottom') return pt ? 'Base / Fundo' : 'Bottom';
+  if (face === 'sideExt') return t(lang, 'fs_exterior_face');
+  if (face === 'sideInt') return t(lang, 'fs_interior_face');
+  if (face === 'endA') return t(lang, 'fs_start_end_a');
+  if (face === 'endB') return t(lang, 'fs_end_cap_b');
+  if (face === 'top') return t(lang, 'fs_top');
+  if (face === 'bottom') return t(lang, 'fs_bottom');
   if (face.startsWith('edge:')) {
     const [, rStr, iStr] = face.split(':');
     const r = Number(rStr);
     const i = Number(iStr);
-    if (r === 0) return pt ? `Borda externa #${i + 1}` : `Outer edge #${i + 1}`;
-    return pt ? `Borda furo ${r} #${i + 1}` : `Hole ${r} edge #${i + 1}`;
+    if (r === 0) return t(lang, 'fs_edge_outer', { n: i + 1 });
+    return t(lang, 'fs_edge_hole', { r, n: i + 1 });
   }
   if (face.startsWith('opening:')) {
     const [, openId, part] = face.split(':');
     const partLabel =
       part === 'sill'
-        ? pt ? 'Peitoril' : 'Sill'
+        ? t(lang, 'fs_sill')
         : part === 'head'
-          ? pt ? 'Verga' : 'Head'
+          ? t(lang, 'fs_head')
           : part === 'jambLeft'
-            ? pt ? 'Umbral esq.' : 'Left jamb'
-            : pt ? 'Umbral dir.' : 'Right jamb';
+            ? t(lang, 'fs_left_jamb')
+            : t(lang, 'fs_right_jamb');
     return `${partLabel} (${openId ?? ''})`;
   }
   return face;
@@ -77,7 +76,7 @@ export function elementLayerOptions(p: Project, el: Element, lang: Lang): LayerO
   const wt = isWall(el) ? (p.wallTypes[el.typeId] ?? p.wallTypes[p.defaults.wallTypeId]) : undefined;
   const type = wt ?? (isFloor(el) ? p.floorTypes[el.typeId] : isSlab(el) ? p.slabTypes[el.typeId] : undefined);
   const spans = type ? (wt && isCurtainType(wt) ? [] : layerSpans(type)) : [];
-  const fnNames = functionLabels(lang === 'pt' ? 'pt' : 'en');
+  const fnNames = functionLabels(lang);
   const out: LayerOption[] = [];
   for (const { index, layer } of spans) {
     if (isMembraneLayer(layer)) continue;
@@ -265,27 +264,25 @@ export function hitTestFaceEntry(pt: Vec2, entry: FacePaintEntry, tol: number): 
 
 /** Human-readable name for a gallery shape. */
 export function shapeLabel(shape: FaceStudioShape, lang: Lang): string {
-  const pt = lang === 'pt';
   const map: Record<FaceStudioShape, string> = {
-    line: pt ? 'Linha' : 'Line',
-    rect: pt ? 'Retângulo' : 'Rectangle',
-    'poly-inscribed': pt ? 'Polígono inscrito' : 'Inscribed polygon',
-    'poly-circumscribed': pt ? 'Polígono circunscrito' : 'Circumscribed polygon',
-    circle: pt ? 'Círculo' : 'Circle',
-    'arc-3pt': pt ? 'Arco (3 pontos)' : 'Arc (3-point)',
-    'arc-center': pt ? 'Arco (centro)' : 'Arc (center)',
-    'arc-tangent': pt ? 'Arco tangente' : 'Tangent arc',
-    ellipse: pt ? 'Elipse' : 'Ellipse',
+    line: t(lang, 'fs_line'),
+    rect: t(lang, 'fs_rectangle'),
+    'poly-inscribed': t(lang, 'fs_inscribed_polygon'),
+    'poly-circumscribed': t(lang, 'fs_circumscribed_polygon'),
+    circle: t(lang, 'fs_circle'),
+    'arc-3pt': t(lang, 'fs_arc_3_point'),
+    'arc-center': t(lang, 'fs_arc_center'),
+    'arc-tangent': t(lang, 'fs_tangent_arc'),
+    ellipse: t(lang, 'fs_ellipse'),
   };
   return map[shape];
 }
 
 /** Tool/shape metadata for region naming and labels. */
 export function toolLabel(tool: FaceStudioTool, shape: FaceStudioShape, asBand: boolean, lang: Lang): string {
-  const pt = lang === 'pt';
-  if (tool === 'select') return pt ? 'Selecionar' : 'Select';
-  if (tool === 'paintBucket') return pt ? 'Balde de Tinta' : 'Paint Bucket';
-  return `${shapeLabel(shape, lang)}${asBand ? (pt ? ' (faixa)' : ' (band)') : ''}`;
+  if (tool === 'select') return t(lang, 'fs_select');
+  if (tool === 'paintBucket') return t(lang, 'fs_paint_bucket');
+  return `${shapeLabel(shape, lang)}${asBand ? t(lang, 'fs_band') : ''}`;
 }
 
 /** Bottom HUD status hint for the active tool, shape, band mode, and draft count. */
@@ -296,48 +293,43 @@ export function toolHint(
   draftCount: number,
   lang: Lang,
 ): string {
-  const pt = lang === 'pt';
   if (tool === 'select') {
-    return pt
-      ? 'Clique numa região ou DXF para editar · Del exclui · Botão do meio ou Espaço+arraste move'
-      : 'Click a region or DXF to edit · Del removes · Middle-drag or Space+drag pans';
+    return t(lang, 'fs_click_a_region_or_dxf_to_edit_del_remo');
   }
   if (tool === 'paintBucket') {
-    return pt
-      ? 'Clique numa região ou no fundo da face para aplicar o material ativo'
-      : 'Click a region or face background to apply active material';
+    return t(lang, 'fs_click_a_region_or_face_background_to_a');
   }
   if (shape === 'line') {
     if (draftCount === 0) {
       return asBand
-        ? (pt ? 'Clique os pontos da faixa · Duplo clique ou Enter conclui · Esc cancela' : 'Click band points · Double-click or Enter finishes · Esc cancels')
-        : (pt ? 'Clique os vértices do polígono · Duplo clique ou Enter fecha · Esc cancela' : 'Click polygon vertices · Double-click or Enter closes · Esc cancels');
+        ? (t(lang, 'fs_click_band_points_double_click_or_ente'))
+        : (t(lang, 'fs_click_polygon_vertices_double_click_or'));
     }
     return asBand
-      ? (pt ? 'Próximo ponto · Clique no 1º para fechar, duplo clique ou Enter conclui' : 'Next point · Click start to close, double-click or Enter finishes')
-      : (pt ? 'Clique no 1º vértice, duplo clique ou Enter para fechar · Esc cancela' : 'Click start vertex, double-click or Enter to close · Esc cancels');
+      ? (t(lang, 'fs_next_point_click_start_to_close_double'))
+      : (t(lang, 'fs_click_start_vertex_double_click_or_ent'));
   }
   if (shape === 'arc-3pt') {
-    if (draftCount === 0) return pt ? 'Clique o ponto inicial do arco' : 'Click arc start point';
-    if (draftCount === 1) return pt ? 'Clique o ponto final do arco' : 'Click arc end point';
-    return pt ? 'Clique um ponto sobre a curva do arco' : 'Click a point along the arc curve';
+    if (draftCount === 0) return t(lang, 'fs_click_arc_start_point');
+    if (draftCount === 1) return t(lang, 'fs_click_arc_end_point');
+    return t(lang, 'fs_click_a_point_along_the_arc_curve');
   }
   if (shape === 'arc-center') {
-    if (draftCount === 0) return pt ? 'Clique o centro do arco' : 'Click arc center';
-    if (draftCount === 1) return pt ? 'Clique o ponto inicial do arco' : 'Click arc start point';
-    return pt ? 'Clique o ponto final do arco' : 'Click arc end point';
+    if (draftCount === 0) return t(lang, 'fs_click_arc_center');
+    if (draftCount === 1) return t(lang, 'fs_click_arc_start_point');
+    return t(lang, 'fs_click_arc_end_point');
   }
   if (shape === 'arc-tangent') {
-    if (draftCount === 0) return pt ? 'Clique o ponto inicial do arco' : 'Click arc start point';
-    if (draftCount === 1) return pt ? 'Clique um ponto na direção tangente' : 'Click a point along the tangent';
-    return pt ? 'Clique o ponto final do arco' : 'Click arc end point';
+    if (draftCount === 0) return t(lang, 'fs_click_arc_start_point');
+    if (draftCount === 1) return t(lang, 'fs_click_a_point_along_the_tangent');
+    return t(lang, 'fs_click_arc_end_point');
   }
   if (shape === 'circle' || shape === 'poly-inscribed' || shape === 'poly-circumscribed') {
     return draftCount === 0
-      ? (pt ? 'Clique o centro e depois o raio (ou arraste) · Esc cancela' : 'Click center then radius (or drag) · Esc cancels')
-      : (pt ? 'Clique para definir o raio · Esc cancela' : 'Click to set radius · Esc cancels');
+      ? (t(lang, 'fs_click_center_then_radius_or_drag_esc_c'))
+      : (t(lang, 'fs_click_to_set_radius_esc_cancels'));
   }
-  return pt ? 'Arraste ou clique dois pontos para desenhar · Esc cancela' : 'Drag or click two points to draw · Esc cancels';
+  return t(lang, 'fs_drag_or_click_two_points_to_draw_esc_c');
 }
 
 export function nextRegionOrder(regions: readonly FaceRegion[] | undefined): number {

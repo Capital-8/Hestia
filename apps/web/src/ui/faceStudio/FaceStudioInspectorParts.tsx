@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { concaveSlatMinGap, type SlatsSpec } from '@hestia/geom';
 import type { UnwrappedFace } from '@hestia/engine';
 import { formatQuantity, type FaceDxfOverlay, type FaceRegion, type Material } from '@hestia/model';
-import type { Lang } from '../../editor/i18n.ts';
+import { t, type Lang } from '../../editor/i18n.ts';
 import { Check, Group, NumField, Row, TextField } from '../fields.tsx';
 import { useUnits } from '../useUnits.ts';
 import { FaceSelect, MatSelect } from './FaceSelect.tsx';
@@ -13,7 +13,6 @@ export function RegionInspector({
   region,
   materials,
   unwrapped,
-  pt,
   lang,
   onPatch,
   onDelete,
@@ -22,7 +21,6 @@ export function RegionInspector({
   region: FaceRegion;
   materials: Record<string, Material>;
   unwrapped: UnwrappedFace;
-  pt: boolean;
   lang: Lang;
   onPatch: (patch: Partial<FaceRegion>) => void;
   onDelete: () => void;
@@ -43,37 +41,37 @@ export function RegionInspector({
 
   return (
     <>
-      <Group title={pt ? 'Região selecionada' : 'Selected region'} stateKey="fs_region">
-        <Row label={pt ? 'Nome' : 'Name'} htmlFor="fs-reg-name">
-          <TextField id="fs-reg-name" value={region.name ?? ''} placeholder={pt ? 'Região' : 'Region'} onCommit={(name) => onPatch({ name })} />
+      <Group title={t(lang, 'fs_selected_region')} stateKey="fs_region">
+        <Row label={t(lang, 'fs_name')} htmlFor="fs-reg-name">
+          <TextField id="fs-reg-name" value={region.name ?? ''} placeholder={t(lang, 'fs_region')} onCommit={(name) => onPatch({ name })} />
         </Row>
-        <Row label={pt ? 'Material' : 'Material'} htmlFor="fs-reg-mat">
+        <Row label={t(lang, 'fs_material')} htmlFor="fs-reg-mat">
           <MatSelect id="fs-reg-mat" value={region.materialId} materials={materials} onChange={(materialId) => onPatch({ materialId })} />
         </Row>
-        <Row label={pt ? 'Prioridade' : 'Order'} htmlFor="fs-reg-order">
+        <Row label={t(lang, 'fs_order')} htmlFor="fs-reg-order">
           <NumField id="fs-reg-order" value={region.order} decimals={0} min={0} max={9999} onCommit={(order) => onPatch({ order: Math.round(order) })} />
         </Row>
-        <Row label={pt ? 'Recorte' : 'Cut mode'} htmlFor="fs-reg-cut">
+        <Row label={t(lang, 'fs_cut_mode')} htmlFor="fs-reg-cut">
           <FaceSelect
             id="fs-reg-cut"
             value={region.cutMode ?? 'clipBelow'}
             options={[
-              { value: 'clipBelow', label: pt ? 'Recortar abaixo (apoio s/ colisão)' : 'Clip below (non-colliding)' },
-              { value: 'overlay', label: pt ? 'Sobrepor' : 'Overlay' },
+              { value: 'clipBelow', label: t(lang, 'fs_clip_below_non_colliding') },
+              { value: 'overlay', label: t(lang, 'fs_overlay') },
             ]}
             onChange={(v) => onPatch({ cutMode: v as 'clipBelow' | 'overlay' })}
           />
         </Row>
-        <Row label={pt ? 'Desloc. base' : 'Base offset'} htmlFor="fs-reg-boff">
+        <Row label={t(lang, 'fs_base_offset')} htmlFor="fs-reg-boff">
           <NumField id="fs-reg-boff" value={region.baseOffset ?? 0} quantity="smallLength" onCommit={(baseOffset) => onPatch({ baseOffset })} />
         </Row>
-        <Row label={pt ? 'Espessura' : 'Thickness'} htmlFor="fs-reg-thick">
+        <Row label={t(lang, 'fs_thickness')} htmlFor="fs-reg-thick">
           <NumField id="fs-reg-thick" value={region.thickness ?? 0} quantity="smallLength" onCommit={(thickness) => onPatch({ thickness })} />
         </Row>
       </Group>
 
-      <Group title={pt ? 'Ripado paramétrico' : 'Parametric slats'} stateKey="fs_slats">
-        <Row label={pt ? 'Ativar ripado' : 'Enable slats'} htmlFor="fs-slat-on">
+      <Group title={t(lang, 'fs_parametric_slats')} stateKey="fs_slats">
+        <Row label={t(lang, 'fs_enable_slats')} htmlFor="fs-slat-on">
           <Check
             id="fs-slat-on"
             checked={Boolean(slats)}
@@ -88,16 +86,16 @@ export function RegionInspector({
         </Row>
         {slats && (
           <>
-            <Row label={pt ? 'Largura ripa' : 'Slat width'} htmlFor="fs-slat-w">
+            <Row label={t(lang, 'fs_slat_width')} htmlFor="fs-slat-w">
               <NumField id="fs-slat-w" value={slats.width} quantity="smallLength" min={0.002} onCommit={(width) => patchSlats({ width })} />
             </Row>
-            <Row label={pt ? 'Vão' : 'Gap'} htmlFor="fs-slat-g">
+            <Row label={t(lang, 'fs_gap')} htmlFor="fs-slat-g">
               <NumField id="fs-slat-g" value={slats.gap} quantity="smallLength" min={0} onCommit={(gap) => patchSlats({ gap })} />
             </Row>
-            <Row label={pt ? 'Profundidade' : 'Depth'} htmlFor="fs-slat-d">
+            <Row label={t(lang, 'fs_depth')} htmlFor="fs-slat-d">
               <NumField id="fs-slat-d" value={slats.depth} quantity="smallLength" min={0.001} onCommit={(depth) => patchSlats({ depth })} />
             </Row>
-            <Row label={pt ? 'Ângulo' : 'Angle'} htmlFor="fs-slat-ang">
+            <Row label={t(lang, 'fs_angle')} htmlFor="fs-slat-ang">
               <NumField
                 id="fs-slat-ang"
                 value={(slats.angleDeg * Math.PI) / 180}
@@ -105,16 +103,16 @@ export function RegionInspector({
                 onCommit={(rad) => patchSlats({ angleDeg: (rad * 180) / Math.PI })}
               />
             </Row>
-            <Row label={pt ? 'Mat. ripas' : 'Slat mat.'} htmlFor="fs-slat-mat">
+            <Row label={t(lang, 'fs_slat_mat')} htmlFor="fs-slat-mat">
               <MatSelect id="fs-slat-mat" value={slats.slatMaterialId} materials={materials} onChange={(slatMaterialId) => patchSlats({ slatMaterialId })} />
             </Row>
-            <Row label={pt ? 'Mat. fundo' : 'Back mat.'} htmlFor="fs-slat-back">
+            <Row label={t(lang, 'fs_back_mat')} htmlFor="fs-slat-back">
               <MatSelect
                 id="fs-slat-back"
                 value={slats.backMaterialId ?? ''}
                 materials={materials}
                 allowEmpty
-                emptyLabel={pt ? 'Nenhum (vazado)' : 'None (open)'}
+                emptyLabel={t(lang, 'fs_none_open')}
                 onChange={(v) => patchSlats({ backMaterialId: v || undefined })}
               />
             </Row>
@@ -127,23 +125,19 @@ export function RegionInspector({
           {Number.isFinite(minGap) ? (
             <>
               <span>
-                {pt
-                  ? `Colisão frontal em face côncava: vão mínimo recomendado de ${formatQuantity(units, 'smallLength', minGap, { lang })}.`
-                  : `Concave front-edge collision: minimum recommended gap is ${formatQuantity(units, 'smallLength', minGap, { lang })}.`}
+                {t(lang, 'fs_collision_gap', { gap: formatQuantity(units, 'smallLength', minGap, { lang }) })}
               </span>
               <button
                 type="button"
                 className="btn small"
                 onClick={() => patchSlats({ gap: Math.ceil(minGap * 10000) / 10000 })}
               >
-                {pt ? 'Ajustar vão mínimo' : 'Apply min gap'}
+                {t(lang, 'fs_apply_min_gap')}
               </button>
             </>
           ) : (
             <span>
-              {pt
-                ? 'Profundidade da ripa excede o raio da face côncava.'
-                : 'Slat depth exceeds concave face radius.'}
+              {t(lang, 'fs_slat_depth_exceeds_concave_face_radius')}
             </span>
           )}
         </div>
@@ -151,10 +145,10 @@ export function RegionInspector({
 
       <div className="fs-insp-actions">
         <button type="button" className="btn small" onClick={onBackToBase}>
-          {pt ? 'Voltar p/ face base' : 'Back to base face'}
+          {t(lang, 'fs_back_to_base_face')}
         </button>
         <button type="button" className="btn danger small" onClick={onDelete}>
-          {pt ? 'Excluir região' : 'Delete region'}
+          {t(lang, 'fs_delete_region')}
         </button>
       </div>
     </>
@@ -165,32 +159,32 @@ export function DxfInspector({
   dxf,
   materials,
   defaultMatId,
-  pt,
+  lang,
   onPatch,
   onDelete,
   onBackToBase,
 }: {
   dxf: FaceDxfOverlay;
+  lang: Lang;
   materials: Record<string, Material>;
   defaultMatId: string;
-  pt: boolean;
   onPatch: (patch: Partial<FaceDxfOverlay>) => void;
   onDelete: () => void;
   onBackToBase: () => void;
 }): ReactElement {
   return (
     <>
-      <Group title={pt ? 'Sobreposição DXF' : 'DXF overlay'} stateKey="fs_dxf">
-        <Row label={pt ? 'Nome' : 'Name'} htmlFor="fs-dxf-name">
+      <Group title={t(lang, 'fs_dxf_overlay')} stateKey="fs_dxf">
+        <Row label={t(lang, 'fs_name')} htmlFor="fs-dxf-name">
           <TextField id="fs-dxf-name" value={dxf.name} onCommit={(name) => onPatch({ name })} />
         </Row>
-        <Row label={pt ? 'Material' : 'Material'} htmlFor="fs-dxf-mat">
+        <Row label={t(lang, 'fs_material')} htmlFor="fs-dxf-mat">
           <MatSelect
             id="fs-dxf-mat"
             value={dxf.materialId ?? ''}
             materials={materials}
             allowEmpty
-            emptyLabel={`${pt ? 'Herdar' : 'Inherit'} (${materials[defaultMatId]?.name ?? defaultMatId})`}
+            emptyLabel={`${t(lang, 'fs_inherit')} (${materials[defaultMatId]?.name ?? defaultMatId})`}
             onChange={(v) => onPatch({ materialId: v || undefined })}
           />
         </Row>
@@ -200,7 +194,7 @@ export function DxfInspector({
         <Row label="Offset V" htmlFor="fs-dxf-oy">
           <NumField id="fs-dxf-oy" value={dxf.offset.y} quantity="length" onCommit={(y) => onPatch({ offset: { x: dxf.offset.x, y } })} />
         </Row>
-        <Row label={pt ? 'Rotação' : 'Rotation'} htmlFor="fs-dxf-rot">
+        <Row label={t(lang, 'fs_rotation')} htmlFor="fs-dxf-rot">
           <NumField
             id="fs-dxf-rot"
             value={(dxf.rotationDeg * Math.PI) / 180}
@@ -208,26 +202,26 @@ export function DxfInspector({
             onCommit={(rad) => onPatch({ rotationDeg: (rad * 180) / Math.PI })}
           />
         </Row>
-        <Row label={pt ? 'Escala' : 'Scale'} htmlFor="fs-dxf-scale">
+        <Row label={t(lang, 'fs_scale')} htmlFor="fs-dxf-scale">
           <NumField id="fs-dxf-scale" value={dxf.scale} decimals={3} min={0.001} onCommit={(scale) => onPatch({ scale })} />
         </Row>
-        <Row label={pt ? 'Largura friso' : 'Groove width'} htmlFor="fs-dxf-sep">
+        <Row label={t(lang, 'fs_groove_width')} htmlFor="fs-dxf-sep">
           <NumField id="fs-dxf-sep" value={dxf.separatorWidth} quantity="smallLength" min={0.001} onCommit={(separatorWidth) => onPatch({ separatorWidth })} />
         </Row>
-        <Row label={pt ? 'Desloc. base' : 'Base offset'} htmlFor="fs-dxf-boff">
+        <Row label={t(lang, 'fs_base_offset')} htmlFor="fs-dxf-boff">
           <NumField id="fs-dxf-boff" value={dxf.baseOffset ?? 0} quantity="smallLength" onCommit={(baseOffset) => onPatch({ baseOffset })} />
         </Row>
-        <Row label={pt ? 'Espessura' : 'Thickness'} htmlFor="fs-dxf-thick">
+        <Row label={t(lang, 'fs_thickness')} htmlFor="fs-dxf-thick">
           <NumField id="fs-dxf-thick" value={dxf.thickness ?? 0} quantity="smallLength" onCommit={(thickness) => onPatch({ thickness })} />
         </Row>
       </Group>
 
       <div className="fs-insp-actions">
         <button type="button" className="btn small" onClick={onBackToBase}>
-          {pt ? 'Voltar p/ face base' : 'Back to base face'}
+          {t(lang, 'fs_back_to_base_face')}
         </button>
         <button type="button" className="btn danger small" onClick={onDelete}>
-          {pt ? 'Excluir DXF' : 'Delete DXF'}
+          {t(lang, 'fs_delete_dxf')}
         </button>
       </div>
     </>
