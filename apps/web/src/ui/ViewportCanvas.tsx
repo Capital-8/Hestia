@@ -1,7 +1,8 @@
 ﻿/* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
-import { DARK, LIGHT, CamadaFantasmas, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type ControladorGpu, type GpuContext, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
-import { formatQuantity, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
+import * as THREE from 'three';
+import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
+import { formatQuantity, isComponent, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { transfer } from '../editor/transfer.ts';
@@ -30,7 +31,10 @@ import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
-import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, moverArrastoNoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
+import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, girarArrasto3d, girarComponentesSelecionados, moverArrastoNoPonto, ndcDoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
+import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, limitesParametroComponente } from './viewport/gizmoComponenteOps.ts';
+import { GizmoInput3D, type AlcaDimGizmo, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
+import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
 import { idDaFamiliaArrastada, prepararArrastoDeFamilia, soltarDaPaleta } from '../editor/soltarFamilia.ts';
 
 interface Pt {
@@ -58,6 +62,41 @@ interface DownAdiado {
 const NO_LABELS: LabelOp[] = [];
 /** Retângulo da caixa de seleção do corte; começa oculto e o gesto só muda posição, tamanho e traço. */
 const CAIXA_DE_SELECAO_STYLE: CSSProperties = {position: 'absolute', display: 'none', pointerEvents: 'none', zIndex: 2, border: '1px solid var(--accent)', background: 'var(--accent-soft)' };
+const DRAG_STATUS_COMPONENTE = 'Arraste no 3D · R gira 90° · Alt solta encaixe · Esc cancela';
+
+type AlcaGizmoAtiva = 'girar' | AlcaDimGizmo;
+
+interface ArrastoGizmo3D {
+  alvo: AlvoComponente3D;
+  alca: AlcaGizmoAtiva;
+  pontoInicio: { x: number; y: number; z: number };
+  rotacaoInicial: number;
+  medidaInicialMm: number;
+  sessao: object;
+  aplicou: boolean;
+  hitGizmo: HitGizmoComponente;
+}
+
+const RAIO_GIZMO = new THREE.Raycaster();
+const PLANO_GIZMO = new THREE.Plane();
+const NORMAL_GIZMO = new THREE.Vector3();
+const REF_GIZMO = new THREE.Vector3();
+const HIT_GIZMO = new THREE.Vector3();
+
+function pontoNoPlanoVerticalDaCamera(
+  camera: THREE.Camera,
+  ndc: { x: number; y: number },
+  referencia: { x: number; y: number; z: number },
+): { x: number; y: number; z: number } | null {
+  NORMAL_GIZMO.set(camera.position.x - referencia.x, camera.position.y - referencia.y, 0);
+  if (NORMAL_GIZMO.lengthSq() < 1e-9) return null;
+  NORMAL_GIZMO.normalize();
+  REF_GIZMO.set(referencia.x, referencia.y, referencia.z);
+  PLANO_GIZMO.setFromNormalAndCoplanarPoint(NORMAL_GIZMO, REF_GIZMO);
+  RAIO_GIZMO.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+  if (!RAIO_GIZMO.ray.intersectPlane(PLANO_GIZMO, HIT_GIZMO)) return null;
+  return { x: HIT_GIZMO.x, y: HIT_GIZMO.y, z: HIT_GIZMO.z };
+}
 
 /** Ganchos da vista 3D para a prévia do Colar alinhado. */
 export interface ViewportCanvasProps {
@@ -78,6 +117,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const pickSize = useRef({ w: 0, h: 0 });
   const plan = useRef(new PlanScene());
   const model = useRef(new ModelScene());
+  const gizmoComp = useRef<GizmoComponente3D | null>(null);
   // Prévia do Colar alinhado: camada de fantasmas, rascunho em cache e a câmera de antes do comando.
   const fantasmas = useRef<CamadaFantasmas | null>(null);
   const previaProjeto = useRef<{ chave: string; projeto: Project } | null>(null);
@@ -91,7 +131,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(() => {
     const m = model.current;
     registrarOrbita3D(m.orbit);
-    return () => registrarOrbita3D(null);
+    const gizmo = new GizmoComponente3D();
+    gizmoComp.current = gizmo;
+    m.scene.add(gizmo.group);
+    return () => {
+      registrarOrbita3D(null);
+      gizmo.group.removeFromParent();
+      gizmo.destruir();
+      if (gizmoComp.current === gizmo) gizmoComp.current = null;
+    };
   }, []);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Rótulos da planta e a vista deles: o estado só troca quando o conteúdo ou a vista muda (`publish`).
@@ -99,6 +147,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const [labelView, setLabelView] = useState<Viewport | null>(null);
   const [ready, setReady] = useState(false);
   const cotaRef = useRef<NivelCotaEditorHandle>(null);
+  const gizmoInputRef = useRef<GizmoInput3DHandle>(null);
   const dark = useDark();
   // Esboço do perímetro em edição: só a planta o desenha; o quadro refaz a sobreposição quando ele muda.
   const perim = usePerimeter();
@@ -304,6 +353,8 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (pendente) aplicarCameraNaOrbita(m.orbit, pendente);
       m.orbit.setAspect(w, h);
       m.sombra.aplicar(g.gpu.renderer);
+      const alvoGizmo = !st.pastePreview && st.selection.length === 1 ? alvoComponente3D(p, st.selection[0]!) : null;
+      gizmoComp.current?.atualizar(alvoGizmo);
       safeRender(g, m.scene, m.orbit.camera);
       publish(NO_LABELS, null);
       return;
@@ -440,9 +491,11 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const pointers = useRef(new Map<number, Pt>());
   /** `pick`: o ponteiro foi o botão esquerdo sem Espaço, então um clique sem arrasto na vista 3D escolhe um elemento (Shift pode ser pan). */
   /** `shiftPending`: Shift com ferramenta de desenho na planta; sem arrasto é clique com shift (trava ortogonal), com arrasto vira pan. */
-  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'componente' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'componente' | 'gizmo' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
   /** Arrasto de componente armado no `down` da vista 3D (F3-arrasto3d). */
   const arrastoComp = useRef<ArrastoComponente3D | null>(null);
+  /** Arrasto de alça do gizmo 3D do componente selecionado. */
+  const gizmoDrag = useRef<ArrastoGizmo3D | null>(null);
   /** Retângulo da caixa de seleção do corte (DOM, atualizado sem re-render enquanto o botão está preso). */
   const caixaRef = useRef<HTMLDivElement>(null);
   const mostrarCaixa = (a: Pt, b: Pt): void => {
@@ -483,6 +536,17 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   useEffect(() => {
     const down = (e: KeyboardEvent): void => {
       if (e.code === 'Space') spaceDown.current = true;
+      // Esc durante o arrasto de alça do gizmo desfaz a sessão.
+      if (e.key === 'Escape' && gizmoDrag.current) {
+        if (gizmoDrag.current.aplicou) editor.store.undo();
+        gizmoDrag.current = null;
+        const p = drag.current.last;
+        drag.current = { mode: 'none', start: p, last: p, moved: false, pick: false };
+        useUi.setState((st) => ({ previewTick: st.previewTick + 1, status: '' }));
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
       // Esc durante o arrasto de componente desfaz a sessão antes de qualquer atalho da planta/3D.
       const encerrar = (): void => {
         arrastoComp.current = null;
@@ -527,6 +591,23 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       if (st.view !== '3d' && st.view !== 'section') return;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       const alvo = e.target as HTMLElement | null;
+      if (st.view === '3d' && (e.key === 'r' || e.key === 'R')) {
+        if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT')) return;
+        const delta = e.shiftKey ? Math.PI / 2 : -Math.PI / 2;
+        if (arrastoComp.current) {
+          girarArrasto3d(arrastoComp.current, delta);
+          useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+        if (!st.pastePreview && st.selection.length > 0 && girarComponentesSelecionados(editor.project, st.selection, delta)) {
+          useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+      }
       if (alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA')) return;
       if (!/^[herv0-9]$/i.test(e.key)) return;
       if (editor.key(e)) {
@@ -552,6 +633,12 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const elementAt3d = (s: Pt) => {
     const r = host.current!.getBoundingClientRect();
     return pickElement(model.current.scene, model.current.orbit.camera, { x: (s.x / r.width) * 2 - 1, y: 1 - (s.y / r.height) * 2 }, pickGpu.current ?? undefined);
+  };
+  /** Ponto (x, y) da parede sob o cursor na vista 3D, para encaixe preciso ao arrastar sobre paredes. */
+  const paredeSobCursor3d = (s: Pt): { x: number; y: number } | undefined => {
+    const hit = elementAt3d(s);
+    if (hit?.kind === 'wall') return { x: hit.point.x, y: hit.point.y };
+    return undefined;
   };
   /**
    * Realce ao passar o cursor sobre o 3D. Um raio por quadro (não por evento de ponteiro): o último ponto ganha.
@@ -622,8 +709,9 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     const view = useUi.getState().view;
     // Prévia do Colar alinhado: os cliques de edição são ignorados; orbitar, pan e zoom continuam.
     const emPrevia = useUi.getState().pastePreview !== null;
-    // Com a cota aberta, um clique fora do input aplica e fecha (o input não propaga o pointerdown).
+    // Com a cota ou o input do gizmo aberto, um clique fora aplica e fecha (o input não propaga o pointerdown).
     if (cotaRef.current?.fecharSeAberto()) return;
+    if (gizmoInputRef.current?.fecharSeAberto()) return;
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()] as [Pt, Pt];
       gesture.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
@@ -646,14 +734,49 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       // Clique na etiqueta/linha de cota: abre o editor ali mesmo, sem começar a órbita.
       if (!emPrevia && e.button === 0 && !spaceDown.current && !e.altKey) {
         const r = host.current!.getBoundingClientRect();
-        const dim = pickDimension(model.current.scene, model.current.orbit.camera, {
-          x: (s.x / r.width) * 2 - 1,
-          y: 1 - (s.y / r.height) * 2,
-        });
+        const ndc = ndcDoPonto(s, r);
+        const dim = pickDimension(model.current.scene, model.current.orbit.camera, ndc);
         if (dim) {
           cotaRef.current?.abrir(dim, { width: r.width, height: r.height });
           drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
           return;
+        }
+        // Alças do gizmo 3D do componente selecionado (rotação ou dimensões L/A/P) têm prioridade sobre o arrasto no piso.
+        const hitGizmo = gizmoComp.current?.pick(model.current.orbit.camera, ndc) ?? null;
+        if (hitGizmo && (hitGizmo.alca === 'girar' || hitGizmo.alca === 'dim_L' || hitGizmo.alca === 'dim_A' || hitGizmo.alca === 'dim_P')) {
+          const stNow = useUi.getState();
+          const alvo = stNow.selection.length === 1 ? alvoComponente3D(editor.project, stNow.selection[0]!) : null;
+          if (alvo) {
+            const alca = hitGizmo.alca;
+            let pontoInicio: { x: number; y: number; z: number } = hitGizmo.pontoMundo;
+            if (alca === 'girar') {
+              const pt = pontoNoPlanoHorizontal(model.current.orbit.camera, ndc, alvo.z);
+              pontoInicio = pt ? { x: pt.x, y: pt.y, z: alvo.z } : { ...hitGizmo.pontoMundo, z: alvo.z };
+            } else if (alca === 'dim_L' || alca === 'dim_P') {
+              const pt = pontoNoPlanoHorizontal(model.current.orbit.camera, ndc, hitGizmo.pontoMundo.z);
+              if (pt) pontoInicio = { x: pt.x, y: pt.y, z: hitGizmo.pontoMundo.z };
+            }
+            const paramKey = alca === 'dim_L' ? 'L' : alca === 'dim_A' ? 'A' : alca === 'dim_P' ? 'P' : null;
+            const medidaInicialMm =
+              paramKey === null
+                ? 0
+                : (hitGizmo.valorAtualMm ?? (paramKey === 'L' ? alvo.Lmm : paramKey === 'A' ? alvo.Amm : alvo.Pmm));
+            if (medidaInicialMm !== undefined) {
+              gizmoDrag.current = {
+                alvo,
+                alca,
+                pontoInicio,
+                rotacaoInicial: alvo.rotation,
+                medidaInicialMm,
+                sessao: {},
+                aplicou: false,
+                hitGizmo,
+              };
+              drag.current = { mode: 'gizmo', start: s, last: s, moved: false, pick: false };
+              if (stNow.hover) useUi.setState({ hover: null });
+              return;
+            }
+          }
         }
       }
       // Pressionar sobre um componente arma o arrasto no plano do piso; antes do limiar, soltar ainda é o clique de sempre.
@@ -664,6 +787,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
           arrastoComp.current = armado;
           drag.current = { mode: 'componente', start: s, last: s, moved: false, pick: true };
           if (useUi.getState().hover) useUi.setState({ hover: null });
+          useUi.setState({ status: DRAG_STATUS_COMPONENTE });
           return;
         }
       }
@@ -753,9 +877,79 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     }
     const d = drag.current;
     if (view === '3d') {
+      if (d.mode === 'gizmo') {
+        const g = gizmoDrag.current;
+        if (g) {
+          if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
+          if (d.moved) {
+            const rect = host.current!.getBoundingClientRect();
+            const ndc = ndcDoPonto(s, rect);
+            const cam = model.current.orbit.camera;
+            if (g.alca === 'girar') {
+              const pt = pontoNoPlanoHorizontal(cam, ndc, g.alvo.z);
+              if (pt) {
+                const rotacao = calcularRotacaoGizmo(centroComponenteMundo(g.alvo), g.pontoInicio, pt, g.rotacaoInicial, !e.altKey);
+                const versao = editor.store.version;
+                editor.store.transaction(
+                  'Girar componente',
+                  () => {
+                    editor.store.exec({ type: 'updateComponent', id: g.alvo.id, patch: { rotation: rotacao } });
+                  },
+                  g.sessao,
+                );
+                if (editor.store.version !== versao) g.aplicou = true;
+                const graus = Math.round((rotacao * 180) / Math.PI);
+                useUi.setState({ status: `Rotação: ${graus}° · Alt rotação livre · Esc cancela` });
+              }
+            } else {
+              const pontoAtual =
+                g.alca === 'dim_A'
+                  ? pontoNoPlanoVerticalDaCamera(cam, ndc, g.pontoInicio)
+                  : (() => {
+                      const pt = pontoNoPlanoHorizontal(cam, ndc, g.pontoInicio.z);
+                      return pt ? { x: pt.x, y: pt.y, z: g.pontoInicio.z } : null;
+                    })();
+              if (pontoAtual) {
+                const paramKey = g.alca === 'dim_L' ? 'L' : g.alca === 'dim_A' ? 'A' : 'P';
+                const limites = limitesParametroComponente(editor.project, g.alvo.id, paramKey);
+                const novaMm = calcularNovaMedidaGizmoMm(
+                  g.alvo,
+                  g.alca,
+                  g.pontoInicio,
+                  pontoAtual,
+                  g.medidaInicialMm,
+                  limites.min,
+                  limites.max,
+                  e.shiftKey ? 1 : 10,
+                );
+                const c = editor.project.elements[g.alvo.id];
+                if (isComponent(c)) {
+                  const versao = editor.store.version;
+                  editor.store.transaction(
+                    'Redimensionar componente',
+                    () => {
+                      editor.store.exec({
+                        type: 'updateComponent',
+                        id: c.id,
+                        patch: { values: { ...(c.values ?? {}), [paramKey]: novaMm } },
+                      });
+                    },
+                    g.sessao,
+                  );
+                  if (editor.store.version !== versao) g.aplicou = true;
+                  useUi.setState({ status: `${paramKey}: ${novaMm} mm · Shift precisão 1 mm · Esc cancela` });
+                }
+              }
+            }
+          }
+          d.last = s;
+          useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        }
+        return;
+      }
       if (d.mode === 'componente') {
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
-        if (d.moved) moverArrastoNoPonto(arrastoComp.current, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), e.altKey);
+        if (d.moved) moverArrastoNoPonto(arrastoComp.current, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), e.altKey, paredeSobCursor3d(s));
         d.last = s;
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
         return;
@@ -914,6 +1108,30 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       return;
     }
     const d = drag.current;
+    if (d.mode === 'gizmo') {
+      const g = gizmoDrag.current;
+      gizmoDrag.current = null;
+      if (g && !d.moved) {
+        if (g.alca === 'girar') {
+          girarComponentesSelecionados(editor.project, [g.alvo.id], e.shiftKey ? Math.PI / 2 : -Math.PI / 2);
+        } else {
+          const rect = host.current!.getBoundingClientRect();
+          gizmoInputRef.current?.abrir(
+            {
+              id: g.alvo.id,
+              alca: g.alca,
+              valorAtualMm: g.medidaInicialMm,
+              ndc: g.hitGizmo.ndc,
+            },
+            { width: rect.width, height: rect.height },
+          );
+        }
+      }
+      if (d.moved && document.activeElement?.tagName === 'SELECT') (document.activeElement as HTMLElement).blur();
+      drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
+      useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+      return;
+    }
     if (d.mode === 'tool') {
       if (!editor.viewport()) return;
       // Shift pendente sem arrasto: é um toque com shift (trava ortogonal) e a ferramenta recebe down, up e click.
@@ -967,6 +1185,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     }
     // Arrasto que começou sobre o seletor de escala deixa o foco no <select>, e aí Delete e os atalhos são ignorados: solta o foco.
     if (d.moved && document.activeElement?.tagName === 'SELECT') (document.activeElement as HTMLElement).blur();
+    if (d.mode === 'componente' && !d.moved && useUi.getState().status === DRAG_STATUS_COMPONENTE) useUi.setState({ status: '' });
     arrastoComp.current = null;
     drag.current = { mode: 'none', start: s, last: s, moved: false, pick: false };
     // O cursor é derivado do ref de arraste; sem este quadro ele ficaria em `grabbing` ao soltar o pan.
@@ -986,6 +1205,10 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
     if (sectionDimDrag.current) { sectionDimDrag.current = null; useUi.setState((st) => ({ previewTick: st.previewTick + 1 })); }
     const d = drag.current;
     if (d.mode === 'marquee') ocultarCaixa();
+    if (d.mode === 'gizmo') {
+      if (gizmoDrag.current?.aplicou) editor.store.undo();
+      gizmoDrag.current = null;
+    }
     if (d.mode === 'componente') { cancelarArrasto3d(arrastoComp.current); arrastoComp.current = null; }
     if (d.mode === 'tool' && !downAdiado.current && !d.shiftPending) editor.activeTool.cancel?.();
     cancelarDownAdiado();
@@ -1042,8 +1265,15 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
   const cursorCss = cursorForView({
     view: ui.view,
     tool: ui.tool,
-    // A caixa usa a seta (Selecionar), como a planta; só pan/orbit (e o arrasto de componente já pegado) pedem a mão.
-    drag: drag.current.mode === 'marquee' ? 'none' : drag.current.mode === 'componente' ? (drag.current.moved ? 'pan' : 'none') : drag.current.mode,
+    // A caixa usa a seta (Selecionar), como a planta; só pan/orbit (e o arrasto de componente/gizmo já pegado) pedem a mão.
+    drag:
+      drag.current.mode === 'marquee'
+        ? 'none'
+        : drag.current.mode === 'componente' || drag.current.mode === 'gizmo'
+          ? drag.current.moved
+            ? 'pan'
+            : 'none'
+          : drag.current.mode,
     moved: drag.current.moved,
     handle: handleAxis,
   });
@@ -1064,6 +1294,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
       <PlanLabels ref={labelLayer} labels={ui.view !== '3d' && labelView ? labels : NO_LABELS} v={labelView} />
       <ViewportOverlays host={host} model={model.current} selection={selection} ui={ui} />
       <NivelCotaEditor ref={cotaRef} />
+      <GizmoInput3D ref={gizmoInputRef} />
       <div ref={caixaRef} style={CAIXA_DE_SELECAO_STYLE} />
     </div>
   );
