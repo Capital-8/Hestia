@@ -3,7 +3,7 @@
  * A tela (`ui/PluginSchedule.tsx`) só desenha o que sai daqui.
  */
 import type { RegisteredSchedule } from '@hestia/plugin-api';
-import { buildSchedule, scheduleToCsv, type PluginScheduleSpec, type Project, type ScheduleTable } from '@hestia/model';
+import { buildSchedule, scheduleInProjectUnits, scheduleToCsv, type PluginScheduleSpec, type Project, type ResolvedUnits, type ScheduleTable } from '@hestia/model';
 import type { Lang } from '../editor/i18n.ts';
 import { txt } from '../ui/ribbon/model.ts';
 
@@ -28,8 +28,9 @@ export const csvOptionsFor = (lang: Lang, totalsLabel: string): { separator: ','
 
 const BOM = String.fromCharCode(0xfeff);
 
-/** Conteúdo e nome do CSV (com BOM UTF-8 para o Excel reconhecer acentos). */
-export function scheduleCsvFile(s: RegisteredSchedule, table: ScheduleTable, lang: Lang, totalsLabel: string): { nome: string; conteudo: string } {
+/** Conteúdo e nome do CSV (com BOM UTF-8 para o Excel reconhecer acentos); com `units`, valores nas unidades do projeto. */
+export function scheduleCsvFile(s: RegisteredSchedule, table: ScheduleTable, lang: Lang, totalsLabel: string, units?: ResolvedUnits): { nome: string; conteudo: string } {
+  const out = units ? scheduleInProjectUnits(table, units) : table;
   const slug = `${s.pluginId}-${s.id}`.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80);
-  return { nome: `${slug}.csv`, conteudo: `${BOM}${scheduleToCsv(table, csvOptionsFor(lang, totalsLabel))}` };
+  return { nome: `${slug}.csv`, conteudo: `${BOM}${scheduleToCsv(out, csvOptionsFor(lang, totalsLabel))}` };
 }

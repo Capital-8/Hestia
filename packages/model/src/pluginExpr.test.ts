@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { EXPR_LIMITS, ExprError, evalExpr, fillTemplate, validateExpr } from './pluginExpr.ts';
 import { runDeclarativeChecks, issuesFromHandlerResult, type PluginCheckSpec } from './pluginChecks.ts';
 import { buildSchedule, scheduleToCsv } from './pluginSchedules.ts';
+import { scheduleInProjectUnits } from './pluginScheduleUnits.ts';
+import { resolveUnits } from './units.ts';
 import { createEmptyProject } from './defaults.ts';
 import { ProjectStore } from './history.ts';
 import { makeWall } from './wall.ts';
@@ -139,6 +141,18 @@ describe('schedules', () => {
     expect(t.rows[0]!.cells[2]).toBe(7);
     expect(t.totals).toEqual([null, 2, 7]);
     expect(t.errors).toBe(0);
+  });
+  it('contagem com unidade declarada não converte: 2 paredes continuam 2 em cm e o cabeçalho não ganha unidade', () => {
+    const p = proj().project;
+    const t = buildSchedule(p, {
+      pluginId: 'dev.t', id: 's', title: 'x', source: 'wall',
+      columns: [{ key: 'id', title: 'Id', expr: { var: 'id' } }, { key: 'n', title: 'Paredes', expr: 1, total: 'count', unit: 'm' }],
+    });
+    expect(t.columns[1]).toEqual({ key: 'n', title: 'Paredes' });
+    expect(t.totals).toEqual([null, 2]);
+    const emCm = scheduleInProjectUnits(t, resolveUnits({ length: { unit: 'cm', decimals: 1 } }));
+    expect(emCm.totals).toEqual([null, 2]);
+    expect(emCm.rows.map((r) => r.cells[1])).toEqual([1, 1]);
   });
   it('filtro, linhas simples e erro de coluna sem lançar', () => {
     const p = proj().project;
