@@ -1,6 +1,6 @@
 import type { Id } from '@hestia/model';
 
-export type AlcaGizmoComponente = 'mover_x' | 'mover_y' | 'girar' | 'dim_L' | 'dim_A' | 'dim_P';
+export type AlcaGizmoComponente = 'mover_xy' | 'mover_x' | 'mover_y' | 'girar' | 'dim_L' | 'dim_A' | 'dim_P';
 
 export interface AlvoComponente3D {
   id: Id;

@@ -17,7 +17,6 @@ import { activateView } from '../../editor/viewTabActions.ts';
 import { applyDrop } from '../dockDrag.ts';
 import { gridToolOf } from '../gridUi.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
-import { useFamilia } from '../familia/familiaStore.ts';
 import { usePaletaMoveis } from '../PaletaMoveis.tsx';
 import { useMontarFila } from '../MontarFila.tsx';
 import { useOrcamento } from '../OrcamentoProjeto.tsx';
@@ -202,13 +201,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       : t('Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro ou telhado).', 'Select one element of a single type (wall, door, window, floor, slab, ceiling or roof).')),
   },
   groupComponents: {
-    label: t('Agrupar', 'Group'), icon: 'layers',
+    label: t('Agrupar', 'Group'), icon: 'componentGroup',
     hint: t('Cria um conjunto com os componentes selecionados: eles passam a ser selecionados, movidos e copiados juntos.', 'Creates a group from the selected components: they are selected, moved and copied together.'),
     run: () => { agruparSelecao(envDeConjunto()); },
     disabled: (c) => (c.selection.some((id) => isComponent(c.p.elements[id])) ? false : t('Selecione componentes para agrupar.', 'Select components to group.')),
   },
   ungroupComponents: {
-    label: t('Desagrupar', 'Ungroup'), icon: 'isolate',
+    label: t('Desagrupar', 'Ungroup'), icon: 'componentUngroup',
     hint: t('Desfaz o conjunto dos componentes selecionados; eles continuam no projeto, soltos.', 'Ungroups the selected components; they stay in the project, loose.'),
     run: () => { desagruparSelecao(envDeConjunto()); },
     disabled: (c) => (c.selection.some((id) => { const e = c.p.elements[id]; return isComponent(e) && e.groupId !== undefined; }) ? false : t('Selecione componentes de um conjunto.', 'Select components in a group.')),
@@ -388,10 +387,10 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   units: { label: t('Unidades do projeto', 'Project Units'), icon: 'type', hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'), shortcut: 'unidades', run: openDialog('units') },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
-  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'component', hint: t('Abre o editor de famílias numa aba, sem fechar o projeto.', 'Opens the family editor in a tab without closing the project.'), run: () => useFamilia.getState().abrir() },
-  componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'component', hint: t('Paleta de móveis: arraste para a planta ou o 3D, ou clique para usar a ferramenta Componente.', 'Furniture palette: drag into plan or 3D, or click to use the Component tool.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
-  componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'component', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
-  componentRun: { label: t('Montar fila', 'Build Run'), icon: 'component', hint: t('Monta uma fila de módulos contra a face de uma parede reta selecionada.', 'Builds a run of modules against the face of a selected straight wall.'), run: () => useMontarFila.getState().abrir() },
+  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'familyEditor', hint: t('Desativado por enquanto até alinhar os controles 3D.', 'Temporarily disabled until 3D controls are finalized.'), disabled: () => t('Criação/edição de móveis desativada temporariamente.', 'Furniture creation/editing temporarily disabled.'), run: () => {} },
+  componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'componentLibrary', hint: t('Paleta de móveis padrão: clique ou arraste para posicionar no 3D ou na planta.', 'Standard furniture palette: click or drag to place in 3D or plan.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
+  componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'componentBudget', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
+  componentRun: { label: t('Montar fila', 'Build Run'), icon: 'componentRun', hint: t('Monta uma fila de módulos contra a face de uma parede reta selecionada.', 'Builds a run of modules against the face of a selected straight wall.'), run: () => useMontarFila.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),

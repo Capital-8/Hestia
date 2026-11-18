@@ -150,3 +150,39 @@ export function limitesParametroComponente(
   if (!param) return {};
   return { min: param.min, max: param.max };
 }
+
+/** Vetor unitário no mundo do eixo de uma alça dimensional ou de deslize linear do gizmo. */
+export function eixoDoGizmo(
+  alvo: AlvoComponente3D,
+  alca: 'dim_L' | 'dim_A' | 'dim_P' | 'mover_x' | 'mover_y',
+): { x: number; y: number; z: number } {
+  const cos = Math.cos(alvo.rotation);
+  const sen = Math.sin(alvo.rotation);
+  if (alca === 'dim_L') {
+    const s = alvo.mirrored ? -1 : 1;
+    return { x: s * cos, y: s * sen, z: 0 };
+  }
+  if (alca === 'mover_x') {
+    const s = alvo.mirrored ? 1 : -1;
+    return { x: s * cos, y: s * sen, z: 0 };
+  }
+  if (alca === 'dim_P' || alca === 'mover_y') {
+    return { x: sen, y: -cos, z: 0 };
+  }
+  return { x: 0, y: 0, z: 1 };
+}
+
+/** Projeção quantizada (em m, passo padrão 10 mm ou 1 mm com Shift) ao longo do eixo de deslize. */
+export function deslocamentoGizmoNoEixoM(
+  eixo: { x: number; y: number; z: number },
+  pontoInicio: { x: number; y: number; z: number },
+  pontoAtual: { x: number; y: number; z: number },
+  passoMm = PASSO_MEDIDA_PADRAO_MM,
+): number {
+  const brutoM =
+    (pontoAtual.x - pontoInicio.x) * eixo.x +
+    (pontoAtual.y - pontoInicio.y) * eixo.y +
+    (pontoAtual.z - pontoInicio.z) * eixo.z;
+  const passo = passoMm > 0 ? passoMm : 1;
+  return (Math.round((brutoM * 1000) / passo) * passo) / 1000;
+}

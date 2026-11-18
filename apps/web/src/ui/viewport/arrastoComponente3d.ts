@@ -25,6 +25,8 @@ export interface ArmarArrasto3DArgs {
   camera: THREE.Camera;
   ndc: { x: number; y: number };
   selecao: readonly Id[];
+  /** Altura (m, mundo) do ponto clicado no móvel; evita saltos em móveis altos ao olhar de frente. */
+  alturaClique?: number;
 }
 
 /** Converte o ponto local do canvas (px) no NDC da câmera. */
@@ -70,7 +72,8 @@ function marcaOuId(projeto: Project, id: Id): string {
 export function armarArrasto3d(args: ArmarArrasto3DArgs): ArrastoComponente3D | null {
   const c = args.projeto.elements[args.id];
   if (!isComponent(c)) return null;
-  const planoZ = levelElevation(args.projeto, c.levelId) + c.z;
+  const zBase = levelElevation(args.projeto, c.levelId) + c.z;
+  const planoZ = args.alturaClique !== undefined && Number.isFinite(args.alturaClique) ? args.alturaClique : zBase;
   const ponteiro = pontoNoPlanoHorizontal(args.camera, args.ndc, planoZ);
   if (!ponteiro) return null;
   const ids = idsDoArrasto(args.projeto, args.id);
@@ -193,8 +196,9 @@ export function armarArrastoNoPonto(
   ponto: { x: number; y: number },
   tamanho: { width: number; height: number },
   selecao: readonly Id[],
+  alturaClique?: number,
 ): ArrastoComponente3D | null {
-  return armarArrasto3d({ projeto, id, camera, ndc: ndcDoPonto(ponto, tamanho), selecao });
+  return armarArrasto3d({ projeto, id, camera, ndc: ndcDoPonto(ponto, tamanho), selecao, alturaClique });
 }
 
 /** Um passo do arrasto a partir do ponto local do canvas (px). */
