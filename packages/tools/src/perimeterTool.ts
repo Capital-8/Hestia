@@ -127,8 +127,15 @@ export class PerimeterTool extends ToolBase {
     this.env.say(this.t('tl_msg_lines_selected', { n: next.selected.length }));
   }
 
+  /** Contorno de referência (a base na hora do topo da mistura e do loft), desenhado tracejado atrás do esboço. Null = nenhum. */
+  private fantasma: Vec2[] | null = null;
+  setGhost(ring: readonly Vec2[] | null): void {
+    this.fantasma = ring ? ring.map((p) => ({ ...p })) : null;
+  }
+
   override preview(): PreviewItem[] {
-    return this.mod.active() ? this.mod.preview() : this.items;
+    const itens = this.mod.active() ? this.mod.preview() : this.items;
+    return this.fantasma ? [{ kind: 'polygon', ring: this.fantasma, dashed: true }, ...itens] : itens;
   }
 
   /** Cotas do lado em desenho: o ponto capturado (com o modo ortogonal), não o cursor cru. */

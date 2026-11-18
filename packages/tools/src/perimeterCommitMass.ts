@@ -1,7 +1,7 @@
 import { polygonArea, type Vec2 } from '@hestia/geom';
 import { simplificarAnel } from '@hestia/engine';
 import { formatQuantity, isMass, makeMass, massIssue, MASSA_LIMITES, newId, normalizarSecoes, unitsOf, type Mass, type PerfilMassa, type Project, type SecaoMassa } from '@hestia/model';
-import { anelDoPerfil, capturaLivre } from './massToolPerfis.ts';
+import { anelDoPerfil, capturaLivre, pilhaDeDois } from './massToolPerfis.ts';
 import { refuse as refuseBase } from './perimeterCommitShared.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult } from './perimeterCommitTypes.ts';
 import { t as translate, type Lang } from './i18n.ts';
@@ -43,6 +43,8 @@ export function paraLocal(mundo: readonly Vec2[], origem: Vec2, s: Pick<SecaoMas
   });
 }
 
+/** Seção `i` (0 = base, 'topo' = a última) em mundo: ver `massRing`. */
+
 /** Contorno da seção da base em mundo (escala, rotação, deslocamento e origem da massa); círculo e elipse em 64 pontos. */
 export function massRing(origem: Vec2, s: SecaoMassa): Vec2[] {
   const c = Math.cos(s.rotacao);
@@ -65,16 +67,18 @@ export function commitMass(p: Project, s: { editing?: string }, outer: Vec2[], h
   if (!anel) return refuseBase(translate(lang, 'tl_mass_livre_max', { max: MASSA_LIMITES.pontosLivre }));
   const u = unitsOf(p);
   const area = formatQuantity(u, 'area', Math.abs(polygonArea([anel])));
-  if (s.editing) return editarContorno(p, s.editing, anel, area, lang);
+  if (s.editing) return editarContorno(p, s.editing, anel, area, lang, opts.massa?.editar ?? 'base');
   const levelId = opts.levelId;
   if (!levelId) return refuseBase(translate(lang, 'tl_msg_no_level'));
   if (!p.levels.some((l) => l.id === levelId)) return refuseBase(translate(lang, 'tl_msg_level_missing'));
-  const cap = capturaLivre(anel);
   const altura = opts.massa?.altura ?? 9;
+  const baseRing = opts.massa?.baseRing;
+  // Mistura e loft: `baseRing` é o anel da base (1ª fase) e `anel` o do topo; extrusão: duas seções iguais.
+  const cap = capturaLivre(baseRing ? reduzirAnel(baseRing) ?? baseRing : anel);
+  const capTopo = baseRing ? capturaLivre(anel) : cap;
   const base = opts.massa?.cotaBase ?? null;
   const baseOffset = base === null ? 0 : base - elevacaoDe(p, levelId);
-  const sec = (z: number): SecaoMassa => ({ z, perfil: cap.perfil, rotacao: 0, escala: 1, dx: 0, dy: 0 });
-  const massa = makeMass({ id: newId('mass'), levelId, baseOffset, origem: cap.centro, secoes: normalizarSecoes([sec(0), sec(altura)]), interpolacao: 'linear' });
+  const massa = makeMass({ id: newId('mass'), levelId, baseOffset, ...pilhaDeDois(cap, capTopo, altura), secoes: normalizarSecoes(pilhaDeDois(cap, capTopo, altura).secoes), interpolacao: 'linear' });
   const issue = massIssue({ ...massa, order: 0 }, lang);
   if (issue) return refuseBase(issue);
   const cotaBase = elevacaoDe(p, levelId) + baseOffset;
@@ -82,12 +86,14 @@ export function commitMass(p: Project, s: { editing?: string }, outer: Vec2[], h
   return { ok: true, id: massa.id, commands: [{ type: 'addMass', mass: massa }], message };
 }
 
-function editarContorno(p: Project, id: string, anel: Vec2[], area: string, lang: Lang): CommitPerimeterResult {
+function editarContorno(p: Project, id: string, anel: Vec2[], area: string, lang: Lang, qual: 'base' | 'topo'): CommitPerimeterResult {
   const m = p.elements[id];
   if (!isMass(m)) return refuseBase(translate(lang, 'tl_msg_not_found', { name: translate(lang, 'tl_name_mass') }));
-  const base = m.secoes[0]!;
-  const novo: PerfilMassa = { forma: 'livre', pontos: paraLocal(anel, m.origem, base) };
-  const secoes = m.secoes.map((s, i) => (i === 0 || mesmoPerfil(s.perfil, base.perfil) ? { ...s, perfil: novo } : s));
+  const ultimo = m.secoes.length - 1;
+  const ref = m.secoes[qual === 'topo' ? ultimo : 0]!;
+  const novo: PerfilMassa = { forma: 'livre', pontos: paraLocal(anel, m.origem, ref) };
+  // Base: troca também as seções iguais a ela (extrusão). Topo: só a última seção.
+  const secoes = m.secoes.map((s, i) => (qual === 'topo' ? (i === ultimo ? { ...s, perfil: novo } : s) : i === 0 || mesmoPerfil(s.perfil, ref.perfil) ? { ...s, perfil: novo } : s));
   const next: Mass = { ...m, secoes: normalizarSecoes(secoes) };
   const issue = massIssue(next, lang);
   if (issue) return refuseBase(issue);
