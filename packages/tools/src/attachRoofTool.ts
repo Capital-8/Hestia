@@ -169,7 +169,7 @@ export class AttachRoofTool extends ToolBase {
       const note = isWall(w) ? roofCoverNote(pr, w, roofId, this.uiLang()) : null;
       return note ? [note] : [];
     });
-    this.env.exec({ type: 'updateElements', ids, patch: { attachTopToRoof: true, attachTopRoofId: roofId } });
+    this.env.exec({ type: 'updateElements', ids, patch: { attachTopToRoof: true, attachTopRoofId: roofId, attachTopRoofFull: true } });
     this.reset();
     const done = this.t('tl_msg_top_attached', { n: ids.length });
     const more = notes.length > 1 ? this.t('tl_msg_and_more', { n: notes.length - 1 }) : '';
@@ -239,7 +239,7 @@ export class DetachRoofTool extends ToolBase {
       this.env.say(this.t('tl_msg_attach_none'));
       return;
     }
-    this.env.exec({ type: 'updateElements', ids: attached, patch: { attachTopToRoof: false, attachTopRoofId: undefined } });
+    this.env.exec({ type: 'updateElements', ids: attached, patch: { attachTopToRoof: false, attachTopRoofId: undefined, attachTopRoofFull: undefined } });
     this.env.say(this.t('tl_msg_top_detached', { n: attached.length }));
   }
 }
