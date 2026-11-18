@@ -20,3 +20,4 @@ export * from './encaixeArrasto.ts';
 export * from './encaixeGrupo.ts';
 export * from './encaixeProjeto.ts';
 export * from './montarFila.ts';
+export * from './projecaoPlanta.ts';
