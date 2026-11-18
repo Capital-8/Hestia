@@ -9,7 +9,8 @@ const MODELOS = ['house2', 'studio', 'house-premium', 'predio10', 'esquadrias'] 
 /** Todas as referências `#n` usadas existem como entidade declarada no arquivo. */
 function referenciasIntegras(texto: string): boolean {
   const declaradas = new Set([...texto.matchAll(/^#(\d+)\s*=/gm)].map((m) => m[1]));
-  for (const m of texto.matchAll(/#(\d+)/g)) {
+  // textos entre aspas (ex.: o JSON dos materiais, com cores `#222426`) não são referências
+  for (const m of texto.replace(/'(?:[^']|'')*'/g, "''").matchAll(/#(\d+)/g)) {
     if (!declaradas.has(m[1]!)) return false;
   }
   return true;
