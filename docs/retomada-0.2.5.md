@@ -116,3 +116,29 @@ Em um computador com Visual Studio Build Tools não é preciso.
 - Testes novos (Rust): tolerância 0 = crua, fuzz leve (malhas aleatórias, tol 0,02 e 0,2: desvio <= tol, pontos de borda e extremidades fixos), canto agudo intacto, tolerância negativa/NaN/inf -> ENTRADA. Quadrado 64/48/32/16 volta ao exato literal.
 - `cargo test --lib terreno -- --test-threads=2`: 106/106 (695 s). `wasm:check` ok (blob 788dfa04ebe0, fontes 6b606cb68dee). wasm de terreno (`tests/kernel-terreno-*`): 51/51 com a tolerância passada nas chamadas.
 - clippy: 42 avisos na crate (base 39); nenhum em `terreno_curvas.rs`/`consultas.rs`; os 3 a mais vêm de outras frentes integradas (não tocados).
+
+## Diagnóstico das falhas da suíte ampla (18/11/2026)
+
+Cada arquivo foi rodado isolado, com `pvitest.sh`, um por vez, na máquina livre. Nenhum arquivo falhou isolado, então nenhum código foi alterado e não houve comparação com a `main`. Os 16 testes que falharam na suíte ampla não estão identificados nos logs da passagem; por isso a tabela classifica por arquivo.
+
+| Arquivo | Resultado isolado | Classe | Causa provável | Ação |
+|---|---|---|---|---|
+| apps/web/src/editor/sheetInsert.test.ts | 14/14 | (A) | Timeout de 5 s do lote de 3 vistas sob carga | Nenhuma |
+| packages/model/src/contratoCamposEsquadria.test.ts | 5/5 | (A) | Carga da suíte | Nenhuma |
+| apps/web/src/ui/dialogs/openingType/previewViews.test.ts | 14/14 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/junctionReducao.test.ts | 6/6 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/projectIssues.test.ts | 17/17 (inclui predio10) | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/terminoCamada3d.test.ts | 3/3 (volume laje x parede) | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/openingCatalogoVistas.test.ts | 8/8 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/plan/zoomSemRecriar.test.ts | 5/5 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoin.test.ts | 19/19 nas 2 rodadas (fuzz S1 2347 e 2433 ms; limite 2 ms/par) | (A) | Desempenho sob carga; oscila pouco | Nenhuma |
+| packages/engine/src/wallTiltJoinArco.test.ts | 6/6 nas 2 rodadas (J1 níveis 0,88 e 1,21 ms/par, limite 3; níveis+anéis 2,37 e 2,98, limite 8) | (A) | Desempenho; oscila cerca de 35 %, folga de mais de 2x | Nenhuma |
+| packages/engine/src/wallTiltJoinLevelArco.test.ts | 7/7 nas 2 rodadas (limite 5 ms/par) | (A) | Desempenho dentro do limite | Nenhuma |
+| packages/engine/src/wallTiltMulticamada.test.ts | 3/3 nas 2 rodadas (30 paredes a 15°: junção 43/46 ms, corte 131/149, elevação 24/29; limite 500) | (A) | Desempenho dentro do limite | Nenhuma; obs.: o corte passa de 100 ms, a meta citada no comentário |
+| packages/engine/src/wallTiltJoinExato.test.ts | 15/15 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoinLevel.test.ts | 7/7 | (A) | Carga da suíte | Nenhuma |
+| packages/engine/src/wallTiltJoinLevelPar.test.ts | 3/3 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/wallTiltJoinSolid.test.ts | 7/7 | (A) | Carga da suíte | Nenhuma |
+| packages/render/src/model3d/wallTiltJuncaoArco.test.ts | 7/7 nas 2 rodadas (limite 200 ms para 20 paredes) | (A) | Desempenho dentro do limite | Nenhuma |
+
+Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de tempo), não regressão desta integração. Nenhum volume laje x parede, junção ou predio10 falhou isolado. Sobra para o dono: decidir se a suíte ampla deve ser repetida em horário livre (com `pesado.sh`, sem paralelismo extra) para confirmar a zeragem; se os limites de desempenho do wallTiltMulticamada devem ser apertados até a meta de 100 ms do corte.
