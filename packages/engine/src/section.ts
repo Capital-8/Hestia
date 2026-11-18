@@ -1,4 +1,4 @@
-import { intersection, machineNumber, orientedRect, unionClipper, type MultiPolygon, type Polygon, type Vec2 } from '@hestia/geom';
+import { difference, intersection, machineNumber, orientedRect, unionClipper, type MultiPolygon, type Polygon, type Vec2 } from '@hestia/geom';
 import { openingLineConvention, openingType, openingsOfWall, wallsOnLevel, type HatchKind, type Id, type OpeningLineConvention, type Project } from '@hestia/model';
 import { bandTopAt } from './profile.ts';
 import { fuseBands } from './bandFuse.ts';
@@ -26,6 +26,7 @@ import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
 import { openingTiltGeom } from './openingTilt.ts';
+import { contornoDoVaoNaSecao, faixasSemVazio, vazioDoVaoNaVista, vaosDeContornoDaParede, vaziosDoCorte, type SecaoSegmento } from './vaoContornoVistas.ts';
 import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, limpaAneis, sectionFrame, semFrestas, type SectionLine } from './sectionGeom.ts';
@@ -123,6 +124,8 @@ export interface SectionOpening {
    * desenhar as peças no referencial inclinado como o 3D. Ausente em parede vertical.
    */
   tiltFrame?: { plane: 'vertical' | 'inclinado'; theta: number; sill: number; thickness: number };
+  /** Vão com contorno (`OpeningShape`) nesta direção: os anéis em segmentos (arcos com `bulge`) para o DXF. Ausente = retângulo. */
+  contorno?: { aneis: SecaoSegmento[][] };
   /** Materiais do tipo, para a cor e a hachura das peças do modelo. */
   frameMaterialId: Id;
   glassMaterialId: Id;
@@ -336,6 +339,9 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;
+    // Vãos com contorno da parede (troca atômica, doc 29): o corte perpendicular abre o perfil; a face além do plano perde o vão.
+    const vaosCont = vaosDeContornoDaParede(rw);
+    const vaziosCorte = vaziosDoCorte(vaosCont, { a: line.a, d });
     for (const layer of rw.layers) {
       // Parede recortada pela junção (0023 §3, regra B): a faixa cortada entra só com as partes que sobram.
       // Faixas fundidas em prismas (bandFuse): sem contorno horizontal falso entre faixas da mesma região.
@@ -357,7 +363,8 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
             const hi = Math.min(length, t1);
             if (hi - lo < EPS_T) continue;
             const at = (t: number): number => (band.slope ? rw.baseZ + bandTopAt(band, { x: line.a.x + d.x * t, y: line.a.y + d.y * t }) : z1);
-            addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
+            if (vaziosCorte.length > 0 && !band.slope) for (const [a, b] of faixasSemVazio(z0, z1, vaziosCorte)) addCut(layer.materialId, [rect(lo, hi, a, b)], { wallId: w.id });
+            else addCut(layer.materialId, [rect(lo, hi, z0, at(lo), at(hi))], { wallId: w.id });
             grow(z0, z1);
           }
         }
@@ -381,7 +388,7 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
             layerIndex: layer.layerIndex,
             depth: Math.max(0, Math.min(...outer.map(dist))),
             // Topo plano: retângulo; topo inclinado: projeção exata do prisma (como as lajes inclinadas).
-            polygons: band.slope ? prismProjection(outer, along, () => z0, (v) => rw.baseZ + bandTopAt(band, v)) : [[rect(tMin, tMax, z0, z1)]],
+            polygons: band.slope ? prismProjection(outer, along, () => z0, (v) => rw.baseZ + bandTopAt(band, v)) : vaosCont.length > 0 ? difference([[rect(tMin, tMax, z0, z1)]], vazioDoVaoNaVista(vaosCont, { a: line.a, d }, tMin, tMax)) : [[rect(tMin, tMax, z0, z1)]],
           });
           grow(z0, z1);
         }
@@ -400,6 +407,9 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
       const z0 = rw.baseZ + g.sill;
       const model = buildOpeningModel(p, o, g, f);
       const ot = openingType(p, o);
+      // Vão com contorno: o perfil no corte e o contorno na elevação; retangular (ou oblíquo) segue `rect`.
+      const cc = vaosCont.find((v) => v.g.openingId === o.id);
+      const contornoVao = cc ? contornoDoVaoNaSecao(cc, { a: line.a, d }, t0, t1) : null;
       // Parede inclinada (F2.8): 'inclinado' ocupa h·cosθ na vertical e o plano do caixilho desloca (s + h·cosθ/2)·tanθ ao
       // longo de n; 'vertical' fica a prumo (topo em s + h), ancorado na face. Parede vertical: nada muda.
       const tg = rw.tilt ? openingTiltGeom({ plane: g.tiltPlane ?? 'vertical', theta: (rw.tilt * Math.PI) / 180, t: g.thickness, w: g.width, h: g.height, s: g.sill }) : undefined;
@@ -416,7 +426,8 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
         z1: zTop,
         depth: Math.max(0, Math.min(...foot.map(dist)) + shiftDepth),
         cut: crossing,
-        polygons: [[rect(t0, t1, z0, zTop)]],
+        polygons: contornoVao ? contornoVao.polygons : [[rect(t0, t1, z0, zTop)]],
+        ...(contornoVao ? { contorno: { aneis: contornoVao.aneis } } : {}),
         model,
         openingLine: openingLineConvention(p),
         // A tela cresce no sentido de `d`; `x = −viewSide·t` equivale a `x = sign(d·u)·t`.

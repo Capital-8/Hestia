@@ -227,10 +227,36 @@ function profileRingAtZ(part: OpeningPart, profile: PartProfile, z: number): Arr
   ];
 }
 
+/** Intervalos [x0, x1] em que a seção (x, z) contém a cota `z` (regra par-ímpar, vértice na cota conta uma vez). */
+function intervalosEmZ(pts: Array<[number, number]>, z: number): Array<[number, number]> {
+  const xs: number[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const [xa, za] = pts[i]!;
+    const [xb, zb] = pts[(i + 1) % pts.length]!;
+    if (za <= z !== zb <= z) xs.push(xa + ((xb - xa) * (z - za)) / (zb - za));
+  }
+  xs.sort((a, b) => a - b);
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1]! - xs[i]! > 1e-9) out.push([xs[i]!, xs[i + 1]!]);
+  return out;
+}
+
 /** Corte horizontal do modelo na altura `z`, no estado pedido: as peças que o plano atravessa com o anel (t, s). */
 export function slicePartsAtZ(m: OpeningModel, z: number, state: OpenState): SliceRing[] {
   const out: SliceRing[] = [];
   for (const part of m.parts) {
+    // Peça em arco/círculo (seção `tz` com mais de um intervalo na cota): um anel por intervalo, com o movimento aplicado.
+    if (part.profile?.plane === 'tz' && part.role !== 'handle') {
+      for (const [x0, x1] of intervalosEmZ(part.profile.pts, z)) {
+        const cantos = [[x0, part.box.s0], [x1, part.box.s0], [x1, part.box.s1], [x0, part.box.s1]] as const;
+        const ring = cantos.map(([t, s]) => {
+          const q = movePoint({ t, s, z }, part.motion, state);
+          return { t: q.t, s: q.s };
+        });
+        out.push({ part, ring });
+      }
+      continue;
+    }
     if (part.profile && !part.motion) {
       const ring = profileRingAtZ(part, part.profile, z);
       if (ring.length) out.push({ part, ring });

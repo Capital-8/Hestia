@@ -207,7 +207,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       if (detail === 'coarse') return;
       strokes.push({ pts, closed: false, ...strokeWidth(symbolWidth(kind)), color: halftone(theme.inkSoft, pt), alpha: 1, ...(dashed ? { dash: [4, 3] as [number, number] } : {}) });
     };
-    if (!model) {
+    // Vão com contorno (`o.contorno`): o perfil real, sem as peças do modelo (caixa retangular); o miolo é o do vão sem modelo.
+    if (!model || o.contorno) {
       if (!noFill) fills.push({ polygons, color: halftone(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha });
       outline();
       return;

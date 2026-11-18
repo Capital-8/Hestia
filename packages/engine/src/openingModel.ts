@@ -7,6 +7,7 @@ import { buildDoor } from './openingModelDoors.ts';
 import { buildWindow, buildVoid } from './openingModelWindows.ts';
 import { buildCompositionModel, usesComposition } from './openingModelComposition.ts';
 import { buildCasing } from './openingModelCasing.ts';
+import { contornoDoModelo } from './openingModelContorno.ts';
 import {
   buildLintelBeams,
   buildSidelights,
@@ -20,6 +21,7 @@ export * from './openingModelWindows.ts';
 export * from './openingModelDetails.ts';
 export * from './openingModelComposition.ts';
 export * from './openingModelCasing.ts';
+export * from './openingModelContorno.ts';
 export * from './openingModelTransforms.ts';
 
 export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f: WallFrame): OpeningModel {
@@ -40,7 +42,7 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
   const comp = usesComposition(p.openingTypes[o.typeId] ?? c.t, g); // tipo bruto: `c.t` já vem normalizado para o vão
   if (comp) {
     const m = buildCompositionModel(p, o, g, f, comp);
-    if (m) return m;
+    if (m) return contornoDoModelo(m, g.forma);
   }
   if (g.leaves === 0) {
     // Vão livre: sem batente, folha ou vidro; só o acabamento que existir.
@@ -57,7 +59,7 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
   buildCasing(c);
   buildSillBoard(c);
   buildLintelBeams(c);
-  return {
+  return contornoDoModelo({
     kind: c.t.kind,
     width: c.hw * 2,
     height: c.H,
@@ -66,5 +68,5 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
     parts: c.parts,
     openings: c.openings,
     void: g.leaves === 0,
-  };
+  }, g.forma);
 }

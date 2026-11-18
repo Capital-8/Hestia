@@ -1,5 +1,5 @@
 import { openingSymbolPaths, union, type MultiPolygon } from '@hestia/geom';
-import { buildOpeningModel, computeSection, roofDrawingsOf, semFrestas, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
+import { buildOpeningModel, computeSection, roofDrawingsOf, semFrestas, junctionLevel, resolveCeilings, resolveLevel, idsDeContorno, simboloPlantaDoContorno, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
 import { openingPlanWorldPaths, ownerOf, planViewOf, roofFootprint, roomFullText, roomLabelAt, type PlanView } from '@hestia/render';
 import {
   dxfDocOf,
@@ -137,18 +137,22 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   const { hidden } = view;
   const vg = levelGraphicsOf(p, levelId);
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
+  // Vãos com contorno (troca atômica, docs/estudo-esquadrias/29): o símbolo de planta segue a forma real (folha zero); o resto, o modelo.
+  const resolvido = resolveLevel(p, levelId);
   const openings: DxfOpening[] = levelFrames(p, levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
       const state = shown(o.kind) ? dxfStateOf(view.cls.get(o.id)) : null;
       if (state === null) return [];
       const g = openingGeometry(p, o, f);
+      const rw = resolvido.walls[f.wall.id];
+      const porContorno = rw !== undefined && idsDeContorno(rw).has(o.id);
       // Planta da esquadria pelo modelo único (spec E §4.1), no nível médio: o mesmo desenho da tela. O DXF põe a
       // camada; o desenho vem de `openingPlanPaths` e vale no corte (ABERTURAS) e na projeção (ABERTURA_*).
       const type = openingTypeById(p, o.typeId);
       const model = type ? buildOpeningModel(p, o, g, f) : null;
       // No corte, a cota local desconta a base da parede e a soleira; na projeção, corta no meio do modelo.
       const cutZ = state === 'cut' ? view.cutZ - (f.z?.z0 ?? 0) - g.sill : (model?.height ?? 0) / 2;
-      const symbol: DxfSymbolPath[] = type && model
+      const symbolModelo: DxfSymbolPath[] = type && model
         ? openingPlanWorldPaths(g, model, {
             detail: 'mid',
             angle: (openingAngle2d(type) * Math.PI) / 180,
@@ -159,6 +163,10 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
             cutZ,
           }).map((s) => ({ pts: s.pts, closed: s.closed, dashed: s.dash !== undefined }))
         : openingSymbolPaths(g).map((s) => ({ pts: s.pts, closed: s.closed, dashed: s.dash !== undefined }));
+      // Corte: a cota do plano; projeção: a meia altura do vão (como na tela, `simboloDoVaoComContorno`).
+      const cutAbs = state === 'cut' ? view.cutZ : (rw?.baseZ ?? 0) + g.sill + (g.forma?.height ?? 0) / 2;
+      const contorno = porContorno && rw ? simboloPlantaDoContorno(g, rw.baseZ, cutAbs) : null;
+      const symbol: DxfSymbolPath[] = contorno ? contorno.map((s) => ({ pts: s.pts, closed: s.closed, dashed: s.dash !== undefined })) : symbolModelo;
       return [{ center: g.center, u: g.u, width: g.width, thickness: g.thickness, state, symbol }];
     }),
   );
@@ -361,7 +369,8 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
   const massa = massaDoCorte(p, section, shown('mass'));
   cut.push(...massa.cut);
   beyond.push(...massa.beyond);
-  const openings = section.openings.flatMap((o) => (shown(o.kind) ? [{ category: o.kind, polygons: o.polygons, cut: o.cut }] : []));
+  // Vão com contorno: os anéis saem com arcos (bulge) na polilinha, em vez dos polígonos em cordas.
+  const openings = section.openings.flatMap((o) => (shown(o.kind) ? [{ category: o.kind, polygons: o.polygons, cut: o.cut, ...(o.contorno ? { arcos: o.contorno.aneis.map((ring) => ({ pts: ring.map((s) => s.a), bulges: ring.map((s) => s.bulge) })) } : {}) }] : []));
   const allShown = GRAPHICS_CATEGORIES.every(shown);
   // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.
   const notes = shown('annotation') ? sectionNotesDxfOf(p, sectionId, vg.scale) : undefined;

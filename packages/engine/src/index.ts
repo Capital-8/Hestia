@@ -36,6 +36,7 @@ export { ARC_PLANE_RATIO, inclinedFitsArc, openingTiltGeom, tiltCutZ, type Openi
 export { openingPlaneIssues } from './openingPlaneIssues.ts';
 export { openingShapeIssues } from './openingShapeIssues.ts';
 export { cutHalfWidth, elevationOutline, openingPlanSymbolPaths, verticalCutProfile } from './openingShapeViews.ts';
+export { contornoDoVaoNaSecao, idsDeContorno, simboloPlantaDoContorno, vaosDeContornoDaParede, type ContornoDoVaoSecao, type SecaoSegmento } from './vaoContornoVistas.ts';
 export * from './openingNormIssues.ts';
 export { openingNormProjectIssues, portasParaNorma } from './openingNormProject.ts';
 export * from './furoContornoDespacho.ts';
@@ -98,6 +99,7 @@ export * from './stairFree.ts';
 export * from './stairFreeEdit.ts';
 export * from './openingSchedule.ts';
 export * from './openingScheduleExtras.ts';
+export * from './openingPartQuantities.ts';
 export * from './openingChecks.ts';
 export * from './rooms.ts';
 export * from './roomReference.ts';

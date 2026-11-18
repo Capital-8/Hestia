@@ -51,6 +51,11 @@ export interface DxfPolylineEntity {
   color?: number;
   /** Largura constante (códigos 40 e 41), em unidades do desenho. */
   width?: number;
+  /**
+   * Arco do segmento que sai de cada vértice até o próximo (código 42 do VERTEX, `bulge` = tan(θ/4); 0 = reta, positivo =
+   * anti-horário). Ausente ou zero = reta, como antes. Mesmo tamanho de `points`, quando presente.
+   */
+  bulges?: readonly number[];
 }
 
 /** Linha (LINE) entre dois pontos. */
@@ -374,7 +379,8 @@ export function writeDxf2000(doc: DxfDoc): string {
         rec(40, len(e.width));
         rec(41, len(e.width));
       }
-      for (const p of e.points) {
+      for (let i = 0; i < e.points.length; i++) {
+        const p = e.points[i]!;
         rec(0, 'VERTEX');
         rec(5, h());
         rec(330, modelSpace);
@@ -388,6 +394,8 @@ export function writeDxf2000(doc: DxfDoc): string {
         rec(10, len(p.x));
         rec(20, len(p.y));
         rec(30, len(0));
+        const bulge = e.bulges?.[i] ?? 0;
+        if (bulge !== 0) rec(42, fmt(bulge));
         rec(70, 0);
       }
       rec(0, 'SEQEND');

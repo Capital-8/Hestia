@@ -14,10 +14,21 @@ import { dxfLayerCanonical, dxfLayerName, t, type Lang } from './i18n.ts';
 /** Categoria de uma camada do corte/elevação e se o peso é o de corte ou o de projeção. */
 export type DxfSectionRole = { category: GraphicsCategory; view: 'cut' | 'projection' };
 
+/**
+ * Anel de um vão com contorno: vértices e o `bulge` de cada um (o arco até o próximo vértice; 0 = reta). Sai como polilinha
+ * fechada com arcos nativos (código 42), sem tesselar.
+ */
+export interface DxfArcoRing {
+  pts: DxfPoint[];
+  bulges: number[];
+}
+
 /** Item do desenho: polígonos em (t, z) e a categoria gráfica que dá cor/peso à camada. */
 export interface DxfSectionItem {
   category: GraphicsCategory;
   polygons: DxfPolygons;
+  /** Vão com contorno: os anéis com arcos. Presente = sai no lugar de `polygons` (que segue igual para a tela). */
+  arcos?: DxfArcoRing[];
 }
 
 /** Geometria do corte/elevação para o DXF. */
@@ -111,6 +122,8 @@ function openRing(ring: DxfPoint[]): DxfPoint[] | null {
 interface Shape {
   layer: string;
   pts: DxfPoint[];
+  /** Bulge de cada vértice (arcos do vão com contorno); ausente = só retas. */
+  bulges?: number[];
 }
 
 /** Polilinhas fechadas do desenho, na ordem de pintura (projeção antes do corte). */
@@ -125,7 +138,11 @@ function shapesOf(geo: DxfSectionGeometry): Shape[] {
     }
   };
   for (const b of geo.beyond) push(dxfSectionLayerOf(b.category, 'projection'), b.polygons);
-  for (const o of geo.openings ?? []) push(dxfSectionLayerOf(o.category, o.cut ? 'cut' : 'projection'), o.polygons);
+  for (const o of geo.openings ?? []) {
+    const layer = dxfSectionLayerOf(o.category, o.cut ? 'cut' : 'projection');
+    if (o.arcos === undefined) push(layer, o.polygons);
+    else for (const a of o.arcos) out.push({ layer, pts: a.pts, bulges: a.bulges });
+  }
   for (const c of geo.cut) push(dxfSectionLayerOf(c.category), c.polygons);
   if (geo.silhouette) push(DXF_SECTION_LAYER_SILHOUETTE, geo.silhouette);
   return out;
@@ -163,7 +180,7 @@ export function sectionDxfDocOf(geo: DxfSectionGeometry, lang: Lang = 'pt'): Dxf
     return { name: dxfLayerName(name, lang), color: style.color, linetype: style.linetype, lineWeight: style.lineWeight };
   });
   const entities: DxfDocEntity[] = [
-    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: true })),
+    ...shapes.map((s): DxfDocEntity => ({ kind: 'polyline', layer: dxfLayerName(s.layer, lang), points: s.pts, closed: true, ...(s.bulges === undefined ? {} : { bulges: s.bulges }) })),
     ...(geo.lines ?? []).map((l): DxfDocEntity => ({ kind: 'line', layer: dxfLayerName(dxfSectionLayerOf(l.category, 'projection'), lang), a: l.a, b: l.b })),
     ...noteRegions,
     ...noteLines,
