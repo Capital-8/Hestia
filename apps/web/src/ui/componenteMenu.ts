@@ -13,6 +13,7 @@ import {
 import { agruparSelecao, desagruparSelecao, type ToolEnv } from '@hestia/tools';
 import type { ContextMenuCtx, MenuEntry, MenuLang } from '../editor/contextMenu.ts';
 import { componentesDaSelecao } from './componentPropAcoes.ts';
+import { t } from '../editor/i18n.ts';
 
 /*
  * Entradas de COMPONENTE no menu de contexto da planta e do 3D, no mesmo espírito de `perimeter/perimeterEditavel.ts`:
@@ -37,24 +38,23 @@ const ID_DESAGRUPAR = `${PREFIXO_COMPONENTE}ungroup`;
 
 /** Textos PT-BR e EN, no padrão de `editor/contextMenu.ts`. */
 const TEXTOS = {
-  girar: ['Girar 90°', 'Rotate 90°'],
-  girarMenos: ['Girar −90°', 'Rotate −90°'],
-  espelhar: ['Espelhar', 'Mirror'],
-  duplicar: ['Duplicar ao lado', 'Duplicate to the Side'],
-  tipo: ['Tipo', 'Type'],
-  tipoSemFamilia: ['Selecione componentes de uma só família', 'Select components of one family only'],
-  agrupar: ['Agrupar', 'Group'],
-  agruparMotivo: ['Selecione ao menos dois componentes soltos', 'Select at least two loose components'],
-  desagrupar: ['Desagrupar', 'Ungroup'],
-  desagruparMotivo: ['Nenhum componente selecionado está em um conjunto', 'No selected component is in a group'],
+  girar: 'mov_menu_girar',
+  girarMenos: 'mov_menu_girar_menos',
+  espelhar: 'mov_menu_espelhar',
+  duplicar: 'mov_menu_duplicar',
+  tipo: 'mov_tipo',
+  tipoSemFamilia: 'mov_menu_tipo_sem_familia',
+  agrupar: 'mov_agrupar',
+  agruparMotivo: 'mov_menu_agrupar_motivo',
+  desagrupar: 'mov_desagrupar',
+  desagruparMotivo: 'mov_menu_desagrupar_motivo',
 } as const;
 
 type Chave = keyof typeof TEXTOS;
 
 /** Devolve a função de rótulo no idioma pedido. */
 function rotulos(lang: MenuLang): (k: Chave) => string {
-  const i = lang === 'pt' ? 0 : 1;
-  return (k: Chave): string => TEXTOS[k][i];
+  return (k: Chave): string => t(lang, TEXTOS[k]);
 }
 
 /** A seleção é inteira de componentes (e tem ao menos um)? */
@@ -144,7 +144,7 @@ function centroDoConjunto(p: Project, id: Id): Vec2 {
  * gira o conjunto inteiro em torno do centro dele, levando os membros e a linha junto.
  */
 function girar(componentes: readonly Component[], env: ToolEnv, angulo: number): void {
-  env.transaction('Girar componentes', () => {
+  env.transaction('mov_undo_girar_varios', () => {
     const grupos = new Set<Id>();
     for (const c of componentes) {
       if (c.groupId !== undefined && env.project().componentGroups?.[c.groupId]) grupos.add(c.groupId);
@@ -156,7 +156,7 @@ function girar(componentes: readonly Component[], env: ToolEnv, angulo: number):
 
 /** Espelhar do menu: inverte `mirrored` de cada selecionado (não é o comando de espelho geométrico, que também move). */
 function espelhar(componentes: readonly Component[], env: ToolEnv): void {
-  env.transaction('Espelhar componentes', () => {
+  env.transaction('mov_undo_espelhar_varios', () => {
     for (const c of componentes) env.exec({ type: 'updateComponent', id: c.id, patch: { mirrored: !c.mirrored } });
   });
 }
@@ -170,7 +170,7 @@ function larguraLocal(p: Project, c: Component): number {
 /** Cópia de cada selecionado ao lado: deslocada pela largura no eixo x local (girado pela rotação), solta, sem marca e selecionada. */
 function duplicarAoLado(componentes: readonly Component[], env: ToolEnv): void {
   const novos: Id[] = [];
-  env.transaction('Duplicar componente', () => {
+  env.transaction('mov_undo_duplicar', () => {
     for (const c of componentes) {
       const d = larguraLocal(env.project(), c);
       const copia: Omit<Component, 'order'> = {
@@ -196,7 +196,7 @@ function duplicarAoLado(componentes: readonly Component[], env: ToolEnv): void {
 
 /** Aplica o tipo da família a cada selecionado cuja família o tem; os demais ficam como estão. */
 function trocarTipo(componentes: readonly Component[], typeId: Id, env: ToolEnv): void {
-  env.transaction('Trocar tipo do componente', () => {
+  env.transaction('mov_undo_tipo', () => {
     for (const c of componentes) {
       const familia = familiaDoComponente(env.project(), c);
       if (!familia?.tipos.some((t) => t.id === typeId)) continue;

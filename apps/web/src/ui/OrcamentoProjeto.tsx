@@ -3,6 +3,7 @@ import { CATALOGO_PADRAO, type Id } from '@hestia/model';
 import { create } from 'zustand';
 import { useMemo, useState, type ReactElement } from 'react';
 import { useProject } from '../editor/controller.ts';
+import { useT, type Dict } from '../editor/i18n.ts';
 import { FamiliaListaCorte } from './familia/FamiliaListaCorte.tsx';
 import { FamiliaListaTabela } from './familia/FamiliaListaTabela.tsx';
 import { textoArea, textoMoeda } from './familia/familiaLista.ts';
@@ -30,11 +31,11 @@ export const useOrcamento = create<OrcamentoState>((set) => ({
 
 type AbaOrcamento = 'resumo' | 'pecas' | 'corte' | 'ferragens';
 
-const ABAS: ReadonlyArray<{ id: AbaOrcamento; rotulo: string }> = [
-  { id: 'resumo', rotulo: 'Resumo' },
-  { id: 'pecas', rotulo: 'Peças' },
-  { id: 'corte', rotulo: 'Plano de corte' },
-  { id: 'ferragens', rotulo: 'Ferragens' },
+const ABAS: ReadonlyArray<{ id: AbaOrcamento; rotulo: keyof Dict }> = [
+  { id: 'resumo', rotulo: 'mov_orc_resumo' },
+  { id: 'pecas', rotulo: 'mov_pecas' },
+  { id: 'corte', rotulo: 'mov_orc_corte' },
+  { id: 'ferragens', rotulo: 'mov_orc_ferragens' },
 ];
 
 function baixarArquivo(nome: string, conteudo: string, tipo: string): void {
@@ -50,25 +51,26 @@ function baixarArquivo(nome: string, conteudo: string, tipo: string): void {
 }
 
 function AbaResumo({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoProjeto> }): ReactElement {
+  const { t } = useT();
   const totalUnidades = orcamento.moveis.reduce((s, m) => s + m.quantidade, 0);
-  const linhasCusto: ReadonlyArray<{ rotulo: string; valor: number; total?: boolean }> = [
-    { rotulo: 'Chapas', valor: orcamento.custo.chapas },
-    { rotulo: 'Fitas', valor: orcamento.custo.fitas },
-    { rotulo: 'Ferragens', valor: orcamento.custo.ferragens },
-    { rotulo: 'Total', valor: orcamento.custo.total, total: true },
+  const linhasCusto: ReadonlyArray<{ rotulo: keyof Dict; valor: number; total?: boolean }> = [
+    { rotulo: 'mov_orc_chapas', valor: orcamento.custo.chapas },
+    { rotulo: 'mov_orc_fitas', valor: orcamento.custo.fitas },
+    { rotulo: 'mov_orc_ferragens', valor: orcamento.custo.ferragens },
+    { rotulo: 'mov_total', valor: orcamento.custo.total, total: true },
   ];
   return (
     <div className="fam-lista-aba-conteudo">
       <div className="fam-tabela fam-lista-rolagem">
         <table className="fam-lista-tabela">
           <thead>
-            <tr><th>Móvel</th><th>Tipo</th><th className="n">Qtd</th><th className="n">Peças</th><th className="n">Custo</th></tr>
+            <tr><th>{t('mov_orc_moveis')}</th><th>{t('mov_tipo')}</th><th className="n">{t('mov_orc_qtd')}</th><th className="n">{t('mov_pecas')}</th><th className="n">{t('mov_orc_custo')}</th></tr>
           </thead>
           <tbody>
             {orcamento.moveis.map((m, i) => (
               <tr key={`${m.familiaId}-${m.tipoId ?? ''}-${i}`}>
                 <td className="orc-movel-nome">{m.nome}</td>
-                <td className="mono">{m.tipoId ?? 'padrão'}</td>
+                <td className="mono">{m.tipoId ?? t('mov_orc_padrao')}</td>
                 <td className="n">{m.quantidade}</td>
                 <td className="n">{m.pecas}</td>
                 <td className="n">{textoMoeda(m.custo)}</td>
@@ -80,21 +82,21 @@ function AbaResumo({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoProj
 
       <div className="fam-lista-resumo">
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Móveis</div>
-          <div><b>{totalUnidades}</b> componentes em {orcamento.moveis.length} tipo(s)</div>
+          <div className="fam-lista-resumo-titulo">{t('mov_orc_moveis_pl')}</div>
+          <div><b>{totalUnidades}</b> {t('mov_orc_comp_em', { n: orcamento.moveis.length })}</div>
         </div>
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Peças</div>
-          <div><b>{orcamento.resumo.totalPecas}</b> peças</div>
-          <div>Área total: {textoArea(orcamento.resumo.areaM2, 4)}</div>
+          <div className="fam-lista-resumo-titulo">{t('mov_pecas')}</div>
+          <div><b>{orcamento.resumo.totalPecas}</b> {t('mov_pecas_min')}</div>
+          <div>{t('mov_area_total')} {textoArea(orcamento.resumo.areaM2, 4)}</div>
         </div>
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Custo estimado</div>
+          <div className="fam-lista-resumo-titulo">{t('mov_custo_estimado')}</div>
           <table className="fam-lista-tabela fam-lista-custo">
             <tbody>
               {linhasCusto.map((l) => (
                 <tr key={l.rotulo} className={l.total === true ? 'total' : ''}>
-                  <td>{l.rotulo}</td>
+                  <td>{t(l.rotulo)}</td>
                   <td className="n">{textoMoeda(l.valor)}</td>
                 </tr>
               ))}
@@ -105,23 +107,24 @@ function AbaResumo({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoProj
 
       {orcamento.avisos.length > 0 && (
         <div className="fam-lista-fora orc-avisos">
-          <b>Avisos</b>
+          <b>{t('mov_avisos')}</b>
           <ul>{orcamento.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>
         </div>
       )}
-      <p className="fam-hint">Custo com as perdas padrão do motor (chapa 15%, fita 10%) e o catálogo do projeto.</p>
+      <p className="fam-hint">{t('mov_custo_nota')}</p>
     </div>
   );
 }
 
 function AbaFerragens({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoProjeto> }): ReactElement {
-  if (orcamento.ferragens.length === 0) return <p className="fam-hint">Nenhuma ferragem nos componentes do projeto.</p>;
+  const { t } = useT();
+  if (orcamento.ferragens.length === 0) return <p className="fam-hint">{t('mov_orc_sem_ferragens')}</p>;
   return (
     <div className="fam-lista-aba-conteudo">
       <div className="fam-tabela fam-lista-rolagem">
         <table className="fam-lista-tabela">
           <thead>
-            <tr><th>Nome</th><th className="n">Quantidade</th></tr>
+            <tr><th>{t('mov_nome')}</th><th className="n">{t('mov_quantidade')}</th></tr>
           </thead>
           <tbody>
             {orcamento.ferragens.map((f) => (
@@ -135,12 +138,13 @@ function AbaFerragens({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoP
 }
 
 export function OrcamentoProjeto(): ReactElement | null {
+  const { t } = useT();
   const aberta = useOrcamento((s) => s.aberta);
   const fechar = useOrcamento((s) => s.fechar);
   const p = useProject();
   const [aba, setAba] = useState<AbaOrcamento>('resumo');
   const [nivelId, setNivelId] = useState<Id | null>(null);
-  const [mensagem, setMensagem] = useState<string | null>(null);
+  const [mensagem, setMensagem] = useState<keyof Dict | null>(null);
   const nivelAtual = nivelOptions(p).some((o) => o.id === nivelId) ? nivelId : null;
   const orcamento = useMemo(() => orcamentoDoProjeto(p, { nivel: nivelAtual ?? undefined }), [p, nivelAtual]);
   const catalogo = p.catalog ?? CATALOGO_PADRAO;
@@ -151,9 +155,9 @@ export function OrcamentoProjeto(): ReactElement | null {
   const copiarCsv = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(listaPecasCsv(orcamento.linhas));
-      setMensagem('CSV copiado');
+      setMensagem('mov_orc_csv_copiado');
     } catch {
-      setMensagem('Não foi possível copiar');
+      setMensagem('mov_orc_copia_falhou');
     }
   };
 
@@ -163,14 +167,14 @@ export function OrcamentoProjeto(): ReactElement | null {
 
   return (
     <div className="fam-dback" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) fechar(); }}>
-      <div className="fam-dwin larga" role="dialog" aria-label="Orçamento do projeto">
+      <div className="fam-dwin larga" role="dialog" aria-label={t('mov_orcamento')}>
         <div className="fam-dt">
-          <span>Orçamento do projeto · {rotuloNivel(p, nivelAtual)}</span>
+          <span>{t('mov_orcamento')} · {rotuloNivel(p, nivelAtual)}</span>
           <button aria-label="Fechar" onClick={fechar}>✕</button>
         </div>
         <div className="fam-db">
           <div className="fam-lista">
-            <div className="fam-lista-abas" role="tablist" aria-label="Seções do orçamento">
+            <div className="fam-lista-abas" role="tablist" aria-label={t('mov_orc_secoes')}>
               {ABAS.map((opcao) => (
                 <button
                   key={opcao.id}
@@ -182,27 +186,27 @@ export function OrcamentoProjeto(): ReactElement | null {
                   className={aba === opcao.id ? 'on' : ''}
                   onClick={() => setAba(opcao.id)}
                 >
-                  {opcao.rotulo}
+                  {t(opcao.rotulo)}
                 </button>
               ))}
             </div>
 
             <div className="fam-lista-opcoes">
               <label>
-                Nível
+                {t('mov_nivel')}
                 <select className="fam-f" value={nivelAtual ?? ''} onChange={(e) => setNivelId(e.target.value === '' ? null : e.target.value)}>
                   {nivelOptions(p).map((o) => <option key={o.id ?? ''} value={o.id ?? ''}>{o.rotulo}</option>)}
                 </select>
               </label>
-              <span className="fam-lista-msg" role="status">{mensagem}</span>
+              <span className="fam-lista-msg" role="status">{mensagem === null ? null : t(mensagem)}</span>
               <span className="fam-lista-espaco" />
-              <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={() => { void copiarCsv(); }}>Copiar CSV</button>
-              <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={baixarCsv}>Baixar CSV</button>
+              <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={() => { void copiarCsv(); }}>{t('mov_orc_copiar_csv')}</button>
+              <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={baixarCsv}>{t('mov_orc_baixar_csv')}</button>
             </div>
 
             <div className="fam-lista-painel" role="tabpanel" id={`orc-painel-${aba}`} aria-labelledby={`orc-aba-${aba}`}>
               {semComponentes ? (
-                <p className="fam-hint">{nivelAtual === null ? 'Nenhum componente no projeto.' : 'Nenhum componente neste nível.'}</p>
+                <p className="fam-hint">{nivelAtual === null ? t('mov_orc_sem_componentes') : t('mov_orc_sem_componentes_nivel')}</p>
               ) : (
                 <>
                   {aba === 'resumo' && <AbaResumo orcamento={orcamento} />}
@@ -223,7 +227,7 @@ export function OrcamentoProjeto(): ReactElement | null {
         </div>
         <div className="fam-df">
           <span className="fam-hint">
-            {orcamento.moveis.reduce((s, m) => s + m.quantidade, 0)} componente(s) · {orcamento.resumo.totalPecas} peças · {textoMoeda(orcamento.custo.total)}
+            {t('mov_orc_rodape', { n: orcamento.moveis.reduce((s, m) => s + m.quantidade, 0), p: orcamento.resumo.totalPecas, custo: textoMoeda(orcamento.custo.total) })}
           </span>
           <span style={{ flex: 1 }} />
           <button className="fam-bt pri" onClick={fechar}>OK</button>

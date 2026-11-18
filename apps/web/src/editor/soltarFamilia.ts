@@ -13,6 +13,10 @@ import {
 import { familiaDaBiblioteca, levelElevation, newId, type Component, type Familia, type Id, type Project, type ProjectStore } from '@hestia/model';
 import { screenToWorld, type Viewport } from '@hestia/render';
 import type { Camera } from 'three';
+import { t as traduzir, useI18n, type Dict } from './i18n.ts';
+
+/** Texto da frente de móveis no idioma ativo (função fora do React). */
+const tm = (key: keyof Dict, args?: Record<string, string | number>): string => traduzir(useI18n.getState().lang, key, args);
 import type { Vec2 } from '@hestia/geom';
 import { useUi } from './state.ts';
 import { faltantes } from '../ui/familia/carregarNoProjeto.ts';
@@ -132,9 +136,9 @@ function projetoComFamilias(p: Project, familias: readonly Familia[]): Project {
 }
 
 function mensagemDeInsercao(familia: Familia, resultado: ResultadoArrasto): string {
-  if (resultado.parede !== undefined) return `${familia.nome} encaixado na parede.`;
-  if (resultado.vizinho !== undefined) return `${familia.nome} colado no móvel vizinho.`;
-  return `${familia.nome} inserido.`;
+  if (resultado.parede !== undefined) return tm('mov_encaixado_familia', { nome: familia.nome });
+  if (resultado.vizinho !== undefined) return tm('mov_colado_familia', { nome: familia.nome });
+  return tm('mov_inserido_familia', { nome: familia.nome });
 }
 
 /**
@@ -146,7 +150,7 @@ export function soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, ca
   const projeto = store.project;
 
   if (!projeto.levels.some((nivel) => nivel.id === levelId)) {
-    const erro = 'Nível ativo não encontrado: não foi possível soltar a família.';
+    const erro = tm('mov_nivel_ativo_nao_encontrado');
     d.avisar(erro);
     return { ok: false, erro };
   }
@@ -155,7 +159,7 @@ export function soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, ca
   const daBiblioteca = existente ? null : d.familiaDaBiblioteca(familiaId);
   const familia = existente ?? daBiblioteca;
   if (!familia) {
-    const erro = `Família de componente não encontrada: ${familiaId}.`;
+    const erro = tm('mov_familia_nao_encontrada', { id: familiaId });
     d.avisar(erro);
     return { ok: false, erro };
   }
@@ -205,13 +209,13 @@ export function soltarFamilia({ store, familiaId, levelId, ponto, paredeAlvo, ca
   };
 
   try {
-    store.transaction('Soltar família', () => {
+    store.transaction('mov_undo_soltar', () => {
       for (const dependencia of dependencias) store.exec({ type: 'upsertFamily', family: structuredClone(dependencia) });
       if (!existente) store.exec({ type: 'upsertFamily', family: structuredClone(familia) });
       store.exec({ type: 'addComponent', component: componente });
     });
   } catch (e) {
-    const erro = e instanceof Error ? e.message : 'Não foi possível soltar a família.';
+    const erro = e instanceof Error ? e.message : tm('mov_soltar_falhou');
     d.avisar(erro);
     return { ok: false, erro };
   }

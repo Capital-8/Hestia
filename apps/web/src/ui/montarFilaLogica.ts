@@ -1,6 +1,7 @@
 import { dependenciasDaFamilia, familiaDaBiblioteca, newId, wallsOnLevel, type Familia, type Id, type Project, type ProjectStore } from '@hestia/model';
 import { facesDasParedes, montarFila, type FaceDeParede, type ModuloDeFila, type PedidoDeFila, type ResultadoDeFila } from '@hestia/engine';
 import { useUi } from '../editor/state.ts';
+import { tm } from './moveisTextos.ts';
 import { faltantes } from './familia/carregarNoProjeto.ts';
 
 /*
@@ -139,15 +140,15 @@ function projetoComFamilias(p: Project, familias: readonly Familia[]): Project {
  */
 export function criarFila(store: ProjectStore, entrada: EntradaDaFila): ResultadoCriarFila {
   const pedido = pedidoDaTela(store.project, entrada);
-  if (!pedido) return { ok: false, erro: 'Escolha uma parede reta e ao menos um módulo.' };
+  if (!pedido) return { ok: false, erro: tm('mov_escolha_parede') };
   const paraCarregar = familiasParaCarregar(store, entrada.linhas);
   const simulacao = montarFila(projetoComFamilias(store.project, paraCarregar), pedido);
   if (simulacao.componentes.length === 0) {
-    return { ok: false, erro: simulacao.avisos[0] ?? 'Nenhum módulo válido para montar a fila.' };
+    return { ok: false, erro: simulacao.avisos[0] ?? tm('mov_sem_modulo_valido') };
   }
   try {
     let ids: Id[] = [];
-    store.transaction('Montar fila', () => {
+    store.transaction('mov_undo_montar_fila', () => {
       for (const familia of paraCarregar) store.exec({ type: 'upsertFamily', family: structuredClone(familia) });
       const resultado = montarFila(store.project, pedido);
       for (const componente of resultado.componentes) store.exec({ type: 'addComponent', component: componente });
@@ -157,6 +158,6 @@ export function criarFila(store: ProjectStore, entrada: EntradaDaFila): Resultad
     if (ids.length > 0) useUi.setState({ selection: ids, selectedLevel: null });
     return { ok: true, ids };
   } catch (e) {
-    return { ok: false, erro: e instanceof Error ? e.message : 'Não foi possível montar a fila.' };
+    return { ok: false, erro: e instanceof Error ? e.message : tm('mov_montar_fila_erro') };
   }
 }

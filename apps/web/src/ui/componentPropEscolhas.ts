@@ -1,4 +1,5 @@
 import { resolverComponente } from '@hestia/engine';
+import { tm } from './moveisTextos.ts';
 import {
   type Component,
   type Escolha,
@@ -53,7 +54,7 @@ export function escolhasDoComponente(familia: Familia | undefined): Escolha[] {
 export function opcoesDaEscolha(familia: Familia, escolha: Escolha): OpcaoDaEscolha[] {
   const param = parametroDaEscolha(familia, escolha);
   if (param === undefined) return [];
-  if (param.tipo === 'booleano') return [{ valor: true, rotulo: 'Sim' }, { valor: false, rotulo: 'Não' }];
+  if (param.tipo === 'booleano') return [{ valor: true, rotulo: tm('mov_sim') }, { valor: false, rotulo: tm('mov_nao') }];
   if (param.tipo === 'enum') {
     const out: OpcaoDaEscolha[] = [];
     for (const o of param.opcoes ?? []) {
@@ -87,7 +88,7 @@ export function patchDaEscolha(c: Component, escolha: Escolha, valor: Valor | nu
 /** Grava a escolha em um ou vários componentes numa única transação de `updateComponent` (um passo de desfazer). */
 export function aplicarEscolha(store: ProjectStore, components: readonly Component[], escolha: Escolha, valor: Valor | null): void {
   if (components.length === 0) return;
-  store.transaction('Escolher opção do componente', () => {
+  store.transaction('mov_undo_escolha', () => {
     for (const c of components) store.exec({ type: 'updateComponent', id: c.id, patch: patchDaEscolha(c, escolha, valor) });
   });
 }

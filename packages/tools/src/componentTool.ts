@@ -41,12 +41,12 @@ export class ComponentTool extends ToolBase {
   private familia(): Familia | null {
     const id = this.env.options().componentFamilyId;
     if (!id) {
-      this.env.say('Escolha uma família de componente.');
+      this.env.say('mov_aviso_sem_familia');
       return null;
     }
     const familia = this.env.project().componentFamilies?.[id];
     if (!familia) {
-      this.env.say('Família de componente não encontrada no projeto.');
+      this.env.say('mov_familia_nao_encontrada_projeto');
       return null;
     }
     return familia;
@@ -55,8 +55,8 @@ export class ComponentTool extends ToolBase {
   /** Aviso de abertura sem mexer na prévia (a família pode ser escolhida depois, na barra de opções). */
   private avisoDaFamilia(): void {
     const id = this.env.options().componentFamilyId;
-    if (!id) this.env.say('Escolha uma família de componente.');
-    else if (!this.env.project().componentFamilies?.[id]) this.env.say('Família de componente não encontrada no projeto.');
+    if (!id) this.env.say('mov_aviso_sem_familia');
+    else if (!this.env.project().componentFamilies?.[id]) this.env.say('mov_familia_nao_encontrada_projeto');
   }
 
   /** Instância de prévia (id fixo) ou a que será inserida, na posição e com a rotação/espelho correntes. */

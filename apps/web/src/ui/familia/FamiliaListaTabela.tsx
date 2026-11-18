@@ -2,6 +2,7 @@ import type { FerragemResolvida, LinhaLista, ResumoLista } from '@hestia/engine'
 import { chapaPorId, type Catalogo } from '@hestia/model';
 import type { ReactElement } from 'react';
 import { simboloVeio, textoArea, textoMetros, textoMm } from './familiaLista.ts';
+import { tm } from '../moveisTextos.ts';
 
 /** Aba Lista: tabela de peças agrupadas, resumo de áreas/fitas/usinagens e tabela de ferragens. */
 
@@ -12,11 +13,11 @@ interface PropsLista {
   catalogo: Catalogo;
 }
 
-const LADOS_FITA: ReadonlyArray<{ chave: 'c1' | 'c2' | 'l1' | 'l2'; rotulo: string }> = [
-  { chave: 'c1', rotulo: 'Fita C1' },
-  { chave: 'c2', rotulo: 'Fita C2' },
-  { chave: 'l1', rotulo: 'Fita L1' },
-  { chave: 'l2', rotulo: 'Fita L2' },
+const LADOS_FITA: ReadonlyArray<{ chave: 'c1' | 'c2' | 'l1' | 'l2'; rotulo: 'mov_fita_c1' | 'mov_fita_c2' | 'mov_fita_l1' | 'mov_fita_l2' }> = [
+  { chave: 'c1', rotulo: 'mov_fita_c1' },
+  { chave: 'c2', rotulo: 'mov_fita_c2' },
+  { chave: 'l1', rotulo: 'mov_fita_l1' },
+  { chave: 'l2', rotulo: 'mov_fita_l2' },
 ];
 
 function nomeDaChapa(catalogo: Catalogo, id: string | null): string {
@@ -36,24 +37,24 @@ export function FamiliaListaTabela({ linhas, resumo, ferragens, catalogo }: Prop
         <table className="fam-lista-tabela">
           <thead>
             <tr>
-              <th className="n">Qtd</th>
-              <th>Peça</th>
-              <th>Papel</th>
-              <th>Chapa/Material</th>
-              <th className="n">Comprimento</th>
-              <th className="n">Largura</th>
-              <th className="n">Espessura</th>
-              <th>Veio</th>
-              {LADOS_FITA.map((lado) => <th key={lado.chave} className="fam-lista-fita-col">{lado.rotulo}</th>)}
-              <th className="n">Furos</th>
-              <th className="n">Rasgos</th>
-              <th className="n">Recortes</th>
-              <th className="n">Área</th>
+              <th className="n">{tm('mov_orc_qtd')}</th>
+              <th>{tm('mov_lista_peca')}</th>
+              <th>{tm('mov_papel')}</th>
+              <th>{tm('mov_lista_chapa_material')}</th>
+              <th className="n">{tm('mov_comprimento')}</th>
+              <th className="n">{tm('mov_largura')}</th>
+              <th className="n">{tm('mov_lista_espessura')}</th>
+              <th>{tm('mov_lista_veio')}</th>
+              {LADOS_FITA.map((lado) => <th key={lado.chave} className="fam-lista-fita-col">{tm(lado.rotulo)}</th>)}
+              <th className="n">{tm('mov_lista_furos')}</th>
+              <th className="n">{tm('mov_lista_rasgos')}</th>
+              <th className="n">{tm('mov_lista_recortes')}</th>
+              <th className="n">{tm('mov_lista_area')}</th>
             </tr>
           </thead>
           <tbody>
             {linhas.length === 0 && (
-              <tr><td colSpan={16} className="fam-hint">Nenhuma peça na lista.</td></tr>
+              <tr><td colSpan={16} className="fam-hint">{tm('mov_lista_sem_pecas')}</td></tr>
             )}
             {linhas.map((linha, indice) => (
               <tr key={`${linha.nome}-${indice}`}>
@@ -85,21 +86,21 @@ export function FamiliaListaTabela({ linhas, resumo, ferragens, catalogo }: Prop
 
       <div className="fam-lista-resumo">
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Resumo</div>
-          <div><b>{resumo.totalPecas}</b> peças</div>
-          <div>Área total: {textoArea(resumo.areaM2, 4)}</div>
+          <div className="fam-lista-resumo-titulo">{tm('mov_orc_resumo')}</div>
+          <div><b>{resumo.totalPecas}</b> {tm('mov_pecas_min')}</div>
+          <div>{tm('mov_area_total')} {textoArea(resumo.areaM2, 4)}</div>
         </div>
 
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Área por chapa e espessura</div>
+          <div className="fam-lista-resumo-titulo">{tm('mov_lista_area_chapa')}</div>
           {resumo.porChapa.length === 0
-            ? <div className="fam-hint">Sem peças.</div>
+            ? <div className="fam-hint">{tm('mov_sem_pecas')}</div>
             : (
               <ul className="fam-lista-resumo-lista">
                 {resumo.porChapa.map((item) => (
                   <li key={`${item.chapa ?? 'sem'}-${item.espessura}`}>
                     {nomeDaChapa(catalogo, item.chapa)} · {textoMm(item.espessura)} mm — {textoArea(item.area, 4)}
-                    <span className="fam-mut">{item.pecas} peças</span>
+                    <span className="fam-mut">{item.pecas} {tm('mov_pecas_min')}</span>
                   </li>
                 ))}
               </ul>
@@ -107,9 +108,9 @@ export function FamiliaListaTabela({ linhas, resumo, ferragens, catalogo }: Prop
         </div>
 
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Fita por tipo</div>
+          <div className="fam-lista-resumo-titulo">{tm('mov_lista_fita_tipo')}</div>
           {resumo.fitaMetros.length === 0
-            ? <div className="fam-hint">Sem fita.</div>
+            ? <div className="fam-hint">{tm('mov_sem_fita')}</div>
             : (
               <ul className="fam-lista-resumo-lista">
                 {resumo.fitaMetros.map((item) => (
@@ -120,22 +121,22 @@ export function FamiliaListaTabela({ linhas, resumo, ferragens, catalogo }: Prop
         </div>
 
         <div className="fam-lista-resumo-bloco">
-          <div className="fam-lista-resumo-titulo">Usinagens</div>
-          <div>Furos: {resumo.usinagens.furos}</div>
-          <div>Rasgos: {resumo.usinagens.rasgos}</div>
-          <div>Recortes: {resumo.usinagens.recortes}</div>
+          <div className="fam-lista-resumo-titulo">{tm('mov_lista_usinagens')}</div>
+          <div>{tm('mov_lista_furos')}: {resumo.usinagens.furos}</div>
+          <div>{tm('mov_lista_rasgos')}: {resumo.usinagens.rasgos}</div>
+          <div>{tm('mov_lista_recortes')}: {resumo.usinagens.recortes}</div>
         </div>
       </div>
 
       <div className="fam-lista-ferragens">
-        <div className="fam-lista-resumo-titulo">Ferragens</div>
+        <div className="fam-lista-resumo-titulo">{tm('mov_orc_ferragens')}</div>
         {ferragens.length === 0
-          ? <p className="fam-hint">Nenhuma ferragem nesta configuração.</p>
+          ? <p className="fam-hint">{tm('mov_orc_sem_ferragem_config')}</p>
           : (
             <div className="fam-tabela fam-lista-rolagem">
               <table className="fam-lista-tabela">
                 <thead>
-                  <tr><th>Nome</th><th>Código</th><th className="n">Quantidade</th></tr>
+                  <tr><th>{tm('mov_nome')}</th><th>{tm('mov_codigo')}</th><th className="n">{tm('mov_quantidade')}</th></tr>
                 </thead>
                 <tbody>
                   {ferragens.map((ferragem) => (

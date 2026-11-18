@@ -3,6 +3,7 @@ import { BIBLIOTECA_BASE, type Familia, type Id, type Project, type ProjectStore
 import type { ToolOptions } from '@hestia/tools';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { useT } from '../editor/i18n.ts';
 import { faltantes } from './familia/carregarNoProjeto.ts';
 
 /*
@@ -56,7 +57,7 @@ export function aplicarEscolhaDeFamilia(store: ProjectStore, id: Id): EscolhaApl
   const escolha = resolverEscolhaDeFamilia(store.project, id);
   if (!escolha) return null;
   if (escolha.carregar) {
-    store.transaction('Carregar família', () => {
+    store.transaction('mov_undo_carregar', () => {
       for (const dep of faltantes(store, escolha.familia)) store.exec({ type: 'upsertFamily', family: structuredClone(dep) });
       store.exec({ type: 'upsertFamily', family: structuredClone(escolha.familia) });
     });
@@ -70,9 +71,10 @@ export function tiposDaFamilia(familia: Familia | null): Tipo[] {
 }
 
 /** Texto que a ferramenta mostra quando é ativada antes de a barra escolher a família inicial. */
-const AVISO_SEM_FAMILIA = 'Escolha uma família de componente.';
+const AVISO_SEM_FAMILIA = 'mov_aviso_sem_familia';
 
 export function ComponentOptionsBar(): ReactElement {
+  const { t } = useT();
   const p = useProject();
   const o = useUi((s) => s.options);
   const doProjeto = familiasDoProjeto(p);
@@ -105,24 +107,24 @@ export function ComponentOptionsBar(): ReactElement {
   return (
     <>
       <label>
-        Família
+        {t('mov_familia')}
         <select id="opt-compfamily" className="select" value={atual?.id ?? ''} onChange={(e) => escolher(e.target.value)}>
           {doProjeto.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
           {daBiblioteca.length > 0 && (
-            <optgroup label="Biblioteca">
+            <optgroup label={t('mov_biblioteca')}>
               {daBiblioteca.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
             </optgroup>
           )}
         </select>
       </label>
       <label>
-        Tipo
+        {t('mov_tipo')}
         <select id="opt-comptype" className="select" value={tipoAtual} onChange={(e) => set({ componentTypeId: e.target.value === '' ? null : e.target.value })} disabled={!atual}>
-          <option value="">Padrão da família</option>
+          <option value="">{t('mov_padrao_familia')}</option>
           {tipos.map((tp) => <option key={tp.id} value={tp.id}>{tp.nome}</option>)}
         </select>
       </label>
-      <span className="hint">R gira, M espelha</span>
+      <span className="hint">{t('mov_dica_girar_espelhar')}</span>
     </>
   );
 }

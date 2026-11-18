@@ -1,5 +1,6 @@
 import type { FerragemResolvida, OrcamentoFerragem, OrcamentoProjeto } from '@hestia/engine';
 import type { Id, Project } from '@hestia/model';
+import { tm } from './moveisTextos.ts';
 import { nomeDoArquivo } from './familia/familiaLista.ts';
 
 /*
@@ -16,7 +17,7 @@ export interface OpcaoNivel {
 
 /** Opções do seletor de nível: "Todos os níveis" primeiro, depois os níveis na ordem do projeto. */
 export function nivelOptions(p: Project): OpcaoNivel[] {
-  const todos: OpcaoNivel = { id: null, rotulo: 'Todos os níveis' };
+  const todos: OpcaoNivel = { id: null, rotulo: tm('mov_nivel_todos') };
   return [todos, ...p.levels.map((l) => ({ id: l.id, rotulo: l.name }))];
 }
 
@@ -37,7 +38,7 @@ export function mostraSemComponentes(orc: OrcamentoProjeto): boolean {
 
 /** Texto do nível no título da janela. */
 export function rotuloNivel(p: Project, nivelId: Id | null): string {
-  if (nivelId === null) return 'todos os níveis';
+  if (nivelId === null) return tm('mov_nivel_todos_min');
   const nivel = p.levels.find((l) => l.id === nivelId);
-  return nivel === undefined ? 'nível removido' : nivel.name;
+  return nivel === undefined ? tm('mov_nivel_removido') : nivel.name;
 }

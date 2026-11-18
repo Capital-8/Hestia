@@ -109,7 +109,7 @@ export function aplicarValorDeParametro(store: ProjectStore, ids: readonly Id[],
   const primeiro = erros[0];
   if (primeiro) return { ok: false, erro: primeiro.mensagem };
   if (candidatos.length > 0) {
-    store.transaction('Editar parâmetro do componente', () => {
+    store.transaction('mov_undo_parametro', () => {
       for (const c of candidatos) store.exec({ type: 'updateComponent', id: c.id, patch: { values: c.values } });
     });
   }
@@ -148,7 +148,7 @@ export function aplicarAcabamentoComponentes(
     candidatos.push(comValorDeParametro(atual, chave, acabamentoId === '' ? null : acabamentoId));
   }
   if (candidatos.length === 0) return;
-  const rotulo = acabamentoId === '' ? 'Restaurar acabamento padrão' : 'Alterar acabamento 3D';
+  const rotulo = acabamentoId === '' ? 'mov_undo_acab_padrao' : 'mov_undo_acab';
   store.transaction(rotulo, () => {
     for (const c of candidatos) store.exec({ type: 'updateComponent', id: c.id, patch: { values: c.values } });
   });

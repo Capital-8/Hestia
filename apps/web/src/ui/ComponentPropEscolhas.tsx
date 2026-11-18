@@ -3,6 +3,7 @@ import { type Component, type Escolha, type Familia, type Project, type Valor } 
 import { editor, useProject } from '../editor/controller.ts';
 import { Check, Group, Row } from './fields.tsx';
 import { comumDe } from './componentPropAcoes.ts';
+import { tm } from './moveisTextos.ts';
 import {
   aplicarEscolha,
   escolhasDoComponente,
@@ -34,7 +35,7 @@ export function ComponentPropEscolhas({ familia, components }: PropsEscolhas): R
     .filter((linha) => linha.opcoes.length > 0);
   if (linhas.length === 0) return null;
   return (
-    <Group title="Escolhas">
+    <Group title={tm('mov_grp_escolhas')}>
       {linhas.map(({ escolha, opcoes }) => (
         <LinhaEscolha key={escolha.id} p={p} components={components} familia={familia} escolha={escolha} opcoes={opcoes} />
       ))}
@@ -77,8 +78,8 @@ function LinhaEscolha({ p, components, familia, escolha, opcoes }: PropsLinha): 
           if (escolhida !== undefined) gravar(escolhida.valor);
         }}
       >
-        {efetivo.misto && <option value={VALOR_MISTO} disabled>Vários</option>}
-        {foraDaLista && <option value={atual}>{`atual: ${atual}`}</option>}
+        {efetivo.misto && <option value={VALOR_MISTO} disabled>{tm('mov_varios')}</option>}
+        {foraDaLista && <option value={atual}>{tm('mov_atual', { v: atual })}</option>}
         {opcoes.map((o) => <option key={String(o.valor)} value={String(o.valor)}>{o.rotulo}</option>)}
       </select>
     );
@@ -86,10 +87,10 @@ function LinhaEscolha({ p, components, familia, escolha, opcoes }: PropsLinha): 
 
   return (
     <Row label={escolha.nome} htmlFor={id}>
-      <span title={`Zona: ${escolha.zona}`}>
+      <span title={tm('mov_zona', { zona: escolha.zona })}>
         {entrada}
         {temSobreposicao && (
-          <button type="button" className="chiplink" title="Voltar ao valor do tipo" aria-label={`Remover a escolha ${escolha.nome}`} onClick={() => gravar(null)}>
+          <button type="button" className="chiplink" title={tm('mov_voltar_tipo')} aria-label={tm('mov_remover_escolha', { nome: escolha.nome })} onClick={() => gravar(null)}>
             ↺
           </button>
         )}

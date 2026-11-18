@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { posarGrupoRigido, type Pose } from '@hestia/engine';
+import { tm } from '../moveisTextos.ts';
 import { componentesDoGrupo, isComponent, levelElevation, normalizarAngulo, type Component, type Id, type Project } from '@hestia/model';
 import { Arrasto3D, type ResultadoMover3D } from '../../editor/arrasto3d.ts';
 import { editor } from '../../editor/controller.ts';
@@ -54,10 +55,10 @@ export function textoStatusArrasto(
   projeto: Project,
   resultado: Pick<ResultadoMover3D, 'parede' | 'vizinho' | 'colisoes'>,
 ): string {
-  if (resultado.parede !== undefined) return 'Encaixado na parede';
-  if (resultado.vizinho !== undefined) return `Colado em ${marcaOuId(projeto, resultado.vizinho)}`;
+  if (resultado.parede !== undefined) return tm('mov_encaixado_parede');
+  if (resultado.vizinho !== undefined) return tm('mov_colado_vizinho', { marca: marcaOuId(projeto, resultado.vizinho) });
   const primeiro = resultado.colisoes[0];
-  return primeiro !== undefined ? `Colide com ${marcaOuId(projeto, primeiro)}` : '';
+  return primeiro !== undefined ? tm('mov_colide_com', { marca: marcaOuId(projeto, primeiro) }) : '';
 }
 
 function marcaOuId(projeto: Project, id: Id): string {
@@ -93,7 +94,7 @@ export function armarArrasto3d(args: ArmarArrasto3DArgs): ArrastoComponente3D | 
 function aplicarResultadoArrasto(estado: ArrastoComponente3D, resultado: ResultadoMover3D): void {
   const versao = editor.store.version;
   editor.store.transaction(
-    'Mover componente',
+    'mov_undo_mover',
     () => {
       for (const [id, pose] of resultado.poses) {
         editor.store.exec({ type: 'updateComponent', id, patch: { x: pose.x, y: pose.y, rotation: pose.rotation } });

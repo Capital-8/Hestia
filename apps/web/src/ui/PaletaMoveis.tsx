@@ -2,6 +2,8 @@ import { useMemo, useRef, useState, type PointerEvent as RPointerEvent, type Rea
 import type { Familia } from '@hestia/model';
 import { create } from 'zustand';
 import { useProject } from '../editor/controller.ts';
+import { useT, type Dict } from '../editor/i18n.ts';
+import { tm } from './moveisTextos.ts';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
 import { ABAS_PALETA, filtrarItensDaPaleta, montarItensDaPaleta, type CategoriaPaleta, type ItemPaleta } from './paletaMoveis.ts';
 import {
@@ -35,6 +37,21 @@ export const usePaletaMoveis = create<PaletaState>((set) => ({
 /** Janela flutuante com posição inicial à esquerda do canvas. */
 const POSICAO_INICIAL = { x: 24, y: 116 };
 
+const CHAVE_ABA: Record<string, keyof Dict> = {
+  todas: 'mov_cat_todas',
+  marcenaria: 'mov_cat_marcenaria',
+  mobiliario: 'mov_cat_mobiliario',
+  loucas: 'mov_cat_loucas',
+  equipamento: 'mov_cat_equipamento',
+  generico: 'mov_cat_generico',
+};
+
+/** Rótulo da aba no idioma ativo; a categoria sem chave cai no rótulo PT da lista. */
+const rotuloDaAba = (id: string, rotulo: string): string => {
+  const chave = CHAVE_ABA[id];
+  return chave ? tm(chave) : rotulo;
+};
+
 function corDoRetangulo(r: RetanguloMiniatura): string {
   if (r.vazio) return 'var(--fam-fundo)';
   if (r.papel === 'porta' || r.papel === 'frente_gaveta') return 'var(--fam-porta)';
@@ -46,7 +63,7 @@ function corDoRetangulo(r: RetanguloMiniatura): string {
 function Miniatura({ familia }: { familia: Familia }): ReactElement {
   const miniatura = miniaturaDaFamilia(familia, 120, 64);
   return (
-    <svg viewBox={`0 0 ${miniatura.largura} ${miniatura.altura}`} role="img" aria-label={`Miniatura de ${familia.nome}`}>
+    <svg viewBox={`0 0 ${miniatura.largura} ${miniatura.altura}`} role="img" aria-label={tm('mov_miniatura_de', { nome: familia.nome })}>
       {miniatura.retangulos.map((r, i) => (
         <rect key={`${r.papel}-${i}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={corDoRetangulo(r)} fillOpacity={r.vazio ? 0.28 : 0.92} stroke="var(--line-strong)" strokeWidth={0.5} />
       ))}
@@ -110,9 +127,9 @@ function CartaoMovel({ item, ativa }: CartaoProps): ReactElement {
       type="button"
       className={`pal-movel${doProjeto ? ' do-projeto' : ''}${ativa ? ' ativa' : ''}`}
       onPointerDown={iniciarGestoCartao}
-      title={`${familia.nome} — clique ou arraste direto para a planta/3D com o bloco ao vivo`}
+      title={tm('mov_cartao_dica', { nome: familia.nome })}
     >
-      {doProjeto && <span className="pal-selo">No projeto</span>}
+      {doProjeto && <span className="pal-selo">{tm('mov_no_projeto')}</span>}
       <Miniatura familia={familia} />
       <span className="pal-nome">{familia.nome}</span>
     </button>
@@ -128,6 +145,7 @@ export function PaletaMoveis(): ReactElement | null {
   const [busca, setBusca] = useState('');
   const [posicao, setPosicao] = useState(POSICAO_INICIAL);
   const arrasteJanela = useRef<{ dx: number; dy: number } | null>(null);
+  useT();
 
   const itens = useMemo(() => montarItensDaPaleta(p), [p]);
   const filtrados = useMemo(() => filtrarItensDaPaleta(itens, categoria, busca), [itens, categoria, busca]);
@@ -152,21 +170,21 @@ export function PaletaMoveis(): ReactElement | null {
   if (!aberta) return null;
 
   return (
-    <div className="pal-janela" role="dialog" aria-label="Biblioteca de móveis" style={{ left: posicao.x, top: posicao.y }}>
+    <div className="pal-janela" role="dialog" aria-label={tm('mov_biblioteca_titulo')} style={{ left: posicao.x, top: posicao.y }}>
       <div className="pal-titulo" onPointerDown={iniciarJanela} onPointerMove={moverJanela} onPointerUp={soltarJanela} onPointerCancel={soltarJanela}>
-        <span>Biblioteca</span>
-        <button type="button" className="pal-fechar" aria-label="Fechar a biblioteca" onClick={fechar}>×</button>
+        <span>{tm('mov_biblioteca')}</span>
+        <button type="button" className="pal-fechar" aria-label={tm('mov_fechar_biblioteca')} onClick={fechar}>×</button>
       </div>
       <div className="pal-corpo">
         <input
           className="pal-busca"
           type="search"
           value={busca}
-          placeholder="Buscar por nome ou descrição"
-          aria-label="Buscar móveis"
+          placeholder={tm('mov_busca_dica')}
+          aria-label={tm('mov_busca_movel')}
           onChange={(e) => setBusca(e.target.value)}
         />
-        <div className="pal-abas" role="tablist" aria-label="Categorias">
+        <div className="pal-abas" role="tablist" aria-label={tm('mov_categorias')}>
           {ABAS_PALETA.map((aba) => (
             <button
               key={aba.id}
@@ -176,13 +194,13 @@ export function PaletaMoveis(): ReactElement | null {
               className={categoria === aba.id ? 'sel' : ''}
               onClick={() => setCategoria(aba.id)}
             >
-              {aba.id === 'meus' ? 'No projeto' : aba.rotulo}
+              {aba.id === 'meus' ? tm('mov_no_projeto') : rotuloDaAba(aba.id, aba.rotulo)}
             </button>
           ))}
         </div>
         <div className="pal-grade">
           {filtrados.length === 0 ? (
-            <div className="pal-vazio">Nenhum móvel encontrado.</div>
+            <div className="pal-vazio">{tm('mov_movel_nao_encontrado')}</div>
           ) : (
             filtrados.map((item) => <CartaoMovel key={item.familia.id} item={item} ativa={ativoId === item.familia.id} />)
           )}

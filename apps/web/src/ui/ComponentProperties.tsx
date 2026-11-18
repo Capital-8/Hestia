@@ -2,11 +2,13 @@ import { useMemo, useState, type ReactElement } from 'react';
 import { caixaDoComponente, resolverComponente } from '@hestia/engine';
 import { ACABAMENTOS_MOVEIS, type ChaveAcabamentoInstancia, type Id, type Parametro, type Valor } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
+import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
 import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
+import { nomeDoAcabamento, tm } from './moveisTextos.ts';
 import {
   aplicarAcabamentoComponentes,
   aplicarAlinhamentoFrente,
@@ -26,10 +28,10 @@ import {
 /** Sentinela dos `select` quando os valores diferem (não pode ser confundida com uma opção real). */
 const VALOR_MISTO = '__misto__';
 
-const SELETORES_ACABAMENTO: ReadonlyArray<{ chave: ChaveAcabamentoInstancia; rotulo: string }> = [
-  { chave: 'acabCorpo', rotulo: 'Corpo' },
-  { chave: 'acabPorta', rotulo: 'Portas / Frentes' },
-  { chave: 'acabTampo', rotulo: 'Tampo' },
+const SELETORES_ACABAMENTO: ReadonlyArray<{ chave: ChaveAcabamentoInstancia; rotulo: keyof Dict }> = [
+  { chave: 'acabCorpo', rotulo: 'mov_sel_corpo' },
+  { chave: 'acabPorta', rotulo: 'mov_sel_portas' },
+  { chave: 'acabTampo', rotulo: 'mov_sel_tampo' },
 ];
 
 type Caixa = NonNullable<ReturnType<typeof caixaDoComponente>>;
@@ -53,13 +55,13 @@ interface Limites {
 const limitesDe = (param: Parametro): Limites | null => {
   if (param.min === undefined && param.max === undefined) return null;
   const partes: string[] = [];
-  if (param.min !== undefined) partes.push(`mín ${milimetros(param.min)}`);
-  if (param.max !== undefined) partes.push(`máx ${milimetros(param.max)}`);
+  if (param.min !== undefined) partes.push(tm('mov_lim_min', { v: milimetros(param.min) }));
+  if (param.max !== undefined) partes.push(tm('mov_lim_max', { v: milimetros(param.max) }));
   const faixa = param.min !== undefined && param.max !== undefined
-    ? `${milimetros(param.min)} a ${milimetros(param.max)} mm`
+    ? `${tm('mov_lim_ab', { a: milimetros(param.min), b: milimetros(param.max) })} mm`
     : param.min !== undefined
-      ? `mínimo ${milimetros(param.min)} mm`
-      : `máximo ${milimetros(param.max!)} mm`;
+      ? tm('mov_lim_minimo', { v: milimetros(param.min) })
+      : tm('mov_lim_maximo', { v: milimetros(param.max!) });
   return { min: param.min, max: param.max, rotulo: `${partes.join(' · ')} mm`, faixa };
 };
 
@@ -71,6 +73,7 @@ const limitesDe = (param: Parametro): Limites | null => {
 export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null {
   const p = useProject();
   const fmt = useFormat();
+  const { t } = useT();
   const [mensagens, setMensagens] = useState<Record<string, string>>({});
   const components = useMemo(() => componentesDaSelecao(p, ids), [p, ids]);
   const resolucoes = new Map(components.map((c) => [c.id, resolverComponente(p, c)] as const));
@@ -85,7 +88,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
 
   const familiaComum = comumDe(components, (c) => c.familyId);
   const familia = familiaComum.misto ? undefined : p.componentFamilies?.[familiaComum.valor];
-  const nomeDaFamilia = familiaComum.misto ? 'Vários' : familia?.nome ?? familiaComum.valor;
+  const nomeDaFamilia = familiaComum.misto ? tm('mov_varios') : familia?.nome ?? familiaComum.valor;
   const tipoComum = comumDe(components, (c) => c.typeId ?? '');
   const parametros = familia ? parametrosDeInstancia(familia) : [];
 
@@ -93,7 +96,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     try {
       aplicarPatchDeComponente(editor.store, components.map((c) => c.id), patch, rotulo);
     } catch (e) {
-      useUi.setState({ status: e instanceof Error ? e.message : 'Operação recusada.' });
+      useUi.setState({ status: e instanceof Error ? e.message : { key: 'mov_op_recusada' } });
     }
   };
 
@@ -125,7 +128,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
     const erro = mensagens[param.id];
     const limites = limitesDe(param);
     const aviso = (motivo: 'invalido' | 'fora'): string =>
-      motivo === 'fora' && limites !== null ? `Fora da faixa: ${limites.faixa}` : 'Valor inválido';
+      motivo === 'fora' && limites !== null ? tm('mov_fora_faixa', { faixa: limites.faixa }) : tm('mov_valor_invalido');
     const recusar = (motivo: 'invalido' | 'fora'): void => definirMensagem(param.id, aviso(motivo));
     const aceitar = (): void => definirMensagem(param.id, null);
     let entrada: ReactElement;
@@ -197,7 +200,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
               if (escolhida) gravarParametro(param, escolhida.valor);
             }}
           >
-            {efetivo.misto && <option value={VALOR_MISTO} disabled>variados</option>}
+            {efetivo.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
             {(param.opcoes ?? []).map((o) => <option key={String(o.valor)} value={String(o.valor)}>{o.rotulo ?? String(o.valor)}</option>)}
           </select>
         );
@@ -210,7 +213,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
       <div key={param.id}>
         <Row label={param.nome} htmlFor={id}>
           {entrada}
-          {limites !== null && <span className="hint" title={`Faixa aceita: ${limites.faixa}`}> {limites.rotulo}</span>}
+          {limites !== null && <span className="hint" title={tm('mov_faixa_aceita', { faixa: limites.faixa })}> {limites.rotulo}</span>}
         </Row>
         {erro && <div className="hint" role="alert" style={{ color: 'var(--danger, #b42318)' }}>{erro}</div>}
         {temSobreposicao(param.id) && (
@@ -219,8 +222,8 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
             <button
               type="button"
               className="chiplink"
-              title="Voltar ao valor do tipo"
-              aria-label={`Remover o valor de ${param.nome}`}
+              title={tm('mov_voltar_tipo')}
+              aria-label={tm('mov_remover_valor', { nome: param.nome })}
               onClick={() => gravarParametro(param, null)}
             >
               ↺
@@ -254,71 +257,71 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
   ).values()];
 
   const medida = (valor: Comum<number>): ReactElement =>
-    valor.misto ? <span className="val soft">Vários</span> : <span className="val">{fmt('length', valor.valor)}</span>;
+    valor.misto ? <span className="val soft">{tm('mov_varios')}</span> : <span className="val">{fmt('length', valor.valor)}</span>;
 
   return (
     <>
-      <Group title="Componente">
-        <Row label="Família" readOnly><span className="val">{nomeDaFamilia}</span></Row>
+      <Group title={t('mov_grp_componente')}>
+        <Row label={t('mov_familia')} readOnly><span className="val">{nomeDaFamilia}</span></Row>
         {conjunto && (
-          <Row label="Conjunto">
+          <Row label={t('mov_conjunto')}>
             <span className="val">{conjunto.nome}</span>{' '}
             <button
               type="button"
               className="chiplink"
-              title="Desfaz o conjunto e deixa os componentes soltos"
+              title={t('mov_desagrupar_dica')}
               onClick={() => { ACTIONS.ungroupComponents.run(); }}
             >
-              Desagrupar
+              {t('mov_desagrupar')}
             </button>
           </Row>
         )}
         {familia ? (
-          <Row label="Tipo" htmlFor="p-comp-type">
+          <Row label={t('mov_tipo')} htmlFor="p-comp-type">
             <select
               id="p-comp-type"
               className="select"
               value={tipoComum.misto ? VALOR_MISTO : tipoComum.valor}
               onChange={(e) => {
                 if (e.target.value === VALOR_MISTO) return;
-                alterar({ typeId: e.target.value === '' ? null : e.target.value }, 'Trocar tipo do componente');
+                alterar({ typeId: e.target.value === '' ? null : e.target.value }, 'mov_undo_tipo');
               }}
             >
-              {tipoComum.misto && <option value={VALOR_MISTO} disabled>variados</option>}
-              <option value="">Padrão da família</option>
+              {tipoComum.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
+              <option value="">{t('mov_padrao_familia')}</option>
               {familia.tipos.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </Row>
         ) : (
-          <div className="hint">Selecione componentes da mesma família para editar o tipo e os parâmetros.</div>
+          <div className="hint">{t('mov_sel_mesma_familia')}</div>
         )}
       </Group>
       {familia && (
-        <Group title="Parâmetros de instância">
+        <Group title={t('mov_grp_parametros')}>
           {parametros.length === 0 ? (
-            <div className="hint">A família não tem parâmetros de instância.</div>
+            <div className="hint">{t('mov_familia_sem_parametros')}</div>
           ) : (
             parametros.map(campoDoParametro)
           )}
         </Group>
       )}
       {familia && <ComponentPropEscolhas familia={familia} components={components} />}
-      <Group title="Alinhamento e Acabamentos 3D">
-        <Row label="Alinhamento">
+      <Group title={t('mov_grp_acabamentos')}>
+        <Row label={t('mov_alinhamento')}>
           <button
             type="button"
             className="btn small"
-            title="Alinha a frente e a profundidade com o primeiro selecionado ou o vizinho paralelo mais próximo"
+            title={t('mov_alinhar_frente_dica')}
             onClick={() => {
               const n = aplicarAlinhamentoFrente(editor.store, components.map((c) => c.id));
               useUi.setState({
                 status: n > 0
-                  ? `${n} componente(s) alinhado(s) pela frente.`
-                  : 'Nenhum componente paralelo para alinhar.',
+                  ? { key: 'mov_status_alinhados', args: { n } }
+                  : { key: 'mov_status_sem_paralelo' },
               });
             }}
           >
-            Alinhar frente / profundidade
+            {t('mov_alinhar_frente')}
           </button>
         </Row>
         {SELETORES_ACABAMENTO.map(({ chave, rotulo }) => {
@@ -328,7 +331,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
           });
           const id = `p-comp-${chave}`;
           return (
-            <Row key={chave} label={rotulo} htmlFor={id}>
+            <Row key={chave} label={t(rotulo)} htmlFor={id}>
               <select
                 id={id}
                 className="select"
@@ -343,59 +346,59 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
                   );
                 }}
               >
-                {atual.misto && <option value={VALOR_MISTO} disabled>variados</option>}
-                <option value="">Padrão do móvel</option>
+                {atual.misto && <option value={VALOR_MISTO} disabled>{tm('mov_variados')}</option>}
+                <option value="">{t('mov_padrao_movel')}</option>
                 {ACABAMENTOS_MOVEIS.map((a) => (
-                  <option key={a.id} value={a.id}>{a.nome}</option>
+                  <option key={a.id} value={a.id}>{nomeDoAcabamento(a.id, a.nome)}</option>
                 ))}
               </select>
             </Row>
           );
         })}
       </Group>
-      <Group title="Posição">
+      <Group title={t('mov_grp_posicao')}>
         <Row label="X" htmlFor="p-comp-x">
-          <NumField id="p-comp-x" value={x.misto ? null : x.valor} mixed={x.misto} quantity="length" onCommit={(v) => alterar({ x: v }, 'Mover componente')} />
+          <NumField id="p-comp-x" value={x.misto ? null : x.valor} mixed={x.misto} quantity="length" onCommit={(v) => alterar({ x: v }, 'mov_undo_mover')} />
         </Row>
         <Row label="Y" htmlFor="p-comp-y">
-          <NumField id="p-comp-y" value={y.misto ? null : y.valor} mixed={y.misto} quantity="length" onCommit={(v) => alterar({ y: v }, 'Mover componente')} />
+          <NumField id="p-comp-y" value={y.misto ? null : y.valor} mixed={y.misto} quantity="length" onCommit={(v) => alterar({ y: v }, 'mov_undo_mover')} />
         </Row>
-        <Row label="Elevação Z" htmlFor="p-comp-z">
-          <NumField id="p-comp-z" value={z.misto ? null : z.valor} mixed={z.misto} quantity="length" onCommit={(v) => alterar({ z: v }, 'Mover componente')} />
+        <Row label={t('mov_elevacao_z')} htmlFor="p-comp-z">
+          <NumField id="p-comp-z" value={z.misto ? null : z.valor} mixed={z.misto} quantity="length" onCommit={(v) => alterar({ z: v }, 'mov_undo_mover')} />
         </Row>
-        <Row label="Rotação" htmlFor="p-comp-rot">
+        <Row label={t('mov_rotacao')} htmlFor="p-comp-rot">
           <NumField
             id="p-comp-rot"
             value={radianosParaGraus(rotacao.valor)}
             mixed={rotacao.misto}
             suffix="°"
             decimals={2}
-            onCommit={(v) => alterar({ rotation: grausParaRadianos(v) }, 'Girar componente')}
+            onCommit={(v) => alterar({ rotation: grausParaRadianos(v) }, 'mov_undo_girar')}
           />
         </Row>
-        <Row label="Espelhado">
-          <Check id="p-comp-mirror" checked={espelhado.valor} mixed={espelhado.misto} onChange={(v) => alterar({ mirrored: v }, 'Espelhar componente')} />
+        <Row label={t('mov_espelhado')}>
+          <Check id="p-comp-mirror" checked={espelhado.valor} mixed={espelhado.misto} onChange={(v) => alterar({ mirrored: v }, 'mov_undo_espelhar')} />
         </Row>
       </Group>
-      <Group title="Resultados" open={caixas.length > 0}>
+      <Group title={t('mov_grp_resultados')} open={caixas.length > 0}>
         {dimensoes ? (
           <>
-            <Row label="Largura">{medida(dimensoes.largura)}</Row>
-            <Row label="Profundidade">{medida(dimensoes.profundidade)}</Row>
-            <Row label="Altura">{medida(dimensoes.altura)}</Row>
+            <Row label={t('mov_largura')}>{medida(dimensoes.largura)}</Row>
+            <Row label={t('mov_profundidade')}>{medida(dimensoes.profundidade)}</Row>
+            <Row label={t('mov_altura')}>{medida(dimensoes.altura)}</Row>
           </>
         ) : (
-          <div className="hint">Sem geometria resolvida para a seleção.</div>
+          <div className="hint">{t('mov_sem_geometria')}</div>
         )}
-        <Row label="Peças"><span className="val">{pecas}</span></Row>
+        <Row label={t('mov_pecas')}><span className="val">{pecas}</span></Row>
       </Group>
-      <Group title="Dados de identidade" open={false}>
-        <Row label="Marca" htmlFor="p-comp-mark">
-          <TextField id="p-comp-mark" value={marca.valor} mixed={marca.misto} onCommit={(v) => alterar({ mark: v }, 'Alterar marca')} />
+      <Group title={t('mov_grp_identidade')} open={false}>
+        <Row label={t('mov_marca')} htmlFor="p-comp-mark">
+          <TextField id="p-comp-mark" value={marca.valor} mixed={marca.misto} onCommit={(v) => alterar({ mark: v }, 'mov_undo_marca')} />
         </Row>
       </Group>
       {avisos.length > 0 && (
-        <Group title={`Avisos (${avisos.length})`}>
+        <Group title={tm('mov_avisos_n', { n: avisos.length })}>
           {avisos.map((e) => (
             <div className="prow" key={`${e.onde}|${e.mensagem}`} style={{ alignItems: 'start' }}>
               <span className="lbl" style={{ color: 'var(--danger, #b42318)' }}>{e.mensagem}</span>

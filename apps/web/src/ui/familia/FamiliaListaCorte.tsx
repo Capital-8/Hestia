@@ -2,6 +2,7 @@ import { pecasParaCorte, planoDeCorte, type LinhaLista, type PecaParaCorte } fro
 import { chapaPorId, type Catalogo } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
 import { CampoNumero } from './FamiliaParametrosCampos.tsx';
+import { tm } from '../moveisTextos.ts';
 import { pecasForaDoPlano } from './familiaCorte.ts';
 import {
   chapasPresentes,
@@ -20,7 +21,7 @@ interface PropsCorte {
 }
 
 function nomeCurto(peca: PecaParaCorte | undefined, indice: number): string {
-  const nome = peca?.id ?? `Peça ${indice + 1}`;
+  const nome = peca?.id ?? tm('mov_peca_n', { n: indice + 1 });
   return nome.length > 18 ? `${nome.slice(0, 17)}…` : nome;
 }
 
@@ -31,7 +32,7 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
   const escolhida = chapas.find((chapa) => chapa.id === sel) ?? chapas[0];
 
   if (escolhida === undefined) {
-    return <p className="fam-hint">Nenhuma peça usa uma chapa do catálogo; não há plano de corte.</p>;
+    return <p className="fam-hint">{tm('mov_corte_sem_chapa')}</p>;
   }
 
   const chapa = chapaPorId(catalogo, escolhida.id) ?? escolhida;
@@ -54,8 +55,8 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
   return (
     <div className="fam-lista-aba-conteudo">
       {foraDoPlano.length > 0 && (
-        <section className="fam-lista-nao-coube" role="alert" aria-label="Peças que não couberam">
-          <div className="fam-lista-nao-coube-titulo">Não couberam {foraDoPlano.length} peça(s) nesta chapa</div>
+        <section className="fam-lista-nao-coube" role="alert" aria-label={tm('mov_corte_nao_couberam_aria')}>
+          <div className="fam-lista-nao-coube-titulo">{tm('mov_corte_nao_couberam', { n: foraDoPlano.length })}</div>
           <ul>
             {foraDoPlano.map((item, indice) => (
               <li key={`${item.nome}-${indice}`}>
@@ -71,16 +72,16 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
 
       <div className="fam-lista-barra">
         <label>
-          Chapa
+          {tm('mov_chapa')}
           <select className="fam-f" value={chapa.id} onChange={(e) => setSel(e.target.value)}>
             {chapas.map((opcao) => <option key={opcao.id} value={opcao.id}>{opcao.nome}</option>)}
           </select>
         </label>
         <label>
-          Serra (mm)
+          {tm('mov_serra')}
           <CampoNumero
             valor={serra}
-            ariaLabel="Serra (mm)"
+            ariaLabel={tm('mov_serra')}
             classe="fam-lista-campo"
             aoGravar={(n) => {
               if (n === undefined || n < 0) return false;
@@ -92,26 +93,26 @@ export function FamiliaListaCorte({ linhas, catalogo }: PropsCorte): ReactElemen
       </div>
 
       <div className="fam-lista-corte-resumo">
-        <span>Aproveitamento: <b>{textoPercentual(geometria.aproveitamento)}</b></span>
-        <span>Chapas: <b>{geometria.chapas.length}</b></span>
-        <span>Peças no plano: <b>{pecas.length}</b></span>
+        <span>{tm('mov_aproveitamento')} <b>{textoPercentual(geometria.aproveitamento)}</b></span>
+        <span>{tm('mov_orc_chapas')}: <b>{geometria.chapas.length}</b></span>
+        <span>{tm('mov_pecas_no_plano')} <b>{pecas.length}</b></span>
       </div>
 
       {fora > 0 && (
-        <p className="fam-hint">{fora} peça(s) de outra chapa ou sem chapa ficaram de fora deste plano.</p>
+        <p className="fam-hint">{tm('mov_corte_fora', { n: fora })}</p>
       )}
 
       <div className="fam-lista-chapas">
         {geometria.chapas.map((cortada, indice) => (
           <div className="fam-lista-chapa" key={indice}>
             <div className="fam-lista-chapa-topo">
-              Chapa {indice + 1} · {textoMm(cortada.largura)} × {textoMm(cortada.altura)} mm
+              {tm('mov_chapa_n', { n: indice + 1 })} · {textoMm(cortada.largura)} × {textoMm(cortada.altura)} mm
             </div>
             <svg
               viewBox={`0 0 ${cortada.largura} ${cortada.altura}`}
               preserveAspectRatio="xMidYMid meet"
               role="img"
-              aria-label={`Chapa ${indice + 1} do plano de corte`}
+              aria-label={tm('mov_chapa_plano_aria', { n: indice + 1 })}
             >
               <rect className="fam-lista-chapa-bruta" x={0} y={0} width={cortada.largura} height={cortada.altura} />
               <rect className="fam-lista-chapa-util" x={cortada.util.x} y={cortada.util.y} width={cortada.util.w} height={cortada.util.h} />

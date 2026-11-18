@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { useState, type ReactElement } from 'react';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
+import { useT } from '../editor/i18n.ts';
+import { tm } from './moveisTextos.ts';
 import { familiasDaBiblioteca, familiasDoProjeto, familiaEscolhida } from './ComponentOptionsBar.tsx';
 import { NumField } from './fields.tsx';
 import { comprimentoDaFace, criarFila, previaDaFila, type EntradaDaFila, type LadoDaParede, type LinhaDaFilaNaTela } from './montarFilaLogica.ts';
@@ -40,7 +42,7 @@ function nomeDaFamilia(p: Project, id: Id): string {
 }
 
 function nomeDoTipo(p: Project, familiaId: Id, tipoId: Id | null): string {
-  if (!tipoId) return 'Padrão';
+  if (!tipoId) return tm('mov_padrao_familia');
   const familia = p.componentFamilies?.[familiaId] ?? familiaDaBiblioteca(familiaId);
   return familia?.tipos.find((tp) => tp.id === tipoId)?.nome ?? tipoId;
 }
@@ -72,16 +74,17 @@ function linhasDaPrevia(p: Project, resultado: ResultadoDeFila, inicio: number):
 function SemParede({ fechar }: { fechar: () => void }): ReactElement {
   return (
     <div className="fam-dback" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) fechar(); }}>
-      <div className="fam-dwin" role="dialog" aria-label="Montar fila">
-        <div className="fam-dt"><span>Montar fila</span><button aria-label="Fechar" onClick={fechar}>✕</button></div>
-        <div className="fam-db"><p className="mf-aviso">Selecione uma parede reta</p></div>
-        <div className="fam-df"><span style={{ flex: 1 }} /><button className="fam-bt" onClick={fechar}>Fechar</button></div>
+      <div className="fam-dwin" role="dialog" aria-label={tm('mov_montar_fila')}>
+        <div className="fam-dt"><span>{tm('mov_montar_fila')}</span><button aria-label={tm('mov_fechar')} onClick={fechar}>✕</button></div>
+        <div className="fam-db"><p className="mf-aviso">{tm('mov_selecione_parede')}</p></div>
+        <div className="fam-df"><span style={{ flex: 1 }} /><button className="fam-bt" onClick={fechar}>{tm('mov_fechar')}</button></div>
       </div>
     </div>
   );
 }
 
 function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: Id }): ReactElement {
+  const { t } = useT();
   const fechar = useMontarFila((s) => s.fechar);
   const formatar = useFormat();
   const doProjeto = familiasDoProjeto(p);
@@ -125,65 +128,65 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
       setErro(resultado.erro);
       return;
     }
-    useUi.setState({ status: `Fila criada: ${resultado.ids.length} módulo(s). Ctrl+Z desfaz.` });
+    useUi.setState({ status: { key: 'mov_fila_criada', args: { n: resultado.ids.length } } });
     fechar();
   };
 
   return (
     <div className="fam-dback" role="presentation" onPointerDown={(e) => { if (e.target === e.currentTarget) fechar(); }}>
-      <div className="fam-dwin larga" role="dialog" aria-label="Montar fila">
-        <div className="fam-dt"><span>Montar fila · {parede.mark || parede.id}</span><button aria-label="Fechar" onClick={fechar}>✕</button></div>
+      <div className="fam-dwin larga" role="dialog" aria-label={t('mov_montar_fila')}>
+        <div className="fam-dt"><span>{t('mov_montar_fila')} · {parede.mark || parede.id}</span><button aria-label={t('mov_fechar')} onClick={fechar}>✕</button></div>
         <div className="fam-db mf-corpo">
           <div className="mf-topo">
-            <span className="mf-parede"><b>Parede</b> {parede.mark || parede.id} <span className="fam-hint">{tipoDaParede}</span></span>
+            <span className="mf-parede"><b>{t('mov_parede')}</b> {parede.mark || parede.id} <span className="fam-hint">{tipoDaParede}</span></span>
             <label>
-              Lado livre
+              {t('mov_lado_livre')}
               <select className="fam-f" value={lado} onChange={(e) => setLado(e.target.value as LadoDaParede)}>
-                <option value="esquerdo">Esquerdo do eixo</option>
-                <option value="direito">Direito do eixo</option>
+                <option value="esquerdo">{t('mov_lado_esquerdo')}</option>
+                <option value="direito">{t('mov_lado_direito')}</option>
               </select>
             </label>
           </div>
 
           <div className="mf-campos">
             <label>
-              Início
+              {t('mov_inicio')}
               <NumField id="mf-inicio" value={inicio} quantity="length" min={0} onCommit={setInicio} />
             </label>
             <label>
-              Comprimento
+              {t('mov_comprimento')}
               <NumField id="mf-comprimento" value={comprimento} quantity="length" min={0.01} onCommit={setComprimento} />
             </label>
             <label className="mf-check">
               <input type="checkbox" checked={preencher} onChange={(e) => setPreencher(e.target.checked)} />
-              Preencher o vão
+              {t('mov_preencher_vao')}
             </label>
           </div>
 
           <div className="mf-linhas">
             <div className="mf-linhas-cab">
-              <b>Módulos</b>
-              <button type="button" className="fam-bt" disabled={todas.length === 0} onClick={adicionar}>Adicionar</button>
+              <b>{t('mov_modulos')}</b>
+              <button type="button" className="fam-bt" disabled={todas.length === 0} onClick={adicionar}>{t('mov_adicionar_modulo')}</button>
             </div>
-            {linhas.length === 0 && <p className="fam-hint">Adicione ao menos um módulo para montar a fila.</p>}
+            {linhas.length === 0 && <p className="fam-hint">{t('mov_adicione_modulo')}</p>}
             {linhas.map((linha, indice) => {
               const familia = familiaEscolhida(p, linha.familyId);
               return (
                 <div className="mf-linha" key={indice}>
-                  <select className="fam-f" aria-label="Família" value={linha.familyId} onChange={(e) => alterarLinha(indice, { familyId: e.target.value, typeId: null })}>
+                  <select className="fam-f" aria-label={t('mov_familia')} value={linha.familyId} onChange={(e) => alterarLinha(indice, { familyId: e.target.value, typeId: null })}>
                     {doProjeto.length > 0 && (
-                      <optgroup label="Projeto">
+                      <optgroup label={t('mov_grp_projeto')}>
                         {doProjeto.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
                       </optgroup>
                     )}
                     {daBiblioteca.length > 0 && (
-                      <optgroup label="Biblioteca">
+                      <optgroup label={t('mov_biblioteca')}>
                         {daBiblioteca.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
                       </optgroup>
                     )}
                   </select>
-                  <select className="fam-f" aria-label="Tipo" value={linha.typeId ?? ''} onChange={(e) => alterarLinha(indice, { typeId: e.target.value === '' ? null : e.target.value })}>
-                    <option value="">Padrão da família</option>
+                  <select className="fam-f" aria-label={t('mov_tipo')} value={linha.typeId ?? ''} onChange={(e) => alterarLinha(indice, { typeId: e.target.value === '' ? null : e.target.value })}>
+                    <option value="">{t('mov_padrao_familia')}</option>
                     {familia?.tipos.map((tp) => <option key={tp.id} value={tp.id}>{tp.nome}</option>)}
                   </select>
                   <NumField
@@ -191,14 +194,14 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
                     value={linha.largura ?? null}
                     quantity="length"
                     min={0.01}
-                    placeholder="Do tipo"
+                    placeholder={t('mov_do_tipo')}
                     onCommit={(v) => alterarLinha(indice, { largura: v })}
                     onClear={() => alterarLinha(indice, { largura: undefined })}
                   />
                   <div className="mf-acoes">
-                    <button type="button" className="fam-bt" title="Subir" aria-label="Subir" disabled={indice === 0} onClick={() => mover(indice, -1)}>↑</button>
-                    <button type="button" className="fam-bt" title="Descer" aria-label="Descer" disabled={indice === linhas.length - 1} onClick={() => mover(indice, 1)}>↓</button>
-                    <button type="button" className="fam-bt" title="Remover" aria-label="Remover" onClick={() => remover(indice)}>Remover</button>
+                    <button type="button" className="fam-bt" title={t('mov_subir')} aria-label={t('mov_subir')} disabled={indice === 0} onClick={() => mover(indice, -1)}>↑</button>
+                    <button type="button" className="fam-bt" title={t('mov_descer')} aria-label={t('mov_descer')} disabled={indice === linhas.length - 1} onClick={() => mover(indice, 1)}>↓</button>
+                    <button type="button" className="fam-bt" title={t('mov_remover')} aria-label={t('mov_remover')} onClick={() => remover(indice)}>{t('mov_remover')}</button>
                   </div>
                 </div>
               );
@@ -209,7 +212,7 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
             <div className="fam-tabela mf-previa">
               <table>
                 <thead>
-                  <tr><th>Módulo</th><th className="n">Largura</th><th className="n">Posição</th></tr>
+                  <tr><th>{t('mov_modulo')}</th><th className="n">{t('mov_largura')}</th><th className="n">{t('mov_grp_posicao')}</th></tr>
                 </thead>
                 <tbody>
                   {linhasDaPrevia(p, previa, inicio).map((linha) => (
@@ -226,14 +229,14 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
 
           {previa && (previa.painel > 0 || previa.sobra > 0) && (
             <div className="mf-contas">
-              {previa.painel > 0 && <span>Painel de enchimento: <b>{formatar('length', previa.painel, { trim: true, decimals: 2 })}</b></span>}
-              {previa.sobra > 0 && <span>Sobra: <b>{formatar('length', previa.sobra, { trim: true, decimals: 2 })}</b></span>}
+              {previa.painel > 0 && <span>{t('mov_painel_enchimento')}: <b>{formatar('length', previa.painel, { trim: true, decimals: 2 })}</b></span>}
+              {previa.sobra > 0 && <span>{t('mov_sobra')}: <b>{formatar('length', previa.sobra, { trim: true, decimals: 2 })}</b></span>}
             </div>
           )}
 
           {previa && previa.avisos.length > 0 && (
             <div className="mf-avisos" role="status">
-              <b>Avisos</b>
+              <b>{t('mov_avisos')}</b>
               <ul>{previa.avisos.map((aviso, indice) => <li key={indice}>{aviso}</li>)}</ul>
             </div>
           )}
@@ -241,10 +244,10 @@ function Conteudo({ p, parede, levelId }: { p: Project; parede: Wall; levelId: I
           {erro && <p className="mf-aviso" role="alert">{erro}</p>}
         </div>
         <div className="fam-df">
-          <span className="fam-hint">{previa ? `${previa.componentes.length} módulo(s) na fila` : 'Sem prévia'}</span>
+          <span className="fam-hint">{previa ? t('mov_modulos_na_fila', { n: previa.componentes.length }) : t('mov_sem_previa')}</span>
           <span style={{ flex: 1 }} />
-          <button className="fam-bt" onClick={fechar}>Cancelar</button>
-          <button className="fam-bt pri" disabled={!podeCriar} onClick={criar}>Criar</button>
+          <button className="fam-bt" onClick={fechar}>{tm('dlc_btn_cancel')}</button>
+          <button className="fam-bt pri" disabled={!podeCriar} onClick={criar}>{t('mov_criar')}</button>
         </div>
       </div>
     </div>
