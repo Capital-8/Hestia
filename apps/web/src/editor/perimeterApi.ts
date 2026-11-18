@@ -39,7 +39,7 @@ export interface PerimeterActions {
   /** Abre o modo: criar um novo elemento do alvo, a partir de um rascunho vazio. */
   begin: (target: SketchTarget) => void;
   /** "Editar perímetro" de um elemento existente. */
-  edit: (elementId: Id) => void;
+  edit: (elementId: Id, qual?: 'base' | 'topo') => void;
   setShape: (s: PerimeterShape) => void;
   setLineKind: (k: PerimeterLineKind) => void;
   /** Liga/desliga um comando de Modificar sobre as linhas do esboço (null volta à seleção). */

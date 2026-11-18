@@ -117,3 +117,27 @@ describe('editar o contorno de uma massa', () => {
     expect(l[0]!.y).toBeCloseTo(-1, 12);
   });
 });
+
+describe('mistura: base e topo pelo esboço', () => {
+  const quadrado = [{ x: -2, y: -2 }, { x: 2, y: -2 }, { x: 2, y: 2 }, { x: -2, y: 2 }];
+  it('base quadrado 4x4 + topo retângulo 2x2 deslocado: 2 seções z 0 e 6, perfis diferentes, origem no centro da base', () => {
+    const store = new ProjectStore(createEmptyProject());
+    const r = commitPerimeter(store.project, draft(rect(10, 10, 12, 12)), { levelId: 'lv_0', massa: { altura: 6, baseRing: quadrado } });
+    const m = massa(store, aplica(store, r));
+    expect(m.secoes.map((x) => x.z)).toEqual([0, 6]);
+    expect(m.origem).toEqual({ x: 0, y: 0 });
+    expect(m.secoes[0]!.perfil).toEqual({ forma: 'livre', pontos: quadrado });
+    expect(m.secoes[1]!.perfil).toEqual({ forma: 'livre', pontos: [{ x: -1, y: -1 }, { x: 1, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }] });
+    expect([m.secoes[1]!.dx, m.secoes[1]!.dy]).toEqual([11, 11]);
+  });
+  it('Editar contorno do TOPO troca só a última seção; da BASE troca só a base', () => {
+    const store = new ProjectStore(createEmptyProject());
+    const id = aplica(store, commitPerimeter(store.project, draft(rect(10, 10, 12, 12)), { levelId: 'lv_0', massa: { altura: 6, baseRing: quadrado } }));
+    const topoAntes = massa(store, id).secoes[1]!.perfil;
+    const d = draftFromElement(store.project, id, 'topo')!;
+    expect(d.segs).toHaveLength(4);
+    aplica(store, commitPerimeter(store.project, { ...addSegs(newDraft('mass'), rect(0, 0, 3, 3)), editing: id }, { levelId: 'lv_0', massa: { altura: 6, editar: 'base' } }));
+    expect(massa(store, id).secoes[1]!.perfil).toEqual(topoAntes);
+    expect(massa(store, id).secoes[0]!.perfil).not.toEqual({ forma: 'livre', pontos: quadrado });
+  });
+});
