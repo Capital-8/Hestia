@@ -2,6 +2,7 @@ import { resolverComponente, type ErroResolucao } from '@hestia/engine';
 import {
   isComponent,
   normalizarAngulo,
+  type ChaveAcabamentoInstancia,
   type Component,
   type Familia,
   type Id,
@@ -10,6 +11,7 @@ import {
   type ProjectStore,
   type Valor,
 } from '@hestia/model';
+import { alinharFrenteEProfundidade } from './viewport/gizmoComponenteOps.ts';
 
 /*
  * Ações do painel de propriedades de um componente colocado (E8-web-b). Ficam fora do JSX para poderem ser testadas
@@ -112,4 +114,42 @@ export function aplicarValorDeParametro(store: ProjectStore, ids: readonly Id[],
     });
   }
   return { ok: true };
+}
+
+/**
+ * Alinha a frente e a profundidade dos componentes selecionados em uma única transação:
+ * com 2+ selecionados, alinha os demais ao primeiro selecionado; com 1, ao vizinho paralelo mais próximo.
+ */
+export function aplicarAlinhamentoFrente(store: ProjectStore, ids: readonly Id[]): number {
+  const patches = alinharFrenteEProfundidade(store.project, ids);
+  if (patches.length === 0) return 0;
+  store.transaction('Alinhar frente / profundidade', () => {
+    for (const { id, patch } of patches) {
+      store.exec({ type: 'updateComponent', id, patch });
+    }
+  });
+  return patches.length;
+}
+
+/**
+ * Grava ou limpa (`acabamentoId === ''`) uma chave de acabamento 3D (`acabCorpo`, `acabPorta` ou `acabTampo`)
+ * em `values` dos componentes selecionados dentro de uma única transação.
+ */
+export function aplicarAcabamentoComponentes(
+  store: ProjectStore,
+  ids: readonly Id[],
+  chave: ChaveAcabamentoInstancia,
+  acabamentoId: string,
+): void {
+  const candidatos: Component[] = [];
+  for (const id of ids) {
+    const atual = store.project.elements[id];
+    if (!isComponent(atual)) continue;
+    candidatos.push(comValorDeParametro(atual, chave, acabamentoId === '' ? null : acabamentoId));
+  }
+  if (candidatos.length === 0) return;
+  const rotulo = acabamentoId === '' ? 'Restaurar acabamento padrão' : 'Alterar acabamento 3D';
+  store.transaction(rotulo, () => {
+    for (const c of candidatos) store.exec({ type: 'updateComponent', id: c.id, patch: { values: c.values } });
+  });
 }

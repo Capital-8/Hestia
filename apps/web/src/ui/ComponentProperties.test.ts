@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { resolverComponente } from '@hestia/engine';
 import { FAMILIA_ARMARIO, ProjectStore, createEmptyProject, type Component, type Project } from '@hestia/model';
 import {
+  aplicarAcabamentoComponentes,
+  aplicarAlinhamentoFrente,
   aplicarPatchDeComponente,
   aplicarValorDeParametro,
   comumDe,
@@ -108,5 +110,42 @@ describe('ações do painel de propriedades do componente', () => {
     expect(metrosParaMilimetros(0.8)).toBe(800);
     expect(milimetrosParaMetros(800)).toBeCloseTo(0.8, 12);
     expect(radianosParaGraus(grausParaRadianos(180))).toBeCloseTo(180, 12);
+  });
+
+  it('alinha frente e profundidade em uma única transação desfazível', () => {
+    const store = new ProjectStore(
+      projeto(
+        componente('c1', { x: 0, y: 0, values: { P: 700 }, order: 1 }),
+        componente('c2', { x: 1, y: 0.2, values: { P: 500 }, order: 2 }),
+      ),
+    );
+    expect(aplicarAlinhamentoFrente(store, ['c1', 'c2'])).toBe(1);
+    expect(ler(store, 'c2').y).toBeCloseTo(0, 6);
+    expect(ler(store, 'c2').values?.P).toBe(700);
+    store.undo();
+    expect(ler(store, 'c2').y).toBeCloseTo(0.2, 6);
+    expect(ler(store, 'c2').values?.P).toBe(500);
+  });
+
+  it('aplica e limpa acabamentos 3D (corpo, porta e tampo) via store.transaction', () => {
+    const store = new ProjectStore(projeto(componente('c1'), componente('c2')));
+    aplicarAcabamentoComponentes(store, ['c1', 'c2'], 'acabCorpo', 'comp_freijo');
+    aplicarAcabamentoComponentes(store, ['c1', 'c2'], 'acabPorta', 'comp_offwhite');
+    aplicarAcabamentoComponentes(store, ['c1', 'c2'], 'acabTampo', 'comp_calacatta');
+    expect(ler(store, 'c1').values).toEqual({
+      acabCorpo: 'comp_freijo',
+      acabPorta: 'comp_offwhite',
+      acabTampo: 'comp_calacatta',
+    });
+    expect(ler(store, 'c2').values).toEqual({
+      acabCorpo: 'comp_freijo',
+      acabPorta: 'comp_offwhite',
+      acabTampo: 'comp_calacatta',
+    });
+
+    aplicarAcabamentoComponentes(store, ['c1'], 'acabCorpo', '');
+    aplicarAcabamentoComponentes(store, ['c1'], 'acabPorta', '');
+    aplicarAcabamentoComponentes(store, ['c1'], 'acabTampo', '');
+    expect(ler(store, 'c1').values).toBeUndefined();
   });
 });

@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import { caixaDoComponente, resolverComponente } from '@hestia/engine';
-import { type Id, type Parametro, type Valor } from '@hestia/model';
+import { ACABAMENTOS_MOVEIS, type ChaveAcabamentoInstancia, type Id, type Parametro, type Valor } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row, TextField } from './fields.tsx';
@@ -8,6 +8,8 @@ import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
 import {
+  aplicarAcabamentoComponentes,
+  aplicarAlinhamentoFrente,
   aplicarPatchDeComponente,
   aplicarValorDeParametro,
   comumDe,
@@ -23,6 +25,12 @@ import {
 
 /** Sentinela dos `select` quando os valores diferem (não pode ser confundida com uma opção real). */
 const VALOR_MISTO = '__misto__';
+
+const SELETORES_ACABAMENTO: ReadonlyArray<{ chave: ChaveAcabamentoInstancia; rotulo: string }> = [
+  { chave: 'acabCorpo', rotulo: 'Corpo' },
+  { chave: 'acabPorta', rotulo: 'Portas / Frentes' },
+  { chave: 'acabTampo', rotulo: 'Tampo' },
+];
 
 type Caixa = NonNullable<ReturnType<typeof caixaDoComponente>>;
 
@@ -295,6 +303,56 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
         </Group>
       )}
       {familia && <ComponentPropEscolhas familia={familia} components={components} />}
+      <Group title="Alinhamento e Acabamentos 3D">
+        <Row label="Alinhamento">
+          <button
+            type="button"
+            className="btn small"
+            title="Alinha a frente e a profundidade com o primeiro selecionado ou o vizinho paralelo mais próximo"
+            onClick={() => {
+              const n = aplicarAlinhamentoFrente(editor.store, components.map((c) => c.id));
+              useUi.setState({
+                status: n > 0
+                  ? `${n} componente(s) alinhado(s) pela frente.`
+                  : 'Nenhum componente paralelo para alinhar.',
+              });
+            }}
+          >
+            Alinhar frente / profundidade
+          </button>
+        </Row>
+        {SELETORES_ACABAMENTO.map(({ chave, rotulo }) => {
+          const atual = comumDe(components, (c) => {
+            const v = c.values?.[chave];
+            return typeof v === 'string' ? v : '';
+          });
+          const id = `p-comp-${chave}`;
+          return (
+            <Row key={chave} label={rotulo} htmlFor={id}>
+              <select
+                id={id}
+                className="select"
+                value={atual.misto ? VALOR_MISTO : atual.valor}
+                onChange={(e) => {
+                  if (e.target.value === VALOR_MISTO) return;
+                  aplicarAcabamentoComponentes(
+                    editor.store,
+                    components.map((c) => c.id),
+                    chave,
+                    e.target.value,
+                  );
+                }}
+              >
+                {atual.misto && <option value={VALOR_MISTO} disabled>variados</option>}
+                <option value="">Padrão do móvel</option>
+                {ACABAMENTOS_MOVEIS.map((a) => (
+                  <option key={a.id} value={a.id}>{a.nome}</option>
+                ))}
+              </select>
+            </Row>
+          );
+        })}
+      </Group>
       <Group title="Posição">
         <Row label="X" htmlFor="p-comp-x">
           <NumField id="p-comp-x" value={x.misto ? null : x.valor} mixed={x.misto} quantity="length" onCommit={(v) => alterar({ x: v }, 'Mover componente')} />

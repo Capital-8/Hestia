@@ -1,5 +1,5 @@
-import { caixaLocalDoComponente, resolverComponente } from '@hestia/engine';
-import { isComponent, levelElevation, normalizarAngulo, type Familia, type Id, type Project } from '@hestia/model';
+import { caixaLocalDoComponente, corposDoNivel, resolverComponente, type Corpo } from '@hestia/engine';
+import { isComponent, levelElevation, normalizarAngulo, type Familia, type Id, type Project, type Valor } from '@hestia/model';
 import type { AlvoComponente3D } from '@hestia/render';
 
 const PASSO_15_GRAUS = Math.PI / 12;
@@ -185,4 +185,193 @@ export function deslocamentoGizmoNoEixoM(
     (pontoAtual.z - pontoInicio.z) * eixo.z;
   const passo = passoMm > 0 ? passoMm : 1;
   return (Math.round((brutoM * 1000) / passo) * passo) / 1000;
+}
+
+const TOL_PARALELA = 1e-4;
+
+function direcaoFrenteMundo(rotation: number): { fx: number; fy: number } {
+  return { fx: Math.sin(rotation), fy: -Math.cos(rotation) };
+}
+
+function frentesParalelas(rotA: number, rotB: number): boolean {
+  const a = direcaoFrenteMundo(rotA);
+  const b = direcaoFrenteMundo(rotB);
+  return a.fx * b.fx + a.fy * b.fy >= 1 - TOL_PARALELA;
+}
+
+function projecaoFrenteNoEixo(
+  x: number,
+  y: number,
+  rotation: number,
+  minYLocal: number,
+  fx: number,
+  fy: number,
+): number {
+  const sen = Math.sin(rotation);
+  const cos = Math.cos(rotation);
+  const px = x - minYLocal * sen;
+  const py = y + minYLocal * cos;
+  return px * fx + py * fy;
+}
+
+function centroCorpoMundoXY(v: Corpo): { x: number; y: number } {
+  const cxLocal = (v.caixa.min[0] + v.caixa.max[0]) / 2;
+  const gx = v.pose.mirrored ? -cxLocal : cxLocal;
+  const gy = (v.caixa.min[1] + v.caixa.max[1]) / 2;
+  const cos = Math.cos(v.pose.rotation);
+  const sen = Math.sin(v.pose.rotation);
+  return {
+    x: v.pose.x + gx * cos - gy * sen,
+    y: v.pose.y + gx * sen + gy * cos,
+  };
+}
+
+/**
+ * Compensa a posição `(x, y)` no plano quando uma dimensão do gizmo muda a partir do estado inicial:
+ * para `dim_P`, desloca a origem ao longo da direção da frente `(sin(rot), -cos(rot))` por
+ * `deltaM = (novaMm - medidaInicialMm) / 1000`, mantendo o fundo colado na parede e avançando a frente.
+ */
+export function compensarPosicaoAoAlterarMedida(
+  alvo: Pick<AlvoComponente3D, 'x' | 'y' | 'rotation'>,
+  alca: 'dim_L' | 'dim_A' | 'dim_P',
+  medidaInicialMm: number,
+  novaMm: number,
+): { x: number; y: number } {
+  if (alca !== 'dim_P') return { x: alvo.x, y: alvo.y };
+  const deltaM = (novaMm - medidaInicialMm) / 1000;
+  const { fx, fy } = direcaoFrenteMundo(alvo.rotation);
+  return {
+    x: alvo.x + deltaM * fx,
+    y: alvo.y + deltaM * fy,
+  };
+}
+
+/**
+ * Detecta frentes paralelas de outros componentes do nível e ajusta `novaMm` exatamente para alinhar
+ * a face frontal quando a distância até a linha da frente do vizinho for `<= toleranciaM` (padrão 8 cm).
+ */
+export function snapProfundidadeNoVizinho(
+  alvo: AlvoComponente3D,
+  medidaInicialMm: number,
+  novaMm: number,
+  vizinhos: readonly Corpo[],
+  toleranciaM = 0.08,
+): number {
+  const { fx, fy } = direcaoFrenteMundo(alvo.rotation);
+  const projInicio = projecaoFrenteNoEixo(alvo.x, alvo.y, alvo.rotation, alvo.caixa.min[1], fx, fy);
+  const projCandidata = projInicio + (novaMm - medidaInicialMm) / 1000;
+
+  let melhorDist = toleranciaM + 1e-9;
+  let melhorMm: number | null = null;
+  for (const v of vizinhos) {
+    if (v.id === alvo.id) continue;
+    if (!frentesParalelas(alvo.rotation, v.pose.rotation)) continue;
+    const projViz = projecaoFrenteNoEixo(v.pose.x, v.pose.y, v.pose.rotation, v.caixa.min[1], fx, fy);
+    const distM = Math.abs(projViz - projCandidata);
+    if (distM > toleranciaM || distM >= melhorDist) continue;
+    const mmAlinhada = Math.round((medidaInicialMm + (projViz - projInicio) * 1000) * 1000) / 1000;
+    if (mmAlinhada <= 0) continue;
+    melhorDist = distM;
+    melhorMm = mmAlinhada;
+  }
+  return melhorMm ?? novaMm;
+}
+
+export interface PatchAlinhamentoComponente {
+  id: Id;
+  patch: {
+    x: number;
+    y: number;
+    values: Record<string, Valor>;
+  };
+}
+
+function patchAlinharParaProjecao(
+  p: Project,
+  alvo: AlvoComponente3D,
+  projReferencia: number,
+): PatchAlinhamentoComponente | null {
+  if (!alvo.editavelP || alvo.Pmm === undefined) return null;
+  const c = p.elements[alvo.id];
+  if (!isComponent(c)) return null;
+
+  const { fx, fy } = direcaoFrenteMundo(alvo.rotation);
+  const projAlvo = projecaoFrenteNoEixo(alvo.x, alvo.y, alvo.rotation, alvo.caixa.min[1], fx, fy);
+  const brutaMm = Math.round((alvo.Pmm + (projReferencia - projAlvo) * 1000) * 1000) / 1000;
+  const limites = limitesParametroComponente(p, alvo.id, 'P');
+  const minLim = limites.min ?? MIN_MEDIDA_PADRAO_MM;
+  const maxLim = limites.max !== undefined ? Math.max(minLim, limites.max) : Infinity;
+  const novaMm = Math.min(maxLim, Math.max(minLim, brutaMm));
+  if (Math.abs(novaMm - alvo.Pmm) < 1e-3) return null;
+
+  const pos = compensarPosicaoAoAlterarMedida(alvo, 'dim_P', alvo.Pmm, novaMm);
+  return {
+    id: c.id,
+    patch: {
+      x: pos.x,
+      y: pos.y,
+      values: { ...(c.values ?? {}), P: novaMm },
+    },
+  };
+}
+
+/**
+ * Calcula os patches `{ id, patch }` para alinhar a frente e a profundidade dos componentes selecionados:
+ * com 2+ selecionados, alinha os demais ao primeiro selecionado; com 1 selecionado, alinha ao móvel vizinho
+ * paralelo mais próximo no mesmo nível (mantendo o fundo fixo na parede).
+ */
+export function alinharFrenteEProfundidade(p: Project, ids: readonly Id[]): PatchAlinhamentoComponente[] {
+  const vistos = new Set<Id>();
+  const alvos: AlvoComponente3D[] = [];
+  for (const id of ids) {
+    if (vistos.has(id)) continue;
+    vistos.add(id);
+    const a = alvoComponente3D(p, id);
+    if (a) alvos.push(a);
+  }
+  if (alvos.length === 0) return [];
+
+  if (alvos.length >= 2) {
+    const ref = alvos[0]!;
+    const patches: PatchAlinhamentoComponente[] = [];
+    for (let i = 1; i < alvos.length; i++) {
+      const alvo = alvos[i]!;
+      if (!frentesParalelas(alvo.rotation, ref.rotation)) continue;
+      const { fx, fy } = direcaoFrenteMundo(alvo.rotation);
+      const projRef = projecaoFrenteNoEixo(ref.x, ref.y, ref.rotation, ref.caixa.min[1], fx, fy);
+      const patch = patchAlinharParaProjecao(p, alvo, projRef);
+      if (patch) patches.push(patch);
+    }
+    return patches;
+  }
+
+  const alvo = alvos[0]!;
+  if (!alvo.editavelP || alvo.Pmm === undefined) return [];
+  const c = p.elements[alvo.id];
+  if (!isComponent(c)) return [];
+
+  const { fx, fy } = direcaoFrenteMundo(alvo.rotation);
+  const projAlvo = projecaoFrenteNoEixo(alvo.x, alvo.y, alvo.rotation, alvo.caixa.min[1], fx, fy);
+  const centroAlvo = centroComponenteMundo(alvo);
+  const limites = limitesParametroComponente(p, alvo.id, 'P');
+  const minLim = limites.min ?? MIN_MEDIDA_PADRAO_MM;
+  const maxLim = limites.max !== undefined ? Math.max(minLim, limites.max) : Infinity;
+
+  let melhorDist = Infinity;
+  let melhorProj: number | null = null;
+  for (const v of corposDoNivel(p, c.levelId, new Set([c.id]))) {
+    if (!frentesParalelas(alvo.rotation, v.pose.rotation)) continue;
+    const projViz = projecaoFrenteNoEixo(v.pose.x, v.pose.y, v.pose.rotation, v.caixa.min[1], fx, fy);
+    const brutaMm = Math.round((alvo.Pmm + (projViz - projAlvo) * 1000) * 1000) / 1000;
+    if (brutaMm < minLim || brutaMm > maxLim) continue;
+    const cv = centroCorpoMundoXY(v);
+    const dist = Math.hypot(cv.x - centroAlvo.x, cv.y - centroAlvo.y);
+    if (dist < melhorDist) {
+      melhorDist = dist;
+      melhorProj = projViz;
+    }
+  }
+  if (melhorProj === null) return [];
+  const patch = patchAlinharParaProjecao(p, alvo, melhorProj);
+  return patch ? [patch] : [];
 }

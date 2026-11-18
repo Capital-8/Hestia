@@ -1,9 +1,9 @@
 /* eslint-disable max-lines -- a vista reúne planta, 3D, corte e o editor da cota; extrair depois. */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import * as THREE from 'three';
-import { pegadaDoComponente } from '@hestia/engine';
+import { corposDoNivel, pegadaDoComponente } from '@hestia/engine';
 import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, PreviaComponente3D, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, idsNaCaixaDaTela, pickDimension, pickElement, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, sectionOpeningHandles, type AlcaGizmoComponente, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport } from '@hestia/render';
-import { formatQuantity, isComponent, levelElevation, unitsOf, view3dOf, type Id, type Project } from '@hestia/model';
+import { formatQuantity, isComponent, levelElevation, unitsOf, view3dOf, type Component, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { transfer } from '../editor/transfer.ts';
@@ -33,7 +33,7 @@ import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/in
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, girarArrasto3d, girarComponentesSelecionados, moverArrastoNoPonto, ndcDoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
-import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, deslocamentoGizmoNoEixoM, eixoDoGizmo, limitesParametroComponente } from './viewport/gizmoComponenteOps.ts';
+import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, compensarPosicaoAoAlterarMedida, deslocamentoGizmoNoEixoM, eixoDoGizmo, limitesParametroComponente, snapProfundidadeNoVizinho } from './viewport/gizmoComponenteOps.ts';
 import { GizmoInput3D, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
 import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
 import { idDaFamiliaArrastada, prepararArrastoDeFamilia, soltarDaPaleta } from '../editor/soltarFamilia.ts';
@@ -1083,7 +1083,7 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
               if (pontoAtual) {
                 const paramKey = g.alca === 'dim_L' ? 'L' : g.alca === 'dim_A' ? 'A' : 'P';
                 const limites = limitesParametroComponente(editor.project, g.alvo.id, paramKey);
-                const novaMm = calcularNovaMedidaGizmoMm(
+                let novaMm = calcularNovaMedidaGizmoMm(
                   g.alvo,
                   g.alca,
                   g.pontoInicio,
@@ -1095,6 +1095,29 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
                 );
                 const c = editor.project.elements[g.alvo.id];
                 if (isComponent(c)) {
+                  let snappou = false;
+                  let patch: Partial<Omit<Component, 'id' | 'kind' | 'order'>> = {
+                    values: { ...(c.values ?? {}), [paramKey]: novaMm },
+                  };
+                  if (g.alca === 'dim_P') {
+                    if (!e.altKey) {
+                      const vizinhos = corposDoNivel(editor.project, c.levelId, new Set([c.id]));
+                      const snapped = snapProfundidadeNoVizinho(g.alvo, g.medidaInicialMm, novaMm, vizinhos);
+                      const minLim = limites.min ?? 100;
+                      const maxLim = limites.max !== undefined ? Math.max(minLim, limites.max) : Infinity;
+                      const limitado = Math.min(maxLim, Math.max(minLim, snapped));
+                      if (limitado !== novaMm) {
+                        novaMm = limitado;
+                        snappou = true;
+                      }
+                    }
+                    const pos = compensarPosicaoAoAlterarMedida(g.alvo, g.alca, g.medidaInicialMm, novaMm);
+                    patch = {
+                      x: pos.x,
+                      y: pos.y,
+                      values: { ...(c.values ?? {}), P: novaMm },
+                    };
+                  }
                   const versao = editor.store.version;
                   editor.store.transaction(
                     'Redimensionar componente',
@@ -1102,13 +1125,14 @@ export function ViewportCanvas({ projetoDePrevia }: ViewportCanvasProps = {}): R
                       editor.store.exec({
                         type: 'updateComponent',
                         id: c.id,
-                        patch: { values: { ...(c.values ?? {}), [paramKey]: novaMm } },
+                        patch,
                       });
                     },
                     g.sessao,
                   );
                   if (editor.store.version !== versao) g.aplicou = true;
-                  useUi.setState({ status: `${paramKey}: ${novaMm} mm · Shift precisão 1 mm · Esc cancela` });
+                  const sufixoSnap = snappou ? ' (alinhado ao vizinho)' : '';
+                  useUi.setState({ status: `${paramKey}: ${Math.round(novaMm)} mm${sufixoSnap} · Shift precisão 1 mm · Alt solta encaixe · Esc cancela` });
                 }
               }
             }
