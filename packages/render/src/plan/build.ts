@@ -29,7 +29,7 @@ import { openingTagLabels } from './openingTags.ts';
 import { separateAutoLabels } from './labelCollision.ts';
 import { drawnAnnotations, noteOps, roomSeparatorStrokes } from './notes.ts';
 import { elementTagOps } from './tags.ts';
-import { openingViewOps, simboloNaCotaDoCorte, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
+import { openingViewOps, simboloDoVaoComContorno, simboloNaCotaDoCorte, tiltProjectionStrokes, wallOutlineOps, type PlanView } from './view.ts';
 import { openingPlanDetail } from './symbols.ts';
 import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type PlanPaint, type PlanStyle } from './style.ts';
 import { Limiares, type VistaComLimiares } from './limiares.ts';
@@ -229,6 +229,7 @@ function tracosDaAbertura(p: Project, o: Opening, g: OpeningGeometry, model: Ope
   const type = openingTypeById(p, o.typeId);
   if (!type) return [];
   const pt = paint[g.kind];
+  const contorno = simboloDoVaoComContorno(p, g, baseZ, cls, view?.cutZ, theme, pt, fillBase); if (contorno) return contorno;
   // O nível de detalhe pelo zoom entra nos limiares da geometria: o quadro só a refaz quando cruza 1 px = 0,012 m
   // ou 1 px = 0,004 m (ver `limiares.ts`), e a lista de desenho continua a mesma entre os limiares.
   const detail2d = openingPlanDetail(openingDetail2d(type), zoom, limiares);

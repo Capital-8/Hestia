@@ -3,7 +3,7 @@ import type { MultiPolygon, Vec2 } from '@hestia/geom';
 import { bandVolume } from './profile.ts';
 import { furosDe } from './resolveMemo.ts';
 import { openingHole } from './openingCut.ts';
-import { furarPrismaPorContorno, retornoPorContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type ResultadoRetornoVao, type VaoComContorno } from './furoContornoDespacho.ts';
+import { clienteFuroContorno, formaDoVao, furarPrismaPorContorno, retornoPorContorno, type MalhaPrismaFurada, type PedidoFuroPrisma, type ResultadoRetornoVao, type VaoComContorno } from './furoContornoDespacho.ts';
 import type { FuroContornoDaParede, LayerBand, OpeningGeometry, ResolvedLayer, ResolvedWall } from './types.ts';
 
 /**
@@ -103,4 +103,13 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
   const removido = malhas ? malhas.reduce((s, m) => s + (m.malha.volumeSemFuro - m.malha.volume), 0) : 0;
   const volume = efetivas.reduce((s, b) => s + bandVolume(b), 0) - removido + retornos.reduce((s, r) => s + r.volume, 0);
   return { bands: efetivas, malhas, retornos, removido, volume };
+}
+
+/**
+ * Área do vão de um tipo no quadro (m²): a REAL do contorno quando há forma válida e cliente do furo (o vão fura por contorno),
+ * senão `largura x altura` como sempre. A forma vem do vão bruto (`openingShapeOf`); [I] parede curva/inclinada também mostra a real.
+ */
+export function areaDoVaoDoTipo(t: Parameters<typeof formaDoVao>[0], height: number): number {
+  const { forma } = clienteFuroContorno() ? formaDoVao(t, height) : { forma: undefined };
+  return forma ? areaPerimetroDoContorno(forma).area : t.width * height;
 }

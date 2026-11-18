@@ -6,6 +6,7 @@ import type { ResolvedLevel } from './types.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
 import { cunhasDoNivel, juncaoInclinadaDaParede } from './junctionLevel.ts';
+import { areaPerimetroDoContorno, camadaFurada } from './furoContornoParede.ts';
 import { openingIsTilted, tiltFactors, tiltJoinLayerVolume } from './wallTiltQuantities.ts';
 
 export interface LayerQuantity {
@@ -48,7 +49,9 @@ export interface Quantities {
  * (decisão 0023 §1, B): quem tem prioridade maior fica com a zona comum, inclusive laje ou piso de outro nível que alcance a parede.
  */
 export function quantifyLevel(p: Project, r: ResolvedLevel): Quantities {
-  return quantifyLevelCom(p, r, despachanteDeQuantidades()?.(p, r.levelId, 'paredes') ?? null);
+  // Nível com vão por contorno: o Rust (cena com vão retangular) não vale; o furo por contorno é medido aqui (docs/estudo-esquadrias/26).
+  const comContorno = Object.values(r.walls).some((w) => w.furosContorno?.length);
+  return quantifyLevelCom(p, r, comContorno ? null : (despachanteDeQuantidades()?.(p, r.levelId, 'paredes') ?? null));
 }
 
 /** Camada que recebe o volume da cunha de transição (a de maior área em planta): quantitativos e 3D usam a mesma. */
@@ -82,7 +85,9 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     let grossTotal = 0;
     for (const l of rw.layers) {
       const q = rust?.camada(rw.wallId, l.layerIndex);
-      let grossVol = q ? q.bruto : l.bands.reduce((s, b) => s + bandVolume(b), 0);
+      // Vão por contorno: volume = faixas inteiras - o que a malha furada removeu + retorno do acabamento (camada furada).
+      const fc = q ? null : camadaFurada(rw, l, l.bands);
+      let grossVol = q ? q.bruto : fc ? fc.volume : l.bands.reduce((s, b) => s + bandVolume(b), 0);
       let ajusteVao = 0;
       // Junção exata de arco inclinado (J4): o volume é o da malha do 3D (anéis por nível); senão, o fator de sempre.
       const ex = juncao ? tiltJoinLayerVolume(rw, l, juncao) : undefined;
@@ -99,7 +104,7 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
       }
       // Líquido da camada: o corte soma por faixa, e o zero (sem volume negativo) vale uma vez por camada. Com o clamp por faixa,
       // a partição em faixas (que muda entre motores) alterava o resultado: uma faixa fina com corte maior que o bruto criava volume.
-      const cortado = (q ? q.cortado : l.bands.reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (ex?.factor ?? (tf ? tf.layer(l.fragment) : 1));
+      const cortado = (q ? q.cortado : (fc?.bands ?? l.bands).reduce((s, b) => s + cutVolume(bandPiece(rw, b, { priority: l.priority, core: l.core }), 'wall', cutters), 0)) * (ex?.factor ?? (tf ? tf.layer(l.fragment) : 1));
       const vol = q ? q.liquido : Math.max(0, grossVol - cortado);
       total += vol;
       grossTotal += grossVol;
@@ -118,6 +123,8 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     const openings = openingsOfWall(p, w.id).reduce((s, o) => {
       const t = openingType(p, o);
       const top = profiled ? profileHeightAt(profiled, o.offset) : H;
+      const forma = rw.furosContorno?.find((f) => f.g.openingId === o.id)?.g.forma;
+      if (forma) return s + areaPerimetroDoContorno(forma).area; // área REAL do contorno, não W x H
       const clipped = Math.max(0, Math.min(openingHeight(t, o), top - openingSill(t, o)));
       return s + t.width * clipped * (tf && !openingIsTilted(p, rw, o, t.width) ? tf.face : 1);
     }, 0);

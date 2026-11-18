@@ -34,6 +34,7 @@ import {
   unitsOf,
 } from '@hestia/model';
 import { csvDocument, csvText } from './csv.ts';
+import { areaDoVaoDoTipo } from './furoContornoParede.ts';
 import { scheduleCsvCell, scheduleCsvHeader } from './scheduleCsv.ts';
 import { collationFor, t, type EngineScheduleKey, type Lang } from './i18n.ts';
 import { openingExtraCsvCell, openingExtraCsvHeader, openingOwnMeasureText, openingRowLabel, type OpeningExtraKey } from './openingScheduleExtras.ts';
@@ -275,6 +276,7 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
   const rough = openingRough({ ...ot, height: g.height });
   const lintel = openingLintel(ot);
   const sillBeam = openingSillBeam(ot);
+  const unitArea = areaDoVaoDoTipo(ot, g.height);
   const comp = openingCompositionOf(raw);
   const cells = compositionCells(comp);
   const multi = cells.length >= 2;
@@ -300,8 +302,8 @@ function rowOf(p: Project, g: MeasureGroup, u: ResolvedUnits, lang: Lang): Openi
     lintelLength: lintel ? (ot.width + 2 * lintel.over) * g.count : 0,
     sillBeamLength: sillBeam ? (ot.width + 2 * sillBeam.over) * g.count : 0,
     count: g.count,
-    unitArea: ot.width * g.height,
-    totalArea: ot.width * g.height * g.count,
+    unitArea,
+    totalArea: unitArea * g.count,
     frameMaterial: p.materials[ot.frameMaterialId]?.name ?? '',
     sense: ot.leaves === 0 ? '' : [...g.senses].join('; '),
     leafMaterial: (ot.leafMaterialId && p.materials[ot.leafMaterialId]?.name) || '',

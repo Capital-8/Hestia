@@ -1,7 +1,8 @@
 import { difference, ringArea, triangulate, union, type MultiPolygon, type Polygon, type Ring, type Vec2 } from '@hestia/geom';
-import { bandTopAt, fuseBands, layerPartsOf, slabRiseAt, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
+import { bandTopAt, fuseBands, layerPartsOf, slabRiseAt, camadaFurada, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedCeiling, type ResolvedFloor, type ResolvedLevel, type ResolvedSlab, type ResolvedWall } from '@hestia/engine';
 import type { GraphicsCategory, Id } from '@hestia/model';
 import { cunhasDoNivel3d } from './cunhaSolid.ts';
+import { chaveFuroContorno, emitirCamadaFurada } from './wallContornoSolid.ts';
 import { extrudeLayerTilted, tiltJoinOf, tiltLevelsSignature } from './wallTiltSolid.ts';
 import { splitTJunctions, weldBands } from './layerTopology.ts';
 
@@ -367,7 +368,7 @@ function estimatedCacheEntryBytes(key: string, batch: SolidBatch): number {
 function wallLayerKey(rw: ResolvedWall, l: ResolvedWall['layers'][number], jl?: JunctionLevel): string {
   const tj = tiltJoinOf(rw, l, jl);
   const tilt = (rw.tilt ? `|tilt=${rw.tilt}|${rw.sag ?? 0}` : '') + (tj ? `|tj=${tj.all.H}:${JSON.stringify(tj.layer)}:${tiltLevelsSignature(tj, !!rw.sag)}${tj.all.nodes ? `:n=${JSON.stringify(tj.all.nodes)}` : ''}${tj.all.vizinhas?.length ? `:v=${tj.all.vizinhas.map((nj) => nj.layers.map((nl) => `${nl.raw.length}/${tiltLevelsSignature({ all: nj, layer: nl }, true)}`).join(',')).join(';')}` : ''}` : '') + (rw.tiltCuts ? `|tc=${JSON.stringify(rw.tiltCuts)}` : '');
-  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}`;
+  return `${rw.wallId}|${l.materialId}|${rw.baseZ}|${JSON.stringify(wallLayerBandsAfterJunction(jl, rw, l))}${tilt}${chaveFuroContorno(rw)}`;
 }
 
 /** Sólido da camada (do cache, ou extrudado agora e guardado). Quem chama copia os dados; o cache não é alterado. */
@@ -385,7 +386,13 @@ export function wallLayerSolid(rw: ResolvedWall, l: ResolvedWall['layers'][numbe
   const fused = fuseBands(wallLayerBandsAfterJunction(jl, rw, l));
   const tj = tiltJoinOf(rw, l, jl);
   const tilted = (!!rw.tilt || !!tj) && !fused.some((x) => x.slope);
-  ofElement(local, rw.wallId, () => (tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt ?? 0, { push, emitFace, oriented, unionAll, zEps: Z_EPS }, tj) : extrudeLayer(local, fused, rw.baseZ)));
+  // Vão por contorno (docs/estudo-esquadrias/26): a malha furada do cliente no lugar da extrusão com furo retangular em faixas.
+  const furada = tilted ? null : camadaFurada(rw, l, fused);
+  ofElement(local, rw.wallId, () => {
+    if (!furada) return tilted ? extrudeLayerTilted(local, fused, rw, rw.tilt ?? 0, { push, emitFace, oriented, unionAll, zEps: Z_EPS }, tj) : extrudeLayer(local, fused, rw.baseZ);
+    if (!furada.malhas) extrudeLayer(local, furada.bands, rw.baseZ);
+    emitirCamadaFurada(local, rw, furada);
+  });
   const bytes = estimatedCacheEntryBytes(key, local);
   if (bytes > WALL_CACHE_BYTES_MAX) return local;
   while (wallLayerCache.size && wallLayerCacheBytes + bytes > WALL_CACHE_BYTES_MAX) {

@@ -51,7 +51,7 @@ export function openingPlanWorldPaths(g: OpeningGeometry, model: OpeningModel, o
  * Pesos de traço em 3 classes (fino, normal, forte): cada peso distinto vira uma malha na GPU, e o orçamento de draw
  * calls da planta (gpuPlan.test.ts) não comporta um peso por traço.
  */
-const pesoEmClasse = (w: number): number => (w <= 0.85 ? 0.7 : w < 1.2 ? 1 : 1.4);
+export const pesoEmClasse = (w: number): number => (w <= 0.85 ? 0.7 : w < 1.2 ? 1 : 1.4);
 
 /**
  * Símbolo de planta da abertura, a partir do modelo único (spec E §4.1). `cut` vai na tinta com a espessura de corte;
