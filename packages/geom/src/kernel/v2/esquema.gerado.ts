@@ -3974,7 +3974,8 @@ export const CONSULTAS = {
     "id": 161,
     "args": [
       "nivel_num",
-      "superficie"
+      "superficie",
+      "tolerancia"
     ],
     "saidas": [
       {

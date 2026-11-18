@@ -4281,7 +4281,8 @@
       "nome": "terreno_curvas",
       "args": [
         "nivel_num",
-        "superficie"
+        "superficie",
+        "tolerancia"
       ],
       "saidas": [
         {
@@ -4300,7 +4301,7 @@
           "elementos": "n"
         }
       ],
-      "descricao": "Terreno (decisão D1, frente do terreno; esquema v19; PLANO A.5). Curvas de nível (regra 10). linhas: [terreno_num, mestra (0/1), fechada (0/1), n_pontos]. pontos: [x, y]. cotas: [z], uma por linha. Ainda sem implementação: devolve NAO_IMPLEMENTADO."
+      "descricao": "Terreno (decisão D1, frente do terreno; esquema v19; PLANO A.5). Curvas de nível (regra 10). tolerancia (m, finita, >= 0): 0 = curvas exatas (polilinha da malha); > 0 = suavizadas por Chaikin com desvio máximo `tolerancia` em relação à curva crua. linhas: [terreno_num, mestra (0/1), fechada (0/1), n_pontos]. pontos: [x, y]. cotas: [z], uma por linha. Ainda sem implementação: devolve NAO_IMPLEMENTADO."
     },
     {
       "id": 162,
