@@ -58,3 +58,10 @@ export async function stopDesktopCollabServer(): Promise<void> {
     // Ignora erros ao parar servidor já encerrado ou indisponível.
   }
 }
+
+/** Indica se a página roda dentro do WebView do Tauri (protocolo tauri: ou host tauri.localhost). */
+export function isTauriLocation(): boolean {
+  const loc = globalThis.location;
+  return Boolean(loc && (loc.protocol === 'tauri:' || loc.hostname === 'tauri.localhost'
+    || loc.origin?.startsWith('tauri://') || loc.origin?.includes('tauri.localhost')));
+}

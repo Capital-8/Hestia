@@ -26,6 +26,16 @@ export interface CollabCallbacks {
   onFollowView?: (presence: CollabPresence) => void;
 }
 
+/** Convite P2P emitido pelo anfitrião (oferta WebRTC), com status de conexão. */
+export interface CollabP2pInvite {
+  inviteId: string;
+  code: string;
+  role: CollabLinkRole;
+  label: string;
+  token: string;
+  status: 'waiting' | 'connected';
+}
+
 /** Reactive collaboration state exposed via `useCollab` / `CollabManager.store`. */
 export interface CollabState {
   mode: 'off' | 'host' | 'guest';
@@ -41,6 +51,10 @@ export interface CollabState {
   activity: CollabActivityItem[];
   followingPeerId: string | null;
   wsEndpoint: string;
+  transportKind: 'ws' | 'p2p';
+  p2pInvites: CollabP2pInvite[];
+  p2pAnswerCode: string | null;
+  p2pError: 'collab_p2p_invalid_code' | 'collab_p2p_failed' | null;
   approvalStatus: 'idle' | 'waiting' | 'approved' | 'denied';
   syncStatus: 'idle' | 'synced' | 'syncing' | 'reconnecting' | 'error';
   lastError: string | null;
@@ -61,6 +75,10 @@ const initialState = (): CollabState => ({
   activity: [],
   followingPeerId: null,
   wsEndpoint: '',
+  transportKind: 'ws',
+  p2pInvites: [],
+  p2pAnswerCode: null,
+  p2pError: null,
   approvalStatus: 'idle',
   syncStatus: 'idle',
   lastError: null,
@@ -233,6 +251,9 @@ export const makeResetState = (preserveError: boolean, cur: CollabState): Partia
   pendingRequests: [],
   activity: [],
   followingPeerId: null,
+  transportKind: 'ws',
+  p2pInvites: [],
+  p2pAnswerCode: null,
   approvalStatus: preserveError ? cur.approvalStatus : 'idle',
   syncStatus: preserveError ? 'error' : 'idle',
   lastError: preserveError ? cur.lastError : null,

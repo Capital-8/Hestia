@@ -3,9 +3,10 @@ import {
   ProjectStore, newId, type CollabDeltaMeta, type CollabLinkRole, type CollabPeer,
   type CollabPresence, type CollabUndoResult, type CollabWireMessage, type Command, type Project, type ShareLinkConfig,
 } from '@hestia/model';
-import { isDesktopRuntime, startDesktopCollabServer, stopDesktopCollabServer } from './desktopServer.ts';
+import { isDesktopRuntime, isTauriLocation, startDesktopCollabServer, stopDesktopCollabServer } from './desktopServer.ts';
 import { buildIpInviteCode, buildShareUrl, createShareToken, extractHostPort } from './tokens.ts';
 import { createRoomTransport, type CollabTransport, type TransportStatus } from './transport.ts';
+import { createP2pController, type P2pController, type P2pFactory } from './p2p.ts';
 import {
   appendActivity, applyLinkRoleUpdate, buildLinkConfig, collectCommandTargetIds, collectLockedElements, createCollabStore,
   defaultLabel, findLockingPeer, makeActivityItem, makeDefaultLinkConfigs, makeGuestJoinState, makeHostStartState,
@@ -13,17 +14,9 @@ import {
   type CollabCallbacks, type CollabState,
 } from './sessionHelpers.ts';
 
-export { createCollabStore, type CollabCallbacks, type CollabPendingRequest, type CollabState } from './sessionHelpers.ts';
+export { createCollabStore, type CollabCallbacks, type CollabP2pInvite, type CollabPendingRequest, type CollabState } from './sessionHelpers.ts';
 
-const PRESENCE_THROTTLE_MS = 66;
-const JOIN_TIMEOUT_MS = 5000;
-
-function isTauriLocation(): boolean {
-  const loc = globalThis.location;
-  return Boolean(loc && (loc.protocol === 'tauri:' || loc.hostname === 'tauri.localhost'
-    || loc.origin?.startsWith('tauri://') || loc.origin?.includes('tauri.localhost')));
-}
-
+const PRESENCE_THROTTLE_MS = 66; const JOIN_TIMEOUT_MS = 5000;
 /** Manages a real-time collaboration session (Host or Guest) wired to a `ProjectStore`. */
 export class CollabManager {
   readonly store: UseBoundStore<StoreApi<CollabState>> = createCollabStore();
@@ -41,6 +34,14 @@ export class CollabManager {
   private pendingPresence: CollabPresence | null = null;
   private presenceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  readonly p2p: P2pController;
+  constructor(p2pFactory?: P2pFactory) {
+    this.p2p = createP2pController(this.store, { startHosting: (o) => this.startHosting(o), createLink: (r, l) => this.createLink(r, l), joinSession: (o) => this.joinSession(o), stopSession: (k) => this.stopSession(k) }, p2pFactory);
+  }
+  startHostingP2p(hostName?: string): void { this.p2p.startHosting(hostName); }
+  createP2pInvite(role: CollabLinkRole, label?: string): ReturnType<P2pController['createInvite']> { return this.p2p.createInvite(role, label); }
+  acceptP2pAnswer(inviteId: string, answerCode: string): Promise<boolean> { return this.p2p.acceptAnswer(inviteId, answerCode); }
+  joinSessionP2p(offerCode: string, name?: string): Promise<string | null> { return this.p2p.join(offerCode, name); }
   private get s(): CollabState { return this.store.getState(); }
   private set(patch: Partial<CollabState>): void { this.store.setState(patch); }
 
@@ -63,7 +64,7 @@ export class CollabManager {
     if (mode === 'host') this.transport?.send({ op: 'peers', peers: updatedPeers });
   }
   setWsEndpoint(wsEndpoint: string): void { this.set({ wsEndpoint: wsEndpoint.trim() }); }
-  startHosting(options?: { hostName?: string; wsEndpoint?: string; roomId?: string }): void {
+  startHosting(options?: { hostName?: string; wsEndpoint?: string; roomId?: string; transport?: CollabTransport }): void {
     if (this.s.mode !== 'off') this.stopSession();
     const roomId = options?.roomId?.trim() || newId('room');
     const hostName = options?.hostName?.trim() || this.s.myName || 'Anfitrião';
@@ -71,9 +72,9 @@ export class CollabManager {
     const wsEndpoint = explicitWs ?? this.s.wsEndpoint;
     this.roomSecret = makeSecret(); this.seq = 0;
     this.set(makeHostStartState(this.s.myPeerId, hostName, roomId, wsEndpoint, this.roomSecret, Date.now()));
-    this.openTransport(roomId, wsEndpoint, (msg) => this.handleHostMessage(msg));
+    this.openTransport(roomId, wsEndpoint, (msg) => this.handleHostMessage(msg), options?.transport);
     this.installHooks(true);
-    if (!explicitWs && !wsEndpoint && isDesktopRuntime()) void this.bootDesktopServer(roomId);
+    if (!explicitWs && !wsEndpoint && !options?.transport && isDesktopRuntime()) void this.bootDesktopServer(roomId);
   }
   createLink(role: CollabLinkRole, label?: string): ShareLinkConfig | null {
     if (this.s.mode !== 'host' || !this.s.roomId) return null;
@@ -142,7 +143,7 @@ export class CollabManager {
     this.installHooks(false);
   }
 
-  joinSession(opts: { roomId: string; token: string; name?: string; wsEndpoint?: string }): Promise<boolean> {
+  joinSession(opts: { roomId: string; token: string; name?: string; wsEndpoint?: string; transport?: CollabTransport; waitFor?: (go: () => void) => void }): Promise<boolean> {
     if (this.s.mode !== 'off') this.stopSession();
     const roomId = opts.roomId.trim();
     const name = opts.name?.trim() || this.s.myName || 'Convidado';
@@ -150,15 +151,19 @@ export class CollabManager {
     this.seq = 0;
     this.set(makeGuestJoinState(roomId, name, wsEndpoint));
     this.installHooks(false);
-    this.openTransport(roomId, wsEndpoint, (msg) => this.handleGuestMessage(msg));
+    this.openTransport(roomId, wsEndpoint, (msg) => this.handleGuestMessage(msg), opts.transport);
     const p = new Promise<boolean>((resolve) => {
-      const timer = setTimeout(() => {
-        if (!this.pendingJoin) return;
-        this.pendingJoin = null; this.set({ lastError: 'timeout', syncStatus: 'error' }); this.stopSession(true); resolve(false);
-      }, JOIN_TIMEOUT_MS);
-      this.pendingJoin = { resolve, timer };
+      this.pendingJoin = { resolve, timer: null };
+      const go = (): void => {
+        if (!this.pendingJoin || this.pendingJoin.resolve !== resolve) return;
+        this.pendingJoin.timer = setTimeout(() => {
+          if (!this.pendingJoin) return;
+          this.pendingJoin = null; this.set({ lastError: 'timeout', syncStatus: 'error' }); this.stopSession(true); resolve(false);
+        }, JOIN_TIMEOUT_MS);
+        this.transport?.send({ op: 'hello', peerId: this.s.myPeerId, name, token: opts.token, roomId });
+      };
+      if (opts.waitFor) opts.waitFor(go); else go();
     });
-    this.transport?.send({ op: 'hello', peerId: this.s.myPeerId, name, token: opts.token, roomId });
     return p;
   }
 
@@ -236,9 +241,9 @@ export class CollabManager {
     for (const peerId of peerIds) this.transport?.send({ op: 'role_changed', peerId, role });
     if (peerIds.length > 0) this.transport?.send({ op: 'peers', peers });
   }
-  private openTransport(roomId: string, wsEndpoint: string, onMsg: (msg: CollabWireMessage) => void): void {
+  private openTransport(roomId: string, wsEndpoint: string, onMsg: (msg: CollabWireMessage) => void, custom?: CollabTransport): void {
     this.unsubTransport?.(); this.transport?.close();
-    this.transport = createRoomTransport(roomId, wsEndpoint || undefined, { onStatus: (st) => this.handleTransportStatus(st) });
+    this.transport = custom ?? createRoomTransport(roomId, wsEndpoint || undefined, { onStatus: (st) => this.handleTransportStatus(st) });
     this.unsubTransport = this.transport.onMessage(onMsg);
   }
   private switchTransportListener(onMsg: (msg: CollabWireMessage) => void): void {

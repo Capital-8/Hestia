@@ -259,7 +259,7 @@ function splitChunkSlices(raw: string): string[] {
       if (lastCode >= 0xd800 && lastCode <= 0xdbff) end -= 1;
     }
     let slice = raw.slice(pos, end);
-    let encodedLen = JSON.stringify(slice).length;
+    const encodedLen = JSON.stringify(slice).length;
     if (encodedLen > CHUNK_PAYLOAD_LIMIT) {
       let lo = pos + 1;
       let hi = end;

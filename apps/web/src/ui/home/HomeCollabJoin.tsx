@@ -1,9 +1,11 @@
 import { useState, type CSSProperties, type ReactElement } from 'react';
 import { collabManager, useCollab } from '../../collab/session.ts';
 import { parseInviteInput } from '../../collab/tokens.ts';
+import { isRtcOfferCode } from '../../collab/webrtc.ts';
 import { useT } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { Dialog } from '../dialogs/Dialog.tsx';
+import { P2pErrorText } from '../dialogs/CollabP2pPanel.tsx';
 
 const COL: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 };
 const FIELD: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 };
@@ -30,6 +32,13 @@ export function HomeCollabJoin({ onClose }: HomeCollabJoinProps): ReactElement {
   };
 
   const handleConnect = (): void => {
+    if (isRtcOfferCode(joinInput)) {
+      // O código de resposta aparece na aba "Entrar" do diálogo de colaboração, já dentro do editor.
+      void collabManager.joinSessionP2p(joinInput, nameInput.trim() || undefined).then((answer) => {
+        if (answer) useUi.setState({ tela: 'editor', dialog: 'collab', dialogArg: 'join' });
+      });
+      return;
+    }
     const parsed = parseInviteInput(joinInput);
     if (!parsed) {
       setJoinError(t('collab_join_invalid'));
@@ -104,6 +113,7 @@ export function HomeCollabJoin({ onClose }: HomeCollabJoinProps): ReactElement {
             {joinError}
           </div>
         ) : null}
+        <P2pErrorText t={t} />
       </div>
     </Dialog>
   );
