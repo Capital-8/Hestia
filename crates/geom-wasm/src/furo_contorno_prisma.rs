@@ -86,6 +86,8 @@ pub enum ErroPrisma {
     AneisInconsistentes(usize, usize),
     /// Erro de vão (contorno, x, soleira, ou fora do envelope do conjunto de camadas).
     Vao(ErroFuro),
+    /// Parede curva inválida (raio, vão angular demais, topo inclinado junto com curva).
+    Curva(String),
     Manifold(String),
 }
 
@@ -171,6 +173,54 @@ fn cortador(v: &Vao, s0: f64, s1: f64) -> Manifold {
         .translate(Vec3::new(v.x, s1 + FOLGA_S, v.soleira))
 }
 
+/// Ângulo máximo (rad) que um vão pode abranger numa parede curva: o tampo externo do cortador é uma corda e o raio dele
+/// cresce com `1 / cos(meio ângulo)`; acima disso o cortador ficaria enorme.
+pub const ANGULO_MAX_VAO: f64 = 2.4;
+/// Menor |raio| (m) aceito na parede curva.
+pub const RAIO_MIN: f64 = 0.05;
+
+/// Mapa da parede curva (docs/estudo-esquadrias/33 §4): `(t, s)` (comprimento do eixo e deslocamento lateral à esquerda) para o
+/// referencial local (u, s) da parede, em que `a` é a origem e `u` a tangente em `a`. `raio` é assinado (`k * R`, `k = +1` com o
+/// centro à direita do percurso). O centro é `(0, -raio)`; o ponto é `centro + rho (cos th, sin th)` com
+/// `th = k pi/2 - t/raio` e `rho = R + k s`. Preserva a orientação (jacobiano `rho / R > 0`).
+pub(crate) fn mapa_curvo(raio: f64, t: f64, s: f64) -> [f64; 2] {
+    let k = raio.signum();
+    let th = k * std::f64::consts::FRAC_PI_2 - t / raio;
+    let rho = raio.abs() + k * s;
+    [rho * th.cos(), -raio + rho * th.sin()]
+}
+
+/// Inverso de `mapa_curvo` para um ponto próximo de `t_ref`: `(t, s)`.
+pub(crate) fn mapa_curvo_inverso(raio: f64, p: [f64; 2], t_ref: f64) -> (f64, f64) {
+    let k = raio.signum();
+    let (dx, dy) = (p[0], p[1] + raio);
+    let rho = dx.hypot(dy);
+    let th = dy.atan2(dx);
+    let th_ref = k * std::f64::consts::FRAC_PI_2 - t_ref / raio;
+    let mut d = th - th_ref;
+    d = (d + std::f64::consts::PI).rem_euclid(2.0 * std::f64::consts::PI) - std::f64::consts::PI;
+    (t_ref - d * raio, k * (rho - raio.abs()))
+}
+
+/// Cortador radial em leque: o contorno [x, z] (x = comprimento de eixo) extrudado na lateral, de `rho_lo` a `rho_hi`, e
+/// levado ao referencial local pelo `mapa_curvo` (a face lateral de cada ponto do contorno é radial). O tampo externo é
+/// plano entre vértices: `rho_hi` já vem dividido por `cos(meio ângulo)` para a corda não entrar na camada.
+fn cortador_curvo(v: &Vao, raio: f64, rho_lo: f64, rho_hi: f64) -> Manifold {
+    let k = raio.signum();
+    // s = k rho - raio  (pois rho = R + k s e raio = k R).
+    let (s_a, s_b) = (k * rho_lo - raio, k * rho_hi - raio);
+    let (sa, sb) = (s_a.min(s_b), s_a.max(s_b));
+    let anel: Vec<Vec2> = v.contorno.iter().map(|p| Vec2::new(p[0], p[1])).collect();
+    Manifold::extrude(&vec![anel], sb - sa, 0, 0.0, Vec2::new(1.0, 1.0))
+        .rotate(90.0, 0.0, 0.0)
+        .translate(Vec3::new(v.x, sb, v.soleira))
+        .warp(move |p: &mut Vec3| {
+            let q = mapa_curvo(raio, p.x, p.y);
+            p.x = q[0];
+            p.y = q[1];
+        })
+}
+
 /// Fura cada camada (prisma em planta entre z0 e z1) com a união dos cortadores dos vãos.
 pub fn furar_prisma(camadas: &[CamadaPrisma], vaos: &[Vao]) -> Result<ResultadoPrisma, ErroPrisma> {
     furar_prisma_gen(camadas, &[], vaos, ForaDoEnvelope::Recusar)
@@ -197,6 +247,23 @@ fn aparar_pelo_topo(prisma: Manifold, t: &TopoInclinado) -> Manifold {
 /// Como `furar_prisma`, com topo inclinado opcional por camada (`topos` vazio ou do tamanho de `camadas`) e política para
 /// o vão que sai do envelope.
 pub fn furar_prisma_gen(camadas: &[CamadaPrisma], topos: &[Option<TopoInclinado>], vaos: &[Vao], fora: ForaDoEnvelope) -> Result<ResultadoPrisma, ErroPrisma> {
+    furar_prisma_cur(camadas, topos, vaos, fora, None)
+}
+
+/// Como `furar_prisma_gen`, com parede curva opcional (`curva` = raio assinado `k * R`, docs/estudo-esquadrias/33 §4): a planta
+/// das camadas está no referencial local (u, s) da parede (origem em `a`, `u` = tangente em `a`), o `x` de cada vão é o
+/// comprimento de eixo e o cortador é radial em leque (`cortador_curvo`). Em parede curva o vão que sai do envelope é sempre
+/// recortado (a posição em u não é o comprimento de eixo) e o topo inclinado não é aceito.
+pub fn furar_prisma_cur(camadas: &[CamadaPrisma], topos: &[Option<TopoInclinado>], vaos: &[Vao], fora: ForaDoEnvelope, curva: Option<f64>) -> Result<ResultadoPrisma, ErroPrisma> {
+    if let Some(r) = curva {
+        if !(r.is_finite() && r.abs() >= RAIO_MIN) {
+            return Err(ErroPrisma::Curva(format!("raio invalido ({r})")));
+        }
+        if topos.iter().any(|t| t.is_some()) {
+            return Err(ErroPrisma::Curva("topo inclinado nao e aceito em parede curva".into()));
+        }
+    }
+    let fora = if curva.is_some() { ForaDoEnvelope::Recortar } else { fora };
     if camadas.is_empty() {
         return Err(ErroPrisma::SemCamadas);
     }
@@ -238,7 +305,24 @@ pub fn furar_prisma_gen(camadas: &[CamadaPrisma], topos: &[Option<TopoInclinado>
         if fora == ForaDoEnvelope::Recusar && (a0 < u0 - e || a1 > u1 + e || b0 < zmin - e || b1 > zmax + e) {
             return Err(ErroPrisma::Vao(ErroFuro::VaoForaDaParede(i)));
         }
+        if let Some(r) = curva {
+            if (a1 - a0) / r.abs() > ANGULO_MAX_VAO {
+                return Err(ErroPrisma::Curva(format!("vao {i} abrange mais de {ANGULO_MAX_VAO} rad na parede curva")));
+            }
+        }
     }
+    // Faixa de raios das camadas (parede curva): o cortador cobre `[rho_lo, rho_hi]` com folga.
+    let faixa_rho = curva.map(|r| {
+        let (mut lo, mut hi) = (f64::MAX, f64::MIN);
+        for (pols, _) in &preparadas {
+            for p in pols.iter().flat_map(|p| p[0].iter()) {
+                let rho = p[0].hypot(p[1] + r);
+                lo = lo.min(rho);
+                hi = hi.max(rho);
+            }
+        }
+        (lo, hi)
+    });
 
     let mut res = ResultadoPrisma::default();
     for (k, (c, (pols, area))) in camadas.iter().zip(preparadas).enumerate() {
@@ -255,7 +339,19 @@ pub fn furar_prisma_gen(camadas: &[CamadaPrisma], topos: &[Option<TopoInclinado>
         if prisma.status() != ErroManifold::NoError {
             return Err(ErroPrisma::Manifold(format!("prisma: {:?}", prisma.status())));
         }
-        let furada = match unir(vaos.iter().map(|v| cortador(v, s0, s1)).collect()) {
+        let cortadores: Vec<Manifold> = match (curva, faixa_rho) {
+            (Some(r), Some((lo, hi))) => vaos
+                .iter()
+                .map(|v| {
+                    let xs = v.contorno.iter().map(|p| p[0]);
+                    let meio_ang = (xs.clone().fold(f64::MIN, f64::max) - xs.fold(f64::MAX, f64::min)) / r.abs() / 2.0;
+                    let rho_lo = (lo - FOLGA_S).max(0.5 * lo);
+                    cortador_curvo(v, r, rho_lo, hi / meio_ang.cos() + FOLGA_S)
+                })
+                .collect(),
+            _ => vaos.iter().map(|v| cortador(v, s0, s1)).collect(),
+        };
+        let furada = match unir(cortadores) {
             Some(cut) => prisma.boolean(&cut, OpType::Subtract),
             None => prisma.clone(),
         };
@@ -336,6 +432,7 @@ fn erro_do_prisma(e: ErroPrisma) -> (u32, String) {
             ErroFuro::VaoForaDaParede(i) => (ENTRADA, format!("vao {i} sai da parede")),
             outro => (ENTRADA, format!("vao invalido ({outro:?})")),
         },
+        ErroPrisma::Curva(m) => (ENTRADA, format!("parede curva: {m}")),
         ErroPrisma::Manifold(s) => (INTERNO, format!("kernel: {s}")),
     }
 }
@@ -349,6 +446,11 @@ pub fn furar_prisma_planos(e: &EntradasPrisma) -> Result<Vec<Saida>, (u32, Strin
 /// `furar_prisma_planos` com topo inclinado e política de vão fora do envelope (docs/estudo-esquadrias/33). `topo` é vazio
 /// (sem topo inclinado) ou tem 4 f64 por camada `[t0, t1, h0, h1]`; `t1 <= t0` (por exemplo, tudo zero) = camada sem topo inclinado.
 pub fn furar_prisma_planos_gen(e: &EntradasPrisma, topo: &[f64], fora: ForaDoEnvelope) -> Result<Vec<Saida>, (u32, String)> {
+    furar_prisma_planos_cur(e, topo, fora, None)
+}
+
+/// `furar_prisma_planos_gen` com parede curva opcional (`curva` = raio assinado, docs/estudo-esquadrias/33 §4).
+pub fn furar_prisma_planos_cur(e: &EntradasPrisma, topo: &[f64], fora: ForaDoEnvelope, curva: Option<f64>) -> Result<Vec<Saida>, (u32, String)> {
     let n_vaos = e.x.len();
     let n_camadas = e.camadas.len().saturating_sub(1);
     if e.pontos_planta.len() % 2 != 0
@@ -410,7 +512,7 @@ pub fn furar_prisma_planos_gen(e: &EntradasPrisma, topo: &[f64], fora: ForaDoEnv
         .chunks_exact(4)
         .map(|q| if q[1] > q[0] { Some(TopoInclinado { t0: q[0], t1: q[1], h0: q[2], h1: q[3] }) } else { None })
         .collect();
-    let res = furar_prisma_gen(&camadas, &topos, &vaos, fora).map_err(erro_do_prisma)?;
+    let res = furar_prisma_cur(&camadas, &topos, &vaos, fora, curva).map_err(erro_do_prisma)?;
     let mut meta = Vec::with_capacity(4 * n_camadas);
     let mut contagens = Vec::with_capacity(2 * n_camadas);
     let mut vertices = Vec::new();
@@ -433,7 +535,7 @@ pub extern "C" fn furo_prisma_abi_versao() -> u32 {
 #[allow(clippy::too_many_arguments)]
 fn furar_por_ponteiros(
     n_camadas: u32, n_poligonos: u32, n_aneis: u32, n_pontos_planta: u32, ptr_pontos_planta: u32, ptr_aneis: u32, ptr_poligonos: u32, ptr_camadas: u32, ptr_z: u32,
-    n_vaos: u32, n_pontos: u32, ptr_pontos: u32, ptr_vaos: u32, ptr_x: u32, ptr_soleira: u32, ptr_topo: Option<u32>, fora: ForaDoEnvelope,
+    n_vaos: u32, n_pontos: u32, ptr_pontos: u32, ptr_vaos: u32, ptr_x: u32, ptr_soleira: u32, ptr_topo: Option<u32>, fora: ForaDoEnvelope, curva: Option<f64>,
 ) -> u32 {
     use crate::furo_contorno_abi::{estado, fatia};
     let st = estado();
@@ -472,7 +574,7 @@ fn furar_por_ponteiros(
             None => return st.falha(ENTRADA, "ponteiro invalido"),
         },
     };
-    st.guardar(furar_prisma_planos_gen(&EntradasPrisma { pontos_planta, aneis, poligonos, camadas, z, pontos, vaos, x, soleira }, topo, fora))
+    st.guardar(furar_prisma_planos_cur(&EntradasPrisma { pontos_planta, aneis, poligonos, camadas, z, pontos, vaos, x, soleira }, topo, fora, curva))
 }
 
 /// Fura camadas em prisma de planta. Layout dos buffers: docs/estudo-esquadrias/25. Retorno: 0 OK, 3 ENTRADA,
@@ -496,7 +598,7 @@ pub extern "C" fn furo_prisma_furar(
     ptr_soleira: u32,
 ) -> u32 {
     furar_por_ponteiros(
-        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, None, ForaDoEnvelope::Recusar,
+        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, None, ForaDoEnvelope::Recusar, None,
     )
 }
 
@@ -533,6 +635,43 @@ pub extern "C" fn furo_prisma_furar_ext(
 ) -> u32 {
     let fora = if recortar != 0 { ForaDoEnvelope::Recortar } else { ForaDoEnvelope::Recusar };
     furar_por_ponteiros(
-        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, Some(ptr_topo), fora,
+        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, Some(ptr_topo), fora, None,
+    )
+}
+
+/// Versão do layout de `furo_prisma_furar_curvo`.
+pub const VERSAO_ABI_PRISMA_CURVO: u32 = 1;
+
+#[no_mangle]
+pub extern "C" fn furo_prisma_curvo_abi_versao() -> u32 {
+    VERSAO_ABI_PRISMA_CURVO
+}
+
+/// `furo_prisma_furar` em parede curva (docs/estudo-esquadrias/33 §4). Os 15 primeiros argumentos são os de `furo_prisma_furar`;
+/// `raio` é o raio assinado do eixo (`k * R`, `k = +1` quando o centro fica à direita do percurso a -> b, o `sag > 0`). A planta das
+/// camadas está no referencial local da parede (origem em `a`, `u` = tangente em `a`, `s` = normal à esquerda) e o `x` de cada
+/// vão é o comprimento de eixo; cada vão é cortado em leque radial. O vão que sai do prisma é recortado; sem topo inclinado.
+/// `raio` não finito, |raio| < 0,05 m ou vão com mais de 2,4 rad: ENTRADA.
+#[no_mangle]
+pub extern "C" fn furo_prisma_furar_curvo(
+    n_camadas: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_planta: u32,
+    ptr_pontos_planta: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    ptr_camadas: u32,
+    ptr_z: u32,
+    n_vaos: u32,
+    n_pontos: u32,
+    ptr_pontos: u32,
+    ptr_vaos: u32,
+    ptr_x: u32,
+    ptr_soleira: u32,
+    raio: f64,
+) -> u32 {
+    furar_por_ponteiros(
+        n_camadas, n_poligonos, n_aneis, n_pontos_planta, ptr_pontos_planta, ptr_aneis, ptr_poligonos, ptr_camadas, ptr_z, n_vaos, n_pontos, ptr_pontos, ptr_vaos, ptr_x, ptr_soleira, None, ForaDoEnvelope::Recortar, Some(raio),
     )
 }

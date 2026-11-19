@@ -17,7 +17,7 @@ use crate::consultas::Saida;
 use crate::esquema::{ENTRADA, LIMITE};
 use crate::furo_contorno::{area_com_sinal, Vao};
 use crate::furo_contorno_abi::{estado, fatia, LIMITE_PONTOS_POR_VAO};
-use crate::furo_contorno_prisma::{preparar_planta, CamadaPrisma, PoligonoPlanta, LIMITE_ANEIS, LIMITE_POLIGONOS, LIMITE_PONTOS_PLANTA, LIMITE_PONTOS_POR_ANEL};
+use crate::furo_contorno_prisma::{mapa_curvo, mapa_curvo_inverso, preparar_planta, ANGULO_MAX_VAO, RAIO_MIN, CamadaPrisma, PoligonoPlanta, LIMITE_ANEIS, LIMITE_POLIGONOS, LIMITE_PONTOS_PLANTA, LIMITE_PONTOS_POR_ANEL};
 use crate::furo_contorno_quant::{extrudar_regiao, EntradaRetorno, ErroQuant, ModoRetorno, Retorno};
 use crate::furo_contorno_quant_abi::{contorno_de, erro_da_quant, escalar_ok, EntradaRetornoAbi};
 use crate::ops::{diferenca, interseccao, offset, uniao};
@@ -133,6 +133,73 @@ fn prisma_de_recorte(recorte: &[PoligonoPlanta], z0: f64, z1: f64) -> Result<Man
 
 /// Retorno do vão com `recuo` (offset do contorno para dentro), base livre opcional e recorte em planta opcional (vazio = sem recorte).
 pub fn retorno_do_vao_ext(vao: &Vao, e: &EntradaRetorno, recuo: f64, base_livre: bool, recorte: &[PoligonoPlanta]) -> Result<Retorno, ErroQuant> {
+    retorno_do_vao_curvo(vao, e, recuo, base_livre, recorte, None)
+}
+
+/// Aresta máxima (m) do anel antes do mapa curvo: o tampo é plano entre vértices e a corda precisa seguir a face cilíndrica.
+const ARESTA_MAX_CURVA: f64 = 0.05;
+
+fn densificar(m: &MultiPoligono, max: f64) -> MultiPoligono {
+    m.iter()
+        .map(|p| {
+            p.iter()
+                .map(|a| {
+                    let mut out = Vec::with_capacity(a.len());
+                    for i in 0..a.len() {
+                        let (p0, p1) = (a[i], a[(i + 1) % a.len()]);
+                        let n = (((p1[0] - p0[0]).hypot(p1[1] - p0[1])) / max).ceil().max(1.0) as usize;
+                        for j in 0..n {
+                            let f = j as f64 / n as f64;
+                            out.push([p0[0] + f * (p1[0] - p0[0]), p0[1] + f * (p1[1] - p0[1])]);
+                        }
+                    }
+                    out
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// Área exposta em parede curva: os triângulos "laterais" (normal sem componente radial, isto é, faces regradas na direção
+/// radial) cujo (t, z) cai sobre a borda do vão livre. A área é a da malha já no mundo.
+fn area_exposta_curva(vertices: &[f64], indices: &[u32], miolo: &MultiPoligono, vao: &Vao, raio: f64) -> f64 {
+    let segs: Vec<([f64; 2], [f64; 2])> = miolo.iter().flat_map(|p: &Poligono| p.iter()).flat_map(|a| (0..a.len()).map(move |i| (a[i], a[(i + 1) % a.len()]))).collect();
+    let mut soma = 0.0;
+    for t in indices.chunks_exact(3) {
+        let p = |i: u32| [vertices[i as usize * 3], vertices[i as usize * 3 + 1], vertices[i as usize * 3 + 2]];
+        let (a, b, c) = (p(t[0]), p(t[1]), p(t[2]));
+        let (u, v) = ([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
+        let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        let dobro = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+        if dobro == 0.0 {
+            continue;
+        }
+        let m = [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, (a[2] + b[2] + c[2]) / 3.0];
+        let (rx, ry) = (m[0], m[1] + raio);
+        let rl = rx.hypot(ry);
+        if rl == 0.0 || ((n[0] * rx + n[1] * ry) / (dobro * rl)).abs() > 0.02 {
+            continue;
+        }
+        let (tt, _) = mapa_curvo_inverso(raio, [m[0], m[1]], vao.x);
+        let cx = [tt - vao.x, m[2] - vao.soleira];
+        if segs.iter().any(|(s0, s1)| dist2_segmento(cx, *s0, *s1) <= 1e-8) {
+            soma += dobro / 2.0;
+        }
+    }
+    soma
+}
+
+/// `retorno_do_vao_ext` em parede curva opcional (`curva` = raio assinado `k * R`, docs/estudo-esquadrias/33 §4): o anel do contorno
+/// (x = comprimento de eixo, y = lateral s) é extrudado reto e levado ao referencial local pelo mapa curvo, de modo que as
+/// faces laterais do retorno são radiais como o vão. `recorte` já está no referencial local (u, s). `area_anel` e `area_livre`
+/// são as do anel desenvolvido (plano x-z); `volume` e `area_exposta` são da peça no mundo.
+pub fn retorno_do_vao_curvo(vao: &Vao, e: &EntradaRetorno, recuo: f64, base_livre: bool, recorte: &[PoligonoPlanta], curva: Option<f64>) -> Result<Retorno, ErroQuant> {
+    if let Some(r) = curva {
+        let (x0, x1) = vao.contorno.iter().fold((f64::MAX, f64::MIN), |(a, b), p| (a.min(p[0]), b.max(p[0])));
+        if !(r.is_finite() && r.abs() >= RAIO_MIN) || (x1 - x0) / r.abs() > ANGULO_MAX_VAO {
+            return Err(ErroQuant::ContornoInvalido);
+        }
+    }
     if vao.contorno.len() < 3 || area_com_sinal(&vao.contorno) <= 1e-12 || !vao.x.is_finite() || !vao.soleira.is_finite() || vao.contorno.iter().any(|p| !p[0].is_finite() || !p[1].is_finite()) {
         return Err(ErroQuant::ContornoInvalido);
     }
@@ -149,7 +216,14 @@ pub fn retorno_do_vao_ext(vao: &Vao, e: &EntradaRetorno, recuo: f64, base_livre:
         return Err(ErroQuant::RetornoNaoCabe);
     }
     let area_livre = area_da_forma(&interseccao(&miolo, &multi_do_anel(&vao.contorno)).map_err(geometria)?);
-    let mut solido = extrudar_regiao(&anel, vao.x, vao.soleira, e.y0, e.y1);
+    let mut solido = match curva {
+        None => extrudar_regiao(&anel, vao.x, vao.soleira, e.y0, e.y1),
+        Some(r) => extrudar_regiao(&densificar(&anel, ARESTA_MAX_CURVA), vao.x, vao.soleira, e.y0, e.y1).warp(move |p: &mut Vec3| {
+            let q = mapa_curvo(r, p.x, p.y);
+            p.x = q[0];
+            p.y = q[1];
+        }),
+    };
     if !recorte.is_empty() {
         let zmin = vao.contorno.iter().map(|p| p[1]).fold(f64::MAX, f64::min);
         let zmax = vao.contorno.iter().map(|p| p[1]).fold(f64::MIN, f64::max);
@@ -166,7 +240,10 @@ pub fn retorno_do_vao_ext(vao: &Vao, e: &EntradaRetorno, recuo: f64, base_livre:
         vertices.extend_from_slice(&v[..3]);
     }
     let indices: Vec<u32> = malha.tri_verts.iter().map(|&i| i as u32).collect();
-    let exposta = area_exposta_interna(&vertices, &indices, &miolo, vao.x, vao.soleira);
+    let exposta = match curva {
+        None => area_exposta_interna(&vertices, &indices, &miolo, vao.x, vao.soleira),
+        Some(r) => area_exposta_curva(&vertices, &indices, &miolo, vao, r),
+    };
     Ok(Retorno {
         espessura: t,
         limitada: e.espessura_pedida > e.espessura_acabamento,
@@ -205,6 +282,11 @@ fn crescente(v: &[u32], total: usize) -> bool {
 
 /// Toda a lógica da ABI sem ponteiros. Saídas: as de `retorno_planos` (meta F64 de 8, vértices F64, índices U32).
 pub fn retorno_ext_planos(e: &EntradaRetornoExtAbi) -> Result<Vec<Saida>, (u32, String)> {
+    retorno_ext_planos_cur(e, None)
+}
+
+/// `retorno_ext_planos` com parede curva opcional (raio assinado).
+pub fn retorno_ext_planos_cur(e: &EntradaRetornoExtAbi, curva: Option<f64>) -> Result<Vec<Saida>, (u32, String)> {
     let b = &e.base;
     let (modo, base_livre) = match b.modo {
         0 => (ModoRetorno::Contorno, false),
@@ -240,7 +322,12 @@ pub fn retorno_ext_planos(e: &EntradaRetornoExtAbi) -> Result<Vec<Saida>, (u32, 
     let recorte: Vec<PoligonoPlanta> = (0..n_pols).map(|j| (e.poligonos[j] as usize..e.poligonos[j + 1] as usize).map(anel).collect()).collect();
     let vao = Vao { contorno, x: b.x, soleira: b.soleira };
     let entrada = EntradaRetorno { espessura_pedida: b.espessura, espessura_acabamento: b.espessura_acabamento, y0: b.y0, y1: b.y1, modo };
-    let r = retorno_do_vao_ext(&vao, &entrada, b.recuo, base_livre, &recorte).map_err(erro_da_quant)?;
+    if let Some(r) = curva {
+        if !escalar_ok(r) {
+            return Err((ENTRADA, "raio nao finito ou fora de +-1e6 m".into()));
+        }
+    }
+    let r = retorno_do_vao_curvo(&vao, &entrada, b.recuo, base_livre, &recorte, curva).map_err(erro_da_quant)?;
     Ok(vec![
         Saida::F64(vec![r.espessura, if r.limitada { 1.0 } else { 0.0 }, r.y0, r.y1, r.area_anel, r.area_livre, r.volume, r.area_exposta]),
         Saida::F64(r.vertices),
@@ -275,6 +362,64 @@ pub extern "C" fn furo_retorno_vao_ext(
     ptr_aneis: u32,
     ptr_poligonos: u32,
 ) -> u32 {
+    retorno_por_ponteiros(n_pontos, ptr_pontos, x, soleira, espessura, espessura_acabamento, recuo, y0, y1, modo, n_poligonos, n_aneis, n_pontos_rec, ptr_pontos_rec, ptr_aneis, ptr_poligonos, None)
+}
+
+/// Versão do layout de `furo_retorno_vao_curvo`.
+pub const VERSAO_ABI_RETORNO_CURVO: u32 = 1;
+
+#[no_mangle]
+pub extern "C" fn furo_retorno_curvo_abi_versao() -> u32 {
+    VERSAO_ABI_RETORNO_CURVO
+}
+
+/// `furo_retorno_vao_ext` em parede curva (docs/estudo-esquadrias/33 §4): os 16 primeiros argumentos são os de `furo_retorno_vao_ext`
+/// (`x` = comprimento de eixo, `y0`/`y1` = lateral s, `recorte` no referencial local u, s) e `raio` é o raio assinado `k * R`.
+/// A malha sai no referencial local da parede.
+#[no_mangle]
+#[allow(clippy::too_many_arguments)]
+pub extern "C" fn furo_retorno_vao_curvo(
+    n_pontos: u32,
+    ptr_pontos: u32,
+    x: f64,
+    soleira: f64,
+    espessura: f64,
+    espessura_acabamento: f64,
+    recuo: f64,
+    y0: f64,
+    y1: f64,
+    modo: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_rec: u32,
+    ptr_pontos_rec: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    raio: f64,
+) -> u32 {
+    retorno_por_ponteiros(n_pontos, ptr_pontos, x, soleira, espessura, espessura_acabamento, recuo, y0, y1, modo, n_poligonos, n_aneis, n_pontos_rec, ptr_pontos_rec, ptr_aneis, ptr_poligonos, Some(raio))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn retorno_por_ponteiros(
+    n_pontos: u32,
+    ptr_pontos: u32,
+    x: f64,
+    soleira: f64,
+    espessura: f64,
+    espessura_acabamento: f64,
+    recuo: f64,
+    y0: f64,
+    y1: f64,
+    modo: u32,
+    n_poligonos: u32,
+    n_aneis: u32,
+    n_pontos_rec: u32,
+    ptr_pontos_rec: u32,
+    ptr_aneis: u32,
+    ptr_poligonos: u32,
+    curva: Option<f64>,
+) -> u32 {
     let st = estado();
     st.saida_liberar();
     if n_pontos > LIMITE_PONTOS_POR_VAO {
@@ -294,6 +439,6 @@ pub extern "C" fn furo_retorno_vao_ext(
         return st.falha(ENTRADA, "ponteiro invalido");
     };
     // Sem recorte (n_poligonos = 0) o decodificador recebe offsets vazios: um único `0` em cada buffer de offsets.
-    st.guardar(retorno_ext_planos(&EntradaRetornoExtAbi { base: EntradaRetornoAbi { pontos, x, soleira, espessura, espessura_acabamento, recuo, y0, y1, modo }, pontos: pontos_rec, aneis, poligonos }))
+    st.guardar(retorno_ext_planos_cur(&EntradaRetornoExtAbi { base: EntradaRetornoAbi { pontos, x, soleira, espessura, espessura_acabamento, recuo, y0, y1, modo }, pontos: pontos_rec, aneis, poligonos }, curva))
 }
 
