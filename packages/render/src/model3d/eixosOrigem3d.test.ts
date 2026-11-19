@@ -48,15 +48,15 @@ describe('EixosDaOrigem3d', () => {
     expect(e.visivel).toBe(true);
   });
 
-  it('tamanho constante na tela: perspectiva a 10 m, fov 38, tela de 800 px, 80 px = 0,8 * visível/10', () => {
+  it('tamanho constante na tela: perspectiva a 10 m, fov 38, tela de 800 px, 36 px = 0,045 * altura visível', () => {
     const cam = new THREE.PerspectiveCamera(60, 1);
     cam.position.set(0, -10, 0);
-    // altura visível = 2 * 10 * tan(30°) = 11,547 m; 80/800 = 0,1 -> 1,1547 m
-    expect(escalaDosEixos(cam, 800)).toBeCloseTo(1.1547, 4);
+    // altura visível = 2 * 10 * tan(30°) = 11,547 m; 36/800 = 0,045 -> 0,5196 m (a 20 m: 1,0392 m; ortográfica de 8 m de altura: 0,36 m)
+    expect(escalaDosEixos(cam, 800)).toBeCloseTo(0.5196, 4);
     cam.position.set(0, -20, 0);
-    expect(escalaDosEixos(cam, 800)).toBeCloseTo(2.3094, 4);
+    expect(escalaDosEixos(cam, 800)).toBeCloseTo(1.0392, 4);
     const o = new THREE.OrthographicCamera(-5, 5, 4, -4, 0.1, 100);
-    expect(escalaDosEixos(o, 800)).toBeCloseTo(0.8, 9);
+    expect(escalaDosEixos(o, 800)).toBeCloseTo(0.36, 9);
   });
 });
 

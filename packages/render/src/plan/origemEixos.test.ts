@@ -6,22 +6,22 @@ import type { Viewport } from '../viewport.ts';
 const comp = (pts: { x: number; y: number }[]): number => Math.hypot(pts[1]!.x - pts[0]!.x, pts[1]!.y - pts[0]!.y);
 
 describe('origemEixosPlanta', () => {
-  it('a 100 px/m os eixos têm 48 px = 0,48 m, X vermelho em +X e Y verde em +Y', () => {
+  it('a 100 px/m os eixos têm 32 px = 0,32 m, X vermelho em +X e Y verde em +Y', () => {
     const o = origemEixosPlanta(100);
     const x = o.strokes.find((s) => s.role === 'origem-x')!;
     const y = o.strokes.find((s) => s.role === 'origem-y')!;
     expect(x.color).toBe('#e5484d');
     expect(y.color).toBe('#30a46c');
-    expect(x.pts).toEqual([{ x: 0, y: 0 }, { x: 0.48, y: 0 }]);
-    expect(y.pts).toEqual([{ x: 0, y: 0 }, { x: 0, y: 0.48 }]);
-    expect(comp(x.pts)).toBeCloseTo(0.48, 9);
+    expect(x.pts).toEqual([{ x: 0, y: 0 }, { x: 0.32, y: 0 }]);
+    expect(y.pts).toEqual([{ x: 0, y: 0 }, { x: 0, y: 0.32 }]);
+    expect(comp(x.pts)).toBeCloseTo(0.32, 9);
     expect(x.widthPx).toBe(1.5);
   });
 
-  it('a 50 px/m os eixos têm 0,96 m (mesmos 48 px na tela)', () => {
+  it('a 50 px/m os eixos têm 0,64 m (mesmos 32 px na tela)', () => {
     const o = origemEixosPlanta(50);
-    expect(comp(o.strokes.find((s) => s.role === 'origem-x')!.pts)).toBeCloseTo(0.96, 9);
-    expect(comp(o.strokes.find((s) => s.role === 'origem-y')!.pts)).toBeCloseTo(0.96, 9);
+    expect(comp(o.strokes.find((s) => s.role === 'origem-x')!.pts)).toBeCloseTo(0.64, 9);
+    expect(comp(o.strokes.find((s) => s.role === 'origem-y')!.pts)).toBeCloseTo(0.64, 9);
   });
 
   it('o Z é um círculo azul #3e63dd de 4 px na origem; rótulos X e Y nas pontas com as cores dos eixos', () => {
@@ -31,7 +31,7 @@ describe('origemEixosPlanta', () => {
     const anel = o.fills[0]!.polygons[0]![0]!;
     expect(Math.max(...anel.map((p) => Math.hypot(p.x, p.y)))).toBeCloseTo(0.04, 9);
     expect(o.strokes.find((s) => s.role === 'origem-z')!.color).toBe('#3e63dd');
-    expect(o.labels.map((l) => [l.text, l.color, l.at.x, l.at.y])).toEqual([['X', '#e5484d', 0.48, 0], ['Y', '#30a46c', 0, 0.48]]);
+    expect(o.labels.map((l) => [l.text, l.color, l.at.x, l.at.y])).toEqual([['X', '#e5484d', 0.32, 0], ['Y', '#30a46c', 0, 0.32]]);
   });
 
   it('zoom inválido não desenha nada', () => {

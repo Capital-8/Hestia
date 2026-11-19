@@ -6,7 +6,7 @@ export const COR_EIXO_Y = '#30a46c';
 export const COR_EIXO_Z = '#3e63dd';
 
 /** Comprimento dos eixos na tela, em pixels (constante em qualquer distância da câmera). */
-export const EIXOS_ORIGEM_PX = 80;
+export const EIXOS_ORIGEM_PX = 36;
 
 /** Proporção da ponta de seta em relação ao comprimento do eixo. */
 const SETA = 0.14;

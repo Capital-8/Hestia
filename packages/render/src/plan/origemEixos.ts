@@ -7,7 +7,7 @@ export const EIXO_Y_COR = '#30a46c';
 export const EIXO_Z_COR = '#3e63dd';
 
 /** Comprimento dos eixos na tela (px), a espessura (px), o raio do círculo do Z (px) e o tamanho da seta (px). */
-export const EIXOS_PLANTA_PX = 48;
+export const EIXOS_PLANTA_PX = 32;
 const ESPESSURA_PX = 1.5;
 const RAIO_Z_PX = 4;
 const SETA_PX = 7;
