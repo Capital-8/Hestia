@@ -38,11 +38,12 @@ import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdent
 import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
+/** v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `Project.componentFamilies`), móveis importados (`Furniture`, `Project.furniture`) e tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`). A migração 29 → 30 só avança a versão, e assim um programa antigo recusa um arquivo 30. */
 /** v29: terreno, região de terreno, lote e `localizacao` do projeto: a migração 28 → 29 só avança a versão (terreno virou 29 ao integrar com a main, que usou 26 a 28 para massa, parede inclinada e tríade estrutural). */
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
 /** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';

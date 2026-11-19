@@ -372,3 +372,11 @@ Resultado real no navegador (build com a correção das caixas verticais): P2 PA
 - "Editar modelo…" no menu de contexto NÃO foi adicionado: não havia entrada desativada no código (`ui/componenteMenu.ts`).
 - Smoke novo `tests/e2e/familias-editor.mjs`: 13 passos e 12b, todos ok (detalhes em `docs/retomada-moveis-no-teste.md`, seção "Editor de famílias reativado").
 - Testes: `ui/ribbon/familyEditorAcao.test.ts` (novo); `ui/familia/meusModelos.test.ts` ganhou blocos novos; nenhum teste existente foi alterado. Vitest de familia, ribbon, i18n e model/familia: 454 verdes em 48 arquivos.
+
+## Ficha esquema 29 → 30 (2026-11-18, integracao/0.2.5)
+- Decisão do dono: o esquema do arquivo sobe de 29 para 30 (campos aditivos: móveis da Biblioteca, móveis importados e tipo de terreno). Uma versão antiga do programa passa a recusar o arquivo 30 em vez de abri-lo sem esses campos.
+- A migração 29 → 30 é identidade (`{ ...raw }`): nenhum dado é reescrito; o bump serve só à recusa por versão antiga.
+- Testes que afirmavam a versão atual passaram a 30; testes que constroem arquivo antigo de propósito mantêm a entrada (29, 28, ...) e esperam 30; o teste de recusa usa 31.
+- Dois testes (`componentes.test.ts`, `componentGroups.test.ts`) já afirmavam 25 e falhavam antes desta ficha; agora afirmam 30.
+- Novo `packages/model/src/esquema30.test.ts`: arquivo 29 preserva os campos novos byte a byte, ciclo serializar/abrir é idêntico, 31 é recusado, 25 percorre a cadeia até 30.
+- Pendência: `facePaints` (paredes, pisos e lajes) não está nesta branch; quando a pintura de faces entrar, a lista da migração 29 → 30 deve ganhar o campo.

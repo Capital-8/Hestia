@@ -243,16 +243,17 @@ describe('persistencia', () => {
     expect(back).toEqual(p);
   });
 
-  it('o importador nao muda o esquema: nao muda o esquema (base v29): projeto v28 literal migra para 29 sem perder nada, e v29 abre igual', () => {
-    expect(SCHEMA_VERSION).toBe(29);
+  it('o importador nao muda os dados: projeto v28 literal migra para 30 sem perder nada, e projeto v29 literal migra para 30 sem mudar o conteudo', () => {
+    expect(SCHEMA_VERSION).toBe(30);
     const raw = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
     raw.schemaVersion = 28;
     const back = migrateProject(raw);
-    expect(back.schemaVersion).toBe(29);
+    expect(back.schemaVersion).toBe(30);
     expect(back.furniture).toBeUndefined();
     const raw29 = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
+    raw29.schemaVersion = 29;
     expect(raw29.schemaVersion).toBe(29);
-    expect(migrateProject(raw29).schemaVersion).toBe(29);
+    expect(migrateProject(raw29).schemaVersion).toBe(30);
   });
 });
 

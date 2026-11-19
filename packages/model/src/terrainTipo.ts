@@ -9,7 +9,7 @@ import { TERRENO_LIMITES } from './terrainTypes.ts';
  * `TerrainTextFamily` de `contour`: fonte, altura, unidade, casas, cor) e o rótulo automático das curvas.
  *
  * Compatibilidade: terreno sem `tipoId` (todo arquivo anterior) segue com os campos próprios e o solo igual à superfície. Com `tipoId`, o tipo vale
- * (`terrenoComTipo`). Sem mudança de versão do esquema: `terrainTypes` e `tipoId` são opcionais (ver docs/decisoes/0027-tipo-de-terreno.md).
+ * (`terrenoComTipo`). `terrainTypes` e `tipoId` são opcionais e aditivos; a versão 30 do esquema os declara (migração 29 → 30 só avança a versão; ver docs/decisoes/0027-tipo-de-terreno.md).
  */
 export interface TerrainType {
   id: Id;
