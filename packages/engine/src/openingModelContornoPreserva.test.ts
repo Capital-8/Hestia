@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, ProjectStore, clipRect, ringSignedArea, createEmptyProject, makeWall, outline, type Opening, type OpeningShape, type OpeningType, type Project } from '@hestia/model';
+import { DEFAULT_OPENING_TYPES, ProjectStore, clipRect, ringSignedArea, createEmptyProject, makeWall, outline, shapeIncompatible, type Opening, type OpeningShape, type OpeningType, type Project } from '@hestia/model';
 import { frameOfWall, openingGeometry } from './resolve.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import { formaDaEsquadria } from './openingShapeEsquadria.ts';
@@ -53,6 +53,7 @@ describe('os 162 tipos do catálogo', { timeout: 60000 }, () => {
     for (const t of TIPOS) {
       const sem = cena(t).m;
       for (const k of FORMAS) {
+        if (shapeIncompatible(t, forma(t, k))) continue; // operação incompatível: sai fixa (aro e vidro), ver openingModelContornoFolha.test.ts
         const { m: com } = cena(t, forma(t, k));
         const ids = new Set(com.parts.map((q) => q.id));
         const s = formaDaEsquadria(forma(t, k), com.width, com.height);
@@ -101,6 +102,7 @@ describe('os 162 tipos do catálogo', { timeout: 60000 }, () => {
     for (const t of TIPOS) {
       const sem = modelQuantities(cena(t).m);
       for (const k of FORMAS) {
+        if (shapeIncompatible(t, forma(t, k))) continue; // sai fixa: menos peças (sem folha que se move), coberto em openingModelContornoFolha.test.ts
         const { m } = cena(t, forma(t, k));
         const q = modelQuantities(m);
         const vol = (x: typeof q): number => Object.values(x.byRole).reduce((s, r) => s + (r.volume ?? 0), 0);

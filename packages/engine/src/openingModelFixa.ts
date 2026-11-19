@@ -10,7 +10,8 @@ import { formaDaEsquadria } from './openingShapeEsquadria.ts';
  * folha que se move deixa de existir:
  * - janela: construída como janela FIXA (caixilho e vidro com a grade do tipo; bandeira e laterais seguem as regras da fixa);
  * - porta: construída como folha de giro e CONGELADA (folha, vidro e detalhes do estilo ficam; dobradiças, maçaneta, trilhos
- *   e movimento saem, porque um painel fixo não os tem).
+ *   e movimento saem, porque um painel fixo não os tem). Batente "bloco" (sem perfil) vira "simples": a de correr sempre tem batente
+ *   e o painel fixo precisa do aro.
  * Vão retangular, forma inválida na esquadria ou operação compatível: nada disso entra (o modelo é o de sempre).
  */
 
@@ -25,7 +26,7 @@ export function esquadriaIncompativel(t: OpeningType | undefined, g: OpeningGeom
 export function projetoComTipoFixo(p: Project, typeId: string): Project {
   const t = p.openingTypes[typeId];
   if (!t) return p;
-  const fixo: OpeningType = t.kind === 'window' ? { ...t, plan: 'fixed', leaves: 1 } : { ...t, plan: 'swing', leaves: 1, handle: 'none' };
+  const fixo: OpeningType = t.kind === 'window' ? { ...t, plan: 'fixed', leaves: 1 } : { ...t, plan: 'swing', leaves: 1, handle: 'none', frameStyle: t.frameStyle === 'block' ? 'simple' : t.frameStyle };
   return { ...p, openingTypes: { ...p.openingTypes, [typeId]: fixo } };
 }
 

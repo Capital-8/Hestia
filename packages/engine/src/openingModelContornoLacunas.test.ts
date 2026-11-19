@@ -62,7 +62,6 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     ['arco pleno', { kind: 'round', width: 1.2, height: 1.4 }, { height: 1.4 }],
     ['abatido', { kind: 'segmental', width: 1.2, height: 1.2, rise: 0.3 }, {}],
     ['ogival', { kind: 'pointed', width: 1.2, height: 1.5, rise: 0.8 }, { height: 1.5 }],
-    ['círculo', { kind: 'circle', width: 1.2, height: 1.2 }, {}],
   ];
   for (const [nome, forma, extra] of formas) {
     it(`${nome}: tudo dentro do contorno na posição fechada e trilho em faixa única`, () => {
@@ -90,14 +89,15 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     expect(m.parts.find((x) => x.id === 'track-sill')!.profile).toBeUndefined(); // trilho de baixo fica reto na base reta
   });
 
-  it('círculo: os dois trilhos seguem a elipse (metade de cima e de baixo)', () => {
-    const { m } = cena('ot_j120', { kind: 'circle', width: 1.2, height: 1.2 });
-    const cima = m.parts.filter((q) => q.id.startsWith('track-head'));
-    const baixo = m.parts.filter((q) => q.id.startsWith('track-sill'));
-    expect(cima).toHaveLength(2);
-    expect(baixo).toHaveLength(2);
-    expect(cima.every((q) => q.box.z0 >= m.height / 2 - 1e-9)).toBe(true);
-    expect(baixo.every((q) => q.box.z1 <= m.height / 2 + 1e-9)).toBe(true);
+  it('círculo: a operação de correr é incompatível (docs 39): sai fixa, com aro e vidro dentro da elipse e sem trilho nem movimento', () => {
+    const forma: OpeningShape = { kind: 'circle', width: 1.2, height: 1.2 };
+    const { m } = cena('ot_j120', forma);
+    expect(m.parts.filter((q) => q.role === 'track')).toHaveLength(0);
+    expect(m.parts.filter((q) => q.motion !== undefined)).toHaveLength(0);
+    expect(m.openings.every((o) => o.kind === 'fixed')).toBe(true);
+    expect(m.parts.filter((q) => q.role === 'glass')).toHaveLength(1);
+    expect(m.parts.filter((q) => q.group === 'frame-ring').length).toBeGreaterThanOrEqual(2);
+    tudoDentro(m, forma);
   });
 
   it('a folha que desliza é recortada como a fixa, na posição fechada (volume menor que o retangular, simétrico à fixa)', () => {
@@ -124,7 +124,6 @@ describe('porta de correr em arco: fechada, as folhas preenchem o vão arqueado 
   const formas = (w: number, h: number): Array<[string, OpeningShape]> => [
     ['arco pleno', { kind: 'round', width: w, height: h }],
     ['abatido', { kind: 'segmental', width: w, height: h, rise: 0.2 }],
-    ['círculo', { kind: 'circle', width: w, height: h }],
   ];
   const folhasRetas = (m: OpeningModel): OpeningPart[] => m.parts.filter((q) => q.role === 'leaf' && /^leaf-\d+$/.test(q.id));
   /** Fração da área "ideal" (caixa da folha retangular interseção o contorno recuado como a folha se recua) coberta pelas folhas fechadas. */
