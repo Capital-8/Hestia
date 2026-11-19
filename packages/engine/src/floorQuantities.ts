@@ -137,7 +137,6 @@ function quantifyFloorsCom(p: Project, levelId: Id, rust: QuantidadesRust | null
     }
   }
   if (
-    !rust &&
     floors.some((fl) => {
       const el = p.elements[fl.floorId];
       return el?.kind === 'floor' && Boolean(el.facePaints?.length);

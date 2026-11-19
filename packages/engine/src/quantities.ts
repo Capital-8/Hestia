@@ -144,7 +144,6 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     volumeByMaterial[main.materialId] = (volumeByMaterial[main.materialId] ?? 0) + c.volume;
   }
   if (
-    !rust &&
     Object.values(r.walls).some((rw) => {
       const w = p.elements[rw.wallId];
       return w?.kind === 'wall' && Boolean(w.facePaints?.length);

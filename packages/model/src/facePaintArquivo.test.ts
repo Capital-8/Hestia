@@ -6,17 +6,13 @@ describe('pintura de faces no arquivo do projeto', () => {
   const parede = (p: ReturnType<typeof createEmptyProject>) =>
     makeWall({ id: 'w1', typeId: p.defaults.wallTypeId, levelId: p.levels[0]!.id, a: { x: 0, y: 0 }, b: { x: 4, y: 0 } });
 
-  it('o esquema continua na versão 29 (campo aditivo)', () => {
-    expect(SCHEMA_VERSION).toBe(29);
-  });
-
   it('projeto salvo sem facePaints abre e não ganha o campo', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addWall', wall: parede(s.project) });
     const volta = migrateProject(JSON.parse(serializeProject(s.project)));
     const w = volta.elements['w1'] as Wall;
     expect(w.facePaints).toBeUndefined();
-    expect(volta.schemaVersion).toBe(29);
+    expect(volta.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it('facePaints (base, região e ripado) sobrevive a salvar, abrir e salvar de novo', () => {

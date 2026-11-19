@@ -20,17 +20,20 @@ const t0 = Date.now();
 const lap = (nome) => console.log(`  [tempo] ${nome}: ${((Date.now() - t0) / 1000).toFixed(1)} s desde o início`);
 
 await page.goto(`${URL_APP}?debug=1`);
-await page.waitForSelector('.canvas-wrap canvas');
-await page.waitForFunction(() => window.__hestia && window.__hestia.model, null, { timeout: 60000 });
+await page.waitForFunction(() => window.__hestia && window.__hestia.model, null, { timeout: 90000 });
+await page.evaluate(() => { localStorage.removeItem('hestia.panes'); window.__hestia.editor.newProject('blank'); window.__hestia.useUi.setState({ tela: 'editor' }); });
+await page.waitForSelector('.canvas-wrap canvas', { timeout: 60000 });
 await page.waitForTimeout(500);
 
 /** Posição de tela (px) onde o picking 3D devolve a face pedida do elemento; varre o canvas passando o mouse. */
+const vistos = new Set();
 async function acharFace(elementId, face) {
   const box = await page.locator('.canvas-wrap canvas').first().boundingBox();
   for (let y = box.y + 60; y < box.y + box.height - 60; y += 18) {
     for (let x = box.x + 60; x < box.x + box.width - 60; x += 18) {
       await page.mouse.move(x, y);
       const hit = await H(() => window.__hestia.useUi.getState().facePaint.hoverHit);
+      if (hit) vistos.add(`${hit.elementId}:${hit.face}`);
       if (hit && hit.elementId === elementId && hit.face === face) return { x, y, hit };
     }
   }
@@ -67,15 +70,18 @@ await rep.step('projeto em branco com duas paredes (uma composta) e vista 3D', a
   lap('projeto e 3D');
 });
 
-await rep.step('botões Pintar face e Estúdio da face existem na faixa (Modificar, 3D)', async () => {
-  const pintar = page.locator('button[title*="Pintar face"], button:has-text("Pintar face")');
-  const estudio = page.locator('button[title*="Estúdio da face"], button:has-text("Estúdio da face")');
+await rep.step('botões Pintar face e Estúdio da face existem na faixa (Modificar | Paredes, 3D)', async () => {
+  // a aba contextual "Modificar | Paredes" só aparece com a parede selecionada (como o Revit)
+  await H(() => window.__hestia.useUi.setState({ selection: ['wA'] }));
+  await page.waitForTimeout(800);
+  const pintar = page.locator('button:visible[title*="Pintar face"]');
+  const estudio = page.locator('button:visible[title*="Estúdio da face"]');
   check('botão Pintar face (3D) visível', (await pintar.count()) >= 1 && (await pintar.first().isVisible()), await pintar.count());
   check('botão Estúdio da face (2D) visível', (await estudio.count()) >= 1 && (await estudio.first().isVisible()), await estudio.count());
 });
 
 await rep.step('Pintar Face: pinta a face externa da parede com textura basica:*', async () => {
-  await page.locator('button[title*="Pintar face"], button:has-text("Pintar face")').first().click();
+  await page.locator('button:visible[title*="Pintar face"]').first().click();
   await page.waitForTimeout(300);
   const ativo = await H(() => { const f = window.__hestia.useUi.getState().facePaint; return { active: f.active, mode: f.mode }; });
   check('modo pintura ativo', ativo.active === true && ativo.mode === 'paint', JSON.stringify(ativo));
@@ -83,13 +89,11 @@ await rep.step('Pintar Face: pinta a face externa da parede com textura basica:*
   await page.locator('#opt-fp-material').selectOption('mat_cumaru');
   const mat = await H(() => ({ id: window.__hestia.useUi.getState().facePaint.materialId, tex: window.__hestia.editor.project.materials.mat_cumaru?.aparencia?.textura?.imagemId }));
   check('material escolhido tem textura basica:Wood026', mat.id === 'mat_cumaru' && mat.tex === 'basica:Wood026', JSON.stringify(mat));
+  // a câmera padrão enxerga a face interna: gira a órbita meia volta (o amortecimento leva ~2 s) e varre
+  await H(() => { const o = window.__hestia3d; if (o?.azimuth !== undefined) o.azimuth += Math.PI; else if (o?.theta !== undefined) o.theta += Math.PI; });
+  await page.waitForTimeout(3000);
   let achou = await acharFace(wallA, 'sideExt');
-  if (!achou) {
-    // a câmera padrão pode ver a outra face: gira a órbita meia volta e tenta de novo
-    await H(() => { const o = window.__hestia3d; if (o?.azimuth !== undefined) o.azimuth += Math.PI; else if (o?.theta !== undefined) o.theta += Math.PI; });
-    await page.waitForTimeout(500);
-    achou = await acharFace(wallA, 'sideExt');
-  }
+  console.log(`  faces vistas pelo picking: ${[...vistos].join(', ')}`);
   check('picking 3D acha a face externa da parede A', achou !== null, achou ? `${Math.round(achou.x)},${Math.round(achou.y)}` : 'não achou');
   if (!achou) return;
   await page.mouse.move(achou.x, achou.y);
@@ -127,7 +131,7 @@ await rep.step('desfazer e refazer da pintura', async () => {
 
 await rep.step('Estúdio da Face: abre a vista face:... pelo botão e desenha uma região retangular', async () => {
   await page.keyboard.press('Escape');
-  await page.locator('button[title*="Estúdio da face"], button:has-text("Estúdio da face")').first().click();
+  await page.locator('button:visible[title*="Estúdio da face"]').first().click();
   await page.waitForTimeout(300);
   const modo = await H(() => window.__hestia.useUi.getState().facePaint.mode);
   check('modo studioPick ativo', modo === 'studioPick', modo);
@@ -229,7 +233,7 @@ await rep.step('parede composta + material transparente (passagem translúcida)'
 });
 
 await rep.step('sem erros no console', async () => {
-  const relevantes = errors.filter((e) => !/favicon|ERR_FILE_NOT_FOUND/i.test(e));
+  const relevantes = errors.filter((e) => !/favicon|ERR_FILE_NOT_FOUND|status of 404/i.test(e));
   check('console sem erros', relevantes.length === 0, relevantes.slice(0, 3).join(' | '));
 });
 

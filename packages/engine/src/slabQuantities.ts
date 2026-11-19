@@ -140,7 +140,6 @@ function quantifySlabsCom(p: Project, levelId: Id, rust: QuantidadesRust | null)
     }
   }
   if (
-    !rust &&
     slabs.some((sl) => {
       const el = p.elements[sl.slabId];
       return el?.kind === 'slab' && Boolean(el.facePaints?.length);
