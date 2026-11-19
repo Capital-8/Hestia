@@ -75,7 +75,11 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
       return r ? caixaDe(p, w, [r.z0, r.z0 + r.height]) : caixas[i]!;
     });
     for (const w of candidatas) {
-      if (!comAnexo(w)) { out.push(w); continue; }
+      if (!comAnexo(w)) {
+        // Sem anexo a faixa é a nominal; ainda assim a dona com anexo decide pela faixa REAL (topo 3,0 só encosta na base 3,0).
+        if (caixasReais.some((d) => encosta(caixaDe(p, w, faixaZ(p, w)), d))) out.push(w);
+        continue;
+      }
       const r = reais?.get(w.id);
       if (!r) { reentrante = true; continue; }
       const z: [number, number] = [r.z0, r.z0 + r.height];
