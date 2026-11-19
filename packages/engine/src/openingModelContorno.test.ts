@@ -195,9 +195,9 @@ describe('planta: corte horizontal em arco', () => {
     }
   });
   it('abaixo do arranque o corte é o das ombreiras, como no vão retangular', () => {
-    const a = slicePartsAtZ(m, 1.0, CLOSED).map((r) => r.part.id).sort();
-    const b = slicePartsAtZ(cena('ot_p90').m, 1.0, CLOSED).map((r) => r.part.id).sort();
-    expect(a).toEqual(b);
+    // as dobradiças se redistribuem no trecho da aresta que existe sob o arco (docs/estudo-esquadrias/42), então não entram na comparação
+    const ids = (mm: typeof m): string[] => slicePartsAtZ(mm, 1.0, CLOSED).map((r) => r.part.id).filter((id) => !id.startsWith('hinge')).sort();
+    expect(ids(m)).toEqual(ids(cena('ot_p90').m));
   });
 });
 

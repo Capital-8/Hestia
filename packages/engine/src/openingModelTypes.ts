@@ -122,6 +122,18 @@ export interface LeafOpening {
   z1: number;
 }
 
+/**
+ * Ferragem que não coube inteira no contorno (docs/estudo-esquadrias/42): `pedido` é o que o tipo pede (dobradiças de uma folha, ou 1
+ * maçaneta) e `colocado` o que ficou presa à folha (0 = nenhuma). Nada fica solto: o que não tem onde prender sai e o aviso fica.
+ */
+export interface FerragemAviso {
+  tipo: 'hinge' | 'handle';
+  /** Chave da folha no id das peças (`hinge-<folha>-<k>`, `handle-<folha>-...`). */
+  folha: string;
+  pedido: number;
+  colocado: number;
+}
+
 export interface OpeningModel {
   kind: 'door' | 'window';
   /** Vão nominal (largura × altura do tipo) e espessura total da parede. */
@@ -134,6 +146,8 @@ export interface OpeningModel {
   openings: LeafOpening[];
   /** Vão livre: sem folha nem caixilho; `parts` traz só o que o vão tem (soleira, verga). */
   void: boolean;
+  /** Só em vão com forma: ferragem reduzida ou removida porque a folha não tem onde prendê-la. Ausente = nada reduzido. */
+  ferragemAvisos?: FerragemAviso[];
 }
 
 /** Estado de abertura pedido ao transformar uma peça: ângulo em radianos (folhas que giram) e fração 0..1 (correr). */

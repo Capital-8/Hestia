@@ -51,6 +51,8 @@ export const PT_PACKAGES_ENGINE = {
   egb_issue_opening_shape_frame: 'Abertura "{id}": a flecha do arco não cabe na esquadria menor que o vão bruto ({problems}); as peças ficam retangulares (o furo na parede segue a forma).',
   egb_issue_opening_shape_concave: 'Abertura "{id}": polígono de vão côncavo; o recuo das peças pode ser recusado nas reentrâncias (a peça fica como caixa). O furo na parede segue o polígono.',
   egb_issue_opening_shape_operation: 'Abertura "{id}": a operação "{op}" não é construtiva na forma "{shape}" do vão; a esquadria é gerada FIXA (aro e vidro) dentro do contorno. Troque a operação ou a forma.',
+  egb_issue_opening_hinges: 'Abertura "{id}": na forma do vão a folha "{leaf}" só comporta {placed} de {wanted} dobradiças presas (a aresta de articulação é curta); as demais saem para nenhuma ficar solta da folha. Aumente a altura ou use uma forma menos aguda.',
+  egb_issue_opening_handle: 'Abertura "{id}": na forma do vão a maçaneta da folha "{leaf}" não tem onde ficar sobre a folha; ela sai para não ficar solta. Aumente a largura ou use uma forma menos aguda.',
   egb_issue_wall_roof_over: 'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
     'A camada {camada} de {elemento} termina na camada da parede {parede}, mas essa parede não tem a função "{funcao}" no lado {lado}: a borda foi para a camada seguinte, em direção ao lado oposto.',
@@ -248,6 +250,8 @@ export const EN_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Opening "{id}": the arch rise does not fit the frame, which is smaller than the rough opening ({problems}); the parts stay rectangular (the wall hole keeps the shape).',
   egb_issue_opening_shape_concave: 'Opening "{id}": concave polygon opening; the inset of the parts may be refused at the notches (the part stays a box). The wall hole keeps the polygon.',
   egb_issue_opening_shape_operation: 'Opening "{id}": the operation "{op}" is not constructible in the "{shape}" opening shape; the unit is generated FIXED (frame and glass) inside the outline. Change the operation or the shape.',
+  egb_issue_opening_hinges: 'Opening "{id}": in the opening shape leaf "{leaf}" only takes {placed} of {wanted} attached hinges (the hinge edge is short); the rest are removed so none floats off the leaf. Increase the height or use a less sharp shape.',
+  egb_issue_opening_handle: 'Opening "{id}": in the opening shape the handle of leaf "{leaf}" has nowhere to sit on the leaf; it is removed so it does not float. Increase the width or use a less sharp shape.',
   egb_issue_wall_roof_over: 'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:
     'Layer {camada} of {elemento} ends at a layer of wall {parede}, but that wall has no "{funcao}" function on the {lado} side: the edge went to the next layer, toward the opposite side.',
@@ -445,6 +449,8 @@ export const ES_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Apertura "{id}": la flecha del arco no cabe en la carpintería, menor que el vano bruto ({problems}); las piezas quedan rectangulares (el hueco del muro conserva la forma).',
   egb_issue_opening_shape_concave: 'Apertura "{id}": polígono de vano cóncavo; el retranqueo de las piezas puede rechazarse en los entrantes (la pieza queda como caja). El hueco del muro conserva el polígono.',
   egb_issue_opening_shape_operation: 'Apertura "{id}": la operación "{op}" no es constructiva en la forma "{shape}" del vano; la carpintería se genera FIJA (marco y vidrio) dentro del contorno. Cambie la operación o la forma.',
+  egb_issue_opening_hinges: 'Apertura "{id}": en la forma del vano la hoja "{leaf}" solo admite {placed} de {wanted} bisagras fijadas (el borde de giro es corto); las demás se quitan para que ninguna quede suelta de la hoja. Aumente la altura o use una forma menos aguda.',
+  egb_issue_opening_handle: 'Apertura "{id}": en la forma del vano la manija de la hoja "{leaf}" no tiene dónde ir sobre la hoja; se quita para que no quede suelta. Aumente el ancho o use una forma menos aguda.',
   egb_issue_wall_roof_over: 'El muro "{id}" sobresale {length} de la cara inferior del tejado; active la parte superior ajustada al tejado o baje el muro.',
   egb_issue_termino_camada_sem_funcao:
     'La capa {camada} de {elemento} termina en una capa del muro {parede}, pero ese muro no tiene la función "{funcao}" en el lado {lado}: el borde pasó a la capa siguiente, hacia el lado opuesto.',
@@ -642,6 +648,8 @@ export const DE_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Öffnung "{id}": Der Bogenstich passt nicht in den Rahmen, der kleiner als die Rohöffnung ist ({problems}); die Teile bleiben rechteckig (die Wandöffnung behält die Form).',
   egb_issue_opening_shape_concave: 'Öffnung "{id}": konkaves Polygon als Öffnungsform; der Versatz der Teile kann in den Einbuchtungen abgelehnt werden (das Teil bleibt ein Quader). Die Wandöffnung behält das Polygon.',
   egb_issue_opening_shape_operation: 'Öffnung "{id}": Die Bedienart "{op}" ist in der Öffnungsform "{shape}" nicht baubar; das Element wird FESTSTEHEND (Rahmen und Glas) innerhalb der Kontur erzeugt. Bedienart oder Form ändern.',
+  egb_issue_opening_hinges: 'Öffnung "{id}": In der Öffnungsform nimmt der Flügel "{leaf}" nur {placed} von {wanted} befestigten Bändern auf (die Bandkante ist kurz); die übrigen entfallen, damit keines frei neben dem Flügel schwebt. Höhe vergrößern oder eine weniger spitze Form wählen.',
+  egb_issue_opening_handle: 'Öffnung "{id}": In der Öffnungsform hat der Griff des Flügels "{leaf}" keinen Platz auf dem Flügel; er entfällt, damit er nicht frei schwebt. Breite vergrößern oder eine weniger spitze Form wählen.',
   egb_issue_wall_roof_over: 'Wand "{id}" ragt {length} über die Dachunterseite hinaus; aktivieren Sie die dachangepasste Oberkante oder senken Sie die Wand.',
   egb_issue_termino_camada_sem_funcao:
     'Schicht {camada} von {elemento} endet an einer Schicht der Wand {parede}, aber diese Wand hat auf der {lado} Seite keine Funktion "{funcao}": Die Kante ging zur nächsten Schicht, zur gegenüberliegenden Seite.',
@@ -839,6 +847,8 @@ export const FR_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Ouverture "{id}" : la flèche de l\'arc ne tient pas dans le cadre, plus petit que la baie brute ({problems}) ; les pièces restent rectangulaires (le trou du mur garde la forme).',
   egb_issue_opening_shape_concave: 'Ouverture "{id}" : baie en polygone concave ; le retrait des pièces peut être refusé dans les creux (la pièce reste une boîte). Le trou du mur garde le polygone.',
   egb_issue_opening_shape_operation: 'Ouverture "{id}" : l\'opération "{op}" n\'est pas réalisable dans la forme "{shape}" de la baie ; la menuiserie est générée FIXE (cadre et vitrage) dans le contour. Changez l\'opération ou la forme.',
+  egb_issue_opening_hinges: 'Ouverture "{id}" : dans la forme de la baie, le vantail "{leaf}" ne reçoit que {placed} charnières fixées sur {wanted} (l\'arête de rotation est courte) ; les autres sont retirées pour qu\'aucune ne flotte hors du vantail. Augmentez la hauteur ou choisissez une forme moins aiguë.',
+  egb_issue_opening_handle: 'Ouverture "{id}" : dans la forme de la baie, la poignée du vantail "{leaf}" n\'a pas de place sur le vantail ; elle est retirée pour ne pas flotter. Augmentez la largeur ou choisissez une forme moins aiguë.',
   egb_issue_wall_roof_over: 'Le mur "{id}" dépasse de {length} sous la face inférieure du toit ; activez le sommet ajusté au toit ou abaissez le mur.',
   egb_issue_termino_camada_sem_funcao:
     'La couche {camada} de {elemento} s\'arrête à une couche du mur {parede}, mais ce mur n\'a pas la fonction "{funcao}" du côté {lado} : le bord est passé à la couche suivante, vers le côté opposé.',
@@ -1036,6 +1046,8 @@ export const IT_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Apertura "{id}": la freccia dell\'arco non entra nel telaio, più piccolo del vano grezzo ({problems}); i pezzi restano rettangolari (il foro nel muro mantiene la forma).',
   egb_issue_opening_shape_concave: 'Apertura "{id}": poligono del vano concavo; l\'arretramento dei pezzi può essere rifiutato nelle rientranze (il pezzo resta una scatola). Il foro nel muro mantiene il poligono.',
   egb_issue_opening_shape_operation: 'Apertura "{id}": l\'operazione "{op}" non è realizzabile nella forma "{shape}" del vano; il serramento è generato FISSO (telaio e vetro) dentro il contorno. Cambi l\'operazione o la forma.',
+  egb_issue_opening_hinges: 'Apertura "{id}": nella forma del vano l\'anta "{leaf}" ospita solo {placed} cerniere fissate su {wanted} (il bordo di rotazione è corto); le altre vengono tolte perché nessuna resti staccata dall\'anta. Aumenti l\'altezza o usi una forma meno acuta.',
+  egb_issue_opening_handle: 'Apertura "{id}": nella forma del vano la maniglia dell\'anta "{leaf}" non ha posto sull\'anta; viene tolta per non restare staccata. Aumenti la larghezza o usi una forma meno acuta.',
   egb_issue_wall_roof_over: 'La parete "{id}" sporge di {length} sotto la faccia inferiore del tetto; attiva la sommità adattata al tetto o abbassa la parete.',
   egb_issue_termino_camada_sem_funcao:
     'Lo strato {camada} di {elemento} termina su uno strato della parete {parede}, ma questa parete non ha la funzione "{funcao}" sul lato {lado}: il bordo è passato allo strato successivo, verso il lato opposto.',
@@ -1233,6 +1245,8 @@ export const PL_PACKAGES_ENGINE: Record<keyof typeof PT_PACKAGES_ENGINE, string>
   egb_issue_opening_shape_frame: 'Otwór "{id}": strzałka łuku nie mieści się w ościeżnicy mniejszej od otworu surowego ({problems}); elementy pozostają prostokątne (otwór w ścianie zachowuje kształt).',
   egb_issue_opening_shape_concave: 'Otwór "{id}": wklęsły wielokąt otworu; odsunięcie elementów może zostać odrzucone we wcięciach (element pozostaje prostopadłościanem). Otwór w ścianie zachowuje wielokąt.',
   egb_issue_opening_shape_operation: 'Otwór "{id}": operacja "{op}" jest nie do wykonania w kształcie otworu "{shape}"; stolarka jest generowana jako STAŁA (rama i szyba) wewnątrz konturu. Zmień operację lub kształt.',
+  egb_issue_opening_hinges: 'Otwór "{id}": w kształcie otworu skrzydło "{leaf}" przyjmuje tylko {placed} z {wanted} przymocowanych zawiasów (krawędź obrotu jest krótka); pozostałe są usuwane, aby żaden nie wisiał poza skrzydłem. Zwiększ wysokość lub użyj mniej ostrego kształtu.',
+  egb_issue_opening_handle: 'Otwór "{id}": w kształcie otworu klamka skrzydła "{leaf}" nie ma miejsca na skrzydle; jest usuwana, aby nie wisiała w powietrzu. Zwiększ szerokość lub użyj mniej ostrego kształtu.',
   egb_issue_wall_roof_over: 'Ściana "{id}" wystaje {length} poza spód dachu; włącz górę dopasowaną do dachu lub obniż ścianę.',
   egb_issue_termino_camada_sem_funcao:
     'Warstwa {camada} elementu {elemento} kończy się na warstwie ściany {parede}, ale ta ściana nie ma funkcji "{funcao}" po stronie {lado}: krawędź przeszła do następnej warstwy, w stronę przeciwną.',

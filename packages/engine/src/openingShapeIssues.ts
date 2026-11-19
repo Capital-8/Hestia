@@ -3,6 +3,7 @@ import { t as tr, type Lang } from './i18nMessages.ts';
 import { clienteFuroContorno } from './furoContornoDespacho.ts';
 import { problemasDaEsquadria } from './openingShapeEsquadria.ts';
 import { excessoForaDoEnvelope } from './openingShapeEnvelope.ts';
+import { ferragemIssues } from './openingFerragemIssues.ts';
 
 /** Parede curva atendida pelo contorno: cliente com `curva` e sem perfil de topo/base (docs/estudo-esquadrias/33 §4). */
 const curvaPorContorno = (w: { topProfile?: unknown; attachTopToRoof?: boolean; attachTopToFloor?: boolean }): boolean => clienteFuroContorno()?.curva === true && !w.topProfile && !w.attachTopToRoof && !w.attachTopToFloor;
@@ -34,6 +35,8 @@ function concavo(r: ReadonlyArray<readonly [number, number]>): boolean {
  * - `forma-incompatível-com-operação`: a operação da esquadria (correr, guilhotina, giro, sanfonada...) não é construtiva nessa forma
  *   (matriz `shapeCompat`, docs/estudo-esquadrias/39); o motor gera a esquadria FIXA (aro e vidro) dentro do contorno. O veredito
  *   `adaptado` não avisa (funciona com a ressalva da matriz, que a interface mostra).
+ * - `ferragem-dobradicas-reduzidas` / `ferragem-macaneta-removida`: a folha não tem onde prender todas as dobradiças ou a maçaneta no
+ *   contorno (docs/estudo-esquadrias/42); a esquadria sai com o que coube, nenhuma ferragem fica solta.
  * - `vao-fora-do-envelope`: a forma sai do retângulo da parede reta (comprimento x altura); o furo remove só a parte que cabe (docs/estudo-esquadrias/33).
  * Só instâncias são avaliadas; um tipo com forma e sem uso não gera aviso.
  */
@@ -56,6 +59,7 @@ export function openingShapeIssues(p: Project, lang: Lang = 'pt'): ValidationIss
       const nome = NOME_FORMA[lang === 'pt' ? 'pt' : 'en'][t.shape.kind];
       out.push({ severity: 'warning', code: 'forma-incompatível-com-operação', message: tr(lang, 'egb_issue_opening_shape_operation', { id: o.id, op: openingFamilyOf(t, lang)?.name ?? t.plan, shape: nome }), elementId: o.id });
     }
+    out.push(...ferragemIssues(p, o, lang));
     const menor = problemasDaEsquadria(t.shape, t.width, openingHeight(t, o));
     if (menor.length > 0) {
       out.push({ severity: 'warning', code: 'forma-esquadria-retangular', message: tr(lang, 'egb_issue_opening_shape_frame', { id: o.id, problems: menor.join(', ') }), elementId: o.id });

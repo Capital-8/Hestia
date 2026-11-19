@@ -16,6 +16,7 @@ import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 import { poligonal } from './openingModelContornoPoligono.ts';
 import { ferraduraNoPescoco } from './openingModelContornoFerradura.ts';
 import { acomodaAoContorno } from './openingModelContornoAjuste.ts';
+import { ferragensNoContorno } from './openingModelFerragem.ts';
 import { aroDasFolhas, type AroDasFolhas } from './openingModelContornoFolha.ts';
 
 /*
@@ -300,6 +301,8 @@ export function contornoDoModelo(m: OpeningModel, forma: OpeningShape | undefine
   if (!shape) return m;
   const feitas = shape.kind === 'circle' ? circulo(m, shape) : isPolygonForm(shape) ? poligonal(m, shape, APOIO) : arco(m, shape);
   const head = m.parts.find((p) => p.role === 'head' && p.material === 'frame' && p.profile?.plane !== 'tz');
-  const parts = acomodaAoContorno(feitas, shape, head ? head.box.z1 - head.box.z0 : 0);
-  return { ...m, parts: padrao ? muntinsDecorativos(parts, shape, padrao) : parts };
+  const acomodadas = acomodaAoContorno(feitas, shape, head ? head.box.z1 - head.box.z0 : 0);
+  const { parts: comFerragem, avisos } = ferragensNoContorno(acomodadas, shape);
+  const parts = padrao ? muntinsDecorativos(comFerragem, shape, padrao) : comFerragem;
+  return { ...m, parts, ...(avisos.length > 0 ? { ferragemAvisos: avisos } : {}) };
 }
