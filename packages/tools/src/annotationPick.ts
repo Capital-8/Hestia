@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOnLevel, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
+import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOfPlan, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -15,7 +15,7 @@ export const DIM_TEXT_GRIP_PX = 12;
  * Ponto no meio da face ou no vazio: sem referência, a cota fica livre.
  */
 export function endRefAt(p: Project, levelId: Id, point: Vec2): DimensionRef | undefined {
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     if (dist(w.a, point) <= END_TOL) return { wallId: w.id, end: 'a' };
     if (dist(w.b, point) <= END_TOL) return { wallId: w.id, end: 'b' };
   }

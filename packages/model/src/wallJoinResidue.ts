@@ -1,7 +1,7 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import type { Command } from './commands.ts';
 import { changesWallEnds } from './hostedOffset.ts';
-import { wallType } from './queries.ts';
+import { wallBaseElevation, wallTopElevation, wallType } from './queries.ts';
 import { isWall, type Id, type Project, type Wall } from './types.ts';
 import { wallThicknessOf } from './wallType.ts';
 import { DEFAULT_JOIN } from './wall.ts';
@@ -26,7 +26,18 @@ export function snapshotEnds(p: Project): EndsSnapshot {
   return s;
 }
 
-/** Há outra parede do nível com uma ponta no ponto (tolerância de junção, mais meia espessura dela: canto desenhado pela face). */
+/**
+ * Mesma faixa de junção: o mesmo nível, ou outro nível cuja faixa de altura nominal (base..topo) se sobrepõe à da parede
+ * de forma ESTRITA (encostar topo com base não une). O model não vê a cota resolvida do engine: vale a nominal.
+ */
+function sameBand(p: Project, w: Wall, v: Wall): boolean {
+  if (v.levelId === w.levelId) return true;
+  const [wb, wt] = [wallBaseElevation(p, w), wallTopElevation(p, w)];
+  const [vb, vt] = [wallBaseElevation(p, v), wallTopElevation(p, v)];
+  return Math.max(Math.min(wb, wt), Math.min(vb, vt)) < Math.min(Math.max(wb, wt), Math.max(vb, vt)) - 1e-9;
+}
+
+/** Há outra parede do nível (ou de outro nível na mesma faixa de altura) com uma ponta no ponto (tolerância de junção, mais meia espessura dela: canto desenhado pela face). */
 function hasPartner(p: Project, w: Wall, o: Vec2, walls: Wall[], tol: number): boolean {
   for (const v of walls) {
     if (v.id === w.id) continue;
@@ -54,23 +65,17 @@ export function clearJoinResidue(p: Project, before: EndsSnapshot): void {
   }
   if (moved.length === 0) return;
   const cand = new Set<Wall>(moved);
-  const byLevel = new Map<Id, Wall[]>();
-  for (const e of Object.values(p.elements)) {
-    if (!isWall(e)) continue;
-    const g = byLevel.get(e.levelId) ?? [];
-    g.push(e);
-    byLevel.set(e.levelId, g);
-  }
+  const all = Object.values(p.elements).filter(isWall);
   for (const w of moved) {
     const old = before.get(w.id)!;
-    for (const v of byLevel.get(old.levelId) ?? []) {
-      if (cand.has(v)) continue;
+    for (const v of all) {
+      if (cand.has(v) || v.id === w.id || !sameBand(p, w, v)) continue;
       const reach = tol + wallThicknessOf(wallType(p, w)) / 2;
       if ([old.a, old.b].some((o) => dist(v.a, o) <= reach || dist(v.b, o) <= reach)) cand.add(v);
     }
   }
   for (const w of cand) {
-    const walls = byLevel.get(w.levelId) ?? [];
+    const walls = all.filter((v) => sameBand(p, w, v));
     if (!isDefault(w.joinStart) && !hasPartner(p, w, w.a, walls, tol)) w.joinStart = { ...DEFAULT_JOIN };
     if (!isDefault(w.joinEnd) && !hasPartner(p, w, w.b, walls, tol)) w.joinEnd = { ...DEFAULT_JOIN };
   }

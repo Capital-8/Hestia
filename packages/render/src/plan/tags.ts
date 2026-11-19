@@ -1,5 +1,5 @@
 import { levelFrames, pointAt } from '@hestia/engine';
-import { elementTagText, elementTagValues, openingTypeById, tagFamilyFor, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
+import { elementTagText, elementTagValues, openingTypeById, projetoDaPlanta, tagFamilyFor, wallType, type ElementTag, type Id, type Project } from '@hestia/model';
 export { elementTagText, elementTagValues };
 import type { Vec2 } from '@hestia/geom';
 import { aberturasDaParede } from './resolucao.ts';
@@ -41,7 +41,7 @@ export function wallTagLabels(p: Project, levelId: Id, paint: PlanPaint, scale: 
   const halfPad = PAD_MM * mPerMm;
   const chW = CHAR_W_MM * mPerMm;
   const taggedWalls = new Set((p.levels.find((l) => l.id === levelId)?.tags ?? []).map((tg) => tg.hostId));
-  for (const f of levelFrames(p, levelId)) {
+  for (const f of levelFrames(projetoDaPlanta(p, levelId), levelId)) {
     if (hidden?.has(f.wall.id) || taggedWalls.has(f.wall.id)) continue;
     const code = wallType(p, f.wall).code;
     if (!code) continue;

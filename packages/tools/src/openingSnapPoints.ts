@@ -1,6 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import { buildOpeningModel, frameOfWall, openingAnchoredPoint, openingGeometry, pointAt, type LeafOpening, type OpeningModel, type OpeningPlanAnchor, type WallFrame } from '@hestia/engine';
-import { openingTypeById, openingAngle2d, openingsOfWall, wallsOnLevel, type Id, type OpeningType, type Project, type Wall } from '@hestia/model';
+import { openingTypeById, openingAngle2d, openingsOfWall, wallsOfPlan, type Id, type OpeningType, type Project, type Wall } from '@hestia/model';
 import type { SnapPoint } from './infer.ts';
 import type { SnapKind } from './types.ts';
 
@@ -73,7 +73,7 @@ function swingPoints(t: OpeningType, g: ReturnType<typeof openingGeometry>, mode
 function geometryOfLevel(p: Project, levelId: Id): OpeningSnapGeometry {
   const points: SnapPoint[] = [];
   const segments: OpeningSnapSegment[] = [];
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     const f = frameOfWall(p, w.id);
     if (!f) continue;
     for (const o of openingsOfWall(p, w.id)) {
@@ -115,7 +115,7 @@ export function openingSnapGeometry(p: Project, levelId: Id, isVisible?: (w: Wal
     byLevel.set(levelId, all);
   }
   if (!isVisible) return all;
-  const visible = new Set(wallsOnLevel(p, levelId).filter(isVisible).map((w) => w.id));
+  const visible = new Set(wallsOfPlan(p, levelId).filter(isVisible).map((w) => w.id));
   return {
     points: all.points.filter((q) => q.hostId === undefined || visible.has(q.hostId)),
     segments: all.segments.filter((s) => visible.has(s.hostId)),

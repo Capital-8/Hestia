@@ -1,6 +1,6 @@
 import { add, arcFromSagitta, closestOnSegment, cross, dist, intersectLines, mul, norm, perp, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall, sAtDepth, sampleCurve, wallFaces, type WallFaces } from '@hestia/engine';
-import { coreSpan, floorsOnLevel, rampsOnLevel, slabsOnLevel, stairsOnLevel, wallsOnLevel, type Id, type Project, type StairCurve } from '@hestia/model';
+import { coreSpan, floorsOnLevel, rampsOnLevel, slabsOnLevel, stairsOnLevel, projetoDaPlanta, wallsOfPlan, type Id, type Project, type StairCurve } from '@hestia/model';
 import type { SnapOptions } from './types.ts';
 
 /** Folga do clique para "a linha sob o cursor" (px), a mesma ordem do pick de paredes. */
@@ -44,8 +44,8 @@ export function pickLinesOf(p: Project, levelId: Id, snap: SnapOptions, exclude?
 
 function wallLines(p: Project, levelId: Id, snap: SnapOptions): PickLine[] {
   const out: PickLine[] = [];
-  const faces = snap.faces || snap.core ? new Map<Id, WallFaces>(wallFaces(p, levelId).map((w) => [w.wallId, w])) : null;
-  for (const w of wallsOnLevel(p, levelId)) {
+  const faces = snap.faces || snap.core ? new Map<Id, WallFaces>(wallFaces(projetoDaPlanta(p, levelId), levelId).map((w) => [w.wallId, w])) : null;
+  for (const w of wallsOfPlan(p, levelId)) {
     const axis: StairCurve = { a: { ...w.a }, b: { ...w.b }, sag: w.sag };
     if (snap.axis) out.push({ owner: w.id, group: 'wall-axis', curve: axis });
     if (!faces) continue;

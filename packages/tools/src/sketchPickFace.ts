@@ -1,6 +1,6 @@
 import { arcLocal, arcPointAt, dist, sagFromThreePoints, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { levelFrames, wallFacesCached, wallTopFacesCached, type WallFaces, type WallFrame, type WallTopFaces } from '@hestia/engine';
-import { ceilingsOnLevel, floorsOnLevel, isWall, newId, slabsOnLevel, type Id, type Wall } from '@hestia/model';
+import { ceilingsOnLevel, floorsOnLevel, isWall, newId, projetoDaPlanta, slabsOnLevel, type Id, type Wall } from '@hestia/model';
 import { makeSeg, onCircle, segDistance, visibleIn, type SketchCtx } from './sketchPickFaceGeom.ts';
 import { t as translate } from './i18n.ts';
 
@@ -107,8 +107,9 @@ function hostsOf(ctx: SketchCtx): Host[] {
  * arco), e arestas de contorno e de furo de piso, laje e forro. Elementos ocultos na planta ficam de fora.
  */
 export function faceCandidates(ctx: SketchCtx, pt: Vec2, tol: number, opts: FacePickOptions = {}): SketchPick[] {
-  const p = ctx.project();
   const levelId = ctx.levelId();
+  // Paredes de outros níveis que cruzam o corte deste nível entram como paredes dele (ver `projetoDaPlanta`).
+  const p = projetoDaPlanta(ctx.project(), levelId);
   const lang = ctx.lang?.() ?? 'pt';
   const vis = visibleIn(ctx);
   const faces = new Map(wallFacesCached(p, levelId).map((w) => [w.wallId, w] as const));
@@ -166,7 +167,7 @@ export function faceAt(ctx: SketchCtx, pt: Vec2, tol: number, cycle = 0, opts: F
 
 /** Linhas prontas para o rascunho para uma referência: vazio se o elemento ou o `which` não existem. */
 export function faceSegments(ctx: SketchCtx, hostId: Id, which: SketchWhich): SketchSeg[] {
-  const p = ctx.project();
+  const p = projetoDaPlanta(ctx.project(), ctx.levelId());
   const el = p.elements[hostId];
   if (isWall(el)) {
     if (typeof which !== 'string') return [];
