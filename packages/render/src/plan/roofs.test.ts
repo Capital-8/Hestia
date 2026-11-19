@@ -466,7 +466,8 @@ describe('telhado com trecho em arco (pegada amostrada)', () => {
     expect(raw.length).toBeGreaterThan(24);
     expect(drawn.length).toBeLessThan(raw.length / 4);
     // A cumeeira horizontal que separa a água de cima da de baixo (ambas do arco e dos lados retos) segue desenhada.
-    expect(drawn.some((s) => s.pts.length === 2 && s.pts[0]!.y === 3 && s.pts[1]!.y === 3)).toBe(true);
+    // (O esqueleto novo devolve y = 3 com ruído de ~1e-13 (2,9999999999999276): a cumeeira está em y = 3 por simetria, tolerância 1e-9.)
+    expect(drawn.some((s) => s.pts.length === 2 && Math.abs(s.pts[0]!.y - 3) < 1e-9 && Math.abs(s.pts[1]!.y - 3) < 1e-9)).toBe(true);
   });
 
   it('o contorno de um arco não gera cumeeira nem espigão para cada lado amostrado (o beiral sai como faixa suave)', () => {

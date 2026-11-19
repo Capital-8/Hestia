@@ -188,7 +188,8 @@ describe('picking: o mesmo elemento, a mesma categoria e o mesmo ponto', () => {
     nova.scene.updateMatrixWorld(true);
     const sobrepostos: THREE.Object3D[] = [];
     nova.scene.traverse((o) => {
-      if (o instanceof THREE.Mesh && o.renderOrder === 5) sobrepostos.push(o);
+      // Realce de preenchimento: renderOrder 10 (ORDEM_REALCE_PREENCHIMENTO), depois de opacos, vidro, massa e linhas; antes era 5.
+      if (o instanceof THREE.Mesh && o.renderOrder === 10) sobrepostos.push(o);
     });
     expect(sobrepostos.length).toBeGreaterThanOrEqual(2);
     // O realce reusa os buffers do modelo: o `position` é a mesma instância da geometria de origem, não uma cópia.
