@@ -3,7 +3,7 @@ import type { WallFrame } from './frame.ts';
 import { resolveAllFloors } from './floors.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { resolveAllSlabs } from './slabs.ts';
-import { wallZRange } from './wallZ.ts';
+import { wallZRange, type WallZ } from './wallZ.ts';
 
 /** Parede cuja faixa vertical depende de piso, laje ou telhado (anexos). */
 function hasAttach(w: Wall): boolean {
@@ -42,4 +42,25 @@ export function withWallZ(p: Project, frames: WallFrame[]): WallFrame[] {
     }
   }
   return frames;
+}
+
+/**
+ * Faixa vertical REAL (com anexos) de paredes soltas, para peneirar parceiras de outros níveis (`resolveParceiras`).
+ * Resolve pisos, lajes e telhados uma vez. Devolve `null` se a resolução for reentrante (mesma guarda de `withWallZ`):
+ * quem chama então trata a parede como não resolvida, sem ciclo.
+ */
+export function zRealDe(p: Project, walls: readonly Wall[]): Map<string, WallZ> | null {
+  if (resolving) return null;
+  const out = new Map<string, WallZ>();
+  if (walls.length === 0) return out;
+  resolving = true;
+  try {
+    const floors = resolveAllFloors(p);
+    const slabs = resolveAllSlabs(p);
+    const roofs = resolveAllRoofs(p);
+    for (const w of walls) out.set(w.id, wallZRange(p, w, floors, slabs, roofs));
+  } finally {
+    resolving = false;
+  }
+  return out;
 }

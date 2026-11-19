@@ -2,9 +2,8 @@ import { ringArea, type Ring, type Vec2 } from '@hestia/geom';
 import { formatQuantity, layerSpans, unitsOf, type Project, type ValidationIssue } from '@hestia/model';
 import { t as tr, type Lang } from './i18nMessages.ts';
 import { tiltValid } from './wallTilt.ts';
-import { levelFrames } from './resolveFrames.ts';
-import { semCortina } from './cortinaProjeto.ts';
 import { resolveLevel } from './resolve.ts';
+import { quadrosDaInclinada } from './juncaoInclinadaParceiras.ts';
 import { layerQuad } from './layerGeom.ts';
 import { computeEnds, joinStatus } from './joins.ts';
 import { sAtDepth, type WallFrame } from './frame.ts';
@@ -423,11 +422,15 @@ export function wallTiltJoinIssues(p: Project, lang: Lang = 'pt'): ValidationIss
   if (!projetoTemParedeInclinada(p)) return [];
   const out: ValidationIssue[] = [];
   for (const lv of p.levels) {
-    const frames = levelFrames(p, lv.id).filter((f) => semCortina(p, [f.wall]).length > 0);
-    if (!frames.some((f) => tiltOf(f) !== 0)) continue;
+    // Parceiras de outros níveis entram na análise (como em `junctionLevel`); aviso e altura só valem para as paredes do nível.
+    const { donas, frames: todos } = quadrosDaInclinada(p, lv.id);
+    if (!todos.some((f) => tiltOf(f) !== 0)) continue;
     const rl = resolveLevel(p, lv.id);
     const heights = new Map(Object.values(rl.walls).map((w) => [w.wallId, w.height] as const));
-    const an = analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
+    for (const f of todos) if (!heights.has(f.wall.id) && f.z) heights.set(f.wall.id, f.z.top - f.z.z0);
+    const analise = analyzeLevelTilt(todos, heights, p.settings?.joinTolerance);
+    const frames = todos.filter((f) => donas.has(f.wall.id));
+    const an = { ...analise, avisos: analise.avisos.filter((a) => donas.has(a.wallId)) };
     const seen = new Set<string>();
     const push = (code: TiltAvisoCode, id: string, valor?: number): void => {
       if (seen.has(`${code}|${id}`)) return;

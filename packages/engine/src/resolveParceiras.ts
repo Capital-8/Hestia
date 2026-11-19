@@ -1,4 +1,5 @@
-import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wallType, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
+import { zRealDe } from './wallFrameZ.ts';
+import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wallType, wallsCrossingCut, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 
 /**
  * Junção entre níveis. As junções são resolvidas por nível; uma parede de outro nível que cobre a mesma faixa de altura
@@ -6,7 +7,9 @@ import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wall
  * se sobrepõe à de alguma parede de L e cuja caixa em planta encosta na dela. Elas entram na resolução de L como paredes
  * do nível (mesma base e topo, `baseOffset` compensa a troca de nível, como `projetoDaPlanta`), só para a junção; o
  * resultado é filtrado depois e cada parede continua sendo resolvida e desenhada uma vez, no nível dono.
- * Fora: parede com `attachBottomToFloor` ou `attachTopToRoof` (a cota depende do nível dono, como em `wallsCrossingCut`).
+ * Parceira com anexo (`attachBottomToFloor`, `attachTopToFloor`, `attachTopToRoof`): a faixa REAL vem de `wallZRange`
+ * (`zRealDe`); entra promovida SEM anexos (base e altura já resolvidas), porque o anexo depende do nível dono. Em resolução
+ * reentrante (pisos, lajes, telhados) a parceira com anexo fica de fora: sem ciclo.
  * A seleção é um superset barato; quem decide a junção de fato é `computeEnds`, com a cota real (`withWallZ`).
  */
 const EPS = 1e-9;
@@ -31,7 +34,10 @@ function caixaDe(p: Project, w: Wall, z: [number, number]): Caixa {
   return { x0: Math.min(w.a.x, w.b.x) - m, y0: Math.min(w.a.y, w.b.y) - m, x1: Math.max(w.a.x, w.b.x) + m, y1: Math.max(w.a.y, w.b.y) + m, z0: z[0], z1: z[1] };
 }
 
-const semAnexoDoDono = (w: Wall): boolean => w.attachBottomToFloor !== true && w.attachTopToRoof !== true;
+const comAnexo = (w: Wall): boolean => w.attachBottomToFloor === true || w.attachTopToFloor === true || w.attachTopToRoof === true;
+
+/** Parceira com anexo: a base e a altura reais (resolvidas) que a promoção usa no lugar dos anexos. */
+const zResolvido = new WeakMap<Wall, { z0: number; height: number }>();
 
 const memoParceiras = new WeakMap<Project, Map<Id, Wall[]>>();
 
@@ -43,6 +49,7 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
   if (hit) return hit;
   const donas = wallsOnLevel(p, levelId);
   const out: Wall[] = [];
+  let reentrante = false;
   if (donas.length > 0 && p.levels.some((l) => l.id === levelId)) {
     const caixas = donas.map((w) => caixaDe(p, w, faixaZ(p, w)));
     const todas: Caixa = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity, z0: Infinity, z1: -Infinity };
@@ -51,18 +58,29 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
       todas.x1 = Math.max(todas.x1, d.x1); todas.y1 = Math.max(todas.y1, d.y1); todas.z1 = Math.max(todas.z1, d.z1);
     }
     const encosta = (c: Caixa, d: Caixa): boolean => c.x0 <= d.x1 && d.x0 <= c.x1 && c.y0 <= d.y1 && d.y0 <= c.y1 && c.z0 < d.z1 - EPS && d.z0 < c.z1 - EPS;
+    const candidatas: Wall[] = [];
     for (const w of Object.values(p.elements)) {
-      if (w.kind !== 'wall' || w.levelId === levelId || !semAnexoDoDono(w)) continue;
+      if (w.kind !== 'wall' || w.levelId === levelId) continue;
       // Peneira vertical primeiro (sem consultar o tipo); nível ausente (projeto reduzido da junção) não fornece parceira.
       if (!p.levels.some((l) => l.id === w.levelId)) continue;
       const z = faixaZ(p, w);
       if (z[0] >= todas.z1 - EPS || todas.z0 >= z[1] - EPS) continue;
-      const c = caixaDe(p, w, z);
-      if (encosta(c, todas) && caixas.some((d) => encosta(c, d))) out.push(w);
+      if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) candidatas.push(w);
+    }
+    const reais = zRealDe(p, candidatas.filter(comAnexo));
+    for (const w of candidatas) {
+      if (!comAnexo(w)) { out.push(w); continue; }
+      const r = reais?.get(w.id);
+      if (!r) { reentrante = true; continue; }
+      const z: [number, number] = [r.z0, r.z0 + r.height];
+      if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) {
+        zResolvido.set(w, { z0: r.z0, height: r.height });
+        out.push(w);
+      }
     }
     out.sort((a, b) => a.order - b.order);
   }
-  porNivel.set(levelId, out);
+  if (!reentrante) porNivel.set(levelId, out);
   return out;
 }
 
@@ -79,7 +97,12 @@ export function projetoComParceiras(p: Project, levelId: Id): Project {
   if (parceiras.length > 0) {
     const elements = { ...p.elements };
     const elev = levelElevation(p, levelId);
-    for (const w of parceiras) elements[w.id] = { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
+    for (const w of parceiras) {
+      const r = zResolvido.get(w);
+      elements[w.id] = r
+        ? { ...w, levelId, baseOffset: r.z0 - elev, topLevelId: null, topOffset: 0, height: r.height, topProfile: null, attachBottomToFloor: false, attachTopToFloor: false, attachTopToRoof: false }
+        : { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
+    }
     out = { ...p, elements };
   }
   porNivel.set(levelId, out);
@@ -107,4 +130,28 @@ export function resolverComParceiras<R extends { walls: Record<Id, unknown>; clu
     .filter((c) => c.wallIds.some((id) => donas.has(id)))
     .map((c) => (c.wallIds.every((id) => donas.has(id)) ? c : { ...c, wallIds: c.wallIds.filter((id) => donas.has(id)) }));
   return { ...r, walls, clusters } as R;
+}
+
+const memoAmbientes = new WeakMap<Project, Map<Id, Project>>();
+
+/**
+ * Projeto para os ambientes e o contorno da edificação de um nível: a parede de outro nível que cruza o plano de corte do
+ * nível (`wallsCrossingCut`, o mesmo critério da planta) entra como parede dele e fecha o circuito. Só para a geometria em
+ * planta; o dono (e os quantitativos) continuam sendo o nível de origem, nada é copiado para o projeto real.
+ */
+export function projetoDeAmbientes(p: Project, levelId: Id): Project {
+  let porNivel = memoAmbientes.get(p);
+  if (!porNivel) memoAmbientes.set(p, (porNivel = new Map()));
+  const hit = porNivel.get(levelId);
+  if (hit) return hit;
+  const cruzam = wallsCrossingCut(p, levelId);
+  let out = p;
+  if (cruzam.length > 0) {
+    const elements = { ...p.elements };
+    const elev = levelElevation(p, levelId);
+    for (const w of cruzam) elements[w.id] = { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
+    out = { ...p, elements };
+  }
+  porNivel.set(levelId, out);
+  return out;
 }

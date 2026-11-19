@@ -1,0 +1,9 @@
+# Motor multinível (integracao/b-motor)
+- Feito 1, anexos: `paredesParceiras` agora aceita parceira com `attachBottomToFloor`, `attachTopToFloor` ou `attachTopToRoof`. A faixa REAL vem de `zRealDe` (wallFrameZ.ts, usa `wallZRange`); a parceira entra promovida sem anexos (base e altura já resolvidas). Em resolução reentrante (pisos, lajes, telhados) a parceira com anexo fica de fora e o resultado não é memorizado: sem ciclo.
+- Feito 2, inclinada: `junctionLevel` e `wallTiltJoinIssues` analisam também as parceiras (`juncaoInclinadaParceiras.ts`); só as paredes do nível dono guardam junção, cunha e aviso. Parceira inclinada só entra se alguma parede do nível tem a mesma faixa de cota (a análise supõe base comum).
+- Feito 3, ambientes: `rooms.ts` e `enclosed.ts` usam `projetoDeAmbientes` (resolveParceiras.ts): parede de outro nível que cruza o plano de corte (`wallsCrossingCut`, como a planta) fecha o circuito. Só geometria em planta; o dono e os quantitativos seguem sendo o nível de origem.
+- Fora: parede vertical mais alta que a parceira inclinada (W1 0 a 9 m, W2 inclinada 3 a 6 m) não é refeita pela junção inclinada: o plano inclinado só existe de 3 a 6 m e a análise supõe base comum (precisaria de junção por faixa de cota).
+- Fora: ambientes não consideram parede de outro nível com `attachBottomToFloor` ou `attachTopToRoof` (limite de `wallsCrossingCut`); parceira com perfil de topo vira altura máxima na promoção.
+- Rust/wasm: nada tocado nem regenerado; o despacho recebe o projeto com parceiras como antes.
+- Ver em tela: (1) 3D com parede do térreo encostando em parede do nível 2 com piso/telhado anexado; (2) parede inclinada do nível 2 encostando em parede do térreo: topo desloca para a esquerda e a base encosta na face; (3) sala 4x4 no nível 2 com um lado vindo do nível 1 (topo no nível 3): ambiente com 16 m2, e a parede no quantitativo só do nível 1.
+- Testes: packages/engine/src/resolveMotorMultinivel.test.ts (8 testes, valores à mão).

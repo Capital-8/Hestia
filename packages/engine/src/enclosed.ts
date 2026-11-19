@@ -3,6 +3,7 @@ import { coreSpan, type Id, type Project } from '@hestia/model';
 import { pointAt, sAtDepth, type WallFrame } from './frame.ts';
 import { wallFaces } from './faces.ts';
 import { levelFrames } from './resolve.ts';
+import { projetoDeAmbientes } from './resolveParceiras.ts';
 import { cleanOutlineRing } from './ringClean.ts';
 import { wallTopFacesCached } from './wallTopFaces.ts';
 
@@ -45,7 +46,7 @@ export type OutlineReference = 'base' | 'top';
 
 /** Há parede que muda de lugar em planta no topo (inclinada, perfil de topo ou topo anexado)? Senão topo == base. */
 function topDiffers(p: Project, levelId: Id): boolean {
-  return levelFrames(p, levelId).some((f) => !!f.wall.tilt || !!f.wall.topProfile || f.wall.attachTopToFloor === true || f.wall.attachTopToRoof === true);
+  return levelFrames(projetoDeAmbientes(p, levelId), levelId).some((f) => !!f.wall.tilt || !!f.wall.topProfile || f.wall.attachTopToFloor === true || f.wall.attachTopToRoof === true);
 }
 
 /** Anel de planta de uma polilinha do topo, sem pontos repetidos (degrau de perfil = dois pontos no mesmo x,y). */
@@ -66,7 +67,7 @@ function topPieces(p: Project, levelId: Id, frames: WallFrame[], extend: RoomExt
   if (reference !== 'top' || topBusy.has(p) || !topDiffers(p, levelId)) return null;
   topBusy.add(p);
   try {
-    const tops = new Map(wallTopFacesCached(p, levelId).map((w) => [w.wallId, w] as const));
+    const tops = new Map(wallTopFacesCached(projetoDeAmbientes(p, levelId), levelId).map((w) => [w.wallId, w] as const));
     return frames.map((f) => {
       const w = tops.get(f.wall.id);
       if (!w) return extend === 'core' ? coreSilhouette(f) : bandRing(f, f.sHi, f.sLo);
@@ -95,7 +96,7 @@ function topMemo<T>(p: Project, key: string, make: () => T): T {
  */
 export function wallsSignature(p: Project, levelId: Id): string {
   const r = (n: number): number => Math.round(n * 1e6) / 1e6;
-  return `v2|${levelFrames(p, levelId)
+  return `v2|${levelFrames(projetoDeAmbientes(p, levelId), levelId)
     .map((f) => {
       const w = f.wall;
       return `${w.id}:${w.typeId}:${r(f.a.x)},${r(f.a.y)}:${r(f.b.x)},${r(f.b.y)}:${r(f.sHi)},${r(f.sLo)}:${r(w.sag ?? 0)}:${w.noJoinStart ? 1 : 0}:${w.noJoinEnd ? 1 : 0}:${w.joinStart.kind}:${w.joinStart.flip ? 1 : 0}:${w.joinEnd.kind}:${w.joinEnd.flip ? 1 : 0}`;
@@ -149,7 +150,7 @@ export function enclosedRooms(p: Project, levelId: Id, extend: RoomExtend = 'fin
 }
 
 function computeRooms(p: Project, levelId: Id, extend: RoomExtend, reference: OutlineReference = 'base'): Polygon[] {
-  const frames = levelFrames(p, levelId);
+  const frames = levelFrames(projetoDeAmbientes(p, levelId), levelId);
   if (frames.length === 0) return [];
   const piece = extend === 'core' ? coreSilhouette : wallSilhouette;
   const tops = topPieces(p, levelId, frames, extend, reference);
@@ -186,7 +187,7 @@ export function enclosedRegionAt(p: Project, levelId: Id, at: Vec2): Polygon | n
  * a parede.
  */
 function outlinePieces(p: Project, levelId: Id, frames: WallFrame[], extend: RoomExtend): Ring[] {
-  const faces = wallFaces(p, levelId);
+  const faces = wallFaces(projetoDeAmbientes(p, levelId), levelId);
   if (extend === 'core') {
     const outlines = new Map(faces.map((w) => [w.wallId, w.coreOutline] as const));
     return frames.map((f) => outlines.get(f.wall.id) ?? coreSilhouette(f));
@@ -213,7 +214,7 @@ function buildingOutlines(p: Project, levelId: Id, extend: RoomExtend = 'finish'
 
 function buildingOutlinesCompute(p: Project, levelId: Id, extend: RoomExtend, reference: OutlineReference): Ring[] {
   recalcCount += 1;
-  const frames = levelFrames(p, levelId);
+  const frames = levelFrames(projetoDeAmbientes(p, levelId), levelId);
   if (frames.length === 0) return [];
   const pieces = topPieces(p, levelId, frames, extend, reference) ?? outlinePieces(p, levelId, frames, extend);
   return closeGapsSafe(union(...pieces.map((r) => asMulti(r)))).map((poly) => poly[0]!);
