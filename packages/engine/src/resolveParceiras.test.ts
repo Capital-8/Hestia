@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MultiPolygon } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeLevel, makeWall, type Project } from '@hestia/model';
 import { resolveLevel } from './resolve.ts';
+import { paredesParceiras } from './resolveParceiras.ts';
 import { wallFaces } from './faces.ts';
 import { wallTopFaces } from './wallTopFaces.ts';
 import { LevelResolveCache } from './resolveLevels.ts';
@@ -90,5 +91,26 @@ describe('junção entre níveis (parede de outro nível com altura em comum)', 
     expect(c.recalculated).toBe(antes + 1);
     c.get(s.project, 'lv_2');
     expect(c.recalculated).toBe(antes + 1);
+  });
+});
+
+describe('regressão: parede de baixo anexada à laje × parede de cima que só encosta (topo 3,0 = base 3,0)', () => {
+  it('a de cima não vira parceira e o término da de baixo segue no topo da laje (3,0)', async () => {
+    const { makeSlab } = await import('@hestia/model');
+    const base = createEmptyProject();
+    const s = new ProjectStore({ ...base, levels: base.levels.map((l) => (l.id === 'lv_1' ? { ...l, elevation: 3 } : l)) });
+    s.exec({ type: 'upsertSlabType', slabType: { id: 'ls_t', name: 'L', code: 'L', description: '', cost: 0, layers: [
+      { function: 'finish1', materialId: 'mat_argamassa', thickness: 0.05, wraps: false, termino: 'face' },
+      { function: 'structure', materialId: 'mat_concreto', thickness: 0.15, wraps: false, termino: 'face' },
+    ] } });
+    s.exec({ type: 'addSlab', slab: makeSlab({ id: 'lj', typeId: 'ls_t', levelId: 'lv_1', boundary: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }, { x: 0, y: 8 }] }) });
+    const par = { typeId: 'wt_alv14', a: { x: 5, y: 1 }, b: { x: 5, y: 7 }, height: 3 } as const;
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'baixo', levelId: 'lv_0', topLevelId: 'lv_1', attachTopToFloor: true, ...par }) });
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'cima', levelId: 'lv_1', attachBottomToFloor: true, ...par }) });
+    const p = s.project;
+    expect(paredesParceiras(p, 'lv_0').map((w) => w.id)).toEqual([]);
+    expect(paredesParceiras(p, 'lv_1').map((w) => w.id)).toEqual([]);
+    const w = resolveLevel(p, 'lv_0', new Map()).walls['baixo']!;
+    expect(w.baseZ + w.height).toBeCloseTo(3, 6);
   });
 });

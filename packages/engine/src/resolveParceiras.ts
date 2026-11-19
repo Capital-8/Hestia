@@ -68,12 +68,18 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
       if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) candidatas.push(w);
     }
     const reais = zRealDe(p, candidatas.filter(comAnexo));
+    // Donas com anexo: a faixa REAL (e não a folga) decide; senão topo que só encosta na base da outra (3,0 e 3,0) viraria parceira.
+    const donasReais = zRealDe(p, donas.filter(comAnexo));
+    const caixasReais = donas.map((w, i) => {
+      const r = donasReais?.get(w.id);
+      return r ? caixaDe(p, w, [r.z0, r.z0 + r.height]) : caixas[i]!;
+    });
     for (const w of candidatas) {
       if (!comAnexo(w)) { out.push(w); continue; }
       const r = reais?.get(w.id);
       if (!r) { reentrante = true; continue; }
       const z: [number, number] = [r.z0, r.z0 + r.height];
-      if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) {
+      if (caixasReais.some((d) => encosta(caixaDe(p, w, z), d))) {
         zResolvido.set(w, { z0: r.z0, height: r.height });
         out.push(w);
       }
