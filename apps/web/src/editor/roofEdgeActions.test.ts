@@ -7,13 +7,14 @@ import { useUi } from './state.ts';
 
 const rect = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 6 }, { x: 0, y: 6 }];
 
+/** L fictício (degrau de 0,30 x 4 = 1,2 m no canto reentrante em (5,0)). */
 const STEP_BOUNDARY = [
-  { x: 39.761789, y: -4.183495000000001 },
-  { x: 42.53260197712993, y: -4.183495000000001 },
-  { x: 42.53132687185676, y: 0.7989125494396734 },
-  { x: 35.05139942222562, y: -0.2496429330885962 },
-  { x: 35.02811805652255, y: -5.409608414581247 },
-  { x: 39.761789, y: -5.41087701554152 },
+  { x: 5, y: 0 },
+  { x: 9, y: 0 },
+  { x: 9, y: 5 },
+  { x: 0, y: 5 },
+  { x: 0, y: -1.5 },
+  { x: 5, y: -1.5 },
 ];
 
 /** Telhado por arestas 8 × 6 com as arestas longas definindo inclinação (duas águas com empenas). */
@@ -59,7 +60,7 @@ describe('alteração de telhado pelas Propriedades (applyRoofPatch)', () => {
     });
     expect(applyRoofPatch(store, ['t_step'], { edgeSlopes: [null, 30, 30, 30, null, 30] })).toBe(true);
     expect(useUi.getState().dialog).toBe('roofStep');
-    expect(pedidoDegrauTelhado()).toContain('0,83 m');
+    expect(pedidoDegrauTelhado()).toContain('1,20 m');
     responderDegrauTelhado(true);
     await Promise.resolve();
     expect((store.project.elements.t_step as Roof).closeStepGaps).toBe(true);
