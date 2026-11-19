@@ -1,6 +1,6 @@
 import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
-import { isComponent, isFurniture, isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
+import { isComponent, isFurniture, isGeneric, wallsOfPlan, type Id, type Project } from '@hestia/model';
 import { pegadaDoComponente, toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
@@ -83,7 +83,7 @@ export const MIN_WALL_LENGTH = 0.01;
 /** Paredes (fora de `exclude`) com uma extremidade em `pt`: acompanham o movimento da parede ligada. */
 export function connectedEnds(p: Project, levelId: Id, pt: Vec2, exclude: Set<Id>, tol = joinTol(p)): Array<{ wallId: Id; end: 'a' | 'b' }> {
   const out: Array<{ wallId: Id; end: 'a' | 'b' }> = [];
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     if (exclude.has(w.id)) continue;
     if (dist(w.a, pt) <= tol) out.push({ wallId: w.id, end: 'a' });
     if (dist(w.b, pt) <= tol) out.push({ wallId: w.id, end: 'b' });
@@ -110,7 +110,7 @@ export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
     { x: box.minX, y: box.maxY },
   ];
   const ids: Id[] = [];
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     const arc = arcFromSagitta(w.a, w.b, w.sag);
     const pts = arc ? arcSample(arc, 0, arc.length, 0, 0.05) : [w.a, w.b];
     const bb = boxOf(pts);
