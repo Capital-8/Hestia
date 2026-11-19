@@ -137,6 +137,7 @@ import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElem
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
 import { t, textFor } from './i18n.ts';
+import { clearJoinResidue, movesWallEnds, snapshotEnds } from './wallJoinResidue.ts';
 
 /** Comando = dados serializáveis. A única forma de escrever no modelo (docs/01 §5). */
 export type Command =
@@ -447,6 +448,29 @@ const COMANDOS_DE_GEOMETRIA = new Set<Command['type']>(['setWallEnds', 'updateEl
  * parede cortina, as sobrescritas são remapeadas e regravadas no mesmo passo de desfazer (decisão 0056, §4.4).
  */
 export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
+  // Resíduo de junção: só o comando externo (um lote conta como um) limpa, depois de todos os filhos moverem as pontas.
+  if (profundidadeComando === 0 && movesWallEnds(c)) {
+    const antes = snapshotEnds(p);
+    profundidadeComando++;
+    try {
+      applyCommandCortinas(p, c, lang);
+    } finally {
+      profundidadeComando--;
+    }
+    clearJoinResidue(p, antes);
+    return;
+  }
+  profundidadeComando++;
+  try {
+    applyCommandCortinas(p, c, lang);
+  } finally {
+    profundidadeComando--;
+  }
+}
+
+let profundidadeComando = 0;
+
+function applyCommandCortinas(p: Project, c: Command, lang: Lang): void {
   // Cortina embutida (§8.1): depois de qualquer comando, a posição da cortina volta a vir do hospedeiro (e as órfãs de
   // hospedeiro apagado são promovidas). Sem cortina embutida, o caminho é o de sempre.
   if (!COMANDOS_DE_GEOMETRIA.has(c.type) && !temCortinaEmbutida(p)) {
