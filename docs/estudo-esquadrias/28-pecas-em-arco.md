@@ -1,5 +1,8 @@
 # Peças da esquadria que seguem o contorno do vão
 
+> **Nota (2026-11-19):** a regra de recortar a folha de correr "em todo o curso" foi substituída: as peças que deslizam são recortadas pelo contorno na posição fechada (docs 37 §5 e 38). As linhas sobre o curso abaixo ficam como histórico.
+
+
 Data: 2026-11-18. Continua `24`, `26` e `27`; cumpre a etapa 3 da fase 2 de `00-sintese.md` (§4) e parte da etapa 5. Marcas: [V] verificado nesta sessão (código lido ou teste rodado); [I] inferência, a validar. Linhas valem para o branch `claude/lucid-bell-hwk4ln` nesta data.
 
 ## 1. Como as peças eram geradas (antes)
