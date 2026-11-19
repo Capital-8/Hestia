@@ -38,13 +38,17 @@ Pelo diálogo real (`6a..6d`, "Editar tipo" > aba "Folha" > Estilo da folha): pa
 `7-ot_pgiro2_140-*` (duas folhas), `7-ot_ppainel_90-*` (painel lateral), `7-ot_pcorrer160-*` (de correr), sem forma e com arco.
 
 - Duas folhas e lateral+folha: as duas folhas, maçanetas e o painel lateral acompanham o arco, como no retangular.
-- **Porta de correr com arco: lacuna visível [V], não corrigida.** Fechada, o centro-alto da porta tem um recorte vazado (se vê o fundo) entre as duas folhas. Causa no código: `recortada` (`openingModelContorno.ts`) recorta a folha que desliza pela interseção do contorno com ele mesmo deslocado pelo curso (para a folha caber no arco durante todo o movimento); perto do eixo, onde o arco é mais alto, a interseção corta o canto da folha. É a decisão da seção 5 de `37` ("dentro do contorno em todo o curso"), com custo visual na posição fechada. [I] Alternativa: para folhas de correr, recortar na posição fechada (passo c) e aceitar que, aberta, a folha passa do arco (ela corre na frente da parede). Mexer nisso inverte os testes `openingModelContornoLacunas`/`Preserva` que verificam o curso inteiro; precisa de decisão.
+- **Porta de correr com arco: lacuna visível [V], corrigida.** Antes: fechada, o centro-alto da porta tinha um recorte vazado (se via o fundo) entre as duas folhas (`7-ot_pcorrer160-COM-arco`). Causa: `recortada` (`openingModelContorno.ts`) recortava a folha que desliza pela interseção do contorno com ele mesmo deslocado pelo curso, que cortava o canto da folha perto do eixo. Decisão do coordenador: folhas de correr (e o vidro, as travessas e os montantes que correm com elas) são recortadas pelo contorno na POSIÇÃO FECHADA, como a folha fixa; aberta, a folha pode passar do arco (corre por trás/à frente da parede). `clipDeslizante` foi removida e os testes passaram a verificar "dentro do contorno na posição fechada" (`37` §5 e §4).
+  - Depois [V]: `8-correr-DEPOIS-{SEM-forma,COM-arco,COM-abatido,COM-circulo}` (build artifact reconstruído, mesma câmera de `7-`): as duas folhas fechadas preenchem o arco pleno, o abatido e o círculo, sem vazado; trilho em arco, batente e meio da junta das folhas visíveis; `diagnostico()` com `chamadasPrisma: 5`, `falhas: 0`, `ultimoErro: null`, único erro de console o 404 do worker (esperado).
+  - Número [V]: cobertura do contorno recuado pelas folhas fechadas de `ot_pcorrer160` em arco pleno, 97,6% antes (vazio 0,074 m2) e 100% depois; abatido 99,2% para 100%; círculo 92,4% para 100% (tabela completa em `37` §5).
 
 ## 6. Parede "inteira" e caixas LOD
 
 Não se reproduziu. `buildLevelSolidsComCaixas` já não transforma em caixa a camada com `furosContorno` (`36`); `chamadasPrisma` ficou em 5 (> 0, furo real chamado) e nenhuma parede cheia apareceu nas capturas. As esquadrias vão como caixas instanciadas (`caixasEPrismasDoModelo`) a partir do mesmo modelo, que já traz as peças recortadas (`prisma` `tz`) e por isso aparecem com contorno de arco e vidro/almofadas.
 
 ## 7. Arquivos alterados
+
+- Correção da porta de correr: `packages/engine/src/openingModelContorno.ts` (`recortada`), `packages/engine/src/openingModelContornoCorrer.ts` (remove `clipDeslizante`), `packages/engine/src/openingModelContornoLacunas.test.ts`, `docs/estudo-esquadrias/37-portas-com-forma.md`.
 
 - `packages/engine/src/openingModelDoors.ts` (aletas da veneziana salientes)
 - `packages/engine/src/openingModelDoorsLouver.test.ts` (novo)

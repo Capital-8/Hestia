@@ -10,7 +10,7 @@ import {
 } from '@hestia/model';
 import type { OpeningModel, OpeningPart, PartBox, PartRole } from './openingModelTypes.ts';
 import { prisma } from './openingModelPrisma.ts';
-import { clipDeslizante, trilhoNoContorno } from './openingModelContornoCorrer.ts';
+import { trilhoNoContorno } from './openingModelContornoCorrer.ts';
 import { muntinsDecorativos, type MuntinPadrao } from './openingModelMuntinsContorno.ts';
 import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 import { poligonal } from './openingModelContornoPoligono.ts';
@@ -77,28 +77,19 @@ const boxArea = (b: PartBox): number => (b.t1 - b.t0) * (b.z1 - b.z0);
 
 /**
  * Recorta uma peça-caixa pelo contorno recuado; `null` = nada a mudar, `[]` = a peça fica toda fora do contorno (a única razão
- * para uma peça sair). Escada de recursos, para nenhuma peça sumir só porque o recuo a consome: (1) região recuada (com o curso,
- * se a peça desliza); (2) a peça que desliza, o curso inteiro contra o contorno só com recuo lateral; (3) a posição fechada, sem o
- * curso; (4) o contorno sem o recuo de arco (só o lateral) e, por fim, o contorno bruto.
+ * para uma peça sair). Escada de recursos, para nenhuma peça sumir só porque o recuo a consome: (1) região recuada; (2) o contorno
+ * sem o recuo de arco (só o lateral) e, por fim, o contorno bruto.
+ * Peça que desliza (folha, vidro, travessas e montantes de correr) é recortada NA POSIÇÃO FECHADA, como a fixa (docs 37 §5): fechadas,
+ * as folhas preenchem o vão arqueado sem vazado entre elas. Aberta, a folha corre por trás/à frente da parede e pode passar do arco.
  */
 export function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number, dRef: number): OPt[] | null {
   const b = part.box;
-  const desliza = part.motion?.kind === 'slide';
   const arcD = Math.max(0, part.role === 'glass' || part.role === 'leaf' ? H - b.z1 : dRef);
   const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
-  // Peça que desliza: arco sem prateleira (recuo de arco <= lateral) para a região ser convexa e valer a interseção do curso.
+  // Peça que desliza: arco sem prateleira (recuo de arco <= lateral), região convexa (o vidro convexo aceita as divisões decorativas).
+  const desliza = part.motion?.kind === 'slide';
   const regiao = outlineInset(shape, { side: ladoD, arc: desliza ? Math.max(0, Math.min(arcD, ladoD)) : arcD, base: 0 });
-  let poly: OPt[] = [];
-  if (regiao.length >= 3) {
-    poly = desliza && part.motion?.kind === 'slide' ? clipDeslizante(regiao, b, part.motion) : clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
-  }
-  if (poly.length < 3 && desliza && part.motion?.kind === 'slide') {
-    // (b) o recuo de arco consumiu a peça fina: o mesmo curso inteiro, mas contra o contorno só com o recuo lateral
-    const folgada = outlineInset(shape, { side: Math.max(0, ladoD), arc: MARGEM_ARCO, base: 0 });
-    if (folgada.length >= 3) poly = clipDeslizante(folgada, b, part.motion);
-    // (c) nem assim cabe nas duas pontas do curso: fica o recorte da posição fechada (a peça existe; em movimento pode passar do arco)
-    if (poly.length < 3 && regiao.length >= 3) poly = clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
-  }
+  let poly: OPt[] = regiao.length >= 3 ? clipRect(regiao, b.t0, b.t1, b.z0, b.z1) : [];
   let lateral: OPt[] = [];
   for (const side of [Math.max(0, ladoD), 0]) {
     if (poly.length >= 3) break;

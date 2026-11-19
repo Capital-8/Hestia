@@ -1,14 +1,14 @@
 import { clipRect, crownBand, ringHalves, ringSignedArea, type OPt, type OpeningShape } from '@hestia/model';
-import type { PartBox, PartMotion } from './openingModelTypes.ts';
+import type { PartBox } from './openingModelTypes.ts';
 
 /*
  * Esquadria de correr (e peças que deslizam) em vão com forma (docs/estudo-esquadrias/28 §6). Geometria decidida:
  * - TRILHO superior: faixa em arco de espessura constante entre o recuo do topo e o do fundo do trilho (mesma regra da travessa
  *   da folha); em círculo, a metade superior do anel entre as duas elipses. O trilho inferior fica reto na base do arco (a base é
  *   reta); em círculo vira a metade inferior do anel.
- * - FOLHA que desliza: a folha é um prisma recortado pelo contorno recuado NAS DUAS pontas do curso, isto é, pela interseção da
- *   região com a mesma região deslocada pelo curso. Como a região recuada é convexa, a folha cabe sob o arco em toda posição
- *   intermediária (combinação convexa das duas pontas). A folha fixa (sem `motion`) é só recortada pelo contorno, como antes.
+ * - FOLHA que desliza (e vidro, travessas e montantes que correm com ela): recortada pelo contorno na POSIÇÃO FECHADA, igual à fixa
+ *   (`recortada`). Fechadas, as folhas preenchem o vão arqueado sem vazado entre elas; o curso aberto pode passar do arco (a folha
+ *   corre por trás/à frente da parede), decisão de docs/estudo-esquadrias/37 §5 e 38 §5.
  */
 
 const EPS = 1e-9;
@@ -46,20 +46,6 @@ export function clipConvexo(subject: readonly OPt[], clip: readonly OPt[]): OPt[
     ring = next;
   }
   return ring.length >= 3 && ringSignedArea(ring) > EPS ? ring : [];
-}
-
-/**
- * Peça que desliza: a caixa recortada pela região e pela região deslocada pelo curso inteiro. Região não convexa (arco com
- * prateleira) ou curso nulo: só o recorte da posição fechada. Se a interseção some (peça fina no alto da folha móvel, que não cabe sob o
- * arco nas duas pontas do curso), devolve [] e a peça sai: a folha móvel fica com montantes e vidro sob o envelope.
- */
-export function clipDeslizante(regiao: readonly OPt[], b: PartBox, m: Extract<PartMotion, { kind: 'slide' }>): OPt[] {
-  const fechado = clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
-  const dt = m.dt * m.travel;
-  const dz = m.dz * m.travel;
-  if (fechado.length < 3 || (Math.abs(dt) < EPS && Math.abs(dz) < EPS) || !convexo(regiao)) return fechado;
-  const fim = clipConvexo(fechado, regiao.map((p): OPt => [p[0] - dt, p[1] - dz]));
-  return fim; // [] = a peça não cabe sob o arco em todo o curso (a travessa fina de cima da folha móvel) e sai
 }
 
 /**

@@ -33,13 +33,15 @@ Nada disso afeta o vão retangular (peças idênticas, ver §4).
 
 Regra: a esquadria com forma mantém TODAS as peças do retangular; só o contorno externo muda. Uma peça só sai se a caixa dela cai inteira fora do contorno bruto (área da interseção < 20 cm2, ex.: trilho do piso e travessa de baixo de um círculo).
 
-1. `recortada` (`openingModelContorno.ts`), valendo para os arcos, o círculo e as formas retas (mesma função): escada de recursos em vez de apagar. (a) região recuada, com a interseção do curso se a peça desliza; (b) peça que desliza: o curso inteiro contra o contorno só com recuo lateral (e 1 mm de margem de arco, por dentro das cordas); (c) a posição fechada, sem o curso; (d) o contorno com recuo só lateral; (e) o contorno bruto. `[]` apenas quando nem (e) deixa área.
+1. `recortada` (`openingModelContorno.ts`), valendo para os arcos, o círculo e as formas retas (mesma função): escada de recursos em vez de apagar. (a) região recuada, na posição fechada (peça que desliza: arco sem prateleira, região convexa); (b) o contorno com recuo só lateral (e 1 mm de margem de arco, por dentro das cordas); (c) o contorno bruto. `[]` apenas quando nem (c) deixa área. Revisado em 2026-11-19 (ver §5): o curso deixou de entrar no recorte.
 2. `openingModelContornoAjuste.ts` (novo), `acomodaAoContorno`, aplicado no fim de `contornoDoModelo` para qualquer forma:
    - barras com perfil de seção (`mullion`, `transom`, `muntin`, `bead`, `track` com `profile` `ts` ou `sz`): a caixa é encurtada, por ponta, até os cantos caberem na região recuada do batente; o perfil e o `plane` ficam como são (a geometria 3D extruda a seção entre `box.z0..z1` ou `box.t0..t1`);
    - dobradiça e maçaneta: andam o mínimo em z (e em t, para o centro, só se preciso: círculo) até os quatro cantos caberem no contorno bruto; a maçaneta anda inteira (roseta, haste, alavanca, fechadura, as duas faces com o mesmo deslocamento). O pivô da folha (eixo vertical) não muda.
 3. Nada mudou no diálogo: ele já preservava os campos (§2.1). O teste de regressão fixa isso.
 
 ## 4. Testes [V]
+
+Atualização 2026-11-19: `openingModelContornoLacunas.test.ts` verifica "dentro do contorno" na posição FECHADA (não mais em todo o curso) e ganhou o bloco "porta de correr em arco": cobertura das folhas fechadas sem lacuna (< 20 cm2) em `ot_pcorrer160`/`180` com arco pleno, abatido e círculo, nenhuma folha ou vidro sumindo, e o curso aberto passando do arco (decisão fixada em teste).
 
 - `packages/engine/src/openingModelContornoPreserva.test.ts` (162 tipos x arco pleno, abatido, ogival e círculo):
   - nenhuma peça some, por id, salvo as que ficam inteiras fora do contorno e, no círculo, as molduras (`jamb`, `head`, `sillFrame`, alizar) que viram as metades do anel `frame-ring` (exigido: pelo menos 2);
@@ -53,6 +55,18 @@ Regra: a esquadria com forma mantém TODAS as peças do retangular; só o contor
 ## 5. Decisões e pendências
 
 - [I] "Nada some" tem uma exceção legítima: a peça cuja caixa cai fora do contorno (a travessa de baixo de uma janela circular encosta num ponto da elipse). Conservá-la seria deixar uma peça flutuando fora do vão.
-- [I] Travessa fina de folha de correr que não cabe sob o arco nas duas pontas do curso (ogival e círculo, `leaf-N-top`) fica recortada só na posição fechada (passo (c)); em movimento ela pode passar do contorno por poucos centímetros. Antes ela sumia. Os testes `openingModelContornoLacunas.test.ts` foram ajustados: a travessa existe (era `false`) e, só para ela, a verificação "dentro em todo o curso" vale na posição fechada. As folhas, o vidro e os montantes seguem verificados em todo o curso.
+- [V] Folhas de correr (e o vidro, as travessas e os montantes que correm com elas): recortadas pelo contorno NA POSIÇÃO FECHADA, igual à folha fixa. Decisão do coordenador, que substitui a regra anterior ("dentro do contorno em todo o curso", interseção do contorno com ele mesmo deslocado pelo curso, `clipDeslizante`, removida). Motivo: essa interseção cortava o canto da folha junto ao eixo e deixava um vazado visível entre as duas folhas da porta de correr fechada (`38` §5). Consequência aceita: com a folha aberta, a parte dela que passa do arco corre por trás/à frente da parede (a esquadria de correr corre fora do plano do vão; no 3D a folha aberta pode sair do contorno). O trilho continua acompanhando o contorno. Nenhuma peça some (a travessa fina de cima também fica, agora recortada só na posição fechada).
+- [V] Medida (`ot_pcorrer160`/`ot_pcorrer180`, as duas folhas fechadas; "ideal" = caixa da folha retangular interseção o contorno recuado como a folha se recua; amostragem 400x400):
+
+  | forma | ideal | vazio antes | vazio depois |
+  |---|---|---|---|
+  | arco pleno 160 | 3,029 m2 | 0,074 m2 (2,4%; x 0,03..0,37, z 1,62..2,09) | 0,000 m2 (100% coberto) |
+  | abatido 160 | 3,207 m2 | 0,025 m2 (0,8%) | 0,000 m2 |
+  | círculo 160 | 2,519 m2 | 0,192 m2 (7,6%) | 0,000 m2 |
+  | arco pleno 180 | 3,372 m2 | 0,098 m2 (2,9%) | 0,000 m2 |
+  | abatido 180 | 3,607 m2 | 0,030 m2 (0,8%) | 0,000 m2 |
+  | círculo 180 | 2,839 m2 | 0,226 m2 (8,0%) | 0,000 m2 |
+
+  O vazio de antes ficava sempre na folha da direita, entre o eixo (x = 0,03) e x = 0,37-0,43; depois, as duas folhas fechadas cobrem o contorno recuado sem lacuna (a sobreposição normal entre folhas é de 6 cm, x -0,03..0,03). A área da folha cresce na proporção (`ot_pcorrer160`, arco pleno: folha + vidro de 3,053 para 3,163 m2).
 - [I] A dobradiça deslocada deixa de coincidir exatamente com a posição do catálogo (`hinges` ainda controla quantas são); a posição relativa entre elas muda no arco, como ocorre numa porta real que tem a dobradiça de cima mais baixa sob o arco.
 - [I] A causa do relato "chapa única" não foi reproduzida como descrito no `HEAD` (1def72ae): o que existe é a perda de peças da §2.2. Se o aplicativo testado vinha de outra revisão (a mescla em andamento no diretório principal), vale rever o relato depois dela.

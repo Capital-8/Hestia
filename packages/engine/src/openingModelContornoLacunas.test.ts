@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, makeWall, outline, type Opening, type OpeningShape, type OpeningType, type OPt, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, outline, outlineInset, type Opening, type OpeningShape, type OpeningType, type OPt, type Project } from '@hestia/model';
 import { frameOfWall, openingGeometry } from './resolve.ts';
 import { buildOpeningModel } from './openingModel.ts';
 import type { OpeningGeometry } from './types.ts';
@@ -46,18 +46,13 @@ const prismas = (m: OpeningModel): OpeningPart[] => m.parts.filter((x) => x.prof
 const contornoDe = (m: OpeningModel, forma: OpeningShape): OPt[] => outline({ ...forma, width: m.width, height: m.height } as OpeningShape);
 const area = (r: readonly OPt[]): number => Math.abs(r.reduce((a, p, i) => a + p[0] * r[(i + 1) % r.length]![1] - r[(i + 1) % r.length]![0] * p[1], 0) / 2);
 
-/** Todo prisma do modelo (em toda posição do curso das folhas que deslizam) cabe no contorno. */
-function tudoDentro(m: OpeningModel, forma: OpeningShape, fracoes = [0, 0.25, 0.5, 0.75, 1]): void {
+/**
+ * Todo prisma do modelo cabe no contorno na posição FECHADA. Folhas que deslizam (e vidro, travessas, montantes que correm com elas) são
+ * recortadas na posição fechada (docs 37 §5): o curso aberto pode passar do arco (a folha corre por trás/à frente da parede) e não se verifica.
+ */
+function tudoDentro(m: OpeningModel, forma: OpeningShape): void {
   const contorno = contornoDe(m, forma);
-  for (const q of prismas(m)) {
-    // Travessa fina de folha que desliza que não cabe sob o arco nas duas pontas do curso (docs 37): fica na posição fechada, e só nela vale.
-    const travessaFina = q.role === 'leaf' && /-(top|bottom)$/.test(q.id);
-    for (const f of q.motion?.kind === 'slide' && !travessaFina ? fracoes : [0]) {
-      const dt = q.motion?.kind === 'slide' ? q.motion.dt * q.motion.travel * f : 0;
-      const dz = q.motion?.kind === 'slide' ? q.motion.dz * q.motion.travel * f : 0;
-      for (const [x, z] of tzPts(q)) expect(dentro(contorno, x + dt, z + dz, 1e-5), `${q.id} f=${f} (${x.toFixed(3)}, ${z.toFixed(3)})`).toBe(true);
-    }
-  }
+  for (const q of prismas(m)) for (const [x, z] of tzPts(q)) expect(dentro(contorno, x, z, 1e-5), `${q.id} (${x.toFixed(3)}, ${z.toFixed(3)})`).toBe(true);
 }
 
 const volumeDe = (m: OpeningModel, role: OpeningPart['role']): number => m.parts.filter((q) => q.role === role).reduce((s, q) => s + partQuantity(q).volume, 0);
@@ -70,7 +65,7 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     ['círculo', { kind: 'circle', width: 1.2, height: 1.2 }, {}],
   ];
   for (const [nome, forma, extra] of formas) {
-    it(`${nome}: tudo dentro do contorno em todo o curso e trilho em faixa única`, () => {
+    it(`${nome}: tudo dentro do contorno na posição fechada e trilho em faixa única`, () => {
       const { m } = cena('ot_j120', forma, extra);
       tudoDentro(m, forma);
       const topo = m.parts.filter((q) => q.id.startsWith('track-head'));
@@ -105,7 +100,7 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     expect(baixo.every((q) => q.box.z1 <= m.height / 2 + 1e-9)).toBe(true);
   });
 
-  it('a folha que desliza é mais baixa que a retangular nas pontas e a fixa só segue o arco', () => {
+  it('a folha que desliza é recortada como a fixa, na posição fechada (volume menor que o retangular, simétrico à fixa)', () => {
     const forma: OpeningShape = { kind: 'round', width: 1.2, height: 1.2 };
     const { m } = cena('ot_j120', forma);
     const reto = cena('ot_j120').m;
@@ -114,13 +109,70 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     expect(movel.motion?.kind).toBe('slide');
     expect(movel.profile?.plane).toBe('tz');
     expect(fixo.motion).toBeUndefined();
-    // a travessa fina de cima da folha móvel não cabe sob o arco nas duas pontas do curso: fica (nada é apagado), recortada no mínimo
+    // nada é apagado: as travessas finas de cima das duas folhas existem
     expect(m.parts.some((q) => q.id === 'leaf-1-top')).toBe(true);
     expect(m.parts.some((q) => q.id === 'leaf-0-top')).toBe(true);
-    // volume de vidro cai em relação ao retangular, e a folha móvel perde mais que a fixa (cabe nas duas pontas do curso)
+    // volume de vidro cai em relação ao retangular; móvel e fixa perdem quase o mesmo (as duas fechadas, lados espelhados)
     expect(volumeDe(m, 'glass')).toBeLessThan(volumeDe(reto, 'glass'));
-    expect(partQuantity(movel).faceArea).toBeLessThan(partQuantity(fixo).faceArea + 1e-9);
+    expect(partQuantity(movel).faceArea).toBeLessThan(partQuantity(reto.parts.find((q) => q.id === 'glass-1')!).faceArea);
+    expect(Math.abs(partQuantity(movel).faceArea / partQuantity(fixo).faceArea - 1)).toBeLessThan(0.02);
     expect(modelQuantities(m).byRole.glass!.faceArea).toBeLessThan(area(contornoDe(m, forma)));
+  });
+});
+
+describe('porta de correr em arco: fechada, as folhas preenchem o vão arqueado sem vazado (docs 37 §5)', () => {
+  const formas = (w: number, h: number): Array<[string, OpeningShape]> => [
+    ['arco pleno', { kind: 'round', width: w, height: h }],
+    ['abatido', { kind: 'segmental', width: w, height: h, rise: 0.2 }],
+    ['círculo', { kind: 'circle', width: w, height: h }],
+  ];
+  const folhasRetas = (m: OpeningModel): OpeningPart[] => m.parts.filter((q) => q.role === 'leaf' && /^leaf-\d+$/.test(q.id));
+  /** Fração da área "ideal" (caixa da folha retangular interseção o contorno recuado como a folha se recua) coberta pelas folhas fechadas. */
+  function cobertura(id: string, forma: OpeningShape): { cobertura: number; vazio: number; ideal: number } {
+    const { m } = cena(id, forma);
+    const reto = cena(id).m;
+    const shape = formaDaEsquadria(forma, m.width, m.height)!;
+    const ideais = folhasRetas(reto).map((r) => ({ b: r.box, reg: outlineInset(shape, { side: 0, arc: Math.max(0, m.height - r.box.z1), base: 0 }) }));
+    const folhas = folhasRetas(m).map(tzPts);
+    const N = 300;
+    let n = 0;
+    let cob = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const x = -m.width / 2 + ((i + 0.5) / N) * m.width;
+      const z = ((j + 0.5) / N) * m.height;
+      if (!ideais.some((q) => x >= q.b.t0 && x <= q.b.t1 && z >= q.b.z0 && z <= q.b.z1 && q.reg.length >= 3 && dentro(q.reg, x, z, 0))) continue;
+      n++;
+      if (folhas.some((f) => dentro(f, x, z, 0))) cob++;
+    }
+    const celula = (m.width * m.height) / (N * N);
+    return { cobertura: cob / n, vazio: (n - cob) * celula, ideal: n * celula };
+  }
+  for (const id of ['ot_pcorrer160', 'ot_pcorrer180']) {
+    for (const [nome, forma] of formas(id === 'ot_pcorrer160' ? 1.6 : 1.8, 2.1)) {
+      it(`${id}, ${nome}: a união das folhas fechadas cobre o contorno sem lacuna e cabe nele`, () => {
+        const c = cobertura(id, forma);
+        expect(c.ideal).toBeGreaterThan(1);
+        expect(c.vazio).toBeLessThan(2e-3); // < 20 cm2 (amostragem); antes da correção: 190 a 750 cm2 de vazado junto ao eixo
+        const { m } = cena(id, forma);
+        tudoDentro(m, forma);
+        // nenhuma folha, vidro ou travessa some
+        const reto = cena(id).m;
+        const ids = new Set(m.parts.map((q) => q.id));
+        for (const q of reto.parts.filter((x) => x.role === 'leaf' || x.role === 'glass')) expect(ids.has(q.id), q.id).toBe(true);
+      });
+    }
+  }
+  it('o curso aberto pode passar do arco (decisão): a folha móvel de arco pleno sai do contorno na ponta do curso', () => {
+    const forma: OpeningShape = { kind: 'round', width: 1.6, height: 2.1 };
+    const { m } = cena('ot_pcorrer160', forma);
+    const movel = m.parts.find((q) => q.id === 'leaf-1')!;
+    expect(movel.motion?.kind).toBe('slide');
+    const contorno = contornoDe(m, forma);
+    const k = movel.motion?.kind === 'slide' ? movel.motion : undefined;
+    const aberta = tzPts(movel).map(([x, z]): OPt => [x + k!.dt * k!.travel, z + k!.dz * k!.travel]);
+    expect(aberta.some(([x, z]) => !dentro(contorno, x, z, 1e-5))).toBe(true);
+    // fechada continua toda dentro
+    for (const [x, z] of tzPts(movel)) expect(dentro(contorno, x, z, 1e-5)).toBe(true);
   });
 });
 
@@ -238,7 +290,7 @@ describe('esquadria menor que o vão bruto (roughOversize) com forma', () => {
     expect(modelQuantities(b.m).byRole.leaf!.volume).toBeLessThan(modelQuantities(cena('ot_p90').m).byRole.leaf!.volume);
   });
 
-  it('janela de correr em arco com folga: tudo dentro do contorno da esquadria e do furo em todo o curso', () => {
+  it('janela de correr em arco com folga: tudo dentro do contorno da esquadria e do furo na posição fechada', () => {
     const forma: OpeningShape = { kind: 'round', width: 1.2, height: 1.2 };
     const { m, g } = cena('ot_j120', forma, { roughOversize: { w: 0.04, h: 0.02 } });
     tudoDentro(m, forma);
