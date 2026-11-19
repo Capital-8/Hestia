@@ -144,6 +144,7 @@ describe('terreno, ficha E1: serviço sobre o WASM real, T1 a T9 por todas as fu
     const curvas = srv.curvas(p)!;
     expect(curvas.map((x) => x.z)).toEqual([1, 2, 3, 4]);
     expect(curvas.every((x) => x.fechada)).toBe(true);
+    // Curvas EXATAS (padrão): perímetros literais dos quadrados crus.
     curvas.forEach((x, k) => perto(perimetro(x.pontos, true), [64, 48, 32, 16][k]!, 1e-9));
     const silhueta = srv.corte(p, { x: -5, y: 10 }, { x: 1, y: 0 }, 100)!.filter((x) => x.papel === 'silhueta');
     expect(silhueta).toHaveLength(1);

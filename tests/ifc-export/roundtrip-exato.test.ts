@@ -106,7 +106,7 @@ describe('round-trip exato Hestia → IFC → Hestia', () => {
 
     // Toda referência `#n` aponta para uma entidade declarada (a injeção dos psets não quebra o STEP).
     const declaradas = new Set([...texto.matchAll(/^#(\d+)\s*=/gm)].map((m) => m[1]));
-    for (const m of texto.matchAll(/#(\d+)/g)) expect(declaradas.has(m[1]!), `referência #${m[1]} sem entidade`).toBe(true);
+    for (const m of texto.replace(/'(?:[^']|'')*'/g, "''").matchAll(/#(\d+)/g)) expect(declaradas.has(m[1]!), `referência #${m[1]} sem entidade`).toBe(true);
 
     // Determinístico e idempotente: exportar de novo dá o mesmo texto e não duplica os psets.
     const bruto = exportIfc(original, ifcGeometryOf(original), { timestamp: DATA.toISOString().slice(0, 19) });

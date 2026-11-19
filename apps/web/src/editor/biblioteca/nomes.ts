@@ -51,3 +51,18 @@ export function nomeDoProjeto(pasta: string): string {
   const semSufixo = pasta.replace(/\s*\(\d+\)$/, '').trim();
   return semSufixo || pasta;
 }
+
+/**
+ * Nome que a pasta deveria ter agora, quando o nome do projeto mudou; `null` quando a pasta atual já serve.
+ *
+ * "Serve" é: a pasta atual é o nome do projeto, com ou sem o sufixo ` (n)` que a unicidade acrescentou (assim dois
+ * projetos "Casa" não ficam trocando de pasta a cada salvamento) ou só difere em maiúsculas (no Windows isso seria uma
+ * troca de caixa, que não vale o risco). `ocupados` são as outras pastas da raiz; a atual não conta como ocupada.
+ */
+export function novoNomeDePasta(atual: string, nome: string, ocupados: readonly string[]): string | null {
+  const minusculo = (s: string): string => s.toLocaleLowerCase();
+  const base = minusculo(nomeDePasta(nome));
+  if (minusculo(atual) === base || minusculo(atual.replace(/ \(\d+\)$/, '')) === base) return null;
+  const alvo = nomeDePastaUnico(nome, ocupados.filter((p) => minusculo(p) !== minusculo(atual)));
+  return minusculo(alvo) === minusculo(atual) ? null : alvo;
+}

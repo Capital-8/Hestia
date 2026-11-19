@@ -2,6 +2,7 @@
 import type { DimensionElementRef, DimensionStyle } from './dimensionContract.ts';
 import type { TagFamily } from './tagFamily.ts';
 import type { LotFamily, TerrainTextFamily } from './terrainLotFamilies.ts';
+import type { TerrainType } from './terrainTipo.ts';
 import type { NorthArrowFamily, RevisionCloudFamily, SpotFamily, TextFamily } from './annotationFamilies.ts';
 import type { DimensionFamily } from './dimensionFamily.ts';
 import type { Vec2 } from '@hestia/geom';
@@ -21,24 +22,29 @@ import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from '
 import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
+import type { Familia } from './familia/tipos.ts';
+import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
+import type { FacePaintEntry } from './facePaint.ts';
 import type { CurtainInstance, CurtainPanelType, CurtainSpec, MullionType } from './wallCurtainTypes.ts';
 import type { Column, ColumnType } from './column.ts';
 import type { Beam, BeamType } from './beam.ts';
 import type { Footing, FootingType } from './footing.ts';
 import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdentidade, MaterialTermico } from './materialBlocks.ts';
+import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
+/** v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `Project.componentFamilies`), móveis importados (`Furniture`, `Project.furniture`) e tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`). A migração 29 → 30 só avança a versão, e assim um programa antigo recusa um arquivo 30. */
 /** v29: terreno, região de terreno, lote e `localizacao` do projeto: a migração 28 → 29 só avança a versão (terreno virou 29 ao integrar com a main, que usou 26 a 28 para massa, parede inclinada e tríade estrutural). */
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
 /** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
@@ -77,6 +83,11 @@ export interface Material {
   aparencia?: MaterialAparencia;
   fisico?: MaterialFisico;
   termico?: MaterialTermico;
+  /**
+   * Categoria de material (`wood`, `metal`, `glass`...; texto minúsculo, até 32 caracteres). Opcional: ausente = sem
+   * categoria. Usada pelos blocos importados. Sem migração de esquema.
+   */
+  category?: string;
 }
 
 export interface Layer {
@@ -435,6 +446,12 @@ export interface Wall {
    * Se o telhado não existir mais, a parede fica na altura normal e o aviso C2 aparece.
    */
   attachTopRoofId?: Id;
+  /**
+   * Com `attachTopToRoof`: o topo acompanha a face inferior do telhado em TODA a espessura da parede (o ponto mais baixo
+   * do eixo e das duas faces), como Attach Top/Base do Revit e Trim to Roof do ArchiCAD; a parede nunca fura a água.
+   * Ausente/false (paredes antigas): só o eixo, como antes.
+   */
+  attachTopRoofFull?: boolean;
   locationLine: LocationLine;
   /** Inverte qual lado é o externo (padrão: externo à esquerda de a→b). */
   flipped: boolean;
@@ -470,6 +487,8 @@ export interface Wall {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de piso: camadas do topo para baixo (acabamento, contrapiso, estrutura). `wraps` não é usado. */
@@ -538,6 +557,8 @@ export interface Floor {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de laje: camadas do topo para baixo (regularização, estrutura). */
@@ -579,6 +600,8 @@ export interface Slab {
   order: number;
   /** Propriedades (psets/quantities) lidas do IFC de origem; ausente em elemento nativo ou sem pset. */
   ifcProperties?: IfcProperty[];
+  /** Pintura e arte por face do elemento. Ausente = materiais padrão das camadas. */
+  facePaints?: FacePaintEntry[];
 }
 
 /** Tipo de forro: camadas do topo para baixo (estrutura, placa, acabamento visível). Mesmo papel do tipo de piso. */
@@ -826,7 +849,51 @@ export interface Generic {
   ifcProperties?: IfcProperty[];
 }
 
-export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | Generic | CadDrawing | Column | Beam | Footing;
+export type Element = Wall | Opening | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | Generic | CadDrawing | Column | Beam | Footing | Component | Furniture;
+/**
+ * Instância de um componente (móvel, louça, equipamento) no projeto (ADR 0049). Aponta para uma família do projeto
+ * (`Project.componentFamilies`); a geometria sai da resolução da família, nunca é gravada aqui. Mundo = `R(rotation) · E · local + (x, y)`,
+ * com `E` espelhando o eixo X local quando `mirrored`; o local está em metros com origem no canto mínimo da família.
+ */
+export interface Component {
+  id: Id;
+  kind: 'component';
+  familyId: Id;
+  /** Tipo da família; `null` = padrão da família. */
+  typeId: Id | null;
+  levelId: Id;
+  order: number;
+  /** Posição no plano (m), deslocamento sobre o nível (m) e rotação anti-horária (rad). */
+  x: number;
+  y: number;
+  z: number;
+  rotation: number;
+  mirrored: boolean;
+  /** Valores de parâmetros desta instância (mm), sobre o tipo. */
+  values?: Record<string, number | string | boolean>;
+  mark: string;
+  /** Conjunto ou fila a que o componente pertence (`Project.componentGroups`); ausente = solto. Um componente está em no máximo um. */
+  groupId?: Id;
+}
+
+/** União entre módulos de um conjunto: o que o encaixe faz nas faces em contato. */
+export type RegraUniao = 'lateral-compartilhada' | 'alinhar-topo' | 'alinhar-frente';
+
+/**
+ * Conjunto de componentes que se movem, giram e copiam juntos (Promob: módulos unidos). Com `linha` é uma FILA: os módulos ficam
+ * lado a lado ao longo da linha-base no plano, na ordem de `membros`, de `linha.a` para `linha.b` (metros).
+ * Fica em `Project.componentGroups`, fora de `elements`; os membros guardam o `groupId`.
+ */
+export interface ComponentGroup {
+  id: Id;
+  nome: string;
+  levelId: Id;
+  /** Ids dos componentes, na ordem ao longo da fila (conjunto livre: ordem de inclusão). */
+  membros: Id[];
+  linha?: { a: Vec2; b: Vec2; /** Parede de apoio, quando a fila foi montada contra uma. */ paredeId?: Id | null };
+  regras?: RegraUniao[];
+}
+
 
 export interface ProjectDefaults {
   wallTypeId: Id;
@@ -878,6 +945,9 @@ export interface ProjectSettings {
   terrainTextFamilies?: TerrainTextFamily[];
   defaultTerrainContourFamilyId?: Id;
   defaultTerrainSpotFamilyId?: Id;
+  /** Tipos de terreno (superfície, solo, curvas, rótulo automático). Ausente = os padrões; `Terrain.tipoId` os referencia. */
+  terrainTypes?: TerrainType[];
+  defaultTerrainTypeId?: Id;
   lotFamilies?: LotFamily[];
   defaultLotFamilyId?: Id;
   /** Ponto Base do Projeto (origem local em metros). */
@@ -982,6 +1052,12 @@ export interface Project {
   /** Tipos de guarda-corpo e corrimão (decisão 0055). Mesmo papel dos demais mapas de tipos; a migração 23 → 24 semeia os iniciais. */
   tiposGuardaCorpo: Record<Id, TipoGuardaCorpo>;
   openingTypes: Record<Id, OpeningType>;
+  /** Famílias de componentes do projeto (ADR 0049), por id; ausente = nenhuma. As instâncias (`Component`) apontam para elas. */
+  componentFamilies?: Record<Id, Familia>;
+  /** Conjuntos e filas de componentes (modelagem fluida), por id; ausente = nenhum. */
+  componentGroups?: Record<Id, ComponentGroup>;
+  /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
+  catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */
   openingProfiles?: Record<Id, ProfilePreset>;
   /** Perfis de norma do guarda-corpo (decisão 0055 §4.3). Ausente = os presets por leitura; a primeira escrita grava o conjunto. */
@@ -1015,6 +1091,8 @@ export interface Project {
   view3d?: View3DSettings;
   /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */
   plugins?: import('./pluginData.ts').PluginProjectData;
+  /** Moveis importados (assets de malha; instancias sao elementos `furniture`). Ausente = nenhum. Sem migracao. */
+  furniture?: FurnitureProjectData;
   /**
    * Pontos de vista 3D salvos (decisão 0040): catálogo do projeto, referenciado pelas pranchas. Ausente = nenhum.
    * Ver `view3dPoints.ts`.
@@ -1061,3 +1139,4 @@ export const isGeneric = (e: Element | undefined): e is Generic => e?.kind === '
 export const isColumn = (e: Element | undefined): e is Column => e?.kind === 'column';
 export const isBeam = (e: Element | undefined): e is Beam => e?.kind === 'beam';
 export const isFooting = (e: Element | undefined): e is Footing => e?.kind === 'footing';
+export const isComponent = (e: Element | undefined): e is Component => e?.kind === 'component';

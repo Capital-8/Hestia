@@ -1,0 +1,43 @@
+# Integração da frente "Pintura de faces" na 0.2.5
+
+Branch `pintura/faces-integrada` (a partir de `integracao/0.2.5` = 1407dcb4). `pintura/faces-base` é o snapshot do trabalho do dono em 472b3d69 (109 arquivos copiados da working tree, sem `reports/i18n/hardcoded-pt.json`). Nada foi mesclado em `integracao/0.2.5`, sem push, tag ou release. A pasta do dono não foi tocada.
+
+## O que entrou
+Pintura direta de faces no 3D (botões "Pintar face (3D)" e "Estúdio da face (2D)" na aba contextual "Modificar | Paredes", só aparecem com elemento selecionado), vista nova `face:<id>:<face>:<camada>`, Estúdio da Face 2D (`apps/web/src/ui/faceStudio/`), ripado (kernel Rust `pintura_face.rs` + fallback TS), DXF sobre a face, quantitativos de área pintada, catálogo de 40 materiais extras (`catalogoMateriaisExtras.ts`, entram em todo projeto novo), texturas `basica:<Id>` e `proc:*` convivendo com o navegador de materiais triplanar da 0.2.5, passagem translúcida em parede composta (`facePaintGlass.ts`).
+
+## Conflitos e resolução
+O merge automático resolveu tudo exceto os 3 binários do wasm (as 14 interseções de arquivos, como `state.ts`, `controller.ts`, `types.ts`, `commands.ts`, `solids.ts`, `Ribbon.tsx`, fundiram sem conflito e passam em typecheck e testes). Não há ToolId novo (`paint`/`studioPick` são modos de `ui.facePaint`), então nenhum contrato exaustivo de ferramentas mudou. Não existe atalho `PT` novo.
+- `packages/geom/assets/geom_wasm.{wasm,sha256}` e `geom_wasm.fonte.sha256`: o wasm do dono foi descartado; Rust da integração + `pintura_face.rs` e o `executar_ripas` do `lib.rs` do dono (este fundiu limpo). Regenerado com `CARGO_TARGET_DIR=/home/dennylson/hestia-wt/target-pintura npm run build:wasm` (blob e66c9035d915, fontes e7452b238b85). `wasm:check` ok. `tests/kernel-terreno-*` 51/51 (curvas exatas por padrão, perímetros 64/48/32/16 ok); `glue.test.ts` 9/9 (inclui `ripas`).
+
+## Correções feitas na integração (commits `fix(pintura)`)
+1. `catalogoMateriaisExtras.ts`: os materiais passam por `normalizarMaterial` (ordem canônica das chaves). Sem isso `esquema.test.ts` (26→27) e `meshArrays.test.ts` (3 testes) quebravam por ordem de chaves no JSON.
+2. **Bug real**: os ajustes de área pintada (`applyFacePaintAdjustments`) só rodavam quando o Rust NÃO despachava as quantidades (`!rust`), mas o despacho Rust vem ligado por padrão no app: a área pintada ficava 0 no levantamento. Removido o `!rust &&` em `quantities.ts`, `floorQuantities.ts` e `slabQuantities.ts`. Confirmado no navegador: cumaru 0 → 3,19 m² e a tinta base cai pela mesma área.
+3. O JSON dos materiais vai no IFC (`MaterialsJSON`) e as cores novas (`#222426`, `#285966`, `#683817`, `#41342e`) pareciam referências `#n` aos testes de "referência solta". Testes alterados (só ignoram texto entre aspas): `apps/web/src/editor/ifcExport.test.ts`, `packages/io/src/ifc/{ifcExport,ifcGeneric,ifcMassa,ifcStyles}.test.ts`, `tests/ifc-export/{export,roundtrip-exato}.test.ts`, `tests/kernel-massa-exporta.wasm.test.ts`.
+4. i18n: o Estúdio da Face tinha ~116 literais `pt ? 'A' : 'B'` (só PT/EN). Migrados para `apps/web/src/editor/i18n/areas/face-estudio.ts` (chaves `fs_*`, 7 idiomas, registrado em `i18n.ts`). A barra de opções e a faixa já estavam nos 7 idiomas. As traduções ES/DE/FR/IT/PL são minhas: vale uma revisão rápida de um falante.
+5. Novo teste `packages/model/src/facePaintArquivo.test.ts`: projeto sem `facePaints` abre sem ganhar o campo; `facePaints` (base, região, ripado) sobrevive a salvar, abrir e salvar de novo, byte a byte. `facePaints?` é campo opcional aditivo: esta frente NÃO sobe `SCHEMA_VERSION` (o teste usa a constante, não o número 29).
+
+## Portões (resultado)
+- typecheck: ok (rodado de novo no fim). eslint no repositório inteiro: 0 erro nos arquivos desta frente; restam só erros antigos de `tests/perf/prancha-predio.mjs` (84 `no-undef`) e 9 avisos antigos. `check-lixo`, `check-boundaries`, `check-ribbon-i18n` (422/422), `check-parity`, `check-props-density`: ok. `check-units`: só as 3 falhas antigas (`pranchasEstabilidadeSuite`, `pranchasFixture`, `solids.ts` linha 107, que já existia na integração); nenhuma violação nova.
+- vitest: `packages/model/src` 1525, `packages/engine/src` 3860, `packages/render/src` (model3d + resto) 1081 + 1247, `packages/geom/src` 163, `packages/io` 472, `packages/tools/src` 3040, `apps/web/src/editor` (1406 passaram; as 2 falhas de IFC foram corrigidas e o arquivo passa isolado), `apps/web/src/plugins`, `tests/` 226: todos passam. `apps/web/src/ui`: 2 falhas que já existiam na integração e não são desta frente (`contratoPaineisFamilia`: `TerrainPontoProperties.tsx` sem classificação; `contratoModaisFamilia`: `TerrainTypeDialog` já usa o esqueleto e deve ir para MIGRADOS). Lista do dono (13 arquivos): passa.
+
+## Não verificado
+- **e2e `tests/e2e/pintura-faces.mjs` (Chrome headless, Vite dev na 4800) NÃO fecha 100%.** Passam: botões na faixa, Estúdio da Face (abre `face:wA:sideExt:all`, desenha retângulo, painel "Área pintada" = área em formatQuantity, levantamento), desfazer/refazer da região, ida e volta de `facePaints`, parede composta com vidro fumê (lote translúcido opacidade 0,45 e camadas internas opacas atrás), console sem erros. Falha o passo "pintar a face externa direto no 3D com textura": o picking só acha `sideInt`/`endB` porque a câmera padrão enxerga a face interna e meu giro de órbita no script (`__hestia3d.azimuth`) não surte efeito a tempo. Causa provável: problema do roteiro, não da integração (o mesmo picking acha `sideExt` depois, no passo do Estúdio). Por isso NÃO foi conferido ainda: textura `basica:Wood026` carregada no lote 3D pintado (o arquivo é servido com 200 e `image/webp` pelo Vite dev; o mapa no material não foi medido) e desfazer/refazer da pintura direta (o do Estúdio foi). Refazer isso na mão (roteiro abaixo).
+- Build de produção (`npm run build`) e app empacotado do desktop: não rodados. `apps/web/public/` só contém `texturas-basicas/`; o Vite copia `public/` para `dist/` na raiz, e `frontendDist` do Tauri aponta para `apps/web/dist`, então o caminho `/texturas-basicas/<Id>.webp` deve funcionar; o código usa `import.meta.env.BASE_URL` (sem `base` configurada = `/`). Conferir o `file://` do build single-file (o `.webp` fica ao lado do HTML, não embutido).
+- Rust: `cargo test` do `pintura_face.rs` não rodou; só o glue (`ripas`) e o wasm de terreno.
+- Visual em tela (cores, qualidade da textura, ripado 3D, parede curva, DXF), `npm run lint` com `check-units` completo na `main`, `test:wasm` completo.
+
+## Texturas (fonte e licença)
+10 arquivos `.webp` em `apps/web/public/texturas-basicas/` (380 KB): Bricks051, Bricks060, Bricks090, Granite002A, Marble001, Wood022, Wood026, Wood048, Wood051, WoodFloor051. Os nomes seguem o padrão do ambientCG (licença CC0), mas **nada no repositório nem no trabalho do dono documenta a origem**; é uma dedução. Confirmar com o dono e então registrar a fonte. Não editei `NOTICE` nem `LICENSING.md`; CC0 não exige atribuição, mas vale uma linha em `NOTICE` se o dono quiser listar a procedência. Em todo caso o `.webp` é uma conversão reduzida, só o mapa de cor (sem normal/rugosidade).
+
+## Pontos para o dono decidir
+- Todo projeto novo (e todo IFC) agora carrega 40 materiais extras (o JSON dos materiais vai no IFC). Se não for desejado, filtrar por uso.
+- O botão de pintar só aparece com elemento selecionado (aba "Modificar | Paredes"); na aba Modificar sem seleção não há botão.
+- A integração agora está em `SCHEMA_VERSION` 30: nenhum teste desta frente depende do número.
+
+## Roteiro de teste manual (≈10 min)
+1. Novo projeto, desenhe uma parede, abra o 3D, selecione a parede, aba "Modificar | Paredes": "Pintar face (3D)". Escolha "Madeira Cumaru" na barra de opções, passe o mouse (a face fica realçada) e clique na face externa: a textura de madeira aparece; Ctrl+Z e Ctrl+Y desfazem e refazem. Esc sai.
+2. "Estúdio da face (2D)": clique na face; abre a aba 2D. Ferramenta Retângulo, arraste uma região: o painel mostra "Área pintada" e o quantitativo muda. Escolha Faixa para um friso.
+3. Selecione a região, ative "Ripado paramétrico" (largura, vão, profundidade, ângulo): volte ao 3D e veja as ripas; em parede curva côncava confira o aviso de vão mínimo.
+4. Importar DXF (qualquer desenho simples): posicione, gire, escale; "Voltar p/ face base" e "Excluir DXF".
+5. Parede composta (≥3 camadas): pinte a face externa com "Vidro Fumê": o vidro fica translúcido e as camadas internas aparecem por trás. Troque o idioma (ES/DE/FR/IT/PL) e abra o Estúdio para ver os textos.
+6. Salvar e reabrir o projeto: as pinturas continuam. Abrir um projeto antigo (sem pintura): abre normal.

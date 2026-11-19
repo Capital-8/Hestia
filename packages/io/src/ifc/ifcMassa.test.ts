@@ -109,7 +109,7 @@ describe('exportIfc: massa conceitual (ficha X1)', () => {
     const a = exportIfc(p, geo, { timestamp: TS });
     expect(exportIfc(p, geo, { timestamp: TS })).toBe(a);
     const definidos = new Set([...a.matchAll(/^#(\d+)=/gm)].map((m) => Number(m[1])));
-    expect([...a.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !definidos.has(id))).toEqual([]);
+    expect([...a.replace(/'(?:[^']|'')*'/g, "''").matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !definidos.has(id))).toEqual([]);
   });
 
   it('ida e volta: o arquivo com a massa reimporta sem erro e a massa volta como objeto genérico com a malha (o importador não conhece o kind `mass`)', () => {

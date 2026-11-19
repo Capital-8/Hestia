@@ -1,7 +1,7 @@
 import { planFootprint } from './stairs.ts';
 import { bordaDeReserva } from './terreno.ts';
 import { pontosDaMassaEmPlanta } from './massa.ts';
-import { resolveRampOne, resolveStairOne } from '@hestia/engine';
+import { pegadaDoComponente, resolveRampOne, resolveStairOne } from '@hestia/engine';
 import {
   beamPolygon,
   columnPolygon,
@@ -9,6 +9,7 @@ import {
   findColumnType,
   findFootingType,
   footingPolygon,
+  furnitureBounds,
   isOpening,
   isRamp,
   isStair,
@@ -113,7 +114,18 @@ const COLETORES: Coletores = {
   column: { entra: true, pontos: (e, p) => columnPolygon(e, findColumnType(p, e.typeId)) },
   beam: { entra: true, pontos: (e, p) => beamPolygon(e, findBeamType(p, e.typeId)) },
   footing: { entra: true, pontos: (e, p) => footingPolygon(e, findFootingType(p, e.typeId)) },
+  // O móvel entra pela pegada em planta (as peças dele aparecem no corte e na elevação).
+  component: { entra: true, pontos: (e, p) => pontosDeMulti(pegadaDoComponente(p, e)) },
+  // O móvel importado entra pela caixa da malha em planta (a planta desenha o contorno dela; corte e elevação ainda não projetam a malha).
+  furniture: { entra: true, pontos: (e, p) => pontosDoMovel(e, p) },
 };
+
+function pontosDoMovel(e: Do<'furniture'>, p: Project): Pontos {
+  const asset = p.furniture?.assets[e.assetId];
+  if (!asset) return [];
+  const { min, max } = furnitureBounds(e, asset);
+  return [{ x: min[0], y: min[1] }, { x: max[0], y: max[1] }];
+}
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {
   const host = p.elements[e.hostId];

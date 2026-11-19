@@ -24,6 +24,7 @@ function listar(dir: string): string[] {
 
 /** Diálogos de tipo que já usam o esqueleto comum (parede, escada, rampa, piso, laje, forro, telhado, guarda-corpo). */
 const MIGRADOS = [
+  'TerrainTypeDialog.tsx',
   'WallTypeDialog.tsx',
   'StairTypeDialog.tsx',
   'RampTypeDialog.tsx',

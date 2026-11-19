@@ -63,6 +63,11 @@ export const PT_BIBLIOTECA = {
   bib_err_write_locked: 'Não foi possível gravar o projeto (a pasta pode estar protegida).',
   bib_err_desktop_only: 'A biblioteca de pastas só existe no aplicativo do Hestia.',
   bib_err_no_folder: 'Nenhuma pasta de projetos escolhida.',
+  bib_err_rename: 'Não foi possível renomear a pasta do projeto.',
+  bib_err_rename_exists: 'Já existe uma pasta com o nome novo.',
+  bib_err_rename_extra: 'A pasta tem outros arquivos além do projeto; ela não foi renomeada.',
+  bib_rename_failed: 'Projeto salvo, mas a pasta não pôde ser renomeada (talvez esteja aberta em outro programa). A pasta antiga continua valendo.',
+  bib_saved_elsewhere: 'Projeto salvo em outro local: {name}. As próximas gravações vão para lá.',
 } as const;
 
 export const EN_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -126,6 +131,11 @@ export const EN_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'Could not save the project (the folder may be write-protected).',
   bib_err_desktop_only: 'The folder library is only available in the Hestia desktop app.',
   bib_err_no_folder: 'No project folder chosen.',
+  bib_err_rename: 'Could not rename the project folder.',
+  bib_err_rename_exists: 'A folder with the new name already exists.',
+  bib_err_rename_extra: 'The folder has other files besides the project, so it was not renamed.',
+  bib_rename_failed: 'Project saved, but the folder could not be renamed (it may be open in another program). The old folder is still used.',
+  bib_saved_elsewhere: 'Project saved to another location: {name}. Future saves will go there.',
 };
 
 export const ES_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -189,6 +199,11 @@ export const ES_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'No se pudo guardar el proyecto (la carpeta puede estar protegida).',
   bib_err_desktop_only: 'La biblioteca de carpetas solo existe en la aplicación de Hestia.',
   bib_err_no_folder: 'No se ha elegido ninguna carpeta de proyectos.',
+  bib_err_rename: 'No se pudo renombrar la carpeta del proyecto.',
+  bib_err_rename_exists: 'Ya existe una carpeta con el nombre nuevo.',
+  bib_err_rename_extra: 'La carpeta tiene otros archivos además del proyecto; no se renombró.',
+  bib_rename_failed: 'Proyecto guardado, pero no se pudo renombrar la carpeta (quizá esté abierta en otro programa). Se sigue usando la carpeta anterior.',
+  bib_saved_elsewhere: 'Proyecto guardado en otra ubicación: {name}. Los próximos guardados irán allí.',
 };
 
 export const DE_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -252,6 +267,11 @@ export const DE_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'Das Projekt konnte nicht gespeichert werden (der Ordner ist möglicherweise geschützt).',
   bib_err_desktop_only: 'Die Ordnerbibliothek gibt es nur in der Hestia-Desktop-App.',
   bib_err_no_folder: 'Kein Projektordner ausgewählt.',
+  bib_err_rename: 'Der Projektordner konnte nicht umbenannt werden.',
+  bib_err_rename_exists: 'Ein Ordner mit dem neuen Namen existiert bereits.',
+  bib_err_rename_extra: 'Der Ordner enthält weitere Dateien außer dem Projekt und wurde nicht umbenannt.',
+  bib_rename_failed: 'Projekt gespeichert, aber der Ordner konnte nicht umbenannt werden (evtl. in einem anderen Programm geöffnet). Der alte Ordner bleibt in Gebrauch.',
+  bib_saved_elsewhere: 'Projekt an einem anderen Ort gespeichert: {name}. Weitere Speicherungen gehen dorthin.',
 };
 
 export const FR_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -315,6 +335,11 @@ export const FR_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'Impossible d\'enregistrer le projet (le dossier est peut-être protégé).',
   bib_err_desktop_only: 'La bibliothèque de dossiers n\'existe que dans l\'application Hestia.',
   bib_err_no_folder: 'Aucun dossier de projets choisi.',
+  bib_err_rename: 'Impossible de renommer le dossier du projet.',
+  bib_err_rename_exists: 'Un dossier portant le nouveau nom existe déjà.',
+  bib_err_rename_extra: "Le dossier contient d'autres fichiers que le projet ; il n'a pas été renommé.",
+  bib_rename_failed: "Projet enregistré, mais le dossier n'a pas pu être renommé (peut-être ouvert dans un autre programme). L'ancien dossier reste utilisé.",
+  bib_saved_elsewhere: 'Projet enregistré ailleurs : {name}. Les prochains enregistrements iront là.',
 };
 
 export const IT_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -378,6 +403,11 @@ export const IT_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'Impossibile salvare il progetto (la cartella potrebbe essere protetta).',
   bib_err_desktop_only: 'La libreria di cartelle esiste solo nell\'app Hestia.',
   bib_err_no_folder: 'Nessuna cartella di progetti scelta.',
+  bib_err_rename: 'Impossibile rinominare la cartella del progetto.',
+  bib_err_rename_exists: 'Esiste già una cartella con il nuovo nome.',
+  bib_err_rename_extra: 'La cartella contiene altri file oltre al progetto; non è stata rinominata.',
+  bib_rename_failed: 'Progetto salvato, ma la cartella non è stata rinominata (forse è aperta in un altro programma). Resta in uso la cartella precedente.',
+  bib_saved_elsewhere: "Progetto salvato in un'altra posizione: {name}. I prossimi salvataggi andranno lì.",
 };
 
 export const PL_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
@@ -441,4 +471,9 @@ export const PL_BIBLIOTECA: Record<keyof typeof PT_BIBLIOTECA, string> = {
   bib_err_write_locked: 'Nie udało się zapisać projektu (folder może być chroniony).',
   bib_err_desktop_only: 'Biblioteka folderów jest dostępna tylko w aplikacji Hestia.',
   bib_err_no_folder: 'Nie wybrano folderu projektów.',
+  bib_err_rename: 'Nie można zmienić nazwy folderu projektu.',
+  bib_err_rename_exists: 'Folder o nowej nazwie już istnieje.',
+  bib_err_rename_extra: 'Folder zawiera inne pliki poza projektem, więc nie zmieniono jego nazwy.',
+  bib_rename_failed: 'Projekt zapisany, ale nie udało się zmienić nazwy folderu (może być otwarty w innym programie). Nadal używany jest stary folder.',
+  bib_saved_elsewhere: 'Projekt zapisany w innym miejscu: {name}. Kolejne zapisy trafią tam.',
 };

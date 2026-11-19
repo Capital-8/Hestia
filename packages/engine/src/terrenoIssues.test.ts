@@ -8,8 +8,8 @@ const AUSENTE = 0xffffffff;
 const medida = (m: Partial<MedidaAvisoTN>): MedidaAvisoTN => ({ terrenoId: idTerrenoFixture('T5'), codigo: 5, regiaoId: null, outraRegiaoId: null, indice: null, medido: 0, limite: 0, x: 0, y: 0, z: 0, ...m });
 
 describe('avisos do terreno', () => {
-  it('há os dois avisos do TS e os seis do kernel', () => {
-    expect(CODIGOS_AVISO_TERRENO).toHaveLength(8);
+  it('há os dois avisos do TS e os sete do kernel', () => {
+    expect(CODIGOS_AVISO_TERRENO).toHaveLength(9);
   });
 
   it('terreno-sem-kernel: um por terreno, em pt e en, apontando para o terreno', () => {

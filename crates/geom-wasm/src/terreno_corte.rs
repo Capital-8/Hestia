@@ -11,6 +11,9 @@
 //!   terreno; cada aresta, recortada à faixa visível, atualiza o máximo das faixas que cobre; sai uma polilinha por trecho contínuo de faixas com dado, com
 //!   um ponto por faixa `(s do meio da faixa, z máximo)`. Trecho de uma faixa só não sai (não forma linha).
 //!
+//! - **papel 3, silhueta existente**: a mesma envoltória do papel 2, mas de E; só com plataforma ou região nivelada (como o papel 1). É o terreno original
+//!   tracejado da elevação, para comparar com a silhueta de P.
+//!
 //! Vértice exatamente sobre o plano conta como do lado visível (a mesma regra única das curvas de nível), e cada ponto do perfil é calculado sempre do
 //! vértice de trás para o da frente da aresta: os dois triângulos de uma aresta chegam ao mesmo ponto, bit a bit.
 
@@ -25,6 +28,8 @@ use crate::terreno_tipos::terrenos_do_nivel;
 pub const PAPEL_CORTADO: u32 = 0;
 pub const PAPEL_PERFIL_EXISTENTE: u32 = 1;
 pub const PAPEL_SILHUETA: u32 = 2;
+/// Silhueta de E (terreno existente), só com plataforma ou região nivelada: o tracejado do terreno original na elevação.
+pub const PAPEL_SILHUETA_EXISTENTE: u32 = 3;
 
 /// Número de faixas de `s` da silhueta.
 pub const FAIXAS: usize = 2048;
@@ -198,13 +203,19 @@ pub fn corte_com_base(m: &Malha, pl: &Plano, profundidade: f64, z_base: f64) -> 
     out
 }
 
-/// Linhas do corte de um terreno: cortados (papel 0) e silhuetas (papel 2) de P, e entre eles o perfil existente (papel 1) se há plataforma ou nivelada.
+/// Linhas do corte de um terreno: cortados (papel 0) e silhuetas (papel 2) de P, entre eles o perfil existente (papel 1) e, por último, a silhueta de E (papel 3), se há plataforma ou nivelada.
 pub fn corte_do_terreno(p: &Proposta, pl: &Plano, profundidade: f64, espessura_base: f64) -> Vec<(u32, bool, Vec<[f64; 2]>)> {
     let Some((z_min, _)) = p.z_min_max() else { return Vec::new() };
     let todas = corte_com_base(&p.malha, pl, profundidade, z_min - espessura_base);
     let (cortados, silhuetas): (Vec<_>, Vec<_>) = todas.into_iter().partition(|l| l.0 == PAPEL_CORTADO);
     let existente = if p.tem_plano() { perfil(&p.e, pl) } else { Vec::new() };
-    cortados.into_iter().chain(existente.into_iter().map(|l| (PAPEL_PERFIL_EXISTENTE, false, l))).chain(silhuetas).collect()
+    let sil_existente = if p.tem_plano() { silhueta(&p.e, pl, profundidade) } else { Vec::new() };
+    cortados
+        .into_iter()
+        .chain(existente.into_iter().map(|l| (PAPEL_PERFIL_EXISTENTE, false, l)))
+        .chain(silhuetas)
+        .chain(sil_existente.into_iter().map(|l| (PAPEL_SILHUETA_EXISTENTE, false, l)))
+        .collect()
 }
 
 /// Consulta 164 (`terreno_corte`): terrenos do nível por `id_num` crescente.

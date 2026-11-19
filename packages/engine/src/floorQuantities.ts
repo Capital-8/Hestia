@@ -4,6 +4,7 @@ import { resolveFloors, type ResolvedFloor } from './floors.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
 import { coveredFaceArea, cutVolume, floorCutters, floorLayerPiece, slabCoversFloor, slabCutters, wallCutters, type CutterSolid } from './junctionNet.ts';
+import { applyFacePaintAdjustments } from './facePaintQuantities.ts';
 
 /** Uma camada de um piso. A área é a da face superior da camada, líquida: sem o que a laje ocupa (decisão 0023 §4). */
 export interface FloorLayerQuantity {
@@ -134,6 +135,14 @@ function quantifyFloorsCom(p: Project, levelId: Id, rust: QuantidadesRust | null
       volumeByMaterial[l.materialId] = (volumeByMaterial[l.materialId] ?? 0) + l.volume;
       faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + l.area;
     }
+  }
+  if (
+    floors.some((fl) => {
+      const el = p.elements[fl.floorId];
+      return el?.kind === 'floor' && Boolean(el.facePaints?.length);
+    })
+  ) {
+    applyFacePaintAdjustments(p, levelId, 'floor', faceAreaByMaterial, volumeByMaterial);
   }
   return {
     floors,

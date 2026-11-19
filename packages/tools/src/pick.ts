@@ -1,9 +1,10 @@
 import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
-import { isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
-import { toLocal, wallEndCorners } from '@hestia/engine';
+import { isComponent, isFurniture, isGeneric, wallsOnLevel, type Id, type Project } from '@hestia/model';
+import { pegadaDoComponente, toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
+import { furnitureOutline } from './furnitureFootprint.ts';
 
 export interface Hit {
   id: Id;
@@ -158,6 +159,46 @@ export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | 
   return best?.id ?? null;
 }
 
+/**
+ * Componente sob o ponto: qualquer anel externo da pegada em planta o contém (com a mesma tolerância de borda da
+ * seleção). Entre sobrepostos vence o de menor área, como no objeto genérico. Componentes de outros níveis ficam fora.
+ */
+export function componentAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+  const tol = 4 * mpp;
+  let best: { id: Id; area: number } | null = null;
+  for (const e of Object.values(p.elements)) {
+    if (!isComponent(e) || e.levelId !== levelId) continue;
+    let area = 0;
+    let hit = false;
+    for (const poly of pegadaDoComponente(p, e)) {
+      const ring = poly[0];
+      if (!ring) continue;
+      area += Math.abs(ringArea(ring));
+      if (!hit && insideOrNear(ring, at, tol)) hit = true;
+    }
+    if (!hit) continue;
+    if (!best || area < best.area) best = { id: e.id, area };
+  }
+  return best?.id ?? null;
+}
+
+/** Componentes cuja pegada está inteira dentro da janela (seleção de janela esquerda→direita). */
+export function componentIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
+  const box = boxOf([a, b]);
+  const ids: Id[] = [];
+  for (const e of Object.values(p.elements)) {
+    if (!isComponent(e) || e.levelId !== levelId) continue;
+    const pegada = pegadaDoComponente(p, e);
+    if (pegada.length === 0) continue;
+    const dentro = pegada.every((poly) => {
+      const ring = poly[0];
+      return !ring || ring.every((q) => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY);
+    });
+    if (dentro) ids.push(e.id);
+  }
+  return ids;
+}
+
 /** Ray casting + distância às arestas (para o clique na borda contar). */
 function insideOrNear(ring: readonly Vec2[], at: Vec2, tol: number): boolean {
   let inside = false;
@@ -197,3 +238,22 @@ export {
 } from './structuralPick.ts';
 
 
+
+/**
+ * Móvel importado sob o ponto: o contorno em planta (base da caixa do bloco, girada/escalada) na mesma tolerância do
+ * resto da seleção; entre dois sobrepostos vence o de menor área.
+ */
+export function furnitureAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+  const tol = 4 * mpp;
+  let best: { id: Id; area: number } | null = null;
+  for (const e of Object.values(p.elements)) {
+    if (!isFurniture(e) || e.levelId !== levelId) continue;
+    const asset = p.furniture?.assets[e.assetId];
+    if (!asset) continue;
+    const ring = furnitureOutline(e, asset);
+    if (!insideOrNear(ring, at, tol)) continue;
+    const area = Math.abs(ringArea(ring));
+    if (!best || area < best.area) best = { id: e.id, area };
+  }
+  return best?.id ?? null;
+}

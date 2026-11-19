@@ -20,7 +20,7 @@ const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
 const uid = (prefix: string): string => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
 /** Campos comuns de texto: fonte, cor, unidade e casas. `value` é a família em edição e `patch` grava o rascunho. */
-function TextoFields<T extends { font: string; unit: FamilyLengthUnit; precision?: 0 | 1 | 2 | 3; textMm: number; bold?: boolean; italic?: boolean }>({ pre, value, color, onColor, patch }: { pre: string; value: T; color: string | undefined; onColor: (c: string | undefined) => void; patch: (k: Partial<T>) => void }): ReactElement {
+export function TextoFields<T extends { font: string; unit: FamilyLengthUnit; precision?: 0 | 1 | 2 | 3; textMm: number; bold?: boolean; italic?: boolean }>({ pre, value, color, onColor, patch }: { pre: string; value: T; color: string | undefined; onColor: (c: string | undefined) => void; patch: (k: Partial<T>) => void }): ReactElement {
   const { t } = useT();
   return (
     <>

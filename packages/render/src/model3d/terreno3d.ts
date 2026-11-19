@@ -1,7 +1,7 @@
 import { convexHull, type Vec2 } from '@hestia/geom';
 import { hashTexto, servicoTerreno, type MalhaTerreno } from '@hestia/engine';
-import type { Id, Material, Project, Terrain, TerrainRegion } from '@hestia/model';
-import { isTerrain, isTerrainRegion } from '@hestia/model';
+import type { Id, Material, Project, ProjectSettings, Terrain, TerrainRegion } from '@hestia/model';
+import { isTerrain, isTerrainRegion, soloDoTerreno, terrenoComTipo } from '@hestia/model';
 import { ofElement, type SolidBatch } from './solids.ts';
 
 /**
@@ -54,6 +54,14 @@ function aparenciaDe(p: Pick<Project, 'materials'>, d: { materialId?: Id | undef
  */
 export function materialDoTerreno(p: Pick<Project, 'materials'>, t: Terrain, regiao: TerrainRegion | null): Id {
   return (regiao ? aparenciaDe(p, regiao) : null) ?? aparenciaDe(p, t) ?? idDeCor(COR_PADRAO_TERRENO);
+}
+
+/**
+ * Material do solo (saia e base): o do tipo do terreno; sem tipo, ou com o tipo sem solo, o da superfície (o desenho de antes do tipo). `t` é o terreno
+ * já resolvido pelo tipo (`terrenoComTipo`) e `solo` o que `soloDoTerreno` devolve.
+ */
+export function materialDoSolo(p: Pick<Project, 'materials'>, t: Terrain, solo: ReturnType<typeof soloDoTerreno>): Id {
+  return (solo ? aparenciaDe(p, solo) : null) ?? materialDoTerreno(p, t, null);
 }
 
 /** Regiões de cada terreno, na ordem de `order` (e id). Um passo só sobre os elementos. */
@@ -110,19 +118,21 @@ function empurrarMalha(b: SolidBatch, pos: readonly number[], indices: readonly 
  * superfície sem região, a saia e a base vão na faixa do terreno. Região oculta (`regiaoOculta`) fica na faixa do terreno, com a cor dela.
  */
 export function solidosDoTerreno(
-  p: Pick<Project, 'materials' | 'elements'>,
-  t: Terrain,
+  p: Pick<Project, 'materials' | 'elements'> & { settings?: ProjectSettings },
+  bruto: Terrain,
   regioes: readonly TerrainRegion[],
   malha: MalhaTerreno,
   regiaoOculta: (regiaoId: Id) => boolean = () => false,
 ): SolidBatch[] {
+  const t = terrenoComTipo(p.settings, bruto);
+  const solo = soloDoTerreno(p.settings, bruto);
   const porId = new Map(regioes.map((r) => [r.id, r] as const));
   const lotes = new Map<Id, SolidBatch>();
   const ordem = { superficie: 0, saia: 1, base: 2 } as const;
   const partes = [...malha.partes].sort((a, b) => ordem[a.papel] - ordem[b.papel]);
   for (const parte of partes) {
     const regiao = parte.papel === 'superficie' && parte.regiaoId !== null ? (porId.get(parte.regiaoId) ?? null) : null;
-    const materialId = materialDoTerreno(p, t, regiao);
+    const materialId = parte.papel === 'superficie' ? materialDoTerreno(p, t, regiao) : materialDoSolo(p, t, solo);
     let lote = lotes.get(materialId);
     if (!lote) {
       lote = { materialId, category: 'site', positions: [], normals: [], indices: [], ids: [] };
@@ -149,13 +159,16 @@ function textoDe(o: object, f: () => string): string {
  * borda, espessura, material e cor), as regiões dele e os materiais que usam. Nome, rótulos, pontos cotados e `mostrarExistente` não entram. Editar um
  * terreno só muda a chave dele.
  */
-export function chaveDoTerreno(p: Pick<Project, 'materials'>, t: Terrain, regioes: readonly TerrainRegion[], marca: string, regiaoOculta: (regiaoId: Id) => boolean = () => false): string {
+export function chaveDoTerreno(p: Pick<Project, 'materials'> & { settings?: ProjectSettings }, bruto: Terrain, regioes: readonly TerrainRegion[], marca: string, regiaoOculta: (regiaoId: Id) => boolean = () => false): string {
+  const t = terrenoComTipo(p.settings, bruto);
+  const solo = soloDoTerreno(p.settings, bruto);
   const proprio = textoDe(t, () => JSON.stringify([t.levelId, t.pontos, t.curvas, t.quebras, t.borda ?? null, t.espessuraBase, t.materialId ?? null, t.color ?? null]));
   const regs = regioes.map((r) => `${textoDe(r, () => JSON.stringify([r.id, r.contorno, r.papel, r.cota, r.inclinacao, r.direcao, r.taludeCorte, r.taludeAterro, r.order, r.materialId ?? null, r.color ?? null]))}${regiaoOculta(r.id) ? 'o' : ''}`);
   const usados = new Set<Id>();
   for (const d of [t, ...regioes]) if (d.materialId !== undefined) usados.add(d.materialId);
+  if (solo?.materialId !== undefined) usados.add(solo.materialId);
   const mats = [...usados].sort().map((id) => JSON.stringify(p.materials[id] ?? null));
-  return hashTexto([marca, proprio, regs.join(';'), mats.join(';')].join('|'));
+  return hashTexto([marca, proprio, regs.join(';'), mats.join(';'), JSON.stringify(solo ?? null)].join('|'));
 }
 
 /** Polígono de reserva do terreno sem kernel: a borda do modelo, senão a envoltória convexa das fontes (pontos, curvas e quebras). `null` = menos de 3 pontos distintos. */

@@ -2,7 +2,7 @@ import type { Id } from '@hestia/model';
 
 /** Campos que identificam a vista 2D (o subconjunto de `PaneViewFields` que a chave de câmera usa). */
 export interface ViewKeyFields {
-  view: 'plan' | '3d' | 'section' | 'sheet';
+  view: 'plan' | '3d' | 'section' | 'sheet' | 'face';
   levelId: Id;
   sectionId: Id | null;
   planKind: 'floor' | 'roof' | 'area';

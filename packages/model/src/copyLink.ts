@@ -264,6 +264,11 @@ function syncOne(
         patch: { name: from.name, visible: from.visible, offsetZ: from.offsetZ },
       };
     }
+    case 'component': {
+      // Cópia vinculada de componente: família, tipo, valores e deslocamento sobre o nível acompanham a origem; a posição não (cada cópia tem a sua).
+      if (target.kind !== 'component') return null;
+      return { type: 'updateComponent', id: target.id, patch: { familyId: from.familyId, typeId: from.typeId, z: from.z, mirrored: from.mirrored, ...(from.values ? { values: structuredClone(from.values) } : {}) } };
+    }
     case 'generic': {
       if (!isGeneric(target)) return null;
       const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
@@ -302,6 +307,8 @@ function syncOne(
       };
       return { type: 'updateElements', ids: [target.id], patch };
     }
+    case 'furniture':
+      return null; // movel importado nao entra no vinculo de andar-tipo (ainda)
   }
 }
 

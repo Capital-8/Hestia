@@ -10,7 +10,7 @@ export interface PastePreviewState {
   /** Total de cópias que serão criadas (elementos × níveis). */
   count: number;
   /** Vista de onde o usuário abriu o comando; cancelar restaura. */
-  originView: 'plan' | '3d' | 'section' | 'sheet';
+  originView: 'plan' | '3d' | 'section' | 'sheet' | 'face';
   originLevelId: Id;
   originSectionId: Id | null;
   /** Planta de piso/cobertura/área de onde o comando abriu (para restaurar no cancelamento). */

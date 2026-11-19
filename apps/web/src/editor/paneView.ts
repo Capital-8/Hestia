@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { Id } from '@hestia/model';
+import type { FaceLayerTarget, FaceSlot, Id } from '@hestia/model';
 import { planKindOf, type PlanKind } from './openViews.ts';
 import { findPane, type PaneId, type PaneView } from './panes.ts';
 import { usePanes } from './paneStore.ts';
@@ -8,12 +8,13 @@ import { useUi } from './state.ts';
 
 /** Campos de vista de um painel: o mesmo subconjunto de `UiState` que define a vista (ver `ActiveViewFields`). */
 export interface PaneViewFields {
-  view: 'plan' | '3d' | 'section' | 'sheet';
+  view: 'plan' | '3d' | 'section' | 'sheet' | 'face';
   levelId: Id;
   sectionId: Id | null;
   sheetId: Id | null;
   planKind: PlanKind;
   areaPlanId: Id | null;
+  faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
 
 /** Contexto do painel que o canvas instancia: de qual painel é e se é o ativo. */
@@ -30,19 +31,21 @@ export const PaneContext = createContext<PaneContextValue | null>(null);
 export function fieldsOfView(v: PaneView, fallbackLevelId: Id): PaneViewFields {
   switch (v.kind) {
     case 'plan':
-      return { view: 'plan', levelId: v.levelId, sectionId: null, sheetId: null, planKind: planKindOf(v), areaPlanId: planKindOf(v) === 'area' ? (v.areaPlanId ?? null) : null };
+      return { view: 'plan', levelId: v.levelId, sectionId: null, sheetId: null, planKind: planKindOf(v), areaPlanId: planKindOf(v) === 'area' ? (v.areaPlanId ?? null) : null, faceView: null };
     case '3d':
-      return { view: '3d', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null };
+      return { view: '3d', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null };
     case 'section':
-      return { view: 'section', levelId: fallbackLevelId, sectionId: v.viewId, sheetId: null, planKind: 'floor', areaPlanId: null };
+      return { view: 'section', levelId: fallbackLevelId, sectionId: v.viewId, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null };
     case 'sheet':
-      return { view: 'sheet', levelId: fallbackLevelId, sectionId: null, sheetId: v.sheetId, planKind: 'floor', areaPlanId: null };
+      return { view: 'sheet', levelId: fallbackLevelId, sectionId: null, sheetId: v.sheetId, planKind: 'floor', areaPlanId: null, faceView: null };
+    case 'face':
+      return { view: 'face', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: { elementId: v.elementId, face: v.face, layer: v.layer } };
   }
 }
 
 /** Os campos de vista de um estado da interface (descarta o resto). */
 export function pickViewFields(s: PaneViewFields): PaneViewFields {
-  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId };
+  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId, faceView: s.faceView ?? null };
 }
 
 /** Estado da interface com a vista sobreposta pela do painel (leituras do canvas de um painel inativo). */

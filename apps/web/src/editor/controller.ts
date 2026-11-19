@@ -47,7 +47,7 @@ import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
+import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
@@ -58,9 +58,11 @@ import { caixaDoCorteComTerreno } from './terrenoVista.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
+import type { PastaId } from './biblioteca/tipos.ts';
 import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
 import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
+import { avisarTamanhoDoProjeto } from './furniture/saveWarning.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
@@ -520,9 +522,16 @@ export class Editor {
   /** Pasta do projeto aberto na biblioteca. `null`: arquivo avulso, projeto novo ou ambiente sem pastas. */
   private pastaDaBiblioteca: string | null = null;
 
-  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null`. */
+  /**
+   * Local fora da pasta raiz onde o projeto foi gravado com "Salvar como…" (`null`: o projeto está na raiz da biblioteca).
+   * Enquanto houver um, as gravações vão SÓ para lá (dentro dele, na subpasta `pastaDaBiblioteca`); a cópia antiga da
+   * raiz fica como estava e o projeto não é indexado na tela inicial. Vale só nesta sessão.
+   */
+  private localExterno: PastaId | null = null;
+
+  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null` (também quando está fora da raiz). */
   get pastaNaBiblioteca(): string | null {
-    return this.pastaDaBiblioteca;
+    return this.localExterno ? null : this.pastaDaBiblioteca;
   }
 
   /** Libera os caches de um nível (viewport da planta e resolução). Chamado ao fechar uma aba de planta. */
@@ -746,8 +755,8 @@ export class Editor {
     const ui = useUi.getState();
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
-    // Na aba de prancha, as teclas de ferramenta e de seleção não valem (o desfazer, com Ctrl, vale).
-    if (ui.view === 'sheet' && !mod) return false;
+    // Na aba de prancha ou estúdio da face, as teclas de ferramenta e de seleção não valem (o desfazer, com Ctrl, vale).
+    if ((ui.view === 'sheet' || ui.view === 'face') && !mod) return false;
     if (mod && (k === 'z' || k === 'Z')) {
       if (this.stairPickHistory(e.shiftKey)) return true;
       if (e.shiftKey) this.redo();
@@ -819,6 +828,10 @@ export class Editor {
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());
+    if (k === 'Escape' && ui.view === '3d' && ui.facePaint.active) {
+      useUi.setState({ facePaint: { ...ui.facePaint, active: false, mode: 'paint', hoverHit: null } });
+      return true;
+    }
     // Esc sai do subelemento da cortina (fica a parede selecionada); só o Esc seguinte limpa a seleção. Com outra ferramenta
     // ativa (a porta na cortina destaca a célula sob o cursor), o Esc é dela: cancela.
     if (k === 'Escape' && ui.subElemento && this.tool.id === 'select') {
@@ -879,6 +892,8 @@ export class Editor {
         || this.tool.id === 'column'
         || this.tool.id === 'beam'
         || this.tool.id === 'footing'
+        || this.tool.id === 'component'
+        || this.tool.id === 'furniture'
       )
     ) {
       this.tool.space?.();
@@ -896,6 +911,8 @@ export class Editor {
       this.bump();
       return true;
     }
+    // Teclas próprias da ferramenta (Componente: R gira, Shift+R gira ao contrário, M espelha), sem sequência de atalho em andamento.
+    if (this.tool.key && !mod && useAtalhos.getState().pendente === '' && this.tool.key(k, e.shiftKey)) { this.bump(); return true; }
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });
@@ -1272,6 +1289,7 @@ export class Editor {
     this.geracaoDoProjeto++;
     // Projeto avulso ou recém-carregado: o vínculo com uma pasta da biblioteca só volta quando ele é aberto/salvo lá.
     this.pastaDaBiblioteca = null;
+    this.localExterno = null;
     this.perimetro.encerrar(); this.store.load(p);
     // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
     this.autosaveAvisado = false;
@@ -1312,6 +1330,11 @@ export class Editor {
       await this.baixarProjeto();
       return;
     }
+    if (this.localExterno) {
+      // Projeto ligado a outro local ("Salvar como…"): grava só lá, sem exigir a pasta raiz.
+      await this.salvarNaBiblioteca(biblioteca, this.pastaDaBiblioteca, this.localExterno);
+      return;
+    }
     if (!biblioteca.pronta) {
       useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
       return;
@@ -1334,6 +1357,7 @@ export class Editor {
       this.store.markSaved();
       safeSet(AUTOSAVE_SALVO_KEY, text);
       useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
+      avisarTamanhoDoProjeto(text.length);
       return;
     }
     if (entrega === 'cancelado') {
@@ -1349,11 +1373,14 @@ export class Editor {
     } catch {
       useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated', args: { name } } : { key: 'eds_msg_download_failed' } });
     }
+    avisarTamanhoDoProjeto(text.length);
   }
 
   /**
-   * "Salvar como" na biblioteca: cria uma pasta nova com o nome do projeto (com sufixo se repetir) e passa a salvar nela.
-   * Sem acesso a pastas no ambiente, cai no salvamento por arquivo.
+   * "Salvar como…": o usuário escolhe OUTRO local (diálogo de pasta do sistema; no navegador, o seletor da File System
+   * Access API). O projeto é gravado numa subpasta com o nome dele e, a partir daí, as gravações seguintes (Ctrl+S) vão
+   * só para esse local; o anterior fica como cópia. Sem acesso a pastas no ambiente, baixa o arquivo, como sempre.
+   * Devolve `false` quando nada foi gravado em pasta (cancelou, falhou ou caiu no download).
    */
   async salvarComo(): Promise<boolean> {
     const biblioteca = bibliotecaDoAmbiente();
@@ -1361,13 +1388,18 @@ export class Editor {
       await this.baixarArquivo();
       return false;
     }
-    if (!biblioteca.pronta) {
-      // Mesmo diálogo do Ctrl+S: primeiro explica por que precisa da pasta.
-      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+    let destino: PastaId | null;
+    try {
+      destino = await biblioteca.porta.escolherDestino();
+    } catch {
+      useUi.setState({ status: { key: 'bib_save_error' } });
       return false;
     }
-    await this.salvarNaBiblioteca(biblioteca, null);
-    return true;
+    if (destino === null) {
+      useUi.setState({ status: { key: 'eds_msg_save_cancelled' } });
+      return false;
+    }
+    return this.salvarNaBiblioteca(biblioteca, null, destino);
   }
 
   /** Abre um projeto da pasta da biblioteca e passa a salvá-lo nela. */
@@ -1389,24 +1421,38 @@ export class Editor {
 
   /**
    * Grava na pasta do projeto (ou numa nova, quando `pasta` é `null`) com a miniatura da vista 3D dentro do documento.
+   * `destino` é o local fora da raiz (ver `localExterno`); `null` grava na raiz da biblioteca.
    * A miniatura é refeita a cada salvamento; se a GPU não deixar desenhar, o projeto é salvo sem ela.
+   * A pasta acompanha o nome do projeto (a biblioteca grava e só então renomeia); se o renomear falhar, o projeto está
+   * salvo na pasta antiga e o status avisa.
    */
-  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null): Promise<void> {
+  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null, destino: PastaId | null = null): Promise<boolean> {
     const lang = useI18n.getState().lang;
     const miniatura = capturarMiniatura3d();
     const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
     const conteudo = serializeProject(documento, 1);
     safeSet(AUTOSAVE_KEY, conteudo);
     try {
-      const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
+      const doc = { pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura };
+      const { projeto, renomearFalhou } = destino ? await biblioteca.salvarEm(destino, doc) : await biblioteca.salvar(doc);
       this.pastaDaBiblioteca = projeto.pasta;
+      // Escolher a própria raiz no "Salvar como" é gravar na biblioteca.
+      this.localExterno = destino && destino !== biblioteca.estado.raiz ? destino : null;
       // A tela inicial e o menu Arquivo mostram a mesma lista: publica a entrada nova.
       publicarBiblioteca(biblioteca.estado);
       safeSet(AUTOSAVE_SALVO_KEY, conteudo);
       this.store.markSaved();
-      useUi.setState({ status: { key: pasta === null ? 'bib_saved_new' : 'bib_saved', args: { name: projeto.pasta } } });
+      const status = renomearFalhou
+        ? { key: 'bib_rename_failed' as const, args: { name: projeto.pasta } }
+        : destino && this.localExterno && pasta === null
+          ? { key: 'bib_saved_elsewhere' as const, args: { name: projeto.pasta } }
+          : { key: pasta === null ? ('bib_saved_new' as const) : ('bib_saved' as const), args: { name: projeto.pasta } };
+      useUi.setState({ status });
+      avisarTamanhoDoProjeto(conteudo.length);
+      return true;
     } catch {
       useUi.setState({ status: { key: 'bib_save_error' } });
+      return false;
     }
   }
 

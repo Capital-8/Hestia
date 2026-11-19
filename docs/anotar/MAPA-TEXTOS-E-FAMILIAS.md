@@ -73,3 +73,5 @@ no navegador de teste).
 
 Pendências: etiqueta de ambiente, textos de escada/rampa/piso/telhado e marca de nível com corpo de texto fixo (sem família); mover e copiar cota de
 ponto e rótulo do terreno pela Selecionar; o traço-dois-pontos exato do lote.
+
+- **Tipo de terreno** (`terrainTypes`): reúne superfície, solo, curvas e a família de rótulo de curva (`contour`) acima; ver decisão 0059.

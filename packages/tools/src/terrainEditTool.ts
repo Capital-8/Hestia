@@ -1,12 +1,15 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import { servicoTerreno } from '@hestia/engine';
 import { cotaDoProjeto, cotaExibida, formatQuantity, isTerrain, TERRENO_LIMITES, unitsOf, type Id, type Terrain } from '@hestia/model';
+import { shapeInputLabel } from './sketchShapes.ts';
 import { ToolBase } from './base.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import { gravarOps, opsBorda, opsCota, opsCurva, opsMover, opsPonto, opsQuebra, opsRemover, opsRemoverBorda, terrenoDaSelecao } from './terrainEditGestos.ts';
 import { alcasNaJanela, alvoDeEdicao, cotaDoItem, indiceDasFontes, posicaoDoItem, type FonteRef, type JanelaMundo, type VerticeFonte } from './terrainEditPick.ts';
+import { camposValidos, dadosDoPonto, ehRefDePonto, opsDoPonto, type CamposDoPonto, type DadosDoPonto } from './terrainEditPonto.ts';
+import { DesenhoDeForma, type ResultadoForma } from './terrainFormaCurva.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 /** Submodos do modo "Editar terreno": `editar` (escolher, arrastar, cota, Delete) e os de desenho das fontes. */
@@ -51,6 +54,8 @@ export class TerrainEditTool extends ToolBase {
   /** O usuário digitou a cota: vale também na linha de quebra (senão a quebra usa a cota do terreno). */
   private cotaManual = false;
   private r = new RascunhoPolilinha();
+  /** Curvas por forma (galeria da Topografia) no submodo `curva`. */
+  private forma = new DesenhoDeForma(this.env, () => this.uiLang());
   private zs: number[] = [];
   private ultimoCursor: Vec2 | null = null;
 
@@ -58,7 +63,7 @@ export class TerrainEditTool extends ToolBase {
     const cota = this.fmtCota(this.cotaZ);
     switch (this.modo) {
       case 'ponto': return this.t('tl_tn_edit_hint_ponto', { cota });
-      case 'curva': return this.t('tl_tn_edit_hint_curva', { cota });
+      case 'curva': return this.formaAtiva() ? this.t(this.forma.forma() === 'spline' ? 'tl_tn_hint_spline' : 'tl_tn_hint_forma', { cota, passo: '', flecha: this.fmtLen(this.forma.flecha) }) : this.t('tl_tn_edit_hint_curva', { cota });
       case 'quebra': return this.t(this.cotaManual ? 'tl_tn_edit_hint_quebra_cota' : 'tl_tn_edit_hint_quebra_terreno', { cota });
       case 'borda': return this.t('tl_tn_edit_hint_borda');
       default: return this.t('tl_tn_edit_hint_editar');
@@ -107,6 +112,34 @@ export class TerrainEditTool extends ToolBase {
 
   get cotaDoModelo(): number {
     return this.cotaZ;
+  }
+
+  /**
+   * Vértice ou ponto escolhido com posição e cota (null se não há, se a referência sumiu ou se é rótulo ou ponto cotado): é o que o painel
+   * "Ponto selecionado" lê. x e y do projeto; z do projeto (some `cotaZero` para a cota exibida).
+   */
+  get pontoSelecionado(): DadosDoPonto | null {
+    const tn = this.terreno();
+    return tn && ehRefDePonto(this.escolhido) ? dadosDoPonto(tn, this.escolhido) : null;
+  }
+
+  /**
+   * Ajuste fino do ponto escolhido pelo painel: x e y do projeto e a cota EXIBIDA (passa por `cotaDoProjeto`). UM `editTerrainFontes` (um desfazer).
+   * Ponto solto: só ele; vértice de curva: x e y do vértice e a cota da CURVA INTEIRA; vértice de quebra: x, y e z. Recusa, com mensagem e sem
+   * mudar nada, número fora dos limites do terreno ou terreno que ficaria inválido (por exemplo, vértice duplicado).
+   */
+  definirPontoSelecionado(campos: { x?: number; y?: number; cota?: number }): boolean {
+    const tn = this.terreno();
+    const atual = this.pontoSelecionado;
+    if (!tn || !atual) return false;
+    const c: CamposDoPonto = { ...(campos.x !== undefined ? { x: campos.x } : {}), ...(campos.y !== undefined ? { y: campos.y } : {}), ...(campos.cota !== undefined ? { z: cotaDoProjeto(this.env.project(), campos.cota) } : {}) };
+    if (!camposValidos(c)) {
+      this.env.say(this.t('tl_tn_edit_ponto_invalido', { coord: formatQuantity(unitsOf(this.env.project()), 'length', TERRENO_LIMITES.coordMax), cota: formatQuantity(unitsOf(this.env.project()), 'length', TERRENO_LIMITES.cotaMax) }));
+      return false;
+    }
+    const ok = gravarOps(this.env, tn, opsDoPonto(atual, c), this.t('tl_tn_undo_edit_ponto_props'), this.uiLang());
+    if (ok) this.env.say(this.t('tl_tn_edit_ponto_ajustado'));
+    return ok;
   }
 
   /** Cota do item escolhido, como o usuário a vê (null se não há item com cota). */
@@ -171,6 +204,7 @@ export class TerrainEditTool extends ToolBase {
 
   protected reset(): void {
     this.r.limpar();
+    this.forma.limpar();
     this.zs = [];
     this.escolhido = null;
     this.arrasto = null;
@@ -179,12 +213,16 @@ export class TerrainEditTool extends ToolBase {
   }
 
   protected busy(): boolean {
-    return this.arrasto !== null || this.r.ativo;
+    return this.arrasto !== null || this.r.ativo || this.forma.emCurso;
   }
 
   private terreno(): Terrain | null {
     const e = this.idTerreno ? this.env.project().elements[this.idTerreno] : undefined;
     return isTerrain(e) ? e : null;
+  }
+
+  private fmtLen(m: number): string {
+    return formatQuantity(unitsOf(this.env.project()), 'length', m);
   }
 
   private fmtCota(z: number): string {
@@ -255,7 +293,21 @@ export class TerrainEditTool extends ToolBase {
 
   // ---- desenhar fontes -----------------------------------------------------------------------------------------------------
 
+  /** Submodo `curva` com forma diferente de "Linha". */
+  private formaAtiva(): boolean {
+    return this.modo === 'curva' && this.forma.ativa;
+  }
+
+  /** Vértices que ainda cabem no terreno em edição. */
+  private capacidade(): number {
+    const tn = this.terreno();
+    if (!tn) return 0;
+    const usados = tn.pontos.length / 3 + tn.curvas.reduce((n, c) => n + c.xy.length / 2, 0) + tn.quebras.reduce((n, q) => n + q.xyz.length / 3, 0) + (tn.borda?.length ?? 0) / 2;
+    return TERRENO_LIMITES.vertices - usados;
+  }
+
   private origem(): Vec2 | null {
+    if (this.formaAtiva()) return this.forma.ancora();
     return this.r.ultimo;
   }
 
@@ -279,9 +331,12 @@ export class TerrainEditTool extends ToolBase {
   private atualizaPrevia(q: Vec2 | null): void {
     const itens: PreviewItem[] = [];
     const pts = this.r.pts;
-    for (let i = 1; i < pts.length; i++) itens.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]! });
-    const fim = this.r.ultimo;
-    if (q && fim) itens.push({ kind: 'line', a: fim, b: q, dashed: true });
+    if (this.formaAtiva()) itens.push(...this.forma.previa(q, this.capacidade()));
+    else {
+      for (let i = 1; i < pts.length; i++) itens.push({ kind: 'line', a: pts[i - 1]!, b: pts[i]! });
+      const fim = this.r.ultimo;
+      if (q && fim) itens.push({ kind: 'line', a: fim, b: q, dashed: true });
+    }
     if (this.modo === 'borda' && pts.length >= 3) itens.push({ kind: 'line', a: pts[pts.length - 1]!, b: pts[0]!, dashed: true });
     if (q && this.modo !== 'editar') itens.push({ kind: 'point', at: q }, { kind: 'label', at: q, text: this.t('tl_tn_cota_rotulo', { cota: this.fmtCota(this.cotaDoVertice(q)) }) });
     this.items = itens;
@@ -302,11 +357,12 @@ export class TerrainEditTool extends ToolBase {
   }
 
   tempDims(_overrides: Readonly<Record<string, DimRef>> = {}): TempDim[] {
-    const fim = this.r.ultimo;
+    const fim = this.formaAtiva() ? this.forma.ancora() : this.r.ultimo;
     return this.desenha() && fim && this.ultimoCursor ? [segmentLengthDim(fim, this.ultimoCursor)] : [];
   }
 
   override inputPrompt(): string | null {
+    if (this.formaAtiva()) return this.forma.inputPrompt(this.t('tl_inp_length'));
     return this.desenha() && this.r.ativo ? this.t('tl_inp_length') : null;
   }
 
@@ -316,8 +372,14 @@ export class TerrainEditTool extends ToolBase {
     if (!tn) return;
     const q = this.captura(p);
     if (this.modo === 'ponto') {
-      if (gravarOps(this.env, tn, opsPonto(q.x, q.y, this.cotaZ), this.t('tl_tn_undo_edit_ponto'), this.uiLang())) this.env.say(this.t('tl_tn_edit_ponto_feito', { cota: this.fmtCota(this.cotaZ) }));
-    } else if (this.modo !== 'quebra' && this.r.pts.length >= 3 && dist(q, this.r.pts[0]!) <= 8 * this.env.metersPerPixel()) this.concluir(true);
+      const novo = tn.pontos.length / 3;
+      if (gravarOps(this.env, tn, opsPonto(q.x, q.y, this.cotaZ), this.t('tl_tn_undo_edit_ponto'), this.uiLang())) {
+        // O ponto recém-criado fica escolhido: o painel "Ponto selecionado" permite o ajuste fino de X, Y e Cota.
+        this.escolhido = { tipo: 'ponto', i: novo };
+        this.env.say(this.t('tl_tn_edit_ponto_feito', { cota: this.fmtCota(this.cotaZ) }));
+      }
+    } else if (this.formaAtiva()) this.aplicarForma(this.forma.click(q, this.capacidade(), 8 * this.env.metersPerPixel()));
+    else if (this.modo !== 'quebra' && this.r.pts.length >= 3 && dist(q, this.r.pts[0]!) <= 8 * this.env.metersPerPixel()) this.concluir(true);
     else this.novoVertice(q);
     this.atualizaPrevia(q);
   }
@@ -329,6 +391,12 @@ export class TerrainEditTool extends ToolBase {
   /** `C` fecha a curva ou a borda (três pontos ou mais); comprimento digitado + Enter acrescenta um ponto na direção do cursor. */
   override type(text: string): boolean {
     if (!this.desenha()) return false;
+    if (this.formaAtiva()) {
+      const r = text.toLowerCase() === 'c' ? this.forma.fecharSpline(this.capacidade()) : this.forma.digitado(text, this.inf?.point ?? this.raw, this.capacidade());
+      if (!r) return false;
+      this.aplicarForma(r);
+      return true;
+    }
     if (text.toLowerCase() === 'c' && this.modo !== 'quebra' && this.r.pts.length >= 3) {
       this.concluir(true);
       return true;
@@ -344,6 +412,11 @@ export class TerrainEditTool extends ToolBase {
   /** Enter: conclui a curva, a linha de quebra ou a borda em traçado. */
   override confirm(): void {
     if (!this.desenha()) return;
+    if (this.formaAtiva()) {
+      if (this.forma.pontosDeControle.length >= 2) this.aplicarForma(this.forma.confirmar(this.capacidade()));
+      else this.env.say(this.t('tl_tn_msg_curva_min'));
+      return;
+    }
     const n = this.r.pts.length;
     if (this.modo === 'borda') {
       if (n >= 3) this.concluir(true);
@@ -369,10 +442,29 @@ export class TerrainEditTool extends ToolBase {
     this.env.say(this.t(this.modo === 'borda' ? 'tl_tn_edit_borda_feita' : 'tl_tn_edit_linha_feita', { n: pts.length }));
   }
 
+  /** Tab alterna o sinalizador da forma (ex.: sentido do arco centro-extremidades). */
+  override tab(): void {
+    const f = this.formaAtiva() ? this.forma.alternarFlag() : null;
+    if (f) this.env.say(this.t('tl_msg_flag_toggle', { label: shapeInputLabel(f.key, this.uiLang()), value: f.value ? this.t('tl_yes') : this.t('tl_no') }));
+  }
+
+  /** Forma pronta (já discretizada no teto de vértices do terreno) grava UMA curva na cota do campo; um desfazer. */
+  private aplicarForma(r: ResultadoForma): void {
+    const tn = this.terreno();
+    if (r.kind === 'recusa') this.env.say(r.motivo === 'limite' ? this.t('tl_tn_msg_limite', { max: TERRENO_LIMITES.vertices }) : this.t('tl_msg_degenerate_shape'));
+    else if (r.kind === 'pronta' && tn) {
+      if (gravarOps(this.env, tn, opsCurva(r.forma.pts, this.cotaZ, r.forma.fechada), this.t('tl_tn_undo_edit_curva'), this.uiLang())) {
+        this.env.say(r.reduzida ? this.t('tl_tn_msg_flecha_aumentada', { flecha: this.fmtLen(r.forma.flecha), max: TERRENO_LIMITES.vertices }) : this.t('tl_tn_edit_linha_feita', { n: r.forma.pts.length }));
+      }
+    } else if (r.kind === 'nada') this.env.say(this.forma.mensagem() ?? this.t('tl_tn_msg_spline_ponto', { n: this.forma.pontosDeControle.length }));
+    this.atualizaPrevia(this.ultimoCursor);
+  }
+
   /** Esc: cancela o arrasto ou o traçado em curso; sem nada em curso, SAI do modo sem alterar o terreno. */
   override cancel(): void {
     if (this.busy()) {
       this.r.limpar();
+      this.forma.limpar();
       this.zs = [];
       this.arrasto = null;
       this.items = [];

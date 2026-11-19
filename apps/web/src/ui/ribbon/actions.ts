@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a faixa concentra as ações pontuais (cada uma com rótulo bilíngue, dica e guarda); dividir depois. */
 import { definirMapaCorteAterro } from '@hestia/engine';
-import { copyLinkOf, isBeam, isCeiling, isColumn, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
-import { criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
+import { copyLinkOf, isBeam, isCeiling, isColumn, isComponent, isFloor, isFooting, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isWall, type Element, type Id, type Project, type Ramp, type Wall } from '@hestia/model';
+import { agruparSelecao, desagruparSelecao, criarGuardaCorpoDeEscada, criarGuardaCorpoDeRampa, mensagensDeGuardaCorpo, placeFootingsAtColumns, TerrainRegionTool, type PerimeterModifyKind, type PredefinicaoRegiao, type ShortcutCommand, type ToolEnv, type ToolOptions } from '@hestia/tools';
 import { t as translate, useI18n } from '../../editor/i18n.ts';
 import { numberOpeningMarks } from '../../editor/tagActions.ts';
 import { addMissingTagsAction } from '../../editor/areaPlanActions.ts';
@@ -9,7 +9,7 @@ import { pedirAlerta } from '../../editor/alertaPrompt.ts';
 import { editor } from '../../editor/controller.ts';
 import { createSimilarTarget, startCreateSimilar } from '../../editor/createSimilar.ts';
 import { resetDock, setDock } from '../../editor/dockActions.ts';
-import type { DockLayout, DockPanel, DockSide } from '../../editor/dockLayout.ts';
+import type { DockLayout, DockPanel } from '../../editor/dockLayout.ts';
 import { editThinLines, thinLinesOn } from '../../editor/graphicsActions.ts';
 import { perimeterActions } from '../../editor/perimeter.ts';
 import { addSheetAction } from '../../editor/sheetActions.ts';
@@ -28,7 +28,11 @@ import { abrirLoteSchedule } from '../dialogs/loteScheduleAberta.ts';
 import { abrirImportTerreno } from '../../editor/terrenoImport.ts';
 import { ativarTopografia, editarTerreno } from '../terrainActions.ts';
 import { idPerimetroEditavel } from '../perimeter/perimeterEditavel.ts';
+import { useFamilia } from '../familia/familiaStore.ts';
 import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wallTiltActions.ts';
+import { usePaletaMoveis } from '../PaletaMoveis.tsx';
+import { useMontarFila } from '../MontarFila.tsx';
+import { useOrcamento } from '../OrcamentoProjeto.tsx';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Liga a ferramenta Região de terreno numa predefinição (Subdivisão, Plataforma ou Região nivelada); `porElemento` só vale na plataforma. */
@@ -53,10 +57,8 @@ const semTerrenoNoProjeto = (c: RibbonCtx): Txt | false =>
 /** Leva o painel para o outro dock (esquerdo <-> direito), pela mesma regra de soltura do arraste. */
 function flipSide(panel: DockPanel): void {
   const d = useUi.getState().dock;
-  const to: DockSide = d.sides[panel] === 'left' ? 'right' : 'left';
-  setDock(applyDrop(d, panel, to));
+  setDock(applyDrop(d, panel, d.sides[panel] === 'left' ? 'right' : 'left'));
 }
-
 /** Estado que a faixa lê para decidir "pressionado" e "desabilitado". */
 export interface RibbonCtx {
   tool: UiState['tool'];
@@ -76,6 +78,10 @@ export interface RibbonCtx {
   sides: DockLayout['sides'];
   options: ToolOptions;
   p: Project;
+  /** Pintura direta de faces no 3D ativa. */
+  facePaintActive?: boolean;
+  /** Modo da ferramenta de pintura de faces no 3D. */
+  facePaintMode?: 'paint' | 'studioPick';
   /** Com o modo de perímetro aberto: o comando de Modificar ligado sobre o esboço (null = seleção de linhas). */
   perimetro?: { modify: PerimeterModifyKind | null; selecting?: boolean } | null;
 }
@@ -161,10 +167,18 @@ function thinTarget(): { levelId: Id } | 'section' {
 
 const sched = (label: Txt, dialog: DialogKind): ActionDef => ({ label, icon: 'schedule', run: openDialog(dialog) });
 
+/** Ambiente mínimo das ações de conjunto: elas leem a seleção e gravam comandos de componente. */
+const envDeConjunto = (): ToolEnv => ({
+  project: () => editor.project, levelId: () => useUi.getState().levelId, selection: () => useUi.getState().selection,
+  setSelection: (ids) => useUi.setState({ selection: ids }), exec: (c) => editor.store.exec(c),
+  transaction: (label, fn, session) => editor.store.transaction(label, fn, session),
+  metersPerPixel: () => 1, gridStep: () => useUi.getState().gridStep, say: (m) => useUi.setState({ status: m }),
+  done: () => editor.setTool('select'), options: () => useUi.getState().options,
+});
+
 export const ACTIONS: Record<ActionId, ActionDef> = {
   cotasAuto: {
-    label: t('Cotas automáticas', 'Auto Dimensions'),
-    icon: 'cotasAuto',
+    label: t('Cotas automáticas', 'Auto Dimensions'), icon: 'cotasAuto',
     hint: t('Cotas automáticas do nível ativo: escolha o que cotar, por onde medir e em quais lados.', 'Automatic dimensions for the active level.'),
     run: openDialog('cotasAuto'),
   },
@@ -195,8 +209,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
   },
   typeProps: {
-    label: t('Propriedades de tipo', 'Type Properties'),
-    icon: 'type',
+    label: t('Propriedades de tipo', 'Type Properties'), icon: 'type',
     hint: t('Abre o tipo do elemento selecionado (ou o que a ferramenta ativa vai criar).', 'Opens the type of the selected element or of the active tool.'),
     run: () => {
       const d = typeDialogFor(ctxNow());
@@ -204,30 +217,16 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
     disabled: (c) => (typeDialogFor(c) ? false : t('Selecione um elemento com tipo, ou ative uma ferramenta de criação.', 'Select an element with a type.')),
   },
-  properties: {
-    label: t('Propriedades', 'Properties'),
-    icon: 'props',
-    hint: t('Mostra ou oculta a paleta de propriedades.', 'Show or hide the Properties palette.'),
-    run: () => useUi.setState((s) => ({ propsOpen: !s.propsOpen })),
-    pressed: (c) => c.propsOpen,
-  },
-  browser: {
-    label: t('Navegador de projeto', 'Project Browser'),
-    icon: 'levels',
-    hint: t('Mostra ou oculta o navegador de projeto.', 'Show or hide the Project Browser.'),
-    run: () => useUi.setState((s) => ({ browserOpen: !s.browserOpen })),
-    pressed: (c) => c.browserOpen,
-  },
+  properties: { label: t('Propriedades', 'Properties'), icon: 'props', hint: t('Mostra ou oculta a paleta de propriedades.', 'Show or hide the Properties palette.'), run: () => useUi.setState((s) => ({ propsOpen: !s.propsOpen })), pressed: (c) => c.propsOpen },
+  browser: { label: t('Navegador de projeto', 'Project Browser'), icon: 'levels', hint: t('Mostra ou oculta o navegador de projeto.', 'Show or hide the Project Browser.'), run: () => useUi.setState((s) => ({ browserOpen: !s.browserOpen })), pressed: (c) => c.browserOpen },
   propsSide: {
-    label: t('Propriedades à direita', 'Properties on the Right'),
-    icon: 'props',
+    label: t('Propriedades à direita', 'Properties on the Right'), icon: 'props',
     hint: t('Alterna o lado das propriedades entre a esquerda (padrão do Revit) e a direita.', 'Switch the Properties palette between the left and right sides.'),
     run: () => flipSide('props'),
     pressed: (c) => c.sides.props === 'right',
   },
   tagAll: {
-    label: t('Etiquetar todos', 'Tag All'),
-    icon: 'tag',
+    label: t('Etiquetar todos', 'Tag All'), icon: 'tag',
     hint: t('Etiqueta todos os elementos sem etiqueta desta vista.', 'Tag every untagged element in this view.'),
     run: () => {
       // Na planta de área, "Etiquetar todos" completa as etiquetas de AMBIENTE (Room Tag) da vista.
@@ -245,42 +244,36 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     },
   },
   wallTags: {
-    label: t('Códigos de parede', 'Wall Type Codes'),
-    icon: 'tag',
+    label: t('Códigos de parede', 'Wall Type Codes'), icon: 'tag',
     hint: t('Mostra ou oculta as etiquetas de elementos na vista.', 'Show or hide element labels in the view.'),
     run: () => editor.store.exec({ type: 'setSettings', patch: { showTags: !editor.project.settings.showTags } }, translate(useI18n.getState().lang, 'shr_undo_toggle_tags')),
     pressed: (c) => c.p.settings.showTags,
   },
   browserSide: {
-    label: t('Navegador à direita', 'Project Browser on the Right'),
-    icon: 'levels',
+    label: t('Navegador à direita', 'Project Browser on the Right'), icon: 'levels',
     hint: t('Alterna o lado do navegador de projeto entre a esquerda (padrão do Revit) e a direita.', 'Switch the Project Browser between the left and right sides.'),
     run: () => flipSide('browser'),
     pressed: (c) => c.sides.browser === 'right',
   },
   resetDock: {
-    label: t('Restaurar disposição dos painéis', 'Reset Panel Layout'),
-    icon: 'levels',
+    label: t('Restaurar disposição dos painéis', 'Reset Panel Layout'), icon: 'levels',
     hint: t('Volta Propriedades e Navegador ao padrão: à esquerda, com as propriedades em cima.', 'Put Properties and Project Browser back in the default layout.'),
     run: () => resetDock(),
   },
   sameType: {
-    label: t('Mesmo tipo', 'Same Type'),
-    icon: 'sametype',
+    label: t('Mesmo tipo', 'Same Type'), icon: 'sametype',
     hint: t('Seleciona todas as instâncias do tipo do elemento selecionado.', 'Select all instances of the type.'),
     run: () => { editor.selectAllOfSelectedType(); },
     disabled: noSel,
   },
   sameName: {
-    label: t('Mesmo nome', 'Same Name'),
-    icon: 'samename',
+    label: t('Mesmo nome', 'Same Name'), icon: 'samename',
     hint: t('Seleciona todos os ambientes do nível com o mesmo nome (hoje só ambientes).', 'Select all rooms with the same name.'),
     run: () => { editor.selectAllOfSelectedName(); },
     disabled: (c) => (c.selection.some((id) => isRoom(c.p.elements[id])) ? false : t('Selecione um ambiente primeiro.', 'Select a room first.')),
   },
   createSimilar: {
-    label: t('Criar semelhante', 'Create Similar'),
-    icon: 'copy',
+    label: t('Criar semelhante', 'Create Similar'), icon: 'copy',
     hint: t('Ativa a ferramenta do elemento selecionado, já com o tipo dele.', 'Starts the tool of the selected element with its type.'),
     shortcut: 'createSimilar',
     run: () => { startCreateSimilar(editor.project, (id) => editor.setTool(id)); },
@@ -288,9 +281,20 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       ? false
       : t('Selecione um elemento de um só tipo (parede, porta, janela, piso, laje, forro, telhado, pilar, viga ou sapata).', 'Select one element of a single type (wall, door, window, floor, slab, ceiling, roof, column, beam or footing).')),
   },
+  groupComponents: {
+    label: t('Agrupar', 'Group'), icon: 'componentGroup',
+    hint: t('Cria um conjunto com os componentes selecionados: eles passam a ser selecionados, movidos e copiados juntos.', 'Creates a group from the selected components: they are selected, moved and copied together.'),
+    run: () => { agruparSelecao(envDeConjunto()); },
+    disabled: (c) => (c.selection.some((id) => isComponent(c.p.elements[id])) ? false : t('Selecione componentes para agrupar.', 'Select components to group.')),
+  },
+  ungroupComponents: {
+    label: t('Desagrupar', 'Ungroup'), icon: 'componentUngroup',
+    hint: t('Desfaz o conjunto dos componentes selecionados; eles continuam no projeto, soltos.', 'Ungroups the selected components; they stay in the project, loose.'),
+    run: () => { desagruparSelecao(envDeConjunto()); },
+    disabled: (c) => (c.selection.some((id) => { const e = c.p.elements[id]; return isComponent(e) && e.groupId !== undefined; }) ? false : t('Selecione componentes de um conjunto.', 'Select components in a group.')),
+  },
   moveLevel: {
-    label: t('Nível…', 'Level…'),
-    icon: 'layers',
+    label: t('Nível…', 'Level…'), icon: 'layers',
     hint: t('Move a seleção para outro nível.', 'Move the selection to another level.'),
     run: () => useUi.setState({ dialog: 'moveLevel', dialogArg: null }),
     disabled: noSel,
@@ -483,6 +487,8 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Insere um desenho DXF no nível, como um objeto só, com as camadas do arquivo.', 'Insert a DXF drawing on the level as a single object, with the file layers.'),
     run: openDialog('importCad'),
   },
+  importFurniture: { label: t('Importar móvel', 'Import furniture'), icon: 'open', hint: t('Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.', 'Brings a 3D piece of furniture from a file (.skp, .glb, .obj...) into the project.'), run: openDialog('importFurniture') },
+  myBlocks: { label: t('Meus blocos', 'My blocks'), icon: 'layers', hint: t('Lista os blocos do projeto para colocar mais cópias.', 'Lists the project blocks so you can place more copies.'), run: openDialog('importFurniture', 'blocks') },
   manageCad: {
     label: t('Gerenciar CAD', 'Manage CAD'),
     icon: 'layers',
@@ -492,15 +498,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   levels: { label: t('Gerenciar níveis', 'Manage Levels'), icon: 'level', hint: t('Cria e edita os níveis do projeto.', 'Create and edit project levels.'), run: openDialog('levels') },
   levelTool: { label: t('Nível (LL)', 'Level (LL)'), icon: 'level', hint: t('Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.', 'Creates a level in a section or elevation.'), run: () => editor.setTool('level') },
   lineWeights: { label: t('Espessuras de linha', 'Line Weights'), icon: 'detail', hint: t('Pesos de linha por escala, por categoria e limites de detalhe.', 'Line weights by scale and category.'), run: openDialog('lineWeights') },
-  units: {
-    label: t('Unidades do projeto', 'Project Units'),
-    icon: 'type',
-    hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'),
-    shortcut: 'unidades',
-    run: openDialog('units'),
-  },
+  units: { label: t('Unidades do projeto', 'Project Units'), icon: 'type', hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'), shortcut: 'unidades', run: openDialog('units') },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },
+  familyEditor: { label: t('Editor de famílias', 'Family Editor'), icon: 'familyEditor', hint: t('Experimental: cria e edita móveis paramétricos (Meus modelos).', 'Experimental: creates and edits parametric furniture (My models).'), run: () => useFamilia.getState().abrir() },
+  componentLibrary: { label: t('Biblioteca', 'Library'), icon: 'componentLibrary', hint: t('Paleta de móveis padrão: clique ou arraste para posicionar no 3D ou na planta.', 'Standard furniture palette: click or drag to place in 3D or plan.'), run: () => usePaletaMoveis.getState().alternar(), pressed: () => usePaletaMoveis.getState().aberta },
+  componentBudget: { label: t('Orçamento do projeto', 'Project Budget'), icon: 'componentBudget', hint: t('Soma peças, ferragens e custo de todos os componentes do projeto.', 'Sums parts, hardware and cost of every component in the project.'), run: () => useOrcamento.getState().abrir() },
+  componentRun: { label: t('Montar fila', 'Build Run'), icon: 'componentRun', hint: t('Monta uma fila de módulos contra a face de uma parede reta selecionada.', 'Builds a run of modules against the face of a selected straight wall.'), run: () => useMontarFila.getState().abrir() },
   schedWalls: sched(t('Tabela de paredes', 'Wall Schedule'), 'schedule'),
   schedFloors: sched(t('Tabela de pisos', 'Floor Schedule'), 'floorSchedule'),
   schedSlabs: sched(t('Tabela de lajes', 'Slab Schedule'), 'slabSchedule'),
@@ -774,6 +778,37 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       placeFootingsAtColumns(env, selectedColIds.length > 0 ? selectedColIds : undefined);
     },
   },
+  paintFace3d: {
+    label: t('Pintar face (3D)', 'Paint Face (3D)'),
+    icon: 'paintBucket',
+    hint: t('Ativa a pintura de faces diretamente na vista 3D (Shift+clique abre o Estúdio 2D).', 'Activates direct face painting in the 3D view (Shift+click opens the 2D Studio).'),
+    run: () => {
+      const cur = useUi.getState();
+      const nextActive = !(cur.view === '3d' && cur.facePaint.active && cur.facePaint.mode === 'paint');
+      if (nextActive && cur.view !== '3d') activateView({ kind: '3d' });
+      editor.setTool('select');
+      useUi.setState((s) => ({
+        facePaint: { ...s.facePaint, active: nextActive, mode: 'paint', hoverHit: null },
+      }));
+    },
+    pressed: (c) => c.view === '3d' && c.facePaintActive === true && c.facePaintMode === 'paint',
+  },
+  openFaceStudio: {
+    label: t('Estúdio da face (2D)', 'Face Studio (2D)'),
+    icon: 'faceStudio',
+    hint: t('Ativa a escolha de face no 3D para abrir o Estúdio da Face (2D).', 'Activates face picking in 3D to open the Face Studio (2D).'),
+    run: () => {
+      const cur = useUi.getState();
+      const nextActive = !(cur.view === '3d' && cur.facePaint.active && cur.facePaint.mode === 'studioPick');
+      if (nextActive && cur.view !== '3d') activateView({ kind: '3d' });
+      editor.setTool('select');
+      useUi.setState((s) => ({
+        facePaint: { ...s.facePaint, active: nextActive, mode: nextActive ? 'studioPick' : 'paint', hoverHit: null },
+        status: nextActive ? translate(useI18n.getState().lang, 'pro_fp_studio_pick_hint') : { key: 'eds_ready' },
+      }));
+    },
+    pressed: (c) => c.view === '3d' && c.facePaintActive === true && c.facePaintMode === 'studioPick',
+  },
 };
 
 /** Contexto lido na hora do clique (os `run` nunca usam o valor de um render antigo). */
@@ -784,6 +819,8 @@ export function ctxNow(): RibbonCtx {
     tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
+    facePaintActive: s.facePaint.active,
+    facePaintMode: s.facePaint.mode,
     perimetro: perim.active ? { modify: perim.modify, selecting: perim.selecting === true } : null,
   };
 }

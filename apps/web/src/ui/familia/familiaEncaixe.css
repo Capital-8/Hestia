@@ -1,0 +1,77 @@
+/* Diálogo de Encaixe: abas e células das tabelas de conectores e escolhas. Usa os tokens e as tabelas de familiaDialogos.css. */
+
+.fam-enca-abas {
+  display: flex;
+  gap: 1px;
+  margin-bottom: 8px;
+}
+
+.fam-enca-abas button {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 14px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--ribbon);
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+
+.fam-enca-abas button:hover {
+  background: var(--accent-soft);
+}
+
+.fam-enca-abas button.on {
+  background: var(--sheet);
+  color: var(--fg);
+  font-weight: 600;
+  border-color: var(--line-strong);
+  margin-bottom: -1px;
+}
+
+.fam-enca-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fam-enca-aviso {
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.fam-enca-id {
+  font-family: var(--font-mono);
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+
+.fam-enca-lado {
+  min-width: 110px;
+}
+
+.fam-enca-etiqueta {
+  min-width: 110px;
+}
+
+.fam-enca-aceita {
+  min-width: 150px;
+}
+
+.fam-enca-param {
+  min-width: 170px;
+}
+
+.fam-enca-zona {
+  min-width: 140px;
+}
+
+.fam-enca-opcoes {
+  display: block;
+  max-width: 260px;
+  white-space: normal;
+  color: var(--fg-soft);
+  font-size: 11px;
+}

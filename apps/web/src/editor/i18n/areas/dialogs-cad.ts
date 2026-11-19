@@ -234,8 +234,6 @@ export const PT_DIALOGS_CAD = {
   dlc_aria_range_to: 'Último nível do intervalo',
 
   // Adicionar vistas à prancha
-  dlc_src_plan: 'Planta · {name}',
-  dlc_src_3d: 'Modelo 3D · {name}',
   dlc_src_3d_default: 'Modelo 3D (enquadramento padrão)',
   dlc_err_select_view: 'Marque pelo menos uma vista.',
   dlc_status_views_added_one: '{n} vista adicionada.',
@@ -558,8 +556,6 @@ export const EN_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Last level in range',
 
   // Add views to sheet
-  dlc_src_plan: 'Plan · {name}',
-  dlc_src_3d: '3D Model · {name}',
   dlc_src_3d_default: '3D Model (default framing)',
   dlc_err_select_view: 'Select at least one view.',
   dlc_status_views_added_one: '{n} view added.',
@@ -882,8 +878,6 @@ export const ES_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Último nivel del intervalo',
 
   // Añadir vistas al plano
-  dlc_src_plan: 'Plano · {name}',
-  dlc_src_3d: 'Modelo 3D · {name}',
   dlc_src_3d_default: 'Modelo 3D (encuadre predeterminado)',
   dlc_err_select_view: 'Marque al menos una vista.',
   dlc_status_views_added_one: '{n} vista añadida.',
@@ -1206,8 +1200,6 @@ export const DE_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Letzte Ebene des Bereichs',
 
   // Ansichten zum Plan hinzufügen
-  dlc_src_plan: 'Grundriss · {name}',
-  dlc_src_3d: '3D-Modell · {name}',
   dlc_src_3d_default: '3D-Modell (Standardeinpassung)',
   dlc_err_select_view: 'Markieren Sie mindestens eine Ansicht.',
   dlc_status_views_added_one: '{n} Ansicht hinzugefügt.',
@@ -1530,8 +1522,6 @@ export const FR_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Dernier niveau de la plage',
 
   // Ajouter des vues à la feuille
-  dlc_src_plan: 'Plan · {name}',
-  dlc_src_3d: 'Modèle 3D · {name}',
   dlc_src_3d_default: 'Modèle 3D (cadrage par défaut)',
   dlc_err_select_view: 'Cochez au moins une vue.',
   dlc_status_views_added_one: '{n} vue ajoutée.',
@@ -1854,8 +1844,6 @@ export const IT_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Ultimo livello dell’intervallo',
 
   // Aggiungi viste al foglio
-  dlc_src_plan: 'Pianta · {name}',
-  dlc_src_3d: 'Modello 3D · {name}',
   dlc_src_3d_default: 'Modello 3D (inquadratura predefinita)',
   dlc_err_select_view: 'Seleziona almeno una vista.',
   dlc_status_views_added_one: '{n} vista aggiunta.',
@@ -2178,8 +2166,6 @@ export const PL_DIALOGS_CAD: Record<keyof typeof PT_DIALOGS_CAD, string> = {
   dlc_aria_range_to: 'Ostatni poziom zakresu',
 
   // Dodaj widoki do arkusza
-  dlc_src_plan: 'Rzut · {name}',
-  dlc_src_3d: 'Model 3D · {name}',
   dlc_src_3d_default: 'Model 3D (domyślne dopasowanie)',
   dlc_err_select_view: 'Zaznacz co najmniej jeden widok.',
   dlc_status_views_added_one: '{n} widok dodany.',

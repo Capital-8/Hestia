@@ -1,100 +1,16 @@
-import { memo, type PointerEvent as ReactPointerEvent, type ReactElement, type RefObject } from 'react';
-import type { SheetDrawList, SheetGroup } from '@hestia/render';
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactElement, RefObject } from 'react';
+import type { SheetLayer, SheetLayers } from '@hestia/render';
 import type { Sheet } from '@hestia/model';
 import { viewportOffset } from '@hestia/model';
+import { ViewportLayer, useRefinedZoom } from './SheetLayers.tsx';
+import { GroupContent, n } from './SheetGroupContent.tsx';
 import { useT } from '../../editor/i18n.ts';
 import type { SheetCamera, SheetSize } from './sheetCamera.ts';
 import { HANDLES, handlePoint, type HandleId, type PaperBox } from './sheetSelection.ts';
 import type { SnapGuide } from './sheetSnap.ts';
 import type { SheetAlignFeature } from './sheetAlignTool.ts';
 
-/** Número para o SVG, sem ruído de ponto flutuante. */
-const n = (v: number): string => (Math.round(v * 1000) / 1000).toString();
-
-/** O papel tem origem no canto inferior esquerdo e y para cima; o SVG tem y para baixo. */
-const at = (q: { x: number; y: number }, h: number): string => `${n(q.x)} ${n(h - q.y)}`;
-
-const ringsD = (rings: { x: number; y: number }[][], h: number): string => rings.map((ring) => `M${ring.map((q) => at(q, h)).join(' L')}Z`).join(' ');
-
-/** Conteúdo de um grupo (preenchimentos, traços e textos) já em mm de papel. Não muda durante um arraste. */
-const GroupContent = memo(function GroupContent({ g, h }: { g: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>; h: number }): ReactElement {
-  return (
-    <>
-      {g.fills.map((f, k) => (
-        <path key={`f${k}`} d={f.polygons.map((poly) => ringsD(poly, h)).join(' ')} fill={f.color} fillRule="evenodd" stroke="none" />
-      ))}
-      {g.paths.map((s, k) => (
-        <path
-          key={`p${k}`}
-          d={`M${s.pts.map((q) => at(q, h)).join(' L')}${s.closed ? 'Z' : ''}`}
-          fill="none"
-          stroke={s.color}
-          strokeWidth={s.widthMm}
-          strokeDasharray={s.dashMm ? `${n(s.dashMm[0])} ${n(s.dashMm[1])}` : undefined}
-        />
-      ))}
-      {g.texts.map((t, k) => (
-        <text
-          key={`t${k}`}
-          x={n(t.at.x)}
-          y={n(h - t.at.y)}
-          transform={t.rotation ? `rotate(${n(-t.rotation)} ${n(t.at.x)} ${n(h - t.at.y)})` : undefined}
-          fontSize={t.sizeMm}
-          fill={t.color}
-          textAnchor={t.center ? 'middle' : 'start'}
-          fontFamily="Helvetica, Arial, sans-serif"
-        >
-          {t.text}
-        </text>
-      ))}
-    </>
-  );
-});
-
-/**
- * Uma vista na folha: o conteúdo pode ser deslocado (pan) e recortado (crop). O grupo de recorte usa coordenadas de
- * papel; o deslocamento do conteúdo fica num grupo interno para o recorte não se mover junto.
- */
-const ViewportLayer = memo(function ViewportLayer({
-  vpId,
-  clipId,
-  g,
-  box,
-  offset,
-  clip,
-  move,
-  h,
-}: {
-  vpId: string;
-  clipId: string;
-  g: Pick<SheetGroup, 'fills' | 'paths' | 'texts'>;
-  box: PaperBox;
-  offset: { x: number; y: number };
-  clip: boolean;
-  /** Deslocamento do preview de arraste, em mm de papel (move moldura e conteúdo juntos). */
-  move: { x: number; y: number } | null;
-  h: number;
-}): ReactElement {
-  const body = (
-    <g transform={offset.x !== 0 || offset.y !== 0 ? `translate(${n(offset.x)} ${n(-offset.y)})` : undefined}>
-      <GroupContent g={g} h={h} />
-    </g>
-  );
-  return (
-    <g data-vp-layer={vpId} transform={move ? `translate(${n(move.x)} ${n(-move.y)})` : undefined}>
-      {clip ? (
-        <>
-          <clipPath id={clipId}>
-            <rect x={n(box.x)} y={n(h - box.y - box.h)} width={n(box.w)} height={n(box.h)} />
-          </clipPath>
-          <g clipPath={`url(#${clipId})`}>{body}</g>
-        </>
-      ) : (
-        body
-      )}
-    </g>
-  );
-});
+export { GroupContent, layerStrings, strokeRuns, warmLayerStrings, type StrokeRun } from './SheetGroupContent.tsx';
 
 /** Grade leve da folha (10 mm, com traço mais forte a cada 50 mm). */
 function GridLines({ w, h }: { w: number; h: number }): ReactElement {
@@ -113,7 +29,7 @@ function GridLines({ w, h }: { w: number; h: number }): ReactElement {
 }
 
 export interface SheetCanvasProps {
-  list: SheetDrawList;
+  layers: SheetLayers;
   sheet: Sheet;
   camera: SheetCamera;
   view: SheetSize;
@@ -181,10 +97,11 @@ function AlignLineView({ f, H, W, zoom, color, prefix, solid = false }: { f: She
  * memoizados: durante um arraste só a moldura/seleção muda, a geometria do desenho não é refeita.
  */
 export function SheetCanvas(props: SheetCanvasProps): ReactElement {
-  const { list, sheet, camera, view, selection, preview, contentPreview, dropPreview, align, move, resizingHandle, guides, showGrid, hovered, cursor, svgRef } = props;
+  const { layers, sheet, camera, view, selection, preview, contentPreview, dropPreview, align, move, resizingHandle, guides, showGrid, hovered, cursor, svgRef } = props;
   const { t } = useT();
-  const W = list.widthMm;
-  const H = list.heightMm;
+  const W = layers.widthMm;
+  const H = layers.heightMm;
+  const base = useRefinedZoom(camera.zoom);
   const vb = { x: camera.cx - view.w / (2 * camera.zoom), y: H - camera.cy - view.h / (2 * camera.zoom), w: view.w / camera.zoom, h: view.h / camera.zoom };
   const selected = sheet.viewports.filter((v) => selection.includes(v.id));
   const single = selected.length === 1 ? selected[0]! : null;
@@ -192,34 +109,46 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
   const handleMm = 7 / camera.zoom;
   const inner = { x0: sheet.margin, y0: sheet.margin, x1: W - sheet.margin, y1: H - sheet.margin };
 
-  const viewportLayers = sheet.viewports.map((v, i) => {
-    const g = list.groups[i] ?? null;
-    if (!g) return null;
+  const layerOf = new Map<string, SheetLayer>(layers.layers.map((ly) => [ly.id, ly]));
+  const viewportLayers = sheet.viewports.map((v) => {
+    const ly = layerOf.get(v.id);
+    if (!ly) return null;
     const box = preview?.[v.id] ?? { x: v.at.x, y: v.at.y, w: v.size.w, h: v.size.h };
     const resizing = resizingHandle !== null && single?.id === v.id;
     return (
       <ViewportLayer
         key={v.id}
         vpId={v.id}
-        clipId={`sheet-clip-${i}`}
-        g={g}
+        parts={ly.parts}
         box={box}
+        shift={ly.shift}
         offset={contentPreview?.[v.id] ?? viewportOffset(v)}
         clip={v.clip !== false}
         move={preview?.[v.id] && !resizing ? { x: box.x - v.at.x, y: box.y - v.at.y } : null}
-        h={H}
+        H={H}
+        camera={camera}
+        view={view}
+        base={base}
       />
     );
   });
 
-  const furniture = list.groups[list.groups.length - 1] ?? null;
   const dimsText = (b: PaperBox): string => `${Math.round(b.w)} × ${Math.round(b.h)} mm`;
 
+  const viewBox = `${n(vb.x)} ${n(vb.y)} ${n(vb.w)} ${n(vb.h)}`;
+  const fill: CSSProperties = { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'block' };
   return (
+    <>
+      {/* Sombra e papel (por baixo das camadas das vistas) */}
+      <svg viewBox={viewBox} style={fill} pointerEvents="none" aria-hidden="true">
+        <rect x={2} y={2} width={W} height={H} fill="rgba(0,0,0,.22)" />
+        <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
+      </svg>
+      {viewportLayers}
     <svg
       ref={svgRef}
-      viewBox={`${n(vb.x)} ${n(vb.y)} ${n(vb.w)} ${n(vb.h)}`}
-      style={{ width: '100%', height: '100%', touchAction: 'none', cursor, display: 'block' }}
+      viewBox={viewBox}
+      style={{ ...fill, touchAction: 'none', cursor }}
       onPointerDown={props.onPointerDown}
       onPointerMove={props.onPointerMove}
       onPointerUp={props.onPointerUp}
@@ -233,12 +162,9 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
         n: sheet.viewports.length,
       })}
     >
-      {/* Sombra e papel */}
-      <rect x={2} y={2} width={W} height={H} fill="rgba(0,0,0,.22)" />
-      <rect x={0} y={0} width={W} height={H} fill="#ffffff" />
-
-      {viewportLayers}
-      {furniture ? <GroupContent g={furniture} h={H} /> : null}
+      <g data-sheet-furniture="">
+        <GroupContent g={layers.furniture} h={H} />
+      </g>
       {showGrid ? <GridLines w={W} h={H} /> : null}
 
       {/* Guias de encaixe */}
@@ -434,5 +360,6 @@ export function SheetCanvas(props: SheetCanvasProps): ReactElement {
           })
         : null}
     </svg>
+    </>
   );
 }

@@ -80,3 +80,7 @@ Modo de execução: A (subagentes). Modelo: **SOMENTE Sonnet e Haiku** (ordem do
 - Não se insere vértice em aresta presa (restrição aceita) nem a menos de 5 cm do contorno de região plana (parede dos gêmeos): ali o arredondamento gera triângulos-lasca e curvas inconsistentes.
 - Testes existentes alterados: `aviso_precisao_reduzida` (teto de vértices soma TETO_REFINO) e `fuzz_200_completo` (cota do ponto da curva 1e-9 → 1e-7, a quantização QUANTO de 1e-7 das curvas; triângulos finos da breakline); `consulta_terreno_corte_aterro` ignora subtriângulo de área nula (lasca). Volumes: testes t5/t6/t7 passam sem mudança.
 - Pendência: normais suaves por vértice no 3D (terreno3d.ts) não feitas (risco de regressão nas paredes/saia); pé do talude em aresta presa (breakline de E) segue sem refino.
+
+## Tipo de terreno (2026-11-18)
+
+Solo e superfície separados, "Editar tipo" e rótulo automático das curvas: ver `docs/decisoes/0059-tipo-de-terreno.md` (campo `Terrain.tipoId`, `ProjectSettings.terrainTypes`, sem mudança de versão do esquema).

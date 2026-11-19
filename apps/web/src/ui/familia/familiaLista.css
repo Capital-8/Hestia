@@ -1,0 +1,73 @@
+/* Diálogo Lista de peças: abas, tabelas, plano de corte em SVG, custo e etiquetas. Usa os tokens do editor. */
+
+.fam-lista { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.fam-lista-abas { display: flex; gap: 2px; border-bottom: 1px solid var(--line-strong); }
+.fam-lista-abas > button {
+  font: inherit; padding: 4px 14px; border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 4px 4px 0 0; background: var(--ribbon); color: var(--fg-soft); cursor: pointer;
+}
+.fam-lista-abas > button:hover { background: var(--accent-soft); }
+.fam-lista-abas > button.on {
+  background: var(--sheet); color: var(--fg); font-weight: 600;
+  border-color: var(--line-strong); margin-bottom: -1px;
+}
+
+.fam-lista-opcoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 2px; }
+.fam-lista-opcoes label { display: flex; align-items: center; gap: 4px; }
+.fam-lista-espaco { flex: 1; }
+.fam-lista-msg { color: var(--fg-faint); font-size: 11.5px; min-width: 0; }
+.fam-lista-painel { min-height: 0; }
+.fam-lista-aba-conteudo { display: flex; flex-direction: column; gap: 8px; }
+
+.fam-lista-rolagem { max-height: 420px; }
+.fam-lista-tabela th.fam-lista-fita-col,
+.fam-lista-tabela td.fam-lista-fita-col { text-align: center; }
+.fam-lista-veio { text-align: center; font-size: 14px; }
+
+.fam-lista-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.fam-lista-resumo-bloco {
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; background: var(--sheet);
+}
+.fam-lista-resumo-titulo { font-weight: 600; margin-bottom: 3px; color: var(--fg-soft); }
+.fam-lista-resumo-lista { list-style: none; margin: 0; padding: 0; }
+.fam-lista-resumo-lista li { padding: 1px 0; }
+.fam-lista-ferragens { display: flex; flex-direction: column; gap: 4px; }
+
+.fam-lista-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.fam-lista-barra label { display: flex; align-items: center; gap: 6px; }
+.fam-lista-campo { width: 80px; }
+.fam-lista-corte-resumo { display: flex; gap: 16px; flex-wrap: wrap; padding: 2px 0; }
+
+.fam-lista-chapas { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+.fam-lista-chapa { border: 1px solid var(--line); border-radius: 4px; background: var(--sheet); padding: 6px; }
+.fam-lista-chapa-topo { font-weight: 600; margin-bottom: 4px; color: var(--fg-soft); }
+.fam-lista-chapa svg { display: block; width: 100%; height: auto; max-height: 420px; background: var(--panel); }
+.fam-lista-chapa-bruta {
+  fill: color-mix(in srgb, var(--fg) 5%, var(--panel)); stroke: var(--line-strong); stroke-width: 6;
+}
+.fam-lista-chapa-util { fill: none; stroke: var(--fg-faint); stroke-width: 4; stroke-dasharray: 30 18; }
+.fam-lista-peca { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 4; }
+.fam-lista-peca-g:hover .fam-lista-peca { fill: var(--revit-green-soft); stroke: var(--revit-green); }
+.fam-lista-peca-nome { fill: var(--fg); font-size: 40px; font-weight: 600; pointer-events: none; }
+.fam-lista-peca-medida { fill: var(--fg-soft); font-size: 32px; pointer-events: none; }
+.fam-lista-peca-girada { fill: var(--accent); font-size: 36px; font-weight: 700; pointer-events: none; }
+.fam-lista-fora {
+  padding: 6px 8px; border-radius: 4px;
+  background: color-mix(in srgb, var(--warn) 14%, var(--sheet)); color: var(--warn);
+}
+
+.fam-lista-etiquetas {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px;
+  max-height: 480px; overflow: auto; padding: 2px;
+}
+.fam-lista-etiqueta {
+  position: relative; border: 1px solid var(--line-strong); border-radius: 4px;
+  background: var(--sheet); padding: 8px 10px; min-height: 78px;
+}
+.fam-lista-etiqueta-qtd { position: absolute; top: 6px; right: 8px; font-weight: 700; color: var(--accent); }
+.fam-lista-etiqueta-nome { font-weight: 600; padding-right: 34px; }
+.fam-lista-etiqueta-linha {
+  font-size: 11.5px; color: var(--fg-soft); margin-top: 3px; overflow-wrap: anywhere;
+}
+.fam-lista-custo .total td { font-weight: 700; }

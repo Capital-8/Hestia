@@ -15,6 +15,8 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
   # Desempenho: limites relativos a uma tarefa-base, rodados isolados. Não bloqueia o merge enquanto a
   # medida em runner compartilhado não estiver estável (ver docs/08 §9); o resultado aparece no job.

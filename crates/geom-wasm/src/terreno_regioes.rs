@@ -3,8 +3,8 @@
 //! `zP` é a função ÚNICA da cota proposta: a malha da superfície proposta (`terreno_proposta`) só a avalia nos seus vértices, e a malha interpola entre eles.
 //! Subdivisão não altera cota; só plataforma e região nivelada (as regiões "planas") entram em `aplicar`.
 //!
-//! Alcance `D` da região plana: `0,02` se os dois taludes são 0; senão `min(50, Hmax · max(talude_corte, talude_aterro) + h)`, com `Hmax` o maior
-//! `|E(q) − zR(q)|` nos pontos do contorno adensado que caem no domínio de E e `h = limitar(sqrt(área) / 40, 0,25, 2,0)`.
+//! Alcance `D` da região plana: `0,02` se os dois taludes são 0; senão o menor raio (até `ALCANCE_MAX`) a partir do qual o talude já não limita E, achado por
+//! iteração sobre os vértices de E e sobre anéis de amostras à distância `D` (ver `definir_alcances`).
 
 use std::collections::BTreeMap;
 
@@ -171,16 +171,89 @@ pub fn regioes_do_terreno(s: &SecoesTerreno, terreno: u32) -> Vec<Regiao> {
     out
 }
 
-/// Define o alcance `D` das regiões planas (regra 7), que depende de E por causa de `Hmax`.
-pub fn definir_alcances(regioes: &mut [Regiao], e: &Malha) {
-    for r in regioes.iter_mut().filter(|r| r.plana()) {
-        if r.talude_corte <= 0.0 && r.talude_aterro <= 0.0 {
-            r.alcance = ALCANCE_MIN;
+/// Região cujo talude não encontrou E dentro do teto de alcance: `(id, alcance medido, que é o próprio teto)`.
+pub type AlcanceCurto = (u32, f64);
+
+/// Pontos de amostragem do anel a distância `d` do contorno de `r`: cada ponto do contorno adensado deslocado `d` na normal do lado e, nos cantos convexos,
+/// num leque de direções entre as normais dos dois lados (o anel de distância constante tem arcos ali).
+fn anel_de_distancia(r: &Regiao, d: f64) -> Vec<V> {
+    let n = r.contorno.len();
+    let normal = |a: V, b: V| -> V {
+        let l = crate::geo2d::hipot(b.x - a.x, b.y - a.y).max(1e-300);
+        v((b.y - a.y) / l, -(b.x - a.x) / l)
+    };
+    let mut out = Vec::new();
+    for k in 0..n {
+        let (a, b) = (r.contorno[k], r.contorno[(k + 1) % n]);
+        let nk = normal(a, b);
+        let l = crate::geo2d::hipot(b.x - a.x, b.y - a.y);
+        let passos = ((l / r.h).ceil() as usize).max(1);
+        for i in 0..passos {
+            let t = i as f64 / passos as f64;
+            out.push(v(a.x + (b.x - a.x) * t + nk.x * d, a.y + (b.y - a.y) * t + nk.y * d));
+        }
+        // Leque no canto `b`: da normal deste lado à do próximo (só nos convexos: o giro é anti-horário e menor que meia volta).
+        let nn = normal(b, r.contorno[(k + 2) % n]);
+        let (a0, a1) = (nk.y.atan2(nk.x), nn.y.atan2(nn.x));
+        let mut giro = a1 - a0;
+        while giro < 0.0 {
+            giro += 2.0 * std::f64::consts::PI;
+        }
+        if giro > 1e-9 && giro < std::f64::consts::PI {
+            let m = ((giro * d / r.h).ceil() as usize).clamp(1, 64);
+            for i in 0..=m {
+                let ang = a0 + giro * i as f64 / m as f64;
+                out.push(v(b.x + ang.cos() * d, b.y + ang.sin() * d));
+            }
+        }
+    }
+    out
+}
+
+/// Define o alcance `D` das regiões planas (regra 7): a menor distância ao contorno a partir da qual o talude já não limita E. Não se estima por `Hmax` do
+/// contorno (terreno que sobe além do contorno faria o talude acabar num degrau antes de tocar E): parte do ponto mais longe em que o talude ainda limita um
+/// vértice de E e cresce (10 % mais `h`) até um anel inteiro de pontos à distância `D` encontrar E já dentro do talude. Passando de `ALCANCE_MAX` o alcance
+/// fica no teto e a região volta na lista devolvida (aviso 7).
+pub fn definir_alcances(regioes: &mut [Regiao], e: &Malha) -> Vec<AlcanceCurto> {
+    let mut curtos = Vec::new();
+    for i in 0..regioes.len() {
+        if !regioes[i].plana() {
             continue;
         }
-        let hmax = r.contorno_denso().iter().filter_map(|&q| e.cota(q.x, q.y).map(|z| (z - r.zr(q)).abs())).fold(0.0, f64::max);
-        r.alcance = (hmax * r.talude_corte.max(r.talude_aterro) + r.h).min(ALCANCE_MAX);
+        if regioes[i].talude_corte <= 0.0 && regioes[i].talude_aterro <= 0.0 {
+            regioes[i].alcance = ALCANCE_MIN;
+            continue;
+        }
+        // O talude da região i é medido sobre o que as regiões ANTERIORES (já com o alcance final) deixaram: um talude que só aparece por cima do
+        // talude de outra região também precisa de alcance.
+        let r = regioes[i].clone();
+        let mut sozinha = r.clone();
+        sozinha.alcance = f64::MAX / 4.0;
+        let antes: Vec<Regiao> = regioes[..i].to_vec();
+        let mut com = antes.clone();
+        com.push(sozinha.clone());
+        let ativo = |p: V| -> bool { e.cota(p.x, p.y).is_some_and(|z| (aplicar(&com, p, z) - aplicar(&antes, p, z)).abs() > 1e-9) };
+        let anel_ativo = |d: f64| -> bool { anel_de_distancia(&sozinha, d).into_iter().filter(|&p| sozinha.mais_proximo(p).1 >= d * 0.98).any(ativo) };
+        let mut d = r.h;
+        for q in &e.v {
+            let p = v(q[0], q[1]);
+            if sozinha.perto(p, ALCANCE_MAX) && !sozinha.dentro(p) {
+                let dist = sozinha.mais_proximo(p).1;
+                if dist <= ALCANCE_MAX && dist > d && ativo(p) {
+                    d = dist;
+                }
+            }
+        }
+        d = d.min(ALCANCE_MAX);
+        while d < ALCANCE_MAX && anel_ativo(d) {
+            d = (d * 1.1 + r.h).min(ALCANCE_MAX);
+        }
+        if d >= ALCANCE_MAX && anel_ativo(d) {
+            curtos.push((r.id, d));
+        }
+        regioes[i].alcance = d;
     }
+    curtos
 }
 
 /// Cota proposta (regra 7) em `p`, partindo de `z0 = E(p)`: para cada região plana, em ordem, dentro ou sobre o contorno vale o plano da região; fora dele,

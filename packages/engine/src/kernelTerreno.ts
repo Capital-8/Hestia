@@ -11,7 +11,7 @@
  * Assinatura. Cada terreno tem uma assinatura da geometria das fontes (A.8 item 4): nome, cor, material, rótulos, pontos cotados e `mostrarExistente`
  * não entram, então mudar qualquer um deles não muda nada do que vai ao kernel. A assinatura da proposta soma a das regiões do terreno.
  */
-import { isTerrain, isTerrainRegion, TERRENO_LIMITES, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
+import { isTerrain, isTerrainRegion, terrenoComTipo, TERRENO_LIMITES, type Id, type Project, type Terrain, type TerrainRegion } from '@hestia/model';
 
 export * from './kernelTerrenoEnvio.ts';
 
@@ -29,7 +29,7 @@ export const MAX_REGIAO_NUM = Math.floor((ID_AUSENTE_TN - 1) / PASSO_ID_REGIAO) 
 export const LINHA_TN = { curva: 0, quebra: 1, borda: 2 } as const;
 export const PAPEL_REGIAO_TN = { subdivisao: 0, plataforma: 1, nivelada: 2 } as const;
 /** Código de `terreno_avisos` (igual a `terreno_tipos.rs`). */
-export const AVISO_TN = { cotasDiferentes: 1, linhaCruza: 2, regioesSobrepostas: 3, precisaoReduzida: 4, semTriangulos: 5, regiaoFora: 6 } as const;
+export const AVISO_TN = { cotasDiferentes: 1, linhaCruza: 2, regioesSobrepostas: 3, precisaoReduzida: 4, semTriangulos: 5, regiaoFora: 6, taludeNaoAlcanca: 7 } as const;
 
 export const NOMES_SECOES_TN = ['terrenos', 'terreno_linhas', 'terreno_vertices', 'terreno_regioes', 'terreno_regiao_pontos'] as const;
 export type NomeSecaoTN = (typeof NOMES_SECOES_TN)[number];
@@ -136,7 +136,8 @@ export function montarCenaTerreno(p: Project, opcoes: OpcoesCenaTN = {}): CenaTN
   const ignorados: Id[] = [];
   const elementos = Object.values(p.elements);
 
-  for (const t of ordenar(elementos.filter(isTerrain))) {
+  for (const bruto of ordenar(elementos.filter(isTerrain))) {
+    const t = terrenoComTipo(p.settings, bruto);
     const nivel = nivelDe.get(t.levelId);
     const num = nivel === undefined || verticesDoTerreno(t) + t.curvas.length + t.quebras.length + 1 >= PASSO_ID_TERRENO ? null : interna(terrenos, t.id, MAX_TERRENO_NUM);
     if (num === null || nivel === undefined) {

@@ -17,7 +17,7 @@ export interface TempViewVisibility {
 
 /** Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). */
 export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): string | null {
-  if (st.view === 'sheet') return null;
+  if (st.view === 'sheet' || st.view === 'face') return null;
   if (st.view === '3d') return '3d';
   if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
   if (st.planKind === 'area') return st.areaPlanId ? `area:${st.areaPlanId}` : null;
@@ -27,7 +27,7 @@ export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'vie
 
 /** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
 export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): ViewHiddenTarget | null {
-  if (st.view === 'sheet') return null;
+  if (st.view === 'sheet' || st.view === 'face') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;

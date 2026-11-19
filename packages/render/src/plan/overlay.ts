@@ -51,6 +51,9 @@ export function snapMarker(inf: Inference, theme: PlanTheme): StrokeOp[] {
     case 'topFace':
       // Face superior: quadrado vazado com traço superior (a aresta do topo).
       return [mk(cantosDoQuadrado(h), true), mk([P(-h * 1.3, -h * 1.3), P(h * 1.3, -h * 1.3)], false)];
+    case 'contour':
+      // Curva de nível: onda (a linha de cota) com o ponto de captura no meio.
+      return [mk([P(-h, h * 0.3), P(-h * 0.5, -h * 0.5), P(0, h * 0.3), P(h * 0.5, -h * 0.5), P(h, h * 0.3)], false), mk(cantosDoQuadrado(h * 0.25), true)];
     case 'grid':
       return [fino([P(-h * 0.6, 0), P(h * 0.6, 0)]), fino([P(0, -h * 0.6), P(0, h * 0.6)])];
     case 'polar':
@@ -75,6 +78,7 @@ const SNAP_TOOLTIP_KEYS: Record<string, DictKey> = {
   center: 'rn_snap_center',
   tangent: 'rn_snap_tangent',
   topFace: 'rn_snap_top_face',
+  contour: 'rn_snap_contour',
 };
 
 /** Nome do hospedeiro no tooltip: `parede 04` (PT) / `wall 04` (EN). */
@@ -90,7 +94,9 @@ export function snapTooltipLabel(inf: Inference, p?: Project, lang: Lang = 'pt')
   // Nome da parede de origem, quando a captura é de uma parede (S-tooltip): ajuda a saber qual elemento foi capturado.
   const host = inf.hostId && p ? p.elements[inf.hostId] : undefined;
   const name = host && host.kind === 'wall' ? hostName(host.mark, lang) : null;
-  const text = name ? `${base} · ${name}` : base;
+  // Curva de nível: a cota da curva vai junto (m, 2 casas).
+  const cota = inf.kind === 'contour' && inf.z !== undefined ? ` · ${inf.z.toFixed(2)}` : ''; // units-ok: cota z da curva, sem unidade escrita
+  const text = (name ? `${base} · ${name}` : base) + cota;
   return {
     at: inf.point,
     text,

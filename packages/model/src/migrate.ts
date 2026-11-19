@@ -295,6 +295,11 @@ const migrations: Record<number, Migration> = {
   // recusa um arquivo com terreno ou lote. (O terreno nasceu como 25 → 26, número que a main usou para massa: ao
   // integrar, virou 28 → 29; arquivo salvo pela versão 26 antiga do terreno segue a cadeia 26 → 27 → 28 → 29 sem perda.)
   28: (raw) => ({ ...raw }),
+  // v29 → v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `componentFamilies`), móveis
+  // importados (`Furniture`, `furniture`), tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`) e pintura de faces
+  // (`facePaints` em paredes, pisos e lajes, mais os materiais extras do catálogo). Nenhum dado é
+  // reescrito; a migração só avança a versão, e assim um programa antigo recusa um arquivo com esses campos.
+  29: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';
@@ -326,6 +331,9 @@ export function migrateProject(raw: unknown): Project {
     }
     obj = { ...obj, stairTypes };
   }
+  // Moveis importados (`Project.furniture`, `elements` com kind 'furniture'): campo opcional e aditivo, sem reescrita de
+  // dados; o bump para 30 (migracao 29 → 30) e o que faz um programa antigo recusar o arquivo. Projeto antigo nao o tem
+  // e abre igual (os arrays ja estao em base64 no JSON).
   const base = createEmptyProject();
   const p = obj as Partial<Project>;
   if (!p.elements || !p.wallTypes || !p.levels || !p.materials || !p.openingTypes) throw new SchemaError('Arquivo incompleto');

@@ -151,7 +151,7 @@ describe('migração 12 → 13 (face inferior da escada)', () => {
   it('todo tipo de escada existente ganha face lisa', () => {
     const m = migrateProject(legacyV12());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(29);
+    expect(SCHEMA_VERSION).toBe(30);
     for (const t of Object.values(m.stairTypes)) expect(t.undersideStyle).toBe('smooth');
   });
 
@@ -252,7 +252,7 @@ describe('migração 15 → 16 (escada caracol)', () => {
   it('todo tipo existente ganha sobreposição e material do poste padrão', () => {
     const m = migrateProject(legacyV15());
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(29);
+    expect(SCHEMA_VERSION).toBe(30);
     for (const id of ['stt_monolitica', 'stt_piso_espelho']) {
       expect(m.stairTypes[id]).toMatchObject({ treadOverlap: 0.025, postMaterialId: 'mat_aco' });
     }
@@ -390,7 +390,7 @@ describe('migração 28 → 29 (terreno, lote e localização)', () => {
   it('só avança a versão e não altera nenhum dado', () => {
     const antigo = legacyV28();
     const m = migrateProject(JSON.parse(JSON.stringify(antigo)));
-    expect(m.schemaVersion).toBe(29);
+    expect(m.schemaVersion).toBe(30);
     const { schemaVersion: _v, ...resto } = m as unknown as Record<string, unknown>;
     const { schemaVersion: _a, ...restoAntigo } = antigo;
     expect(resto).toEqual(restoAntigo);
@@ -404,7 +404,7 @@ describe('migração 28 → 29 (terreno, lote e localização)', () => {
     s.exec({ type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', papel: 'plataforma', cota: 2, contorno: [{ x: 1, y: 1 }, { x: 4, y: 1 }, { x: 4, y: 4 }] }) });
     s.exec({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 30 }, { x: 0, y: 30 }], lados: [{ papel: 'frente', recuo: 5 }, { papel: 'lateral', recuo: 1.5 }, { papel: 'fundo', recuo: 3 }, { papel: 'lateral', recuo: 1.5 }] }) });
     const json = JSON.parse(JSON.stringify(s.project));
-    expect(json.schemaVersion).toBe(29);
+    expect(json.schemaVersion).toBe(30);
     const volta = migrateProject(json);
     for (const id of ['tn1', 'tr1', 'lt1']) expect(volta.elements[id]).toEqual(s.project.elements[id]);
     expect(volta.localizacao).toEqual(s.project.localizacao);
@@ -419,16 +419,16 @@ describe('migração 28 → 29 (terreno, lote e localização)', () => {
   });
 
   it('arquivo mais novo que o programa continua recusado', () => {
-    expect(() => migrateProject({ ...legacyV28(), schemaVersion: 30 })).toThrow();
+    expect(() => migrateProject({ ...legacyV28(), schemaVersion: 31 })).toThrow();
   });
 
   it('projeto salvo pela versão 28 da main abre e migra para a versão atual', () => {
     const m = migrateProject(legacyV28());
-    expect(m.schemaVersion).toBe(29);
+    expect(m.schemaVersion).toBe(30);
     expect(m.columnTypes).toBeDefined();
   });
 
-  it('projeto com terreno salvo na antiga versão 26 do terreno segue a cadeia 26 → 29 sem perda', () => {
+  it('projeto com terreno salvo na antiga versão 26 do terreno segue a cadeia 26 → 30 sem perda', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [0, 0, 1, 10, 0, 2, 5, 8, 3], borda: [0, 0, 10, 0, 5, 8] }) });
     s.exec({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 30 }, { x: 0, y: 30 }], lados: [{ papel: 'frente', recuo: 5 }, { papel: 'lateral', recuo: 1.5 }, { papel: 'fundo', recuo: 3 }, { papel: 'lateral', recuo: 1.5 }] }) });
@@ -438,7 +438,7 @@ describe('migração 28 → 29 (terreno, lote e localização)', () => {
     delete antigo.beamTypes;
     delete antigo.footingTypes;
     const m = migrateProject(antigo);
-    expect(m.schemaVersion).toBe(29);
+    expect(m.schemaVersion).toBe(30);
     expect(m.elements['tn1']).toEqual(s.project.elements['tn1']);
     expect(m.elements['lt1']).toEqual(s.project.elements['lt1']);
     expect(Object.keys(m.columnTypes ?? {}).length).toBeGreaterThan(0);
@@ -490,7 +490,7 @@ describe('migração 26 → 27 (parede inclinada)', () => {
   it('só avança a versão: idêntico fora do número', () => {
     const antigo = legacyV26();
     const m = migrateProject(JSON.parse(JSON.stringify(antigo)));
-    expect(m.schemaVersion).toBe(29);
+    expect(m.schemaVersion).toBe(30);
     const { schemaVersion: _v, ...resto } = m as unknown as Record<string, unknown>;
     const { schemaVersion: _a, ...restoAntigo } = antigo;
     expect(JSON.stringify(resto)).toBe(JSON.stringify(restoAntigo));

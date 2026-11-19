@@ -19,7 +19,7 @@ export interface ContextTab {
 /** Ferramentas que colocam algo no projeto (no Revit: "Modificar | Colocar X"). As de edição não abrem aba. */
 const PLACE: ReadonlySet<ToolId> = new Set<ToolId>([
   'wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'roof', 'roofextrusion', 'roofarrow', 'slope', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'northArrow', 'tag',
-  'column', 'beam', 'footing',
+  'column', 'beam', 'footing', 'terrain', 'terrainEdit',
 ]);
 
 const same = <K extends keyof ToolOptions>(key: K, value: ToolOptions[K]) => (o: ToolOptions): boolean => o[key] === value;

@@ -20,10 +20,12 @@ import { StairRunOptionsBar } from './StairRunOptionsBar.tsx';
 import { RampOptionsBar } from './RampOptionsBar.tsx';
 import { GuardaCorpoOptionsBar } from './GuardaCorpoOptionsBar.tsx';
 import { MassOptionsBar } from './MassOptionsBar.tsx';
+import { ComponentOptionsBar } from './ComponentOptionsBar.tsx';
 import { ArrayOptionsBar } from './ArrayOptionsBar.tsx';
 import { GridOptionsBar } from './GridOptionsBar.tsx';
 import { TerrainOptionsBar } from './TerrainOptionsBar.tsx';
 import { StructuralOptionsBar } from './StructuralOptionsBar.tsx';
+import { FacePaintOptionsBar } from './FacePaintOptionsBar.tsx';
 import { formatQuantity, openingFamilies, openingFamilyOf, DIM_FAMILY_PADRAO, defaultDimensionFamilyIdOf, dimensionFamiliesOf, defaultTagFamilyIdOf, tagFamiliesOf, type LocationLine } from '@hestia/model';
 
 /** Inclinação das paredes novas (graus no campo; o mesmo valor `wallTilt` do painel de Propriedades). Exportado para os testes. */
@@ -210,6 +212,8 @@ export function OptionsBar(): ReactElement {
   const p = useProject();
   const perim = usePerimeter();
   const tool = useUi((s) => s.tool);
+  const view = useUi((s) => s.view);
+  const facePaint = useUi((s) => s.facePaint);
   const o = useUi((s) => s.options);
   const units = useUnits();
   const sel = useUi((s) => s.selection);
@@ -218,6 +222,7 @@ export function OptionsBar(): ReactElement {
   const invalidDistance = useRef(false);
   const areaPlan = useUi((s) => s.view === 'plan' && s.planKind === 'area' && !!s.areaPlanId);
   const set = (patch: Partial<typeof o>): void => useUi.setState({ options: { ...o, ...patch } });
+  if (view === '3d' && facePaint.active) return <FacePaintOptionsBar />;
   if (perim.active) return <PerimeterOptionsBar target={perim.target} modify={perim.modify} options={perim.options} onChange={perimeterActions.setOptions} />;
   // A paleta Propriedades é a fonte de configuração antes da colocação; a barra superior fica como indicação da ferramenta.
   if (['wall', 'door', 'window', 'floor', 'slab', 'ceiling', 'stairrun', 'roof', 'roofextrusion'].includes(tool)) {
@@ -324,6 +329,7 @@ export function OptionsBar(): ReactElement {
       {tool === 'ramp' && <RampOptionsBar />}
       {tool === 'railing' && <GuardaCorpoOptionsBar />}
       {tool === 'mass' && <MassOptionsBar />}
+      {tool === 'component' && <ComponentOptionsBar />}
       {(tool === 'door' || tool === 'window') && (
         <OpeningTypePicker
           kind={tool}
@@ -338,7 +344,7 @@ export function OptionsBar(): ReactElement {
           <select
             id="opt-trimmode"
             className="select"
-            value={o.trimMode ?? 'unico'}
+            value={o.trimMode ?? 'canto'}
             onChange={(e) => {
               // Trocar o modo recomeça a escolha (como no modo do Piso).
               useUi.setState({ options: { ...useUi.getState().options, trimMode: e.target.value as 'canto' | 'unico' | 'varios' } });

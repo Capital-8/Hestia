@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { describe, expect, it } from 'vitest';
 import { TOOL_LABEL } from '@hestia/tools';
 import { createEmptyProject, type Project } from '@hestia/model';
@@ -57,7 +58,8 @@ describe('faixa guiada por dados', () => {
     // Colar também não é ferramenta da faixa: é o modo transitório do botão Colar/Ctrl+V.
     // A ferramenta de suplemento ('plugin') é aberta pelos botões que o próprio suplemento contribui (aba Suplementos).
     // `terrainEdit` entra pelo botão "Editar terreno" (ação `editTerreno`: grava `terrenoEdicao` e depois liga a ferramenta; ver ribbonTerreno.test.ts).
-    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit'] as const;
+    // 0.2.5: a massa está escondida da faixa (`MASSA_NA_FAIXA` = false): a ferramenta `mass` fica sem botão de propósito.
+    const pendente = ['perimeter', 'paste', 'plugin', 'terrainEdit', ...(MASSA_NA_FAIXA ? [] : (['mass'] as const))] as const;
     for (const id of Object.keys(TOOL_LABEL)) {
       if ((ctx as readonly string[]).includes(id) || (pendente as readonly string[]).includes(id)) continue;
       expect(naFaixa.has(id as never), id).toBe(true);
@@ -226,5 +228,16 @@ describe('copiar, recortar, colar e criar semelhante na faixa', () => {
   it('a busca de comandos encontra Copiar, Recortar, Colar e Criar semelhante', () => {
     const nomes = allCommands('pt').map((c) => c.label);
     expect(nomes).toEqual(expect.arrayContaining(['Copiar', 'Recortar', 'Colar', 'Criar semelhante']));
+  });
+
+  it('paintFace3d e openFaceStudio alternam modos distintos no 3D sem exigir seleção prévia', () => {
+    expect(ACTIONS.openFaceStudio.disabled).toBeUndefined();
+    expect(ACTIONS.paintFace3d.icon).toBe('paintBucket');
+    expect(ACTIONS.openFaceStudio.icon).toBe('faceStudio');
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(true);
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'studioPick' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
+    expect(ACTIONS.paintFace3d.pressed?.(ctx({ view: 'plan', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
+    expect(ACTIONS.openFaceStudio.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'studioPick' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(true);
+    expect(ACTIONS.openFaceStudio.pressed?.(ctx({ view: '3d', facePaintActive: true, facePaintMode: 'paint' } as unknown as { p?: Project; selection?: string[]; view?: string }))).toBe(false);
   });
 });

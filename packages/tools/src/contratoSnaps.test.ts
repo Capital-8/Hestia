@@ -56,7 +56,9 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   ceiling: { fonte: null, ligacao: null, motivo: 'TODO: o forro não entra na captura de planta (só pisos e lajes têm vértices e arestas); o contorno do forro ainda não é ponto de snap.' },
   roof: { fonte: null, ligacao: null, motivo: 'TODO: o telhado não entra na captura de planta (beirais e cumeeiras ainda não são pontos de snap).' },
   room: { fonte: null, ligacao: null, motivo: 'TODO: o ambiente não tem geometria própria (o contorno é derivado das paredes, que já fornecem os pontos).' },
+  component: { fonte: null, ligacao: null, motivo: 'TODO: o componente encaixa na parede e nos vizinhos pelo próprio arrasto (componentDrag); a pegada dele ainda não alimenta o índice de snap da planta.' },
   generic: { fonte: null, ligacao: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; ainda não há pontos de snap derivados dela.' },
+  furniture: { fonte: null, ligacao: null, motivo: 'TODO: a planta desenha só um contorno simples do móvel (overlay da interface, `furnitureFootprint`); os cantos e arestas dele ainda não são pontos de snap.' },
 };
 
 describe('contrato: todo kind de elemento está classificado na captura (snap) de planta', () => {
@@ -78,6 +80,19 @@ describe('contrato: todo kind de elemento está classificado na captura (snap) d
   it('massa: a cota associativa (`dimRefAt`, model) lista a massa entre os apoios `part`, como escada, rampa e guarda-corpo', () => {
     const codigo = ler('model/src/dimensionRefs.ts');
     expect(codigo).toMatch(/dimRefAt[\s\S]*el\.kind !== 'mass'/);
+  });
+
+  it('curvas de nível: só Rótulo de curva e Cota de ponto as capturam (`contextoComCurvas`), nunca o motor comum', () => {
+    // As curvas desenhadas vêm do kernel (`ServicoTerreno.curvas`), não do modelo: entram como `indexed` só nessas duas ferramentas.
+    const gestos = ler('tools/src/terrainEditGestos.ts');
+    expect(gestos).toContain('curvasSnapIndexes(');
+    expect(ler('tools/src/snapCurvas.ts')).toContain('.curvas(');
+    const usam = ['terrainLabelTool.ts'].filter((a) => ler(`tools/src/${a}`).includes('contextoComCurvas'));
+    expect(usam).toEqual(['terrainLabelTool.ts']);
+    expect((ler('tools/src/terrainLabelTool.ts').match(/contextoComCurvas\(/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    for (const a of ['base.ts', 'infer.ts', 'snapIndexado.ts', 'componentSnap.ts']) {
+      expect(ler(`tools/src/${a}`), `${a} não pode consultar as curvas do kernel`).not.toContain('curvasSnapIndexes');
+    }
   });
 
   it('o motor único serve a todas as ferramentas: a fonte dos pontos é montada em `ToolBase.ctx`, não em cada ferramenta', () => {

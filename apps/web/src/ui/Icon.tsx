@@ -62,7 +62,14 @@ const R: Record<string, string> = {
   editperimeter: p('bl', 'M3 4H17V13H24V24H3Z') + p('ac', 'M3 4H17V13H24V24H3Z') + p('fa', 'M1.8 2.8H4.2V5.2H1.8ZM15.8 2.8H18.2V5.2H15.8ZM15.8 11.8H18.2V14.2H15.8Z') + p('s1', 'M16.6 22.6L24.6 14.6L27.4 17.4L19.4 25.4Z') + p('s3', 'M24.6 14.6L26.2 13L29 15.8L27.4 17.4Z') + p('s3', 'M16.6 22.6L19.4 25.4L13.5 28.5Z') + p('fa', 'M15.2 25.3L16.7 26.8L13.5 28.5Z'),
 
   // Elementos de arquitetura
-  wall: p('s1', 'M4 12L12 7H28L20 12Z') + p('s2', 'M4 12H20V25H4Z') + p('s3', 'M20 12L28 7V20L20 25Z'),
+  // Parede: longa e fina, com fiadas de tijolo na frente (lê como parede, não como cubo) e o eixo laranja com seta (a ferramenta desenha ao longo dele).
+  wall:
+    p('s1', 'M3 8L7 5H29L25 8Z') +
+    p('s2', 'M3 8H25V23H3Z') +
+    p('s3', 'M25 8L29 5V20L25 23Z') +
+    p('ln', 'M3 13H25M3 18H25M9 8V13M16 8V13M22 8V13M6 13V18M12.5 13V18M19 13V18M9 18V23M16 18V23M22 18V23') +
+    p('ac', 'M3 28H22') +
+    p('fa', 'M21 25.5L28 28L21 30.5Z'),
   door: p('s3', 'M8 4H24V28H8Z') + p('s2', 'M8 4L19 6.5V30L8 28Z') + '<circle class="ic-fa" cx="16" cy="18" r="1.3"/>',
   window: p('s2', 'M5 3H27V26H5Z') + p('gl', 'M8 6H15V13H8Z') + p('gl', 'M17 6H24V13H17Z') + p('gl', 'M8 15H15V22H8Z') + p('gl', 'M17 15H24V22H17Z') + p('s3', 'M3 26H29V29H3Z'),
   floor: p('bl', 'M3 14L16 7L29 14L16 21Z') + p('s2', 'M3 14L16 21V25L3 18Z') + p('s3', 'M16 21L29 14V18L16 25Z'),
@@ -101,6 +108,19 @@ const R: Record<string, string> = {
   sun: '<circle class="ic-fa" cx="16" cy="16" r="6"/>' + p('ac', 'M16 3V7M16 25V29M3 16H7M25 16H29M7 7L9.5 9.5M22.5 22.5L25 25M7 25L9.5 22.5M22.5 9.5L25 7'),
   layers: p('s3', 'M3 21L16 15L29 21L16 27Z') + p('s2', 'M3 15L16 9L29 15L16 21Z') + p('bl', 'M3 9L16 3L29 9L16 15Z'),
   materialSphere: '<circle cx="16" cy="16" r="13" fill="#0b3a78"/>' + `<path fill="#62b8f5" d="${ESFERA_XADREZ}"/>` + '<circle cx="16" cy="16" r="13" fill="url(#ic-esfera-volume)"/>' + '<ellipse cx="11.6" cy="10.2" rx="3.2" ry="2.2" transform="rotate(-35 11.6 10.2)" fill="url(#ic-esfera-brilho)"/>' + '<circle class="ic-ln" cx="16" cy="16" r="13"/>',
+  paintBucket:
+    p('s2', 'M11 8L21 16L14 25L4 17Z') +
+    p('s3', 'M11 8L21 16L19 18L9 10Z') +
+    p('s1', 'M11 8L14.5 10.8L7.5 19.8L4 17Z') +
+    p('ln', 'M10 11C8.5 5 15.5 3.5 18.5 9') +
+    p('fa', 'M21 16C25 18 26.5 21 26.5 23.8A2.7 2.7 0 0 1 21.1 23.8C21.1 21.3 21.6 18.8 21 16Z') +
+    p('ac', 'M19 28H28'),
+  faceStudio:
+    p('s1', 'M4 7L27 4V25L4 28Z') +
+    p('bl', 'M8 10.5L17.5 9.2V19.5L8 21Z') +
+    p('ac', 'M8 10.5L17.5 9.2V19.5L8 21Z') +
+    '<circle class="ic-ac" cx="21" cy="17.5" r="3.5"/>' +
+    p('fa', 'M6.8 9.3H9.2V11.7H6.8ZM16.3 8H18.7V10.4H16.3ZM16.3 18.3H18.7V20.7H16.3ZM6.8 19.8H9.2V22.2H6.8Z'),
   schedule: p('s1', 'M4 5H28V27H4Z') + p('s3', 'M4 5H28V11H4Z') + p('ln', 'M4 17H28M4 22H28M13 11V27'),
   type: p('s1', 'M4 5H28V12H4Z') + p('s3', 'M4 14H28V19H4Z') + p('s2', 'M4 21H28V28H4Z'),
 
@@ -113,7 +133,13 @@ const R: Record<string, string> = {
   cutscissors: p('s2', 'M3 8H12L15 11H29V27H3Z') + p('s3', 'M3 8H12L15 11H3Z') + p('ac', 'M21 14L28 21M21 22L28 15') + '<circle class="ic-fa" cx="19" cy="13.5" r="2.2"/><circle class="ic-fa" cx="19" cy="22.5" r="2.2"/><circle class="ic-ac" cx="24" cy="18" r="1.2"/>',
   hide: p('s1', 'M2 16C8 6 24 6 30 16C24 26 8 26 2 16Z') + p('ac', 'M5 27L27 5'),
   eye: p('s1', 'M2 16C8 6 24 6 30 16C24 26 8 26 2 16Z') + p('bl', 'M16 11A5 5 0 1 0 16 21A5 5 0 1 0 16 11Z'),
-  component: p('s2', 'M6 10H24V28H6Z') + p('s3', 'M6 10L11 5H29L24 10Z') + p('s3', 'M24 10L29 5V23L24 28Z'),
+  component: p('s1', 'M4 9L9 5H27L22 9Z') + p('s2', 'M4 9H22V27H4Z') + p('s3', 'M22 9L27 5V23L22 27Z') + p('ln', 'M13 9V27M10.5 16V19M15.5 16V19'),
+  componentLibrary: p('s1', 'M3 4H29V28H3Z') + p('s2', 'M3 4H29V9H3Z') + p('bl', 'M6 12H14V18H6ZM18 12H26V18H18ZM6 21H14V25H6Z') + p('s3', 'M18 21H26V25H18Z'),
+  componentGroup: p('s2', 'M4 8H14V22H4Z') + p('s3', 'M18 10H28V24H18Z') + p('ac', 'M3 5H29V27H3Z'),
+  componentUngroup: p('s2', 'M3 9H12V23H3Z') + p('s3', 'M20 9H29V23H20Z') + p('ac', 'M14 16H18M12 13L9 16L12 19M20 13L23 16L20 19'),
+  familyEditor: p('s2', 'M4 10H19V26H4Z') + p('s1', 'M4 10L8 6H23L19 10Z') + p('ac', 'M16 24L26 14L29 17L19 27Z'),
+  componentBudget: p('s1', 'M5 4H27V28H5Z') + p('bl', 'M8 8H24V12H8Z') + p('ln', 'M8 16H20M8 20H18M8 24H15') + p('fa', 'M21 17H26V25H21Z'),
+  componentRun: p('s3', 'M3 5H29V9H3Z') + p('s2', 'M4 10H11V20H4ZM12.5 10H19.5V20H12.5ZM21 10H28V20H21Z') + p('ac', 'M4 25H26') + p('fa', 'M29 25L24 22V28Z'),
   column: p('s2', 'M11 3H21V29H11Z') + p('s3', 'M8 26H24V29H8Z') + p('s3', 'M8 3H24V6H8Z'),
   beam: p('s2', 'M3 11H29V19H3Z') + p('s3', 'M3 19H29V23H3Z'),
   footing: p('s3', 'M4 22L16 28L28 22V25L16 31L4 25Z') + p('s2', 'M4 19L16 25L28 19V22L16 28L4 22Z') + p('s1', 'M4 19L16 25L28 19L16 13Z') + p('s3', 'M12 12V17H16V14H20V12Z') + p('s2', 'M12 12H16V17H12Z') + p('s1', 'M12 12L16 10L20 12V17H12Z'),

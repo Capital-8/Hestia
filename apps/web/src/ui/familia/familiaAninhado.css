@@ -1,0 +1,27 @@
+/* Lista de módulos aninhados do navegador da família e diálogo FamiliaAninhado (ficha ANIN-ui). */
+
+.fam-anin-li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fam-anin-li .fam-mut {
+  margin-left: auto;
+}
+
+.fam-anin-excluir {
+  font: inherit;
+  font-size: 11px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--ribbon);
+  color: var(--fg-soft);
+  cursor: pointer;
+}
+
+.fam-anin-excluir:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}

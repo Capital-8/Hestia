@@ -10,5 +10,5 @@ export const SHEET_TOOL_IDS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'm
 
 /** Ferramenta desativada nesta vista? (só a prancha restringe; no modelo tudo continua liberado) */
 export function toolDisabledOnSheet(view: ViewKind, tool: ToolId): boolean {
-  return view === 'sheet' && !SHEET_TOOL_IDS.has(tool);
+  return (view === 'sheet' || view === 'face') && !SHEET_TOOL_IDS.has(tool);
 }

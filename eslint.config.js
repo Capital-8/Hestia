@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', 'node_modules/**', 'test-results/**', 'tests/e2e/**', 'scripts/**', 'docs/revit_ui_reference/**', 'docs/**'] },
+  { ignores: ['**/dist/**', 'node_modules/**', 'test-results/**', 'tests/e2e/**', 'tests/perf/**/*.mjs', 'scripts/**', 'docs/revit_ui_reference/**', 'docs/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

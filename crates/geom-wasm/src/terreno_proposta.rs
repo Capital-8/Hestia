@@ -18,9 +18,9 @@ use crate::cena::Cena;
 use crate::esquema::ID_AUSENTE;
 use crate::geo2d::{v, V};
 use crate::terreno_avalia::Malha;
-use crate::terreno_regioes::{aplicar, assinaturas_regioes, definir_alcances, gemeos, regioes_do_terreno, sobreposicao, Regiao, ALCANCE_MIN};
+use crate::terreno_regioes::{aplicar, assinaturas_regioes, definir_alcances, gemeos, regioes_do_terreno, sobreposicao, Regiao, ALCANCE_MAX, ALCANCE_MIN};
 use crate::terreno_tin::triangular;
-use crate::terreno_tipos::{chave, existente, AvisoTerreno, Existente, AVISO_PRECISAO_REDUZIDA, AVISO_REGIAO_FORA, AVISO_REGIOES_SOBREPOSTAS, SEMENTE};
+use crate::terreno_tipos::{chave, existente, AvisoTerreno, Existente, AVISO_PRECISAO_REDUZIDA, AVISO_REGIAO_FORA, AVISO_REGIOES_SOBREPOSTAS, AVISO_TALUDE_NAO_ALCANCA, SEMENTE};
 use crate::terreno_volumes::Volumes;
 
 /// Valor de `regiao_do_triangulo` para "sem região".
@@ -361,7 +361,7 @@ pub fn calcular(ex: &Existente, mut regioes: Vec<Regiao>) -> Result<Proposta, u3
         let n = if regioes.is_empty() { e.t.len() } else { 0 };
         return Ok(Proposta { e: Rc::clone(e), malha: Rc::clone(e), regioes, regiao_do_triangulo: vec![SEM_REGIAO; n], avisos: Vec::new(), volumes: OnceCell::new() });
     }
-    definir_alcances(&mut regioes, e);
+    let curtos = definir_alcances(&mut regioes, e);
     let densos: Vec<Vec<V>> = regioes.iter().map(Regiao::contorno_denso).collect();
     let planas: Vec<usize> = (0..regioes.len()).filter(|&i| regioes[i].plana()).collect();
     let (mut a3, mut a4, mut a6) = (Vec::new(), Vec::new(), Vec::new());
@@ -442,7 +442,8 @@ pub fn calcular(ex: &Existente, mut regioes: Vec<Regiao>) -> Result<Proposta, u3
             regiao_do_ponto(&regioes, v((c[0][0] + c[1][0] + c[2][0]) / 3.0, (c[0][1] + c[1][1] + c[2][1]) / 3.0))
         })
         .collect();
-    let avisos = a3.into_iter().chain(a4).chain(a6).collect();
+    let a7: Vec<AvisoTerreno> = curtos.iter().map(|&(id, d)| aviso(AVISO_TALUDE_NAO_ALCANCA, id, ID_AUSENTE, d, ALCANCE_MAX, [0.0; 3])).collect();
+    let avisos = a3.into_iter().chain(a4).chain(a6).chain(a7).collect();
     Ok(Proposta { e: Rc::clone(e), malha: Rc::new(malha), regioes, regiao_do_triangulo, avisos, volumes: OnceCell::new() })
 }
 

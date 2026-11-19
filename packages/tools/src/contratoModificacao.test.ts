@@ -90,6 +90,13 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
+  component: { mover: null, colar: 'components', alinhar: null, motivo: 'o componente (móvel) NÃO entra em `selectedMovables`: o Selecionar o move pelo próprio arrasto (`ArrastoComponentes`, com encaixe na parede e nos vizinhos) e aplica as poses por `updateComponent`; entrar lá moveria duas vezes. Alinhar pelas arestas dele ainda não existe.' },
+  furniture: {
+    mover: 'selectedFurnitures',
+    colar: 'furnitures',
+    alinhar: null,
+    motivo: 'TODO: o móvel importado move, gira, espelha e copia pelo `transform` (Mover, Girar, Espelhar, Copiar, Matriz), cola por Ctrl+C/Ctrl+V (o bloco viaja no buffer) e se edita nas Propriedades; o Alinhar não tem linhas dele.',
+  },
 };
 
 /**
@@ -135,6 +142,8 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   column: { mover: 'isColumn', alinhar: 'isColumn', previa: 'movidos' },
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
+  component: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o componente ainda não aparece como peça movível no corte e na elevação (o desenho do corte o mostra, mas mover pela vista não existe).' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o corte e a elevação já desenham o móvel importado (silhueta e região cortada, `sectionFurniture.ts`, com `furnitureId` na origem), mas Mover, Alinhar e a prévia da vista ainda não o tratam.' },
 };
 
 /**
@@ -241,6 +250,7 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
         beam: 'isBeam',
         footing: 'isFooting',
         mass: 'transformMass',
+        furniture: 'transformFurniture',
       }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);

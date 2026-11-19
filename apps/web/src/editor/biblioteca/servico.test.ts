@@ -11,6 +11,11 @@ import type { PortaBiblioteca } from './porta.ts';
 class PortaMemoria implements PortaBiblioteca {
   readonly origem = 'navegador' as const;
   readonly pastas = new Map<string, { conteudo: string; modificadoEm: string }>();
+  /** Outros locais (fora da raiz), por id. */
+  readonly externas = new Map<PastaId, Map<string, { conteudo: string; modificadoEm: string }>>();
+  /** Quando preenchido, `renomear` falha com esta mensagem (pasta aberta em outro programa). */
+  falhaRenomear: string | null = null;
+  destinoEscolhido: PastaId | null = '/Outro';
   indiceTexto: string | null = null;
   raiz: PastaId | null = null;
   precisaPermissao = false;
@@ -39,20 +44,42 @@ class PortaMemoria implements PortaBiblioteca {
     return this.indiceTexto;
   }
 
-  async listarPastas(): Promise<Array<{ pasta: string; modificadoEm: string }>> {
-    return [...this.pastas].map(([pasta, v]) => ({ pasta, modificadoEm: v.modificadoEm }));
+  private deRaiz(raiz: PastaId): Map<string, { conteudo: string; modificadoEm: string }> {
+    if (raiz === '/Hestia') return this.pastas;
+    let m = this.externas.get(raiz);
+    if (!m) this.externas.set(raiz, (m = new Map()));
+    return m;
   }
 
-  async ler(_raiz: PastaId, pasta: string): Promise<string> {
-    const arquivo = this.pastas.get(pasta);
+  async renomear(raiz: PastaId, de: string, para: string): Promise<void> {
+    const pastas = this.deRaiz(raiz);
+    if (this.falhaRenomear) throw new Error(this.falhaRenomear);
+    if (pastas.has(para)) throw new Error('destino existe');
+    const v = pastas.get(de);
+    if (!v) throw new Error('origem não existe');
+    pastas.delete(de);
+    pastas.set(para, v);
+  }
+
+  async escolherDestino(): Promise<PastaId | null> {
+    return this.destinoEscolhido;
+  }
+
+  async listarPastas(raiz: PastaId): Promise<Array<{ pasta: string; modificadoEm: string }>> {
+    return [...this.deRaiz(raiz)].map(([pasta, v]) => ({ pasta, modificadoEm: v.modificadoEm }));
+  }
+
+  async ler(raiz: PastaId, pasta: string): Promise<string> {
+    const arquivo = this.deRaiz(raiz).get(pasta);
     if (!arquivo) throw new Error('não existe');
     return arquivo.conteudo;
   }
 
-  async gravar(_raiz: PastaId, doc: DocumentoParaGravar): Promise<ProjetoGravado> {
-    const pastaNova = !this.pastas.has(doc.pasta);
+  async gravar(raiz: PastaId, doc: DocumentoParaGravar): Promise<ProjetoGravado> {
+    const pastas = this.deRaiz(raiz);
+    const pastaNova = !pastas.has(doc.pasta);
     const modificadoEm = this.agora();
-    this.pastas.set(doc.pasta, { conteudo: doc.conteudo, modificadoEm });
+    pastas.set(doc.pasta, { conteudo: doc.conteudo, modificadoEm });
     return { pastaNova, projeto: { pasta: doc.pasta, nome: doc.nome, modificadoEm, miniatura: doc.miniatura, bytes: doc.conteudo.length } };
   }
 
@@ -187,4 +214,112 @@ describe('serviço da biblioteca', () => {
     expect(liberado.precisaPermissao).toBe(false);
     expect(liberado.projetos.map((p) => p.pasta)).toEqual(['Casa']);
   });
+  describe('pasta acompanha o nome do projeto', () => {
+    const doc = (pasta: string | null, nome: string, conteudo = '{}') => ({ pasta, nome, conteudo, miniatura: MINI });
+
+    async function aberta(): Promise<{ porta: PortaMemoria; biblioteca: Biblioteca }> {
+      const porta = new PortaMemoria();
+      const biblioteca = new Biblioteca(porta);
+      await biblioteca.escolher();
+      return { porta, biblioteca };
+    }
+
+    it('renomeia a pasta quando o nome muda e atualiza o índice (sem duplicar a antiga)', async () => {
+      const { porta, biblioteca } = await aberta();
+      const primeiro = await biblioteca.salvar(doc(null, 'Projeto sem título'));
+      expect(primeiro.projeto.pasta).toBe('Projeto sem título');
+      const r = await biblioteca.salvar(doc(primeiro.projeto.pasta, 'teste', '{"v":2}'));
+      expect(r.renomeadoDe).toBe('Projeto sem título');
+      expect(r.projeto.pasta).toBe('teste');
+      expect([...porta.pastas.keys()]).toEqual(['teste']);
+      expect(porta.pastas.get('teste')?.conteudo).toBe('{"v":2}');
+      expect(biblioteca.estado.projetos.map((p) => [p.pasta, p.nome])).toEqual([['teste', 'teste']]);
+      expect(lerIndice(porta.indiceTexto ?? '', '/Hestia').projetos.map((p) => p.pasta)).toEqual(['teste']);
+    });
+
+    it('não renomeia quando a pasta já corresponde ao nome (inclusive com sufixo de duplicata)', async () => {
+      const { porta, biblioteca } = await aberta();
+      await biblioteca.salvar(doc(null, 'Casa'));
+      const segunda = await biblioteca.salvar(doc(null, 'Casa'));
+      expect(segunda.projeto.pasta).toBe('Casa (2)');
+      const r = await biblioteca.salvar(doc('Casa (2)', 'Casa'));
+      expect(r.renomeadoDe).toBeUndefined();
+      expect(r.projeto.pasta).toBe('Casa (2)');
+      expect([...porta.pastas.keys()].sort()).toEqual(['Casa', 'Casa (2)']);
+    });
+
+    it('colisão: o nome novo já é de outro projeto, então recebe (2)', async () => {
+      const { porta, biblioteca } = await aberta();
+      await biblioteca.salvar(doc(null, 'teste'));
+      const outro = await biblioteca.salvar(doc(null, 'rascunho'));
+      const r = await biblioteca.salvar(doc(outro.projeto.pasta, 'teste'));
+      expect(r.projeto.pasta).toBe('teste (2)');
+      expect([...porta.pastas.keys()].sort()).toEqual(['teste', 'teste (2)']);
+    });
+
+    it('nome com caracteres inválidos vira nome de pasta seguro', async () => {
+      const { biblioteca } = await aberta();
+      const a = await biblioteca.salvar(doc(null, 'x'));
+      const r = await biblioteca.salvar(doc(a.projeto.pasta, 'Casa: 2/3?'));
+      expect(r.projeto.pasta).toBe('Casa 2 3');
+    });
+
+    it('falha ao renomear: o projeto foi gravado na pasta antiga, que continua no índice', async () => {
+      const { porta, biblioteca } = await aberta();
+      const a = await biblioteca.salvar(doc(null, 'Projeto sem título'));
+      porta.falhaRenomear = 'EBUSY';
+      const r = await biblioteca.salvar(doc(a.projeto.pasta, 'teste', '{"v":3}'));
+      expect(r.renomearFalhou).toBe(true);
+      expect(r.projeto.pasta).toBe('Projeto sem título');
+      expect(porta.pastas.get('Projeto sem título')?.conteudo).toBe('{"v":3}');
+      expect(biblioteca.estado.projetos.map((p) => p.pasta)).toEqual(['Projeto sem título']);
+      // Liberada a pasta, o salvamento seguinte renomeia.
+      porta.falhaRenomear = null;
+      const r2 = await biblioteca.salvar(doc(r.projeto.pasta, 'teste', '{"v":4}'));
+      expect(r2.projeto.pasta).toBe('teste');
+      expect([...porta.pastas.keys()]).toEqual(['teste']);
+    });
+  });
+
+  describe('salvar em outro local', () => {
+    const doc = (pasta: string | null, nome: string, conteudo = '{}') => ({ pasta, nome, conteudo, miniatura: MINI });
+
+    it('grava no local escolhido sem tocar a raiz nem o índice, e as próximas gravações ficam lá', async () => {
+      const porta = new PortaMemoria();
+      const biblioteca = new Biblioteca(porta);
+      await biblioteca.escolher();
+      const naRaiz = await biblioteca.salvar(doc(null, 'Casa', '{"v":1}'));
+      const fora = await biblioteca.salvarEm('/Outro', doc(null, 'Casa', '{"v":2}'));
+      expect(fora.projeto.pasta).toBe('Casa');
+      expect(porta.externas.get('/Outro')?.get('Casa')?.conteudo).toBe('{"v":2}');
+      // A cópia da raiz não mudou e o índice continua com uma única entrada.
+      expect(porta.pastas.get(naRaiz.projeto.pasta)?.conteudo).toBe('{"v":1}');
+      expect(biblioteca.estado.projetos.map((p) => p.pasta)).toEqual(['Casa']);
+      // Regravar (e renomear) no local novo.
+      const deNovo = await biblioteca.salvarEm('/Outro', doc(fora.projeto.pasta, 'Sobrado', '{"v":3}'));
+      expect(deNovo.projeto.pasta).toBe('Sobrado');
+      expect([...(porta.externas.get('/Outro')?.keys() ?? [])]).toEqual(['Sobrado']);
+      expect(porta.pastas.get('Casa')?.conteudo).toBe('{"v":1}');
+      expect(biblioteca.estado.projetos.map((p) => p.pasta)).toEqual(['Casa']);
+    });
+
+    it('nome repetido no local novo ganha (2) em vez de sobrescrever', async () => {
+      const porta = new PortaMemoria();
+      const biblioteca = new Biblioteca(porta);
+      await biblioteca.escolher();
+      await biblioteca.salvarEm('/Outro', doc(null, 'Casa'));
+      const r = await biblioteca.salvarEm('/Outro', doc(null, 'Casa'));
+      expect(r.projeto.pasta).toBe('Casa (2)');
+    });
+
+    it('escolher a própria raiz equivale a salvar na biblioteca (indexa)', async () => {
+      const porta = new PortaMemoria();
+      const biblioteca = new Biblioteca(porta);
+      await biblioteca.escolher();
+      await biblioteca.salvarEm('/Hestia', doc(null, 'Casa'));
+      expect(biblioteca.estado.projetos.map((p) => p.pasta)).toEqual(['Casa']);
+      expect(porta.externas.size).toBe(0);
+    });
+  });
+
 });

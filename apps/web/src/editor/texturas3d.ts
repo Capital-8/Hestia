@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { mapasDaTextura, type MapaResolvido } from '@hestia/io';
 import { prepararMapa, type MapasTextura3D, type TexturasProvedor3D } from '@hestia/render';
 import { aoCarregarCatalogo, baseAtual, carregarCatalogo, catalogoEmCache, itemDoCatalogo } from './texturasOnline.ts';
+import { obterTexturaProcedural } from './texturasProcedurais3d.ts';
+
+/** Prefixo de textura básica empacotada localmente em `/texturas-basicas/<id>.webp`. */
+export const PREFIXO_BASICA = 'basica:';
 
 type Estado = { fase: 'carregando' } | { fase: 'erro' } | { fase: 'ok'; mapas: MapasTextura3D };
 
@@ -29,6 +33,18 @@ export class TexturasApp3D implements TexturasProvedor3D {
   }
 
   obter(imagemId: string): MapasTextura3D | undefined {
+    if (imagemId.startsWith('proc:')) return obterTexturaProcedural(imagemId);
+    if (imagemId.startsWith(PREFIXO_BASICA)) {
+      const e = this.estados.get(imagemId);
+      if (e) return e.fase === 'ok' ? e.mapas : undefined;
+      const id = imagemId.slice(PREFIXO_BASICA.length);
+      if (!id) return undefined;
+      this.estados.set(imagemId, { fase: 'carregando' });
+      const baseUrl = typeof import.meta.env?.BASE_URL === 'string' ? import.meta.env.BASE_URL : '/';
+      const uri = `${baseUrl.replace(/\/+$/, '')}/texturas-basicas/${id}.webp`;
+      this.baixar(imagemId, [{ slot: 'color', textureId: `${id}:color`, caminho: uri, uri, mime: 'image/jpeg', hash: id }]);
+      return undefined;
+    }
     const e = this.estados.get(imagemId);
     if (e) return e.fase === 'ok' ? e.mapas : undefined;
     const base = baseAtual();

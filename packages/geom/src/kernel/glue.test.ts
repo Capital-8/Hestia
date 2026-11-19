@@ -10,6 +10,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
+import { generateSlatStrips } from '../faceArt.ts';
 import { multiArea, type MultiPolygon } from '../polygon.ts';
 import {
   TAMANHO_MAXIMO_ENTRADA,
@@ -191,5 +192,37 @@ suiteComGeometria('geometria pronta', () => {
     desativarKernelExperimental();
     expect(estadoKernel().ativo).toBe(false);
     expect(estadoKernel().motivo).toBe('desligado pelo usuário');
+  });
+
+  it('ripas via wasm gera tiras válidas em retângulo 2×1 e integra com generateSlatStrips', async () => {
+    if (implWasm === null || bytesWasm === null) throw new Error('impl indisponível');
+    if (typeof implWasm.ripas !== 'function') throw new Error('implWasm.ripas ausente');
+    const regiao: MultiPolygon = [
+      [
+        [
+          { x: 0, y: 0 },
+          { x: 2, y: 0 },
+          { x: 2, y: 1 },
+          { x: 0, y: 1 },
+        ],
+      ],
+    ];
+    const tirasWasm = implWasm.ripas(regiao, 0.05, 0.05, 0);
+    expect(tirasWasm.length).toBeGreaterThanOrEqual(10);
+    const areaWasm = tirasWasm.reduce((s, m) => s + multiArea(m), 0);
+    expect(areaWasm).toBeCloseTo(1.0, 2);
+
+    resetarEstadoKernel();
+    await ativarKernelExperimental({ bytes: bytesWasm });
+    const tirasApi = generateSlatStrips(regiao, {
+      width: 0.05,
+      gap: 0.05,
+      depth: 0.02,
+      angleDeg: 0,
+      slatMaterialId: 'mat_wood',
+    });
+    expect(tirasApi.length).toBe(tirasWasm.length);
+    const areaApi = tirasApi.reduce((s, m) => s + multiArea(m), 0);
+    expect(areaApi).toBeCloseTo(1.0, 2);
   });
 });

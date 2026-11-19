@@ -1,6 +1,7 @@
 import { PT_TERRENO_PROPS, EN_TERRENO_PROPS, ES_TERRENO_PROPS, DE_TERRENO_PROPS, FR_TERRENO_PROPS, IT_TERRENO_PROPS, PL_TERRENO_PROPS } from './terreno-props.ts';
 import { PT_TERRENO_UI, EN_TERRENO_UI, ES_TERRENO_UI, DE_TERRENO_UI, FR_TERRENO_UI, IT_TERRENO_UI, PL_TERRENO_UI } from './terreno-ui.ts';
 import { PT_TERRENO_FAMILIAS, EN_TERRENO_FAMILIAS, ES_TERRENO_FAMILIAS, DE_TERRENO_FAMILIAS, FR_TERRENO_FAMILIAS, IT_TERRENO_FAMILIAS, PL_TERRENO_FAMILIAS } from './terreno-familias.ts';
+import { PT_TERRENO_TIPO, EN_TERRENO_TIPO, ES_TERRENO_TIPO, DE_TERRENO_TIPO, FR_TERRENO_TIPO, IT_TERRENO_TIPO, PL_TERRENO_TIPO } from './terreno-tipo.ts';
 
 /* Textos da importação de levantamento do terreno (ficha I1). Chaves ui_tn_imp_*. Sete idiomas; a paridade é garantida pelo tipo. */
 const PT_IMP = {
@@ -312,10 +313,10 @@ const PL_IMP: Record<keyof typeof PT_IMP, string> = {
 };
 
 /** Dicionário do terreno: importação (acima), propriedades (`terreno-props.ts`) e localização, opções e navegador (`terreno-ui.ts`). */
-export const PT_TERRENO = { ...PT_IMP, ...PT_TERRENO_PROPS, ...PT_TERRENO_UI, ...PT_TERRENO_FAMILIAS } as const;
-export const EN_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...EN_IMP, ...EN_TERRENO_PROPS, ...EN_TERRENO_UI, ...EN_TERRENO_FAMILIAS };
-export const ES_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...ES_IMP, ...ES_TERRENO_PROPS, ...ES_TERRENO_UI, ...ES_TERRENO_FAMILIAS };
-export const DE_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...DE_IMP, ...DE_TERRENO_PROPS, ...DE_TERRENO_UI, ...DE_TERRENO_FAMILIAS };
-export const FR_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...FR_IMP, ...FR_TERRENO_PROPS, ...FR_TERRENO_UI, ...FR_TERRENO_FAMILIAS };
-export const IT_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...IT_IMP, ...IT_TERRENO_PROPS, ...IT_TERRENO_UI, ...IT_TERRENO_FAMILIAS };
-export const PL_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...PL_IMP, ...PL_TERRENO_PROPS, ...PL_TERRENO_UI, ...PL_TERRENO_FAMILIAS };
+export const PT_TERRENO = { ...PT_IMP, ...PT_TERRENO_PROPS, ...PT_TERRENO_UI, ...PT_TERRENO_FAMILIAS, ...PT_TERRENO_TIPO } as const;
+export const EN_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...EN_IMP, ...EN_TERRENO_PROPS, ...EN_TERRENO_UI, ...EN_TERRENO_FAMILIAS, ...EN_TERRENO_TIPO };
+export const ES_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...ES_IMP, ...ES_TERRENO_PROPS, ...ES_TERRENO_UI, ...ES_TERRENO_FAMILIAS, ...ES_TERRENO_TIPO };
+export const DE_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...DE_IMP, ...DE_TERRENO_PROPS, ...DE_TERRENO_UI, ...DE_TERRENO_FAMILIAS, ...DE_TERRENO_TIPO };
+export const FR_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...FR_IMP, ...FR_TERRENO_PROPS, ...FR_TERRENO_UI, ...FR_TERRENO_FAMILIAS, ...FR_TERRENO_TIPO };
+export const IT_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...IT_IMP, ...IT_TERRENO_PROPS, ...IT_TERRENO_UI, ...IT_TERRENO_FAMILIAS, ...IT_TERRENO_TIPO };
+export const PL_TERRENO: Record<keyof typeof PT_TERRENO, string> = { ...PL_IMP, ...PL_TERRENO_PROPS, ...PL_TERRENO_UI, ...PL_TERRENO_FAMILIAS, ...PL_TERRENO_TIPO };

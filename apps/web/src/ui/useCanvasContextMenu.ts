@@ -1,17 +1,20 @@
 import { create } from 'zustand';
-import type { Id } from '@hestia/model';
-import { selectedTypeId, type ToolId } from '@hestia/tools';
+import { isFacePaintableElement, isWall, type Id } from '@hestia/model';
+import { selectedTypeId, type ToolEnv, type ToolId } from '@hestia/tools';
 import { editor } from '../editor/controller.ts';
 import { perimeterActions } from '../editor/perimeter.ts';
 import { buildContextMenu, type ContextMenuCtx, type MenuEntry, type MenuView } from '../editor/contextMenu.ts';
 import { useI18n, toolLabel } from '../editor/i18n.ts';
 import { repeatLast, selectPrevious, useRecent } from '../editor/recentCommands.ts';
 import { clickSelect3d, useUi } from '../editor/state.ts';
+import { activateView, openFaceStudioTab } from '../editor/viewTabActions.ts';
 import { transfer } from '../editor/transfer.ts';
 import { hideSelectedCategoryInView, hideSelectionInView, revealActive, selectedCategories, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from '../editor/viewVisibility.ts';
 import { annotationTypeOf, selectedAnnotations } from '../editor/viewAnnotations.ts';
 import { startCreateSimilar } from '../editor/createSimilar.ts';
 import { comEditarPerimetro, EDITAR_PERIMETRO_ID, idPerimetroEditavel } from './perimeter/perimeterEditavel.ts';
+import { componentesDaSelecao } from './componentPropAcoes.ts';
+import { comComponente, executarComandoDeComponente, PREFIXO_COMPONENTE } from './componenteMenu.ts';
 
 /** Menu aberto: posição na tela, o contexto em que foi montado e as entradas. */
 export interface CanvasMenu {
@@ -74,7 +77,10 @@ export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | unde
   const ctx = contextoAtual(view);
   const noVazio = alvo === null ? { ...ctx, hasSelection: false, selectionKinds: [], singleType: false, canCopy: false } : ctx;
   const editavel = noVazio.hasSelection && idPerimetroEditavel(editor.project, useUi.getState().selection) !== null;
-  useCanvasMenu.setState({ menu: { x, y, ctx: noVazio, items: comEditarPerimetro(buildContextMenu(noVazio), noVazio.lang, editavel) } });
+  const itens = comEditarPerimetro(buildContextMenu(noVazio), noVazio.lang, editavel);
+  const componentes = componentesDaSelecao(editor.project, useUi.getState().selection);
+  const comComp = comComponente(itens, noVazio, noVazio.lang, componentes, editor.project.componentFamilies);
+  useCanvasMenu.setState({ menu: { x, y, ctx: noVazio, items: comComp } });
 }
 
 export function fecharMenuDeContexto(): void {
@@ -93,9 +99,27 @@ function editarPerimetroSelecionado(): void {
   if (id) perimeterActions.edit(id);
 }
 
+/** Ambiente das ações de componente do menu: lê a seleção e grava comandos pelo histórico (como a faixa de conjunto). */
+function envDeComponente(): ToolEnv {
+  return {
+    project: () => editor.project,
+    levelId: () => useUi.getState().levelId,
+    selection: () => useUi.getState().selection,
+    setSelection: (ids) => useUi.setState({ selection: ids }),
+    exec: (c) => editor.store.exec(c),
+    transaction: (label, fn, session) => editor.store.transaction(label, fn, session),
+    metersPerPixel: () => 1,
+    gridStep: () => useUi.getState().gridStep,
+    say: (m) => useUi.setState({ status: m }),
+    done: () => editor.setTool('select'),
+    options: () => useUi.getState().options,
+  };
+}
+
 /** Executa o comando de uma entrada. Entradas desabilitadas ("ainda não disponível") não chegam aqui. */
 export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3dMenu, centro: { x: number; y: number }): void {
   if (id.startsWith('recent:')) { editor.setTool(id.slice('recent:'.length) as ToolId); return; }
+  if (id.startsWith(PREFIXO_COMPONENTE)) { executarComandoDeComponente(id, envDeComponente()); return; }
   switch (id) {
     case 'repeat': repeatLast(); return;
     case 'cancel':
@@ -132,6 +156,33 @@ export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3
     case 'isolateCategory': temporarySelectedCategory(true); return;
     case 'revealHidden': toggleRevealHidden(); return;
     case EDITAR_PERIMETRO_ID: editarPerimetroSelecionado(); return;
+    case 'faceStudio': {
+      const sel = useUi.getState().selection;
+      if (sel.length !== 1) return;
+      const el = editor.project.elements[sel[0]!];
+      if (!isFacePaintableElement(el)) return;
+      openFaceStudioTab(el.id, isWall(el) ? 'sideExt' : 'top', 'all');
+      return;
+    }
+    case 'facePaint3d': {
+      if (useUi.getState().view !== '3d') activateView({ kind: '3d' });
+      editor.setTool('select');
+      useUi.setState((s) => ({ facePaint: { ...s.facePaint, active: true, mode: 'paint', hoverHit: null } }));
+      return;
+    }
+    case 'clearFacePaints': {
+      const sel = useUi.getState().selection;
+      if (sel.length !== 1) return;
+      const el = editor.project.elements[sel[0]!];
+      if (!isFacePaintableElement(el) || !el.facePaints?.length) return;
+      const entries = el.facePaints;
+      editor.store.transaction('edc_ctx_clear_face_paints', () => {
+        for (const entry of entries) {
+          editor.store.exec({ type: 'removeFacePaint', elementId: el.id, face: entry.face, layer: entry.layer });
+        }
+      });
+      return;
+    }
     default:
   }
 }

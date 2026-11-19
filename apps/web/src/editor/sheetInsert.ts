@@ -1,4 +1,3 @@
-import { computeSection } from '@hestia/engine';
 import {
   areaPlanOf,
   levelGraphicsOf,
@@ -16,7 +15,7 @@ import {
   type SheetViewport,
   type SheetViewSource,
 } from '@hestia/model';
-import { levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
+import { computeSectionCached, levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
 import { t, useI18n } from './i18n.ts';
 import { defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
 
@@ -72,7 +71,7 @@ export function contentSizeMm(p: Project, view: SheetViewSource, scale: number):
     const section = p.views.find((v) => v.id === view.sectionId);
     if (!section) return fallbackSize(view);
     const pts = sectionPoints(p, section);
-    const box = sectionBox(computeSection(p, { a: pts.a, b: pts.b, depth: section.depth }));
+    const box = sectionBox(computeSectionCached(p, { a: pts.a, b: pts.b, depth: section.depth }));
     return {
       w: (box.maxX - box.minX + SECTION_PADDING_M) * mmPerM,
       h: (box.maxY - box.minY + SECTION_PADDING_M) * mmPerM,
@@ -104,6 +103,31 @@ type Rect = { x: number; y: number; w: number; h: number };
 const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /**
+ * Primeiro lugar livre para uma caixa nova na prancha, com 10 mm de afastamento das vistas existentes (e das já
+ * planejadas) e sem tocar o carimbo; null se não houver. É o que a inserção em lote e a prévia da janela usam.
+ */
+export function freeSpotFor(sheet: Sheet, planned: readonly SheetViewport[], size: Size): { x: number; y: number } | null {
+  const inner = sheetInnerBox(sheet);
+  const stamp: Rect = { x: inner.x1 - STAMP_W, y: inner.y0, w: STAMP_W, h: STAMP_H };
+  // As vistas já planejadas entram como obstáculos crescidos: é o que garante os 10 mm entre elas.
+  const obstacles = [...sheet.viewports, ...planned].map((v) => ({
+    ...v,
+    at: { x: v.at.x - SPACING_MM, y: v.at.y - SPACING_MM },
+    size: { w: v.size.w + SPACING_MM * 2, h: v.size.h + SPACING_MM * 2 },
+  }));
+  const at = freeSpot({ ...sheet, viewports: obstacles }, size);
+  const rect: Rect = { x: at.x, y: at.y, w: size.w, h: size.h };
+  const fits =
+    at.x >= inner.x0 - 1e-6 &&
+    at.y >= inner.y0 - 1e-6 &&
+    at.x + size.w <= inner.x1 + 1e-6 &&
+    at.y + size.h <= inner.y1 + 1e-6 &&
+    !overlaps(rect, stamp) &&
+    !obstacles.some((o) => overlaps(rect, { x: o.at.x, y: o.at.y, w: o.size.w, h: o.size.h }));
+  return fits ? at : null;
+}
+
+/**
  * Insere várias vistas na prancha num único passo de desfazer, cada uma no primeiro lugar livre com 10 mm de
  * afastamento (da esquerda para a direita, de baixo para cima). Sem escala, escolhe a maior que cabe. Se alguma não
  * couber, lança erro no idioma ativo antes de gravar qualquer coisa.
@@ -114,7 +138,6 @@ export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertReq
   if (!sheet) throw new Error(t(lang, 'cvs_sheet_missing_err'));
   const inner = sheetInnerBox(sheet);
   const innerSize = { w: inner.x1 - inner.x0, h: inner.y1 - inner.y0 };
-  const stamp: Rect = { x: inner.x1 - STAMP_W, y: inner.y0, w: STAMP_W, h: STAMP_H };
 
   // Planeja tudo antes de gravar: ou entram todas as vistas, ou nenhuma.
   const planned: SheetViewport[] = [];
@@ -127,22 +150,9 @@ export function addViewsAction(store: ProjectStore, sheetId: Id, reqs: InsertReq
     if (!(size.w <= innerSize.w + 1e-6 && size.h <= innerSize.h + 1e-6)) {
       throw new Error(t(lang, 'cvs_view_does_not_fit', { n: i + 1 }));
     }
-    // As vistas já planejadas entram como obstáculos crescidos: é o que garante os 10 mm entre elas.
-    const obstacles = [...sheet.viewports, ...planned].map((v) => ({
-      ...v,
-      at: { x: v.at.x - SPACING_MM, y: v.at.y - SPACING_MM },
-      size: { w: v.size.w + SPACING_MM * 2, h: v.size.h + SPACING_MM * 2 },
-    }));
-    const at = freeSpot({ ...sheet, viewports: obstacles }, size);
-    const rect: Rect = { x: at.x, y: at.y, w: size.w, h: size.h };
-    const fits =
-      at.x >= inner.x0 - 1e-6 &&
-      at.y >= inner.y0 - 1e-6 &&
-      at.x + size.w <= inner.x1 + 1e-6 &&
-      at.y + size.h <= inner.y1 + 1e-6 &&
-      !overlaps(rect, stamp) &&
-      !obstacles.some((o) => overlaps(rect, { x: o.at.x, y: o.at.y, w: o.size.w, h: o.size.h }));
-    if (!fits) throw new Error(t(lang, 'cvs_view_does_not_fit', { n: i + 1 }));
+    const spot = freeSpotFor(sheet, planned, size);
+    if (!spot) throw new Error(t(lang, 'cvs_view_does_not_fit', { n: i + 1 }));
+    const at = spot;
     planned.push({ id: newViewportId(), view: req.view, at, size, scale });
   }
 

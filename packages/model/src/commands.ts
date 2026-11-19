@@ -10,6 +10,7 @@ import {
   isOpening,
   isWall,
   isRoom,
+  isComponent,
   isGeneric,
   isColumn,
   isBeam,
@@ -100,6 +101,8 @@ import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts'
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
+import { ajustarLinhasDeGrupos, applyComponentCommand, removerMembrosExcluidos, type ComponentCommand } from './componentCommands.ts';
+import { transformComponent } from './componentes.ts';
 import { applyViewCommand } from './viewCommands.ts';
 import { applyCeilingCommand } from './ceilingCommands.ts';
 import { applyPluginContentCommand, type PluginContentCommand } from './pluginContentCommands.ts'; // SUPLEMENTOS:
@@ -110,6 +113,7 @@ import { isTerrain, isTerrainRegion, transformTerrain, transformTerrainRegion } 
 import { isLot, transformLot } from './lot.ts';
 import type { Localizacao } from './localizacao.ts';
 import type { OpTerreno, Terrain, TerrainRegion } from './terrainTypes.ts';
+import type { TerrainType } from './terrainTipo.ts';
 import type { Lot } from './lotTypes.ts';
 import { applyMassCommand } from './massCommands.ts';
 import { isMass, transformMass } from './mass.ts';
@@ -125,6 +129,9 @@ import type { PerfilNorma } from './guardaCorpoNorma.ts';
 import { applyRoomCommand } from './roomCommands.ts';
 import { applyOutlineCommand } from './outlineCommands.ts';
 import { applyCopyLinkCommand } from './copyLinkCommands.ts';
+import { applyFurnitureCommand, type FurnitureCommand } from './furniture/commands.ts';
+import { isFurniture, transformFurniture } from './furniture/geometry.ts';
+import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
@@ -171,7 +178,9 @@ export type Command =
   | { type: 'setNormaGuardaCorpo'; id: Id }
   // Terreno, região de terreno, lote e localização (A.3 item 4): tratados em terrainCommands.ts e lotCommands.ts; apagar usa `deleteElements`.
   | { type: 'addTerrain'; terrain: Omit<Terrain, 'order'> }
-  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color' | 'rotuloFamilyId' | 'cotadoFamilyId'>> }
+  | { type: 'updateTerrain'; id: Id; patch: Partial<Pick<Terrain, 'name' | 'levelId' | 'intervaloCurvas' | 'mestraCada' | 'espessuraBase' | 'mostrarExistente' | 'materialId' | 'color' | 'rotuloFamilyId' | 'cotadoFamilyId'>> & { tipoId?: Id | null } }
+  | { type: 'upsertTerrainType'; tipo: TerrainType }
+  | { type: 'removeTerrainType'; id: Id }
   | { type: 'editTerrainFontes'; terrenoId: Id; ops: OpTerreno[] }
   | { type: 'addTerrainRegion'; regiao: Omit<TerrainRegion, 'order'> }
   | { type: 'updateTerrainRegion'; id: Id; patch: Partial<Omit<TerrainRegion, 'id' | 'kind' | 'order' | 'contorno' | 'terrenoId'>> }
@@ -238,7 +247,9 @@ export type Command =
   | View3DPointCommand
   | PluginDataCommand
   | PluginContentCommand // SUPLEMENTOS:
+  | FurnitureCommand
   | GridCommand
+  | ComponentCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
@@ -298,6 +309,7 @@ export type Command =
   | { type: 'removeRoomCategory'; id: Id }
   | { type: 'upsertColorScheme'; scheme: ColorScheme }
   | { type: 'removeColorScheme'; id: Id }
+  | FacePaintCommand
   | ({ type: 'setElementLevel' } & SetElementLevel)
   | StructuralCommand;
 function transformWall(w: Wall, t: Transform, copy = false): Wall {
@@ -319,6 +331,7 @@ function removeIds(p: Project, ids: Id[]): void {
   for (const e of Object.values(p.elements)) if (isTerrainRegion(e) && doomed.has(e.terrenoId)) doomed.add(e.id);
   unlinkFootingsOfDeletedColumns(p, doomed);
   for (const id of doomed) delete p.elements[id];
+  removerMembrosExcluidos(p, doomed);
 }
 /**
  * Ids novos dos componentes do croqui na cópia, com os mesmos prefixos do Copiar/Colar (escada 'r'/'p', rampa 'rc').
@@ -353,6 +366,7 @@ function transformEach<E extends Element>(
 
 function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }>): void {
   const idMap = c.copy?.idMap;
+  if (!idMap) ajustarLinhasDeGrupos(p, c.ids, c.transform);
   transformEach(p, c, isRoof, transformRoof);
   transformEach(p, c, isTerrain, transformTerrain);
   transformEach(p, c, isTerrainRegion, transformTerrainRegion);
@@ -362,6 +376,9 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isRamp, transformRamp, (r) => remintComponents(r, (prefix) => newId(prefix)));
   transformEach(p, c, isSlab, (s, t) => transformSlab(s, t, !!c.copy?.idMap));
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
+  // A cópia de um componente nasce solta: o conjunto do original não a conhece (`membros`), então o `groupId` não pode ir junto.
+  transformEach(p, c, isFurniture, transformFurniture);
+  transformEach(p, c, isComponent, transformComponent, ({ groupId: _grupo, ...solto }) => solto);
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
   transformEach(p, c, isColumn, transformColumn);
@@ -443,7 +460,7 @@ export function applyCommand(p: Project, c: Command, lang: Lang = 'pt'): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyTerrainCommand(p, c, lang) || applyLotCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyFacePaintCommand(p, c) || applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyTerrainCommand(p, c, lang) || applyLotCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyFurnitureCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall': {
       if (c.wall.tilt !== undefined) {
@@ -727,6 +744,16 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'removeView3DPoint':
     case 'setView3DPointOrder':
       applyView3DPointCommand(p, c, lang);
+      break;
+    case 'addComponent':
+    case 'updateComponent':
+    case 'upsertFamily':
+    case 'deleteFamily':
+    case 'upsertComponentGroup':
+    case 'deleteComponentGroup':
+    case 'moveComponentGroup':
+    case 'rotateComponentGroup':
+      applyComponentCommand(p, c);
       break;
     case 'addGrid':
     case 'updateGrid':

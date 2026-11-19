@@ -1,10 +1,12 @@
 import { add, arcFromSagitta, arcPointAt, arcTangentAt, cross, dist, equal, intersectCircleLine, intersectCircles, len, mul, norm, ringArea, sub, type SketchSeg, type Vec2 } from '@hestia/geom';
 import type { Roof } from '@hestia/model';
-import { eaveProblem } from './roofGeom.ts';
+import { eaveProblem, fillBevelNormals, MITER_LIMIT } from './roofGeom.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
 /** Flecha menor que isto (m) é reta: o ajuste de arcos também não enxerga abaulamento abaixo de ~3 mm. */
 const MIN_SAG = 1e-3;
+/** Produto das normais vizinhas abaixo do qual o canto é uma cúspide (a aresta volta pelo mesmo caminho, ~1,6°). */
+const CUSP_DOT = -0.9999;
 /** Erro de corda (m) ao amostrar um arco de volta para o esboço; abaixo de `ARC_TOL` de perimeterArcFit. */
 const SAMPLE_TOL = 0.002;
 
@@ -87,15 +89,21 @@ function arcEndNormals(ring: Vec2[], sag: number[]): Array<{ start: Vec2; end: V
   const ccw = isCcw(ring);
   // Normal para fora na ponta da aresta: à direita do percurso no anel anti-horário, à esquerda no horário.
   const outward = (t: Vec2): Vec2 => (ccw ? { x: t.y, y: -t.x } : { x: -t.y, y: t.x });
-  return ring.map((a, i) => {
+  const ends = ring.map((a, i) => {
     const b = ring[(i + 1) % n]!;
     const arc = arcFromSagitta(a, b, sag[i] ?? 0);
     if (!arc) {
+      // Lado de comprimento zero (chanfro): a normal sai da bissetriz dos vizinhos, logo abaixo.
+      if (dist(a, b) < 1e-9) return { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } };
       const nv = outward(norm(sub(b, a)));
       return { start: nv, end: nv };
     }
     return { start: outward(arcTangentAt(arc, 0)), end: outward(arcTangentAt(arc, arc.length)) };
   });
+  const starts = ends.map((e) => e.start);
+  const stops = ends.map((e) => e.end);
+  fillBevelNormals(starts, stops, ring.map((a, i) => dist(a, ring[(i + 1) % n]!) < 1e-9));
+  return ends.map((_, i) => ({ start: starts[i]!, end: stops[i]! }));
 }
 
 /**
@@ -106,7 +114,7 @@ export function eaveOutlineArcs(ring: Vec2[], sag: number[], overhangs: number[]
   const n = ring.length;
   const ends = arcEndNormals(ring, sag);
   const ccw = isCcw(ring);
-  const curves = ring.map((a, i) => offsetCurve(a, ring[(i + 1) % n]!, sag[i] ?? 0, overhangs[i] ?? 0, ccw));
+  const curves = ring.map((a, i) => offsetCurve(a, ring[(i + 1) % n]!, sag[i] ?? 0, overhangs[i] ?? 0, ccw, ends[i]!.start));
   return ring.map((p, j) => {
     const i1 = (j - 1 + n) % n;
     const n1 = ends[i1]!.end;
@@ -133,11 +141,12 @@ export function eaveOutlineArcs(ring: Vec2[], sag: number[], overhangs: number[]
 /** Aresta deslocada `d` para fora: reta (ponto e direção) ou círculo concêntrico (centro e raio). */
 type Offset = { kind: 'line'; p: Vec2; u: Vec2 } | { kind: 'circle'; c: Vec2; r: number };
 
-function offsetCurve(a: Vec2, b: Vec2, sag: number, d: number, ccw: boolean): Offset {
+function offsetCurve(a: Vec2, b: Vec2, sag: number, d: number, ccw: boolean, startNormal: Vec2): Offset {
   const arc = arcFromSagitta(a, b, sag);
-  const u = norm(sub(b, a));
   if (!arc) {
-    const nv = ccw ? { x: u.y, y: -u.x } : { x: -u.y, y: u.x };
+    // Reta (ou chanfro de comprimento zero): a direção sai da normal para fora já resolvida.
+    const nv = startNormal;
+    const u = ccw ? { x: -nv.y, y: nv.x } : { x: nv.y, y: -nv.x };
     return { kind: 'line', p: add(a, mul(nv, d)), u };
   }
   // O abaulado para fora afasta do centro com o balanço; para dentro (côncavo), aproxima.
@@ -190,13 +199,13 @@ export function footprintSag(r: Roof, foot: Vec2[]): number[] {
  * Como `eaveProblem`, para um telhado com arcos: pegada e beiral são amostrados com a mesma contagem de trechos por
  * aresta e conferidos ponto a ponto. Null sem arcos, sem pegada ou sem problema.
  */
-export function roofEaveArcsProblem(r: Roof): string | null {
+export function roofEaveArcsProblem(r: Roof, lang: Lang = 'pt'): string | null {
   if (!r.footprint || !hasRoofArcs(r)) return null;
-  const cusp = arcCuspProblem(r.footprint, footprintSag(r, r.footprint), r.edgeOverhangs);
+  const cusp = arcCuspProblem(r.footprint, footprintSag(r, r.footprint), r.edgeOverhangs, lang);
   if (cusp) return cusp;
   const fs = sampleSagRing(r.footprint, footprintSag(r, r.footprint));
   const es = sampleSagRing(r.boundary, r.edgeSag ?? [], fs.counts);
-  return eaveProblem(fs.pts, es.pts, fs.edgeOf.map((e) => r.edgeOverhangs[e] ?? 0));
+  return eaveProblem(fs.pts, es.pts, fs.edgeOf.map((e) => r.edgeOverhangs[e] ?? 0), lang);
 }
 
 /**
@@ -210,11 +219,57 @@ export function arcCuspProblem(ring: Vec2[], sag: number[], overhangs: number[],
     const a = ends[(j - 1 + n) % n]!.end;
     const b = ends[j]!.start;
     const d = Math.max(overhangs[j] ?? 0, overhangs[(j - 1 + n) % n] ?? 0);
-    if (d > 1e-9 && a.x * b.x + a.y * b.y < -0.999) {
+    if (d > 1e-9 && a.x * b.x + a.y * b.y < CUSP_DOT) {
       return translate(lang, 'tl_msg_slope_arc_cusp');
     }
   }
   return null;
+}
+
+/** Contorno com os cantos agudos chanfrados: a pegada ganha um lado de comprimento zero em cada ponta cortada. */
+export interface BeveledRing {
+  ring: Vec2[];
+  sag: number[];
+  overhangs: number[];
+  slopes: Array<number | null>;
+  /** Cantos (índices no anel de entrada) que ganharam chanfro. */
+  corners: number[];
+}
+
+/**
+ * Chanfra os cantos convexos agudos: onde a esquadria do beiral passa de `MITER_LIMIT` vezes o balanço, o vértice da
+ * pegada é duplicado (lado de comprimento zero) e o beiral ganha ali um lado perpendicular à bissetriz, a
+ * `MITER_LIMIT × balanço` da ponta (esquadria limitada com chanfro, como o miter limit do SVG). O lado novo entra nos
+ * vetores por aresta (flecha 0, balanço = distância do corte, sem inclinação: fica como empena baixa e curta), então
+ * pegada, beiral e vetores seguem com o mesmo comprimento. Cantos côncavos não têm limite: a interseção das paralelas é
+ * a resposta correta. Cúspide (volta pelo mesmo caminho) não é chanfrada: `arcCuspProblem` a recusa antes.
+ */
+export function bevelSharpCorners(ring: Vec2[], sag: number[], overhangs: number[], slopes: Array<number | null>): BeveledRing {
+  const n = ring.length;
+  const ends = arcEndNormals(ring, sag);
+  const eave = eaveOutlineArcs(ring, sag, overhangs);
+  const sign = isCcw(ring) ? 1 : -1;
+  const zero = (i: number): boolean => dist(ring[i]!, ring[(i + 1) % n]!) < 1e-9;
+  const out: BeveledRing = { ring: [], sag: [], overhangs: [], slopes: [], corners: [] };
+  for (let j = 0; j < n; j++) {
+    const prev = (j - 1 + n) % n;
+    const d = Math.max(overhangs[j] ?? 0, overhangs[prev] ?? 0);
+    const n1 = ends[prev]!.end;
+    const n2 = ends[j]!.start;
+    const convex = sign * cross(n1, n2) > 1e-12 && n1.x * n2.x + n1.y * n2.y > CUSP_DOT;
+    if (convex && d > 1e-9 && !zero(prev) && !zero(j) && dist(ring[j]!, eave[j]!) > MITER_LIMIT * d + 1e-9) {
+      out.corners.push(j);
+      out.ring.push(ring[j]!);
+      out.sag.push(0);
+      out.overhangs.push(MITER_LIMIT * d);
+      out.slopes.push(null);
+    }
+    out.ring.push(ring[j]!);
+    out.sag.push(sag[j] ?? 0);
+    out.overhangs.push(overhangs[j] ?? 0);
+    out.slopes.push(slopes[j] ?? null);
+  }
+  return out;
 }
 
 /**
