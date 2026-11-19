@@ -16,6 +16,34 @@ export const wallsOnLevel = (p: Project, levelId: Id): Wall[] =>
     .sort((a, b) => a.order - b.order);
 
 /**
+ * Paredes de OUTRO nível cuja faixa nominal de cota (base até o topo mais alto) atravessa o plano de corte da planta de
+ * `levelId` (elevação do nível + `viewRange.cut`, borda exata conta como dentro). Uma parede do N1 com o topo no N3
+ * cruza o corte do N2: ali ela é cortada como as paredes do N2, embora o dono (`levelId`) continue sendo o N1.
+ * Ficam de fora as paredes cuja base ou topo dependem de piso/telhado do próprio nível (`attachBottomToFloor`,
+ * `attachTopToRoof`): a cota real delas sai do nível dono e a faixa nominal não vale.
+ */
+export function wallsCrossingCut(p: Project, levelId: Id): Wall[] {
+  if (!p.levels.some((l) => l.id === levelId)) return [];
+  const cut = levelElevation(p, levelId) + viewRangeOf(p, levelId).cut;
+  const EPS = 1e-9;
+  return Object.values(p.elements)
+    .filter(isWall)
+    .filter((w) => w.levelId !== levelId && w.attachBottomToFloor !== true && w.attachTopToRoof !== true)
+    .filter((w) => {
+      const base = wallBaseElevation(p, w);
+      const top = base + wallMaxHeight(p, w);
+      return Math.min(base, top) <= cut + EPS && Math.max(base, top) >= cut - EPS;
+    })
+    .sort((a, b) => a.order - b.order);
+}
+
+/** Paredes que a planta do nível desenha cortadas: as do nível e as de outros níveis que cruzam o plano de corte. */
+export const wallsOfPlan = (p: Project, levelId: Id): Wall[] => {
+  const cruzam = wallsCrossingCut(p, levelId);
+  return cruzam.length === 0 ? wallsOnLevel(p, levelId) : [...wallsOnLevel(p, levelId), ...cruzam].sort((a, b) => a.order - b.order);
+};
+
+/**
  * Aberturas de cada parede por snapshot do projeto (o motor é imutável: elemento novo vem com projeto novo). Monta-se
  * numa só passagem; antes, cada chamada varria `p.elements` inteiro (paredes × elementos em cada nível).
  */

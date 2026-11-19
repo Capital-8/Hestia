@@ -39,6 +39,7 @@ import { roofFootprint } from './roofs.ts';
 import { planFootprint } from './stairs.ts';
 import { rampFootprint } from './ramps.ts';
 import { openingSymbol, type OpeningSymbolOptions } from './symbols.ts';
+import { projetoDaPlanta } from './paredesCruzando.ts';
 import { contextoDaVista, projetoDaJuncao } from './viewContext.ts';
 import type { Espessura, PlanTheme, StrokeOp } from './types.ts';
 
@@ -170,7 +171,8 @@ function projetoDaVista(p: Project): Project {
 
 /** Vista da planta do nível (memorizada por projeto, nível, exibição parcial e categorias ocultas). */
 export function planViewOf(p0: Project, levelId: Id): PlanView {
-  const p = projetoDaVista(p0);
+  // Paredes de outros níveis que cruzam o corte entram como paredes deste nível (ver `projetoDaPlanta`).
+  const p = projetoDaPlanta(projetoDaVista(p0), levelId);
   const g = levelGraphicsOf(p, levelId);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
   const key = `${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
@@ -257,7 +259,8 @@ const ghostMemo = new WeakMap<PlanView, Map<string, StrokeOp[]>>();
 const GHOST_MEMO_LIMIT = 8;
 
 /** Contorno fantasma dos ocultos `ids` (já filtrados): sem memo, ver `hiddenSelectionOps`. */
-function ghostOps(p: Project, levelId: Id, view: PlanView, ids: Id[], theme: PlanTheme): StrokeOp[] {
+function ghostOps(p0: Project, levelId: Id, view: PlanView, ids: Id[], theme: PlanTheme): StrokeOp[] {
+  const p = projetoDaPlanta(p0, levelId);
   const style: OutlineStyle = { widthPx: 1, color: theme.select, alpha: 0.9, dash: [5, 3] };
   const out: StrokeOp[] = [];
   const addRings = (m: MultiPolygon): void => {
