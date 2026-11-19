@@ -42,7 +42,8 @@ export const PERFIL_SIMPLES: ShortcutMap = {
   parallel: 'G', trim: 'T', align: 'L', joins: 'N', split: 'P', measure: 'E', level: 'VL', section: 'K', rehost: 'H', stair: 'I', stairrun: 'Q', ramp: ',', railing: 'VC',
   dimension: 'Y', angularDimension: 'VD', text: 'X', room: 'Z', column: 'VP', beam: 'VB', footing: 'VF',
   ceiling: '1', slope: '2', roofarrow: '3', roofextrusion: '4', attachroof: '5', detachroof: '6', roomsep: '7', atalhos: '8', unidades: 'VU', createSimilar: 'VS',
-  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG', mass: 'VM', component: 'VC', furniture: 'VW',
+  // Móvel paramétrico (Componente) e móvel importado: VC era do guarda-corpo e VW do terreno (conflitos de sequência), então ficam em VH e VI.
+  detailLine: '9', filledRegion: '0', tag: 'VT', grid: 'VG', mass: 'VM', component: 'VH', furniture: 'VI',
   spotElevation: 'VO', spotCoordinate: 'VN', revisionCloud: 'VV', northArrow: 'VA',
   // Terreno e lote: V + letra livre (VP, VB, VO e VA já são pilar, viga, cota pontual e norte).
   terrain: 'VW', terrainEdit: 'VE', terrainLabel: 'VQ', terrainSpot: 'VX', terrainRegion: 'VY', lot: 'VZ',
