@@ -135,3 +135,5 @@ export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unid
 export * from './familia/index.ts';
 export * from './furniture/index.ts';
 export * from './facePaint.ts';
+export * from './collabTypes.ts';
+export * from './collabHistory.ts';

@@ -17,9 +17,30 @@ describe('Suplementos › Ferramentas externas', () => {
     ACTIONS.externalTools.run();
     expect(useUi.getState().dialog).toBe('externalTools');
   });
-  it('as demais abas "em breve" continuam desabilitadas', () => {
-    const soon = TABS.filter((t) => t.id === 'colaborar').flatMap((t) => t.panels.flatMap((p) => p.items));
+  it('as demais abas "em breve" continuam desabilitadas e Colaborar expõe ações de sessão', () => {
+    const soon = TABS.filter((t) => t.id === 'sistemas' || t.id === 'analisar')
+      .flatMap((t) => t.panels.flatMap((p) => p.items));
     expect(soon.every((i) => i.kind === 'soon')).toBe(true);
+
+    const aco = TABS.find((t) => t.id === 'aco')!.panels.flatMap((p) => p.items)
+      .flatMap((i) => (i.kind === 'stack' ? i.items : [i]));
+    expect(aco.every((i) => i.kind === 'soon')).toBe(true);
+
+    const colab = TABS.find((t) => t.id === 'colaborar')!;
+    const colabActions = colab.panels.flatMap((p) => p.items)
+      .filter((i) => i.kind === 'action')
+      .map((i) => i.action);
+    expect(colabActions).toEqual([
+      'collabSession',
+      'collabShare',
+      'collabJoin',
+      'collabPeers',
+      'collabSync',
+      'collabActivity',
+      'collabWorksets',
+    ]);
+    const coord = colab.panels.find((p) => p.id === 'col-coordenar')!;
+    expect(coord.items.every((i) => i.kind === 'soon')).toBe(true);
   });
 });
 

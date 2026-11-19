@@ -11,6 +11,7 @@ import {
   type EstadoKernel,
   type MedicaoOperacoes,
 } from '@hestia/geom';
+import { gravarCollabExperimental, useCollabExperimental } from '../../editor/preferenciasCollab.ts';
 import { gravarModoSombra, lerModoSombra } from '../../editor/preferenciasKernel.ts';
 import { fmtNum, useT, type Dict, type Lang } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
@@ -21,6 +22,10 @@ const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
 /** Textos novos deste diálogo, no mesmo par `pt`/`en` do resto da interface. */
 const TEXTOS = {
   pt: {
+    collabTitulo: 'Colaboração em tempo real (Experimental)',
+    collabDica:
+      'Prévia experimental de colaboração multiusuário via IP/link direto com aprovação do anfitrião. Pode apresentar instabilidades em sessões simultâneas.',
+    collabToggle: 'Habilitar recursos de colaboração na faixa (aba Colaborar)',
     fatiasTitulo: 'Kernel v2 (Rust/WASM)',
     fatiasDica:
       'As fatias A e B e as quantidades são calculadas pelo Rust, sempre. O que resta aqui é comparar com o TypeScript (modo sombra) e ver o diagnóstico.',
@@ -46,6 +51,10 @@ const TEXTOS = {
     ultimoErro: 'Último erro',
   },
   en: {
+    collabTitulo: 'Real-time collaboration (Experimental)',
+    collabDica:
+      'Experimental preview of multi-user collaboration via direct IP/link with host approval. Simultaneous sessions may still have rough edges.',
+    collabToggle: 'Enable collaboration features in the ribbon (Collaborate tab)',
     fatiasTitulo: 'Kernel v2 (Rust/WASM)',
     fatiasDica:
       'Slices A and B and the quantities are always computed by Rust. What is left here is comparing with TypeScript (shadow mode) and the diagnostics.',
@@ -95,6 +104,7 @@ export function ExperimentosDialog(): ReactElement {
   const [avisoFatias, setAvisoFatias] = useState('');
   const [sombraSalva, setSombraSalva] = useState(lerModoSombra);
   const [diag, setDiag] = useState<DiagnosticoDespacho | null>(diagnosticoDespacho);
+  const collabAtivo = useCollabExperimental((s) => s.ativo);
   // As fatias A e B estão sempre ligadas em produção (`configDoDespacho`): o modo sombra vale sempre que o usuário o liga.
   const sombra = sombraSalva;
 
@@ -131,6 +141,21 @@ export function ExperimentosDialog(): ReactElement {
         </>
       }
     >
+      <div className="hint" style={{ marginBottom: 10 }}>
+        <strong>{tf.collabTitulo}</strong>
+        <p>{tf.collabDica}</p>
+        <div className="prow">
+          <label htmlFor="exp-collab">{tf.collabToggle}</label>
+          <div>
+            <input
+              id="exp-collab"
+              type="checkbox"
+              checked={collabAtivo}
+              onChange={(e) => gravarCollabExperimental(e.target.checked)}
+            />
+          </div>
+        </div>
+      </div>
       <div className="hint" style={{ marginBottom: 10 }}>
         <strong>{tf.fatiasTitulo}</strong>
         <p>{tf.fatiasDica}</p>

@@ -31,7 +31,8 @@ export type ActionId =
   | 'corteAterro' | 'mapaCorteAterro'
   | 'loteDesenhar' | 'lotePorTabela' | 'indicesLote'
   | 'groupComponents' | 'ungroupComponents' | 'familyEditor' | 'componentBudget' | 'componentLibrary' | 'componentRun' | 'importFurniture' | 'myBlocks'
-  | 'paintFace3d' | 'openFaceStudio';
+  | 'paintFace3d' | 'openFaceStudio'
+  | 'collabSession' | 'collabShare' | 'collabJoin' | 'collabPeers' | 'collabSync' | 'collabActivity' | 'collabWorksets';
 
 export type RibbonItem =
   /** Ferramenta do editor: o clique chama `editor.setTool`; mostra o atalho no tooltip. */

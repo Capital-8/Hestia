@@ -4,6 +4,8 @@ import { useT } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { bibliotecaDoAmbiente } from '../../editor/biblioteca/biblioteca.ts';
 import { carregarBiblioteca, publicarBiblioteca, useBiblioteca } from '../../editor/biblioteca/aoVivo.ts';
+import { useCollabExperimental } from '../../editor/preferenciasCollab.ts';
+import { HomeCollabJoin } from './HomeCollabJoin.tsx';
 import './home.css';
 
 /**
@@ -28,6 +30,8 @@ export function HomeScreen(): ReactElement {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
   const [erro, setErro] = useState<string | null>(null);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const collabAtivo = useCollabExperimental((s) => s.ativo);
   const arquivoRef = useRef<HTMLInputElement | null>(null);
   const biblioteca = bibliotecaDoAmbiente();
   const temNaoSalvo = useMemo(() => editor.temProjetoNaoSalvo(), []);
@@ -98,6 +102,19 @@ export function HomeScreen(): ReactElement {
           <p>{estado?.raiz ?? t('bib_home_sub')}</p>
         </div>
         <div className="home-head-actions">
+          {collabAtivo && (
+            <button
+              className="btn"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              onClick={() => setJoinOpen(true)}
+              title={t('collab_title')}
+            >
+              <span>{t('collab_join_title')}</span>
+              <span className="badge" style={{ color: 'var(--warn)', borderColor: 'var(--warn)', fontWeight: 600, flexShrink: 0 }}>
+                Experimental
+              </span>
+            </button>
+          )}
           <button className="btn" onClick={() => arquivoRef.current?.click()}>
             {t('bib_open_file')}
           </button>
@@ -188,6 +205,8 @@ export function HomeScreen(): ReactElement {
       {estado?.raiz && visiveis.length === 0 && (
         <p className="home-note home-hint">{filtro ? t('bib_search_none') : t('bib_empty_hint')}</p>
       )}
+
+      {collabAtivo && joinOpen && <HomeCollabJoin onClose={() => setJoinOpen(false)} />}
     </div>
   );
 }

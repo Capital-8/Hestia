@@ -7,6 +7,7 @@ use tauri::AppHandle;
 use tauri_plugin_updater::UpdaterExt;
 
 mod biblioteca;
+mod collab;
 // SUPLEMENTOS (Fase D): leitura de pasta de suplemento em desenvolvimento.
 mod suplementos;
 
@@ -77,6 +78,9 @@ pub fn run() {
             biblioteca::biblioteca_ler,
             biblioteca::biblioteca_gravar,
             biblioteca::biblioteca_gravar_indice,
+            collab::collab_iniciar_servidor,
+            collab::collab_parar_servidor,
+            collab::collab_status_servidor,
             // SUPLEMENTOS (Fase D)
             suplementos::suplementos_ler_pasta
         ])

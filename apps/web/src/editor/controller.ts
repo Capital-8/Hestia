@@ -70,6 +70,7 @@ import { CacheGeometria } from './geometryCache.ts';
 import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
 import { ligarMassa } from './massaLigacao.ts';
+import { collabManager, useCollab } from '../collab/session.ts';
 import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra no select)
 
 
@@ -646,6 +647,11 @@ export class Editor {
   setTool(id: ToolId): void {
     // Trocar de ferramenta encerra qualquer arraste de rótulo em andamento (inclusive nos retornos antecipados abaixo).
     this.limparArrasteRotulo();
+    const collab = useCollab.getState();
+    if (collab.mode === 'guest' && collab.myRole === 'viewer' && id !== 'select' && id !== 'measure') {
+      useUi.setState({ status: { key: 'collab_readonly_error' } });
+      return;
+    }
     const st = useUi.getState();
     // A planta de área é de anotação: ferramentas de modelo não entram nela (nem por atalho, nem ao voltar de um corte).
     if (st.planKind === 'area' && st.view !== '3d' && !areaPlanToolAllowed(id)) {
@@ -733,6 +739,16 @@ export class Editor {
     switch (kind) {
       case 'move':
         t.move(info);
+        if (useCollab.getState().mode !== 'off') {
+          collabManager.publishPresence({
+            view: ui.view,
+            levelId: ui.levelId,
+            sectionId: ui.sectionId,
+            sheetId: ui.sheetId,
+            cursor: info.raw,
+            selection: ui.selection,
+          });
+        }
         // No corte, Mover, Copiar e Alinhar sem seleção realçam o elemento que o clique vai escolher (o mesmo realce do Selecionar).
         if (t.id === 'select' || (ui.view === 'section' && (t.id === 'move' || t.id === 'copy' || t.id === 'align'))) {
           const first = t.preview().find((i) => i.kind === 'highlight');
@@ -1234,8 +1250,16 @@ export class Editor {
   }
 
   // Com o modo de perímetro aberto, desfazer e refazer valem para o rascunho do esboço, nunca para o projeto.
-  undo(): void { if (!this.perimetro.historico(false)) desfazerOuRefazer(this.store, 'undo'); }
-  redo(): void { if (!this.perimetro.historico(true)) desfazerOuRefazer(this.store, 'redo'); }
+  undo(): void {
+    if (this.perimetro.historico(false)) return;
+    if (useCollab.getState().mode !== 'off') { collabManager.undo(); return; }
+    desfazerOuRefazer(this.store, 'undo');
+  }
+  redo(): void {
+    if (this.perimetro.historico(true)) return;
+    if (useCollab.getState().mode !== 'off') { collabManager.redo(); return; }
+    desfazerOuRefazer(this.store, 'redo');
+  }
 
   /**
    * Cotas automáticas da planta (camadas por lado: aberturas → paredes → contorno → total). As cotas entram como
