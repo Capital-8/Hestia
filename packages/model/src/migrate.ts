@@ -296,7 +296,8 @@ const migrations: Record<number, Migration> = {
   // integrar, virou 28 → 29; arquivo salvo pela versão 26 antiga do terreno segue a cadeia 26 → 27 → 28 → 29 sem perda.)
   28: (raw) => ({ ...raw }),
   // v29 → v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `componentFamilies`), móveis
-  // importados (`Furniture`, `furniture`) e tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`). Nenhum dado é
+  // importados (`Furniture`, `furniture`), tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`) e pintura de faces
+  // (`facePaints` em paredes, pisos e lajes, mais os materiais extras do catálogo). Nenhum dado é
   // reescrito; a migração só avança a versão, e assim um programa antigo recusa um arquivo com esses campos.
   29: (raw) => ({ ...raw }),
 };

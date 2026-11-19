@@ -15,6 +15,7 @@ import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
 import { catalogoPortas } from './catalogoPortas.ts';
 import { catalogoComposicoes } from './catalogoComposicoes.ts';
+import { materiaisExtras } from './catalogoMateriaisExtras.ts';
 import { LANGS, openingName, t, type Lang } from './i18n.ts';
 import { SCHEMA_VERSION, type Layer, type Material, type OpeningType, type Project, type WallType } from './types.ts';
 
@@ -52,6 +53,7 @@ export function materials(lang: Lang = 'pt'): Material[] {
     mat('mat_telha_ceramica', t(lang, 'md_mat_ceramic_tile'), '#b5522d', 'diagonal', { cost: 85 }),
     mat('mat_fibrocimento', t(lang, 'md_mat_fiber_cement'), '#9ea3a8', 'cross', { cost: 55 }),
     mat('mat_telha_metalica', t(lang, 'md_mat_metal_tile'), '#8e99a3', 'solid', { gloss: 0.6, cost: 140 }),
+    ...materiaisExtras(lang),
   ];
 }
 

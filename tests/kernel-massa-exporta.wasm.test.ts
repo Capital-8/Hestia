@@ -107,7 +107,7 @@ describe('massa X1: IFC com o kernel real', () => {
     const a = projectIfcComAvisos(p, DATA, 'pt').texto;
     expect(projectIfcComAvisos(p, DATA, 'pt').texto).toBe(a);
     const definidos = new Set([...a.matchAll(/^#(\d+)=/gm)].map((m) => Number(m[1])));
-    expect([...a.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !definidos.has(id))).toEqual([]);
+    expect([...a.replace(/'(?:[^']|'')*'/g, "''").matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !definidos.has(id))).toEqual([]);
     expect(count(a, 'IFCBUILDINGELEMENTPROXY')).toBe(6);
   });
 

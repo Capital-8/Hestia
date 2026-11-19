@@ -108,6 +108,19 @@ const R: Record<string, string> = {
   sun: '<circle class="ic-fa" cx="16" cy="16" r="6"/>' + p('ac', 'M16 3V7M16 25V29M3 16H7M25 16H29M7 7L9.5 9.5M22.5 22.5L25 25M7 25L9.5 22.5M22.5 9.5L25 7'),
   layers: p('s3', 'M3 21L16 15L29 21L16 27Z') + p('s2', 'M3 15L16 9L29 15L16 21Z') + p('bl', 'M3 9L16 3L29 9L16 15Z'),
   materialSphere: '<circle cx="16" cy="16" r="13" fill="#0b3a78"/>' + `<path fill="#62b8f5" d="${ESFERA_XADREZ}"/>` + '<circle cx="16" cy="16" r="13" fill="url(#ic-esfera-volume)"/>' + '<ellipse cx="11.6" cy="10.2" rx="3.2" ry="2.2" transform="rotate(-35 11.6 10.2)" fill="url(#ic-esfera-brilho)"/>' + '<circle class="ic-ln" cx="16" cy="16" r="13"/>',
+  paintBucket:
+    p('s2', 'M11 8L21 16L14 25L4 17Z') +
+    p('s3', 'M11 8L21 16L19 18L9 10Z') +
+    p('s1', 'M11 8L14.5 10.8L7.5 19.8L4 17Z') +
+    p('ln', 'M10 11C8.5 5 15.5 3.5 18.5 9') +
+    p('fa', 'M21 16C25 18 26.5 21 26.5 23.8A2.7 2.7 0 0 1 21.1 23.8C21.1 21.3 21.6 18.8 21 16Z') +
+    p('ac', 'M19 28H28'),
+  faceStudio:
+    p('s1', 'M4 7L27 4V25L4 28Z') +
+    p('bl', 'M8 10.5L17.5 9.2V19.5L8 21Z') +
+    p('ac', 'M8 10.5L17.5 9.2V19.5L8 21Z') +
+    '<circle class="ic-ac" cx="21" cy="17.5" r="3.5"/>' +
+    p('fa', 'M6.8 9.3H9.2V11.7H6.8ZM16.3 8H18.7V10.4H16.3ZM16.3 18.3H18.7V20.7H16.3ZM6.8 19.8H9.2V22.2H6.8Z'),
   schedule: p('s1', 'M4 5H28V27H4Z') + p('s3', 'M4 5H28V11H4Z') + p('ln', 'M4 17H28M4 22H28M13 11V27'),
   type: p('s1', 'M4 5H28V12H4Z') + p('s3', 'M4 14H28V19H4Z') + p('s2', 'M4 21H28V28H4Z'),
 

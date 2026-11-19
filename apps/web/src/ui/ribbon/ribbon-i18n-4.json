@@ -1366,5 +1366,61 @@
     "fr": "Placer un meuble",
     "it": "Posiziona arredo",
     "pl": "Umieść mebel"
+  },
+  {
+    "pt": "Pintar face (3D)",
+    "es": "Pintar cara (3D)",
+    "de": "Fläche streichen (3D)",
+    "fr": "Peindre la face (3D)",
+    "it": "Dipingi faccia (3D)",
+    "pl": "Maluj powierzchnię (3D)"
+  },
+  {
+    "pt": "Ativa a pintura de faces diretamente na vista 3D (Shift+clique abre o Estúdio 2D).",
+    "es": "Activa la pintura de caras directamente en la vista 3D (Shift+clic abre el Estudio 2D).",
+    "de": "Aktiviert das direkte Streichen von Flächen in der 3D-Ansicht (Umschalt+Klick öffnet das 2D-Studio).",
+    "fr": "Active la peinture de faces directement dans la vue 3D (Maj+clic ouvre le Studio 2D).",
+    "it": "Attiva la pittura delle facce direttamente nella vista 3D (Maiusc+clic apre lo Studio 2D).",
+    "pl": "Włącza bezpośrednie malowanie powierzchni w widoku 3D (Shift+kliknięcie otwiera Studio 2D)."
+  },
+  {
+    "pt": "Estúdio da face (2D)",
+    "es": "Estudio de cara (2D)",
+    "de": "Flächenstudio (2D)",
+    "fr": "Studio de face (2D)",
+    "it": "Studio faccia (2D)",
+    "pl": "Studio powierzchni (2D)"
+  },
+  {
+    "pt": "Abre o editor 2D da face do elemento selecionado (regiões, sobreposições DXF e camadas).",
+    "es": "Abre el editor 2D de la cara del elemento seleccionado (regiones, superposiciones DXF y capas).",
+    "de": "Öffnet den 2D-Flächeneditor des ausgewählten Elements (Bereiche, DXF-Überlagerungen und Schichten).",
+    "fr": "Ouvre l'éditeur 2D de la face de l'élément sélectionné (régions, calques DXF et couches).",
+    "it": "Apre l'editor 2D della faccia dell'elemento selezionato (regioni, sovrapposizioni DXF e strati).",
+    "pl": "Otwiera edytor 2D powierzchni wybranego elementu (obszary, nakładki DXF i warstwy)."
+  },
+  {
+    "pt": "Selecione uma parede, piso ou laje.",
+    "es": "Seleccione un muro, suelo o losa.",
+    "de": "Wählen Sie eine Wand, einen Boden oder eine Decke aus.",
+    "fr": "Sélectionnez un mur, un sol ou une dalle.",
+    "it": "Selezionare una parete, un pavimento o un solaio.",
+    "pl": "Wybierz ścianę, podłogę lub strop."
+  },
+  {
+    "pt": "Ativa a escolha de face no 3D para abrir o Estúdio da Face (2D).",
+    "es": "Activa la selección de cara en 3D para abrir el Estudio de Cara (2D).",
+    "de": "Aktiviert die Flächenauswahl in 3D, um das Flächenstudio (2D) zu öffnen.",
+    "fr": "Active la sélection de face en 3D pour ouvrir le Studio de face (2D).",
+    "it": "Attiva la selezione della faccia in 3D per aprire lo Studio faccia (2D).",
+    "pl": "Włącza wybór powierzchni w 3D, aby otworzyć Studio powierzchni (2D)."
+  },
+  {
+    "pt": "Modificar | Estúdio da Face",
+    "es": "Modificar | Estudio de Cara",
+    "de": "Ändern | Flächenstudio",
+    "fr": "Modifier | Studio de face",
+    "it": "Modifica | Studio faccia",
+    "pl": "Modyfikuj | Studio powierzchni"
   }
 ]

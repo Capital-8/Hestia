@@ -13,7 +13,7 @@ export function PaneStyleSelect({ pane }: { pane: Pane }): ReactElement | null {
   const { t } = useT();
   useProject(); // o valor herdado do projeto muda com ele
   const kind = pane.view.kind;
-  if (kind === 'sheet') return null;
+  if (kind === 'sheet' || kind === 'face') return null;
   const is3d = kind === '3d';
   const presets = is3d ? PANE_STYLE_PRESETS.view3d : PANE_STYLE_PRESETS.view2d;
   const { setPaneStyle } = usePanes.getState();

@@ -51,4 +51,21 @@ describe('provedor de texturas do 3D', () => {
     await espera();
     expect(n).toBe(0);
   });
+  it('carrega textura básica local uma única vez, configura sRGB/RepeatWrapping e dispara aoMudar', async () => {
+    const pedidos: string[] = [];
+    const p = new TexturasApp3D(async (uri) => { pedidos.push(uri); return new THREE.Texture(); });
+    let avisos = 0;
+    p.aoMudar(() => avisos++);
+    expect(p.obter('basica:Bricks051')).toBeUndefined();
+    expect(p.obter('basica:Bricks051')).toBeUndefined();
+    await espera(); await espera();
+    expect(pedidos).toEqual(['/texturas-basicas/Bricks051.webp']);
+    expect(p.versao).toBe(1);
+    expect(avisos).toBe(1);
+    const m = p.obter('basica:Bricks051')!;
+    expect(m.cor?.colorSpace).toBe(THREE.SRGBColorSpace);
+    expect(m.cor?.wrapS).toBe(THREE.RepeatWrapping);
+    expect(m.cor?.wrapT).toBe(THREE.RepeatWrapping);
+    expect(pedidos.length).toBe(1);
+  });
 });

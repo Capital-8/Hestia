@@ -1,4 +1,4 @@
-import { VISUAL_STYLES, type VisualStyle } from '@hestia/model';
+import { VISUAL_STYLES, type FaceLayerTarget, type FaceSlot, type VisualStyle } from '@hestia/model';
 import { sameView } from './openViews.ts';
 import type { CameraDaPrevia } from './pastePreview.ts';
 import {
@@ -308,6 +308,14 @@ function parseView(raw: unknown): PaneView | null {
   if (kind === 'section' && typeof viewId === 'string') return { kind: 'section', viewId };
   const sheetId = raw.sheetId;
   if (kind === 'sheet' && typeof sheetId === 'string') return { kind: 'sheet', sheetId };
+  if (kind === 'face') {
+    const elementId = raw.elementId;
+    const face = raw.face;
+    const layer = raw.layer;
+    if (typeof elementId === 'string' && elementId !== '' && typeof face === 'string' && face !== '' && (layer === 'all' || (typeof layer === 'number' && Number.isInteger(layer) && layer >= 0))) {
+      return { kind: 'face', elementId, face: face as FaceSlot, layer: layer as FaceLayerTarget };
+    }
+  }
   return null;
 }
 

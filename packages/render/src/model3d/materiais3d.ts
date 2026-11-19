@@ -109,7 +109,7 @@ export class Materiais3D {
     const tx = style === 'realistic' ? chaveDaTextura(m, this.texturas) : '';
     // Mapas procedurais do mobiliário (acabamentos de componentes): só quando o material não tem textura do catálogo.
     const usarMapa = Boolean(tex?.map && !tx && !ov.color && !ov.halftone && (style === 'realistic' || style === 'shaded'));
-    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, usarMapa ? 'tex' : ''].join('|');
+    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, m?.aparencia?.metal ?? '', m?.aparencia?.rugosidade ?? '', usarMapa ? 'tex' : ''].join('|');
     return this.cached(key, () => {
       const opacity = base * (1 - t);
       const corFinal = usarMapa ? 0xffffff : color;
@@ -132,7 +132,7 @@ export class Materiais3D {
             metalness: tex.metalness,
           }));
         }
-        const mat = new THREE.MeshStandardMaterial({ ...props, roughness: 1 - gloss * 0.75, metalness: m && m.id === 'mat_aluminio' ? 0.5 : 0 });
+        const mat = new THREE.MeshStandardMaterial({ ...props, roughness: m?.aparencia?.rugosidade ?? (1 - gloss * 0.75), metalness: m?.aparencia?.metal ?? (m && m.id === 'mat_aluminio' ? 0.5 : 0) });
         const textura = m?.aparencia?.textura;
         const mapas = tx && textura ? this.texturas?.obter(textura.imagemId) : undefined;
         return mapas && textura ? aplicarTexturaTriplanar(mat, mapas, textura) : mat;

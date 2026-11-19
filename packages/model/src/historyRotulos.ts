@@ -448,6 +448,10 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
     case 'moveComponentGroup':
     case 'rotateComponentGroup':
       return componentCommandLabel(c);
+    case 'setFacePaint':
+      return 'Pintar face';
+    case 'removeFacePaint':
+      return 'Remover pintura da face';
     default: {
       const _nunca: never = c;
       return _nunca;
