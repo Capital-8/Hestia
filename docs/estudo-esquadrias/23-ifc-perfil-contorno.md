@@ -1,5 +1,7 @@
 # 23. Perfil do vão e IfcOpeningElement em IFC4 (função pura, sem conexão ao export)
 
+> **Atualização (2026-11-19):** este módulo foi ligado ao export (vão com forma no peitoril), com `Lining/Panel Properties`, `Qto` real, peças em arco e import da forma. Ver docs 30 (IFC) e 35 (mescla). As pendências do §5 sobre conectar ao export e sobre o import estão superadas; continua sem validação em visualizador.
+
 Data: 2026-11-17. Status: **módulo pronto e testado, não conectado a `exportIfc`.** Nada em arquivos existentes foi alterado.
 
 Marcas: **[V]** = verificado no código ou nos testes; **[I]** = inferência, não validada em visualizador IFC.
