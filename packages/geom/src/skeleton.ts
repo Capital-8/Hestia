@@ -1,5 +1,5 @@
 import { type Vec2 } from './vec.ts';
-import { ringArea } from './polygon.ts';
+import { polygonArea, ringArea } from './polygon.ts';
 import { SkeletonFail } from './skeletonCore.ts';
 import { setup } from './skeletonSetup.ts';
 import { runSim } from './skeletonRun.ts';
@@ -18,6 +18,8 @@ export interface SkeletonFace {
   edge: number;             // índice da aresta no anel
   polygon: Vec2[];          // região em planta dessa água (anel simples, anti-horário)
   z: number[];              // altura (tempo) em cada vértice de polygon, na mesma ordem; z = peso × distância à reta da aresta
+  holes?: Vec2[][];         // eventuais furos internos nesta face (sentido horário)
+  holeZ?: number[][];       // alturas correspondentes aos vértices de `holes`
 }
 export interface SkeletonArc {
   a: Vec2; b: Vec2; za: number; zb: number;   // segmento do esqueleto (cumeeira/espigão/rincão) com as alturas nas pontas
@@ -49,7 +51,7 @@ export function weightedSkeleton(input: SkeletonInput): SkeletonResult {
     // Pesos 0 são paredes verticais (sem área). Logo a soma das águas tem de ser a área líquida;
     // se não for, a topologia saiu errada e o resultado não pode ser entregue como válido.
     const net = Math.abs(ringArea(input.outer)) - input.holes.reduce((s, h) => s + Math.abs(ringArea(h)), 0);
-    const sum = out.faces.reduce((s, f) => s + Math.abs(ringArea(f.polygon)), 0);
+    const sum = out.faces.reduce((s, f) => s + polygonArea([f.polygon, ...(f.holes ?? [])]), 0);
     if (Math.abs(sum - net) > 1e-6 * Math.max(net, 1)) {
       throw new SkeletonFail('caso não suportado: a soma das águas não confere com a área do polígono');
     }

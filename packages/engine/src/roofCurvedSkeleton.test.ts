@@ -84,12 +84,11 @@ describe('motor: esqueleto que não fecha cai na envoltória (Revit: aceita)', (
     expect(r.steps).toBeUndefined();
   });
 
-  it('L com degrau entre água e empena: a envoltória fecha a superfície, sem degrau', () => {
-    // A interna definindo: antes o esqueleto deixava degrau de 1,5 m no canto reentrante (5,5; 4,5); agora não há degrau.
+  it('L com degrau entre água e empena: preserva o resultado do esqueleto e reporta o degrau em steps', () => {
     const L = [P(0, 0), P(10, 0), P(10, 4), P(5, 4), P(5, 8), P(0, 8)];
     const r = one(build(L, [30, 30, null, 30, null, null]));
     expect(r.problem).toBeUndefined();
-    expect(r.steps).toBeUndefined();
+    expect(r.steps?.length).toBeGreaterThan(0);
     expect(r.planes.length).toBeGreaterThan(0);
   });
 });

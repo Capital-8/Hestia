@@ -1,5 +1,5 @@
 import { asMulti, pointsText, ringArea, sub, weightedSkeleton, type SkeletonInput, type SkeletonResult, type SkeletonStep, type Vec2 } from '@hestia/geom';
-import { crossingParams, perpOf, planeHas, unitOf } from './roofGeom.ts';
+import { crossingParams, perpOf, planeHas, sanitizeMulti, segmentOverlaps, unitOf } from './roofGeom.ts';
 import { envelopePlanes } from './roofEnvelope.ts';
 import type { ResolvedRoofPlane, RoofLine } from './roofs.ts';
 
@@ -19,19 +19,19 @@ export interface WaterSolution {
   problem?: string;
   /** Vértices reentrantes com degrau na superfície (empena encostando em beiral), em planta e em m; ausente quando contínua. */
   steps?: SkeletonStep[];
+  /** Índices dos furos já recortados pelo esqueleto (furos com inclinação > 0). */
+  appliedHoles?: Set<number>;
 }
 
 /** Peso de uma aresta: percentual / 100 quando ela define inclinação; null, zero ou inválido vira 0 (empena). */
 export const weightOf = (s: number | null | undefined): number => (s !== null && s !== undefined && Number.isFinite(s) && s > 0 ? s / 100 : 0);
 
 /**
- * Furos entram no esqueleto como anéis de peso 0 (empena em volta da abertura, decisão 0008 item 8)? Não: o esqueleto de
- * @hestia/geom falha com furo de aresta paralela ao contorno ("arestas paralelas"), com furo triangular ou fora do centro
- * ("limite de eventos") e não termina com furo girado. Em vez disso, o contorno é resolvido sem o furo e a empena do furo
- * é construída à parte como prisma vertical até o plano das águas (`holeGableLines`), com a empena por furo; o furo segue
- * recortado da superfície (`roofs.ts`), então a área e a cota longe do furo ficam certas e não há exceção.
+ * Furos com alguma aresta inclinada (> 0, pátio interno / courtyard) entram no esqueleto reto com pesos.
+ * Furos sem inclinação (claraboias/shafts de peso 0) são recortados da superfície contínua (`roofs.ts`) e suas arestas
+ * viram empenas verticais (`holeGableLines`), preservando a continuidade das águas em contornos convexos aleatórios.
  */
-export const HOLES_IN_SKELETON = false;
+export const HOLES_IN_SKELETON = true;
 
 /** −0 vira +0. */
 const zeroPos = (v: number): number => (v === 0 ? 0 : v);
@@ -57,17 +57,25 @@ function flatPlanes(boundary: Vec2[], eaveZ: number): WaterSolution {
  * descontínua), o cálculo cai na envoltória dos planos das arestas inclinadas (roofEnvelope.ts), como o Revit: a recusa
  * só sobra para região sem aresta inclinada que a cubra.
  */
-export function skeletonPlanes(boundary: Vec2[], holes: Vec2[][], edgeSlopes: Array<number | null>, eaveZ: number): WaterSolution {
+export function skeletonPlanes(
+  boundary: Vec2[],
+  holes: Vec2[][],
+  edgeSlopes: Array<number | null>,
+  eaveZ: number,
+  holeSlopes?: Array<Array<number | null>>,
+): WaterSolution {
   const n = boundary.length;
   if (edgeSlopes.length !== n) {
     return { planes: [], problem: `as inclinações (${edgeSlopes.length}) não batem com as arestas do contorno (${n})` };
   }
   if (n < 3) return { planes: [], problem: 'o contorno tem menos de 3 pontos' };
   const weights = edgeSlopes.map(weightOf);
-  if (!weights.some((w) => w > 0)) return flatPlanes(boundary, eaveZ);
-  const skeleton = skeletonWater(boundary, holes, edgeSlopes, weights, eaveZ);
-  // Esqueleto que fecha sem degrau fica como está. Com degrau (superfície descontínua) ou sem água, vale a envoltória.
-  if (skeleton.planes.length && !skeleton.steps) return skeleton;
+  const hasHoleSlope = (holeSlopes ?? []).some((hs) => hs.some((s) => weightOf(s) > 0));
+  if (!weights.some((w) => w > 0) && !hasHoleSlope) return flatPlanes(boundary, eaveZ);
+  const skeleton = skeletonWater(boundary, holes, edgeSlopes, weights, eaveZ, holeSlopes);
+  // Esqueleto que fecha (ok: true, gerou águas) é sempre mantido — mesmo com `steps`, preservando o diagnóstico de degraus.
+  // A envoltória entra APENAS como fallback quando o esqueleto falha (!res.ok ou planes.length === 0).
+  if (skeleton.planes.length > 0) return skeleton;
   let envelope: WaterSolution;
   try {
     envelope = envelopePlanes(boundary, edgeSlopes, eaveZ);
@@ -79,18 +87,39 @@ export function skeletonPlanes(boundary: Vec2[], holes: Vec2[][], edgeSlopes: Ar
 }
 
 /** Águas do esqueleto reto com pesos (sem o fallback): vazias, com `problem`, quando ele não fecha. */
-function skeletonWater(boundary: Vec2[], holes: Vec2[][], edgeSlopes: Array<number | null>, weights: number[], eaveZ: number): WaterSolution {
+function skeletonWater(
+  boundary: Vec2[],
+  holes: Vec2[][],
+  edgeSlopes: Array<number | null>,
+  weights: number[],
+  eaveZ: number,
+  holeSlopes?: Array<Array<number | null>>,
+): WaterSolution {
   const n = boundary.length;
   const ccw = ringArea(boundary) >= 0;
   const outer = ccw ? boundary : [...boundary].reverse();
   const origOf = (k: number): number => (ccw ? k : reversedIndex(k, n));
-  const holeRings = HOLES_IN_SKELETON ? holes.filter((h) => h.length >= 3).map((h) => (ringArea(h) > 0 ? [...h].reverse() : h)) : [];
+  const holeEntries = HOLES_IN_SKELETON
+    ? holes.flatMap((h, hIdx) => {
+        if (h.length < 3) return [];
+        const rawSlopes = holeSlopes?.[hIdx] ?? [];
+        const slopes = h.map((_, idx) => rawSlopes[idx] ?? null);
+        const hWeights = slopes.map(weightOf);
+        // Só furos com alguma aresta inclinada (pátio interno) entram no esqueleto; claraboias (peso 0) saem por recorte.
+        if (!hWeights.some((w) => w > 0)) return [];
+        const nh = h.length;
+        const holeCcw = ringArea(h) > 0;
+        const ring = holeCcw ? [...h].reverse() : h;
+        const origHoleOf = (k: number): number => (holeCcw ? reversedIndex(k, nh) : k);
+        return [{ hIdx, raw: h, ring, ccw: holeCcw, origOf: origHoleOf, slopes, weights: hWeights }];
+      })
+    : [];
   let res: SkeletonResult;
   try {
     res = solver({
       outer,
-      holes: holeRings,
-      weights: [outer.map((_, k) => weights[origOf(k)]!), ...holeRings.map((h) => h.map(() => 0))],
+      holes: holeEntries.map((he) => he.ring),
+      weights: [outer.map((_, k) => weights[origOf(k)]!), ...holeEntries.map((he) => he.ring.map((_, k) => he.weights[he.origOf(k)]!))],
     });
   } catch (e) {
     return { planes: [], problem: `falha no cálculo das águas (${e instanceof Error ? e.message : String(e)})` };
@@ -102,39 +131,64 @@ function skeletonWater(boundary: Vec2[], holes: Vec2[][], edgeSlopes: Array<numb
   }
   const planes: ResolvedRoofPlane[] = [];
   for (const f of res.faces) {
-    if (f.ring !== 0) continue;
-    const j = origOf(f.edge);
-    const slope = edgeSlopes[j];
-    if (!(weights[j]! > 0) || slope === null || slope === undefined) continue;
-    const a = boundary[j]!;
-    const u = unitOf(sub(boundary[(j + 1) % n]!, a));
-    if (!u) continue;
-    // Normal para dentro da água: à esquerda da aresta se o contorno é anti-horário, à direita se é horário.
-    const left = perpOf(u);
-    // `zeroPos` tira o −0 que a rotação deixa (é o mesmo número, mas a comparação de objetos nota a diferença).
-    const up = ccw ? left : { x: -left.x, y: -left.y };
-    up.x = zeroPos(up.x);
-    up.y = zeroPos(up.y);
-    planes.push({ polygon: [[f.polygon]], origin: a, up, percent: slope, z0: eaveZ });
+    if (f.ring === 0) {
+      const j = origOf(f.edge);
+      const slope = edgeSlopes[j];
+      if (!(weights[j]! > 0) || slope === null || slope === undefined) continue;
+      const a = boundary[j]!;
+      const u = unitOf(sub(boundary[(j + 1) % n]!, a));
+      if (!u) continue;
+      // Normal para dentro da água: à esquerda da aresta se o contorno é anti-horário, à direita se é horário.
+      const left = perpOf(u);
+      // `zeroPos` tira o −0 que a rotação deixa (é o mesmo número, mas a comparação de objetos nota a diferença).
+      const up = ccw ? left : { x: -left.x, y: -left.y };
+      up.x = zeroPos(up.x);
+      up.y = zeroPos(up.y);
+      const polygon = sanitizeMulti([[f.polygon, ...(f.holes ?? [])]]);
+      if (polygon.length > 0) planes.push({ polygon, origin: a, up, percent: slope, z0: eaveZ });
+    } else {
+      const he = holeEntries[f.ring - 1];
+      if (!he) continue;
+      const nh = he.raw.length;
+      const j = he.origOf(f.edge);
+      const slope = he.slopes[j];
+      if (!(he.weights[j]! > 0) || slope === null || slope === undefined) continue;
+      const a = he.raw[j]!;
+      const u = unitOf(sub(he.raw[(j + 1) % nh]!, a));
+      if (!u) continue;
+      // Para um furo, o telhado fica do lado de FORA do furo: à esquerda se o furo é horário, à direita se é anti-horário.
+      const left = perpOf(u);
+      const up = he.ccw ? { x: -left.x, y: -left.y } : left;
+      up.x = zeroPos(up.x);
+      up.y = zeroPos(up.y);
+      const polygon = sanitizeMulti([[f.polygon, ...(f.holes ?? [])]]);
+      if (polygon.length > 0) planes.push({ polygon, origin: a, up, percent: slope, z0: eaveZ });
+    }
   }
   const steps = res.steps && res.steps.length > 0 ? { steps: res.steps } : {};
-  return planes.length ? { planes, ...steps } : { planes, problem: 'o contorno não gerou águas' };
+  const appliedHoles = holeEntries.length ? { appliedHoles: new Set(holeEntries.map((he) => he.hIdx)) } : {};
+  return planes.length ? { planes, ...steps, ...appliedHoles } : { planes, problem: 'o contorno não gerou águas' };
 }
 
 /**
- * Empena (testeira) em volta de cada furo (claraboia/shaft): o furo não entra no esqueleto; cada aresta do furo vira
- * uma linha 'gable' — o prisma vertical da cota do beiral até o plano da água que a cobre. O trecho é partido onde a
- * aresta cruza uma divisa entre águas, para a área da testeira sair por água; o trecho fora de toda água não gera linha
- * (furo fora das águas, como em águas livres que não cobrem a região).
+ * Linhas dos furos: cada aresta de furo sem inclinação vira 'gable' (empena/testeira em volta de claraboia/shaft);
+ * arestas de furo com inclinação > 0 (pátio interno) viram 'eave' nos trechos em que tocam alguma água.
  */
-export function holeGableLines(holes: Vec2[][], planes: ResolvedRoofPlane[]): RoofLine[] {
+export function holeGableLines(holes: Vec2[][], planes: ResolvedRoofPlane[], holeSlopes?: Array<Array<number | null>>): RoofLine[] {
   const water = planes.flatMap((pl) => pl.polygon);
   const out: RoofLine[] = [];
-  for (const h of holes) {
-    if (h.length < 3) continue;
+  holes.forEach((h, hIdx) => {
+    if (h.length < 3) return;
+    const slopes = holeSlopes?.[hIdx];
     for (let i = 0; i < h.length; i++) {
       const a = h[i]!;
       const b = h[(i + 1) % h.length]!;
+      if (weightOf(slopes?.[i]) > 0) {
+        for (const pl of planes) {
+          for (const [p, q] of segmentOverlaps(a, b, pl.polygon)) out.push({ kind: 'eave', a: p, b: q });
+        }
+        continue;
+      }
       const ab = sub(b, a);
       const ts = crossingParams(a, b, water);
       for (let k = 0; k + 1 < ts.length; k++) {
@@ -147,6 +201,6 @@ export function holeGableLines(holes: Vec2[][], planes: ResolvedRoofPlane[]): Ro
         if (planes.some((pl) => planeHas(pl.polygon, m))) out.push({ kind: 'gable', a: p, b: q });
       }
     }
-  }
+  });
   return out;
 }

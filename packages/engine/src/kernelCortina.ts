@@ -359,6 +359,17 @@ export function montarCenaCortina(e: EntradaCenaCortina, anterior?: CenaCortina)
         altura: c.hospedeiro.height,
       });
     }
+    if (c.topProfile && c.topProfile.length >= 2) {
+      c.topProfile.forEach((pt, k) => {
+        push('cortina_perfis_topo', {
+          id_num: idDe('cortina_perfis_topo', `${c.id}:${k}`),
+          cortina_num: n,
+          ordem: k,
+          t: pt.t,
+          h: pt.h,
+        });
+      });
+    }
     extremidades(n, c);
   }
 

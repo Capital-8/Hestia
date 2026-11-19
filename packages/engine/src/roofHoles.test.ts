@@ -159,3 +159,115 @@ describe('propriedade: 30 telhados convexos com furo aleatório (semente fixa)',
     }
   });
 });
+
+describe('pátio interno (courtyard) com águas caindo para dentro do furo', () => {
+  it('quadrado 12×12 com pátio interno 4×4 a 30 %: 8 águas em anel, área = 144 − 16 = 128 m²', () => {
+    const outer: Vec2[] = [
+      { x: 0, y: 0 },
+      { x: 12, y: 0 },
+      { x: 12, y: 12 },
+      { x: 0, y: 12 },
+    ];
+    const hole: Vec2[] = [
+      { x: 4, y: 4 },
+      { x: 8, y: 4 },
+      { x: 8, y: 8 },
+      { x: 4, y: 8 },
+    ];
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({
+      type: 'addRoof',
+      roof: makeRoof({
+        id: 'r_patio',
+        typeId: 'rt_ceramica',
+        levelId: 'lv_0',
+        boundary: outer,
+        holes: [hole],
+        shape: 'hip',
+        slopePercent: 30,
+        holeSlopes: [[30, 30, 30, 30]],
+      }),
+    });
+    const r = resolveRoofs(s.project, 'lv_0')[0]!;
+    expect(r.problem).toBeUndefined();
+    expect(r.planes).toHaveLength(8);
+    expect(planArea(r)).toBeCloseTo(144 - 16, 6);
+    expect(roofTopAt(r, { x: 6, y: 6 })).toBeNull();
+    // Beiral do pátio na cota 0 e cumeeira em anel a 2 m da borda com cota 0,60 m.
+    expect(roofTopAt(r, { x: 4, y: 6 })).toBeCloseTo(0, 6);
+    expect(roofTopAt(r, { x: 2, y: 6 })).toBeCloseTo(0.6, 6);
+    expect(roofTopAt(r, { x: 3, y: 6 })).toBeCloseTo(0.3, 6);
+    expect(ML(r.lines, 'gable')).toHaveLength(0);
+    expect(sum(ML(r.lines, 'eave').map(len))).toBeCloseTo(ringLen(outer) + ringLen(hole), 6);
+  });
+
+  it('retângulo 12×8 com pátio interno retangular 4×2 (furo horário): 8 águas e área = 96 − 8 = 88 m²', () => {
+    const outer: Vec2[] = [
+      { x: 0, y: 0 },
+      { x: 12, y: 0 },
+      { x: 12, y: 8 },
+      { x: 0, y: 8 },
+    ];
+    const holeCW: Vec2[] = [
+      { x: 4, y: 3 },
+      { x: 4, y: 5 },
+      { x: 8, y: 5 },
+      { x: 8, y: 3 },
+    ];
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({
+      type: 'addRoof',
+      roof: makeRoof({
+        id: 'r_patio_ret',
+        typeId: 'rt_ceramica',
+        levelId: 'lv_0',
+        boundary: outer,
+        holes: [holeCW],
+        shape: 'hip',
+        slopePercent: 30,
+        holeSlopes: [[30, 30, 30, 30]],
+      }),
+    });
+    const r = resolveRoofs(s.project, 'lv_0')[0]!;
+    expect(r.problem).toBeUndefined();
+    expect(r.planes).toHaveLength(8);
+    expect(planArea(r)).toBeCloseTo(96 - 8, 6);
+    expect(roofTopAt(r, { x: 6, y: 4 })).toBeNull();
+    expect(roofTopAt(r, { x: 6, y: 1.5 })).toBeCloseTo(0.45, 6);
+    expect(roofTopAt(r, { x: 2, y: 4 })).toBeCloseTo(0.6, 6);
+  });
+
+  it('pátio interno com uma empena no furo (holeSlopes: [30, 30, null, 30]): 7 águas, área preservada e beiral/empena corretos', () => {
+    const outer: Vec2[] = [
+      { x: 0, y: 0 },
+      { x: 12, y: 0 },
+      { x: 12, y: 12 },
+      { x: 0, y: 12 },
+    ];
+    const hole: Vec2[] = [
+      { x: 4, y: 4 },
+      { x: 4, y: 8 },
+      { x: 8, y: 8 },
+      { x: 8, y: 4 },
+    ];
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({
+      type: 'addRoof',
+      roof: makeRoof({
+        id: 'r_patio_empena',
+        typeId: 'rt_ceramica',
+        levelId: 'lv_0',
+        boundary: outer,
+        holes: [hole],
+        shape: 'hip',
+        slopePercent: 30,
+        holeSlopes: [[30, null, 30, 30]],
+      }),
+    });
+    const r = resolveRoofs(s.project, 'lv_0')[0]!;
+    expect(r.problem).toBeUndefined();
+    expect(r.planes).toHaveLength(7);
+    expect(planArea(r)).toBeCloseTo(144 - 16, 6);
+    expect(sum(ML(r.lines, 'gable').map(len))).toBeCloseTo(4, 6);
+  });
+});

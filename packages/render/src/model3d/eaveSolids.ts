@@ -255,6 +255,10 @@ export function buildEaveSolids(p: Project, roofs: ResolvedRoof[]): EaveSolids {
   const byMat = new Map<Id, SolidBatch>();
   const materials: Record<Id, Material> = {};
   for (const r of roofs) {
+    if (r.closeStepGaps === true && r.stepGaps?.length) {
+      const m = fasciaMaterialOf(p, r);
+      if (m) materials[m.id] = m;
+    }
     const eave = r.eave;
     if (!eave || (!eave.fascia && !eave.gutter && !eave.soffit) || !r.planes.length) continue;
     const ps = piecesOf(r);

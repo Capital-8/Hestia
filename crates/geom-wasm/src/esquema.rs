@@ -5,7 +5,7 @@
 //! Mudou o JSON => sobe `VERSAO_ESQUEMA` e este arquivo.
 
 /// `versao` de `cena-v11.json`.
-pub const VERSAO_ESQUEMA: u32 = 20;
+pub const VERSAO_ESQUEMA: u32 = 21;
 /// `abi` de `cena-v11.json`.
 pub const VERSAO_ABI2: u32 = 2;
 
@@ -130,6 +130,8 @@ pub const SECAO_CORTINA_EXTREMIDADES: u32 = 110;
 /// Parede cortina, fase 5 (esquema v17): esquadria na célula e cortina embutida (ADR 0056 §6.1, §7 e §8). A 111 (`cortina_cadeias`) fica para a fase 4.
 pub const SECAO_CORTINA_CELULAS_ABERTURA: u32 = 112;
 pub const SECAO_CORTINA_HOSPEDES: u32 = 113;
+/// Parede cortina (esquema v21): perfil superior variável ao longo do eixo.
+pub const SECAO_CORTINA_PERFIS_TOPO: u32 = 114;
 /// Terreno (esquema v19; PLANO do terreno A.5). Faixa reservada: seções 160 a 199.
 pub const SECAO_TERRENOS: u32 = 160;
 pub const SECAO_TERRENO_LINHAS: u32 = 161;
@@ -992,6 +994,18 @@ pub const SECOES: &[Secao] = &[
             col("largura", Tipo::F64),
             col("peitoril", Tipo::F64),
             col("altura", Tipo::F64),
+        ],
+    },
+    Secao {
+        id: SECAO_CORTINA_PERFIS_TOPO,
+        nome: "cortina_perfis_topo",
+        chave: "id_num",
+        colunas: &[
+            col("id_num", Tipo::U32),
+            col("cortina_num", Tipo::U32),
+            col("ordem", Tipo::U32),
+            col("t", Tipo::F64),
+            col("h", Tipo::F64),
         ],
     },
     Secao {

@@ -138,11 +138,18 @@ describe('recusa só quando sobra região sem aresta inclinada que a cubra', () 
   });
 });
 
-describe('aresta sem inclinação entre trechos de água (degrau que a envoltória fecha)', () => {
-  it('L com só a interna definindo além das externas: superfície contínua, sem degrau', () => {
+describe('aresta sem inclinação entre trechos de água (esqueleto com degrau preservado vs envoltória direta)', () => {
+  it('L com degrau no vértice reentrante mantém o esqueleto limpo e preserva steps', () => {
     const r = roofOf(L, [30, 30, null, 30, 30, 30]);
     expect(r.problem).toBeUndefined();
-    expect(r.steps).toBeUndefined();
+    expect(r.steps?.length).toBeGreaterThan(0);
     near(roofTopAt(r, P(2, 2)), 0.6);
+  });
+
+  it('envelopePlanes continua sem degrau quando chamada diretamente', () => {
+    const env = envelopePlanes(L, [30, 30, null, 30, 30, 30], 0);
+    expect(env.problem).toBeUndefined();
+    expect(env.steps).toBeUndefined();
+    near(zOf(env.planes, P(2, 2)), 0.6);
   });
 });

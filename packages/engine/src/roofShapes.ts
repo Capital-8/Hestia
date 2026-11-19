@@ -84,11 +84,13 @@ export function waterPlanesOf(r: Roof, eaveZ: number, units: ResolvedUnits = def
       return { planes: extrusionPlanes(r, eaveZ) };
     default: {
       const slopes = edgeSlopesOf(r);
+      const hasHoleSlope = (r.holeSlopes ?? []).some((hs) => hs.some((s) => s !== null && s !== undefined && s > 0));
       // Telhado plano não tem desnível para a mansarda cortar: a água fica plana, como sem mansarda.
-      if (!r.mansard || !hasSlope(slopes)) return skeletonPlanes(r.boundary, r.holes, slopes, eaveZ);
+      if (!r.mansard || (!hasSlope(slopes) && !hasHoleSlope)) return skeletonPlanes(r.boundary, r.holes, slopes, eaveZ, r.holeSlopes);
       // Mansarda: pesos iguais nas arestas com água (a altura passa a depender só da distância), depois o corte por faixa.
       const uniform = slopes.map((s) => (s !== null && s !== undefined && s > 0 ? 100 : null));
-      return applyMansard(skeletonPlanes(r.boundary, r.holes, uniform, eaveZ), r.mansard, units);
+      const holeUniform = r.holeSlopes?.map((hs) => hs.map((s) => (s !== null && s !== undefined && s > 0 ? 100 : null)));
+      return applyMansard(skeletonPlanes(r.boundary, r.holes, uniform, eaveZ, holeUniform), r.mansard, units);
     }
   }
 }

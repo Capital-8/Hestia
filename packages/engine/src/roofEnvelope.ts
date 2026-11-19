@@ -1,5 +1,5 @@
 import { asMulti, boxOf, boxesOverlap, difference, dot, intersection, multiArea, ringArea, sub, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
-import { clipHalfPlane, perpOf, unitOf, WATER_MIN_AREA } from './roofGeom.ts';
+import { clipHalfPlane, perpOf, sanitizeMulti, unitOf, WATER_MIN_AREA } from './roofGeom.ts';
 import type { ResolvedRoofPlane } from './roofs.ts';
 import type { WaterSolution } from './roofSkeleton.ts';
 
@@ -89,6 +89,7 @@ export function envelopePlanes(boundary: Vec2[], edgeSlopes: Array<number | null
       if (cut.length && boxesOverlap(boxOf(region.flat(2)), boxOf(cut.flat(2)))) cuts.push(cut);
     }
     if (cuts.length) region = difference(region, ...cuts);
+    region = sanitizeMulti(region);
     if (multiArea(region) > WATER_MIN_AREA) {
       planes.push({ polygon: region, origin: e.a, up: e.up, percent: edgeSlopes[e.j]!, z0: eaveZ });
     }

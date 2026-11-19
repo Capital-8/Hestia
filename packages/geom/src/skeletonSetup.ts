@@ -1,6 +1,6 @@
-import { cross, dist, dot, mul, norm, perp, sub, type Vec2 } from './vec.ts';
+import { cross, dist, dot, norm, perp, sub, type Vec2 } from './vec.ts';
 import { ringArea, pointInRing } from './polygon.ts';
-import { SkeletonFail, mkVtx, newSim, nodeAt, type Line, type Sim, type Vtx } from './skeletonCore.ts';
+import { SkeletonFail, linkCorners, mkCorner, newSim, pushNode, type Sim } from './skeletonCore.ts';
 import { type LeaderInfo } from './skeletonFaces.ts';
 
 /** Entrada do esqueleto (contrato público; ver skeleton.ts). */
@@ -103,54 +103,74 @@ function joinFlags(R: Vec2[], ws: number[]): boolean[] {
   });
 }
 
-/** Constrói o estado inicial: retas, vértices do frente de onda e arestas-base do grafo. */
+/** Índice no anel original da aresta `k` quando o anel foi invertido. */
+const reversedIndex = (k: number, m: number): number => (((m - 2 - k) % m) + m) % m;
+
+/** Constrói o estado inicial: anel externo anti-horário, furos horários, arestas, vértices e líderes. */
 export function setup(input: SkeletonInput): { sim: Sim; leaders: LeaderInfo[] } {
-  const rings = checkShape(input);
-  checkTopology(rings);
-  const sim = newSim();
+  const rawRings = checkShape(input);
+  checkTopology(rawRings);
+  const outer = rawRings[0]!;
+  const size = outer.reduce((mx, p) => Math.max(mx, dist(p, outer[0]!)), 0);
+  const sim = newSim(Math.max(1e-9, size * 1e-7));
   const leaders: LeaderInfo[] = [];
-  let offset = 0;
-  rings.forEach((R, r) => {
-    const m = R.length;
-    const ws = input.weights[r]!;
+
+  rawRings.forEach((rawR, r) => {
+    const m = rawR.length;
+    const rawW = input.weights[r]!;
+    const wantCCW = r === 0;
+    const isCCW = ringArea(rawR) > 0;
+    const flip = isCCW !== wantCCW;
+    const R = flip ? [...rawR].reverse() : rawR;
+    const origOf = (k: number): number => (flip ? reversedIndex(k, m) : k);
+    const ws = R.map((_, k) => rawW[origOf(k)]!);
     const join = joinFlags(R, ws);
-    const sgn = (r === 0 ? 1 : -1) * (ringArea(R) > 0 ? 1 : -1);
     const dirs = R.map((p, k) => norm(sub(R[(k + 1) % m]!, p)));
-    const s0 = join.findIndex((_, k) => !join[(k - 1 + m) % m]);
-    if (s0 < 0) throw new SkeletonFail('contorno inteiro colinear');
-    const lines: Line[] = new Array(m);
-    for (let q = 0; q < m; q++) {
-      const k = (s0 + q) % m;
-      const prev = (k - 1 + m) % m;
-      if (join[prev]) {
-        lines[k] = lines[prev]!;
-        continue;
-      }
+
+    // Vértices não-colineares que abrem um grupo de arestas.
+    const starts: number[] = [];
+    for (let k = 0; k < m; k++) {
+      if (!join[(k - 1 + m) % m]) starts.push(k);
+    }
+    if (starts.length < 3) throw new SkeletonFail('contorno inteiro colinear');
+
+    const g = starts.length;
+    const nodes = starts.map((k) => pushNode(sim, R[k]!, 0));
+    const edgeIds: number[] = [];
+    for (let q = 0; q < g; q++) {
+      const k = starts[q]!;
+      const id = sim.edges.length;
       const w = ws[k]!;
-      const id = offset + k;
-      lines[k] = {
+      const dir = dirs[k]!;
+      sim.edges.push({
         id,
-        dir: dirs[k]!,
-        n: mul(perp(dirs[k]!), sgn),
-        c: dot(mul(perp(dirs[k]!), sgn), R[k]!),
-        s: w > 0 ? 1 / w : 0,
+        a: R[k]!,
+        dir,
+        n: perp(dir),
+        speed: w > 0 ? 1 / w : 0,
         w,
-      };
-      leaders.push({ id, ring: r, edge: k, w });
+      });
+      edgeIds.push(id);
+      leaders.push({
+        id,
+        ring: r,
+        edge: origOf(k),
+        w,
+        startNode: nodes[q]!,
+        endNode: nodes[(q + 1) % g]!,
+      });
     }
-    const ringVtx: Vtx[] = [];
-    for (let k = 0; k < m; k++) {
-      if (join[(k - 1 + m) % m]) continue;
-      const node = nodeAt(sim, R[k]!.x, R[k]!.y, 0);
-      ringVtx.push(mkVtx(lines[(k - 1 + m) % m]!, lines[k]!, R[k]!, 0, node));
+
+    const ringCorners: number[] = [];
+    for (let q = 0; q < g; q++) {
+      const prevEdge = edgeIds[(q - 1 + g) % g]!;
+      const nextEdge = edgeIds[q]!;
+      ringCorners.push(mkCorner(sim, R[starts[q]!]!, 0, prevEdge, nextEdge, nodes[q]!));
     }
-    sim.rings.push(ringVtx);
-    for (let k = 0; k < m; k++) {
-      const a = nodeAt(sim, R[k]!.x, R[k]!.y, 0);
-      const b = nodeAt(sim, R[(k + 1) % m]!.x, R[(k + 1) % m]!.y, 0);
-      sim.segs.push({ a, b, f1: lines[k]!.id, f2: lines[k]!.id, base: true });
+    for (let q = 0; q < g; q++) {
+      linkCorners(sim, ringCorners[(q - 1 + g) % g]!, ringCorners[q]!, ringCorners[(q + 1) % g]!);
     }
-    offset += m;
   });
+
   return { sim, leaders };
 }

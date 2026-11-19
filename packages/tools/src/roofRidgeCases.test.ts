@@ -130,12 +130,12 @@ describe('caso 4: mista = cumeeira do esqueleto das arestas que definem; águas 
     expect(msg).toMatch(/^Telhado criado/);
   });
 
-  it('L com degrau entre água e empena: a envoltória fecha a superfície, sem degrau e sem recusa', () => {
-    // Base, braço de baixo e a aresta interna vertical definem. Antes o esqueleto deixava degrau de 1,50 m em (5,50; 4,50)
-    // e o commit recusava; agora a superfície é contínua (Revit).
+  it('L com degrau entre água e empena: mantém o degrau do esqueleto e o commit cria o telhado sem recusa', () => {
+    // Base, braço de baixo e a aresta interna vertical definem: gera degrau de 1,50 m em (5,50; 4,50), permitido para fechamento opcional.
     const { roof } = build(L, [30, 30, null, 30, null, null]);
     expect(roof.problem).toBeUndefined();
-    expect(roof.steps).toBeUndefined();
+    expect(roof.steps).toHaveLength(1);
+    expect(roof.steps![0]!.dz).toBeCloseTo(1.5, 6);
     expect(roof.planes.length).toBeGreaterThan(0);
   });
 });

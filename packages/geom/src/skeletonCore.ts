@@ -1,4 +1,4 @@
-import { dot, type Vec2 } from './vec.ts';
+import { cross, dot, type Vec2 } from './vec.ts';
 
 /**
  * Falha de validação ou de topologia do esqueleto; vira ok:false com `reason`. `at` são os pontos (em planta) onde a
@@ -13,34 +13,30 @@ export class SkeletonFail extends Error {
   }
 }
 
-/** Tolerância para unir nós coincidentes (metros e alturas). */
-const NODE_TOL = 1e-7;
-
-/**
- * Aresta do frente de onda. Reta no instante t (= altura z):
- *   n·p = c + s·t,  com s = 1/w (w = 0 => s = 0, parede vertical fixa).
- * A face de uma aresta tem plano z = w·distância, logo o deslocamento em planta é t/w.
- * Imutável: partes de uma aresta dividida por split compartilham o mesmo objeto.
- */
-export interface Line {
-  /** Rótulo da face: índice global da aresta que originou a linha (um grupo de colineares usa o primeiro). */
+/** Aresta inicial (ou grupo de colineares de mesmo peso): interior à esquerda (`n = perp(dir)`). */
+export interface Edge {
   id: number;
-  /** Direção unitária da aresta de entrada (sentido do anel de entrada). */
+  a: Vec2;
   dir: Vec2;
-  /** Normal unitária apontando para o material. */
   n: Vec2;
-  c: number;
-  s: number;
+  /** Avanço horizontal por unidade de altura: 1/w quando w > 0, ou 0 para empena vertical. */
+  speed: number;
   w: number;
 }
 
-/** Vértice do frente de onda: p(t) = p0 + v·t, entre as retas `inL` e `outL`. `node` é o nó onde nasceu. */
-export interface Vtx {
-  p0: Vec2;
+/** Vértice ativo da frente de onda no instante `t`, entre as arestas `left` e `right`. */
+export interface Corner {
+  p: Vec2;
+  t: number;
   v: Vec2;
-  inL: Line;
-  outL: Line;
+  left: number;
+  right: number;
+  prev: number;
+  next: number;
   node: number;
+  alive: boolean;
+  /** Verdadeiro entre arestas paralelas sem velocidade única (resolvido imediatamente em `settle`). */
+  stuck: boolean;
 }
 
 /** Ponto do grafo do esqueleto (planta + altura). */
@@ -50,67 +46,129 @@ export interface Node {
   z: number;
 }
 
-/** Segmento do grafo: arco de um vértice (f1 != f2) ou aresta-base do contorno (base = true, f1 = f2). */
-export interface Seg {
+/** Arco deixado por um vértice da frente de onda entre as faces `left` e `right`. */
+export interface Arc {
   a: number;
   b: number;
-  f1: number;
-  f2: number;
-  base: boolean;
+  left: number;
+  right: number;
+}
+
+export type SimEvent =
+  | { t: number; kind: 'shrink'; a: number; b: number }
+  | { t: number; kind: 'split'; v: number; f: number };
+
+/** Fila de prioridade mínima: menor `t` primeiro; em empate, `shrink` antes de `split`. */
+export class EventQueue {
+  private readonly items: SimEvent[] = [];
+
+  get length(): number {
+    return this.items.length;
+  }
+
+  push(e: SimEvent): void {
+    this.items.push(e);
+    this.siftUp(this.items.length - 1);
+  }
+
+  pop(): SimEvent | undefined {
+    const n = this.items.length;
+    if (n === 0) return undefined;
+    const top = this.items[0]!;
+    const last = this.items.pop()!;
+    if (n > 1) {
+      this.items[0] = last;
+      this.siftDown(0);
+    }
+    return top;
+  }
+
+  private less(i: number, j: number): boolean {
+    const a = this.items[i]!;
+    const b = this.items[j]!;
+    if (a.t !== b.t) return a.t < b.t;
+    return a.kind === 'shrink' && b.kind === 'split';
+  }
+
+  private siftUp(i: number): void {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (!this.less(i, p)) break;
+      [this.items[i], this.items[p]] = [this.items[p]!, this.items[i]!];
+      i = p;
+    }
+  }
+
+  private siftDown(i: number): void {
+    const n = this.items.length;
+    while (true) {
+      let best = i;
+      const l = 2 * i + 1;
+      const r = l + 1;
+      if (l < n && this.less(l, best)) best = l;
+      if (r < n && this.less(r, best)) best = r;
+      if (best === i) break;
+      [this.items[i], this.items[best]] = [this.items[best]!, this.items[i]!];
+      i = best;
+    }
+  }
 }
 
 export interface Sim {
+  edges: Edge[];
+  corners: Corner[];
   nodes: Node[];
-  segs: Seg[];
-  rings: Vtx[][];
-  T: number;
+  arcs: Arc[];
+  queue: EventQueue;
+  eps: number;
+  broken: boolean;
 }
 
-export const newSim = (): Sim => ({ nodes: [], segs: [], rings: [], T: 0 });
+export const newSim = (eps: number): Sim => ({
+  edges: [],
+  corners: [],
+  nodes: [],
+  arcs: [],
+  queue: new EventQueue(),
+  eps,
+  broken: false,
+});
 
-/** Índice do nó em (x, y, z), criando-o se não existir (nós coincidentes são unidos). */
-export function nodeAt(sim: Sim, x: number, y: number, z: number): number {
-  const ns = sim.nodes;
-  for (let i = 0; i < ns.length; i++) {
-    const q = ns[i]!;
-    if (Math.abs(q.x - x) <= NODE_TOL && Math.abs(q.y - y) <= NODE_TOL && Math.abs(q.z - z) <= NODE_TOL) return i;
+export const pushNode = (sim: Sim, p: Vec2, z: number): number => {
+  sim.nodes.push({ x: p.x, y: p.y, z });
+  return sim.nodes.length - 1;
+};
+
+export const posAt = (c: Corner, t: number): Vec2 => ({
+  x: c.p.x + c.v.x * (t - c.t),
+  y: c.p.y + c.v.y * (t - c.t),
+});
+
+/** Cria vértice entre `left` e `right` em `p` no instante `t`, partindo de `node`. */
+export function mkCorner(sim: Sim, p: Vec2, t: number, left: number, right: number, node: number): number {
+  const l = sim.edges[left]!;
+  const r = sim.edges[right]!;
+  const det = cross(l.n, r.n);
+  let v: Vec2;
+  let stuck = false;
+  if (Math.abs(det) > 1e-9) {
+    v = {
+      x: (l.speed * r.n.y - l.n.y * r.speed) / det,
+      y: (l.n.x * r.speed - l.speed * r.n.x) / det,
+    };
+  } else if (dot(l.n, r.n) > 0 && Math.abs(l.speed - r.speed) < 1e-12) {
+    v = { x: l.n.x * l.speed, y: l.n.y * l.speed };
+  } else {
+    v = { x: 0, y: 0 };
+    stuck = true;
   }
-  ns.push({ x, y, z });
-  return ns.length - 1;
+  sim.corners.push({ p, t, v, left, right, prev: -1, next: -1, node, alive: true, stuck });
+  return sim.corners.length - 1;
 }
 
-export const posAt = (v: Vtx, t: number): Vec2 => ({ x: v.p0.x + v.v.x * t, y: v.p0.y + v.v.y * t });
-
-/**
- * Velocidade do vértice entre duas retas: n_a·v = s_a e n_b·v = s_b.
- * Retas paralelas de mesmo sentido e mesma velocidade (vértice reto, p.ex. dois trechos de uma
- * mesma parede que se encontram) têm v = n·s. Null nos demais casos paralelos.
- */
-export function solveVel(a: Line, b: Line): Vec2 | null {
-  const det = a.n.x * b.n.y - a.n.y * b.n.x;
-  if (Math.abs(det) < 1e-10) {
-    if (dot(a.n, b.n) > 0 && Math.abs(a.s - b.s) < 1e-12) return { x: a.n.x * a.s, y: a.n.y * a.s };
-    return null;
-  }
-  return { x: (a.s * b.n.y - b.s * a.n.y) / det, y: (a.n.x * b.s - b.n.x * a.s) / det };
-}
-
-/**
- * Vértice criado em X no instante T, ligado ao nó `node`.
- * Retas antiparalelas coincidentes não definem velocidade: o vértice nasce degenerado (v = 0)
- * e é tratado pelo "sliver" em skeletonRun.
- */
-export function mkVtx(inL: Line, outL: Line, X: Vec2, T: number, node: number): Vtx {
-  const v = solveVel(inL, outL);
-  if (v) return { p0: { x: X.x - v.x * T, y: X.y - v.y * T }, v, inL, outL, node };
-  if (dot(inL.n, outL.n) < 0) return { p0: X, v: { x: 0, y: 0 }, inL, outL, node };
-  throw new SkeletonFail('vértice reto entre trechos colineares de pesos diferentes (limite conhecido do esqueleto)', [X]);
-}
-
-/** Encerra a trajetória de um vértice no instante T; devolve o nó final. */
-export function closeVtx(sim: Sim, v: Vtx, T: number): number {
-  const p = posAt(v, T);
-  const b = nodeAt(sim, p.x, p.y, T);
-  if (b !== v.node) sim.segs.push({ a: v.node, b, f1: v.inL.id, f2: v.outL.id, base: false });
-  return b;
+export function linkCorners(sim: Sim, prev: number, c: number, next: number): void {
+  sim.corners[prev]!.next = c;
+  sim.corners[c]!.prev = prev;
+  sim.corners[c]!.next = next;
+  sim.corners[next]!.prev = c;
 }

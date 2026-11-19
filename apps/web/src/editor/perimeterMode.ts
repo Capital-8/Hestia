@@ -1,6 +1,6 @@
-import type { SketchDraft, SketchTarget } from '@hestia/geom';
+import type { SketchDraft, SketchTarget, SkeletonStep } from '@hestia/geom';
 import type { PerimeterModifyKind } from '@hestia/tools';
-import { DEFAULT_CEILING_HEIGHT, isFloor, isSlab, type Id, type Project } from '@hestia/model';
+import { DEFAULT_CEILING_HEIGHT, isFloor, isRoof, isSlab, type Id, type Project, type Roof } from '@hestia/model';
 import {
   OUTLINE_LOCKED_MSG,
   PerimeterTool,
@@ -32,6 +32,8 @@ export interface PerimetroPorta {
   ativar(tool: Tool | null): void;
   /** Avisa a interface de que o estado do modo mudou (repinta a planta e a barra). */
   atualizar(): void;
+  /** Pergunta ao usuário se deseja fechar degraus verticais do telhado com testeira (`true`) ou deixar aberto (`false`). */
+  confirmarDegrauTelhado?: (roof: Roof, steps: readonly SkeletonStep[]) => boolean | Promise<boolean>;
 }
 
 /** Uma sessão aberta: a ferramenta com o rascunho, o alvo, o elemento em edição (se houver) e as opções da barra. */
@@ -148,6 +150,8 @@ export class PerimeterMode {
       this.dizer(r.message);
       return;
     }
+    const existing = s.editing ? this.porta.projeto().elements[s.editing] : undefined;
+    const alreadyChosen = isRoof(existing) && existing.closeStepGaps !== undefined;
     const env = this.porta.env();
     env.transaction(s.editing ? 'edc_perim_undo_edit' : 'edc_perim_undo_create', () => {
       for (const c of r.commands) env.exec(c);
@@ -155,6 +159,15 @@ export class PerimeterMode {
     this.fechar();
     env.setSelection([r.id]);
     this.dizer(r.message);
+    if (r.steps?.length && !alreadyChosen && this.porta.confirmarDegrauTelhado) {
+      const roof = this.porta.projeto().elements[r.id];
+      if (isRoof(roof)) {
+        void Promise.resolve(this.porta.confirmarDegrauTelhado(roof, r.steps)).then((close) => {
+          const cur = this.porta.projeto().elements[r.id];
+          if (isRoof(cur)) env.exec({ type: 'updateElements', ids: [r.id], patch: { closeStepGaps: close } });
+        });
+      }
+    }
   }
 
   /**

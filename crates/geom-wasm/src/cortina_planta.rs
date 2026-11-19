@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 use crate::consultas::Saida;
 use crate::cortina_malha::{lados_redondo, secao, valor_em, Faixas, Secao};
-use crate::cortina_pecas::{CortinaR, Geom, PecaEsq, PecaMont};
+use crate::cortina_pecas::{CortinaR, Geom, Montante, PainelTipo, PecaEsq, PecaMont};
 use crate::cortina_tipos::*;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,22 +46,25 @@ fn retangulo(g: &Geom, t0: f64, t1: f64, y0: f64, y1: f64) -> Vec<[f64; 2]> {
     vec![xy(g, t0, y0), xy(g, t1, y0), xy(g, t1, y1), xy(g, t0, y1)]
 }
 
-/// Perfil de uma peça vertical em planta (retângulo ou círculo) centrado em `t`. L, trapézio e canto: o contorno externo da seção, com `t = pos + σ·x`.
-fn perfil_vertical(g: &Geom, p: &PecaMont) -> Vec<[f64; 2]> {
-    let m = &p.m;
+/// Perfil de uma peça vertical em planta (retângulo ou círculo) centrado em `pos`. L, trapézio e canto: o contorno externo da seção, com `t = pos + σ·x`.
+fn perfil_vertical_m(g: &Geom, m: &Montante, pos: f64) -> Vec<[f64; 2]> {
     if m.forma == FORMA_REDONDA {
         let (n, r) = (lados_redondo(m.largura, 1), m.largura / 2.0);
         (0..n)
             .map(|k| {
                 let a = std::f64::consts::TAU * k as f64 / n as f64;
-                xy(g, p.pos + r * a.cos(), m.desloc + r * a.sin())
+                xy(g, pos + r * a.cos(), m.desloc + r * a.sin())
             })
             .collect()
     } else if matches!(m.forma, FORMA_L | FORMA_TRAPEZIO | FORMA_CORNER) {
-        perfil_secao(g, p.pos, &secao(m, 1))
+        perfil_secao(g, pos, &secao(m, 1))
     } else {
-        retangulo(g, p.pos - m.largura / 2.0, p.pos + m.largura / 2.0, m.desloc - m.profundidade / 2.0, m.desloc + m.profundidade / 2.0)
+        retangulo(g, pos - m.largura / 2.0, pos + m.largura / 2.0, m.desloc - m.profundidade / 2.0, m.desloc + m.profundidade / 2.0)
     }
+}
+
+fn perfil_vertical(g: &Geom, p: &PecaMont) -> Vec<[f64; 2]> {
+    perfil_vertical_m(g, &p.m, p.pos)
 }
 
 /// Contorno externo de uma seção de montante vertical em planta, centrada na linha `pos`.
@@ -136,25 +139,40 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
             }
             1 => {
                 // Um retângulo por coluna e tipo de painel, com a faixa de cotas de todos os painéis do grupo.
-                let mut grupos: BTreeMap<(u32, u32), (crate::cortina_pecas::PainelPeca, f64, f64)> = BTreeMap::new();
+                let mut grupos: BTreeMap<(u32, u32), (PainelTipo, f64, f64, f64, f64)> = BTreeMap::new();
                 for p in g.paineis.iter().filter(|p| p.p.kind != PAINEL_VAZIO) {
-                    let e = grupos.entry((p.i, p.p.tipo)).or_insert((*p, p.z0, p.z1));
-                    e.1 = e.1.min(p.z0);
-                    e.2 = e.2.max(p.z1);
+                    let e = grupos.entry((p.i, p.p.tipo)).or_insert((p.p, p.s0, p.s1, p.z0, p.z1));
+                    e.3 = e.3.min(p.z0);
+                    e.4 = e.4.max(p.z1);
                 }
-                for (p, lo, hi) in grupos.values() {
-                    let (y0, y1) = (p.p.desloc - p.p.espessura / 2.0, p.p.desloc + p.p.espessura / 2.0);
-                    out.push(LinhaPlanta { cortina: c.id, papel: papel_painel(p.p.kind), estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: retangulo(g, p.s0, p.s1, y0, y1) });
+                for p in g.paineis_pol.iter().filter(|p| p.p.kind != PAINEL_VAZIO) {
+                    let (s0, s1, z0, z1) = p.caixa_sz();
+                    let e = grupos.entry((p.i, p.p.tipo)).or_insert((p.p, s0, s1, z0, z1));
+                    e.1 = e.1.min(s0);
+                    e.2 = e.2.max(s1);
+                    e.3 = e.3.min(z0);
+                    e.4 = e.4.max(z1);
+                }
+                for (pt, s0, s1, lo, hi) in grupos.values() {
+                    let (y0, y1) = (pt.desloc - pt.espessura / 2.0, pt.desloc + pt.espessura / 2.0);
+                    out.push(LinhaPlanta { cortina: c.id, papel: papel_painel(pt.kind), estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: retangulo(g, *s0, *s1, y0, y1) });
                 }
                 // Um perfil por linha de montante vertical, com a faixa de cotas das peças dela.
-                let mut linhas: BTreeMap<u32, (PecaMont, f64, f64)> = BTreeMap::new();
+                let mut linhas: BTreeMap<u32, (Montante, f64, f64, f64)> = BTreeMap::new();
                 for p in g.pecas.iter().filter(|p| p.eixo == EIXO_U) {
-                    let e = linhas.entry(p.linha).or_insert((*p, p.de, p.ate));
-                    e.1 = e.1.min(p.de);
-                    e.2 = e.2.max(p.ate);
+                    let e = linhas.entry(p.linha).or_insert((p.m, p.pos, p.de, p.ate));
+                    e.2 = e.2.min(p.de);
+                    e.3 = e.3.max(p.ate);
                 }
-                for (p, lo, hi) in linhas.values() {
-                    out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_vertical(g, p) });
+                for p in g.pecas_pol.iter().filter(|p| p.eixo == EIXO_U) {
+                    let (_, _, z0, z1) = p.caixa_sz();
+                    let pos = g.cu[p.linha as usize];
+                    let e = linhas.entry(p.linha).or_insert((p.m, pos, z0, z1));
+                    e.2 = e.2.min(z0);
+                    e.3 = e.3.max(z1);
+                }
+                for (m, pos, lo, hi) in linhas.values() {
+                    out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: perfil_vertical_m(g, m, *pos) });
                 }
                 canto_em_planta(&mut out, c.id, g, corte_z);
                 // Verticais com esquadria: um perfil por peça, com a faixa de cotas dela.
@@ -169,6 +187,11 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                     let (y0, y1) = (p.p.desloc - p.p.espessura / 2.0, p.p.desloc + p.p.espessura / 2.0);
                     out.push(LinhaPlanta { cortina: c.id, papel: papel_painel(p.p.kind), estilo: estilo(zb + p.z0, zb + p.z1, corte_z), fechada: true, pontos: retangulo(g, p.s0, p.s1, y0, y1) });
                 }
+                for p in g.paineis_pol.iter().filter(|p| p.p.kind != PAINEL_VAZIO) {
+                    let (s0, s1, z0, z1) = p.caixa_sz();
+                    let (y0, y1) = (p.p.desloc - p.p.espessura / 2.0, p.p.desloc + p.p.espessura / 2.0);
+                    out.push(LinhaPlanta { cortina: c.id, papel: papel_painel(p.p.kind), estilo: estilo(zb + z0, zb + z1, corte_z), fechada: true, pontos: retangulo(g, s0, s1, y0, y1) });
+                }
                 for p in &g.pecas {
                     if p.eixo == EIXO_U {
                         out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + p.de, zb + p.ate, corte_z), fechada: true, pontos: perfil_vertical(g, p) });
@@ -176,6 +199,15 @@ pub fn planta(cortinas: &[CortinaR], corte_z: f64, detalhe: u8) -> Vec<LinhaPlan
                         let (lo, hi) = (p.pos - p.m.largura / 2.0, p.pos + p.m.largura / 2.0);
                         let pf = p.m.prof();
                         out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + lo, zb + hi, corte_z), fechada: true, pontos: retangulo(g, p.de, p.ate, p.m.desloc - pf / 2.0, p.m.desloc + pf / 2.0) });
+                    }
+                }
+                for p in &g.pecas_pol {
+                    let (s0, s1, z0, z1) = p.caixa_sz();
+                    if p.eixo == EIXO_U {
+                        out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + z0, zb + z1, corte_z), fechada: true, pontos: perfil_vertical_m(g, &p.m, g.cu[p.linha as usize]) });
+                    } else {
+                        let pf = p.m.prof();
+                        out.push(LinhaPlanta { cortina: c.id, papel: PLANTA_MONTANTE, estilo: estilo(zb + z0, zb + z1, corte_z), fechada: true, pontos: retangulo(g, s0, s1, p.m.desloc - pf / 2.0, p.m.desloc + pf / 2.0) });
                     }
                 }
                 for p in &g.pecas_esq {

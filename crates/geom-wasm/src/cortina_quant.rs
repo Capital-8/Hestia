@@ -51,6 +51,16 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
             l.area_liquida += len * p.m.largura;
             l.volume += len * p.m.area_secao();
         }
+        // Montantes poligonais (perfil superior variável): comprimento real inclinado na borda superior e área real no plano da cortina.
+        for p in &g.pecas_pol {
+            let l = entrada(&mut grupos, c.id, p.papel, p.m.tipo, p.m.material);
+            let area_sz = p.area_sz();
+            l.n += 1;
+            l.comprimento += p.comprimento;
+            l.area += area_sz;
+            l.area_liquida += area_sz;
+            l.volume += if p.m.largura > 1e-9 { area_sz / p.m.largura * p.m.area_secao() } else { 0.0 };
+        }
         // Montante de canto entre cortinas (fase 3): uma peça de altura total; o volume é a área em planta do encontro × altura.
         for k in &g.cantos {
             let l = entrada(&mut grupos, c.id, PAPEL_CANTO, k.m.tipo, k.m.material);
@@ -87,6 +97,21 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
                 l.volume += p.area_bruta() * p.p.espessura;
             }
         }
+        for p in &g.paineis_pol {
+            let papel = match p.p.kind {
+                PAINEL_VIDRO => PAPEL_PAINEL_VIDRO,
+                PAINEL_SOLIDO => PAPEL_PAINEL_SOLIDO,
+                _ => PAPEL_PAINEL_VAZIO,
+            };
+            let l = entrada(&mut grupos, c.id, papel, p.p.tipo, p.p.material);
+            l.n += 1;
+            let bruta = p.area_bruta();
+            l.area += bruta;
+            l.area_liquida += p.area_visivel();
+            if p.p.kind != PAINEL_VAZIO {
+                l.volume += bruta * p.p.espessura;
+            }
+        }
         // Esquadrias nas células (fase 5), à parte do vidro de fachada: o vão (n e área), a folha e o batente (volume) e o vidro da esquadria (área e volume).
         for e in &g.esquadrias {
             let cs = crate::cortina_porta::caixas(e, g.d);
@@ -107,8 +132,8 @@ pub fn quant_cortina(cortinas: &[CortinaR]) -> Vec<LinhaQuant> {
         let l = entrada(&mut grupos, c.id, PAPEL_SISTEMA, 0, 0);
         l.n = 1;
         l.comprimento = g.l;
-        l.area = g.l * g.h;
-        l.area_liquida = g.l * g.h;
+        l.area = g.area_sistema;
+        l.area_liquida = g.area_sistema;
         for mut l in grupos.into_values() {
             l.comprimento = na_grade(l.comprimento);
             l.area = na_grade(l.area);

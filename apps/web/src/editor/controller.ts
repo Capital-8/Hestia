@@ -26,7 +26,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, roofStepMessage, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
@@ -42,6 +42,7 @@ import { gravarAutosave } from './autosave.ts';
 import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
+import { pedirConfirmacaoDegrauTelhado } from './roofStepPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
@@ -157,7 +158,13 @@ export class Editor {
   readonly fluxo = new FluxoEdicao({ aoMudar: () => this.bump(), exatoAssincrono: true }); // provisório na hora, exato em segundo plano (fluxoEdicao.ts)
   readonly provisorios = this.fluxo.provisorios; // a planta os desenha (ui/quadroPlanta.ts); ler aqui liga o cálculo a cada edição
   /** Modo "Criar/Editar perímetro" (perimeterMode.ts): abre-se pelas ferramentas Telhado, Piso, Laje e Forro. */
-  readonly perimetro = new PerimeterMode({ env: () => this.env, projeto: () => this.project, ativar: (t) => (t ? this.activate('perimeter', t) : this.activate('select')), atualizar: () => this.bump() });
+  readonly perimetro = new PerimeterMode({
+    env: () => this.env,
+    projeto: () => this.project,
+    ativar: (t) => (t ? this.activate('perimeter', t) : this.activate('select')),
+    atualizar: () => this.bump(),
+    confirmarDegrauTelhado: (roof, steps) => pedirConfirmacaoDegrauTelhado(roofStepMessage(this.project, roof, steps, useI18n.getState().lang)),
+  });
   /** Cache de geometria por projeto: na abertura restaura os níveis (ver `geometriaAbertura.ts`); só a abertura grava. */
   readonly portasAbertura: PortasAbertura = {
     cache: new CacheGeometria({ tetoBytes: TETO_GEOMETRIA_BYTES }),
