@@ -8,6 +8,7 @@ import { ProjectStore, migrateProject, openingsOfWall, wallsOnLevel, type Id, ty
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { LevelResolveCache } from '../packages/engine/src/resolveLevels.ts';
 import { resolveLevel, resolveLevelTs, type PlanResolveOptions } from '../packages/engine/src/resolve.ts';
+import { projetoComParceiras, resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
 import { codificarA3d } from '../packages/engine/src/kernelA3d.ts';
@@ -47,8 +48,10 @@ const excecaoSemente1 = (semente: number, nivel: number): ExcecaoNomeada[] =>
 /** Compara o `ResolvedLevel` do despacho com o do TS pelo critério do harness; devolve as divergências. */
 function divergenciasDe(p: Project, levelId: Id, opts: PlanResolveOptions, excecoes: ExcecaoNomeada[] = []): string[] {
   const rust = resolveLevel(p, levelId, new Map(), opts);
-  const ts = resolveLevelTs(p, levelId, new Map(), opts);
-  const a1 = montarCenaA1(p, opts.flatAttach === true);
+  // Mesmo pipeline do despacho: parceiras de outros níveis entram só nas pontas (resolveParceiras.ts).
+  const q = opts.cutZ === undefined ? projetoComParceiras(p, levelId) : p;
+  const ts = resolverComParceiras(p, levelId, opts.cutZ, (x) => resolveLevelTs(x, levelId, new Map(), opts));
+  const a1 = montarCenaA1(q, opts.flatAttach === true);
   const curvas = new Set<number>();
   a1.secoes.paredes_quadro['id_num']!.forEach((id, i) => {
     if (a1.secoes.paredes_quadro['sag']![i] !== 0) curvas.add(id);
