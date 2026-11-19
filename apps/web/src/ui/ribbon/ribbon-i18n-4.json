@@ -1190,5 +1190,237 @@
     "fr": "Ferme par un prisme la marche entre murs continus d'inclinaisons différentes (alterne avec la marche ouverte).",
     "it": "Chiude con un prisma il gradino tra pareti continue di inclinazioni diverse (alterna con il gradino aperto).",
     "pl": "Zamyka graniastosłupem uskok między ścianami ciągłymi o różnych nachyleniach (przełącza z otwartym uskokiem)."
+  },
+  {
+    "pt": "Agrupar",
+    "es": "Agrupar",
+    "de": "Gruppieren",
+    "fr": "Grouper",
+    "it": "Raggruppa",
+    "pl": "Grupuj"
+  },
+  {
+    "pt": "Cria um conjunto com os componentes selecionados: eles passam a ser selecionados, movidos e copiados juntos.",
+    "es": "Crea un conjunto con los componentes seleccionados: pasan a seleccionarse, moverse y copiarse juntos.",
+    "de": "Erstellt einen Satz aus den ausgewählten Bauteilen: Sie werden gemeinsam ausgewählt, verschoben und kopiert.",
+    "fr": "Crée un ensemble avec les composants sélectionnés : ils sont sélectionnés, déplacés et copiés ensemble.",
+    "it": "Crea un insieme con i componenti selezionati: vengono selezionati, spostati e copiati insieme.",
+    "pl": "Tworzy zestaw z zaznaczonych komponentów: są zaznaczane, przesuwane i kopiowane razem."
+  },
+  {
+    "pt": "Selecione componentes para agrupar.",
+    "es": "Seleccione componentes para agrupar.",
+    "de": "Wählen Sie Bauteile zum Gruppieren aus.",
+    "fr": "Sélectionnez des composants à grouper.",
+    "it": "Seleziona componenti da raggruppare.",
+    "pl": "Zaznacz komponenty do zgrupowania."
+  },
+  {
+    "pt": "Desagrupar",
+    "es": "Desagrupar",
+    "de": "Gruppierung aufheben",
+    "fr": "Dégrouper",
+    "it": "Separa gruppo",
+    "pl": "Rozgrupuj"
+  },
+  {
+    "pt": "Desfaz o conjunto dos componentes selecionados; eles continuam no projeto, soltos.",
+    "es": "Deshace el conjunto de los componentes seleccionados; siguen en el proyecto, sueltos.",
+    "de": "Hebt den Satz der ausgewählten Bauteile auf; sie bleiben lose im Projekt.",
+    "fr": "Défait l'ensemble des composants sélectionnés ; ils restent dans le projet, libres.",
+    "it": "Scioglie l'insieme dei componenti selezionati; restano nel progetto, separati.",
+    "pl": "Rozdziela zestaw zaznaczonych komponentów; pozostają w projekcie, luźno."
+  },
+  {
+    "pt": "Selecione componentes de um conjunto.",
+    "es": "Seleccione componentes de un conjunto.",
+    "de": "Wählen Sie Bauteile in einem Satz aus.",
+    "fr": "Sélectionnez des composants d'un ensemble.",
+    "it": "Seleziona componenti di un insieme.",
+    "pl": "Zaznacz komponenty z zestawu."
+  },
+  {
+    "pt": "Editor de famílias",
+    "es": "Editor de familias",
+    "de": "Familieneditor",
+    "fr": "Éditeur de familles",
+    "it": "Editor di famiglie",
+    "pl": "Edytor rodzin"
+  },
+  {
+    "pt": "Experimental: cria e edita móveis paramétricos (Meus modelos).",
+    "es": "Experimental: crea y edita muebles paramétricos (Mis modelos).",
+    "de": "Experimentell: erstellt und bearbeitet parametrische Möbel (Meine Modelle).",
+    "fr": "Expérimental : crée et modifie des meubles paramétriques (Mes modèles).",
+    "it": "Sperimentale: crea e modifica mobili parametrici (I miei modelli).",
+    "pl": "Eksperymentalne: tworzy i edytuje meble parametryczne (Moje modele)."
+  },
+  {
+    "pt": "Biblioteca",
+    "es": "Biblioteca",
+    "de": "Bibliothek",
+    "fr": "Bibliothèque",
+    "it": "Libreria",
+    "pl": "Biblioteka"
+  },
+  {
+    "pt": "Paleta de móveis padrão: clique ou arraste para posicionar no 3D ou na planta.",
+    "es": "Paleta de muebles estándar: haga clic o arrastre para colocar en 3D o en la planta.",
+    "de": "Standard-Möbelpalette: klicken oder ziehen, um im 3D oder im Grundriss zu platzieren.",
+    "fr": "Palette de meubles standard : cliquez ou glissez pour placer en 3D ou sur le plan.",
+    "it": "Tavolozza di mobili standard: clic o trascina per posizionare in 3D o in pianta.",
+    "pl": "Standardowa paleta mebli: kliknij lub przeciągnij, aby umieścić w 3D lub na planie."
+  },
+  {
+    "pt": "Orçamento do projeto",
+    "es": "Presupuesto del proyecto",
+    "de": "Projektbudget",
+    "fr": "Budget du projet",
+    "it": "Computo del progetto",
+    "pl": "Kosztorys projektu"
+  },
+  {
+    "pt": "Soma peças, ferragens e custo de todos os componentes do projeto.",
+    "es": "Suma piezas, herrajes y costo de todos los componentes del proyecto.",
+    "de": "Summiert Teile, Beschläge und Kosten aller Bauteile des Projekts.",
+    "fr": "Additionne pièces, quincaillerie et coût de tous les composants du projet.",
+    "it": "Somma pezzi, ferramenta e costo di tutti i componenti del progetto.",
+    "pl": "Sumuje części, okucia i koszt wszystkich komponentów projektu."
+  },
+  {
+    "pt": "Montar fila",
+    "es": "Montar fila",
+    "de": "Reihe aufbauen",
+    "fr": "Monter une rangée",
+    "it": "Monta fila",
+    "pl": "Zbuduj szereg"
+  },
+  {
+    "pt": "Monta uma fila de módulos contra a face de uma parede reta selecionada.",
+    "es": "Monta una fila de módulos contra la cara de un muro recto seleccionado.",
+    "de": "Baut eine Reihe von Modulen an der Seite einer ausgewählten geraden Wand auf.",
+    "fr": "Monte une rangée de modules contre la face d'un mur droit sélectionné.",
+    "it": "Monta una fila di moduli contro la faccia di una parete dritta selezionata.",
+    "pl": "Buduje szereg modułów przy licu zaznaczonej prostej ściany."
+  },
+  {
+    "pt": "Orçamento",
+    "es": "Presupuesto",
+    "de": "Budget",
+    "fr": "Budget",
+    "it": "Computo",
+    "pl": "Kosztorys"
+  },
+  {
+    "pt": "Fila",
+    "es": "Fila",
+    "de": "Reihe",
+    "fr": "Rangée",
+    "it": "Fila",
+    "pl": "Szereg"
+  },
+  {
+    "pt": "Móveis",
+    "es": "Muebles",
+    "de": "Möbel",
+    "fr": "Meubles",
+    "it": "Arredi",
+    "pl": "Meble"
+  },
+  {
+    "pt": "Importar móvel",
+    "es": "Importar mueble",
+    "de": "Möbel importieren",
+    "fr": "Importer un meuble",
+    "it": "Importa arredo",
+    "pl": "Importuj mebel"
+  },
+  {
+    "pt": "Meus blocos",
+    "es": "Mis bloques",
+    "de": "Meine Blöcke",
+    "fr": "Mes blocs",
+    "it": "I miei blocchi",
+    "pl": "Moje bloki"
+  },
+  {
+    "pt": "Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.",
+    "es": "Trae un mueble 3D de un archivo (.skp, .glb, .obj...) al proyecto.",
+    "de": "Bringt ein 3D-Möbel aus einer Datei (.skp, .glb, .obj...) ins Projekt.",
+    "fr": "Importe un meuble 3D depuis un fichier (.skp, .glb, .obj...) dans le projet.",
+    "it": "Porta un arredo 3D da un file (.skp, .glb, .obj...) nel progetto.",
+    "pl": "Wprowadza mebel 3D z pliku (.skp, .glb, .obj...) do projektu."
+  },
+  {
+    "pt": "Lista os blocos do projeto para colocar mais cópias.",
+    "es": "Lista los bloques del proyecto para colocar más copias.",
+    "de": "Listet die Blöcke des Projekts, um weitere Kopien zu platzieren.",
+    "fr": "Liste les blocs du projet pour placer d’autres copies.",
+    "it": "Elenca i blocchi del progetto per posizionare altre copie.",
+    "pl": "Wyświetla bloki projektu, aby umieścić kolejne kopie."
+  },
+  {
+    "pt": "Colocar móvel",
+    "es": "Colocar mueble",
+    "de": "Möbel platzieren",
+    "fr": "Placer un meuble",
+    "it": "Posiziona arredo",
+    "pl": "Umieść mebel"
+  },
+  {
+    "pt": "Pintar face (3D)",
+    "es": "Pintar cara (3D)",
+    "de": "Fläche streichen (3D)",
+    "fr": "Peindre la face (3D)",
+    "it": "Dipingi faccia (3D)",
+    "pl": "Maluj powierzchnię (3D)"
+  },
+  {
+    "pt": "Ativa a pintura de faces diretamente na vista 3D (Shift+clique abre o Estúdio 2D).",
+    "es": "Activa la pintura de caras directamente en la vista 3D (Shift+clic abre el Estudio 2D).",
+    "de": "Aktiviert das direkte Streichen von Flächen in der 3D-Ansicht (Umschalt+Klick öffnet das 2D-Studio).",
+    "fr": "Active la peinture de faces directement dans la vue 3D (Maj+clic ouvre le Studio 2D).",
+    "it": "Attiva la pittura delle facce direttamente nella vista 3D (Maiusc+clic apre lo Studio 2D).",
+    "pl": "Włącza bezpośrednie malowanie powierzchni w widoku 3D (Shift+kliknięcie otwiera Studio 2D)."
+  },
+  {
+    "pt": "Estúdio da face (2D)",
+    "es": "Estudio de cara (2D)",
+    "de": "Flächenstudio (2D)",
+    "fr": "Studio de face (2D)",
+    "it": "Studio faccia (2D)",
+    "pl": "Studio powierzchni (2D)"
+  },
+  {
+    "pt": "Abre o editor 2D da face do elemento selecionado (regiões, sobreposições DXF e camadas).",
+    "es": "Abre el editor 2D de la cara del elemento seleccionado (regiones, superposiciones DXF y capas).",
+    "de": "Öffnet den 2D-Flächeneditor des ausgewählten Elements (Bereiche, DXF-Überlagerungen und Schichten).",
+    "fr": "Ouvre l'éditeur 2D de la face de l'élément sélectionné (régions, calques DXF et couches).",
+    "it": "Apre l'editor 2D della faccia dell'elemento selezionato (regioni, sovrapposizioni DXF e strati).",
+    "pl": "Otwiera edytor 2D powierzchni wybranego elementu (obszary, nakładki DXF i warstwy)."
+  },
+  {
+    "pt": "Selecione uma parede, piso ou laje.",
+    "es": "Seleccione un muro, suelo o losa.",
+    "de": "Wählen Sie eine Wand, einen Boden oder eine Decke aus.",
+    "fr": "Sélectionnez un mur, un sol ou une dalle.",
+    "it": "Selezionare una parete, un pavimento o un solaio.",
+    "pl": "Wybierz ścianę, podłogę lub strop."
+  },
+  {
+    "pt": "Ativa a escolha de face no 3D para abrir o Estúdio da Face (2D).",
+    "es": "Activa la selección de cara en 3D para abrir el Estudio de Cara (2D).",
+    "de": "Aktiviert die Flächenauswahl in 3D, um das Flächenstudio (2D) zu öffnen.",
+    "fr": "Active la sélection de face en 3D pour ouvrir le Studio de face (2D).",
+    "it": "Attiva la selezione della faccia in 3D per aprire lo Studio faccia (2D).",
+    "pl": "Włącza wybór powierzchni w 3D, aby otworzyć Studio powierzchni (2D)."
+  },
+  {
+    "pt": "Modificar | Estúdio da Face",
+    "es": "Modificar | Estudio de Cara",
+    "de": "Ändern | Flächenstudio",
+    "fr": "Modifier | Studio de face",
+    "it": "Modifica | Studio faccia",
+    "pl": "Modyfikuj | Studio powierzchni"
   }
 ]

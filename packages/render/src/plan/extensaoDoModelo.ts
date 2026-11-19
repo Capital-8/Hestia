@@ -1,6 +1,7 @@
 import { planFootprint } from './stairs.ts';
+import { bordaDeReserva } from './terreno.ts';
 import { pontosDaMassaEmPlanta } from './massa.ts';
-import { resolveRampOne, resolveStairOne } from '@hestia/engine';
+import { pegadaDoComponente, resolveRampOne, resolveStairOne } from '@hestia/engine';
 import {
   beamPolygon,
   columnPolygon,
@@ -8,6 +9,7 @@ import {
   findColumnType,
   findFootingType,
   footingPolygon,
+  furnitureBounds,
   isOpening,
   isRamp,
   isStair,
@@ -96,6 +98,10 @@ const COLETORES: Coletores = {
       return h.tipo === 'escada' ? pontosDaEscada(p, h.escadaId) : pontosDaRampa(p, h.rampaId);
     },
   },
+  // Terreno e região (ficha V2): entram pela planta (a borda do modelo, ou a envoltória das fontes; o contorno da região).
+  terrain: { entra: true, pontos: (e) => bordaDeReserva(e) },
+  terrainRegion: { entra: true, pontos: (e) => e.contorno },
+  lot: { entra: false, motivo: 'lote não aparece em corte nem em elevação', pontos: nenhum },
   // A massa entra com os contornos de todas as seções e cópias (a caixa do envelope, sem o kernel): é o que a planta e o corte mostram.
   mass: { entra: true, pontos: (e) => pontosDaMassaEmPlanta(e) },
   room: { entra: false, motivo: 'O ambiente é só uma área de planta (derivada das paredes); não tem desenho em corte nem em elevação.', pontos: nenhum },
@@ -108,7 +114,18 @@ const COLETORES: Coletores = {
   column: { entra: true, pontos: (e, p) => columnPolygon(e, findColumnType(p, e.typeId)) },
   beam: { entra: true, pontos: (e, p) => beamPolygon(e, findBeamType(p, e.typeId)) },
   footing: { entra: true, pontos: (e, p) => footingPolygon(e, findFootingType(p, e.typeId)) },
+  // O móvel entra pela pegada em planta (as peças dele aparecem no corte e na elevação).
+  component: { entra: true, pontos: (e, p) => pontosDeMulti(pegadaDoComponente(p, e)) },
+  // O móvel importado entra pela caixa da malha em planta (a planta desenha o contorno dela; corte e elevação ainda não projetam a malha).
+  furniture: { entra: true, pontos: (e, p) => pontosDoMovel(e, p) },
 };
+
+function pontosDoMovel(e: Do<'furniture'>, p: Project): Pontos {
+  const asset = p.furniture?.assets[e.assetId];
+  if (!asset) return [];
+  const { min, max } = furnitureBounds(e, asset);
+  return [{ x: min[0], y: min[1] }, { x: max[0], y: max[1] }];
+}
 
 function pontosDaAbertura(e: Do<'door'> | Do<'window'>, p: Project): Pontos {
   const host = p.elements[e.hostId];

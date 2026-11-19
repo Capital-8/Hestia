@@ -1,0 +1,25 @@
+/* Texturas online: subdiálogo sobre o navegador de materiais. Grade de miniaturas à esquerda; prévia e ações à direita. */
+.tex-corpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 14px; align-items: start; }
+.tex-lista { min-width: 0; }
+.tex-barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.tex-barra .input { flex: 1 1 180px; min-width: 0; }
+.tex-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-height: 460px; overflow: auto; padding: 2px; }
+.tex-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; min-width: 0; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--chrome); color: inherit; font: inherit; cursor: pointer; }
+.tex-item.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tex-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tex-icone { display: block; border: 1px solid var(--line-strong); background-color: #bdb6aa; background-repeat: no-repeat; }
+.tex-nome { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.tex-mb { font-size: 11px; color: var(--fg-soft); }
+.tex-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.tex-estado { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; }
+.tex-previa { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tex-previa-img { width: 100%; aspect-ratio: 1; border: 1px solid var(--line-strong); background: #e6e1d8; display: grid; place-items: center; overflow: hidden; }
+.tex-previa-img img { width: 100%; height: 100%; object-fit: cover; }
+.tex-mapas { display: flex; gap: 4px; flex-wrap: wrap; }
+.tex-aviso-msg { margin: 0; font-size: 14px; font-weight: 600; }
+.tex-atual { margin: 0; font-size: 12px; color: var(--accent); }
+.tex-titulo { margin: 4px 0 0; font-size: 14px; }
+.tex-acoes { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 640px) {
+  .tex-corpo { grid-template-columns: minmax(0, 1fr); }
+}

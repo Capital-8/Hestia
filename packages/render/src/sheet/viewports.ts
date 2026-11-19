@@ -1,10 +1,11 @@
-import { areaTableAllRows, computeSection, resolveLevel } from '@hestia/engine';
+import { areaTableAllRows, resolveLevel } from '@hestia/engine';
 import { areaPlanOf, levelGraphicsOf, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
 import { buildSectionDrawList, sectionBox } from '../section/build.ts';
 import { partsOf, toPaper, viewMappingOf } from './convert.ts';
+import { computeSectionCached } from './partsCache.ts';
 import { emptyParts, type ViewportParts } from './types.ts';
 import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
 
@@ -139,7 +140,8 @@ export function sectionPartsOf(p: Project, sectionId: Id, vp: SheetViewport): Vi
   if (!view) return emptyParts();
   const pp = withSheetScale(p, { kind: 'section', sectionId }, vp.scale);
   const pts = sectionPoints(p, view);
-  const section = computeSection(pp, { a: pts.a, b: pts.b, depth: view.depth });
+  // O motor do corte não depende da escala: o resultado é reaproveitado entre escalas e entre chamadas.
+  const section = computeSectionCached(pp, { a: pts.a, b: pts.b, depth: view.depth });
   const m = viewMappingOf(vp, centreOf(sectionBox(section)));
   const list = buildSectionDrawList({
     project: pp,

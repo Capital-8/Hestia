@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { guardarSessao, lerSessao, limparSessao, sessaoValida, type Sessao } from './sessao.ts';
+import { guardarGravidade, guardarSessao, lerGravidade, lerSessao, limparSessao, sessaoValida, type Sessao } from './sessao.ts';
 
 /** `sessionStorage` de mentira: memória por chave, sem DOM. */
 function armazemFalso(): Storage {
@@ -65,10 +65,55 @@ describe('sessão da aba', () => {
     });
   });
 
+  it('aceita vista e aba do estúdio da face quando válidos', () => {
+    expect(sessaoValida({
+      view: 'face',
+      levelId: 'lv_0',
+      planKind: 'floor',
+      faceView: { elementId: 'w_1', face: 'sideExt', layer: 0 },
+      openViews: [{ kind: 'face', elementId: 'w_1', face: 'sideExt', layer: 'all' }],
+    })).toEqual({
+      pasta: null,
+      view: 'face',
+      levelId: 'lv_0',
+      planKind: 'floor',
+      areaPlanId: null,
+      sectionId: null,
+      faceView: { elementId: 'w_1', face: 'sideExt', layer: 0 },
+      openViews: [{ kind: 'face', elementId: 'w_1', face: 'sideExt', layer: 'all' }],
+    });
+  });
+
   it('texto corrompido no armazenamento vira "sem sessão"', () => {
     const armazem = armazemFalso();
     armazem.setItem('hestia.sessao', '{{{');
     (globalThis as { sessionStorage?: Storage }).sessionStorage = armazem;
     expect(lerSessao()).toBeNull();
+  });
+});
+
+describe('Gravidade na sessão (G1)', () => {
+  const com = (): Storage => {
+    const a = armazemFalso();
+    (globalThis as { sessionStorage?: Storage }).sessionStorage = a;
+    return a;
+  };
+
+  it('sem nada guardado, ou sem armazenamento, a gravidade começa desligada', () => {
+    com();
+    expect(lerGravidade()).toBe(false);
+    delete (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    expect(() => guardarGravidade(true)).not.toThrow();
+    expect(lerGravidade()).toBe(false);
+  });
+
+  it('guarda e restaura ligada e desligada; valor estranho vale desligada', () => {
+    const a = com();
+    guardarGravidade(true);
+    expect(lerGravidade()).toBe(true);
+    guardarGravidade(false);
+    expect(lerGravidade()).toBe(false);
+    a.setItem('hestia.sessao.gravidade', 'talvez');
+    expect(lerGravidade()).toBe(false);
   });
 });

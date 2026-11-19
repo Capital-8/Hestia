@@ -1,12 +1,14 @@
+/* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
-import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type Id, type Material, type Opening, type Project } from '@hestia/model';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import type { Inference, PreviewItem } from '@hestia/tools';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoCorte } from './materialPlan.ts';
 import { thinStrokes } from './thin.ts';
 import { gridStrokes } from './grid.ts';
 import { gridOps } from './grids.ts';
@@ -22,6 +24,8 @@ import { guardaCorpoOps } from './guardaCorpo.ts';
 import { structuralPlanOps } from './structural.ts';
 import { cortinaOps } from './cortina.ts';
 import { ocultosDoGuardaCorpo } from './guardaCorpoCamada.ts';
+import { loteOpsDaPlanta } from './loteCamada.ts';
+import { terrenoOpsDaPlanta } from './terrenoCamada.ts';
 import { massaOps, ocultosDaMassa } from './massa.ts';
 import { joinDebugLabels } from './joinDebug.ts';
 import { wallTagLabels } from './tags.ts';
@@ -37,6 +41,7 @@ import { tracoEm } from './marcadores.ts';
 import { resolverZoom } from './zoomOps.ts';
 import { anotacoesSemOcultos, planContext, semAnotacoesOcultas, semElementosOcultos } from './planContext.ts';
 import { cadPlanOps } from './cad.ts';
+import { componentsPlanOps } from './planComponents.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
 
 import { buildPlanOverlay } from './planOverlay.ts';
@@ -139,12 +144,13 @@ const zoomDaEspessura = (emMetros: number, px: number): number => (emMetros > 0 
  * espessura equivalente. Com a hachura procedural, o zoom mínimo vai para o shader (`zoomMin`) e a geometria não muda com
  * o zoom: o fragmento some abaixo dele, e o `resolverZoom` faz o mesmo no caminho CPU.
  */
-function hachuraDaRegiao(m: Material | undefined, espessura: number, fine: boolean, color: string): FillOp['hatch'] {
-  if (!m || m.hatch === 'none') return undefined;
-  if (fine) return { kind: m.hatch, color };
+function hachuraDaRegiao(padrao: { kind: HatchKind; color: string } | undefined, espessura: number, fine: boolean): FillOp['hatch'] {
+  if (!padrao) return undefined;
+  const { kind, color } = padrao;
+  if (fine) return { kind, color };
   const zoomMin = Math.max(40, zoomDaEspessura(espessura, 5));
   if (!(zoomMin <= ZOOM_MAXIMO)) return undefined;
-  return { kind: m.hatch, color, zoomMin };
+  return { kind, color, zoomMin };
 }
 
 /**
@@ -358,6 +364,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     }
   }
 
+  // Terreno do nível (ficha V2): regiões, curvas, borda, rótulos e cotas, na categoria `site`; vai atrás de tudo o que é do edifício.
+  if (!areaPlan) addOps(terrenoOpsDaPlanta(input, paint.site, scale), paint.site, !rp);
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
   if (profile.floors) for (const sf of floorAndSlabOps(p, input.levelId, theme, input.dark, detail, v, hidden, paint, scale)) addOps(sf.ops, sf.paint, !rp);
   // Ambientes sobre os pisos (preenchimento leve e etiqueta com nome, número e área) e sob as paredes (decisão 0018).
@@ -376,6 +384,8 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
   if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  // Lotes do nível (ficha P2): contorno, área edificável e texto dos lados, no estilo da categoria `lot`; só de planta (não entram em corte nem 3D).
+  if (!areaPlan) addOps(loteOpsDaPlanta(input, paint.lot, scale), paint.lot, !rp);
   // Elementos estruturais do nível (sapatas, vigas, pilares): sapatas antes das paredes, pilares em corte.
   if (!rp) addOps(structuralPlanOps(p, input.levelId, theme, input.dark, detail, hidden, paint.wall, paint.slab, scale), paint.wall, true);
   // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
@@ -407,11 +417,10 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
         const regions = detail === 'coarse' ? [] : c.regions;
         for (const r of regions) {
           const m = p.materials[r.materialId];
-          const color = surfaceColor(m?.color ?? '#999999', fillBase, fillT, paint.wall);
+          const cp = corPadraoCorte(m, { dark: input.dark, detail, paint: paint.wall });
           const polys = r.polygons;
           const thick = Math.max(0, ...polys.map((poly) => espessuraEquivalente(poly)));
-          const hatch = hachuraDaRegiao(m, thick, fine, mix(paint.wall.color ?? m?.color ?? '#999999', input.dark ? '#ffffff' : '#000000', 0.45));
-          wallOps.fills.push({ polygons: polys, color, alpha: 1, hatch });
+          wallOps.fills.push({ polygons: polys, color: surfaceColor(cp.fundo, fillBase, fillT, paint.wall), alpha: 1, hatch: hachuraDaRegiao(cp.padrao, thick, fine) });
           // Linhas de interface entre materiais: só onde cabem sem virar mancha (fino: sempre). Linhas finas: peso de projeção.
           // O traço leva o zoom a partir do qual cabe (`zoomMin`) e o shader o esconde abaixo dele: a geometria não muda com o zoom.
           for (const poly of polys) {
@@ -530,13 +539,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId))));
   separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
-
-  // Objetos importados (viga, pilar, mobiliário...): na v1 só o contorno aproximado em planta, tracejado e fino.
+  // Objetos importados (viga, pilar, mobiliário...) e componentes (móveis), em planta: leitura fiel ao 3D.
   if (profile.generic && paint.generic.visible) {
-    for (const e of Object.values(p.elements)) {
-      if (!isGeneric(e) || e.levelId !== input.levelId || !e.outline?.length || hidden?.has(e.id)) continue;
-      strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
-    }
+    for (const e of Object.values(p.elements)) if (isGeneric(e) && e.levelId === input.levelId && !hidden?.has(e.id) && e.outline?.length) strokes.push({ pts: e.outline, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 0.8, dash: [5, 3] });
+    const comp = componentsPlanOps(p, input.levelId, theme, hidden, style.visual === 'shaded', detail, wire);
+    fills.push(...surfaces(comp.fills)); strokes.push(...comp.strokes);
     // CAD importado (fase 5): os traços e textos do desenho, finos e na cor de cada camada/entidade.
     const cad = cadPlanOps(semElementosOcultos(p, hidden), input.levelId, theme, style.scale);
     strokes.push(...cad.strokes);

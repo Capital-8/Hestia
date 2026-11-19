@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cursorForView } from './cursor.ts';
+import { PAINT_BUCKET_CURSOR, cursorForView } from './cursor.ts';
 
 describe('cursor único das vistas (planta, corte e 3D)', () => {
   it('Selecionar é a seta do sistema nas três vistas (sem pointer de hover)', () => {
@@ -34,5 +34,13 @@ describe('cursor único das vistas (planta, corte e 3D)', () => {
   it('fora de pan/orbit e sem alça a mão não aparece (vazio/seleção = seta)', () => {
     expect(cursorForView({ view: '3d', tool: 'select' })).toBe('default');
     expect(cursorForView({ view: 'plan', tool: 'select', drag: 'none', handle: null })).toBe('default');
+  });
+
+  it('pintura direta de faces no 3D usa balde de tinta ou mira, mas pan/orbit continuam vencendo', () => {
+    expect(cursorForView({ view: '3d', tool: 'select', drag: 'none', facePaintMode: 'paint' })).toBe(PAINT_BUCKET_CURSOR);
+    expect(cursorForView({ view: '3d', tool: 'select', drag: 'none', facePaintMode: 'studioPick' })).toBe('crosshair');
+    expect(cursorForView({ view: '3d', tool: 'select', drag: 'orbit', moved: true, facePaintMode: 'paint' })).toBe('grabbing');
+    expect(cursorForView({ view: '3d', tool: 'select', drag: 'pan', moved: false, facePaintMode: 'paint' })).toBe('grab');
+    expect(cursorForView({ view: '3d', tool: 'select', drag: 'pan', moved: true, facePaintMode: 'studioPick' })).toBe('grabbing');
   });
 });

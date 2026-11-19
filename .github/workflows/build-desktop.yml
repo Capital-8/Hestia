@@ -1,6 +1,6 @@
 name: build-desktop
 
-# Gera os pacotes do desktop (Windows e Linux) SEM publicar Release.
+# Gera os pacotes do desktop (Windows, Linux e macOS experimental) SEM publicar Release.
 # Serve para testar antes de criar a tag: baixe os artefatos na página da execução
 # (Actions > build-desktop > execução > Artifacts) e rode na máquina de teste.
 # Publicar de verdade é o workflow release-desktop, disparado por uma tag vX.Y.Z.
@@ -28,7 +28,13 @@ jobs:
             args: "--bundles nsis"
           - platform: ubuntu-22.04
             args: "--bundles appimage,deb,rpm"
+          - platform: macos-latest
+            args: "--target universal-apple-darwin --bundles app,dmg"
+            # macOS é EXPERIMENTAL: sem assinatura da Apple e ainda não testado em Mac real.
+            # Se este job falhar, Windows e Linux seguem publicados (continue-on-error).
+            experimental: true
     runs-on: ${{ matrix.platform }}
+    continue-on-error: ${{ matrix.experimental == true }}
     steps:
       - name: Baixar o código
         uses: actions/checkout@v4
@@ -45,6 +51,13 @@ jobs:
       - name: Instalar toolchain Rust (stable)
         uses: dtolnay/rust-toolchain@stable
 
+      # O projeto fixa o Rust em rust-toolchain.toml: os alvos do binário universal precisam ser
+      # adicionados NESSE toolchain (rodando dentro da pasta do projeto), não no stable acima.
+      - name: Adicionar alvos do macOS (só no macOS)
+        if: matrix.platform == 'macos-latest'
+        working-directory: desktop/src-tauri
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
       - name: Instalar dependências do Linux (só no Linux)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -55,6 +68,9 @@ jobs:
         run: npm ci
 
       - name: Gerar o app web (apps/web/dist)
+        # O app web ficou grande: o Node do runner de macOS (pouca RAM) estourava o limite padrão de memória do JavaScript.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
 
       - name: Instalar dependências do desktop
@@ -83,5 +99,8 @@ jobs:
             desktop/src-tauri/target/release/bundle/*/*.rpm
             desktop/src-tauri/target/release/bundle/*/*.exe
             desktop/src-tauri/target/release/bundle/*/*.sig
+            desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/*/release/bundle/macos/*.tar.gz
+            desktop/src-tauri/target/*/release/bundle/macos/*.sig
           if-no-files-found: error
           retention-days: 14

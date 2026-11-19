@@ -185,6 +185,13 @@ function syncOne(
     // v1: guarda-corpo não entra no vínculo de andar-tipo (decisão 0055 §11); a cópia fica sem sincronização.
     case 'railing':
       return null;
+    // terreno e região de terreno: as cotas são absolutas e o terreno é um só para todos os níveis, então não entram no vínculo de andar-tipo.
+    case 'terrain':
+    case 'terrainRegion':
+      return null;
+    // lote: ficha P3 (copiar/colar e vínculo de andar-tipo); a cópia fica sem sincronização.
+    case 'lot':
+      return null;
     // massa: ficha T1 (copiar/colar e vínculo de andar-tipo da massa); a cópia fica sem sincronização.
     case 'mass':
       return null;
@@ -257,6 +264,11 @@ function syncOne(
         patch: { name: from.name, visible: from.visible, offsetZ: from.offsetZ },
       };
     }
+    case 'component': {
+      // Cópia vinculada de componente: família, tipo, valores e deslocamento sobre o nível acompanham a origem; a posição não (cada cópia tem a sua).
+      if (target.kind !== 'component') return null;
+      return { type: 'updateComponent', id: target.id, patch: { familyId: from.familyId, typeId: from.typeId, z: from.z, mirrored: from.mirrored, ...(from.values ? { values: structuredClone(from.values) } : {}) } };
+    }
     case 'generic': {
       if (!isGeneric(target)) return null;
       const { id: _id, kind: _kind, levelId: _levelId, order: _order, ...rest } = from;
@@ -295,6 +307,8 @@ function syncOne(
       };
       return { type: 'updateElements', ids: [target.id], patch };
     }
+    case 'furniture':
+      return null; // movel importado nao entra no vinculo de andar-tipo (ainda)
   }
 }
 

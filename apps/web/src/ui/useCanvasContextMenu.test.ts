@@ -78,3 +78,22 @@ describe('Selecionar todas as instâncias (mesmo tipo do elemento clicado)', () 
     expect(selecao()).toEqual(['A1', 'A2']);
   });
 });
+
+describe('comandos de pintura de face no menu de contexto', () => {
+  it('facePaint3d ativa o 3D e o modo de pintura, faceStudio abre a aba 2D e clearFacePaints limpa as pinturas', () => {
+    setup('plan', ['A1']);
+    editor.store.exec({ type: 'setFacePaint', elementId: 'A1', entry: { face: 'sideExt', layer: 'all', materialId: 'mat_ceramica' } });
+    expect(editor.project.elements['A1']).toMatchObject({ facePaints: [{ face: 'sideExt', layer: 'all', materialId: 'mat_ceramica' }] });
+
+    executaComandoDoMenu('facePaint3d', 'plan', camera, centro);
+    expect(useUi.getState().view).toBe('3d');
+    expect(useUi.getState().facePaint.active).toBe(true);
+
+    executaComandoDoMenu('faceStudio', '3d', camera, centro);
+    expect(useUi.getState().view).toBe('face');
+    expect(useUi.getState().faceView).toEqual({ elementId: 'A1', face: 'sideExt', layer: 'all' });
+
+    executaComandoDoMenu('clearFacePaints', 'plan', camera, centro);
+    expect((editor.project.elements['A1'] as { facePaints?: unknown[] }).facePaints).toBeUndefined();
+  });
+});

@@ -18,6 +18,7 @@ import { PL_PROPS_CORE } from '../../areas/props-core.ts';
 import { PL_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { PL_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { PL_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
+import { PL_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas2.ts';
 import { PL_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { PL_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { PL_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
@@ -26,6 +27,12 @@ import { PL_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { PL_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { PL_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
+import { PL_TERRENO } from '../../areas/terreno.ts';
+import { PL_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { PL_GRAVIDADE } from '../../areas/gravidade.ts';
+import { PL_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { PL_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { PL_LOTE_UI } from '../../areas/lote-ui.ts';
 import { PL_MASSA } from '../../areas/massa.ts';
 import { PL_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { PL_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -35,12 +42,19 @@ import { PL_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { PL_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 import { PL_STRUCTURAL } from '../../areas/structural.ts';
 import { PL_TAGGING } from '../../areas/tagging.ts';
+import { PL_FURNITURE } from '../../areas/furniture.ts';
 
 export const PL_ALL = {
   ...PL_STRUCTURAL,
   ...PL_TAGGING,
   ...PL_GUARDA_CORPO,
   ...PL_DIALOGS_OPENING_SHAPE,
+  ...PL_TERRENO,
+  ...PL_TERRENO_VISTA,
+  ...PL_GRAVIDADE,
+  ...PL_TERRENO_TABELA,
+  ...PL_LOTE_TABELA,
+  ...PL_LOTE_UI,
   ...PL_MASSA,
   ...PL_MASSA_PISOS,
   ...PL_MASSA_PAREDES,
@@ -67,10 +81,12 @@ export const PL_ALL = {
   ...PL_DIALOGS_MISC,
   ...PL_PACKAGES_MODEL,
   ...PL_DIALOGS_TYPES,
+  ...PL_DIALOGS_MATERIAIS,
   ...PL_DIALOGS_OPENING,
   ...PL_DIALOGS_CAD,
   ...PL_EDITOR_CONTEXT,
   ...PL_PROPS_OPTIONS,
   ...PL_PACKAGES_IO,
   ...PL_BIBLIOTECA,
+  ...PL_FURNITURE,
 };

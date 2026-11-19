@@ -12,10 +12,18 @@ export * from './plan/grid.ts';
 export * from './plan/cpuPlan.ts';
 export * from './plan/gpuPlan.ts';
 export * from './model3d/solids.ts';
+export { furnitureViewBudget, AVISO_TRIANGULOS_MOVEIS, type OrcamentoDeMoveis, type OpcoesOrcamento } from './model3d/furnitureBudget.ts';
+export { moveisIdDaInstancia, type OpcoesMoveis } from './model3d/furnitureSolids.ts';
+export * from './model3d/facePaintSolids.ts';
+export * from './model3d/facePaintExtrusions.ts';
+export * from './model3d/facePick3d.ts';
+export * from './model3d/faceHighlight.ts';
 export * from './model3d/orbit.ts';
 export * from './model3d/scene3d.ts';
+export * from './model3d/texturas3d.ts';
 export * from './model3d/pick3d.ts';
 export * from './model3d/selecaoPorCaixa3d.ts';
+export * from './model3d/previaComponente3d.ts';
 export * from './model3d/cad3d.ts';
 // Prévia do Colar alinhado: camada violeta translúcida, fora do picking e do realce.
 export { CamadaFantasmas, COR_DO_FANTASMA, OPACIDADE_DO_FANTASMA, type OpcoesFantasmas } from './model3d/ghost.ts';
@@ -56,6 +64,7 @@ export { openingTagLabels } from './plan/openingTags.ts';
 // Pranchas (decisão 0022): lista de desenho da folha em mm de papel, para a tela e o PDF.
 export * from './sheet/types.ts';
 export * from './sheet/build.ts';
+export { sheetCacheStats, computeSectionCached, viewportPartsKey } from './sheet/partsCache.ts';
 export * from './sheet/vista3d.ts';
 export { STAMP_H, STAMP_W, captionOf, stampHeightOf } from './sheet/frame.ts';
 // Ambientes (decisão 0018, 0037): nome e centro de cada ambiente, o mesmo texto da planta de piso e do DXF.
@@ -65,3 +74,10 @@ export * from './plan/sketch.ts';
 // Anotações (textos e cotas): desenho, caixa do texto, moldura e destaque de seleção/hover.
 export { annotationHighlightOps, annotationsOfLevel, blocoEm, drawnAnnotations, linhasDoTexto, noteOps, roomSeparatorStrokes, textBlockModel, type NoteLook, type NoteOps, type NoteTarget, type TextBlockModel } from './plan/notes.ts';
 export * from './section/guardaCorpo.ts';
+export * from './section/terreno.ts';
+export * from './plan/terrenoEdicaoOverlay.ts';
+export * from './familia/index.ts';
+export * from './familia/usinagensMarcadores.ts';
+export * from './model3d/componentSolids.ts';
+export * from './model3d/gizmoComponenteTipos.ts';
+export { GizmoComponente3D } from './model3d/gizmoComponente3d.ts';

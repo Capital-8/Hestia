@@ -4,6 +4,7 @@ import { resolveSlabs, type ResolvedSlab } from './slabs.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
 import { coveredFaceArea, cutVolume, floorCutters, slabCutters, slabLayerPiece, wallCutters, type CutterSolid } from './junctionNet.ts';
+import { applyFacePaintAdjustments } from './facePaintQuantities.ts';
 
 /**
  * Uma camada de uma laje. A espessura é vertical e igual em todo o plano (a camada acompanha a inclinação), então o
@@ -137,6 +138,14 @@ function quantifySlabsCom(p: Project, levelId: Id, rust: QuantidadesRust | null)
       volumeByMaterial[l.materialId] = (volumeByMaterial[l.materialId] ?? 0) + l.volume;
       faceAreaByMaterial[l.materialId] = (faceAreaByMaterial[l.materialId] ?? 0) + l.faceArea;
     }
+  }
+  if (
+    slabs.some((sl) => {
+      const el = p.elements[sl.slabId];
+      return el?.kind === 'slab' && Boolean(el.facePaints?.length);
+    })
+  ) {
+    applyFacePaintAdjustments(p, levelId, 'slab', faceAreaByMaterial, volumeByMaterial);
   }
   return {
     slabs,

@@ -139,6 +139,9 @@ export function deleteSectionAnnotationsIn(store: ProjectStore): number {
   for (const x of a.detailLines) if (want.has(x.id)) commands.push({ type: 'removeDetailLine', levelId, sectionId, id: x.id });
   for (const x of a.detailRegions) if (want.has(x.id)) commands.push({ type: 'removeDetailRegion', levelId, sectionId, id: x.id });
   for (const x of a.tags) if (want.has(x.id)) commands.push({ type: 'removeTag', levelId, sectionId, id: x.id });
+  for (const x of a.spots ?? []) if (want.has(x.id)) commands.push({ type: 'removeSpot', levelId, sectionId, id: x.id });
+  for (const x of a.revisionClouds ?? []) if (want.has(x.id)) commands.push({ type: 'removeRevisionCloud', levelId, sectionId, id: x.id });
+  for (const x of a.symbols ?? []) if (want.has(x.id)) commands.push({ type: 'removeSymbol', levelId, sectionId, id: x.id });
   if (commands.length === 0) return sel.length;
   store.transaction('edc_undo_delete_section_annotations', () => { for (const c of commands) store.exec(c); });
   const removed = new Set(commands.map((c) => ('id' in c ? c.id : '')));

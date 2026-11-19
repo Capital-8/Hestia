@@ -4,10 +4,11 @@ import { ifcGeometryOf, projectIfc } from './ifcExport.ts';
 
 const count = (text: string, type: string): number => (text.match(new RegExp(`=${type}\\(`, 'g')) ?? []).length;
 
-/** Todo `#n` referenciado tem de existir como entidade definida no arquivo. */
+/** Todo `#n` referenciado tem de existir como entidade definida no arquivo (texto entre aspas não conta: uma cor `#222426` não é referência). */
 function danglingRefs(text: string): number[] {
   const defined = new Set([...text.matchAll(/^#(\d+)=/gm)].map((m) => Number(m[1])));
-  return [...text.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !defined.has(id));
+  const semTextos = text.replace(/'(?:[^']|'')*'/g, "''");
+  return [...semTextos.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !defined.has(id));
 }
 
 const NOW = new Date('2026-10-22T12:00:00Z');

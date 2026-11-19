@@ -123,7 +123,9 @@ const refsIn = (value: string): number[] => [...value.matchAll(/#(\d+)/g)].map((
 /** Todo `#n` referenciado tem de existir como entidade definida. */
 function danglingRefs(text: string): number[] {
   const defined = new Set([...text.matchAll(/^#(\d+)=/gm)].map((m) => Number(m[1])));
-  return [...text.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !defined.has(id));
+  // textos entre aspas (ex.: o JSON dos materiais, com cores `#222426`) não são referências
+  const semTextos = text.replace(/'(?:[^']|'')*'/g, "''");
+  return [...semTextos.matchAll(/#(\d+)/g)].map((m) => Number(m[1])).filter((id) => !defined.has(id));
 }
 
 /** Estilo de superfície do material de nome `name`: cor RGB, atributos do rendering e do `IFCSURFACESTYLE`. */

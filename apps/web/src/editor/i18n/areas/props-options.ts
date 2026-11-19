@@ -20,6 +20,20 @@ export const PT_PROPS_OPTIONS = {
   pro_selected_many: '{n} selecionados',
   pro_status_ready: 'Pronto.',
 
+  // Pintura de faces (3D)
+  pro_fp_title: 'Pintar Face (3D)',
+  pro_fp_material: 'Material',
+  pro_fp_target: 'Alvo',
+  pro_fp_all_layers: 'Todas as camadas',
+  pro_fp_clicked_layer: 'Camada clicada',
+  pro_fp_paint: 'Pintar',
+  pro_fp_erase: 'Remover',
+  pro_fp_open_studio: 'Abrir Estúdio da Face (2D)',
+  pro_fp_finish: 'Concluir (Esc)',
+  pro_fp_studio_pick_title: 'Estúdio da Face (2D)',
+  pro_fp_studio_pick_hint: 'Estúdio da Face: clique em qualquer face no 3D para abrir o estúdio 2D.',
+  pro_fp_cancel: 'Cancelar (Esc)',
+
   // Linha de localização da parede
   pro_location_line: 'Linha de localização',
   pro_loc_wall_center: 'Eixo da parede',
@@ -362,6 +376,20 @@ export const EN_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_one: '{n} selected',
   pro_selected_many: '{n} selected',
   pro_status_ready: 'Ready.',
+
+  // Face paint (3D)
+  pro_fp_title: 'Paint Face (3D)',
+  pro_fp_material: 'Material',
+  pro_fp_target: 'Target',
+  pro_fp_all_layers: 'All layers',
+  pro_fp_clicked_layer: 'Clicked layer',
+  pro_fp_paint: 'Paint',
+  pro_fp_erase: 'Remove',
+  pro_fp_open_studio: 'Open Face Studio (2D)',
+  pro_fp_finish: 'Finish (Esc)',
+  pro_fp_studio_pick_title: 'Face Studio (2D)',
+  pro_fp_studio_pick_hint: 'Face Studio: click any face in 3D to open the 2D studio.',
+  pro_fp_cancel: 'Cancel (Esc)',
 
   // Wall location line
   pro_location_line: 'Location Line',
@@ -706,6 +734,20 @@ export const ES_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_many: '{n} seleccionados',
   pro_status_ready: 'Listo.',
 
+  // Pintura de caras (3D)
+  pro_fp_title: 'Pintar Cara (3D)',
+  pro_fp_material: 'Material',
+  pro_fp_target: 'Destino',
+  pro_fp_all_layers: 'Todas las capas',
+  pro_fp_clicked_layer: 'Capa pulsada',
+  pro_fp_paint: 'Pintar',
+  pro_fp_erase: 'Quitar',
+  pro_fp_open_studio: 'Abrir Estudio de Cara (2D)',
+  pro_fp_finish: 'Finalizar (Esc)',
+  pro_fp_studio_pick_title: 'Estudio de Cara (2D)',
+  pro_fp_studio_pick_hint: 'Estudio de Cara: haga clic en cualquier cara en 3D para abrir el estudio 2D.',
+  pro_fp_cancel: 'Cancelar (Esc)',
+
   // Línea de localización del muro
   pro_location_line: 'Línea de localización',
   pro_loc_wall_center: 'Eje de la pared',
@@ -1048,6 +1090,20 @@ export const DE_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_one: '{n} ausgewählt',
   pro_selected_many: '{n} ausgewählt',
   pro_status_ready: 'Bereit.',
+
+  // Flächenfarbe (3D)
+  pro_fp_title: 'Fläche streichen (3D)',
+  pro_fp_material: 'Material',
+  pro_fp_target: 'Ziel',
+  pro_fp_all_layers: 'Alle Schichten',
+  pro_fp_clicked_layer: 'Angeklickte Schicht',
+  pro_fp_paint: 'Streichen',
+  pro_fp_erase: 'Entfernen',
+  pro_fp_open_studio: 'Flächenstudio öffnen (2D)',
+  pro_fp_finish: 'Fertigstellen (Esc)',
+  pro_fp_studio_pick_title: 'Flächenstudio (2D)',
+  pro_fp_studio_pick_hint: 'Flächenstudio: Klicken Sie auf eine beliebige Fläche in 3D, um das 2D-Studio zu öffnen.',
+  pro_fp_cancel: 'Abbrechen (Esc)',
 
   // Standortlinie der Wand
   pro_location_line: 'Standortlinie',
@@ -1392,6 +1448,20 @@ export const FR_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_many: '{n} sélectionnés',
   pro_status_ready: 'Prêt.',
 
+  // Peinture de faces (3D)
+  pro_fp_title: 'Peindre la face (3D)',
+  pro_fp_material: 'Matériau',
+  pro_fp_target: 'Cible',
+  pro_fp_all_layers: 'Toutes les couches',
+  pro_fp_clicked_layer: 'Couche cliquée',
+  pro_fp_paint: 'Peindre',
+  pro_fp_erase: 'Supprimer',
+  pro_fp_open_studio: 'Ouvrir le studio de face (2D)',
+  pro_fp_finish: 'Terminer (Échap)',
+  pro_fp_studio_pick_title: 'Studio de face (2D)',
+  pro_fp_studio_pick_hint: 'Studio de face : cliquez sur n’importe quelle face en 3D pour ouvrir le studio 2D.',
+  pro_fp_cancel: 'Annuler (Échap)',
+
   // Ligne de localisation du mur
   pro_location_line: 'Ligne de localisation',
   pro_loc_wall_center: 'Axe du mur',
@@ -1735,6 +1805,20 @@ export const IT_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_many: '{n} selezionati',
   pro_status_ready: 'Pronto.',
 
+  // Pittura facce (3D)
+  pro_fp_title: 'Dipingi faccia (3D)',
+  pro_fp_material: 'Materiale',
+  pro_fp_target: 'Destinazione',
+  pro_fp_all_layers: 'Tutti gli strati',
+  pro_fp_clicked_layer: 'Strato cliccato',
+  pro_fp_paint: 'Dipingi',
+  pro_fp_erase: 'Rimuovi',
+  pro_fp_open_studio: 'Apri Studio Faccia (2D)',
+  pro_fp_finish: 'Fine (Esc)',
+  pro_fp_studio_pick_title: 'Studio faccia (2D)',
+  pro_fp_studio_pick_hint: 'Studio faccia: fai clic su qualsiasi faccia in 3D per aprire lo studio 2D.',
+  pro_fp_cancel: 'Annulla (Esc)',
+
   // Linea di posizione della parete
   pro_location_line: 'Linea di posizione',
   pro_loc_wall_center: 'Asse della parete',
@@ -2077,6 +2161,20 @@ export const PL_PROPS_OPTIONS: Record<keyof typeof PT_PROPS_OPTIONS, string> = {
   pro_selected_one: '{n} zaznaczony',
   pro_selected_many: '{n} zaznaczonych',
   pro_status_ready: 'Gotowe.',
+
+  // Malowanie powierzchni (3D)
+  pro_fp_title: 'Maluj powierzchnię (3D)',
+  pro_fp_material: 'Materiał',
+  pro_fp_target: 'Cel',
+  pro_fp_all_layers: 'Wszystkie warstwy',
+  pro_fp_clicked_layer: 'Kliknięta warstwa',
+  pro_fp_paint: 'Maluj',
+  pro_fp_erase: 'Usuń',
+  pro_fp_open_studio: 'Otwórz Studio Powierzchni (2D)',
+  pro_fp_finish: 'Zakończ (Esc)',
+  pro_fp_studio_pick_title: 'Studio powierzchni (2D)',
+  pro_fp_studio_pick_hint: 'Studio powierzchni: kliknij dowolną powierzchnię w 3D, aby otworzyć studio 2D.',
+  pro_fp_cancel: 'Anuluj (Esc)',
 
   // Linia lokalizacji ściany
   pro_location_line: 'Linia lokalizacji',

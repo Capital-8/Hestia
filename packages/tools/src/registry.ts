@@ -44,15 +44,22 @@ import { NorthArrowTool, RevisionCloudTool, SpotCoordinateTool, SpotElevationToo
 import { GridTool } from './gridTool.ts';
 import { LevelTool } from './levelTool.ts';
 import { PasteTool } from './pasteTool.ts';
+import { TerrainTool } from './terrainTool.ts';
+import { TerrainEditTool } from './terrainEditTool.ts';
+import { TerrainLabelTool, TerrainSpotTool } from './terrainLabelTool.ts';
+import { TerrainRegionTool } from './terrainRegionTool.ts';
+import { LotTool } from './lotTool.ts';
 import { ColumnTool } from './columnTool.ts';
 import { BeamTool } from './beamTool.ts';
 import { FootingTool } from './footingTool.ts';
 import { MassTool } from './massTool.ts';
+import { ComponentTool } from './componentTool.ts';
+import { FurnitureTool } from './furnitureTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin';
+export type ToolId = 'select' | 'wall' | 'component' | 'furniture' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot' | 'terrainRegion' | 'lot';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
+  { title: 'Construir', tools: ['wall', 'component', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'tag', 'northArrow'] },
   { title: 'Medir', tools: ['measure'] },
@@ -77,14 +84,30 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
   switch (id) {
     case 'select':
       return new SelectTool(env);
+    case 'furniture':
+      return new FurnitureTool(env);
     case 'paste':
       return new PasteTool(env);
+    case 'terrain':
+      return new TerrainTool(env);
+    case 'terrainEdit':
+      return new TerrainEditTool(env);
+    case 'terrainLabel':
+      return new TerrainLabelTool(env);
+    case 'terrainSpot':
+      return new TerrainSpotTool(env);
+    case 'terrainRegion':
+      return new TerrainRegionTool(env);
+    case 'lot':
+      return new LotTool(env);
     case 'plugin': // SUPLEMENTOS: a ferramenta de suplemento é criada pelo app (`PluginTool`, com a ponte do handler); aqui só o reserva.
       return new SelectTool(env);
     case 'perimeter':
       return new PerimeterTool(env, perimeterTarget);
     case 'wall':
       return new WallTool(env);
+    case 'component':
+      return new ComponentTool(env);
     case 'floor':
       return new FloorTool(env);
     case 'slab':
@@ -192,7 +215,9 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   select: 'Selecionar',
   paste: 'Colar',
   plugin: 'Suplemento',
+  furniture: 'Móvel',
   wall: 'Parede',
+  component: 'Componente',
   floor: 'Piso',
   slab: 'Laje',
   ceiling: 'Forro',
@@ -240,6 +265,12 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   filledRegion: 'Região preenchida',
   tag: 'Etiqueta',
   perimeter: 'Perímetro',
+  terrain: 'Topografia',
+  terrainEdit: 'Editar terreno',
+  terrainLabel: 'Rótulo de curva',
+  terrainSpot: 'Cota de ponto',
+  terrainRegion: 'Região de terreno',
+  lot: 'Linhas de propriedade',
   column: 'Pilar',
   beam: 'Viga',
   footing: 'Sapata',

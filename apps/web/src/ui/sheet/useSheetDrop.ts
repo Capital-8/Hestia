@@ -1,14 +1,41 @@
 import { useCallback, useEffect, useState, type DragEvent } from 'react';
-import { sheetOf, type Sheet } from '@hestia/model';
+import { sheetDimsMm, sheetOf, type Sheet, type SheetViewSource } from '@hestia/model';
+import { prefetchViewportParts } from '@hestia/render';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
-import type { TextLike } from '../../editor/i18n.ts';
+import { useI18n, type TextLike } from '../../editor/i18n.ts';
 import { addViewportAtAction, dragPlacement, type DragPlacement } from '../../editor/sheetInsert.ts';
 import { draggedSheetView, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
+import { encodeInsertArg } from '../../editor/sheetInsertArg.ts';
+import { warmLayerStrings } from './SheetGroupContent.tsx';
 import { snapMove, type SnapGuide } from './sheetSnap.ts';
 import { clampBoxToInner, type InnerBox, type PaperPoint } from './sheetSelection.ts';
 
 const say = (status: TextLike): void => useUi.setState({ status });
+
+/** Última vista/escala/caixa já preparada no cache durante o arraste (o `dragover` dispara dezenas de vezes por segundo). */
+let prefetched = '';
+let prefetchedProject: unknown = null;
+
+/**
+ * Durante o arraste do Navegador calcula o desenho da vista na escala prevista e o deixa no cache: ao soltar, a vista
+ * entra por acerto de cache (só o desenho na tela), sem esperar o cálculo do corte/planta.
+ */
+function prefetchDraggedView(sheet: Sheet, view: SheetViewSource, plan: DragPlacement): void {
+  const project = editor.project;
+  const key = JSON.stringify([view, plan.scale, plan.size]);
+  if (key === prefetched && project === prefetchedProject) return;
+  prefetched = key;
+  prefetchedProject = project;
+  window.setTimeout(() => {
+    try {
+      const parts = prefetchViewportParts(project, { id: 'prefetch', view, at: { x: 0, y: 0 }, size: plan.size, scale: plan.scale }, useI18n.getState().lang);
+      warmLayerStrings(parts, sheetDimsMm(sheet).h);
+    } catch {
+      /* o soltar recalcula e mostra o erro de verdade */
+    }
+  }, 0);
+}
 
 export interface SheetDropPreview {
   box: { x: number; y: number; w: number; h: number };
@@ -28,7 +55,8 @@ export interface SheetDropApi {
 /**
  * Arrastar uma vista do Navegador de projeto para a prancha (estilo Revit): durante o `dragover` desenha o retângulo
  * tracejado com nome e escala, encaixa nas outras vistas e, ao soltar, insere centrada no ponteiro na escala natural
- * (ou na maior que cabe), deixando a vista nova selecionada. Um passo de desfazer.
+ * (ou na maior que cabe), deixando a vista nova selecionada. Um passo de desfazer. Com Shift ao soltar, abre a janela
+ * "Inserir vistas" (lista de vistas e escolha da escala), com a vista solta marcada e entrando no ponto solto.
  */
 export function useSheetDrop(args: {
   sheetId: string;
@@ -67,6 +95,7 @@ export function useSheetDrop(args: {
         setDrop(null);
         return;
       }
+      prefetchDraggedView(sheet, src.view, plan);
       const targets = sheet.viewports.map((v) => ({ x: v.at.x, y: v.at.y, w: v.size.w, h: v.size.h }));
       const sn = snap
         ? snapMove({ x: plan.at.x, y: plan.at.y, w: plan.size.w, h: plan.size.h }, { boxes: targets, inner, step: grid ? 5 : undefined }, { tolMm: 6 / zoom })
@@ -96,6 +125,11 @@ export function useSheetDrop(args: {
       setDrop(null);
       endSheetDrag();
       if (!src) return;
+      // Shift ao soltar: abre a janela grande com a escala a escolher, centrada onde soltou (senão insere direto, como o Revit).
+      if (e.shiftKey) {
+        useUi.setState({ dialog: 'addView', dialogArg: encodeInsertArg({ sheetId, view: src.view, centre: paperAt(e) }) });
+        return;
+      }
       const placement = planned?.placement ?? dragPlacement(editor.project, sheet, src.view, paperAt(e));
       if (!placement) {
         say({ key: 'cvs_drop_too_big' });

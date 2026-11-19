@@ -4,9 +4,11 @@
  * Roda só em `npm run test:wasm`. Identidade e `raw` exatos; o resto como região pelo critério da 0048.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { ProjectStore, createEmptyProject, makeWall, migrateProject, type Command, type OpeningType, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeWall, migrateProject, openingsOfWall, type Command, type OpeningType, type Project } from '@hestia/model';
 import { difference, type MultiPolygon } from '@hestia/geom';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { levelFrames, openingGeometry } from '../packages/engine/src/resolve.ts';
+import { openingHole } from '../packages/engine/src/openingCut.ts';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
 import { argumentosA3, argumentosA3c, decodificarA3a, decodificarA3c, montarCenaA3, referenciaA3c, type OpcoesA3c } from '../packages/engine/src/kernelA3.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
@@ -286,6 +288,13 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
           for (const [id, w] of z) zPorParede.set(a1.idDe.get(id)!, { z0: w.z0, altura: w.height });
           const r = decodificarA3c(cena.consultar('cluster_resolvido', argumentosA3c(p, l.id, a1, a3)));
           const vaos = new Map<number, MultiPolygon[]>();
+          // Furo real do TS (`openingHole`): setor radial em parede curva, retângulo na reta. É o que recorta as camadas (e as faixas).
+          const furos = new Map<number, MultiPolygon[]>();
+          for (const f of levelFrames(p, l.id)) {
+            const id = a1.idDe.get(f.wall.id);
+            if (id === undefined) continue;
+            for (const o of openingsOfWall(p, f.wall.id)) furos.set(id, [...(furos.get(id) ?? []), openingHole(openingGeometry(p, o, f))]);
+          }
           const vaosZ = new Map<number, Array<{ z0: number; z1: number; retangulo: MultiPolygon }>>();
           for (const g of decodificarA3a(cena.consultar('aberturas_geom', argumentosA3(a1, l.id)))) {
             vaos.set(g.parede, [...(vaos.get(g.parede) ?? []), g.retangulo]);
@@ -300,10 +309,10 @@ describe.skipIf(!bytes)('A3c: cluster_resolvido do Rust x motor TypeScript', () 
               expect(f.z0).toBeGreaterThanOrEqual(-1e-6);
               expect(f.z1).toBeLessThanOrEqual(altura + 1e-6);
               anterior = f.z1;
-              // cada faixa dentro do bruto da camada (o retorno do acabamento no vão fica fora do bruto, mas dentro do furo do vão)
+              // cada faixa dentro do bruto da camada, descontado o furo real do vão (setor em parede curva; o retorno do acabamento no vão fica fora do bruto, mas dentro do furo do vão)
               if (!c.faixa && f.poly.length && c.raw.length) {
                 const fora = difference(f.poly, c.raw);
-                const sobra = fora.length ? difference(fora, ...(vaos.get(c.parede) ?? [])) : fora;
+                const sobra = fora.length ? difference(fora, ...(furos.get(c.parede) ?? [])) : fora;
                 // 0049 (extensão às faixas): a sobra é arredondamento da grade de 1 µm, que cresce com o perímetro da faixa.
                 // Medido na semente 405 (parede 14): 1,59e-6 m² na faixa [1,5; 2,15] (perímetro 9,30 m, razão 0,170); máxima do estresse 0,2047.
                 const area = areaDaForma(sobra);

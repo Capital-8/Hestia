@@ -25,16 +25,22 @@ const COM_FAMILIA = [
   'ColumnProperties.tsx',
   'BeamProperties.tsx',
   'FootingProperties.tsx',
+  'TerrainProperties.tsx',
+  'LotProperties.tsx',
 ];
 
 /** Painéis sem família/tipo (não têm seletor de tipo). */
-const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementProperties.tsx', 'RoomProperties.tsx', 'MassProperties.tsx'];
+const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementProperties.tsx', 'RoomProperties.tsx', 'MassProperties.tsx', 'TerrainRegionProperties.tsx', 'TerrainPontoProperties.tsx'];
 
 /**
  * Exceções EXPLÍCITAS, com TODO: painel de família fora do padrão. Quando passar a usar o cabeçalho padrão, o teste
  * "exceção obsoleta" pede para tirá-lo desta lista.
+ *
+ * - ComponentProperties: móvel paramétrico da Biblioteca (família de componentes). O tipo é escolhido num seletor próprio
+ *   (SeletorEstavel, que não fecha a lista a cada atualização), não no TypeSelector das famílias de sistema.
+ *   TODO: migrar para o cabeçalho padrão quando o editor de famílias deixar de ser experimental.
  */
-const EXCECOES_TODO: string[] = [];
+const EXCECOES_TODO: string[] = ['ComponentProperties.tsx'];
 
 describe('contrato: painéis de propriedades de família usam o cabeçalho de tipo da parede', () => {
   for (const arq of COM_FAMILIA) {

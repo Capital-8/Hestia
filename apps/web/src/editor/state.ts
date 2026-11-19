@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import type { Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
+import type { FaceLayerTarget, FaceSlot, Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
-import type { Backend } from '@hestia/render';
+import type { Backend, FaceHit } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type DimCustomTarget, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
 import { safeGet, safeSet } from './storage.ts';
+import { guardarGravidade, lerGravidade } from './sessao.ts';
 import { selectionAfterClick } from './selectionClick.ts';
 import { activeViewOf, addView, type OpenView, type PlanKind } from './openViews.ts';
 import type { RibbonTabId } from '../ui/ribbon/model.ts';
@@ -13,14 +14,38 @@ import type { PastePreviewState } from './pasteLevels/types.ts';
 import type { ProgressoImportacao } from './ifcImport.ts';
 import { fmtNum, useI18n, type TextLike } from './i18n.ts';
 
-export type ViewKind = 'plan' | '3d' | 'section' | 'sheet';
+export type ViewKind = 'plan' | '3d' | 'section' | 'sheet' | 'face';
 export type ThemePref = 'system' | 'light' | 'dark';
+
+export type FaceStudioShape =
+  | 'line'
+  | 'rect'
+  | 'poly-inscribed'
+  | 'poly-circumscribed'
+  | 'circle'
+  | 'arc-3pt'
+  | 'arc-center'
+  | 'arc-tangent'
+  | 'ellipse';
+
+export type FaceStudioTool = 'select' | 'paintBucket' | 'shape';
+export type FaceStudioSelection = { kind: 'base' } | { kind: 'region'; id: string } | { kind: 'dxf'; id: string };
+
+export interface FaceStudioState {
+  tool: FaceStudioTool;
+  shape: FaceStudioShape;
+  activeMaterialId: Id;
+  bandWidth: number;
+  asBand: boolean;
+  snapGrid: boolean;
+  selection: FaceStudioSelection;
+}
 /**
  * Tema ao abrir o app: claro, mesmo que o sistema esteja no escuro (o app não herda a preferência do Windows).
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' /* SUPLEMENTOS: diálogos de suplemento */;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'terrainTypes' | 'terrainContourFamilies' | 'terrainSpotFamilies' | 'lotFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' | 'importFurniture' /* SUPLEMENTOS: diálogos de suplemento */;
 
 export interface UiState {
   tool: ToolId;
@@ -30,6 +55,12 @@ export interface UiState {
   sectionId: Id | null;
   /** Prancha aberta quando `view` é 'sheet' (decisão 0022). */
   sheetId: Id | null;
+  /** Estúdio da face (2D) ativo quando `view` é 'face'. */
+  faceView: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
+  /** Modo de pintura direta de faces no 3D. */
+  facePaint: { active: boolean; mode: 'paint' | 'studioPick'; materialId: Id; layerMode: 'all' | 'layer'; eraseMode: boolean; hoverHit: FaceHit | null };
+  /** Estado da barra contextual e propriedades do Estúdio da Face (2D). */
+  faceStudio: FaceStudioState;
   /** Planta de piso, de cobertura ou de área quando `view` é 'plan' (sessão; a cobertura liga `roofPlanMode`). */
   planKind: PlanKind;
   /** Planta de área ativa quando `planKind` é 'area'. */
@@ -43,6 +74,10 @@ export interface UiState {
   /** Hide/isolate/reveal temporários por vista (sessão; não vai para o projeto). */
   viewTemp: Record<string, TempViewVisibility>;
   selection: Id[];
+  /** Modo "Editar terreno" (T2): terreno em edição, ou null fora do modo. Vale só com a ferramenta `terrainEdit` ativa (ver `terrenoEdicao.ts`). */
+  terrenoEdicao: { terrenoId: Id } | null;
+  /** Mapa de corte e aterro ligado na planta (U2): corte em vermelho e aterro em azul sobre o terreno. Desligado por padrão. */
+  mapaCorteAterro: boolean;
   /** Prévia do colar alinhado a vários níveis; null fora do modo de conferência. */
   pastePreview: PastePreviewState | null;
   /** Nível selecionado no 3D (a seleção de elementos fica vazia quando há um). */
@@ -94,6 +129,8 @@ export interface UiState {
   dimEditId: string | null;
   cursor: { x: number; y: number } | null;
   snapKind: string;
+  /** Gravidade (G1): o elemento novo nasce na cota do terreno proposto sob o primeiro clique. Guardada na sessão da aba. */
+  gravidade: boolean;
   seen3d: boolean;
   /** Aba da faixa escolhida; 'ctx' é a aba contextual verde. */
   ribbon: RibbonTabId;
@@ -192,6 +229,14 @@ export function setSnap(patch: Partial<SnapOptions>): void {
   } catch {
     // Armazenamento indisponível (janela privada, dados bloqueados): a captura vale só nesta sessão.
   }
+}
+
+/** Liga/desliga a gravidade (cota inicial do elemento vinda do terreno) e guarda a escolha na sessão. */
+export function toggleGravidade(): boolean {
+  const next = !useUi.getState().gravidade;
+  guardarGravidade(next);
+  useUi.setState({ gravidade: next, status: { key: next ? 'ui_gv_status_on' : 'ui_gv_status_off' } });
+  return next;
 }
 
 /** Liga/desliga o modo ortogonal global (F8): só a projeção nos eixos 0°/90° enquanto ativo. */
@@ -307,7 +352,7 @@ export const DEFAULT_OPTIONS: ToolOptions = {
   arrayAnchor: 'second',
   alignPrefer: 'faces',
   offsetDistance: 1,
-  trimMode: 'unico',
+  trimMode: 'canto',
   rotateCopy: false,
   mirrorCopy: true,
   offsetCopy: true,
@@ -360,7 +405,12 @@ export const useUi = create<UiState>(() => ({
   viewTemp: {},
   sectionId: null,
   sheetId: null,
+  faceView: null,
+  facePaint: { active: false, mode: 'paint', materialId: 'mat_tinta', layerMode: 'all', eraseMode: false, hoverHit: null },
+  faceStudio: { tool: 'select', shape: 'rect', activeMaterialId: 'mat_tinta', bandWidth: 0.15, asBand: false, snapGrid: false, selection: { kind: 'base' } },
   selection: [],
+  terrenoEdicao: null,
+  mapaCorteAterro: false,
   pastePreview: null,
   selectedLevel: null,
   hover: null,
@@ -394,6 +444,7 @@ export const useUi = create<UiState>(() => ({
   dimEditId: null,
   cursor: null,
   snapKind: '',
+  gravidade: lerGravidade(),
   seen3d: false,
   ribbon: 'arquitetura',
   ribbonBack: 'arquitetura',
@@ -432,7 +483,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);
@@ -441,6 +492,13 @@ useUi.subscribe((s, prev) => {
   if (telaEstreita()) {
     const cur = useUi.getState();
     if (cur.propsOpen || cur.browserOpen) useUi.setState({ propsOpen: false, browserOpen: false });
+  }
+});
+
+useUi.subscribe((s, prev) => {
+  if (!s.facePaint.active) return;
+  if (s.view !== '3d' || (prev.facePaint.active && s.tool !== prev.tool)) {
+    useUi.setState({ facePaint: { ...s.facePaint, active: false, mode: 'paint', hoverHit: null } });
   }
 });
 

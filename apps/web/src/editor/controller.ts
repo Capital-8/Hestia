@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
-import { cotasAutomaticas, LevelResolveCache, resolveRooms, subelementosDaCortina, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
+import { cotasAutomaticas, LevelResolveCache, resolveRooms, servicoTerreno, subelementosDaCortina, temTerreno, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
 import {
   ProjectStore,
   copyLinkOf, syncWholeLinkCommand,
@@ -43,21 +43,26 @@ import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
-import { elevationFrameBox, fitBox, levelFrameBox, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
+import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
-import { casador } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
+import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
+import { destinoDoDelete, ligarSincroniaDaEdicao } from './terrenoEdicao.ts';
+import { caixaDoCorteComTerreno } from './terrenoVista.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
 import { entregarArquivo } from './entregarArquivo.ts';
 import { bibliotecaDoAmbiente, type Biblioteca } from './biblioteca/biblioteca.ts';
+import type { PastaId } from './biblioteca/tipos.ts';
 import { publicarBiblioteca } from './biblioteca/aoVivo.ts';
 import { capturarMiniatura3d } from './miniatura.ts';
 import { safeFilename } from './nomeArquivo.ts';
+import { avisarTamanhoDoProjeto } from './furniture/saveWarning.ts';
 import { FluxoEdicao } from './fluxoEdicao.ts';
 import { hiddenCreationWarning } from './profileWarning.ts';
 import { CacheGeometria } from './geometryCache.ts';
@@ -175,6 +180,8 @@ export class Editor {
 
   constructor() {
     this.tool = createTool('select', this.env);
+    // Modo Editar terreno: `terrenoEdicao` volta a null ao trocar para qualquer outra ferramenta (Esc, Concluir, outro botão).
+    ligarSincroniaDaEdicao();
     this.store.subscribe(() => {
       this.pruneSelection();
       this.scheduleAutosave(); this.fluxo.atualizar(this.project, this.store.version);
@@ -258,7 +265,7 @@ export class Editor {
     },
     // Contrato do ToolEnv (subagente de modelo): as ferramentas de anotação gravam com `planId` quando há planta de área.
     areaPlanId: () => this.areaPlanIdNow(),
-    hiddenInView: () => visibilityOf(this.store.project, useUi.getState()).hidden,
+    hiddenInView: () => this.ocultosDaPlanta(),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -271,6 +278,8 @@ export class Editor {
     exec: (c) => this.exec(c),
     transaction: (l, fn, session) => this.avisandoOculto(() => this.store.transaction(l, fn, session)),
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
+    // Gravidade (G1): a cota do terreno proposto vem do serviço do kernel; sem botão ligado, null.
+    cotaDoTerreno: (x, y) => (useUi.getState().gravidade ? servicoTerreno().cotaDoTerreno(this.store.project, [{ x, y }], 1)?.[0]?.z ?? null : null),
     viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
@@ -292,8 +301,8 @@ export class Editor {
    * Escala de impressão (1:N) da vista ativa: a da planta de área, a do nível ou a do corte/elevação. É a escala que
    * converte mm de papel em metros de desenho — a mesma na tela, na prancha e no DXF.
    */
-  viewScale(): number {
-    const st = useUi.getState();
+  viewScale(f?: ViewKeyFields & { sectionId: Id | null }): number {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const s = sectionGraphicsOf(this.project).scale;
       return Number.isFinite(s) && s > 0 ? s : 100;
@@ -348,26 +357,42 @@ export class Editor {
 
   // ---------- vistas ----------
   /** Chave do viewport: cada planta tem o seu (a de cobertura tem outro, do mesmo nível); cada corte ou elevação tem o próprio. */
-  private viewKey(): Id {
-    const st = useUi.getState();
-    return st.view === 'section' ? `sec:${st.sectionId}` : st.planKind === 'roof' ? `roof:${st.levelId}` : st.planKind === 'area' ? `area:${st.areaPlanId ?? st.levelId}` : st.levelId;
+  private viewKey(f?: ViewKeyFields): Id { return viewKeyOf(f ?? useUi.getState()); }
+
+  /** Câmera 2D da vista (sem `f`: a vista ativa do app; com `f`: a vista dada, ex.: a de um painel que acabou de sair de cena). */
+  viewport(f?: ViewKeyFields): Viewport | null {
+    return this.viewports.get(this.viewKey(f)) ?? null;
   }
 
-  viewport(): Viewport | null {
-    return this.viewports.get(this.viewKey()) ?? null;
-  }
-
-  setViewport(v: Viewport): void {
-    this.viewports.set(this.viewKey(), v);
+  setViewport(v: Viewport, f?: ViewKeyFields): void {
+    this.viewports.set(this.viewKey(f), v);
     useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
   }
 
-  /** Caixa para enquadrar a vista atual: o nível na planta, o corte na vista de corte. */
-  private frameBox(): PlanBox | null {
+  /**
+   * Ocultos da planta para a seleção e a captura: os da vista (`visibilityOf`: vista, Hide in View e temporário) mais o terreno, a região e o lote ocultos pela categoria `site` ou `lot` ou pelo
+   * Hide in View (`ocultosDoSitio`). Vale para a ferramenta ativa: oculto não é selecionável nem dá snap.
+   */
+  ocultosDaPlanta(): ReadonlySet<Id> {
+    const p = this.store.project;
     const st = useUi.getState();
+    const daVista = visibilityOf(p, st).hidden;
+    return ocultosDoSitio(p, daVista, levelGraphicsOf(p, st.levelId), () => daVista);
+  }
+
+  /** Caixa do corte para enquadrar: a do `SectionResult` ampliada na vertical pela faixa de cota do terreno visível (o terreno vem do kernel, fora do `SectionResult`). */
+  private caixaDoCorte(r: SectionResult): PlanBox {
+    const p = this.project;
+    const caixa = sectionBox(r);
+    return temTerreno(p) ? caixaDoCorteComTerreno(caixa, linhasDoTerrenoNoCorte(p, r, visibilityOf(p, useUi.getState()).hidden)) : caixa;
+  }
+
+  /** Caixa para enquadrar a vista atual: o nível na planta, o corte na vista de corte. */
+  frameBox(f?: ViewKeyFields & { sectionId: Id | null }): PlanBox | null {
+    const st = f ?? useUi.getState();
     if (st.view === 'section') {
       const r = this.sectionOf(st.sectionId);
-      return r ? sectionBox(r) : null;
+      return r ? this.caixaDoCorte(r) : null;
     }
     return levelFrameBox(this.project, st.levelId);
   }
@@ -464,7 +489,7 @@ export class Editor {
         if (first && this.sectionToFrame.delete(id)) {
           const key = `sec:${id}`;
           const vp = this.viewports.get(key);
-          const box = sectionBox(value as SectionResult);
+          const box = this.caixaDoCorte(value as SectionResult);
           if (vp && box) this.viewports.set(key, fitBox(vp, box));
         }
         // A prévia da ferramenta foi calculada com o corte anterior: relê a vista no mesmo ponteiro antes de desenhar,
@@ -497,9 +522,16 @@ export class Editor {
   /** Pasta do projeto aberto na biblioteca. `null`: arquivo avulso, projeto novo ou ambiente sem pastas. */
   private pastaDaBiblioteca: string | null = null;
 
-  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null`. */
+  /**
+   * Local fora da pasta raiz onde o projeto foi gravado com "Salvar como…" (`null`: o projeto está na raiz da biblioteca).
+   * Enquanto houver um, as gravações vão SÓ para lá (dentro dele, na subpasta `pastaDaBiblioteca`); a cópia antiga da
+   * raiz fica como estava e o projeto não é indexado na tela inicial. Vale só nesta sessão.
+   */
+  private localExterno: PastaId | null = null;
+
+  /** Pasta do projeto na biblioteca (a tela inicial e o título mostram isto), ou `null` (também quando está fora da raiz). */
   get pastaNaBiblioteca(): string | null {
-    return this.pastaDaBiblioteca;
+    return this.localExterno ? null : this.pastaDaBiblioteca;
   }
 
   /** Libera os caches de um nível (viewport da planta e resolução). Chamado ao fechar uma aba de planta. */
@@ -723,8 +755,8 @@ export class Editor {
     const ui = useUi.getState();
     const mod = e.ctrlKey || e.metaKey;
     const k = e.key;
-    // Na aba de prancha, as teclas de ferramenta e de seleção não valem (o desfazer, com Ctrl, vale).
-    if (ui.view === 'sheet' && !mod) return false;
+    // Na aba de prancha ou estúdio da face, as teclas de ferramenta e de seleção não valem (o desfazer, com Ctrl, vale).
+    if ((ui.view === 'sheet' || ui.view === 'face') && !mod) return false;
     if (mod && (k === 'z' || k === 'Z')) {
       if (this.stairPickHistory(e.shiftKey)) return true;
       if (e.shiftKey) this.redo();
@@ -796,6 +828,10 @@ export class Editor {
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());
+    if (k === 'Escape' && ui.view === '3d' && ui.facePaint.active) {
+      useUi.setState({ facePaint: { ...ui.facePaint, active: false, mode: 'paint', hoverHit: null } });
+      return true;
+    }
     // Esc sai do subelemento da cortina (fica a parede selecionada); só o Esc seguinte limpa a seleção. Com outra ferramenta
     // ativa (a porta na cortina destaca a célula sob o cursor), o Esc é dela: cancela.
     if (k === 'Escape' && ui.subElemento && this.tool.id === 'select') {
@@ -827,11 +863,15 @@ export class Editor {
     }
     if (k === 'Delete' || k === 'Backspace') {
       // Vértice de piso em foco: a ferramenta o remove antes de a seleção ser excluída.
-      if (this.tool.deleteKey?.()) {
+      const tratou = this.tool.deleteKey?.() === true;
+      if (tratou) {
         // Repinta a barra da ferramenta (contador de espelhos, aviso) sem esperar o próximo clique.
         this.bump();
         return true;
       }
+      // Editar terreno: sem vértice escolhido o Delete não apaga o terreno em edição (que é a seleção).
+      const destino = destinoDoDelete(this.tool.id, tratou);
+      if (destino === 'nada') return true;
       if (ui.selection.length && !this.perimetro.ativo) { this.deleteSelection(); return true; }
     }
     if (/^a$/i.test(k) && !ui.typed && this.tool.adjust?.()) { this.bump(); return true; } // A ajusta a rampa livre em andamento
@@ -852,6 +892,8 @@ export class Editor {
         || this.tool.id === 'column'
         || this.tool.id === 'beam'
         || this.tool.id === 'footing'
+        || this.tool.id === 'component'
+        || this.tool.id === 'furniture'
       )
     ) {
       this.tool.space?.();
@@ -869,6 +911,8 @@ export class Editor {
       this.bump();
       return true;
     }
+    // Teclas próprias da ferramenta (Componente: R gira, Shift+R gira ao contrário, M espelha), sem sequência de atalho em andamento.
+    if (this.tool.key && !mod && useAtalhos.getState().pendente === '' && this.tool.key(k, e.shiftKey)) { this.bump(); return true; }
     const r = casador.tecla(k);
     if (!r.tratada) return false;
     if (r.comando === 'atalhos' || r.comando === 'unidades') useUi.setState({ dialog: r.comando === 'atalhos' ? 'shortcutsConfig' : 'units', dialogArg: null });
@@ -1245,6 +1289,7 @@ export class Editor {
     this.geracaoDoProjeto++;
     // Projeto avulso ou recém-carregado: o vínculo com uma pasta da biblioteca só volta quando ele é aberto/salvo lá.
     this.pastaDaBiblioteca = null;
+    this.localExterno = null;
     this.perimetro.encerrar(); this.store.load(p);
     // Todo projeto aberto fica no autosave desde o primeiro instante: é o que o F5 reabre quando ele não está numa pasta.
     this.autosaveAvisado = false;
@@ -1285,6 +1330,11 @@ export class Editor {
       await this.baixarProjeto();
       return;
     }
+    if (this.localExterno) {
+      // Projeto ligado a outro local ("Salvar como…"): grava só lá, sem exigir a pasta raiz.
+      await this.salvarNaBiblioteca(biblioteca, this.pastaDaBiblioteca, this.localExterno);
+      return;
+    }
     if (!biblioteca.pronta) {
       useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
       return;
@@ -1307,6 +1357,7 @@ export class Editor {
       this.store.markSaved();
       safeSet(AUTOSAVE_SALVO_KEY, text);
       useUi.setState({ status: { key: 'eds_msg_saved_as', args: { name } } });
+      avisarTamanhoDoProjeto(text.length);
       return;
     }
     if (entrega === 'cancelado') {
@@ -1322,11 +1373,14 @@ export class Editor {
     } catch {
       useUi.setState({ status: downloaded ? { key: 'eds_msg_file_generated', args: { name } } : { key: 'eds_msg_download_failed' } });
     }
+    avisarTamanhoDoProjeto(text.length);
   }
 
   /**
-   * "Salvar como" na biblioteca: cria uma pasta nova com o nome do projeto (com sufixo se repetir) e passa a salvar nela.
-   * Sem acesso a pastas no ambiente, cai no salvamento por arquivo.
+   * "Salvar como…": o usuário escolhe OUTRO local (diálogo de pasta do sistema; no navegador, o seletor da File System
+   * Access API). O projeto é gravado numa subpasta com o nome dele e, a partir daí, as gravações seguintes (Ctrl+S) vão
+   * só para esse local; o anterior fica como cópia. Sem acesso a pastas no ambiente, baixa o arquivo, como sempre.
+   * Devolve `false` quando nada foi gravado em pasta (cancelou, falhou ou caiu no download).
    */
   async salvarComo(): Promise<boolean> {
     const biblioteca = bibliotecaDoAmbiente();
@@ -1334,13 +1388,18 @@ export class Editor {
       await this.baixarArquivo();
       return false;
     }
-    if (!biblioteca.pronta) {
-      // Mesmo diálogo do Ctrl+S: primeiro explica por que precisa da pasta.
-      useUi.setState({ dialog: 'salvarSemPasta', dialogArg: null });
+    let destino: PastaId | null;
+    try {
+      destino = await biblioteca.porta.escolherDestino();
+    } catch {
+      useUi.setState({ status: { key: 'bib_save_error' } });
       return false;
     }
-    await this.salvarNaBiblioteca(biblioteca, null);
-    return true;
+    if (destino === null) {
+      useUi.setState({ status: { key: 'eds_msg_save_cancelled' } });
+      return false;
+    }
+    return this.salvarNaBiblioteca(biblioteca, null, destino);
   }
 
   /** Abre um projeto da pasta da biblioteca e passa a salvá-lo nela. */
@@ -1362,24 +1421,38 @@ export class Editor {
 
   /**
    * Grava na pasta do projeto (ou numa nova, quando `pasta` é `null`) com a miniatura da vista 3D dentro do documento.
+   * `destino` é o local fora da raiz (ver `localExterno`); `null` grava na raiz da biblioteca.
    * A miniatura é refeita a cada salvamento; se a GPU não deixar desenhar, o projeto é salvo sem ela.
+   * A pasta acompanha o nome do projeto (a biblioteca grava e só então renomeia); se o renomear falhar, o projeto está
+   * salvo na pasta antiga e o status avisa.
    */
-  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null): Promise<void> {
+  private async salvarNaBiblioteca(biblioteca: Biblioteca, pasta: string | null, destino: PastaId | null = null): Promise<boolean> {
     const lang = useI18n.getState().lang;
     const miniatura = capturarMiniatura3d();
     const documento: Project = miniatura ? { ...this.project, thumbnail: miniatura } : this.project;
     const conteudo = serializeProject(documento, 1);
     safeSet(AUTOSAVE_KEY, conteudo);
     try {
-      const { projeto } = await biblioteca.salvar({ pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura });
+      const doc = { pasta, nome: this.project.name.trim() || t(lang, 'bib_untitled'), conteudo, miniatura };
+      const { projeto, renomearFalhou } = destino ? await biblioteca.salvarEm(destino, doc) : await biblioteca.salvar(doc);
       this.pastaDaBiblioteca = projeto.pasta;
+      // Escolher a própria raiz no "Salvar como" é gravar na biblioteca.
+      this.localExterno = destino && destino !== biblioteca.estado.raiz ? destino : null;
       // A tela inicial e o menu Arquivo mostram a mesma lista: publica a entrada nova.
       publicarBiblioteca(biblioteca.estado);
       safeSet(AUTOSAVE_SALVO_KEY, conteudo);
       this.store.markSaved();
-      useUi.setState({ status: { key: pasta === null ? 'bib_saved_new' : 'bib_saved', args: { name: projeto.pasta } } });
+      const status = renomearFalhou
+        ? { key: 'bib_rename_failed' as const, args: { name: projeto.pasta } }
+        : destino && this.localExterno && pasta === null
+          ? { key: 'bib_saved_elsewhere' as const, args: { name: projeto.pasta } }
+          : { key: pasta === null ? ('bib_saved_new' as const) : ('bib_saved' as const), args: { name: projeto.pasta } };
+      useUi.setState({ status });
+      avisarTamanhoDoProjeto(conteudo.length);
+      return true;
     } catch {
       useUi.setState({ status: { key: 'bib_save_error' } });
+      return false;
     }
   }
 

@@ -5,6 +5,7 @@ import { profileHeightAt, profileMean, openingHeight, openingSill, openingType, 
 import type { ResolvedLevel } from './types.ts';
 import { despachanteDeQuantidades } from './resolveDespacho.ts';
 import type { QuantidadesRust } from './quantidadesTipos.ts';
+import { applyFacePaintAdjustments } from './facePaintQuantities.ts';
 import { cunhasDoNivel, juncaoInclinadaDaParede } from './junctionLevel.ts';
 import { areaPerimetroDoContorno, camadaFurada } from './furoContornoParede.ts';
 import { openingIsTilted, tiltFactors, tiltJoinLayerVolume } from './wallTiltQuantities.ts';
@@ -153,6 +154,14 @@ function quantifyLevelCom(p: Project, r: ResolvedLevel, rust: QuantidadesRust | 
     wq.volume += c.volume;
     wq.grossVolume += c.volume;
     volumeByMaterial[main.materialId] = (volumeByMaterial[main.materialId] ?? 0) + c.volume;
+  }
+  if (
+    Object.values(r.walls).some((rw) => {
+      const w = p.elements[rw.wallId];
+      return w?.kind === 'wall' && Boolean(w.facePaints?.length);
+    })
+  ) {
+    applyFacePaintAdjustments(p, r.levelId, 'wall', faceAreaByMaterial, volumeByMaterial);
   }
   return { layers, walls, volumeByMaterial, faceAreaByMaterial };
 }

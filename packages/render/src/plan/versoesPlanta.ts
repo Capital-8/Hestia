@@ -17,6 +17,9 @@ export interface VersoesPlanta {
   porNivel: ReadonlyMap<Id, number>;
 }
 
+/** Elemento que a vista da planta não lê (ausente conta): guarda-corpo, terreno e região. */
+const foraDaVista = (e: Project['elements'][string] | undefined): boolean => e === undefined || e.kind === 'railing' || e.kind === 'mass' || e.kind === 'terrain' || e.kind === 'terrainRegion';
+
 /** Chaves do projeto que não entram em nenhuma das duas listas (contador de ordem de criação). */
 const IGNORADAS = new Set<string>(['elements', 'nextOrder']);
 
@@ -67,7 +70,10 @@ export function versoesDaPlanta(p: Project): VersoesPlanta {
   return ultimo;
 }
 
-/** Os dois projetos diferem só em guarda-corpos e massas (e no contador de ordem)? A vista da planta não lê nenhum dos dois. */
+/**
+ * Os dois projetos diferem só em guarda-corpos, massas, terrenos e regiões de terreno (e no contador de ordem)? A vista (corte, junção, contornos,
+ * planta) não lê nenhum deles: editar um terreno ou uma massa não refaz a resolução do nível (ficha V2).
+ */
 export function mesmoSemGuardaCorpo(a: Project, b: Project): boolean {
   if (a === b) return true;
   const x = a as unknown as Record<string, unknown>;
@@ -80,7 +86,7 @@ export function mesmoSemGuardaCorpo(a: Project, b: Project): boolean {
     const e = a.elements[id];
     const f = b.elements[id];
     if (e === f) continue;
-    if ((e === undefined || e.kind === 'railing' || e.kind === 'mass') && (f === undefined || f.kind === 'railing' || f.kind === 'mass')) continue;
+    if (foraDaVista(e) && foraDaVista(f)) continue;
     return false;
   }
   return true;

@@ -11,6 +11,7 @@ export * from './sketchValidate.ts';
 export * from './sketchConst.ts';
 export { SKETCH_TOL } from './sketchGeom.ts';
 export * from './numberText.ts';
+export * from './faceArt.ts';
 
 // `boolean.ts` continua sendo a implementação TypeScript, intocada. As operações quentes saem por
 // `operacoesKernel.ts`, que delega ao kernel experimental quando ele está ativo e chama exatamente

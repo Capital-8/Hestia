@@ -147,9 +147,9 @@ export function SpotFamiliesDialog(): ReactElement {
       </FamilyRow>
       <FamilyRow label="Base de referência" htmlFor="sf-base">
         <select id="sf-base" className="select" value={draft.base} onChange={(e) => patch({ base: e.target.value as SpotFamily['base'] })}>
-          <option value="relative">Relativa ao nível (0,00)</option>
-          <option value="project">Ponto Base do Projeto (PBP)</option>
-          <option value="survey">Ponto de Levantamento Topográfico (Survey)</option>
+          <option value="relative">Relativa: ao nível (elevação) e ao ponto-base do projeto (coordenada)</option>
+          <option value="project">Real: sistema da Localização (E/N, cota zero)</option>
+          <option value="survey">Ponto de levantamento (sem ele, o sistema da Localização)</option>
         </select>
       </FamilyRow>
       <FamilyRow label="Tamanho do símbolo" htmlFor="sf-sz"><NumField id="sf-sz" value={draft.symbolMm} decimals={1} unit="mm" min={1.5} onCommit={(v) => patch({ symbolMm: v })} /></FamilyRow>

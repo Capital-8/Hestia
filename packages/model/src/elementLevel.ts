@@ -3,12 +3,17 @@ import { stairFitPatch } from './stairFit.ts';
 import { isCad, type CadDrawing } from './cad.ts';
 import { isMass } from './mass.ts';
 import type { Mass } from './massTypes.ts';
+import { isTerrain, isTerrainRegion } from './terrain.ts';
+import { isLot } from './lot.ts';
+import type { Terrain, TerrainRegion } from './terrainTypes.ts';
+import type { Lot } from './lotTypes.ts';
 import {
   isBeam,
   isCeiling,
   isColumn,
   isFloor,
   isFooting,
+  isComponent,
   isGuardaCorpo,
   isRamp,
   isRoof,
@@ -22,6 +27,7 @@ import {
   type Element,
   type Floor,
   type Footing,
+  type Component,
   type GuardaCorpo,
   type Id,
   type Project,
@@ -49,7 +55,7 @@ export interface SetElementLevel {
 /** Elementos com nível próprio. Aberturas não têm: acompanham a parede anfitriã. */
 export const hasLevel = (
   e: Element | undefined,
-): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Room | CadDrawing | Column | Beam | Footing =>
+): e is Wall | Floor | Slab | Ceiling | Roof | Stair | Ramp | GuardaCorpo | Mass | Terrain | TerrainRegion | Lot | Room | CadDrawing | Column | Beam | Footing | Component =>
   isWall(e) ||
   isFloor(e) ||
   isSlab(e) ||
@@ -59,11 +65,15 @@ export const hasLevel = (
   isRamp(e) ||
   isGuardaCorpo(e) ||
   isMass(e) ||
+  isTerrain(e) ||
+  isTerrainRegion(e) ||
+  isLot(e) ||
   isRoom(e) ||
   isCad(e) ||
   isColumn(e) ||
   isBeam(e) ||
-  isFooting(e);
+  isFooting(e) ||
+  isComponent(e);
 
 /** Nível de um elemento com nível próprio; null para abertura ou id inexistente. */
 export function elementLevelId(e: Element | undefined): Id | null {
@@ -99,6 +109,9 @@ export function applyElementLevel(p: Project, c: SetElementLevel, lang: Lang = '
       if (e.hospedeiro.tipo === 'manual') e.cotaBase += delta;
     } else if (isRoom(e)) e.heightOffset = (e.heightOffset ?? 0) + delta;
     else if (isCad(e)) e.offsetZ = (e.offsetZ ?? 0) + delta;
+    // Terreno e região têm cotas absolutas no projeto e o lote não tem cota: trocar o nível não muda nenhum valor.
+    else if (isTerrain(e) || isTerrainRegion(e) || isLot(e)) continue;
+    else if (isComponent(e)) e.z += delta;
     else e.heightOffset += delta;
   }
   // Escada com topo explícito cujo desnível mudou: reajusta os espelhos (decisão 0041), sem tocar no croqui fora dos espelhos.

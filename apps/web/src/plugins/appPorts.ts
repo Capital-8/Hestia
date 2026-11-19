@@ -6,6 +6,7 @@ import { safeGet, safeSet } from '../editor/storage.ts';
 import { appDataPort, appModelPort } from './appModelPort.ts';
 import { fromSceneCamera, toSceneCamera } from './cameraConvert.ts';
 import { buildSceneContent } from './sceneExport.ts';
+import { aoCarregarCatalogo, baseAtual, carregarCatalogo, catalogoEmCache, PREFIXO_CATALOGO } from '../editor/texturasOnline.ts';
 import { lerToken, politicaDoToken } from './pluginTokens.ts';
 import { connectWebSocket } from './wsTransport.ts';
 
@@ -26,7 +27,13 @@ const scenePort: ScenePort = {
   },
   read() {
     prepararCena3D();
-    return buildSceneContent(editor.project, lerCena3D()?.scene ?? null);
+    const base = baseAtual();
+    const catalogo = catalogoEmCache(base);
+    // Material com textura do catálogo e catálogo ainda não baixado: baixa agora; ao chegar, a cena é relida (subscribe).
+    if (!catalogo && Object.values(editor.project.materials).some((m) => m.aparencia?.textura?.imagemId.startsWith(PREFIXO_CATALOGO))) {
+      carregarCatalogo(fetch, base).catch(() => undefined);
+    }
+    return buildSceneContent(editor.project, lerCena3D()?.scene ?? null, { catalogo, base });
   },
   subscribe(cb) {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -35,7 +42,8 @@ const scenePort: ScenePort = {
       if (editor.store.version === lastVersion || timer) return;
       timer = setTimeout(() => { timer = null; lastVersion = editor.store.version; cb(); }, SCENE_THROTTLE_MS);
     });
-    return () => { off(); if (timer) clearTimeout(timer); };
+    const offCatalogo = aoCarregarCatalogo(() => { if (!timer) timer = setTimeout(() => { timer = null; cb(); }, SCENE_THROTTLE_MS); });
+    return () => { off(); offCatalogo(); if (timer) clearTimeout(timer); };
   },
 };
 

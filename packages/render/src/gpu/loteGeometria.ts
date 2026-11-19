@@ -129,7 +129,7 @@ export class LoteGeometriaGpu {
     this.geometria = this.criarGeometria();
     this.malha = new THREE.Mesh(this.geometria, material);
     this.malha.matrixAutoUpdate = false;
-    this.malha.userData = { kind: categoria };
+    this.malha.userData = { kind: categoria, materialId: this.materialId };
   }
 
   /** Nível já aplicado neste lote. */
@@ -256,7 +256,7 @@ export class LoteGeometriaGpu {
     for (const s of this.segmentos.values()) {
       for (const r of s.dados.ids) faixas.push({ id: r.id, start: s.inicioI + r.start, count: r.count });
     }
-    this.malha.userData = { kind: this.categoria, ranges: faixas };
+    this.malha.userData = { kind: this.categoria, materialId: this.materialId, ranges: faixas };
     this.geometria.setDrawRange(0, this.nI);
     this.malha.visible = this.nI > 0;
     this.atualizarCaixa();

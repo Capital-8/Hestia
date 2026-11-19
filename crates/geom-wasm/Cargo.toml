@@ -20,6 +20,7 @@ crate-type = ["cdylib", "rlib"]
 i_overlay = "9"
 # Spike do furo por contorno (docs/estudo-esquadrias/19): booleana 3D em Rust puro, mesma versão do bench (doc 11).
 manifold-rust = "=0.19.2"
+spade = { version = "2", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 # So nos testes (o teste de contrato le schema/cena-v11.json). Nao entra no binario nem no NOTICE.

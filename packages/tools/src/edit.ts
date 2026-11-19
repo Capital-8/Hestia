@@ -2,9 +2,11 @@ import { add, applyTransform, dist, dot, norm, openingSymbolPaths, perp, sub, ty
 import { frameOfWall, openingGeometry } from '@hestia/engine';
 import {
   beamPolygon, columnPolygon, findBeamType, findColumnType, findFootingType, footingPolygon, isBeam, isCad, isColumn,
-  isFloor, isFooting, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isWall, mapaDeIdsDeGuardaCorpos, newId,
+  isFloor, isFooting, isFurniture, isLot, isMass, isOpening, isRamp, isRoof, isRoom, isSlab, isStair, isTerrain, isTerrainRegion, isWall,
+  mapaDeIdsDeGuardaCorpos, newId,
   sectionLabelOf, sectionPoints, viewIdsIn, viewTransformCommands, type Command, type Id, type Project,
 } from '@hestia/model';
+import { furnitureOutline } from './furnitureFootprint.ts';
 import { followerCommands, planWallFollowers } from './wallFollow.ts';
 import { cadSnapIndexes } from './snapCad.ts';
 import { execWithHostedLoss } from './hostedGuard.ts';
@@ -18,6 +20,9 @@ import { selectedRoofs } from './roofPick.ts';
 import { selectedRooms } from './roomPick.ts';
 import { massRings, selectedMasses } from './massPick.ts';
 import { ghostGuardaCorpos, selectedGuardaCorpos } from './guardaCorpoEdicao.ts';
+import { comandosCopiaTerreno, ghostTerreno, selectedTerrenosComRegioes } from './terrainHandles.ts';
+import { comandosCopiaRegioes, regioesSozinhas } from './terrainRegionHandles.ts';
+import { ghostLote, selectedLots } from './lotHandles.ts';
 import { selectedBeams, selectedColumns, selectedFootings } from './structuralPick.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 import { langOf, t as translate } from './i18n.ts';
@@ -28,8 +33,10 @@ export { selectedBeams, selectedColumns, selectedFootings } from './structuralPi
 export const selectedWalls = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isWall(p.elements[id]));
 export const selectedOpenings = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isOpening(p.elements[id]));
 /** Desenhos CAD importados dentro da seleção (movem como um objeto só). */
+/** Móveis importados dentro da seleção (movem, giram, espelham e copiam como um objeto só). */
+export const selectedFurnitures = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isFurniture(p.elements[id]));
 export const selectedCads = (p: Project, ids: Id[]): Id[] => ids.filter((id) => isCad(p.elements[id]));
-/** Paredes, pisos, lajes, telhados, massas e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
+/** Paredes, pisos, lajes, telhados, massas, terreno (com as suas regiões; a região sozinha também), lote e CAD: o que o comando 'transform' move, gira, espelha e copia (aberturas seguem o anfitrião). */
 export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedWalls(p, ids),
   ...selectedFloors(p, ids),
@@ -39,11 +46,15 @@ export const selectedMovables = (p: Project, ids: Id[]): Id[] => [
   ...selectedRamps(p, ids),
   ...selectedRooms(p, ids),
   ...selectedCads(p, ids),
+  ...selectedFurnitures(p, ids),
   ...selectedGuardaCorpos(p, ids),
   ...selectedColumns(p, ids),
   ...selectedBeams(p, ids),
   ...selectedFootings(p, ids),
   ...selectedMasses(p, ids),
+  ...selectedTerrenosComRegioes(p, ids),
+  ...regioesSozinhas(p, ids),
+  ...selectedLots(p, ids),
 ];
 
 /** Vistas de corte/elevação dentro da seleção. Elas transformam junto com os elementos. */
@@ -85,6 +96,9 @@ export function makeIdMap(p: Project, ids: Id[]): Record<Id, Id> {
     else if (isRamp(e)) map[id] = newId('rp');
     else if (isRoom(e)) map[id] = newId('rm');
     else if (isCad(e)) map[id] = newId('cad');
+    else if (isFurniture(e)) map[id] = newId('fu');
+    else if (isLot(e)) map[id] = newId('lt');
+    // Terreno e região NÃO entram aqui: a cópia deles tem o `terrenoId` remapeado e sai de `comandosCopiaTerreno`.
     else if (isColumn(e)) map[id] = newId('col');
     else if (isBeam(e)) map[id] = newId('bm');
     else if (isFooting(e)) map[id] = newId('ft');
@@ -103,6 +117,14 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
   const out: PreviewItem[] = [];
   for (const id of wallIds) {
     const st = p.elements[id];
+    if (isTerrain(st) || isTerrainRegion(st)) {
+      out.push(...ghostTerreno(p, id, t));
+      continue;
+    }
+    if (isLot(st)) {
+      out.push(...ghostLote(p, id, t));
+      continue;
+    }
     if (isStair(st)) {
       out.push(...ghostStairItems(st, t));
       continue;
@@ -159,6 +181,11 @@ export function ghostBands(p: Project, wallIds: Id[], t: Transform): PreviewItem
       const type = findFootingType(p, fl.typeId);
       const poly = footingPolygon(fl, type);
       out.push({ kind: 'polygon', ring: poly.map((q) => applyTransform(t, q)), dashed: true });
+      continue;
+    }
+    if (isFurniture(fl)) {
+      const asset = p.furniture?.assets[fl.assetId];
+      if (asset) out.push({ kind: 'polygon', ring: furnitureOutline(fl, asset).map((q) => applyTransform(t, q)), dashed: true });
       continue;
     }
     const f = frameOfWall(p, id);
@@ -252,9 +279,20 @@ export function slideOpenings(env: ToolEnv, openingIds: Id[], d: Vec2): void {
 /** Copia paredes e/ou pisos (ids de ambos) com as aberturas hospedadas; devolve os novos ids de paredes e pisos. */
 export function copyWalls(env: ToolEnv, ids: Id[], t: Transform): Id[] {
   const p = env.project();
-  const idMap = makeIdMap(p, ids);
-  env.exec({ type: 'transform', ids, transform: t, copy: { idMap } });
-  return ids.map((id) => idMap[id]!).filter(Boolean);
+  // O terreno leva as regiões já remapeadas para a cópia dele; o resto segue o `transform` com `copy`.
+  const outros = ids.filter((id) => !isTerrain(p.elements[id]) && !isTerrainRegion(p.elements[id]));
+  const idMap = makeIdMap(p, outros);
+  const terreno = comandosCopiaTerreno(p, ids, t);
+  // A região SOZINHA na seleção copia-se no mesmo terreno (o `terrenoId` da cópia é o do terreno original).
+  const regioes = comandosCopiaRegioes(p, ids, t);
+  const extras = [...terreno.commands, ...regioes.commands];
+  const copiar = (): void => {
+    if (outros.length || !extras.length) env.exec({ type: 'transform', ids: outros, transform: t, copy: { idMap } });
+    for (const c of extras) env.exec(c);
+  };
+  if (extras.length) env.transaction(translate(langOf(env), 'tl_tn_undo_copiar'), copiar);
+  else copiar();
+  return ids.map((id) => idMap[id] ?? terreno.idMap[id] ?? regioes.idMap[id]!).filter(Boolean);
 }
 
 export const lengthOf = (a: Vec2, b: Vec2): number => dist(a, b);

@@ -1,6 +1,5 @@
 import { newSheetId, newViewportId, areaPlanOf, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
-import { buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
-import { computeSection } from '@hestia/engine';
+import { computeSectionCached, buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { exportSheetsPdf } from '@hestia/io';
 import { fmtDate, t, useI18n, type Lang } from './i18n.ts';
 
@@ -169,7 +168,7 @@ export function viewContentBoxM(p: Project, view: SheetViewSource): { w: number;
     const section = p.views.find((v) => v.id === view.sectionId);
     if (!section) return null;
     const pts = sectionPoints(p, section);
-    const box = sectionBox(computeSection(p, { a: pts.a, b: pts.b, depth: section.depth }));
+    const box = sectionBox(computeSectionCached(p, { a: pts.a, b: pts.b, depth: section.depth }));
     return box ? { w: box.maxX - box.minX, h: box.maxY - box.minY } : null;
   }
   return null;

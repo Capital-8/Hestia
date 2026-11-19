@@ -33,7 +33,7 @@ interface AxisRoofs {
  * face usada é a mais baixa ACIMA da base `baseZ` da parede (face abaixo da base não daria altura à parede). Com telhado
  * escolhido (`attachTopRoofId`), só ele conta.
  */
-function axisRoofs(w: Wall, roofs: ResolvedRoof[], baseZ: number): AxisRoofs | null {
+function axisRoofs(w: Wall, roofs: ResolvedRoof[], baseZ: number, half = 0): AxisRoofs | null {
   const rs = w.attachTopRoofId ? roofs.filter((r) => r.roofId === w.attachTopRoofId) : roofs;
   const arc = w.sag !== 0 ? arcFromSagitta(w.a, w.b, w.sag) : null;
   if (w.sag !== 0 && !arc) return null;
@@ -43,19 +43,44 @@ function axisRoofs(w: Wall, roofs: ResolvedRoof[], baseZ: number): AxisRoofs | n
   const pointAt = (t: number): Vec2 => (arc ? arcPointAt(arc, t) : { x: w.a.x + u.x * t, y: w.a.y + u.y * t });
   const bottomAt = (t: number): number | null => {
     const p = pointAt(t);
+    // Cobertura decidida pelo eixo; com `half` (parede anexada em toda a espessura) o topo é o mais baixo entre o eixo
+    // e as duas faces (deslocamento perpendicular ao eixo), nos pontos que o telhado cobre.
+    const samples = half > 0 ? [p, ...faceSamples(w, arc, t, p, half)] : [p];
     let z: number | null = null;
-    for (const r of rs) {
-      const top = roofTopAt(r, p);
-      if (top === null) continue;
-      const bottom = top - roofThickness(r);
-      // Face no nível da base ou abaixo dela não serve para o topo: a parede ficaria sem altura.
-      if (bottom <= baseZ + MIN_HEIGHT) continue;
-      z = z === null ? bottom : Math.min(z, bottom);
-    }
-    return z;
+    let axisCovered = false;
+    samples.forEach((q, k) => {
+      for (const r of rs) {
+        const top = roofTopAt(r, q);
+        if (top === null) continue;
+        if (k === 0) axisCovered = true;
+        const bottom = top - roofThickness(r);
+        // Face no nível da base ou abaixo dela não serve para o topo: a parede ficaria sem altura.
+        if (bottom <= baseZ + MIN_HEIGHT) continue;
+        z = z === null ? bottom : Math.min(z, bottom);
+      }
+    });
+    return axisCovered ? z : null;
   };
   const bps = arc ? curveBreakpoints(L, (t) => bottomAt(t) !== null) : breakpoints(w, rs, L, u);
   return { L, bps, bottomAt };
+}
+
+/** Pontos das duas faces da parede na posição t do eixo (a `half` metros do eixo, na normal). */
+function faceSamples(w: Wall, arc: ReturnType<typeof arcFromSagitta>, t: number, p: Vec2, half: number): Vec2[] {
+  let nx: number;
+  let ny: number;
+  if (arc) {
+    const r = arcPointAt(arc, Math.min(arc.length, t + 1e-4));
+    const q = arcPointAt(arc, Math.max(0, t - 1e-4));
+    const d = Math.hypot(r.x - q.x, r.y - q.y) || 1;
+    nx = -(r.y - q.y) / d;
+    ny = (r.x - q.x) / d;
+  } else {
+    const d = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 1;
+    nx = -(w.b.y - w.a.y) / d;
+    ny = (w.b.x - w.a.x) / d;
+  }
+  return [{ x: p.x + nx * half, y: p.y + ny * half }, { x: p.x - nx * half, y: p.y - ny * half }];
 }
 
 /**
@@ -93,11 +118,13 @@ function curveBreakpoints(L: number, covered: (t: number) => boolean): number[] 
  * Amostras: extremos do eixo, cada divisa entre águas e cada borda do telhado que o eixo cruza, e um ponto médio entre duas
  * amostras seguidas. Entre telhados que cobrem o mesmo ponto vale a face inferior mais baixa acima da base da parede (o
  * telhado pode estar em qualquer nível: ver `axisRoofs`). Sem nenhum trecho coberto, null (a parede segue a altura normal).
- * Parede curva não usa perfil.
+ * Parede curva não usa perfil. `half` > 0 (metade da espessura, `Wall.attachTopRoofFull`): o topo vale o ponto mais baixo
+ * entre o eixo e as duas faces. Nas divisas entre águas o perfil ganha quebra onde o eixo cruza; o corte exato pelas
+ * faces é conservador (a parede nunca fura a água; sobra no máximo inclinação × meia espessura na face mais alta).
  */
-export function roofWallProfile(w: Wall, roofs: ResolvedRoof[], baseZ: number, normalTop: number): ProfilePoint[] | null {
+export function roofWallProfile(w: Wall, roofs: ResolvedRoof[], baseZ: number, normalTop: number, half = 0): ProfilePoint[] | null {
   if (w.sag !== 0) return null;
-  const ax = axisRoofs(w, roofs, baseZ);
+  const ax = axisRoofs(w, roofs, baseZ, half);
   if (!ax) return null;
   const { L, bps, bottomAt } = ax;
   const mids = bps.slice(0, -1).map((t, i) => (t + bps[i + 1]!) / 2);

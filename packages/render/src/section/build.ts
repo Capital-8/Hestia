@@ -1,9 +1,12 @@
 import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
+import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Project, type ResolvedUnits } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits } from '@hestia/model';
+import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
+import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
 import { thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
@@ -65,6 +68,9 @@ const fmt = (u: ResolvedUnits, z: number): string => `${z >= 0 ? '+' : '−'}${f
 /** Categoria gráfica de uma origem do motor (parede, piso, laje, telhado ou escada). */
 const categoryOf = (o: SectionOrigin): GraphicsCategory => ownerOf(o)?.kind ?? 'wall';
 
+const materialComponente = (id: Id): Material | undefined =>
+  MATERIAIS_DE_COMPONENTE[id] ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!) : undefined);
+
 /**
  * Lista de desenho do corte/elevação: x = distância ao longo da linha, y = cota. Os polígonos já são a parte visível
  * (linha oculta, no motor): aqui só se pinta. Segue a hierarquia de peso do Revit: o que é cortado leva hachura e
@@ -123,6 +129,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     for (const ring of ringsOf(polygons)) revealStrokes.push({ pts: ring, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 });
   };
 
+  // Terreno (ficha V3): do kernel, ANTES do edifício (fica atrás); a categoria `site` desligada ou o terreno oculto não saem.
+  const terreno = terrenoCorteOps(p, s, theme, input.dark, hidden, paint.site, { noFill, hatchFor, halftone }, revealed);
+  fills.push(...terreno.fills); strokes.push(...terreno.strokes); revealStrokes.push(...terreno.reveal);
+
   // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento. O nome/cota do nível sai como texto de papel
   // (mm × escala da vista), sem a caixa do rótulo de interface: é anotação de nível, como a marca de corte na planta.
   for (const l of s.levels) {
@@ -150,7 +160,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
-      text: `${l.name} ${fmt(unitsOf(input.project), l.z)}`,
+      text: `${l.name} ${fmt(unitsOf(input.project), cotaExibida(input.project, l.z))}`,
       papel: { escala: style.scale, fontMm: SECTION_TEXT_MM, desvio: { mm: 4.5, ux: -1, uy: -1.1 } },
       // Alinhado à direita: o texto termina depois da ponta da linha de nível e cresce para dentro do desenho (não
       // estoura a moldura da vista, como acontecia com o rótulo ancorado à esquerda).
@@ -174,11 +184,12 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       return;
     }
     silhouetteParts.push(b.polygons);
-    const base = pt.color ?? p.materials[b.materialId]?.color ?? '#999999';
+    const cpB = corPadraoSuperficie(p.materials[b.materialId] ?? materialComponente(b.materialId), { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: b.hatch ?? 'none' });
+    const base = pt.color ?? cpB.fundo;
     if (!noFill) {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
       const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-      const hatch = hatchFor(b.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
+      const hatch = cpB.padrao ? hatchFor(cpB.padrao.kind, halftone(cpB.padrao.color, pt)) : undefined;
       fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
     }
     const line = mix(theme.ink, paper, 0.5 * (b.depth / maxDepth));
@@ -347,12 +358,12 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       cut: true,
       draw: () => {
         silhouetteParts.push(polygons);
-        const m = p.materials[r.materialId];
+        const m = p.materials[r.materialId] ?? materialComponente(r.materialId);
         if (!noFill) {
-          const base = pt.color ?? m?.color ?? '#999999';
+          const cp = corPadraoCorte(m, { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: r.hatch });
+          const base = pt.color ?? cp.fundo;
           const color = pt.visual === 'shaded' ? base : mix(base, paper, input.dark ? 0.5 : 0.58);
-          const hatchKind = r.hatch ?? m?.hatch;
-          const hatch = hatchFor(hatchKind, halftone(mix(pt.color ?? m?.color ?? '#999999', input.dark ? '#ffffff' : '#000000', 0.45), pt));
+          const hatch = cp.padrao ? hatchFor(cp.padrao.kind, halftone(cp.padrao.color, pt)) : undefined;
           fills.push({ polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
         }
         const line = halftone(mix(theme.ink, paper, 0.35), pt);
@@ -379,10 +390,11 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const line = halftone(mix(theme.ink, paper, 0.5 * (rd.depth / maxDepth)), pt);
     if (!noFill) {
       for (const f of rd.fills) {
-        const base = pt.color ?? p.materials[f.materialId]?.color ?? '#999999';
+        const cpF = corPadraoSuperficie(p.materials[f.materialId], { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: f.sample.hatch ?? 'none' });
+        const base = pt.color ?? cpF.fundo;
         const fade = 0.55 + 0.35 * (f.sample.depth / maxDepth);
         const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-        const hatch = hatchFor(f.sample.hatch, halftone(mix(base, input.dark ? '#ffffff' : '#000000', 0.45), pt));
+        const hatch = cpF.padrao ? hatchFor(cpF.padrao.kind, halftone(cpF.padrao.color, pt)) : undefined;
         fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
       }
     }
@@ -432,6 +444,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   massaCorteOps(p, s, theme, input.dark, hidden, paint.mass, fills, strokes, input.highlight);
   guardaCorpoCorteOps(p, s, theme, input.dark, hidden, paint.railing, fills, strokes, { revelados: revealed, contorno: (pts) => revealGC.push({ pts, closed: true, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 }) }, input.highlight);
   strokes.push(...revealGC);
+  const realceTN = terrenoCorteRealce(p, s, theme, hidden, paint.site, input.highlight);
+  fills.push(...realceTN.fills); strokes.push(...realceTN.strokes);
   if (input.highlight) highlightOps(s, input.highlight, theme, fills, strokes);
 
   return { background: theme.bg, fills, strokes, labels };

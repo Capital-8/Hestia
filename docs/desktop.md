@@ -150,6 +150,18 @@ navegador pode perder a permissão de execução (resolvido com `chmod +x`), e a
 gerenciadores de arquivos pedem confirmação antes de abrir. O `.deb`/`.rpm` passa pelo
 gerenciador de pacotes, que confia no arquivo baixado do próprio Release.
 
+**macOS (experimental)** — a partir da 0.2.5 há um instalador `.dmg` (binário universal: Apple Silicon e
+Intel, macOS 12 ou mais novo). **Ainda não foi testado em um Mac real**: foi gerado pela CI. No Mac o app usa o
+WebKit (o motor do Safari), que difere do Chrome; pontos que merecem atenção são a vista 3D, a biblioteca em
+pasta e a atualização automática. Se algo parecer estranho ou não funcionar, **abra um relato** em
+[Issues > macOS (experimental)](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new?template=macos.yml),
+com o modelo do Mac, a versão do macOS e o que aconteceu. Isso ajuda a tirar o "experimental".
+O instalador **não tem assinatura nem notarização da Apple** (isso exige uma conta de desenvolvedor paga). Por
+isso o Gatekeeper bloqueia a primeira abertura. Para abrir: arraste o Hestia para Aplicativos, clique com o botão
+direito (ou Control+clique) no app, escolha **Abrir** e confirme. Se o macOS disser que o app "está danificado",
+rode no Terminal: `xattr -dr com.apple.quarantine /Applications/Hestia.app`. A alternativa sem instalar nada é
+abrir o app no navegador: [hestiabim.com/app](https://www.hestiabim.com/app).
+
 ### Se o app fechar ao abrir (VM ou ambiente sem GPU)
 
 Em máquina virtual, contêiner ou host sem aceleração gráfica, o WebKitGTK pode encerrar

@@ -10,7 +10,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec2 } from '@hestia/geom';
 import {
+  FAMILIA_ARMARIO,
   ProjectStore,
+  type Component,
+  buildFurnitureAsset,
   createEmptyProject,
   defaultStairTypeId,
   makeBeam,
@@ -19,6 +22,9 @@ import {
   makeFloor,
   makeFooting,
   makeGuardaCorpo,
+  makeLot,
+  makeTerrain,
+  makeTerrainRegion,
   makeMass,
   makeRamp,
   makeRoof,
@@ -72,6 +78,8 @@ interface Caso {
 const generico: Omit<Generic, 'order'> = { id: 'g1', kind: 'generic', levelId: 'lv_0', name: 'Viga', sourceClass: 'IFCBEAM', mesh: { positions: [30, 30, 0, 34, 30, 0, 34, 31, 3], indices: [0, 1, 2] }, outline: rect(30, 30, 34, 31) };
 const cad: Omit<CadDrawing, 'order'> = { id: 'cad1', kind: 'cad', levelId: 'lv_0', name: 'Planta', source: 'dxf', unit: 'm', layers: [{ name: '0', color: 7 }], paths: [{ layer: '0', closed: false, pts: [v(40, 40), v(45, 45)] }], texts: [] };
 
+const armario: Component = { id: 'cm1', kind: 'component', familyId: FAMILIA_ARMARIO.id, typeId: 'A80', levelId: 'lv_0', order: 1, x: 90, y: 90, z: 0, rotation: 0, mirrored: false, mark: '' };
+
 const CASOS: Record<Element['kind'], Caso> = {
   wall: { entra: true, projeto: () => com({ type: 'addWall', wall: parede() }), alvo: [v(0, 0), v(10, 0)] },
   door: { entra: true, projeto: () => com({ type: 'addWall', wall: parede() }, { type: 'addOpening', opening: abertura('door') }), alvo: [v(7, 0)] },
@@ -99,6 +107,14 @@ const CASOS: Record<Element['kind'], Caso> = {
       }),
     alvo: [v(50, 8), v(54, 11)],
   },
+  terrain: { entra: true, projeto: () => com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0', pontos: [80, 80, 1, 90, 80, 2, 85, 90, 3] }) }), alvo: [v(80, 80), v(90, 80), v(85, 90)] },
+  terrainRegion: {
+    entra: true,
+    alvo: [v(80, 80), v(90, 80), v(85, 90)],
+    projeto: () =>
+      com({ type: 'addTerrain', terrain: makeTerrain({ id: 'tn1', levelId: 'lv_0' }) }, { type: 'addTerrainRegion', regiao: makeTerrainRegion({ id: 'tr1', levelId: 'lv_0', terrenoId: 'tn1', contorno: [v(80, 80), v(90, 80), v(85, 90)] }) }),
+  },
+  lot: { entra: false, projeto: () => com({ type: 'addLot', lot: makeLot({ id: 'lt1', levelId: 'lv_0', contorno: [v(100, 100), v(110, 100), v(110, 110), v(100, 110)], lados: [1, 2, 3, 4].map(() => ({ papel: 'lateral' as const, recuo: 0 })) }) }) },
   mass: { entra: true, projeto: () => com({ type: 'addMass', mass: makeMass({ id: 'ms1', levelId: 'lv_0', secoes: [secaoCirculo(0, 3), secaoCirculo(9, 3)], origem: v(70, 70) }) }), alvo: [v(67, 70), v(73, 70)] },
   room: { entra: false, projeto: () => com({ type: 'addRoom', room: makeRoom({ id: 'rm1', levelId: 'lv_0', name: 'Sala', number: '1', point: v(60, 60) }) }) },
   generic: { entra: false, projeto: () => com({ type: 'addGeneric', generic: generico }) },
@@ -118,7 +134,30 @@ const CASOS: Record<Element['kind'], Caso> = {
     projeto: () => com({ type: 'addFooting', footing: makeFooting({ id: 'ft1', typeId: 'ft_iso_100x100', levelId: 'lv_0', at: v(35, 35) }) }),
     alvo: [v(35, 35)],
   },
+  component: {
+    entra: true,
+    projeto: () => com({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) }, { type: 'addComponent', component: armario }),
+    alvo: [v(90, 90)],
+  },
+  furniture: { entra: true, projeto: () => projetoComMovel(), alvo: [v(-0.5, -0.5), v(0.5, 0.5)] },
 };
+
+/** Projeto só com um móvel importado (bloco 1 x 1 x 1 m; o asset recentra a base na origem): a caixa do modelo tem de alcançá-lo. */
+function projetoComMovel(): Project {
+  const positions = new Float32Array([70, 70, 0, 71, 70, 0, 71, 71, 0, 70, 71, 0, 70, 70, 1, 71, 70, 1, 71, 71, 1, 70, 71, 1]);
+  const asset = buildFurnitureAsset({
+    name: 'Caixa',
+    sourceFileName: 'caixa.glb',
+    sourceFormat: 'glb',
+    defs: [{ id: 'd', name: 'd', positions, normals: new Float32Array(24), uvs: new Float32Array(0), indices: new Uint32Array([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]), groups: [{ start: 0, count: 12, materialIndex: 0 }] }],
+    materials: [{ name: 'm', color: [1, 1, 1], opacity: 1 }],
+    textures: [],
+  });
+  return com(
+    { type: 'addFurnitureAsset', asset },
+    { type: 'addFurniture', furniture: { id: 'fu1', kind: 'furniture', assetId: asset.id, levelId: 'lv_0', x: 0, y: 0, z: 0, rotation: 0, scale: 1, mirrored: false, name: 'Caixa' } },
+  );
+}
 
 const contem = (b: CaixaPlano, pts: Vec2[]): boolean => pts.every((q) => q.x >= b.minX - 1e-9 && q.x <= b.maxX + 1e-9 && q.y >= b.minY - 1e-9 && q.y <= b.maxY + 1e-9);
 
@@ -141,6 +180,10 @@ describe('contrato: todo kind de elemento está classificado na extensão do mod
       }
     });
   }
+
+  it('lot: fora da extensão, com o motivo "lote não aparece em corte nem em elevação"', () => {
+    expect(KINDS_NA_EXTENSAO.lot).toEqual({ entra: false, motivo: 'lote não aparece em corte nem em elevação' });
+  });
 
   it('ramp: entra na caixa e a caixa cobre a pegada da rampa', () => {
     expect(KINDS_NA_EXTENSAO.ramp.entra).toBe(true);

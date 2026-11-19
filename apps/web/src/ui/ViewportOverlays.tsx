@@ -3,6 +3,7 @@ import type { Id } from '@hestia/model';
 import type { Backend, ModelScene } from '@hestia/render';
 import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
+import type { PaneId } from '../editor/panes.ts';
 import type { ViewKind } from '../editor/state.ts';
 import { SectionBadge } from './SectionCanvas.tsx';
 import { ViewCube } from './ViewCube.tsx';
@@ -11,6 +12,7 @@ import { TempDimsOverlay } from './dims/TempDimsOverlay.tsx';
 import { DimValueEditor } from './dims/DimValueEditor.tsx';
 import { NavBar } from './NavBar.tsx';
 import { CanvasContextMenu } from './CanvasContextMenu.tsx';
+import { FurniturePlanOverlay } from './FurniturePlanOverlay.tsx';
 
 /** Sobreposições HTML do canvas, na mesma ordem em que entram na árvore da vista. */
 export function ViewportOverlays({
@@ -18,10 +20,12 @@ export function ViewportOverlays({
   model,
   selection,
   ui,
+  paneId,
 }: {
   host: RefObject<HTMLDivElement | null>;
   model: ModelScene;
   selection: Id[];
+  paneId?: PaneId;
   ui: { view: ViewKind; gpu: Backend | 'cpu' | 'pending'; prompt: string | null; typed: string; tool?: string };
 }): ReactElement {
   const { t } = useT();
@@ -34,6 +38,7 @@ export function ViewportOverlays({
   return (
     <>
       {ui.view === 'plan' && selectedOpeningId ? <OpeningFlipGrips openingId={selectedOpeningId} /> : null}
+      {ui.view === 'plan' ? <FurniturePlanOverlay /> : null}
       {/* No corte e na elevação só o Mover e o Copiar mostram a cota dinâmica do deslocamento (as cotas da seleção são de planta). */}
       {ui.view === 'plan' || (ui.view === 'section' && (ui.tool === 'move' || ui.tool === 'copy')) ? <TempDimsOverlay /> : null}
       {ui.view === 'plan' || ui.view === 'section' ? <DimValueEditor /> : null}
@@ -43,7 +48,7 @@ export function ViewportOverlays({
           {t('cvv_no_webgl')}
         </div>
       )}
-      <NavBar model={model} center={center} />
+      <NavBar model={model} center={center} view={ui.view} paneId={paneId} />
       <CanvasContextMenu model={model} host={host} />
       {ui.view === '3d' && ui.gpu !== 'cpu' ? <ViewCube model={model} /> : null}
       {ui.view === 'section' ? <SectionBadge /> : null}

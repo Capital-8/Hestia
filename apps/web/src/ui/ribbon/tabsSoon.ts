@@ -1,6 +1,7 @@
 import { ALTURA_PADRAO, LADOS_PADRAO, type ModoMassa, type ToolOptions } from '@hestia/tools';
 import { useUi } from '../../editor/state.ts';
-import { act, panel, soon, soonS, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
+import { act, panel, soon, soonS, split, stack, t, tool, type RibbonItem, type RibbonPanel, type RibbonTab, type RibbonTabId, type Txt } from './model.ts';
 
 /**
  * Abas do Revit que o Hestia ainda não tem por inteiro. Existem para manter a sequência e o roteiro: o que ainda não
@@ -62,17 +63,43 @@ export const TABS_SOON: RibbonTab[] = [
   ),
   tab('massa', t('Massa e terreno', 'Massing & Site'),
     panel('mas-massa', t('Modelo de massa', 'Conceptual Mass'),
-      tool('mass', 'large', { label: t('Massa', 'Mass'), icon: 'mass' }),
-      modoMassa('extrusao', t('Extrusão', 'Extrusion'), 'massExtrude'),
-      modoMassa('mistura', t('Mistura', 'Blend'), 'massBlend'),
-      modoMassa('loft', t('Loft', 'Loft'), 'massLoft'),
-      modoMassa('bulbo', t('Bulbo', 'Bulb'), 'massBulb'),
-      act('showMass'),
+      ...(MASSA_NA_FAIXA
+        ? [
+            tool('mass', 'large', { label: t('Massa', 'Mass'), icon: 'mass' }),
+            modoMassa('extrusao', t('Extrusão', 'Extrusion'), 'massExtrude'),
+            modoMassa('mistura', t('Mistura', 'Blend'), 'massBlend'),
+            modoMassa('loft', t('Loft', 'Loft'), 'massLoft'),
+            modoMassa('bulbo', t('Bulbo', 'Bulb'), 'massBulb'),
+            act('showMass'),
+          ]
+        : [
+            soon(t('Massa', 'Mass'), 'mass'),
+            soonS(t('Extrusão', 'Extrusion'), 'massExtrude'),
+            soonS(t('Mistura', 'Blend'), 'massBlend'),
+            soonS(t('Loft', 'Loft'), 'massLoft'),
+            soonS(t('Bulbo', 'Bulb'), 'massBulb'),
+            soon(t('Mostrar massa', 'Show Mass'), 'massShow'),
+          ]),
       soon(t('Massa no local', 'In-Place Mass'), 'massInPlace'),
       soon(t('Colocar massa', 'Place Mass'), 'massPlace'),
     ),
-    panel('mas-por-massa', t('Modelo por massa', 'Model by Face'), act('pisosDaMassa'), act('paredesDaMassa'), soon(t('Telhado por face', 'Roof by Face'), 'massRoofFace'), soon(t('Parede por face', 'Wall by Face'), 'massWallFace'), soon(t('Forro por face', 'Ceiling by Face'), 'massCeilFace'), soon(t('Piso por face', 'Floor by Face'), 'massFloorFace')),
-    p('mas-terreno', t('Terreno', 'Site Modeling'), [t('Topografia', 'Toposurface'), 'terrTopo'], [t('Subdivisão', 'Subregion'), 'terrSubregion'], [t('Plataforma', 'Building Pad'), 'terrPad'], [t('Componente de terreno', 'Site Component'), 'terrSiteComp'], [t('Linhas de propriedade', 'Property Line'), 'lotLines']),
+    panel('mas-por-massa', t('Modelo por massa', 'Model by Face'), ...(MASSA_NA_FAIXA ? [act('pisosDaMassa'), act('paredesDaMassa')] : [soon(t('Pisos da massa', 'Floors from Mass'), 'massFloors'), soon(t('Paredes da massa', 'Walls from Mass'), 'massWalls')]), soon(t('Telhado por face', 'Roof by Face'), 'massRoofFace'), soon(t('Parede por face', 'Wall by Face'), 'massWallFace'), soon(t('Forro por face', 'Ceiling by Face'), 'massCeilFace'), soon(t('Piso por face', 'Floor by Face'), 'massFloorFace')),
+    // Terreno, lote e análise (frente do terreno): Topografia e Editar terreno, Rótulo de curva e Cota de ponto já funcionam; o resto é das fichas T3, P3 a P5 e U2.
+    panel('mas-terreno', t('Terreno', 'Site Modeling'),
+      split(tool('terrain', 'large', { label: t('Topografia', 'Toposurface'), icon: 'terrTopo' }), [act('terrenoPontos', 'small'), act('terrenoCurvas', 'small'), act('importTerreno', 'small')], t('Topografia', 'Toposurface')),
+      act('editTerreno'),
+      // Região de terreno (ficha T3): UM ToolId (`terrainRegion`) com três predefinições; a "Região de terreno" do menu abre a ferramenta e o papel se escolhe na barra de opções.
+      split(act('regiaoSubdivisao'), [tool('terrainRegion', 'small', { label: t('Região de terreno', 'Terrain Region'), icon: 'terrRegion' })], t('Subdivisão', 'Subregion')),
+      split(act('regiaoPlataforma'), [act('regiaoPlataformaElemento')], t('Plataforma', 'Building Pad')),
+      act('regiaoNivelada'),
+      soon(t('Componente de terreno', 'Site Component'), 'terrSiteComp')),
+    // Linhas de propriedade (ficha P3): a ferramenta `lot` (Desenhar) e o diálogo Por tabela…; Índices do lote (ficha P4) abre a tabela; Envelope legal (P5) segue `soon`.
+    panel('mas-lote', t('Lote', 'Lot'), split(tool('lot', 'large', { label: t('Linhas de propriedade', 'Property Line'), icon: 'lotLines' }), [act('loteDesenhar', 'small'), act('lotePorTabela', 'small')], t('Linhas de propriedade', 'Property Line')), act('indicesLote'), soon(t('Envelope legal', 'Legal Envelope'), 'lotEnvelope')),
+    panel('mas-analise', t('Análise do terreno', 'Site Analysis'),
+      act('corteAterro'),
+      act('mapaCorteAterro'),
+      tool('terrainLabel', 'large', { label: t('Rótulo de curva', 'Contour Label'), icon: 'terrContourLabel' }),
+      tool('terrainSpot', 'large', { label: t('Cota de ponto', 'Spot Elevation'), icon: 'terrSpot' })),
   ),
   tab('colaborar', t('Colaborar', 'Collaborate'),
     p('col-comunicar', t('Comunicar', 'Communicate'), [t('Colaborar', 'Collaborate')]),

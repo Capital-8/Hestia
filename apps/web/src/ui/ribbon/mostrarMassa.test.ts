@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { editor } from '../../editor/controller.ts';
 import { permanentHiddenOf, viewHiddenTargetOf } from '../../editor/viewVisibility.ts';
@@ -16,10 +17,10 @@ const ctx = (): RibbonCtx => ({ p: editor.project, selection: [], view: useUi.ge
 const categoriasOcultas = (): readonly string[] => permanentHiddenOf(editor.project, viewHiddenTargetOf(useUi.getState())).categories ?? [];
 
 describe('botão "Mostrar massa" da faixa', () => {
-  it('é um botão real na aba Massa e terreno (não mais "soon")', () => {
+  it('é um botão real na aba Massa e terreno quando a massa está liberada na faixa; senão fica "soon" (0.2.5)', () => {
     const itens = TABS.find((tb) => tb.id === 'massa')!.panels.flatMap((p) => p.items);
-    expect(itens.some((it) => it.kind === 'action' && it.action === 'showMass')).toBe(true);
-    expect(itens.some((it) => it.kind === 'soon' && typeof it.label !== 'string' && it.label.pt === 'Mostrar massa')).toBe(false);
+    expect(itens.some((it) => it.kind === 'action' && it.action === 'showMass')).toBe(MASSA_NA_FAIXA);
+    expect(itens.some((it) => it.kind === 'soon' && typeof it.label !== 'string' && it.label.pt === 'Mostrar massa')).toBe(!MASSA_NA_FAIXA);
     // "Massa no local" e "Colocar massa" continuam soon
     for (const pt of ['Massa no local', 'Colocar massa']) expect(itens.some((it) => it.kind === 'soon' && typeof it.label !== 'string' && it.label.pt === pt), pt).toBe(true);
   });

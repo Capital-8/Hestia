@@ -32,6 +32,10 @@ interface PastaHandle {
   name: string;
   getDirectoryHandle(nome: string, o?: { create?: boolean }): Promise<PastaHandle>;
   getFileHandle(nome: string, o?: { create?: boolean }): Promise<ArquivoHandle>;
+  removeEntry?(nome: string, o?: { recursive?: boolean }): Promise<void>;
+  isSameEntry?(outro: PastaHandle): Promise<boolean>;
+  /** Chrome: renomeia/move o handle no lugar (nem todo navegador/sistema de arquivos aceita). */
+  move?(nome: string): Promise<void>;
   entries?(): AsyncIterableIterator<[string, PastaHandle | ArquivoHandle]>;
   [Symbol.asyncIterator]?(): AsyncIterableIterator<[string, PastaHandle | ArquivoHandle]>;
 }
@@ -179,6 +183,79 @@ export class PortaNavegador implements PortaBiblioteca {
       if (e instanceof ErroBiblioteca) throw e;
       throw new ErroBiblioteca(msg('bib_err_write_locked'), 'io');
     }
+  }
+
+  async renomear(raiz: PastaId, de: string, para: string): Promise<void> {
+    const dir = this.handle(raiz);
+    if (await this.existePasta(dir, para)) throw new ErroBiblioteca(msg('bib_err_rename_exists'), 'io');
+    let origem: PastaHandle;
+    try {
+      origem = await dir.getDirectoryHandle(de);
+    } catch {
+      throw new ErroBiblioteca(msg('bib_err_rename'), 'nao-existe');
+    }
+    if (typeof origem.move === 'function') {
+      try {
+        await origem.move(para);
+        return;
+      } catch {
+        // Sem `move` neste sistema de arquivos: cai na cópia abaixo (a pasta de origem continua intacta até aqui).
+      }
+    }
+    await this.renomearCopiando(dir, origem, de, para);
+  }
+
+  /**
+   * Sem `move`: copia o projeto para a pasta nova, confere e só então apaga a antiga. Recusa se a pasta tiver algo além
+   * dos arquivos do Hestia (não destrói o que o usuário colocou lá) e desfaz a cópia se não conseguir apagar a antiga.
+   */
+  private async renomearCopiando(dir: PastaHandle, origem: PastaHandle, de: string, para: string): Promise<void> {
+    const iterador = origem.entries?.() ?? origem[Symbol.asyncIterator]?.();
+    if (!iterador || typeof dir.removeEntry !== 'function') throw new ErroBiblioteca(msg('bib_err_rename'), 'sem-suporte');
+    const arquivos: Array<[string, ArquivoHandle]> = [];
+    for await (const [nome, entrada] of iterador) {
+      if (entrada.kind !== 'file' || (nome !== ARQUIVO_PROJETO && nome !== ARQUIVO_BACKUP)) {
+        throw new ErroBiblioteca(msg('bib_err_rename_extra'), 'io');
+      }
+      arquivos.push([nome, entrada]);
+    }
+    let criada = false;
+    try {
+      const nova = await dir.getDirectoryHandle(para, { create: true });
+      criada = true;
+      for (const [nome, entrada] of arquivos) {
+        const conteudo = await (await entrada.getFile()).text();
+        const destino = await nova.getFileHandle(nome, { create: true });
+        await this.escrever(destino, conteudo);
+        if ((await (await destino.getFile()).text()) !== conteudo) throw new Error('cópia diferente da origem');
+      }
+      await dir.removeEntry(de, { recursive: true });
+    } catch (e) {
+      if (criada) await dir.removeEntry?.(para, { recursive: true }).catch(() => undefined);
+      if (e instanceof ErroBiblioteca) throw e;
+      throw new ErroBiblioteca(msg('bib_err_rename'), 'io');
+    }
+  }
+
+  async escolherDestino(): Promise<PastaId | null> {
+    const picker = (globalThis as Partial<JanelaComPicker>).showDirectoryPicker;
+    if (typeof picker !== 'function') throw new ErroBiblioteca(msg('bib_err_no_picker'), 'sem-suporte');
+    let handle: PastaHandle;
+    try {
+      handle = await picker.call(globalThis, { id: 'hestia-destino', mode: 'readwrite', startIn: 'documents' });
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return null;
+      throw new ErroBiblioteca(e instanceof Error ? e.message : msg('bib_err_open_folder'), 'io');
+    }
+    // A mesma pasta já conhecida (inclusive a raiz da biblioteca) mantém o id: o serviço compara ids para saber disso.
+    for (const [id, conhecido] of this.handles) {
+      try {
+        if (conhecido === handle || (await conhecido.isSameEntry?.(handle))) return id;
+      } catch {
+        // handle antigo inválido: segue para o próximo
+      }
+    }
+    return this.registrar(handle);
   }
 
   async gravarIndice(raiz: PastaId, texto: string): Promise<void> {

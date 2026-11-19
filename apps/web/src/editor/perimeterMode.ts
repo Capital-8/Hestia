@@ -73,8 +73,9 @@ function iniciais(target: SketchTarget, o: ToolOptions): { typeId?: Id; opts: Pe
  * Opções de `commitPerimeter`. O telhado recebe balanço e inclinação padrão; piso, laje e forro, estender até o núcleo
  * e a cota. A cota do telhado não vai: a barra não a mostra, e o motor a calcula na criação.
  */
-function opcoesDe(s: Sessao): CommitPerimeterOptions {
-  const base = { typeId: s.typeId, levelId: s.levelId, origin: s.tool.origin() };
+function opcoesDe(s: Sessao, env: ToolEnv): CommitPerimeterOptions {
+  // Gravidade (G1): cota do terreno sob o primeiro vértice do contorno; ausente com o botão desligado.
+  const base = { typeId: s.typeId, levelId: s.levelId, origin: s.tool.origin(), ...(env.cotaDoTerreno ? { cotaDoTerreno: env.cotaDoTerreno.bind(env) } : {}) };
   const o = s.opts;
   if (s.target === 'roof') return { ...base, overhang: o.overhang, slopePct: o.slopePct };
   return { ...base, extendToCore: o.extendToCore, heightOffset: o.heightOffset, linkToWalls: o.linkToWalls, followRoom: o.followRoom };
@@ -142,7 +143,7 @@ export class PerimeterMode {
   finish(): void {
     const s = this.sessao;
     if (!s) return;
-    const r = commitPerimeter(this.porta.projeto(), s.tool.draft(), opcoesDe(s), useI18n.getState().lang);
+    const r = commitPerimeter(this.porta.projeto(), s.tool.draft(), opcoesDe(s, this.porta.env()), useI18n.getState().lang);
     if (!r.ok) {
       this.dizer(r.message);
       return;

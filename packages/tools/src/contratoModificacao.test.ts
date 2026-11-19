@@ -33,6 +33,8 @@ interface Marca {
   alinhar: string | null;
   /** Obrigatório quando alguma marca é null. */
   motivo?: string;
+  /** Operações de modificação que NÃO se aplicam ao kind, cada uma com o motivo escrito (ex.: aparar um terreno). */
+  semOperacao?: Record<string, string>;
 }
 
 const CLASSIFICACAO: Record<Element['kind'], Marca> = {
@@ -46,6 +48,41 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   stair: { mover: 'selectedStairs', colar: 'stairs', alinhar: 'stairRampFeatures' },
   ramp: { mover: 'selectedRamps', colar: 'ramps', alinhar: 'stairRampFeatures' },
   railing: { mover: 'selectedGuardaCorpos', colar: 'railings', alinhar: 'railingFeatures' },
+  terrain: {
+    mover: 'selectedTerrenosComRegioes',
+    colar: 'terrains',
+    alinhar: 'bordasDeTerreno',
+    semOperacao: {
+      aparar: 'terreno não é linear',
+      estender: 'terreno não é linear',
+      dividir: 'terreno não é linear',
+      deslocar: 'terreno não é linear',
+      colarEntrePavimentos: 'cotas absolutas: o terreno é um só para todos os níveis (só o colar de um nível o leva).',
+    },
+  },
+  terrainRegion: {
+    mover: 'regioesSozinhas',
+    colar: 'terrainRegions',
+    alinhar: 'bordasDeRegiao',
+    semOperacao: {
+      aparar: 'região é polígono fechado',
+      estender: 'região é polígono fechado',
+      dividir: 'região é polígono fechado',
+      deslocar: 'região é polígono fechado',
+      colarEntrePavimentos: 'cotas absolutas: o terreno é um só para todos os níveis (só o colar de um nível leva a região).',
+    },
+  },
+  lot: {
+    mover: 'selectedLots',
+    colar: 'lots',
+    alinhar: 'bordasDoLote',
+    semOperacao: {
+      aparar: 'lote é polígono fechado',
+      estender: 'lote é polígono fechado',
+      dividir: 'lote é polígono fechado',
+      deslocar: 'lote é polígono fechado',
+    },
+  },
   mass: { mover: 'selectedMasses', colar: 'masses', alinhar: 'massFeatures' },
   room: { mover: 'selectedRooms', colar: 'rooms', alinhar: null, motivo: 'TODO: o ambiente não tem linha alinhável (o contorno é derivado das paredes).' },
   generic: { mover: null, colar: 'generics', alinhar: null, motivo: 'TODO: o objeto importado tem malha em coordenadas de mundo; o `transform` ainda não a move (o Colar translada por conta própria).' },
@@ -53,6 +90,13 @@ const CLASSIFICACAO: Record<Element['kind'], Marca> = {
   column: { mover: 'selectedColumns', colar: 'columns', alinhar: 'columnFeatures' },
   beam: { mover: 'selectedBeams', colar: 'beams', alinhar: 'beamFeatures' },
   footing: { mover: 'selectedFootings', colar: 'footings', alinhar: 'footingFeatures' },
+  component: { mover: null, colar: 'components', alinhar: null, motivo: 'o componente (móvel) NÃO entra em `selectedMovables`: o Selecionar o move pelo próprio arrasto (`ArrastoComponentes`, com encaixe na parede e nos vizinhos) e aplica as poses por `updateComponent`; entrar lá moveria duas vezes. Alinhar pelas arestas dele ainda não existe.' },
+  furniture: {
+    mover: 'selectedFurnitures',
+    colar: 'furnitures',
+    alinhar: null,
+    motivo: 'TODO: o móvel importado move, gira, espelha e copia pelo `transform` (Mover, Girar, Espelhar, Copiar, Matriz), cola por Ctrl+C/Ctrl+V (o bloco viaja no buffer) e se edita nas Propriedades; o Alinhar não tem linhas dele.',
+  },
 };
 
 /**
@@ -78,6 +122,19 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   stair: { mover: 'isStair', alinhar: 'isStair', previa: 'movidos' },
   ramp: { mover: 'isRamp', alinhar: 'isRamp', previa: 'movidos' },
   railing: { mover: 'isGuardaCorpo', alinhar: 'guardaCorpoPieces', previa: 'isGuardaCorpo' },
+  terrain: {
+    mover: 'isTerrain',
+    alinhar: null,
+    previa: null,
+    motivo: 'terreno: o Alinhar da vista escolhe o alvo pelo desenho do corte (ficha V3) e o fantasma do corte sai das peças da vista (`sectionMoverPrevia.ts`, fora da lista da T1); mover e copiar valem (horizontal é `transform`, vertical soma a todas as cotas).',
+  },
+  terrainRegion: {
+    mover: 'isTerrainRegion',
+    alinhar: null,
+    previa: 'isTerrainRegion',
+    motivo: 'terreno: o Alinhar da vista escolhe o alvo pelo desenho do corte e a região é um polígono em planta que o corte não desenha (o terreno sim); mover e copiar valem (horizontal é `transform`, vertical muda a `cota` da plataforma e da nivelada; a subdivisão não tem cota e não anda na vertical).',
+  },
+  lot: { mover: null, alinhar: null, previa: null, motivo: 'lote não aparece no corte (o lote é só de planta e prancha); mover, copiar e alinhar na vista de corte ou elevação não se aplicam.' },
   mass: { mover: 'isMass', alinhar: 'massaCortePieces', previa: 'massaCortePieces' },
   room: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o ambiente não aparece no desenho do corte nem da elevação.' },
   generic: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o objeto importado não aparece no corte (e o `transform` ainda não o move).' },
@@ -85,6 +142,8 @@ const CORTE: Record<Element['kind'], MarcaCorte> = {
   column: { mover: 'isColumn', alinhar: 'isColumn', previa: 'movidos' },
   beam: { mover: 'isBeam', alinhar: 'isBeam', previa: 'movidos' },
   footing: { mover: 'isFooting', alinhar: 'isFooting', previa: 'movidos' },
+  component: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o componente ainda não aparece como peça movível no corte e na elevação (o desenho do corte o mostra, mas mover pela vista não existe).' },
+  furniture: { mover: null, alinhar: null, previa: null, motivo: 'TODO: o corte e a elevação já desenham o móvel importado (silhueta e região cortada, `sectionFurniture.ts`, com `furnitureId` na origem), mas Mover, Alinhar e a prévia da vista ainda não o tratam.' },
 };
 
 /**
@@ -147,6 +206,21 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     expect(corte).not.toMatch(/\bdown\(|\bdrag\(|\bup\(/);
   });
 
+  for (const kind of ['terrain', 'terrainRegion'] as const) {
+    it(`${kind}: operações que não se aplicam trazem o motivo escrito e o colar entre pavimentos o deixa de fora`, () => {
+      const m = CLASSIFICACAO[kind];
+      for (const op of ['aparar', 'estender', 'dividir', 'deslocar', 'colarEntrePavimentos']) expect(m.semOperacao?.[op], `${kind}: ${op} sem motivo`).toBeTruthy();
+      expect(lerTools('pasteLevels/command.ts')).toContain('comTerreno');
+    });
+  }
+
+  it('lot: operações que não se aplicam trazem o motivo escrito e o colar entre pavimentos leva o lote (o lote é 2D)', () => {
+    const m = CLASSIFICACAO.lot;
+    for (const op of ['aparar', 'estender', 'dividir', 'deslocar']) expect(m.semOperacao?.[op], `lot: ${op} sem motivo`).toBeTruthy();
+    expect(m.semOperacao?.colarEntrePavimentos, 'o lote cola entre pavimentos').toBeUndefined();
+    expect(lerTools('pasteLevels/command.ts')).toContain('clip.lots');
+  });
+
   it('Aparar, Estender, Dividir e Deslocar: a massa não é elemento linear (null com motivo escrito)', () => {
     const m = FERRAMENTAS_LINEARES.mass!;
     expect(m.motivo).toBe('massa não é elemento linear');
@@ -159,6 +233,9 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
     for (const [kind, m] of Object.entries(CLASSIFICACAO)) {
       if (!m.mover || kind === 'door' || kind === 'window') continue; // aberturas seguem a parede anfitriã
       const guarda = {
+        terrain: 'transformTerrain',
+        terrainRegion: 'transformTerrainRegion',
+        lot: 'transformLot',
         wall: 'transformWall',
         floor: 'isFloor',
         slab: 'isSlab',
@@ -173,6 +250,7 @@ describe('contrato: todo kind de elemento está classificado nas ferramentas de 
         beam: 'isBeam',
         footing: 'isFooting',
         mass: 'transformMass',
+        furniture: 'transformFurniture',
       }[kind];
       expect(guarda, `${kind}: falta o símbolo do comando transform no teste-guarda`).toBeDefined();
       expect(cmd, `${kind}: o comando transform não trata este kind`).toContain(guarda!);

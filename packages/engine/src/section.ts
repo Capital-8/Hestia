@@ -21,6 +21,8 @@ import type { SectionSnapRing } from './sectionSnapRings.ts';
 import { sectionOfRamps } from './sectionRamps.ts';
 import { sectionOfStructural } from './sectionStructural.ts';
 import { visibleRoofEdges } from './sectionRoofEdgesVis.ts';
+import { sectionOfComponents } from './sectionComponents.ts';
+import { sectionOfFurniture } from './sectionFurniture.ts';
 import { OCCLUSION_RANK, visibleParts, type OcclusionItem } from './sectionOcclusion.ts';
 import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
@@ -57,6 +59,8 @@ export interface SectionOrigin {
   roofId?: Id;
   stairId?: Id;
   rampId?: Id;
+  componentId?: Id;
+  furnitureId?: Id; // móvel importado (malha de arquivo)
   openingId?: Id;
   columnId?: Id;
   beamId?: Id;
@@ -336,6 +340,9 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
   for (const c of st.cut) addCut(c.materialId, c.polygon, c.origin);
   beyond.push(...st.beyond);
   grow(st.zMin, st.zMax);
+  for (const m of [sectionOfComponents(p, levelId, line), sectionOfFurniture(p, levelId, line)]) { // componentes e móveis importados
+    m.cut.forEach((c) => addCut(c.materialId, c.polygon, c.origin)); beyond.push(...m.beyond); grow(m.zMin, m.zMax);
+  }
   for (const w of wallsOnLevel(p, levelId)) {
     const rw = resolved.walls[w.id];
     if (!rw) continue;

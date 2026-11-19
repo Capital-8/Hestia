@@ -3,6 +3,7 @@ import { fillRegionOf, lineIntervals, type ElementJunction, type ResolvedFloor }
 import { formatQuantity, unitsOf, type DetailLevel, type Id, type Project, type ResolvedUnits } from '@hestia/model';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
+import { corPadraoSuperficie } from './materialPlan.ts';
 import { holeMarkOps } from './holeMarks.ts';
 import { ALCA_PX, quadradoEm } from './marcadores.ts';
 import { juncaoDoNivel, pisosDoNivel } from './resolucao.ts';
@@ -106,8 +107,9 @@ export function floorOpsOf(p: Project, f: ResolvedFloor, theme: PlanTheme, dark:
   const fillBase = dark ? theme.bg : '#ffffff';
   const fine = detail === 'fine';
   const m = top ? p.materials[top.materialId] : undefined;
-  const color = surfaceColor(m?.color ?? '#999999', fillBase, dark ? 0.42 : 0.74, paint);
-  const hatch = m && m.hatch !== 'none' && detail !== 'coarse' ? { kind: m.hatch, color: mix(paint.color ?? m.color, dark ? '#ffffff' : '#000000', 0.45), ...(fine ? {} : { zoomMin: 40 }) } : undefined;
+  const cp = corPadraoSuperficie(m, { dark, detail, paint });
+  const color = surfaceColor(cp.fundo, fillBase, dark ? 0.42 : 0.74, paint);
+  const hatch = cp.padrao ? { ...cp.padrao, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
   out.fills.push({ polygons: region, color, alpha: 1, hatch });
   out.strokes.push(...holeMarkOps(f.polygon, theme, paint, detail));
   if (detail !== 'coarse') {

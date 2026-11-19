@@ -1,3 +1,4 @@
+import { MASSA_NA_FAIXA } from './massaNaFaixa.ts';
 import { act, panel, soon, soonS, split, stack, t, tool, type RibbonTab } from './model.ts';
 import { P_CLIPBOARD, P_CREATE, P_GEOMETRY, P_MEASURE, P_MODIFY, P_PROPS, P_SELECT, P_SELECTION_EXTRA, P_VIEW_MOD } from './panelsShared.ts';
 
@@ -15,7 +16,10 @@ export const TAB_ARQUITETURA: RibbonTab = {
       // Porta e janela na cortina ficam no menu das esquadrias (o mesmo ícone), como o Revit tem a porta de cortina.
       split(tool('door'), [tool('curtainDoor', 'small', { icon: 'door' })]),
       split(tool('window'), [tool('curtainWindow', 'small', { icon: 'window' }), tool('curtainGridLine', 'small', { icon: 'grid' })]),
-      soon(t('Componente', 'Component'), 'component'),
+      tool('component', 'large', { label: t('Componente', 'Component') }),
+      act('componentLibrary', 'large', t('Biblioteca', 'Library')),
+      stack(act('groupComponents', 'small', t('Agrupar', 'Group')), act('ungroupComponents', 'small', t('Desagrupar', 'Ungroup'))),
+      stack(act('familyEditor', 'small', t('Editor de famílias', 'Family Editor')), act('componentBudget', 'small', t('Orçamento', 'Budget')), act('componentRun', 'small', t('Fila', 'Run'))),
       soon(t('Pilar', 'Column'), 'column'),
       split(tool('roof', 'large', { label: t('Telhado', 'Roof'), icon: 'roof' }), [
         tool('roof', 'small', { label: t('Telhado por perímetro', 'Roof by Footprint') }),
@@ -98,7 +102,7 @@ export const TAB_VISTA: RibbonTab = {
       soon(t('Legendas', 'Legends'), 'soon'),
       split(act('schedWalls', 'large', t('Tabelas', 'Schedules')), [
         act('schedWalls', 'small'), act('schedFloors', 'small'), act('schedSlabs', 'small'), act('schedCeilings', 'small'),
-        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), act('schedMass', 'small'),
+        act('schedRoofs', 'small'), act('schedStairs', 'small'), act('schedRooms', 'small'), act('schedOpenings', 'small'), MASSA_NA_FAIXA ? act('schedMass', 'small') : soonS(t('Massas por pavimento', 'Masses by Floor'), 'massSchedule'),
         act('schedColumns', 'small'), act('schedBeams', 'small'), act('schedFootings', 'small'),
       ]),
     ),
@@ -134,7 +138,7 @@ export const TAB_GERENCIAR: RibbonTab = {
       stack(soonS(t('Informações do projeto', 'Project Information'), 'soon'), soonS(t('Parâmetros do projeto', 'Project Parameters'), 'soon'), act('units', 'small')),
       stack(soonS(t('Transferir padrões', 'Transfer Standards'), 'soon'), soonS(t('Limpar não usados', 'Purge Unused'), 'soon'), act('lineWeights', 'small')),
     ),
-    panel('gerenciar-projeto', t('Gerenciar projeto', 'Manage Project'), act('manageCad', 'large', t('Gerenciar CAD', 'Manage CAD')), soon(t('Gerenciar links', 'Manage Links'), 'link'), soon(t('Gerenciar imagens', 'Manage Images'), 'sheet'), soon(t('Vista inicial', 'Starting View'), 'eye')),
+    panel('gerenciar-projeto', t('Gerenciar projeto', 'Manage Project'), act('manageCad', 'large', t('Gerenciar CAD', 'Manage CAD')), act('localizacao', 'large'), soon(t('Gerenciar links', 'Manage Links'), 'link'), soon(t('Gerenciar imagens', 'Manage Images'), 'sheet'), soon(t('Vista inicial', 'Starting View'), 'eye')),
     panel('fases', t('Fases', 'Phasing'), soon(t('Fases', 'Phases'), 'soon')),
     panel('consulta', t('Consulta', 'Inquiry'), soon(t('Selecionar por ID', 'Select by ID'), 'soon')),
     panel('macros', t('Macros', 'Macros'), soon(t('Gerenciador de macros', 'Macro Manager'), 'soon')),
@@ -169,9 +173,11 @@ export const TAB_INSERIR: RibbonTab = {
       t('Importar', 'Import'),
       act('importCad', 'large', t('Importar CAD (DXF)', 'Import CAD')),
       act('manageCad', 'large', t('Gerenciar CAD', 'Manage CAD')),
+      act('importTerreno', 'large', t('Importar levantamento', 'Import Survey')),
       soon(t('Importar PDF', 'Import PDF'), 'sheet'),
       soon(t('Imagem', 'Image'), 'sheet'),
     ),
+    panel('ins-moveis', t('Móveis', 'Furniture'), act('importFurniture', 'large'), act('myBlocks', 'large'), tool('furniture', 'large', { label: t('Colocar móvel', 'Place furniture'), icon: 'component' })),
     panel(
       'ins-biblioteca',
       t('Carregar da biblioteca', 'Load from Library'),

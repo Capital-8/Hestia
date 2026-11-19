@@ -292,6 +292,49 @@ pub fn executar(cena: &mut Cena, id: u32, args: &[f64]) -> Result<Vec<Saida>, u3
         esquema::CONSULTA_CORTINA_AVISOS => crate::cortina_avisos::consulta_cortina_avisos(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_RECORTE_HOSPEDEIRO => crate::cortina_hosp::consulta_cortina_recorte_hospedeiro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_CORTINA_CELULA_PORTA => crate::cortina_porta::consulta_cortina_celula_porta(cena, arg_nivel(args[0])?),
+        // Terreno (esquema v19): malha e cotas (ficha R1). `superficie`: 0 existente, 1 proposta.
+        esquema::CONSULTA_TERRENO_MALHA => {
+            let nivel = arg_nivel(args[0])?;
+            let superficie = arg_nivel(args[1])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            crate::terreno_malha::consulta_terreno_malha(cena, nivel, superficie)
+        }
+        esquema::CONSULTA_TERRENO_COTAS => {
+            let superficie = arg_nivel(args[0])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            crate::terreno_avalia::consulta_terreno_cotas(cena, superficie)
+        }
+        // Terreno, ficha R2: curvas de nível, borda em planta, corte, quantidades e avisos.
+        esquema::CONSULTA_TERRENO_CURVAS | esquema::CONSULTA_TERRENO_PLANTA => {
+            let nivel = arg_nivel(args[0])?;
+            let superficie = arg_nivel(args[1])?;
+            if superficie > 1 {
+                return Err(ENTRADA);
+            }
+            if id == esquema::CONSULTA_TERRENO_CURVAS {
+                let tol = arg_finito(args[2])?;
+                if tol < 0.0 {
+                    return Err(ENTRADA);
+                }
+                crate::terreno_curvas::consulta_terreno_curvas(cena, nivel, superficie, tol)
+            } else {
+                crate::terreno_planta::consulta_terreno_planta(cena, nivel, superficie)
+            }
+        }
+        esquema::CONSULTA_TERRENO_CORTE => {
+            let nivel = arg_nivel(args[0])?;
+            let plano = [arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?, arg_finito(args[4])?];
+            crate::terreno_corte::consulta_terreno_corte(cena, nivel, plano, arg_finito(args[5])?)
+        }
+        esquema::CONSULTA_QUANT_TERRENO => crate::terreno_quant::consulta_quant_terreno(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_TERRENO_AVISOS => crate::terreno_avisos::consulta_terreno_avisos(cena, arg_nivel(args[0])?),
+        // Terreno, ficha R3: quantidades por região e mapa de corte e aterro.
+        esquema::CONSULTA_QUANT_TERRENO_REGIOES => crate::terreno_volumes::consulta_quant_terreno_regioes(cena, arg_nivel(args[0])?),
+        esquema::CONSULTA_TERRENO_CORTE_ATERRO => crate::terreno_volumes::consulta_terreno_corte_aterro(cena, arg_nivel(args[0])?),
         esquema::CONSULTA_MASSA_MALHA => crate::massa_malha::consulta_massa_malha(cena, arg_nivel(args[0])?, arg_nivel(args[1])?),
         esquema::CONSULTA_MASSA_PLANTA => crate::massa_planta::consulta_massa_planta(cena, arg_nivel(args[0])?, arg_finito(args[1])?, arg_finito(args[2])?, arg_finito(args[3])?),
         esquema::CONSULTA_MASSA_FATIAS => crate::massa_fatia::consulta_massa_fatias(cena, arg_nivel(args[0])?),

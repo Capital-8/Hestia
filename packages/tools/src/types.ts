@@ -11,7 +11,7 @@ import type { StructuralAnchorPreset } from './structuralPresets.ts';
 import type { Lang } from './i18n.ts';
 import type { ModoMassa, PerfilTipo } from './massToolOpcoes.ts';
 
-export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'none';
+export type SnapKind = 'endpoint' | 'face' | 'core' | 'midpoint' | 'intersection' | 'perpendicular' | 'nearest' | 'alignment' | 'ortho' | 'polar' | 'grid' | 'center' | 'tangent' | 'topFace' | 'contour' | 'none';
 
 export interface Guide {
   from: Vec2;
@@ -25,7 +25,7 @@ export interface Inference {
   guides: Guide[];
   /** Parede sobre a qual o cursor está (para portas e janelas). */
   hostId?: Id;
-  /** Cota z absoluta (m) do ponto capturado, quando a captura vem da face superior da parede (`topFace` em planta). */
+  /** Cota z absoluta (m) do ponto capturado: face superior da parede (`topFace` em planta) ou curva de nível (`contour`). */
   z?: number;
 }
 
@@ -112,6 +112,11 @@ export interface ToolEnv {
   options(): ToolOptions;
   /** Altera opções da barra a partir da ferramenta (ex.: inclinação depois do Ajustar). Ausente = a ferramenta grava no objeto de `options()`. */
   setOptions?(patch: Partial<ToolOptions>): void;
+  /**
+   * Gravidade (ficha G1): cota do terreno proposto (z do projeto) no ponto, ou null (botão desligado, sem kernel ou fora do terreno).
+   * É só o valor inicial do elemento no primeiro clique: sem vínculo. Ausente = sem gravidade.
+   */
+  cotaDoTerreno?(x: number, y: number): number | null;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
   /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */
@@ -299,6 +304,10 @@ export interface ToolOptions {
   detailLineShape?: WallDrawShape;
   /** Lados do polígono da linha de detalhe (3..64; padrão 6). */
   detailLinePolygonSides?: number;
+  /** Topografia (curvas de nível): forma da galeria (ou 'spline'), flecha máxima da discretização (m) e lados do polígono. */
+  terrainShape?: WallDrawShape | 'spline';
+  terrainFlecha?: number;
+  terrainPolygonSides?: number;
   columnTypeId?: Id;
   columnMode?: 'vertical' | 'slanted';
   columnDepthMode?: 'depth' | 'height';
@@ -378,6 +387,10 @@ export interface ToolOptions {
   ramp?: RampToolOptions;
   /** Massa (ferramenta `mass`): modo, perfil, altura (m) e lados do polígono. Ausente = padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados). */
   mass?: { modo: ModoMassa; perfil: PerfilTipo; altura: number; lados: number };
+  /** Componente (ferramenta `component`): família escolhida na barra de opções. Ausente = nenhuma. */
+  componentFamilyId?: Id;
+  /** Tipo da família (`null` = tipo padrão da família). */
+  componentTypeId?: Id | null;
 }
 
 export interface PointerInfo {
@@ -427,6 +440,8 @@ export interface Tool {
   space?(): void;
   /** Tecla avulsa tratada pela ferramenta antes dos atalhos globais; retorne `true` se consumida. */
   onKey?(key: string): boolean | void;
+  /** Tecla de atalho da ferramenta (ex.: R gira e M espelha no Componente). Devolve true se consumiu a tecla. */
+  key?(tecla: string, shift?: boolean): boolean;
   /** Esc: cancela o passo; segundo Esc sai da ferramenta. */
   cancel(): void;
   confirm(): void;

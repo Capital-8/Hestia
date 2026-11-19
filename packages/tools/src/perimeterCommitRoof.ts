@@ -1,11 +1,11 @@
-import type { SketchSeg, Vec2 } from '@hestia/geom';
+import { pointInRing, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { expandRoofArcs } from '@hestia/engine';
-import { isRoof, makeRoof, newId, validateProject, type Project, type Roof } from '@hestia/model';
+import { isRoof, isWall, makeRoof, newId, validateProject, type Project, type Roof } from '@hestia/model';
 import { roofProblem } from './roofCheck.ts';
 import { defaultRoofDir, eaveOutlinePerEdge, roofAutoOffset, roofSlopeError, waterGroupCount } from './roofGeom.ts';
 import type { EditFlags, FinishEdge } from './perimeterSession.ts';
 import { axisOr, keepOrder, newError, pickTypeId, refuse, withElement } from './perimeterCommitShared.ts';
-import { arcCuspProblem, collapseSketchArcs, eaveFromFootprint, footprintOf, footprintSag, hasRoofArcs, sampleSagRing } from './perimeterRoofArcs.ts';
+import { arcCuspProblem, bevelSharpCorners, collapseSketchArcs, eaveFromFootprint, footprintOf, footprintSag, hasRoofArcs, sampleSagRing } from './perimeterRoofArcs.ts';
 import type { CommitPerimeterOptions, CommitPerimeterResult } from './perimeterCommitTypes.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
@@ -26,13 +26,22 @@ export function roofSides(roof: Roof): { outer: Vec2[]; holes: Vec2[][]; flags: 
     return { definesSlope: s !== null, slopePct: s ?? roof.slopePercent, overhang: overhangs[i] ?? 0 };
   };
   const holes = roof.holes.map((h) => h.slice());
+  // Lados de comprimento zero na pegada são chanfros de canto agudo: o esboço não os vê, o commit os refaz.
+  const nf = foot.length;
+  const keep = foot.map((_, i) => i).filter((i) => Math.hypot(foot[i]!.x - foot[(i + 1) % nf]!.x, foot[i]!.y - foot[(i + 1) % nf]!.y) >= 1e-9);
+  const ring = keep.map((i) => foot[i]!);
   if (!hasRoofArcs(roof)) {
-    return { outer: foot.slice(), holes, flags: { outer: foot.map((_, i) => flagOf(i)) } };
+    return { outer: ring, holes, flags: { outer: keep.map((i) => flagOf(i)) } };
   }
   // Arcos: a pegada ganha a flecha do arco do beiral (desfeito o balanço) e volta amostrada, para o esboço reencontrar o arco.
   const footSag = footprintSag(roof, foot);
-  const { pts, edgeOf } = sampleSagRing(foot, footSag);
-  return { outer: pts, holes, flags: { outer: edgeOf.map(flagOf) } };
+  const { pts, edgeOf } = sampleSagRing(ring, keep.map((i) => footSag[i] ?? 0));
+  return { outer: pts, holes, flags: { outer: edgeOf.map((e) => flagOf(keep[e]!)) } };
+}
+
+/** Paredes do nível, sem topo anexado a telhado, cujo ponto médio do eixo cai dentro da pegada. */
+function wallsUnderFootprint(p: Project, levelId: string, footprint: Vec2[]): number {
+  return Object.values(p.elements).filter((e) => isWall(e) && e.levelId === levelId && e.attachTopToRoof !== true && pointInRing({ x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }, footprint)).length;
 }
 
 /** Águas do telhado: trechos lógicos que definem inclinação, contados no contorno com os arcos subdivididos. */
@@ -65,15 +74,18 @@ function fieldsOf(outer: Vec2[], holes: Vec2[][], edges: FinishEdge[], segs: Ske
   const ring = logical ? logical.outer : outer;
   const es = logical ? logical.groups.map((g) => edges[g[0]!]!) : edges;
   const overhangs = es.map((e) => e.overhang);
-  const cusp = logical ? arcCuspProblem(ring, logical.sag, overhangs, lang) : null;
+  const sag0 = logical ? logical.sag : ring.map(() => 0);
+  const cusp = arcCuspProblem(ring, sag0, overhangs, lang);
   if (cusp) return cusp;
-  const eave = logical ? eaveFromFootprint(ring, logical.sag, overhangs) : { boundary: eaveOutlinePerEdge(ring, overhangs), edgeSag: undefined };
+  // Canto agudo: a esquadria longa demais vira chanfro (lado extra na pegada e nos vetores por aresta).
+  const bev = bevelSharpCorners(ring, sag0, overhangs, es.map((e) => (e.definesSlope ? e.slopePct : null)));
+  const eave = logical ? eaveFromFootprint(bev.ring, bev.sag, bev.overhangs) : { boundary: eaveOutlinePerEdge(bev.ring, bev.overhangs), edgeSag: undefined };
   const out: RoofFields = {
     boundary: eave.boundary,
-    footprint: ring.slice(),
+    footprint: bev.ring.slice(),
     holes,
-    edgeSlopes: es.map((e) => (e.definesSlope ? e.slopePct : null)),
-    edgeOverhangs: overhangs,
+    edgeSlopes: bev.slopes,
+    edgeOverhangs: bev.overhangs,
   };
   if (eave.edgeSag) out.edgeSag = eave.edgeSag;
   return out;
@@ -122,9 +134,12 @@ function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: Commi
   const problem = roofProblem(p, [candidate]) ?? newError(p, after, id, validateProject);
   if (problem) return refuse(translate(lang, 'tl_msg_roof_create_fail', { problem }));
   const n = waterCount(roof);
-  const message = n === 0
+  const base = n === 0
     ? translate(lang, 'tl_msg_roof_flat_created')
     : translate(lang, 'tl_msg_roof_created', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') });
+  // Oferta de anexo: paredes do nível sob o beiral sem o topo no telhado deixam vão nas empenas (não marca sozinho).
+  const loose = wallsUnderFootprint(p, levelId, f.boundary);
+  const message = loose > 0 ? `${base}${translate(lang, 'tl_msg_roof_walls_unattached', { n: loose })}` : base;
   return { ok: true, id, commands: [{ type: 'addRoof', roof }], message };
 }
 

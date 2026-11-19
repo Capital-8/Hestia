@@ -1,7 +1,7 @@
 {
   "name": "hestia",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -40,7 +40,8 @@
     "test:wasm:pesado": "vitest run --config vitest.wasm.pesado.config.ts",
     "kernel:harness": "vite-node scripts/kernel-harness.mts --",
     "suplementos:empacotar": "vite-node scripts/empacotar-suplementos.mts --",
-    "suplementos:novo": "vite-node scripts/suplementos-novo.mts --"
+    "suplementos:novo": "vite-node scripts/suplementos-novo.mts --",
+    "texturas:catalogo": "vite-node scripts/texturas-catalogo.mts --"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

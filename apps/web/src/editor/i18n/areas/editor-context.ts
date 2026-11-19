@@ -45,6 +45,9 @@ export const PT_EDITOR_CONTEXT = {
   edc_ctx_one_type: 'Selecione elementos de um só tipo',
   edc_ctx_not_copyable:
     'Copiar só vale para paredes, pisos, lajes, telhados, escadas, rampas, ambientes e aberturas hospedadas',
+  edc_ctx_face_studio: 'Abrir Estúdio da Face (2D)…',
+  edc_ctx_face_paint_3d: 'Pintar Face no 3D',
+  edc_ctx_clear_face_paints: 'Limpar Pinturas da Face',
 
   // Atalhos (shortcutConfig.ts)
   edc_shortcut_invalid_seq: 'Use de 1 a 4 letras ou números, sem espaços.',
@@ -418,6 +421,9 @@ export const EN_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_one_type: 'Select elements of one type only',
   edc_ctx_not_copyable:
     'Copy only works for walls, floors, slabs, roofs, stairs, ramps, rooms and hosted openings',
+  edc_ctx_face_studio: 'Open Face Studio (2D)…',
+  edc_ctx_face_paint_3d: 'Paint Face in 3D',
+  edc_ctx_clear_face_paints: 'Clear Face Paints',
 
   // Shortcuts
   edc_shortcut_invalid_seq: 'Use 1 to 4 letters or digits, without spaces.',
@@ -790,6 +796,9 @@ export const ES_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_no_previous: 'Ninguna selección anterior',
   edc_ctx_one_type: 'Seleccione elementos de un solo tipo',
   edc_ctx_not_copyable: 'Copiar solo se aplica a paredes, suelos, losas, tejados, escaleras, rampas, ambientes y huecos alojados',
+  edc_ctx_face_studio: 'Abrir Estudio de Cara (2D)…',
+  edc_ctx_face_paint_3d: 'Pintar Cara en 3D',
+  edc_ctx_clear_face_paints: 'Limpiar Pinturas de Cara',
 
   // Atajos
   edc_shortcut_invalid_seq: 'Use de 1 a 4 letras o números, sin espacios.',
@@ -1154,6 +1163,9 @@ export const DE_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_no_previous: 'Keine vorherige Auswahl',
   edc_ctx_one_type: 'Elemente nur eines Typs auswählen',
   edc_ctx_not_copyable: 'Kopieren gilt nur für Wände, Böden, Decken, Dächer, Treppen, Rampen, Räume und gehostete Öffnungen',
+  edc_ctx_face_studio: 'Flächenstudio öffnen (2D)…',
+  edc_ctx_face_paint_3d: 'Fläche in 3D streichen',
+  edc_ctx_clear_face_paints: 'Flächenfarben löschen',
 
   // Tastenkürzel
   edc_shortcut_invalid_seq: 'Verwenden Sie 1 bis 4 Buchstaben oder Ziffern, ohne Leerzeichen.',
@@ -1518,6 +1530,9 @@ export const FR_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_no_previous: 'Aucune sélection précédente',
   edc_ctx_one_type: 'Sélectionnez des éléments d\'un seul type',
   edc_ctx_not_copyable: 'Copier s\'applique uniquement aux murs, sols, dalles, toits, escaliers, rampes, pièces et ouvertures hébergées',
+  edc_ctx_face_studio: 'Ouvrir le studio de face (2D)…',
+  edc_ctx_face_paint_3d: 'Peindre la face en 3D',
+  edc_ctx_clear_face_paints: 'Effacer les peintures de face',
 
   // Raccourcis
   edc_shortcut_invalid_seq: 'Utilisez 1 à 4 lettres ou chiffres, sans espaces.',
@@ -1882,6 +1897,9 @@ export const IT_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_no_previous: 'Nessuna selezione precedente',
   edc_ctx_one_type: 'Seleziona elementi di un solo tipo',
   edc_ctx_not_copyable: 'Copia vale solo per pareti, pavimenti, solette, controsoffitti, tetti, scale, rampe, locali e vani ospitati',
+  edc_ctx_face_studio: 'Apri Studio Faccia (2D)…',
+  edc_ctx_face_paint_3d: 'Dipingi faccia in 3D',
+  edc_ctx_clear_face_paints: 'Cancella pitture della faccia',
 
   // Scorciatoie
   edc_shortcut_invalid_seq: 'Usa da 1 a 4 lettere o numeri, senza spazi.',
@@ -2246,6 +2264,9 @@ export const PL_EDITOR_CONTEXT: Record<keyof typeof PT_EDITOR_CONTEXT, string> =
   edc_ctx_no_previous: 'Brak poprzedniego wyboru',
   edc_ctx_one_type: 'Wybierz elementy tylko jednego typu',
   edc_ctx_not_copyable: 'Kopiowanie dotyczy tylko ścian, podłóg, stropów, sufitów podwieszanych, dachów, schodów, ramp, pomieszczeń i osadzonych otworów',
+  edc_ctx_face_studio: 'Otwórz Studio Powierzchni (2D)…',
+  edc_ctx_face_paint_3d: 'Maluj powierzchnię w 3D',
+  edc_ctx_clear_face_paints: 'Wyczyść malowanie powierzchni',
 
   // Skróty
   edc_shortcut_invalid_seq: 'Użyj od 1 do 4 liter lub cyfr, bez spacji.',

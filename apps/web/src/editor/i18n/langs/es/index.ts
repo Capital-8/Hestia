@@ -18,6 +18,7 @@ import { ES_PROPS_CORE } from '../../areas/props-core.ts';
 import { ES_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { ES_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { ES_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
+import { ES_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas.ts';
 import { ES_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { ES_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { ES_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
@@ -26,6 +27,12 @@ import { ES_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { ES_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { ES_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { ES_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
+import { ES_TERRENO } from '../../areas/terreno.ts';
+import { ES_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { ES_GRAVIDADE } from '../../areas/gravidade.ts';
+import { ES_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { ES_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { ES_LOTE_UI } from '../../areas/lote-ui.ts';
 import { ES_MASSA } from '../../areas/massa.ts';
 import { ES_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { ES_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -35,12 +42,19 @@ import { ES_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { ES_PAREDE_CORTINA } from '../../areas/parede-cortina-1.ts';
 import { ES_STRUCTURAL } from '../../areas/structural.ts';
 import { ES_TAGGING } from '../../areas/tagging.ts';
+import { ES_FURNITURE } from '../../areas/furniture.ts';
 
 export const ES_ALL = {
   ...ES_STRUCTURAL,
   ...ES_TAGGING,
   ...ES_GUARDA_CORPO,
   ...ES_DIALOGS_OPENING_SHAPE,
+  ...ES_TERRENO,
+  ...ES_TERRENO_VISTA,
+  ...ES_GRAVIDADE,
+  ...ES_TERRENO_TABELA,
+  ...ES_LOTE_TABELA,
+  ...ES_LOTE_UI,
   ...ES_MASSA,
   ...ES_MASSA_PISOS,
   ...ES_MASSA_PAREDES,
@@ -67,10 +81,12 @@ export const ES_ALL = {
   ...ES_DIALOGS_MISC,
   ...ES_PACKAGES_MODEL,
   ...ES_DIALOGS_TYPES,
+  ...ES_DIALOGS_MATERIAIS,
   ...ES_DIALOGS_OPENING,
   ...ES_DIALOGS_CAD,
   ...ES_EDITOR_CONTEXT,
   ...ES_PROPS_OPTIONS,
   ...ES_PACKAGES_IO,
   ...ES_BIBLIOTECA,
+  ...ES_FURNITURE,
 };

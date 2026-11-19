@@ -126,3 +126,23 @@ describe('C1 · quando o topo não se ajusta', () => {
     expect(zOf(p).height).toBeCloseTo(3.205, 9);
   });
 });
+
+describe('C1 · attachTopRoofFull: topo cortado em toda a espessura', () => {
+  const half = (p: Project): number => wallThickness(p) / 2;
+
+  it('parede paralela à cumeeira: o topo vale a face mais baixa (lado do beiral), sem furar a água', () => {
+    const p = build([wall({ attachTopRoofFull: true })], [{ dir: { x: 1, y: 0 } }]);
+    const z = zOf(p);
+    // A água cai 0,30 por metro em direção ao beiral (y = −1): a face em y = −meia espessura é a mais baixa.
+    expect(z.height).toBeCloseTo(3.205 - 0.3 * half(p), 9);
+  });
+
+  it('sem a marca, o eixo decide como antes (3,205)', () => {
+    expect(zOf(build([wall({})], [{ dir: { x: 1, y: 0 } }])).height).toBeCloseTo(3.205, 9);
+  });
+
+  it('empena: perfil em V igual ao do eixo (as faces estão à mesma cota ao longo da cumeeira)', () => {
+    const p = build([wall({ attachTopRoofFull: true })], [{ dir: { x: 0, y: 1 } }]);
+    expect(zOf(p).height).toBeCloseTo(4.2 - T_ROOF, 9);
+  });
+});

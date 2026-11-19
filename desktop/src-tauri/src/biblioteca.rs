@@ -108,6 +108,27 @@ pub async fn biblioteca_escolher_raiz(app: AppHandle) -> Result<Option<String>, 
     Ok(Some(caminho.to_string_lossy().to_string()))
 }
 
+/// Escolhe OUTRA pasta para guardar um projeto ("Salvar como…"). Não vira a raiz da biblioteca e não é lembrada.
+#[tauri::command]
+pub async fn biblioteca_escolher_destino(app: AppHandle) -> Result<Option<String>, String> {
+    let app_dialogo = app.clone();
+    let escolhida = tauri::async_runtime::spawn_blocking(move || {
+        app_dialogo.dialog().file().blocking_pick_folder()
+    })
+    .await
+    .map_err(|e| format!("seletor de pastas falhou: {e}"))?;
+    let Some(arquivo) = escolhida else {
+        return Ok(None);
+    };
+    let caminho = arquivo
+        .into_path()
+        .map_err(|e| format!("caminho inválido: {e}"))?;
+    if !caminho.is_dir() {
+        return Err("a escolha não é uma pasta".into());
+    }
+    Ok(Some(caminho.to_string_lossy().to_string()))
+}
+
 fn gravar_raiz(app: &AppHandle, caminho: &Path) -> Result<(), String> {
     let arquivo = arquivo_da_raiz(app)?;
     fs::write(&arquivo, caminho.to_string_lossy().as_bytes())
@@ -226,6 +247,25 @@ pub fn biblioteca_gravar(
     })
 }
 
+/// Renomeia a pasta de um projeto dentro da raiz. Nunca sobrescreve: se `para` já existe, ou se o sistema recusa (pasta
+/// aberta em outro programa no Windows), devolve erro e a pasta `de` continua como estava.
+#[tauri::command]
+pub fn biblioteca_renomear(raiz: String, de: String, para: String) -> Result<(), String> {
+    let base = PathBuf::from(&raiz);
+    exigir_pasta(&base)?;
+    let origem = base.join(pasta_segura(&de)?);
+    let destino = base.join(pasta_segura(&para)?);
+    if !origem.is_dir() {
+        return Err(format!("a pasta do projeto não existe: {de}"));
+    }
+    // `exists` no Windows ignora maiúsculas: "casa" -> "Casa" seria visto como destino existente (a web nem pede isso).
+    if destino.exists() {
+        return Err(format!("já existe uma pasta chamada {para}"));
+    }
+    fs::rename(&origem, &destino)
+        .map_err(|e| format!("não foi possível renomear a pasta (ela pode estar aberta em outro programa): {e}"))
+}
+
 /// Grava o índice da tela inicial.
 #[tauri::command]
 pub fn biblioteca_gravar_indice(raiz: String, texto: String) -> Result<(), String> {
@@ -233,4 +273,44 @@ pub fn biblioteca_gravar_indice(raiz: String, texto: String) -> Result<(), Strin
     exigir_pasta(&dir)?;
     fs::write(dir.join(ARQUIVO_INDICE), texto.as_bytes())
         .map_err(|e| format!("não foi possível gravar o índice: {e}"))
+}
+
+#[cfg(test)]
+mod testes {
+    use super::*;
+
+    fn temp(nome: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("hestia-bib-{nome}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn renomeia_mantendo_o_conteudo_e_o_bak() {
+        let raiz = temp("renomear");
+        let r = raiz.to_string_lossy().to_string();
+        biblioteca_gravar(r.clone(), "Projeto sem título".into(), "teste".into(), "v1".into()).unwrap();
+        biblioteca_gravar(r.clone(), "Projeto sem título".into(), "teste".into(), "v2".into()).unwrap();
+        biblioteca_renomear(r.clone(), "Projeto sem título".into(), "teste".into()).unwrap();
+        assert!(!raiz.join("Projeto sem título").exists());
+        assert_eq!(fs::read_to_string(raiz.join("teste").join(ARQUIVO_PROJETO)).unwrap(), "v2");
+        assert_eq!(fs::read_to_string(raiz.join("teste").join(ARQUIVO_BACKUP)).unwrap(), "v1");
+        let _ = fs::remove_dir_all(&raiz);
+    }
+
+    #[test]
+    fn nao_sobrescreve_destino_existente_nem_aceita_nome_invalido() {
+        let raiz = temp("colisao");
+        let r = raiz.to_string_lossy().to_string();
+        biblioteca_gravar(r.clone(), "a".into(), "a".into(), "A".into()).unwrap();
+        biblioteca_gravar(r.clone(), "b".into(), "b".into(), "B".into()).unwrap();
+        assert!(biblioteca_renomear(r.clone(), "a".into(), "b".into()).is_err());
+        assert!(biblioteca_renomear(r.clone(), "a".into(), "..".into()).is_err());
+        assert!(biblioteca_renomear(r.clone(), "a".into(), "x/y".into()).is_err());
+        assert!(biblioteca_renomear(r.clone(), "nao-existe".into(), "z".into()).is_err());
+        assert_eq!(fs::read_to_string(raiz.join("a").join(ARQUIVO_PROJETO)).unwrap(), "A");
+        assert_eq!(fs::read_to_string(raiz.join("b").join(ARQUIVO_PROJETO)).unwrap(), "B");
+        let _ = fs::remove_dir_all(&raiz);
+    }
 }

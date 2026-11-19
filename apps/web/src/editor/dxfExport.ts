@@ -3,6 +3,7 @@ import { buildOpeningModel, computeSection, roofDrawingsOf, semFrestas, junction
 import { openingPlanWorldPaths, ownerOf, planViewOf, roofFootprint, roomFullText, roomLabelAt, type PlanView } from '@hestia/render';
 import {
   dxfDocOf,
+  dxfComponentEntities,
   dxfGenericEntities,
   dxfLayerCanonical,
   dxfLayerName,
@@ -10,6 +11,7 @@ import {
   dxfLayersOf,
   dxfLineRoleOf,
   DXF_LINE_WEIGHT_DEFAULT,
+  DXF_LAYER_COMPONENTE,
   DXF_LAYER_ROOM_TEXT,
   DXF_LAYER_GENERIC,
   DXF_LAYER_CURTAIN_GLASS,
@@ -37,6 +39,7 @@ import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, graphicsOf, levelGrap
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
+import { terrenoCorteDxfOf, terrenoPlantaDxfOf } from './dxfTerreno.ts';
 import { massaDoCorte, massaDxfDaPlanta } from './dxfExportMassa.ts';
 import { rampDxf, stairDxf } from './dxfEscadas.ts';
 import { useI18n, t as tr, type Lang } from './i18n.ts';
@@ -175,10 +178,12 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   // Ambientes (decisão 0018, 0037): contorno em AMBIENTES e rótulo completo (nome, número, área) em AMBIENTES_TEXTO; sem circuito, nada sai.
   const rooms = shown('room') ? resolveRooms(p, levelId).filter((r) => r.polygon && !hidden.has(r.roomId)) : [];
   const curtains = curtainDxfOf(p, levelId, view.cutZ, hidden, shown('wall'));
+  const terreno = terrenoPlantaDxfOf(p, levelId, { site: shown('site'), lot: shown('lot') }, hidden);
   // Massa (ficha X1): camada `MASSA` com as linhas de `massa_planta` na cota de corte da vista; sem kernel ou categoria oculta, nada sai.
   const masses = massaDxfDaPlanta(p, levelId, view.cutZ, hidden, shown('mass'));
   const geo: DxfLevelGeometry = {
     ...(curtains === undefined ? {} : { curtains }),
+    ...(terreno.length === 0 ? {} : { terreno }),
     ...(masses === undefined ? {} : { masses }),
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
@@ -251,18 +256,26 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   return { ...withNotes, lineWeights, layerStyles, ...(units === undefined ? {} : { units }) };
 }
 
+/** Estilo da camada dos componentes: verde (ACI 3), linha contínua e espessura padrão. */
+const COMPONENTE_LAYER_STYLE: DxfLayerStyle = { color: 3, lineWeight: DXF_LINE_WEIGHT_DEFAULT, linetype: 'CONTINUOUS' };
+
 export { areaPlanDxf } from './dxfAreaPlan.ts';
 
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang()): string {
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units), lang);
   const shown = levelGraphicsOf(p, levelId).overrides.generic.visible !== false;
   const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang)) : [];
+  const componentes = shown ? dxfComponentEntities(p, levelId) : [];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
   const genericLayer = dxfLayerName(DXF_LAYER_GENERIC, lang);
   const layers = generics.length > 0 && !doc.layers.some((l) => l.name === genericLayer)
     ? [...doc.layers, { name: genericLayer, ...(p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC)) }]
-    : doc.layers;
-  return writeDxf2000({ ...doc, layers, entities: [...doc.entities, ...generics] });
+    : [...doc.layers];
+  // A camada dos componentes entra como a dos importados, com o verde próprio da camada.
+  if (componentes.length > 0 && !layers.some((l) => l.name === DXF_LAYER_COMPONENTE)) {
+    layers.push({ name: DXF_LAYER_COMPONENTE, ...(p.dxfLayers?.[DXF_LAYER_COMPONENTE] ?? COMPONENTE_LAYER_STYLE) });
+  }
+  return writeDxf2000({ ...doc, layers, entities: [...doc.entities, ...generics, ...componentes] });
 }
 
 /** Alvo da tabela de camadas do diálogo de exportação (o que a vista atual exporta). */
@@ -289,10 +302,18 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
       return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const generic = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false
-      && Object.values(p.elements).some((e) => e.kind === 'generic' && e.levelId === target.levelId);
+    const visible = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false;
+    const hasInLevel = (kind: 'generic' | 'component'): boolean =>
+      Object.values(p.elements).some((e) => e.kind === kind && e.levelId === target.levelId);
+    const generic = visible && hasInLevel('generic');
     if (generic && !rows.some((r) => r.name === dxfLayerName(DXF_LAYER_GENERIC, lang))) {
       rows.push({ name: dxfLayerName(DXF_LAYER_GENERIC, lang), style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // O mesmo vale para os componentes, com o verde da camada `COMPONENTES`.
+    const componente = visible && hasInLevel('component');
+    if (componente && !rows.some((r) => r.name === DXF_LAYER_COMPONENTE)) {
+      rows.push({ name: DXF_LAYER_COMPONENTE, style: p.dxfLayers?.[DXF_LAYER_COMPONENTE] ?? COMPONENTE_LAYER_STYLE });
       rows.sort((a, b) => a.name.localeCompare(b.name));
     }
     return rows;
@@ -374,7 +395,8 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
   const allShown = GRAPHICS_CATEGORIES.every(shown);
   // Anotações da vista (cotas, textos, detalhes e etiquetas) nas camadas da planta: a categoria oculta não sai, como na tela.
   const notes = shown('annotation') ? sectionNotesDxfOf(p, sectionId, vg.scale) : undefined;
-  const geo: DxfSectionGeometry = { cut, beyond, ...(lines.length > 0 ? { lines } : {}), openings, ...(allShown ? { silhouette: semFrestas(union(...section.cut.map((r) => r.polygons), ...beyond.map((b) => b.polygons))) } : {}), ...(notes === undefined ? {} : { notes }) };
+  const terrain = terrenoCorteDxfOf(p, section, shown('site'));
+  const geo: DxfSectionGeometry = { cut, beyond, ...(lines.length > 0 ? { lines } : {}), openings, ...(allShown ? { silhouette: semFrestas(union(...section.cut.map((r) => r.polygons), ...beyond.map((b) => b.polygons))) } : {}), ...(notes === undefined ? {} : { notes }), ...(terrain === undefined ? {} : { terrain }) };
   const lineWeights = sectionLineWeightsOf(p, geo);
   const layerStyles = Object.fromEntries(
     dxfSectionLayersOf(geo).map((layer): [string, DxfLayerStyle] => [layer, p.dxfLayers?.[layer] ?? dxfSectionLayerStyleOf(layer, lineWeights[layer] ?? DXF_LINE_WEIGHT_DEFAULT)]),

@@ -1,7 +1,9 @@
 import { fuseBands, wallLayerBandsAfterJunction, type JunctionLevel, type LayerBand, type ResolvedLevel } from '@hestia/engine';
-import type { Id } from '@hestia/model';
+import { isWall, type Id, type Project } from '@hestia/model';
 import { arestasDasCaixas, folgaEntreCaixas, matrizDaCaixa, retanguloDoAnel, TOLERANCIA_CAIXA, type CaixaPlanta, type MatrizCaixa } from './caixas3d.ts';
 import { arestasDaUniao } from './arestasDaUniao3d.ts';
+import { appendFaceExtrusionSolids } from './facePaintExtrusions.ts';
+import { appendPaintedWallLayer, wallBoundaryLayerIndices, wallLayerHasFacePaint } from './facePaintSolids.ts';
 import { tiltJoinOf } from './wallTiltSolid.ts';
 import { appendCunhas, appendSolid, batchOf, wallLayerSolid, type SolidBatch } from './solids.ts';
 
@@ -79,13 +81,20 @@ export function caixasDaCamada(bands: readonly LayerBand[], baseZ: number, comAr
  * Sólidos das paredes do nível com caixas: como `buildLevelSolids`, mas a camada que `caixasDaCamada` aceita vira caixas e só
  * as outras são extrudadas (e entram no cache de camadas).
  */
-export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | undefined, comArestas: boolean): ParedesDoNivel {
+export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | undefined, comArestas: boolean, p?: Project): ParedesDoNivel {
   const byMat = new Map<Id, SolidBatch>();
   const caixas: CaixaDeParede[] = [];
   const arestas: number[] = [];
   const arestasPorParede = new Map<Id, number[]>();
   for (const rw of Object.values(r.walls)) {
+    const w = p?.elements[rw.wallId];
+    const hasPaint = isWall(w) && Boolean(w.facePaints?.length);
+    const [extLayerIdx, intLayerIdx] = wallBoundaryLayerIndices(rw);
     for (const l of rw.layers) {
+      if (hasPaint && p && wallLayerHasFacePaint(w, l.layerIndex, extLayerIdx, intLayerIdx, p)) {
+        appendPaintedWallLayer(byMat, rw, l, p, jl, extLayerIdx, intLayerIdx);
+        continue;
+      }
       // Parede inclinada (ou com faixa de junção inclinada) nunca vira caixa vertical: o sólido inclinado e os vãos 'inclinado' (F2.8) vêm da geometria.
       const camada = rw.tilt || rw.tiltCuts || tiltJoinOf(rw, l, jl) ? null : caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
       if (camada) {
@@ -96,9 +105,10 @@ export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | 
           for (const x of camada.arestas) lista.push(x);
           arestasPorParede.set(rw.wallId, lista);
         }
-      } else appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl));
+      } else appendSolid(batchOf(byMat, l.materialId, 'wall'), wallLayerSolid(rw, l, jl, p));
     }
   }
+  if (p) appendFaceExtrusionSolids(byMat, p, r.levelId, new Set(Object.keys(r.walls)));
   appendCunhas(byMat, r, jl);
   return { batches: [...byMat.values()], caixas, arestas, arestasPorParede };
 }

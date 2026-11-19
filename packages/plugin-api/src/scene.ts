@@ -55,6 +55,16 @@ export interface SceneMaterial {
   opacity: number;
   /** Texturas referenciadas por id (os bytes não viajam neste contrato; ver docs/plugins). */
   textures?: Array<{ slot: 'color' | 'normal' | 'roughness'; textureId: TextureId }>;
+  /** Como a textura cobre a superfície (só com `textures`): escala real, rotação, deslocamento e repetição. */
+  textureMapping?: {
+    /** Lado de um ladrilho da textura, em metros. */
+    scaleMeters: number;
+    /** Graus, anti-horário. */
+    rotationDeg: number;
+    /** Metros, no plano da textura. */
+    offsetMeters: [number, number];
+    repeat: boolean;
+  };
 }
 
 export interface SceneTexture {

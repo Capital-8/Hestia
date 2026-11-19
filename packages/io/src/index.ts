@@ -1,8 +1,13 @@
 export * from './dxf.ts';
 export * from './dxfDoc.ts';
-export * from './dxfImport.ts';
+export { parseDxfText, METROS_POR_UNIDADE, type DxfImportResult } from './dxfImport.ts';
+export * from './dxfTerreno.ts';
+export * from './dxfPlantaTerreno.ts';
+export * from './csvPontos.ts';
+export * from './simplificarPolilinha.ts';
 export * from './dxfGeneric.ts';
 export * from './dxfMassa.ts';
+export * from './dxfComponentes.ts';
 export * from './dxfSection.ts';
 export * from './dxfSectionNotes.ts';
 export * from './ifc/ifcExport.ts';
@@ -40,3 +45,13 @@ export {
 // SUPLEMENTOS (Fase D): leitor de zip com limites e pacote `.hestiapkg`.
 export * from './zipRead.ts';
 export * from './pkg.ts';
+export * from './texturasCatalogo.ts';
+export * from './dxfPecas.ts';
+// Importação de móveis/blocos (skp, glb, gltf, obj, dae, fbx, zip) em Web Worker.
+export { importInWorker, type ImportInWorkerOptions, type WorkerFactory, type WorkerLike } from './furniture/importInWorker.ts';
+export {
+  IMPORT_LIMITS,
+  type ImportedModel as FurnitureImportedModel,
+  type ImportedMaterial as FurnitureImportedMaterial,
+  type ImportCategory as FurnitureImportCategory,
+} from './furniture/types.ts';

@@ -10,12 +10,14 @@ import { PT_DIALOGS_MISC, EN_DIALOGS_MISC } from './dialogs-misc.ts';
 import { PT_DIALOGS_OPENING, EN_DIALOGS_OPENING } from './dialogs-opening.ts';
 import { PT_DIALOGS_STAIRS, EN_DIALOGS_STAIRS } from './dialogs-stairs.ts';
 import { PT_DIALOGS_TYPES, EN_DIALOGS_TYPES } from './dialogs-types.ts';
+import { PT_DIALOGS_MATERIAIS, EN_DIALOGS_MATERIAIS } from './dialogs-materiais.ts';
 import { PT_DIALOGS, EN_DIALOGS } from './dialogs.ts';
 import { PT_EDITOR_CONTEXT, EN_EDITOR_CONTEXT } from './editor-context.ts';
 import { PT_EDITOR_STATUS, EN_EDITOR_STATUS } from './editor-status.ts';
 import { PT_ENGINE, EN_ENGINE } from './engine.ts';
 import { PT_EXPORTS, EN_EXPORTS } from './exports.ts';
 import { PT_GEOM, EN_GEOM } from './geom.ts';
+import { PT_FURNITURE, EN_FURNITURE } from './furniture.ts';
 import { PT_IO, EN_IO } from './io.ts';
 import { PT_MISC_UI, EN_MISC_UI } from './misc-ui.ts';
 import { PT_MODEL, EN_MODEL } from './model.ts';
@@ -50,6 +52,12 @@ import { PT_SUPLEMENTOS, EN_SUPLEMENTOS } from './suplementos.ts';
 import { PT_SUPLEMENTOS_IO, EN_SUPLEMENTOS_IO } from './suplementos-io.ts';
 import { PT_SUPUI, EN_SUPUI } from './suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { PT_TOOLS, EN_TOOLS } from './tools.ts';
+import { PT_TERRENO, EN_TERRENO } from './terreno.ts';
+import { PT_TERRENO_VISTA, EN_TERRENO_VISTA } from './terreno-vista.ts';
+import { PT_GRAVIDADE, EN_GRAVIDADE } from './gravidade.ts';
+import { PT_TERRENO_TABELA, EN_TERRENO_TABELA } from './terreno-tabela.ts';
+import { PT_LOTE_TABELA, EN_LOTE_TABELA } from './lote-tabela.ts';
+import { PT_LOTE_UI, EN_LOTE_UI } from './lote-ui.ts';
 
 export const PT_ALL = {
   ...PT_STRUCTURAL,
@@ -59,6 +67,12 @@ export const PT_ALL = {
   ...PT_SUPUI,
   ...PT_GUARDA_CORPO,
   ...PT_DIALOGS_OPENING_SHAPE,
+  ...PT_TERRENO,
+  ...PT_TERRENO_VISTA,
+  ...PT_GRAVIDADE,
+  ...PT_TERRENO_TABELA,
+  ...PT_LOTE_TABELA,
+  ...PT_LOTE_UI,
   ...PT_MASSA,
   ...PT_MASSA_PISOS,
   ...PT_MASSA_PAREDES,
@@ -75,11 +89,13 @@ export const PT_ALL = {
   ...PT_DIALOGS_OPENING,
   ...PT_DIALOGS_STAIRS,
   ...PT_DIALOGS_TYPES,
+  ...PT_DIALOGS_MATERIAIS,
   ...PT_EDITOR_CONTEXT,
   ...PT_EDITOR_STATUS,
   ...PT_ENGINE,
   ...PT_EXPORTS,
   ...PT_GEOM,
+  ...PT_FURNITURE,
   ...PT_IO,
   ...PT_MISC_UI,
   ...PT_MODEL,
@@ -113,6 +129,12 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_SUPUI,
   ...EN_GUARDA_CORPO,
   ...EN_DIALOGS_OPENING_SHAPE,
+  ...EN_TERRENO,
+  ...EN_TERRENO_VISTA,
+  ...EN_GRAVIDADE,
+  ...EN_TERRENO_TABELA,
+  ...EN_LOTE_TABELA,
+  ...EN_LOTE_UI,
   ...EN_MASSA,
   ...EN_MASSA_PISOS,
   ...EN_MASSA_PAREDES,
@@ -129,11 +151,13 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_DIALOGS_OPENING,
   ...EN_DIALOGS_STAIRS,
   ...EN_DIALOGS_TYPES,
+  ...EN_DIALOGS_MATERIAIS,
   ...EN_EDITOR_CONTEXT,
   ...EN_EDITOR_STATUS,
   ...EN_ENGINE,
   ...EN_EXPORTS,
   ...EN_GEOM,
+  ...EN_FURNITURE,
   ...EN_IO,
   ...EN_MISC_UI,
   ...EN_MODEL,

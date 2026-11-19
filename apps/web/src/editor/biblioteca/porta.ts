@@ -33,6 +33,18 @@ export interface PortaBiblioteca {
   /** Grava o documento: guarda a versão anterior e escreve de forma atômica. */
   gravar(raiz: PastaId, doc: DocumentoParaGravar): Promise<ProjetoGravado>;
 
+  /**
+   * Renomeia a pasta de um projeto dentro da raiz. Nunca sobrescreve: falha se `para` já existe ou se o sistema não deixa
+   * (pasta aberta em outro programa). Em caso de falha a pasta `de` fica intacta.
+   */
+  renomear(raiz: PastaId, de: string, para: string): Promise<void>;
+
+  /**
+   * Pede ao usuário OUTRA pasta onde guardar um projeto (não vira a raiz da biblioteca nem é lembrada). `null` quando
+   * cancelou. Escolher a própria raiz devolve o mesmo id da raiz.
+   */
+  escolherDestino(): Promise<PastaId | null>;
+
   /** Grava `biblioteca.json`. */
   gravarIndice(raiz: PastaId, texto: string): Promise<void>;
 

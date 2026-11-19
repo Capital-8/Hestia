@@ -5,7 +5,7 @@ import { arestasPerto, pontosPerto, segmentosDeFace, trilhasPerto } from './snap
 import type { Guide, SnapKind, SnapOptions } from './types.ts';
 
 /** Assinatura do registrador de candidatos do motor de captura. */
-export type AddCandidate = (point: Vec2, kind: SnapKind, guides?: Guide[], hostId?: Id, weight?: number) => void;
+export type AddCandidate = (point: Vec2, kind: SnapKind, guides?: Guide[], hostId?: Id, weight?: number, z?: number) => void;
 
 /** Pesos da face superior da seção nas ferramentas de topo (vence a ponta e a aresta comuns no mesmo ponto). */
 const TOP_TOOL_VERTEX = -0.05;

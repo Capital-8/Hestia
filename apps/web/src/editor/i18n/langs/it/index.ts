@@ -18,6 +18,7 @@ import { IT_PROPS_CORE } from '../../areas/props-core.ts';
 import { IT_DIALOGS_MISC } from '../../areas/dialogs-misc.ts';
 import { IT_PACKAGES_MODEL } from '../../areas/packages-model.ts';
 import { IT_DIALOGS_TYPES } from '../../areas/dialogs-types.ts';
+import { IT_DIALOGS_MATERIAIS } from '../../areas/dialogs-materiais-idiomas2.ts';
 import { IT_DIALOGS_OPENING } from '../../areas/dialogs-opening.ts';
 import { IT_DIALOGS_CAD } from '../../areas/dialogs-cad.ts';
 import { IT_EDITOR_CONTEXT } from '../../areas/editor-context.ts';
@@ -26,6 +27,12 @@ import { IT_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { IT_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { IT_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
+import { IT_TERRENO } from '../../areas/terreno.ts';
+import { IT_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
+import { IT_GRAVIDADE } from '../../areas/gravidade.ts';
+import { IT_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
+import { IT_LOTE_TABELA } from '../../areas/lote-tabela.ts';
+import { IT_LOTE_UI } from '../../areas/lote-ui.ts';
 import { IT_MASSA } from '../../areas/massa.ts';
 import { IT_MASSA_PISOS } from '../../areas/massa-pisos.ts';
 import { IT_MASSA_PAREDES } from '../../areas/massa-paredes.ts';
@@ -35,12 +42,19 @@ import { IT_SUPUI } from '../../areas/suplementosUi.ts'; // SUPLEMENTOS (fase H)
 import { IT_PAREDE_CORTINA } from '../../areas/parede-cortina-3.ts';
 import { IT_STRUCTURAL } from '../../areas/structural.ts';
 import { IT_TAGGING } from '../../areas/tagging.ts';
+import { IT_FURNITURE } from '../../areas/furniture.ts';
 
 export const IT_ALL = {
   ...IT_STRUCTURAL,
   ...IT_TAGGING,
   ...IT_GUARDA_CORPO,
   ...IT_DIALOGS_OPENING_SHAPE,
+  ...IT_TERRENO,
+  ...IT_TERRENO_VISTA,
+  ...IT_GRAVIDADE,
+  ...IT_TERRENO_TABELA,
+  ...IT_LOTE_TABELA,
+  ...IT_LOTE_UI,
   ...IT_MASSA,
   ...IT_MASSA_PISOS,
   ...IT_MASSA_PAREDES,
@@ -67,10 +81,12 @@ export const IT_ALL = {
   ...IT_DIALOGS_MISC,
   ...IT_PACKAGES_MODEL,
   ...IT_DIALOGS_TYPES,
+  ...IT_DIALOGS_MATERIAIS,
   ...IT_DIALOGS_OPENING,
   ...IT_DIALOGS_CAD,
   ...IT_EDITOR_CONTEXT,
   ...IT_PROPS_OPTIONS,
   ...IT_PACKAGES_IO,
   ...IT_BIBLIOTECA,
+  ...IT_FURNITURE,
 };

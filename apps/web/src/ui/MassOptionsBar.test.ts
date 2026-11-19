@@ -6,6 +6,7 @@ import { editor } from '../editor/controller.ts';
 import { abrirSecoesDaMassa, ligarMassa } from '../editor/massaLigacao.ts';
 import { useUi } from '../editor/state.ts';
 import { ajustarOpcoesMassa, MassOptionsFields, opcoesDaMassa } from './MassOptionsBar.tsx';
+import { MASSA_NA_FAIXA } from './ribbon/massaNaFaixa.ts';
 import { TABS } from './ribbon/tabs.ts';
 import type { RibbonItem } from './ribbon/model.ts';
 
@@ -27,6 +28,11 @@ const botoesDeModo = (): Array<Extract<RibbonItem, { kind: 'option' }>> =>
 const clicar = (b: Extract<RibbonItem, { kind: 'option' }>): void => useUi.setState((s) => ({ options: { ...s.options, ...b.patch } }));
 
 describe('barra de opções da massa: ajustes preservados', () => {
+  it('a faixa da massa só tem botões de modo quando MASSA_NA_FAIXA está ligada (desligada, viram `soon`)', () => {
+    expect(botoesDeModo().length).toBe(MASSA_NA_FAIXA ? 4 : 0);
+  });
+
+
   it('sem escolha anterior valem os padrões da ficha T1a (extrusão, círculo, 9 m, 6 lados)', () => {
     expect(opcoesDaMassa({})).toEqual({ modo: 'extrusao', perfil: 'circulo', altura: 9, lados: 6 });
   });
@@ -40,7 +46,8 @@ describe('barra de opções da massa: ajustes preservados', () => {
     expect(useUi.getState().options.mass).toEqual(depois);
   });
 
-  it('os quatro botões de modo da faixa trocam só o modo e preservam o que a barra escolheu', () => {
+  // 0.2.5: com `MASSA_NA_FAIXA` = false os botões de modo viram `soon` (sem `patch`): estes dois testes só valem com a massa na faixa.
+  it.skipIf(!MASSA_NA_FAIXA)('os quatro botões de modo da faixa trocam só o modo e preservam o que a barra escolheu', () => {
     const botoes = botoesDeModo();
     expect(botoes).toHaveLength(4);
     ajustarOpcoesMassa({ perfil: 'elipse', altura: 15, lados: 12 });
@@ -52,7 +59,7 @@ describe('barra de opções da massa: ajustes preservados', () => {
     }
   });
 
-  it('o primeiro clique de um botão de modo, sem escolha anterior, usa os padrões', () => {
+  it.skipIf(!MASSA_NA_FAIXA)('o primeiro clique de um botão de modo, sem escolha anterior, usa os padrões', () => {
     useUi.setState({ options: { ...opcoesIniciais, mass: undefined } });
     clicar(botoesDeModo()[2]!);
     expect(useUi.getState().options.mass).toEqual({ modo: 'loft', perfil: 'circulo', altura: 9, lados: 6 });

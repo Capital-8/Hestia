@@ -1,7 +1,7 @@
 import type { Polygon, Vec2 } from '@hestia/geom';
 import { planeZ, type ResolvedRoof } from '@hestia/engine';
 import type { Id } from '@hestia/model';
-import { emendaDaAgua } from './roofEmendas3d.ts';
+import { poligonoSoldado, trechosSemEmenda } from './roofEmendas3d.ts';
 import { batchOf, extrudeCaps, ofElement, oriented, pushWall, type SolidBatch } from './solids.ts';
 
 /**
@@ -14,14 +14,14 @@ export function buildRoofSolids(roofs: ResolvedRoof[]): SolidBatch[] {
     r.planes.forEach((pl, k) => {
       // As emendas entre águas de mesma cota (facetas de um arco) não levam parede: sem elas, a vista de arestas não
       // desenha um raio em cada lado amostrado.
-      const emenda = emendaDaAgua(r, k);
+      const emenda = trechosSemEmenda(r, k);
       for (const l of r.layers) {
         if (l.thickness < 1e-6) continue;
         const b = batchOf(byMat, l.materialId, 'roof');
         const topAt = (x: number, y: number): number => planeZ(pl, { x, y }) - l.below;
         const bottomAt = (x: number, y: number): number => topAt(x, y) - l.thickness;
         ofElement(b, r.roofId, () => {
-          for (const poly of pl.polygon) extrudeRoofPolygon(b, poly, l.thickness, topAt, bottomAt, emenda);
+          for (const poly of pl.polygon) extrudeRoofPolygon(b, poligonoSoldado(r, k, poly), l.thickness, topAt, bottomAt, emenda);
         });
       }
     });
@@ -30,15 +30,15 @@ export function buildRoofSolids(roofs: ResolvedRoof[]): SolidBatch[] {
 }
 
 /** Extrusão de uma água por camada (como `extrudePolygon`), sem a parede das emendas com outra água (`emenda`). */
-function extrudeRoofPolygon(b: SolidBatch, poly: Polygon, espessura: number, topAt: (x: number, y: number) => number, bottomAt: (x: number, y: number) => number, emenda: (p: Vec2, q: Vec2) => boolean): void {
+function extrudeRoofPolygon(b: SolidBatch, poly: Polygon, espessura: number, topAt: (x: number, y: number) => number, bottomAt: (x: number, y: number) => number, emenda: (p: Vec2, q: Vec2) => Array<[Vec2, Vec2]>): void {
   if (espessura < 1e-6 || !poly[0]) return;
   extrudeCaps(b, poly, 0, espessura, topAt, bottomAt);
   for (const ring of poly.map((r, i) => oriented(r, i === 0))) {
     for (let i = 0; i < ring.length; i++) {
       const p = ring[i]!;
       const q = ring[(i + 1) % ring.length]!;
-      if (emenda(p, q)) continue;
-      pushWall(b, p, q, bottomAt(p.x, p.y), bottomAt(q.x, q.y), topAt(p.x, p.y), topAt(q.x, q.y));
+      // Só os trechos sem água de mesma cota do outro lado levam parede (a aresta é partida nas junções em T).
+      for (const [a, c] of emenda(p, q)) pushWall(b, a, c, bottomAt(a.x, a.y), bottomAt(c.x, c.y), topAt(a.x, a.y), topAt(c.x, c.y));
     }
   }
 }

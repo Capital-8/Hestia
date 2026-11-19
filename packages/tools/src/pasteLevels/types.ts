@@ -29,6 +29,13 @@ export interface PasteIds {
   railings: Id[];
   /** Massas coladas (também fora do vínculo de andar-tipo: cada uma é um volume próprio). */
   masses: Id[];
+  /**
+   * Terreno, regiões e lotes colados. Ficam FORA da ordem canônica e do vínculo de andar-tipo: o terreno tem cotas
+   * absolutas e é um só para todos os níveis, então só o colar de UM nível o leva; o lote é 2D e vai a qualquer nível.
+   */
+  terrains: Id[];
+  terrainRegions: Id[];
+  lots: Id[];
 }
 
 /**

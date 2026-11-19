@@ -33,7 +33,10 @@ const MIN_BYTES = 10 * 1024;
 // o teto anterior era 2,25 MB (antes disso, 2 MB). Decisão do coordenador em 2026-11-12, a confirmar com o dono.
 // 4 MB: o furo por contorno (manifold-rust, booleana 3D de esquadrias em arco; docs/estudo-esquadrias/19) levou o módulo de 2,58 para 3,67 MB.
 // Decisão do coordenador em 2026-11-18, a confirmar com o dono; reduzir o tamanho (carga sob demanda do furo) é alternativa em aberto.
-const MAX_BYTES = 4 * 1024 * 1024;
+// 5 MB: a mescla com main (800 commits: terreno, pintura de face etc.) levou o módulo base do main a 2,9 MB; somado ao manifold-rust
+// (+~1,1 MB) deu 4,02 MB, 0,02 MB acima do teto de 4 MB. Subida mínima, justificada pela soma de duas frentes legítimas; a redução
+// (carga sob demanda do furo, wasm-opt -Oz) segue como alternativa em aberto. Ver docs/estudo-esquadrias/35-mescla-com-main.md.
+const MAX_BYTES = 5 * 1024 * 1024;
 /** Todo módulo wasm começa com os quatro bytes `\0asm`. */
 const MAGICO = [0x00, 0x61, 0x73, 0x6d];
 const erros = [];

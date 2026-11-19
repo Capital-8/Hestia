@@ -145,6 +145,16 @@ describe('seleção em corte (pickSection)', () => {
     expect(pickSection(r, interior(cut.polygons))).toEqual({ id: 'st1', kind: 'stair' });
   });
 
+  it('componente: seleciona componente cortado ou em beyond como generic', () => {
+    const r = computeSection(createEmptyProject(), { a: v(0, 0), b: v(4, 0), depth: 2 });
+    expect(r.cut).toHaveLength(0);
+    const s = {
+      ...r,
+      beyond: [{ componentId: 'c1', materialId: 'comp_corpo', layerIndex: 0, depth: 1, polygons: [[[v(0.5, 0), v(1.5, 0), v(1.5, 0.8), v(0.5, 0.8)]]] }],
+    };
+    expect(pickSection(s, v(1, 0.4))).toEqual({ id: 'c1', kind: 'generic' });
+  });
+
   it('material cortado de várias origens (paredes do mesmo tipo): o clique devolve a parede de cada trecho', () => {
     const store = new ProjectStore(createEmptyProject());
     store.exec({ type: 'addWall', wall: makeWall({ id: 'a', typeId: 'wt_alv14', levelId: 'lv_0', a: v(1, 0), b: v(1, 4), height: 3 }) });

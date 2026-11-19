@@ -64,18 +64,28 @@ kernel is separate from the UI, written in Rust.
 
 **On Windows:** download the installer from the [latest release](https://github.com/engdennylsonsantos-cloud/Hestia/releases/latest) and run it.
 
+**On Linux and macOS (experimental):** the same page has `.AppImage`, `.deb`, `.rpm` and `.dmg`. The macOS package has not been tested on a real Mac yet and is not signed by Apple: see [docs/desktop.md](docs/desktop.md) and, if something does not work, [report it here](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new?template=macos.yml).
+
 The interface is currently in Portuguese.
 
 ## Support the project
 
-Hestia is open source and free, and it stays that way. Your support helps fund maintenance,
+Hestia is open source and free, and it stays that way. **Donations** help fund maintenance,
 new features (rendering, importers, schedules), documentation and user support.
 
 [![Sponsor on GitHub Sponsors](https://img.shields.io/badge/%E2%99%A5%20Sponsor%20on%20GitHub%20Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/engdennylsonsantos-cloud)
 
-Not able to give money? A star on the repository, bug reports in
-[Issues](https://github.com/engdennylsonsantos-cloud/Hestia/issues), sharing the project with
-colleagues and testing it on real projects all help a lot.
+## Get involved
+
+You do not need to write code to make Hestia better. Every bit of help counts:
+
+- **Test the program** on real projects and tell us what felt odd or did not work, in
+  [Issues](https://github.com/engdennylsonsantos-cloud/Hestia/issues/new/choose).
+  On a Mac? The macOS installer is experimental and needs testing.
+- **Share suggestions**: missing tools, workflows that could be simpler, comparisons with the
+  program you already use.
+- **Spread the word** with colleagues and star the repository.
+- **Want to contribute code?** See [CONTRIBUTING.md](CONTRIBUTING.md): every contribution is welcome.
 
 ## Technical docs and contributing
 
