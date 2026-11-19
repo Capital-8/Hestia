@@ -26,3 +26,8 @@ Vãos de contorno livre (arco pleno, abatido, ogival, círculo, empena, trapézi
 - `crates/geom-wasm/target` não deve ir para o repositório (o teste `contratoLixo` reclama).
 - Nova dependência herdada da `main`: `openskp` (em `packages/io`).
 - Documentos de estudo em `docs/estudo-esquadrias/` (00 a 38) podem ser movidos ou resumidos conforme a convenção do repositório.
+
+## Resultados finais (2026-11-19, árvore mesclada)
+- `npm run test:rapido`: 1500 arquivos passaram, 2 pulados; 17105 testes passaram, 48 pulados, 0 falhas [V].
+- `npm run test:wasm` (kernel da `main` com o `.wasm` novo): 78 arquivos e 1515 testes passaram, 5 pulados [V] (rodado antes das correções do app real e da folha de correr; os testes de furo com o wasm real foram rodados depois).
+- `crates/geom-wasm/target` removido ao final (o teste `contratoLixo` exige).
