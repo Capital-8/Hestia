@@ -32,6 +32,7 @@ import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallF
 import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
 import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
+import { resolverComParceiras } from './resolveParceiras.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -401,8 +402,8 @@ export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
 /** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  const d = despachanteDeNivel();
-  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
+  // Paredes de outros níveis que se sobrepõem em altura entram só para a junção (`resolveParceiras.ts`); a saída é só do nível dono.
+  return resolverComParceiras(p, levelId, opts.cutZ, (q) => despachanteDeNivel()?.(q, levelId, opts, () => resolveLevelTs(q, levelId, cache, opts)) ?? resolveLevelTs(q, levelId, cache, opts));
 }
 
 /** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */

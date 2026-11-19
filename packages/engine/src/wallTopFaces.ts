@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { coreSpan, type Id, type Project, type ProfilePoint } from '@hestia/model';
+import { coreSpan, wallsOnLevel, type Id, type Project, type ProfilePoint } from '@hestia/model';
 import { resolveAllFloors } from './floors.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { resolveAllSlabs } from './slabs.ts';
@@ -8,6 +8,7 @@ import { pointAt, sAtDepth, type WallFrame } from './frame.ts';
 import { computeEnds } from './joins.ts';
 import { endPoint } from './layerGeom.ts';
 import { levelFrames } from './resolve.ts';
+import { projetoComParceiras } from './resolveParceiras.ts';
 import { wallZRange } from './wallZ.ts';
 import { analyzeLevelTilt, type WallTiltJoin } from './wallTiltJoinLevel.ts';
 import { tiltPlanMap, type PlanMap } from './wallTiltPlan.ts';
@@ -93,7 +94,9 @@ function topEdge(f: WallFrame, ends: WallEnds, base: PlanMap, join: WallTiltJoin
  * em planta. A cota z vem de `wallZRange` (nível + offset ou height, topo anexado a piso/laje/telhado, `topProfile`).
  */
 export function wallTopFaces(p: Project, levelId: Id): WallTopFaces[] {
-  const frames = levelFrames(p, levelId);
+  // Parceiras de outros níveis entram só para as pontas (junção entre níveis); a saída é só das paredes do nível.
+  const frames = levelFrames(projetoComParceiras(p, levelId), levelId);
+  const donas = new Set(wallsOnLevel(p, levelId).map((w) => w.id));
   if (!frames.length) return [];
   const ends = computeEnds(frames, p.settings?.joinTolerance);
   // Pisos, lajes e telhados só entram quando alguma parede se anexa a eles: sem anexo `wallZRange` não os consulta, e
@@ -104,7 +107,7 @@ export function wallTopFaces(p: Project, levelId: Id): WallTopFaces[] {
   const roofs = frames.some((f) => f.wall.attachTopToRoof === true) ? resolveAllRoofs(p) : undefined;
   const zs = new Map(frames.map((f) => [f.wall.id, wallZRange(p, f.wall, floors, slabs, roofs)] as const));
   const joins = frames.some((f) => f.wall.tilt) ? analyzeLevelTilt(frames, new Map([...zs].map(([id, z]) => [id, z.height] as const)), p.settings?.joinTolerance).joins : undefined;
-  return frames.map((f) => {
+  return frames.filter((f) => donas.has(f.wall.id)).map((f) => {
     const e = ends.get(f.wall.id)!;
     const z = zs.get(f.wall.id)!;
     const tilt = f.wall.tilt ?? 0;
