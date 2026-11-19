@@ -35,8 +35,12 @@ const SEM_FAMILIA = ['AreaPlanProperties.tsx', 'GridProperties.tsx', 'PlacementP
 /**
  * Exceções EXPLÍCITAS, com TODO: painel de família fora do padrão. Quando passar a usar o cabeçalho padrão, o teste
  * "exceção obsoleta" pede para tirá-lo desta lista.
+ *
+ * - ComponentProperties: móvel paramétrico da Biblioteca (família de componentes). O tipo é escolhido num seletor próprio
+ *   (SeletorEstavel, que não fecha a lista a cada atualização), não no TypeSelector das famílias de sistema.
+ *   TODO: migrar para o cabeçalho padrão quando o editor de famílias deixar de ser experimental.
  */
-const EXCECOES_TODO: string[] = [];
+const EXCECOES_TODO: string[] = ['ComponentProperties.tsx'];
 
 describe('contrato: painéis de propriedades de família usam o cabeçalho de tipo da parede', () => {
   for (const arq of COM_FAMILIA) {
