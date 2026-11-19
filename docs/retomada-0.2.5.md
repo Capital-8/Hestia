@@ -185,3 +185,5 @@ Conclusão: as 16 falhas da suíte ampla são de carga (timeouts e limites de te
 
 ## Decisão adicional do dono (18/11/2026): editor de famílias
 O **Editor de famílias fica ATIVO (experimental) na release**, como está no branch de móveis (aviso "Experimental", Meus modelos com exportar e importar). Melhorias do editor ficam para versões futuras (abas Inserir/Modificar/Vista/Gerenciar, mover peças com o mouse, textos em todos os idiomas).
+- **Esquema do arquivo em 30** (decisão do dono, ficha esquema 29 → 30): móveis da Biblioteca, móveis importados e tipo de terreno ficam declarados na versão 30; a migração 29 → 30 só avança a versão, e um programa antigo recusa o arquivo 30. `facePaints` entra com a sua mescla.
+- Commit `f32c8544` (`feat(esquema)`): testes atualizados e novo `packages/model/src/esquema30.test.ts`; nota da release (versão 30) atualizada.
