@@ -114,3 +114,20 @@ describe('regressão: parede de baixo anexada à laje × parede de cima que só 
     expect(w.baseZ + w.height).toBeCloseTo(3, 6);
   });
 });
+
+describe('tolerância de junção na sobreposição vertical (2 cm)', () => {
+  const com = (altura: number): Project => {
+    const base = createEmptyProject();
+    const s = new ProjectStore({ ...base, levels: base.levels.map((l) => (l.id === 'lv_1' ? { ...l, elevation: 3 } : l)) });
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'A', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, height: altura }) });
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'B', typeId: 'wt_alv14', levelId: 'lv_1', a: { x: 4, y: 0 }, b: { x: 4, y: 3 }, height: 2.8 }) });
+    return s.project;
+  };
+  it('A de 0 a 3,01 e B começando em 3,0 (1 cm): encosto, não une', () => {
+    expect(paredesParceiras(com(3.01), 'lv_1').map((w) => w.id)).toEqual([]);
+    expect(paredesParceiras(com(3.01), 'lv_0').map((w) => w.id)).toEqual([]);
+  });
+  it('A de 0 a 3,10 e B começando em 3,0 (10 cm): une', () => {
+    expect(paredesParceiras(com(3.1), 'lv_1').map((w) => w.id)).toEqual(['A']);
+  });
+});

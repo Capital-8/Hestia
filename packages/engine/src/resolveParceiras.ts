@@ -1,3 +1,4 @@
+import { DEFAULT_JOIN_TOL } from './joins.ts';
 import { zRealDe } from './wallFrameZ.ts';
 import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wallType, wallsCrossingCut, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 
@@ -10,6 +11,7 @@ import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wall
  * Parceira com anexo (`attachBottomToFloor`, `attachTopToFloor`, `attachTopToRoof`): a faixa REAL vem de `wallZRange`
  * (`zRealDe`); entra promovida SEM anexos (base e altura já resolvidas), porque o anexo depende do nível dono. Em resolução
  * reentrante (pisos, lajes, telhados) a parceira com anexo fica de fora: sem ciclo.
+ * Sobreposição vertical real menor ou igual à tolerância de junção do projeto (2 cm) conta como encosto e NÃO une.
  * A seleção é um superset barato; quem decide a junção de fato é `computeEnds`, com a cota real (`withWallZ`).
  */
 const EPS = 1e-9;
@@ -57,7 +59,9 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
       todas.x0 = Math.min(todas.x0, d.x0); todas.y0 = Math.min(todas.y0, d.y0); todas.z0 = Math.min(todas.z0, d.z0);
       todas.x1 = Math.max(todas.x1, d.x1); todas.y1 = Math.max(todas.y1, d.y1); todas.z1 = Math.max(todas.z1, d.z1);
     }
-    const encosta = (c: Caixa, d: Caixa): boolean => c.x0 <= d.x1 && d.x0 <= c.x1 && c.y0 <= d.y1 && d.y0 <= c.y1 && c.z0 < d.z1 - EPS && d.z0 < c.z1 - EPS;
+    // `tz`: sobreposição vertical mínima. Peneiras usam EPS; a decisão final usa a tolerância de junção (≤ 2 cm é encosto, não une).
+    const encosta = (c: Caixa, d: Caixa, tz = EPS): boolean => c.x0 <= d.x1 && d.x0 <= c.x1 && c.y0 <= d.y1 && d.y0 <= c.y1 && c.z0 < d.z1 - tz && d.z0 < c.z1 - tz;
+    const tolZ = p.settings?.joinTolerance ?? DEFAULT_JOIN_TOL;
     const candidatas: Wall[] = [];
     for (const w of Object.values(p.elements)) {
       if (w.kind !== 'wall' || w.levelId === levelId) continue;
@@ -77,13 +81,13 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
     for (const w of candidatas) {
       if (!comAnexo(w)) {
         // Sem anexo a faixa é a nominal; ainda assim a dona com anexo decide pela faixa REAL (topo 3,0 só encosta na base 3,0).
-        if (caixasReais.some((d) => encosta(caixaDe(p, w, faixaZ(p, w)), d))) out.push(w);
+        if (caixasReais.some((d) => encosta(caixaDe(p, w, faixaZ(p, w)), d, tolZ))) out.push(w);
         continue;
       }
       const r = reais?.get(w.id);
       if (!r) { reentrante = true; continue; }
       const z: [number, number] = [r.z0, r.z0 + r.height];
-      if (caixasReais.some((d) => encosta(caixaDe(p, w, z), d))) {
+      if (caixasReais.some((d) => encosta(caixaDe(p, w, z), d, tolZ))) {
         zResolvido.set(w, { z0: r.z0, height: r.height });
         out.push(w);
       }
