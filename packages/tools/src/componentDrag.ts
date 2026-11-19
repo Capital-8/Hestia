@@ -67,7 +67,7 @@ export class ArrastoComponentes {
   }
 
   /** Move o líder pelo deslocamento do ponteiro e devolve as poses finais de todos os membros. */
-  mover(deslocamento: Vec2, semEncaixe: boolean): ResultadoArrastoComponentes {
+  mover(deslocamento: Vec2, semEncaixe: boolean, encaixeVizinho = true): ResultadoArrastoComponentes {
     const inicialDoLider = this.iniciais.get(this.lider)!;
     const desejada: Pose = {
       ...inicialDoLider,
@@ -77,7 +77,7 @@ export class ArrastoComponentes {
     const { outros, faces } = this.entorno();
     const resultado = posarArrastado(
       { alvo: { id: this.lider, pose: desejada, caixa: this.caixa }, outros, faces },
-      { semEncaixe },
+      { semEncaixe, encaixeVizinho },
     );
     const poses = posarGrupoRigido({ lider: this.lider, iniciais: this.iniciais, poseFinalDoLider: resultado.pose }) as Map<Id, PoseNoPlano>;
     return {

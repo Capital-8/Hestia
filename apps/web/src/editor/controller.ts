@@ -15,6 +15,7 @@ import {
   migrateProject,
   serializeProject,
   newId,
+  isComponent,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
   type SectionAnnotations,
@@ -46,6 +47,8 @@ import { pedirConfirmacaoDegrauTelhado } from './roofStepPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
+import { opcoesDeEncaixeAtuais } from './encaixeComponente.ts';
+import { alternarModoGizmo, tabTrocaModoGizmo } from './modoGizmo.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -288,6 +291,7 @@ export class Editor {
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
     // Gravidade (G1): a cota do terreno proposto vem do serviço do kernel; sem botão ligado, null.
     cotaDoTerreno: (x, y) => (useUi.getState().gravidade ? servicoTerreno().cotaDoTerreno(this.store.project, [{ x, y }], 1)?.[0]?.z ?? null : null),
+    opcoesEncaixe: (alt) => opcoesDeEncaixeAtuais(alt),
     viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
@@ -848,6 +852,12 @@ export class Editor {
       // atalhos normais de ferramenta/anotação; antes o `key3d` engolia ME/DI/TX/AL.
       if (k === 'Delete' || k === 'Backspace') return key3d(k, ui.selection, () => this.deleteSelection());
     }
+    // Tab na 3D com um componente selecionado (Selecionar, foco fora de campo/botão): alterna o gizmo Mover/Redimensionar.
+    if (tabTrocaModoGizmo({
+      key: k, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey, view: ui.view, ferramenta: this.tool.id,
+      umComponente: ui.selection.length === 1 && isComponent(this.store.project.elements[ui.selection[0]!]),
+      dialogoAberto: ui.dialog !== null, alvoTag: (e.target as HTMLElement | null)?.tagName, alvoEditavel: (e.target as HTMLElement | null)?.isContentEditable === true,
+    })) { alternarModoGizmo(); return true; }
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());

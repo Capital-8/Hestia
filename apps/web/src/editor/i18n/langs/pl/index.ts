@@ -29,6 +29,7 @@ import { PL_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { PL_TERRENO } from '../../areas/terreno.ts';
 import { PL_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { PL_GRAVIDADE } from '../../areas/gravidade.ts';
+import { PL_GIZMO_MODOS } from '../../areas/gizmo-modos.ts';
 import { PL_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { PL_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { PL_LOTE_UI } from '../../areas/lote-ui.ts';
@@ -50,6 +51,7 @@ export const PL_ALL = {
   ...PL_TERRENO,
   ...PL_TERRENO_VISTA,
   ...PL_GRAVIDADE,
+  ...PL_GIZMO_MODOS,
   ...PL_TERRENO_TABELA,
   ...PL_LOTE_TABELA,
   ...PL_LOTE_UI,

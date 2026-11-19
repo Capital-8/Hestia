@@ -5,6 +5,7 @@ import { componentesDoGrupo, isComponent, levelElevation, normalizarAngulo, type
 import { Arrasto3D, type ResultadoMover3D } from '../../editor/arrasto3d.ts';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { opcoesDeEncaixeAtuais } from '../../editor/encaixeComponente.ts';
 import { pontoNoPlanoHorizontal } from './planoHorizontal.ts';
 
 /** Arrasto de componente armado no `down` da vista 3D. */
@@ -118,8 +119,11 @@ export function moverArrasto3d(
   const ponto = pontoNoPlanoHorizontal(camera, ndc, estado.planoZ) ?? pontoNaParede;
   if (!ponto) return;
   const cameraPos = { x: camera.position.x, y: camera.position.y };
+  // O seletor de encaixe da interface decide o vizinho e o modo livre; `semEncaixe` aqui é só o Alt.
+  const enc = opcoesDeEncaixeAtuais(semEncaixe);
   const resultado = estado.arrasto.mover(ponto, {
-    semEncaixe,
+    semEncaixe: enc.semEncaixe,
+    encaixeVizinho: enc.encaixeVizinho,
     cameraPos,
     ...(pontoNaParede ? { pontoNaParede } : {}),
   });

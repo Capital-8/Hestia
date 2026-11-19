@@ -29,6 +29,7 @@ import { IT_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { IT_TERRENO } from '../../areas/terreno.ts';
 import { IT_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { IT_GRAVIDADE } from '../../areas/gravidade.ts';
+import { IT_GIZMO_MODOS } from '../../areas/gizmo-modos.ts';
 import { IT_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { IT_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { IT_LOTE_UI } from '../../areas/lote-ui.ts';
@@ -50,6 +51,7 @@ export const IT_ALL = {
   ...IT_TERRENO,
   ...IT_TERRENO_VISTA,
   ...IT_GRAVIDADE,
+  ...IT_GIZMO_MODOS,
   ...IT_TERRENO_TABELA,
   ...IT_LOTE_TABELA,
   ...IT_LOTE_UI,
