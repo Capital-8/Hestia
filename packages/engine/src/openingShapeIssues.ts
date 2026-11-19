@@ -1,7 +1,11 @@
 import { isOpening, isWall, openingHeight, openingShapeOf, openingShapeProblems, openingTypeById, outline, type Project, type ValidationIssue } from '@hestia/model';
 import { t as tr, type Lang } from './i18nMessages.ts';
+import { clienteFuroContorno } from './furoContornoDespacho.ts';
 import { problemasDaEsquadria } from './openingShapeEsquadria.ts';
 import { excessoForaDoEnvelope } from './openingShapeEnvelope.ts';
+
+/** Parede curva atendida pelo contorno: cliente com `curva` e sem perfil de topo/base (docs/estudo-esquadrias/33 §4). */
+const curvaPorContorno = (w: { topProfile?: unknown; attachTopToRoof?: boolean; attachTopToFloor?: boolean }): boolean => clienteFuroContorno()?.curva === true && !w.topProfile && !w.attachTopToRoof && !w.attachTopToFloor;
 
 /** Anel anti-horário com alguma reentrância (curva para a direita)? */
 function concavo(r: ReadonlyArray<readonly [number, number]>): boolean {
@@ -16,7 +20,7 @@ function concavo(r: ReadonlyArray<readonly [number, number]>): boolean {
  * Avisos da forma do vão (docs/estudo-esquadrias/24, §3). Nenhum bloqueia: o vão com forma inválida, ou numa parede que o
  * caminho de contorno ainda não atende, continua recortado como retângulo.
  * - `forma-vao-invalida`: a forma efetiva do vão (tipo + altura da instância + folga do vão bruto) não passa em `validateOpeningShape`.
- * - `forma-vao-ignorada-na-parede`: forma válida em parede curva (`sag` ≠ 0) ou inclinada (`tilt` ≠ 0); o furo é retangular nelas.
+ * - `forma-vao-ignorada-na-parede`: forma válida em parede inclinada (`tilt` ≠ 0), ou curva (`sag` ≠ 0) sem cliente com `curva`; o furo é retangular nelas.
  * - `forma-esquadria-retangular`: a forma cabe no vão bruto mas a flecha não cabe na esquadria menor (docs/estudo-esquadrias/28 §7);
  *   as peças ficam retangulares e o furo na parede segue a forma.
  * - `forma-vao-poligono-concavo`: polígono livre côncavo (docs/estudo-esquadrias/32): o recuo concêntrico das peças pode ser recusado
@@ -43,7 +47,9 @@ export function openingShapeIssues(p: Project, lang: Lang = 'pt'): ValidationIss
       out.push({ severity: 'warning', code: 'forma-esquadria-retangular', message: tr(lang, 'egb_issue_opening_shape_frame', { id: o.id, problems: menor.join(', ') }), elementId: o.id });
     }
     const host = p.elements[o.hostId];
-    if (isWall(host) && (host.sag !== 0 || !!host.tilt)) {
+    // Parede curva: só avisa se o vão não vai por contorno (sem cliente com `curva`, ou com perfil de topo/base); inclinada sempre avisa.
+    const curvaRetangular = isWall(host) && host.sag !== 0 && !host.tilt && !curvaPorContorno(host);
+    if (isWall(host) && (!!host.tilt || curvaRetangular)) {
       out.push({ severity: 'warning', code: 'forma-vao-ignorada-na-parede', message: tr(lang, 'egb_issue_opening_shape_host', { id: o.id, wall: host.id }), elementId: o.id, ids: [o.id, host.id] });
     }
     const excesso = excessoForaDoEnvelope(p, o);

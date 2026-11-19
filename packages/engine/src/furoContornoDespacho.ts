@@ -63,6 +63,12 @@ export interface PedidoFuroPrisma {
   wallId: string;
   camadas: CamadaPrismaPedido[];
   vaos: readonly VaoComContorno[];
+  /**
+   * Parede curva (docs/estudo-esquadrias/33 §4): raio assinado do eixo `k * R` (`k = +1` com o centro à direita de a -> b). Os anéis
+   * de planta estão no referencial local da parede (origem em `a`, `u` = tangente em `a`), `x` dos vãos é o comprimento de eixo
+   * e cada vão é cortado em leque radial. Ausente = parede reta.
+   */
+  raio?: number;
 }
 
 /** Malha furada de um prisma (x = u, y = s, z relativo à base da parede). Índices locais ao prisma. */
@@ -100,6 +106,8 @@ export interface PedidoRetornoVao {
   semBase?: boolean;
   /** Polígonos de planta [u, s] onde o retorno pode existir (pegada menos as paredes vizinhas, em canto); ausente = sem recorte. */
   recorte?: Array<Array<Array<[number, number]>>>;
+  /** Parede curva: raio assinado do eixo; `x` é o comprimento de eixo, `y0`/`y1` a lateral s e a malha sai no referencial local. */
+  raio?: number;
 }
 
 /** Pedido de medição da parede furada (`furo_quant_parede`): placa `comprimento x altura` com os contornos dos vãos. */
@@ -137,6 +145,11 @@ export interface ClienteFuroContorno {
   quantificarParede?(pedido: PedidoQuantParede): ResultadoQuantParede | null;
   /** O cliente aceita prisma com topo inclinado (`CamadaPrismaPedido.topo`): parede com perfil superior pode ir por contorno. */
   topoInclinado?: boolean;
+  /**
+   * O cliente fura e faz o retorno em parede CURVA (`PedidoFuroPrisma.raio`, `PedidoRetornoVao.raio`): o vão com forma em parede
+   * de eixo em arco vai por contorno, cortado em leque radial. Sem ele fica retangular (motivo `parede-curva`).
+   */
+  curva?: boolean;
 }
 
 let cliente: ClienteFuroContorno | null = null;
@@ -206,7 +219,7 @@ export interface ParedeDoFuro {
 }
 
 /** Motivo de o vão com forma NÃO ir pelo contorno (para o aviso e a documentação). */
-export type MotivoRetangular = 'sem-forma' | 'sem-cliente' | 'parede-curva' | 'parede-inclinada' | 'parede-com-perfil' | 'cluster-inclinado';
+export type MotivoRetangular = 'sem-forma' | 'sem-cliente' | 'parede-curva' | 'parede-curva-com-perfil' | 'parede-inclinada' | 'parede-com-perfil' | 'cluster-inclinado';
 
 export interface RotaDoVao {
   via: 'retangular' | 'contorno';
@@ -214,17 +227,20 @@ export interface RotaDoVao {
 }
 
 /**
- * Decide o caminho do furo de UM vão. 'contorno' exige forma válida, cliente instalado e parede reta e vertical (parede curva
- * ou inclinada e topo em perfil ficam no caminho retangular até haver decisão, docs/estudo-esquadrias/22 §4.2).
+ * Decide o caminho do furo de UM vão. 'contorno' exige forma válida, cliente instalado e parede vertical, sem cluster inclinado; parede curva
+ * exige ainda `cliente.curva` e não aceita perfil (docs/estudo-esquadrias/33 §4); inclinada fica retangular (33 §3.2).
  */
 export function rotaDoVao(g: Pick<OpeningGeometry, 'forma' | 'curve'>, parede: ParedeDoFuro = {}): RotaDoVao {
   if (!g.forma) return { via: 'retangular', motivo: 'sem-forma' };
-  if (g.curve) return { via: 'retangular', motivo: 'parede-curva' };
   if (parede.tilt) return { via: 'retangular', motivo: 'parede-inclinada' };
   if (parede.clusterInclinado) return { via: 'retangular', motivo: 'cluster-inclinado' };
+  // Parede curva (docs/estudo-esquadrias/33 §4): o prisma é a planta em setor e o cortador é radial; o perfil de topo/base depende
+  // de t (comprimento de eixo), não de um plano em u, então fica retangular.
+  if (g.curve && parede.perfil) return { via: 'retangular', motivo: 'parede-curva-com-perfil' };
   // Perfil de topo/base: o prisma de planta é plano em z0 e z1, então só o cliente com topo inclinado (docs/estudo-esquadrias/33 §3) o atende.
   if (parede.perfil && !cliente?.topoInclinado) return { via: 'retangular', motivo: 'parede-com-perfil' };
   if (!cliente) return { via: 'retangular', motivo: 'sem-cliente' };
+  if (g.curve && !cliente.curva) return { via: 'retangular', motivo: 'parede-curva' };
   return { via: 'contorno' };
 }
 

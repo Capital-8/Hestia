@@ -1,5 +1,5 @@
 import { openingType, openingsOfWall, wallsOnLevel, openingShapeOf, outline, type Id, type Opening, type Project } from '@hestia/model';
-import { intersection, multiArea, type MultiPolygon } from '@hestia/geom';
+import { arcSample, intersection, multiArea, type MultiPolygon } from '@hestia/geom';
 import type { WallFrame } from './frame.ts';
 import type { WallZ } from './wallZ.ts';
 import { clienteFuroContorno, rotaDoVao } from './furoContornoDespacho.ts';
@@ -66,7 +66,9 @@ export function contornoDoGrupo(p: Project, group: readonly WallFrame[], opens: 
     const x0 = g.offset + Math.min(...xs), x1 = g.offset + Math.max(...xs);
     for (const r of retornos) {
       const pt = (x: number, y: number) => ({ x: f.a.x + f.u.x * x + f.n.x * y, y: f.a.y + f.u.y * x + f.n.y * y });
-      pegadas.push({ key: `${g.openingId}|${r.layerIndex}|${r.y0}`, openingId: g.openingId, layerIndex: r.layerIndex, y0: r.y0, wallId: g.hostId, piece: { poly: [[[pt(x0, r.y0), pt(x1, r.y0), pt(x1, r.y1), pt(x0, r.y1)]]] }, zlo: g.sill + Math.min(...zs), zhi: g.sill + Math.max(...zs) });
+      // Parede curva: a pegada é o setor (comprimento de eixo x lateral s), com as faces em arco.
+      const anel = f.arc ? [...arcSample(f.arc, x0, x1, r.y0, 0.005), ...arcSample(f.arc, x1, x0, r.y1, 0.005)] : [pt(x0, r.y0), pt(x1, r.y0), pt(x1, r.y1), pt(x0, r.y1)];
+      pegadas.push({ key: `${g.openingId}|${r.layerIndex}|${r.y0}`, openingId: g.openingId, layerIndex: r.layerIndex, y0: r.y0, wallId: g.hostId, piece: { poly: [[anel]] }, zlo: g.sill + Math.min(...zs), zhi: g.sill + Math.max(...zs) });
     }
   }
   return ids.size ? { ids, pegadas, furos, cutZ } : undefined;

@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- tabela de tradução (7 idiomas); a paridade é garantida pelo tipo. */
 /** Shard de dicionário: forma do vão no diálogo "Propriedades do tipo" (docs/estudo-esquadrias/34). Prefixos `dsh_` e `oc_shape`. */
 export const PT_DIALOGS_OPENING_SHAPE = {
   oc_shape: 'Forma do vão',

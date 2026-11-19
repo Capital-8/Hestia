@@ -11,7 +11,8 @@ const H = 260;
 /** Passo (m) das setas do teclado numa alça. */
 const KEY_STEP = 0.01;
 
-const path = (f: PreviewFrame, ring: readonly OPt[]): string => ring.map((p, i) => `${i === 0 ? 'M' : 'L'}${toPx(f, p).map((n) => n.toFixed(1)).join(' ')}`).join('') + 'Z';
+const px1 = (n: number): string => n.toFixed(1); // units-ok: pixels do SVG, não é medida do projeto
+const path = (f: PreviewFrame, ring: readonly OPt[]): string => ring.map((p, i) => `${i === 0 ? 'M' : 'L'}${toPx(f, p).map(px1).join(' ')}`).join('') + 'Z';
 
 /** Linha de cota: traço paralelo ao segmento, deslocado 14 px para o lado, com o texto no meio. */
 function Dim({ f, dim, text }: { f: PreviewFrame; dim: ShapeDim; text: string }): ReactElement {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_OPENING_TYPES, openingFamilyOf, openingName, openingShapeOf, openingShapeProblems, openingTypeCatalog, outline, type OpeningType } from './index.ts';
+import { DEFAULT_OPENING_TYPES, openingFamilyOf, openingShapeOf, openingShapeProblems, openingTypeCatalog, outline, type OpeningType } from './index.ts';
 import { catalogoFormas } from './catalogoFormas.ts';
+import { openingName } from './i18n.ts';
 
 const COM_FORMA = DEFAULT_OPENING_TYPES.filter((t) => t.shape);
 
@@ -42,7 +43,7 @@ describe('catálogo com forma de vão (docs/estudo-esquadrias/34)', () => {
   it('nomes traduzidos nos 7 idiomas, sem sobra de português', () => {
     for (const lang of ['en', 'es', 'de', 'fr', 'it', 'pl'] as const) {
       for (const t of catalogoFormas(lang)) {
-        expect(t.name, `${lang} ${t.id}`).not.toMatch(/\b(Porta|Janela|arco|empena|óculo)\b/);
+        expect(t.name, `${lang} ${t.id}`).not.toMatch(/\b(empena|óculo|abatido|ogival|pleno)\b/);
       }
     }
     expect(openingName('Janela circular (óculo) 80 x 80', 'en')).toBe('Round Window (Oculus) 80 x 80');

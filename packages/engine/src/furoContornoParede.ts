@@ -35,7 +35,7 @@ export function malhaParaMundo(rw: Pick<ResolvedWall, 'a' | 'u' | 'n' | 'baseZ'>
 }
 
 /** Faixas com os vãos recortados em retângulo (o furo de sempre, o da rota retangular): rede de segurança sem cliente que sirva. */
-function bandasRetangulares(bands: LayerBand[], gs: OpeningGeometry[]): LayerBand[] {
+export function bandasRetangulares(bands: LayerBand[], gs: OpeningGeometry[]): LayerBand[] {
   const out: LayerBand[] = [];
   for (const b of bands) {
     const zs = new Set([b.z0, b.z1]);
@@ -86,6 +86,16 @@ export interface CamadaFurada {
   areaFuroNaFace: number | null;
 }
 
+/**
+ * Raio assinado do eixo (`k * R`, `k = +1` com o centro à direita de a -> b) quando a parede é curva, senão `undefined`. Todos os
+ * vãos da parede têm o mesmo arco (`OpeningGeometry.curve`). O referencial local do Rust (origem em `a`, `u` = tangente em `a`) é
+ * o de `paraPlanta`/`malhaParaMundo`.
+ */
+export function raioDaParede(fc: readonly FuroContornoDaParede[]): number | undefined {
+  const arc = fc.find((f) => f.g.curve)?.g.curve?.arc;
+  return arc ? arc.k * arc.radius : undefined;
+}
+
 const LIMITE_PRISMAS = 32; // limite de camadas por chamada da ABI (doc 25 §4)
 
 /**
@@ -96,18 +106,20 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
   const fc = rw.furosContorno;
   if (!fc?.length) return null;
   const vaos = vaosDoContorno(fc);
+  const raio = raioDaParede(fc);
   const prismas = bands.filter((b) => b.poly.length > 0);
   let malhas: CamadaFurada['malhas'] = null;
   const topos = prismas.map((b) => topoDaFaixa(rw, b));
   // Faixa com topo inclinado só segue por contorno com o cliente que o aceita; sem ele (ou com plano fora do eixo), recua para retângulo.
-  if (prismas.length > 0 && topos.every((t) => t !== null) && (clienteFuroContorno()?.topoInclinado === true || topos.every((t) => t === undefined))) {
+  // Parede curva: o prisma não tem topo inclinado (o perfil já a deixa retangular na rota); faixa com `slope` recua para retângulo.
+  if (prismas.length > 0 && topos.every((t) => t !== null) && (clienteFuroContorno()?.topoInclinado === true || topos.every((t) => t === undefined)) && (raio === undefined || topos.every((t) => t === undefined))) {
     const feitas: NonNullable<CamadaFurada['malhas']> = [];
     for (let i = 0; i < prismas.length; i += LIMITE_PRISMAS) {
       const parte = prismas.slice(i, i + LIMITE_PRISMAS);
       const r = furarPrismaPorContorno({ wallId: rw.wallId, camadas: parte.map((b, k) => {
           const topo = topos[i + k];
           return { poligonos: paraPlanta(rw, b.poly), z0: b.z0, z1: b.z1, ...(topo ? { topo } : {}) };
-        }), vaos });
+        }), vaos, ...(raio !== undefined ? { raio } : {}) });
       if (!r || r.camadas.length !== parte.length) {
         feitas.length = 0;
         break;
@@ -124,7 +136,7 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
       const contorno = outline(f.g.forma);
       // Vão que toca o piso (peitoril 0): o retorno não reveste a soleira, como o do vão retangular (docs/estudo-esquadrias/33 §2.1).
       const semBase = f.g.sill + Math.min(...contorno.map((q) => q[1])) <= 1e-6;
-      const res = retornoPorContorno({ contorno, x: f.g.offset, soleira: f.g.sill, espessura: r.espessura, recuo: r.recuo, y0: r.y0, y1: r.y1, ...(semBase ? { semBase } : {}), ...(r.recorte ? { recorte: paraPlanta(rw, r.recorte) } : {}) });
+      const res = retornoPorContorno({ contorno, x: f.g.offset, soleira: f.g.sill, espessura: r.espessura, recuo: r.recuo, y0: r.y0, y1: r.y1, ...(semBase ? { semBase } : {}), ...(r.recorte ? { recorte: paraPlanta(rw, r.recorte) } : {}), ...(raio !== undefined ? { raio } : {}) });
       if (res) retornos.push(res);
     }
   }
@@ -132,7 +144,7 @@ export function camadaFurada(rw: ResolvedWall, l: ResolvedLayer, bands: LayerBan
   const removido = malhas ? malhas.reduce((s, m) => s + (m.malha.volumeSemFuro - m.malha.volume), 0) : 0;
   const volumeBruto = efetivas.reduce((s, b) => s + bandVolume(b), 0);
   const volume = volumeBruto - removido + retornos.reduce((s, r) => s + r.volume, 0);
-  return { bands: efetivas, malhas, retornos, removido, volume, volumeBruto, areaFuroNaFace: malhas ? areaFuroNaFaceDaParede(rw, vaos) : null };
+  return { bands: efetivas, malhas, retornos, removido, volume, volumeBruto, areaFuroNaFace: malhas && raio === undefined ? areaFuroNaFaceDaParede(rw, vaos) : null };
 }
 
 /**

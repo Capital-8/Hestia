@@ -54,6 +54,13 @@ function modoDoVao(g: OpeningGeometry, d: Vec2): 'corte' | 'elevacao' | null {
   return null;
 }
 
+/**
+ * Vãos de parede CURVA que o corte/elevação não atende por contorno (linha oblíqua ao eixo do vão no centro, docs/estudo-esquadrias/33
+ * §4): a vista os fura com o retângulo de sempre (`bandasRetangulares`), para a parede curva não aparecer maciça no vão.
+ */
+export const vaosCurvosSemContornoNaVista = (vaos: readonly VaoDeContorno[], linha: LinhaDeCorte): OpeningGeometry[] =>
+  vaos.filter((v) => v.g.curve && modoDoVao(v.g, linha.d) === null).map((v) => v.g);
+
 /** Posição do corte no eixo do vão (m, a partir do centro): é o `along` do perfil. */
 const cortePelaLinha = (g: OpeningGeometry, linha: LinhaDeCorte): number => (linha.a.x - g.center.x) * g.u.x + (linha.a.y - g.center.y) * g.u.y;
 

@@ -26,7 +26,8 @@ import { uniqueOrigins, type SectionPart } from './sectionParts.ts';
 import { cutPieces, cutRegions, type CutPiece } from './sectionCut.ts';
 import { membraneCutsOf, type SectionMembrane } from './sectionMembrane.ts';
 import { openingTiltGeom } from './openingTilt.ts';
-import { contornoDoOpeningNaSecao, faixasSemVazio, vazioDoVaoNaVista, vaosDeContornoDaParede, vaziosDoCorte, type SecaoSegmento } from './vaoContornoVistas.ts';
+import { contornoDoOpeningNaSecao, faixasSemVazio, vazioDoVaoNaVista, vaosCurvosSemContornoNaVista, vaosDeContornoDaParede, vaziosDoCorte, type SecaoSegmento } from './vaoContornoVistas.ts';
+import { bandasRetangulares } from './furoContornoParede.ts';
 import { tiltBandBeyond, tiltBandCut, tiltSectionMap } from './wallTiltSection.ts';
 
 export { lineIntervals, limpaAneis, sectionFrame, semFrestas, type SectionLine } from './sectionGeom.ts';
@@ -342,10 +343,12 @@ export function sectionLevelPart(p: Project, levelId: Id, line: SectionLine): Se
     // Vãos com contorno da parede (troca atômica, doc 29): o corte perpendicular abre o perfil; a face além do plano perde o vão.
     const vaosCont = vaosDeContornoDaParede(rw);
     const vaziosCorte = vaziosDoCorte(vaosCont, { a: line.a, d });
+    const curvosRet = vaosCurvosSemContornoNaVista(vaosCont, { a: line.a, d });
     for (const layer of rw.layers) {
       // Parede recortada pela junção (0023 §3, regra B): a faixa cortada entra só com as partes que sobram.
       // Faixas fundidas em prismas (bandFuse): sem contorno horizontal falso entre faixas da mesma região.
-      for (const band of fuseBands(wallLayerBandsAfterJunction(jl, rw, layer))) {
+      const bandasDaCamada = fuseBands(wallLayerBandsAfterJunction(jl, rw, layer));
+      for (const band of curvosRet.length > 0 ? fuseBands(bandasRetangulares(bandasDaCamada, curvosRet)) : bandasDaCamada) {
         const z0 = rw.baseZ + band.z0;
         const z1 = rw.baseZ + band.z1;
         // Parede inclinada (F2.6): a seção é o paralelogramo regrado; vertical sem junção inclinada segue o caminho abaixo.

@@ -46,6 +46,13 @@ export interface CamadaPrisma {
 export interface OpcoesFuroPrisma {
   /** Vão que sai do envelope das camadas: `true` remove só a parte que cabe; `false` (padrão da ABI antiga) recusa o pedido. */
   recortar?: boolean;
+  /**
+   * Parede curva (docs/estudo-esquadrias/33 §4): raio assinado do eixo, `k * R` com `k = +1` quando o centro fica à direita do
+   * percurso a -> b (`sag > 0`). A planta das camadas está no referencial local da parede (origem em `a`, `u` = tangente em
+   * `a`), o `x` dos vãos é o comprimento de eixo e o vão é cortado em leque radial. Exige `furo_prisma_furar_curvo`
+   * (`furoPrismaCurvoCarregado()`); não vale com `topo`.
+   */
+  raio?: number;
 }
 
 /** Malha de uma camada furada. `vertices` é x, y, z intercalados (x = u, y = s); `indices` são locais à camada. */
@@ -83,6 +90,25 @@ interface ExportsPrisma extends ExportsMemoriaFuro {
     ptrX: number,
     ptrSoleira: number,
   ): number;
+  furo_prisma_curvo_abi_versao?(): number;
+  furo_prisma_furar_curvo?(
+    nCamadas: number,
+    nPoligonos: number,
+    nAneis: number,
+    nPontosPlanta: number,
+    ptrPontosPlanta: number,
+    ptrAneis: number,
+    ptrPoligonos: number,
+    ptrCamadas: number,
+    ptrZ: number,
+    nVaos: number,
+    nPontos: number,
+    ptrPontos: number,
+    ptrVaos: number,
+    ptrX: number,
+    ptrSoleira: number,
+    raio: number,
+  ): number;
   furo_prisma_ext_abi_versao?(): number;
   furo_prisma_furar_ext?(
     nCamadas: number,
@@ -115,6 +141,9 @@ let atual: InstanciaPrisma | null = null;
 /** Versão do layout de `furo_prisma_furar_ext`. */
 export const VERSAO_ABI_PRISMA_EXT = 1;
 let extAtual = false;
+/** Versão do layout de `furo_prisma_furar_curvo`. */
+export const VERSAO_ABI_PRISMA_CURVO = 1;
+let curvoAtual = false;
 
 /**
  * Compila e instancia o wasm que contém `furo_prisma_*` (o módulo com `abi2_alocar`). Versão errada ou exportações ausentes:
@@ -143,7 +172,15 @@ export async function carregarFuroPrisma(bytes: ArrayBuffer | Uint8Array | WebAs
   } catch {
     extAtual = false;
   }
+  try {
+    curvoAtual = typeof exports.furo_prisma_furar_curvo === 'function' && exports.furo_prisma_curvo_abi_versao?.() === VERSAO_ABI_PRISMA_CURVO;
+  } catch {
+    curvoAtual = false;
+  }
 }
+
+/** O módulo carregado tem `furo_prisma_furar_curvo` (vão em parede curva, corte radial em leque). */
+export const furoPrismaCurvoCarregado = (): boolean => atual !== null && curvoAtual;
 
 /** O módulo carregado tem `furo_prisma_furar_ext` (topo inclinado e vão recortado pelo envelope). */
 export const furoPrismaExtCarregado = (): boolean => atual !== null && extAtual;
@@ -273,7 +310,10 @@ function lerResultado(inst: InstanciaPrisma, camadas: number): ResultadoPrismas 
  */
 export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly VaoContorno[], opcoes: OpcoesFuroPrisma = {}): ResultadoPrismas {
   const inst = instanciaCarregada();
-  const ext = camadas.some((c) => c.topo) || opcoes.recortar === true;
+  const curvo = opcoes.raio !== undefined;
+  if (curvo && !curvoAtual) throw new Error('furo de prisma: parede curva exige furo_prisma_furar_curvo (módulo sem ela)');
+  if (curvo && camadas.some((c) => c.topo)) throw new Error('furo de prisma: topo inclinado não vale em parede curva');
+  const ext = !curvo && (camadas.some((c) => c.topo) || opcoes.recortar === true);
   if (ext && !extAtual) throw new Error('furo de prisma: topo inclinado e vão recortado exigem furo_prisma_furar_ext (módulo sem ela)');
   const e = empacotar(camadas, vaos);
   const nCamadas = camadas.length;
@@ -311,7 +351,7 @@ export function furarPrismas(camadas: readonly CamadaPrisma[], vaos: readonly Va
       pX,
       pSoleira,
     ] as const;
-    codigo = ext ? inst.exports.furo_prisma_furar_ext!(...args, pTopo, opcoes.recortar ? 1 : 0) : inst.exports.furo_prisma_furar(...args);
+    codigo = curvo ? inst.exports.furo_prisma_furar_curvo!(...args, opcoes.raio!) : ext ? inst.exports.furo_prisma_furar_ext!(...args, pTopo, opcoes.recortar ? 1 : 0) : inst.exports.furo_prisma_furar(...args);
   } catch (err) {
     throw erroDeChamada(err);
   } finally {

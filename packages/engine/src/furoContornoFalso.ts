@@ -38,7 +38,7 @@ export interface ClienteFalso extends ClienteFuroContorno {
 }
 
 /** `prisma: false` / `retorno: false` omitem o método da porta (para provar o recuo retangular e a ausência de retorno). */
-export function clienteFuroContornoFalso(opts: { prisma?: boolean; retorno?: boolean } = {}): ClienteFalso {
+export function clienteFuroContornoFalso(opts: { prisma?: boolean; retorno?: boolean; curva?: boolean } = {}): ClienteFalso {
   const chamadas = { prisma: 0, retorno: 0 };
   const furarPrisma = (pedido: PedidoFuroPrisma): ResultadoFuroPrisma => {
     chamadas.prisma++;
@@ -48,10 +48,15 @@ export function clienteFuroContornoFalso(opts: { prisma?: boolean; retorno?: boo
       const u0 = Math.min(...pts.map((q) => q[0])), u1 = Math.max(...pts.map((q) => q[0]));
       const s0 = Math.min(...pts.map((q) => q[1])), s1 = Math.max(...pts.map((q) => q[1]));
       let removido = 0;
+      // Parede curva: leque radial; o removido é a área do contorno recortada em z x (rho_max² - rho_min²) / (2 |R|) (setor anular).
+      const raio = pedido.raio;
+      const rhos = raio === undefined ? [] : c.poligonos.flatMap((p) => p[0]!).map(([u, s]) => Math.hypot(u, s + raio));
+      const fatorCurvo = raio === undefined ? 1 : (Math.max(...rhos) ** 2 - Math.min(...rhos) ** 2) / (2 * Math.abs(raio)) / Math.max(1e-9, s1 - s0);
       for (const v of pedido.vaos) {
         let r: Pt[] = v.contorno.map(([x, z]): Pt => [x + v.x, z + v.soleira]);
-        r = corta(corta(corta(corta(r, 1, c.z0, true), 1, c.z1, false), 0, u0, true), 0, u1, false);
-        if (r.length >= 3) removido += areaDe(r) * (s1 - s0);
+        r = corta(corta(r, 1, c.z0, true), 1, c.z1, false);
+        if (raio === undefined) r = corta(corta(r, 0, u0, true), 0, u1, false);
+        if (r.length >= 3) removido += areaDe(r) * (s1 - s0) * fatorCurvo;
       }
       const m = caixa(u0, s0, c.z0, u1, s1, c.z1);
       return { z0: c.z0, z1: c.z1, ...m, volume: area * (c.z1 - c.z0) - removido, volumeSemFuro: area * (c.z1 - c.z0) };
@@ -67,6 +72,7 @@ export function clienteFuroContornoFalso(opts: { prisma?: boolean; retorno?: boo
   return {
     chamadas,
     furarParede: () => null,
+    ...(opts.curva ? { curva: true } : {}),
     ...(opts.prisma === false ? {} : { furarPrisma }),
     ...(opts.retorno === false ? {} : { retornoDoVao }),
   };

@@ -47,6 +47,11 @@ export interface EntradaRetornoContorno {
   modo?: 'contorno' | 'ombreiras' | 'contorno-sem-base';
   /** Polígonos de planta [u, s] em que o retorno pode existir (a pegada menos as paredes vizinhas); vazio ou ausente = sem recorte. */
   recorte?: ReadonlyArray<PoligonoPlanta>;
+  /**
+   * Parede curva (docs/estudo-esquadrias/33 §4): raio assinado do eixo (`k * R`). `x` é o comprimento de eixo, `y0`/`y1` a lateral s, o
+   * `recorte` está no referencial local (u, s) e a malha sai nele. Exige `furo_retorno_vao_curvo` (`furoRetornoCurvoCarregado()`).
+   */
+  raio?: number;
 }
 
 export interface ResultadoRetornoContorno {
@@ -94,6 +99,8 @@ interface ExportsQuant extends ExportsMemoriaFuro {
   furo_retorno_vao(nPontos: number, ptrPontos: number, x: number, soleira: number, espessura: number, espessuraAcabamento: number, recuo: number, y0: number, y1: number, modo: number): number;
   furo_retorno_ext_abi_versao?(): number;
   furo_retorno_vao_ext?(nPontos: number, ptrPontos: number, x: number, soleira: number, espessura: number, espessuraAcabamento: number, recuo: number, y0: number, y1: number, modo: number, nPoligonos: number, nAneis: number, nPontosRec: number, ptrPontosRec: number, ptrAneis: number, ptrPoligonos: number): number;
+  furo_retorno_curvo_abi_versao?(): number;
+  furo_retorno_vao_curvo?(nPontos: number, ptrPontos: number, x: number, soleira: number, espessura: number, espessuraAcabamento: number, recuo: number, y0: number, y1: number, modo: number, nPoligonos: number, nAneis: number, nPontosRec: number, ptrPontosRec: number, ptrAneis: number, ptrPoligonos: number, raio: number): number;
   furo_quant_parede(nVaos: number, nPontos: number, ptrPontos: number, ptrVaos: number, ptrX: number, ptrSoleira: number, nCamadas: number, ptrEspessuras: number, comprimento: number, altura: number): number;
 }
 
@@ -103,6 +110,9 @@ let atual: InstanciaQuant | null = null;
 /** Versão do layout de `furo_retorno_vao_ext`. */
 export const VERSAO_ABI_RETORNO_EXT = 1;
 let extAtual = false;
+/** Versão do layout de `furo_retorno_vao_curvo`. */
+export const VERSAO_ABI_RETORNO_CURVO = 1;
+let curvoAtual = false;
 
 /** Compila e instancia o wasm que contém `furo_quant_*`. Versão errada ou exportações ausentes: `ErroKernelGrave(VERSAO)`. */
 export async function carregarFuroQuant(bytes: ArrayBuffer | Uint8Array | WebAssembly.Module): Promise<void> {
@@ -127,7 +137,15 @@ export async function carregarFuroQuant(bytes: ArrayBuffer | Uint8Array | WebAss
   } catch {
     extAtual = false;
   }
+  try {
+    curvoAtual = typeof exports.furo_retorno_vao_curvo === 'function' && exports.furo_retorno_curvo_abi_versao?.() === VERSAO_ABI_RETORNO_CURVO;
+  } catch {
+    curvoAtual = false;
+  }
 }
+
+/** O módulo carregado tem `furo_retorno_vao_curvo` (retorno em parede curva). */
+export const furoRetornoCurvoCarregado = (): boolean => atual !== null && curvoAtual;
 
 /** O módulo carregado tem `furo_retorno_vao_ext` (retorno sem soleira e recortado em planta). */
 export const furoRetornoExtCarregado = (): boolean => atual !== null && extAtual;
@@ -192,8 +210,10 @@ export function retornoDoContorno(e: EntradaRetornoContorno): ResultadoRetornoCo
   const inst = instanciaCarregada();
   const pts = planos(e.contorno);
   const recorte = e.recorte ?? [];
-  if (e.modo === 'contorno-sem-base' || recorte.length > 0) {
-    if (!extAtual) throw new Error('retorno do vão: base livre e recorte exigem furo_retorno_vao_ext (módulo sem ela)');
+  const curvo = e.raio !== undefined;
+  if (curvo && !curvoAtual) throw new Error('retorno do vão: parede curva exige furo_retorno_vao_curvo (módulo sem ela)');
+  if (curvo || e.modo === 'contorno-sem-base' || recorte.length > 0) {
+    if (!curvo && !extAtual) throw new Error('retorno do vão: base livre e recorte exigem furo_retorno_vao_ext (módulo sem ela)');
     const pontosRec: number[] = [];
     const aneis: number[] = [0];
     const poligonos: number[] = [0];
@@ -210,8 +230,11 @@ export function retornoDoContorno(e: EntradaRetornoContorno): ResultadoRetornoCo
     const po = Uint32Array.from(poligonos);
     return executar(
       inst,
-      (r) => inst.exports.furo_retorno_vao_ext!(e.contorno.length, reservar(inst, pts, r), e.x, e.soleira, e.espessura, e.espessuraAcabamento ?? e.espessura, e.recuo ?? 0, e.y0, e.y1, modo, recorte.length, aneis.length - 1, pontosRec.length / 2, reservar(inst, pr, r), reservar(inst, ar, r), reservar(inst, po, r)),
-      () => lerRetorno(inst, 'furo_retorno_vao_ext'),
+      (r) => {
+        const args = [e.contorno.length, reservar(inst, pts, r), e.x, e.soleira, e.espessura, e.espessuraAcabamento ?? e.espessura, e.recuo ?? 0, e.y0, e.y1, modo, recorte.length, aneis.length - 1, pontosRec.length / 2, reservar(inst, pr, r), reservar(inst, ar, r), reservar(inst, po, r)] as const;
+        return curvo ? inst.exports.furo_retorno_vao_curvo!(...args, e.raio!) : inst.exports.furo_retorno_vao_ext!(...args);
+      },
+      () => lerRetorno(inst, curvo ? 'furo_retorno_vao_curvo' : 'furo_retorno_vao_ext'),
     );
   }
   return executar(
