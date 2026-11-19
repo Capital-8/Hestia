@@ -16,7 +16,7 @@ import {
   isFooting,
   isWallDimRef,
   projectGrids,
-  wallsOnLevel,
+  wallsOfPlan,
   type Beam,
   type Column,
   type Footing,
@@ -266,7 +266,7 @@ function beamAxisGaps(ctx: DimContext, b: Beam, f: SegFrame): TempDim[] {
       }
     }
     const planes: Array<{ id: Id; t: number }> = [];
-    for (const w of wallsOnLevel(p, b.levelId)) {
+    for (const w of wallsOfPlan(p, b.levelId)) {
       const wf = frameOfWall(p, w.id);
       if (!wf || wf.arc || Math.abs(dot(f.u, wf.u)) > 0.02) continue;
       const loc = toLocal(wf, f.origin);

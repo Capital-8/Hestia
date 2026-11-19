@@ -1,6 +1,6 @@
 import { dist, type Vec2 } from '@hestia/geom';
 import type { DimensionElementRef } from './dimensionContract.ts';
-import { openingsOfWall, openingType, wallsOnLevel } from './queries.ts';
+import { openingsOfWall, openingType, wallsOfPlan } from './queries.ts';
 import { coreSpan, wallThicknessOf } from './wallType.ts';
 import { beamPolygon, findBeamType } from './beam.ts';
 import { columnPolygon, findColumnType } from './column.ts';
@@ -286,7 +286,7 @@ export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { r
     const d = dist(c.point, point);
     if (d <= tol && d < bestD - 1e-9) { best = c; bestD = d; }
   };
-  for (const w of wallsOnLevel(p, levelId)) for (const c of dimRefCandidates(p, w)) consider(c);
+  for (const w of wallsOfPlan(p, levelId)) for (const c of dimRefCandidates(p, w)) consider(c);
   for (const el of Object.values(p.elements)) {
     if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
     for (const c of dimRefCandidates(p, el)) consider(c);
@@ -303,7 +303,7 @@ export function dimRefAt(p: Project, levelId: Id, point: Vec2, tol: number): { r
   const considerSeg = (seg: { ref: DimensionElementRef; point: Vec2; dist: number } | null): void => {
     if (seg && (!bestSeg || seg.dist < bestSeg.dist - 1e-9)) bestSeg = seg;
   };
-  for (const w of wallsOnLevel(p, levelId)) considerSeg(matchElementSegmentRef(p, w, point, tol));
+  for (const w of wallsOfPlan(p, levelId)) considerSeg(matchElementSegmentRef(p, w, point, tol));
   for (const el of Object.values(p.elements)) {
     if (isWall(el) || isOpening(el) || !('levelId' in el) || el.levelId !== levelId) continue;
     considerSeg(matchElementSegmentRef(p, el, point, tol));

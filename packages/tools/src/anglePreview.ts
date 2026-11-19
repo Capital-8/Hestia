@@ -11,7 +11,7 @@ import {
   planAnnotationsOf,
   projectGrids,
   unitsOf,
-  wallsOnLevel,
+  wallsOfPlan,
   type Id,
   type Project,
   type ResolvedUnits,
@@ -97,7 +97,7 @@ export function connectedLineAt(p: Project, levelId: Id, at: Vec2, mpp: number, 
   const tol = Math.max(0.02, 12 * mpp);
   const candidates: Array<{ line: DraftLine; tolerance: number }> = [];
   const addCandidate = (line: DraftLine, tolerance = tol): void => { candidates.push({ line, tolerance }); };
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     const frame = frameOfWall(p, w.id);
     if (!frame) continue;
     addCandidate(

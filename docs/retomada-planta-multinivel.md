@@ -1,0 +1,9 @@
+# Parede multinível: ferramentas da planta (integracao/a-planta)
+- Feito: a parede de outro nível que cruza o corte do nível ativo (`wallsOfPlan`/`projetoDaPlanta`) agora vale em snap (`infer`, `alignFeatures`, `anglePreview`, `stairPickLines`, `openingSnapPoints`), cotas (`dimRefAt`, `endRefAt`, provedores estruturais), posicionamento de porta/janela (`hostUnder`, `perpendicularNeighbors`), seleção de face/perímetro de esboço, DXF (aberturas) e etiquetas de planta (parede e abertura).
+- `projetoDaPlanta` foi movido de render para `packages/model/src/projetoDaPlanta.ts` (tools não importa render); `render/plan/paredesCruzando.ts` só reexporta.
+- Abertura não tem `levelId`: ela pertence à parede hospedeira (`hostId`). Ao colocar sobre parede de outro nível, a abertura segue o nível dono da parede em 3D e quantitativos, sem duplicar; nada a mudar no comando.
+- `clearJoinResidue` (model): ponta de parede de outro nível conta como parceira se as faixas nominais (base..topo) se sobrepõem de forma estrita; encostar topo com base não conta.
+- Fora (continuam vendo só o nível dono): ferramenta de junção, painel Propriedades, ambientes, engine, wallTiltActions, wallFollow, roofGeom, quantitativos; parede com `attachBottomToFloor`/`attachTopToRoof` segue excluída.
+- Testes: `packages/tools/src/paredeMultinivel.test.ts` e bloco novo em `packages/model/src/wallJoinResidue.test.ts` (valores literais).
+- Conferir na tela (N1 com parede 0..9 m, N2 ativo): ao desenhar parede/cota/escada no N2 o cursor captura ponto médio, pontas e faces da parede do N1; porta/janela sobre ela entra e aparece no N1; com topo em 3,0 nada disso aparece.
+- Conferir também: mover no N2 uma parede unida à do N1 mantém a esquadria; afastar zera; etiquetas de tipo e de abertura aparecem no N2; DXF do N2 traz as janelas dessa parede.

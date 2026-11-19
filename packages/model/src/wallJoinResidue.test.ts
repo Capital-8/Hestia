@@ -55,3 +55,31 @@ describe('resíduo de junção ao mover pontas', () => {
     expect(w(s, 'A').joinEnd).toEqual(MITER);
   });
 });
+
+describe('resíduo de junção entre níveis', () => {
+  /** W1 (lv_0, z 0 até `h1`) de (0,0) a (5,0); W2 (lv_1 em z 3, altura 3: faixa 3..6) de (5,0) a (5,5); esquadria nas duas pontas em (5,0). */
+  function entreNiveis(h1: number, baseOffset2 = 0): ProjectStore {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'W1', typeId: 'wt_alv14', levelId: 'lv_0', a: { x: 0, y: 0 }, b: { x: 5, y: 0 }, height: h1 }) });
+    s.exec({ type: 'addWall', wall: makeWall({ id: 'W2', typeId: 'wt_alv14', levelId: 'lv_1', a: { x: 5, y: 0 }, b: { x: 5, y: 5 }, height: 3, baseOffset: baseOffset2 }) });
+    s.exec({ type: 'setJoin', ends: [{ wallId: 'W1', end: 'b' }, { wallId: 'W2', end: 'a' }], config: MITER });
+    return s;
+  }
+
+  it('faixas 3..6 (W2) e 0..9 (W1) se sobrepõem: mover 0,05 mantém a junção; mover 1 m zera', () => {
+    const s = entreNiveis(9);
+    expect(w(s, 'W2').joinStart).toEqual(MITER);
+    s.exec({ type: 'setWallEnds', id: 'W2', a: { x: 5, y: 0.05 } });
+    expect(w(s, 'W2').joinStart).toEqual(MITER);
+    expect(w(s, 'W1').joinEnd).toEqual(MITER);
+    s.exec({ type: 'setWallEnds', id: 'W2', a: { x: 5, y: 1 } });
+    expect(w(s, 'W2').joinStart).toEqual(BUTT);
+    expect(w(s, 'W1').joinEnd).toEqual(BUTT);
+  });
+
+  it('faixas 6..9 (W2) e 0..3 (W1) não se sobrepõem: mesmo perto, a junção zera', () => {
+    const s = entreNiveis(3, 3);
+    s.exec({ type: 'setWallEnds', id: 'W2', a: { x: 5, y: 0.05 } });
+    expect(w(s, 'W2').joinStart).toEqual(BUTT);
+  });
+});

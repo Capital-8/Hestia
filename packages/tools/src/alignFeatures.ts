@@ -5,7 +5,7 @@ import { t as translate, type Lang } from './i18n.ts';
 import {
   areaPlanOf, beamsOnLevel, columnsOnLevel, coreSpan, footingsOnLevel, isBeam, isCeiling, isColumn, isFloor, isFooting,
   isGuardaCorpo, isRoof, isSlab, levelRoomSeparators, openingsOfWall, openingType, planAnnotationsOf, projectGrids,
-  wallsOnLevel, type Id, type Project, type StairCurve,
+  wallsOfPlan, type Id, type Project, type StairCurve,
 } from '@hestia/model';
 import type { EdgeRef } from './ringEdge.ts';
 import { componentCurvesOf, type ComponentPartKey } from './componentEdge.ts';
@@ -484,7 +484,7 @@ export function footingFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, 
 export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
   const prefer = q.prefer ?? 'faces';
   const out: AlignFeature[] = [];
-  for (const w of wallsOnLevel(q.project, q.levelId)) {
+  for (const w of wallsOfPlan(q.project, q.levelId)) {
     if (q.hidden?.has(w.id)) continue;
     const frame = frameOfWall(q.project, w.id);
     if (!frame) continue;
