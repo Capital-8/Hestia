@@ -75,6 +75,9 @@ function buildDoorFrame(c: Ctx): void {
   addPart(c, 'head', 'head', 'frame', box(-c.hw, c.hw, body.s0, body.s1, c.H - c.J, c.H), { profile: headProfile(c) });
 }
 
+/** Saliência (m) das aletas da folha de veneziana além de cada face da folha. */
+const LOUVER_PROUD = 0.012;
+
 /** Almofadas, aletas ou grelhas sobre a folha (detalhe do estilo). */
 function addLeafDetails(
   c: Ctx,
@@ -124,7 +127,9 @@ function addLeafDetails(
       let z = z0 + 0.03;
       let k = 0;
       while (z + 0.035 <= z1 - 0.03) {
-        addPart(c, `leaf-${index}-louver-${k}`, 'leafPanel', 'leaf', box(t0i, t1i, sSpan.s0, sSpan.s1, z, z + 0.035), opts);
+        // As aletas saem da folha em cada face (como a almofada e a grelha): dentro da espessura da folha elas ficavam
+        // embutidas, com o mesmo material, e a veneziana aparecia como chapa lisa (docs/estudo-esquadrias/38).
+        addPart(c, `leaf-${index}-louver-${k}`, 'leafPanel', 'leaf', box(t0i, t1i, sSpan.s0 - LOUVER_PROUD, sSpan.s1 + LOUVER_PROUD, z, z + 0.035), opts);
         z += 0.055;
         k++;
       }
