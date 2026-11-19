@@ -26,7 +26,7 @@
  *   Em círculo e ferradura não há faixa retangular útil: as folhas sairiam do contorno nas duas pontas do curso. [G]
  * - G6 guilhotina: guias verticais paralelas; só contorno de lados verticais e retos (a folha de cima fica fixa sob o arco). [G]
  * - G7 dobrar (bifold): painéis em trilho superior reto e dobradiças verticais; arcos viram trecho fixo acima. [I]
- * - G8 sanfonada/camarão (PVC, doc 20 linha 243 "sem sanfonada", doc 04 linha 204 "termo ambíguo" [P]): tira de largura fixa,
+ * - G8 sanfonada/camarão (PVC, doc 20 linha 243 "folding (sem sanfonada)", doc 04 linha 204 "termo ambíguo" [P]): tira de largura fixa,
  *   recolhida contra uma ombreira em trilho superior reto; não acompanha curva nem telhado. [I]
  * - G9 portão de garagem (seccionado, basculante): painéis em trilhos laterais verticais e curso sob o teto; só vão retangular
  *   (portão arqueado do Lapin é só topo, doc 20 linha 153 [V]); arco vira cabeça fixa. [I]
@@ -34,7 +34,7 @@
  *   curtas e o giro delas é limitado. [I]
  *
  * O que o motor faz com `adaptado`: nada diferente do que fazia (a folha segue o contorno recuado; ver docs 28 e 37). Só `incompatível`
- * muda o modelo: aro + vidro fixos (`openingModel.ts`, `fixarEsquadria`).
+ * muda o modelo: aro + vidro fixos (`openingModel.ts`, `openingModelFixa.ts`).
  */
 import type { OpeningFamilyId } from './opening.ts';
 import { openingFamilyOf } from './opening.ts';

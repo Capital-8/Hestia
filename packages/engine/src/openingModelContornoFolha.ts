@@ -133,7 +133,6 @@ export interface AroDasFolhas {
 export function aroDasFolhas(parts: readonly OpeningPart[], shape: OpeningShape, hw: number, H: number, dRef: number, recortada: Recorte): AroDasFolhas {
   const troca = new Map<OpeningPart, OpeningPart[]>();
   const recuoDoVidro = new Map<number, number>();
-  if (process.env.DBG_SEMARO) return { troca, recuoDoVidro }; // DBG-TMP
   const folhas = new Map<string, Partial<Barras> & { glass?: OpeningPart }>();
   for (const p of parts) {
     if (p.profile) continue;
@@ -151,7 +150,11 @@ export function aroDasFolhas(parts: readonly OpeningPart[], shape: OpeningShape,
     const anel = aneloDaFolha(f as Barras, f.glass, shape, hw, H, dRef, recortada);
     if (!anel) continue;
     for (const [barra, novas] of anel) troca.set(barra, novas);
-    if (f.glass.leaf !== undefined) recuoDoVidro.set(f.glass.leaf, Math.max(0, H - f.glass.box.z1));
+    if (f.glass.leaf !== undefined) {
+      // recuo do contorno ao vidro; no círculo o recuo é paralelo e uniforme, então vale o maior do topo e do lado (como `recortada` faz com o vidro)
+      const topo = Math.max(0, H - f.glass.box.z1);
+      recuoDoVidro.set(f.glass.leaf, shape.kind === 'circle' ? Math.max(topo, hw - Math.max(Math.abs(f.glass.box.t0), Math.abs(f.glass.box.t1))) : topo);
+    }
   }
   return { troca, recuoDoVidro };
 }

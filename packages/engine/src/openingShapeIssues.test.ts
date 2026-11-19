@@ -42,6 +42,36 @@ describe('openingShapeIssues', () => {
   });
 });
 
+describe('forma-incompatível-com-operação (matriz shapeCompat, docs/estudo-esquadrias/39)', () => {
+  const correr = { plan: 'sliding', leaves: 2, width: 1.6, height: 2.1 };
+  it('porta de correr em círculo: aviso com o nome da operação e da forma; em arco pleno (adaptado) e porta de giro em arco (ok), nenhum', () => {
+    const p = projeto({ kind: 'circle', width: 1.6, height: 2.1 }, {}, correr);
+    const av = openingShapeIssues(p, 'pt').filter((i) => i.code === 'forma-incompatível-com-operação');
+    expect(av).toHaveLength(1);
+    expect(av[0]).toMatchObject({ severity: 'warning', elementId: 'o1' });
+    expect(av[0]!.message).toContain('o1');
+    expect(av[0]!.message).toContain('círculo');
+    expect(av[0]!.message).toContain('FIXA');
+    const codes = (q: Project): string[] => openingShapeIssues(q).map((i) => i.code);
+    expect(codes(projeto({ kind: 'round', width: 1.6, height: 2.1 }, {}, correr))).not.toContain('forma-incompatível-com-operação');
+    expect(codes(projeto({ kind: 'round', width: 1, height: 1 }))).not.toContain('forma-incompatível-com-operação');
+    expect(codes(projeto(undefined, {}, correr))).toEqual([]);
+  });
+
+  it('a mensagem existe nos 7 idiomas, com o id e sem chave crua', () => {
+    const p = projeto({ kind: 'circle', width: 1.6, height: 2.1 }, {}, correr);
+    const vistas = new Set<string>();
+    for (const lang of ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const) {
+      const m = openingShapeIssues(p, lang).find((i) => i.code === 'forma-incompatível-com-operação')!.message;
+      expect(m, lang).toContain('o1');
+      expect(m, lang).not.toContain('egb_issue');
+      expect(m, lang).not.toContain('{');
+      vistas.add(m);
+    }
+    expect(vistas.size).toBeGreaterThanOrEqual(2); // pt e en distintos (os demais idiomas vêm do dicionário do aplicativo)
+  });
+});
+
 describe('forma na geometria do vão e no despacho', () => {
   it('vão retangular: OpeningGeometry sem `forma` (números de hoje)', () => {
     expect('forma' in geom(projeto(undefined))).toBe(false);

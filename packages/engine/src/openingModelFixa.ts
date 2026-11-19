@@ -17,7 +17,6 @@ import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 
 /** A operação do tipo é incompatível com a forma gravada (na medida da esquadria)? */
 export function esquadriaIncompativel(t: OpeningType | undefined, g: OpeningGeometry): boolean {
-  if (process.env.DBG_SEMARO) return false; // DBG-TMP
   if (!t || g.leaves === 0 || !g.forma || g.forma.kind === 'rect') return false;
   return formaDaEsquadria(g.forma, g.width, g.height) !== null && shapeIncompatible(t, g.forma);
 }

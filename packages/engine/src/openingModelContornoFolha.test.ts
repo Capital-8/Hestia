@@ -106,11 +106,15 @@ describe('caixilho contínuo da folha: anel em volta do vidro', () => {
       const g = vidro(m);
       const shape = formaDaEsquadria(forma, m.width, m.height)!;
       const hw = m.width / 2;
-      const tmin = Math.min(...bs.map((q) => q.box.t0));
-      const tmax = Math.max(...bs.map((q) => q.box.t1));
-      const z0 = Math.min(...bs.map((q) => q.box.z0));
-      const z1 = Math.max(...bs.map((q) => q.box.z1));
-      const regiao = outlineInset(shape, { side: hw - Math.max(Math.abs(tmin), Math.abs(tmax)), arc: m.height - z1, base: 0 });
+      const ret = barras(cena(t).m); // as quatro barras retas, antes do recorte: a caixa da folha
+      const tmin = Math.min(...ret.map((q) => q.box.t0));
+      const tmax = Math.max(...ret.map((q) => q.box.t1));
+      const z0 = Math.min(...ret.map((q) => q.box.z0));
+      const z1 = Math.max(...ret.map((q) => q.box.z1));
+      // a mesma regra de `recortada` para a caixa da folha: recuo de arco = folga do topo; lateral = o menor dos dois (círculo: o maior)
+      const sO = hw - Math.max(Math.abs(tmin), Math.abs(tmax));
+      const aO = m.height - z1;
+      const regiao = outlineInset(shape, { side: shape.kind === 'circle' ? Math.max(sO, aO) : Math.min(sO, aO), arc: aO, base: 0 });
       const externo = clipRect(regiao, tmin, tmax, z0, z1);
       const interno = pts(g);
       const folha = bs.map(pts);
@@ -135,6 +139,9 @@ describe('caixilho contínuo da folha: anel em volta do vidro', () => {
         }
       }
       expect(zona, 'o anel existe').toBeGreaterThan(200);
+      // área do anel = área entre os dois contornos (sem lacuna nem sobreposição entre as quatro peças)
+      const soma = folha.reduce((a, r) => a + area(r), 0);
+      expect(Math.abs(soma / (area(externo) - area(interno)) - 1), `${soma} x ${area(externo) - area(interno)}`).toBeLessThan(1e-4);
       expect(furo / zona, `lacuna no anel: ${furo} de ${zona} amostras`).toBeLessThan(0.002);
       expect(sobre, 'o aro não invade o vidro').toBeLessThanOrEqual(zona * 0.002);
       // tudo dentro do contorno da esquadria
@@ -150,7 +157,8 @@ describe('caixilho contínuo da folha: anel em volta do vidro', () => {
       if (shapeIncompatible(t, forma)) continue;
       const { m } = cena(t, forma);
       const bs = barras(m);
-      const lw = Math.max(0.025, 0.6 * (m.parts.find((q) => q.id === 'jamb-right' || q.role === 'jamb')!.box.t1 - m.parts.find((q) => q.id === 'jamb-right' || q.role === 'jamb')!.box.t0));
+      const esq = bs.find((q) => q.id.endsWith('-left'))!;
+      const lw = esq.box.t1 - esq.box.t0;
       const anel = bs.reduce((s, q) => s + area(pts(q)), 0);
       const Pi = perimetro(pts(vidro(m)));
       const esperado = lw * (Pi + Math.PI * lw);
@@ -158,20 +166,6 @@ describe('caixilho contínuo da folha: anel em volta do vidro', () => {
       const prof = bs[0]!.box.s1 - bs[0]!.box.s0;
       const volume = bs.reduce((s, q) => s + partQuantity(q).volume, 0);
       expect(Math.abs(volume / (esperado * prof) - 1)).toBeLessThan(0.01);
-    }
-  });
-
-  it('o anel externo fecha: as quatro peças se tocam (nenhuma folga maior que a tolerância entre peças vizinhas)', () => {
-    const { m } = cena(quadrada('window_casement'), { kind: 'circle', width: 1, height: 1 });
-    const bs = barras(m).map(pts);
-    // para cada peça, cada ponta (vértice sobre a reta de corte) toca outra peça a menos de 1 mm
-    for (const [i, a] of bs.entries()) {
-      for (const p of a) {
-        const toca = bs.some((b, j) => j !== i && distBorda(b, p[0], p[1]) < 1e-3);
-        const naBorda = distBorda(pts(vidro(m)), p[0], p[1]) < 1e-3;
-        const externo = Math.hypot(p[0], p[1] - m.height / 2) > 0.45; // ponto do contorno de fora: só toca as vizinhas nas pontas de corte
-        if (!naBorda && !externo) expect(toca || naBorda, `ponta ${p}`).toBe(true);
-      }
     }
   });
 
@@ -194,7 +188,9 @@ describe('caixilho contínuo da folha: anel em volta do vidro', () => {
   it('folha retangular que cabe no contorno não muda (as quatro barras continuam caixas)', () => {
     const t = { ...quadrada('window_pivot'), height: 1.6 } as OpeningType;
     const { m } = cena(t, { kind: 'round', width: 1, height: 1.6 });
-    expect(barras(m).filter((q) => q.profile === undefined).length).toBeGreaterThanOrEqual(2); // montantes e base retos; só o topo acompanha o arco
+    const base = barras(m).find((q) => q.id === 'leaf-0-bottom')!;
+    expect(base.profile).toBeUndefined(); // a base reta cabe no contorno e continua a mesma caixa
+    expect(barras(m)).toHaveLength(4);
   });
 });
 
