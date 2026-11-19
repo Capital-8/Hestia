@@ -153,23 +153,24 @@ describe('furos, deslocamento, camadas e tipo ausente', () => {
   });
 });
 
-describe('regressão · contorno côncavo com degrau (projeto.hestia.json)', () => {
-  const PROJETO_BOUNDARY: Vec2[] = [
-    { x: 39.761789, y: -4.183495000000001 },
-    { x: 42.53260197712993, y: -4.183495000000001 },
-    { x: 42.53132687185676, y: 0.7989125494396734 },
-    { x: 35.05139942222562, y: -0.2496429330885962 },
-    { x: 35.02811805652255, y: -5.409608414581247 },
-    { x: 39.761789, y: -5.41087701554152 },
+describe('regressão · contorno côncavo com degrau (projeto fictício em L)', () => {
+  // L inventado, anti-horário; P0 (5,0) é o canto reentrante. Arestas e0 (P0-P1) e e4 (P4-P5) são empenas; as demais têm 30 %.
+  const L_BOUNDARY: Vec2[] = [
+    { x: 5, y: 0 },
+    { x: 9, y: 0 },
+    { x: 9, y: 5 },
+    { x: 0, y: 5 },
+    { x: 0, y: -1.5 },
+    { x: 5, y: -1.5 },
   ];
-  const PROJETO_SLOPES: Array<number | null> = [null, 30, 30, 30, null, 30];
+  const L_SLOPES: Array<number | null> = [null, 30, 30, 30, null, 30];
 
-  it('gera 4 águas limpas sem filetes nem buracos, área total = contorno e degrau dz ~ 0,831 m', () => {
+  it('gera 4 águas limpas sem filetes nem buracos, área total = contorno e degrau dz = 1,2 m', () => {
     const r = one({
       shape: 'edges',
-      boundary: PROJETO_BOUNDARY,
-      edgeSlopes: PROJETO_SLOPES,
-      edgeOverhangs: PROJETO_BOUNDARY.map(() => 0.5),
+      boundary: L_BOUNDARY,
+      edgeSlopes: L_SLOPES,
+      edgeOverhangs: L_BOUNDARY.map(() => 0.5),
       heightOffset: 2.8,
     });
     expect(r.problem).toBeUndefined();
@@ -180,11 +181,13 @@ describe('regressão · contorno côncavo com degrau (projeto.hestia.json)', () 
         for (const ring of poly) expect(Math.abs(ringArea(ring))).toBeGreaterThan(1e-6);
       }
     }
+    // Área do contorno à mão: ala direita 4 x 5 = 20 mais ala esquerda 5 x 6,5 = 32,5: 52,5 m².
     const total = r.planes.reduce((s, pl) => s + multiArea(pl.polygon), 0);
-    expect(total).toBeCloseTo(Math.abs(ringArea(PROJETO_BOUNDARY)), 5);
+    expect(total).toBeCloseTo(52.5, 5);
     expect(r.steps).toBeDefined();
     expect(r.steps!.length).toBeGreaterThan(0);
-    expect(Math.max(...r.steps!.map((s) => s.dz))).toBeCloseTo(0.831, 2);
+    // Degrau: 0,30 x 4 m (largura da ala direita, de x = 5 a x = 9) = 1,2 m.
+    expect(Math.max(...r.steps!.map((s) => s.dz))).toBeCloseTo(1.2, 2);
     expect(r.stepGaps).toBeDefined();
     expect(r.stepGaps!.length).toBeGreaterThan(0);
   });

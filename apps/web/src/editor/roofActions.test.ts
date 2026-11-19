@@ -78,13 +78,14 @@ describe('avisos: "Ir para" de telhado (G2)', () => {
   });
 });
 
+/** L fictício (degrau de 0,30 x 4 = 1,2 m no canto reentrante em (5,0)). */
 const PROJETO_FOOTPRINT = [
-  { x: 39.261789, y: -3.683495 },
-  { x: 42.032474, y: -3.683495 },
-  { x: 42.031474, y: 0.223953 },
-  { x: 35.5494415, y: -0.684715 },
-  { x: 35.5303785, y: -4.909743000000001 },
-  { x: 39.261789, y: -4.910743 },
+  { x: 5, y: 0 },
+  { x: 9, y: 0 },
+  { x: 9, y: 5 },
+  { x: 0, y: 5 },
+  { x: 0, y: -1.5 },
+  { x: 5, y: -1.5 },
 ];
 const PROJETO_SLOPES: Array<number | null> = [null, 30, 30, 30, null, 30];
 
@@ -112,7 +113,7 @@ describe('confirmação de fechamento de degrau no telhado', () => {
   it('aceitar o fechamento grava closeStepGaps: true', async () => {
     const id = prepararTelhadoComDegrau();
     expect(useUi.getState().dialog).toBe('roofStep');
-    expect(pedidoDegrauTelhado()).toContain('0,83 m');
+    expect(pedidoDegrauTelhado()).toContain('1,20 m');
     expect(pedidoDegrauTelhado()).toContain('beiral e empena');
     responderDegrauTelhado(true);
     await Promise.resolve();
