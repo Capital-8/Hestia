@@ -1,5 +1,5 @@
 import type { Component, Id, Project } from '@hestia/model';
-import { levelElevation, totalThickness, wallType, wallsOnLevel } from '@hestia/model';
+import { levelElevation, wallThicknessOf, wallType, wallsOnLevel } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
 import type { CaixaLocal, Corpo, FaceDeParede } from './encaixeTipos.ts';
 
@@ -64,7 +64,7 @@ export function facesDasParedes(p: Project, levelId: Id): FaceDeParede[] {
     // Normal à esquerda do eixo a→b (lado livre da face esquerda).
     const nx = -dy / comprimento;
     const ny = dx / comprimento;
-    const meia = totalThickness(wallType(p, parede)) / 2;
+    const meia = wallThicknessOf(wallType(p, parede)) / 2;
     const esquerdaA = { x: parede.a.x + nx * meia, y: parede.a.y + ny * meia };
     const esquerdaB = { x: parede.b.x + nx * meia, y: parede.b.y + ny * meia };
     const direitaA = { x: parede.a.x - nx * meia, y: parede.a.y - ny * meia };
