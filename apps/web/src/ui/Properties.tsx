@@ -55,7 +55,7 @@ import { SectionViewProps, selectedView } from './SectionViewProps.tsx';
 import { LevelGraphicsGroup, SectionGraphicsGroup, View3DGroup } from './GraphicsProps.tsx';
 import { LevelField } from './LevelField.tsx';
 import { LevelProps } from './LevelProps.tsx';
-import { UnderlayRow } from './ViewOptionRows.tsx';
+import { OrigemEixosRow, UnderlayRow } from './ViewOptionRows.tsx';
 import { ProfileRow } from './ProfileRow.tsx';
 import { AlturaDaAbertura } from './OpeningHeightRows.tsx';
 import { FloorProperties } from './FloorProperties.tsx';
@@ -437,7 +437,7 @@ function ViewProps(): ReactElement {
           </select>
         </Row>
         <Row label={t('prc_fld_underlay')}><Check id="v-under" checked={s.showUnderlay} onChange={(v) => useUi.setState({ showUnderlay: v })} /></Row>
-        <UnderlayRow />
+        <UnderlayRow /><OrigemEixosRow />
         <Row label={t('prc_fld_roof_projection')}><Check id="v-roofproj" checked={s.showRoofProjection} onChange={(v) => setRoofProjection(v)} /></Row>
         <Row label={t('prc_fld_debug_joins')}><Check id="v-debugjoins" checked={p.settings.debugJoins} onChange={(v) => editor.store.exec({ type: 'setSettings', patch: { debugJoins: v } })} /></Row>
         <Row label={t('prc_fld_detail_level')} htmlFor="v-detail">

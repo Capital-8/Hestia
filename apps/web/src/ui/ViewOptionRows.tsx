@@ -2,7 +2,8 @@ import type { ReactElement } from 'react';
 import { useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
-import { Row } from './fields.tsx';
+import { safeSet } from '../editor/storage.ts';
+import { Check, Row } from './fields.tsx';
 
 /** Pavimento de referência do Subpavimento: o de baixo (automático) ou qualquer nível abaixo do atual. */
 export function UnderlayRow(): ReactElement {
@@ -23,6 +24,17 @@ export function UnderlayRow(): ReactElement {
         <option value="">{t('prd_opt_underlay_below_auto')}</option>
         {abaixo.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
       </select>
+    </Row>
+  );
+}
+
+/** Eixos X, Y e Z da origem na planta e no 3D: preferência da tela (guardada no navegador), ligada por padrão. */
+export function OrigemEixosRow(): ReactElement {
+  const { t } = useT();
+  const on = useUi((s) => s.showOrigemEixos);
+  return (
+    <Row label={t('prd_fld_origin_axes')}>
+      <Check id="v-origem-eixos" checked={on} onChange={(v) => { useUi.setState({ showOrigemEixos: v }); safeSet('hestia.origemEixos', v ? 'true' : 'false'); }} />
     </Row>
   );
 }

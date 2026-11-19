@@ -43,6 +43,7 @@ import { chavesDeCortina, chavesDeGuardaCorpo, chavesDeMassaCor, chavesDeMassaGe
 import { CacheDeMassas3d, contornoDaBase, massasDoNivel, montarLoteDeMassas, temMassa } from './massa3d.ts';
 import { geometriaDoLoteDeMassas, malhaDeMassas, materiaisDoLote, reservaDaBase } from './massaGrupo3d.ts';
 import { caixaDaSelecao } from './selecao3d.ts';
+import { EixosDaOrigem3d } from './eixosOrigem3d.ts';
 
 /** O mínimo do renderer que o gancho de quadro da cena lê (o three chama `scene.onBeforeRender` com o renderer real). */
 export interface RendererDeQuadro {
@@ -218,6 +219,8 @@ export class ModelScene {
   private pickLayer = new THREE.Object3D();
   /** Linhas de nível e rótulos: um grupo só, fora dos níveis (o picking lê `userData.levelId` de cada peça). */
   private niveis3d = new THREE.Group();
+  /** Eixos X/Y/Z da origem (só na tela de edição; fora do modelo, do picking e do enquadramento). Desligados por padrão. */
+  readonly eixosOrigem = new EixosDaOrigem3d();
   /** Grupo devolvido por `buildLevels` (o que `disposeLevels` libera); null quando a vista esconde os níveis. */
   private niveis: THREE.Group | null = null;
   /** Nível selecionado no 3D (o plano azul do datum); preservado quando o projeto é remontado. */
@@ -334,6 +337,7 @@ export class ModelScene {
     this.scene.add(this.pickLayer);
     this.niveis3d.userData = { levels: true };
     this.scene.add(this.niveis3d);
+    this.scene.add(this.eixosOrigem.group);
     this.scene.add(this.realces.camada);
     this.scene.add(this.realceCortina.camada);
     this.scene.add(this.realceSub.camada);
@@ -1226,6 +1230,7 @@ export class ModelScene {
   private antesDeDesenhar(renderer: RendererDeQuadro): void {
     this.layoutNiveis();
     this.atualizarNevoa();
+    this.eixosOrigem.atualizar(this.orbit.camera, renderer.getSize?.(this.tamanhoTela).y ?? 800);
     if (!this.frame.shadows) return;
     prepararSombraDoQuadro({
       renderer,
@@ -1681,5 +1686,6 @@ export class ModelScene {
     (this.ground.material as THREE.Material).dispose();
     this.grid.geometry.dispose();
     (this.grid.material as THREE.Material).dispose();
+    this.eixosOrigem.dispose();
   }
 }
