@@ -9,6 +9,9 @@ import { atalhoAtual } from './editor/shortcutConfig.ts';
 import { guardarSessao, lerSessao, limparSessao } from './editor/sessao.ts';
 import { tabOf } from './editor/viewTabActions.ts';
 import type { OpenView, PlanKind } from './editor/openViews.ts';
+import { useCollabIntegration } from './collab/useCollabIntegration.ts';
+import { parseCollabUrlParams } from './collab/tokens.ts';
+import { CollabPresenceOverlay } from './ui/collab/CollabPresenceOverlay.tsx';
 import { dockWidths } from './editor/dockLayout.ts';
 import { Dock } from './ui/Dock.tsx';
 import { FileMenu } from './ui/FileMenu.tsx';
@@ -293,6 +296,7 @@ function Palco(): ReactElement {
         <Tutorial />
         <div style={{ position: 'relative', minHeight: 0, flex: 1, display: 'grid' }}>
           {semVistas ? <EmptyViews /> : <PaneGrid />}
+          {!semVistas && <CollabPresenceOverlay />}
         </div>
       </div>
       {!semVistas && <ViewControlBar />}
@@ -345,13 +349,14 @@ export function App(): ReactElement {
   useEffect(() => { pluginHost().start(); }, []);
   // SUPLEMENTOS: carrega os suplementos habilitados depois da primeira pintura (cada um com try/catch; falha não impede abrir o app).
   useEffect(() => { startSupplements(); }, []);
+  useCollabIntegration(vista, nivelAtivo, sectionId);
 
   // Retomada: só existe sessão quando a página foi recarregada (F5). Abrir a aba ou o programa de novo cai na tela de
   // projetos, que é onde o usuário escolhe o que abrir.
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    const sessao = lerSessao();
+    const sessao = typeof window !== 'undefined' && parseCollabUrlParams(window.location.search) ? null : lerSessao();
     if (!sessao) {
       setRestaurando(false);
       return;

@@ -1422,5 +1422,109 @@
     "fr": "Modifier | Studio de face",
     "it": "Modifica | Studio faccia",
     "pl": "Modyfikuj | Studio powierzchni"
+  },
+  {
+    "pt": "Compartilhar link",
+    "es": "Compartir enlace",
+    "de": "Link teilen",
+    "fr": "Partager le lien",
+    "it": "Condividi link",
+    "pl": "Udostępnij link"
+  },
+  {
+    "pt": "Entrar na sessão",
+    "es": "Unirse a la sesión",
+    "de": "Sitzung beitreten",
+    "fr": "Rejoindre la session",
+    "it": "Partecipa alla sessione",
+    "pl": "Dołącz do sesji"
+  },
+  {
+    "pt": "Sincronizar",
+    "es": "Sincronizar",
+    "de": "Synchronisieren",
+    "fr": "Synchroniser",
+    "it": "Sincronizza",
+    "pl": "Synchronizuj"
+  },
+  {
+    "pt": "Histórico da sessão",
+    "es": "Historial de la sesión",
+    "de": "Sitzungsverlauf",
+    "fr": "Historique de la session",
+    "it": "Cronologia della sessione",
+    "pl": "Historia sesji"
+  },
+  {
+    "pt": "Abre o painel de colaboração em tempo real para hospedar ou gerenciar a sessão.",
+    "es": "Abre el panel de colaboración en tiempo real para hospedar o gestionar la sesión.",
+    "de": "Öffnet das Echtzeit-Zusammenarbeitsfenster zum Hosten oder Verwalten der Sitzung.",
+    "fr": "Ouvre le panneau de collaboration en temps réel pour héberger ou gérer la session.",
+    "it": "Apre il pannello di collaborazione in tempo reale per ospitare o gestire la sessione.",
+    "pl": "Otwiera panel współpracy w czasie rzeczywistym do hostowania lub zarządzania sesją."
+  },
+  {
+    "pt": "Gera e copia links de acesso para compartilhar o projeto com leitura ou edição.",
+    "es": "Genera y copia enlaces de acceso para compartir el proyecto con lectura o edición.",
+    "de": "Erstellt und kopiert Zugriffslinks zum Teilen des Projekts mit Lese- oder Bearbeitungsrechten.",
+    "fr": "Génère et copie des liens d’accès pour partager le projet en lecture ou en édition.",
+    "it": "Genera e copia link di accesso per condividere il progetto in lettura o modifica.",
+    "pl": "Generuje i kopiuje linki dostępu do udostępniania projektu z prawem odczytu lub edycji."
+  },
+  {
+    "pt": "Conecta-se a um projeto compartilhado usando um link de convite ou código.",
+    "es": "Se conecta a un proyecto compartido usando un enlace de invitación o código.",
+    "de": "Verbindet sich über einen Einladungslink oder Code mit einem geteilten Projekt.",
+    "fr": "Se connecte à un projet partagé à l’aide d’un lien d’invitation ou d’un code.",
+    "it": "Si connette a un progetto condiviso tramite un link di invito o un codice.",
+    "pl": "Łączy się z udostępnionym projektem za pomocą linku zaproszenia lub kodu."
+  },
+  {
+    "pt": "Solicita sincronização imediata com a sessão colaborativa ou abre a configuração.",
+    "es": "Solicita sincronización inmediata con la sesión colaborativa o abre la configuración.",
+    "de": "Fordert eine sofortige Synchronisierung mit der Sitzung an oder öffnet die Einrichtung.",
+    "fr": "Demande une synchronisation immédiate avec la session collaborative ou ouvre la configuration.",
+    "it": "Richiede la sincronizzazione immediata con la sessione collaborativa o apre la configurazione.",
+    "pl": "Żąda natychmiastowej synchronizacji z sesją współpracy lub otwiera konfigurację."
+  },
+  {
+    "pt": "Mostra o registro de alterações e participantes da sessão colaborativa.",
+    "es": "Muestra el registro de cambios y participantes de la sesión colaborativa.",
+    "de": "Zeigt das Änderungsprotokoll und die Teilnehmer der gemeinsamen Sitzung an.",
+    "fr": "Affiche le journal des modifications et les participants de la session collaborative.",
+    "it": "Mostra il registro delle modifiche e i partecipanti della sessione collaborativa.",
+    "pl": "Wyświetla dziennik zmian i uczestników sesji współpracy."
+  },
+  {
+    "pt": "Exibe os elementos reservados e bloqueios ativos na colaboração.",
+    "es": "Muestra los elementos reservados y bloqueos activos en la colaboración.",
+    "de": "Zeigt reservierte Elemente und aktive Sperren in der Zusammenarbeit an.",
+    "fr": "Affiche les éléments réservés et les verrous actifs dans la collaboration.",
+    "it": "Mostra gli elementi riservati e i blocchi attivi nella collaborazione.",
+    "pl": "Wyświetla zarezerwowane elementy i aktywne blokady współpracy."
+  },
+  {
+    "pt": "Participantes",
+    "es": "Participantes",
+    "de": "Teilnehmer",
+    "fr": "Participants",
+    "it": "Partecipanti",
+    "pl": "Uczestnicy"
+  },
+  {
+    "pt": "Exibe os participantes conectados e a fila de solicitações de entrada para aprovação.",
+    "es": "Muestra los participantes conectados y la cola de solicitudes de entrada para aprobación.",
+    "de": "Zeigt verbundene Teilnehmer und die Warteschlange der Beitrittsanfragen zur Genehmigung an.",
+    "fr": "Affiche les participants connectés et la file des demandes d’accès à approuver.",
+    "it": "Mostra i partecipanti connessi e la coda delle richieste di partecipazione da approvare.",
+    "pl": "Wyświetla połączonych uczestników oraz kolejkę próśb o dołączenie do zatwierdzenia."
+  },
+  {
+    "pt": "Recurso experimental desativado em Experimentais.",
+    "es": "Función experimental desactivada en Experimentales.",
+    "de": "Experimentelle Funktion unter Experimente deaktiviert.",
+    "fr": "Fonctionnalité expérimentale désactivée dans Expérimentaux.",
+    "it": "Funzionalità sperimentale disattivata in Sperimentali.",
+    "pl": "Funkcja eksperymentalna wyłączona w Eksperymentach."
   }
 ]

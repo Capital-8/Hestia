@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { DialogKind } from '../../editor/state.ts';
 import { BeamScheduleDialog } from './BeamScheduleDialog.tsx';
 import { BeamTypeDialog } from './BeamTypeDialog.tsx';
+import { CollabDialog } from './CollabDialog.tsx';
 import { ColumnScheduleDialog } from './ColumnScheduleDialog.tsx';
 import { ColumnTypeDialog } from './ColumnTypeDialog.tsx';
 import { NorthArrowFamiliesDialog, RevisionCloudFamiliesDialog, SpotFamiliesDialog, TextFamiliesDialog } from './ExtraAnnotationFamilyDialogs.tsx';
@@ -47,6 +48,8 @@ export function DialogoExtra({ kind, arg }: { kind: DialogKind; arg: string | nu
       return <BeamScheduleDialog />;
     case 'footingSchedule':
       return <FootingScheduleDialog />;
+    case 'collab':
+      return <CollabDialog />;
     default:
       return null;
   }
