@@ -54,3 +54,17 @@ describe('parede que atravessa níveis (N1 até o N3) na planta do N2', () => {
     expect(planViewOf(p, 'lv_2').geo.walls.W1).toBeUndefined();
   });
 });
+
+describe('subpavimento do N2 com a parede do N1 que cruza o corte', () => {
+  it('não repete a silhueta cinza de W1 (cluster só de paredes cruzantes) por baixo', async () => {
+    const { buildPlanDrawList } = await import('./build.ts');
+    const { resolveLevel } = await import('@hestia/engine');
+    const { LIGHT } = await import('./types.ts');
+    const p = cena();
+    const input = { project: p, levelId: 'lv_1', viewport: { cx: 2, cy: 2, zoom: 100, width: 800, height: 600 }, theme: LIGHT, resolved: resolveLevel(p, 'lv_1'), below: resolveLevel(p, 'lv_0'), selection: [], hover: null, preview: [], inference: null };
+    const out = buildPlanDrawList(input as never);
+    // Clusters do N1: W1, W3 e W4 isolados (3). W1 e W4 cruzam o corte do N2 e já saem cortadas: sobra só o de W3 (1 preenchimento).
+    const rings = out.fills.filter((f) => f.color === LIGHT.underlay && f.alpha === 0.22);
+    expect(rings.length).toBe(1);
+  });
+});
