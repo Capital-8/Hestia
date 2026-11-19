@@ -15,6 +15,7 @@ import { ot } from './catalogoAberturasBase.ts';
 import { catalogoJanelas } from './catalogoJanelas.ts';
 import { catalogoPortas } from './catalogoPortas.ts';
 import { catalogoComposicoes } from './catalogoComposicoes.ts';
+import { catalogoFormas } from './catalogoFormas.ts';
 import { LANGS, openingName, t, type Lang } from './i18n.ts';
 import { SCHEMA_VERSION, type Layer, type Material, type OpeningType, type Project, type WallType } from './types.ts';
 
@@ -187,7 +188,7 @@ function baseOpeningTypes(lang: Lang = 'pt'): OpeningType[] {
 
 /** Tipos de abertura do projeto novo (padrão + catálogos) no idioma pedido. */
 export function openingTypeCatalog(lang: Lang = 'pt'): OpeningType[] {
-  return [...baseOpeningTypes(lang), ...catalogoPortas(lang), ...catalogoJanelas(lang), ...catalogoComposicoes(lang)];
+  return [...baseOpeningTypes(lang), ...catalogoPortas(lang), ...catalogoJanelas(lang), ...catalogoComposicoes(lang), ...catalogoFormas(lang)];
 }
 
 /** Tipos de abertura em PT (compatibilidade); use `openingTypeCatalog(lang)` para o idioma ativo. */

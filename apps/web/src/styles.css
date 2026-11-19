@@ -575,6 +575,25 @@ svg { display: block; }
 .dialog.xl .op-frame > .op-frame-svg { flex: 1; min-height: 0; }
 .dialog.xl .op-frame figcaption { padding: 1px 4px; border-top: 1px solid var(--line); color: var(--fg-soft); font-size: 10.5px; line-height: 1.3; }
 .dialog.xl .op-frame-details { display: grid; grid-template-rows: 1fr 1fr; gap: 6px; min-height: 0; }
+/* Forma do vão (docs/estudo-esquadrias/34): prévia 2D com contorno, esquadria recuada, cotas e alças do polígono. */
+.op-shape-fig { margin: 4px 0 8px; }
+.op-shape-svg { width: 100%; max-width: 340px; height: auto; background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r); touch-action: none; }
+.op-shape-hole { fill: var(--accent-soft); stroke: none; }
+.op-shape-outline { fill: none; stroke: var(--fg); stroke-width: 1.6; stroke-linejoin: round; }
+.op-shape-frame { fill: none; stroke: var(--revit-green); stroke-width: 1; stroke-dasharray: 4 3; }
+.op-shape-inner { fill: var(--revit-green-soft); stroke: var(--revit-green); stroke-width: 1.2; stroke-linejoin: round; }
+.op-shape-dim line { stroke: var(--fg-faint); stroke-width: 0.8; }
+.op-shape-dim text { fill: var(--fg-soft); font: 10px var(--font-ui); }
+.op-shape-handle { fill: var(--panel); stroke: var(--accent); stroke-width: 1.6; cursor: grab; }
+.op-shape-handle:focus-visible, .op-shape-handle.on { fill: var(--accent); outline: none; }
+.op-shape-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 2px; color: var(--fg-soft); font-size: 11px; }
+.op-shape-key { display: inline-block; width: 12px; height: 8px; margin-right: 4px; border: 1px solid var(--fg); background: var(--accent-soft); }
+.op-shape-key.frame { border-color: var(--revit-green); background: var(--revit-green-soft); }
+.op-shape-issues { margin: 0 0 8px; padding-left: 16px; font-size: 12px; }
+.op-shape-points-head { display: flex; align-items: center; gap: 6px; }
+.op-shape-points-list { margin: 4px 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; }
+.op-shape-points-list li { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.op-shape-n { width: 20px; color: var(--fg-faint); font-size: 11px; text-align: right; }
 /* Miniaturas de escolha: legíveis e com o realce do tema na escolhida. */
 .dialog.xl .op-choices { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px 0; }
 .dialog.xl .op-choice { width: 60px; height: 46px; padding: 1px; overflow: hidden; border: 1px solid var(--line-strong); background: var(--sheet); }

@@ -42,7 +42,7 @@ export type ShapeNumberField = 'rise' | 'neck' | 'topWidth' | 'baseWidth';
 /** Grava um parâmetro numérico; `undefined` tira o campo opcional (só `baseWidth`). Ignora a forma que não o tem. */
 export function withShapeNumber(d: OpeningType, field: ShapeNumberField, value: number | undefined): OpeningType {
   const base = storedShape(d);
-  if (!base || !(field in base || field === 'baseWidth')) return d;
+  if (!base || !(field === 'baseWidth' ? base.kind === 'trapezoid' : field in base)) return d;
   const next: Record<string, unknown> = { ...base };
   if (value === undefined) delete next[field];
   else next[field] = arredondaMetros(value);

@@ -41,6 +41,7 @@ import { OpeningTypePreview, type PreviewTab } from './OpeningTypePreview.tsx';
 import { OpeningTypeSections } from './OpeningTypeSections.tsx';
 import { componentToShow, rememberComponent, type OpeningComponentId } from './components.ts';
 import { aberturasComTipo, copiaDoRascunho } from './duplicaTipo.ts';
+import { shapeIssues } from './openingTypeShape.ts';
 
 /** Oferta depois de duplicar: aplicar a cópia (`typeId`) às aberturas selecionadas que usavam o tipo antigo (`ids`). */
 interface Oferta {
@@ -130,11 +131,14 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
       return false;
     }
   };
+  /** Forma do vão inválida (validação ao vivo do painel "Forma do vão"): Aplicar, OK e duplicar ficam bloqueados. */
+  const formaInvalida = shapeIssues(d).length > 0;
   const apply = (): void => {
+    if (formaInvalida) return;
     run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')));
   };
   const ok = (): void => {
-    if (run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')))) close();
+    if (!formaInvalida && run(() => editor.store.exec({ type: 'upsertOpeningType', openingType: d }, t('dlo_cmd_edit')))) close();
   };
   /** Executa e mostra o erro do modelo no diálogo (ele continua aberto); devolve null quando recusa. */
   const tentar = <R,>(fn: () => R): R | null => {
@@ -155,6 +159,7 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
     setOferta(ids.length > 0 ? { ids, typeId: copia.id } : null);
   };
   const dup = (): void => {
+    if (formaInvalida) return;
     const copia = tentar(() => {
       const c = copiaDoRascunho(p, d, lang);
       editor.store.exec({ type: 'upsertOpeningType', openingType: c }, t('dlo_cmd_duplicate'));
@@ -209,8 +214,8 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
           <button className="btn" onClick={create}>{t('dlo_btn_new')}</button>
           <span style={{ flex: 1 }} />
           <button className="btn" onClick={close}>{t('stt_cancel')}</button>
-          <button className="btn" onClick={apply}>{t('stt_apply')}</button>
-          <button className="btn primary" onClick={ok}>{t('stt_ok')}</button>
+          <button className="btn" onClick={apply} disabled={formaInvalida} title={formaInvalida ? t('dsh_blocked') : undefined}>{t('stt_apply')}</button>
+          <button className="btn primary" onClick={ok} disabled={formaInvalida} title={formaInvalida ? t('dsh_blocked') : undefined}>{t('stt_ok')}</button>
         </>
       }
     >
@@ -244,6 +249,7 @@ export function OpeningTypeDialog({ typeId }: { typeId: string }): ReactElement 
           <div className="op-center">
             <OpeningTypeSections d={d} onChange={change} family={family} leaves={leaves} materials={p.materials} active={componentToShow(d.kind, family?.id ?? null, active)} onActive={setActive} />
             {err ? <p className="error" role="alert">{err}</p> : null}
+            {formaInvalida ? <p className="error" role="status" data-shape-blocked>{t('dsh_blocked')}</p> : null}
             {comAlturaPropria > 0 ? <p className="hint" style={{ padding: '0 0 8px' }}>{t('dlo_own_height_count', { n: comAlturaPropria })}</p> : null}
             {oferta && oferta.typeId === d.id ? (
               <div role="status" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', padding: '4px 0 8px' }}>

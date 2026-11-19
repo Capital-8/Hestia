@@ -41,9 +41,9 @@ function coberto(c: OpeningComposition, kind: 'door' | 'window'): void {
   }
 }
 
-describe('compositionOfType: os tipos do catálogo (154)', () => {
-  it('são 154 tipos', () => {
-    expect(DEFAULT_OPENING_TYPES.length).toBe(154);
+describe('compositionOfType: os tipos do catálogo (162)', () => {
+  it('são 162 tipos (154 antigos + 8 com forma de vão)', () => {
+    expect(DEFAULT_OPENING_TYPES.length).toBe(162);
   });
   it('cada um vira composição de UMA célula, válida, com vão igual ao do tipo atual e luzes que somam o vão', () => {
     for (const t of DEFAULT_OPENING_TYPES) {
@@ -148,7 +148,7 @@ describe('migração 19 → 20', () => {
     expect(m.schemaVersion).toBe(SCHEMA_VERSION);
     expect(SCHEMA_VERSION).toBe(28);
     const ids = Object.keys(m.openingTypes);
-    expect(ids.length).toBe(154);
+    expect(ids.length).toBe(162);
     for (const t of Object.values(m.openingTypes)) {
       expect(t.composition, t.id).toBeDefined();
       expect(t.composition).toEqual(compositionOfType({ ...t, composition: undefined }));

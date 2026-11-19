@@ -12,6 +12,7 @@ import { OuterPanel } from './panels/OuterPanel.tsx';
 import { OverviewPanel } from './panels/OverviewPanel.tsx';
 import type { PanelProps } from './panels/panelKit.tsx';
 import { PlanPanel } from './panels/PlanPanel.tsx';
+import { ShapePanel } from './panels/ShapePanel.tsx';
 import { SashesPanel } from './panels/SashesPanel.tsx';
 import { WallPanel } from './panels/WallPanel.tsx';
 
@@ -30,7 +31,7 @@ import { WallPanel } from './panels/WallPanel.tsx';
  *     `visible(kind, família)` deve derivar da tabela de suporte: painel sem nenhum campo aplicável não aparece.
  */
 
-export type OpeningComponentId = 'overview' | 'frame' | 'leaf' | 'sashes' | 'glazing' | 'outer' | 'inner' | 'wall' | 'plan' | 'data' | 'composition' | 'profile' | 'casing' | 'glass';
+export type OpeningComponentId = 'overview' | 'frame' | 'leaf' | 'sashes' | 'glazing' | 'outer' | 'inner' | 'wall' | 'plan' | 'data' | 'shape' | 'composition' | 'profile' | 'casing' | 'glass';
 
 export interface OpeningComponent {
   id: OpeningComponentId;
@@ -51,6 +52,7 @@ const variasFolhas = (family: OpeningFamilyId | null): boolean => (OPENING_FAMIL
 /** Os componentes na ordem do ArchiCAD (Door/Window Custom Settings). */
 export const OPENING_COMPONENTS: readonly OpeningComponent[] = [
   { id: 'overview', labelKey: 'oc_overview', icon: 'M3 20h18M5 20V6h14v14M8 20v-6h8v6M8 10h2m4 0h2', visible: sempre, Panel: OverviewPanel },
+  { id: 'shape', labelKey: 'oc_shape', icon: 'M4 20V10a8 8 0 0 1 16 0v10zM8 20v-8a4 4 0 0 1 8 0v8', visible: sempre, Panel: ShapePanel },
   ...COMPOSITION_COMPONENTS,
   { id: 'frame', labelKey: 'oc_frame', icon: 'M4 4h16v16H4zM8 8h8v12H8z', visible: (_k, f) => openingOptionSupport(f).frame, Panel: FramePanel },
   { id: 'leaf', labelKey: 'oc_leaf', icon: 'M7 3h10v18H7zM14 12h.01M7 3l-3 2v14l3 2', visible: (k, f) => k === 'door' && openingOptionSupport(f).leafThickness, Panel: LeafPanel },

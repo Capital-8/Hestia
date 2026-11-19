@@ -89,14 +89,15 @@ describe('catálogo brasileiro: validade e unicidade', () => {
 });
 
 describe('catálogo brasileiro: referência nominal', () => {
-  it('portas novas (exceto o portão de garagem) são cadastradas pela folha: nominalRef "leaf"', () => {
-    const portas = NOVOS.filter((t) => t.kind === 'door' && openingFamilyOf(t)?.id !== 'door_garage');
+  it('portas novas (exceto o portão de garagem e as com forma de vão) são cadastradas pela folha: nominalRef "leaf"', () => {
+    // Portas com forma de vão (catalogoFormas.ts) são medidas pelo vão: `openingShapeOf` dimensiona a forma por width x height do tipo.
+    const portas = NOVOS.filter((t) => t.kind === 'door' && openingFamilyOf(t)?.id !== 'door_garage' && !t.shape);
     expect(portas.length).toBeGreaterThan(40);
     for (const t of portas) expect(t.nominalRef, t.id).toBe('leaf');
   });
 
-  it('portão de garagem e janelas novas são medidas pelo vão (sem nominalRef)', () => {
-    const vaos = NOVOS.filter((t) => t.kind === 'window' || openingFamilyOf(t)?.id === 'door_garage');
+  it('portão de garagem, janelas novas e portas com forma de vão são medidas pelo vão (sem nominalRef)', () => {
+    const vaos = NOVOS.filter((t) => t.kind === 'window' || openingFamilyOf(t)?.id === 'door_garage' || t.shape);
     expect(vaos.length).toBeGreaterThan(40);
     for (const t of vaos) expect(t.nominalRef, t.id).toBeUndefined();
   });

@@ -18,20 +18,20 @@ const ids = (kind: 'door' | 'window', family: OpeningFamilyId): OpeningComponent
 
 describe('registro de componentes: visibilidade por tipo e família', () => {
   it('portas: giro, dupla, correr e vão livre', () => {
-    expect(ids('door', 'door_swing')).toEqual(['overview', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
-    expect(ids('door', 'door_double')).toEqual(['overview', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
-    expect(ids('door', 'door_sliding')).toEqual(['overview', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
+    expect(ids('door', 'door_swing')).toEqual(['overview', 'shape', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
+    expect(ids('door', 'door_double')).toEqual(['overview', 'shape', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
+    expect(ids('door', 'door_sliding')).toEqual(['overview', 'shape', 'composition', 'frame', 'leaf', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data']);
     // Vão livre: sem batente nem folha.
-    expect(ids('door', 'door_void')).toEqual(['overview', 'composition', 'casing', 'outer', 'inner', 'wall', 'plan', 'data']);
+    expect(ids('door', 'door_void')).toEqual(['overview', 'shape', 'composition', 'casing', 'outer', 'inner', 'wall', 'plan', 'data']);
   });
 
   it('janelas: abrir, correr, maxim-ar, fixa e vão livre', () => {
-    const base = ['overview', 'composition', 'frame', 'sashes', 'glazing', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data'];
+    const base = ['overview', 'shape', 'composition', 'frame', 'sashes', 'glazing', 'profile', 'casing', 'glass', 'outer', 'inner', 'wall', 'plan', 'data'];
     expect(ids('window', 'window_hinged')).toEqual(base);
     expect(ids('window', 'window_sliding')).toEqual(base);
     expect(ids('window', 'window_casement')).toEqual(base);
     expect(ids('window', 'window_fixed')).toEqual(base);
-    expect(ids('window', 'window_void')).toEqual(['overview', 'composition', 'casing', 'outer', 'inner', 'wall', 'plan', 'data']);
+    expect(ids('window', 'window_void')).toEqual(['overview', 'shape', 'composition', 'casing', 'outer', 'inner', 'wall', 'plan', 'data']);
   });
 
   it('componentes de porta nunca aparecem em janela e vice-versa', () => {

@@ -224,6 +224,15 @@ const familia = (id: string): string => {
       ['ot_jcomb_madeira_150x120', 'window_hinged'],
       ['ot_jcomb_pvc_150x120', 'window_hinged'],
       ['ot_jalta_madeira_80x210', 'window_hinged'],
+      // Tipos com forma de vão (catalogoFormas.ts).
+      ['ot_parcop_90x210', 'door_swing'],
+      ['ot_parcoab_90x210', 'door_swing'],
+      ['ot_pogival_90x210', 'door_swing'],
+      ['ot_jarcop_120x150', 'window_fixed'],
+      ['ot_jarcoab_120x150', 'window_hinged'],
+      ['ot_jogival_80x150', 'window_fixed'],
+      ['ot_joculo_80x80', 'window_fixed'],
+      ['ot_jempena_100x100', 'window_fixed'],
     ]);
   }
   return expectedFamily.get(id)!;
@@ -318,9 +327,9 @@ const areaComum = (a: PartBox, b: PartBox): number =>
   Math.max(0, Math.min(a.t1, b.t1) - Math.max(a.t0, b.t0)) * Math.max(0, Math.min(a.s1, b.s1) - Math.max(a.s0, b.s0));
 
 describe('catálogo completo: padrões do tipo', () => {
-  it('são 154 tipos, cada um na família esperada e sem problema de tipo', () => {
-    expect(DEFAULT_OPENING_TYPES).toHaveLength(154);
-    expect(new Set(DEFAULT_OPENING_TYPES.map((t) => t.id)).size).toBe(154);
+  it('são 162 tipos, cada um na família esperada e sem problema de tipo', () => {
+    expect(DEFAULT_OPENING_TYPES).toHaveLength(162); // 154 antigos + 8 com forma de vão (catalogoFormas.ts)
+    expect(new Set(DEFAULT_OPENING_TYPES.map((t) => t.id)).size).toBe(162);
     for (const t of DEFAULT_OPENING_TYPES) {
       expect(openingFamilyOf(t)?.id, t.id).toBe(familia(t.id));
       expect(openingTypeIssue(t), t.id).toBeNull();
