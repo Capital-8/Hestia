@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import { estadoKernel, medicaoOperacoes } from '@hestia/geom';
-import { iniciarDespachoKernel } from '@hestia/engine';
+import { clienteFuroContorno, diagnosticoFuroDoWorker, diagnosticoFuroReal, iniciarDespachoKernel } from '@hestia/engine';
 import './styles.css';
 import './ribbon.css';
 import './appshell.css';
@@ -24,6 +24,13 @@ createRoot(document.getElementById('root')!).render(<App />);
 // fatia ligada (só DEV), nada é instalado nem baixado.
 const despacho = configDoDespacho();
 if (despacho.fatiaA || despacho.fatiaB) void iniciarDespachoKernel(despacho);
+
+// Diagnóstico discreto do furo por contorno (docs/estudo-esquadrias/36): o cliente real está instalado NESTA thread? Só leitura.
+(window as unknown as { __hestiaFuro: unknown }).__hestiaFuro = {
+  clienteInstalado: () => clienteFuroContorno() !== null,
+  diagnostico: diagnosticoFuroReal,
+  worker: diagnosticoFuroDoWorker,
+};
 
 // Ganchos de depuração para testes no navegador (?debug=1). `resolveSlabs` e `resolveFloors` deixam o e2e medir o furo da
 // escada na laje e a área de cada camada de piso (decisão 0025); `junctionLevel` e `cutLevelByJunction` deixam o e2e

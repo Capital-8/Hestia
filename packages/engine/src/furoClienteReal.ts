@@ -157,7 +157,7 @@ export async function instalarClienteFuroReal(bytes: ArrayBuffer | Uint8Array | 
     const nomes = exportacoes(modulo);
     const prisma = nomes.has('furo_prisma_furar') && nomes.has('furo_prisma_abi_versao');
     const retorno = nomes.has('furo_retorno_vao') && nomes.has('furo_quant_abi_versao');
-    if (!prisma) return { ...vazio, motivo: 'o módulo não exporta furo_prisma_furar (furo retangular mantido)' };
+    if (!prisma) return recusou({ ...vazio, motivo: 'o módulo não exporta furo_prisma_furar (furo retangular mantido)' });
     const carregar = async (): Promise<void> => {
       await carregarFuroPrisma(modulo);
       if (retorno) await carregarFuroQuant(modulo);
@@ -168,6 +168,12 @@ export async function instalarClienteFuroReal(bytes: ArrayBuffer | Uint8Array | 
     definirClienteFuroContorno(clienteFuroContornoReal({ reinstanciar: carregar }));
     return { instalado: true, prisma, retorno };
   } catch (e) {
-    return { ...vazio, motivo: e instanceof Error ? e.message : String(e) };
+    return recusou({ ...vazio, motivo: e instanceof Error ? e.message : String(e) });
   }
+}
+
+/** Falha de instalação fica no diagnóstico do furo (docs/estudo-esquadrias/36): sem isso o app seguia em retângulo sem dizer por quê. */
+function recusou(r: ResultadoInstalacao): ResultadoInstalacao {
+  diag.ultimoErro = `instalação: ${r.motivo ?? 'recusada'}`;
+  return r;
 }

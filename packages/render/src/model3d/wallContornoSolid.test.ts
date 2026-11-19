@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall, type Opening, type OpeningShape, type Project } from '@hestia/model';
-import { clienteFuroContornoFalso, definirClienteFuroContorno, resolveLevel } from '@hestia/engine';
+import { clienteFuroContorno, clienteFuroContornoFalso, definirClienteFuroContorno, resolveLevel } from '@hestia/engine';
 import { buildLevelSolids, clearWallLayerCache } from './solids.ts';
+import { buildLevelSolidsComCaixas } from './paredesInstanciadas3d.ts';
 
 /** Parede de 4 m x 3 m com um vão livre (offset 2), com forma ou sem ela. */
 function projeto(forma: boolean): Project {
@@ -61,5 +62,25 @@ describe('3D da parede com vão por contorno', () => {
     definirClienteFuroContorno(clienteFuroContornoFalso({ prisma: false, retorno: false })); // recuo retangular
     const b = buildLevelSolids(resolveLevel(p, 'lv_0')).batches.find((x) => x.materialId === 'mat_bloco14')!;
     expect(Math.abs(volume(a))).toBeGreaterThan(Math.abs(volume(b)));
+  });
+
+  // Causa raiz do "parede não é recortada" no app real (docs/estudo-esquadrias/36): o vão por contorno não corta as faixas, então a camada
+  // parece uma caixa cheia e o caminho das paredes instanciadas (o do 3D do app) a desenhava como caixa, SEM o furo.
+  it('paredes instanciadas: a camada com vão por contorno não vira caixa cheia (o furo do cliente entra)', () => {
+    const p = projeto(true);
+    definirClienteFuroContorno(clienteFuroContornoFalso({ retorno: false }));
+    expect(clienteFuroContorno()).not.toBeNull();
+    const r = buildLevelSolidsComCaixas(resolveLevel(p, 'lv_0'), undefined, false);
+    expect(r.caixas).toHaveLength(0);
+    expect(r.batches.find((x) => x.materialId === 'mat_bloco14')?.indices.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('paredes instanciadas: vão retangular com cliente instalado segue em caixas, idêntico ao de antes', () => {
+    const antes = buildLevelSolidsComCaixas(resolveLevel(projeto(false), 'lv_0'), undefined, false);
+    clearWallLayerCache();
+    definirClienteFuroContorno(clienteFuroContornoFalso({ retorno: false }));
+    const depois = buildLevelSolidsComCaixas(resolveLevel(projeto(false), 'lv_0'), undefined, false);
+    expect(antes.caixas.length).toBeGreaterThan(0);
+    expect(JSON.stringify(depois.caixas)).toBe(JSON.stringify(antes.caixas));
   });
 });

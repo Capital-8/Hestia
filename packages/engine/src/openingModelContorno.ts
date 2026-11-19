@@ -15,6 +15,7 @@ import { muntinsDecorativos, type MuntinPadrao } from './openingModelMuntinsCont
 import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 import { poligonal } from './openingModelContornoPoligono.ts';
 import { ferraduraNoPescoco } from './openingModelContornoFerradura.ts';
+import { acomodaAoContorno } from './openingModelContornoAjuste.ts';
 
 /*
  * Peças da esquadria em vão com forma (docs/estudo-esquadrias/28). Pós-processo do modelo único: o modelo retangular de
@@ -33,6 +34,8 @@ import { ferraduraNoPescoco } from './openingModelContornoFerradura.ts';
  */
 
 const EPS = 1e-9;
+/** Recuo mínimo do arco nos recursos de `recortada` (1 mm: a peça fica por dentro das cordas do contorno amostrado, não sobre elas). */
+const MARGEM_ARCO = 1e-3;
 /** Papéis do preenchimento que o contorno recorta. */
 export const PREENCHIMENTO: ReadonlySet<PartRole> = new Set<PartRole>(['glass', 'leaf', 'leafPanel', 'muntin', 'bead', 'mullion', 'transom', 'track']);
 
@@ -72,16 +75,37 @@ export function fatiasDaTravessa(part: OpeningPart): Fatia[] {
 const area = (r: readonly OPt[]): number => Math.abs(ringSignedArea(r));
 const boxArea = (b: PartBox): number => (b.t1 - b.t0) * (b.z1 - b.z0);
 
-/** Recorta uma peça-caixa pelo contorno recuado; `null` = nada a mudar, `[]` = a peça some. */
+/**
+ * Recorta uma peça-caixa pelo contorno recuado; `null` = nada a mudar, `[]` = a peça fica toda fora do contorno (a única razão
+ * para uma peça sair). Escada de recursos, para nenhuma peça sumir só porque o recuo a consome: (1) região recuada (com o curso,
+ * se a peça desliza); (2) a peça que desliza, o curso inteiro contra o contorno só com recuo lateral; (3) a posição fechada, sem o
+ * curso; (4) o contorno sem o recuo de arco (só o lateral) e, por fim, o contorno bruto.
+ */
 export function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number, dRef: number): OPt[] | null {
   const b = part.box;
+  const desliza = part.motion?.kind === 'slide';
   const arcD = Math.max(0, part.role === 'glass' || part.role === 'leaf' ? H - b.z1 : dRef);
   const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
   // Peça que desliza: arco sem prateleira (recuo de arco <= lateral) para a região ser convexa e valer a interseção do curso.
-  const regiao = outlineInset(shape, { side: ladoD, arc: part.motion?.kind === 'slide' ? Math.max(0, Math.min(arcD, ladoD)) : arcD, base: 0 });
-  if (regiao.length < 3) return null;
-  const poly = part.motion?.kind === 'slide' ? clipDeslizante(regiao, b, part.motion) : clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
-  if (poly.length < 3) return [];
+  const regiao = outlineInset(shape, { side: ladoD, arc: desliza ? Math.max(0, Math.min(arcD, ladoD)) : arcD, base: 0 });
+  let poly: OPt[] = [];
+  if (regiao.length >= 3) {
+    poly = desliza && part.motion?.kind === 'slide' ? clipDeslizante(regiao, b, part.motion) : clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
+  }
+  if (poly.length < 3 && desliza && part.motion?.kind === 'slide') {
+    // (b) o recuo de arco consumiu a peça fina: o mesmo curso inteiro, mas contra o contorno só com o recuo lateral
+    const folgada = outlineInset(shape, { side: Math.max(0, ladoD), arc: MARGEM_ARCO, base: 0 });
+    if (folgada.length >= 3) poly = clipDeslizante(folgada, b, part.motion);
+    // (c) nem assim cabe nas duas pontas do curso: fica o recorte da posição fechada (a peça existe; em movimento pode passar do arco)
+    if (poly.length < 3 && regiao.length >= 3) poly = clipRect(regiao, b.t0, b.t1, b.z0, b.z1);
+  }
+  let lateral: OPt[] = [];
+  for (const side of [Math.max(0, ladoD), 0]) {
+    if (poly.length >= 3) break;
+    lateral = outlineInset(shape, { side, arc: MARGEM_ARCO, base: 0 });
+    if (lateral.length >= 3) poly = clipRect(lateral, b.t0, b.t1, b.z0, b.z1);
+  }
+  if (poly.length < 3) return regiao.length < 3 && lateral.length < 3 ? null : [];
   return area(poly) >= boxArea(b) - 1e-9 ? null : poly;
 }
 
@@ -261,6 +285,8 @@ export function contornoDoModelo(m: OpeningModel, forma: OpeningShape | undefine
   if (!forma || forma.kind === 'rect') return m;
   const shape = formaDaEsquadria(forma, m.width, m.height);
   if (!shape) return m;
-  const parts = shape.kind === 'circle' ? circulo(m, shape) : isPolygonForm(shape) ? poligonal(m, shape, APOIO) : arco(m, shape);
+  const feitas = shape.kind === 'circle' ? circulo(m, shape) : isPolygonForm(shape) ? poligonal(m, shape, APOIO) : arco(m, shape);
+  const head = m.parts.find((p) => p.role === 'head' && p.material === 'frame' && p.profile?.plane !== 'tz');
+  const parts = acomodaAoContorno(feitas, shape, head ? head.box.z1 - head.box.z0 : 0);
   return { ...m, parts: padrao ? muntinsDecorativos(parts, shape, padrao) : parts };
 }

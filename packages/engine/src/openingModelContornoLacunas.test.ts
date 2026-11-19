@@ -50,7 +50,9 @@ const area = (r: readonly OPt[]): number => Math.abs(r.reduce((a, p, i) => a + p
 function tudoDentro(m: OpeningModel, forma: OpeningShape, fracoes = [0, 0.25, 0.5, 0.75, 1]): void {
   const contorno = contornoDe(m, forma);
   for (const q of prismas(m)) {
-    for (const f of q.motion?.kind === 'slide' ? fracoes : [0]) {
+    // Travessa fina de folha que desliza que não cabe sob o arco nas duas pontas do curso (docs 37): fica na posição fechada, e só nela vale.
+    const travessaFina = q.role === 'leaf' && /-(top|bottom)$/.test(q.id);
+    for (const f of q.motion?.kind === 'slide' && !travessaFina ? fracoes : [0]) {
       const dt = q.motion?.kind === 'slide' ? q.motion.dt * q.motion.travel * f : 0;
       const dz = q.motion?.kind === 'slide' ? q.motion.dz * q.motion.travel * f : 0;
       for (const [x, z] of tzPts(q)) expect(dentro(contorno, x + dt, z + dz, 1e-5), `${q.id} f=${f} (${x.toFixed(3)}, ${z.toFixed(3)})`).toBe(true);
@@ -112,8 +114,8 @@ describe('janela de correr em arco: trilho e folhas que deslizam sob o arco', ()
     expect(movel.motion?.kind).toBe('slide');
     expect(movel.profile?.plane).toBe('tz');
     expect(fixo.motion).toBeUndefined();
-    // a travessa fina de cima da folha móvel não cabe sob o arco nas duas pontas do curso: sai; a fixa continua
-    expect(m.parts.some((q) => q.id === 'leaf-1-top')).toBe(false);
+    // a travessa fina de cima da folha móvel não cabe sob o arco nas duas pontas do curso: fica (nada é apagado), recortada no mínimo
+    expect(m.parts.some((q) => q.id === 'leaf-1-top')).toBe(true);
     expect(m.parts.some((q) => q.id === 'leaf-0-top')).toBe(true);
     // volume de vidro cai em relação ao retangular, e a folha móvel perde mais que a fixa (cabe nas duas pontas do curso)
     expect(volumeDe(m, 'glass')).toBeLessThan(volumeDe(reto, 'glass'));

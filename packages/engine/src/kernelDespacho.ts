@@ -26,7 +26,8 @@ import { DespachoB, ErroDespachoKernel, type ContextoB, type DivergenciaB } from
 import { chaveDasOpcoes, interpretarMensagem, LIMITE_MENSAGEM, NaoCoberto, secoesDe, textoDoErro, type EntradaCena } from './kernelDespachoA.ts';
 import { avisarKernelPendente, KernelPendente } from './kernelPendente.ts';
 import { CONFIG_PADRAO, type ConfigDespacho } from './kernelDespachoConfig.ts';
-import { instalarClienteFuroReal } from './furoClienteReal.ts';
+import { diagnosticoFuroReal, instalarClienteFuroReal, type DiagnosticoFuroReal } from './furoClienteReal.ts';
+import { clienteFuroContorno } from './furoContornoDespacho.ts';
 export { aoMudarKernelPendente, KernelPendente } from './kernelPendente.ts';
 export { CONFIG_PADRAO, K_0049_FATIA_B, type ConfigDespacho } from './kernelDespachoConfig.ts';
 import type { ElementoB1 } from './kernelB.ts';
@@ -80,6 +81,8 @@ export interface DiagnosticoDespacho {
   /** Recriações da instância na sessão (do gerenciador). */
   recriacoes: number;
   ultimoErro: string | null;
+  /** Furo por contorno NESTA thread (docs/estudo-esquadrias/36): cliente real instalado e contadores. */
+  furo?: DiagnosticoFuroReal & { clienteInstalado: boolean };
   /** Comparações feitas pelo modo sombra. */
   comparacoes: number;
   /** Comparações com ao menos uma divergência. */
@@ -206,6 +209,7 @@ export class DespachoKernel {
       voltasGraves: this.voltasGraves,
       recriacoes: estado?.recriacoesTotal ?? 0,
       ultimoErro: this.ultimoErro,
+      furo: { ...diagnosticoFuroReal(), clienteInstalado: clienteFuroContorno() !== null },
       comparacoes: this.comparacoes,
       divergencias: this.divergencias,
       ultimaDivergencia: this.registro[this.registro.length - 1] ?? null,
@@ -410,6 +414,9 @@ export function registrarDiagnosticoRemoto(d: DiagnosticoDespacho | null | undef
  * Diagnóstico para a interface: a thread principal e o worker (a resolução roda nos dois) somados; a última divergência é a mais recente.
  * `null`: nenhum despachante instalado em lugar nenhum.
  */
+/** Diagnóstico do furo por contorno no worker (último que ele mandou), ou `null`. */
+export const diagnosticoFuroDoWorker = (): DiagnosticoDespacho['furo'] | null => diagnosticoRemoto?.furo ?? null;
+
 export function diagnosticoDespacho(): DiagnosticoDespacho | null {
   const local = diagnosticoLocalDoDespacho();
   const remoto = diagnosticoRemoto;
@@ -427,6 +434,7 @@ export function diagnosticoDespacho(): DiagnosticoDespacho | null {
     voltasGraves: local.voltasGraves + remoto.voltasGraves,
     recriacoes: local.recriacoes + remoto.recriacoes,
     ultimoErro: remoto.ultimoErro ?? local.ultimoErro,
+    furo: local.furo,
     comparacoes: local.comparacoes + remoto.comparacoes,
     divergencias: local.divergencias + remoto.divergencias,
     ultimaDivergencia: registro[registro.length - 1] ?? null,

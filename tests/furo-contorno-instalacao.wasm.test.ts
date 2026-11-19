@@ -7,6 +7,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ProjectStore, createEmptyProject, makeWall, type Opening, type Project } from '@hestia/model';
 import { clienteFuroContorno, definirClienteFuroContorno, diagnosticoLocalDoDespacho, instalarClienteFuroReal, iniciarDespachoKernel, resolveLevel, rotaDoVao, openingGeometry, frameOfWall, clienteFuroContornoFalso } from '../packages/engine/src/index.ts';
+import { buildLevelSolidsComCaixas } from '../packages/render/src/model3d/paredesInstanciadas3d.ts';
+import { clearWallLayerCache } from '../packages/render/src/model3d/solids.ts';
+import { diagnosticoFuroReal } from '../packages/engine/src/furoClienteReal.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 
 const caminho = caminhoDoWasm();
@@ -74,5 +77,16 @@ describe('instalação do cliente real do furo', () => {
     expect(c!.retornoDoVao).toBeTypeOf('function');
     // e o nível com vão com forma resolve com o contorno (a rota deixou de ser 'sem-cliente')
     expect(resolveLevel(projeto(), 'lv_0').walls.w1!.furosContorno?.length).toBe(1);
+  });
+
+  // Causa raiz no app real (docs/estudo-esquadrias/36): o 3D usa `buildLevelSolidsComCaixas`; a camada com vão por contorno parecia caixa cheia e saía sem furo.
+  it.skipIf(!temExportacoes)('3D das paredes instanciadas: o furo real (Rust) é chamado e a camada não vira caixa cheia', async () => {
+    if (!clienteFuroContorno()) await iniciarDespachoKernel({ fatiaA: true, fatiaB: false, sombra: false }, async () => bytes as Uint8Array);
+    clearWallLayerCache();
+    const antes = diagnosticoFuroReal().chamadasPrisma;
+    const r = buildLevelSolidsComCaixas(resolveLevel(projeto(), 'lv_0'), undefined, false);
+    expect(diagnosticoFuroReal().chamadasPrisma).toBeGreaterThan(antes);
+    expect(r.caixas).toHaveLength(0);
+    expect(r.batches.some((b) => b.category === 'wall' && b.indices.length > 0)).toBe(true);
   });
 });

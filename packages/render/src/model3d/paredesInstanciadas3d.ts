@@ -96,7 +96,9 @@ export function buildLevelSolidsComCaixas(r: ResolvedLevel, jl: JunctionLevel | 
         continue;
       }
       // Parede inclinada (ou com faixa de junção inclinada) nunca vira caixa vertical: o sólido inclinado e os vãos 'inclinado' (F2.8) vêm da geometria.
-      const camada = rw.tilt || rw.tiltCuts || tiltJoinOf(rw, l, jl) ? null : caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
+      // Parede com vão por contorno (docs/estudo-esquadrias/36): o vão não corta as faixas (o furo é a malha do cliente), então a camada parece uma
+      // caixa cheia; como caixa ela sairia SEM o furo. Fica como geometria (`wallLayerSolid` → `camadaFurada`).
+      const camada = rw.tilt || rw.tiltCuts || rw.furosContorno?.length || tiltJoinOf(rw, l, jl) ? null : caixasDaCamada(fuseBands(wallLayerBandsAfterJunction(jl, rw, l)), rw.baseZ, comArestas);
       if (camada) {
         for (const matriz of camada.matrizes) caixas.push({ wallId: rw.wallId, materialId: l.materialId, matriz });
         for (const x of camada.arestas) arestas.push(x);
