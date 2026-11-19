@@ -9,7 +9,9 @@
  */
 import type { MultiPolygon, OpeningSymbolStroke, Ring, Vec2 } from '@hestia/geom';
 import { outlineSegments, type Id, type OpeningSegment } from '@hestia/model';
-import type { FuroContornoDaParede, OpeningGeometry } from './types.ts';
+import { fuseBands } from './bandFuse.ts';
+import type { FuroContornoDaParede, LayerBand, OpeningGeometry } from './types.ts';
+import { bandasRetangulares } from './furoContornoParede.ts';
 import { elevationOutline, openingPlanSymbolPaths, verticalCutProfile } from './openingShapeViews.ts';
 
 const EPS = 1e-9;
@@ -60,6 +62,12 @@ function modoDoVao(g: OpeningGeometry, d: Vec2): 'corte' | 'elevacao' | null {
  */
 export const vaosCurvosSemContornoNaVista = (vaos: readonly VaoDeContorno[], linha: LinhaDeCorte): OpeningGeometry[] =>
   vaos.filter((v) => v.g.curve && modoDoVao(v.g, linha.d) === null).map((v) => v.g);
+
+/** As faixas de uma camada para a vista: com o furo retangular nos vãos curvos que a linha não atende por contorno (senão, as mesmas). */
+export function faixasNaVista(faixas: LayerBand[], vaos: readonly VaoDeContorno[], linha: LinhaDeCorte): LayerBand[] {
+  const curvos = vaosCurvosSemContornoNaVista(vaos, linha);
+  return curvos.length > 0 ? fuseBands(bandasRetangulares(faixas, curvos)) : faixas;
+}
 
 /** Posição do corte no eixo do vão (m, a partir do centro): é o `along` do perfil. */
 const cortePelaLinha = (g: OpeningGeometry, linha: LinhaDeCorte): number => (linha.a.x - g.center.x) * g.u.x + (linha.a.y - g.center.y) * g.u.y;

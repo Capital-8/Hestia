@@ -53,7 +53,7 @@ Investigação: a banda com `slope` vem de `clipBandsToProfile` e é um plano qu
 
 O prisma do Rust é vertical (extrusão em z da planta). A parede inclinada tem camadas cisalhadas (`extrudeLayerTilted`, `tiltJoinLayerVolume` com junção exata de arco inclinado), o vão fica num plano inclinado (`openingTiltPlane`) e o cortador teria de ser perpendicular a esse plano, não vertical em s; além disso o cluster inteiro refaz as faixas (`semRegioes`), então não há "prisma pós-junção" para furar. Exigiria um cortador oblíquo na ABI (ângulo por vão), a malha inclinada como alvo e o quantitativo `tf`/`ex` revisitado. Aviso `forma-vao-ignorada-na-parede` mantido.
 
-## 4. Parede curva (tarefa 4): decisão e plano, NÃO implementado
+## 4. Parede curva (tarefa 4): decisão e plano (IMPLEMENTADO na seção 7; este texto é o plano original)
 
 Viável, com risco médio. A ideia que cabe no que já existe:
 
@@ -73,9 +73,55 @@ Motivo de não entrar agora: o ponto 2 muda a ABI (ângulo por vão) e o ponto 3
 
 ## 6. O que ficou de fora
 
-- Parede curva (seção 4) e parede inclinada (3.2): continuam retangulares com aviso.
+- Parede inclinada (3.2) continua retangular com aviso. A parede curva foi implementada (seção 7).
 - Retorno sob topo inclinado sem recorte pelo plano do topo; retorno em T e com vizinha de altura diferente sem teste.
 - Desempenho no navegador e custo da booleana com topo inclinado (não medido); o app real (worker + `urlWasm`) não foi exercitado.
 - Dar verga e soleira ao retorno do vão retangular (decisão do dono, números mudariam).
 - Vista de corte, elevação, IFC e DXF do contorno (doc 26 §3).
 - Área de face de camada em esquadria com o contorno cruzando a linha da esquadria [I].
+
+## 7. Fechamento: parede curva por contorno (implementado)
+
+Marcas: [V] verificado nesta sessão (teste rodado, com o Rust real quando disser "wasm"); [I] inferência.
+
+### 7.1 Regra do cortador: leque radial, não a normal central
+
+O plano da seção 4 propunha um referencial por vão (centro, tangente, normal) e um cortador paralelo à normal do centro. Medi o erro e escolhi outra regra, mais correta e mais simples na ABI: **cortador radial em leque, um só referencial por parede**.
+
+- Erro da normal central [V, conta própria]: parede de raio 3 m com camada de 0,30 m e vão de 1,20 m no eixo. O cortador paralelo remove 0,3625 m² de planta contra 0,3600 m² do leque (0,7 %). A diferença de volume é pequena; a de POSIÇÃO não: a face lateral do cortador paralelo (plano a 0,60 m da normal) se afasta da radial em `rho sin(w/2R) - w/2`, isto é, -3,4 cm na face interna e +2,6 cm na externa para 1,20 m; para vão de 2,40 m a mesma conta dá -9,0 cm e +2,7 cm. As ombreiras do furo ficariam desencontradas com o retorno e com o recorte existente.
+- O furo retangular de sempre na parede curva (`openingHole` / `openingBandRing`) JÁ É um setor radial (faces em arco, arestas radiais). O leque é a mesma regra com contorno livre. Esse é o argumento decisivo: planta (hachura), furo 3D e quantitativo concordam entre si e com o caminho retangular.
+- Por isso não é preciso ângulo por vão na ABI. Uma parede tem um só arco; o referencial local dela (origem em `a`, `u` = tangente em `a`, `s` = normal à esquerda: o de `paraPlanta`/`malhaParaMundo`) já serve a todos os vãos. O centro do arco nesse referencial é `(0, -raio)` com `raio = k R` assinado (`k = +1` com `sag > 0`). Cada vão entra pelo comprimento de eixo `x` (o `offset` do vão); o ponto `(t, s)` vai a `centro + rho (cos th, sin th)`, `th = k pi/2 - t/raio`, `rho = R + k s`. [V: teste `mapa_curvo_confere_com_a_formula_independente_e_o_inverso`]
+- Construção: o contorno `[x, z]` é extrudado reto em `s` (de `rho_lo` a `rho_hi`) e levado ao referencial local por `Manifold::warp` com esse mapa (jacobiano `rho / R > 0`, preserva a orientação). As faces laterais de cada ponto do contorno ficam radiais. O tampo externo é plano entre vértices, então `rho_hi = rho_max_camada / cos(meio ângulo do vão) + 5 cm`: a corda não entra na camada. O tampo interno cai para dentro do vão livre. Limite de abertura: 2,4 rad por vão (acima: ENTRADA), raio mínimo 5 cm.
+- Efeito no volume: removido por camada = `A_contorno x e x rho_medio / R` (a camada que não é a do eixo remove mais ou menos que `A x e`). [V]
+
+### 7.2 O que foi ligado (troca atômica)
+
+| Peça | Onde | Estado |
+|---|---|---|
+| Furo do prisma | Rust `furar_prisma_cur` + ABI `furo_prisma_furar_curvo` (15 args da `furo_prisma_furar` + `raio` f64) e `furo_prisma_curvo_abi_versao`; cliente `furarPrismas(..., { raio })` | [V cargo + wasm] vão que sai do prisma é recortado (sempre `Recortar`: `x` é comprimento de eixo, não u); sem topo inclinado |
+| Retorno | Rust `retorno_do_vao_curvo` + ABI `furo_retorno_vao_curvo` (+ `raio`), `furo_retorno_curvo_abi_versao`; anel densificado a 5 cm, extrudado reto e `warp` pelo mesmo mapa; recorte em planta no referencial local | [V cargo + wasm] `area_anel`/`area_livre` são do anel desenvolvido (plano x-z); `volume` e `area_exposta` são da peça no mundo |
+| Rota | `rotaDoVao`: curva exige `cliente.curva`; perfil de topo/base em curva = motivo novo `parede-curva-com-perfil`; o motivo `parede-curva` só sobra para cliente sem `curva` | [V] o cliente real declara `curva` quando o módulo tem as duas ABIs curvas |
+| Camada furada | `camadaFurada` passa `raio` (`raioDaParede`) ao prisma e ao retorno; faixa com `slope` em curva recua para retângulo | [V wasm] |
+| Hachura de planta | `furoDePlanta` já usa `openingBandRing`, que é setor em parede curva, com `cutHalfWidth` ao longo do arco | [V wasm: arco abatido a 1,2 m e a 2,3 m, setor da corda do contorno, 0,6 %] |
+| Quantitativo | volume = faixas inteiras - removido + retornos; área de face = `(bruto - removido) / e`; `areaFuroNaFace` fica `null` em curva (a medição `furo_quant_parede` é de placa reta) | [V wasm] queda da área de face = `removido / e` por camada; `openingsArea` = área real do contorno |
+| Retorno no engine | pegada do retorno (para o recorte em canto) vira setor (`arcSample`) em parede curva | [V cargo/wasm; canto com parede curva sem teste, [I]] |
+| 3D | `wallLayerSolid` já usa `camadaFurada` + `malhaParaMundo`; sem mudança | [V wasm: volume da malha do bloco = sem vão - removido, 1e-6] |
+| Peças da esquadria | inalteradas: já são colocadas no referencial central da parede curva | [I] a esquadria reta no centro e o furo radial coincidem no centro; nas ombreiras de vão largo o furo se afasta alguns cm (a mesma diferença do furo retangular de sempre) |
+| Aviso | `forma-vao-ignorada-na-parede` só em parede inclinada, ou curva sem cliente com `curva` (ou com topo/base anexado) | [V] |
+| Vistas (corte/elevação) | `faixasNaVista`: vão curvo que a linha não atende por contorno (oblíqua ao eixo no centro, o caso comum) sai com o furo retangular de sempre; linha exatamente perpendicular ou paralela usa o perfil do contorno | [V wasm: corte oblíquo não fica maciço]; elevação de parede curva usa a projeção pela tangente central [I] |
+
+### 7.3 Testes
+
+- `cargo test --lib furo_contorno`: 89 verdes (8 novos em `furo_contorno_curvo_testes.rs`): mapa e inverso; meia-lua nos dois sentidos de curvatura = integral independente em planta (raio a raio sobre as cordas, 2e-4) e = `A e rho/R` (4e-3, as cordas); dois vãos largos e vão que sai do início da parede (3e-4); raio enorme tende a `A x e` (1e-3); validação sem panic (raio 0, NaN, infinito, 1 cm, vão de 8 m, topo inclinado, contorno horário); ABI; retorno curvo (volume 1,5e-3, área exposta 3e-3, malha fechada, vértices entre as faces, entradas inválidas). [V]
+- wasm: `tests/furo-contorno-curvo.wasm.test.ts` (13): parede de corda 6 m, flecha +1 e -1, meia-lua + arco abatido: removido por camada = integral independente (5e-4) e = fórmula fechada (5e-3, cordas), quantitativo, hachura, 3D, retorno (peça entre as faces, dentro do teto `perímetro x e x D x rho/R`), rota e aviso com e sem `curva`, corte oblíquo. Os 5 arquivos wasm de furo (79 testes) seguem verdes. [V]
+- vitest engine (`furoContornoTroca`: cliente falso com `curva`, raio assinado nos pedidos, recuo sem `curva`) e áreas (resolve, quantities, section, openingShape, render model3d e plan, geom furo): verdes, exceto `openingParts.test.ts` (contagem do catálogo de tipos, de outra frente de trabalho, não relacionada). tsc, eslint e `check-boundaries` limpos nos arquivos desta tarefa (tsc ainda acusa `ShapePreview.tsx`, de outra frente). [V]
+- `.wasm`: 3728,8 kB (era 3719,7 kB; +9,1 kB), teto de 4 MB não mexido; `build:wasm` e `wasm:check` ok (blob 5ff62ca39d77, ABI 1). Exportações novas: `furo_prisma_furar_curvo`, `furo_prisma_curvo_abi_versao`, `furo_retorno_vao_curvo`, `furo_retorno_curvo_abi_versao`. As antigas não mudaram. [V]
+
+### 7.4 O que continua retangular ou em aberto
+
+- **Parede curva com perfil de topo/base** (telhado, piso, laje anexados): fica retangular, motivo `parede-curva-com-perfil`, com aviso. O plano do topo do prisma é função de u, e na curva o perfil depende de `t`. [I]
+- **Parede inclinada** (inclusive curva inclinada): retangular, como em 3.2.
+- Retorno de vão curvo em canto com outra parede e retorno sob topo: sem teste. [I]
+- `areaFuroNaFace` (medição na placa) não vale em curva; a área de face usa `removido / espessura`, que é exata para o leque. [V]
+- Elevação e DXF de parede curva: contorno projetado pela tangente do centro do vão (erro `x - rho sin(x/rho)`: 0,7 % em 1,2 m a R = 5 m, 4 % em 3 m a R = 3 m) [I]; planta e símbolo seguem o referencial central.
+- Desempenho do `warp` + booleana no navegador não medido; o app real (worker) não foi exercitado.

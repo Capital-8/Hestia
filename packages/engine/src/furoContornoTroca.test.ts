@@ -143,10 +143,42 @@ describe('troca atômica do furo por contorno', () => {
     expect(linha()).toBeLessThan(0.9 * 2.4);
   });
 
-  it('parede curva ou inclinada fica no caminho retangular', () => {
+  it('parede inclinada, e curva com cliente sem `curva`, ficam no caminho retangular', () => {
     definirClienteFuroContorno(clienteFuroContornoFalso());
     expect(resolveLevel(projeto(true, { sag: 1 }), 'lv_0').walls.w1!.furosContorno).toBeUndefined();
     expect(resolveLevel(projeto(true, { tilt: 5 }), 'lv_0').walls.w1!.furosContorno).toBeUndefined();
+    definirClienteFuroContorno(clienteFuroContornoFalso({ curva: true }));
+    expect(resolveLevel(projeto(true, { tilt: 5, sag: 1 }), 'lv_0').walls.w1!.furosContorno).toBeUndefined();
+  });
+
+  it('parede curva com cliente `curva`: o vão vai por contorno, o pedido leva o raio assinado e a planta é o setor', () => {
+    for (const sag of [1, -1]) {
+      const p = projeto(true, { sag });
+      const sem = projeto(false, { sag });
+      const pedidos: number[] = [];
+      const falso = clienteFuroContornoFalso({ curva: true });
+      const original = falso.furarPrisma!;
+      falso.furarPrisma = (pedido) => {
+        if (pedido.raio !== undefined) pedidos.push(pedido.raio);
+        return original(pedido);
+      };
+      definirClienteFuroContorno(falso);
+      const rw = resolveLevel(p, 'lv_0').walls.w1!;
+      expect(rw.furosContorno).toHaveLength(1);
+      const arc = geom(p, 'o_arco').curve!.arc;
+      for (const l of rw.layers) {
+        const cf = camadaFurada(rw, l, l.bands)!;
+        expect(cf.malhas).not.toBeNull();
+        expect(cf.areaFuroNaFace).toBeNull(); // a medição da placa reta não vale em parede curva: face = removido ÷ espessura
+      }
+      expect(pedidos.length).toBeGreaterThan(0);
+      for (const r of pedidos) expect(r).toBeCloseTo(arc.k * arc.radius, 12);
+      // O raio assinado leva o sinal do `sag` (centro à direita = positivo).
+      expect(Math.sign(pedidos[0]!)).toBe(sag);
+      // O vão que toca o piso (porta retangular) segue retangular e o arco sai das faixas: a planta tem o setor da corda do contorno.
+      const rwSem = resolveLevel(sem, 'lv_0').walls.w1!;
+      expect(rw.layers.every((l, i) => multiArea(l.cut) >= multiArea(rwSem.layers[i]!.cut) - 1e-9)).toBe(true);
+    }
   });
 
   it('nível com vão por contorno não passa pelo despachante do kernel Rust', () => {
