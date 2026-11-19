@@ -14,7 +14,7 @@ use crate::cena::{decodificar_colunas, Coluna, COORD_MAX};
 use crate::cortina_tipos::*;
 use crate::esquema::{
     self, Secao, ENTRADA, ID_AUSENTE, INTERNO, LIMITE, LIMITE_LINHAS_POR_SECAO, SECAO_CORTINAS, SECAO_CORTINA_CELULAS_SOBRESCRITAS,
-    SECAO_CORTINA_CELULAS_ABERTURA, SECAO_CORTINA_EXTREMIDADES, SECAO_CORTINA_HOSPEDES, SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA,
+    SECAO_CORTINA_CELULAS_ABERTURA, SECAO_CORTINA_EXTREMIDADES, SECAO_CORTINA_HOSPEDES, SECAO_CORTINA_LINHAS_EXTRAS, SECAO_CORTINA_LINHAS_SOBRESCRITAS, SECAO_CORTINA_PERFIS_TOPO, SECAO_CORTINA_SEGMENTOS_REMOVIDOS, SECAO_GRADES_CORTINA,
     SECAO_GRADE_POSICOES_CORTINA, SECAO_TIPOS_CORTINA, SECAO_TIPOS_MONTANTE_CORTINA, SECAO_TIPOS_PAINEL_CORTINA,
 };
 
@@ -123,6 +123,15 @@ pub struct HospedeLinha {
     pub largura: f64,
     pub peitoril: f64,
     pub altura: f64,
+}
+
+/// Ponto do perfil superior variável (`cortina_perfis_topo`, esquema v21): `t` ao longo do eixo (m) e `h` relativo à base da cortina (m).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PerfilTopoLinha {
+    pub cortina: u32,
+    pub ordem: u32,
+    pub t: f64,
+    pub h: f64,
 }
 
 /// Uma parede cortina (instância). `painel_padrao` = `ID_AUSENTE`: o painel do tipo.
@@ -290,6 +299,7 @@ tabelas! {
     extremidades: ExtremidadeLinha = SECAO_CORTINA_EXTREMIDADES,
     aberturas_celula: CelulaAberturaLinha = SECAO_CORTINA_CELULAS_ABERTURA,
     hospedes: HospedeLinha = SECAO_CORTINA_HOSPEDES,
+    perfis_topo: PerfilTopoLinha = SECAO_CORTINA_PERFIS_TOPO,
 }
 
 /// As colunas decodificadas de uma seção, lidas por nome.
@@ -555,6 +565,12 @@ fn decodificar(secao: u32, n_linhas: u32, bytes: &[u8]) -> Result<Lote, u32> {
             peitoril: t.dp("peitoril", i)?,
             altura: t.dp("altura", i)?,
         })),
+        SECAO_CORTINA_PERFIS_TOPO => Lote::perfis_topo(linhas!(i => PerfilTopoLinha {
+            cortina: t.u("cortina_num", i)?,
+            ordem: t.u("ordem", i)?,
+            t: t.d("t", i)?,
+            h: t.d("h", i)?,
+        })),
         _ => return Err(ENTRADA),
     })
 }
@@ -627,6 +643,11 @@ impl SecoesCortina {
         self.validar_sobrescritas()?;
         self.validar_extremidades()?;
         self.validar_aberturas()?;
+        for p in self.perfis_topo.values() {
+            if !self.cortinas.contains_key(&p.cortina) {
+                return Err(ENTRADA);
+            }
+        }
         Ok(())
     }
 
@@ -759,8 +780,8 @@ pub(crate) mod testes {
 
     #[test]
     fn toda_secao_da_cortina_tem_dono_e_decodifica_zeros_ou_recusa_com_codigo() {
-        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=113).contains(&i)).collect();
-        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 112, 113]);
+        let ids: Vec<u32> = esquema::SECOES.iter().map(|s| s.id).filter(|&i| (100..=114).contains(&i)).collect();
+        assert_eq!(ids, vec![100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 112, 113, 114]);
         for id in ids {
             assert!(SecoesCortina::e_minha(id), "seção {id}");
             let mut s = SecoesCortina::default();
@@ -771,7 +792,7 @@ pub(crate) mod testes {
         assert!(!SecoesCortina::e_minha(81));
         assert!(!SecoesCortina::e_minha(99));
         assert!(!SecoesCortina::e_minha(111), "a 111 é das cadeias (fase 4)");
-        assert!(!SecoesCortina::e_minha(114));
+        assert!(!SecoesCortina::e_minha(115));
     }
 
     #[test]

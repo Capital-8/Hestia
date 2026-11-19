@@ -92,6 +92,6 @@ describe('esquema gerado (cena-v11.json)', () => {
     expect(q('massa_corte')).toEqual([143, ['nivel_num', 'ox', 'oy', 'dx', 'dy', 'profundidade'], ['linhas:u32:4n', 'pontos:f64:2n']]);
     expect(q('quant_massa')).toEqual([144, ['nivel_num'], ['linhas:u32:n', 'valores:f64:5n']]);
     expect(q('massa_avisos')).toEqual([145, ['nivel_num'], ['avisos:u32:4n', 'valores:f64:5n']]);
-    expect(ESQUEMA_VERSAO).toBe(20);
+    expect(ESQUEMA_VERSAO).toBe(21);
   });
 });

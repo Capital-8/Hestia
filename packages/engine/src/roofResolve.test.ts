@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { multiArea, type Vec2 } from '@hestia/geom';
+import { multiArea, ringArea, type Vec2 } from '@hestia/geom';
 import { ProjectStore, createEmptyProject, makeRoof, type Project, type Roof } from '@hestia/model';
 import { resolveRoofs, roofThickness, roofTopAt, type ResolvedRoof, type RoofLine } from './index.ts';
 
@@ -150,5 +150,42 @@ describe('furos, deslocamento, camadas e tipo ausente', () => {
     const p = build({ shape: 'hip', slopePercent: 30 });
     const bad = { ...p, elements: { r1: { ...(p.elements.r1 as Roof), typeId: 'rt_nao_existe' } } };
     expect(resolveRoofs(bad, 'lv_0')).toEqual([]);
+  });
+});
+
+describe('regressão · contorno côncavo com degrau (projeto.hestia.json)', () => {
+  const PROJETO_BOUNDARY: Vec2[] = [
+    { x: 39.761789, y: -4.183495000000001 },
+    { x: 42.53260197712993, y: -4.183495000000001 },
+    { x: 42.53132687185676, y: 0.7989125494396734 },
+    { x: 35.05139942222562, y: -0.2496429330885962 },
+    { x: 35.02811805652255, y: -5.409608414581247 },
+    { x: 39.761789, y: -5.41087701554152 },
+  ];
+  const PROJETO_SLOPES: Array<number | null> = [null, 30, 30, 30, null, 30];
+
+  it('gera 4 águas limpas sem filetes nem buracos, área total = contorno e degrau dz ~ 0,831 m', () => {
+    const r = one({
+      shape: 'edges',
+      boundary: PROJETO_BOUNDARY,
+      edgeSlopes: PROJETO_SLOPES,
+      edgeOverhangs: PROJETO_BOUNDARY.map(() => 0.5),
+      heightOffset: 2.8,
+    });
+    expect(r.problem).toBeUndefined();
+    expect(r.planes).toHaveLength(4);
+    for (const pl of r.planes) {
+      expect(pl.polygon.length).toBeGreaterThan(0);
+      for (const poly of pl.polygon) {
+        for (const ring of poly) expect(Math.abs(ringArea(ring))).toBeGreaterThan(1e-6);
+      }
+    }
+    const total = r.planes.reduce((s, pl) => s + multiArea(pl.polygon), 0);
+    expect(total).toBeCloseTo(Math.abs(ringArea(PROJETO_BOUNDARY)), 5);
+    expect(r.steps).toBeDefined();
+    expect(r.steps!.length).toBeGreaterThan(0);
+    expect(Math.max(...r.steps!.map((s) => s.dz))).toBeCloseTo(0.831, 2);
+    expect(r.stepGaps).toBeDefined();
+    expect(r.stepGaps!.length).toBeGreaterThan(0);
   });
 });

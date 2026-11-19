@@ -16,7 +16,8 @@ use crate::cena::Cena;
 use crate::cortina_grade::{arestas, linhas_do_eixo, IndiceGrades};
 use crate::cortina_juncao::resolver_ponta;
 use crate::cortina_malha::{faixa_plana, faixas_do_vizinho, secao, valor_em, varia, Faixas};
-use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, LinhaFinal, Orfao, SegRemovido, SobLinha};
+use crate::cortina_perfil::{area_poligono_sz, area_sob_perfil, clip_mullion_top, clip_region_under_profile, limpar_sz, perfil_da_cortina, top_at};
+use crate::cortina_remap::{fundir, linhas_finais, mapear_celulas, mapear_segmentos, Alvo, CelSob, Escolha, ExtLinha, Ident, LinhaFinal, Orfao, SegRemovido, SobLinha};
 use crate::cortina_tipos::*;
 use crate::esquema::{
     AVISO_CORTINA_ARCO_NAO_SUPORTADO, AVISO_CORTINA_CELULA_NAO_RETANGULAR, AVISO_CORTINA_CELULA_PEQUENA, AVISO_CORTINA_MONTANTE_SOBREPOSTO,
@@ -238,6 +239,68 @@ impl PainelPeca {
     }
 }
 
+/// Peça de montante com contorno poligonal no plano `(s, z)` (topo inclinado/empena sob telhado ou travessa de borda superior inclinada).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PecaMontPoligonal {
+    pub eixo: u8,
+    pub linha: u32,
+    pub k: u32,
+    pub papel: u32,
+    pub m: Montante,
+    /// Polígono simples anti-horário no plano `(s, z)` da cortina.
+    pub poligono: Vec<[f64; 2]>,
+    /// Comprimento para quantitativos (m): comprimento real inclinado na borda superior, ou comprimento equivalente (`área / largura`) nas verticais.
+    pub comprimento: f64,
+}
+
+impl PecaMontPoligonal {
+    pub fn area_sz(&self) -> f64 {
+        area_poligono_sz(&self.poligono).abs()
+    }
+    pub fn caixa_sz(&self) -> (f64, f64, f64, f64) {
+        let s0 = self.poligono.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min);
+        let s1 = self.poligono.iter().map(|p| p[0]).fold(f64::NEG_INFINITY, f64::max);
+        let z0 = self.poligono.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
+        let z1 = self.poligono.iter().map(|p| p[1]).fold(f64::NEG_INFINITY, f64::max);
+        (s0, s1, z0, z1)
+    }
+}
+
+/// Painel poligonal recortado contra o topo inclinado/degrau do perfil superior.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PainelPoligonal {
+    pub i: u32,
+    pub j: u32,
+    pub p: PainelTipo,
+    /// Polígono visível (entre faces dos montantes), anti-horário em `(s, z)`.
+    pub poligono: Vec<[f64; 2]>,
+    /// Polígono bruto (com o encaixe nos montantes vizinhos), anti-horário em `(s, z)`.
+    pub poligono_bruto: Vec<[f64; 2]>,
+}
+
+impl PainelPoligonal {
+    pub fn tem_area(&self) -> bool {
+        self.area_visivel() > 1e-9
+    }
+    pub fn area_visivel(&self) -> f64 {
+        area_poligono_sz(&self.poligono).abs()
+    }
+    pub fn area_bruta(&self) -> f64 {
+        if self.p.kind == PAINEL_VAZIO || !self.tem_area() {
+            self.area_visivel()
+        } else {
+            area_poligono_sz(&self.poligono_bruto).abs()
+        }
+    }
+    pub fn caixa_sz(&self) -> (f64, f64, f64, f64) {
+        let s0 = self.poligono.iter().map(|p| p[0]).fold(f64::INFINITY, f64::min);
+        let s1 = self.poligono.iter().map(|p| p[0]).fold(f64::NEG_INFINITY, f64::max);
+        let z0 = self.poligono.iter().map(|p| p[1]).fold(f64::INFINITY, f64::min);
+        let z1 = self.poligono.iter().map(|p| p[1]).fold(f64::NEG_INFINITY, f64::max);
+        (s0, s1, z0, z1)
+    }
+}
+
 /// Aviso com a posição no mundo (`x, y, z`). Os índices `i`, `j` dependem do código (ver `cortina_avisos`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AvisoC {
@@ -290,9 +353,15 @@ pub struct Geom {
     pub pecas: Vec<PecaMont>,
     /// Peças com esquadria (ver `PecaEsq`); as demais, prismas, estão em `pecas`.
     pub pecas_esq: Vec<PecaEsq>,
+    /// Peças de montante poligonais (perfil superior variável: verticais com topo inclinado/empena e borda superior inclinada).
+    pub pecas_pol: Vec<PecaMontPoligonal>,
     /// Montantes de canto que esta cortina emite (fase 3): zero ou um por ponta.
     pub cantos: Vec<PecaCanto>,
     pub paineis: Vec<PainelPeca>,
+    /// Painéis poligonais recortados pelo perfil superior variável.
+    pub paineis_pol: Vec<PainelPoligonal>,
+    /// Área total da elevação do sistema (`l * h` quando reto, ou integral sob o perfil quando variável).
+    pub area_sistema: f64,
     /// Esquadrias nas células (fase 5): uma por região com esquadria, em ordem de célula canônica; a região não tem painel.
     pub esquadrias: Vec<Esquadria>,
 }
@@ -435,16 +504,16 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
     let t = sec.tipos.get(&c.tipo).ok_or(ENTRADA)?;
     let mut r = CortinaR { id, nivel: c.nivel, tipo: c.tipo, g: None, avisos: Vec::new() };
     let (dx, dy) = (c.b[0] - c.a[0], c.b[1] - c.a[1]);
-    let l = dx.hypot(dy);
-    let h = c.altura;
-    if l < COMPRIMENTO_MIN || h < ALTURA_MIN {
+    let l_raw = dx.hypot(dy);
+    let mut h = c.altura;
+    if l_raw < COMPRIMENTO_MIN || h < ALTURA_MIN {
         return Ok(r); // degenerada: fica de fora, sem aviso
     }
-    let u = [dx / l, dy / l];
+    let u = [dx / l_raw, dy / l_raw];
     let n = [-u[1], u[0]];
     let d = t.profundidade;
     if c.sag.abs() > 1e-9 {
-        let p = [c.a[0] + u[0] * l / 2.0, c.a[1] + u[1] * l / 2.0, c.z_base + h / 2.0];
+        let p = [c.a[0] + u[0] * l_raw / 2.0, c.a[1] + u[1] * l_raw / 2.0, c.z_base + h / 2.0];
         r.avisos.push(AvisoC { codigo: AVISO_CORTINA_ARCO_NAO_SUPORTADO, i: ID_AUSENTE, j: ID_AUSENTE, medido: c.sag, limite: 0.0, p });
         return Ok(r);
     }
@@ -461,12 +530,22 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
     // recuado. A grade, as sobrescritas e as peças usam essa cortina encurtada; sem junção, `recuo = 0` e nada muda.
     let mut pontas = [resolver_ponta(sec, id, c, t, 0), resolver_ponta(sec, id, c, t, 1)];
     let recuo = |p: &Option<crate::cortina_juncao::Ponta>| p.as_ref().map_or(0.0, |x| x.recuo);
-    if l - recuo(&pontas[0]) - recuo(&pontas[1]) < 10.0 * COMPRIMENTO_MIN {
+    if l_raw - recuo(&pontas[0]) - recuo(&pontas[1]) < 10.0 * COMPRIMENTO_MIN {
         pontas = [None, None]; // a junção comeria a cortina inteira: fica como se não houvesse
     }
     let (r0, r1) = (recuo(&pontas[0]), recuo(&pontas[1]));
     let a_cortina = [c.a[0] + u[0] * r0, c.a[1] + u[1] * r0];
-    let l = l - r0 - r1;
+    let l = l_raw - r0 - r1;
+
+    // Montantes por papel e painel padrão (lidos antes das dobras de perfil para usar `m_iv.largura` no encaixe das dobras na grade U).
+    let m = |k: usize| montante_de(sec, t.montantes[k]);
+    let (m_iv, m_ih, m_bi, m_bf, m_bb, m_bt) = (m(0)?, m(1)?, m(2)?, m(3)?, m(4)?, m(5)?);
+    let (m_bi, m_bf) = (if pontas[0].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bi }, if pontas[1].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bf });
+    let mut perfil_topo = perfil_da_cortina(sec, id, r0, l_raw, l);
+    if let Some(prof) = &perfil_topo {
+        h = h.max(prof.iter().map(|p| p[1]).fold(0.0, f64::max));
+    }
+
     let eu = grades.efetivo(c.tipo, id, EIXO_U)?;
     let ev = grades.efetivo(c.tipo, id, EIXO_V)?;
     let lu = linhas_do_eixo(l, &eu)?;
@@ -484,8 +563,40 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
         sec.extras.iter().filter(|(_, e)| e.cortina == id && e.eixo == eixo).map(|(&k, e)| ExtLinha { id: k, pos: e.pos, travada: e.travada, comp: e.comp, montante: e.montante }).collect()
     };
     let (manual_u, manual_v) = (eu.modo == MODO_MANUAL, ev.modo == MODO_MANUAL);
-    let fin_u = linhas_finais(EIXO_U, l, &lu.linhas, manual_u, &sob_linhas(EIXO_U), &ext_linhas(EIXO_U));
+    let mut fin_u = linhas_finais(EIXO_U, l, &lu.linhas, manual_u, &sob_linhas(EIXO_U), &ext_linhas(EIXO_U));
     let fin_v = linhas_finais(EIXO_V, h, &lv.linhas, manual_v, &sob_linhas(EIXO_V), &ext_linhas(EIXO_V));
+
+    // Dobras do perfil de topo na grade U (método do Lapin): dobra a até 1,5 * largura_montante de uma linha existente encaixa nela; senão insere linha extra.
+    let area_sistema = if let Some(prof) = &mut perfil_topo {
+        let mw = m_iv.map_or(0.0, |x| x.largura);
+        let mut extras_dobra: Vec<f64> = Vec::new();
+        for q in prof.iter_mut() {
+            if q[0] <= TOL_POS || q[0] >= l - TOL_POS {
+                continue;
+            }
+            let perto = fin_u.linhas.iter().map(|f| f.pos).min_by(|a, b| (a - q[0]).abs().total_cmp(&(b - q[0]).abs()));
+            if let Some(nx) = perto.filter(|&nx| (nx - q[0]).abs() <= 1.5 * mw + TOL_POS) {
+                q[0] = nx;
+            } else {
+                extras_dobra.push(q[0]);
+            }
+        }
+        prof.sort_by(|a, b| a[0].total_cmp(&b[0]));
+        extras_dobra.sort_by(f64::total_cmp);
+        for pos in extras_dobra {
+            if pos > TOL_POS && pos < l - TOL_POS && !fin_u.linhas.iter().any(|f| (f.pos - pos).abs() < TOL_POS) {
+                fin_u.linhas.push(LinhaFinal { pos, ident: Ident::Gerada(0), origem: ORIGEM_GERADA, montante: Escolha::Padrao, travada: false });
+            }
+        }
+        fin_u.linhas.sort_by(|a, b| a.pos.total_cmp(&b.pos));
+        if fin_u.linhas.len() > LIMITE_LINHAS_EIXO {
+            return Err(LIMITE);
+        }
+        area_sob_perfil(prof)
+    } else {
+        l * h
+    };
+
     let pos_u: Vec<f64> = fin_u.linhas.iter().map(|f| f.pos).collect();
     let pos_v: Vec<f64> = fin_v.linhas.iter().map(|f| f.pos).collect();
     let us = arestas(l, &pos_u);
@@ -510,11 +621,6 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
     let (pedidos, orf_seg) = mapear_segmentos(&seg_ref, [fin_u.linhas.as_slice(), fin_v.linhas.as_slice()], [lu.linhas.as_slice(), lv.linhas.as_slice()], [us.as_slice(), vs.as_slice()]);
     let fus = fundir(nu, nv, &pedidos);
 
-    // Montantes por papel e painel padrão.
-    let m = |k: usize| montante_de(sec, t.montantes[k]);
-    let (m_iv, m_ih, m_bi, m_bf, m_bb, m_bt) = (m(0)?, m(1)?, m(2)?, m(3)?, m(4)?, m(5)?);
-    // O montante de canto substitui o de borda da ponta (o canto é um só, entre as duas cortinas).
-    let (m_bi, m_bf) = (if pontas[0].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bi }, if pontas[1].as_ref().is_some_and(|x| x.canto.is_some()) { None } else { m_bf });
     let painel_padrao = painel_de(sec, if c.painel_padrao != ID_AUSENTE { c.painel_padrao } else { t.painel_padrao })?;
     let min_cell = if t.celula_minima.is_nan() { CELULA_MINIMA_PADRAO } else { t.celula_minima };
     // Montante de cada aresta: a borda é do papel; a linha interior é a final, com o montante do eixo, o seu próprio ou nenhum.
@@ -589,8 +695,11 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
         segmentos: Vec::new(),
         pecas: Vec::new(),
         pecas_esq: Vec::new(),
+        pecas_pol: Vec::new(),
         cantos: Vec::new(),
         paineis: Vec::new(),
+        paineis_pol: Vec::new(),
+        area_sistema,
         esquadrias: Vec::new(),
     };
 
@@ -634,6 +743,62 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
         }
     }
 
+    // Perfil superior variável (método do Lapin): por vão `i`, apenas as travessas horizontais abaixo da borda mínima do vão são mantidas (`kept`),
+    // a borda superior plana `j = nv` é substituída pela borda superior inclinada, e os montantes verticais acima do perfil ficam inativos.
+    let mut j_last: Vec<usize> = vec![nv.saturating_sub(1); nu];
+    let mut topo_u: Vec<(f64, Option<f64>, f64, f64, f64, f64)> = Vec::new();
+    if let Some(snapped) = &perfil_topo {
+        for i in 0..nu {
+            let t0 = top_at(snapped, g.us[i], 1).min(h);
+            let t1 = top_at(snapped, g.us[i + 1], -1).min(h);
+            let low = t0.min(t1);
+            let off_top = if g.mont_v[nv].is_some() && !removidos_v.contains(&(nv, i)) { g.largura_v(nv) } else { 0.0 };
+            let mut last = 0usize;
+            for j in 1..nv {
+                let above = g.largura_v(j) / 2.0;
+                if g.vs[j] + above <= low - off_top - 0.05 {
+                    last = j;
+                } else {
+                    let s = &mut g.segmentos[base_v_seg + j * nu + i];
+                    s.removido = true;
+                    s.montante = ID_AUSENTE;
+                }
+            }
+            j_last[i] = last;
+            // Borda superior plana `j = nv` é substituída pela borda inclinada por vão.
+            let s_top = &mut g.segmentos[base_v_seg + nv * nu + i];
+            s_top.removido = true;
+            s_top.montante = ID_AUSENTE;
+        }
+        for i in 0..=nu {
+            let w_u = g.largura_u(i);
+            let u_left = (g.cu[i] - w_u / 2.0).max(0.0);
+            let u_right = (g.cu[i] + w_u / 2.0).min(l);
+            let step_l = if i == 0 { top_at(snapped, g.us[i], 1) } else { top_at(snapped, g.us[i], -1) };
+            let step_r = if i == nu { top_at(snapped, g.us[i], -1) } else { top_at(snapped, g.us[i], 1) };
+            let is_step = (step_l - step_r).abs() > 1e-6;
+            let zl = if is_step { step_l.max(step_r) } else { top_at(snapped, u_left, 1) }.min(h);
+            let zr = if is_step { step_l.max(step_r) } else { top_at(snapped, u_right, -1) }.min(h);
+            let bend_v = top_at(snapped, g.us[i], 1).min(h);
+            let bend = if !is_step && i > 0 && i < nu && (g.us[i] - u_left) > 1e-6 && (u_right - g.us[i]) > 1e-6 && (bend_v - (zl + zr) / 2.0).abs() > 1e-6 {
+                Some(bend_v)
+            } else {
+                None
+            };
+            let z_max = zl.max(zr).max(bend.unwrap_or(0.0));
+            let z_min = zl.min(zr).min(bend.unwrap_or(f64::INFINITY));
+            topo_u.push((u_left, bend, u_right, zl, zr, z_max));
+            let _ = z_min;
+            for k in 0..nv {
+                if g.vs[k] >= z_max - TOL_POS {
+                    let s = &mut g.segmentos[i * nv + k];
+                    s.removido = true;
+                    s.montante = ID_AUSENTE;
+                }
+            }
+        }
+    }
+
     // Esquadrias nas células (fase 5, ADR §7): remapeadas como as sobrescritas de painel. Uma por região; a região com esquadria não tem painel, e a porta
     // sem peitoril omite o segmento horizontal da base sob ela (soleira derivada, §7.5.1: recalculada a cada resolução, nunca gravada).
     let cel_ab: Vec<CelSob> = sec
@@ -673,6 +838,12 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
         pan_cel[i * nv + j] = Some(o.painel);
     }
     for reg in &fus.regioes {
+        let j_last_min = (reg.i0..=reg.i1).map(|i| j_last[i]).min().unwrap_or(0);
+        let j_last_max = (reg.i0..=reg.i1).map(|i| j_last[i]).max().unwrap_or(0);
+        if perfil_topo.is_some() && reg.j0 > j_last_max {
+            continue;
+        }
+        let na_borda_topo = perfil_topo.is_some() && reg.j1 >= j_last_min;
         let mut sobre = None;
         for j in reg.j0..=reg.j1 {
             for i in reg.i0..=reg.i1 {
@@ -686,20 +857,36 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
             None => g.painel_padrao,
         };
         // Margem só onde a borda da região tem montante ativo (segmento removido de borda não desconta nada).
+        let j_lim = if na_borda_topo { reg.j1.min(j_last_max) } else { reg.j1 };
+        let lados_topo_ativo = if na_borda_topo {
+            g.mont_v[nv].is_some() && !(reg.i0..=reg.i1).all(|i| removidos_v.contains(&(nv, i)))
+        } else {
+            (reg.i0..=reg.i1).any(|i| g.seg_com_montante(EIXO_V, reg.j1 + 1, i))
+        };
         let lados = [
-            (reg.j0..=reg.j1).any(|j| g.seg_com_montante(EIXO_U, reg.i0, j)),
-            (reg.j0..=reg.j1).any(|j| g.seg_com_montante(EIXO_U, reg.i1 + 1, j)),
+            (reg.j0..=j_lim).any(|j| g.seg_com_montante(EIXO_U, reg.i0, j)),
+            (reg.j0..=j_lim).any(|j| g.seg_com_montante(EIXO_U, reg.i1 + 1, j)),
             (reg.i0..=reg.i1).any(|i| g.seg_com_montante(EIXO_V, reg.j0, i)),
-            (reg.i0..=reg.i1).any(|i| g.seg_com_montante(EIXO_V, reg.j1 + 1, i)),
+            lados_topo_ativo,
         ];
         let (fs0, fs1) = (
             if lados[0] { g.cu[reg.i0] + g.largura_u(reg.i0) / 2.0 } else { g.us[reg.i0] },
             if lados[1] { g.cu[reg.i1 + 1] - g.largura_u(reg.i1 + 1) / 2.0 } else { g.us[reg.i1 + 1] },
         );
-        let (fz0, fz1) = (
+        let off_top_reg = if na_borda_topo && lados[3] { g.largura_v(nv) } else { 0.0 };
+        let (fz0, mut fz1) = (
             if lados[2] { g.cv[reg.j0] + g.largura_v(reg.j0) / 2.0 } else { g.vs[reg.j0] },
             if lados[3] { g.cv[reg.j1 + 1] - g.largura_v(reg.j1 + 1) / 2.0 } else { g.vs[reg.j1 + 1] },
         );
+        if let (true, Some(snapped)) = (na_borda_topo, &perfil_topo) {
+            let mut low_top = top_at(snapped, fs0, 1).min(top_at(snapped, fs1, -1));
+            for q in snapped {
+                if q[0] > fs0 + 1e-9 && q[0] < fs1 - 1e-9 {
+                    low_top = low_top.min(q[1]);
+                }
+            }
+            fz1 = fz1.min((low_top - off_top_reg).min(h)).max(fz0);
+        }
         let ri = fus.regiao_de[reg.canon.0 * nv + reg.canon.1];
         if let Some(&k) = ab_de_regiao.get(&ri) {
             // Região com esquadria: sem painel (nem vidro de fachada); o vão e os avisos vêm de `montar_esquadria`.
@@ -718,10 +905,62 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
             let multi = if (reg.i1 - reg.i0 + 1) * (reg.j1 - reg.j0 + 1) > 1 { CELULA_REGIAO_MULTIPLA } else { 0 };
             for j in reg.j0..=reg.j1 {
                 for i in reg.i0..=reg.i1 {
+                    if perfil_topo.is_some() && j > j_last[i] {
+                        continue;
+                    }
                     g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: g.painel_padrao.tipo, flags: multi | CELULA_ESQUADRIA, regiao: (reg.canon.0 * nv + reg.canon.1) as u32 });
                 }
             }
             continue;
+        }
+        let canonica = (reg.canon.0 * nv + reg.canon.1) as u32;
+        let multi = if (reg.i1 - reg.i0 + 1) * (reg.j1 - reg.j0 + 1) > 1 { CELULA_REGIAO_MULTIPLA } else { 0 };
+        if let (true, Some(snapped)) = (na_borda_topo, &perfil_topo) {
+            let flat_reg = !snapped.iter().any(|q| q[0] > fs0 + 1e-9 && q[0] < fs1 - 1e-9)
+                && (top_at(snapped, fs0, 1) - top_at(snapped, fs1, -1)).abs() < 1e-6;
+            if flat_reg {
+                let y_flat = top_at(snapped, fs0, 1).min(h) - off_top_reg;
+                if y_flat - fz0 < 0.02 {
+                    continue;
+                }
+                fz1 = y_flat;
+            } else {
+                let Some(poligono) = clip_region_under_profile(fs0, fs1, fz0, snapped, off_top_reg) else {
+                    continue;
+                };
+                let poligono_bruto = if painel.kind == PAINEL_VAZIO {
+                    poligono.clone()
+                } else {
+                    let b = painel.encaixe;
+                    let ua_b = fs0 - if lados[0] { b } else { 0.0 };
+                    let ub_b = fs1 + if lados[1] { b } else { 0.0 };
+                    let za_b = fz0 - if lados[2] { b } else { 0.0 };
+                    let off_b = if lados[3] { (off_top_reg - b).max(0.0) } else { off_top_reg };
+                    clip_region_under_profile(ua_b, ub_b, za_b, snapped, off_b).unwrap_or_else(|| poligono.clone())
+                };
+                let pp = PainelPoligonal { i: reg.canon.0 as u32, j: reg.canon.1 as u32, p: painel, poligono, poligono_bruto };
+                let (cs0, cs1, cz0, cz1) = pp.caixa_sz();
+                let menor = (cs1 - cs0).min(cz1 - cz0);
+                let mut flags = 0;
+                if menor < min_cell - EPS_CONTAGEM {
+                    flags |= CELULA_PEQUENA;
+                    let q = g.mundo((cs0 + cs1) / 2.0, 0.0, (cz0 + cz1) / 2.0);
+                    r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_PEQUENA, i: reg.canon.0 as u32, j: reg.canon.1 as u32, medido: menor, limite: min_cell, p: q });
+                }
+                for i in reg.i0..=reg.i1 {
+                    for j in reg.j0..=reg.j1.min(j_last[i]) {
+                        let adotada = if pan_cel[i * nv + j].is_some() { CELULA_SOBRESCRITA } else { 0 };
+                        let cel_z1 = if j == j_last[i] {
+                            top_at(snapped, g.us[i], 1).max(top_at(snapped, g.us[i + 1], -1)).min(h)
+                        } else {
+                            g.vs[j + 1]
+                        };
+                        g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: cel_z1, painel: painel.tipo, flags: flags | adotada | multi, regiao: canonica });
+                    }
+                }
+                g.paineis_pol.push(pp);
+                continue;
+            }
         }
         let p = PainelPeca { i: reg.canon.0 as u32, j: reg.canon.1 as u32, p: painel, s0: fs0, s1: fs1, z0: fz0, z1: fz1, lados };
         let menor = p.largura_livre().min(p.altura_livre());
@@ -732,13 +971,19 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
             let q = g.mundo(meio_s, 0.0, meio_z);
             r.avisos.push(AvisoC { codigo: AVISO_CORTINA_CELULA_PEQUENA, i: reg.canon.0 as u32, j: reg.canon.1 as u32, medido: menor, limite: min_cell, p: q });
         }
-        let canonica = (reg.canon.0 * nv + reg.canon.1) as u32;
-        let multi = if (reg.i1 - reg.i0 + 1) * (reg.j1 - reg.j0 + 1) > 1 { CELULA_REGIAO_MULTIPLA } else { 0 };
         for j in reg.j0..=reg.j1 {
             for i in reg.i0..=reg.i1 {
+                if perfil_topo.is_some() && j > j_last[i] {
+                    continue;
+                }
                 // Bit 1: a célula recebeu uma sobrescrita de painel adotada; bit 2: a região tem mais de uma célula.
                 let adotada = if pan_cel[i * nv + j].is_some() { CELULA_SOBRESCRITA } else { 0 };
-                g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: g.vs[j + 1], painel: painel.tipo, flags: flags | adotada | multi, regiao: canonica });
+                let cel_z1 = if let (true, Some(snapped)) = (na_borda_topo && j == j_last[i], &perfil_topo) {
+                    top_at(snapped, g.us[i], 1).max(top_at(snapped, g.us[i + 1], -1)).min(h)
+                } else {
+                    g.vs[j + 1]
+                };
+                g.celulas.push(Celula { i: i as u32, j: j as u32, s0: g.us[i], s1: g.us[i + 1], z0: g.vs[j], z1: cel_z1, painel: painel.tipo, flags: flags | adotada | multi, regiao: canonica });
             }
         }
         g.paineis.push(p);
@@ -748,10 +993,14 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
     g.esquadrias = esquadrias;
 
     // Montantes de canto que esta cortina emite (ADR §6.5): um prisma de altura total por ponta com canto, o da cortina de menor id.
-    for p in pontas.iter().flatten() {
-        if let Some(cn) = p.canto.as_ref().filter(|x| x.emite) {
+    for (fim, p) in pontas.iter().enumerate() {
+        if let Some(cn) = p.as_ref().and_then(|x| x.canto.as_ref()).filter(|x| x.emite) {
             if let Some(mt) = montante_de(sec, cn.montante)? {
-                g.cantos.push(PecaCanto { m: mt, poligono: cn.poligono.clone(), z0: c.z_base, z1: c.z_base + h });
+                let h_canto = match &perfil_topo {
+                    Some(snapped) => (if fim == 0 { top_at(snapped, 0.0, 1) } else { top_at(snapped, l, -1) }).min(h),
+                    None => h,
+                };
+                g.cantos.push(PecaCanto { m: mt, poligono: cn.poligono.clone(), z0: c.z_base, z1: c.z_base + h_canto });
             }
         }
     }
@@ -774,6 +1023,43 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
             } else {
                 (limite_vizinho(g.mont_v[k].as_ref(), f0, g.cv[k], -g.sigma, true, g.vs[k]), limite_vizinho(g.mont_v[k + 1].as_ref(), f1, g.cv[k + 1], -g.sigma, false, g.vs[k + 1]))
             };
+            if perfil_topo.is_some() {
+                let (u_left, bend, u_right, zl, zr, _) = topo_u[i];
+                let z_min_top = zl.min(zr).min(bend.unwrap_or(f64::INFINITY));
+                let ym = (ymin + ymax) / 2.0;
+                if varia(&lo, ymin, ymax) || varia(&hi, ymin, ymax) {
+                    if g.vs[k + 1] <= z_min_top + 1e-6 {
+                        g.pecas_esq.push(PecaEsq { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], lo, hi, continuo: vertical_continua });
+                    } else {
+                        let de = valor_em(&lo, ym);
+                        let hi_val = valor_em(&hi, ym);
+                        let (zl_c, zr_c, bend_c) = (zl.min(hi_val), zr.min(hi_val), bend.map(|b| b.min(hi_val)));
+                        if let Some(poligono) = clip_mullion_top(u_left, u_right, g.us[i], de, zl_c, bend_c, zr_c) {
+                            let comp = area_poligono_sz(&poligono).abs() / mt.largura;
+                            g.pecas_pol.push(PecaMontPoligonal { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, poligono, comprimento: comp });
+                        }
+                    }
+                    continue;
+                }
+                let (de, hi_val) = (valor_em(&lo, ym), valor_em(&hi, ym));
+                if hi_val <= z_min_top + 1e-6 {
+                    if hi_val - de > TOL_POS {
+                        g.pecas.push(PecaMont { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], de, ate: hi_val, continuo: vertical_continua });
+                    }
+                } else {
+                    let (zl_c, zr_c, bend_c) = (zl.min(hi_val), zr.min(hi_val), bend.map(|b| b.min(hi_val)));
+                    let flat = (zl_c - zr_c).abs() < 1e-6 && bend_c.is_none_or(|b| (b - zl_c).abs() < 1e-6);
+                    if flat {
+                        if zl_c - de > TOL_POS {
+                            g.pecas.push(PecaMont { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], de, ate: zl_c, continuo: vertical_continua });
+                        }
+                    } else if let Some(poligono) = clip_mullion_top(u_left, u_right, g.us[i], de, zl_c, bend_c, zr_c) {
+                        let comp = area_poligono_sz(&poligono).abs() / mt.largura;
+                        g.pecas_pol.push(PecaMontPoligonal { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, poligono, comprimento: comp });
+                    }
+                }
+                continue;
+            }
             if varia(&lo, ymin, ymax) || varia(&hi, ymin, ymax) {
                 g.pecas_esq.push(PecaEsq { eixo: EIXO_U, linha: i as u32, k: k as u32, papel: g.papel_u[i], m: mt, pos: g.cu[i], lo, hi, continuo: vertical_continua });
                 continue;
@@ -808,6 +1094,37 @@ fn resolver_uma(sec: &SecoesCortina, a3: &SecoesA3, grades: &IndiceGrades, id: u
             let (de, ate) = (valor_em(&lo, ym), valor_em(&hi, ym));
             if ate - de > TOL_POS {
                 g.pecas.push(PecaMont { eixo: EIXO_V, linha: j as u32, k: k as u32, papel: g.papel_v[j], m: mt, pos: g.cv[j], de, ate, continuo: !vertical_continua });
+            }
+        }
+    }
+    // Borda superior inclinada (método do Lapin): acompanha o contorno do perfil em cada vão `[ua, ub]`.
+    if let (Some(snapped), Some(mt)) = (&perfil_topo, g.mont_v[nv]) {
+        let off = mt.largura;
+        for k in 0..nu {
+            if removidos_v.contains(&(nv, k)) {
+                continue;
+            }
+            let t0 = top_at(snapped, g.us[k], 1).min(h);
+            let t1 = top_at(snapped, g.us[k + 1], -1).min(h);
+            let v_left = g.mont_u[k].is_some() && (0..nv).any(|r| g.seg_com_montante(EIXO_U, k, r) && g.vs[r] < t0 - TOL_POS && g.vs[r + 1] >= t0 - off - TOL_POS);
+            let v_right = g.mont_u[k + 1].is_some() && (0..nv).any(|r| g.seg_com_montante(EIXO_U, k + 1, r) && g.vs[r] < t1 - TOL_POS && g.vs[r + 1] >= t1 - off - TOL_POS);
+            let ua = if v_left { g.cu[k] + g.largura_u(k) / 2.0 } else { g.us[k] };
+            let ub = if v_right { g.cu[k + 1] - g.largura_u(k + 1) / 2.0 } else { g.us[k + 1] };
+            if ub - ua <= TOL_POS {
+                continue;
+            }
+            let span = g.us[k + 1] - g.us[k];
+            let top_in = |x: f64| (t0 + (t1 - t0) * (x - g.us[k]) / span).min(h);
+            let (top_a, top_b) = (top_in(ua), top_in(ub));
+            let (ya, yb) = ((top_a - off).max(0.0), (top_b - off).max(0.0));
+            if (top_a - top_b).abs() < 1e-6 && (top_a - ya - off).abs() < 1e-6 {
+                g.pecas.push(PecaMont { eixo: EIXO_V, linha: nv as u32, k: k as u32, papel: PAPEL_BORDA_TOPO, m: mt, pos: ya + off / 2.0, de: ua, ate: ub, continuo: !vertical_continua });
+            } else {
+                let band = limpar_sz(vec![[ua, ya], [ub, yb], [ub, top_b], [ua, top_a]]);
+                if band.len() >= 3 && area_poligono_sz(&band).abs() > 1e-9 {
+                    let comp = (ub - ua).hypot(top_b - top_a);
+                    g.pecas_pol.push(PecaMontPoligonal { eixo: EIXO_V, linha: nv as u32, k: k as u32, papel: PAPEL_BORDA_TOPO, m: mt, poligono: band, comprimento: comp });
+                }
             }
         }
     }

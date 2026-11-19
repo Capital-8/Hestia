@@ -596,6 +596,49 @@ fn ponto_esq(g: &Geom, p: &PecaEsq, v: [f64; 3]) -> [f64; 3] {
     [na_grade(q[0]), na_grade(q[1]), na_grade(q[2])]
 }
 
+/// Extruda um polígono simples anti-horário no plano `(t, z)` da cortina na faixa de profundidade `yp ∈ [y0, y1]`, em coordenadas do mundo.
+/// Cada face tem vértices próprios (sombreamento chapado) e as normais apontam sempre para fora.
+pub(crate) fn extrudar_sz(g: &Geom, poly: &[[f64; 2]], y0: f64, y1: f64) -> (Vec<[f64; 3]>, Vec<[u32; 3]>) {
+    let n = poly.len();
+    if n < 3 || y1 - y0 <= 1e-12 {
+        return (Vec::new(), Vec::new());
+    }
+    let flip = g.sigma < 0.0;
+    let pt = |q: [f64; 2], y: f64| -> [f64; 3] {
+        let p = g.mundo(q[0], y, q[1]);
+        [na_grade(p[0]), na_grade(p[1]), na_grade(p[2])]
+    };
+    let mut v = Vec::with_capacity(6 * n);
+    let mut t = Vec::new();
+    let mut push_tri = |a: u32, b: u32, c: u32| {
+        if flip {
+            t.push([a, c, b]);
+        } else {
+            t.push([a, b, c]);
+        }
+    };
+    for k in 0..n {
+        let (p, q) = (poly[k], poly[(k + 1) % n]);
+        let b = v.len() as u32;
+        v.extend_from_slice(&[pt(p, y0), pt(p, y1), pt(q, y1), pt(q, y0)]);
+        push_tri(b, b + 1, b + 2);
+        push_tri(b, b + 2, b + 3);
+    }
+    let base = v.len() as u32;
+    for &p in poly {
+        v.push(pt(p, y0));
+    }
+    let topo = v.len() as u32;
+    for &p in poly {
+        v.push(pt(p, y1));
+    }
+    for [a, b, c] in orelhas(poly) {
+        push_tri(base + a as u32, base + b as u32, base + c as u32);
+        push_tri(topo + a as u32, topo + c as u32, topo + b as u32);
+    }
+    (v, t)
+}
+
 /// Protótipos e instâncias das cortinas resolvidas, e as peças de esquadria em `grupos`. `LIMITE` com mais de 20 000 instâncias.
 pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
     let geoms: Vec<(&CortinaR, &Geom)> = cortinas.iter().filter_map(|c| c.g.as_ref().map(|g| (c, g))).collect();
@@ -603,7 +646,7 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
     let mut chaves: BTreeSet<(u32, u32)> = BTreeSet::new();
     let mut protos: BTreeMap<(u32, u32), Proto> = BTreeMap::new();
     for (_, g) in &geoms {
-        n += g.pecas.len() + g.pecas_esq.len() + g.cantos.len();
+        n += g.pecas.len() + g.pecas_esq.len() + g.pecas_pol.len() + g.paineis_pol.len() + g.cantos.len();
         for p in &g.pecas {
             if chaves.insert((MALHA_MONTANTE, p.m.tipo)) {
                 protos.insert((MALHA_MONTANTE, p.m.tipo), proto_montante(&p.m, lod));
@@ -668,6 +711,33 @@ pub fn montar(cortinas: &[CortinaR], lod: u32) -> Result<Malha, u32> {
             let grupo = grupos.entry((c.id, MALHA_MONTANTE, k.m.material, 0)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: k.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
             let b = grupo.vertices.len() as u32;
             grupo.vertices.extend(v.iter().map(|q| [na_grade(q[0]), na_grade(q[1]), na_grade(q[2])]));
+            grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
+        }
+    }
+    // Montantes e painéis poligonais (perfil superior variável): extrudados na profundidade no mundo.
+    for (c, g) in &geoms {
+        for p in &g.pecas_pol {
+            let (y0, y1) = (p.m.desloc - p.m.prof() / 2.0, p.m.desloc + p.m.prof() / 2.0);
+            let (v, t) = extrudar_sz(g, &p.poligono, y0, y1);
+            if t.is_empty() {
+                continue;
+            }
+            let grupo = grupos.entry((c.id, MALHA_MONTANTE, p.m.material, 0)).or_insert_with(|| GrupoAv { cortina: c.id, papel: MALHA_MONTANTE, material: p.m.material, transparente: 0, vertices: Vec::new(), triangulos: Vec::new() });
+            let b = grupo.vertices.len() as u32;
+            grupo.vertices.extend(v);
+            grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
+        }
+        for p in g.paineis_pol.iter().filter(|p| p.p.kind != PAINEL_VAZIO && p.tem_area()) {
+            let (y0, y1) = (p.p.desloc - p.p.espessura / 2.0, p.p.desloc + p.p.espessura / 2.0);
+            let (v, t) = extrudar_sz(g, &p.poligono_bruto, y0, y1);
+            if t.is_empty() {
+                continue;
+            }
+            let papel = if p.p.kind == PAINEL_VIDRO { MALHA_VIDRO } else { MALHA_SOLIDO };
+            let transp = u32::from(p.p.kind == PAINEL_VIDRO);
+            let grupo = grupos.entry((c.id, papel, p.p.material, transp)).or_insert_with(|| GrupoAv { cortina: c.id, papel, material: p.p.material, transparente: transp, vertices: Vec::new(), triangulos: Vec::new() });
+            let b = grupo.vertices.len() as u32;
+            grupo.vertices.extend(v);
             grupo.triangulos.extend(t.iter().map(|x| [x[0] + b, x[1] + b, x[2] + b]));
         }
     }

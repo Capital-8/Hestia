@@ -1,75 +1,41 @@
-import { dot, sub } from './vec.ts';
-import { posAt, type Line, type Vtx } from './skeletonCore.ts';
+import { cross, dot, mul, sub } from './vec.ts';
+import { type Sim } from './skeletonCore.ts';
 
-export type Event =
-  | { kind: 'edge'; t: number; r: number; i: number }
-  | { kind: 'split'; t: number; r: number; i: number; r2: number; j: number; at: HitAt };
+/** Tolerância temporal (m/velocidade) para eventos de colisão quase simultâneos ao instante atual. */
+const EPS_T = 1e-6;
 
-/** Onde o vértice reflexo toca a aresta: no meio, ou num extremo (evento vértice-vértice). */
-export type HitAt = 'mid' | 'start' | 'end';
-
-/** Vértice reflexo (do lado do material): a aresta de saída curva para fora do material. */
-const isReflex = (v: Vtx): boolean => dot(v.inL.n, v.outL.dir) < -1e-9;
-
-/** Instante em que a aresta P→Q encolhe a zero (None se não encolhe a partir de T). */
-function edgeTime(P: Vtx, Q: Vtx, T: number): number | null {
-  const d = P.outL.dir;
-  const A = dot(d, sub(Q.p0, P.p0));
-  const B = dot(d, sub(Q.v, P.v));
-  if (B > -1e-12) return null;
-  if (A + B * T < -1e-7) return null;
-  return Math.max(-A / B, T);
+/** Enfileira o encolhimento da aresta entre `a` e `b` se ela encolhe a partir de `now`. */
+export function queueShrink(sim: Sim, a: number, b: number, now: number): void {
+  const ca = sim.corners[a]!;
+  const cb = sim.corners[b]!;
+  const d = sim.edges[ca.right]!.dir;
+  const p0a = sub(ca.p, mul(ca.v, ca.t));
+  const p0b = sub(cb.p, mul(cb.v, cb.t));
+  const c = dot(sub(p0b, p0a), d);
+  const k = dot(sub(cb.v, ca.v), d);
+  const together = Math.abs(c + k * now) <= sim.eps && k < 1e-9;
+  const t = together ? now : Math.max(-c / k, now);
+  if ((together || k < -1e-12) && Number.isFinite(t)) {
+    sim.queue.push({ t, kind: 'shrink', a, b });
+  }
 }
 
-/**
- * Instante em que o vértice reflexo V toca a aresta K (piece P→Q), com o ponto de contato
- * dentro do intervalo da aresta naquele instante. Null se não há contato futuro.
- */
-function splitTime(V: Vtx, K: Line, P: Vtx, Q: Vtx, T: number): { t: number; at: HitAt } | null {
-  const den = dot(K.n, V.v) - K.s;
-  if (Math.abs(den) < 1e-12) return null;
-  const t0 = (K.c - dot(K.n, V.p0)) / den;
-  if (t0 < T - 1e-9) return null;
-  const t = Math.max(t0, T);
-  if (dot(K.n, posAt(V, T)) - (K.c + K.s * T) < -1e-9) return null;
-  const X = posAt(V, t);
-  const A = posAt(P, t);
-  const B = posAt(Q, t);
-  const u = dot(K.dir, sub(X, A));
-  const len = dot(K.dir, sub(B, A));
-  if (u < -1e-9 || u > len + 1e-9) return null;
-  const at: HitAt = u <= 1e-7 ? 'start' : len - u <= 1e-7 ? 'end' : 'mid';
-  return { t, at };
-}
-
-/** Próximo evento (o mais cedo; em empate vence o de aresta). Null se não há mais eventos. */
-export function nextEvent(rings: Vtx[][], T: number): Event | null {
-  let best: Event | null = null;
-  const take = (e: Event): void => {
-    if (best === null || e.t < best.t - 1e-12) best = e;
-  };
-  for (let r = 0; r < rings.length; r++) {
-    const R = rings[r]!;
-    const m = R.length;
-    for (let i = 0; i < m; i++) {
-      const t = edgeTime(R[i]!, R[(i + 1) % m]!, T);
-      if (t !== null) take({ kind: 'edge', t, r, i });
+/** Enfileira colisões futuras de um vértice reflexo `c` contra todas as demais arestas. */
+export function queueSplits(sim: Sim, c: number, now: number): void {
+  const corner = sim.corners[c]!;
+  if (corner.stuck) return;
+  const dl = sim.edges[corner.left]!.dir;
+  const dr = sim.edges[corner.right]!.dir;
+  if (cross(dl, dr) >= -1e-12) return;
+  const p0 = sub(corner.p, mul(corner.v, corner.t));
+  for (let f = 0; f < sim.edges.length; f++) {
+    if (f === corner.left || f === corner.right) continue;
+    const e = sim.edges[f]!;
+    const k = dot(corner.v, e.n) - e.speed;
+    if (k >= -1e-12) continue;
+    const t = -dot(sub(p0, e.a), e.n) / k;
+    if (Number.isFinite(t) && t >= now - EPS_T) {
+      sim.queue.push({ t: Math.max(t, now), kind: 'split', v: c, f });
     }
   }
-  for (let r = 0; r < rings.length; r++) {
-    const R = rings[r]!;
-    for (let i = 0; i < R.length; i++) {
-      const V = R[i]!;
-      if (!isReflex(V)) continue;
-      for (let r2 = 0; r2 < rings.length; r2++) {
-        const R2 = rings[r2]!;
-        const m2 = R2.length;
-        for (let j = 0; j < m2; j++) {
-          const h = splitTime(V, R2[j]!.outL, R2[j]!, R2[(j + 1) % m2]!, T);
-          if (h !== null) take({ kind: 'split', t: h.t, r, i, r2, j, at: h.at });
-        }
-      }
-    }
-  }
-  return best;
 }

@@ -196,6 +196,9 @@ export const PT_DIALOGS_MISC = {
   dlm_hosted_loss_ok: 'Excluir elementos e continuar',
   dlm_confirm_title: 'Confirmar',
   dlm_confirm_ok: 'Continuar',
+  dlm_roof_step_title: 'Degrau no telhado',
+  dlm_roof_step_close: 'Fechar com testeira',
+  dlm_roof_step_open: 'Deixar aberto',
 
   // ---- conflito de mudança de nível (LevelMoveConflictDialog) ---------------------------------
   dlm_level: 'Nível',
@@ -436,6 +439,9 @@ export const EN_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Delete elements and continue',
   dlm_confirm_title: 'Confirm',
   dlm_confirm_ok: 'Continue',
+  dlm_roof_step_title: 'Roof Step',
+  dlm_roof_step_close: 'Close with fascia',
+  dlm_roof_step_open: 'Leave open',
 
   dlm_level: 'Level',
   dlm_err_plan_level: 'Could not plan the level change.',
@@ -674,6 +680,9 @@ export const ES_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Eliminar elementos y continuar',
   dlm_confirm_title: 'Confirmar',
   dlm_confirm_ok: 'Continuar',
+  dlm_roof_step_title: 'Escalón en el tejado',
+  dlm_roof_step_close: 'Cerrar con fascia',
+  dlm_roof_step_open: 'Dejar abierto',
 
   dlm_level: 'Nivel',
   dlm_err_plan_level: 'No se pudo planificar el cambio de nivel.',
@@ -912,6 +921,9 @@ export const DE_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Elemente löschen und fortfahren',
   dlm_confirm_title: 'Bestätigen',
   dlm_confirm_ok: 'Fortfahren',
+  dlm_roof_step_title: 'Dachstufe',
+  dlm_roof_step_close: 'Mit Stirnbrett schließen',
+  dlm_roof_step_open: 'Offen lassen',
 
   dlm_level: 'Ebene',
   dlm_err_plan_level: 'Der Ebenenwechsel konnte nicht geplant werden.',
@@ -1150,6 +1162,9 @@ export const FR_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Supprimer les éléments et continuer',
   dlm_confirm_title: 'Confirmer',
   dlm_confirm_ok: 'Continuer',
+  dlm_roof_step_title: 'Décrochement du toit',
+  dlm_roof_step_close: 'Fermer avec bandeau',
+  dlm_roof_step_open: 'Laisser ouvert',
 
   dlm_level: 'Niveau',
   dlm_err_plan_level: 'Impossible de planifier le changement de niveau.',
@@ -1388,6 +1403,9 @@ export const IT_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Elimina elementi e continua',
   dlm_confirm_title: 'Conferma',
   dlm_confirm_ok: 'Continua',
+  dlm_roof_step_title: 'Gradino nel tetto',
+  dlm_roof_step_close: 'Chiudi con fascia',
+  dlm_roof_step_open: 'Lascia aperto',
 
   dlm_level: 'Livello',
   dlm_err_plan_level: 'Impossibile pianificare il cambio di livello.',
@@ -1626,6 +1644,9 @@ export const PL_DIALOGS_MISC: Record<keyof typeof PT_DIALOGS_MISC, string> = {
   dlm_hosted_loss_ok: 'Usuń elementy i kontynuuj',
   dlm_confirm_title: 'Potwierdź',
   dlm_confirm_ok: 'Kontynuuj',
+  dlm_roof_step_title: 'Uskok dachu',
+  dlm_roof_step_close: 'Zamknij deską okapową',
+  dlm_roof_step_open: 'Pozostaw otwarte',
 
   dlm_level: 'Poziom',
   dlm_err_plan_level: 'Nie udało się zaplanować zmiany poziomu.',

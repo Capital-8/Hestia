@@ -126,10 +126,7 @@ describe('esqueleto reto com pesos', () => {
     }
   });
 
-  // LIMITE CONHECIDO: a mesma claraboia com o furo em sentido anti-horário fecha a moldura no mesmo
-  // instante (t = 0,6) e entra em laço de eventos; devolve ok:false. Quando for corrigido, este teste
-  // passa a falhar e deve virar `it`.
-  it.fails('limite conhecido: claraboia com furo anti-horário', () => {
+  it('claraboia com furo anti-horário', () => {
     const r = weightedSkeleton({
       outer: rect(12, 12),
       holes: [[v2(4, 4), v2(8, 4), v2(8, 8), v2(4, 8)]],
@@ -138,9 +135,7 @@ describe('esqueleto reto com pesos', () => {
     expect(r.ok, r.reason).toBe(true);
     expect(sumArea(r.faces)).toBeCloseTo(128, 6);
   });
-  // LIMITE CONHECIDO: furo colado numa parede externa de mesma direção de aresta (faixa que fecha
-  // no mesmo instante). Mesmo mecanismo do caso anterior.
-  it.fails('limite conhecido: furo a 1 m da parede externa', () => {
+  it('furo a 1 m da parede externa', () => {
     const r = weightedSkeleton({
       outer: rect(12, 12),
       holes: [[v2(1, 4), v2(3, 4), v2(3, 8), v2(1, 8)]],

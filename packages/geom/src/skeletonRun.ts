@@ -1,201 +1,209 @@
-import { dist, dot, type Vec2 } from './vec.ts';
-import { SkeletonFail, closeVtx, mkVtx, nodeAt, posAt, solveVel, type Sim, type Vtx } from './skeletonCore.ts';
-import { nextEvent, type Event } from './skeletonEvents.ts';
+import { dist, dot, mul, sub, type Vec2 } from './vec.ts';
+import { SkeletonFail, linkCorners, mkCorner, posAt, pushNode, type Sim } from './skeletonCore.ts';
+import { queueShrink, queueSplits } from './skeletonEvents.ts';
 
-type EdgeEv = Extract<Event, { kind: 'edge' }>;
-type SplitEv = Extract<Event, { kind: 'split' }>;
+function distToSeg(p: Vec2, a: Vec2, b: Vec2): number {
+  const ab = sub(b, a);
+  const l2 = dot(ab, ab);
+  const u = l2 > 0 ? Math.max(0, Math.min(1, dot(sub(p, a), ab) / l2)) : 0;
+  return dist(p, { x: a.x + ab.x * u, y: a.y + ab.y * u });
+}
 
-/** Vértices de `from` até `to` (inclusive, em volta do anel). */
-function cyc(R: Vtx[], from: number, to: number): Vtx[] {
-  const m = R.length;
-  const out: Vtx[] = [];
-  let k = from;
-  for (let guard = 0; guard < m; guard++) {
-    out.push(R[k]!);
-    if (k === to) break;
-    k = (k + 1) % m;
+function emitArc(sim: Sim, alive: Set<number>, c: number, node: number): void {
+  const k = sim.corners[c]!;
+  if (k.node !== node) {
+    sim.arcs.push({ a: k.node, b: node, left: k.left, right: k.right });
   }
-  return out;
+  k.alive = false;
+  alive.delete(c);
 }
 
-/** Aresta P→Q encolheu a zero: vértices P e Q viram um único vértice Y entre as retas externas. */
-function applyEdge(sim: Sim, ev: EdgeEv): void {
-  const R = sim.rings[ev.r]!;
-  const m = R.length;
-  const i = ev.i;
-  const T = ev.t;
-  const P = R[i]!;
-  const Q = R[(i + 1) % m]!;
-  const pp = posAt(P, T);
-  const pq = posAt(Q, T);
-  const X = { x: (pp.x + pq.x) / 2, y: (pp.y + pq.y) / 2 };
-  const N = nodeAt(sim, X.x, X.y, T);
-  closeVtx(sim, P, T);
-  closeVtx(sim, Q, T);
-  const Y = mkVtx(P.inL, Q.outL, X, T, N);
-  sim.rings[ev.r] = [...cyc(R, (i + 2) % m, (i - 1 + m) % m), Y];
+/** Funde dois vértices vizinhos `a` e `b` em `p` no instante `t`. */
+function mergeCorners(sim: Sim, alive: Set<number>, a: number, b: number, p: Vec2, t: number): void {
+  const ca = sim.corners[a]!;
+  const cb = sim.corners[b]!;
+  const prev = ca.prev;
+  const next = cb.next;
+  if (prev === next) {
+    const peak = pushNode(sim, p, t);
+    emitArc(sim, alive, a, peak);
+    emitArc(sim, alive, b, peak);
+    emitArc(sim, alive, next, peak);
+    return;
+  }
+  const n = pushNode(sim, p, t);
+  const left = ca.left;
+  const right = cb.right;
+  emitArc(sim, alive, a, n);
+  emitArc(sim, alive, b, n);
+  const c = mkCorner(sim, p, t, left, right, n);
+  alive.add(c);
+  linkCorners(sim, prev, c, next);
+  settleCorner(sim, alive, c, t);
 }
 
-/**
- * Vértice reflexo V (retas A→B) atinge a aresta K = R2[j].outL no ponto X.
- * - meio da aresta: X1 = (K,B) e X2 = (A,K); o anel se divide (mesmo anel) ou funde (anéis diferentes).
- * - extremo inicial W = R2[j] (evento vértice-vértice): o trecho K_1 tem comprimento zero; W some e
- *   nasce Y = (W.in, B) no lugar de X1; X2 = (A,K) como acima.
- * - extremo final Q = R2[j+1]: Q some e nasce Z = (A, Q.out); X1 = (K,B) como acima.
- */
-function applySplit(sim: Sim, ev: SplitEv): void {
-  const T = ev.t;
-  const R = sim.rings[ev.r]!;
-  const R2 = sim.rings[ev.r2]!;
-  const m = R.length;
-  const m2 = R2.length;
-  const i = ev.i;
-  const j = ev.j;
-  const V = R[i]!;
-  const A = V.inL;
-  const B = V.outL;
-  const K = R2[j]!.outL;
-  const X = posAt(V, T);
-  const N = nodeAt(sim, X.x, X.y, T);
-  closeVtx(sim, V, T);
-  const X2 = mkVtx(A, K, X, T, N);
-  const sameRing = ev.r === ev.r2;
-  if (ev.at === 'start') {
-    const W = R2[j]!;
-    const Y = mkVtx(W.inL, B, X, T, N);
-    closeVtx(sim, W, T);
-    if (sameRing) {
-      if (j === (i + 1) % m) throw new SkeletonFail('evento vértice-vértice sobre aresta adjacente não suportado');
-      sim.rings = sim.rings
-        .filter((_, k) => k !== ev.r)
-        .concat([
-          [Y, ...cyc(R, (i + 1) % m, (j - 1 + m) % m)],
-          [X2, ...cyc(R, (j + 1) % m, (i - 1 + m) % m)],
-        ]);
+/** Fecha laços de 2 vértices, resolve vértices paralelos (`stuck`) ou enfileira eventos do novo vértice. */
+function settleCorner(sim: Sim, alive: Set<number>, c: number, now: number): void {
+  const k = sim.corners[c]!;
+  const prev = k.prev;
+  const next = k.next;
+  if (next === c) {
+    k.alive = false;
+    alive.delete(c);
+    return;
+  }
+  if (next === prev) {
+    const o = sim.corners[next]!;
+    if (k.node !== o.node) {
+      sim.arcs.push({ a: k.node, b: o.node, left: k.left, right: k.right });
+    }
+    k.alive = false;
+    o.alive = false;
+    alive.delete(c);
+    alive.delete(next);
+    return;
+  }
+  if (k.stuck) {
+    const l = sim.edges[k.left]!;
+    const r = sim.edges[k.right]!;
+    const back = posAt(sim.corners[prev]!, now);
+    const on = posAt(sim.corners[next]!, now);
+    if (dot(l.n, r.n) > 0) {
+      if (dist(k.p, back) <= sim.eps) mergeCorners(sim, alive, prev, c, back, now);
+      else if (dist(k.p, on) <= sim.eps) mergeCorners(sim, alive, c, next, on, now);
+      else throw new SkeletonFail('vértice reto entre trechos colineares de pesos diferentes (limite conhecido do esqueleto)', [k.p]);
     } else {
-      const merged = [X2, ...cyc(R2, (j + 1) % m2, (j - 1 + m2) % m2), Y, ...cyc(R, (i + 1) % m, (i - 1 + m) % m)];
-      sim.rings = sim.rings.filter((_, k) => k !== ev.r && k !== ev.r2).concat([merged]);
+      const behind = dist(k.p, back) <= dist(k.p, on);
+      if (behind) mergeCorners(sim, alive, prev, c, back, now);
+      else mergeCorners(sim, alive, c, next, on, now);
     }
     return;
   }
-  if (ev.at === 'end') {
-    const Q = R2[(j + 1) % m2]!;
-    const X1 = mkVtx(K, B, X, T, N);
-    const Z = mkVtx(A, Q.outL, X, T, N);
-    closeVtx(sim, Q, T);
-    if (sameRing) {
-      sim.rings = sim.rings
-        .filter((_, k) => k !== ev.r)
-        .concat([
-          [X1, ...cyc(R, (i + 1) % m, j)],
-          [Z, ...cyc(R, (j + 2) % m, (i - 1 + m) % m)],
-        ]);
-    } else {
-      const merged = [Z, ...cyc(R2, (j + 2) % m2, j), X1, ...cyc(R, (i + 1) % m, (i - 1 + m) % m)];
-      sim.rings = sim.rings.filter((_, k) => k !== ev.r && k !== ev.r2).concat([merged]);
-    }
-    return;
-  }
-  const X1 = mkVtx(K, B, X, T, N);
-  let fresh: Vtx[][];
-  if (sameRing) {
-    fresh = [
-      [X1, ...cyc(R, (i + 1) % m, j)],
-      [X2, ...cyc(R, (j + 1) % m, (i - 1 + m) % m)],
-    ];
-    sim.rings = sim.rings.filter((_, k) => k !== ev.r).concat(fresh);
-  } else {
-    fresh = [[X2, ...cyc(R2, (j + 1) % m2, j), X1, ...cyc(R, (i + 1) % m, (i - 1 + m) % m)]];
-    sim.rings = sim.rings.filter((_, k) => k !== ev.r && k !== ev.r2).concat(fresh);
-  }
+  queueShrink(sim, prev, c, now);
+  queueShrink(sim, c, next, now);
+  queueSplits(sim, c, now);
+}
+
+interface Ray {
+  ang: number;
+  edge: number;
+  other: number;
+  incoming: boolean;
 }
 
 /**
- * Resolve vértices degenerados (retas antiparalelas coincidentes, "sliver" de largura zero):
- * o vértice V e seus vizinhos U e W fecham no ponto comum; a cumeeira é o segmento V→U.
+ * Resolve todos os encontros simultâneos em `p` no instante `t`: vértices em `must` ou a menos de `eps` de `p`,
+ * mais arestas que passam por `p`. Emparelha raios de entrada e saída pelo menor giro anti-horário (material à esquerda).
  */
-function fixRing(sim: Sim, R0: Vtx[]): Vtx[] {
-  let R = R0;
-  for (let guard = 0; guard < 10000; guard++) {
-    const m = R.length;
-    if (m < 3) return R;
-    const k = R.findIndex((v) => solveVel(v.inL, v.outL) === null);
-    if (k < 0) return R;
-    const V = R[k]!;
-    const U = R[(k - 1 + m) % m]!;
-    const W = R[(k + 1) % m]!;
-    if (dot(V.inL.n, V.outL.n) >= 0) throw new SkeletonFail('vértice degenerado sem solução');
-    const T = sim.T;
-    const pu: Vec2 = posAt(U, T);
-    const pw: Vec2 = posAt(W, T);
-    const pv: Vec2 = posAt(V, T);
-    const dU = dist(pu, pv);
-    const dW = dist(pw, pv);
-    if (Math.abs(dU - dW) > 1e-7) {
-      // U e W estão na mesma semirreta a partir de V: o sliver vai só até o mais próximo.
-      // A cumeeira é V→próximo; o próximo é trocado por um vértice novo sobre a reta do outro lado.
-      const nearIsU = dU < dW;
-      const near = nearIsU ? U : W;
-      const pn = nearIsU ? pu : pw;
-      const nN = closeVtx(sim, near, T);
-      if (V.node !== nN) sim.segs.push({ a: V.node, b: nN, f1: V.inL.id, f2: V.outL.id, base: false });
-      const NEW = nearIsU ? mkVtx(U.inL, V.outL, pn, T, nN) : mkVtx(V.inL, W.outL, pn, T, nN);
-      const idxNear = nearIsU ? (k - 1 + m) % m : (k + 1) % m;
-      R = R.map((v, idx) => (idx === idxNear ? NEW : v)).filter((_, idx) => idx !== k);
-      continue;
+function meetAt(sim: Sim, alive: Set<number>, p: Vec2, t: number, must: number[]): void {
+  const here = new Set<number>(must);
+  for (const i of alive) {
+    const c = sim.corners[i]!;
+    if (!here.has(i) && dist(posAt(c, t), p) < sim.eps) here.add(i);
+  }
+  const rays: Ray[] = [];
+  const angle = (d: Vec2): number => Math.atan2(d.y, d.x);
+  for (const i of here) {
+    const c = sim.corners[i]!;
+    if (!here.has(c.prev)) {
+      const d = sim.edges[c.left]!.dir;
+      rays.push({ ang: angle(mul(d, -1)), edge: c.left, other: c.prev, incoming: true });
     }
-    if (dist(pu, pw) > 1e-6) throw new SkeletonFail('evento degenerado não suportado (arestas paralelas)');
-    const nU = closeVtx(sim, U, T);
-    closeVtx(sim, W, T);
-    if (V.node !== nU) sim.segs.push({ a: V.node, b: nU, f1: V.inL.id, f2: V.outL.id, base: false });
-    if (m === 3) return [];
-    if (m === 4) {
-      // sobra um único vértice Z = (W.out, U.in) no ponto comum; se ele também é degenerado,
-      // a cumeeira vai de Z até esse ponto
-      const Z = R[(k + 2) % m]!;
-      if (solveVel(Z.inL, Z.outL) === null) {
-        const nZ = closeVtx(sim, Z, T);
-        if (nZ !== nU) sim.segs.push({ a: nZ, b: nU, f1: Z.inL.id, f2: Z.outL.id, base: false });
-        return [];
-      }
-      return [Z];
+    if (!here.has(c.next)) {
+      const d = sim.edges[c.right]!.dir;
+      rays.push({ ang: angle(d), edge: c.right, other: c.next, incoming: false });
     }
-    const rest = cyc(R, (k + 2) % m, (k - 2 + m) % m);
-    const NEW = mkVtx(U.inL, W.outL, pu, T, nU);
-    R = [...rest, NEW];
   }
-  throw new SkeletonFail('limite de iterações na resolução de degenerescências');
+  for (const x of alive) {
+    const c = sim.corners[x]!;
+    if (here.has(x) || here.has(c.next)) continue;
+    const a = posAt(c, t);
+    const b = posAt(sim.corners[c.next]!, t);
+    if (distToSeg(p, a, b) < sim.eps) {
+      const d = sim.edges[c.right]!.dir;
+      rays.push({ ang: angle(mul(d, -1)), edge: c.right, other: x, incoming: true });
+      rays.push({ ang: angle(d), edge: c.right, other: c.next, incoming: false });
+    }
+  }
+  const node = pushNode(sim, p, t);
+  for (const i of here) emitArc(sim, alive, i, node);
+
+  const outs = rays.filter((r) => !r.incoming);
+  const ins = rays.filter((r) => r.incoming);
+  if (outs.length !== ins.length) {
+    sim.broken = true;
+    return;
+  }
+  const TAU = Math.PI * 2;
+  const pairs: Array<{ turn: number; i: number; j: number }> = [];
+  for (let i = 0; i < outs.length; i++) {
+    const o = outs[i]!;
+    for (let j = 0; j < ins.length; j++) {
+      const c = ins[j]!;
+      let turn = (((c.ang - o.ang) % TAU) + TAU) % TAU;
+      if (turn > TAU - 1e-9) turn = 0;
+      pairs.push({ turn, i, j });
+    }
+  }
+  pairs.sort((a, b) => a.turn - b.turn);
+  const usedOut = new Array<boolean>(outs.length).fill(false);
+  const usedIn = new Array<boolean>(ins.length).fill(false);
+  const made: number[] = [];
+  for (const { i, j } of pairs) {
+    if (usedOut[i] || usedIn[j]) continue;
+    usedOut[i] = true;
+    usedIn[j] = true;
+    const c = mkCorner(sim, p, t, ins[j]!.edge, outs[i]!.edge, node);
+    alive.add(c);
+    linkCorners(sim, ins[j]!.other, c, outs[i]!.other);
+    made.push(c);
+  }
+  for (const c of made) {
+    if (sim.corners[c]!.alive) settleCorner(sim, alive, c, t);
+  }
 }
 
-/** Anel com menos de 3 vértices: todos os vértices se encerram agora; 2 vértices geram cumeeira entre eles. */
-function finishRing(sim: Sim, R: Vtx[]): void {
-  const T = sim.T;
-  const ids = R.map((v) => closeVtx(sim, v, T));
-  if (R.length === 2 && ids[0] !== ids[1]) {
-    sim.segs.push({ a: ids[0]!, b: ids[1]!, f1: R[0]!.inL.id, f2: R[0]!.outL.id, base: false });
-  }
-}
-
-function settle(sim: Sim): void {
-  const out: Vtx[][] = [];
-  for (const R0 of sim.rings) {
-    const R = fixRing(sim, R0);
-    if (R.length >= 3) out.push(R);
-    else finishRing(sim, R);
-  }
-  sim.rings = out;
-}
-
-/** Roda o frente de onda até todos os anéis se encerrarem. */
+/** Roda a frente de onda até todos os anéis se encerrarem. */
 export function runSim(sim: Sim): void {
-  for (let it = 0; it < 20000; it++) {
-    if (sim.rings.length === 0) return;
-    const ev = nextEvent(sim.rings, sim.T);
-    if (!ev) throw new SkeletonFail('frente de onda sem eventos: geometria não converge');
-    sim.T = ev.t;
-    if (ev.kind === 'edge') applyEdge(sim, ev);
-    else applySplit(sim, ev);
-    settle(sim);
+  const n = sim.corners.length;
+  const alive = new Set<number>();
+  for (let i = 0; i < n; i++) alive.add(i);
+  for (let i = 0; i < n; i++) {
+    if (sim.corners[i]?.alive) settleCorner(sim, alive, i, 0);
   }
-  throw new SkeletonFail('limite de eventos atingido');
+  let budget = Math.min(20000, 100 * n * n + 1000);
+  while (sim.queue.length > 0) {
+    if (--budget <= 0) throw new SkeletonFail('limite de eventos atingido');
+    const ev = sim.queue.pop()!;
+    if (ev.kind === 'shrink') {
+      const ca = sim.corners[ev.a]!;
+      const cb = sim.corners[ev.b]!;
+      if (ca.alive && cb.alive && ca.next === ev.b) {
+        meetAt(sim, alive, posAt(ca, ev.t), ev.t, [ev.a, ev.b]);
+      }
+    } else {
+      const cv = sim.corners[ev.v]!;
+      if (!cv.alive) continue;
+      const p = posAt(cv, ev.t);
+      let hit = false;
+      for (const xIdx of alive) {
+        const x = sim.corners[xIdx]!;
+        if (x.right !== ev.f) continue;
+        if (distToSeg(p, posAt(x, ev.t), posAt(sim.corners[x.next]!, ev.t)) < sim.eps) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) meetAt(sim, alive, p, ev.t, [ev.v]);
+    }
+    if (sim.broken) break;
+  }
+  const left = [...alive].map((i) => sim.corners[i]!);
+  if (sim.broken || left.length > 0) {
+    const allGable = left.length > 0 && left.every((c) => sim.edges[c.left]!.speed <= 0 && sim.edges[c.right]!.speed <= 0);
+    throw new SkeletonFail(
+      allGable ? 'frente de onda cercada por empenas sem inclinação' : 'frente de onda sem eventos: geometria não converge',
+      left.map((c) => c.p),
+    );
+  }
 }

@@ -16,6 +16,29 @@ export const perpOf = (v: Vec2): Vec2 => ({ x: -v.y, y: v.x });
 /** Anel no sentido anti-horário (área positiva). */
 export const ccwRing = (r: Ring): Ring => (ringArea(r) < 0 ? [...r].reverse() : r);
 
+/**
+ * Sanitiza um MultiPolygon antes do 3D/divisas: simplifica cada anel (remove vértices duplicados consecutivos e
+ * colineares/espigões degenerados), descarta anéis externos e furos com área `<= WATER_MIN_AREA` e garante orientação
+ * anti-horária nos anéis externos e horária nos furos.
+ */
+export function sanitizeMulti(m: MultiPolygon): MultiPolygon {
+  const out: MultiPolygon = [];
+  for (const poly of m) {
+    if (!poly[0]) continue;
+    const outer = simplifyRing(poly[0]);
+    if (outer.length < 3 || Math.abs(ringArea(outer)) <= WATER_MIN_AREA) continue;
+    const cleanOuter = ringArea(outer) < 0 ? [...outer].reverse() : outer;
+    const holes: Ring[] = [];
+    for (let i = 1; i < poly.length; i++) {
+      const h = simplifyRing(poly[i]!);
+      if (h.length < 3 || Math.abs(ringArea(h)) <= WATER_MIN_AREA) continue;
+      holes.push(ringArea(h) > 0 ? [...h].reverse() : h);
+    }
+    out.push([cleanOuter, ...holes]);
+  }
+  return out;
+}
+
 /** Anel sem vértices repetidos nem vértices no meio de trechos retos. */
 export function simplifyRing(r: Ring): Ring {
   let ring: Ring = [];

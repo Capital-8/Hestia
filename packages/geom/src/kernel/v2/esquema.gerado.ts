@@ -1,7 +1,7 @@
 // ARQUIVO GERADO por scripts/gerar-esquema-kernel.mjs a partir de crates/geom-wasm/schema/cena-v11.json.
 // Não edite à mão: mude o JSON e rode `node scripts/gerar-esquema-kernel.mjs`.
 
-export const ESQUEMA_VERSAO = 20;
+export const ESQUEMA_VERSAO = 21;
 export const ABI_VERSAO = 2;
 export const NIVEL_TODOS = 4294967295;
 
@@ -2677,6 +2677,32 @@ export const SECOES = {
       },
       {
         "nome": "altura",
+        "tipo": "f64"
+      }
+    ]
+  },
+  "cortina_perfis_topo": {
+    "id": 114,
+    "chave": "id_num",
+    "colunas": [
+      {
+        "nome": "id_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "cortina_num",
+        "tipo": "u32"
+      },
+      {
+        "nome": "ordem",
+        "tipo": "u32"
+      },
+      {
+        "nome": "t",
+        "tipo": "f64"
+      },
+      {
+        "nome": "h",
         "tipo": "f64"
       }
     ]

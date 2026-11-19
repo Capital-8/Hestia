@@ -99,6 +99,7 @@ export function transformRoof(r: Roof, t: Transform): Roof {
     ...r,
     boundary: pts(r.boundary),
     holes: r.holes.map(pts),
+    ...(r.holeSlopes ? { holeSlopes: r.holeSlopes.map(byEdge) } : {}),
     ...(r.footprint ? { footprint: pts(r.footprint) } : {}),
     edgeSlopes: byEdge(r.edgeSlopes),
     edgeOverhangs: byEdge(r.edgeOverhangs),

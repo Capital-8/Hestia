@@ -229,7 +229,7 @@ pub fn montar_esquadria(g: &Geom, reg: &Regiao, p: &Pedido, livre: (f64, f64, f6
         peitoril,
         derivada,
         larg_livre,
-        alt_livre: fz1 - fz0,
+        alt_livre: (fz1 - fz0).max(0.0),
         folha_min,
         z_regiao: bz0,
         lados,

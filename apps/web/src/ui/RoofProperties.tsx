@@ -1,5 +1,5 @@
 import { useMemo, type ReactElement } from 'react';
-import { quantifyRoofs, ROOF_SHAPE_LABEL } from '@hestia/engine';
+import { quantifyRoofs, resolveRoofs, ROOF_SHAPE_LABEL, type ResolvedRoof } from '@hestia/engine';
 import { functionLabels, roofTypeThickness, type Id, type Roof, type RoofShape } from '@hestia/model';
 import { defaultExtrusionProfile } from '@hestia/engine';
 import { roofPresetOf, roofShapePatch, roofSlopeError, roofSlopeFromDegField, percentToDeg, roofToFreePatch } from '@hestia/tools';
@@ -67,10 +67,24 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
   const fasciaHeight = common(roofs, (r) => r.eave.fasciaHeight);
   const gutter = common(roofs, (r) => r.eave.gutter);
   const soffit = common(roofs, (r) => r.eave.soffit);
+  const closeStepGaps = common(roofs, (r) => r.closeStepGaps === true);
   const type = typeId.mixed ? null : p.roofTypes[typeId.value];
   const hasRidge = single !== null && (single.shape === 'gable' || single.shape === 'shed');
   const roofLevelId = roofs[0]!.levelId;
   const quantities = useMemo(() => quantifyRoofs(p, roofLevelId), [p, roofLevelId]);
+  const resolvedRoofs = useMemo(() => {
+    const levels = new Set(roofs.map((r) => r.levelId));
+    const map = new Map<Id, ResolvedRoof>();
+    for (const lv of levels) for (const rr of resolveRoofs(p, lv)) map.set(rr.roofId, rr);
+    return map;
+  }, [p, roofs]);
+  const showCloseStepGaps = roofs.some(
+    (r) => r.closeStepGaps === true || Boolean(resolvedRoofs.get(r.id)?.steps?.length || resolvedRoofs.get(r.id)?.stepGaps?.length),
+  );
+  const patioRoofs = roofs.filter((r) => r.holes.length > 0 && r.shape !== 'free' && r.shape !== 'extrusion');
+  const holeSlopesOn = patioRoofs.length > 0
+    ? common(patioRoofs, (r) => (r.holeSlopes ?? []).some((hs) => hs.some((s) => s !== null && s > 0)))
+    : null;
   const picked = roofs.map((r) => quantities.roofs.find((q) => q.roofId === r.id)).filter((q): q is NonNullable<typeof q> => q !== undefined);
   const sum = (f: (q: (typeof picked)[number]) => number): number => picked.reduce((s, q) => s + f(q), 0);
   const planArea = sum((q) => q.planArea);
@@ -90,7 +104,24 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
       return;
     }
     // Por arestas: a inclinação nova vale para as arestas que definem inclinação (cada uma se ajusta na planta).
-    for (const r of roofs) patch([r.id], { slopePercent: v, ...(r.shape === 'edges' ? { edgeSlopes: r.edgeSlopes.map((x) => (x === null ? null : v)) } : {}) });
+    for (const r of roofs) {
+      const holePatch = r.holeSlopes
+        ? { holeSlopes: r.holeSlopes.map((hs) => hs.map((x) => (x === null ? null : v))) }
+        : {};
+      patch([r.id], {
+        slopePercent: v,
+        ...(r.shape === 'edges' ? { edgeSlopes: r.edgeSlopes.map((x) => (x === null ? null : v)) } : {}),
+        ...holePatch,
+      });
+    }
+  };
+
+  const toggleHoleSlopes = (v: boolean): void => {
+    editor.store.transaction(t('prd_undo_change_hole_slopes'), () => {
+      for (const r of patioRoofs) {
+        patch([r.id], { holeSlopes: v ? r.holes.map((h) => h.map(() => r.slopePercent)) : undefined });
+      }
+    });
   };
 
   const setShape = (v: RoofShape): void => {
@@ -169,6 +200,13 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
           </div>
         )}
         {single?.shape === 'extrusion' && <RoofProfileRow key={single.id} roof={single} />}
+        {holeSlopesOn && (
+          <Row label={t('prd_fld_patio_holes')} htmlFor="p-rhole-slope">
+            <Check id="p-rhole-slope" checked={holeSlopesOn.value} mixed={holeSlopesOn.mixed} onChange={toggleHoleSlopes}>
+              {t('prd_opt_hole_slopes')}
+            </Check>
+          </Row>
+        )}
         <div className="hint">{t('prd_msg_eave_by_edge')}</div>
       </Group>
       {freeRoof && <RoofPlanesSection roof={freeRoof} />}
@@ -196,6 +234,13 @@ export function RoofProperties({ roofs }: { roofs: Roof[] }): ReactElement {
         <Row label={t('prd_fld_soffit')} htmlFor="p-rsoffit">
           <Check id="p-rsoffit" checked={soffit.value} mixed={soffit.mixed} onChange={(v) => setEave({ soffit: v })}>{t('prd_fld_soffit')}</Check>
         </Row>
+        {showCloseStepGaps && (
+          <Row label={t('prd_fld_step_gaps')} htmlFor="p-rsteps">
+            <Check id="p-rsteps" checked={closeStepGaps.value} mixed={closeStepGaps.mixed} onChange={(v) => patch(ids, { closeStepGaps: v })}>
+              {t('prd_opt_close_step_gaps')}
+            </Check>
+          </Row>
+        )}
       </Group>
       <Group title={t('prd_pgrp_construction')} open={false}>
         {type ? (

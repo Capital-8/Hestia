@@ -97,6 +97,8 @@ export interface CortinaKernel {
   extremidades?: readonly ExtremidadeCortinaKernel[];
   /** Cortina embutida numa parede comum (fase 5, seção 113): o vão no hospedeiro. A posição da cortina (a, b, zBase, height) já é o espelho dele. */
   hospedeiro?: HospedeiroCortinaKernel;
+  /** Perfil superior variável (esquema v21, seção 114): pontos `(t, h)` em m ao longo do eixo e relativos a `zBase`. */
+  topProfile?: readonly { t: number; h: number }[];
 }
 
 /** Vão da cortina embutida no hospedeiro (`CurtainHost` do modelo): centro ao longo do hospedeiro a partir de `a`, largura, peitoril sobre a base e altura (m). */

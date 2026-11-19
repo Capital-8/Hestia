@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ResolvedRoof, ResolvedRoofLayer, ResolvedRoofPlane } from '@hestia/engine';
+import { resolveRoofs, type ResolvedRoof, type ResolvedRoofLayer, type ResolvedRoofPlane } from '@hestia/engine';
+import { ProjectStore, createEmptyProject, makeRoof } from '@hestia/model';
 import { poligonoSoldado, trechosSemEmenda } from './roofEmendas3d.ts';
 import { buildRoofSolids, type SolidBatch } from './solids.ts';
 
@@ -97,5 +98,41 @@ describe('filetes na emenda das águas (3D)', () => {
       const lotes = buildRoofSolids([roof([planeA(), ...planeBs(split)])]);
       expect(menorArea2(lotes)).toBeGreaterThan(1e-7);
     }
+  });
+
+  it('regressão projeto.hestia.json: fechamento vertical do degrau com material da testeira só quando closeStepGaps: true', () => {
+    const PROJETO_BOUNDARY = [
+      P(39.761789, -4.183495000000001),
+      P(42.53260197712993, -4.183495000000001),
+      P(42.53132687185676, 0.7989125494396734),
+      P(35.05139942222562, -0.2496429330885962),
+      P(35.02811805652255, -5.409608414581247),
+      P(39.761789, -5.41087701554152),
+    ];
+    const buildWith = (closeStepGaps: boolean) => {
+      const st = new ProjectStore(createEmptyProject());
+      st.exec({
+        type: 'addRoof',
+        roof: makeRoof({
+          id: 'r_proj',
+          typeId: 'rt_ceramica',
+          levelId: 'lv_0',
+          boundary: PROJETO_BOUNDARY,
+          shape: 'edges',
+          edgeSlopes: [null, 30, 30, 30, null, 30],
+          edgeOverhangs: PROJETO_BOUNDARY.map(() => 0.5),
+          heightOffset: 2.8,
+          closeStepGaps,
+        }),
+      });
+      return buildRoofSolids(resolveRoofs(st.project, 'lv_0'));
+    };
+    const open = buildWith(false);
+    expect(open.some((b) => b.materialId.endsWith('#testeira'))).toBe(false);
+    const closed = buildWith(true);
+    const fascia = closed.find((b) => b.materialId === 'mat_madeira#testeira');
+    expect(fascia).toBeDefined();
+    expect(fascia!.indices.length).toBeGreaterThan(0);
+    expect(menorArea2(closed)).toBeGreaterThan(1e-7);
   });
 });

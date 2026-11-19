@@ -1,11 +1,12 @@
 import { sub, type Vec2 } from './vec.ts';
-import { pointInRing } from './polygon.ts';
+import { pointInPolygon } from './polygon.ts';
 
 /** Água (face) do esqueleto, na forma usada pela checagem: aresta de origem no anel e região em planta. */
 export interface ContinuityFace {
   ring: number;
   edge: number;
   polygon: Vec2[];
+  holes?: Vec2[][];
 }
 
 /** Degrau da superfície: vértice (planta) onde as águas que se encontram têm cotas diferentes. `dz` em metros. */
@@ -61,7 +62,8 @@ export function findSteps(rings: Vec2[][], weights: number[][], faces: Continuit
       let lo = Infinity;
       let hi = -Infinity;
       for (const g of faces) {
-        if (!pointInRing(v, g.polygon) && !onBoundary(v, g.polygon)) continue;
+        const poly = g.holes?.length ? [g.polygon, ...g.holes] : [g.polygon];
+        if (!pointInPolygon(v, poly) && !onBoundary(v, g.polygon) && !(g.holes ?? []).some((h) => onBoundary(v, h))) continue;
         const z = waterHeightAt(rings, weights, g.ring, g.edge, v);
         lo = Math.min(lo, z);
         hi = Math.max(hi, z);
