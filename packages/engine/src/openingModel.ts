@@ -8,6 +8,7 @@ import { buildWindow, buildVoid } from './openingModelWindows.ts';
 import { buildCompositionModel, usesComposition } from './openingModelComposition.ts';
 import { buildCasing } from './openingModelCasing.ts';
 import { contornoDoModelo } from './openingModelContorno.ts';
+import { congelar, esquadriaIncompativel, projetoComTipoFixo } from './openingModelFixa.ts';
 import {
   buildLintelBeams,
   buildSidelights,
@@ -24,7 +25,18 @@ export * from './openingModelCasing.ts';
 export * from './openingModelContorno.ts';
 export * from './openingModelTransforms.ts';
 
+/**
+ * Modelo único da esquadria. Com forma e operação incompatível (`shapeCompat`, docs/estudo-esquadrias/39) a esquadria sai FIXA
+ * dentro do contorno: ver `openingModelFixa.ts`. O resto é o caminho de sempre.
+ */
 export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f: WallFrame): OpeningModel {
+  if (esquadriaIncompativel(p.openingTypes[o.typeId], g)) {
+    return congelar(montar(projetoComTipoFixo(p, o.typeId), o, { ...g, leaves: 1 }, f, false));
+  }
+  return montar(p, o, g, f, true);
+}
+
+function montar(p: Project, o: Opening, g: OpeningGeometry, f: WallFrame, composicao: boolean): OpeningModel {
   const c = makeCtx(p, o, g, f);
   if (!c) {
     return {
@@ -40,7 +52,7 @@ export function buildOpeningModel(p: Project, o: Opening, g: OpeningGeometry, f:
   }
   const padrao = openingMuntinPattern(p.openingTypes[o.typeId] ?? c.t); // divisões decorativas (só valem em vão com forma)
   // Composição de várias células (bandeira, laterais, combinada): quadro único e células (spec F1 §3).
-  const comp = usesComposition(p.openingTypes[o.typeId] ?? c.t, g); // tipo bruto: `c.t` já vem normalizado para o vão
+  const comp = composicao ? usesComposition(p.openingTypes[o.typeId] ?? c.t, g) : null; // tipo bruto: `c.t` já vem normalizado para o vão
   if (comp) {
     const m = buildCompositionModel(p, o, g, f, comp);
     if (m) return contornoDoModelo(m, g.forma, padrao);

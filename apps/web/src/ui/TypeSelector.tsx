@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { useT } from '../editor/i18n.ts';
-import { filterTypeChoices, groupTypeChoices } from './typeSelectorModel.ts';
+import { OPENING_SHAPE_KINDS } from '@hestia/model';
+import { SHAPE_LABEL } from './openingShapeLabels.ts';
+import { SHAPE_ALL, filterTypeChoices, groupTypeChoices, shapesPresent } from './typeSelectorModel.ts';
 import { TypeThumb, type PreviewSubject } from './TypePreview.tsx';
 
 /** Um tipo na lista do seletor: os campos de busca, a família do agrupamento e o que a prévia desenha. */
@@ -9,6 +11,9 @@ export interface TypeOption {
   name: string;
   code: string;
   family: string;
+  /** Aberturas: forma do vão (atributo filtrável em "Forma do vão" e termo de busca). Ausente nas outras categorias. */
+  shape?: string;
+  shapeLabel?: string;
   subject: PreviewSubject;
 }
 
@@ -41,11 +46,14 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [shape, setShape] = useState(SHAPE_ALL);
   const [menuMax, setMenuMax] = useState(430);
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = selectedId === null ? null : options.find((o) => o.id === selectedId) ?? null;
-  const groups = groupTypeChoices(filterTypeChoices(options, query), favoriteIds);
+  // Filtro "Forma do vão" (só aberturas, e só quando a lista tem mais de uma forma).
+  const shapes = shapesPresent(options, OPENING_SHAPE_KINDS);
+  const groups = groupTypeChoices(filterTypeChoices(options, query, shapes.length ? shape : SHAPE_ALL), favoriteIds);
 
   // Clique fora do seletor fecha a lista (o clique dentro, no botão ou na lista, não conta).
   useEffect(() => {
@@ -60,6 +68,7 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
   const close = (focusTrigger: boolean): void => {
     setOpen(false);
     setQuery('');
+    setShape(SHAPE_ALL);
     if (focusTrigger) triggerRef.current?.focus();
   };
   const pick = (id: string): void => {
@@ -114,6 +123,15 @@ export function TypeSelector({ triggerId, label, categoryLabel, options, selecte
                 autoFocus
                 onChange={(e) => setQuery(e.target.value)}
               />
+              {shapes.length > 0 ? (
+                <label className="shapefilt">
+                  <span>{t('oc_shape')}</span>
+                  <select aria-label={t('oc_shape')} value={shape} onChange={(e) => setShape(e.target.value)}>
+                    <option value={SHAPE_ALL}>{t('dsh_filter_all')}</option>
+                    {shapes.map((k) => <option key={k} value={k}>{t(SHAPE_LABEL[k as keyof typeof SHAPE_LABEL])}</option>)}
+                  </select>
+                </label>
+              ) : null}
               <div className="list" role="listbox" aria-label={label}>
                 {groups.map((g) => (
                   <div key={g.family} role="presentation">

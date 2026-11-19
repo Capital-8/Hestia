@@ -1,6 +1,7 @@
 import { clipRect, edgeStrips, outline, polygonInset, type OPt, type PolygonFormShape } from '@hestia/model';
 import type { OpeningModel, OpeningPart, PartRole } from './openingModelTypes.ts';
 import { prisma } from './openingModelPrisma.ts';
+import type { AroDasFolhas } from './openingModelContornoFolha.ts';
 
 /*
  * Peças da esquadria em vão de contorno reto: empena, trapézio e polígono livre (docs/estudo-esquadrias/32). Mesmo princípio de
@@ -40,6 +41,9 @@ export interface ApoioContorno {
   fatias: (head: OpeningPart) => FatiaApoio[];
   alizares: (parts: readonly OpeningPart[]) => Map<string, AlizarApoio>;
   recuos: (a: AlizarApoio, hw: number, H: number) => { out: { side: number; arc: number }; inn: { side: number; arc: number } } | null;
+  /** Aro contínuo das folhas (docs/estudo-esquadrias/39) e o recuo de referência das divisões do vidro. */
+  aro: (parts: readonly OpeningPart[], shape: PolygonFormShape, hw: number, H: number, dRef: number) => AroDasFolhas;
+  recuoDe: (part: OpeningPart, aro: AroDasFolhas, dRef: number) => number;
 }
 
 const EPS = 1e-9;
@@ -90,8 +94,9 @@ export function poligonal(m: OpeningModel, shape: PolygonFormShape, ap: ApoioCon
   const base = polygonInset(shape, { side: 0, arc: 0, base: 0 }).filter((p) => p[1] < EPS).map((p) => Math.abs(p[0]));
   const meiaBase = base.length > 0 ? Math.max(...base) : hw;
   const out: OpeningPart[] = [];
+  const aro = ap.aro(parts, shape, hw, H, dRef);
   for (const part of parts) {
-    const troca = sub.get(part);
+    const troca = sub.get(part) ?? aro.troca.get(part);
     if (troca) {
       out.push(...troca);
       continue;
@@ -110,7 +115,7 @@ export function poligonal(m: OpeningModel, shape: PolygonFormShape, ap: ApoioCon
       out.push(part);
       continue;
     }
-    const ring = ap.recortada(part, shape, hw, H, dRef);
+    const ring = ap.recortada(part, shape, hw, H, ap.recuoDe(part, aro, dRef));
     if (ring === null) out.push(part);
     else if (ring.length >= 3) out.push(prisma(part, ring));
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FAVORITES_LABEL, filterTypeChoices, groupTypeChoices, matchesTypeQuery, type TypeChoice } from './typeSelectorModel.ts';
+import { FAVORITES_LABEL, SHAPE_ALL, filterTypeChoices, groupTypeChoices, matchesTypeQuery, shapesPresent, type TypeChoice } from './typeSelectorModel.ts';
 
 const T = (id: string, family: string, name: string, code: string): TypeChoice => ({ id, family, name, code });
 const items: TypeChoice[] = [
@@ -47,5 +47,29 @@ describe('groupTypeChoices', () => {
   it('não mostra famílias vazias e lista vazia dá zero grupos', () => {
     expect(groupTypeChoices([], ['x'])).toEqual([]);
     expect(groupTypeChoices([items[2]!], ['c']).map((g) => g.family)).toEqual([FAVORITES_LABEL]);
+  });
+});
+
+describe('forma do vão como atributo filtrável', () => {
+  const S = (id: string, shape: string | undefined, label?: string): TypeChoice => ({ id, family: 'Porta de giro', name: `Porta ${id}`, code: id, ...(shape ? { shape } : {}), ...(label ? { shapeLabel: label } : {}) });
+  const lista: TypeChoice[] = [S('a', undefined), S('b', 'round', 'Arco pleno'), S('c', 'gable', 'Empena'), S('d', 'round', 'Arco pleno')];
+
+  it('a busca por texto acha pelo nome da forma', () => {
+    expect(filterTypeChoices(lista, 'arco').map((t) => t.id)).toEqual(['b', 'd']);
+    expect(filterTypeChoices(lista, 'empena').map((t) => t.id)).toEqual(['c']);
+  });
+
+  it('filtra pela forma; tipo sem forma conta como retangular; sem filtro nada muda', () => {
+    expect(filterTypeChoices(lista, '', 'round').map((t) => t.id)).toEqual(['b', 'd']);
+    expect(filterTypeChoices(lista, '', 'rect').map((t) => t.id)).toEqual(['a']);
+    expect(filterTypeChoices(lista, '', SHAPE_ALL)).toEqual(lista);
+    expect(filterTypeChoices(lista, 'porta c', 'gable').map((t) => t.id)).toEqual(['c']);
+  });
+
+  it('shapesPresent: só oferece o filtro quando há mais de uma forma, na ordem do modelo', () => {
+    const ordem = ['rect', 'round', 'segmental', 'gable'];
+    expect(shapesPresent(lista, ordem)).toEqual(['rect', 'round', 'gable']);
+    expect(shapesPresent([S('a', undefined), S('b', 'rect')], ordem)).toEqual([]);
+    expect(shapesPresent(items, ordem)).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
-import { useId, type ReactElement } from 'react';
+import { useId, useMemo, type ReactElement } from 'react';
 import { useT } from '../editor/i18n.ts';
+import { previewMiniatureSvg } from './dialogs/openingType/previewViews.ts';
 import {
   ceilingTypeThickness,
   floorTypeThickness,
@@ -128,10 +129,31 @@ function Drawing({ subject }: { subject: PreviewSubject }): ReactElement {
     case 'footing':
       return <FootingDrawing t={subject.type} />;
     case 'door':
-      return <DoorDrawing t={subject.type} uid={uid} />;
+      return temForma(subject.type) ? <ShapedOpeningDrawing t={subject.type} /> : <DoorDrawing t={subject.type} uid={uid} />;
     case 'window':
-      return <WindowDrawing t={subject.type} uid={uid} />;
+      return temForma(subject.type) ? <ShapedOpeningDrawing t={subject.type} /> : <WindowDrawing t={subject.type} uid={uid} />;
   }
+}
+
+/** Tipo com forma de vão que não é retangular: a miniatura vem do modelo do motor, não do desenho esquemático. */
+export const temForma = (t: Pick<OpeningType, 'shape'>): boolean => t.shape !== undefined && t.shape.kind !== 'rect';
+
+/**
+ * Elevação de um tipo com forma (arco, círculo, empena...): o mesmo desenho da prévia do diálogo (projeto mínimo + seção,
+ * modelo único do motor, com caixilho, folhas, vidros, divisões, almofadas e ferragens recortados pelo contorno). O desenho
+ * esquemático acima só conhece o retângulo e perderia a forma. Em cache por assinatura visual do tipo.
+ */
+function ShapedOpeningDrawing({ t }: { t: OpeningType }): ReactElement {
+  const { lang } = useT();
+  const svg = useMemo(() => {
+    try {
+      // Sem <title>: o nome do tipo já está ao lado e o título entraria no texto do botão da lista.
+      return previewMiniatureSvg(t, 200, 120, lang).replace(/<title>[^<]*<\/title>/, '');
+    } catch {
+      return '';
+    }
+  }, [t, lang]);
+  return <span className="rv-shaped" data-shape={t.shape?.kind} dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
 /** Prévia da paleta e do diálogo: fundo claro nos dois temas, código no canto inferior esquerdo e dimensões à direita. */

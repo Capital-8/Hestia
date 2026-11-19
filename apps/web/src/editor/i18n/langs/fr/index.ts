@@ -27,6 +27,7 @@ import { FR_PACKAGES_IO } from '../../areas/packages-io.ts';
 import { FR_BIBLIOTECA } from '../../areas/biblioteca.ts';
 import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { FR_DIALOGS_OPENING_SHAPE } from '../../areas/dialogs-opening-shape.ts';
+import { FR_DIALOGS_OPENING_SHAPE_LISTA } from '../../areas/dialogs-opening-shape-lista.ts';
 import { FR_TERRENO } from '../../areas/terreno.ts';
 import { FR_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { FR_GRAVIDADE } from '../../areas/gravidade.ts';
@@ -49,6 +50,7 @@ export const FR_ALL = {
   ...FR_TAGGING,
   ...FR_GUARDA_CORPO,
   ...FR_DIALOGS_OPENING_SHAPE,
+  ...FR_DIALOGS_OPENING_SHAPE_LISTA,
   ...FR_TERRENO,
   ...FR_TERRENO_VISTA,
   ...FR_GRAVIDADE,

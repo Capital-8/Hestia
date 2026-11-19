@@ -81,6 +81,7 @@ const PT = {
   egb_issue_opening_shape_envelope: 'Abertura "{id}": a forma do vão sai {excess} m do envelope da parede "{wall}"; o furo remove só a parte que cabe na parede.',
   egb_issue_opening_shape_frame: 'Abertura "{id}": a flecha do arco não cabe na esquadria menor que o vão bruto ({problems}); as peças ficam retangulares (o furo na parede segue a forma).',
   egb_issue_opening_shape_concave: 'Abertura "{id}": polígono de vão côncavo; o recuo das peças pode ser recusado nas reentrâncias (a peça fica como caixa). O furo na parede segue o polígono.',
+  egb_issue_opening_shape_operation: 'Abertura "{id}": a operação "{op}" não é construtiva na forma "{shape}" do vão; a esquadria é gerada FIXA (aro e vidro) dentro do contorno. Troque a operação ou a forma.',
   egb_issue_wall_roof_over:
     'Parede "{id}" passa {length} da face inferior do telhado; ative o topo ajustado ao telhado ou baixe a parede.',
   egb_issue_termino_camada_sem_funcao:
@@ -359,6 +360,7 @@ const EN: Record<DictKey, string> = {
   egb_issue_opening_shape_envelope: 'Opening "{id}": the opening shape extends {excess} m beyond the envelope of wall "{wall}"; the hole removes only the part that fits in the wall.',
   egb_issue_opening_shape_frame: 'Opening "{id}": the arch rise does not fit the frame, which is smaller than the rough opening ({problems}); the parts stay rectangular (the wall hole keeps the shape).',
   egb_issue_opening_shape_concave: 'Opening "{id}": concave polygon opening; the inset of the parts may be refused at the notches (the part stays a box). The wall hole keeps the polygon.',
+  egb_issue_opening_shape_operation: 'Opening "{id}": the operation "{op}" is not constructible in the "{shape}" opening shape; the unit is generated FIXED (frame and glass) inside the outline. Change the operation or the shape.',
   egb_issue_wall_roof_over:
     'Wall "{id}" extends {length} past the roof underside; enable the roof-adjusted top or lower the wall.',
   egb_issue_termino_camada_sem_funcao:

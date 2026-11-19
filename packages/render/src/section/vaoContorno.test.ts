@@ -56,17 +56,18 @@ describe('desenho do vão com contorno no corte e na elevação', () => {
     // Dentro do arco, no fundo: sem hachura de parede. Acima da curva nesse corte: hachura de parede.
     expect(dentro(hatched, [1, 0.05])).toBe(false);
     expect(dentro(hatched, [1, 2.5])).toBe(true);
-    // O vão tem preenchimento sem hachura cobrindo o miolo do perfil.
+    // Vão livre (sem folha): como no retângulo, o miolo fica aberto (sem preenchimento sobre o furo); só o contorno do perfil é traçado.
     const vazio = draw.fills.filter((f) => !f.hatch).flatMap((f) => f.polygons);
-    expect(dentro(vazio, [1, 0.05])).toBe(true);
+    expect(dentro(vazio, [1, 0.05])).toBe(false);
+    expect(draw.strokes.length).toBeGreaterThan(0);
   });
 
-  it('elevação: a face da parede perde o furo do arco, que fica só com o preenchimento do vão', () => {
+  it('elevação: a face da parede perde o furo do arco (vão livre: nada cobre o miolo)', () => {
     definirClienteFuroContorno(clienteFuroContornoFalso());
     const draw = buildSectionDrawList(entrada(projeto(), v(-1, -1), v(7, -1), 3));
-    // Dentro do arco só cobre o preenchimento do próprio vão (um único); fora do arco, a parede (e nada mais por cima dela).
+    // Dentro do arco nada cobre (o furo da parede foi aberto e o vão livre não tem peça); fora do arco, a parede.
     const cobrem = (pt: [number, number]): number => draw.fills.filter((f) => dentro(f.polygons, pt)).length;
-    expect(cobrem([5, 0.05])).toBe(1);
+    expect(cobrem([5, 0.05])).toBe(0);
     expect(cobrem([5 + 0.6, 0.05])).toBeGreaterThanOrEqual(1);
   });
 });

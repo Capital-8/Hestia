@@ -11,6 +11,7 @@ import {
 import { t as traduzir, useI18n, type Lang } from '../editor/i18n.ts';
 import { familyName, openingFamilyName } from './typeFamilies.ts';
 import type { TypeOption } from './TypeSelector.tsx';
+import { SHAPE_LABEL } from './openingShapeLabels.ts';
 
 /** Opções do seletor de tipo de cada categoria: a lista, a família de agrupamento e o que a prévia desenha. */
 
@@ -83,7 +84,10 @@ export function footingOptions(p: Project, lang: Lang = useI18n.getState().lang)
 export function openingOptions(p: Project, kind: 'door' | 'window', lang: Lang = useI18n.getState().lang, aceita: (t: OpeningType) => boolean = () => true): TypeOption[] {
   return Object.values(p.openingTypes)
     .filter((t) => t.kind === kind && aceita(t))
-    .map((t) => ({ id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), subject: { kind, type: t } }));
+    .map((t) => {
+      const shape = t.shape?.kind ?? 'rect';
+      return { id: t.id, name: t.name, code: t.code ?? '', family: openingFamilyName(t, lang), shape, shapeLabel: traduzir(lang, SHAPE_LABEL[shape]), subject: { kind, type: t } };
+    });
 }
 
 /** Esquadrias oferecidas numa célula de parede cortina: sem as de embutir (a cavidade de parede não existe na cortina). */

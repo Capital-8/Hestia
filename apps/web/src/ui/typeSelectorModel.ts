@@ -9,6 +9,10 @@ export interface TypeChoice {
   name: string;
   code: string;
   family: string;
+  /** Aberturas: forma do vão (`rect`, `round`, `gable`...); ausente nas outras categorias. É um atributo filtrável. */
+  shape?: string;
+  /** Aberturas: nome da forma no idioma ativo, que entra na busca por texto ("arco", "empena"). */
+  shapeLabel?: string;
 }
 
 export interface TypeChoiceGroup<T extends TypeChoice> {
@@ -23,12 +27,27 @@ export const FAVORITES_LABEL = '★ Favoritos';
 export function matchesTypeQuery(t: TypeChoice, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  return `${t.family} ${t.name} ${t.code}`.toLowerCase().includes(needle);
+  return `${t.family} ${t.name} ${t.code} ${t.shapeLabel ?? ''}`.toLowerCase().includes(needle);
 }
 
-/** Tipos que casam com a busca, na ordem original. */
-export function filterTypeChoices<T extends TypeChoice>(items: readonly T[], query: string): T[] {
-  return items.filter((t) => matchesTypeQuery(t, query));
+/** Valor do filtro de forma que não restringe nada. */
+export const SHAPE_ALL = '';
+
+/**
+ * Tipos que casam com a busca, na ordem original. `shape` (opcional) restringe à forma do vão (`SHAPE_ALL` ou ausente: todas);
+ * tipo sem `shape` conta como retangular.
+ */
+export function filterTypeChoices<T extends TypeChoice>(items: readonly T[], query: string, shape: string = SHAPE_ALL): T[] {
+  return items.filter((t) => matchesTypeQuery(t, query) && (shape === SHAPE_ALL || (t.shape ?? 'rect') === shape));
+}
+
+/**
+ * Formas do vão presentes na lista, para o filtro "Forma do vão". Só há filtro quando existe mais de uma forma (lista só
+ * de retangulares não mostra o campo): devolve [] nesse caso. A ordem segue `order` (a ordem das formas do modelo).
+ */
+export function shapesPresent(items: readonly TypeChoice[], order: readonly string[]): string[] {
+  const present = new Set(items.map((t) => t.shape ?? 'rect'));
+  return present.size > 1 ? order.filter((k) => present.has(k)) : [];
 }
 
 /**

@@ -109,4 +109,18 @@ describe('painel da forma (render)', () => {
     expect(html).toContain('data-dim="rise"');
     expect(html).toContain('op-shape-inner');
   });
+
+  it('veredito tipo x forma: marca nas opções e aviso com o motivo quando a operação não cabe na forma', () => {
+    const correr = DEFAULT_OPENING_TYPES.find((t) => t.id === 'ot_j120')!;
+    const arco = painel(withShapeKind(correr, 'round'));
+    expect(arco).toContain('id="op-shape-compat"');
+    expect(arco).toContain('data-verdict="adaptado"');
+    expect(arco).toContain('⚠ adaptada');
+    const circulo = painel(withShapeKind(correr, 'circle'));
+    expect(circulo).toContain('data-verdict="incompatível"');
+    expect(circulo).toContain('✕ fixa');
+    // Tipo compatível e retangular: sem aviso.
+    expect(painel(withShapeKind(DEFAULT_OPENING_TYPES.find((t) => t.id === 'ot_pgiro90')!, 'round'))).not.toContain('id="op-shape-compat"');
+    expect(painel(correr)).not.toContain('id="op-shape-compat"');
+  });
 });

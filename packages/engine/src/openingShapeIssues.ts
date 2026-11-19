@@ -1,4 +1,4 @@
-import { isOpening, isWall, openingHeight, openingShapeOf, openingShapeProblems, openingTypeById, outline, type Project, type ValidationIssue } from '@hestia/model';
+import { isOpening, isWall, openingFamilyOf, openingHeight, openingShapeOf, openingShapeProblems, openingTypeById, outline, shapeCompat, type OpeningShapeKind, type Project, type ValidationIssue } from '@hestia/model';
 import { t as tr, type Lang } from './i18nMessages.ts';
 import { clienteFuroContorno } from './furoContornoDespacho.ts';
 import { problemasDaEsquadria } from './openingShapeEsquadria.ts';
@@ -6,6 +6,12 @@ import { excessoForaDoEnvelope } from './openingShapeEnvelope.ts';
 
 /** Parede curva atendida pelo contorno: cliente com `curva` e sem perfil de topo/base (docs/estudo-esquadrias/33 §4). */
 const curvaPorContorno = (w: { topProfile?: unknown; attachTopToRoof?: boolean; attachTopToFloor?: boolean }): boolean => clienteFuroContorno()?.curva === true && !w.topProfile && !w.attachTopToRoof && !w.attachTopToFloor;
+
+/** Nome curto da forma na mensagem (pt e en; os outros idiomas usam o inglês). */
+const NOME_FORMA: Readonly<Record<'pt' | 'en', Readonly<Record<OpeningShapeKind, string>>>> = {
+  pt: { rect: 'retangular', round: 'arco pleno', segmental: 'arco abatido', pointed: 'ogival', circle: 'círculo ou elipse', horseshoe: 'ferradura', gable: 'empena', trapezoid: 'trapézio', polygon: 'polígono livre' },
+  en: { rect: 'rectangular', round: 'round arch', segmental: 'segmental arch', pointed: 'pointed arch', circle: 'circle or ellipse', horseshoe: 'horseshoe', gable: 'gable', trapezoid: 'trapezoid', polygon: 'free polygon' },
+};
 
 /** Anel anti-horário com alguma reentrância (curva para a direita)? */
 function concavo(r: ReadonlyArray<readonly [number, number]>): boolean {
@@ -25,6 +31,9 @@ function concavo(r: ReadonlyArray<readonly [number, number]>): boolean {
  *   as peças ficam retangulares e o furo na parede segue a forma.
  * - `forma-vao-poligono-concavo`: polígono livre côncavo (docs/estudo-esquadrias/32): o recuo concêntrico das peças pode ser recusado
  *   nas reentrâncias e a peça fica como era (caixa); o furo na parede segue o polígono.
+ * - `forma-incompatível-com-operação`: a operação da esquadria (correr, guilhotina, giro, sanfonada...) não é construtiva nessa forma
+ *   (matriz `shapeCompat`, docs/estudo-esquadrias/39); o motor gera a esquadria FIXA (aro e vidro) dentro do contorno. O veredito
+ *   `adaptado` não avisa (funciona com a ressalva da matriz, que a interface mostra).
  * - `vao-fora-do-envelope`: a forma sai do retângulo da parede reta (comprimento x altura); o furo remove só a parte que cabe (docs/estudo-esquadrias/33).
  * Só instâncias são avaliadas; um tipo com forma e sem uso não gera aviso.
  */
@@ -41,6 +50,11 @@ export function openingShapeIssues(p: Project, lang: Lang = 'pt'): ValidationIss
     }
     if (t.shape.kind === 'polygon' && concavo(outline(openingShapeOf(t, openingHeight(t, o))!))) {
       out.push({ severity: 'warning', code: 'forma-vao-poligono-concavo', message: tr(lang, 'egb_issue_opening_shape_concave', { id: o.id }), elementId: o.id });
+    }
+    const compat = shapeCompat(t, t.shape);
+    if (compat.verdict === 'incompatível') {
+      const nome = NOME_FORMA[lang === 'pt' ? 'pt' : 'en'][t.shape.kind];
+      out.push({ severity: 'warning', code: 'forma-incompatível-com-operação', message: tr(lang, 'egb_issue_opening_shape_operation', { id: o.id, op: openingFamilyOf(t, lang)?.name ?? t.plan, shape: nome }), elementId: o.id });
     }
     const menor = problemasDaEsquadria(t.shape, t.width, openingHeight(t, o));
     if (menor.length > 0) {

@@ -16,6 +16,7 @@ import { formaDaEsquadria } from './openingShapeEsquadria.ts';
 import { poligonal } from './openingModelContornoPoligono.ts';
 import { ferraduraNoPescoco } from './openingModelContornoFerradura.ts';
 import { acomodaAoContorno } from './openingModelContornoAjuste.ts';
+import { aroDasFolhas, type AroDasFolhas } from './openingModelContornoFolha.ts';
 
 /*
  * Peças da esquadria em vão com forma (docs/estudo-esquadrias/28). Pós-processo do modelo único: o modelo retangular de
@@ -85,7 +86,10 @@ const boxArea = (b: PartBox): number => (b.t1 - b.t0) * (b.z1 - b.z0);
 export function recortada(part: OpeningPart, shape: OpeningShape, hw: number, H: number, dRef: number): OPt[] | null {
   const b = part.box;
   const arcD = Math.max(0, part.role === 'glass' || part.role === 'leaf' ? H - b.z1 : dRef);
-  const ladoD = Math.max(-0.5, Math.min(hw - Math.max(Math.abs(b.t0), Math.abs(b.t1)), arcD));
+  // Círculo/elipse, folha e vidro: o recuo é paralelo e uniforme (o maior dos dois), então o lateral é a folga REAL da caixa até a borda, sem o `min` com o
+  // arco: a esquadria de folga só em baixo e dos lados (maxim-ar: sem folga em cima) fica a mesma distância do aro em volta (docs/estudo-esquadrias/39).
+  const folgaLateral = hw - Math.max(Math.abs(b.t0), Math.abs(b.t1));
+  const ladoD = Math.max(-0.5, shape.kind === 'circle' && (part.role === 'leaf' || part.role === 'glass') ? Math.max(folgaLateral, arcD) : Math.min(folgaLateral, arcD));
   // Peça que desliza: arco sem prateleira (recuo de arco <= lateral), região convexa (o vidro convexo aceita as divisões decorativas).
   const desliza = part.motion?.kind === 'slide';
   const regiao = outlineInset(shape, { side: ladoD, arc: desliza ? Math.max(0, Math.min(arcD, ladoD)) : arcD, base: 0 });
@@ -125,6 +129,7 @@ function arco(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
   for (const p of parts) if (p.role === 'leaf' && p.leaf !== undefined) topoPorFolha.set(p.leaf, Math.max(topoPorFolha.get(p.leaf) ?? -Infinity, p.box.z1));
   const out: OpeningPart[] = [];
   const alizar = alizarEmArco(parts, shape, hw, H);
+  const aro = aroDasFolhas(parts, shape, hw, H, dRef, recortada);
   for (const part of parts) {
     if (batente && part === head) {
       fatias.forEach((f, k) => {
@@ -141,6 +146,11 @@ function arco(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
       out.push(...troca);
       continue;
     }
+    const barra = aro.troca.get(part);
+    if (barra) {
+      out.push(...barra);
+      continue;
+    }
     const trilho = part.role === 'track' && !part.profile ? trilhoNoContorno(part.id, part.box, shape, H) : null;
     if (trilho) {
       trilho.forEach((r, k) => out.push(prisma(part, r, k ? { id: `${part.id}-${k}` } : {})));
@@ -152,7 +162,7 @@ function arco(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
     }
     const b = part.box;
     const emTopo = part.role === 'leaf' && part.motion?.kind !== 'slide' && part.leaf !== undefined && b.t1 - b.t0 > 1.5 * (b.z1 - b.z0) && Math.abs(b.z1 - (topoPorFolha.get(part.leaf) ?? NaN)) < 1e-6;
-    let ring = recortada(part, shape, hw, H, dRef);
+    let ring = recortada(part, shape, hw, H, recuoDe(part, aro, dRef));
     if (ring && ring.length >= 3 && emTopo) ring = travessaDaFolha(part, shape, hw, H) ?? ring;
     if (ring === null) out.push(part);
     else if (ring.length >= 3) out.push(prisma(part, ring));
@@ -231,6 +241,8 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
   const batente = head !== undefined && aneis.length > 0 && aneis.every((a) => a !== null);
   const out: OpeningPart[] = [];
   const alizar = alizarEmAnel(m.parts, shape, hw, H);
+  const dRef = head ? head.box.z1 - head.box.z0 : 0;
+  const aro = aroDasFolhas(m.parts, shape, hw, H, dRef, recortada);
   for (const part of m.parts) {
     const troca = alizar.get(part);
     if (troca) {
@@ -247,6 +259,11 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
       }
       continue;
     }
+    const barra = aro.troca.get(part);
+    if (barra) {
+      out.push(...barra);
+      continue;
+    }
     const trilho = part.role === 'track' && !part.profile ? trilhoNoContorno(part.id, part.box, shape, H) : null;
     if (trilho) {
       trilho.forEach((r, k) => out.push(prisma(part, r, k ? { id: `${part.id}-${k}` } : {})));
@@ -256,15 +273,20 @@ function circulo(m: OpeningModel, shape: OpeningShape): OpeningPart[] {
       out.push(part);
       continue;
     }
-    const ring = recortada(part, shape, hw, H, head ? head.box.z1 - head.box.z0 : 0);
+    const ring = recortada(part, shape, hw, H, recuoDe(part, aro, dRef));
     if (ring === null) out.push(part);
     else if (ring.length >= 3) out.push(prisma(part, ring));
   }
   return out;
 }
 
+/** Recuo de referência da peça: as divisões do vidro de uma folha com aro recortam pelo contorno do vidro (encostam no aro). */
+export function recuoDe(part: OpeningPart, aro: AroDasFolhas, dRef: number): number {
+  return part.role === 'muntin' && part.leaf !== undefined ? aro.recuoDoVidro.get(part.leaf) ?? dRef : dRef;
+}
+
 /** O que `poligonal` (formas retas) usa daqui. */
-const APOIO = { recortada, preenchimento: PREENCHIMENTO, fatias: fatiasDaTravessa, alizares, recuos: recuosDoAlizar };
+const APOIO = { recortada, preenchimento: PREENCHIMENTO, fatias: fatiasDaTravessa, alizares, recuos: recuosDoAlizar, aro: (parts: readonly OpeningPart[], shape: OpeningShape, hw: number, H: number, dRef: number) => aroDasFolhas(parts, shape, hw, H, dRef, recortada), recuoDe };
 
 /**
  * Modelo com as peças seguindo o contorno do vão. `forma` é a do vão (`OpeningGeometry.forma`, dimensionada pelo vão bruto):

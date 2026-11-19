@@ -5,6 +5,7 @@ import { useT } from '../../../../editor/i18n.ts';
 import { PolygonPointsEditor } from '../PolygonPointsEditor.tsx';
 import { ShapePreview } from '../ShapePreview.tsx';
 import { shapeGeometry } from '../shapePreview.ts';
+import { shapeVerdictOf, verdictMark, verdictMessageKey } from '../shapeVerdict.ts';
 import { shapeIssueKey, shapeIssues, shapeKindKey, shapeKindOf, storedShape, withPolygonSymmetric, withShapeKind, withShapeNumber } from '../openingTypeShape.ts';
 import type { PanelProps } from './panelKit.tsx';
 
@@ -19,14 +20,24 @@ export function ShapePanel({ d, onChange }: PanelProps): ReactElement {
   const shape = storedShape(d);
   const issues = shapeIssues(d);
   const g = shapeGeometry(d);
+  const verdict = shapeVerdictOf(d, kind);
   return (
     <>
       <div className="field-row">
         <label htmlFor="op-shape-kind">{t('dsh_kind')}</label>
         <select id="op-shape-kind" className="select" value={kind} onChange={(e) => onChange(withShapeKind(d, e.target.value as OpeningShapeKind))}>
-          {OPENING_SHAPE_KINDS.map((k) => <option key={k} value={k}>{t(shapeKindKey(k))}</option>)}
+          {OPENING_SHAPE_KINDS.map((k) => {
+            const v = shapeVerdictOf(d, k);
+            const mark = verdictMark(v.verdict);
+            return <option key={k} value={k} data-verdict={v.verdict} title={mark ? v.reason : undefined}>{t(shapeKindKey(k))}{mark ? ` (${mark.icon} ${t(mark.key)})` : ''}</option>;
+          })}
         </select>
       </div>
+      {verdictMessageKey(verdict.verdict) ? (
+        <p className="hint op-shape-compat" role="status" id="op-shape-compat" data-verdict={verdict.verdict} data-rule={verdict.rule} style={{ color: 'var(--warn)', padding: '0 0 8px' }}>
+          {verdictMark(verdict.verdict)?.icon} {t(verdictMessageKey(verdict.verdict)!)} <span className="op-shape-compat-why" lang="pt">{verdict.reason}</span>
+        </p>
+      ) : null}
       {shape && 'rise' in shape ? (
         <div className="field-row"><label htmlFor="op-shape-rise">{t('dsh_f_rise')}</label><NumField id="op-shape-rise" value={shape.rise} quantity="smallLength" min={0.01} invalid={issues.length > 0} onCommit={(v) => onChange(withShapeNumber(d, 'rise', v))} /></div>
       ) : null}

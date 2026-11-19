@@ -218,8 +218,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       if (detail === 'coarse') return;
       strokes.push({ pts, closed: false, ...strokeWidth(symbolWidth(kind)), color: halftone(theme.inkSoft, pt), alpha: 1, ...(dashed ? { dash: [4, 3] as [number, number] } : {}) });
     };
-    // Vão com contorno (`o.contorno`): o perfil real, sem as peças do modelo (caixa retangular); o miolo é o do vão sem modelo.
-    if (!model || o.contorno) {
+    // Sem modelo (lista sintética): o perfil do vão (ou o retângulo), com o miolo preenchido. Vão com contorno (`o.contorno`) e
+    // modelo seguem o caminho completo abaixo: o modelo já vem recortado pelo contorno (`contornoDoModelo`), com as mesmas
+    // peças do retangular (caixilho contínuo, folhas, vidros, divisões, almofadas, ferragens), e `outline()` traz o perfil do vão.
+    if (!model) {
       if (!noFill) fills.push({ polygons, color: halftone(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha });
       outline();
       return;
@@ -261,7 +263,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       return { kind: mat.hatch, color: mix(mat.color, input.dark ? '#ffffff' : '#000000', 0.45), ...(SECTION_HATCH_ZOOM_MIN > 0 ? { zoomMin: SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS } : {}) };
     };
     // Parede inclinada (P1): as peças seguem o referencial inclinado do 3D (h·cosθ e deslocamento) ou o prumo ancorado na face.
-    const projetadas = projetarComPerfis(model, faceOn ? 's' : 't', CLOSED);
+    // No corte transversal de um vão com contorno, a peça recortada (prisma `tz`) é fatiada pelo plano de corte.
+    const projetadas = projetarComPerfis(model, faceOn ? 's' : 't', CLOSED, o.contorno ? o.cutT : undefined);
     const ponta = o.tiltFrame && o.tiltFrame.plane === 'vertical'
       ? pontaDaPeca(projetarComPerfis(model, 't', CLOSED).flatMap((r) => r.ring.map((q) => q.u)), o.tiltFrame.theta)
       : 0;

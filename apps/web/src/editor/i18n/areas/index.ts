@@ -42,6 +42,7 @@ import { PT_SHELL, EN_SHELL } from './shell.ts';
 import { PT_STAIR, EN_STAIR } from './stair.ts';
 import { PT_GUARDA_CORPO, EN_GUARDA_CORPO } from './guarda-corpo.ts';
 import { PT_DIALOGS_OPENING_SHAPE, EN_DIALOGS_OPENING_SHAPE } from './dialogs-opening-shape.ts';
+import { PT_DIALOGS_OPENING_SHAPE_LISTA, EN_DIALOGS_OPENING_SHAPE_LISTA } from './dialogs-opening-shape-lista.ts';
 import { PT_MASSA, EN_MASSA } from './massa.ts';
 import { PT_MASSA_PISOS, EN_MASSA_PISOS } from './massa-pisos.ts';
 import { PT_MASSA_PAREDES, EN_MASSA_PAREDES } from './massa-paredes.ts';
@@ -67,6 +68,7 @@ export const PT_ALL = {
   ...PT_SUPUI,
   ...PT_GUARDA_CORPO,
   ...PT_DIALOGS_OPENING_SHAPE,
+  ...PT_DIALOGS_OPENING_SHAPE_LISTA,
   ...PT_TERRENO,
   ...PT_TERRENO_VISTA,
   ...PT_GRAVIDADE,
@@ -129,6 +131,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_SUPUI,
   ...EN_GUARDA_CORPO,
   ...EN_DIALOGS_OPENING_SHAPE,
+  ...EN_DIALOGS_OPENING_SHAPE_LISTA,
   ...EN_TERRENO,
   ...EN_TERRENO_VISTA,
   ...EN_GRAVIDADE,
