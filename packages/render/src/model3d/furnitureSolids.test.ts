@@ -298,10 +298,13 @@ describe('chave do cache de malhas', () => {
     const p = projetoCom(asset, 2);
     const base = assinaturasDoProjeto(p);
     const lido = JSON.stringify;
+    // Limite = o projeto vazio (que cresce com o catálogo de materiais) + 50 mil: os arrays do asset passam disso sozinhos.
+    const limite = lido(createEmptyProject()).length + 50_000;
+    expect(lido(asset).length).toBeGreaterThan(50_000);
     let leituras = 0;
     JSON.stringify = ((...a: Parameters<typeof JSON.stringify>) => {
       const t = lido(...a);
-      if (t.length > 100_000) leituras++;
+      if (t.length > limite) leituras++;
       return t;
     }) as typeof JSON.stringify;
     try {

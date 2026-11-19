@@ -140,6 +140,7 @@ export class Materiais3D {
       if (style === 'shaded' && usarMapa && tex?.map) {
         return aplicarMapeamentoTriplanar(new THREE.MeshLambertMaterial({ ...props, map: tex.map }));
       }
+      if (style === 'shaded') return new THREE.MeshLambertMaterial(props);
       return new THREE.MeshBasicMaterial(props);
     });
   }
