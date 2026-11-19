@@ -41,6 +41,14 @@ export async function importIfcFile(file: File, opcoes: OpcoesImportacaoIfc = {}
  */
 const LIMITE_WORKER_MS = 120_000;
 
+/**
+ * Teto proporcional ao arquivo: num IFC de ~90 MB só a leitura do disco levou ~60 s e o importador ~35 s (1 GB de RAM),
+ * então 120 s fixos cancelavam importações que estavam andando. Soma 6 s por MB ao mínimo de 120 s.
+ */
+export function limiteWorkerMs(bytes: number): number {
+  return LIMITE_WORKER_MS + Math.round(Math.max(0, bytes) / 1048576) * 6_000;
+}
+
 /** O que o `ifcWorker` devolve: progresso, o resultado empacotado ou a mensagem do erro que ele lançou. */
 type RespostaIfcWorker = { progress: IfcImportProgress } | { result: ResultadoWorker } | { error: string };
 
@@ -94,6 +102,7 @@ function importarNoWorker(fonte: string | File, onLido: (() => void) | undefined
       return;
     }
 
+    const limiteMs = limiteWorkerMs(typeof fonte === 'string' ? fonte.length : fonte.size);
     let encerrado = false;
     let lido = false;
     /** Termina o worker uma única vez, qualquer que seja o desfecho. */
@@ -111,8 +120,8 @@ function importarNoWorker(fonte: string | File, onLido: (() => void) | undefined
 
     // Só é chamado depois desta linha (pelo estouro do tempo ou por uma resposta), então o `const` abaixo já existe.
     const timer = setTimeout(() => {
-      if (encerrar()) reject(new TempoEsgotado(t(useI18n.getState().lang, 'edc_ifc_timeout', { n: LIMITE_WORKER_MS / 1000 })));
-    }, LIMITE_WORKER_MS);
+      if (encerrar()) reject(new TempoEsgotado(t(useI18n.getState().lang, 'edc_ifc_timeout', { n: Math.round(limiteMs / 1000) })));
+    }, limiteMs);
 
     if (sinal) {
       if (sinal.aborted) {
@@ -139,6 +148,10 @@ function importarNoWorker(fonte: string | File, onLido: (() => void) | undefined
     };
 
     // Script do worker que não carrega (ou worker que morre): a janela ainda pode importar na thread principal.
+    // Resposta que não se desserializa (memória esgotada ao clonar o resultado): sem isto a janela esperaria o teto inteiro.
+    worker.onmessageerror = () => {
+      if (encerrar()) reject(new FalhaImportacao(t(useI18n.getState().lang, 'edc_ifc_worker_failed')));
+    };
     worker.onerror = (evento) => {
       if (encerrar()) reject(new WorkerIndisponivel(evento.message || t(useI18n.getState().lang, 'edc_ifc_worker_failed')));
     };

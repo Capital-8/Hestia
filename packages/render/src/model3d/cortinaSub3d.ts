@@ -7,6 +7,7 @@ import { arestasDaCortina, celulaContemCentro, subconjuntoDeLotes } from './cort
 import type { GrupoDeRealceCortina } from './realceCortina3d.ts';
 
 type ParedeDoSubelemento = NonNullable<ReturnType<typeof subelementosDaCortina>>;
+import { ORDEM_REALCE_PREENCHIMENTO } from './realceGpu3d.ts';
 type GeoCelula = { kind: 'cell'; s0: number; s1: number; z0: number; z1: number };
 
 /**
@@ -109,7 +110,7 @@ export class RealceSubelementoCortina {
       malha.instanceMatrix.array.set(l.matrizes);
       malha.instanceMatrix.needsUpdate = true;
       malha.frustumCulled = false;
-      malha.renderOrder = 5;
+      malha.renderOrder = ORDEM_REALCE_PREENCHIMENTO;
       obj.add(malha);
     }
     const arestas = arestasDaCortina(sub, angulo);

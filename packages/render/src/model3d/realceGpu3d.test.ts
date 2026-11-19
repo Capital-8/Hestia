@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { codigosPorVertice, criarMaterialDoRealce, geometriaDoRealce, LARGURA_DA_MASCARA, MascaraDoRealce, SEM_ELEMENTO, TabelaDeCodigos, VIES_DE_PROFUNDIDADE } from './realceGpu3d.ts';
+import { codigosPorVertice, criarMaterialDoRealce, geometriaDoRealce, LARGURA_DA_MASCARA, MascaraDoRealce, SEM_ELEMENTO, TabelaDeCodigos, VIES_DE_PROFUNDIDADE, ORDEM_REALCE_PREENCHIMENTO, ORDEM_REALCE_AVISO, ORDEM_REALCE_ARESTAS } from './realceGpu3d.ts';
+import { ORDEM_MASSA } from './massaGrupo3d.ts';
+import { ORDEM_VIDRO } from './cortinaGrupo3d.ts';
 import { BITS_PROFUNDIDADE } from './precisao3d.ts';
 import { RealcesDaCena } from './realceDaCena3d.ts';
 
@@ -107,5 +109,23 @@ describe('viés de profundidade da sobreposição (seleção sem z-fighting)', (
 
   it('o viés não depende de a posição ser perto ou longe: o termo é sempre w · constante (mesmo sinal em qualquer vértice)', () => {
     expect(VIES_DE_PROFUNDIDADE).toBeGreaterThan(0);
+  });
+});
+
+describe('ordem de desenho do realce (a textura do elemento não se mistura com a seleção)', () => {
+  it('o realce é desenhado depois de opacos, vidro, massa e linhas do Reveal', () => {
+    expect(ORDEM_REALCE_PREENCHIMENTO).toBeGreaterThan(Math.max(ORDEM_MASSA, ORDEM_VIDRO, 8));
+    expect(ORDEM_REALCE_AVISO).toBeGreaterThan(ORDEM_REALCE_PREENCHIMENTO);
+    expect(ORDEM_REALCE_ARESTAS).toBeGreaterThan(ORDEM_REALCE_AVISO);
+  });
+
+  it('as sobreposições da cena usam a ordem do realce', () => {
+    const raiz = new THREE.Group();
+    raiz.add(malhaDeDois());
+    const r = new RealcesDaCena(raiz);
+    r.definir('sel', ['a'], { color: 0xff0000, fill: 0.35, edges: 1 });
+    r.definir('aviso', ['a'], { color: 0xffff00, fill: 0.4, edges: 1 });
+    expect(r.sobreposicoesNoAr('sel')[0]!.renderOrder).toBe(10);
+    expect(r.sobreposicoesNoAr('aviso')[0]!.renderOrder).toBe(11);
   });
 });

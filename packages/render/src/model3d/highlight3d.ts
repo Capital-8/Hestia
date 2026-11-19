@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Id } from '@hestia/model';
 import type { ElementRange } from './solids.ts';
+import { ORDEM_REALCE_ARESTAS, ORDEM_REALCE_PREENCHIMENTO } from './realceGpu3d.ts';
 import { faixasDosIds, intervalosDeDesenho } from './indiceDeElementos3d.ts';
 
 /** Ângulo (graus) das arestas do realce: as arestas duras do elemento, inclusive o contorno contra os vizinhos. */
@@ -51,7 +52,7 @@ export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: Hi
       const recorte = recorteDoIntervalo(geo, index, s.start, s.count);
       if (comPreenchimento) {
         const fill = new THREE.Mesh(recorte.fill, preenchimento);
-        fill.renderOrder = 5;
+        fill.renderOrder = ORDEM_REALCE_PREENCHIMENTO;
         fill.matrixAutoUpdate = false;
         fill.matrix.copy(matriz);
         // O recorte cobre o elemento no mundo: sem esfera própria para o teste de frustum (a da geometria é a do lote inteiro).
@@ -60,7 +61,7 @@ export function highlightOf(model: THREE.Object3D, ids: readonly Id[], style: Hi
       }
       if (recorte.edges) {
         const edges = new THREE.LineSegments(recorte.edges, arestas);
-        edges.renderOrder = 6;
+        edges.renderOrder = ORDEM_REALCE_ARESTAS;
         edges.matrixAutoUpdate = false;
         edges.matrix.copy(matriz);
         edges.frustumCulled = false;
