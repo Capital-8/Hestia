@@ -67,6 +67,9 @@ jobs:
         run: npm ci
 
       - name: Gerar o app web (apps/web/dist)
+        # O app web ficou grande: o Node do runner de macOS (pouca RAM) estourava o limite padrão de memória do JavaScript.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
 
       - name: Instalar dependências do desktop
