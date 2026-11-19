@@ -185,6 +185,7 @@ export function drawSummary(d: SheetDrawList | null): string {
       sum += q.x * 1.3 + q.y * 0.7;
     }
   }
+  // units-ok: resumo interno de comparação do desenho (não é exibido ao usuário)
   return `${d.groups.length}g/${paths}p/${fills}f/${texts}t/${pts}pt/${sum.toFixed(3)}`;
 }
 

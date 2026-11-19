@@ -39,6 +39,7 @@ export function pranchasEstabilidadeSuite(label: string, spec: BigProjectSpec, l
     };
 
     it('monta o projeto grande no tempo esperado', () => {
+      // units-ok: texto de log do diagnóstico de estabilidade (não é exibido ao usuário)
       log(label, `${spec.levels} níveis · ${elements} elementos · ${store.project.levels.length} pavimentos · montagem ${buildMs.toFixed(0)} ms (${(buildMs / elements).toFixed(2)} ms/elemento)`);
       expect(elements).toBeGreaterThan(spec.levels * spec.rooms * spec.rooms);
       expect(buildMs / elements).toBeLessThan(limits.buildMsPerElement);
@@ -62,6 +63,7 @@ export function pranchasEstabilidadeSuite(label: string, spec: BigProjectSpec, l
         expect(drawIsFinite(d!)).toBe(true);
       }
       expect(a.map(drawSummary)).toEqual(b.map(drawSummary));
+      // units-ok: texto de log do diagnóstico de estabilidade (não é exibido ao usuário)
       log(label, `desenho de ${sheetIds.length} pranchas: ${ms.toFixed(0)} ms (${(ms / elements).toFixed(2)} ms/elemento) · ${a.map(drawSummary).map((s) => s.split('/')[1]).join(' ')} traços`);
       expect(ms / elements).toBeLessThan(limits.drawAllMsPerElement);
     }, 600000);
@@ -87,6 +89,7 @@ export function pranchasEstabilidadeSuite(label: string, spec: BigProjectSpec, l
       const after = drawSummary(drawOf(store.project, plansSheet));
       const ms = performance.now() - t;
       expect(after).not.toBe(before);
+      // units-ok: texto de log do diagnóstico de estabilidade (não é exibido ao usuário)
       log(label, `editar 1 parede e redesenhar a prancha de plantas: ${ms.toFixed(0)} ms`);
       store.undo();
       expect(drawSummary(drawOf(store.project, plansSheet))).toBe(before);
@@ -109,6 +112,7 @@ export function pranchasEstabilidadeSuite(label: string, spec: BigProjectSpec, l
         expect(d).not.toContain('NaN');
         expect(d).not.toContain('Infinity');
       }
+      // units-ok: texto de log do diagnóstico de estabilidade (não é exibido ao usuário)
       log(label, `PDF ${(pdf!.length / 1024).toFixed(0)} KB em ${pdfMs.toFixed(0)} ms · DXF ${dxfs.map((d) => (d.length / 1024).toFixed(0)).join('/')} KB em ${dxfMs.toFixed(0)} ms`);
       expect(typeof exportSheetsPdf).toBe('function');
     }, 600000);
@@ -197,6 +201,7 @@ export function pranchasEstabilidadeSuite(label: string, spec: BigProjectSpec, l
       const t2 = performance.now();
       const back = migrateProject(JSON.parse(json));
       const mig = performance.now() - t2;
+      // units-ok: texto de log do diagnóstico de estabilidade (não é exibido ao usuário)
       log(label, `salvar ${(json.length / 1048576).toFixed(2)} MB em ${ser.toFixed(0)} ms · abrir (parse+migrate) ${mig.toFixed(0)} ms`);
       expect(back.sheets).toEqual(store.project.sheets);
       for (const id of sheetIds) expect(drawSummary(drawOf(back, id))).toBe(drawSummary(drawOf(store.project, id)));

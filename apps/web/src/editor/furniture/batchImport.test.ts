@@ -34,13 +34,14 @@ describe('importação de vários arquivos', () => {
   });
 
   it('cancelar pula os que faltam', async () => {
-    let b!: BatchImport;
+    const ref: { b?: BatchImport } = {};
     const importFn: ImportFn = async (f) => {
-      if (f.name === 'a.glb') b.cancel();
+      if (f.name === 'a.glb') ref.b?.cancel();
       return { ...boxModel(), sourceFileName: f.name };
     };
     const added: FurnitureAsset[] = [];
-    b = new BatchImport(importFn, async (m, o) => buildAssetFromModel(m, o), (a) => added.push(a));
+    const b = new BatchImport(importFn, async (m, o) => buildAssetFromModel(m, o), (a) => added.push(a));
+    ref.b = b;
     await b.start([file('a.glb'), file('b.glb')], { unit: 'm', up: 'auto' });
     expect(b.getState().items.map((i) => i.status)).toEqual(['skipped', 'skipped']);
     expect(added).toHaveLength(0);

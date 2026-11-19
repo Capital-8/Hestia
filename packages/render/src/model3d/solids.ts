@@ -104,7 +104,7 @@ export function pushWall(b: SolidBatch, p: Vec2, q: Vec2, bp: number, bq: number
   push(b, [p.x, p.y, bp, q.x, q.y, bq, q.x, q.y, tq, p.x, p.y, tp], [dy / L, -dx / L, 0], [0, 1, 2, 0, 2, 3]);
 }
 
-/** Produto vetorial (2 x área, m²) abaixo do qual um triângulo de tampa é degenerado e descartado. */
+/** Produto vetorial (2 x área, em metros quadrados) abaixo do qual um triângulo de tampa é degenerado e descartado. */
 const DEGENERATE_TRI = 1e-9;
 
 /** Topo e base de uma extrusão (sem as paredes): a triangulação do polígono com furos, na cota de cada ponto. */
