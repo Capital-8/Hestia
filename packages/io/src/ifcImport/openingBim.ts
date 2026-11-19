@@ -25,6 +25,7 @@ const positive = (v: unknown): number | null => (typeof v === 'number' && Number
  * Fabricante (`Pset_ManufacturerTypeInformation`, no tipo) e desempenho do tipo, lidos dos conjuntos do elemento e do
  * tipo. Campo ausente, vazio ou fora da faixa física não entra no tipo.
  * - `fireRating`: `FireRating` de `Pset_WindowCommon` (janela) ou `Pset_DoorCommon` (porta).
+ * units-ok: comentário.
  * - `uValue`: `ThermalTransmittance` do mesmo conjunto (W/m²·K).
  * - `acousticRw`: `AcousticRating` do mesmo conjunto (ver `acousticRwOf`).
  * - `solarFactor`: `SolarHeatGainTransmittance` de `Pset_WindowCommon` ou `Pset_DoorWindowGlazingType` (0 a 1).

@@ -54,6 +54,7 @@ export function openingShapeIssues(p: Project, lang: Lang = 'pt'): ValidationIss
     }
     const excesso = excessoForaDoEnvelope(p, o);
     if (excesso > 0) {
+      // units-ok: texto técnico em m, 2 casas; testes fixam o formato
       out.push({ severity: 'warning', code: 'vao-fora-do-envelope', message: tr(lang, 'egb_issue_opening_shape_envelope', { id: o.id, wall: o.hostId, excess: excesso.toFixed(2) }), elementId: o.id, ids: [o.id, o.hostId] });
     }
   }

@@ -120,6 +120,7 @@ export interface PedidoQuantParede {
 
 /** O que o engine usa da medição: área do contorno na face, área de face líquida e volume líquido (uma camada de 0,1 m). */
 export interface ResultadoQuantParede {
+  // units-ok: comentário
   /** Área do(s) contorno(s) na face, recortada pela placa (m²). */
   areaFuroNaFace: number;
   /** Área de face líquida da placa (`comprimento x altura` menos o furo, medida na malha). */

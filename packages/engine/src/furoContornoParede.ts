@@ -73,13 +73,17 @@ export interface CamadaFurada {
   malhas: Array<{ banda: LayerBand; malha: MalhaPrismaFurada }> | null;
   /** Retornos do acabamento que seguem o contorno (só na camada envolvente). */
   retornos: ResultadoRetornoVao[];
+  // units-ok: comentário
   /** Volume removido pelos contornos (m³); 0 no recuo retangular (as faixas já vêm furadas). */
   removido: number;
+  // units-ok: comentário
   /** Volume líquido da camada (m³): faixas, menos o removido, mais os retornos. */
   volume: number;
+  // units-ok: comentário
   /** Volume das faixas efetivas inteiras, sem o furo e sem o retorno (m³). */
   volumeBruto: number;
   /**
+   * units-ok: comentário.
    * Área do(s) contorno(s) na face da camada (m²): a medida na malha da placa pela `furo_quant_parede` (via cliente) quando
    * há; senão `null` (a área de face cai em `removido` ÷ espessura). Nula no recuo retangular (as faixas já vêm furadas).
    */
@@ -162,6 +166,7 @@ function areaFuroNaFaceDaParede(rw: ResolvedWall, vaos: VaoComContorno[]): numbe
 }
 
 /**
+ * units-ok: comentário.
  * Área do vão de um tipo no quadro (m²): a REAL do contorno quando há forma válida e cliente do furo (o vão fura por contorno),
  * senão `largura x altura` como sempre. A forma vem do vão bruto (`openingShapeOf`); [I] parede curva/inclinada também mostra a real.
  */

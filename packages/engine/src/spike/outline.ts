@@ -124,5 +124,6 @@ export function holeSlices(ring: readonly OPt[], n: number, mode: SliceMode = 'm
   return out;
 }
 
+// units-ok: comentário
 /** Área coberta pelas faixas (m²). */
 export const slicesArea = (s: readonly HoleSlice[]): number => s.reduce((a, b) => a + 2 * b.half * (b.z1 - b.z0), 0);

@@ -31,6 +31,7 @@ export interface PortaNormaInput {
   vidroSeguro?: boolean | null;
 }
 
+// units-ok: valor de norma em m/mm; texto fixo em pt
 const fmt = (v: number): string => String(Math.round(v * 1000) / 1000).replace('.', ',');
 
 /** NBR 9050: porta com vão livre menor que 0,80 m x 2,10 m. */

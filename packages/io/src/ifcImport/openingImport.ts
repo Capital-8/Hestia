@@ -19,6 +19,7 @@ function fallbackOpening(ctx: Ctx, filler: StepEntity, reason: string): void {
   ctx.skip(filler.type);
 }
 
+// units-ok: comentário
 /** Área (m²) do contorno fechado pela fórmula dos cadarços. */
 function areaOf(loop: Pt2[]): number {
   let s = 0;
