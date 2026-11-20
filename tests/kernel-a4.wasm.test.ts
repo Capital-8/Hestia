@@ -8,7 +8,7 @@ import { ProjectStore, migrateProject, openingsOfWall, wallsOnLevel, type Id, ty
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { LevelResolveCache } from '../packages/engine/src/resolveLevels.ts';
 import { resolveLevel, resolveLevelTs, type PlanResolveOptions } from '../packages/engine/src/resolve.ts';
-import { projetoComParceiras, resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
+import { nivelUsaMotorTs, projetoComParceiras, resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
 import { codificarA3d } from '../packages/engine/src/kernelA3d.ts';
@@ -191,7 +191,8 @@ describe.skipIf(!bytes)('A4: despacho de resolveLevel para o Rust', () => {
       p.levels.forEach((l, nivel) => {
         expect(divergenciasDe(p, l.id, {}, excecaoSemente1(semente, nivel)), `semente ${semente} pavimento ${nivel}`).toEqual([]);
       });
-      expect(d.diagnostico().entreguesPeloRust).toBe(p.levels.length);
+      // Níveis em que `nivelUsaMotorTs` (parceira com cota congelada) saem do TS por construção; os demais têm de sair do Rust.
+      expect(d.diagnostico().entreguesPeloRust).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length);
       expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
     }, 60_000);
   }
@@ -216,10 +217,10 @@ describe.skipIf(!bytes)('A4: modo sombra', () => {
       expect(resolveLevel(p, l.id, cache).levelId).toBe(l.id);
     }
     const diag = d.diagnostico();
-    expect(diag.comparacoes).toBe(2);
+    expect(diag.comparacoes).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length);
     expect(diag.divergencias).toBe(0);
     expect(diag.ultimaDivergencia).toBeNull();
-    expect(diag.entreguesPeloRust).toBe(2); // o resultado exibido é o do Rust, nunca o do TS
+    expect(diag.entreguesPeloRust).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length); // o exibido é o do Rust, nunca o do TS (salvo `nivelUsaMotorTs`)
   }, 120_000);
 
   it('divergência artificial: contador, registro (nível, parede e campo); o retorno é o do Rust (com a divergência), nunca o do TS', () => {

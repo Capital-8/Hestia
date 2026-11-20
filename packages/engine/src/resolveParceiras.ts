@@ -113,6 +113,15 @@ export function paredesParceiras(p: Project, levelId: Id, leve = false): Wall[] 
 const comCongelada = new WeakSet<Project>();
 export const temParceiraCongelada = (q: Project): boolean => comCongelada.has(q);
 
+/**
+ * O nível sai do Rust e é resolvido pelo motor TypeScript? Sim quando alguma parceira promovida tinha anexo (cota real congelada, sem
+ * perfil de base e de topo): o Rust diverge nas faixas de altura. Única decisão usada por `resolveLevel` e pelos testes wasm.
+ */
+export const nivelUsaMotorTs = (p: Project, levelId: Id): boolean => temParceiraCongelada(projetoComParceiras(p, levelId));
+
+/** O nível tem parceira de outro nível que participa da junção (as quantidades de parede vêm do mesmo `resolveLevel` com parceiras). */
+export const nivelTemParceiras = (p: Project, levelId: Id): boolean => paredesParceiras(p, levelId).length > 0;
+
 const memoProjeto = new WeakMap<Project, Map<Id, Project>>();
 const memoProjetoLeve = new WeakMap<Project, Map<Id, Project>>();
 

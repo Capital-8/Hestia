@@ -21,6 +21,7 @@ import { decodificarB3, montarCenaB3, referenciaB3De, type CenaB3, type JuncaoB3
 import { levelCutterSet } from './junctionNet.ts';
 import { compararB1 } from './kernelComparaB.ts';
 import { compararB3 } from './kernelComparaB3.ts';
+import { nivelTemParceiras } from './resolveParceiras.ts';
 import { indexarQuantidades, montarCenaForros, quantidadesNivelRust, type CenaForros } from './kernelQuantidades.ts';
 import type { QuantidadesRust, TipoQuant } from './quantidadesTipos.ts';
 
@@ -237,6 +238,8 @@ export class DespachoB {
   quantificar(p: Project, levelId: Id, tipo: TipoQuant): QuantidadesRust | null {
     const ger = this.gerenciador(levelId);
     if (!ger) return null;
+    // Parede de nível com parceiras de outros níveis: a junção entre níveis só existe no resolveLevel (TypeScript); o Rust não a enxerga.
+    if (tipo === 'paredes' && nivelTemParceiras(p, levelId)) return null;
     return this.exigir(this.quantidadesDoRust(p, levelId, tipo, ger), p, levelId, `q${tipo}`);
   }
 
