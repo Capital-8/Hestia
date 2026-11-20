@@ -96,6 +96,8 @@ export interface UiState {
   /** Parede em conflito destacada em amarelo na vista (decisão 0044); null = nenhuma. */
   avisoParede: Id | null;
   showGrid: boolean;
+  /** Eixos X/Y/Z da origem na planta e no 3D (preferência da tela, não do projeto). */
+  showOrigemEixos: boolean;
   /** Intervalo da grade de pontos (m); 0 = automático pelo zoom. Vale para o desenho e para a captura. */
   gridStep: number;
   showUnderlay: boolean;
@@ -426,6 +428,7 @@ export const useUi = create<UiState>(() => ({
   avisoParede: null,
   // Os pontos e a captura por grade são uma chave só: abrem como a captura foi deixada (`setSnap({ grid })` mantém os dois juntos).
   showGrid: loadSnap().grid,
+  showOrigemEixos: safeGet('hestia.origemEixos') !== 'false',
   gridStep: loadGridStep(),
   showUnderlay: true,
   underlayLevel: null,

@@ -183,84 +183,84 @@
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 976,
+    "linha": 977,
     "tipo": "string",
     "texto": "Mover livre no piso/parede · R gira · Alt livre",
     "fonte": "mover_xy: 'Mover livre no piso/parede · R gira · Alt livre',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 977,
+    "linha": 978,
     "tipo": "string",
     "texto": "Deslizar lateralmente (Shift precisão 1 mm)",
     "fonte": "mover_x: 'Deslizar lateralmente (Shift precisão 1 mm)',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 978,
+    "linha": 979,
     "tipo": "string",
     "texto": "Deslizar frente/trás (Shift precisão 1 mm)",
     "fonte": "mover_y: 'Deslizar frente/trás (Shift precisão 1 mm)',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 979,
+    "linha": 980,
     "tipo": "string",
     "texto": "Arraste no anel para girar (15° · Alt livre · clique gira 90°)",
     "fonte": "girar: 'Arraste no anel para girar (15° · Alt livre · clique gira 90°)',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 980,
+    "linha": 981,
     "tipo": "string",
     "texto": "Largura (L): arraste para ajustar ou clique para digitar mm",
     "fonte": "dim_L: 'Largura (L): arraste para ajustar ou clique para digitar mm',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 981,
+    "linha": 982,
     "tipo": "string",
     "texto": "Profundidade (P): arraste para ajustar ou clique para digitar mm",
     "fonte": "dim_P: 'Profundidade (P): arraste para ajustar ou clique para digitar mm',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 982,
+    "linha": 983,
     "tipo": "string",
     "texto": "Altura (A): arraste para ajustar ou clique para digitar mm",
     "fonte": "dim_A: 'Altura (A): arraste para ajustar ou clique para digitar mm',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 1361,
+    "linha": 1362,
     "tipo": "template",
     "texto": "Rotação:",
     "fonte": "useUi.setState({ status: `Rotação: ${graus}° · Alt rotação livre · Esc cancela` });"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 1361,
+    "linha": 1362,
     "tipo": "template",
     "texto": "° · Alt rotação livre · Esc cancela",
     "fonte": "useUi.setState({ status: `Rotação: ${graus}° · Alt rotação livre · Esc cancela` });"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 1369,
+    "linha": 1370,
     "tipo": "string",
     "texto": "Mover componente",
     "fonte": "'Mover componente',"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 1380,
+    "linha": 1381,
     "tipo": "template",
     "texto": "mm · Shift precisão 1 mm · Esc cancela",
     "fonte": "useUi.setState({ status: `Deslocamento: ${Math.round(deslocM * 1000)} mm · Shift precisão 1 mm · Esc cancela` });"
   },
   {
     "arquivo": "apps/web/src/ui/ViewportCanvas.tsx",
-    "linha": 1436,
+    "linha": 1437,
     "tipo": "template",
     "texto": "· Shift precisão 1 mm · Alt solta encaixe · Esc cancela",
     "fonte": "useUi.setState({ status: `${paramKey}: ${Math.round(novaMm)} mm${sufixoSnap} · Shift precisão 1 mm · Alt solta encaixe · Esc cancela` });"

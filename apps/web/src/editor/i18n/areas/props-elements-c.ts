@@ -158,6 +158,7 @@ export const PT_PROPS_ELEMENTS_C = {
 
   // Subpavimento
   prd_fld_reference_level: 'Pavimento de referência',
+  prd_fld_origin_axes: 'Eixos da origem',
   prd_opt_underlay_below_auto: 'Abaixo (automático)',
   prd_profile_empty: 'sem perfil',
   prd_profile_open: 'Perfil…',
@@ -322,6 +323,7 @@ export const EN_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
 
   // Underlay
   prd_fld_reference_level: 'Reference Level',
+  prd_fld_origin_axes: 'Origin axes',
   prd_opt_underlay_below_auto: 'Below (automatic)',
   prd_profile_empty: 'no profile',
   prd_profile_open: 'Profile…',
@@ -477,6 +479,7 @@ export const ES_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_msg_hidden_in_3d: 'Oculto en el 3D: {list}.',
 
   prd_fld_reference_level: 'Nivel de referencia',
+  prd_fld_origin_axes: 'Ejes del origen',
   prd_opt_underlay_below_auto: 'Debajo (automático)',
   prd_profile_empty: 'sin perfil',
   prd_profile_open: 'Perfil…',
@@ -632,6 +635,7 @@ export const DE_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_msg_hidden_in_3d: 'Im 3D ausgeblendet: {list}.',
 
   prd_fld_reference_level: 'Referenzebene',
+  prd_fld_origin_axes: 'Ursprungsachsen',
   prd_opt_underlay_below_auto: 'Darunter (automatisch)',
   prd_profile_empty: 'ohne Profil',
   prd_profile_open: 'Profil…',
@@ -787,6 +791,7 @@ export const FR_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_msg_hidden_in_3d: 'Masqué en 3D : {list}.',
 
   prd_fld_reference_level: 'Niveau de référence',
+  prd_fld_origin_axes: 'Axes de l\'origine',
   prd_opt_underlay_below_auto: 'Dessous (automatique)',
   prd_profile_empty: 'sans profil',
   prd_profile_open: 'Profil…',
@@ -942,6 +947,7 @@ export const IT_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_msg_hidden_in_3d: 'Nascosto nel 3D: {list}.',
 
   prd_fld_reference_level: 'Livello di riferimento',
+  prd_fld_origin_axes: 'Assi dell\'origine',
   prd_opt_underlay_below_auto: 'Sotto (automatico)',
   prd_profile_empty: 'senza profilo',
   prd_profile_open: 'Profilo…',
@@ -1097,6 +1103,7 @@ export const PL_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_msg_hidden_in_3d: 'Ukryte w 3D: {list}.',
 
   prd_fld_reference_level: 'Poziom odniesienia',
+  prd_fld_origin_axes: 'Osie początku układu',
   prd_opt_underlay_below_auto: 'Poniżej (automatycznie)',
   prd_profile_empty: 'bez profilu',
   prd_profile_open: 'Profil…',
