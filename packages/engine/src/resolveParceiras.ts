@@ -109,6 +109,10 @@ export function paredesParceiras(p: Project, levelId: Id, leve = false): Wall[] 
   return out;
 }
 
+/** Projetos promovidos em que alguma parceira tinha anexo (cota real congelada na promoção). */
+const comCongelada = new WeakSet<Project>();
+export const temParceiraCongelada = (q: Project): boolean => comCongelada.has(q);
+
 const memoProjeto = new WeakMap<Project, Map<Id, Project>>();
 const memoProjetoLeve = new WeakMap<Project, Map<Id, Project>>();
 
@@ -131,6 +135,7 @@ export function projetoComParceiras(p: Project, levelId: Id, leve = false): Proj
         : { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
     }
     out = { ...p, elements };
+    if (parceiras.some((w) => zResolvido.has(w))) comCongelada.add(out);
     registrarProjetoBase(out, p);
   }
   porNivel.set(levelId, out);

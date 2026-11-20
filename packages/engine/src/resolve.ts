@@ -33,7 +33,7 @@ import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
 import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
 import { projetoBase } from './projetoBase.ts';
-import { resolverComParceiras } from './resolveParceiras.ts';
+import { resolverComParceiras, temParceiraCongelada } from './resolveParceiras.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -404,7 +404,8 @@ export { frameOfWall, levelFrames } from './resolveFrames.ts';
 /** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
   // Paredes de outros níveis que se sobrepõem em altura entram só para a junção (`resolveParceiras.ts`); a saída é só do nível dono.
-  return resolverComParceiras(p, levelId, opts.cutZ, (q) => resolveLevelSemParceiras(q, levelId, cache, opts));
+  // Parceira com anexo promovida (cota congelada, sem perfil de base/topo): o Rust diverge nas faixas de altura, então o nível sai do TypeScript. Demais casos: despacho de sempre.
+  return resolverComParceiras(p, levelId, opts.cutZ, (q) => (temParceiraCongelada(q) ? resolveLevelTs(q, levelId, cache, opts) : resolveLevelSemParceiras(q, levelId, cache, opts)));
 }
 
 /**
