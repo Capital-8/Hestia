@@ -37,7 +37,7 @@ interface Marca {
 }
 
 const CLASSIFICACAO: Record<Element['kind'], Marca> = {
-  wall: { fonte: { arquivo: 'tools/src/infer.ts', simbolo: 'wallsOnLevel' }, ligacao: { arquivo: 'tools/src/infer.ts', simbolo: 'wallMid' } },
+  wall: { fonte: { arquivo: 'tools/src/infer.ts', simbolo: 'wallsOfPlan' }, ligacao: { arquivo: 'tools/src/infer.ts', simbolo: 'wallMid' } },
   door: { fonte: { arquivo: 'tools/src/openingSnapPoints.ts', simbolo: 'openingSnapGeometry' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'openingSnapGeometry' } },
   window: { fonte: { arquivo: 'tools/src/openingSnapPoints.ts', simbolo: 'openingSnapGeometry' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'openingSnapGeometry' } },
   floor: { fonte: { arquivo: 'tools/src/floorPick.ts', simbolo: 'floorVertices' }, ligacao: { arquivo: 'tools/src/base.ts', simbolo: 'floorVertices' } },
