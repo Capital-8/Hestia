@@ -8,3 +8,11 @@
 - Testes: `apps/web/src/collab/collabP2p.test.ts` (5 cenários, transportes falsos pareados).
 - Pendente: `webrtc.ts` tem 721 linhas contando o limite do eslint (max 420), erro anterior a esta frente; precisa ser dividido.
 - Conferir na tela com 2 abas: gerar convite, copiar, colar na outra aba, copiar a resposta, colar no anfitrião e conectar; sala de espera, aprovação e papel visualizador sem edição; aviso de rede restrita sempre visível no modo P2P; mensagem de código inválido ao colar lixo. Validar também com 2 máquinas reais (WebRTC real não foi exercitado em teste).
+
+## Divisão do webrtc.ts e correção de rejeição não tratada
+
+- `apps/web/src/collab/webrtc.ts` virou fachada (5 linhas) que reexporta a mesma API pública; nenhum import nem teste existente mudou.
+- Módulos novos: `webrtcTipos.ts` (tipos, ICE, fábrica, espera de ICE), `webrtcCodigos.ts` (prefixos, base64url, compressão, códigos), `webrtcQuadros.ts` (quadros, remontagem, backpressure, envio por par), `webrtcHost.ts` e `webrtcGuest.ts`. Todos abaixo de 260 linhas (limite do lint: 420).
+- Defeito: `transformBytes` deixava a promessa de leitura sem tratador quando o descompressor falhava (código truncado), vazando `Z_BUF_ERROR` como `unhandledRejection`.
+- Correção: escrita e leitura são consumidas juntas por `Promise.allSettled`; o erro chega uma só vez ao chamador.
+- Teste determinístico `webrtcCodigos.test.ts` (20 cortes de um código `z.`): falhava antes da correção, passa depois.
