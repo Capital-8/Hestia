@@ -56,6 +56,8 @@ function fundoNoMundo(pose: Pose, caixa: CaixaLocal): { x: number; y: number } {
 /** Opções de um passo do arrasto 3D. */
 export interface OpcoesMover3D {
   semEncaixe: boolean;
+  /** Encaixe no vizinho (padrão do motor: ligado). */
+  encaixeVizinho?: boolean;
   cameraPos?: { x: number; y: number };
   pontoNaParede?: { x: number; y: number };
 }
@@ -156,6 +158,7 @@ export class Arrasto3D {
 
     const opcoesArrasto: OpcoesArrasto = {
       semEncaixe: opcoes.semEncaixe,
+      ...(opcoes.encaixeVizinho !== undefined ? { encaixeVizinho: opcoes.encaixeVizinho } : {}),
       ...(this.faceTravada !== undefined ? { faceTravada: this.faceTravada } : {}),
       ...(opcoes.cameraPos ? { cameraPos: opcoes.cameraPos } : {}),
       ...(opcoes.pontoNaParede ? { pontoNaParede: opcoes.pontoNaParede } : {}),

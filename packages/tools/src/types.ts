@@ -119,6 +119,8 @@ export interface ToolEnv {
   cotaDoTerreno?(x: number, y: number): number | null;
   /** Idioma da interface: as mensagens traduzíveis das ferramentas (ex.: Matriz) saem nele. Ausente = português. */
   lang?(): Lang;
+  /** Encaixe do arrasto de componentes pelo seletor da interface (`alt` solta tudo). Ausente = parede + vizinho, só o Alt solta. */
+  opcoesEncaixe?(alt: boolean): { semEncaixe: boolean; encaixeVizinho: boolean };
   /** Subelementos (linhas, segmentos e células) de uma parede cortina, lidos da grade do kernel; null sem kernel ou se não for cortina. Ausente = nenhum. */
   subelementos?(wallId: Id): ParedeSubelementos | null;
   /** Subelemento de cortina escolhido com o Tab (null = a parede inteira). Ausente = sempre a parede. */

@@ -47,7 +47,7 @@ export function posarArrastado(entrada: EntradaArrasto, opcoes: OpcoesArrasto = 
     parede = naParede.face;
   }
 
-  const noVizinho = encaixarNoVizinho(pose, alvo.caixa, entrada.outros, { distanciaMax: opcoes.distanciaVizinho });
+  const noVizinho = opcoes.encaixeVizinho === false ? null : encaixarNoVizinho(pose, alvo.caixa, entrada.outros, { distanciaMax: opcoes.distanciaVizinho });
   if (noVizinho) {
     if (parede === undefined) {
       pose = noVizinho.pose;

@@ -110,6 +110,8 @@ export interface EntradaArrasto {
 /** Opções do arrasto. `semEncaixe` (Alt) devolve a pose desejada sem tentar encaixar. */
 export interface OpcoesArrasto {
   semEncaixe?: boolean;
+  /** Encaixe no móvel vizinho (`encaixarNoVizinho`). Padrão `true`; `false` mantém só parede, colisão e guias. */
+  encaixeVizinho?: boolean;
   distanciaParede?: number;
   distanciaVizinho?: number;
   /** Índice de face de parede travado durante um arrasto (impede saltar para a face oposta). */

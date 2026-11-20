@@ -22,6 +22,7 @@ import type { Vec2 } from '@hestia/geom';
 import { create } from 'zustand';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
+import { opcoesDeEncaixeAtuais } from '../../editor/encaixeComponente.ts';
 import { faltantes } from '../familia/carregarNoProjeto.ts';
 
 const CAIXA_VAZIA: CaixaLocal = { min: [0, 0, 0], max: [0, 0, 0] };
@@ -162,6 +163,8 @@ export function moverInsercaoBloco(ponto: Vec2, opcoes: OpcoesMoverInsercao): In
   if (!cur) return null;
 
   const elevacao = levelElevation(cur.projetoPrevia, cur.levelId);
+  // Seletor de encaixe da interface: `opcoes.semEncaixe` é só o Alt; o modo Livre e o vizinho vêm do seletor.
+  const enc = opcoesDeEncaixeAtuais(opcoes.semEncaixe);
   const resultado = posarArrastado(
     {
       alvo: {
@@ -173,7 +176,8 @@ export function moverInsercaoBloco(ponto: Vec2, opcoes: OpcoesMoverInsercao): In
       faces: cur.faces,
     },
     {
-      semEncaixe: opcoes.semEncaixe,
+      semEncaixe: enc.semEncaixe,
+      encaixeVizinho: enc.encaixeVizinho,
       distanciaParede: 0.75,
       ...(opcoes.pontoNaParede ? { pontoNaParede: opcoes.pontoNaParede } : {}),
       ...(opcoes.cameraPos ? { cameraPos: opcoes.cameraPos } : {}),
@@ -198,7 +202,7 @@ export function moverInsercaoBloco(ponto: Vec2, opcoes: OpcoesMoverInsercao): In
   };
   useInsercaoBloco.setState({ ativo: proximo });
   useUi.setState((s) => ({
-    status: textoStatusInsercao(cur.familia, resultado.parede, resultado.vizinho, opcoes.semEncaixe),
+    status: textoStatusInsercao(cur.familia, resultado.parede, resultado.vizinho, enc.semEncaixe),
     previewTick: s.previewTick + 1,
   }));
   return proximo;

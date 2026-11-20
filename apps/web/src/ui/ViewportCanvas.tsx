@@ -53,6 +53,7 @@ import { ProgressoAbertura } from './ProgressoAbertura.tsx';
 import { registrarPreparo3d } from './preparo3d.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, girarArrasto3d, girarComponentesSelecionados, moverArrastoNoPonto, ndcDoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
+import { chaveDicaGizmo, sincronizarModoGizmo, useModoGizmo } from '../editor/modoGizmo.ts';
 import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, compensarPosicaoAoAlterarMedida, deslocamentoGizmoNoEixoM, eixoDoGizmo, limitesParametroComponente, snapProfundidadeNoVizinho } from './viewport/gizmoComponenteOps.ts';
 import { GizmoInput3D, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
 import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
@@ -581,7 +582,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         }, msAteLiberar() + 20);
       }
       const alvoGizmo = !st.pastePreview && st.selection.length === 1 ? alvoComponente3D(p, st.selection[0]!) : null;
-      gizmoComp.current?.atualizar(alvoGizmo, m.orbit.camera.position);
+      gizmoComp.current?.atualizar(alvoGizmo, m.orbit.camera.position, sincronizarModoGizmo(alvoGizmo?.id ?? null));
       const blocoAtivo = useInsercaoBloco.getState().ativo;
       previaBlocoRef.current?.atualizar(
         blocoAtivo ? blocoAtivo.projetoPrevia : null,
@@ -1012,7 +1013,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       if (hover3d.current.gizmo !== alca) {
         hover3d.current.gizmo = alca;
         if (alca) useUi.setState((st) => ({ status: DICA_GIZMO[alca], previewTick: st.previewTick + 1 }));
-        else useUi.setState((st) => ({ status: '', previewTick: st.previewTick + 1 }));
+        else useUi.setState((st) => ({ status: useModoGizmo.getState().id !== null ? { key: chaveDicaGizmo(useModoGizmo.getState().modo) } : '', previewTick: st.previewTick + 1 }));
       } else if (mudouGizmo) {
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       }

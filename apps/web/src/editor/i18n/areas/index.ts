@@ -54,6 +54,7 @@ import { PT_TOOLS, EN_TOOLS } from './tools.ts';
 import { PT_TERRENO, EN_TERRENO } from './terreno.ts';
 import { PT_TERRENO_VISTA, EN_TERRENO_VISTA } from './terreno-vista.ts';
 import { PT_GRAVIDADE, EN_GRAVIDADE } from './gravidade.ts';
+import { PT_GIZMO_MODOS, EN_GIZMO_MODOS } from './gizmo-modos.ts';
 import { PT_TERRENO_TABELA, EN_TERRENO_TABELA } from './terreno-tabela.ts';
 import { PT_LOTE_TABELA, EN_LOTE_TABELA } from './lote-tabela.ts';
 import { PT_LOTE_UI, EN_LOTE_UI } from './lote-ui.ts';
@@ -68,6 +69,7 @@ export const PT_ALL = {
   ...PT_TERRENO,
   ...PT_TERRENO_VISTA,
   ...PT_GRAVIDADE,
+  ...PT_GIZMO_MODOS,
   ...PT_TERRENO_TABELA,
   ...PT_LOTE_TABELA,
   ...PT_LOTE_UI,
@@ -129,6 +131,7 @@ export const EN_ALL: Record<keyof typeof PT_ALL, string> = {
   ...EN_TERRENO,
   ...EN_TERRENO_VISTA,
   ...EN_GRAVIDADE,
+  ...EN_GIZMO_MODOS,
   ...EN_TERRENO_TABELA,
   ...EN_LOTE_TABELA,
   ...EN_LOTE_UI,
