@@ -1,4 +1,4 @@
-import { newSheetId, newViewportId, areaPlanOf, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { newSheetId, newViewportId, areaPlanOf, planViewFor, projectSheets, sectionPoints, sheetDimsMm, sheetInnerBox, sheetIssue, sheetOf, viewportAnchor, viewportIssue, type Command, type Id, type Project, type ProjectStore, type Sheet, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import { computeSectionCached, buildSheetDrawList, levelBox, sectionBox, STAMP_W, stampHeightOf, type SheetDrawList } from '@hestia/render';
 import { exportSheetsPdf } from '@hestia/io';
 import { fmtDate, t, useI18n, type Lang } from './i18n.ts';
@@ -343,12 +343,15 @@ export function sheetsPdfOf(p: Project, lang: Lang = useI18n.getState().lang): U
  * Sem pranchas, o PDF exporta a planta do nível atual numa prancha nova (escala 1:100), para não virar beco sem saída.
  * São dois comandos com desfazer (criar prancha, colocar a vista). Devolve o id da prancha criada.
  */
-export function pranchaDaPlantaAtual(store: ProjectStore, levelId: Id): Id {
+export function pranchaDaPlantaAtual(store: ProjectStore, levelId: Id, planId?: Id): Id {
+  // `planId` (decisão 0060 §6): a planta de disciplina ativa; desconhecido ou de outro nível cai na padrão.
+  const pid = planViewFor(store.project, levelId, planId)?.id;
+  const view: SheetViewSource = pid === undefined ? { kind: 'plan', levelId } : { kind: 'plan', levelId, planId: pid };
   // Um único passo de desfazer: prancha e vista somem juntas (com Ctrl+Z não sobra prancha vazia).
   let id = '';
   store.transaction(t(useI18n.getState().lang, 'cvs_undo_create_sheet_plan'), () => {
     id = addSheetAction(store);
-    addViewAction(store, id, { kind: 'plan', levelId }, 100);
+    addViewAction(store, id, view, 100);
   });
   return id;
 }

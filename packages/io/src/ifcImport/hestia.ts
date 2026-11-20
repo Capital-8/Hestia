@@ -8,7 +8,7 @@
  * Sem os psets, nada aqui muda o resultado: `readHestia` devolve vazio e a importação segue o caminho atual.
  */
 
-import type { Element, Generic, Id, IfcProperty, Level, Project } from '@hestia/model';
+import type { Element, Generic, Id, IfcProperty, Level, PlanView, Project } from '@hestia/model';
 import { t as tr, type Lang } from '../i18n.ts';
 import { HESTIA_ELEMENT_PSET, HESTIA_PROJECT_PSET, HESTIA_VERSION, isHestiaPset, type HestiaElementRecord } from '../ifc/ifcHestia.ts';
 import { bodyOf } from './geometry.ts';
@@ -31,6 +31,8 @@ export interface HestiaProjectData {
   materials?: Project['materials'];
   levels?: Level[];
   defaults?: Project['defaults'];
+  /** Plantas de disciplina (`PlanViewsJSON`): só as que apontam para um nível do arquivo (ver `projectDataOf`). */
+  planViews?: PlanView[];
   /** Vistas, pranchas e gráficos do projeto: não têm entidade IFC, voltam do pset. */
   views?: Project['views'];
   sheets?: Project['sheets'];
@@ -159,6 +161,13 @@ function projectDataOf(f: IfcFile, pset: StepEntity): HestiaProjectData {
   if (Array.isArray(levels) && levels.length > 0 && levels.every((l) => typeof l?.id === 'string' && finite(l.elevation))) {
     data.levels = levels;
   }
+  // Sem `PlanViewsJSON` (IFC antigo ou de outro programa) não há plantas de disciplina: o projeto abre só com as padrão.
+  const planViews = parseJson<PlanView[]>(values.get('PlanViewsJSON'));
+  if (Array.isArray(planViews) && data.levels) {
+    const niveis = new Set(data.levels.map((l) => l.id));
+    const validas = planViews.filter((v) => typeof v?.id === 'string' && typeof v.levelId === 'string' && niveis.has(v.levelId));
+    if (validas.length > 0) data.planViews = validas;
+  }
   const defaults = parseJson<Project['defaults']>(values.get('DefaultsJSON'));
   if (defaults) data.defaults = defaults;
   const views = parseJson<Project['views']>(values.get('ViewsJSON'));
@@ -206,6 +215,7 @@ export function applyHestiaProject(p: Project, data: HestiaProjectData | null): 
     const target = p as unknown as Record<string, unknown>;
     for (const [key, map] of Object.entries(data.types)) if (map && typeof map === 'object') target[key] = map;
   }
+  if (data.planViews) p.planViews = data.planViews;
   if (data.views) p.views = data.views;
   if (data.sheets) p.sheets = data.sheets;
   if (data.grids) p.grids = data.grids;

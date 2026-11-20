@@ -1,4 +1,4 @@
-import { planHiddenOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoriaDoElemento, planHiddenOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -49,39 +49,6 @@ export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): 
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)];
 const redesenhar = (): void => useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
-
-/** Categoria gráfica de um elemento do modelo (o que "Ocultar categoria" atinge). */
-function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
-  switch (e.kind) {
-    case 'wall': return 'wall';
-    case 'door': return 'door';
-    case 'window': return 'window';
-    case 'floor': return 'floor';
-    case 'slab':
-    case 'beam':
-    case 'footing': return 'slab';
-    case 'ceiling': return 'floor';
-    case 'column': return 'wall';
-    case 'roof': return 'roof';
-    case 'stair':
-    case 'ramp': return 'stair';
-    case 'railing': return 'railing';
-    case 'mass': return 'mass';
-    case 'room': return 'room';
-    case 'terrain':
-    case 'terrainRegion': return 'site';
-    case 'lot': return 'lot';
-    case 'cad':
-    case 'generic': return 'generic';
-    case 'dimension':
-    case 'text':
-    case 'detailLine':
-    case 'detailRegion':
-    case 'tag':
-    case 'roomSeparator': return 'annotation';
-    default: return null;
-  }
-}
 
 /**
  * Ids dos elementos que pertencem às categorias dadas. Com `st`, a categoria 'annotation' também alcança as anotações

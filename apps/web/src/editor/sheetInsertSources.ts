@@ -1,4 +1,4 @@
-import { projectView3DPoints, sectionTitleOf, type Project, type SheetViewSource } from '@hestia/model';
+import { planViewsOfLevel, projectView3DPoints, sectionTitleOf, type Project, type SheetViewSource } from '@hestia/model';
 import { t, type Lang } from './i18n.ts';
 import { planKey, viewKey } from './viewIdentity.ts';
 
@@ -29,7 +29,11 @@ export type LinhaVistas = { kind: 'grupo'; titulo: string } | { kind: 'vista'; f
 
 /** Grupos na ordem: plantas, cortes, elevações e 3D. Grupo vazio some (o 3D sempre tem o enquadramento padrão). */
 export function gruposDeVistas(p: Project, lang: Lang): GrupoVistas[] {
-  const plantas: FonteVista[] = p.levels.map((l) => ({ key: planKey(l.id), label: l.name, view: { kind: 'plan', levelId: l.id } }));
+  // Cada nível traz a planta padrão e, logo depois, as plantas de disciplina dele (decisão 0060 §6).
+  const plantas: FonteVista[] = p.levels.flatMap((l): FonteVista[] => [
+    { key: planKey(l.id), label: l.name, view: { kind: 'plan', levelId: l.id } },
+    ...planViewsOfLevel(p, l.id).map((pv): FonteVista => ({ key: planKey(l.id, pv.id), label: `${l.name} · ${pv.name}`, view: { kind: 'plan', levelId: l.id, planId: pv.id } })),
+  ]);
   const porTipo = (kind: 'section' | 'elevation'): FonteVista[] =>
     p.views
       .filter((v) => (kind === 'elevation' ? v.kind === 'elevation' : v.kind !== 'elevation'))

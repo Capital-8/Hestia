@@ -35,7 +35,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { areaPlanOf, openingTypeById, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, planGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { areaPlanOf, hiddenElementIdsOf, openingTypeById, planHiddenOf, planViewFor, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, planGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
@@ -136,13 +136,18 @@ function curtainDxfOf(p: Project, levelId: Id, cutZ: number, hidden: ReadonlySet
  * então a montagem fica aqui, no web.
  */
 export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, planId?: Id): DxfLevelGeometry {
-  const view: PlanView = planViewOf(p, levelId);
-  const { hidden } = view;
+  const pid = planViewFor(p, levelId, planId)?.id;
+  const view: PlanView = planViewOf(p, levelId, pid);
+  // Planta de disciplina: soma o Hide in View dela (`PlanView.hidden`) aos ocultos da vista. A padrão segue como antes
+  // (sem `Level.hidden`). Paredes ocultas saem pelos grupos de parede que trazem o id (clusters inteiros; contornos de
+  // parede fora do corte não têm id e ainda aparecem: pendência da 2.4, ver ESTADO).
+  const ocultosPlanta: ReadonlySet<Id> = pid === undefined ? new Set<Id>() : new Set(ocultosPermanentesDaPlanta(p, levelId, pid));
+  const hidden: ReadonlySet<Id> = pid === undefined ? view.hidden : new Set([...view.hidden, ...ocultosPlanta]);
   const vg = planGraphicsOf(p, levelId, planId);
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
   const openings: DxfOpening[] = levelFrames(projetoDaPlanta(p, levelId), levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
-      const state = shown(o.kind) ? dxfStateOf(view.cls.get(o.id)) : null;
+      const state = shown(o.kind) && !ocultosPlanta.has(o.id) ? dxfStateOf(view.cls.get(o.id)) : null;
       if (state === null) return [];
       const g = openingGeometry(p, o, f);
       // Planta da esquadria pelo modelo único (spec E §4.1), no nível médio: o mesmo desenho da tela. O DXF põe a
@@ -182,7 +187,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
       const at = roomLabelAt(r);
       return at ? [{ at, text: roomFullText(r, unitsOf(p)), height: ROOM_TEXT_HEIGHT_M, rotation: 0, layer: DXF_LAYER_ROOM_TEXT }] : [];
     }),
-    clusters: shown('wall') ? view.geo.clusters : [],
+    clusters: shown('wall') ? view.geo.clusters.filter((c) => !(c.wallIds.length > 0 && c.wallIds.every((w) => ocultosPlanta.has(w)))) : [],
     openings,
     wallOutlines: shown('wall') ? view.outlines.map((o) => ({ state: o.cls, polygons: o.shape })) : [],
     roofProjections: shown('roof') && showRoofProjection ? roofs.filter((r) => hidden.has(r.roofId)).flatMap((r) => roofFootprint(r)) : [],
@@ -232,7 +237,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   // 'anotação': só a 'generic' o desliga. As camadas dele já saem daqui com a cor ACI do arquivo.
   const cad = cadDxfOf(p, levelId, shown('generic'));
   const cadNotes: DxfNotes | undefined = cad.lines.length + cad.texts.length > 0 ? { lines: [], texts: cad.texts, otherLines: cad.lines } : undefined;
-  const notes = mergeNotes(shown('annotation') ? notesDxfOf(p, levelId, vg.scale) : undefined, cadNotes);
+  const notes = mergeNotes(shown('annotation') ? notesDxfOf(p, levelId, vg.scale, pid) : undefined, cadNotes);
   const withNotes: DxfLevelGeometry = {
     ...geo,
     ...(notes === undefined ? {} : { notes }),
@@ -248,11 +253,20 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   return { ...withNotes, lineWeights, layerStyles, ...(units === undefined ? {} : { units }) };
 }
 
+/**
+ * Ids ocultos de forma permanente numa planta de disciplina (Hide in View): os elementos e os de cada categoria oculta,
+ * com a mesma regra da tela e sem o estado temporário. Decisão 0060 §7.
+ */
+function ocultosPermanentesDaPlanta(p: Project, levelId: Id, planId: Id): Id[] {
+  return hiddenElementIdsOf(p, planHiddenOf(p, levelId, planId));
+}
+
 /** Estilo da camada dos componentes: verde (ACI 3), linha contínua e espessura padrão. */
 const COMPONENTE_LAYER_STYLE: DxfLayerStyle = { color: 3, lineWeight: DXF_LINE_WEIGHT_DEFAULT, linetype: 'CONTINUOUS' };
 
 export { areaPlanDxf } from './dxfAreaPlan.ts';
 
+/** DXF de uma planta de nível. `planId` (decisão 0060 §7): planta de disciplina, com os gráficos, a ocultação e as anotações dela. */
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang(), planId?: Id): string {
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units, planId), lang);
   const shown = planGraphicsOf(p, levelId, planId).overrides.generic.visible !== false;

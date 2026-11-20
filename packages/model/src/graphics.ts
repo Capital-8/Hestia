@@ -270,6 +270,55 @@ export function graphicsOf(p: Pick<Project, 'graphics'>): ProjectGraphics {
 type PlanSource = Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>;
 
 /**
+ * Categoria gráfica de um elemento do modelo (o que "Ocultar categoria" atinge). Fica no modelo para a tela, a prancha e
+ * o DXF usarem a mesma regra; `null` = o elemento não pertence a nenhuma categoria da lista.
+ */
+export function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
+  switch (e.kind) {
+    case 'wall': return 'wall';
+    case 'door': return 'door';
+    case 'window': return 'window';
+    case 'floor': return 'floor';
+    case 'slab':
+    case 'beam':
+    case 'footing': return 'slab';
+    case 'ceiling': return 'floor';
+    case 'column': return 'wall';
+    case 'roof': return 'roof';
+    case 'stair':
+    case 'ramp': return 'stair';
+    case 'railing': return 'railing';
+    case 'mass': return 'mass';
+    case 'room': return 'room';
+    case 'terrain':
+    case 'terrainRegion': return 'site';
+    case 'lot': return 'lot';
+    case 'cad':
+    case 'generic': return 'generic';
+    case 'dimension':
+    case 'text':
+    case 'detailLine':
+    case 'detailRegion':
+    case 'tag':
+    case 'roomSeparator': return 'annotation';
+    default: return null;
+  }
+}
+
+/**
+ * Ids de ELEMENTOS ocultos por uma ocultação permanente (Hide in View): os listados e os de cada categoria oculta. Sem o
+ * estado temporário nem as anotações da vista (que dependem da tela). Usado pela prancha e pelo DXF da planta de disciplina.
+ */
+export function hiddenElementIdsOf(p: Pick<Project, 'elements'>, h: ViewHidden | undefined): Id[] {
+  const cats = new Set(h?.categories ?? []);
+  const porCategoria = cats.size === 0 ? [] : Object.values(p.elements).filter((e) => {
+    const c = categoriaDoElemento(e);
+    return c !== null && cats.has(c);
+  }).map((e) => e.id);
+  return [...(h?.elements ?? []), ...porCategoria];
+}
+
+/**
  * Planta adicional (`Project.planViews`) pedida, ou undefined. Id ausente, desconhecido ou de OUTRO nível não resolve:
  * quem chama cai na planta padrão do nível (decisão 0060 §2; nunca lança).
  */
