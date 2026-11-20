@@ -19,7 +19,6 @@ import { bandTopAt } from './profile.ts';
 import { bandKey, junctionLevelTs, type JunctionLevel } from './junctionLevel.ts';
 import { levelCutterSet, spanRange, type CutterSolid, type LevelCutters, type SolidPiece } from './junctionNet.ts';
 import { resolveLevelTs } from './resolve.ts';
-import { resolverComParceiras } from './resolveParceiras.ts';
 import { slabRiseAt } from './slabs.ts';
 import { decodificarForma } from './kernelA2.ts';
 import type { LayerBand } from './types.ts';
@@ -104,7 +103,7 @@ export function montarFaixasB3(p: Project, a1: CenaA1): { faixas: ColunasA1; pon
   for (const level of p.levels) {
     const nivel = a1.nivelDe.get(level.id);
     if (nivel === undefined) throw new Error(`nível ${level.id} sem nivel_num`);
-    for (const rw of Object.values(resolverComParceiras(p, level.id, undefined, (q) => resolveLevelTs(q, level.id)).walls)) {
+    for (const rw of Object.values(resolveLevelTs(p, level.id).walls)) {
       const parede = a1.idDe.get(rw.wallId);
       if (parede === undefined) throw new Error(`parede ${rw.wallId} sem id_num`);
       for (const layer of rw.layers) {

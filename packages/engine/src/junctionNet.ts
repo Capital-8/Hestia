@@ -6,7 +6,7 @@ import { cacheDeCortadores, type EntradaCortadores } from './cutterCache.ts';
 import { resolveFloors, type ResolvedFloor, type ResolvedFloorLayer } from './floors.ts';
 import { resolveSlabs, slabRiseAt, type ResolvedSlab } from './slabs.ts';
 import { winsOver, type JunctionKind, type JunctionMeta } from './junctionPlanar.ts';
-import { resolveLevel } from './resolve.ts';
+import { resolveLevelSemParceiras } from './resolve.ts';
 import type { LayerBand, ResolvedWall } from './types.ts';
 
 export type { JunctionKind } from './junctionPlanar.ts';
@@ -537,7 +537,7 @@ export interface WallBandPiece {
 
 /** Pedaços de todas as faixas de parede do próprio nível, com a origem de cada um. */
 export function wallBandPieces(p: Project, levelId: Id): WallBandPiece[] {
-  const r = resolveLevel(p, levelId);
+  const r = resolveLevelSemParceiras(p, levelId);
   return Object.values(r.walls).flatMap((rw) =>
     rw.layers.flatMap((l) =>
       l.bands.map((b, bandIndex) => ({

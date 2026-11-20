@@ -3,6 +3,7 @@ import type { WallFrame } from './frame.ts';
 import { resolveAllFloors } from './floors.ts';
 import { resolveAllRoofs } from './roofs.ts';
 import { resolveAllSlabs } from './slabs.ts';
+import { projetoBase } from './projetoBase.ts';
 import { wallZRange, type WallZ } from './wallZ.ts';
 
 /** Parede cuja faixa vertical depende de piso, laje ou telhado (anexos). */
@@ -27,7 +28,8 @@ export function withWallZ(p: Project, frames: WallFrame[]): WallFrame[] {
   if (attached) {
     resolving = true;
     try {
-      ctx = { floors: resolveAllFloors(p), slabs: resolveAllSlabs(p), roofs: resolveAllRoofs(p) };
+      const base = projetoBase(p);
+      ctx = { floors: resolveAllFloors(base), slabs: resolveAllSlabs(base), roofs: resolveAllRoofs(base) };
     } finally {
       resolving = false;
     }

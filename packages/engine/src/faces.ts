@@ -27,7 +27,7 @@ export interface WallFaces {
  */
 export function wallFaces(p: Project, levelId: Id): WallFaces[] {
   // Parceiras de outros níveis entram só para as pontas; a saída é só das paredes do nível.
-  const frames = levelFrames(projetoComParceiras(p, levelId), levelId);
+  const frames = levelFrames(projetoComParceiras(p, levelId, true), levelId);
   const ends = computeEnds(frames, p.settings?.joinTolerance);
   const donas = new Set(wallsOnLevel(p, levelId).map((w) => w.id));
   return frames.filter((x) => donas.has(x.wall.id)).map((f) => {

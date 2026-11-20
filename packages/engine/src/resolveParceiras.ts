@@ -1,4 +1,5 @@
 import { DEFAULT_JOIN_TOL } from './joins.ts';
+import { registrarProjetoBase } from './projetoBase.ts';
 import { zRealDe } from './wallFrameZ.ts';
 import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wallType, wallsCrossingCut, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 
@@ -36,17 +37,26 @@ function caixaDe(p: Project, w: Wall, z: [number, number]): Caixa {
   return { x0: Math.min(w.a.x, w.b.x) - m, y0: Math.min(w.a.y, w.b.y) - m, x1: Math.max(w.a.x, w.b.x) + m, y1: Math.max(w.a.y, w.b.y) + m, z0: z[0], z1: z[1] };
 }
 
+/** Faixa nominal, sem folga de anexo (modo leve). */
+const nominalZ = (p: Project, w: Wall): [number, number] => {
+  const b = wallBaseElevation(p, w);
+  const t = b + wallMaxHeight(p, w);
+  return [Math.min(b, t), Math.max(b, t)];
+};
+
 const comAnexo = (w: Wall): boolean => w.attachBottomToFloor === true || w.attachTopToFloor === true || w.attachTopToRoof === true;
 
 /** Parceira com anexo: a base e a altura reais (resolvidas) que a promoção usa no lugar dos anexos. */
 const zResolvido = new WeakMap<Wall, { z0: number; height: number }>();
 
 const memoParceiras = new WeakMap<Project, Map<Id, Wall[]>>();
+const memoLeve = new WeakMap<Project, Map<Id, Wall[]>>();
 
 /** Paredes de outros níveis que são parceiras de junção do nível (ordem de criação). Memorizada por projeto e nível. */
-export function paredesParceiras(p: Project, levelId: Id): Wall[] {
-  let porNivel = memoParceiras.get(p);
-  if (!porNivel) memoParceiras.set(p, (porNivel = new Map()));
+export function paredesParceiras(p: Project, levelId: Id, leve = false): Wall[] {
+  const memoDe = leve ? memoLeve : memoParceiras;
+  let porNivel = memoDe.get(p);
+  if (!porNivel) memoDe.set(p, (porNivel = new Map()));
   const hit = porNivel.get(levelId);
   if (hit) return hit;
   const donas = wallsOnLevel(p, levelId);
@@ -65,18 +75,19 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
     const candidatas: Wall[] = [];
     for (const w of Object.values(p.elements)) {
       if (w.kind !== 'wall' || w.levelId === levelId) continue;
+      if (leve && comAnexo(w)) continue; // leve: sem resolver pisos, lajes nem telhados (só cota nominal)
       // Peneira vertical primeiro (sem consultar o tipo); nível ausente (projeto reduzido da junção) não fornece parceira.
       if (!p.levels.some((l) => l.id === w.levelId)) continue;
       const z = faixaZ(p, w);
       if (z[0] >= todas.z1 - EPS || todas.z0 >= z[1] - EPS) continue;
       if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) candidatas.push(w);
     }
-    const reais = zRealDe(p, candidatas.filter(comAnexo));
+    const reais = leve ? new Map() : zRealDe(p, candidatas.filter(comAnexo));
     // Donas com anexo: a faixa REAL (e não a folga) decide; senão topo que só encosta na base da outra (3,0 e 3,0) viraria parceira.
-    const donasReais = zRealDe(p, donas.filter(comAnexo));
+    const donasReais = leve ? null : zRealDe(p, donas.filter(comAnexo));
     const caixasReais = donas.map((w, i) => {
       const r = donasReais?.get(w.id);
-      return r ? caixaDe(p, w, [r.z0, r.z0 + r.height]) : caixas[i]!;
+      return r ? caixaDe(p, w, [r.z0, r.z0 + r.height]) : leve ? caixaDe(p, w, nominalZ(p, w)) : caixas[i]!;
     });
     for (const w of candidatas) {
       if (!comAnexo(w)) {
@@ -99,14 +110,16 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
 }
 
 const memoProjeto = new WeakMap<Project, Map<Id, Project>>();
+const memoProjetoLeve = new WeakMap<Project, Map<Id, Project>>();
 
 /** Projeto em que as parceiras do nível entram como paredes dele; sem parceira devolve o próprio projeto. */
-export function projetoComParceiras(p: Project, levelId: Id): Project {
-  let porNivel = memoProjeto.get(p);
-  if (!porNivel) memoProjeto.set(p, (porNivel = new Map()));
+export function projetoComParceiras(p: Project, levelId: Id, leve = false): Project {
+  const memoDe = leve ? memoProjetoLeve : memoProjeto;
+  let porNivel = memoDe.get(p);
+  if (!porNivel) memoDe.set(p, (porNivel = new Map()));
   const hit = porNivel.get(levelId);
   if (hit) return hit;
-  const parceiras = paredesParceiras(p, levelId);
+  const parceiras = paredesParceiras(p, levelId, leve);
   let out = p;
   if (parceiras.length > 0) {
     const elements = { ...p.elements };
@@ -118,6 +131,7 @@ export function projetoComParceiras(p: Project, levelId: Id): Project {
         : { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
     }
     out = { ...p, elements };
+    registrarProjetoBase(out, p);
   }
   porNivel.set(levelId, out);
   return out;
