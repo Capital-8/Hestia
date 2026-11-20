@@ -1,7 +1,7 @@
 import { pointInRing, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { expandRoofArcs } from '@hestia/engine';
 import { isRoof, isWall, makeRoof, newId, validateProject, type Project, type Roof } from '@hestia/model';
-import { roofProblem } from './roofCheck.ts';
+import { roofCheck } from './roofCheck.ts';
 import { defaultRoofDir, eaveOutlinePerEdge, roofAutoOffset, roofSlopeError, waterGroupCount } from './roofGeom.ts';
 import type { EditFlags, FinishEdge } from './perimeterSession.ts';
 import { axisOr, keepOrder, newError, pickTypeId, refuse, withElement } from './perimeterCommitShared.ts';
@@ -131,7 +131,8 @@ function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: Commi
   });
   const candidate: Roof = { ...roof, order: p.nextOrder };
   const after = withElement(p, candidate);
-  const problem = roofProblem(p, [candidate]) ?? newError(p, after, id, validateProject);
+  const check = roofCheck(p, [candidate]);
+  const problem = check.problem ?? newError(p, after, id, validateProject);
   if (problem) return refuse(translate(lang, 'tl_msg_roof_create_fail', { problem }));
   const n = waterCount(roof);
   const base = n === 0
@@ -140,14 +141,16 @@ function createRoof(p: Project, f: RoofFields, slopeDefault: number, opts: Commi
   // Oferta de anexo: paredes do nível sob o beiral sem o topo no telhado deixam vão nas empenas (não marca sozinho).
   const loose = wallsUnderFootprint(p, levelId, f.boundary);
   const message = loose > 0 ? `${base}${translate(lang, 'tl_msg_roof_walls_unattached', { n: loose })}` : base;
-  return { ok: true, id, commands: [{ type: 'addRoof', roof }], message };
+  return { ok: true, id, commands: [{ type: 'addRoof', roof }], message, ...(check.steps.length ? { steps: check.steps } : {}) };
 }
 
 function editRoof(p: Project, id: string, f: RoofFields, opts: CommitPerimeterOptions, lang: Lang): CommitPerimeterResult {
   const el = p.elements[id];
   if (!el || !isRoof(el)) return refuse(translate(lang, 'tl_msg_roof_not_found'));
   if (!isEdgeRoof(el)) return refuse(translate(lang, 'tl_msg_roof_not_edges'));
-  const patch: Partial<Roof> = { ...f, holes: keepOrder(el.holes, f.holes) };
+  const holes = keepOrder(el.holes, f.holes);
+  const patch: Partial<Roof> = { ...f, holes };
+  if (el.holeSlopes && holes.length === 0) patch.holeSlopes = undefined;
   // Sem arco no esboço, a flecha antiga sai do telhado (o campo some ao gravar).
   if (!f.edgeSag) patch.edgeSag = undefined;
   if (opts.heightOffset !== undefined) patch.heightOffset = opts.heightOffset;
@@ -156,8 +159,15 @@ function editRoof(p: Project, id: string, f: RoofFields, opts: CommitPerimeterOp
   if (opts.comments !== undefined) patch.comments = opts.comments;
   const next: Roof = { ...el, ...patch };
   const after = withElement(p, next);
-  const problem = roofProblem(p, [next]) ?? newError(p, after, id, validateProject);
+  const check = roofCheck(p, [next]);
+  const problem = check.problem ?? newError(p, after, id, validateProject);
   if (problem) return refuse(translate(lang, 'tl_msg_change_not_applied', { problem }));
   const n = waterCount(next);
-  return { ok: true, id, commands: [{ type: 'updateElements', ids: [id], patch }], message: translate(lang, 'tl_msg_roof_updated', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') }) };
+  return {
+    ok: true,
+    id,
+    commands: [{ type: 'updateElements', ids: [id], patch }],
+    message: translate(lang, 'tl_msg_roof_updated', { n, water: translate(lang, n === 1 ? 'tl_water_one' : 'tl_water_many') }),
+    ...(check.steps.length ? { steps: check.steps } : {}),
+  };
 }

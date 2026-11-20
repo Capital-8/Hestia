@@ -13,6 +13,7 @@ import { PT_PAINEIS, EN_PAINEIS, ES_PAINEIS, DE_PAINEIS, FR_PAINEIS, IT_PAINEIS,
 import { PT_MOVEIS, EN_MOVEIS, ES_MOVEIS, DE_MOVEIS, FR_MOVEIS, IT_MOVEIS, PL_MOVEIS } from './i18n/areas/moveis.ts';
 import { PT_FAMILIAS, EN_FAMILIAS, ES_FAMILIAS, DE_FAMILIAS, FR_FAMILIAS, IT_FAMILIAS, PL_FAMILIAS } from './i18n/areas/familias.ts';
 import { PT_FACE_ESTUDIO, EN_FACE_ESTUDIO, ES_FACE_ESTUDIO, DE_FACE_ESTUDIO, FR_FACE_ESTUDIO, IT_FACE_ESTUDIO, PL_FACE_ESTUDIO } from './i18n/areas/face-estudio.ts';
+import { PT_COLABORAR, EN_COLABORAR, ES_COLABORAR, DE_COLABORAR, FR_COLABORAR, IT_COLABORAR, PL_COLABORAR } from './i18n/areas/colaborar.ts';
 import { ES_ALL } from './i18n/langs/es/index.ts';
 import { DE_ALL } from './i18n/langs/de/index.ts';
 import { FR_ALL } from './i18n/langs/fr/index.ts';
@@ -65,6 +66,7 @@ export const I18N = {
     ...PT_MOVEIS,
     ...PT_FAMILIAS,
     ...PT_FACE_ESTUDIO,
+    ...PT_COLABORAR,
     ...PT_TABELAS,
     // Abas do Ribbon
     ribbon_arch: 'Arquitetura',
@@ -432,6 +434,7 @@ export const I18N = {
     ...EN_MOVEIS,
     ...EN_FAMILIAS,
     ...EN_FACE_ESTUDIO,
+    ...EN_COLABORAR,
     ...EN_TABELAS,
     // Ribbon Tabs
     ribbon_arch: 'Architecture',
@@ -796,11 +799,11 @@ export const I18N = {
   },
   // Idiomas em preenchimento: cada chave do PT/EN precisa ganhar tradução aqui.
   // A ausência faz `_I18nParityEs/De/Fr/It/Pl` abaixo falhar no typecheck de propósito — é o checklist de tradução.
-  es: { ...ES_ALL, ...ES_PAINEIS, ...ES_MOVEIS, ...ES_FAMILIAS, ...ES_FACE_ESTUDIO, ...ES_TABELAS, ...ES_BASE_CORE_1, ...ES_BASE_CORE_2, ...ES_BASE_CORE_3 },
-  de: { ...DE_ALL, ...DE_PAINEIS, ...DE_MOVEIS, ...DE_FAMILIAS, ...DE_FACE_ESTUDIO, ...DE_TABELAS, ...DE_BASE_CORE_1, ...DE_BASE_CORE_2, ...DE_BASE_CORE_3 },
-  fr: { ...FR_ALL, ...FR_PAINEIS, ...FR_MOVEIS, ...FR_FAMILIAS, ...FR_FACE_ESTUDIO, ...FR_TABELAS, ...FR_BASE_CORE_1, ...FR_BASE_CORE_2, ...FR_BASE_CORE_3 },
-  it: { ...IT_ALL, ...IT_PAINEIS, ...IT_MOVEIS, ...IT_FAMILIAS, ...IT_FACE_ESTUDIO, ...IT_TABELAS, ...IT_BASE_CORE_1, ...IT_BASE_CORE_2, ...IT_BASE_CORE_3 },
-  pl: { ...PL_ALL, ...PL_PAINEIS, ...PL_MOVEIS, ...PL_FAMILIAS, ...PL_FACE_ESTUDIO, ...PL_TABELAS, ...PL_BASE_CORE_1, ...PL_BASE_CORE_2, ...PL_BASE_CORE_3 },
+  es: { ...ES_ALL, ...ES_PAINEIS, ...ES_MOVEIS, ...ES_FAMILIAS, ...ES_FACE_ESTUDIO, ...ES_COLABORAR, ...ES_TABELAS, ...ES_BASE_CORE_1, ...ES_BASE_CORE_2, ...ES_BASE_CORE_3 },
+  de: { ...DE_ALL, ...DE_PAINEIS, ...DE_MOVEIS, ...DE_FAMILIAS, ...DE_FACE_ESTUDIO, ...DE_COLABORAR, ...DE_TABELAS, ...DE_BASE_CORE_1, ...DE_BASE_CORE_2, ...DE_BASE_CORE_3 },
+  fr: { ...FR_ALL, ...FR_PAINEIS, ...FR_MOVEIS, ...FR_FAMILIAS, ...FR_FACE_ESTUDIO, ...FR_COLABORAR, ...FR_TABELAS, ...FR_BASE_CORE_1, ...FR_BASE_CORE_2, ...FR_BASE_CORE_3 },
+  it: { ...IT_ALL, ...IT_PAINEIS, ...IT_MOVEIS, ...IT_FAMILIAS, ...IT_FACE_ESTUDIO, ...IT_COLABORAR, ...IT_TABELAS, ...IT_BASE_CORE_1, ...IT_BASE_CORE_2, ...IT_BASE_CORE_3 },
+  pl: { ...PL_ALL, ...PL_PAINEIS, ...PL_MOVEIS, ...PL_FAMILIAS, ...PL_FACE_ESTUDIO, ...PL_COLABORAR, ...PL_TABELAS, ...PL_BASE_CORE_1, ...PL_BASE_CORE_2, ...PL_BASE_CORE_3 },
 } as const;
 
 /** Dicionário derivado do PT: toda chave do dicionário é uma string. */

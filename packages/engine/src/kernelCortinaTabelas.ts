@@ -31,6 +31,8 @@ export const NOMES_SECOES_CORTINA = [
   'tipos_abertura',
   'cortina_celulas_abertura',
   'cortina_hospedes',
+  /** Perfil superior variável (esquema v21, seção 114). */
+  'cortina_perfis_topo',
 ] as const;
 export type NomeSecaoCortina = (typeof NOMES_SECOES_CORTINA)[number];
 export type ColunasCortina = Record<string, number[]>;
@@ -68,6 +70,7 @@ export const COLUNAS_CORTINA: Record<NomeSecaoCortina, readonly string[]> = {
   tipos_abertura: ['id_num', 'largura', 'altura', 'peitoril', 'folga_w', 'folga_h', 'folhas', 'plano', 'janela', 'fechamento', 'tem_alizar', 'estilo_batente', 'modo_prof', 'prof_pedida', 'larg_batente', 'esp_folha'],
   cortina_celulas_abertura: ['id_num', 'cortina_num', 'i', 'j', 's', 'z', 'nu', 'nv', 'tipo_abertura_num', 'flip_mao', 'flip_sentido', 'ajuste', 'alinhamento', 'soleira'],
   cortina_hospedes: ['id_num', 'cortina_num', 'hospedeiro_num', 'deslocamento', 'largura', 'peitoril', 'altura'],
+  cortina_perfis_topo: ['id_num', 'cortina_num', 'ordem', 't', 'h'],
 };
 
 /** Valor de "herda do tipo" nas colunas `u8` da grade da instância (`modo`, `justificacao`, `ancora`). Nas `u32` é `ID_AUSENTE_CORTINA`; nas `f64`, NaN. */

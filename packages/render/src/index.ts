@@ -9,6 +9,7 @@ export * from './plan/build.ts';
 export { extensaoDoModelo, pontosDaExtensao, KINDS_NA_EXTENSAO, type CaixaPlano } from './plan/extensaoDoModelo.ts';
 export * from './plan/zoomOps.ts';
 export * from './plan/grid.ts';
+export * from './plan/origemEixos.ts';
 export * from './plan/cpuPlan.ts';
 export * from './plan/gpuPlan.ts';
 export * from './model3d/solids.ts';

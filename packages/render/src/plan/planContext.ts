@@ -1,6 +1,6 @@
 import type { ResolvedLevel, ResolvedRamp, ResolvedStair } from '@hestia/engine';
 import { isOpening, isWall, type AreaPlanAnnotations, type Id, type Project } from '@hestia/model';
-import { ambientesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
+import { ambientesDoNivel, paredesDoNivel, escadasDoNivel, lajesDoNivel, pisosDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { planStyleOf, type PlanStyle } from './style.ts';
 import { planViewOf, type PlanView } from './view.ts';
 import type { PlanInput } from './build.ts';
@@ -68,6 +68,9 @@ export function semElementosOcultos(p: Project, hidden: ReadonlySet<Id> | undefi
   return mudou ? { ...p, elements } : p;
 }
 
+/** A parede `id` é desenhada na planta do nível (do nível ou de outro que cruza o corte). */
+const deNivelOuCruza = (p: Project, levelId: Id, id: Id): boolean => paredesDoNivel(p, levelId).some((w) => w.id === id);
+
 /**
  * A vista é resolvida sem as paredes ocultas (junção das vizinhas), o que também a deixa sem as aberturas delas. Elemento
  * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
@@ -120,7 +123,7 @@ function projetoSemParedes(p: Project, levelId: Id, ids: readonly Id[]): Project
   if (hit) return hit;
   const ocultas = new Set(ids.filter((id) => {
     const e = p.elements[id];
-    return isWall(e) && e.levelId === levelId;
+    return isWall(e) && (e.levelId === levelId || deNivelOuCruza(p, levelId, id));
   }));
   const elements = { ...p.elements };
   for (const id of ocultas) delete elements[id];
@@ -167,7 +170,7 @@ export function planContext(input: PlanInput): PlanContext {
   // Parede oculta pelo usuário: a vista é resolvida sem ela (as vizinhas fecham a junção); o id continua em `hidden`.
   const paredesOcultas = doUsuario?.filter((id) => {
     const e = p.elements[id];
-    return isWall(e) && e.levelId === input.levelId;
+    return isWall(e) && (e.levelId === input.levelId || deNivelOuCruza(p, input.levelId, id));
   });
   const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
   const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId), input.levelId, paredesOcultas);

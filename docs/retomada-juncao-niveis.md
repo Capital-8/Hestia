@@ -1,0 +1,8 @@
+# Retomada: resíduo de junção e altura real na junção
+
+- Resíduo: `packages/model/src/wallJoinResidue.ts`. `applyCommand` tira uma foto das pontas antes do comando externo (um `batch` conta como um) e, depois dos filhos, zera para `DEFAULT_JOIN` a config das pontas que ficaram sem parceiro. Vale para `setWallEnds`, `updateElements` que muda `a`/`b`/`sag` e `transform` (mover/girar/espelhar). Tudo no mesmo passo de desfazer, sem mudar o esquema.
+- Parceiro (geometria pura no model, sem importar engine): outra parede do mesmo nível com ponta a até `joinTolerance` + meia espessura dela (cobre o canto desenhado pela face de `cornerHostOf`). É conservador: na dúvida mantém a config. A ponta em T (sem ponta de outra parede por perto) volta a butt.
+- Candidatas: pontas das paredes movidas e pontas de vizinhas que estavam nos pontos antigos (perderam o parceiro). Canto arrastado junto em lote mantém a esquadria.
+- Altura real: `withWallZ` (engine/wallFrameZ.ts) usa `wallZRange` (z0 = menor base; topo = z0 + altura máxima) quando a parede tem `attachBottomToFloor`/`attachTopToFloor`/`attachTopToRoof`. Sem anexo: cálculo nominal, sem resolver pisos (caminho rápido). Pisos, lajes e telhados vêm dos caches por projeto.
+- Ciclo: `resolveAllFloors/Slabs` chamam `levelFrames` (outlineBound). Uma guarda de reentrada faz a chamada aninhada voltar à cota nominal; só a chamada externa usa os anexos.
+- Pendente: comandos de ferramentas que movem pontas fora desses três tipos (ex.: `splitWall` já zera; pluginCommands não verificado); o resíduo ignora z (não distingue paredes empilhadas); a cota nominal dentro da resolução de pisos pode divergir da real; conferir desempenho em projeto grande com muitas paredes anexadas.

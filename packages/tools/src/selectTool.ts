@@ -833,7 +833,8 @@ export class SelectTool extends ToolBase {
       const c = pr.elements[lider];
       this.compArrasto = new ArrastoComponentes(pr, isComponent(c) ? c.levelId : this.env.levelId(), ids, lider);
     }
-    const resultado = this.compArrasto.mover(this.delta, alt);
+    const enc = this.env.opcoesEncaixe?.(alt) ?? { semEncaixe: alt, encaixeVizinho: true };
+    const resultado = this.compArrasto.mover(this.delta, enc.semEncaixe, enc.encaixeVizinho);
     this.compPoses = resultado;
     return resultado;
   }

@@ -29,6 +29,7 @@ import { FR_GUARDA_CORPO } from '../../areas/guarda-corpo.ts';
 import { FR_TERRENO } from '../../areas/terreno.ts';
 import { FR_TERRENO_VISTA } from '../../areas/terreno-vista.ts';
 import { FR_GRAVIDADE } from '../../areas/gravidade.ts';
+import { FR_GIZMO_MODOS } from '../../areas/gizmo-modos.ts';
 import { FR_TERRENO_TABELA } from '../../areas/terreno-tabela.ts';
 import { FR_LOTE_TABELA } from '../../areas/lote-tabela.ts';
 import { FR_LOTE_UI } from '../../areas/lote-ui.ts';
@@ -50,6 +51,7 @@ export const FR_ALL = {
   ...FR_TERRENO,
   ...FR_TERRENO_VISTA,
   ...FR_GRAVIDADE,
+  ...FR_GIZMO_MODOS,
   ...FR_TERRENO_TABELA,
   ...FR_LOTE_TABELA,
   ...FR_LOTE_UI,

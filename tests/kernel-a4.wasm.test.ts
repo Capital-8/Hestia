@@ -8,6 +8,7 @@ import { ProjectStore, migrateProject, openingsOfWall, wallsOnLevel, type Id, ty
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { LevelResolveCache } from '../packages/engine/src/resolveLevels.ts';
 import { resolveLevel, resolveLevelTs, type PlanResolveOptions } from '../packages/engine/src/resolve.ts';
+import { nivelUsaMotorTs, projetoComParceiras, resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { montarCenaA1, zDoNivel } from '../packages/engine/src/kernelA1.ts';
 import { codificarA3d } from '../packages/engine/src/kernelA3d.ts';
@@ -47,8 +48,10 @@ const excecaoSemente1 = (semente: number, nivel: number): ExcecaoNomeada[] =>
 /** Compara o `ResolvedLevel` do despacho com o do TS pelo critério do harness; devolve as divergências. */
 function divergenciasDe(p: Project, levelId: Id, opts: PlanResolveOptions, excecoes: ExcecaoNomeada[] = []): string[] {
   const rust = resolveLevel(p, levelId, new Map(), opts);
-  const ts = resolveLevelTs(p, levelId, new Map(), opts);
-  const a1 = montarCenaA1(p, opts.flatAttach === true);
+  // Mesmo pipeline do despacho: parceiras de outros níveis entram só nas pontas (resolveParceiras.ts).
+  const q = opts.cutZ === undefined ? projetoComParceiras(p, levelId) : p;
+  const ts = resolverComParceiras(p, levelId, opts.cutZ, (x) => resolveLevelTs(x, levelId, new Map(), opts));
+  const a1 = montarCenaA1(q, opts.flatAttach === true);
   const curvas = new Set<number>();
   a1.secoes.paredes_quadro['id_num']!.forEach((id, i) => {
     if (a1.secoes.paredes_quadro['sag']![i] !== 0) curvas.add(id);
@@ -188,7 +191,8 @@ describe.skipIf(!bytes)('A4: despacho de resolveLevel para o Rust', () => {
       p.levels.forEach((l, nivel) => {
         expect(divergenciasDe(p, l.id, {}, excecaoSemente1(semente, nivel)), `semente ${semente} pavimento ${nivel}`).toEqual([]);
       });
-      expect(d.diagnostico().entreguesPeloRust).toBe(p.levels.length);
+      // Níveis em que `nivelUsaMotorTs` (parceira com cota congelada) saem do TS por construção; os demais têm de sair do Rust.
+      expect(d.diagnostico().entreguesPeloRust).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length);
       expect(d.diagnostico().voltasLeves + d.diagnostico().voltasGraves).toBe(0);
     }, 60_000);
   }
@@ -213,10 +217,10 @@ describe.skipIf(!bytes)('A4: modo sombra', () => {
       expect(resolveLevel(p, l.id, cache).levelId).toBe(l.id);
     }
     const diag = d.diagnostico();
-    expect(diag.comparacoes).toBe(2);
+    expect(diag.comparacoes).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length);
     expect(diag.divergencias).toBe(0);
     expect(diag.ultimaDivergencia).toBeNull();
-    expect(diag.entreguesPeloRust).toBe(2); // o resultado exibido é o do Rust, nunca o do TS
+    expect(diag.entreguesPeloRust).toBe(p.levels.filter((l) => !nivelUsaMotorTs(p, l.id)).length); // o exibido é o do Rust, nunca o do TS (salvo `nivelUsaMotorTs`)
   }, 120_000);
 
   it('divergência artificial: contador, registro (nível, parede e campo); o retorno é o do Rust (com a divergência), nunca o do TS', () => {

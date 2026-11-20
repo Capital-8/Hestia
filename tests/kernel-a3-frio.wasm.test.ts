@@ -10,6 +10,7 @@ import { difference, union, type MultiPolygon } from '@hestia/geom';
 import type { Project } from '@hestia/model';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { resolveLevel, resolveLevelTs } from '../packages/engine/src/resolve.ts';
+import { resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
 import type { LayerBand, ResolvedLevel } from '../packages/engine/src/types.ts';
 import { instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho, type DespachoKernel } from '../packages/engine/src/kernelDespacho.ts';
 import { areaDaForma } from '../packages/engine/src/kernelComparaA2.ts';
@@ -133,7 +134,9 @@ describe.skipIf(!bytes)('A3 frio: resolveLevel do Rust x resolveLevelTs, objetos
         const rust = resolveLevel(pRust, pRust.levels[nivel]!.id, new Map());
         // Segundo objeto novo, também sem aquecimento, para o TypeScript.
         const pTs: Project = projetoDeEstresseB1(semente, opcoes);
-        const ts = resolveLevelTs(pTs, pTs.levels[nivel]!.id, new Map());
+        // Mesmo pipeline do despacho: parceiras de outros níveis entram só nas pontas (resolveParceiras.ts).
+        const idTs = pTs.levels[nivel]!.id;
+        const ts = resolverComParceiras(pTs, idTs, undefined, (q) => resolveLevelTs(q, idTs, new Map()));
         const r = compararFaixas(ts, rust);
         const diag = d.diagnostico();
         console.log(`[A3 frio ${rotulo}] paredes ${r.paredes}, faixas ${r.bandas}, maior diferença de cota ${r.maxDeltaCota} m, maior diferença de região ${r.maxAreaDiferenca} m², falhas ${r.falhas.length}, entregues pelo Rust ${diag.entreguesPeloRust}`);

@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
-import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsCrossingCut, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -315,7 +315,10 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Pavimento abaixo como subpiso apagado (referência): sem preenchimento no arame, linhas como antes.
   if (below) {
+    // Parede de outro nível que cruza o corte já sai cortada na planta: o subpavimento não a repete em cinza por baixo.
+    const cruzam = new Set<Id>(wallsCrossingCut(p, input.levelId).map((w) => w.id));
     for (const c of below.clusters) {
+      if (cruzam.size > 0 && c.wallIds.every((id) => cruzam.has(id))) continue;
       if (!wire) fills.push({ polygons: c.silhouette, color: theme.underlay, alpha: 0.22 });
       if (!rp) for (const r of ringsOf(c.silhouette)) strokes.push({ pts: r, closed: true, widthPx: 1, color: theme.underlay, alpha: 0.7 });
     }

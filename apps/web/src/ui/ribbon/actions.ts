@@ -33,6 +33,8 @@ import { acompanharInclinacao, definirTransicaoDaCadeia } from '../../editor/wal
 import { usePaletaMoveis } from '../PaletaMoveis.tsx';
 import { useMontarFila } from '../MontarFila.tsx';
 import { useOrcamento } from '../OrcamentoProjeto.tsx';
+import { collabManager, useCollab } from '../../collab/session.ts';
+import { lerCollabExperimental } from '../../editor/preferenciasCollab.ts';
 import { t, type ActionId, type Txt } from './model.ts';
 
 /** Liga a ferramenta Região de terreno numa predefinição (Subdivisão, Plataforma ou Região nivelada); `porElemento` só vale na plataforma. */
@@ -166,6 +168,8 @@ function thinTarget(): { levelId: Id } | 'section' {
 }
 
 const sched = (label: Txt, dialog: DialogKind): ActionDef => ({ label, icon: 'schedule', run: openDialog(dialog) });
+const collabDisabled = (): Txt | false =>
+  lerCollabExperimental() ? false : t('Recurso experimental desativado em Experimentais.', 'Experimental feature disabled in Experiments.');
 
 /** Ambiente mínimo das ações de conjunto: elas leem a seleção e gravam comandos de componente. */
 const envDeConjunto = (): ToolEnv => ({
@@ -808,6 +812,66 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       }));
     },
     pressed: (c) => c.view === '3d' && c.facePaintActive === true && c.facePaintMode === 'studioPick',
+  },
+  collabSession: {
+    label: t('Colaborar', 'Collaborate'),
+    icon: 'user',
+    hint: t('Abre o painel de colaboração em tempo real para hospedar ou gerenciar a sessão.', 'Opens the live collaboration panel to host or manage the session.'),
+    run: openDialog('collab' as DialogKind, 'session'),
+    pressed: () => useCollab.getState().mode !== 'off',
+    disabled: collabDisabled,
+  },
+  collabShare: {
+    label: t('Compartilhar link', 'Share Link'),
+    icon: 'copy',
+    hint: t('Gera e copia links de acesso para compartilhar o projeto com leitura ou edição.', 'Generates and copies access links to share the project with read or edit access.'),
+    run: openDialog('collab' as DialogKind, 'session'),
+    disabled: collabDisabled,
+  },
+  collabJoin: {
+    label: t('Entrar na sessão', 'Join Session'),
+    icon: 'open',
+    hint: t('Conecta-se a um projeto compartilhado usando um link de convite ou código.', 'Connects to a shared project using an invite link or code.'),
+    run: openDialog('collab' as DialogKind, 'join'),
+    disabled: collabDisabled,
+  },
+  collabPeers: {
+    label: t('Participantes', 'Participants'),
+    icon: 'user',
+    hint: t('Exibe os participantes conectados e a fila de solicitações de entrada para aprovação.', 'Displays connected participants and the pending join approval queue.'),
+    run: openDialog('collab' as DialogKind, 'peers'),
+    pressed: () => useCollab.getState().pendingRequests.length > 0,
+    disabled: collabDisabled,
+  },
+  collabSync: {
+    label: t('Sincronizar', 'Synchronize'),
+    icon: 'nav',
+    hint: t('Solicita sincronização imediata com a sessão colaborativa ou abre a configuração.', 'Requests immediate sync with the collaborative session or opens session setup.'),
+    run: () => {
+      const { mode } = useCollab.getState();
+      if (mode === 'guest') {
+        collabManager.requestSync();
+      } else if (mode === 'host') {
+        useUi.setState({ status: { key: 'collab_status_synced' } });
+      } else {
+        useUi.setState({ dialog: 'collab' as DialogKind, dialogArg: 'session' });
+      }
+    },
+    disabled: collabDisabled,
+  },
+  collabActivity: {
+    label: t('Histórico da sessão', 'Session History'),
+    icon: 'qundo',
+    hint: t('Mostra o registro de alterações e participantes da sessão colaborativa.', 'Shows the change log and participants of the collaborative session.'),
+    run: openDialog('collab' as DialogKind, 'activity'),
+    disabled: collabDisabled,
+  },
+  collabWorksets: {
+    label: t('Conjuntos de trabalho', 'Worksets'),
+    icon: 'layers',
+    hint: t('Exibe os elementos reservados e bloqueios ativos na colaboração.', 'Displays reserved elements and active collaboration locks.'),
+    run: openDialog('collab' as DialogKind, 'worksets'),
+    disabled: collabDisabled,
   },
 };
 

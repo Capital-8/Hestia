@@ -19,6 +19,7 @@ import { wallFaces } from './faces.ts';
 import { noteCircuitRecalc, wallsSignature } from './enclosed.ts';
 import { t, type Lang } from './i18nMessages.ts';
 import { levelFrames } from './resolve.ts';
+import { projetoDeAmbientes } from './resolveParceiras.ts';
 
 /** Por que o ponto do ambiente não está num circuito fechado. */
 export type RoomProblem = 'aberto' | 'fora';
@@ -70,13 +71,13 @@ interface RegionSet {
   wallBox: Box;
 }
 
-const frameCount = (p: Project, levelId: Id): number => levelFrames(p, levelId).length;
+const frameCount = (p: Project, levelId: Id): number => levelFrames(projetoDeAmbientes(p, levelId), levelId).length;
 
 const insideBox = (q: Vec2, b: Box): boolean => q.x >= b.minX - EPS && q.x <= b.maxX + EPS && q.y >= b.minY - EPS && q.y <= b.maxY + EPS;
 
 /** Espaço livre entre as faces internas das paredes do nível (a caixa envolvente menos a união das silhuetas). */
 function regionSet(p: Project, levelId: Id): RegionSet {
-  const walls = closeGapsSafe(union(...wallFaces(p, levelId).map((w) => asMulti(wallBand(w.outline)))));
+  const walls = closeGapsSafe(union(...wallFaces(projetoDeAmbientes(p, levelId), levelId).map((w) => asMulti(wallBand(w.outline)))));
   const wallBox = boxOf(walls.flatMap((poly) => poly.flat()));
   const b = expandBox(wallBox, MARGIN);
   const frame: Ring = [
@@ -203,7 +204,7 @@ function regionSetCached(p: Project, levelId: Id): RegionSet {
 export function resolveRooms(p: Project, levelId: Id): ResolvedRoom[] {
   const rooms = roomsOnLevel(p, levelId);
   if (rooms.length === 0) return [];
-  const frames = levelFrames(p, levelId);
+  const frames = levelFrames(projetoDeAmbientes(p, levelId), levelId);
   const base = (r: (typeof rooms)[number]) => ({
     roomId: r.id,
     levelId: r.levelId,

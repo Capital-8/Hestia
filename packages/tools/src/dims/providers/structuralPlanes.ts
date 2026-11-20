@@ -13,7 +13,7 @@ import {
   footingsOnLevel,
   isFooting,
   projectGrids,
-  wallsOnLevel,
+  wallsOfPlan,
   type Id,
   type Project,
   type WallDimRef,
@@ -63,7 +63,7 @@ export function neighborPlanes(
   const planes: NeighborLocalPlane[] = [];
   const hostMid = segPoint(host, host.length / 2, hostCenterS);
 
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     if (w.id === excludeId) continue;
     const f = frameOfWall(p, w.id);
     if (!f || f.arc || Math.abs(dot(host.u, f.u)) < PARALLEL_TOL) continue;

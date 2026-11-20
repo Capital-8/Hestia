@@ -744,6 +744,16 @@ export interface Roof {
   footprint?: Vec2[];
   /** Forma 'extrusion': perfil (altura em função de t) extrudado ao longo de `dir` (t cresce na transversal à esquerda de dir). */
   profile: RoofProfilePoint[];
+  /**
+   * Inclinação por aresta de cada furo em `holes` (percentual > 0 gera água caindo para dentro do furo / pátio interno;
+   * null, 0 ou ausente = abertura vertical sem inclinação, como claraboia).
+   */
+  holeSlopes?: Array<Array<number | null>>;
+  /**
+   * Fecha com testeira vertical os vãos de degrau (`steps` / `stepGaps`) onde águas adjacentes têm cotas diferentes
+   * em cantos reentrantes entre beiral e empena. Padrão: false (aberto).
+   */
+  closeStepGaps?: boolean;
   /** Telhados do mesmo nível que se sobrepõem se unem: vale a maior cota (Revit: Join Roof). */
   joinOthers: boolean;
   rafterCut: RafterCut;

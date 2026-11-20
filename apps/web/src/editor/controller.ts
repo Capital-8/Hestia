@@ -15,6 +15,7 @@ import {
   migrateProject,
   serializeProject,
   newId,
+  isComponent,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
   type SectionAnnotations,
@@ -26,7 +27,7 @@ import {
   type SectionView,
   type TemplateId,
 } from '@hestia/model';
-import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
+import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, roofStepMessage, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
@@ -42,9 +43,12 @@ import { gravarAutosave } from './autosave.ts';
 import { AUTOSAVE_KEY, AUTOSAVE_SALVO_KEY, safeGet, safeSet } from './storage.ts';
 import { t, useI18n } from './i18n.ts';
 import { pedirConfirmacaoHostedLoss } from './hostedLossPrompt.ts';
+import { pedirConfirmacaoDegrauTelhado } from './roofStepPrompt.ts';
 import { pedirAlerta } from './alertaPrompt.ts';
 import { elevationFrameBox, fitBox, levelFrameBox, linhasDoTerrenoNoCorte, panBy, referenceAt, roomTagLines, sectionBox, tagBoxModel, underlayIdOf, effectiveGridStep, zoomAt, type Viewport } from '@hestia/render';
 import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
+import { opcoesDeEncaixeAtuais } from './encaixeComponente.ts';
+import { alternarModoGizmo, tabTrocaModoGizmo } from './modoGizmo.ts';
 import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
@@ -69,6 +73,7 @@ import { CacheGeometria } from './geometryCache.ts';
 import { abrirComCache, agendarGravacao, limparCacheDeGeometria, TETO_GEOMETRIA_BYTES, type PortasAbertura, type RestauradoDoCache } from './geometriaAbertura.ts';
 import { aceitaCaractereNumerico } from './entradaNumerica.ts';
 import { ligarMassa } from './massaLigacao.ts';
+import { collabManager, useCollab } from '../collab/session.ts';
 import './curtainLineGrip.ts'; // alças da linha de grade da cortina (registra no select)
 
 
@@ -157,7 +162,13 @@ export class Editor {
   readonly fluxo = new FluxoEdicao({ aoMudar: () => this.bump(), exatoAssincrono: true }); // provisório na hora, exato em segundo plano (fluxoEdicao.ts)
   readonly provisorios = this.fluxo.provisorios; // a planta os desenha (ui/quadroPlanta.ts); ler aqui liga o cálculo a cada edição
   /** Modo "Criar/Editar perímetro" (perimeterMode.ts): abre-se pelas ferramentas Telhado, Piso, Laje e Forro. */
-  readonly perimetro = new PerimeterMode({ env: () => this.env, projeto: () => this.project, ativar: (t) => (t ? this.activate('perimeter', t) : this.activate('select')), atualizar: () => this.bump() });
+  readonly perimetro = new PerimeterMode({
+    env: () => this.env,
+    projeto: () => this.project,
+    ativar: (t) => (t ? this.activate('perimeter', t) : this.activate('select')),
+    atualizar: () => this.bump(),
+    confirmarDegrauTelhado: (roof, steps) => pedirConfirmacaoDegrauTelhado(roofStepMessage(this.project, roof, steps, useI18n.getState().lang)),
+  });
   /** Cache de geometria por projeto: na abertura restaura os níveis (ver `geometriaAbertura.ts`); só a abertura grava. */
   readonly portasAbertura: PortasAbertura = {
     cache: new CacheGeometria({ tetoBytes: TETO_GEOMETRIA_BYTES }),
@@ -280,6 +291,7 @@ export class Editor {
     metersPerPixel: () => 1 / (this.viewport()?.zoom ?? 60),
     // Gravidade (G1): a cota do terreno proposto vem do serviço do kernel; sem botão ligado, null.
     cotaDoTerreno: (x, y) => (useUi.getState().gravidade ? servicoTerreno().cotaDoTerreno(this.store.project, [{ x, y }], 1)?.[0]?.z ?? null : null),
+    opcoesEncaixe: (alt) => opcoesDeEncaixeAtuais(alt),
     viewScale: () => this.viewScale(),
     gridStep: () => effectiveGridStep(this.viewport()?.zoom ?? 60, useUi.getState().gridStep),
     say: (m) => useUi.setState({ status: m }), lang: () => useI18n.getState().lang, confirmHostedLoss: (losses, message) => pedirConfirmacaoHostedLoss(losses, message),
@@ -639,6 +651,11 @@ export class Editor {
   setTool(id: ToolId): void {
     // Trocar de ferramenta encerra qualquer arraste de rótulo em andamento (inclusive nos retornos antecipados abaixo).
     this.limparArrasteRotulo();
+    const collab = useCollab.getState();
+    if (collab.mode === 'guest' && collab.myRole === 'viewer' && id !== 'select' && id !== 'measure') {
+      useUi.setState({ status: { key: 'collab_readonly_error' } });
+      return;
+    }
     const st = useUi.getState();
     // A planta de área é de anotação: ferramentas de modelo não entram nela (nem por atalho, nem ao voltar de um corte).
     if (st.planKind === 'area' && st.view !== '3d' && !areaPlanToolAllowed(id)) {
@@ -726,6 +743,16 @@ export class Editor {
     switch (kind) {
       case 'move':
         t.move(info);
+        if (useCollab.getState().mode !== 'off') {
+          collabManager.publishPresence({
+            view: ui.view,
+            levelId: ui.levelId,
+            sectionId: ui.sectionId,
+            sheetId: ui.sheetId,
+            cursor: info.raw,
+            selection: ui.selection,
+          });
+        }
         // No corte, Mover, Copiar e Alinhar sem seleção realçam o elemento que o clique vai escolher (o mesmo realce do Selecionar).
         if (t.id === 'select' || (ui.view === 'section' && (t.id === 'move' || t.id === 'copy' || t.id === 'align'))) {
           const first = t.preview().find((i) => i.kind === 'highlight');
@@ -825,6 +852,12 @@ export class Editor {
       // atalhos normais de ferramenta/anotação; antes o `key3d` engolia ME/DI/TX/AL.
       if (k === 'Delete' || k === 'Backspace') return key3d(k, ui.selection, () => this.deleteSelection());
     }
+    // Tab na 3D com um componente selecionado (Selecionar, foco fora de campo/botão): alterna o gizmo Mover/Redimensionar.
+    if (tabTrocaModoGizmo({
+      key: k, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey, view: ui.view, ferramenta: this.tool.id,
+      umComponente: ui.selection.length === 1 && isComponent(this.store.project.elements[ui.selection[0]!]),
+      dialogoAberto: ui.dialog !== null, alvoTag: (e.target as HTMLElement | null)?.tagName, alvoEditavel: (e.target as HTMLElement | null)?.isContentEditable === true,
+    })) { alternarModoGizmo(); return true; }
     // Na 3D, Esc segue o da planta (cancela a operação, senão volta à Selecionar; decisão 0016 §5). Ferramenta de escolha (Anexar topo): Enter e Tab seguem para a planta, senão a etapa não avança.
     // Tab com a Selecionar passa ao da planta (percorre o subelemento da cortina também na 3D).
     if (ui.view === '3d' && k !== 'Escape' && !(this.tool.pick3d && (k === 'Enter' || k === 'Tab')) && !(k === 'Tab' && this.tool.id === 'select')) return key3d(k, ui.selection, () => this.deleteSelection());
@@ -1227,8 +1260,16 @@ export class Editor {
   }
 
   // Com o modo de perímetro aberto, desfazer e refazer valem para o rascunho do esboço, nunca para o projeto.
-  undo(): void { if (!this.perimetro.historico(false)) desfazerOuRefazer(this.store, 'undo'); }
-  redo(): void { if (!this.perimetro.historico(true)) desfazerOuRefazer(this.store, 'redo'); }
+  undo(): void {
+    if (this.perimetro.historico(false)) return;
+    if (useCollab.getState().mode !== 'off') { collabManager.undo(); return; }
+    desfazerOuRefazer(this.store, 'undo');
+  }
+  redo(): void {
+    if (this.perimetro.historico(true)) return;
+    if (useCollab.getState().mode !== 'off') { collabManager.redo(); return; }
+    desfazerOuRefazer(this.store, 'redo');
+  }
 
   /**
    * Cotas automáticas da planta (camadas por lado: aberturas → paredes → contorno → total). As cotas entram como

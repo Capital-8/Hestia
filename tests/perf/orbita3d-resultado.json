@@ -1,0 +1,292 @@
+{
+  "medido": "2026-11-19T20:54:29.375Z",
+  "navegador": "Chrome headless sem GPU (swiftshader)",
+  "gesto": "Alt + botão esquerdo, 3 s, 8 px a cada ~16 ms, ida e volta (ViewportCanvas: isOrbitReq)",
+  "cenarios": [
+    {
+      "id": "A",
+      "nome": "Produção (vite preview), predio10",
+      "niveis": 10,
+      "malhasVisiveis": 24,
+      "triangulosVisiveis": 194634,
+      "texturas": 0,
+      "montagemEstavelMs": 2431,
+      "tempo": {
+        "quadros": 19,
+        "p50": 16.7,
+        "p95": 466.7,
+        "p99": 466.7,
+        "max": 466.7,
+        "pctAcima33": 42.1,
+        "acima100": 7,
+        "porQuadroMs": {
+          "script": 9.2,
+          "layout": 0.3,
+          "recalcEstilo": 0.1,
+          "tarefaPrincipal": 60.5
+        },
+        "threadPrincipalPct": 38.3,
+        "heapMB": 88.1,
+        "movimentosPorSeg": 2.7
+      },
+      "contadores": {
+        "quadros": 18,
+        "p50": 16.7,
+        "p95": 500,
+        "max": 500,
+        "pctAcima33": 50,
+        "porQuadroMs": {
+          "script": 11.1,
+          "layout": 0.4,
+          "recalcEstilo": 0.1,
+          "tarefaPrincipal": 35.2
+        },
+        "drawCallsMediana": 74.5,
+        "trianguloMediana": 194674,
+        "totais": {
+          "quadros": 24,
+          "drawCalls": 2073,
+          "triangulos": 3567180,
+          "uploads": 1674,
+          "uploadBytes": 33230412,
+          "rebuilds": 6,
+          "commitsReact": 5
+        }
+      }
+    },
+    {
+      "id": "B",
+      "nome": "Desenvolvimento (vite, 4802), predio10",
+      "niveis": 10,
+      "malhasVisiveis": 24,
+      "triangulosVisiveis": 194634,
+      "texturas": 0,
+      "montagemEstavelMs": 2730,
+      "tempo": {
+        "quadros": 16,
+        "p50": 33.3,
+        "p95": 516.7,
+        "p99": 516.7,
+        "max": 516.7,
+        "pctAcima33": 56.3,
+        "acima100": 7,
+        "porQuadroMs": {
+          "script": 24.3,
+          "layout": 0.4,
+          "recalcEstilo": 0.1,
+          "tarefaPrincipal": 56.3
+        },
+        "threadPrincipalPct": 29.5,
+        "heapMB": 130,
+        "movimentosPorSeg": 2.6
+      },
+      "contadores": {
+        "quadros": 15,
+        "p50": 349.9,
+        "p95": 400.1,
+        "max": 400.1,
+        "pctAcima33": 66.7,
+        "porQuadroMs": {
+          "script": 25.6,
+          "layout": 0.4,
+          "recalcEstilo": 0.2,
+          "tarefaPrincipal": 29.4
+        },
+        "drawCallsMediana": 89,
+        "trianguloMediana": 194674,
+        "totais": {
+          "quadros": 27,
+          "drawCalls": 2366,
+          "triangulos": 3930290,
+          "uploads": 1757,
+          "uploadBytes": 35291488,
+          "rebuilds": 6,
+          "commitsReact": 5
+        }
+      }
+    },
+    {
+      "id": "C",
+      "nome": "Produção, projeto real (maior arquivo; nome omitido)",
+      "niveis": 2,
+      "malhasVisiveis": 15,
+      "triangulosVisiveis": 3182,
+      "texturas": 20,
+      "montagemEstavelMs": 1306,
+      "tempo": {
+        "quadros": 51,
+        "p50": 49.9,
+        "p95": 200,
+        "p99": 400,
+        "max": 400,
+        "pctAcima33": 51,
+        "acima100": 5,
+        "porQuadroMs": {
+          "script": 5.4,
+          "layout": 0.4,
+          "recalcEstilo": 0.2,
+          "tarefaPrincipal": 14.5
+        },
+        "threadPrincipalPct": 24.3,
+        "heapMB": 38.5,
+        "movimentosPorSeg": 8.9
+      },
+      "contadores": {
+        "quadros": 72,
+        "p50": 16.8,
+        "p95": 100.1,
+        "max": 149.9,
+        "pctAcima33": 50,
+        "porQuadroMs": {
+          "script": 4.9,
+          "layout": 0.4,
+          "recalcEstilo": 0.2,
+          "tarefaPrincipal": 11
+        },
+        "drawCallsMediana": 25,
+        "trianguloMediana": 3190,
+        "totais": {
+          "quadros": 45,
+          "drawCalls": 1302,
+          "triangulos": 147462,
+          "uploads": 622,
+          "uploadBytes": 750660,
+          "rebuilds": 6,
+          "commitsReact": 5
+        }
+      }
+    }
+  ],
+  "timers": {
+    "A": {
+      "callbacksNaJanela": 310,
+      "somaCallbacksMs": 138.3,
+      "top": [
+        {
+          "chave": "raf atraso=0 | ()=>{yc.current.frame=0;const Ne=yc.current.at,xt=r();if(!Ne||xt.view!==\"3d\")return;if(xt.facePaint.active){const nn=p.c",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "()=>{yc.current.frame=0;const Ne=yc.current.at,xt=r();if(!Ne||xt.view!==\"3d\")return;if(xt.facePaint.active){const nn=p.c",
+          "n": 1,
+          "somaMs": 85.5,
+          "maxMs": 85.5,
+          "nome": "(anon)"
+        },
+        {
+          "chave": "raf atraso=0 | ()=>DRo(No)",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "()=>DRo(No)",
+          "n": 10,
+          "somaMs": 45.5,
+          "maxMs": 8.4,
+          "nome": "(anon)"
+        },
+        {
+          "chave": "setTimeout atraso=4 | function a(){switch(t.clientWaitSync(e,t.SYNC_FLUSH_COMMANDS_BIT,0)){case t.WAIT_FAILED:i();break;case t.TIMEOUT_EXPIRED",
+          "tipo": "setTimeout",
+          "atraso": 4,
+          "src": "function a(){switch(t.clientWaitSync(e,t.SYNC_FLUSH_COMMANDS_BIT,0)){case t.WAIT_FAILED:i();break;case t.TIMEOUT_EXPIRED",
+          "n": 278,
+          "somaMs": 4.8,
+          "maxMs": 0.1,
+          "nome": "a"
+        },
+        {
+          "chave": "raf atraso=0 | () => { const s = window.__hestiaPerf.snapshot(); if (W.ultimo && s.total.rebuilds !== W.ultimo.total.rebuilds &",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "() => { const s = window.__hestiaPerf.snapshot(); if (W.ultimo && s.total.rebuilds !== W.ultimo.total.rebuilds &",
+          "n": 21,
+          "somaMs": 2.5,
+          "maxMs": 0.4,
+          "nome": "tick"
+        }
+      ],
+      "rebuildsNaJanela": 0,
+      "contadoresFinais": {
+        "total": {
+          "quadros": 15,
+          "drawCalls": 1194,
+          "triangulos": 2789210,
+          "uploads": 1425,
+          "uploadBytes": 16512856,
+          "rebuilds": 6,
+          "commitsReact": 5
+        },
+        "camadas": {
+          "geometria": 1,
+          "sobreposicao": 3,
+          "grade": 0,
+          "guardaCorpo": 1,
+          "massa": 1
+        }
+      }
+    },
+    "B": {
+      "callbacksNaJanela": 51,
+      "somaCallbacksMs": 140.8,
+      "top": [
+        {
+          "chave": "raf atraso=0 | () => { hover3d.current.frame = 0; const at = hover3d.current.at; const stNow = paneState(); if ",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "() => { hover3d.current.frame = 0; const at = hover3d.current.at; const stNow = paneState(); if ",
+          "n": 1,
+          "somaMs": 91.1,
+          "maxMs": 91.1,
+          "nome": "(anon)"
+        },
+        {
+          "chave": "raf atraso=0 | () => medirQuadro(renderQuadro)",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "() => medirQuadro(renderQuadro)",
+          "n": 11,
+          "somaMs": 47,
+          "maxMs": 5.4,
+          "nome": "(anon)"
+        },
+        {
+          "chave": "raf atraso=0 | () => { const s = window.__hestiaPerf.snapshot(); if (W.ultimo && s.total.rebuilds !== W.ultimo.total.rebuilds &",
+          "tipo": "raf",
+          "atraso": 0,
+          "src": "() => { const s = window.__hestiaPerf.snapshot(); if (W.ultimo && s.total.rebuilds !== W.ultimo.total.rebuilds &",
+          "n": 21,
+          "somaMs": 2,
+          "maxMs": 0.3,
+          "nome": "tick"
+        },
+        {
+          "chave": "setTimeout atraso=4 | function probe() { switch (gl.clientWaitSync(sync, gl.SYNC_FLUSH_COMMANDS_BIT, 0)) { case gl.WAIT_FAILED: ",
+          "tipo": "setTimeout",
+          "atraso": 4,
+          "src": "function probe() { switch (gl.clientWaitSync(sync, gl.SYNC_FLUSH_COMMANDS_BIT, 0)) { case gl.WAIT_FAILED: ",
+          "n": 18,
+          "somaMs": 0.7,
+          "maxMs": 0.2,
+          "nome": "probe"
+        }
+      ],
+      "rebuildsNaJanela": 0,
+      "contadoresFinais": {
+        "total": {
+          "quadros": 16,
+          "drawCalls": 1260,
+          "triangulos": 2983884,
+          "uploads": 1465,
+          "uploadBytes": 16513496,
+          "rebuilds": 6,
+          "commitsReact": 5
+        },
+        "camadas": {
+          "geometria": 1,
+          "sobreposicao": 3,
+          "grade": 0,
+          "guardaCorpo": 1,
+          "massa": 1
+        }
+      }
+    }
+  }
+}

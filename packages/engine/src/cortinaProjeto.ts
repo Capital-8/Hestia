@@ -229,6 +229,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
     const painelDaInstancia = inst?.defaultPanelTypeId;
     if (painelDaInstancia && pain[painelDaInstancia]) painUsados.set(painelDaInstancia, pain[painelDaInstancia]!);
     const zz = z.get(w.id)!;
+    const topProfile = zz.profile ?? (w.sag === 0 ? w.topProfile : null);
     // Sobrescritas (fase 2): a referência a montante ou painel ausente sai, e os tipos que elas usam entram na entrada.
     const sob = sobrescritasDaInstancia(inst, { u: wallLength(w), v: zz.height }, mont, pain, (id) => openingTypeById(p, id) !== undefined);
     for (const id of sob.montantes) montUsados.set(id, mont[id]!);
@@ -252,6 +253,7 @@ export function entradaCortinaDoProjeto(p: Project, materiaisAnteriores?: Readon
       ...(sob.sobrescritas ? { sobrescritas: sob.sobrescritas } : {}),
       ...(inst?.host ? { hospedeiro: { wallId: inst.host.wallId, offset: inst.host.offset, width: inst.host.width, sill: inst.host.sill, height: inst.host.height } } : {}),
       ...(ext && ext.some((x) => x.vizinhaId !== null || x.noJoin) ? { extremidades: ext } : {}),
+      ...(topProfile && topProfile.length >= 2 ? { topProfile: topProfile.map((pt) => ({ t: pt.t, h: pt.h })) } : {}),
     };
     cortinas.push(k);
     assinaturas.set(

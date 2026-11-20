@@ -1,4 +1,5 @@
 import { dist, type Vec2 } from './vec.ts';
+import { ringArea } from './polygon.ts';
 import { SkeletonFail, type Node, type Sim } from './skeletonCore.ts';
 
 /** Aresta líder de uma face (uma por reta; arestas colineares de mesmo peso compartilham a face). */
@@ -7,6 +8,8 @@ export interface LeaderInfo {
   ring: number;
   edge: number;
   w: number;
+  startNode: number;
+  endNode: number;
 }
 
 export interface RawFace {
@@ -14,6 +17,8 @@ export interface RawFace {
   edge: number;
   polygon: Vec2[];
   z: number[];
+  holes?: Vec2[][];
+  holeZ?: number[][];
 }
 
 export interface RawArc {
@@ -24,80 +29,119 @@ export interface RawArc {
   faces: [number, number];
 }
 
-/**
- * Contorno de uma face: caminha pelas arestas-base e arcos rotulados com `L`.
- * Cada nó da face tem exatamente dois segmentos dela; qualquer desvio é erro de topologia.
- */
-function walkFace(sim: Sim, L: number): Node[] {
-  const segIdx: number[] = [];
-  sim.segs.forEach((s, k) => {
-    if (s.f1 === L || s.f2 === L) segIdx.push(k);
-  });
-  const adj = new Map<number, number[]>();
-  for (const k of segIdx) {
-    const s = sim.segs[k]!;
-    for (const end of [s.a, s.b]) {
-      const list = adj.get(end);
-      if (list) list.push(k);
-      else adj.set(end, [k]);
-    }
-  }
-  const first = segIdx.find((k) => sim.segs[k]!.base);
-  if (first === undefined) throw new SkeletonFail('face sem aresta de contorno');
-  const used = new Set<number>([first]);
-  const start = sim.segs[first]!.a;
-  const path: Node[] = [sim.nodes[start]!];
-  let cur = sim.segs[first]!.b;
-  let guard = 0;
-  while (cur !== start) {
-    if (++guard > segIdx.length + 1) throw new SkeletonFail('contorno de face não fecha');
-    path.push(sim.nodes[cur]!);
-    const cands = (adj.get(cur) ?? []).filter((k) => !used.has(k));
-    if (cands.length !== 1) throw new SkeletonFail('topologia do esqueleto inconsistente');
-    const k = cands[0]!;
-    used.add(k);
-    const s = sim.segs[k]!;
-    cur = s.a === cur ? s.b : s.a;
-  }
-  if (used.size !== segIdx.length) throw new SkeletonFail('face com mais de um contorno');
-  return path;
-}
+const EPS = 1e-6;
 
-/** Remove repetidos, garante orientação anti-horária e devolve polígono com alturas. */
-function toPolygon(path: Node[]): { polygon: Vec2[]; z: number[] } {
+function cleanNodes(nodes: Node[]): Node[] {
   const pts: Node[] = [];
-  for (const q of path) {
+  for (const q of nodes) {
     const last = pts[pts.length - 1];
-    if (!last || dist(last, q) > 1e-9) pts.push(q);
+    if (!last || dist(last, q) > EPS) pts.push(q);
   }
-  while (pts.length > 1 && dist(pts[0]!, pts[pts.length - 1]!) <= 1e-9) pts.pop();
-  let area = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i]!;
-    const b = pts[(i + 1) % pts.length]!;
-    area += a.x * b.y - b.x * a.y;
-  }
-  if (pts.length < 3 || Math.abs(area) < 1e-12) throw new SkeletonFail('face degenerada (área zero)');
-  if (area < 0) pts.reverse();
-  return { polygon: pts.map((p) => ({ x: p.x, y: p.y })), z: pts.map((p) => p.z) };
+  while (pts.length > 2 && dist(pts[0]!, pts[pts.length - 1]!) <= EPS) pts.pop();
+  return pts;
 }
 
-/** Monta faces (uma por líder com peso > 0) e arcos (arestas do esqueleto entre duas faces). */
+function walkLoop(sim: Sim, arcs: Array<{ a: number; b: number }>, path: number[]): Node[] {
+  const start = path[0]!;
+  let at = path[path.length - 1]!;
+  let guard = arcs.length + 2;
+  while (at !== start) {
+    if (--guard <= 0) throw new SkeletonFail('contorno de face não fecha');
+    const k = arcs.findIndex((s) => s.a === at || s.b === at);
+    if (k < 0) throw new SkeletonFail('contorno de face não fecha');
+    const seg = arcs[k]!;
+    arcs[k] = arcs[arcs.length - 1]!;
+    arcs.pop();
+    at = seg.a === at ? seg.b : seg.a;
+    if (at !== start) path.push(at);
+  }
+  return cleanNodes(path.map((id) => sim.nodes[id]!));
+}
+
+/** Separa um laço que toca a si mesmo num ponto em anel principal + laços internos (furos na própria face). */
+function pinched(ring: Node[]): Node[][] {
+  const same = (a: Node, b: Node): boolean => dist(a, b) < EPS;
+  const loops: Node[][] = [];
+  const cur = [...ring];
+  while (true) {
+    let splitIdx = -1;
+    for (let j = 2; j < cur.length; j++) {
+      if (same(cur[j]!, cur[0]!)) {
+        splitIdx = j;
+        break;
+      }
+    }
+    if (splitIdx >= 0) {
+      loops.push(cur.splice(splitIdx));
+      continue;
+    }
+    let found: [number, number] | null = null;
+    outer: for (let j = 2; j < cur.length; j++) {
+      for (let i = 1; i < j; i++) {
+        if (same(cur[i]!, cur[j]!)) {
+          found = [i, j];
+          break outer;
+        }
+      }
+    }
+    if (found) {
+      loops.push(cur.splice(found[0], found[1] - found[0]));
+      continue;
+    }
+    break;
+  }
+  return [cur, ...loops];
+}
+
+function toRingZ(pts: Node[], ccw: boolean): { ring: Vec2[]; z: number[] } {
+  const ordered = (ringArea(pts) > 0) === ccw ? pts : [...pts].reverse();
+  return {
+    ring: ordered.map((p) => ({ x: p.x, y: p.y })),
+    z: ordered.map((p) => p.z),
+  };
+}
+
+/** Monta faces (uma por líder com peso > 0, incluindo furos internos na face) e arcos entre duas faces. */
 export function buildOutput(sim: Sim, leaders: LeaderInfo[]): { faces: RawFace[]; arcs: RawArc[] } {
   const faces: RawFace[] = [];
   const faceIdx = new Map<number, number>();
   for (const L of leaders) {
     if (L.w <= 0) continue;
-    const { polygon, z } = toPolygon(walkFace(sim, L.id));
+    const arcs = sim.arcs
+      .filter((s) => (s.left === L.id) !== (s.right === L.id))
+      .map((s) => ({ a: s.a, b: s.b }));
+    const loops = pinched(walkLoop(sim, arcs, [L.startNode, L.endNode]));
+    while (arcs.length > 0) {
+      const seg = arcs.pop()!;
+      loops.push(...pinched(walkLoop(sim, arcs, [seg.a, seg.b])));
+    }
+    const outerPts = loops[0]!;
+    if (outerPts.length < 3 || Math.abs(ringArea(outerPts)) < 1e-12) {
+      throw new SkeletonFail('face degenerada (área zero)');
+    }
+    const outer = toRingZ(outerPts, true);
+    const holes: Vec2[][] = [];
+    const holeZ: number[][] = [];
+    for (const hPts of loops.slice(1)) {
+      if (hPts.length < 3 || Math.abs(ringArea(hPts)) < 1e-12) continue;
+      const h = toRingZ(hPts, false);
+      holes.push(h.ring);
+      holeZ.push(h.z);
+    }
     faceIdx.set(L.id, faces.length);
-    faces.push({ ring: L.ring, edge: L.edge, polygon, z });
+    faces.push({
+      ring: L.ring,
+      edge: L.edge,
+      polygon: outer.ring,
+      z: outer.z,
+      ...(holes.length ? { holes, holeZ } : {}),
+    });
   }
   const arcs: RawArc[] = [];
-  for (const s of sim.segs) {
-    if (s.base) continue;
-    const fa = faceIdx.get(s.f1);
-    const fb = faceIdx.get(s.f2);
-    if (fa === undefined || fb === undefined) continue;
+  for (const s of sim.arcs) {
+    const fa = faceIdx.get(s.left);
+    const fb = faceIdx.get(s.right);
+    if (fa === undefined || fb === undefined || fa === fb) continue;
     const na = sim.nodes[s.a]!;
     const nb = sim.nodes[s.b]!;
     if (dist(na, nb) <= 1e-9) continue;

@@ -20,6 +20,7 @@ export { ErroEsquadriaCelula } from './curtainOpeningCommands.ts';
 export { embutirNaCortina, folgasDaRegiao, folhaMinima, retanguloDaRegiao, type FolgasRegiao, type Retangulo } from './curtainOpening.ts';
 export { t as tDoModelo, type Key as ChaveModelo } from './i18n.ts';
 export * from './queries.ts';
+export * from './projetoDaPlanta.ts';
 export * from './semEsquadrias.ts';
 export * from './hostedOffset.ts';
 export * from './ids.ts';
@@ -135,3 +136,5 @@ export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unid
 export * from './familia/index.ts';
 export * from './furniture/index.ts';
 export * from './facePaint.ts';
+export * from './collabTypes.ts';
+export * from './collabHistory.ts';

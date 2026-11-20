@@ -35,7 +35,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { areaPlanOf, openingTypeById, GRAPHICS_CATEGORIES, graphicsOf, levelGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { areaPlanOf, openingTypeById, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, levelGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
@@ -140,7 +140,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
   const { hidden } = view;
   const vg = levelGraphicsOf(p, levelId);
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
-  const openings: DxfOpening[] = levelFrames(p, levelId).flatMap((f) =>
+  const openings: DxfOpening[] = levelFrames(projetoDaPlanta(p, levelId), levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
       const state = shown(o.kind) ? dxfStateOf(view.cls.get(o.id)) : null;
       if (state === null) return [];

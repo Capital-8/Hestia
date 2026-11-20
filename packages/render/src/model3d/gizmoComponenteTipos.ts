@@ -2,6 +2,9 @@ import type { Id } from '@hestia/model';
 
 export type AlcaGizmoComponente = 'mover_xy' | 'mover_x' | 'mover_y' | 'girar' | 'dim_L' | 'dim_A' | 'dim_P';
 
+/** Modo do gizmo: `mover` (alças de movimento + anel de giro) ou `redimensionar` (só as setas L/P/A). */
+export type ModoGizmoComponente = 'mover' | 'redimensionar';
+
 export interface AlvoComponente3D {
   id: Id;
   x: number;

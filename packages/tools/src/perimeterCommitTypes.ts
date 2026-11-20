@@ -1,4 +1,4 @@
-import type { SketchIssue, Vec2 } from '@hestia/geom';
+import type { SketchIssue, SkeletonStep, Vec2 } from '@hestia/geom';
 import type { Command, Id } from '@hestia/model';
 import type { SketchOrigin } from './perimeterSession.ts';
 
@@ -50,4 +50,6 @@ export interface CommitPerimeterOptions {
 }
 
 /** Resultado de `commitPerimeter`. Quando `ok` é falso, nenhum comando é gerado: o motivo vai em `message`. */
-export type CommitPerimeterResult = { ok: true; id: Id; commands: Command[]; message: string } | { ok: false; message: string; issues?: SketchIssue[] };
+export type CommitPerimeterResult =
+  | { ok: true; id: Id; commands: Command[]; message: string; steps?: SkeletonStep[] }
+  | { ok: false; message: string; issues?: SketchIssue[] };

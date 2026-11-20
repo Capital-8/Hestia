@@ -4,7 +4,7 @@ import { vperf } from '../editor/vperf.ts';
 import { corposDoNivel, idDoProjetoDoPick, pegadaDoComponente, lerIdEsquadriaCortina, servicoCortina, servicoGuardaCorpo, servicoTerreno, subelementoDaCortinaEm, subelementoDaEsquadriaCortina } from '@hestia/engine';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { texturas3d } from '../editor/texturas3d.ts';
-import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, PreviaComponente3D, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, faceHighlightMesh, idsNaCaixaDaTela, pickDimension, pickElement, pickFace, pickModelPoint, planFrameUpdateOf, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type AlcaGizmoComponente, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
+import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, PreviaComponente3D, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, faceHighlightMesh, idsNaCaixaDaTela, pickDimension, pickElement, pickFace, pickModelPoint, planFrameUpdateOf, comEixosDaOrigem, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type AlcaGizmoComponente, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
 import { findExactFacePaint, formatQuantity, isComponent, isFacePaintableElement, levelElevation, unitsOf, view3dOf, type Component, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
@@ -53,6 +53,7 @@ import { ProgressoAbertura } from './ProgressoAbertura.tsx';
 import { registrarPreparo3d } from './preparo3d.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
 import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, girarArrasto3d, girarComponentesSelecionados, moverArrastoNoPonto, ndcDoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
+import { chaveDicaGizmo, sincronizarModoGizmo, useModoGizmo } from '../editor/modoGizmo.ts';
 import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, compensarPosicaoAoAlterarMedida, deslocamentoGizmoNoEixoM, eixoDoGizmo, limitesParametroComponente, snapProfundidadeNoVizinho } from './viewport/gizmoComponenteOps.ts';
 import { GizmoInput3D, type GizmoInput3DHandle } from './viewport/gizmoInput3d.tsx';
 import { pontoNoPlanoHorizontal } from './viewport/planoHorizontal.ts';
@@ -520,6 +521,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // O nível selecionado no datum (clique no 3D) é aplicado à cena a cada quadro; sem mudança, não refaz nada.
       m.selecionarNivel(p, st.selectedLevel);
         // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
+        m.eixosOrigem.definir(st.showOrigemEixos);
         m.highlight(st.selection, st.hover, st.avisoParede ? [st.avisoParede] : []);
         m.highlightSubelemento(p, st.subElemento);
         if (st.facePaint.active && st.facePaint.hoverHit) {
@@ -580,7 +582,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         }, msAteLiberar() + 20);
       }
       const alvoGizmo = !st.pastePreview && st.selection.length === 1 ? alvoComponente3D(p, st.selection[0]!) : null;
-      gizmoComp.current?.atualizar(alvoGizmo, m.orbit.camera.position);
+      gizmoComp.current?.atualizar(alvoGizmo, m.orbit.camera.position, sincronizarModoGizmo(alvoGizmo?.id ?? null));
       const blocoAtivo = useInsercaoBloco.getState().ativo;
       previaBlocoRef.current?.atualizar(
         blocoAtivo ? blocoAtivo.projetoPrevia : null,
@@ -736,7 +738,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const blocoPlanKey = blocoPlan && blocoPlan.ultimoPonto
       ? `${blocoPlan.familiaId}:${blocoPlan.rascunho.x}:${blocoPlan.rascunho.y}:${blocoPlan.rascunho.rotation}`
       : '';
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -1011,7 +1013,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       if (hover3d.current.gizmo !== alca) {
         hover3d.current.gizmo = alca;
         if (alca) useUi.setState((st) => ({ status: DICA_GIZMO[alca], previewTick: st.previewTick + 1 }));
-        else useUi.setState((st) => ({ status: '', previewTick: st.previewTick + 1 }));
+        else useUi.setState((st) => ({ status: useModoGizmo.getState().id !== null ? { key: chaveDicaGizmo(useModoGizmo.getState().modo) } : '', previewTick: st.previewTick + 1 }));
       } else if (mudouGizmo) {
         useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       }

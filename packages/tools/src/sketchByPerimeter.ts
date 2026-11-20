@@ -1,6 +1,6 @@
 import { arcFromSagitta, arcSample, asMulti, boxOf, closeGapsSafe, closestOnSegment, dist, intersectSegments, ringArea, sagFromThreePoints, union, type Box, type Ring, type SketchSeg, type Vec2 } from '@hestia/geom';
 import { cleanOutlineRing, levelFrames, wallFacesCached, wallTopFacesCached, type WallTopFaces } from '@hestia/engine';
-import { newId, wallsOnLevel, type Wall } from '@hestia/model';
+import { newId, projetoDaPlanta, wallsOfPlan, type Wall } from '@hestia/model';
 import { circleIndexOf, makeSeg, sameDirection, visibleIn, type Circle, type SketchCtx } from './sketchPickFaceGeom.ts';
 import { t as translate } from './i18n.ts';
 
@@ -30,8 +30,8 @@ function axisTouchesBox(w: Wall, box: Box): boolean {
 
 /** Circunferências da face externa das paredes curvas da seleção (a face externa fica em `sExt`; no topo, a da aresta superior). */
 function exteriorCircles(ctx: SketchCtx, walls: Wall[], tops: Map<string, WallTopFaces>): Circle[] {
-  const p = ctx.project();
   const levelId = ctx.levelId();
+  const p = projetoDaPlanta(ctx.project(), levelId);
   const ids = new Set(walls.map((w) => w.id));
   return levelFrames(p, levelId)
     .filter((f) => ids.has(f.wall.id) && f.arc)
@@ -156,12 +156,12 @@ function ringToSegs(ring0: Ring, circles: Circle[]): SketchSeg[] {
  * contorno separado (usa o maior) e nenhuma parede na caixa.
  */
 export function perimeterFromBox(ctx: SketchCtx, boxMin: Vec2, boxMax: Vec2, opts: { top?: boolean } = {}): PerimeterResult {
-  const p = ctx.project();
   const levelId = ctx.levelId();
+  const p = projetoDaPlanta(ctx.project(), levelId);
   const lang = ctx.lang?.() ?? 'pt';
   const vis = visibleIn(ctx);
   const box = boxOf([boxMin, boxMax]);
-  const walls = wallsOnLevel(p, levelId).filter((w) => vis(w.id) && axisTouchesBox(w, box));
+  const walls = wallsOfPlan(p, levelId).filter((w) => vis(w.id) && axisTouchesBox(w, box));
   if (walls.length === 0) return { segs: [], warnings: [translate(lang, 'tl_msg_no_wall_in_box')] };
 
   const ids = new Set(walls.map((w) => w.id));

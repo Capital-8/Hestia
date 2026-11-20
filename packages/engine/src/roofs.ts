@@ -1,6 +1,6 @@
-import { asMulti, difference, dot, multiArea, sub, type MultiPolygon, type SkeletonStep, type Vec2 } from '@hestia/geom';
+import { asMulti, difference, dist, dot, mid, multiArea, norm, pointInMulti, sub, type MultiPolygon, type SkeletonStep, type Vec2 } from '@hestia/geom';
 import { levelElevation, roofsOnLevel, unitsOf, type Id, type Project, type RafterCut, type Roof, type RoofEave, type RoofType } from '@hestia/model';
-import { planeHas, WATER_MIN_AREA } from './roofGeom.ts';
+import { collinearOverlaps, perpOf, planeHas, sanitizeMulti, WATER_MIN_AREA } from './roofGeom.ts';
 import { expandRoofArcs } from './roofArcs.ts';
 import { joinRoofs, type JoinItem } from './roofJoin.ts';
 import { roofLines } from './roofLines.ts';
@@ -34,6 +34,16 @@ export interface ResolvedRoofLayer {
   below: number;
 }
 
+/** Trecho de aresta compartilhada entre duas águas adjacentes onde há degrau vertical (> 1 mm). */
+export interface RoofStepGap {
+  a: Vec2;
+  b: Vec2;
+  zLowA: number;
+  zHighA: number;
+  zLowB: number;
+  zHighB: number;
+}
+
 export interface ResolvedRoof {
   roofId: Id;
   typeId: Id;
@@ -49,6 +59,12 @@ export interface ResolvedRoof {
   problem?: string;
   /** Degraus da superfície (vértices reentrantes, em planta e em m); ausente quando a superfície é contínua. */
   steps?: SkeletonStep[];
+  /** Vãos de degrau vertical entre águas adjacentes (trechos compartilhados com Δz > 1 mm). */
+  stepGaps?: RoofStepGap[];
+  /** Fecha os vãos de degrau no 3D usando o material da testeira (copiado de `Roof.closeStepGaps`). */
+  closeStepGaps?: boolean;
+  /** Material da testeira do tipo (`<materialId>#testeira`), para fechamento de degraus em `buildRoofSolids`. */
+  fasciaMaterialId?: Id;
   /** Acabamentos do beiral (testeira, calha, forro) do telhado; sem ele, nada é desenhado no beiral. */
   eave?: RoofEave;
   /** Corte das camadas no beiral: 'plumb' (vertical, padrão) ou 'square' (perpendicular à água). */
@@ -91,11 +107,11 @@ function baseOf(p: Project, raw: Roof): Base | null {
   } catch (e) {
     water = { planes: [], problem: `telhado inválido: ${e instanceof Error ? e.message : 'erro desconhecido'}` };
   }
-  const holes = r.holes.filter((h) => h.length >= 3).map((h): MultiPolygon => asMulti(h));
+  const holes = r.holes.flatMap((h, i): MultiPolygon[] => (h.length >= 3 && !water.appliedHoles?.has(i) ? [asMulti(h)] : []));
   const planes = water.planes
-    .map((pl) => ({ ...pl, polygon: holes.length ? difference(pl.polygon, ...holes) : pl.polygon }))
+    .map((pl) => ({ ...pl, polygon: sanitizeMulti(holes.length ? difference(pl.polygon, ...holes) : pl.polygon) }))
     .filter((pl) => multiArea(pl.polygon) > WATER_MIN_AREA);
-  const holeLines = holeGableLines(r.holes, water.planes);
+  const holeLines = holeGableLines(r.holes, water.planes, r.holeSlopes);
   return {
     roof: r,
     type,
@@ -109,6 +125,58 @@ function baseOf(p: Project, raw: Roof): Base | null {
   };
 }
 
+/** Segmentos reais de degrau vertical entre águas adjacentes com diferença de cota > 1e-3 m. */
+function computeStepGaps(planes: ResolvedRoofPlane[]): RoofStepGap[] {
+  const out: RoofStepGap[] = [];
+  const pushPiece = (A: ResolvedRoofPlane, B: ResolvedRoofPlane, a: Vec2, b: Vec2): void => {
+    if (dist(a, b) <= 1e-6) return;
+    const zaA = planeZ(A, a);
+    const zbA = planeZ(B, a);
+    const zaB = planeZ(A, b);
+    const zbB = planeZ(B, b);
+    if (Math.max(Math.abs(zaA - zbA), Math.abs(zaB - zbB)) <= 1e-3) return;
+    out.push({
+      a,
+      b,
+      zLowA: Math.min(zaA, zbA),
+      zHighA: Math.max(zaA, zbA),
+      zLowB: Math.min(zaB, zbB),
+      zHighB: Math.max(zaB, zbB),
+    });
+  };
+  for (let i = 0; i < planes.length; i++) {
+    for (let j = i + 1; j < planes.length; j++) {
+      const A = planes[i]!;
+      const B = planes[j]!;
+      for (const [p, q] of collinearOverlaps(A.polygon, B.polygon)) {
+        if (dist(p, q) <= 1e-6) continue;
+        const m = mid(p, q);
+        const l = norm(sub(q, p));
+        const n = perpOf(l);
+        const sideA = pointInMulti({ x: m.x + n.x * 1e-5, y: m.y + n.y * 1e-5 }, A.polygon)
+          ? 1
+          : pointInMulti({ x: m.x - n.x * 1e-5, y: m.y - n.y * 1e-5 }, A.polygon)
+            ? -1
+            : 0;
+        if (sideA === 0) continue;
+        if (!pointInMulti({ x: m.x - n.x * sideA * 1e-5, y: m.y - n.y * sideA * 1e-5 }, B.polygon)) continue;
+        const d0 = planeZ(A, p) - planeZ(B, p);
+        const d1 = planeZ(A, q) - planeZ(B, q);
+        if (Math.max(Math.abs(d0), Math.abs(d1)) <= 1e-3) continue;
+        if (d0 * d1 < -1e-12) {
+          const t = d0 / (d0 - d1);
+          const c = { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+          pushPiece(A, B, p, c);
+          pushPiece(A, B, c, q);
+        } else {
+          pushPiece(A, B, p, q);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /** Telhado resolvido depois da junção: linhas do próprio telhado mais as divisas que recebe da junção. */
 function finish(b: Base, joinLines: ResolvedRoof['lines']): ResolvedRoof {
   const layers: ResolvedRoofLayer[] = [];
@@ -119,20 +187,28 @@ function finish(b: Base, joinLines: ResolvedRoof['lines']): ResolvedRoof {
     below += l.thickness;
   });
   const r = b.roof;
+  const planes = b.planes
+    .map((pl) => ({ ...pl, polygon: sanitizeMulti(pl.polygon) }))
+    .filter((pl) => multiArea(pl.polygon) > WATER_MIN_AREA);
+  const stepGaps = b.steps?.length ? computeStepGaps(planes) : [];
+  const fasciaBaseId = (b.type.layers.find((l) => l.function === 'structure') ?? b.type.layers[0])?.materialId;
   return {
     roofId: r.id,
     typeId: r.typeId,
     levelId: r.levelId,
-    planes: b.planes,
-    lines: [...roofLines(r, b.planes, boundaryKindsOf(r)), ...b.holeLines, ...joinLines],
+    planes,
+    lines: [...roofLines(r, planes, boundaryKindsOf(r)), ...b.holeLines, ...joinLines],
     layers,
     eaveZ: b.eaveZ,
     joinedArea: b.joinedArea,
     eave: r.eave,
     rafterCut: r.rafterCut,
     eaveOverhang: eaveOverhangOf(r),
+    fasciaMaterialId: fasciaBaseId ? `${fasciaBaseId}#testeira` : 'mat_madeira#testeira',
     ...(b.problem ? { problem: b.problem } : {}),
     ...(b.steps ? { steps: b.steps } : {}),
+    ...(stepGaps.length ? { stepGaps } : {}),
+    ...(r.closeStepGaps !== undefined ? { closeStepGaps: r.closeStepGaps } : {}),
   };
 }
 

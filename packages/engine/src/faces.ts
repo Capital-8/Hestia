@@ -1,9 +1,10 @@
 import type { Vec2 } from '@hestia/geom';
-import { coreSpan, wallThicknessOf, type Id, type Project, type Wall } from '@hestia/model';
+import { coreSpan, wallThicknessOf, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 import { sAtDepth } from './frame.ts';
 import { computeEnds } from './joins.ts';
 import { endPoint, layerQuad } from './layerGeom.ts';
 import { levelFrames } from './resolve.ts';
+import { projetoComParceiras } from './resolveParceiras.ts';
 
 export type Seg = [Vec2, Vec2];
 
@@ -25,9 +26,11 @@ export interface WallFaces {
  * os resolve. Barata: só `computeEnds` e alguns pontos por parede. Parede curva entrega só os pontos das pontas.
  */
 export function wallFaces(p: Project, levelId: Id): WallFaces[] {
-  const frames = levelFrames(p, levelId);
+  // Parceiras de outros níveis entram só para as pontas; a saída é só das paredes do nível.
+  const frames = levelFrames(projetoComParceiras(p, levelId, true), levelId);
   const ends = computeEnds(frames, p.settings?.joinTolerance);
-  return frames.map((f) => {
+  const donas = new Set(wallsOnLevel(p, levelId).map((w) => w.id));
+  return frames.filter((x) => donas.has(x.wall.id)).map((f) => {
     const e = ends.get(f.wall.id)!;
     const cs = coreSpan(f.type);
     const line = (s: number): Seg => [endPoint(f, 'a', e.a, s), endPoint(f, 'b', e.b, s)];

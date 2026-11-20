@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { Id } from '@hestia/model';
 import { arestasDaCortina, subconjuntoDeLotes, type LoteAvulsoCortina3d, type LoteCortina3d } from './cortina3d.ts';
 import type { HighlightStyle } from './highlight3d.ts';
-import { aplicarEstiloAoMaterial, criarMaterialDoRealce, MascaraDoRealce, TabelaDeCodigos, texturaDaMascara, type MaterialDoRealce } from './realceGpu3d.ts';
+import { aplicarEstiloAoMaterial, criarMaterialDoRealce, MascaraDoRealce, ORDEM_REALCE_ARESTAS, ORDEM_REALCE_PREENCHIMENTO, TabelaDeCodigos, texturaDaMascara, type MaterialDoRealce } from './realceGpu3d.ts';
 
 /**
  * Realce das paredes cortina (seleção, cursor e aviso). A caixa de picking da cortina nunca é realçada: o realce segue a geometria real,
@@ -82,7 +82,7 @@ function sobreposicaoDe(d: DesenhoDeCortina, material: MaterialDoRealce, tabela:
     geo.setAttribute('aElem', new THREE.BufferAttribute(new Float32Array(origem.getAttribute('position').count).fill(tabela.codigo(d.avulso.cortina)), 1));
     s = new THREE.Mesh(geo, material);
   }
-  s.renderOrder = 5;
+  s.renderOrder = ORDEM_REALCE_PREENCHIMENTO;
   s.matrixAutoUpdate = false;
   // O recorte cobre a cortina no mundo: sem esfera própria para o teste de frustum.
   s.frustumCulled = false;
@@ -237,7 +237,7 @@ export class RealceDaCortina {
     r.linhasMaterial.opacity = style.edges;
     const linhas = new THREE.LineSegments(geo, r.linhasMaterial);
     linhas.frustumCulled = false;
-    linhas.renderOrder = 6;
+    linhas.renderOrder = ORDEM_REALCE_ARESTAS;
     r.linhas = linhas;
     this.camada.add(linhas);
   }

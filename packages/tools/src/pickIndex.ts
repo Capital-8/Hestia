@@ -1,11 +1,11 @@
 import { type Vec2 } from '@hestia/geom';
-import { openingsOfWall, wallsOnLevel, type Id, type Opening, type Project } from '@hestia/model';
+import { openingsOfWall, wallsOfPlan, type Id, type Opening, type Project } from '@hestia/model';
 import { frameOfWall, openingGeometry, type OpeningGeometry, type WallFrame } from '@hestia/engine';
 
 /**
  * Índice espacial das paredes de um nível para a seleção na planta (clique e cursor). Guarda, por parede, a moldura e as
  * aberturas já calculadas, e uma grade de células com a caixa de cada parede reta. Consulta: só as paredes cuja caixa
- * toca a região do cursor (com folga de 2 tolerâncias) entram na varredura, na ordem de `wallsOnLevel`; o resto não
+ * toca a região do cursor (com folga de 2 tolerâncias) entram na varredura, na ordem de `wallsOfPlan`; o resto não
  * tem como acertar (ver `pickAt`). Paredes curvas não têm caixa simples: entram sempre, para não perder nenhuma.
  *
  * Teto de memória: a grade tem no máximo `GRADE_MAX` células por lado, e o cache guarda até `LEVELS_MAX` níveis por
@@ -32,7 +32,7 @@ export interface IndexedWall {
 }
 
 export interface LevelIndex {
-  /** Paredes do nível, na ordem de `wallsOnLevel` (é a ordem da varredura, que decide os empates). */
+  /** Paredes do nível, na ordem de `wallsOfPlan` (é a ordem da varredura, que decide os empates). */
   walls: IndexedWall[];
   /** Índices (em `walls`) das paredes sem caixa: entram em toda consulta. */
   sempre: number[];
@@ -64,7 +64,7 @@ export function wallIndexOf(p: Project, levelId: Id): LevelIndex {
 /** Monta moldura, aberturas, caixas e grade do nível. */
 export function buildLevelIndex(p: Project, levelId: Id): LevelIndex {
   const walls: IndexedWall[] = [];
-  for (const w of wallsOnLevel(p, levelId)) {
+  for (const w of wallsOfPlan(p, levelId)) {
     const frame = frameOfWall(p, w.id);
     if (!frame) continue;
     const opens: IndexedOpening[] = openingsOfWall(p, w.id).map((o) => ({ id: o.id, kind: o.kind, g: openingGeometry(p, o, frame) }));

@@ -30,8 +30,8 @@ import {
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
-import { despachanteDeNivel } from './resolveDespacho.ts';
 import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
+import { projetoBase } from './projetoBase.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -388,7 +388,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
 }
 
 export type ResolveCache = Map<string, ClusterCore>;
-const sharedCache: ResolveCache = new Map();
+export const sharedCache: ResolveCache = new Map();
 const CACHE_LIMIT = 400;
 
 /** Esvazia o cache compartilhado dos clusters (padrão de `resolveLevel`); ver `cachesDeConteudo.ts`. */
@@ -399,11 +399,8 @@ export function esvaziarCacheDeClusters(): void {
 // `frameOfWall` e `levelFrames` moraram aqui; foram para `resolveFrames.ts` (limite de linhas) e seguem exportados por este módulo.
 export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
-/** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
-export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  const d = despachanteDeNivel();
-  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
-}
+// `resolveLevel` e `resolveLevelSemParceiras` moraram aqui; foram para `resolveNivel.ts` (limite de linhas) e seguem exportados por este módulo.
+export { resolveLevel, resolveLevelSemParceiras } from './resolveNivel.ts';
 
 /** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
 export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
@@ -420,7 +417,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
   // do elemento (`flatAttach`), porque as camadas dependem das paredes (sem ciclo, decisão 0025).
   const { floors, slabs } = attachTargets(p, walls, opts.flatAttach === true);
   // Telhados de todos os níveis só entram se alguma parede deste nível se anexa ao topo do telhado (senão não são lidos).
-  const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(p) : [];
+  const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(projetoBase(p)) : [];
   for (const group of clusterWalls(frames, estrutura.ends)) {
     const freeOf = (f: WallFrame): Array<'a' | 'b'> =>
       (['a', 'b'] as const).filter((w) => {

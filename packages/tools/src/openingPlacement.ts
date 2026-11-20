@@ -1,6 +1,6 @@
 import type { Vec2 } from '@hestia/geom';
 import { frameOfWall, pointAt, tangentAt, toLocal, type WallFrame } from '@hestia/engine';
-import { wallsOnLevel, type Id, type Project } from '@hestia/model';
+import { wallsOfPlan, type Id, type Project } from '@hestia/model';
 import { wallCrossings } from './infer.ts';
 import type { ToolOptions } from './types.ts';
 
@@ -42,7 +42,7 @@ export function perpendicularNeighbors(p: Project, hostId: Id, levelId: Id): Per
   const host = frameOfWall(p, hostId);
   if (!host) return [];
   const out: PerpendicularWall[] = [];
-  for (const wall of wallsOnLevel(p, levelId)) {
+  for (const wall of wallsOfPlan(p, levelId)) {
     if (wall.id === hostId) continue;
     const other = frameOfWall(p, wall.id);
     if (!other) continue;

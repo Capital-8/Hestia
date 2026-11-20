@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ResolvedRoof, ResolvedRoofLayer, ResolvedRoofPlane } from '@hestia/engine';
+import { resolveRoofs, type ResolvedRoof, type ResolvedRoofLayer, type ResolvedRoofPlane } from '@hestia/engine';
+import { ProjectStore, createEmptyProject, makeRoof } from '@hestia/model';
 import { poligonoSoldado, trechosSemEmenda } from './roofEmendas3d.ts';
 import { buildRoofSolids, type SolidBatch } from './solids.ts';
 
@@ -97,5 +98,35 @@ describe('filetes na emenda das águas (3D)', () => {
       const lotes = buildRoofSolids([roof([planeA(), ...planeBs(split)])]);
       expect(menorArea2(lotes)).toBeGreaterThan(1e-7);
     }
+  });
+
+  it('regressão (L fictício): fechamento vertical do degrau com material da testeira só quando closeStepGaps: true', () => {
+    // L fictício (canto reentrante em (5,0)); arestas e0 e e4 são empenas, as demais têm 30 %.
+    const L_BOUNDARY = [P(5, 0), P(9, 0), P(9, 5), P(0, 5), P(0, -1.5), P(5, -1.5)];
+    const buildWith = (closeStepGaps: boolean) => {
+      const st = new ProjectStore(createEmptyProject());
+      st.exec({
+        type: 'addRoof',
+        roof: makeRoof({
+          id: 'r_l',
+          typeId: 'rt_ceramica',
+          levelId: 'lv_0',
+          boundary: L_BOUNDARY,
+          shape: 'edges',
+          edgeSlopes: [null, 30, 30, 30, null, 30],
+          edgeOverhangs: L_BOUNDARY.map(() => 0.5),
+          heightOffset: 2.8,
+          closeStepGaps,
+        }),
+      });
+      return buildRoofSolids(resolveRoofs(st.project, 'lv_0'));
+    };
+    const open = buildWith(false);
+    expect(open.some((b) => b.materialId.endsWith('#testeira'))).toBe(false);
+    const closed = buildWith(true);
+    const fascia = closed.find((b) => b.materialId === 'mat_madeira#testeira');
+    expect(fascia).toBeDefined();
+    expect(fascia!.indices.length).toBeGreaterThan(0);
+    expect(menorArea2(closed)).toBeGreaterThan(1e-7);
   });
 });

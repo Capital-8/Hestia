@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { AlcaGizmoComponente, AlvoComponente3D, HitGizmoComponente } from './gizmoComponenteTipos.ts';
+import type { AlcaGizmoComponente, AlvoComponente3D, HitGizmoComponente, ModoGizmoComponente } from './gizmoComponenteTipos.ts';
 
 const COR_MOVER_XY = 0x0ea5e9;
 const COR_MOVER_X = 0x10b981;
@@ -57,6 +57,8 @@ function quaternionDeYPara(dx: number, dy: number, dz: number): THREE.Quaternion
  * - Alças de movimento: centro `mover_xy` (arrasto no piso com snaps), lateral `mover_x` e frente `mover_y`.
  * - Anel laranja `girar` com pegador amplo e hitbox invisível.
  * - Setas cônicas dimensionais (`dim_L`, `dim_P`, `dim_A`) sempre visíveis (`depthTest: false`) e com hitbox ampla.
+ * - Dois modos: `mover` (padrão) mostra só mover + anel; `redimensionar` mostra só as setas de tamanho. O que está fora do modo
+ *   não é criado, então não aparece nem pode ser pego.
  */
 export class GizmoComponente3D {
   readonly group = new THREE.Group();
@@ -123,7 +125,7 @@ export class GizmoComponente3D {
   }
 
   /** Reposiciona e remonta os elementos do gizmo para o componente alvo, ou oculta se `null`. */
-  atualizar(alvo: AlvoComponente3D | null, cameraPos?: { x: number; y: number; z: number }): void {
+  atualizar(alvo: AlvoComponente3D | null, cameraPos?: { x: number; y: number; z: number }, modo: ModoGizmoComponente = 'mover'): void {
     if (this.destruido) return;
     this.group.clear();
     this.alvosPick = [];
@@ -154,118 +156,122 @@ export class GizmoComponente3D {
       esc = Math.min(2.1, Math.max(0.85, dist * 0.16));
     }
 
-    // 1. Seta de frente no chão (alça `mover_y`: move para frente/trás ao longo da orientação)
-    const seta = new THREE.Mesh(this.geoSetaChao, this.mats.mover_y);
-    seta.position.set(cxG, min[1] - RECUO_SETA_FRENTE * esc, OFFSET_CHAO);
-    seta.scale.set(esc, esc, 1);
-    seta.renderOrder = RENDER_ORDER_GIZMO;
-    seta.userData = { semPick: true, gizmoAlca: 'mover_y' satisfies AlcaGizmoComponente };
-    this.group.add(seta);
-    this.alvosPick.push(seta);
+    if (modo === 'mover') {
+      // 1. Seta de frente no chão (alça `mover_y`: move para frente/trás ao longo da orientação)
+      const seta = new THREE.Mesh(this.geoSetaChao, this.mats.mover_y);
+      seta.position.set(cxG, min[1] - RECUO_SETA_FRENTE * esc, OFFSET_CHAO);
+      seta.scale.set(esc, esc, 1);
+      seta.renderOrder = RENDER_ORDER_GIZMO;
+      seta.userData = { semPick: true, gizmoAlca: 'mover_y' satisfies AlcaGizmoComponente };
+      this.group.add(seta);
+      this.alvosPick.push(seta);
 
-    // 2. Pad central de movimento livre XY (`mover_xy`: arrasta no piso com encaixe de parede/vizinhos)
-    const pad = new THREE.Mesh(this.geoPadCentro, this.mats.mover_xy);
-    pad.rotation.set(Math.PI / 2, 0, 0);
-    pad.position.set(cxG, cyG, OFFSET_CHAO + 0.01);
-    pad.scale.set(esc, 1, esc);
-    pad.renderOrder = RENDER_ORDER_GIZMO + 1;
-    pad.userData = { semPick: true };
-    this.group.add(pad);
+      // 2. Pad central de movimento livre XY (`mover_xy`: arrasta no piso com encaixe de parede/vizinhos)
+      const pad = new THREE.Mesh(this.geoPadCentro, this.mats.mover_xy);
+      pad.rotation.set(Math.PI / 2, 0, 0);
+      pad.position.set(cxG, cyG, OFFSET_CHAO + 0.01);
+      pad.scale.set(esc, 1, esc);
+      pad.renderOrder = RENDER_ORDER_GIZMO + 1;
+      pad.userData = { semPick: true };
+      this.group.add(pad);
 
-    const anelPad = new THREE.Mesh(this.geoAnelCentro, this.mats.mover_xy);
-    anelPad.position.set(cxG, cyG, OFFSET_CHAO + 0.012);
-    anelPad.scale.set(esc, esc, 1);
-    anelPad.renderOrder = RENDER_ORDER_GIZMO + 1;
-    anelPad.userData = { semPick: true };
-    this.group.add(anelPad);
+      const anelPad = new THREE.Mesh(this.geoAnelCentro, this.mats.mover_xy);
+      anelPad.position.set(cxG, cyG, OFFSET_CHAO + 0.012);
+      anelPad.scale.set(esc, esc, 1);
+      anelPad.renderOrder = RENDER_ORDER_GIZMO + 1;
+      anelPad.userData = { semPick: true };
+      this.group.add(anelPad);
 
-    const hitCentro = new THREE.Mesh(this.geoHitCentro, this.matHit);
-    hitCentro.position.set(cxG, cyG, OFFSET_CHAO + 0.02);
-    hitCentro.scale.setScalar(esc);
-    hitCentro.renderOrder = RENDER_ORDER_GIZMO + 2;
-    hitCentro.userData = { semPick: true, gizmoAlca: 'mover_xy' satisfies AlcaGizmoComponente };
-    this.group.add(hitCentro);
-    this.alvosPick.push(hitCentro);
+      const hitCentro = new THREE.Mesh(this.geoHitCentro, this.matHit);
+      hitCentro.position.set(cxG, cyG, OFFSET_CHAO + 0.02);
+      hitCentro.scale.setScalar(esc);
+      hitCentro.renderOrder = RENDER_ORDER_GIZMO + 2;
+      hitCentro.userData = { semPick: true, gizmoAlca: 'mover_xy' satisfies AlcaGizmoComponente };
+      this.group.add(hitCentro);
+      this.alvosPick.push(hitCentro);
 
-    // 3. Anel de rotação no chão + pegador grande + hitbox larga
-    const raio = Math.max(RAIO_ANEL_MIN, Math.hypot(dx / 2, dy / 2) + FOLGA_ANEL * esc);
-    const { geoAnel, geoHitAnel } = this.garantirGeometriasAnel(raio);
-    const anel = new THREE.Mesh(geoAnel, this.mats.girar);
-    anel.position.set(cxG, cyG, OFFSET_CHAO);
-    anel.renderOrder = RENDER_ORDER_GIZMO;
-    anel.userData = { semPick: true };
-    this.group.add(anel);
-    this.meshAnel = anel;
+      // 3. Anel de rotação no chão + pegador grande + hitbox larga
+      const raio = Math.max(RAIO_ANEL_MIN, Math.hypot(dx / 2, dy / 2) + FOLGA_ANEL * esc);
+      const { geoAnel, geoHitAnel } = this.garantirGeometriasAnel(raio);
+      const anel = new THREE.Mesh(geoAnel, this.mats.girar);
+      anel.position.set(cxG, cyG, OFFSET_CHAO);
+      anel.renderOrder = RENDER_ORDER_GIZMO;
+      anel.userData = { semPick: true };
+      this.group.add(anel);
+      this.meshAnel = anel;
 
-    const hitAnel = new THREE.Mesh(geoHitAnel, this.matHit);
-    hitAnel.position.set(cxG, cyG, OFFSET_CHAO);
-    hitAnel.renderOrder = RENDER_ORDER_GIZMO;
-    hitAnel.userData = { semPick: true, gizmoAlca: 'girar' satisfies AlcaGizmoComponente };
-    this.group.add(hitAnel);
-    this.alvosPick.push(hitAnel);
+      const hitAnel = new THREE.Mesh(geoHitAnel, this.matHit);
+      hitAnel.position.set(cxG, cyG, OFFSET_CHAO);
+      hitAnel.renderOrder = RENDER_ORDER_GIZMO;
+      hitAnel.userData = { semPick: true, gizmoAlca: 'girar' satisfies AlcaGizmoComponente };
+      this.group.add(hitAnel);
+      this.alvosPick.push(hitAnel);
 
-    const px = cxG + raio * Math.cos(ANGULO_PEGADOR);
-    const py = cyG + raio * Math.sin(ANGULO_PEGADOR);
-    const pegador = new THREE.Mesh(this.geoPegador, this.mats.girar);
-    pegador.position.set(px, py, OFFSET_CHAO + 0.01);
-    pegador.scale.setScalar(esc);
-    pegador.renderOrder = RENDER_ORDER_GIZMO + 2;
-    pegador.userData = { semPick: true };
-    this.group.add(pegador);
+      const px = cxG + raio * Math.cos(ANGULO_PEGADOR);
+      const py = cyG + raio * Math.sin(ANGULO_PEGADOR);
+      const pegador = new THREE.Mesh(this.geoPegador, this.mats.girar);
+      pegador.position.set(px, py, OFFSET_CHAO + 0.01);
+      pegador.scale.setScalar(esc);
+      pegador.renderOrder = RENDER_ORDER_GIZMO + 2;
+      pegador.userData = { semPick: true };
+      this.group.add(pegador);
 
-    const hitPegador = new THREE.Mesh(this.geoHitPegador, this.matHit);
-    hitPegador.position.set(px, py, OFFSET_CHAO + 0.01);
-    hitPegador.scale.setScalar(esc);
-    hitPegador.renderOrder = RENDER_ORDER_GIZMO + 2;
-    hitPegador.userData = { semPick: true, gizmoAlca: 'girar' satisfies AlcaGizmoComponente };
-    this.group.add(hitPegador);
-    this.alvosPick.push(hitPegador);
+      const hitPegador = new THREE.Mesh(this.geoHitPegador, this.matHit);
+      hitPegador.position.set(px, py, OFFSET_CHAO + 0.01);
+      hitPegador.scale.setScalar(esc);
+      hitPegador.renderOrder = RENDER_ORDER_GIZMO + 2;
+      hitPegador.userData = { semPick: true, gizmoAlca: 'girar' satisfies AlcaGizmoComponente };
+      this.group.add(hitPegador);
+      this.alvosPick.push(hitPegador);
 
-    // 4. Alça de deslize lateral (`mover_x` no lado esquerdo oposto a `dim_L`)
-    const dirMovX = espelhaX ? 1 : -1;
-    const xFaceMov = espelhaX ? -min[0] : min[0];
-    this.adicionarSeta({
-      alca: 'mover_x',
-      material: this.mats.mover_x,
-      inicio: [xFaceMov, cyG, czG],
-      direcao: [dirMovX, 0, 0],
-      escala: esc,
-    });
-
-    // 5. Alças dimensionais (L, P, A) com setas cônicas e hitboxes amplas
-    if (alvo.editavelL) {
-      const dirX = espelhaX ? -1 : 1;
-      const xFace = espelhaX ? -max[0] : max[0];
+      // 4. Alça de deslize lateral (`mover_x` no lado esquerdo oposto a `dim_L`)
+      const dirMovX = espelhaX ? 1 : -1;
+      const xFaceMov = espelhaX ? -min[0] : min[0];
       this.adicionarSeta({
-        alca: 'dim_L',
-        material: this.mats.dim_L,
-        valorAtualMm: alvo.Lmm,
-        inicio: [xFace, cyG, czG],
-        direcao: [dirX, 0, 0],
+        alca: 'mover_x',
+        material: this.mats.mover_x,
+        inicio: [xFaceMov, cyG, czG],
+        direcao: [dirMovX, 0, 0],
         escala: esc,
       });
     }
 
-    if (alvo.editavelP) {
-      this.adicionarSeta({
-        alca: 'dim_P',
-        material: this.mats.dim_P,
-        valorAtualMm: alvo.Pmm,
-        inicio: [cxG, min[1], czG],
-        direcao: [0, -1, 0],
-        escala: esc,
-      });
-    }
+    // 5. Alças dimensionais (L, P, A) com setas cônicas e hitboxes amplas (só no modo redimensionar)
+    if (modo === 'redimensionar') {
+      if (alvo.editavelL) {
+        const dirX = espelhaX ? -1 : 1;
+        const xFace = espelhaX ? -max[0] : max[0];
+        this.adicionarSeta({
+          alca: 'dim_L',
+          material: this.mats.dim_L,
+          valorAtualMm: alvo.Lmm,
+          inicio: [xFace, cyG, czG],
+          direcao: [dirX, 0, 0],
+          escala: esc,
+        });
+      }
 
-    if (alvo.editavelA) {
-      this.adicionarSeta({
-        alca: 'dim_A',
-        material: this.mats.dim_A,
-        valorAtualMm: alvo.Amm,
-        inicio: [cxG, cyG, max[2]],
-        direcao: [0, 0, 1],
-        escala: esc,
-      });
+      if (alvo.editavelP) {
+        this.adicionarSeta({
+          alca: 'dim_P',
+          material: this.mats.dim_P,
+          valorAtualMm: alvo.Pmm,
+          inicio: [cxG, min[1], czG],
+          direcao: [0, -1, 0],
+          escala: esc,
+        });
+      }
+
+      if (alvo.editavelA) {
+        this.adicionarSeta({
+          alca: 'dim_A',
+          material: this.mats.dim_A,
+          valorAtualMm: alvo.Amm,
+          inicio: [cxG, cyG, max[2]],
+          direcao: [0, 0, 1],
+          escala: esc,
+        });
+      }
     }
 
     this.group.visible = true;

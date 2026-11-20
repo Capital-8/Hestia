@@ -1,6 +1,7 @@
 import type { Element, Id, Project } from '@hestia/model';
 import { adjacentLevelIds } from './junctionNet.ts';
 import { resolveLevel } from './resolve.ts';
+import { paredesParceiras } from './resolveParceiras.ts';
 import type { ResolvedLevel } from './types.ts';
 
 /**
@@ -85,6 +86,7 @@ export function niveisAfetados(antes: Project, depois: Project): NiveisAfetados 
     if ((antes as unknown as Record<string, unknown>)[k] !== (depois as unknown as Record<string, unknown>)[k]) return 'todos';
   }
   const tocados = new Set<Id>();
+  const paredesTocadas = new Set<Id>();
   const ids = new Set([...Object.keys(antes.elements), ...Object.keys(depois.elements)]);
   for (const id of ids) {
     const a = antes.elements[id];
@@ -97,12 +99,18 @@ export function niveisAfetados(antes: Project, depois: Project): NiveisAfetados 
       const n = nivelDe(e === a ? antes : depois, e);
       if (n === null) return 'todos';
       tocados.add(n);
+      if (e.kind === 'wall') paredesTocadas.add(e.id);
     }
   }
   if (tocados.size === 0) return new Set<Id>();
   const afetados = new Set<Id>(tocados);
   for (const l of depois.levels) {
     if (afetados.has(l.id)) continue;
+    // Parede de outro nível que é parceira de junção deste (antes ou depois da edição) também o afeta.
+    if (paredesTocadas.size > 0 && [...paredesParceiras(antes, l.id), ...paredesParceiras(depois, l.id)].some((w) => paredesTocadas.has(w.id))) {
+      afetados.add(l.id);
+      continue;
+    }
     const { deps, tudo } = dependenciasDoNivel(depois, l.id);
     if (tudo || [...deps].some((d) => tocados.has(d))) afetados.add(l.id);
   }

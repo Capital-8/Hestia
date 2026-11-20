@@ -8,6 +8,8 @@ import {
   criarMaterialDoRealce,
   geometriaDoRealce,
   MascaraDoRealce,
+  ORDEM_REALCE_AVISO,
+  ORDEM_REALCE_PREENCHIMENTO,
   TabelaDeCodigos,
   texturaDaMascara,
   type MaterialDoRealce,
@@ -142,7 +144,7 @@ export class RealcesDaCena {
         const geo = geometriaDoRealce(m, this.tabela);
         if (!geo) continue;
         s = new THREE.Mesh(geo, g.material);
-        s.renderOrder = 5;
+        s.renderOrder = slot === 'aviso' ? ORDEM_REALCE_AVISO : ORDEM_REALCE_PREENCHIMENTO;
         s.matrixAutoUpdate = false;
         // O recorte cobre elementos no mundo: sem esfera própria para o teste de frustum.
         s.frustumCulled = false;

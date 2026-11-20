@@ -85,3 +85,11 @@ describe('resumo da importação IFC', () => {
     expect(r.avisos).toEqual(['Approximate shapes: 2 windows']);
   });
 });
+
+describe('limiteWorkerMs', () => {
+  it('cresce com o tamanho do arquivo e nunca fica abaixo de 120 s', async () => {
+    const { limiteWorkerMs } = await import('./ifcImport.ts');
+    expect(limiteWorkerMs(0)).toBe(120_000);
+    expect(limiteWorkerMs(90 * 1048576)).toBeGreaterThan(600_000);
+  });
+});

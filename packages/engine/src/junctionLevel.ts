@@ -5,8 +5,7 @@ import { bandPiece, levelCutterSet, type LevelCutters, type SolidPiece } from '.
 import { resolveJunction, type PlanarPiece, type ResolvedPrism } from './junctionPlanar.ts';
 import { despachanteDeJuncao } from './resolveDespacho.ts';
 import { analyzeLevelTilt, projetoTemParedeInclinada, type Cunha, type LevelTiltAnalysis, type WallTiltJoin } from './wallTiltJoinLevel.ts';
-import { levelFrames } from './resolveFrames.ts';
-import { semCortina } from './cortinaProjeto.ts';
+import { proprioDoNivel, quadrosDaInclinada } from './juncaoInclinadaParceiras.ts';
 import { resolveLevel } from './resolve.ts';
 
 /**
@@ -109,12 +108,15 @@ const cutterSetResultCache = new WeakMap<LevelCutters, { value: JunctionLevel; t
 /** Junções inclinadas das paredes do nível (F2.4), ou `undefined` sem parede inclinada. A altura é a resolvida (anexo a piso/telhado). */
 function tiltJoinsOfLevel(p: Project, levelId: Id): LevelTiltAnalysis | undefined {
   if (!projetoTemParedeInclinada(p)) return undefined;
-  const frames = levelFrames(p, levelId).filter((f) => semCortina(p, [f.wall]).length > 0);
+  const { q, donas, frames } = quadrosDaInclinada(p, levelId);
   if (!frames.some((f) => f.wall.tilt)) return undefined;
   const walls = resolveLevel(p, levelId).walls;
   const heights = new Map(Object.values(walls).map((w) => [w.wallId, w.height] as const));
+  for (const f of frames) if (!heights.has(f.wall.id) && f.z) heights.set(f.wall.id, f.z.top - f.z.z0);
   // `analyzeLevelTilt` guarda o resultado por conteúdo: o Map é o MESMO enquanto as paredes do nível não mudam (identidade serve de chave).
-  return analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
+  const an = analyzeLevelTilt(frames, heights, p.settings?.joinTolerance);
+  if (q === p) return an;
+  return proprioDoNivel(an, frames, donas);
 }
 
 /** Junção inclinada (análise por nível, em cache) de uma parede; `undefined` sem parede inclinada no nível ou sem ligação. */

@@ -11,6 +11,17 @@ import type { ElementRange } from './solids.ts';
  * O(selecionados) em memória plana, sem alocar objeto three.js por elemento nem varrer triângulos.
  */
 
+/**
+ * Ordem de desenho do realce (`renderOrder`): SEMPRE depois de tudo que é do modelo (opacos 0, vidro 4, massa 6, linhas do
+ * Reveal 8). O realce é translúcido e sem escrita de profundidade; se um objeto translúcido do modelo (a massa, que também
+ * não escreve profundidade) fosse desenhado depois dele, misturaria a própria textura/cor por cima do azul da seleção e o
+ * resultado dependeria da ordem de desenho. O aviso (amarelo) vem depois da seleção/cursor, para a mistura entre os dois
+ * ser sempre a mesma; as arestas, por último.
+ */
+export const ORDEM_REALCE_PREENCHIMENTO = 10;
+export const ORDEM_REALCE_AVISO = 11;
+export const ORDEM_REALCE_ARESTAS = 12;
+
 /** Código de elemento em uma geometria: índice (base 0) na tabela. */
 export class TabelaDeCodigos {
   private porId = new Map<Id, number>();
