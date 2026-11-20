@@ -196,7 +196,8 @@ describe('malhas por nível na atualização da cena', () => {
     let linha: THREE.LineSegments | null = null;
     ms.scene.traverse((o) => {
       if (o instanceof THREE.InstancedMesh) instanciadas.push(o);
-      else if (o instanceof THREE.LineSegments && !(o instanceof THREE.GridHelper)) linha = o;
+      // Os eixos da origem (overlay da interface, `userData.eixoOrigem`) também são LineSegments, mas não fazem parte do modelo.
+      else if (o instanceof THREE.LineSegments && !(o instanceof THREE.GridHelper) && !o.userData?.eixoOrigem) linha = o;
     });
     expect(instanciadas.length).toBeGreaterThan(0);
     expect(linha).not.toBeNull();
