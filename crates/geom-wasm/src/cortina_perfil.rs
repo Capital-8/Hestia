@@ -289,7 +289,7 @@ mod testes {
 
     #[test]
     fn empena_duas_aguas_insere_cumeeira_e_gera_malha_fechada_e_quantitativos() {
-        // Caso de empena com 3,547 m, grade U a cada 1,5 m (linhas 1,5 e 3,0) e empena 2,88 -> 3,41 -> 2,88.
+        // Caso real de projeto.hestia.json (w_650b03241kj): 3,547 m, grade U a cada 1,5 m (linhas 1,5 e 3,0) e empena 2,88 -> 3,41 -> 2,88.
         let e = Espec::novo(EixoEfetivo::distancia_fixa(1.5, JUSTIF_INICIO), EixoEfetivo::distancia_fixa(3.6, JUSTIF_INICIO));
         let l = 3.5469974584784083;
         let pts = [(0.0, 2.8826), (0.88675, 3.1486), (1.7735, 3.4146), (2.66025, 3.1486), (l, 2.8826)];
