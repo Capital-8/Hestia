@@ -73,6 +73,16 @@ const PT = {
   md_cat_annotation: 'anotação',
   md_cat_generic: 'objeto importado',
 
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Arquitetura',
+  md_disc_estrutura: 'Estrutura',
+  md_disc_hidrossanitario: 'Hidrossanitário',
+  md_disc_eletrico: 'Elétrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Oculto',
+  md_tone_halftone: 'Meio-tom',
+  md_tone_normal: 'Normal',
+
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
   md_role_south: 'Sul',
@@ -662,6 +672,15 @@ const EN: Record<Key, string> = {
   md_cat_room: 'room',
   md_cat_annotation: 'annotation',
   md_cat_generic: 'imported object',
+
+  md_disc_arquitetura: 'Architecture',
+  md_disc_estrutura: 'Structure',
+  md_disc_hidrossanitario: 'Plumbing',
+  md_disc_eletrico: 'Electrical',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Hidden',
+  md_tone_halftone: 'Halftone',
+  md_tone_normal: 'Normal',
 
   md_role_north: 'North',
   md_role_south: 'South',
@@ -1327,6 +1346,16 @@ const ES: Record<Key, string> = {
   md_cat_annotation: 'anotación',
   md_cat_generic: 'objeto importado',
 
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Arquitectura',
+  md_disc_estrutura: 'Estructura',
+  md_disc_hidrossanitario: 'Hidrosanitario',
+  md_disc_eletrico: 'Eléctrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Oculto',
+  md_tone_halftone: 'Semitono',
+  md_tone_normal: 'Normal',
+
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
   md_role_south: 'Sur',
@@ -1920,6 +1949,16 @@ const DE: Record<Key, string> = {
   md_cat_room: 'Raum',
   md_cat_annotation: 'Beschriftung',
   md_cat_generic: 'importiertes Objekt',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architektur',
+  md_disc_estrutura: 'Tragwerk',
+  md_disc_hidrossanitario: 'Sanitär',
+  md_disc_eletrico: 'Elektro',
+  md_disc_hvac: 'HLK',
+  md_tone_hidden: 'Ausgeblendet',
+  md_tone_halftone: 'Halbton',
+  md_tone_normal: 'Normal',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norden',
@@ -2515,6 +2554,16 @@ const FR: Record<Key, string> = {
   md_cat_annotation: 'annotation',
   md_cat_generic: 'objet importé',
 
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architecture',
+  md_disc_estrutura: 'Structure',
+  md_disc_hidrossanitario: 'Plomberie',
+  md_disc_eletrico: 'Électricité',
+  md_disc_hvac: 'CVC',
+  md_tone_hidden: 'Masqué',
+  md_tone_halftone: 'Demi-teinte',
+  md_tone_normal: 'Normal',
+
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
   md_role_south: 'Sud',
@@ -3108,6 +3157,16 @@ const IT: Record<Key, string> = {
   md_cat_room: 'locale',
   md_cat_annotation: 'annotazione',
   md_cat_generic: 'oggetto importato',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architettura',
+  md_disc_estrutura: 'Struttura',
+  md_disc_hidrossanitario: 'Idraulico',
+  md_disc_eletrico: 'Elettrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Nascosto',
+  md_tone_halftone: 'Mezzatinta',
+  md_tone_normal: 'Normale',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
@@ -3715,6 +3774,16 @@ const PL: Record<Key, string> = {
   md_cat_room: 'pomieszczenie',
   md_cat_annotation: 'adnotacja',
   md_cat_generic: 'obiekt importowany',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architektura',
+  md_disc_estrutura: 'Konstrukcja',
+  md_disc_hidrossanitario: 'Instalacje sanitarne',
+  md_disc_eletrico: 'Elektryka',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Ukryty',
+  md_tone_halftone: 'Półton',
+  md_tone_normal: 'Normalny',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Północ',
