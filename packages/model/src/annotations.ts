@@ -1,6 +1,7 @@
 import { len, sub, type Vec2 } from '@hestia/geom';
 import { areaPlanOf, planAnnotationsOf, planAnnotationIds, type AreaPlan, type AreaPlanAnnotations } from './areaPlan.ts';
 import { DIM_MIN_LENGTH } from './dimension.ts';
+import { planViewById, type PlanView } from './planView.ts';
 import { newId } from './ids.ts';
 import { type Dimension, type DetailLine, type DetailRegion, type ElementTag, type Id, type Level, type Project, type RevisionCloud, type RoomSeparator, type SectionView, type SpotAnnotation, type SymbolAnnotation, type TextNote } from './types.ts';
 import { cleanSectionAnnotations, sectionAnnotationsOf, type SectionAnnotations } from './sectionAnnotations.ts';
@@ -12,7 +13,10 @@ import { t as translate, type Lang } from './i18n.ts';
  */
 interface AnnotationView {
   levelId: Id;
-  /** Planta de área dona da anotação; ausente = anotação do nível (planta de piso). */
+  /**
+   * Planta dona da anotação: planta de área OU planta de disciplina (`PlanView`, decisão 0060; os ids são únicos no
+   * projeto). Ausente = anotação do nível (planta de piso padrão).
+   */
   planId?: Id;
   /** Vista de corte/elevação dona da anotação; ausente = anotação de planta. */
   sectionId?: Id;
@@ -139,8 +143,8 @@ const levelScope = (level: Level): AnnotationScope => ({
   symbols: { get: () => level.symbols ?? [], set: (next) => { level.symbols = next; } },
 });
 
-/** Anotações da planta de área: cada escrita reatribui o conjunto, sem mutar o array atual. */
-const planScope = (plan: AreaPlan): AnnotationScope => {
+/** Anotações da planta de área ou da planta de disciplina: cada escrita reatribui o conjunto, sem mutar o array atual. */
+const planScope = (plan: AreaPlan | PlanView): AnnotationScope => {
   const write = (patch: Partial<AreaPlanAnnotations>): void => {
     plan.annotations = { ...planAnnotationsOf(plan), ...patch };
   };
@@ -156,9 +160,9 @@ const planScope = (plan: AreaPlan): AnnotationScope => {
   };
 };
 
-/** Planta de área da vista: precisa existir e ser do mesmo nível da anotação. */
-function viewPlan(p: Project, planId: Id, levelId: Id, lang: Lang): AreaPlan {
-  const plan = areaPlanOf(p, planId);
+/** Planta da vista (de área ou de disciplina): precisa existir e ser do mesmo nível da anotação. */
+function viewPlan(p: Project, planId: Id, levelId: Id, lang: Lang): AreaPlan | PlanView {
+  const plan = areaPlanOf(p, planId) ?? planViewById(p, planId);
   if (!plan) throw new Error(translate(lang, 'md_area_plan_missing'));
   if (plan.levelId !== levelId) throw new Error(translate(lang, 'md_cmd_plan_level_mismatch'));
   return plan;
@@ -356,48 +360,78 @@ export function applyAnnotationCommand(p: Project, c: AnnotationCommand, lang: L
 
 export type RemoveAnnotation = Extract<AnnotationCommand, { type: 'removeDimension' | 'removeText' | 'removeRoomSeparator' | 'removeDetailLine' | 'removeDetailRegion' | 'removeTag' | 'removeSpot' | 'removeRevisionCloud' | 'removeSymbol' }>;
 
+/** Origem das anotações (planta que as guarda): fontes do nível, da planta de área ou da planta de disciplina. */
+type PlanSource = Pick<Project, 'levels'> & Partial<Pick<Project, 'areaPlans' | 'planViews'>>;
+
+/**
+ * Planta de disciplina (`PlanView`) do nível com este id, ou undefined. Planta de disciplina é DONA das suas anotações
+ * (decisão 0060 §5): nenhuma anotação do nível entra no conjunto dela, ao contrário da planta de área.
+ */
+const ownPlanView = (p: PlanSource, levelId: Id, planId?: Id): PlanView | undefined => (planId ? [planViewById(p, planId)].find((v) => v?.levelId === levelId) : undefined);
+
+/** Listas de anotações que Mover/Copiar/Excluir tratam (cota, texto, linha e região de detalhe, etiqueta). */
+interface MovableLists {
+  dimensions: readonly Dimension[];
+  texts: readonly TextNote[];
+  detailLines: readonly DetailLine[];
+  detailRegions: readonly DetailRegion[];
+  tags: readonly ElementTag[];
+}
+
+const levelLists = (p: PlanSource, levelId: Id): MovableLists => {
+  const level = p.levels.find((l) => l.id === levelId);
+  return { dimensions: levelDimensions(p, levelId), texts: levelTexts(p, levelId), detailLines: level?.detailLines ?? [], detailRegions: level?.detailRegions ?? [], tags: level?.tags ?? [] };
+};
+
+function removalsOf(a: MovableLists & { spots?: readonly SpotAnnotation[]; revisionClouds?: readonly RevisionCloud[]; symbols?: readonly SymbolAnnotation[] }, levelId: Id, planId: Id | undefined, want: ReadonlySet<Id>, out: RemoveAnnotation[]): void {
+  const at = planId ? { levelId, planId } : { levelId };
+  for (const x of a.dimensions) if (want.has(x.id)) out.push({ type: 'removeDimension', ...at, id: x.id });
+  for (const x of a.texts) if (want.has(x.id)) out.push({ type: 'removeText', ...at, id: x.id });
+  for (const x of a.detailLines) if (want.has(x.id)) out.push({ type: 'removeDetailLine', ...at, id: x.id });
+  for (const x of a.detailRegions) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', ...at, id: x.id });
+  for (const x of a.tags) if (want.has(x.id)) out.push({ type: 'removeTag', ...at, id: x.id });
+  for (const x of a.spots ?? []) if (want.has(x.id)) out.push({ type: 'removeSpot', ...at, id: x.id });
+  for (const x of a.revisionClouds ?? []) if (want.has(x.id)) out.push({ type: 'removeRevisionCloud', ...at, id: x.id });
+  for (const x of a.symbols ?? []) if (want.has(x.id)) out.push({ type: 'removeSymbol', ...at, id: x.id });
+}
+
 /**
  * Comandos de exclusão para as cotas e os textos da vista cujos ids estão em `ids` (o resto são elementos).
- * Com `planId`, as anotações da planta de área entram junto; sem ele, só as do nível.
+ * Com `planId` de planta de área, as anotações dela entram junto das do nível; com `planId` de planta de disciplina,
+ * só as da própria planta (ela é dona das suas anotações).
  */
-export function annotationRemovals(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id, ids: Id[], planId?: Id): RemoveAnnotation[] {
+export function annotationRemovals(p: PlanSource, levelId: Id, ids: Id[], planId?: Id): RemoveAnnotation[] {
   const want = new Set(ids);
   const out: RemoveAnnotation[] = [];
-  for (const d of levelDimensions(p, levelId)) if (want.has(d.id)) out.push({ type: 'removeDimension', levelId, id: d.id });
-  for (const t of levelTexts(p, levelId)) if (want.has(t.id)) out.push({ type: 'removeText', levelId, id: t.id });
-  const level = p.levels.find((l) => l.id === levelId);
-  for (const x of level?.detailLines ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, id: x.id });
-  for (const x of level?.detailRegions ?? []) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, id: x.id });
-  for (const x of level?.tags ?? []) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, id: x.id });
-  for (const x of level?.spots ?? []) if (want.has(x.id)) out.push({ type: 'removeSpot', levelId, id: x.id });
-  for (const x of level?.revisionClouds ?? []) if (want.has(x.id)) out.push({ type: 'removeRevisionCloud', levelId, id: x.id });
-  for (const x of level?.symbols ?? []) if (want.has(x.id)) out.push({ type: 'removeSymbol', levelId, id: x.id });
-  const plan = planId ? areaPlanOf(p, planId) : undefined;
-  if (plan) {
-    const a = planAnnotationsOf(plan);
-    for (const x of a.dimensions) if (want.has(x.id)) out.push({ type: 'removeDimension', levelId, planId, id: x.id });
-    for (const x of a.texts) if (want.has(x.id)) out.push({ type: 'removeText', levelId, planId, id: x.id });
-    for (const x of a.detailLines) if (want.has(x.id)) out.push({ type: 'removeDetailLine', levelId, planId, id: x.id });
-    for (const x of a.detailRegions) if (want.has(x.id)) out.push({ type: 'removeDetailRegion', levelId, planId, id: x.id });
-    for (const x of a.tags) if (want.has(x.id)) out.push({ type: 'removeTag', levelId, planId, id: x.id });
-    for (const x of a.spots ?? []) if (want.has(x.id)) out.push({ type: 'removeSpot', levelId, planId, id: x.id });
-    for (const x of a.revisionClouds ?? []) if (want.has(x.id)) out.push({ type: 'removeRevisionCloud', levelId, planId, id: x.id });
-    for (const x of a.symbols ?? []) if (want.has(x.id)) out.push({ type: 'removeSymbol', levelId, planId, id: x.id });
+  const pv = ownPlanView(p, levelId, planId);
+  if (pv) {
+    removalsOf(planAnnotationsOf(pv), levelId, pv.id, want, out);
+    return out;
   }
+  const level = p.levels.find((l) => l.id === levelId);
+  removalsOf({ ...levelLists(p, levelId), spots: level?.spots, revisionClouds: level?.revisionClouds, symbols: level?.symbols }, levelId, undefined, want, out);
+  const plan = planId ? areaPlanOf(p, planId) : undefined;
+  if (plan) removalsOf(planAnnotationsOf(plan), levelId, planId, want, out);
   return out;
 }
 
-/** Ids das anotações do nível que estão em `ids`. */
-export function annotationIdsIn(p: Pick<Project, 'levels'>, levelId: Id, ids: Id[]): Id[] {
-  const have = new Set(annotationIdsInView(p, levelId));
+/**
+ * Ids das anotações que estão em `ids`. Sem `planId`, só as do nível (planta padrão); com `planId`, as da planta
+ * ativa (ver `annotationIdsInView`).
+ */
+export function annotationIdsIn(p: PlanSource, levelId: Id, ids: Id[], planId?: Id): Id[] {
+  const have = new Set(annotationIdsInView(p, levelId, planId));
   return ids.filter((id) => have.has(id));
 }
 
 /**
- * Ids de todas as anotações da vista: sempre as do nível e, com `planId`, também as da planta de área
- * (cotas, textos, detalhes e etiquetas que moram na própria planta).
+ * Ids de todas as anotações da vista. Sem `planId`, as do nível. Com `planId` de planta de área, as do nível e as da
+ * planta de área (cotas, textos, detalhes e etiquetas que moram na própria planta). Com `planId` de planta de
+ * disciplina, SÓ as da própria planta (nunca as do nível: cota de arquitetura não vaza para a estrutura).
  */
-export function annotationIdsInView(p: Pick<Project, 'levels' | 'areaPlans'>, levelId: Id, planId?: Id): Id[] {
+export function annotationIdsInView(p: PlanSource, levelId: Id, planId?: Id): Id[] {
+  const pv = ownPlanView(p, levelId, planId);
+  if (pv) return planAnnotationIds(pv);
   const level = p.levels.find((l) => l.id === levelId);
   const ids = [
     ...(level?.dimensions ?? []),
@@ -414,41 +448,55 @@ export function annotationIdsInView(p: Pick<Project, 'levels' | 'areaPlans'>, le
   return plan ? [...ids, ...planAnnotationIds(plan)] : ids;
 }
 
-/**
- * Comandos que movem por `d` as cotas e os textos de `ids` (ou, com `copy`, criam cópias com ids novos). Uma cota movida
- * perde as referências às paredes: a posição passa a ser livre.
- */
-export function annotationMoveCommands(p: Pick<Project, 'levels'>, levelId: Id, ids: Id[], d: Vec2, copy: boolean): AnnotationCommand[] {
-  const want = new Set(ids);
+/** Comandos que movem por `d` (ou, com `copy`, copiam com ids novos) as anotações de `a` que estão em `want`. */
+function moveCommandsOf(a: MovableLists, levelId: Id, planId: Id | undefined, want: ReadonlySet<Id>, d: Vec2, copy: boolean, out: AnnotationCommand[]): void {
+  const at = planId ? { levelId, planId } : { levelId };
   const shift = (v: Vec2): Vec2 => ({ x: v.x + d.x, y: v.y + d.y });
-  const out: AnnotationCommand[] = [];
-  for (const dim of levelDimensions(p, levelId)) {
+  for (const dim of a.dimensions) {
     if (!want.has(dim.id)) continue;
     const moved = { ...dim, a: shift(dim.a), b: shift(dim.b), ...(dim.textAt ? { textAt: shift(dim.textAt) } : {}), ...(dim.angular ? { angular: { ...dim.angular, center: shift(dim.angular.center) } } : {}) };
-    if (copy) out.push({ type: 'addDimension', levelId, dimension: { ...moved, id: newId('dim'), refs: undefined } });
-    else out.push({ type: 'updateDimension', levelId, id: dim.id, patch: { ...moved, refs: undefined } });
+    if (copy) out.push({ type: 'addDimension', ...at, dimension: { ...moved, id: newId('dim'), refs: undefined } });
+    else out.push({ type: 'updateDimension', ...at, id: dim.id, patch: { ...moved, refs: undefined } });
   }
-  for (const t of levelTexts(p, levelId)) {
+  for (const t of a.texts) {
     if (!want.has(t.id)) continue;
     const movedLeader = t.leader?.map(shift);
-    if (copy) out.push({ type: 'addText', levelId, text: { ...t, id: newId('txt'), at: shift(t.at), leader: movedLeader } });
-    else out.push({ type: 'updateText', levelId, id: t.id, patch: { at: shift(t.at), leader: movedLeader } });
+    if (copy) out.push({ type: 'addText', ...at, text: { ...t, id: newId('txt'), at: shift(t.at), leader: movedLeader } });
+    else out.push({ type: 'updateText', ...at, id: t.id, patch: { at: shift(t.at), leader: movedLeader } });
   }
-  const level = p.levels.find((l) => l.id === levelId);
-  for (const item of level?.detailLines ?? []) if (want.has(item.id)) {
+  for (const item of a.detailLines) if (want.has(item.id)) {
     const moved = { a: shift(item.a), b: shift(item.b) };
-    if (copy) out.push({ type: 'addDetailLine', levelId, item: { ...item, id: newId('dl'), ...moved } });
-    else out.push({ type: 'updateDetailLine', levelId, id: item.id, patch: moved });
+    if (copy) out.push({ type: 'addDetailLine', ...at, item: { ...item, id: newId('dl'), ...moved } });
+    else out.push({ type: 'updateDetailLine', ...at, id: item.id, patch: moved });
   }
-  for (const item of level?.detailRegions ?? []) if (want.has(item.id)) {
+  for (const item of a.detailRegions) if (want.has(item.id)) {
     const boundary = item.boundary.map(shift);
-    if (copy) out.push({ type: 'addDetailRegion', levelId, item: { ...item, id: newId('dr'), boundary } });
-    else out.push({ type: 'updateDetailRegion', levelId, id: item.id, patch: { boundary } });
+    if (copy) out.push({ type: 'addDetailRegion', ...at, item: { ...item, id: newId('dr'), boundary } });
+    else out.push({ type: 'updateDetailRegion', ...at, id: item.id, patch: { boundary } });
   }
-  for (const item of level?.tags ?? []) if (want.has(item.id)) {
-    const at = shift(item.at);
-    if (copy) out.push({ type: 'addTag', levelId, item: { ...item, id: newId('tag'), at } });
-    else out.push({ type: 'updateTag', levelId, id: item.id, patch: { at } });
+  for (const item of a.tags) if (want.has(item.id)) {
+    const pos = shift(item.at);
+    if (copy) out.push({ type: 'addTag', ...at, item: { ...item, id: newId('tag'), at: pos } });
+    else out.push({ type: 'updateTag', ...at, id: item.id, patch: { at: pos } });
   }
+}
+
+/**
+ * Comandos que movem por `d` as anotações de `ids` (ou, com `copy`, criam cópias com ids novos). Uma cota movida perde
+ * as referências às paredes: a posição passa a ser livre. Sem `planId`, só as do nível (planta padrão). Com `planId` de
+ * planta de área: as do nível e as da planta de área, cada uma no seu dono (a cópia da anotação da planta nasce NA
+ * planta). Com `planId` de planta de disciplina: só as da própria planta, no dono dela.
+ */
+export function annotationMoveCommands(p: PlanSource, levelId: Id, ids: Id[], d: Vec2, copy: boolean, planId?: Id): AnnotationCommand[] {
+  const want = new Set(ids);
+  const out: AnnotationCommand[] = [];
+  const pv = ownPlanView(p, levelId, planId);
+  if (pv) {
+    moveCommandsOf(planAnnotationsOf(pv), levelId, pv.id, want, d, copy, out);
+    return out;
+  }
+  moveCommandsOf(levelLists(p, levelId), levelId, undefined, want, d, copy, out);
+  const plan = planId ? areaPlanOf(p, planId) : undefined;
+  if (plan) moveCommandsOf(planAnnotationsOf(plan), levelId, planId, want, d, copy, out);
   return out;
 }

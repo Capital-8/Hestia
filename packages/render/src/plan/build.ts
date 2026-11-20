@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
-import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, projectGrids, wallsCrossingCut, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, planAnnotationsOf, planViewFor, projectGrids, wallsCrossingCut, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -39,7 +39,7 @@ import { espessuraDeCorte, espessuraDeProjecao, paintOps, surfaceColor, type Pla
 import { Limiares, type VistaComLimiares } from './limiares.ts';
 import { tracoEm } from './marcadores.ts';
 import { resolverZoom } from './zoomOps.ts';
-import { anotacoesSemOcultos, planContext, semAnotacoesOcultas, semElementosOcultos } from './planContext.ts';
+import { anotacoesDePlantaSemOcultos, anotacoesSemOcultos, planContext, semAnotacoesOcultas, semElementosOcultos } from './planContext.ts';
 import { cadPlanOps } from './cad.ts';
 import { componentsPlanOps } from './planComponents.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
@@ -75,6 +75,11 @@ export interface PlanInput {
   roofPlanMode?: boolean;
   /** Planta de área: quando presente, o desenho usa o perfil da vista de área. */
   areaPlan?: import('@hestia/model').AreaPlan;
+  /**
+   * Planta de disciplina (`PlanView` adicional do nível, decisão 0060): estilo, escala, detalhe, vista e anotações são os
+   * dela. É planta de PISO (mesmo perfil); ausente, desconhecida ou de outro nível = planta padrão. Ignorado com `areaPlan`.
+   */
+  planId?: Id;
   /** Perfil de desenho; sem ele, a vista de área usa `areaPlanProfile` e a planta de piso usa `FLOOR_PLAN_PROFILE`. */
   profile?: PlanProfile;
   /** Elementos ocultos nesta vista (Hide in View + temporário). */
@@ -159,7 +164,7 @@ function hachuraDaRegiao(padrao: { kind: HatchKind; color: string } | undefined,
  * depende só desse subconjunto; o resto é da sobreposição. As linhas e regiões de detalhe ficam aqui porque o desenho
  * delas (com o realce 1,7--) é feito por `notes.ts` na geometria -- sem elas, a seleção não chegava ao desenho (achado A2).
  */
-export function planGeometrySelection(p: Project, levelId: Id, selection: readonly Id[], areaPlan?: Pick<AreaPlan, 'annotations'>): Id[] {
+export function planGeometrySelection(p: Project, levelId: Id, selection: readonly Id[], areaPlan?: Pick<AreaPlan, 'annotations'>, planId?: Id): Id[] {
   if (selection.length === 0) return [];
   const level = p.levels.find((l) => l.id === levelId);
   const used = new Set<Id>([
@@ -170,6 +175,8 @@ export function planGeometrySelection(p: Project, levelId: Id, selection: readon
     ...[level?.detailLines, level?.detailRegions, level?.tags, level?.texts, level?.spots, level?.symbols, level?.revisionClouds].flatMap((a) => (a ?? []).map((x) => x.id)),
     // Anotações da planta de área (cotas, textos, detalhes e etiquetas da vista): a seleção chega ao desenho por aqui.
     ...(areaPlan ? planAnnotationIds(areaPlan) : []),
+    // Anotações da planta de disciplina (dona delas): idem.
+    ...(!areaPlan && planViewFor(p, levelId, planId) ? planAnnotationIds(planViewFor(p, levelId, planId)!) : []),
   ]);
   return selection.filter((id) => used.has(id));
 }
@@ -522,13 +529,21 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Cotas e textos do nível (decisão 0019), com o estilo da categoria 'anotação'. Na planta de área valem as
   // anotações da própria vista (ou o fallback do nível, já filtrado por `drawnAnnotations`).
-  const annotations = areaPlan ? anotacoesSemOcultos(drawnAnnotations(p, input.levelId, areaPlan), hidden) : undefined;
+  // Planta de disciplina: só as anotações dela (nunca as do nível), com as mesmas cotas, textos, detalhes, etiquetas,
+  // cotas de ponto, nuvens e símbolos; as linhas de separação de ambiente continuam do nível (dado do modelo).
+  const planView = areaPlan ? undefined : planViewFor(p, input.levelId, input.planId);
+  const annotations = areaPlan
+    ? anotacoesSemOcultos(drawnAnnotations(p, input.levelId, areaPlan), hidden)
+    : planView ? anotacoesDePlantaSemOcultos(drawnAnnotations(p, input.levelId, undefined, planView.id), hidden) : undefined;
   const notes = noteOps(pNotas, input.levelId, paint.annotation, { ink: theme.ink, select: theme.select, paper: theme.bg, selection: input.selection, dimStyle: dimensionStyleOf(p.settings) }, scale, v, annotations);
   fills.push(...notes.fills);
   strokes.push(...notes.strokes);
   labels.push(...notes.labels);
 
-  if (profile.elementTags) {
+  // Planta de disciplina: as separações de ambiente vêm do nível, na cor das anotações (como `noteOps` sem vista própria).
+  if (planView) strokes.push(...roomSeparatorStrokes(pNotas, input.levelId, paint.annotation, paint.annotation.color ?? theme.ink, new Set(input.selection), theme.select));
+  // As etiquetas de elemento da planta de disciplina já saem em `noteOps` (as dela); as do nível não entram.
+  if (profile.elementTags && !planView) {
     const tagged = elementTagOps(pNotas, input.levelId, paint.annotation, scale, { selection: input.selection, selectColor: theme.select });
     strokes.push(...tagged.strokes);
     labels.push(...tagged.labels);
@@ -538,7 +553,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   if (profile.tags && p.settings.showTags) labels.push(...wallTagLabels(p, input.levelId, paint.annotation, scale, hidden));
   // Etiquetas de portas e janelas (Tag on Placement): desligadas por padrão, ligadas ao inserir.
   // A esquadria que já tem etiqueta própria (elemento arrastável) não repete o rótulo automático.
-  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((p.levels.find((l) => l.id === input.levelId)?.tags ?? []).map((tg) => tg.hostId))));
+  if (profile.tags && p.settings.showOpeningTags) labels.push(...openingTagLabels(p, input.levelId, paint.annotation, scale, hidden, new Set((planView ? planAnnotationsOf(planView).tags : (p.levels.find((l) => l.id === input.levelId)?.tags ?? [])).map((tg) => tg.hostId))));
   separateAutoLabels(labels, scale);
   if (!areaPlan && p.settings.debugJoins) labels.push(...joinDebugLabels(p, input.levelId));
   // Objetos importados (viga, pilar, mobiliário...) e componentes (móveis), em planta: leitura fiel ao 3D.

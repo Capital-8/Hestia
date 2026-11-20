@@ -25,6 +25,7 @@ export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden |
     case 'plan': return p.levels.find((l) => l.id === target.levelId)?.hidden;
     case 'roof': return p.levels.find((l) => l.id === target.levelId)?.roofHidden;
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden;
+    case 'planView': return p.planViews?.find((a) => a.id === target.planId)?.hidden;
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden;
     case '3d': return view3dOf(p).hidden;
   }
@@ -50,6 +51,12 @@ export function applyViewHidden(p: Project, target: ViewHiddenTarget, hidden: Vi
       const a = p.areaPlans?.find((x) => x.id === target.planId);
       if (!a) throw new Error(t(lang, 'md_area_plan_missing'));
       if (clean) a.hidden = clean; else delete a.hidden;
+      return;
+    }
+    case 'planView': {
+      const v = p.planViews?.find((x) => x.id === target.planId);
+      if (!v) throw new Error(t(lang, 'md_plan_view_missing'));
+      if (clean) v.hidden = clean; else delete v.hidden;
       return;
     }
     case 'section': {

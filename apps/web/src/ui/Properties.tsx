@@ -45,6 +45,7 @@ import {
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
+import { planViewIdDe } from '../editor/viewIdentity.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
 import { avisoLimiteInclinacao, grauDeRad, inclinarParedes, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
@@ -451,7 +452,7 @@ function ViewProps(): ReactElement {
       </Group>
       {areaPlan ? <AreaProfileGroups key={`ap-${areaPlan.id}`} plan={areaPlan} /> : null}
       {s.view === 'plan' && <ViewRangeGroup key={`vr-${s.levelId}`} levelId={s.levelId} />}
-      {s.view === 'plan' && <LevelGraphicsGroup key={`lg-${s.levelId}`} levelId={s.levelId} />}
+      {s.view === 'plan' && <LevelGraphicsGroup key={`lg-${s.levelId}-${planViewIdDe(s) ?? ''}`} levelId={s.levelId} planViewId={planViewIdDe(s)} />}
       {s.view === '3d' && <View3DGroup />}
       {s.view === 'section' && <SectionGraphicsGroup />}
       {s.view === 'section' && section ? <SectionViewProps view={section} /> : null}
@@ -475,7 +476,7 @@ export function Properties(): ReactElement {
   const sel = useDeferredValue(useUi((s) => s.selection));
   // Na planta de área, cotas/textos vivem em `plan.annotations`; no corte/elevação, em `SectionView.annotations`: a
   // seleção precisa procurar na vista certa, não no nível.
-  const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : null));
+  const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : (planViewIdDe(s) ?? null)));
   const sectionId = useUi((s) => (s.view === 'section' ? s.sectionId : null));
   const note = selectedNote(p, useUi((s) => s.levelId), sel, planId, sectionId);
   const view = selectedView(p, sel);

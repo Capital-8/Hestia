@@ -97,7 +97,7 @@ export class AngularDimensionTool extends ToolBase {
       prefer: this.env.options().alignPrefer ?? 'faces',
       hidden: this.env.hiddenInView?.(),
       referenceOnly: true,
-      planId: this.env.areaPlanId?.() ?? undefined,
+      planId: viewPlanId(this.env),
     }).filter((f) => LINE_REFERENCE_KINDS.has(f.kind));
   }
 

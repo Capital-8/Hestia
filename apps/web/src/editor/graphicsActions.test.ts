@@ -1,6 +1,8 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, ProjectStore, createEmptyProject, graphicsOf, levelGraphicsOf, view3dOf } from '@hestia/model';
-import { alreadyApplied, editLevelGraphics, editProjectGraphics, editThinLines, editView3D, restoreLevelGraphicsDefault, restoreProjectGraphicsDefault, restoreView3DDefault, showLevelsOn, thinLinesOn } from './graphicsActions.ts';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, ProjectStore, createEmptyProject, graphicsOf, levelGraphicsOf, planGraphicsOf, view3dOf } from '@hestia/model';
+import { alreadyApplied, editLevelGraphics, editPlanGraphics, editProjectGraphics, editThinLines, editView3D, restoreLevelGraphicsDefault, restoreProjectGraphicsDefault, restorePlanGraphicsDefault, restoreView3DDefault, showLevelsOn, thinLinesOn } from './graphicsActions.ts';
 import { resolveText } from './i18n.ts';
 
 const store = (): ProjectStore => new ProjectStore(createEmptyProject());
@@ -239,5 +241,78 @@ describe('editThinLines (linhas finas da vista ativa, só na tela)', () => {
     expect(s.project.sectionGraphics?.thinLines).toBe(false);
     expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
     expect(resolveText(s.undoLabel!, 'pt')).toBe('Alternar linhas finas do corte');
+  });
+});
+
+describe('plantas de disciplina (decisão 0060 §2): cada planta grava na própria cópia', () => {
+  const comEstrutura = (): ProjectStore => {
+    const s = store();
+    s.exec({ type: 'addPlanView', plan: { id: 'pv_est', levelId: 'lv_0', discipline: 'estrutura', name: 'Estrutura' } });
+    return s;
+  };
+
+  it('sem planId, a edição é a da planta padrão: grava em Level.graphics e não cria planViews', () => {
+    const s = comEstrutura();
+    expect(editPlanGraphics(s, { levelId: 'lv_0' }, { scale: 50 })).toEqual({ ok: true, error: null });
+    expect(s.project.levels[0]!.graphics?.scale).toBe(50);
+    expect(s.project.planViews?.[0]?.graphics).toBeUndefined();
+    expect(planGraphicsOf(s.project, 'lv_0').scale).toBe(50);
+  });
+
+  it('planta de disciplina grava só na própria cópia; o nível e a padrão não mudam; desfaz com o rótulo da vista', () => {
+    const s = comEstrutura();
+    expect(editPlanGraphics(s, { levelId: 'lv_0', planId: 'pv_est' }, { scale: 50 }).ok).toBe(true);
+    expect(planGraphicsOf(s.project, 'lv_0', 'pv_est').scale).toBe(50);
+    expect(planGraphicsOf(s.project, 'lv_0').scale).toBe(100);
+    expect(s.project.levels[0]!.graphics).toBeUndefined();
+    expect(resolveText(s.undoLabel!, 'pt')).toBe('Alterar gráficos da vista');
+    s.undo();
+    expect(planGraphicsOf(s.project, 'lv_0', 'pv_est').scale).toBe(100);
+  });
+
+  it('linhas finas são por planta: desligar na de disciplina não mexe no nível; restaurar volta a planta ao padrão', () => {
+    const s = comEstrutura();
+    expect(editThinLines(s, { levelId: 'lv_0', planId: 'pv_est' }, false).ok).toBe(true);
+    expect(thinLinesOn(s.project, { levelId: 'lv_0', planId: 'pv_est' })).toBe(false);
+    expect(thinLinesOn(s.project, { levelId: 'lv_0' })).toBe(true);
+    expect(restorePlanGraphicsDefault(s, { levelId: 'lv_0', planId: 'pv_est' }).ok).toBe(true);
+    expect(s.project.planViews?.[0]?.graphics).toBeUndefined();
+    expect(thinLinesOn(s.project, { levelId: 'lv_0', planId: 'pv_est' })).toBe(true);
+  });
+
+  it('planta de disciplina inexistente é recusada e não grava nada', () => {
+    const s = comEstrutura();
+    const antes = s.project;
+    const r = editPlanGraphics(s, { levelId: 'lv_0', planId: 'pv_nao_existe' }, { scale: 50 });
+    expect(r.ok).toBe(false);
+    expect(r.error).not.toBeNull();
+    expect(s.project).toBe(antes);
+  });
+});
+
+describe('guarda de texto: leituras diretas de Level.graphics (decisão 0060 §2, lista fechada)', () => {
+  /** Arquivos de produção de apps/web/src (sem testes). */
+  function producao(dir: string, out: string[] = []): string[] {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) producao(caminho, out);
+      else if (/\.(ts|tsx)$/.test(nome) && !/\.test\.(ts|tsx)$/.test(nome)) out.push(caminho);
+    }
+    return out;
+  }
+  const raiz = join(__dirname, '..');
+  const arquivos = producao(raiz);
+
+  it('o wrapper levelGraphicsOf não é chamado em produção (só a planta padrão via planGraphicsOf)', () => {
+    const achados = arquivos.filter((f) => /\blevelGraphicsOf\(/.test(readFileSync(f, 'utf8')));
+    expect(achados).toEqual([]);
+  });
+
+  it('leitura/escrita direta de `levels[].graphics` só nos dois arquivos da lista fechada', () => {
+    const achados = arquivos
+      .filter((f) => /\b(lv|level|l)\??\.graphics\b/.test(readFileSync(f, 'utf8')))
+      .map((f) => f.slice(raiz.length + 1))
+      .sort();
+    expect(achados).toEqual(['editor/graphicsActions.ts']);
   });
 });

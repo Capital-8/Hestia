@@ -33,6 +33,16 @@ export function anotacoesSemOcultos(a: AreaPlanAnnotations, hidden: ReadonlySet<
   return { dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags) };
 }
 
+/** Filtra TODAS as anotações de uma planta de disciplina pelos ids ocultos (inclui cotas de ponto, nuvens e símbolos). */
+export function anotacoesDePlantaSemOcultos(a: AreaPlanAnnotations, hidden: ReadonlySet<Id> | undefined): AreaPlanAnnotations {
+  if (!hidden?.size) return a;
+  const keep = <T extends { id: Id }>(xs: T[]): T[] => xs.filter((x) => !hidden.has(x.id));
+  return {
+    dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags),
+    spots: keep(a.spots ?? []), revisionClouds: keep(a.revisionClouds ?? []), symbols: keep(a.symbols ?? []),
+  };
+}
+
 /**
  * Projeto do nível sem as anotações ocultas (cotas, textos, linhas/regiões de detalhe, separadores e etiquetas) e sem as
  * marcas de corte ocultas: `noteOps` e as etiquetas leem o nível, não recebem um conjunto de ocultos, então o filtro
@@ -76,10 +86,10 @@ const deNivelOuCruza = (p: Project, levelId: Id, id: Id): boolean => paredesDoNi
  * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
  * categoria) volta da vista do projeto inteiro, para ela ser decidida pelo próprio id e não pelo hospedeiro.
  */
-function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
+function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined, planId?: Id): PlanView {
   if (!paredesOcultas?.length) return view;
   const donas = new Set(paredesOcultas);
-  const cheia = planViewOf(p, levelId);
+  const cheia = planViewOf(p, levelId, planId);
   const cls = new Map(view.cls);
   const hidden = new Set(view.hidden);
   const categoryHidden = new Set(view.categoryHidden);
@@ -159,9 +169,16 @@ export interface PlanContext {
   ramps: ResolvedRamp[];
 }
 
+/**
+ * Planta de disciplina da entrada, ou undefined (planta padrão). Planta de área tem prioridade (a de disciplina é de
+ * piso; as duas nunca estão abertas juntas, mas a de área manda se vierem as duas).
+ */
+export const planIdOf = (input: Pick<PlanInput, 'areaPlan' | 'planId'>): Id | undefined => (input.areaPlan ? undefined : input.planId);
+
 export function planContext(input: PlanInput): PlanContext {
   const { project: p, viewport: v } = input;
-  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale);
+  const planId = planIdOf(input);
+  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, planId);
   const paint = style.paint;
   const rp = input.roofPlanMode === true;
   const revealed = input.revealed;
@@ -173,7 +190,7 @@ export function planContext(input: PlanInput): PlanContext {
     return isWall(e) && (e.levelId === input.levelId || deNivelOuCruza(p, input.levelId, id));
   });
   const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
-  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId), input.levelId, paredesOcultas);
+  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId, planId), input.levelId, paredesOcultas, planId);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).

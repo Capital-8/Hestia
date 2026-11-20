@@ -1,5 +1,5 @@
 import { dot, len, sub, type Vec2 } from '@hestia/geom';
-import { levelGraphicsOf, sectionLabelOf, sectionMarkGeometry, sectionPoints, sectionSheetNumberOf, type Id, type Project } from '@hestia/model';
+import { planGraphicsOf, sectionLabelOf, sectionMarkGeometry, sectionPoints, sectionSheetNumberOf, type Id, type Project } from '@hestia/model';
 
 /** Distância de `p` ao segmento a–b. */
 function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
@@ -21,8 +21,8 @@ function inTriangle(p: Vec2, a: Vec2, b: Vec2, c: Vec2): boolean {
 }
 
 /** Vistas cujas extremidades caem na janela de seleção. */
-export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
-  if (levelGraphicsOf(p, levelId).overrides.annotation.visible === false) return [];
+export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, planId?: Id): Id[] {
+  if (planGraphicsOf(p, levelId, planId).overrides.annotation.visible === false) return [];
   const x0 = Math.min(a.x, b.x);
   const x1 = Math.max(a.x, b.x);
   const y0 = Math.min(a.y, b.y);
@@ -41,8 +41,8 @@ export function sectionMarkIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): 
  * Vista de corte/elevação sob o cursor. A marca é desenhada em mm de papel, então a tolerância acompanha o zoom e a
  * escala da vista; o rótulo e os triângulos das setas também são clicáveis. Categoria `annotation` oculta não seleciona.
  */
-export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  const g = levelGraphicsOf(p, levelId);
+export function sectionMarkAt(p: Project, levelId: Id, at: Vec2, mpp: number, planId?: Id): Id | null {
+  const g = planGraphicsOf(p, levelId, planId);
   if (g.overrides.annotation.visible === false) return null;
   const mPerMm = g.scale / 1000;
   const tol = Math.max(3 * mpp, 0.02);

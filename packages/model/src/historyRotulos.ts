@@ -323,6 +323,16 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar planta de área';
     case 'removeAreaPlan':
       return 'Excluir planta de área';
+    case 'addPlanView':
+      return 'Criar planta';
+    case 'updatePlanView':
+      return Object.keys(c.patch).every((k) => k === 'name') ? 'Renomear planta' : 'Alterar planta';
+    case 'removePlanView':
+      return 'Excluir planta';
+    case 'setPlanGraphics':
+      return 'Alterar gráficos da planta';
+    case 'resetPlanGraphics':
+      return 'Restaurar gráficos da planta';
     case 'addRoomTag':
       return 'Criar etiqueta de ambiente';
     case 'updateRoomTag':

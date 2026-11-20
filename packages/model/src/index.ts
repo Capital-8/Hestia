@@ -114,6 +114,8 @@ export { materialReferences } from './pluginContentCommands.ts'; // SUPLEMENTOS:
 export * from './areaPlan.ts';
 export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';
+export * from './planView.ts';
+export * from './planViewCommands.ts';
 export * from './grid.ts';
 export * from './dimensionSettings.ts';
 export * from './units.ts';

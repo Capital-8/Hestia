@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { PLAN_VISUAL_STYLES, levelGraphicsOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
-import { editLevelGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { editPlanGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { planViewIdDe } from '../editor/viewIdentity.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { resetTemporaryHidden, temporaryHideActive, temporaryHideSelection, toggleRevealHidden, visibilityOf } from '../editor/viewVisibility.ts';
@@ -38,18 +39,21 @@ export function ViewControlBar(): ReactElement | null {
   const p = useProject();
   const view = useUi((s) => s.view);
   const levelId = useUi((s) => s.levelId);
+  const planKind = useUi((s) => s.planKind);
+  const planViewId = useUi((s) => s.planViewId);
   const { t } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
   if (view === 'sheet' || view === 'face') return null;
 
   const is3d = view === '3d';
-  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, levelId);
+  const planId = planViewIdDe({ view, planKind, planViewId });
+  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
   const report = (r: GraphicsEdit): void => {
     if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shc_view_error' } });
   };
   const editPlan = (patch: Partial<Pick<ViewGraphics, 'scale' | 'detail' | 'style'>>): void =>
-    report(view === 'section' ? editSectionGraphics(editor.store, patch) : editLevelGraphics(editor.store, levelId, patch));
+    report(view === 'section' ? editSectionGraphics(editor.store, patch) : editPlanGraphics(editor.store, { levelId, planId }, patch));
   const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void => report(editView3D(editor.store, patch));
 
   const scale = !is3d ? (g as ViewGraphics).scale : 0;

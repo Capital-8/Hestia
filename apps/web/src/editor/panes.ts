@@ -138,7 +138,7 @@ export function findPane(l: PaneLayout, id: PaneId): Pane | null {
   return leaves(l.root).find((p) => p.id === id) ?? null;
 }
 
-/** Id de nível de uma vista de planta, quando houver (apoio a `followLevel`). */
+/** Id de nível de uma vista de planta, quando houver (apoio a `followLevel`). Só o nível: seguir o nível ativo mostra a planta padrão e nunca herda `planViewId` (decisão 0060, §3.3). */
 export function levelOfView(v: PaneView): Id | null {
   return v.kind === 'plan' ? v.levelId : null;
 }

@@ -12,6 +12,11 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
     case 'plan': {
       const l = p.levels.find((x) => x.id === v.levelId);
       if (!l) return null;
+      // Planta de disciplina: a aba leva o nome da planta; sem ela no projeto (excluída, ou de outro nível) a aba some.
+      if (planKindOf(v) === 'floor' && v.planViewId) {
+        const pv = (p.planViews ?? []).find((x) => x.id === v.planViewId && x.levelId === v.levelId);
+        return pv ? { icon: 'plan', label: pv.name } : null;
+      }
       if (planKindOf(v) === 'area') {
         const ap = v.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === v.areaPlanId) : undefined;
         return ap ? { icon: 'plan', label: ap.name } : null;
@@ -57,9 +62,9 @@ function navega(v: OpenView): boolean {
       // Abrir pela aba/árvore também semeia as anotações de plantas antigas; sem isso o render mostra as do nível,
       // mas as ferramentas com `planId` não encontram nada para selecionar.
       if (kind === 'area' && v.areaPlanId) openAreaPlan(editor.store, v.areaPlanId);
-      else editor.selectLevel(v.levelId, kind, null);
+      else editor.selectLevel(v.levelId, kind, null, kind === 'floor' ? (v.planViewId ?? null) : null);
       const s = useUi.getState();
-      return s.view === 'plan' && s.levelId === v.levelId && s.planKind === kind && (kind !== 'area' || s.areaPlanId === v.areaPlanId);
+      return s.view === 'plan' && s.levelId === v.levelId && s.planKind === kind && (kind !== 'area' || s.areaPlanId === v.areaPlanId) && (kind !== 'floor' || s.planViewId === (v.planViewId ?? null));
     }
     case '3d':
       editor.setView('3d');

@@ -19,7 +19,8 @@ import { viewRangeIssues } from './viewRange.ts';
 import { graphicsIssues, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf } from './graphics.ts';
 import { sectionRefIssues, sectionViewIssue } from './sectionView.ts';
 import { projectSheets } from './sheet.ts';
-import { viewSourceIssue } from './sheetCommands.ts';
+import { viewPlanRefIssue, viewSourceBaseIssue } from './sheetCommands.ts';
+import { planViewIssues, planViewsOf } from './planView.ts';
 import { planAnnotationsOf } from './areaPlan.ts';
 import { isOpening, isWall, type Element, type Id, type Level, type Opening, type Project, type Wall } from './types.ts';
 import { openingTypeById } from './openingNominal.ts';
@@ -275,8 +276,14 @@ function sheetProblems(p: Project): ValidationIssue[] {
   const out: ValidationIssue[] = [];
   for (const s of projectSheets(p)) {
     for (const vp of s.viewports) {
-      const issue = viewSourceIssue(p, vp.view);
-      if (issue) out.push({ severity: 'error', code: 'sheet-view-missing', message: `Prancha "${s.number}": ${issue.toLowerCase()}.`, ids: [s.id, vp.id] });
+      const issue = viewSourceBaseIssue(p, vp.view);
+      if (issue) {
+        out.push({ severity: 'error', code: 'sheet-view-missing', message: `Prancha "${s.number}": ${issue.toLowerCase()}.`, ids: [s.id, vp.id] });
+        continue;
+      }
+      // `planId` pendente é aviso: a leitura cai na planta padrão do nível (decisão 0060 §6).
+      const planIssue = viewPlanRefIssue(p, vp.view);
+      if (planIssue) out.push({ severity: 'warning', code: 'sheet-plan-view-missing', message: `Prancha "${s.number}": ${planIssue.toLowerCase()}; a vista mostra a planta padrão do nível.`, ids: [s.id, vp.id] });
     }
   }
   return out;
@@ -299,6 +306,33 @@ function areaPlanProblems(p: Project): ValidationIssue[] {
   return out;
 }
 
+/**
+ * Plantas adicionais por disciplina (decisão 0060 §8.2): id único e disjunto das plantas de área, nível existente,
+ * disciplina, gráficos, ocultação e tons válidos (erros); etiqueta de elemento que não existe mais (aviso).
+ */
+function planViewProblems(p: Project): ValidationIssue[] {
+  const out: ValidationIssue[] = [];
+  const seen = new Map<string, number>();
+  for (const plan of planViewsOf(p)) seen.set(plan.id, (seen.get(plan.id) ?? 0) + 1);
+  const areaIds = new Set((p.areaPlans ?? []).map((a) => a.id));
+  for (const plan of planViewsOf(p)) {
+    const label = `Planta "${plan.name}"`;
+    if ((seen.get(plan.id) ?? 0) > 1) out.push({ severity: 'error', code: 'plan-view-id-duplicate', message: `${label}: o id "${plan.id}" aparece em mais de uma planta.`, elementId: plan.id });
+    if (areaIds.has(plan.id)) out.push({ severity: 'error', code: 'plan-view-id-duplicate', message: `${label}: o id "${plan.id}" também é de uma planta de área.`, elementId: plan.id });
+    for (const issue of planViewIssues(p, plan)) out.push({ severity: 'error', code: 'plan-view-invalid', message: `${label}: ${issue}`, elementId: plan.id });
+    for (const tag of planAnnotationsOf(plan).tags) {
+      if (p.elements[tag.hostId]) continue;
+      out.push({
+        severity: 'warning',
+        code: 'plan-view-tag-host-missing',
+        message: `${label}: a etiqueta "${tag.id}" aponta para o elemento "${tag.hostId}", que não existe.`,
+        elementId: tag.id,
+      });
+    }
+  }
+  return out;
+}
+
 /** Verificação do modelo: devolve todos os problemas, sem alterar o projeto. */
 export function validateProject(p: Project): ValidationIssue[] {
   const elements = Object.values(p.elements);
@@ -309,6 +343,7 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...viewProblems(p),
     ...sheetProblems(p),
     ...areaPlanProblems(p),
+    ...planViewProblems(p),
     ...p.levels.flatMap((l) => levelIssues(l)),
     ...walls.flatMap((w) => wallIssues(p, w)),
     ...openings.flatMap((o) => openingIssues(p, o)),

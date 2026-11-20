@@ -136,12 +136,11 @@ export function dropRoomTags(p: Project, ids: readonly Id[]): void {
 }
 
 /**
- * Remove das anotações das plantas de área as etiquetas de elementos que não existem mais. Arquivos antigos
+ * Remove das anotações das plantas de área e das plantas adicionais as etiquetas de elementos que não existem mais. Arquivos antigos
  * com etiqueta órfã continuam abrindo: a validação só avisa, e a próxima exclusão limpa a lista.
  */
 export function prunePlanElementTags(p: Project): void {
-  if (!p.areaPlans?.length) return;
-  for (const plan of p.areaPlans) {
+  for (const plan of [...(p.areaPlans ?? []), ...(p.planViews ?? [])]) {
     const a = planAnnotationsOf(plan);
     const tags = a.tags.filter((t) => Boolean(p.elements[t.hostId]));
     if (tags.length !== a.tags.length) plan.annotations = { ...a, tags };

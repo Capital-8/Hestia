@@ -20,6 +20,7 @@ import { useUi } from './state.ts';
 import { viewsForPreset } from './paneViews.ts';
 import { tabOf } from './viewTabActions.ts';
 import { editor } from './controller.ts';
+import { normalizaPlanViewId } from './viewIdentity.ts';
 
 /** Id do painel único inicial. */
 export const FIRST_PANE_ID: PaneId = 'p1';
@@ -76,7 +77,20 @@ export function withPaneCameras(l: PaneLayout, id: PaneId, patch: Partial<PaneCa
  * `fallbackView`. Função pura: sem vista quebrada, devolve o MESMO layout.
  */
 export function sanitizeLayoutViews(l: PaneLayout, p: Project, fallbackView: PaneView): PaneLayout {
-  return leaves(l.root).reduce((acc, pane) => (tabOf(p, pane.view) === null ? withPaneView(acc, pane.id, fallbackView) : acc), l);
+  return leaves(l.root).reduce((acc, pane) => {
+    // Planta de disciplina que não existe mais no projeto (ou é de outro nível): o painel abre a planta padrão do nível, não a vista de reserva.
+    const view = semPlantaDeDisciplinaInexistente(p, pane.view);
+    const atual = view === pane.view ? acc : withPaneView(acc, pane.id, view);
+    return tabOf(p, view) === null ? withPaneView(atual, pane.id, fallbackView) : atual;
+  }, l);
+}
+
+/** A mesma vista, sem `planViewId` quando a planta de disciplina não existe no projeto (mesma referência quando não há o que tirar). */
+function semPlantaDeDisciplinaInexistente(p: Project, v: PaneView): PaneView {
+  if (v.kind !== 'plan' || !v.planViewId) return v;
+  if (normalizaPlanViewId(p, v.levelId, v.planKind, v.planViewId)) return v;
+  const { planViewId: _, ...resto } = v;
+  return resto;
 }
 
 export interface PanesState {
@@ -158,7 +172,7 @@ export function reconcilePanes(p: Project): void {
 }
 
 const mudouVista = (a: ActiveViewFields, b: ActiveViewFields): boolean =>
-  a.view !== b.view || a.levelId !== b.levelId || a.planKind !== b.planKind || a.areaPlanId !== b.areaPlanId || a.sectionId !== b.sectionId || a.sheetId !== b.sheetId || a.faceView !== b.faceView;
+  a.view !== b.view || a.levelId !== b.levelId || a.planKind !== b.planKind || a.areaPlanId !== b.areaPlanId || (a.planViewId ?? null) !== (b.planViewId ?? null) || a.sectionId !== b.sectionId || a.sheetId !== b.sheetId || a.faceView !== b.faceView;
 
 /** Liga a sincronização `useUi` → painel ativo (sincroniza já na partida). Devolve a função que desliga. */
 export function startPaneSync(): () => void {

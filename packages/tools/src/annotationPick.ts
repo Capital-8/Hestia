@@ -1,5 +1,5 @@
 import { boxOf, boxesOverlap, dist, dot, intersectSegments, len, sub, type Vec2 } from '@hestia/geom';
-import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelGraphicsOf, levelTexts, planAnnotationsOf, resolveViewProfile, wallsOfPlan, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
+import { detailLineSegments, areaPlanOf, angularDimensionGeometry, dimensionGeometry, dimensionStyleFor, DIM_TEXT_MM, type DimensionGeometry, dimensionPoints, levelDimensions, levelTexts, planAnnotationsOf, planGraphicsOf, planViewById, resolveViewProfile, wallsOfPlan, type DetailLine, type DetailRegion, type Dimension, type DimensionRef, type ElementTag, type Id, type Project, type RevisionCloud, type RoomTag, type SpotAnnotation, type SymbolAnnotation, type TextNote } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 
 /** Tolerância (m) para dizer que um ponto é a extremidade de uma parede. */
@@ -113,8 +113,10 @@ export interface ViewAnnotations {
 }
 
 /**
- * Anotações da vista: sem `planId`, as do nível (planta de piso); com `planId`, só as da planta de área
- * (`plan.annotations`) — as do nível não vazam para a planta. Uma planta sem anotações devolve listas vazias.
+ * Anotações da vista: sem `planId`, as do nível (planta de piso padrão); com `planId`, só as da planta (de área em
+ * `plan.annotations`, ou de disciplina em `PlanView.annotations`; ids únicos no projeto) — as do nível não vazam para
+ * a planta. Uma planta sem anotações devolve listas vazias. A escala vem de `planGraphicsOf`: planta de disciplina
+ * tem a sua; planta de área, a própria (`plan.scale`) ou a do nível.
  */
 export function viewAnnotationsOf(p: Project, levelId: Id, planId?: Id): ViewAnnotations {
   const plan = planId ? areaPlanOf(p, planId) : undefined;
@@ -126,12 +128,18 @@ export function viewAnnotationsOf(p: Project, levelId: Id, planId?: Id): ViewAnn
     if (!ly.texts) a.texts = [];
     if (!ly.detail) { a.detailLines = []; a.detailRegions = []; }
     if (!ly.tags) a.tags = [];
-    const scale = Number.isFinite(plan.scale) && plan.scale > 0 ? plan.scale : levelGraphicsOf(p, levelId).scale;
+    const scale = Number.isFinite(plan.scale) && plan.scale > 0 ? plan.scale : planGraphicsOf(p, levelId).scale;
     return { scale, ...a, spots: a.spots ?? [], revisionClouds: a.revisionClouds ?? [], symbols: a.symbols ?? [] };
+  }
+  const pv = planId ? planViewById(p, planId) : undefined;
+  if (pv && pv.levelId === levelId) {
+    // Planta de disciplina: dona das suas anotações (ausente = vazio) e das suas escalas; sem perfil de camadas (é de piso).
+    const a = planAnnotationsOf(pv);
+    return { scale: planGraphicsOf(p, levelId, pv.id).scale, ...a, spots: a.spots ?? [], revisionClouds: a.revisionClouds ?? [], symbols: a.symbols ?? [] };
   }
   const level = p.levels.find((l) => l.id === levelId);
   return {
-    scale: levelGraphicsOf(p, levelId).scale,
+    scale: planGraphicsOf(p, levelId).scale,
     dimensions: levelDimensions(p, levelId),
     texts: levelTexts(p, levelId),
     detailLines: level?.detailLines ?? [],

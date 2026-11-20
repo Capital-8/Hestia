@@ -277,6 +277,7 @@ const PT = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Nível inexistente',
   md_area_plan_missing: 'Planta de área inexistente',
+  md_plan_view_missing: 'Planta inexistente',
   md_view_missing: 'Vista inexistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -364,6 +365,7 @@ const PT = {
   md_cmd_separator_coords: 'As coordenadas da linha de separação devem ser números finitos.',
   md_cmd_separator_two_points: 'A linha de separação precisa de dois pontos distintos.',
   md_cmd_plan_id_exists: 'Já existe planta de área com este id',
+  md_cmd_plan_view_id_exists: 'Já existe planta com este id',
   md_cmd_tag_wrong_plan: 'A etiqueta aponta para outra planta',
   md_cmd_tag_id_exists: 'Já existe etiqueta com este id na planta',
   md_cmd_room_tag_exists: 'Este ambiente já tem etiqueta nesta planta',
@@ -847,6 +849,7 @@ const EN: Record<Key, string> = {
 
   md_level_missing: 'Level does not exist',
   md_area_plan_missing: 'Area plan does not exist',
+  md_plan_view_missing: 'Plan view does not exist',
   md_view_missing: 'View does not exist',
 
   md_cmd_not_cad: 'Element is not CAD: {id}',
@@ -933,6 +936,7 @@ const EN: Record<Key, string> = {
   md_cmd_separator_coords: 'The room separator coordinates must be finite numbers.',
   md_cmd_separator_two_points: 'The room separator needs two distinct points.',
   md_cmd_plan_id_exists: 'An area plan with this id already exists',
+  md_cmd_plan_view_id_exists: 'A plan view with this id already exists',
   md_cmd_tag_wrong_plan: 'The tag points to another plan',
   md_cmd_tag_id_exists: 'A tag with this id already exists in the plan',
   md_cmd_room_tag_exists: 'This room already has a tag in this plan',
@@ -1527,6 +1531,7 @@ const ES: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Nivel inexistente',
   md_area_plan_missing: 'Planta de área inexistente',
+  md_plan_view_missing: 'Planta inexistente',
   md_view_missing: 'Vista inexistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -1614,6 +1619,7 @@ const ES: Record<Key, string> = {
   md_cmd_separator_coords: 'Las coordenadas de la línea de separación deben ser números finitos.',
   md_cmd_separator_two_points: 'La línea de separación necesita dos puntos distintos.',
   md_cmd_plan_id_exists: 'Ya existe una planta de área con este id',
+  md_cmd_plan_view_id_exists: 'Ya existe una planta con este id',
   md_cmd_tag_wrong_plan: 'La etiqueta apunta a otra planta',
   md_cmd_tag_id_exists: 'Ya existe una etiqueta con este id en la planta',
   md_cmd_room_tag_exists: 'Este ambiente ya tiene etiqueta en esta planta',
@@ -2119,6 +2125,7 @@ const DE: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Ebene nicht vorhanden',
   md_area_plan_missing: 'Flächenplan nicht vorhanden',
+  md_plan_view_missing: 'Grundrissansicht nicht vorhanden',
   md_view_missing: 'Ansicht nicht vorhanden',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -2206,6 +2213,7 @@ const DE: Record<Key, string> = {
   md_cmd_separator_coords: 'Die Koordinaten der Raumtrennlinie müssen endliche Zahlen sein.',
   md_cmd_separator_two_points: 'Die Raumtrennlinie benötigt zwei unterschiedliche Punkte.',
   md_cmd_plan_id_exists: 'Ein Flächenplan mit dieser ID ist bereits vorhanden',
+  md_cmd_plan_view_id_exists: 'Eine Grundrissansicht mit dieser ID ist bereits vorhanden',
   md_cmd_tag_wrong_plan: 'Die Beschriftung verweist auf einen anderen Plan',
   md_cmd_tag_id_exists: 'Eine Beschriftung mit dieser ID ist im Plan bereits vorhanden',
   md_cmd_room_tag_exists: 'Dieser Raum hat in diesem Plan bereits eine Beschriftung',
@@ -2711,6 +2719,7 @@ const FR: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Niveau inexistant',
   md_area_plan_missing: 'Plan de surface inexistant',
+  md_plan_view_missing: 'Plan inexistant',
   md_view_missing: 'Vue inexistante',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -2798,6 +2807,7 @@ const FR: Record<Key, string> = {
   md_cmd_separator_coords: 'Les coordonnées de la ligne de séparation doivent être des nombres finis.',
   md_cmd_separator_two_points: 'La ligne de séparation doit avoir deux points distincts.',
   md_cmd_plan_id_exists: 'Un plan de surface avec cet identifiant existe déjà',
+  md_cmd_plan_view_id_exists: 'Un plan avec cet identifiant existe déjà',
   md_cmd_tag_wrong_plan: 'L\'étiquette pointe vers un autre plan',
   md_cmd_tag_id_exists: 'Une étiquette avec cet identifiant existe déjà dans le plan',
   md_cmd_room_tag_exists: 'Cette pièce a déjà une étiquette dans ce plan',
@@ -3303,6 +3313,7 @@ const IT: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Livello inesistente',
   md_area_plan_missing: 'Pianta di area inesistente',
+  md_plan_view_missing: 'Pianta inesistente',
   md_view_missing: 'Vista inesistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -3390,6 +3401,7 @@ const IT: Record<Key, string> = {
   md_cmd_separator_coords: 'Le coordinate della linea di separazione devono essere numeri finiti.',
   md_cmd_separator_two_points: 'La linea di separazione richiede due punti distinti.',
   md_cmd_plan_id_exists: 'Esiste già una pianta di area con questo id',
+  md_cmd_plan_view_id_exists: 'Esiste già una pianta con questo id',
   md_cmd_tag_wrong_plan: 'L\'etichetta punta a un\'altra pianta',
   md_cmd_tag_id_exists: 'Esiste già un\'etichetta con questo id nella pianta',
   md_cmd_room_tag_exists: 'Questo locale ha già un\'etichetta in questa pianta',
@@ -3908,6 +3920,7 @@ const PL: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Poziom nie istnieje',
   md_area_plan_missing: 'Rzut powierzchni nie istnieje',
+  md_plan_view_missing: 'Rzut nie istnieje',
   md_view_missing: 'Widok nie istnieje',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -3995,6 +4008,7 @@ const PL: Record<Key, string> = {
   md_cmd_separator_coords: 'Współrzędne linii podziału muszą być skończonymi liczbami.',
   md_cmd_separator_two_points: 'Linia podziału wymaga dwóch różnych punktów.',
   md_cmd_plan_id_exists: 'Rzut powierzchni o tym identyfikatorze już istnieje',
+  md_cmd_plan_view_id_exists: 'Rzut o tym identyfikatorze już istnieje',
   md_cmd_tag_wrong_plan: 'Etykieta wskazuje inny rzut',
   md_cmd_tag_id_exists: 'Etykieta o tym identyfikatorze już istnieje na rzucie',
   md_cmd_room_tag_exists: 'To pomieszczenie ma już etykietę na tym rzucie',

@@ -1,6 +1,7 @@
-import { levelGraphicsOf, sectionGraphicsOf, sectionTitleOf, type Id, type Project } from '@hestia/model';
+import { planGraphicsOf, sectionGraphicsOf, sectionTitleOf, type Id, type Project } from '@hestia/model';
 import type { DxfBatchFile, DxfBatchOptions, DxfBatchRenderers, DxfBatchResult, DxfBatchSkip, DxfBatchTarget } from './dxfBatch.types.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
+import { planKey, viewKey } from './viewIdentity.ts';
 
 /** Idioma ativo (fora do React); `options.lang` manda quando presente. */
 const activeLang = (): Lang => useI18n.getState().lang;
@@ -27,12 +28,12 @@ export function dxfSanitizeName(text: string, lang: Lang = 'pt'): string {
 /** Documentos exportáveis do projeto, na ordem do diálogo: plantas, áreas, cortes/elevações e pranchas. */
 export function dxfBatchTargetsOf(p: Project): DxfBatchTarget[] {
   return [
-    ...p.levels.map((l): DxfBatchTarget => ({ kind: 'plan', key: `plan:${l.id}`, levelId: l.id, label: l.name, group: 'plantas' })),
-    ...(p.areaPlans ?? []).map((a): DxfBatchTarget => ({ kind: 'area', key: `area:${a.id}`, planId: a.id, label: a.name, group: 'areas' })),
+    ...p.levels.map((l): DxfBatchTarget => ({ kind: 'plan', key: planKey(l.id), levelId: l.id, label: l.name, group: 'plantas' })),
+    ...(p.areaPlans ?? []).map((a): DxfBatchTarget => ({ kind: 'area', key: viewKey({ kind: 'plan', levelId: a.levelId, planKind: 'area', areaPlanId: a.id }), planId: a.id, label: a.name, group: 'areas' })),
     ...p.views.map(
-      (v): DxfBatchTarget => ({ kind: 'section', key: `section:${v.id}`, viewId: v.id, label: sectionTitleOf(v), group: 'cortes', elevation: v.kind === 'elevation' }),
+      (v): DxfBatchTarget => ({ kind: 'section', key: viewKey({ kind: 'section', viewId: v.id }), viewId: v.id, label: sectionTitleOf(v), group: 'cortes', elevation: v.kind === 'elevation' }),
     ),
-    ...(p.sheets ?? []).map((s): DxfBatchTarget => ({ kind: 'sheet', key: `sheet:${s.id}`, sheetId: s.id, label: `${s.number} ${s.name}`, group: 'pranchas' })),
+    ...(p.sheets ?? []).map((s): DxfBatchTarget => ({ kind: 'sheet', key: viewKey({ kind: 'sheet', sheetId: s.id }), sheetId: s.id, label: `${s.number} ${s.name}`, group: 'pranchas' })),
   ];
 }
 
@@ -99,7 +100,7 @@ function nomeDe(p: Project, t: DxfBatchTarget, options: DxfBatchOptions, lang: L
 
 /** Escala de papel do alvo, no formato `1:<denominador>`; prancha fica vazia (a escala é da folha). */
 function escalaDe(p: Project, t: DxfBatchTarget): string {
-  if (t.kind === 'plan') return `1:${levelGraphicsOf(p, t.levelId).scale}`;
+  if (t.kind === 'plan') return `1:${planGraphicsOf(p, t.levelId).scale}`;
   if (t.kind === 'area') {
     const plan = areaPlanDe(p, t.planId);
     return plan ? `1:${plan.scale}` : '';

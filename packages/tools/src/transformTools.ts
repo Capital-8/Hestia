@@ -2,7 +2,7 @@
 import { angleOf, dist, len, sub, type Vec2 } from '@hestia/geom';
 import { frameOfWall } from '@hestia/engine';
 import { annotationIdsIn, annotationMoveCommands, formatQuantity, isOpening, isRamp, isStair, isWall, unitsOf, type Id } from '@hestia/model';
-import { ToolBase } from './base.ts';
+import { ToolBase, viewPlanId } from './base.ts';
 import { avisaGuardaCorpoHospedado, guardaCorposBloqueados } from './guardaCorpoEdicao.ts';
 import { gridGhosts, moveGrids, selectedGrids } from './gridGeom.ts';
 import { copyWalls, ghostBands, ghostOpenings, ghostViews, moveWalls, selectedMovables, selectedOpenings, selectedViews, slideOpenings, transformViews, transformWalls } from './edit.ts';
@@ -38,7 +38,7 @@ export abstract class SelectionTool extends ToolBase {
     return selectedViews(this.env.project(), this.env.selection());
   }
   protected hasSelection(): boolean {
-    return this.movables().length + this.openings().length + this.views().length + annotationIdsIn(this.env.project(), this.env.levelId(), this.env.selection()).length + selectedGrids(this.env.project(), this.env.selection()).length > 0;
+    return this.movables().length + this.openings().length + this.views().length + annotationIdsIn(this.env.project(), this.env.levelId(), this.env.selection(), viewPlanId(this.env)).length + selectedGrids(this.env.project(), this.env.selection()).length > 0;
   }
   override start(): void {
     this.reset();
@@ -274,7 +274,7 @@ export class MoveTool extends SelectionTool {
     }
     const seps = movableSeparatorIds(this.env, this.copy);
     // Cotas, textos (decisão 0019) e marcas de corte/elevação seguem a seleção e entram no mesmo passo de desfazer.
-    const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy);
+    const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy, viewPlanId(this.env));
     // Desconectar (opção ou Alt na confirmação): a parede se solta das vizinhas em vez de esticá-las.
     const disjoin = (this.env.options().moveDisjoin ?? DEFAULT_DISJOIN.move) !== this.alt;
     // Copiar: a sessão junta as cópias num só passo de desfazer; Mover segue num passo próprio.

@@ -7,6 +7,7 @@ import {
   defaultSpotFamilyIdOf,
   formatQuantity,
   newId,
+  planGraphicsOf,
   unitsOf,
   type Id,
   type Project,
@@ -213,7 +214,8 @@ export class NorthArrowTool extends ToolBase {
   }
 
   private segsAt(c: Vec2): Array<[Vec2, Vec2]> {
-    const scale = this.env.project().levels.find((l) => l.id === this.env.levelId())?.graphics?.scale ?? 50;
+    // Escala da vista: a da planta ativa (padrão ou de disciplina); sem gráficos salvos, o padrão do Hestia (1:100; era 50 aqui).
+    const scale = this.env.viewScale?.() ?? planGraphicsOf(this.env.project(), this.env.levelId(), viewPlanId(this.env)).scale;
     const r = (scale / 1000) * 6;
     const out: Array<[Vec2, Vec2]> = [];
     const n = 16;

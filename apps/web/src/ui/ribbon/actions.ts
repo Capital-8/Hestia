@@ -11,6 +11,7 @@ import { createSimilarTarget, startCreateSimilar } from '../../editor/createSimi
 import { resetDock, setDock } from '../../editor/dockActions.ts';
 import type { DockLayout, DockPanel } from '../../editor/dockLayout.ts';
 import { editThinLines, thinLinesOn } from '../../editor/graphicsActions.ts';
+import { planDialogTarget, planViewIdDe } from '../../editor/viewIdentity.ts';
 import { perimeterActions } from '../../editor/perimeter.ts';
 import { addSheetAction } from '../../editor/sheetActions.ts';
 import { sheetsPerLevelAction } from '../../editor/sheetInsert.ts';
@@ -68,6 +69,8 @@ export interface RibbonCtx {
   view: UiState['view'];
   planKind: UiState['planKind'];
   areaPlanId: Id | null;
+  /** Planta de disciplina ativa (só com `planKind` 'floor'); ausente ou null = planta padrão. */
+  planViewId?: Id | null;
   levelId: Id;
   showGrid: boolean;
   showUnderlay: boolean;
@@ -162,9 +165,9 @@ const stairsIn = (c: RibbonCtx): Array<{ typeId: Id }> => c.selection.map((id) =
 const rampsIn = (c: RibbonCtx): Ramp[] => c.selection.map((id) => c.p.elements[id]).filter(isRamp);
 const wallsIn = (c: RibbonCtx): Wall[] => c.selection.map((id) => c.p.elements[id]).filter(isWall);
 
-function thinTarget(): { levelId: Id } | 'section' {
+function thinTarget(): { levelId: Id; planId?: Id } | 'section' {
   const ui = useUi.getState();
-  return ui.view === 'section' ? 'section' : { levelId: ui.levelId };
+  return ui.view === 'section' ? 'section' : { levelId: ui.levelId, planId: planViewIdDe(ui) };
 }
 
 const sched = (label: Txt, dialog: DialogKind): ActionDef => ({ label, icon: 'schedule', run: openDialog(dialog) });
@@ -384,7 +387,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
       const r = editThinLines(editor.store, target, !thinLinesOn(editor.project, target));
       if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shr_status_thin_lines_error' } });
     },
-    pressed: (c) => planOrSection(c) && thinLinesOn(c.p, c.view === 'section' ? 'section' : { levelId: c.levelId }),
+    pressed: (c) => planOrSection(c) && thinLinesOn(c.p, c.view === 'section' ? 'section' : { levelId: c.levelId, planId: planViewIdDe(c) }),
     disabled: (c) => (planOrSection(c) ? false : t('Só em planta ou corte.', 'Plan or section views only.')),
   },
   grid: { label: t('Grade', 'Grid'), icon: 'grid', hint: t('Grade de pontos na planta: mostra os pontos e o cursor os captura.', 'Dot grid in plan: shows the dots and the cursor snaps to them.'), run: () => setSnap({ grid: !useUi.getState().showGrid }), pressed: (c) => c.showGrid },
@@ -415,7 +418,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     hint: t('Visibilidade por categoria e gráficos da vista ativa.', 'Category visibility and graphics of the active view.'),
     run: () => {
       const s = useUi.getState();
-      useUi.setState({ dialog: 'graphicsVisibility', dialogArg: s.view === 'section' ? 'section' : s.view === '3d' ? '3d' : s.levelId });
+      useUi.setState({ dialog: 'graphicsVisibility', dialogArg: s.view === 'section' ? 'section' : s.view === '3d' ? '3d' : planDialogTarget(s.levelId, planViewIdDe(s)) });
     },
     disabled: (c) => (c.view === 'sheet' ? t('Não vale para pranchas.', 'Not available for sheets.') : false),
   },
@@ -880,7 +883,7 @@ export function ctxNow(): RibbonCtx {
   const s = useUi.getState();
   const perim = editor.perimetro.view();
   return {
-    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, levelId: s.levelId,
+    tool: s.tool, selection: s.selection, view: s.view, planKind: s.planKind, areaPlanId: s.areaPlanId, planViewId: s.planViewId, levelId: s.levelId,
     showGrid: s.showGrid, showUnderlay: s.showUnderlay,
     showRoofProjection: s.showRoofProjection, mapaCorteAterro: s.mapaCorteAterro, propsOpen: s.propsOpen, browserOpen: s.browserOpen, sides: s.dock.sides, options: s.options, p: editor.project,
     facePaintActive: s.facePaint.active,

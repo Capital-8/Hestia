@@ -266,10 +266,58 @@ export function graphicsOf(p: Pick<Project, 'graphics'>): ProjectGraphics {
   };
 }
 
-/** Gráficos da planta de um nível com os padrões aplicados. Nível inexistente: o padrão. */
-export function levelGraphicsOf(p: Pick<Project, 'levels'>, levelId: Id): ViewGraphics {
-  const g = p.levels.find((l) => l.id === levelId)?.graphics;
+/** Entrada mínima do projeto que o resolvedor de plantas precisa (`planViews` ausente = nenhuma planta adicional). */
+type PlanSource = Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>;
+
+/**
+ * Planta adicional (`Project.planViews`) pedida, ou undefined. Id ausente, desconhecido ou de OUTRO nível não resolve:
+ * quem chama cai na planta padrão do nível (decisão 0060 §2; nunca lança).
+ */
+export function planViewFor(p: Pick<Project, 'planViews'>, levelId: Id, planId: Id | undefined) {
+  if (planId === undefined) return undefined;
+  const v = p.planViews?.find((x) => x.id === planId);
+  return v && v.levelId === levelId ? v : undefined;
+}
+
+/**
+ * Gráficos de uma planta de piso com os padrões aplicados (decisão 0060 §2). Sem `planId`, ou com `planId` que não
+ * resolve neste nível, é a planta padrão do nível (`Level.graphics`; nível inexistente: o padrão do Hestia).
+ */
+export function planGraphicsOf(p: PlanSource, levelId: Id, planId?: Id): ViewGraphics {
+  const v = planViewFor(p, levelId, planId);
+  const g = v ? v.graphics : p.levels.find((l) => l.id === levelId)?.graphics;
   return { ...DEFAULT_VIEW_GRAPHICS, ...(g ?? {}), overrides: mergeOverrides(g?.overrides) };
+}
+
+/**
+ * A planta tem gráficos GRAVADOS (`Level.graphics` na padrão, `PlanView.graphics` na adicional)? Sem eles o detalhe da
+ * planta é o do projeto (`settings.detail`), como antes da decisão 0015 (ver `planStyleOf`).
+ */
+export function planGraphicsSaved(p: PlanSource, levelId: Id, planId?: Id): boolean {
+  const v = planViewFor(p, levelId, planId);
+  return (v ? v.graphics : p.levels.find((l) => l.id === levelId)?.graphics) !== undefined;
+}
+
+/**
+ * Ocultação permanente (Hide in View) de uma planta de piso: `Level.hidden` na planta padrão, `PlanView.hidden` na
+ * adicional. Nunca undefined; a mesma regra de `permanentHiddenOf` (planta sem ocultação = `{}`).
+ */
+export function planHiddenOf(p: PlanSource, levelId: Id, planId?: Id): ViewHidden {
+  const v = planViewFor(p, levelId, planId);
+  return (v ? v.hidden : p.levels.find((l) => l.id === levelId)?.hidden) ?? {};
+}
+
+/** Ocultação permanente da planta de cobertura do nível (`Level.roofHidden`; vista separada da planta de piso). */
+export function roofHiddenOf(p: Pick<Project, 'levels'>, levelId: Id): ViewHidden {
+  return p.levels.find((l) => l.id === levelId)?.roofHidden ?? {};
+}
+
+/**
+ * Gráficos da planta padrão de um nível com os padrões aplicados. Nível inexistente: o padrão.
+ * Wrapper transitório de `planGraphicsOf` (decisão 0060 §2): sai quando o último chamador migrar (etapa 2.3).
+ */
+export function levelGraphicsOf(p: Pick<Project, 'levels'>, levelId: Id): ViewGraphics {
+  return planGraphicsOf(p, levelId);
 }
 
 /** Gráficos do corte/elevação com os padrões aplicados (não há nível natural: a vista cruza níveis). */

@@ -302,6 +302,9 @@ function parseView(raw: unknown): PaneView | null {
     if (planKind === 'floor' || planKind === 'roof' || planKind === 'area') out.planKind = planKind;
     const areaPlanId = raw.areaPlanId;
     if (typeof areaPlanId === 'string') out.areaPlanId = areaPlanId;
+    // Painel antigo não tem o campo (abre a planta padrão); a planta de disciplina só vale com planta de piso.
+    const planViewId = raw.planViewId;
+    if (typeof planViewId === 'string' && planViewId !== '' && out.planKind !== 'roof' && out.planKind !== 'area') out.planViewId = planViewId;
     return out;
   }
   const viewId = raw.viewId;

@@ -9,13 +9,14 @@ import { useT } from '../../editor/i18n.ts';
 import { Row } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { InsertViewsList } from './InsertViewsList.tsx';
+import { planKey, viewKey } from '../../editor/viewIdentity.ts';
 
 const CUSTOM = 'custom';
 
 /** Chave da fonte que corresponde a uma vista (para marcar o que veio do arraste ou do botão de uma vista). */
 const keyOfView = (v: SheetViewSource): string | null => {
-  if (v.kind === 'plan') return `plan:${v.levelId}`;
-  if (v.kind === 'section') return `section:${v.sectionId}`;
+  if (v.kind === 'plan') return planKey(v.levelId);
+  if (v.kind === 'section') return viewKey({ kind: 'section', viewId: v.sectionId });
   if (v.kind === '3d') return v.pointId ? `3d:${v.pointId}` : '3d';
   return null;
 };

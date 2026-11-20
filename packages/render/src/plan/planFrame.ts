@@ -68,6 +68,8 @@ export interface PlanViewState {
   roofPlanMode?: boolean;
   /** Planta de área ativa (ausente = planta normal). */
   areaPlan?: import('@hestia/model').AreaPlan;
+  /** Planta de disciplina ativa (`PlanView` adicional do nível, decisão 0060); ausente = planta padrão. Ignorada com `areaPlan`. */
+  planId?: Id;
   /** Rótulo em arraste (fantasma). */
   tagGhost?: { roomId: Id; at: Vec2 };
   /** Idioma dos textos fixos da planta (repassado ao `PlanInput`). Padrão `'pt'`. */
@@ -87,16 +89,18 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   const { project: p, levelId, v, theme, dark } = s;
   const lang = s.lang ?? 'pt';
   const rp = s.roofPlanMode === true;
-  const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan);
+  const planId = s.areaPlan ? undefined : s.planId;
+  const geoSel = planGeometrySelection(p, levelId, s.selection, s.areaPlan, planId);
   // A planta normal não usa a resolução do nível atual: `planViewOf` refaz a geometria com o corte (ver `planContext`).
   // Só a planta de cobertura lê `resolved`: o nível atual é resolvido só quando ela é desenhada, nunca na planta de piso.
   // O nível de baixo continua resolvido apenas quando a geometria é refeita (ver `planBelowOf`).
   const area = s.areaPlan !== undefined;
-  const areaKey = area ? `${JSON.stringify(s.areaPlan)}|${s.tagGhost?.roomId ?? ''}` : '';
+  // A planta de disciplina entra na chave: duas plantas do mesmo nível nunca reaproveitam as camadas uma da outra.
+  const areaKey = (area ? `${JSON.stringify(s.areaPlan)}|${s.tagGhost?.roomId ?? ''}` : '') + (planId ? `|pv:${planId}` : '');
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, planId, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
   // Guarda-corpo e massa têm camada e chave próprias: os ocultos/revelados deles ficam fora da chave do resto da planta, e a versão do projeto
   // que a geometria vê não muda quando só um deles muda (ver `versoesDaPlanta`).
   const ehGuarda = (id: Id): boolean => p.elements[id]?.kind === 'railing';
@@ -109,9 +113,9 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   const versoes = versoesDaPlanta(p);
   const temGuarda = ServicoGuardaCorpo.temGuardaCorpo(p);
   // Sem guarda-corpo no projeto a camada é vazia e a chave não muda (nem a prontidão do kernel entra).
-  const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${visGuarda}` : `vazio|${levelId}|${modo0(rp)}`;
+  const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visGuarda}` : `vazio|${levelId}|${modo0(rp)}`;
   // Massas: camada própria. Sem massa no projeto a chave não muda (nem a prontidão do kernel entra); com massa, muda com elas, com a vista e com o kernel.
-  const massaKey = temMassaNoProjeto(p) ? `${versoes.massa}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoMassa().pronto()}|${s.areaPlan ? 'area' : ''}|${visMassa}` : `vazio|${levelId}|${modo0(rp)}`;
+  const massaKey = temMassaNoProjeto(p) ? `${versoes.massa}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoMassa().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visMassa}` : `vazio|${levelId}|${modo0(rp)}`;
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
   const resolvido = (): ResolvedLevel => (rp ? (resolvida ??= s.resolve(levelId)) : resolucaoVazia(levelId));

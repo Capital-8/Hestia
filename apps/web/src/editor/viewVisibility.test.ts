@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildTemplate } from '@hestia/model';
+import { annotationIdsOfActiveView } from './viewAnnotations.ts';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
-import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideInView, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
+import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideInView, viewHiddenTargetOf, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null }));
 
@@ -154,5 +155,58 @@ describe('visibilidade por vista', () => {
     temporaryIsolate([d.id]);
     expect(useUi.getState().selection).toEqual([d.id]);
     expect(useUi.getState().subElemento).toBeNull();
+  });
+});
+
+describe('planta de disciplina na vista ativa (decisão 0060 §4 e §5)', () => {
+  afterEach(() => useUi.setState({ planViewId: null }));
+
+  /** Projeto de teste com uma planta de Estrutura no nível 0 (a padrão continua sem nada gravado). */
+  const comEstrutura = () => {
+    editor.newProject('house2');
+    editor.store.exec({ type: 'addPlanView', plan: { id: 'pv_est', levelId: 'lv_0', discipline: 'estrutura', name: 'Estrutura' } });
+    return editor.project;
+  };
+
+  it('a planta de disciplina tem alvo próprio; ocultar grava em PlanView.hidden e nunca no nível', () => {
+    const p = comEstrutura();
+    const w = parede(p);
+    const hiddenDoNivelAntes = p.levels[0]!.hidden;
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_est', selection: [w.id] });
+    expect(viewHiddenTargetOf(useUi.getState())).toEqual({ kind: 'planView', planId: 'pv_est' });
+    hideInView([w.id]);
+    expect(editor.project.planViews?.[0]?.hidden).toEqual({ elements: [w.id] });
+    expect(editor.project.levels[0]!.hidden).toEqual(hiddenDoNivelAntes);
+    expect(visibilityOf(editor.project, useUi.getState()).hidden.has(w.id)).toBe(true);
+    // Na planta padrão do mesmo nível, a parede segue visível (o oculto é só da disciplina).
+    useUi.setState({ planViewId: null });
+    expect(viewHiddenTargetOf(useUi.getState())).toEqual({ kind: 'plan', levelId: 'lv_0' });
+    expect(visibilityOf(editor.project, useUi.getState()).hidden.has(w.id)).toBe(false);
+  });
+
+  it('a planta padrão continua gravando a ocultação em Level.hidden (sem planta de disciplina)', () => {
+    editor.newProject('house2');
+    const w = parede(editor.project);
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: null, selection: [w.id] });
+    hideInView([w.id]);
+    expect(editor.project.levels[0]!.hidden).toEqual({ elements: [w.id] });
+    expect(editor.project.planViews).toBeUndefined();
+  });
+
+  it('o zoom de escala da planta de disciplina é o dela (padrão: o do nível)', () => {
+    comEstrutura();
+    editor.store.exec({ type: 'setPlanGraphics', planId: 'pv_est', patch: { scale: 50 } });
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_est' });
+    expect(editor.viewScale()).toBe(50);
+    useUi.setState({ planViewId: null });
+    expect(editor.viewScale()).toBe(100);
+  });
+
+  it('anotações: a planta de disciplina lista só as próprias, nunca as do nível', () => {
+    const p = comEstrutura();
+    const q = { ...p, levels: p.levels.map((l) => (l.id === 'lv_0' ? { ...l, texts: [{ id: 'tx_nivel' } as never] } : l)), planViews: [{ ...p.planViews![0]!, annotations: { dimensions: [], detailLines: [], detailRegions: [], tags: [], texts: [{ id: 'tx_pv' } as never] } }] };
+    const st = { view: 'plan' as const, planKind: 'floor' as const, levelId: 'lv_0', areaPlanId: null, sectionId: null, planViewId: 'pv_est' };
+    expect(annotationIdsOfActiveView(q, st)).toEqual(['tx_pv']);
+    expect(annotationIdsOfActiveView(q, { ...st, planViewId: null })).toEqual(['tx_nivel']);
   });
 });

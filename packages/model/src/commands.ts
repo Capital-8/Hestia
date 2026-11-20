@@ -133,6 +133,8 @@ import { applyFurnitureCommand, type FurnitureCommand } from './furniture/comman
 import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
+import { applyPlanViewCommand, dropPlanViewsOfLevel, type PlanViewPatch } from './planViewCommands.ts';
+import type { PlanView } from './planView.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
@@ -301,6 +303,11 @@ export type Command =
   | { type: 'addAreaPlan'; plan: AreaPlan }
   | { type: 'updateAreaPlan'; id: Id; patch: Partial<Omit<AreaPlan, 'id' | 'tags'>> }
   | { type: 'removeAreaPlan'; id: Id }
+  | { type: 'addPlanView'; plan: PlanView }
+  | { type: 'updatePlanView'; id: Id; patch: PlanViewPatch }
+  | { type: 'removePlanView'; id: Id }
+  | { type: 'setPlanGraphics'; planId: Id; patch: DeepPartial<ViewGraphics> }
+  | { type: 'resetPlanGraphics'; planId: Id }
   | { type: 'addRoomTag'; planId: Id; tag: RoomTag }
   | { type: 'updateRoomTag'; planId: Id; id: Id; patch: Partial<Omit<RoomTag, 'id' | 'planId' | 'roomId'>> }
   | { type: 'removeRoomTag'; planId: Id; id: Id }
@@ -484,7 +491,7 @@ function applyCommandCortinas(p: Project, c: Command, lang: Lang): void {
 }
 
 function applyCommandBase(p: Project, c: Command, lang: Lang): void {
-  if (applyFacePaintCommand(p, c) || applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyTerrainCommand(p, c, lang) || applyLotCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyFurnitureCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
+  if (applyFacePaintCommand(p, c) || applyStructuralCommand(p, c, lang) || applyPluginContentCommand(p, c, lang) || applyCeilingCommand(p, c, lang) || applyRoomCommand(p, c, lang) || applyAreaPlanCommand(p, c, lang) || applyPlanViewCommand(p, c, lang) || applyOutlineCommand(p, c, lang) || applyCopyLinkCommand(p, c) || applyGuardaCorpoCommand(p, c, lang) || applyMassCommand(p, c, lang) || applyTerrainCommand(p, c, lang) || applyLotCommand(p, c, lang) || applyCurtainCommand(p, c, lang) || applyCurtainOpeningCommand(p, c, lang) || applyFurnitureCommand(p, c, lang) || applyCurtainHostCommand(p, c, lang)) return;
   switch (c.type) {
     case 'addWall': {
       if (c.wall.tilt !== undefined) {
@@ -727,6 +734,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       if (Object.values(p.elements).some((e) => (hasLevel(e) && e.levelId === c.id) || (isStair(e) && e.topLevelId === c.id) || (isRamp(e) && e.topLevelId === c.id) || (isColumn(e) && e.topLevelId === c.id))) throw new Error(t(lang, 'md_cmd_level_in_use'));
       p.levels = p.levels.filter((l) => l.id !== c.id);
       dropAreaPlansOfLevel(p, c.id);
+      dropPlanViewsOfLevel(p, c.id);
       dropOrphanViewports(p);
       break;
     }

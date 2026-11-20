@@ -25,7 +25,8 @@ import {
   isOpening,
   isWall,
   levelElevation,
-  levelGraphicsOf,
+  planGraphicsOf,
+  planViewFor,
   openingsOfWall,
   viewRangeOf,
   wallsOnLevel,
@@ -169,13 +170,20 @@ function projetoDaVista(p: Project): Project {
   return p;
 }
 
-/** Vista da planta do nível (memorizada por projeto, nível, exibição parcial e categorias ocultas). */
-export function planViewOf(p0: Project, levelId: Id): PlanView {
+/**
+ * Vista da planta do nível (memorizada por projeto, planta, nível, exibição parcial e categorias ocultas). `planId`
+ * (decisão 0060): planta de disciplina do nível; ausente, desconhecida ou de outro nível = planta padrão. A chave leva o
+ * id da planta que RESOLVEU (não o pedido): duas plantas do mesmo nível nunca compartilham geometria, e um id que cai na
+ * padrão reaproveita a vista dela. A vista só depende de partial e categorias ocultas (nunca de `Level.hidden`): o Hide
+ * in View chega ao desenho como `PlanInput.hidden`, calculado pelo app (`visibilityOf`).
+ */
+export function planViewOf(p0: Project, levelId: Id, planId?: Id): PlanView {
   // Paredes de outros níveis que cruzam o corte entram como paredes deste nível (ver `projetoDaPlanta`).
   const p = projetoDaPlanta(projetoDaVista(p0), levelId);
-  const g = levelGraphicsOf(p, levelId);
+  const pid = planViewFor(p, levelId, planId)?.id;
+  const g = planGraphicsOf(p, levelId, pid);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
-  const key = `${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
+  const key = `${pid ? `pv:${pid}|` : ''}${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
   let byKey = memo.get(p);
   if (!byKey) {
     byKey = new Map();

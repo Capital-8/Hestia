@@ -1,4 +1,5 @@
-import type { FaceLayerTarget, FaceSlot, Id } from '@hestia/model';
+import type { FaceLayerTarget, FaceSlot, Id, Project } from '@hestia/model';
+import { normalizaPlanViewId } from './viewIdentity.ts';
 
 /**
  * Sessão da aba: o que reabrir quando a página é recarregada (F5) e o que NÃO deve sobreviver ao fechamento.
@@ -17,7 +18,7 @@ export type VistaDaSessao = 'plan' | '3d' | 'section' | 'sheet' | 'face';
 
 /** Aba de vista aberta (mesmo formato de `OpenView`), guardada como JSON simples. */
 export type AbaDaSessao =
-  | { kind: 'plan'; levelId: Id; planKind?: string; areaPlanId?: Id }
+  | { kind: 'plan'; levelId: Id; planKind?: string; areaPlanId?: Id; planViewId?: Id }
   | { kind: '3d' }
   | { kind: 'section'; viewId: Id }
   | { kind: 'sheet'; sheetId: Id }
@@ -31,6 +32,8 @@ export interface Sessao {
   levelId: Id;
   planKind: string;
   areaPlanId: Id | null;
+  /** Planta de disciplina ativa; só é gravada quando definida (sessão antiga não tem o campo e abre a planta padrão). */
+  planViewId?: Id | null;
   sectionId: Id | null;
   faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
   /** Abas de vista abertas, na ordem. */
@@ -55,7 +58,7 @@ function abaValida(valor: unknown): AbaDaSessao | null {
       return { kind: '3d' };
     case 'plan':
       return typeof o.levelId === 'string'
-        ? { kind: 'plan', levelId: o.levelId, ...(typeof o.planKind === 'string' ? { planKind: o.planKind } : {}), ...(typeof o.areaPlanId === 'string' ? { areaPlanId: o.areaPlanId } : {}) }
+        ? { kind: 'plan', levelId: o.levelId, ...(typeof o.planKind === 'string' ? { planKind: o.planKind } : {}), ...(typeof o.areaPlanId === 'string' ? { areaPlanId: o.areaPlanId } : {}), ...(typeof o.planViewId === 'string' && o.planViewId !== '' ? { planViewId: o.planViewId } : {}) }
         : null;
     case 'section':
       return typeof o.viewId === 'string' ? { kind: 'section', viewId: o.viewId } : null;
@@ -96,10 +99,35 @@ export function sessaoValida(valor: unknown): Sessao | null {
     levelId: o.levelId,
     planKind: o.planKind,
     areaPlanId: typeof o.areaPlanId === 'string' ? o.areaPlanId : null,
+    ...(typeof o.planViewId === 'string' && o.planViewId !== '' ? { planViewId: o.planViewId } : {}),
     sectionId: typeof o.sectionId === 'string' ? o.sectionId : null,
     ...(fv ? { faceView: fv } : {}),
     openViews: abas,
   };
+}
+
+/**
+ * Sessão pronta para o projeto aberto: planta de disciplina que não existe mais (ou que é de outro nível) vira planta
+ * padrão, na vista ativa e nas abas; abas que ficam iguais depois disso não se repetem. Função pura.
+ */
+export function sessaoNoProjeto(s: Sessao, p: Pick<Project, 'planViews'>): Sessao {
+  const { planViewId: ativa, openViews, ...resto } = s;
+  const pv = normalizaPlanViewId(p, s.levelId, s.planKind, ativa);
+  const vistos = new Set<string>();
+  const abas: AbaDaSessao[] = [];
+  for (const aba of openViews) {
+    let a = aba;
+    if (a.kind === 'plan' && a.planViewId !== undefined) {
+      const { planViewId, ...sem } = a;
+      const valido = normalizaPlanViewId(p, a.levelId, a.planKind, planViewId);
+      a = valido ? { ...sem, planViewId: valido } : sem;
+    }
+    const chave = JSON.stringify(a);
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    abas.push(a);
+  }
+  return { ...resto, ...(pv ? { planViewId: pv } : {}), openViews: abas };
 }
 
 /** Grava a sessão (falha silenciosa: sem armazenamento, o F5 cai na tela de projetos). */

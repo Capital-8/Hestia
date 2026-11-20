@@ -11,6 +11,19 @@ beforeEach(() => {
   usePanes.setState({ layout: initialLayout(useUi.getState()) });
 });
 
+describe('planta de disciplina nos painéis', () => {
+  it('fieldsOfView: planViewId só aparece quando definido, e só na planta de piso', () => {
+    expect(fieldsOfView({ kind: 'plan', levelId: 'lv_2', planViewId: 'pv_a' }, 'lv_9')).toEqual({ ...base, levelId: 'lv_2', planViewId: 'pv_a' });
+    expect('planViewId' in fieldsOfView({ kind: 'plan', levelId: 'lv_2' }, 'lv_9')).toBe(false);
+    expect('planViewId' in fieldsOfView({ kind: 'plan', levelId: 'lv_2', planKind: 'roof', planViewId: 'pv_a' }, 'lv_9')).toBe(false);
+  });
+  it('pickViewFields leva a planta ativa do app; sem ela, o objeto é o de sempre', () => {
+    expect(pickViewFields({ ...base, planViewId: 'pv_a' }).planViewId).toBe('pv_a');
+    expect(pickViewFields({ ...base, planViewId: null })).toEqual(base);
+    expect('planViewId' in pickViewFields({ ...base, planViewId: null })).toBe(false);
+  });
+});
+
 describe('fieldsOfView', () => {
   it('planta de piso', () => {
     expect(fieldsOfView({ kind: 'plan', levelId: 'lv_2' }, 'lv_9')).toEqual({ view: 'plan', levelId: 'lv_2', sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null });

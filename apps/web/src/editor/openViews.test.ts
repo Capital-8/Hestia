@@ -25,6 +25,39 @@ describe('chave e comparação de vistas', () => {
   });
 });
 
+describe('planta de disciplina (planViewId)', () => {
+  const PV_A: OpenView = { kind: 'plan', levelId: 'lv_0', planViewId: 'pv_a' };
+  const PV_B: OpenView = { kind: 'plan', levelId: 'lv_0', planViewId: 'pv_b' };
+
+  it('chave pv:id; duas plantas do mesmo nível são vistas diferentes, e diferentes da padrão', () => {
+    expect(viewKey(PV_A)).toBe('pv:pv_a');
+    expect(sameView(PV_A, PV_B)).toBe(false);
+    expect(sameView(PV_A, T0)).toBe(false);
+    expect(addView([T0, PV_A], PV_B)).toEqual([T0, PV_A, PV_B]);
+  });
+
+  it('activeViewOf leva planViewId só na planta de piso; nulo ou ausente é a padrão', () => {
+    const campos = { view: 'plan' as const, levelId: 'lv_0', sectionId: null, sheetId: null };
+    expect(activeViewOf({ ...campos, planKind: 'floor', planViewId: 'pv_a' })).toEqual(PV_A);
+    expect(activeViewOf({ ...campos, planKind: 'floor', planViewId: null })).toEqual(T0);
+    expect(activeViewOf({ ...campos, planKind: 'floor' })).toEqual(T0);
+    expect(activeViewOf({ ...campos, planKind: 'roof', planViewId: 'pv_a' })).toEqual({ kind: 'plan', levelId: 'lv_0', planKind: 'roof' });
+  });
+
+  it('fechar a aba da planta de disciplina não libera o nível (compartilha a resolução com a padrão)', () => {
+    expect(levelToRelease(PV_A)).toBeNull();
+    expect(levelToRelease(T0)).toBe('lv_0');
+  });
+
+  it('a sincronização de useUi abre a aba da planta ao ativá-la, sem duplicar a da padrão', () => {
+    useUi.setState({ view: 'plan', levelId: 'lv_0', planKind: 'floor', areaPlanId: null, planViewId: null, openViews: [T0] });
+    useUi.setState({ planViewId: 'pv_a' });
+    expect(useUi.getState().openViews).toEqual([T0, PV_A]);
+    useUi.setState({ planViewId: null });
+    expect(useUi.getState().openViews).toEqual([T0, PV_A]);
+  });
+});
+
 describe('abrir (addView)', () => {
   it('acrescenta ao fim quando a vista ainda não está aberta', () => {
     expect(addView([T0], T1)).toEqual([T0, T1]);

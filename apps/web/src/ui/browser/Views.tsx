@@ -11,6 +11,7 @@ import { activateView } from '../../editor/viewTabActions.ts';
 import { atualizarPonto3DAction, excluirPonto3DAction, irParaPonto3DAction, renomearPonto3DAction, salvarPonto3DAction } from '../../editor/view3dPointActions.ts';
 import { Node, type DragData, type MenuItem } from './Tree.tsx';
 import { useUnits } from '../useUnits.ts';
+import { planKey, viewKey } from '../../editor/viewIdentity.ts';
 
 /** Seções "Vistas (todas)", "Tabelas/Quantidades (todas)" e "Pranchas (todas)" do navegador, no padrão Revit. */
 
@@ -169,7 +170,7 @@ export function ViewsTree(): ReactElement {
         {p.levels.map((l) => (
           <Node
             key={l.id}
-            id={`plan:${l.id}`}
+            id={planKey(l.id)}
             label={l.name}
             icon="plan"
             bold={view === 'plan' && planKind === 'floor' && levelId === l.id}
@@ -184,8 +185,8 @@ export function ViewsTree(): ReactElement {
       <Node id="g:roofs" label={t('cvn_br_roof_plans_node')} group open menu={[{ label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }) }]}>
         {p.levels.map((l) => (
           <Node
-            key={`roof:${l.id}`}
-            id={`roof:${l.id}`}
+            key={viewKey({ kind: 'plan', levelId: l.id, planKind: 'roof' })}
+            id={viewKey({ kind: 'plan', levelId: l.id, planKind: 'roof' })}
             label={l.name}
             icon="roof"
             bold={view === 'plan' && planKind === 'roof' && levelId === l.id}
@@ -221,7 +222,7 @@ export function ViewsTree(): ReactElement {
         {areaPlans.map((ap) => (
           <Node
             key={ap.id}
-            id={`area:${ap.id}`}
+            id={viewKey({ kind: 'plan', levelId: ap.levelId, planKind: 'area', areaPlanId: ap.id })}
             label={ap.name}
             icon="plan"
             bold={view === 'plan' && planKind === 'area' && areaPlanId === ap.id}
@@ -325,7 +326,7 @@ export function SheetsTree(): ReactElement {
         ? sheets.map((sh, i) => (
             <Node
               key={sh.id}
-              id={`sheet:${sh.id}`}
+              id={viewKey({ kind: 'sheet', sheetId: sh.id })}
               label={`${sh.number} - ${sh.name}`}
               icon="sheet"
               bold={view === 'sheet' && sheetId === sh.id}

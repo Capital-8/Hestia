@@ -1,5 +1,6 @@
 import { projectView3DPoints, sectionTitleOf, type Project, type SheetViewSource } from '@hestia/model';
 import { t, type Lang } from './i18n.ts';
+import { planKey, viewKey } from './viewIdentity.ts';
 
 /**
  * Lista de vistas da janela "Inserir vistas": o que o projeto oferece, agrupado por tipo (plantas dos níveis, cortes,
@@ -28,11 +29,11 @@ export type LinhaVistas = { kind: 'grupo'; titulo: string } | { kind: 'vista'; f
 
 /** Grupos na ordem: plantas, cortes, elevações e 3D. Grupo vazio some (o 3D sempre tem o enquadramento padrão). */
 export function gruposDeVistas(p: Project, lang: Lang): GrupoVistas[] {
-  const plantas: FonteVista[] = p.levels.map((l) => ({ key: `plan:${l.id}`, label: l.name, view: { kind: 'plan', levelId: l.id } }));
+  const plantas: FonteVista[] = p.levels.map((l) => ({ key: planKey(l.id), label: l.name, view: { kind: 'plan', levelId: l.id } }));
   const porTipo = (kind: 'section' | 'elevation'): FonteVista[] =>
     p.views
       .filter((v) => (kind === 'elevation' ? v.kind === 'elevation' : v.kind !== 'elevation'))
-      .map((v) => ({ key: `section:${v.id}`, label: sectionTitleOf(v), view: { kind: 'section', sectionId: v.id } }));
+      .map((v) => ({ key: viewKey({ kind: 'section', viewId: v.id }), label: sectionTitleOf(v), view: { kind: 'section', sectionId: v.id } }));
   const modelos: FonteVista[] = [
     ...projectView3DPoints(p).map((ponto) => ({ key: `3d:${ponto.id}`, label: ponto.name, view: { kind: '3d' as const, pointId: ponto.id } })),
     { key: '3d', label: t(lang, 'dlc_src_3d_default'), view: { kind: '3d' } },

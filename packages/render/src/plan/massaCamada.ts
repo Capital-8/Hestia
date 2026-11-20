@@ -2,6 +2,7 @@ import { levelElevation, viewRangeOf } from '@hestia/model';
 import type { PlanInput } from './build.ts';
 import { massaOps, ocultosDaMassa } from './massa.ts';
 import { paintOps, planStyleOf } from './style.ts';
+import { planIdOf } from './planContext.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type PlanOps, type PlanProfile } from './types.ts';
 
 /**
@@ -14,7 +15,7 @@ export function buildPlanMassa(input: PlanInput): PlanOps {
   const profile: PlanProfile = input.profile ?? (input.areaPlan ? areaPlanProfile(input.areaPlan) : FLOOR_PLAN_PROFILE);
   if (!profile.stairs || input.roofPlanMode === true) return vazio;
   if (!p.levels.some((l) => l.id === input.levelId)) return vazio;
-  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale);
+  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale, planIdOf(input));
   const fillBase = input.dark ? theme.bg : '#ffffff';
   const cutZ = levelElevation(p, input.levelId) + viewRangeOf(p, input.levelId).cut;
   const ocultos = ocultosDaMassa(p, input.hidden, input.revealed, style.paint.mass.visible);

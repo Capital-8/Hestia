@@ -1,4 +1,4 @@
-import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote, detailLinePoints } from '@hestia/model';
+import { angularDimensionGeometry, dimensionFormatStyle, dimensionPoints, dimensionStyleFor, dimensionValue, DIM_TEXT_MM, formatDimension, isElementRef, levelDimensions, levelRoomSeparators, levelTexts, planAnnotationsOf, planOwnsAnnotations, planViewFor, resolveViewProfile, textFamilyFor, unitsOf, type AreaPlan, type AreaPlanAnnotations, type Dimension, type DimensionStyle, type Id, type Project, type TextNote, detailLinePoints } from '@hestia/model';
 import { resolveAngularDimension } from '@hestia/engine';
 import type { Vec2 } from '@hestia/geom';
 import type { Viewport } from '../viewport.ts';
@@ -130,9 +130,13 @@ export function blocoEm(at: Vec2, w: number, h: number, rotation: number, folga 
 
 /**
  * Anotações que a vista desenha: as próprias da planta de área (`plan.annotations`) ou, sem elas, as do nível. O perfil
- * da vista filtra o que aparece (a mesma regra de `build.ts`), para o destaque não cercar anotação oculta.
+ * da vista filtra o que aparece (a mesma regra de `build.ts`), para o destaque não cercar anotação oculta. `planId` de
+ * planta de disciplina (decisão 0060 §5): ela é DONA das suas anotações (ausente = vazio), nunca herda as do nível, e
+ * não tem perfil de camadas (é de piso: o que a categoria `annotation` esconde já sai em `noteOps`).
  */
-export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan): AreaPlanAnnotations {
+export function drawnAnnotations(p: Project, levelId: Id, plan?: AreaPlan, planId?: Id): AreaPlanAnnotations {
+  const pv = plan ? undefined : planViewFor(p, levelId, planId);
+  if (pv) return planAnnotationsOf(pv);
   const all: AreaPlanAnnotations = plan && planOwnsAnnotations(plan) ? planAnnotationsOf(plan) : annotationsOfLevel(p, levelId);
   if (!plan) return all;
   const prof = resolveViewProfile(plan).layers;

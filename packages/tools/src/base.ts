@@ -163,10 +163,11 @@ export abstract class ToolBase implements Tool {
 export const makeId = newId;
 
 /**
- * Planta de área aberta na vista, quando há uma. As ferramentas de anotação passam este id no comando para
- * gravar a anotação na planta (vista) e não no nível; `undefined` mantém a anotação na planta de piso.
+ * Planta dona das anotações da vista: planta de disciplina (`planViewId`) ou planta de área (`areaPlanId`), quando há
+ * uma aberta. As ferramentas de anotação passam este id no comando para gravar a anotação na planta (vista) e não no
+ * nível; `undefined` mantém a anotação na planta de piso padrão (decisão 0060 §3.3). É o único lugar que combina os dois.
  */
-export const viewPlanId = (env: ToolEnv): Id | undefined => env.areaPlanId?.() ?? undefined;
+export const viewPlanId = (env: ToolEnv): Id | undefined => env.planViewId?.() ?? env.areaPlanId?.() ?? undefined;
 
 /**
  * Acrescenta uma anotação na vista de corte/elevação ativa, pelo MESMO comando por item da planta (`sectionId`), com

@@ -1,9 +1,10 @@
-import type { GraphicsCategory, Id, Project, ViewGraphics, ViewHiddenTarget, ViewHidden } from '@hestia/model';
+import { planHiddenOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId'>>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -16,22 +17,20 @@ export interface TempViewVisibility {
 }
 
 /** Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). */
-export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): string | null {
-  if (st.view === 'sheet' || st.view === 'face') return null;
-  if (st.view === '3d') return '3d';
-  if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
-  if (st.planKind === 'area') return st.areaPlanId ? `area:${st.areaPlanId}` : null;
-  if (st.planKind === 'roof') return `roof:${st.levelId}`;
-  return `plan:${st.levelId}`;
+export function visibilityKeyOf(st: ViewState): string | null {
+  return visibilityKeyOfFields(st);
 }
 
 /** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
-export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): ViewHiddenTarget | null {
+export function viewHiddenTargetOf(st: ViewState): ViewHiddenTarget | null {
   if (st.view === 'sheet' || st.view === 'face') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;
   if (st.planKind === 'roof') return { kind: 'roof', levelId: st.levelId };
+  // Planta de disciplina: a ocultação permanente grava na própria cópia (`PlanView.hidden`), nunca no nível.
+  const planId = planViewIdDe(st);
+  if (planId) return { kind: 'planView', planId };
   return { kind: 'plan', levelId: st.levelId };
 }
 
@@ -39,9 +38,10 @@ export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, '
 export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): ViewHidden {
   if (!target) return {};
   switch (target.kind) {
-    case 'plan': return p.levels.find((l) => l.id === target.levelId)?.hidden ?? {};
+    case 'plan': return planHiddenOf(p, target.levelId);
     case 'roof': return p.levels.find((l) => l.id === target.levelId)?.roofHidden ?? {};
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden ?? {};
+    case 'planView': return p.planViews?.find((x) => x.id === target.planId)?.hidden ?? {};
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
@@ -168,7 +168,9 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const key = visibilityKeyOf(st);
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
-  const permanent = permanentHiddenOf(p, target);
+  // Planta de disciplina: a ocultação permanente é a da própria planta (`planHiddenOf`); a padrão e as outras, a do alvo.
+  const planta = planViewIdDe(st);
+  const permanent = planta ? planHiddenOf(p, st.levelId, planta) : permanentHiddenOf(p, target);
   const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories, st)]);
   const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories, st)]);
   const isolate = temp.isolated;

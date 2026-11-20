@@ -35,7 +35,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { areaPlanOf, openingTypeById, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, levelGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { areaPlanOf, openingTypeById, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, planGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
@@ -74,9 +74,9 @@ function dxfStateOf(cls: ViewClass | undefined): DxfViewState | null {
  * item 7). Corte e projeção usam o peso próprio; a substituição da vista (`overrides[cat].cutWeight` e `projectionWeight`)
  * vale sobre o do projeto. A escala da vista entra pela tabela `lineWeightMm`. Marcas de escada saem com 0.
  */
-export function lineWeightsOf(p: Project, levelId: Id, geo: DxfLevelGeometry): Record<string, number> {
+export function lineWeightsOf(p: Project, levelId: Id, geo: DxfLevelGeometry, planId?: Id): Record<string, number> {
   const pg = graphicsOf(p);
-  const vg = levelGraphicsOf(p, levelId);
+  const vg = planGraphicsOf(p, levelId, planId);
   const out: Record<string, number> = {};
   for (const layer of dxfLayersOf(p, geo)) {
     const role = dxfLineRoleOf(layer);
@@ -135,10 +135,10 @@ function curtainDxfOf(p: Project, levelId: Id, cutZ: number, hidden: ReadonlySet
  * sai. Cada camada leva a largura de linha da categoria na escala da vista (`lineWeightsOf`). O io não importa o engine,
  * então a montagem fica aqui, no web.
  */
-export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit): DxfLevelGeometry {
+export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, planId?: Id): DxfLevelGeometry {
   const view: PlanView = planViewOf(p, levelId);
   const { hidden } = view;
-  const vg = levelGraphicsOf(p, levelId);
+  const vg = planGraphicsOf(p, levelId, planId);
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
   const openings: DxfOpening[] = levelFrames(projetoDaPlanta(p, levelId), levelId).flatMap((f) =>
     openingsOfWall(p, f.wall.id).flatMap((o) => {
@@ -238,7 +238,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
     ...(notes === undefined ? {} : { notes }),
     ...(shown('annotation') ? { sectionMarks: sectionMarksDxfOf(p, vg.scale) } : {}),
   };
-  const lineWeights = lineWeightsOf(p, levelId, withNotes);
+  const lineWeights = lineWeightsOf(p, levelId, withNotes, planId);
   const layerStyles = Object.fromEntries(
     dxfLayersOf(p, withNotes).map((layer): [string, DxfLayerStyle] => [
       layer,
@@ -253,9 +253,9 @@ const COMPONENTE_LAYER_STYLE: DxfLayerStyle = { color: 3, lineWeight: DXF_LINE_W
 
 export { areaPlanDxf } from './dxfAreaPlan.ts';
 
-export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang()): string {
-  const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units), lang);
-  const shown = levelGraphicsOf(p, levelId).overrides.generic.visible !== false;
+export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang(), planId?: Id): string {
+  const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units, planId), lang);
+  const shown = planGraphicsOf(p, levelId, planId).overrides.generic.visible !== false;
   const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang)) : [];
   const componentes = shown ? dxfComponentEntities(p, levelId) : [];
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
@@ -272,7 +272,7 @@ export function planDxf(p: Project, levelId: Id, showRoofProjection = true, unit
 
 /** Alvo da tabela de camadas do diálogo de exportação (o que a vista atual exporta). */
 export type DxfExportTarget =
-  | { kind: 'plan'; levelId: Id; showRoofProjection?: boolean }
+  | { kind: 'plan'; levelId: Id; showRoofProjection?: boolean; planId?: Id }
   | { kind: 'section'; sectionId: Id }
   | { kind: 'area'; planId: Id };
 
@@ -288,13 +288,13 @@ export interface DxfLayerRow {
  */
 export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang = activeLang()): DxfLayerRow[] {
   if (target.kind === 'plan') {
-    const geo = dxfGeometryOf(p, target.levelId, target.showRoofProjection ?? true);
+    const geo = dxfGeometryOf(p, target.levelId, target.showRoofProjection ?? true, undefined, target.planId);
     const rows = dxfLayersOf(p, geo, lang).map((name) => {
       const canonical = dxfLayerCanonical(name);
       return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const visible = levelGraphicsOf(p, target.levelId).overrides.generic.visible !== false;
+    const visible = planGraphicsOf(p, target.levelId, target.planId).overrides.generic.visible !== false;
     const hasInLevel = (kind: 'generic' | 'component'): boolean =>
       Object.values(p.elements).some((e) => e.kind === kind && e.levelId === target.levelId);
     const generic = visible && hasInLevel('generic');

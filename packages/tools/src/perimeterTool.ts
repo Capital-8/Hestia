@@ -2,7 +2,7 @@
 import { weldMicroSegs } from './perimeterModifyDraft.ts';
 import type { PerimeterModifyKind } from './perimeterModifyKind.ts';
 import { angleOf, dist, sub, type SketchDraft, type SketchResult, type SketchTarget, type Vec2 } from '@hestia/geom';
-import { ToolBase } from './base.ts';
+import { ToolBase, viewPlanId } from './base.ts';
 import { lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
 import { unitsOf } from '@hestia/model';
 import { parseNumber, parseQuantityText } from './numeric.ts';
@@ -455,7 +455,7 @@ export class PerimeterTool extends ToolBase {
       value = angleOf(sub(p.raw, anchor));
     }
     this.items.push(...stepPreview(st, value, anchor, cursor, this.flags));
-    if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
+    if (this.line === 'boundary' && st.shape.id === 'line' && anchor && this.inf) this.items.push(...draftAngleItemsForDraft(this.env.project(), this.env.levelId(), viewPlanId(this.env), this.d.segs, anchor, this.inf.point, this.env.metersPerPixel(), unitsOf(this.env.project())));
     this.env.say(this.t('tl_msg_shape_prompt', { shape: shapeName(st.shape, this.uiLang()), prompt: promptOf(st, this.uiLang()) }));
   }
 

@@ -300,6 +300,10 @@ const migrations: Record<number, Migration> = {
   // (`facePaints` em paredes, pisos e lajes, mais os materiais extras do catálogo). Nenhum dado é
   // reescrito; a migração só avança a versão, e assim um programa antigo recusa um arquivo com esses campos.
   29: (raw) => ({ ...raw }),
+  // v30 → v31: `Project.planViews` (plantas de piso adicionais por disciplina, decisão 0060) e `planId` opcional na fonte de
+  // vista 'plan' da prancha. Aditivo e opcional: a migração só adiciona o que falta, e nada falta (ausente = nenhuma planta
+  // adicional). O bump existe porque um programa antigo ignoraria a coleção e a apagaria ao salvar: com ele, recusa o arquivo.
+  30: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

@@ -208,6 +208,19 @@ describe('sanitizeLayoutViews', () => {
     expect(findPane(r, 'p3')?.view).toEqual({ kind: 'sheet', sheetId: 'sh_1' });
   });
 
+  it('painel com planta de disciplina inexistente abre a planta PADRÃO do nível (não a vista de reserva); existente fica intacta', () => {
+    const comPv = { ...projeto, planViews: [{ id: 'pv_ok', levelId: 'lv_1', discipline: 'arquitetura', name: 'Estrutura' }] } as unknown as Project;
+    const l: PaneLayout = {
+      root: dividido('row', folha('p1', { kind: 'plan', levelId: 'lv_1', planViewId: 'pv_sumiu' }), folha('p2', { kind: 'plan', levelId: 'lv_1', planViewId: 'pv_ok' })),
+      activeId: 'p1',
+      maximizedId: null,
+    };
+    const r = sanitizeLayoutViews(l, comPv, { kind: '3d' });
+    expect(findPane(r, 'p1')?.view).toEqual({ kind: 'plan', levelId: 'lv_1' });
+    expect(findPane(r, 'p2')?.view).toEqual({ kind: 'plan', levelId: 'lv_1', planViewId: 'pv_ok' });
+    expect(sanitizeLayoutViews(r, comPv, { kind: '3d' })).toBe(r);
+  });
+
   it('sem vista quebrada devolve o mesmo layout (referência preservada)', () => {
     const ok: PaneLayout = { root: folha('p1', PLAN_LV1), activeId: 'p1', maximizedId: null };
     expect(sanitizeLayoutViews(ok, projeto, PLAN_LV1)).toBe(ok);
