@@ -32,7 +32,8 @@ import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallF
 import type { EndSpec, WallEnds } from './joins.ts';
 import { despachanteDeNivel } from './resolveDespacho.ts';
 import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
-import { resolverComParceiras } from './resolveParceiras.ts';
+import { projetoBase } from './projetoBase.ts';
+import { nivelUsaMotorTs, resolverComParceiras } from './resolveParceiras.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -403,7 +404,17 @@ export { frameOfWall, levelFrames } from './resolveFrames.ts';
 /** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
 export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
   // Paredes de outros níveis que se sobrepõem em altura entram só para a junção (`resolveParceiras.ts`); a saída é só do nível dono.
-  return resolverComParceiras(p, levelId, opts.cutZ, (q) => despachanteDeNivel()?.(q, levelId, opts, () => resolveLevelTs(q, levelId, cache, opts)) ?? resolveLevelTs(q, levelId, cache, opts));
+  // Parceira com anexo promovida (cota congelada, sem perfil de base/topo): o Rust diverge nas faixas de altura, então o nível sai do TypeScript. Demais casos: despacho de sempre.
+  return resolverComParceiras(p, levelId, opts.cutZ, (q) => (q !== p && nivelUsaMotorTs(p, levelId) ? resolveLevelTs(q, levelId, cache, opts) : resolveLevelSemParceiras(q, levelId, cache, opts)));
+}
+
+/**
+ * `resolveLevel` sem promover parceiras de outros níveis (o despacho do Rust ou o TypeScript, do projeto como está). É o que os cortadores
+ * de parede da junção (`wallBandPieces`) e a cena da B3 usam: o Rust os monta do projeto original, e os dois lados têm de ver o mesmo.
+ */
+export function resolveLevelSemParceiras(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
+  const d = despachanteDeNivel();
+  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
 }
 
 /** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
@@ -421,7 +432,7 @@ export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sh
   // do elemento (`flatAttach`), porque as camadas dependem das paredes (sem ciclo, decisão 0025).
   const { floors, slabs } = attachTargets(p, walls, opts.flatAttach === true);
   // Telhados de todos os níveis só entram se alguma parede deste nível se anexa ao topo do telhado (senão não são lidos).
-  const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(p) : [];
+  const roofs = walls.some((w) => w.attachTopToRoof === true) ? resolveAllRoofs(projetoBase(p)) : [];
   for (const group of clusterWalls(frames, estrutura.ends)) {
     const freeOf = (f: WallFrame): Array<'a' | 'b'> =>
       (['a', 'b'] as const).filter((w) => {

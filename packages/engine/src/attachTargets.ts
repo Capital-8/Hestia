@@ -1,5 +1,6 @@
 import { terminoEhRegraParede, type Project, type Wall } from '@hestia/model';
 import { resolveAllFloors, type ResolvedFloor } from './floors.ts';
+import { projetoBase } from './projetoBase.ts';
 import { resolveAllSlabs, type ResolvedSlab } from './slabs.ts';
 
 const attachMemo = new WeakMap<Project, { floors: ResolvedFloor[]; slabs: ResolvedSlab[] }>();
@@ -13,11 +14,12 @@ const hasWallTermino = (p: Project): boolean =>
 export function attachTargets(p: Project, walls: readonly Wall[], flat: boolean): { floors: ResolvedFloor[]; slabs: ResolvedSlab[] } {
   if (!walls.some((w) => w.attachBottomToFloor === true || w.attachTopToFloor === true)) return { floors: [], slabs: [] };
   const memo = flat || !hasWallTermino(p) ? flatMemo : attachMemo;
-  let hit = memo.get(p);
+  const base = projetoBase(p);
+  let hit = memo.get(base);
   if (!hit) {
     const opts = memo === flatMemo ? { layers: false } : {};
-    hit = { floors: resolveAllFloors(p, opts), slabs: resolveAllSlabs(p, opts) };
-    memo.set(p, hit);
+    hit = { floors: resolveAllFloors(base, opts), slabs: resolveAllSlabs(base, opts) };
+    memo.set(base, hit);
   }
   return hit;
 }

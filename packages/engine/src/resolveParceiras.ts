@@ -1,3 +1,5 @@
+import { DEFAULT_JOIN_TOL } from './joins.ts';
+import { registrarProjetoBase } from './projetoBase.ts';
 import { zRealDe } from './wallFrameZ.ts';
 import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wallType, wallsCrossingCut, wallsOnLevel, type Id, type Project, type Wall } from '@hestia/model';
 
@@ -10,6 +12,7 @@ import { levelElevation, wallBaseElevation, wallMaxHeight, wallThicknessOf, wall
  * Parceira com anexo (`attachBottomToFloor`, `attachTopToFloor`, `attachTopToRoof`): a faixa REAL vem de `wallZRange`
  * (`zRealDe`); entra promovida SEM anexos (base e altura já resolvidas), porque o anexo depende do nível dono. Em resolução
  * reentrante (pisos, lajes, telhados) a parceira com anexo fica de fora: sem ciclo.
+ * Sobreposição vertical real menor ou igual à tolerância de junção do projeto (2 cm) conta como encosto e NÃO une.
  * A seleção é um superset barato; quem decide a junção de fato é `computeEnds`, com a cota real (`withWallZ`).
  */
 const EPS = 1e-9;
@@ -34,17 +37,26 @@ function caixaDe(p: Project, w: Wall, z: [number, number]): Caixa {
   return { x0: Math.min(w.a.x, w.b.x) - m, y0: Math.min(w.a.y, w.b.y) - m, x1: Math.max(w.a.x, w.b.x) + m, y1: Math.max(w.a.y, w.b.y) + m, z0: z[0], z1: z[1] };
 }
 
+/** Faixa nominal, sem folga de anexo (modo leve). */
+const nominalZ = (p: Project, w: Wall): [number, number] => {
+  const b = wallBaseElevation(p, w);
+  const t = b + wallMaxHeight(p, w);
+  return [Math.min(b, t), Math.max(b, t)];
+};
+
 const comAnexo = (w: Wall): boolean => w.attachBottomToFloor === true || w.attachTopToFloor === true || w.attachTopToRoof === true;
 
 /** Parceira com anexo: a base e a altura reais (resolvidas) que a promoção usa no lugar dos anexos. */
 const zResolvido = new WeakMap<Wall, { z0: number; height: number }>();
 
 const memoParceiras = new WeakMap<Project, Map<Id, Wall[]>>();
+const memoLeve = new WeakMap<Project, Map<Id, Wall[]>>();
 
 /** Paredes de outros níveis que são parceiras de junção do nível (ordem de criação). Memorizada por projeto e nível. */
-export function paredesParceiras(p: Project, levelId: Id): Wall[] {
-  let porNivel = memoParceiras.get(p);
-  if (!porNivel) memoParceiras.set(p, (porNivel = new Map()));
+export function paredesParceiras(p: Project, levelId: Id, leve = false): Wall[] {
+  const memoDe = leve ? memoLeve : memoParceiras;
+  let porNivel = memoDe.get(p);
+  if (!porNivel) memoDe.set(p, (porNivel = new Map()));
   const hit = porNivel.get(levelId);
   if (hit) return hit;
   const donas = wallsOnLevel(p, levelId);
@@ -57,23 +69,36 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
       todas.x0 = Math.min(todas.x0, d.x0); todas.y0 = Math.min(todas.y0, d.y0); todas.z0 = Math.min(todas.z0, d.z0);
       todas.x1 = Math.max(todas.x1, d.x1); todas.y1 = Math.max(todas.y1, d.y1); todas.z1 = Math.max(todas.z1, d.z1);
     }
-    const encosta = (c: Caixa, d: Caixa): boolean => c.x0 <= d.x1 && d.x0 <= c.x1 && c.y0 <= d.y1 && d.y0 <= c.y1 && c.z0 < d.z1 - EPS && d.z0 < c.z1 - EPS;
+    // `tz`: sobreposição vertical mínima. Peneiras usam EPS; a decisão final usa a tolerância de junção (≤ 2 cm é encosto, não une).
+    const encosta = (c: Caixa, d: Caixa, tz = EPS): boolean => c.x0 <= d.x1 && d.x0 <= c.x1 && c.y0 <= d.y1 && d.y0 <= c.y1 && c.z0 < d.z1 - tz && d.z0 < c.z1 - tz;
+    const tolZ = p.settings?.joinTolerance ?? DEFAULT_JOIN_TOL;
     const candidatas: Wall[] = [];
     for (const w of Object.values(p.elements)) {
       if (w.kind !== 'wall' || w.levelId === levelId) continue;
+      if (leve && comAnexo(w)) continue; // leve: sem resolver pisos, lajes nem telhados (só cota nominal)
       // Peneira vertical primeiro (sem consultar o tipo); nível ausente (projeto reduzido da junção) não fornece parceira.
       if (!p.levels.some((l) => l.id === w.levelId)) continue;
       const z = faixaZ(p, w);
       if (z[0] >= todas.z1 - EPS || todas.z0 >= z[1] - EPS) continue;
       if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) candidatas.push(w);
     }
-    const reais = zRealDe(p, candidatas.filter(comAnexo));
+    const reais = leve ? new Map() : zRealDe(p, candidatas.filter(comAnexo));
+    // Donas com anexo: a faixa REAL (e não a folga) decide; senão topo que só encosta na base da outra (3,0 e 3,0) viraria parceira.
+    const donasReais = leve ? null : zRealDe(p, donas.filter(comAnexo));
+    const caixasReais = donas.map((w, i) => {
+      const r = donasReais?.get(w.id);
+      return r ? caixaDe(p, w, [r.z0, r.z0 + r.height]) : leve ? caixaDe(p, w, nominalZ(p, w)) : caixas[i]!;
+    });
     for (const w of candidatas) {
-      if (!comAnexo(w)) { out.push(w); continue; }
+      if (!comAnexo(w)) {
+        // Sem anexo a faixa é a nominal; ainda assim a dona com anexo decide pela faixa REAL (topo 3,0 só encosta na base 3,0).
+        if (caixasReais.some((d) => encosta(caixaDe(p, w, faixaZ(p, w)), d, tolZ))) out.push(w);
+        continue;
+      }
       const r = reais?.get(w.id);
       if (!r) { reentrante = true; continue; }
       const z: [number, number] = [r.z0, r.z0 + r.height];
-      if (encosta(caixaDe(p, w, z), todas) && caixas.some((d) => encosta(caixaDe(p, w, z), d))) {
+      if (caixasReais.some((d) => encosta(caixaDe(p, w, z), d, tolZ))) {
         zResolvido.set(w, { z0: r.z0, height: r.height });
         out.push(w);
       }
@@ -84,15 +109,30 @@ export function paredesParceiras(p: Project, levelId: Id): Wall[] {
   return out;
 }
 
+/** Projetos promovidos em que alguma parceira tinha anexo (cota real congelada na promoção). */
+const comCongelada = new WeakSet<Project>();
+export const temParceiraCongelada = (q: Project): boolean => comCongelada.has(q);
+
+/**
+ * O nível sai do Rust e é resolvido pelo motor TypeScript? Sim quando alguma parceira promovida tinha anexo (cota real congelada, sem
+ * perfil de base e de topo): o Rust diverge nas faixas de altura. Única decisão usada por `resolveLevel` e pelos testes wasm.
+ */
+export const nivelUsaMotorTs = (p: Project, levelId: Id): boolean => temParceiraCongelada(projetoComParceiras(p, levelId));
+
+/** O nível tem parceira de outro nível que participa da junção (as quantidades de parede vêm do mesmo `resolveLevel` com parceiras). */
+export const nivelTemParceiras = (p: Project, levelId: Id): boolean => paredesParceiras(p, levelId).length > 0;
+
 const memoProjeto = new WeakMap<Project, Map<Id, Project>>();
+const memoProjetoLeve = new WeakMap<Project, Map<Id, Project>>();
 
 /** Projeto em que as parceiras do nível entram como paredes dele; sem parceira devolve o próprio projeto. */
-export function projetoComParceiras(p: Project, levelId: Id): Project {
-  let porNivel = memoProjeto.get(p);
-  if (!porNivel) memoProjeto.set(p, (porNivel = new Map()));
+export function projetoComParceiras(p: Project, levelId: Id, leve = false): Project {
+  const memoDe = leve ? memoProjetoLeve : memoProjeto;
+  let porNivel = memoDe.get(p);
+  if (!porNivel) memoDe.set(p, (porNivel = new Map()));
   const hit = porNivel.get(levelId);
   if (hit) return hit;
-  const parceiras = paredesParceiras(p, levelId);
+  const parceiras = paredesParceiras(p, levelId, leve);
   let out = p;
   if (parceiras.length > 0) {
     const elements = { ...p.elements };
@@ -104,6 +144,8 @@ export function projetoComParceiras(p: Project, levelId: Id): Project {
         : { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
     }
     out = { ...p, elements };
+    if (parceiras.some((w) => zResolvido.has(w))) comCongelada.add(out);
+    registrarProjetoBase(out, p);
   }
   porNivel.set(levelId, out);
   return out;
@@ -151,6 +193,7 @@ export function projetoDeAmbientes(p: Project, levelId: Id): Project {
     const elev = levelElevation(p, levelId);
     for (const w of cruzam) elements[w.id] = { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
     out = { ...p, elements };
+    registrarProjetoBase(out, p); // pisos e lajes (cota real das paredes) saem do projeto original: sem consulta nova ao Rust por nível
   }
   porNivel.set(levelId, out);
   return out;

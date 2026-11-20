@@ -8,3 +8,9 @@
 - Cuidado: regiões de cluster sem `cutZ` podem incluir a área da parceira (só a planta as usa, e ela passa `cutZ`).
 - Ver em tela (3D, cortes, quantitativos): W2 (Pavimento 2) encontra W1 (Térreo) no canto 7,10 / 3,96 com a mesma esquadria do mesmo nível (W1 avança até 7,2092 e W2 para na face de W1); topo de W1 em 3,0 não une; mover W1 refaz o Pavimento 2.
 - Testes: packages/engine/src/resolveParceiras.test.ts.
+
+## Integração com o kernel Rust (rodada j-termino)
+- Causa raiz: o projeto promovido (`projetoComParceiras`/`projetoDeAmbientes`) era um objeto novo por nível; pisos/lajes eram resolvidos nele e geravam consultas extras ao Rust (7 em vez de 3), e cortadores/término viam o nível promovido enquanto a cena do Rust usa o original. Correção: `projetoBase.ts` (promovido -> original), `resolveLevelSemParceiras` em `wallBandPieces` e `terminoBlock.ts`, parceiras "leves" (cota nominal) em `faces`/`wallTopFaces`.
+- Parceira com anexo promovida congela a cota real e perde o perfil de base/topo; o Rust diverge nas faixas. `nivelUsaMotorTs(p, nível)` (true se alguma parceira promovida tinha anexo) tira o nível do Rust: `resolveLevel` o resolve em TS. Quantidades de parede (`quantificar`, `kernelDespachoB.ts`) de níveis com `nivelTemParceiras` saem do TS.
+- Sobreposição vertical menor ou igual à tolerância de junção (2 cm) é encosto: não une.
+- Testes wasm alterados (só referência/contagem, sem tolerância): kernel-a4 `divergenciasDe` (referência por `resolverComParceiras`, cena `montarCenaA1(q)`) e 3 asserções de entregas/comparações descontam `nivelUsaMotorTs`; kernel-a3-frio e kernel-b6-quantidades: referência TS por `resolverComParceiras`.

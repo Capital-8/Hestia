@@ -95,7 +95,7 @@ function topEdge(f: WallFrame, ends: WallEnds, base: PlanMap, join: WallTiltJoin
  */
 export function wallTopFaces(p: Project, levelId: Id): WallTopFaces[] {
   // Parceiras de outros níveis entram só para as pontas (junção entre níveis); a saída é só das paredes do nível.
-  const frames = levelFrames(projetoComParceiras(p, levelId), levelId);
+  const frames = levelFrames(projetoComParceiras(p, levelId, true), levelId);
   const donas = new Set(wallsOnLevel(p, levelId).map((w) => w.id));
   if (!frames.length) return [];
   const ends = computeEnds(frames, p.settings?.joinTolerance);

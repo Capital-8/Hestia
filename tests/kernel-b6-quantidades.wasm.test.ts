@@ -19,7 +19,11 @@ import { resolveSlabs } from '../packages/engine/src/slabs.ts';
 import { syntheticProject } from '../packages/engine/src/fixtureSintetica.ts';
 import { ErroDespachoKernel, instalarDespachoKernel, removerDespachoKernel, type ConfigDespacho, type DespachoKernel } from '../packages/engine/src/kernelDespacho.ts';
 import { quantifyLevel, quantifyLevelTs } from '../packages/engine/src/quantities.ts';
-import { resolveLevelTs } from '../packages/engine/src/resolve.ts';
+import { resolveLevelTs as resolveLevelTsPuro } from '../packages/engine/src/resolve.ts';
+import { resolverComParceiras } from '../packages/engine/src/resolveParceiras.ts';
+
+/** Referência TS pelo mesmo pipeline do despacho: parceiras de outros níveis entram só nas pontas (resolveParceiras.ts). */
+const resolveLevelTs = (p: Project, levelId: Id) => resolverComParceiras(p, levelId, undefined, (q) => resolveLevelTsPuro(q, levelId));
 import { quantifySlabs, quantifySlabsTs } from '../packages/engine/src/slabQuantities.ts';
 import { caminhoDoWasm } from '../packages/geom/src/kernel/caminhoWasm.ts';
 import { GerenciadorKernelV2 } from '../packages/geom/src/kernel/v2/gerenciador.ts';

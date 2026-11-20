@@ -1,6 +1,6 @@
 import { boxOf, boxesOverlap, difference, intersection, multiPoints, union, type Box, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { isWall, openingsOfWall, type Id, type Project } from '@hestia/model';
-import { frameOfWall, openingGeometry, resolveLevel } from './resolve.ts';
+import { frameOfWall, openingGeometry, resolveLevelSemParceiras } from './resolve.ts';
 import type { ResolvedWall } from './types.ts';
 
 /**
@@ -176,7 +176,7 @@ export function wallsOfLevel(p: Project, levelId: Id): ResolvedWall[] {
   let paredes = porNivel.get(levelId);
   if (!paredes) {
     // Anexo plano: as paredes que esvaziam as camadas não dependem das camadas (sem ciclo, decisão 0025).
-    paredes = Object.values(resolveLevel(p, levelId, undefined, { flatAttach: true }).walls);
+    paredes = Object.values(resolveLevelSemParceiras(p, levelId, undefined, { flatAttach: true }).walls);
     porNivel.set(levelId, paredes);
   }
   return paredes;
