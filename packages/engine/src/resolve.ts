@@ -30,10 +30,8 @@ import {
 } from '@hestia/model';
 import { buildFrame, normalAt, pointAt, sAtDepth, tangentAt, toLocal, type WallFrame } from './frame.ts';
 import type { EndSpec, WallEnds } from './joins.ts';
-import { despachanteDeNivel } from './resolveDespacho.ts';
 import { chaveDoPar, paresQueSeCruzam } from './wallTiltCruzamento.ts';
 import { projetoBase } from './projetoBase.ts';
-import { nivelUsaMotorTs, resolverComParceiras } from './resolveParceiras.ts';
 import { estruturaDasJuncoes, furosDe, pinturasDoCluster, pintarCompartilhado } from './resolveMemo.ts';
 import { endPoint, layerQuad, membranesOf, sideAt, withBottomProfile, withProfile } from './layerGeom.ts';
 import { flatEnd } from './joinSides.ts';
@@ -390,7 +388,7 @@ function solveCluster(items: Item[], opens: OpeningGeometry[], zr: Map<Id, ZRang
 }
 
 export type ResolveCache = Map<string, ClusterCore>;
-const sharedCache: ResolveCache = new Map();
+export const sharedCache: ResolveCache = new Map();
 const CACHE_LIMIT = 400;
 
 /** Esvazia o cache compartilhado dos clusters (padrão de `resolveLevel`); ver `cachesDeConteudo.ts`. */
@@ -401,21 +399,8 @@ export function esvaziarCacheDeClusters(): void {
 // `frameOfWall` e `levelFrames` moraram aqui; foram para `resolveFrames.ts` (limite de linhas) e seguem exportados por este módulo.
 export { frameOfWall, levelFrames } from './resolveFrames.ts';
 
-/** Com o despachante do kernel Rust instalado (`resolveDespacho.ts`), ele decide o resultado; senão é o TypeScript de sempre. */
-export function resolveLevel(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  // Paredes de outros níveis que se sobrepõem em altura entram só para a junção (`resolveParceiras.ts`); a saída é só do nível dono.
-  // Parceira com anexo promovida (cota congelada, sem perfil de base/topo): o Rust diverge nas faixas de altura, então o nível sai do TypeScript. Demais casos: despacho de sempre.
-  return resolverComParceiras(p, levelId, opts.cutZ, (q) => (q !== p && nivelUsaMotorTs(p, levelId) ? resolveLevelTs(q, levelId, cache, opts) : resolveLevelSemParceiras(q, levelId, cache, opts)));
-}
-
-/**
- * `resolveLevel` sem promover parceiras de outros níveis (o despacho do Rust ou o TypeScript, do projeto como está). É o que os cortadores
- * de parede da junção (`wallBandPieces`) e a cena da B3 usam: o Rust os monta do projeto original, e os dois lados têm de ver o mesmo.
- */
-export function resolveLevelSemParceiras(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
-  const d = despachanteDeNivel();
-  return d ? d(p, levelId, opts, () => resolveLevelTs(p, levelId, cache, opts)) : resolveLevelTs(p, levelId, cache, opts);
-}
+// `resolveLevel` e `resolveLevelSemParceiras` moraram aqui; foram para `resolveNivel.ts` (limite de linhas) e seguem exportados por este módulo.
+export { resolveLevel, resolveLevelSemParceiras } from './resolveNivel.ts';
 
 /** O motor TypeScript, sem despacho (a referência do Rust e o retorno de qualquer falha do kernel). */
 export function resolveLevelTs(p: Project, levelId: Id, cache: ResolveCache = sharedCache, opts: PlanResolveOptions = {}): ResolvedLevel {
