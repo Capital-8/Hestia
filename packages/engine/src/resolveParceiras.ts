@@ -179,6 +179,7 @@ export function projetoDeAmbientes(p: Project, levelId: Id): Project {
     const elev = levelElevation(p, levelId);
     for (const w of cruzam) elements[w.id] = { ...w, levelId, baseOffset: wallBaseElevation(p, w) - elev };
     out = { ...p, elements };
+    registrarProjetoBase(out, p); // pisos e lajes (cota real das paredes) saem do projeto original: sem consulta nova ao Rust por nível
   }
   porNivel.set(levelId, out);
   return out;
