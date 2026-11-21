@@ -3,9 +3,9 @@ import { createZip } from '@hestia/io';
 import type { DxfLayerStyle } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { buildDxfBatch, dxfBatchTargetsOf } from '../../editor/dxfBatch.ts';
-import type { DxfBatchGroup, DxfBatchSkip, DxfBatchTarget } from '../../editor/dxfBatch.types.ts';
+import type { DxfBatchGroup, DxfBatchSkip } from '../../editor/dxfBatch.types.ts';
 import { dxfBatchRenderers } from '../../editor/dxfBatchRenderers.ts';
-import { dxfLayerTableOf, type DxfExportTarget } from '../../editor/dxfExport.ts';
+import { dxfLayerTableOf } from '../../editor/dxfExport.ts';
 import {
   activeDxfTargetKey,
   defaultDxfSelection,
@@ -13,6 +13,7 @@ import {
   DXF_UNIT_OPTIONS,
   dxfGroupRows,
   dxfGroupState,
+  layerTargetOf,
 } from '../../editor/dxfExportDialogModel.ts';
 import { useUi } from '../../editor/state.ts';
 import { useT, type Dict } from '../../editor/i18n.ts';
@@ -29,14 +30,7 @@ function GroupCheck({ state, label, onToggle }: { state: 'all' | 'none' | 'some'
   return <input ref={ref} type="checkbox" checked={state === 'all'} aria-label={label} onChange={onToggle} />;
 }
 
-/** Alvo da tabela de camadas (a primeira vista marcada) a partir de um alvo do lote. */
-function layerTargetOf(target: DxfBatchTarget | null, showRoofProjection: boolean): DxfExportTarget | null {
-  if (!target) return null;
-  if (target.kind === 'plan') return { kind: 'plan', levelId: target.levelId, showRoofProjection };
-  if (target.kind === 'area') return { kind: 'area', planId: target.planId };
-  if (target.kind === 'section') return { kind: 'section', sectionId: target.viewId };
-  return null;
-}
+/** Alvo da tabela de camadas vem do modelo puro (`layerTargetOf`), que preserva o `planId` da planta. */
 
 const GROUP_HINT_KEYS: Record<DxfBatchGroup, keyof Dict> = {
   plantas: 'dlc_dxf_hint_plans',

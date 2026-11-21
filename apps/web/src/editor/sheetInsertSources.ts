@@ -27,6 +27,17 @@ export interface GrupoVistas {
 /** Linha da lista rolável: cabeçalho de grupo ou uma vista marcável. */
 export type LinhaVistas = { kind: 'grupo'; titulo: string } | { kind: 'vista'; fonte: FonteVista };
 
+/**
+ * Chave da fonte que corresponde a uma vista já escolhida (arraste do Navegador, com ou sem Shift): a mesma marcação da
+ * lista. A planta de disciplina leva o `planId` na chave (`pv:`), senão o arraste marcaria a planta padrão do nível.
+ */
+export function chaveDaFonteDeVista(v: SheetViewSource): string | null {
+  if (v.kind === 'plan') return planKey(v.levelId, v.planId);
+  if (v.kind === 'section') return viewKey({ kind: 'section', viewId: v.sectionId });
+  if (v.kind === '3d') return v.pointId ? `3d:${v.pointId}` : '3d';
+  return null;
+}
+
 /** Grupos na ordem: plantas, cortes, elevações e 3D. Grupo vazio some (o 3D sempre tem o enquadramento padrão). */
 export function gruposDeVistas(p: Project, lang: Lang): GrupoVistas[] {
   // Cada nível traz a planta padrão e, logo depois, as plantas de disciplina dele (decisão 0060 §6).

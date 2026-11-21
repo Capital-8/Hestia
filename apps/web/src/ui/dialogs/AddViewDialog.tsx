@@ -1,25 +1,16 @@
 import { useMemo, useState, type ReactElement } from 'react';
-import { sheetOf, type SheetViewSource } from '@hestia/model';
+import { sheetOf } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { decodeInsertArg } from '../../editor/sheetInsertArg.ts';
 import { INSERT_SCALES, insertViewsWithMode, parseCustomScale, type ScaleMode } from '../../editor/sheetInsertPreview.ts';
-import { gruposDeVistas, linhasDeVistas } from '../../editor/sheetInsertSources.ts';
+import { chaveDaFonteDeVista, gruposDeVistas, linhasDeVistas } from '../../editor/sheetInsertSources.ts';
 import { useUi } from '../../editor/state.ts';
 import { useT } from '../../editor/i18n.ts';
 import { Row } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { InsertViewsList } from './InsertViewsList.tsx';
-import { planKey, viewKey } from '../../editor/viewIdentity.ts';
 
 const CUSTOM = 'custom';
-
-/** Chave da fonte que corresponde a uma vista (para marcar o que veio do arraste ou do botão de uma vista). */
-const keyOfView = (v: SheetViewSource): string | null => {
-  if (v.kind === 'plan') return planKey(v.levelId);
-  if (v.kind === 'section') return viewKey({ kind: 'section', viewId: v.sectionId });
-  if (v.kind === '3d') return v.pointId ? `3d:${v.pointId}` : '3d';
-  return null;
-};
 
 /**
  * "Inserir vistas na prancha": marca uma ou várias vistas do projeto (plantas, cortes, elevações e 3D), escolhe a
@@ -36,7 +27,7 @@ export function AddViewDialog({ sheetId: argRaw }: { sheetId: string }): ReactEl
   const grupos = useMemo(() => gruposDeVistas(p, lang), [p, lang]);
   const linhas = useMemo(() => linhasDeVistas(grupos), [grupos]);
   const fontes = useMemo(() => grupos.flatMap((g) => g.fontes), [grupos]);
-  const chaveInicial = arg.view ? keyOfView(arg.view) : null;
+  const chaveInicial = arg.view ? chaveDaFonteDeVista(arg.view) : null;
   const [keys, setKeys] = useState<ReadonlySet<string>>(() => new Set(chaveInicial ? [chaveInicial] : []));
   const [mode, setMode] = useState<ScaleMode>('natural');
   const [custom, setCustom] = useState('');

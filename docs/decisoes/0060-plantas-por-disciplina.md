@@ -372,3 +372,14 @@ Convenções: caminhos a partir da raiz do worktree. "Teste" = teste novo exigid
 **Famílias de exemplo (blocos paramétricos, formas simples; o editor de famílias só faz peças prismáticas):** hidrossanitário (vaso sanitário, lavatório, ralo), elétrico (tomada, interruptor, luminária de teto, quadro de distribuição), HVAC (difusor de teto, evaporadora split já existente `fam_ar_split` ganha `disciplina: 'hvac'`). Mais um **projeto de exemplo** (modelo de arquivo) com uma casa pequena que traz elementos de cada disciplina e uma planta de cada disciplina já criada.
 
 **Item adiado:** derivar a disciplina de um `generic` importado pela classe IFC de origem (`IFCPIPE*`, `IFCCABLE*`, `IFCDUCT*`, `IFCBEAM`, `IFCCOLUMN`). Fica para depois das fases 3.4 e 4.
+
+## Adendo 2 (2026-11-21): categorias gráficas por elemento (ocultar um não oculta o outro)
+
+**Defeito (relato do dono, confirmado no código):** "Ocultar categoria" de um pilar ocultava as paredes juntas. Causa: `categoriaDoElemento` mapeava `column → wall`, `beam` e `footing → slab`, `ceiling → floor`, `ramp → stair`, e `component`/`furniture` não tinham categoria; o 3D tinha uma SEGUNDA cópia da regra fixada em `structuralSolids.ts` ("Pilares: categoria 'wall'"). Sem categorias próprias, nenhum isolamento por elemento ou por disciplina é possível.
+
+**Decisão:**
+1. Novas `GraphicsCategory`: `column` (pilar), `beam` (viga), `footing` (sapata), `ceiling` (forro), `ramp` (rampa) e, para componentes, uma categoria POR DISCIPLINA da família (consistente com a §1.2 e o Adendo 1): `component` (arquitetura: mobiliário e componentes), `plumbingFixture` (hidrossanitário), `electricalFixture` (elétrico), `mechanicalEquipment` (HVAC). `furniture` (móvel antigo) = `component`. `categoriaDoElemento(e, project?)` passa a receber o projeto (para achar a família), como `disciplineOfElement`.
+2. **Uma regra só:** a planta, o 3D, o corte, a prancha e o DXF usam `categoriaDoElemento`; nenhum mapeamento por kind fora do modelo (guarda de texto).
+3. **Sem mudança visual:** o estilo padrão de cada categoria nova copia o da categoria de onde saiu (pilar = parede 5/2, viga e sapata = laje 4/1, forro = piso 3/1, rampa = escada 4/2; componentes 2/1). Arquivos antigos sem as chaves novas em `overrides` abrem com os padrões (mescla com defaults). Camadas do DXF ficam como hoje (a categoria nova aponta para a camada antiga) para não mudar saída existente.
+4. **Efeito conhecido em arquivo antigo:** quem tinha "Parede" oculta e via os pilares sumirem passa a ver os pilares (é a correção); idem viga/sapata com "Laje".
+5. **Matriz de isolamento obrigatória** (teste): para cada kind de `Element` e para cada forma de ocultar (elemento, categoria, temporário, tom `hidden` de disciplina), na planta e no 3D, somem exatamente os elementos esperados e mais nenhum.

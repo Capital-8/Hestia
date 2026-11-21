@@ -1,6 +1,7 @@
 import { unitsOf, type Id, type Project } from '@hestia/model';
 import type { DxfUnit } from '@hestia/io';
 import type { DxfBatchGroup, DxfBatchTarget } from './dxfBatch.types.ts';
+import type { DxfExportTarget } from './dxfExport.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
 import { dxfTargetKeyOfFields } from './viewIdentity.ts';
 
@@ -79,4 +80,16 @@ export function defaultDxfSelection(targets: readonly DxfBatchTarget[], activeKe
   if (activeKey && targets.some((t) => t.key === activeKey)) return [activeKey];
   const first = targets.find((t) => t.group === 'plantas') ?? targets[0];
   return first ? [first.key] : [];
+}
+
+/**
+ * Alvo da tabela de camadas (a primeira vista marcada). A planta leva o `planId` junto: a de disciplina mostra os pesos
+ * e a escala dela, nunca os da planta padrão do nível (decisão 0060 §7).
+ */
+export function layerTargetOf(target: DxfBatchTarget | null, showRoofProjection: boolean): DxfExportTarget | null {
+  if (!target) return null;
+  if (target.kind === 'plan') return { kind: 'plan', levelId: target.levelId, showRoofProjection, planId: target.planId };
+  if (target.kind === 'area') return { kind: 'area', planId: target.planId };
+  if (target.kind === 'section') return { kind: 'section', sectionId: target.viewId };
+  return null;
 }
