@@ -41,7 +41,7 @@ function comDuasFaces(mats: Materiais3D, base: THREE.Material): THREE.Material {
 }
 
 function materialDoMovel(mats: Materiais3D, p: Project, asset: FurnitureAsset, materialIndex: number, q: QualidadeDesenhada, aoCarregar: () => void, doubleSided = false): THREE.Material {
-  const um = mats.face(materialDoProjeto(p, asset, materialIndex), 'generic');
+  const um = mats.face(materialDoProjeto(p, asset, materialIndex), 'component');
   // A variante de dois lados sai ANTES da textura: o clone com textura (que o retorno da imagem tinge de branco) e dela.
   const base = doubleSided ? comDuasFaces(mats, um) : um;
   const fm = asset.materials[materialIndex];

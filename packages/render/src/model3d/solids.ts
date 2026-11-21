@@ -339,12 +339,17 @@ export interface LevelSolids {
   batches: SolidBatch[];
 }
 
-/** Lote do material `m` (e da categoria `cat`) dentro do mapa, criado na primeira vez. */
+/**
+ * Lote do material `m` E da categoria `cat` dentro do mapa, criado na primeira vez. A categoria entra na chave: um mesmo
+ * material pode ter peças de categorias diferentes (pilar/viga/sapata de concreto, componentes de disciplinas distintas)
+ * e cada categoria precisa do seu lote para a visibilidade da vista atingir só ela.
+ */
 export function batchOf(byMat: Map<Id, SolidBatch>, m: Id, cat: GraphicsCategory): SolidBatch {
-  let b = byMat.get(m);
+  const k = `${m}\u0000${cat}`;
+  let b = byMat.get(k);
   if (!b) {
     b = { materialId: m, category: cat, positions: [], normals: [], indices: [], ids: [] };
-    byMat.set(m, b);
+    byMat.set(k, b);
   }
   return b;
 }
@@ -482,14 +487,15 @@ export function buildFloorSolids(floors: ResolvedFloor[], jl?: JunctionLevel, p?
 }
 
 /**
- * Sólidos dos forros (decisão 0021): uma extrusão por camada entre as cotas absolutas, com a mesma categoria dos pisos
- * (visibilidade e transparência da vista 3D). Forro é elemento de `elements`, então a seleção no 3D o encontra pelo id.
+ * Sólidos dos forros (decisão 0021): uma extrusão por camada entre as cotas absolutas, com a categoria própria do forro
+ * (`ceiling`; visibilidade e transparência da vista 3D). Forro é elemento de `elements`, então a seleção no 3D o encontra
+ * pelo id, e ocultar `floor` não o leva junto (adendo 2 do ADR 0060).
  */
 export function buildCeilingSolids(ceilings: ResolvedCeiling[]): SolidBatch[] {
   const byMat = new Map<Id, SolidBatch>();
   for (const c of ceilings) {
     for (const l of c.layers) {
-      const b = batchOf(byMat, l.materialId, 'floor');
+      const b = batchOf(byMat, l.materialId, 'ceiling');
       ofElement(b, c.ceilingId, () => {
         for (const poly of c.polygon) extrudePolygon(b, poly, l.z0, l.z1);
       });

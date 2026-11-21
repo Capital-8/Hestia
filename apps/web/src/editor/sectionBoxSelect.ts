@@ -33,11 +33,11 @@ interface Candidato {
  * Pedaços visíveis de um item: com `parts` (corte unido), cada peça vira um candidato com o seu dono; sem `parts`, o
  * item inteiro vale para cada dono dele. Peças vazias ou sem dono não entram.
  */
-function candidatosDoItem(item: SectionItem): Candidato[] {
+function candidatosDoItem(item: SectionItem, p?: Project): Candidato[] {
   if (item.parts) {
     const out: Candidato[] = [];
     for (const part of item.parts) {
-      const dono = ownerOf(part.origin);
+      const dono = ownerOf(part.origin, p);
       const pts = part.polygons.flatMap((p) => p.flatMap((r) => r));
       if (dono && pts.length > 0) out.push({ dono, box: boxOf(pts) });
     }
@@ -51,15 +51,15 @@ function candidatosDoItem(item: SectionItem): Candidato[] {
  * então o que está oculto na vista (`hidden`) não é selecionado. Na janela, um elemento vale se todos os seus pedaços estão inteiros dentro;
  * no cruzamento, se algum pedaço toca a caixa. Devolve ids sem repetição, na ordem da primeira aparição.
  */
-export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2, hidden?: ReadonlySet<Id>): Id[] {
+export function idsNaCaixaDoCorte(s: SectionResult, a: Vec2, b: Vec2, hidden?: ReadonlySet<Id>, p?: Project): Id[] {
   const caixa = boxOf([a, b]);
   const janela = modoDaCaixa(a, b) === 'janela';
   const dentro = (q: Box): boolean => q.minX >= caixa.minX && q.maxX <= caixa.maxX && q.minY >= caixa.minY && q.maxY <= caixa.maxY;
   const toca = (q: Box): boolean => q.minX <= caixa.maxX && q.maxX >= caixa.minX && q.minY <= caixa.maxY && q.maxY >= caixa.minY;
 
   const porDono = new Map<string, { id: Id; ok: boolean }>();
-  for (const item of sectionItems(s, hidden)) {
-    for (const c of candidatosDoItem(item)) {
+  for (const item of sectionItems(s, hidden, p)) {
+    for (const c of candidatosDoItem(item, p)) {
       const chave = `${c.dono.kind}|${c.dono.id}`;
       const passa = janela ? dentro(c.box) : toca(c.box);
       const atual = porDono.get(chave);
@@ -113,7 +113,7 @@ export function anotacoesNaCaixaDoCorte(an: SectionAnnotations, a: Vec2, b: Vec2
  */
 export function idsVisiveisDoTipoNoCorte(p: Project, s: SectionResult, typeId: Id, hidden?: ReadonlySet<Id>): Id[] {
   const vistos = new Set<Id>();
-  for (const item of sectionItems(s, hidden)) for (const c of candidatosDoItem(item)) vistos.add(c.dono.id);
+  for (const item of sectionItems(s, hidden, p)) for (const c of candidatosDoItem(item, p)) vistos.add(c.dono.id);
   for (const id of guardaCorposVisiveisNoCorte(p, s, hidden)) vistos.add(id);
   return [...vistos].filter((id) => (p.elements[id] as { typeId?: Id } | undefined)?.typeId === typeId);
 }

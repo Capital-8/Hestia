@@ -398,9 +398,9 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
   return ['0', ...AREA_LAYER_NAMES].sort().map((name) => ({ name, style: areaLayerStyleOf(p, name) }));
 }
 
-/** Categoria gráfica de uma origem do corte (parede, piso, laje, telhado ou escada). */
-function sectionCategoryOf(o: SectionOrigin): GraphicsCategory {
-  return ownerOf(o)?.kind ?? 'wall';
+/** Categoria gráfica de uma origem do corte, resolvida pelo modelo (`categoriaDoElemento`, via `ownerOf`). */
+function sectionCategoryOf(p: Project, o: SectionOrigin): GraphicsCategory {
+  return ownerOf(o, p)?.kind ?? 'wall';
 }
 
 /**
@@ -439,19 +439,19 @@ export function sectionDxfGeometryOf(p: Project, sectionId: Id, units?: DxfUnit,
   const shown = (c: GraphicsCategory): boolean => vg.overrides[c].visible !== false;
   const cut: DxfSectionItem[] = [];
   for (const r of section.cut) {
-    const cats = [...new Set(r.sources.map(sectionCategoryOf))];
+    const cats = [...new Set(r.sources.map((o) => sectionCategoryOf(p, o)))];
     const cat = cats.find(shown);
     if (cat) cut.push({ category: cat, polygons: r.polygons });
   }
   const beyond: DxfSectionItem[] = section.beyond.flatMap((b) => {
     if (b.roofId !== undefined) return [];
-    const cat = sectionCategoryOf(b);
+    const cat = sectionCategoryOf(p, b);
     return shown(cat) ? [{ category: cat, polygons: b.polygons }] : [];
   });
   // Telhado: o desenho de fora (silhueta e uma linha por divisa entre águas), o mesmo da tela, e não o polígono de cada camada.
   const lines: NonNullable<DxfSectionGeometry['lines']> = [];
-  for (const rd of roofDrawingsOf(section.beyond.filter((b) => b.roofId !== undefined && shown(sectionCategoryOf(b))), section.roofEdges)) {
-    const cat = sectionCategoryOf(section.beyond.find((b) => b.roofId === rd.roofId)!);
+  for (const rd of roofDrawingsOf(section.beyond.filter((b) => b.roofId !== undefined && shown(sectionCategoryOf(p, b))), section.roofEdges)) {
+    const cat = sectionCategoryOf(p, section.beyond.find((b) => b.roofId === rd.roofId)!);
     if (rd.silhouette.length > 0) beyond.push({ category: cat, polygons: rd.silhouette });
     for (const [a, b] of rd.segments) lines.push({ category: cat, a, b });
   }

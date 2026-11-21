@@ -805,7 +805,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
     const hidden = visibilityOf(editor.project, st).hidden;
     const ids = [
-      ...idsNaCaixaDoCorte(result, wa, wb, hidden),
+      ...idsNaCaixaDoCorte(result, wa, wb, hidden, editor.project),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
       ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
       // Massa também é do kernel (consulta 143), fora do resultado do corte: mesma caixa.

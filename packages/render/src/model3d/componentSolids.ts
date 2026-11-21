@@ -1,6 +1,7 @@
 import { malhaDoComponente, resolverComponente, type Malha } from '@hestia/engine';
 import {
   ACABAMENTOS_MOVEIS,
+  categoriaDoElemento,
   isComponent,
   materialDoAcabamento,
   resolverMaterialVisualPeca,
@@ -26,17 +27,23 @@ export const MATERIAIS_DE_COMPONENTE: Readonly<Record<Id, Material>> = {
 };
 
 /**
- * Sólidos dos componentes do nível `levelId`, em lotes por material (`SolidBatch`, `category: 'generic'`: a categoria gráfica "genérica" do app já
- * controla a visibilidade deles). Para cada elemento `component` do nível: `malhaDoComponente(p, c)` de `@hestia/engine` (só `solidas`; peças vazias não
- * aparecem no projeto) e, para cada peça, `resolverMaterialVisualPeca(c, peca.papel, peca.material ?? undefined)` resolve o acabamento visual
- * (overrides da instância `acabCorpo`/`acabPorta`/`acabTampo`, material especial ou padrão por papel). Os triângulos de cada elemento ficam numa faixa de
- * `indices` registrada com o id do elemento (como `ofElement` faz em `genericSolids.ts`), para o picking e o realce funcionarem. Lotes ordenados por `materialId`;
- * sem componente, `[]`. Componentes de família ausente ou sem peça não geram nada. Elementos ocultos NÃO são tratados aqui (a cena já filtra).
+ * Sólidos dos componentes do nível `levelId`, em lotes por categoria e material (`SolidBatch`). A categoria vem de
+ * `categoriaDoElemento` (adendos 1 e 2 do ADR 0060): arquitetura/estrutura = `component`, hidrossanitário =
+ * `plumbingFixture`, elétrico = `electricalFixture`, HVAC = `mechanicalEquipment`; assim "Ocultar categoria" atinge só os
+ * componentes daquela disciplina. Para cada elemento `component` do nível: `malhaDoComponente(p, c)` de `@hestia/engine`
+ * (só `solidas`; peças vazias não aparecem no projeto) e, para cada peça, `resolverMaterialVisualPeca(c, peca.papel,
+ * peca.material ?? undefined)` resolve o acabamento visual (overrides da instância `acabCorpo`/`acabPorta`/`acabTampo`,
+ * material especial ou padrão por papel). Os triângulos de cada elemento ficam numa faixa de `indices` registrada com o id
+ * do elemento (como `ofElement` faz em `genericSolids.ts`), para o picking e o realce funcionarem. Lotes ordenados por
+ * categoria e material; sem componente, `[]`. Componentes de família ausente ou sem peça não geram nada. Elementos ocultos
+ * NÃO são tratados aqui (a cena já filtra).
  */
 export function buildComponentSolids(p: Project, levelId: Id): SolidBatch[] {
-  const batches = new Map<Id, SolidBatch>();
+  const batches = new Map<string, SolidBatch>();
   for (const c of Object.values(p.elements)) {
     if (!isComponent(c) || c.levelId !== levelId) continue;
+    const cat = categoriaDoElemento(c, p);
+    if (!cat) continue;
     const res = resolverComponente(p, c);
     const malha = malhaDoComponente(p, c, res).solidas;
     const porMaterial = new Map<Id, number[]>();
@@ -52,7 +59,7 @@ export function buildComponentSolids(p: Project, levelId: Id): SolidBatch[] {
       triangulos.push(t);
     }
     for (const [materialId, triangulos] of porMaterial) {
-      const batch = batchOf(batches, materialId, 'generic');
+      const batch = batchOf(batches, materialId, cat);
       ofElement(batch, c.id, () => {
         for (const t of triangulos) pushTriangulo(batch, malha, t);
       });

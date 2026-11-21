@@ -41,7 +41,7 @@ describe('sólidos dos forros (3D)', () => {
   it('uma malha por material, com os ids do forro para o picking', () => {
     const batches = buildCeilingSolids(resolveCeilings(project(), 'lv_0'));
     expect(batches.map((b) => b.materialId)).toEqual(['mat_perfil', 'mat_gesso']);
-    expect(batches.every((b) => b.category === 'floor')).toBe(true);
+    expect(batches.every((b) => b.category === 'ceiling')).toBe(true);
     expect(new Set(batches.flatMap((b) => b.ids.map((r) => r.id)))).toEqual(new Set(['c']));
   });
 

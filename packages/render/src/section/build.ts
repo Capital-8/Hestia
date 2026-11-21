@@ -65,8 +65,11 @@ const ringsOf = (m: MultiPolygon): Ring[] => m.flatMap((p) => p);
 
 const fmt = (u: ResolvedUnits, z: number): string => `${z >= 0 ? '+' : '−'}${formatQuantity(u, 'length', Math.abs(z), { withUnit: false })}`;
 
-/** Categoria gráfica de uma origem do motor (parede, piso, laje, telhado ou escada). */
-const categoryOf = (o: SectionOrigin): GraphicsCategory => ownerOf(o)?.kind ?? 'wall';
+/**
+ * Categoria gráfica de uma origem do motor. Vem de `ownerOf` → `categoriaDoElemento` (a regra única do modelo): pilar,
+ * viga, sapata, forro, rampa e componente têm categoria própria também no corte (adendo 2 do ADR 0060).
+ */
+const categoryOf = (o: SectionOrigin, p: Project): GraphicsCategory => ownerOf(o, p)?.kind ?? 'wall';
 
 const materialComponente = (id: Id): Material | undefined =>
   MATERIAIS_DE_COMPONENTE[id] ?? (MAPA_ACABAMENTOS[id] ? materialDoAcabamento(MAPA_ACABAMENTOS[id]!) : undefined);
@@ -120,6 +123,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const hidden = input.hidden;
   const revealed = input.revealed;
   const hasHidden = (hidden?.size ?? 0) > 0;
+  // Categoria oculta pela vista (substituição `visible:false`): vale para cada peça, como o Hide in View por elemento.
+  const hasCategoryHidden = GRAPHICS_CATEGORIES.some((c) => !paint[c].visible);
   const isHidden = (id: Id | undefined): boolean => id !== undefined && (hidden?.has(id) ?? false);
   const isRevealed = (id: Id | undefined): boolean => id !== undefined && (revealed?.has(id) ?? false);
   /** Origem oculta: o dono (parede, piso, laje, telhado, escada, rampa) ou o próprio vão. */
@@ -173,9 +178,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // as camadas de baixo só fora dela, a silhueta e uma linha por divisa); a tela e o DXF usam a mesma geometria.
   const roofItems: SectionBeyond[] = [];
   const drawBeyond = (b: SectionBeyond): void => {
-    const owner = ownerOf(b);
+    const owner = ownerOf(b, p);
     if (owner && isHidden(owner.id)) return;
-    const cat = categoryOf(b);
+    const cat = categoryOf(b, p);
     const pt = paint[cat];
     if (!pt.visible) return;
     if (b.roofId !== undefined) {
@@ -330,25 +335,27 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Pintura do mais longe ao mais perto: além e vãos pela profundidade; o corte (profundidade 0) por último.
   type Paint = { depth: number; cut: boolean; draw: () => void };
   const cutPaint = s.cut.flatMap((r): Paint[] => {
-    // Corte unido por material: `parts` guarda o polígono visível de cada origem. Com Hide in View, some só a peça oculta;
-    // sem `parts` (lista sintética), a região inteira só some quando todas as origens estiverem ocultas.
+    // Corte unido por material: `parts` guarda o polígono visível de cada origem. Com Hide in View ou categoria oculta,
+    // some só a peça daquela origem; sem `parts` (lista sintética), a região inteira só some quando todas as origens
+    // estiverem ocultas.
     let polygons = r.polygons;
     let sources = r.sources;
     let parts = r.parts;
-    if (hasHidden) {
+    if (hasHidden || hasCategoryHidden) {
+      const visivel = (o: SectionOrigin): boolean => !originHidden(o) && paint[categoryOf(o, p)].visible;
       if (r.parts) {
-        const kept = r.parts.filter((part) => !originHidden(part.origin));
+        const kept = r.parts.filter((part) => visivel(part.origin));
         if (kept.length === 0) return [];
         if (kept.length !== r.parts.length) polygons = union(...kept.map((part) => part.polygons));
         parts = kept;
         sources = kept.map((part) => part.origin);
       } else {
-        const kept = r.sources.filter((o) => !originHidden(o));
+        const kept = r.sources.filter(visivel);
         if (r.sources.length > 0 && kept.length === 0) return [];
         sources = kept.length > 0 ? kept : r.sources;
       }
     }
-    const cats = [...new Set(sources.map(categoryOf))];
+    const cats = [...new Set(sources.map((o) => categoryOf(o, p)))];
     if (!cats.some((c) => paint[c].visible)) return [];
     const cat = cats.find((c) => paint[c].visible) ?? 'wall';
     const pt = paint[cat];
@@ -384,7 +391,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Telhado visto de fora (ver `roofDrawingsOf`): preenchimentos, silhueta e uma linha por divisa, no peso por proximidade.
   for (const rd of roofDrawingsOf(roofItems, s.roofEdges)) {
     const sample = rd.fills[0]?.sample ?? roofItems.find((x) => x.roofId === rd.roofId)!;
-    const cat = categoryOf(sample);
+    const cat = categoryOf(sample, p);
     const pt = paint[cat];
     const line = halftone(mix(theme.ink, paper, 0.5 * (rd.depth / maxDepth)), pt);
     if (!noFill) {
@@ -404,9 +411,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   }
   // Membranas de piso e laje: linha tracejada na cota da face (decisão 0023 §5), na espessura do corte do dono.
   for (const m of s.membranes) {
-    const owner = ownerOf(m);
+    const owner = ownerOf(m, p);
     if (owner && isHidden(owner.id)) continue;
-    const cat = categoryOf(m);
+    const cat = categoryOf(m, p);
     if (!paint[cat].visible) continue;
     strokes.push({ pts: [...m.pts], closed: false, ...strokeWidth(cutWidth(cat)), color: theme.inkSoft, alpha: 0.9, dash: [6, 3] });
     if (owner && isRevealed(owner.id)) revealStrokes.push({ pts: [...m.pts], closed: false, widthPx: REVEAL_WIDTH, color: REVEAL_COLOR, alpha: 1 });
