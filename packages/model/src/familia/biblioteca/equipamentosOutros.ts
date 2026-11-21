@@ -44,6 +44,7 @@ export const FAMILIA_AR_SPLIT: Familia = nova({
   id: 'fam_ar_split',
   nome: 'Ar-condicionado split',
   categoria: 'equipamento',
+  disciplina: 'hvac',
   descricao: 'Evaporadora de parede de ar-condicionado split (9.000 a 24.000 BTU): caixa branca com frontal e saída de ar inferior preta. Nominal 0,90 × 0,22 × 0,29 m.',
   hospedagem: 'parede',
   parametros: [

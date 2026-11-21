@@ -260,8 +260,10 @@ describe('famílias novas: categorias da paleta', () => {
     const cont: Record<string, number> = {};
     for (const f of BIBLIOTECA_BASE) cont[f.categoria] = (cont[f.categoria] ?? 0) + 1;
     for (const c of ['marcenaria', 'mobiliario', 'loucas', 'equipamento', 'generico']) expect(cont[c] ?? 0, c).toBeGreaterThanOrEqual(3);
+    // 16 = 11 de antes + 5 de exemplo por disciplina (ficha 3.4b: tomada, interruptor, luminária, quadro e difusor).
     expect(cont.mobiliario).toBe(30);
-    expect(cont.equipamento).toBe(11);
-    expect(cont.loucas).toBe(7);
+    expect(cont.equipamento).toBe(16);
+    // 10 = 7 de antes + 3 de exemplo por disciplina (ficha 3.4b: vaso sanitário, lavatório e ralo).
+    expect(cont.loucas).toBe(10);
   });
 });

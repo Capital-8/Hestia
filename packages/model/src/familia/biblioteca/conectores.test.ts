@@ -45,6 +45,15 @@ const ETIQUETAS: Record<string, string> = {
   fam_roupeiro_correr: 'torre',
   fam_painel_ripado_rack: 'painel',
   fam_bancada_cuba: 'base',
+  // Famílias de exemplo por disciplina (ficha 3.4b): etiquetas próprias, sem papel de marcenaria.
+  fam_vaso_sanitario: 'louca',
+  fam_lavatorio: 'louca',
+  fam_ralo: 'louca',
+  fam_tomada: 'equipamento',
+  fam_interruptor: 'equipamento',
+  fam_luminaria_teto: 'equipamento',
+  fam_quadro_distribuicao: 'equipamento',
+  fam_difusor_teto: 'equipamento',
 };
 
 /** As famílias novas (ficha "famílias novas") têm teste próprio mais abaixo; a tabela acima cobre as anteriores. */
