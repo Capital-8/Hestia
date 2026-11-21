@@ -1,4 +1,4 @@
-import { areaPlansOf, projectSheets, type Project } from '@hestia/model';
+import { areaPlansOf, planViewsOfLevel, projectSheets, type Project } from '@hestia/model';
 import { t, type Lang } from './i18n.ts';
 import { sameView, viewKey, type OpenView } from './openViews.ts';
 import { MAX_PANES } from './panes.ts';
@@ -24,12 +24,17 @@ const opcao = (p: Project, view: OpenView): PaneViewOption[] => {
 };
 
 /**
- * TODAS as vistas do projeto, agrupadas na ordem: plantas de piso (uma por nível), plantas de cobertura (uma por nível,
- * como o navegador), plantas de área, modelo 3D, cortes, elevações e pranchas. Grupos sem vistas não aparecem.
+ * TODAS as vistas do projeto, agrupadas na ordem: plantas de piso (a padrão e as de disciplina de cada nível), plantas
+ * de cobertura (uma por nível, como o navegador), plantas de área, modelo 3D, cortes, elevações e pranchas. Grupos sem
+ * vistas não aparecem.
  */
 export function listPaneViews(p: Project, lang: Lang): PaneViewGroup[] {
+  const plantasDePiso = p.levels.flatMap((l) => [
+    ...opcao(p, { kind: 'plan', levelId: l.id }),
+    ...planViewsOfLevel(p, l.id).flatMap((pv) => opcao(p, { kind: 'plan', levelId: l.id, planViewId: pv.id })),
+  ]);
   const grupos: PaneViewGroup[] = [
-    { id: 'floor', label: t(lang, 'pane_group_floor'), options: p.levels.flatMap((l) => opcao(p, { kind: 'plan', levelId: l.id })) },
+    { id: 'floor', label: t(lang, 'pane_group_floor'), options: plantasDePiso },
     { id: 'roof', label: t(lang, 'pane_group_roof'), options: p.levels.flatMap((l) => opcao(p, { kind: 'plan', levelId: l.id, planKind: 'roof' })) },
     { id: 'area', label: t(lang, 'pane_group_area'), options: areaPlansOf(p).flatMap((a) => opcao(p, { kind: 'plan', levelId: a.levelId, planKind: 'area', areaPlanId: a.id })) },
     { id: '3d', label: t(lang, 'pane_group_3d'), options: opcao(p, { kind: '3d' }) },

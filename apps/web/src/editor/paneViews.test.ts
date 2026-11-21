@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEmptyProject, type Project } from '@hestia/model';
+import { createEmptyProject, makePlanView, type Project } from '@hestia/model';
 import { useI18n } from './i18n.ts';
 import { listPaneViews, viewsForPreset } from './paneViews.ts';
 
@@ -42,6 +42,22 @@ describe('listPaneViews', () => {
     expect(g[5]?.options.map((o) => [o.key, o.label])).toEqual([['section:e1', 'Fachada Sul']]);
     expect(g[6]?.options.map((o) => [o.key, o.label])).toEqual([['sheet:sh1', 'A-101 Planta baixa']]);
     expect(g[4]?.options[0]?.view).toEqual({ kind: 'section', viewId: 'c1' });
+  });
+
+  it('lista as plantas de disciplina de cada nível, logo depois da planta padrão dele', () => {
+    const p = {
+      ...projeto(),
+      planViews: [
+        makePlanView({ id: 'pv_e', levelId: 'lv_0', name: 'Térreo - Estrutura', discipline: 'estrutura' }),
+        makePlanView({ id: 'pv_h', levelId: 'lv_1', name: 'Superior - Hidrossanitário', discipline: 'hidrossanitario' }),
+      ],
+    } as unknown as Project;
+    expect(listPaneViews(p, 'pt')[0]?.options.map((o) => [o.key, o.label])).toEqual([
+      ['plan:lv_0', 'Térreo'],
+      ['pv:pv_e', 'Térreo - Estrutura · Estrutura'],
+      ['plan:lv_1', 'Superior'],
+      ['pv:pv_h', 'Superior - Hidrossanitário · Hidrossanitário'],
+    ]);
   });
 
   it('omite grupos vazios', () => {

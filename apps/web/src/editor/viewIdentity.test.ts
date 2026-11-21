@@ -146,7 +146,7 @@ describe('controlador: selectLevel, load e abas com planta de disciplina', () =>
   const abre = (): { lv0: string; lv1: string } => {
     const p = structuredClone(buildTemplate('house2'));
     const [l0, l1] = p.levels;
-    p.planViews = [makePlanView({ id: 'pv_e', levelId: l0!.id, name: 'Estrutura' })];
+    p.planViews = [makePlanView({ id: 'pv_e', levelId: l0!.id, name: 'Planta de fôrmas', discipline: 'estrutura' })];
     editor.load(p, 'x.hestia.json');
     return { lv0: l0!.id, lv1: l1!.id };
   };
@@ -165,6 +165,31 @@ describe('controlador: selectLevel, load e abas com planta de disciplina', () =>
     expect(useUi.getState().planViewId).toBeNull();
   });
 
+  it('trocar de nível pelo seletor mantém a disciplina quando o nível de destino tem planta dela; explícita nunca reaplica', () => {
+    const p = structuredClone(buildTemplate('house2'));
+    const [l0, l1] = p.levels;
+    p.planViews = [
+      makePlanView({ id: 'pv0_e', levelId: l0!.id, name: 'Térreo - Estrutura', discipline: 'estrutura' }),
+      makePlanView({ id: 'pv0_h', levelId: l0!.id, name: 'Térreo - Hidrossanitário', discipline: 'hidrossanitario' }),
+      makePlanView({ id: 'pv1_e', levelId: l1!.id, name: 'Superior - Estrutura', discipline: 'estrutura' }),
+    ];
+    editor.load(p, 'x.hestia.json');
+    editor.selectLevel(l0!.id, 'floor', null, 'pv0_e');
+    // Seletor de nível (sem a planta): a mesma disciplina no destino.
+    editor.selectLevel(l1!.id);
+    expect(useUi.getState().planViewId).toBe('pv1_e');
+    // Planta explícita (navegador/aba) nunca reaplica: null = planta padrão.
+    editor.selectLevel(l1!.id, 'floor', null, null);
+    expect(useUi.getState().planViewId).toBeNull();
+    // Vindo da planta padrão, não procura planta adicional da disciplina: abre a padrão.
+    editor.selectLevel(l0!.id);
+    expect(useUi.getState().planViewId).toBeNull();
+    // Sem planta da disciplina no destino, a padrão.
+    editor.selectLevel(l0!.id, 'floor', null, 'pv0_h');
+    editor.selectLevel(l1!.id);
+    expect(useUi.getState().planViewId).toBeNull();
+  });
+
   it('trocar de nível sem informar a planta zera planViewId; load também', () => {
     const { lv0, lv1 } = abre();
     editor.selectLevel(lv0, 'floor', null, 'pv_e');
@@ -175,10 +200,10 @@ describe('controlador: selectLevel, load e abas com planta de disciplina', () =>
     expect(useUi.getState().planViewId).toBeNull();
   });
 
-  it('a aba da planta de disciplina leva o nome da planta e convive com a da padrão; fechar não derruba a padrão', () => {
+  it('a aba da planta de disciplina leva o nome da planta com a disciplina e convive com a da padrão; fechar não derruba a padrão', () => {
     const { lv0 } = abre();
     const pv: OpenView = { kind: 'plan', levelId: lv0, planViewId: 'pv_e' };
-    expect(tabOf(editor.project, pv)).toEqual({ icon: 'plan', label: 'Estrutura' });
+    expect(tabOf(editor.project, pv)).toEqual({ icon: 'plan', label: 'Planta de fôrmas · Estrutura' });
     expect(tabOf(editor.project, { kind: 'plan', levelId: lv0, planViewId: 'pv_x' })).toBeNull();
     activateView({ kind: 'plan', levelId: lv0 });
     activateView(pv);

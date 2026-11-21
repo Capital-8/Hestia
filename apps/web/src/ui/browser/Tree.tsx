@@ -15,6 +15,8 @@ export interface MenuItem {
   /** Linha divisória antes do item. */
   sep?: boolean;
   hint?: string;
+  /** Submenu aberto ao clicar (ex.: disciplinas no menu do nível), expandido dentro do próprio menu. */
+  submenu?: MenuItem[];
 }
 
 /** Estado da árvore que sobrevive quando o painel é remontado (ex.: movido para o outro lado): nós abertos e nó selecionado. */
@@ -27,6 +29,47 @@ interface Sel {
   menu: (e: MouseEvent, items: MenuItem[]) => void;
 }
 const TreeCtx = createContext<Sel>({ id: null, set: () => undefined, menu: () => undefined });
+
+/** Um item do menu; com `submenu`, expande a lista dentro do próprio menu (ex.: as disciplinas do nível). */
+function MenuRow({ item, onClose }: { item: MenuItem; onClose: () => void }): ReactElement {
+  const [sub, setSub] = useState(false);
+  const submenu = item.submenu;
+  if (submenu?.length) {
+    return (
+      <div>
+        <button
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={sub}
+          className={`rb-menuitem${item.danger ? ' danger' : ''}`}
+          disabled={item.disabled}
+          title={item.hint}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSub((v) => !v);
+          }}
+        >
+          <span>{item.label}</span>
+          <span aria-hidden="true" style={{ marginLeft: 'auto', paddingLeft: 18 }}>▸</span>
+        </button>
+        {sub && (
+          // Expandido na própria lista (não como flyout): o menu do navegador tem rolagem própria e um menu flutuante
+          // para fora dele seria recortado.
+          <div role="menu" style={{ marginLeft: 12, paddingLeft: 4, borderLeft: '1px solid var(--line)' }}>
+            {submenu.map((it, i) => (
+              <MenuRow key={i} item={it} onClose={onClose} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <button role="menuitem" className={`rb-menuitem${item.danger ? ' danger' : ''}`} disabled={item.disabled} title={item.hint} onClick={() => { onClose(); item.run?.(); }}>
+      <span>{item.label}</span>
+    </button>
+  );
+}
 
 /** Menu de contexto solto na tela, na posição do clique; fecha com Esc, clique fora ou ao escolher. */
 function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }): ReactElement {
@@ -49,9 +92,7 @@ function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: Me
       {items.map((it, i) => (
         <div key={i}>
           {it.sep && <hr className="rb-sep" />}
-          <button role="menuitem" className={`rb-menuitem${it.danger ? ' danger' : ''}`} disabled={it.disabled} title={it.hint} onClick={() => { onClose(); it.run?.(); }}>
-            <span>{it.label}</span>
-          </button>
+          <MenuRow item={it} onClose={onClose} />
         </div>
       ))}
     </div>,

@@ -9,6 +9,7 @@ import {
   planAnnotationIds,
   levelRoomSeparators,
   planGraphicsOf,
+  planViewsOf,
   sectionGraphicsOf,
   buildTemplate,
   createEmptyProject,
@@ -1336,12 +1337,28 @@ export class Editor {
   }
 
   /**
-   * Abre a planta do nível. `planViewId` (planta de disciplina, só com `kind` 'floor') vai no fim para não mudar os chamadores
-   * antigos; planta inexistente ou de outro nível vira a planta padrão. Trocar de nível sem informar a planta zera `planViewId`.
+   * Planta a abrir quando o chamador troca só de nível (decisão 0060 §3.1). Sem `planViewId` explícito e vindo de uma
+   * planta de disciplina, mantém a disciplina: abre a primeira planta do nível de destino com a mesma disciplina da
+   * atual, se houver; senão a padrão. Navegar por uma planta explícita passa `planViewId` (inclusive null) e nunca
+   * reaplica a regra. No mesmo nível, sem a planta informada, a vista volta à padrão (invariante de sempre).
    */
-  selectLevel(id: Id, kind: PlanKind = 'floor', areaPlanId: Id | null = null, planViewId: Id | null = null): void {
+  private plantaAoTrocarDeNivel(id: Id, kind: PlanKind, planViewId: Id | null | undefined): Id | null {
+    if (planViewId !== undefined) return planViewId;
+    const st = useUi.getState();
+    if (kind !== 'floor' || st.view !== 'plan' || st.planKind !== 'floor' || st.levelId === id || !st.planViewId) return null;
+    const atual = planViewsOf(this.project).find((v) => v.id === st.planViewId && v.levelId === st.levelId);
+    if (!atual) return null;
+    return planViewsOf(this.project).find((v) => v.levelId === id && v.discipline === atual.discipline)?.id ?? null;
+  }
+
+  /**
+   * Abre a planta do nível. `planViewId` (planta de disciplina, só com `kind` 'floor') vai no fim para não mudar os chamadores
+   * antigos; planta inexistente ou de outro nível vira a planta padrão. Trocar de nível sem informar a planta mantém a
+   * disciplina quando o nível de destino tem planta dela; senão a padrão.
+   */
+  selectLevel(id: Id, kind: PlanKind = 'floor', areaPlanId: Id | null = null, planViewId?: Id | null): void {
     if (this.perimetro.bloqueiaNavegacao()) return;
-    const pv = normalizaPlanViewId(this.project, id, kind, planViewId);
+    const pv = normalizaPlanViewId(this.project, id, kind, this.plantaAoTrocarDeNivel(id, kind, planViewId));
     useUi.setState((s) => ({ levelId: id, planKind: kind, areaPlanId: kind === 'area' ? areaPlanId : null, planViewId: pv, selection: [], hover: null, view: 'plan', sectionId: null, previewTick: s.previewTick + 1 }));
     this.setTool('select');
   }
