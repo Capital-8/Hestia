@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildTemplate, DISCIPLINE_OF_KIND, makePlanView, makeRoom, ProjectStore, type Element, type ElementDiscipline, type Project } from '@hestia/model';
+import { buildTemplate, DISCIPLINE_OF_KIND, FAMILIA_ARMARIO, makePlanView, makeRoom, ProjectStore, type Element, type ElementDiscipline, type Project } from '@hestia/model';
 import type { ToolEnv } from '@hestia/tools';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
@@ -103,6 +103,50 @@ describe('visibilityOf: tons de disciplina da planta (decisão 0060 §4.1)', () 
     const vis = visibilityOf(p, vista('pv_est_geral'));
     expect(vis.halftone.has(generico.id)).toBe(false);
     expect(vis.hidden.has(generico.id)).toBe(false);
+  });
+});
+
+describe('componente de família elétrica (adendo 1 do ADR 0060)', () => {
+  /** Projeto com um componente de família de disciplina elétrica e uma planta de Estrutura no nível 0. */
+  const projetoComTomada = (): Project => {
+    const s = new ProjectStore(buildTemplate('house2'));
+    const familia = structuredClone(FAMILIA_ARMARIO);
+    familia.id = 'fam_tomada';
+    familia.nome = 'Tomada';
+    familia.disciplina = 'eletrico';
+    s.exec({ type: 'upsertFamily', family: familia });
+    s.exec({
+      type: 'addComponent',
+      component: {
+        id: 'c_tomada', kind: 'component', familyId: familia.id, typeId: null, levelId: 'lv_0',
+        x: 1, y: 1, z: 1.2, rotation: 0, mirrored: false, mark: 'T-01',
+      },
+    });
+    s.exec({ type: 'addPlanView', plan: makePlanView({ id: 'pv_est', levelId: 'lv_0', name: 'Estrutura', discipline: 'estrutura' }) });
+    return s.project;
+  };
+
+  it('planta de Estrutura: elétrico oculto (tabela §4.2, linha Estrutura × coluna elétrico)', () => {
+    const vis = visibilityOf(projetoComTomada(), vista('pv_est'));
+    expect(vis.hidden.has('c_tomada')).toBe(true);
+    expect(vis.halftone.has('c_tomada')).toBe(false);
+  });
+
+  it('planta de Arquitetura (padrão): elétrico em meio-tom (tabela §4.2, linha Arquitetura × coluna elétrico)', () => {
+    const vis = visibilityOf(projetoComTomada(), vista(null));
+    expect(vis.halftone.has('c_tomada')).toBe(true);
+    expect(vis.hidden.has('c_tomada')).toBe(false);
+  });
+
+  it('trocar a família no mesmo projeto refaz os tons: o cache não devolve a disciplina antiga', () => {
+    // Cópia mutável: o projeto do store é congelado; aqui o mapa de famílias troca sem trocar a identidade do projeto.
+    const p = structuredClone(projetoComTomada());
+    expect(visibilityOf(p, vista(null)).halftone.has('c_tomada')).toBe(true);
+    const familia = p.componentFamilies!['fam_tomada']!;
+    p.componentFamilies = { ...p.componentFamilies, fam_tomada: { ...familia, disciplina: 'arquitetura' } };
+    const vis = visibilityOf(p, vista(null));
+    expect(vis.halftone.has('c_tomada')).toBe(false);
+    expect(vis.hidden.has('c_tomada')).toBe(false);
   });
 });
 

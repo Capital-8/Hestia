@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DISCIPLINES } from '../planView.ts';
 import { ARQUIVO_MAX_CARACTERES, ARQUIVO_MAX_FAMILIAS, exportarFamilias, importarFamilias, lerArquivo, serializar } from './arquivo.ts';
 import { FAMILIA_ARMARIO } from './exemplos.ts';
 import { FAMILIA_FORMATO, FAMILIA_VERSAO, type Familia } from './tipos.ts';
@@ -82,6 +83,40 @@ describe('importarFamilias', () => {
     const r = importarFamilias(entrada);
     r.familias[0]!.nome = 'x';
     expect((entrada.familias[0] as Familia).nome).toBe('Armário baixo');
+  });
+});
+
+describe('disciplina da família atravessa o arquivo (adendo 1 do ADR 0060)', () => {
+  it('família antiga, sem o campo, não ganha a chave e volta idêntica', () => {
+    const texto = serializar(exportarFamilias([FAMILIA_ARMARIO]));
+    expect(texto).not.toContain('"disciplina"');
+    const r = importarFamilias(JSON.parse(texto));
+    expect(r.ignoradas).toEqual([]);
+    expect(r.familias).toEqual([FAMILIA_ARMARIO]);
+    expect(Object.keys(r.familias[0]!)).not.toContain('disciplina');
+  });
+
+  it('as cinco disciplinas voltam como foram gravadas', () => {
+    const familias = DISCIPLINES.map((d) => {
+      const f = clone(FAMILIA_ARMARIO);
+      f.id = `fam_${d}`;
+      f.nome = `Família ${d}`;
+      f.disciplina = d;
+      return f;
+    });
+    const r = importarFamilias(JSON.parse(serializar(exportarFamilias(familias))));
+    expect(r.ignoradas).toEqual([]);
+    expect(r.familias.map((f) => f.disciplina)).toEqual(['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac']);
+    expect(r.familias).toEqual(familias);
+  });
+
+  it('disciplina fora das cinco é erro: a família é ignorada com o motivo', () => {
+    const f = clone(FAMILIA_ARMARIO);
+    (f as { disciplina?: string }).disciplina = 'piscina';
+    const r = importarFamilias(arquivo([f]));
+    expect(r.familias).toEqual([]);
+    expect(r.ignoradas).toHaveLength(1);
+    expect(r.ignoradas[0]!.motivo).toMatch(/disciplina/i);
   });
 });
 

@@ -1,11 +1,14 @@
+import { familiaDoComponente } from './componentes.ts';
+import { familiaDaBiblioteca } from './familia/biblioteca/index.ts';
 import { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone, type Discipline, type PlanView, type Tone } from './planView.ts';
-import type { Element } from './types.ts';
+import type { Element, Project } from './types.ts';
 
 /**
  * Disciplina e tons por planta (decisão 0060 §1.2, §4.1 e §4.2). O tipo `Discipline`, a lista `DISCIPLINES`,
  * os tons e os predicados já existem em `planView.ts` (etapa 2.1) e são reaproveitados daqui, sem duplicar.
- * A disciplina de um elemento é **derivada do kind**, nunca gravada nele (§1.2); os elementos `geral`
- * nunca recebem tom de disciplina (§4.1), só as regras de categoria e Hide in View valem para eles.
+ * A disciplina de um elemento é **derivada**, nunca gravada nele (§1.2): do kind, e para `component` da família dele
+ * (adendo 1). Os elementos `geral` nunca recebem tom de disciplina (§4.1), só as regras de categoria e Hide in View
+ * valem para eles.
  */
 
 export { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone };
@@ -46,8 +49,18 @@ export const DISCIPLINE_OF_KIND: Record<Element['kind'], ElementDiscipline> = {
   generic: 'geral',
 };
 
-/** Disciplina de um elemento, derivada do kind; nunca lança, nunca lê dado gravado no elemento. */
-export const disciplineOfElement = (el: Element): ElementDiscipline => DISCIPLINE_OF_KIND[el.kind];
+/**
+ * Disciplina de um elemento (adendo 1 do ADR 0060). Para todos os kinds vale a tabela exaustiva; `component` é a
+ * exceção: a disciplina vem de `Familia.disciplina`, procurada primeiro nas famílias do projeto e, se não houver, na
+ * biblioteca base. Família ausente (componente órfão), família sem o campo ou valor malformado = Arquitetura, que é o
+ * comportamento dos arquivos antigos. Nunca lança.
+ */
+export function disciplineOfElement(el: Element, p: Pick<Project, 'componentFamilies'>): ElementDiscipline {
+  if (el.kind !== 'component') return DISCIPLINE_OF_KIND[el.kind];
+  const familia = familiaDoComponente(p, el) ?? familiaDaBiblioteca(el.familyId);
+  const disciplina = familia?.disciplina;
+  return isDiscipline(disciplina) ? disciplina : DEFAULT_DISCIPLINE;
+}
 
 /**
  * Predefinidos de tom por planta (tabela da ADR §4.2): para cada disciplina da planta, o tom de cada disciplina

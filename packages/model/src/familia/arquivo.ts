@@ -41,6 +41,7 @@ const CAMPOS_FAMILIA = [
   'id',
   'nome',
   'categoria',
+  'disciplina',
   'descricao',
   'unidade',
   'hospedagem',

@@ -4,6 +4,7 @@ import {
   DISCIPLINES,
   DISCIPLINE_OF_KIND,
   DISCIPLINE_TONE_PRESETS,
+  FAMILIA_ARMARIO,
   ProjectStore,
   createEmptyProject,
   disciplineOfElement,
@@ -12,6 +13,7 @@ import {
   planTonesOf,
   planViewIssues,
   type Element,
+  type Familia,
 } from './index.ts';
 
 /** Classificação escrita À MÃO a partir do ADR 0060 §1.2 (linha a linha; nunca lida do código testado). */
@@ -40,7 +42,7 @@ const ESPERADO_POR_KIND: Record<Element['kind'], 'arquitetura' | 'estrutura' | '
   generic: 'geral',
 };
 
-/** Elemento mínimo só com o `kind`: a derivação lê apenas o kind (ADR §1.2 — disciplina nunca é gravada no elemento). */
+/** Elemento mínimo só com o `kind`: a tabela lê apenas o kind (a exceção de `component`, que lê a família, está abaixo). */
 const porKind = (kind: Element['kind']): Element => ({ id: 'e1', kind, order: 0 }) as unknown as Element;
 
 describe('disciplinas e a lista fechada (ADR §1.2)', () => {
@@ -58,7 +60,48 @@ describe('disciplinas e a lista fechada (ADR §1.2)', () => {
   });
 
   it.each(Object.entries(ESPERADO_POR_KIND))('disciplineOfElement(%s) → %s', (kind, esperada) => {
-    expect(disciplineOfElement(porKind(kind as Element['kind']))).toBe(esperada);
+    expect(disciplineOfElement(porKind(kind as Element['kind']), createEmptyProject())).toBe(esperada);
+  });
+});
+
+describe('disciplina do componente vem da família (adendo 1 do ADR 0060)', () => {
+  /** Família válida (cópia do armário de exemplo) com id e, opcionalmente, `disciplina` gravada. */
+  const familia = (id: string, disciplina?: string): Familia => {
+    const f = structuredClone(FAMILIA_ARMARIO);
+    f.id = id;
+    if (disciplina !== undefined) (f as { disciplina?: string }).disciplina = disciplina;
+    return f;
+  };
+  const componente = (familyId: string): Element =>
+    ({ id: 'c1', kind: 'component', familyId, typeId: null, levelId: 'lv_0', order: 0, x: 0, y: 0, z: 0, rotation: 0, mirrored: false, mark: '' }) as unknown as Element;
+  const projetoCom = (...familias: Familia[]) => {
+    const p = createEmptyProject();
+    if (familias.length > 0) p.componentFamilies = Object.fromEntries(familias.map((f) => [f.id, f]));
+    return p;
+  };
+
+  it('família sem o campo: continua arquitetura', () => {
+    const p = projetoCom(familia('fam_sem'));
+    expect(disciplineOfElement(componente('fam_sem'), p)).toBe('arquitetura');
+  });
+
+  it.each(DISCIPLINES)('família com disciplina %s', (disciplina) => {
+    const p = projetoCom(familia('fam_d', disciplina));
+    expect(disciplineOfElement(componente('fam_d'), p)).toBe(disciplina);
+  });
+
+  it('família ausente (componente órfão) é arquitetura', () => {
+    expect(disciplineOfElement(componente('fam_nao_existe'), projetoCom())).toBe('arquitetura');
+  });
+
+  it('sem a família no projeto, procura na biblioteca base; sem o campo lá, arquitetura', () => {
+    const p = projetoCom();
+    expect(disciplineOfElement(componente(FAMILIA_ARMARIO.id), p)).toBe('arquitetura');
+  });
+
+  it('valor malformado na família não lança: cai em arquitetura', () => {
+    const p = projetoCom(familia('fam_ruim', 'piscina'));
+    expect(disciplineOfElement(componente('fam_ruim'), p)).toBe('arquitetura');
   });
 });
 

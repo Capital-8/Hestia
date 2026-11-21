@@ -7,6 +7,7 @@
  * Eixos locais da família: X = largura (esquerda → direita visto de frente), Y = profundidade (frente → fundo), Z = altura.
  */
 
+import type { Discipline } from '../planView.ts';
 import type { Caixaria } from './tiposCaixaria.ts';
 
 export const FAMILIA_FORMATO = 'hestia-familia';
@@ -204,6 +205,11 @@ export interface Familia {
   id: string;
   nome: string;
   categoria: CategoriaFamilia;
+  /**
+   * Disciplina dos componentes desta família (decisão 0060, adendo 1): as cinco das plantas. Ausente = `arquitetura`,
+   * então família e arquivo antigos não mudam; só os componentes a consultam (`disciplineOfElement`).
+   */
+  disciplina?: Discipline;
   descricao?: string;
   unidade: 'mm';
   hospedagem: Hospedagem;

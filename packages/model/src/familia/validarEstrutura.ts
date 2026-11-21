@@ -1,3 +1,4 @@
+import { isDiscipline } from '../planView.ts';
 import { FAMILIA_VERSAO, LIMITES, PARAMETROS_PADRAO, type Familia } from './tipos.ts';
 import { listarCamposDeExpressao } from './validarCampos.ts';
 import { comoArray, criarProblema, ehObjeto, texto } from './validarComum.ts';
@@ -175,4 +176,13 @@ export function validarDuplicados(f: Familia): Problema[] {
   }
 
   return out;
+}
+
+// ───────────────────────── regra 9: disciplina (adendo 1 do ADR 0060) ─────────────────────────
+
+/** A `disciplina` é opcional; presente, tem de ser uma das cinco das plantas. Ausente = `arquitetura`. */
+export function validarDisciplina(f: Familia): Problema[] {
+  if (f.disciplina === undefined) return [];
+  if (isDiscipline(f.disciplina)) return [];
+  return [criarProblema('tipo', `a disciplina da família precisa ser uma das cinco disciplinas (recebeu “${texto(f.disciplina)}”)`, 'familia')];
 }

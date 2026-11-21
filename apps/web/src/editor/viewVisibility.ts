@@ -140,28 +140,37 @@ interface TonsDaPlanta {
   halftone: ReadonlySet<Id>;
 }
 
-const tonsPorProjeto = new WeakMap<Project, Map<string, TonsDaPlanta>>();
+/**
+ * Cache por projeto. Além da identidade do projeto (o store cria um projeto novo a cada comando), o mapa de famílias é
+ * conferido: trocar/alterar a família de um componente muda a disciplina dele e tem de refazer os tons.
+ */
+interface CacheDeTons {
+  familias: Project['componentFamilies'];
+  plantas: Map<string, TonsDaPlanta>;
+}
+
+const tonsPorProjeto = new WeakMap<Project, CacheDeTons>();
 
 function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined): TonsDaPlanta {
-  const chave = `${levelId}\u0000${planViewId ?? ''}`;
-  let porPlanta = tonsPorProjeto.get(p);
-  if (!porPlanta) {
-    porPlanta = new Map();
-    tonsPorProjeto.set(p, porPlanta);
+  let cache = tonsPorProjeto.get(p);
+  if (!cache || cache.familias !== p.componentFamilies) {
+    cache = { familias: p.componentFamilies, plantas: new Map() };
+    tonsPorProjeto.set(p, cache);
   }
-  const guardado = porPlanta.get(chave);
+  const chave = `${levelId}\u0000${planViewId ?? ''}`;
+  const guardado = cache.plantas.get(chave);
   if (guardado) return guardado;
   const tons = planTonesOf(planOf(p, levelId, planViewId));
   const hidden = new Set<Id>();
   const halftone = new Set<Id>();
   for (const e of Object.values(p.elements)) {
-    const disciplina = disciplineOfElement(e);
+    const disciplina = disciplineOfElement(e, p);
     if (disciplina === 'geral') continue;
     if (tons[disciplina] === 'hidden') hidden.add(e.id);
     else if (tons[disciplina] === 'halftone') halftone.add(e.id);
   }
   const resultado = { hidden, halftone };
-  porPlanta.set(chave, resultado);
+  cache.plantas.set(chave, resultado);
   return resultado;
 }
 
