@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useState, Fragment, type ReactElement } from 'react';
 import {
   DISCIPLINES,
   DISCIPLINE_TONE_PRESETS,
@@ -22,7 +22,7 @@ import { editor, useProject } from '../../editor/controller.ts';
 import { editPlanGraphics, editPlanTone, editSectionGraphics, editView3D, restorePlanTones, type GraphicsEdit } from '../../editor/graphicsActions.ts';
 import { dialogTargetWithoutTab, graphicsDialogTabOfTarget, planViewIdOfDialogTarget, type GraphicsDialogTab } from '../../editor/viewIdentity.ts';
 import { useUi } from '../../editor/state.ts';
-import { categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
+import { CATEGORY_GROUPS, categoryGroupLabel, categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
 import { Check, NumField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { useT, type Lang } from '../../editor/i18n.ts';
@@ -205,36 +205,43 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
               </tr>
             </thead>
             <tbody>
-              {GRAPHICS_CATEGORIES.map((c) => {
-                const o = g.overrides[c];
-                const id = `gv-${c}`;
-                const weightOptions = (key: 'cutWeight' | 'projectionWeight'): ReactElement => (
-                  <select
-                    id={`${id}-${key === 'cutWeight' ? 'cut' : 'proj'}`}
-                    className="select"
-                    aria-label={key === 'cutWeight' ? t('dlt_a11y_cut_weight_of', { category: categoryLabel(c, lang) }) : t('dlt_a11y_projection_weight_of', { category: categoryLabel(c, lang) })}
-                    value={o[key] ?? ''}
-                    onChange={(e) => run(c, { [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  >
-                    <option value="">{t('dlt_vis_project_value', { value: pg.categories[c][key] })}</option>
-                    {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                );
-                return (
-                  <tr key={c}>
-                    <td>{categoryLabel(c, lang)}</td>
-                    <td><Check id={`${id}-vis`} checked={o.visible} onChange={(v) => run(c, { visible: v })} /></td>
-                    <td>
-                      {/* units-ok: porcentagem de transparência */}
-                      <NumField id={`${id}-tr`} value={o.transparency * 100} decimals={0} suffix="%" min={0} max={100} width={64} onCommit={(v) => run(c, { transparency: v / 100 })} />
-                    </td>
-                    <td><Check id={`${id}-half`} checked={o.halftone} onChange={(v) => run(c, { halftone: v })} /></td>
-                    <td>{weightOptions('cutWeight')}</td>
-                    <td>{weightOptions('projectionWeight')}</td>
-                    <td><ColorCell id={`${id}-color`} label={categoryLabel(c, lang)} value={o.color} onCommit={(v) => run(c, { color: v })} /></td>
+              {CATEGORY_GROUPS.map((group) => (
+                <Fragment key={group.id}>
+                  <tr className="cat-group" data-category-group={group.id}>
+                    <th colSpan={7} scope="colgroup" style={{ textAlign: 'left', fontWeight: 600 }}>{categoryGroupLabel(group, lang)}</th>
                   </tr>
-                );
-              })}
+                  {group.categories.map((c) => {
+                    const o = g.overrides[c];
+                    const id = `gv-${c}`;
+                    const weightOptions = (key: 'cutWeight' | 'projectionWeight'): ReactElement => (
+                      <select
+                        id={`${id}-${key === 'cutWeight' ? 'cut' : 'proj'}`}
+                        className="select"
+                        aria-label={key === 'cutWeight' ? t('dlt_a11y_cut_weight_of', { category: categoryLabel(c, lang) }) : t('dlt_a11y_projection_weight_of', { category: categoryLabel(c, lang) })}
+                        value={o[key] ?? ''}
+                        onChange={(e) => run(c, { [key]: e.target.value === '' ? undefined : Number(e.target.value) })}
+                      >
+                        <option value="">{t('dlt_vis_project_value', { value: pg.categories[c][key] })}</option>
+                        {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
+                      </select>
+                    );
+                    return (
+                      <tr key={c} data-category={c}>
+                        <td>{categoryLabel(c, lang)}</td>
+                        <td><Check id={`${id}-vis`} checked={o.visible} onChange={(v) => run(c, { visible: v })} /></td>
+                        <td>
+                          {/* units-ok: porcentagem de transparência */}
+                          <NumField id={`${id}-tr`} value={o.transparency * 100} decimals={0} suffix="%" min={0} max={100} width={64} onCommit={(v) => run(c, { transparency: v / 100 })} />
+                        </td>
+                        <td><Check id={`${id}-half`} checked={o.halftone} onChange={(v) => run(c, { halftone: v })} /></td>
+                        <td>{weightOptions('cutWeight')}</td>
+                        <td>{weightOptions('projectionWeight')}</td>
+                        <td><ColorCell id={`${id}-color`} label={categoryLabel(c, lang)} value={o.color} onCommit={(v) => run(c, { color: v })} /></td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
           {failed.length > 0 && (

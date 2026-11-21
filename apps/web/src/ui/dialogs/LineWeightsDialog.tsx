@@ -1,9 +1,9 @@
-import { useState, type ReactElement } from 'react';
-import { GRAPHICS_CATEGORIES, graphicsOf, type GraphicsCategory, type ProjectGraphics } from '@hestia/model';
+import { useState, Fragment, type ReactElement } from 'react';
+import { graphicsOf, type GraphicsCategory, type ProjectGraphics } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { editProjectGraphics, restoreProjectGraphicsDefault, type ProjectGraphicsPatch } from '../../editor/graphicsActions.ts';
 import { useUi } from '../../editor/state.ts';
-import { categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
+import { CATEGORY_GROUPS, categoryGroupLabel, categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
 import { NumField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
 import { useT } from '../../editor/i18n.ts';
@@ -75,23 +75,30 @@ export function LineWeightsDialog(): ReactElement {
           </tr>
         </thead>
         <tbody>
-          {GRAPHICS_CATEGORIES.map((c) => (
-            <tr key={c}>
-              <td>{categoryLabel(c, lang)}</td>
-              {(['cutWeight', 'projectionWeight'] as const).map((key) => (
-                <td key={key}>
-                  <select
-                    id={`lwc-${c}-${key}`}
-                    className="select"
-                    aria-label={key === 'cutWeight' ? t('dlt_a11y_cut_weight_of', { category: categoryLabel(c, lang) }) : t('dlt_a11y_projection_weight_of', { category: categoryLabel(c, lang) })}
-                    value={g.categories[c][key]}
-                    onChange={(e) => setCategory(c, key, Number(e.target.value))}
-                  >
-                    {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                </td>
+          {CATEGORY_GROUPS.map((group) => (
+            <Fragment key={group.id}>
+              <tr className="cat-group" data-category-group={group.id}>
+                <th colSpan={3} scope="colgroup" style={{ textAlign: 'left', fontWeight: 600 }}>{categoryGroupLabel(group, lang)}</th>
+              </tr>
+              {group.categories.map((c) => (
+                <tr key={c} data-category={c}>
+                  <td>{categoryLabel(c, lang)}</td>
+                  {(['cutWeight', 'projectionWeight'] as const).map((key) => (
+                    <td key={key}>
+                      <select
+                        id={`lwc-${c}-${key}`}
+                        className="select"
+                        aria-label={key === 'cutWeight' ? t('dlt_a11y_cut_weight_of', { category: categoryLabel(c, lang) }) : t('dlt_a11y_projection_weight_of', { category: categoryLabel(c, lang) })}
+                        value={g.categories[c][key]}
+                        onChange={(e) => setCategory(c, key, Number(e.target.value))}
+                      >
+                        {WEIGHTS.map((w) => <option key={w} value={w}>{w}</option>)}
+                      </select>
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>

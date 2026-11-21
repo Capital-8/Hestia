@@ -1,12 +1,12 @@
 import { useState, type ReactElement } from 'react';
-import { GRAPHICS_CATEGORIES, PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { editPlanGraphics, editSectionGraphics, editView3D, restorePlanGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
 import { planDialogTarget } from '../editor/viewIdentity.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row } from './fields.tsx';
-import { categoryLabel, detailLabel, partialLabel, PLAN_SCALES, visualStyleLabel } from './graphicsLabels.ts';
+import { categoriesInGroups, categoryLabel, detailLabel, partialLabel, PLAN_SCALES, visualStyleLabel } from './graphicsLabels.ts';
 
 /** Ordem dos níveis de detalhe na lista (do automático ao fino). */
 const DETAILS: readonly (DetailLevel | 'byScale')[] = ['byScale', 'coarse', 'medium', 'fine'];
@@ -22,7 +22,7 @@ export function LevelGraphicsGroup({ levelId, planViewId }: { levelId: Id; planV
   const g = planGraphicsOf(p, levelId, planViewId);
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: LevelGraphicsPatch): void => setError(editPlanGraphics(editor.store, target, patch).error);
-  const hidden = GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible);
+  const hidden = categoriesInGroups().filter((c) => !g.overrides[c].visible);
   const isPreset = PLAN_SCALES.includes(g.scale);
   return (
     <Group title={t('prd_pgrp_view_graphics')} open={false}>
@@ -70,7 +70,7 @@ export function SectionGraphicsGroup(): ReactElement {
   const g = sectionGraphicsOf(p);
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: SectionGraphicsPatch): void => setError(editSectionGraphics(editor.store, patch).error);
-  const hidden = GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible);
+  const hidden = categoriesInGroups().filter((c) => !g.overrides[c].visible);
   const isPreset = PLAN_SCALES.includes(g.scale);
   return (
     <Group title={t('prd_pgrp_view_graphics')} open={false}>
@@ -135,7 +135,7 @@ export function View3DGroup(): ReactElement {
   const v = view3dOf(p);
   const [error, setError] = useState<string | null>(null);
   const edit = (patch: View3DPatch): void => setError(editView3D(editor.store, patch).error);
-  const hidden = GRAPHICS_CATEGORIES.filter((c) => !v.overrides[c].visible);
+  const hidden = categoriesInGroups().filter((c) => !v.overrides[c].visible);
   return (
     <Group title={t('prd_pgrp_3d_graphics')}>
       <Row label={t('prd_fld_visual_style')} htmlFor="v3-style">

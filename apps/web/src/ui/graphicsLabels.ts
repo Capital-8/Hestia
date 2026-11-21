@@ -19,17 +19,36 @@ const CATEGORY_KEY: Record<GraphicsCategory, keyof Dict> = {
   room: 'tool_room',
   annotation: 'cvn_cat_annotation',
   generic: 'cvn_cat_generic',
-  // Categorias por elemento (etapa 4.5a): até a ficha de interface (4.5d), usam o rótulo da categoria de origem.
-  column: 'tool_wall',
-  beam: 'tool_slab',
-  footing: 'tool_slab',
-  ceiling: 'tool_floor',
-  ramp: 'cvn_cat_stair',
-  component: 'cvn_cat_generic',
-  plumbingFixture: 'cvn_cat_generic',
-  electricalFixture: 'cvn_cat_generic',
-  mechanicalEquipment: 'cvn_cat_generic',
+  // Categorias por elemento (adendo 2 do ADR 0060): cada uma tem rótulo próprio (etapa 4.5d).
+  column: 'cvn_cat_column',
+  beam: 'cvn_cat_beam',
+  footing: 'cvn_cat_footing',
+  ceiling: 'cvn_cat_ceiling',
+  ramp: 'cvn_cat_ramp',
+  component: 'cvn_cat_component',
+  plumbingFixture: 'cvn_cat_plumbing_fixture',
+  electricalFixture: 'cvn_cat_electrical_fixture',
+  mechanicalEquipment: 'cvn_cat_mechanical_equipment',
 };
+
+/** Grupo de categorias na lista de visibilidade/pesos (etapa 4.5d). */
+export interface GraphicsCategoryGroup {
+  id: 'general' | 'architecture' | 'structure' | 'components';
+  labelKey: keyof Dict;
+  categories: readonly GraphicsCategory[];
+}
+
+/**
+ * Grupos da lista de categorias, na ordem em que aparecem nos diálogos. Todos os itens de `GRAPHICS_CATEGORIES`
+ * entram uma vez só: o que é de estrutura fica junto (pilar, viga, sapata, laje) e os componentes ficam por
+ * disciplina (arquitetura, hidrossanitário, elétrico, HVAC), sem repetir categorias nem mudar as que já existiam.
+ */
+export const CATEGORY_GROUPS: readonly GraphicsCategoryGroup[] = [
+  { id: 'general', labelKey: 'cvn_catgrp_general', categories: ['site', 'lot', 'generic', 'annotation'] },
+  { id: 'architecture', labelKey: 'cvn_catgrp_architecture', categories: ['wall', 'door', 'window', 'floor', 'ceiling', 'roof', 'stair', 'ramp', 'railing', 'mass', 'room'] },
+  { id: 'structure', labelKey: 'cvn_catgrp_structure', categories: ['column', 'beam', 'footing', 'slab'] },
+  { id: 'components', labelKey: 'cvn_catgrp_components', categories: ['component', 'plumbingFixture', 'electricalFixture', 'mechanicalEquipment'] },
+];
 
 const VISUAL_STYLE_KEY: Record<VisualStyle, keyof Dict> = {
   wireframe: 'cvn_style_wireframe',
@@ -69,6 +88,16 @@ export const DETAIL_LABEL: Record<DetailLevel | 'byScale', string> = ptLabels(DE
 /** Rótulo da categoria de gráficos no idioma pedido. */
 export function categoryLabel(categoria: GraphicsCategory, lang: Lang): string {
   return t(lang, CATEGORY_KEY[categoria]);
+}
+
+/** Rótulo do grupo de categorias no idioma pedido. */
+export function categoryGroupLabel(grupo: GraphicsCategoryGroup, lang: Lang): string {
+  return t(lang, grupo.labelKey);
+}
+
+/** Todas as categorias na ordem dos grupos (o conjunto é o mesmo de `GRAPHICS_CATEGORIES`). */
+export function categoriesInGroups(): readonly GraphicsCategory[] {
+  return CATEGORY_GROUPS.flatMap((g) => g.categories);
 }
 
 /** Rótulo do estilo visual no idioma pedido. */
