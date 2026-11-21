@@ -5,10 +5,11 @@ import { ProjectStore } from './history.ts';
 import type { Opening, Project, Wall } from './types.ts';
 import { DEFAULT_JOIN, makeWall } from './wall.ts';
 import { casaAltoPadrao } from './templateCasaAltoPadrao.ts';
+import { casaDisciplinas } from './templateCasaDisciplinas.ts';
 import { esquadrias } from './templateEsquadrias.ts';
 import { predio10 } from './templatePredio10.ts';
 
-export type TemplateId = 'blank' | 'house2' | 'studio' | 'house-premium' | 'predio10' | 'esquadrias';
+export type TemplateId = 'blank' | 'house2' | 'studio' | 'house-premium' | 'predio10' | 'esquadrias' | 'casa-disciplinas';
 
 /** Modelos oferecidos no diálogo de projeto novo, no idioma pedido. */
 export function templates(lang: Lang = 'pt'): Array<{ id: TemplateId; name: string; description: string; area: string }> {
@@ -26,6 +27,8 @@ export function templates(lang: Lang = 'pt'): Array<{ id: TemplateId; name: stri
     { id: 'house-premium', name: t(lang, 'md_tpl_house_premium'), description: t(lang, 'md_tpl_house_premium_desc'), area: '330 m²' },
     // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
     { id: 'predio10', name: t(lang, 'md_tpl_building10'), description: t(lang, 'md_tpl_building10_desc'), area: '1.900 m²' },
+    // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
+    { id: 'casa-disciplinas', name: t(lang, 'md_tpl_casa_disciplinas'), description: t(lang, 'md_tpl_casa_disciplinas_desc'), area: '48 m²' },
     // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
     { id: 'studio', name: t(lang, 'md_tpl_studio'), description: t(lang, 'md_tpl_studio_desc'), area: '27 m²' },
   ];
@@ -135,6 +138,7 @@ export function buildTemplate(id: TemplateId, lang: Lang = 'pt'): Project {
   if (id === 'house-premium') casaAltoPadrao(cmds, lang);
   if (id === 'predio10') predio10(cmds, lang);
   if (id === 'esquadrias') esquadrias(cmds);
+  if (id === 'casa-disciplinas') casaDisciplinas(cmds, lang);
   for (const c of cmds) store.exec(c);
   const p = store.project;
   return p;

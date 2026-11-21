@@ -33,6 +33,8 @@ export const PT_PACKAGES_MODEL = {
   md_tpl_building10_desc: 'Núcleo de circulação central e quatro unidades por andar; lajes e pisos param no núcleo.',
   md_tpl_studio: 'Quitinete',
   md_tpl_studio_desc: 'Ambiente único com banheiro, para testar rápido.',
+  md_tpl_casa_disciplinas: 'Casa de teste de disciplinas',
+  md_tpl_casa_disciplinas_desc: 'Térreo de 6 × 8 m com banheiro, estrutura nativa e componentes hidrossanitários, elétricos e de HVAC, com uma planta de cada disciplina.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Laje maciça 19 (prédio)',
@@ -327,6 +329,8 @@ export const EN_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Central circulation core and four units per floor; slabs and floors stop at the core.',
   md_tpl_studio: 'Studio Apartment',
   md_tpl_studio_desc: 'Single room with bathroom, for quick testing.',
+  md_tpl_casa_disciplinas: 'Discipline Test House',
+  md_tpl_casa_disciplinas_desc: '6 × 8 m ground floor with a bathroom, native structure and plumbing, electrical and HVAC components, plus one plan view per discipline.',
 
   md_tpl_pd_slab: 'Solid Slab 19 (Building)',
   md_tpl_pd_slab_desc: 'Leveling and ceiling stop at the inner face of the core; the structure stops at the outer face of the core.',
@@ -599,6 +603,8 @@ export const ES_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Núcleo de circulación central y cuatro unidades por planta; losas y suelos terminan en el núcleo.',
   md_tpl_studio: 'Estudio',
   md_tpl_studio_desc: 'Ambiente único con baño, para probar rápido.',
+  md_tpl_casa_disciplinas: 'Casa de prueba de disciplinas',
+  md_tpl_casa_disciplinas_desc: 'Planta baja de 6 × 8 m con baño, estructura nativa y componentes de hidrosanitario, eléctrico y HVAC, con una planta de cada disciplina.',
 
   md_tpl_pd_slab: 'Losa maciza 19 (edificio)',
   md_tpl_pd_slab_desc: 'Nivelación y techo terminan en la cara interior del núcleo; la estructura termina en la cara exterior del núcleo.',
@@ -871,6 +877,8 @@ export const DE_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Zentraler Erschließungskern und vier Einheiten pro Geschoss; Decken und Böden enden am Kern.',
   md_tpl_studio: 'Einzimmerwohnung',
   md_tpl_studio_desc: 'Ein Raum mit Bad, zum schnellen Testen.',
+  md_tpl_casa_disciplinas: 'Disziplinen-Testhaus',
+  md_tpl_casa_disciplinas_desc: 'Erdgeschoss von 6 × 8 m mit Bad, Tragwerk und Komponenten für Sanitär, Elektro und HLK, mit einer Ansicht je Disziplin.',
 
   md_tpl_pd_slab: 'Massivdecke 19 (Gebäude)',
   md_tpl_pd_slab_desc: 'Nivellierung und Deckenbekleidung enden an der Innenfläche des Kerns; die Struktur endet an der Außenfläche des Kerns.',
@@ -1143,6 +1151,8 @@ export const FR_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Noyau de circulation central et quatre unités par étage ; dalles et sols s\'arrêtent au noyau.',
   md_tpl_studio: 'Studio',
   md_tpl_studio_desc: 'Pièce unique avec salle de bains, pour tester rapidement.',
+  md_tpl_casa_disciplinas: 'Maison de test des disciplines',
+  md_tpl_casa_disciplinas_desc: 'Rez-de-chaussée de 6 × 8 m avec salle de bains, structure native et composants de plomberie, électricité et CVC, avec une vue par discipline.',
 
   md_tpl_pd_slab: 'Dalle pleine 19 (immeuble)',
   md_tpl_pd_slab_desc: 'Ragréage et plafond s\'arrêtent à la face intérieure du noyau ; la structure s\'arrête à la face extérieure du noyau.',
@@ -1415,6 +1425,8 @@ export const IT_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Nucleo di circolazione centrale e quattro unità per piano; solai e pavimenti terminano al nucleo.',
   md_tpl_studio: 'Monolocale',
   md_tpl_studio_desc: 'Ambiente unico con bagno, per test rapidi.',
+  md_tpl_casa_disciplinas: 'Casa di prova delle discipline',
+  md_tpl_casa_disciplinas_desc: 'Piano terra di 6 × 8 m con bagno, struttura nativa e componenti idraulici, elettrici e HVAC, con una pianta per disciplina.',
 
   md_tpl_pd_slab: 'Solaio pieno 19 (edificio)',
   md_tpl_pd_slab_desc: 'Livellamento e soffitto terminano alla faccia interna del nucleo; la struttura termina alla faccia esterna del nucleo.',
@@ -1687,6 +1699,8 @@ export const PL_PACKAGES_MODEL: Record<keyof typeof PT_PACKAGES_MODEL, string> =
   md_tpl_building10_desc: 'Centralny rdzeń komunikacji i cztery lokale na piętro; stropy i podłogi kończą się na rdzeniu.',
   md_tpl_studio: 'Kawalerka',
   md_tpl_studio_desc: 'Jedno pomieszczenie z łazienką, do szybkich testów.',
+  md_tpl_casa_disciplinas: 'Dom testowy dyscyplin',
+  md_tpl_casa_disciplinas_desc: 'Parter 6 × 8 m z łazienką, konstrukcją natywną i komponentami instalacji sanitarnej, elektrycznej i HVAC, z jednym rzutem dla każdej dyscypliny.',
 
   md_tpl_pd_slab: 'Strop pełny 19 (budynek)',
   md_tpl_pd_slab_desc: 'Wyrównanie i sufit kończą się na wewnętrznej powierzchni rdzenia; konstrukcja kończy się na zewnętrznej powierzchni rdzenia.',

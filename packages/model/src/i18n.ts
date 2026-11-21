@@ -44,6 +44,8 @@ const PT = {
   md_tpl_building10_desc: 'Núcleo de circulação central e quatro unidades por andar; lajes e pisos param no núcleo.',
   md_tpl_studio: 'Quitinete',
   md_tpl_studio_desc: 'Ambiente único com banheiro, para testar rápido.',
+  md_tpl_casa_disciplinas: 'Casa de teste de disciplinas',
+  md_tpl_casa_disciplinas_desc: 'Térreo de 6 × 8 m com banheiro, estrutura nativa e componentes hidrossanitários, elétricos e de HVAC, com uma planta de cada disciplina.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Laje maciça 19 (prédio)',
@@ -647,6 +649,8 @@ const EN: Record<Key, string> = {
   md_tpl_building10_desc: 'Central circulation core and four units per floor; slabs and floors stop at the core.',
   md_tpl_studio: 'Studio Apartment',
   md_tpl_studio_desc: 'Single room with bathroom, for quick testing.',
+  md_tpl_casa_disciplinas: 'Discipline Test House',
+  md_tpl_casa_disciplinas_desc: '6 × 8 m ground floor with a bathroom, native structure and plumbing, electrical and HVAC components, plus one plan view per discipline.',
 
   md_tpl_pd_slab: 'Solid Slab 19 (Building)',
   md_tpl_pd_slab_desc: 'Leveling and ceiling stop at the inner face of the core; the structure stops at the outer face of the core.',
@@ -1317,6 +1321,8 @@ const ES: Record<Key, string> = {
   md_tpl_building10_desc: 'Núcleo de circulación central y cuatro unidades por planta; losas y suelos terminan en el núcleo.',
   md_tpl_studio: 'Estudio',
   md_tpl_studio_desc: 'Ambiente único con baño, para probar rápido.',
+  md_tpl_casa_disciplinas: 'Casa de prueba de disciplinas',
+  md_tpl_casa_disciplinas_desc: 'Planta baja de 6 × 8 m con baño, estructura nativa y componentes de hidrosanitario, eléctrico y HVAC, con una planta de cada disciplina.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Losa maciza 19 (edificio)',
@@ -1921,6 +1927,8 @@ const DE: Record<Key, string> = {
   md_tpl_building10_desc: 'Zentraler Erschließungskern und vier Einheiten pro Geschoss; Decken und Böden enden am Kern.',
   md_tpl_studio: 'Einzimmerwohnung',
   md_tpl_studio_desc: 'Ein einziger Raum mit Bad, zum schnellen Testen.',
+  md_tpl_casa_disciplinas: 'Disziplinen-Testhaus',
+  md_tpl_casa_disciplinas_desc: 'Erdgeschoss von 6 × 8 m mit Bad, Tragwerk und Komponenten für Sanitär, Elektro und HLK, mit einer Ansicht je Disziplin.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Massivdecke 19 (Gebäude)',
@@ -2525,6 +2533,8 @@ const FR: Record<Key, string> = {
   md_tpl_building10_desc: 'Noyau de circulation central et quatre unités par étage ; les dalles et les sols s\'arrêtent au noyau.',
   md_tpl_studio: 'Studio',
   md_tpl_studio_desc: 'Pièce unique avec salle de bains, pour tester rapidement.',
+  md_tpl_casa_disciplinas: 'Maison de test des disciplines',
+  md_tpl_casa_disciplinas_desc: 'Rez-de-chaussée de 6 × 8 m avec salle de bains, structure native et composants de plomberie, électricité et CVC, avec une vue par discipline.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Dalle pleine 19 (immeuble)',
@@ -3129,6 +3139,8 @@ const IT: Record<Key, string> = {
   md_tpl_building10_desc: 'Nucleo di circolazione centrale e quattro unità per piano; solai e pavimenti si fermano al nucleo.',
   md_tpl_studio: 'Monolocale',
   md_tpl_studio_desc: 'Ambiente unico con bagno, per testare rapidamente.',
+  md_tpl_casa_disciplinas: 'Casa di prova delle discipline',
+  md_tpl_casa_disciplinas_desc: 'Piano terra di 6 × 8 m con bagno, struttura nativa e componenti idraulici, elettrici e HVAC, con una pianta per disciplina.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Solaio pieno 19 (edificio)',
@@ -3746,6 +3758,8 @@ const PL: Record<Key, string> = {
   md_tpl_building10_desc: 'Centralny rdzeń komunikacyjny i cztery lokale na kondygnacji; stropy i posadzki kończą się przy rdzeniu.',
   md_tpl_studio: 'Kawalerka',
   md_tpl_studio_desc: 'Jedno pomieszczenie z łazienką, do szybkich testów.',
+  md_tpl_casa_disciplinas: 'Dom testowy dyscyplin',
+  md_tpl_casa_disciplinas_desc: 'Parter 6 × 8 m z łazienką, konstrukcją natywną i komponentami instalacji sanitarnej, elektrycznej i HVAC, z jednym rzutem dla każdej dyscypliny.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Strop pełny 19 (budynek)',
