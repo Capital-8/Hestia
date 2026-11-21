@@ -18,11 +18,11 @@ import {
 import { add, type Vec2 } from '@hestia/geom';
 import { addSectionRevisionCloud, addSectionSpot, addSectionSymbol, ToolBase, viewPlanId } from './base.ts';
 import { pickAt } from './pick.ts';
-import type { PointerInfo } from './types.ts';
+import type { PointerInfo, ToolEnv } from './types.ts';
 
-function elevationAt(p: Project, levelId: Id, pt: Vec2, mpp: number): number {
+function elevationAt(p: Project, levelId: Id, pt: Vec2, mpp: number, env?: ToolEnv): number {
   const base = p.levels.find((l) => l.id === levelId)?.elevation ?? 0;
-  const hit = pickAt(p, levelId, pt, mpp);
+  const hit = pickAt(p, levelId, pt, mpp, env);
   const el = hit ? p.elements[hit.id] : undefined;
   if (!el) return base;
   if ('heightOffset' in el && typeof el.heightOffset === 'number') return base + el.heightOffset;
@@ -77,7 +77,7 @@ export class SpotElevationTool extends ToolBase {
 
   private measureZ(pt: Vec2): number {
     if (this.isSection()) return pt.y;
-    return elevationAt(this.env.project(), this.env.levelId(), pt, this.env.metersPerPixel());
+    return elevationAt(this.env.project(), this.env.levelId(), pt, this.env.metersPerPixel(), this.env);
   }
 
   override move(p: PointerInfo): void {

@@ -1,6 +1,7 @@
 import { arcFromSagitta, arcLocal, closestOnSegment, dist, dot, len, norm, sub, type SketchSeg, type Vec2 } from '@hestia/geom';
 import type { Id } from '@hestia/model';
 import type { ToolEnv } from './types.ts';
+import { podeCapturar } from './visibilidade.ts';
 
 /** Contexto mínimo das ferramentas de esboço: o mesmo subconjunto de `ToolEnv` que a captura usa. */
 export type SketchCtx = Pick<ToolEnv, 'project' | 'levelId' | 'hiddenInView' | 'lang'>;
@@ -14,10 +15,9 @@ export interface Circle {
   r: number;
 }
 
-/** Predicado de visibilidade: elemento oculto na planta não entra na captura. */
+/** Predicado de visibilidade: elemento oculto na planta não entra na captura (meio-tom continua entrando). */
 export function visibleIn(ctx: SketchCtx): (id: Id) => boolean {
-  const hidden = ctx.hiddenInView?.();
-  return (id) => !hidden?.has(id);
+  return (id) => podeCapturar(ctx, id);
 }
 
 /** Linha ou arco do esboço. Flecha ausente ou zero = reta, como em `SketchSeg`. */

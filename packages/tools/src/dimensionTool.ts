@@ -9,6 +9,7 @@ import {
   dimensionStyleFor,
   dimensionValue,
   formatDimension,
+  isOpening,
   newId,
   roundMm,
   unitsOf,
@@ -23,6 +24,7 @@ import { sectionDimRefAt } from './sectionDimRefs.ts';
 import { sectionSnapIndexDoProjeto } from './sectionSnapComGuardaCorpo.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
+import { podeCapturar } from './visibilidade.ts';
 import { signedOffset, viewAnnotationsOf } from './annotationPick.ts';
 import { lengthUnitName, parseQuantityText } from './numeric.ts';
 import type { PointerInfo, PreviewItem, ToolOptions } from './types.ts';
@@ -108,7 +110,14 @@ export class DimensionTool extends ToolBase {
         return undefined;
       }
     }
-    return dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL)?.ref;
+    const r = dimRefAt(this.env.project(), this.env.levelId(), point, REF_TOL);
+    if (!r) return undefined;
+    // A ref associativa só vale para o que se captura: parede/abertura/elemento oculto não é referência de cota
+    // (o meio-tom é: ele existe para coordenar). O snap já evita o oculto; isto fecha o clique num ponto exato dele.
+    const id = 'elementId' in r.ref ? r.ref.elementId : r.ref.wallId;
+    const el = this.env.project().elements[id];
+    const host = el && isOpening(el) ? el.hostId : undefined;
+    return podeCapturar(this.env, id) && (host === undefined || podeCapturar(this.env, host)) ? r.ref : undefined;
   }
 
   /** Direção efetiva da cota entre dois pontos: `auto` infere horizontal/vertical quando os pontos compartilham um eixo. */

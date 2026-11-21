@@ -81,6 +81,11 @@ export interface ToolEnv {
   viewScale?(): number;
   /** Elementos ocultos na planta atual (fora do intervalo de vista ou categoria oculta): não são alvo de captura (S-07). Ausente = nenhum. */
   hiddenInView?(): ReadonlySet<Id>;
+  /**
+   * Elementos em meio-tom na planta atual (tom `halftone` da disciplina): continuam capturáveis e servem de referência
+   * de cota, mas não são selecionáveis por clique nem por caixa (decisão 0060 §4.1). Ausente = nenhum.
+   */
+  halftoneInView?(): ReadonlySet<Id>;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
   /**

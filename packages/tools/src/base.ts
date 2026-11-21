@@ -10,6 +10,7 @@ import { cadSnapIndexes } from './snapCad.ts';
 import { TOP_FACE_TOOLS } from './snapTopFace.ts';
 import type { Vec2 } from '@hestia/geom';
 import { t as translate, type DictKey, type Lang } from './i18n.ts';
+import { podeCapturar } from './visibilidade.ts';
 
 /** Implementação comum: Esc em dois passos, inferência e rótulos. */
 export abstract class ToolBase implements Tool {
@@ -108,12 +109,18 @@ export abstract class ToolBase implements Tool {
     const planId = viewPlanId(this.env);
     const under = this.env.underlayLevelId?.() ?? null;
     const levelsIn = (l: string): string[] => (under ? [l, under] : [l]);
-    const visible = hidden ? (w: Wall) => !hidden.has(w.id) : undefined;
+    // O ambiente da captura usa o conjunto já lido: `podeCapturar` não reconsulta a visibilidade da vista a cada ponto.
+    const envCaptura = hidden ? { hiddenInView: () => hidden } : this.env;
+    const visible = hidden ? (w: Wall) => podeCapturar(envCaptura, w.id) : undefined;
+    const visibleId = hidden ? (id: Id) => podeCapturar(envCaptura, id) : undefined;
     const levels = levelsIn(levelId);
     // Aberturas entram na captura com cantos, centro e ombreiras; na inserção de abertura (só paredes) ficam de fora.
-    const openings = extra.onWallsOnly ? [] : levels.flatMap((l) => openingSnapGeometry(project, l, visible));
+    // O filtro olha a parede E a própria abertura: ocultar a abertura tira os pontos dela, não os da parede.
+    const openings = extra.onWallsOnly ? [] : levels.flatMap((l) => openingSnapGeometry(project, l, visible, visibleId));
     // Escadas, rampas e guarda-corpos entram indexados (vértices, meios, centros e arestas): milhares de pontos custam só o que está perto do cursor.
     const components = extra.onWallsOnly ? [] : levels.flatMap((l) => [componentSnapIndex(project, l), moveisSnapIndex(project, l)]);
+    // Pisos e lajes também são capturados pelos vértices/arestas: o oculto na vista sai de lá como sai das fontes indexadas.
+    const visivel = (id: Id | undefined): boolean => id === undefined || podeCapturar(envCaptura, id);
     const options = this.env.options();
     const angle = options.angleMode;
     return {
@@ -133,20 +140,20 @@ export abstract class ToolBase implements Tool {
       ...(hidden ? { hiddenIds: hidden } : {}),
       // Vértices dos pisos do nível entram sempre; os pontos que a ferramenta passa (contorno em construção) somam-se a eles.
       extraPoints: [
-        ...levels.flatMap((l) => floorVertices(project, l)),
+        ...levels.flatMap((l) => floorVertices(project, l)).filter((q) => visivel(q.hostId)),
         ...openings.flatMap((g) => g.points),
         // Pontas e ponto médio das linhas de detalhe da vista (planta de piso ou de área).
         ...detailPoints(project, levelId, planId, hidden),
         ...(extra.extraPoints ?? []),
       ],
       extraSegments: [
-        ...levels.flatMap((l) => floorEdges(project, l)),
+        ...levels.flatMap((l) => floorEdges(project, l)).filter((e) => visivel(e.hostId)),
         ...openings.flatMap((g) => g.segments),
         ...detailEdges(project, levelId, planId, hidden),
         ...(extra.extraSegments ?? []),
       ],
       // Desenhos CAD importados visíveis: o que a vista oculta (temporária ou permanentemente) não se captura.
-      cad: cadSnapIndexes(project, levels).filter((ix) => !hidden?.has(ix.id)),
+      cad: cadSnapIndexes(project, levels).filter((ix) => visivel(ix.id)),
     };
   }
 

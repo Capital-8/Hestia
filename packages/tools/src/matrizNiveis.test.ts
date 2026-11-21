@@ -124,17 +124,14 @@ describe.each(['lv_0', 'lv_1'])('matriz de níveis, planta %s', (levelId) => {
   describe('(d) elemento oculto na vista (hiddenIds da parede leste)', () => {
     const ocultaLeste = [idDe('leste', levelId)];
 
-    it('LACUNA ATUAL: a parede oculta ainda captura pela face (ponto médio da face em x = 6,092), não pelo eixo', () => {
-      // Espessura de wt_alv14: 0,002 + 0,02 + 0,14 + 0,02 + 0,002 = 0,184 m; meia espessura = 0,092 m, então a face
-      // externa fica em x = 6,092. O cursor (6,05; 2,02) está a 0,047 m do ponto médio dessa face (dentro da tolerância
-      // de 0,1 m) e a 0,02 m da linha y = 2 (alinhamento com o pilar, peso 0,9 contra 0,25 do ponto médio, então o ponto médio vence).
-      // infer.ts (addSegs sobre facesIn) não filtra hiddenIds: o dono é a leste, mas o ponto não é o eixo (x = 6).
+    it('a parede oculta não captura pela face: o cursor fica no alinhamento do pilar (y = 2), sem dono', () => {
+      // Com a face filtrada por `hiddenIds`, o ponto médio da face externa (x = 6,092) deixa de existir. O que sobra no
+      // cursor (6,05; 2,02) é a linha horizontal do centro do pilar em y = 2: alinhamento, sem dono (não é a parede leste).
       const { env } = cenario(levelId, { hiddenIds: ocultaLeste });
       const s = snapEm(env, 6.05, 2.02);
-      expect(s.tipo).toBe('midpoint');
-      expect(s.id).toBe('leste');
-      expect(s.ponto.x).toBeCloseTo(6.092, 9);
-      // y medido = 2,001 (1 mm acima do 2,000 da conta à mão; causa não investigada). Tolerância de 5 mm, sem ajustar o literal.
+      // A captura que sobra é de outro elemento (alinhamento), nunca o ponto médio da face da parede oculta.
+      expect(s.tipo).toBe('alignment');
+      expect(s.id).toBeNull();
       expect(s.ponto.y).toBeCloseTo(2, 2);
     });
 

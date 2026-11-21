@@ -3,14 +3,15 @@ import { createTool, DEFAULT_DISJOIN, type PointerInfo, type Tool, type ToolEnv,
 
 /**
  * Opções opcionais do ambiente. Sem nenhuma, o ambiente é o de sempre: planta do `lv_0`, nada oculto e sem
- * `hiddenInView` (a ferramenta trata a ausência como "nenhum oculto").
- * `halftoneIds` não existe no código atual (não há `halftoneInView` em `ToolEnv`): fica de fora até a fase 2 da decisão 0060.
+ * `hiddenInView`/`halftoneInView` (a ferramenta trata a ausência como "nenhum").
  */
 export interface OpcoesMakeEnv {
   /** Nível da planta ativa (padrão `lv_0`). */
   levelId?: Id;
   /** Elementos ocultos na vista (alimentam `hiddenInView`). */
   hiddenIds?: Iterable<Id>;
+  /** Elementos em meio-tom na vista (alimentam `halftoneInView`). Padrão: vazio. */
+  halftoneIds?: Iterable<Id>;
   /** Planta de disciplina aberta (`ToolEnv.planViewId`; só existe no ambiente quando informada). */
   planViewId?: Id;
 }
@@ -19,6 +20,7 @@ export interface OpcoesMakeEnv {
 export function makeEnv(store = new ProjectStore(createEmptyProject()), opts: OpcoesMakeEnv = {}) {
   const levelId: Id = opts.levelId ?? 'lv_0';
   const hidden: ReadonlySet<Id> | null = opts.hiddenIds ? new Set<Id>(opts.hiddenIds) : null;
+  const halftone: ReadonlySet<Id> | null = opts.halftoneIds ? new Set<Id>(opts.halftoneIds) : null;
   let selection: Id[] = [];
   let finished = 0;
   let areaPlan: Id | null = null;
@@ -36,6 +38,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject()), opts: Op
     project: () => store.project,
     levelId: () => levelId,
     ...(hidden ? { hiddenInView: () => hidden } : {}),
+    ...(halftone ? { halftoneInView: () => halftone } : {}),
     selection: () => selection,
     setSelection: (ids) => { selection = ids; },
     exec: (c) => store.exec(c),

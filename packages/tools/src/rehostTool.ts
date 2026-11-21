@@ -40,7 +40,7 @@ export class RehostTool extends ToolBase {
   /** Parede sob o cursor; uma abertura conta como a parede que a hospeda. */
   private wallUnder(p: PointerInfo): Id | null {
     const pr = this.env.project();
-    const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (!hit) return null;
     const e = pr.elements[hit.id];
     if (isWall(e)) return e.id;
@@ -52,7 +52,7 @@ export class RehostTool extends ToolBase {
     this.raw = p.raw;
     const pr = this.env.project();
     if (!this.openingId) {
-      const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+      const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
       if (hit && isOpening(pr.elements[hit.id])) this.items.push({ kind: 'highlight', ids: [hit.id] });
       return;
     }
@@ -68,7 +68,7 @@ export class RehostTool extends ToolBase {
   override click(p: PointerInfo): void {
     const pr = this.env.project();
     if (!this.openingId) {
-      const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+      const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
       if (!hit || !isOpening(pr.elements[hit.id])) {
         this.env.say('Clique numa porta ou janela para trocar a parede dela.');
         return;

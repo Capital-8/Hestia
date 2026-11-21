@@ -5,17 +5,23 @@ import { pegadaDoComponente, toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
 import { furnitureOutline } from './furnitureFootprint.ts';
+import { podeSelecionar, type VisibilidadeEnv } from './visibilidade.ts';
 
 export interface Hit {
   id: Id;
   kind: 'wall' | 'door' | 'window';
 }
 
+/** Filtro de seleção opcional: sem `env`, as funções puras continuam devolvendo o que sempre devolveram. */
+const selecionavel = (env: VisibilidadeEnv | undefined, id: Id, modo: 'clique' | 'caixa'): boolean => !env || podeSelecionar(env, id, modo);
+
 /**
  * Elemento sob o ponto (aberturas têm prioridade sobre a parede que as hospeda). Só as paredes que podem acertar o ponto
  * entram na conta (índice de `pickIndex.ts`); o resultado é o da varredura de todas as paredes, na mesma ordem.
+ * Com `env`, o que não se seleciona (oculto ou meio-tom) não é devolvido: a abertura é testada pelo id dela e a parede
+ * pelo id da parede.
  */
-export function pickAt(p: Project, levelId: Id, at: Vec2, mpp: number): Hit | null {
+export function pickAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): Hit | null {
   const tol = 4 * mpp;
   const ix = wallIndexOf(p, levelId);
   let bestWall: { id: Id; d: number } | null = null;
@@ -24,7 +30,9 @@ export function pickAt(p: Project, levelId: Id, at: Vec2, mpp: number): Hit | nu
     const f = w.frame;
     for (const o of w.opens) {
       const l = toLocal(f, at);
-      if (Math.abs(l.t - o.g.offset) <= o.g.width / 2 + tol && l.s <= f.sHi + tol && l.s >= f.sLo - tol) return { id: o.id, kind: o.kind };
+      if (Math.abs(l.t - o.g.offset) <= o.g.width / 2 + tol && l.s <= f.sHi + tol && l.s >= f.sLo - tol) {
+        if (selecionavel(env, o.id, 'clique')) return { id: o.id, kind: o.kind };
+      }
     }
     const l = toLocal(f, at);
     if (l.t < -tol || l.t > f.length + tol) continue;
@@ -33,7 +41,7 @@ export function pickAt(p: Project, levelId: Id, at: Vec2, mpp: number): Hit | nu
     const d = over + Math.abs(l.s - f.sMid) * 1e-3;
     if (!bestWall || d < bestWall.d) bestWall = { id: w.id, d };
   }
-  return bestWall ? { id: bestWall.id, kind: 'wall' } : null;
+  return bestWall && selecionavel(env, bestWall.id, 'clique') ? { id: bestWall.id, kind: 'wall' } : null;
 }
 
 export interface Grip {
@@ -99,7 +107,7 @@ export function followingEnds(p: Project, levelId: Id, pt: Vec2, exclude: Set<Id
   return invert ? [] : connectedEnds(p, levelId, pt, exclude, tol);
 }
 
-export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
+export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, env?: VisibilidadeEnv): Id[] {
   const box = boxOf([a, b]);
   const crossing = b.x < a.x;
   const inside = (q: Vec2): boolean => q.x >= box.minX && q.x <= box.maxX && q.y >= box.minY && q.y <= box.maxY;
@@ -111,6 +119,7 @@ export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
   ];
   const ids: Id[] = [];
   for (const w of wallsOfPlan(p, levelId)) {
+    if (!selecionavel(env, w.id, 'caixa')) continue;
     const arc = arcFromSagitta(w.a, w.b, w.sag);
     const pts = arc ? arcSample(arc, 0, arc.length, 0, 0.05) : [w.a, w.b];
     const bb = boxOf(pts);
@@ -132,24 +141,25 @@ export function idsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
  * Desenho CAD importado cujo traço passa a até `tol` do ponto (clique na linha). Desenho com `visible: false` fica de
  * fora: o que não se vê não se seleciona.
  */
-export function cadAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
-  return cadNear(cadSnapIndexes(p, [levelId]), at, 4 * mpp);
+export function cadAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): Id | null {
+  const id = cadNear(cadSnapIndexes(p, [levelId]), at, 4 * mpp);
+  return id && selecionavel(env, id, 'clique') ? id : null;
 }
 
 /** Desenhos CAD inteiramente dentro da janela (seleção de janela esquerda→direita). */
-export function cadIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
-  return cadBoxIds(cadSnapIndexes(p, [levelId]), a, b);
+export function cadIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, env?: VisibilidadeEnv): Id[] {
+  return cadBoxIds(cadSnapIndexes(p, [levelId]), a, b).filter((id) => selecionavel(env, id, 'caixa'));
 }
 
 /**
  * Objeto importado sob o ponto: o contorno em planta (hull) guardado no genérico. Aceita o clique na borda com a mesma
  * tolerância do resto da seleção; entre dois objetos sobrepostos vence o de menor área (o mais específico).
  */
-export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): Id | null {
   const tol = 4 * mpp;
   let best: { id: Id; area: number } | null = null;
   for (const e of Object.values(p.elements)) {
-    if (!isGeneric(e) || e.levelId !== levelId) continue;
+    if (!isGeneric(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'clique')) continue;
     const ring = e.outline;
     if (!ring || ring.length < 3) continue;
     if (!insideOrNear(ring, at, tol)) continue;
@@ -163,11 +173,11 @@ export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | 
  * Componente sob o ponto: qualquer anel externo da pegada em planta o contém (com a mesma tolerância de borda da
  * seleção). Entre sobrepostos vence o de menor área, como no objeto genérico. Componentes de outros níveis ficam fora.
  */
-export function componentAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+export function componentAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): Id | null {
   const tol = 4 * mpp;
   let best: { id: Id; area: number } | null = null;
   for (const e of Object.values(p.elements)) {
-    if (!isComponent(e) || e.levelId !== levelId) continue;
+    if (!isComponent(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'clique')) continue;
     let area = 0;
     let hit = false;
     for (const poly of pegadaDoComponente(p, e)) {
@@ -183,11 +193,11 @@ export function componentAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id 
 }
 
 /** Componentes cuja pegada está inteira dentro da janela (seleção de janela esquerda→direita). */
-export function componentIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2): Id[] {
+export function componentIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, env?: VisibilidadeEnv): Id[] {
   const box = boxOf([a, b]);
   const ids: Id[] = [];
   for (const e of Object.values(p.elements)) {
-    if (!isComponent(e) || e.levelId !== levelId) continue;
+    if (!isComponent(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'caixa')) continue;
     const pegada = pegadaDoComponente(p, e);
     if (pegada.length === 0) continue;
     const dentro = pegada.every((poly) => {
@@ -243,11 +253,11 @@ export {
  * Móvel importado sob o ponto: o contorno em planta (base da caixa do bloco, girada/escalada) na mesma tolerância do
  * resto da seleção; entre dois sobrepostos vence o de menor área.
  */
-export function furnitureAt(p: Project, levelId: Id, at: Vec2, mpp: number): Id | null {
+export function furnitureAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): Id | null {
   const tol = 4 * mpp;
   let best: { id: Id; area: number } | null = null;
   for (const e of Object.values(p.elements)) {
-    if (!isFurniture(e) || e.levelId !== levelId) continue;
+    if (!isFurniture(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'clique')) continue;
     const asset = p.furniture?.assets[e.assetId];
     if (!asset) continue;
     const ring = furnitureOutline(e, asset);

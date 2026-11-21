@@ -5,6 +5,7 @@ import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { applyAlignMany } from './alignApply.ts';
 import { solveAlign, type AlignSolution } from './alignSolve.ts';
 import { ToolBase } from './base.ts';
+import { ocultosNaVista, podeCapturar } from './visibilidade.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 const LABEL_HALF = 1.2;
@@ -90,13 +91,16 @@ export class AlignTool extends ToolBase {
 
   /** Candidatas sob o cursor, com a opção "Preferir" e a visibilidade da vista. */
   private candidates(at: Vec2): AlignFeature[] {
+    // Os conjuntos são lidos uma vez: a consulta percorre todos os elementos e não pode reavaliar a visibilidade a cada um.
+    const ocultos = ocultosNaVista(this.env);
+    const envCaptura = { hiddenInView: () => ocultos };
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),
       at,
       metersPerPixel: this.env.metersPerPixel(),
       prefer: this.env.options().alignPrefer ?? 'faces',
-      hidden: this.env.hiddenInView?.(),
+      captura: (id) => podeCapturar(envCaptura, id),
       topFaces: true,
     });
   }

@@ -462,7 +462,7 @@ export class MirrorTool extends SelectionTool {
   /** Parede sob o cursor (uma abertura conta como a parede que a hospeda). */
   private wallUnder(p: Vec2): Id | null {
     const pr = this.env.project();
-    const hit = pickAt(pr, this.env.levelId(), p, this.env.metersPerPixel());
+    const hit = pickAt(pr, this.env.levelId(), p, this.env.metersPerPixel(), this.env);
     if (!hit) return null;
     const e = pr.elements[hit.id];
     if (isWall(e)) return e.id;
