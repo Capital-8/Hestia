@@ -327,6 +327,8 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Criar planta';
     case 'updatePlanView':
       return Object.keys(c.patch).every((k) => k === 'name') ? 'Renomear planta' : 'Alterar planta';
+    case 'duplicatePlanView':
+      return 'Duplicar planta';
     case 'removePlanView':
       return 'Excluir planta';
     case 'setPlanGraphics':

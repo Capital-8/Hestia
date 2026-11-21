@@ -305,6 +305,7 @@ export type Command =
   | { type: 'removeAreaPlan'; id: Id }
   | { type: 'addPlanView'; plan: PlanView }
   | { type: 'updatePlanView'; id: Id; patch: PlanViewPatch }
+  | { type: 'duplicatePlanView'; id: Id; withAnnotations?: boolean; newPlanId?: Id }
   | { type: 'removePlanView'; id: Id }
   | { type: 'setPlanGraphics'; planId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetPlanGraphics'; planId: Id }
