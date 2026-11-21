@@ -28,7 +28,7 @@ export function templates(lang: Lang = 'pt'): Array<{ id: TemplateId; name: stri
     // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
     { id: 'predio10', name: t(lang, 'md_tpl_building10'), description: t(lang, 'md_tpl_building10_desc'), area: '1.900 m²' },
     // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
-    { id: 'casa-disciplinas', name: t(lang, 'md_tpl_casa_disciplinas'), description: t(lang, 'md_tpl_casa_disciplinas_desc'), area: '48 m²' },
+    { id: 'casa-disciplinas', name: t(lang, 'md_tpl_casa_disciplinas'), description: t(lang, 'md_tpl_casa_disciplinas_desc'), area: '96 m²' },
     // units-ok: área descritiva do modelo de exemplo (não é medida do projeto)
     { id: 'studio', name: t(lang, 'md_tpl_studio'), description: t(lang, 'md_tpl_studio_desc'), area: '27 m²' },
   ];
