@@ -27,7 +27,7 @@ export interface DxfStructuralShape {
  * Coleta polilinhas DXF de elementos estruturais (pilares, vigas e sapatas) do nível.
  * Devolve lista vazia se não houver elementos estruturais no nível.
  */
-export function structuralDxfShapes(project: Project, levelId: Id): DxfStructuralShape[] {
+export function structuralDxfShapes(project: Project, levelId: Id, hidden?: ReadonlySet<Id>): DxfStructuralShape[] {
   const columns = columnsOnLevel(project, levelId);
   const beams = beamsOnLevel(project, levelId);
   const footings = footingsOnLevel(project, levelId);
@@ -39,6 +39,7 @@ export function structuralDxfShapes(project: Project, levelId: Id): DxfStructura
   const out: DxfStructuralShape[] = [];
 
   for (const c of columns) {
+    if (hidden?.has(c.id)) continue;
     const type = findColumnType(project, c.typeId);
     out.push({
       layer: DXF_LAYER_COLUMN,
@@ -48,6 +49,7 @@ export function structuralDxfShapes(project: Project, levelId: Id): DxfStructura
   }
 
   for (const b of beams) {
+    if (hidden?.has(b.id)) continue;
     const type = findBeamType(project, b.typeId);
     out.push({
       layer: DXF_LAYER_BEAM,
@@ -58,6 +60,7 @@ export function structuralDxfShapes(project: Project, levelId: Id): DxfStructura
   }
 
   for (const f of footings) {
+    if (hidden?.has(f.id)) continue;
     const type = findFootingType(project, f.typeId);
     out.push({
       layer: DXF_LAYER_FOOTING,

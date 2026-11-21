@@ -39,7 +39,7 @@ import {
   type DxfUnit,
   type DxfViewState,
 } from '@hestia/io';
-import { areaPlanOf, hiddenElementIdsOf, openingTypeById, planHiddenOf, planViewAnnotationsOf, planViewFor, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, planGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
+import { areaPlanOf, hiddenElementIdsOf, categoriaDoElemento, openingTypeById, planHiddenOf, planViewAnnotationsOf, planViewFor, projetoDaPlanta, GRAPHICS_CATEGORIES, graphicsOf, planGraphicsOf, lineWeightMm, openingAngle2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, openingsOfWall, sectionGraphicsOf, sectionPoints, unitsOf, type DxfLayerStyle, type GraphicsCategory, type Id, type Project } from '@hestia/model';
 import { AREA_LAYER_NAMES, areaLayerStyleOf, areaPlanDxf as areaPlanDxfOf } from './dxfAreaPlan.ts';
 import { EPS, ROOM_TEXT_HEIGHT_M } from './dxfConstantes.ts';
 import { cadDxfOf } from './dxfCad.ts';
@@ -227,6 +227,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
     ...(curtains === undefined ? {} : { curtains }),
     ...(terreno.length === 0 ? {} : { terreno }),
     ...(masses === undefined ? {} : { masses }),
+    structuralHidden: [...hidden],
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
       const at = roomLabelAt(r);
@@ -242,7 +243,7 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
           .flatMap((f) => resolvedRegion(jl, f.floorId, f.layers.find((l) => !l.membrane)?.polygon ?? f.polygon).map((poly) => ({ outline: poly[0] ?? [], holes: poly.slice(1), typeCode: p.floorTypes[f.typeId]?.code ?? '' })))
       : [],
     // Forros: só na planta de forro (decisão 0021); na planta baixa ficam acima do topo e não saem.
-    ceilings: shown('floor') && view.range.direction === 'up'
+    ceilings: shown('ceiling') && view.range.direction === 'up'
       ? resolveCeilings(p, levelId)
           .filter((c) => !hidden.has(c.ceilingId))
           .flatMap((c) => c.polygon.map((poly) => ({ outline: poly[0] ?? [], holes: poly.slice(1) })))
@@ -258,8 +259,8 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
           .filter((s) => !hidden.has(s.id))
           .map((s) => stairDxf(p, s, { cutZ: view.cutZ, topZ: view.topZ }))
       : [],
-    // Rampas: mesma categoria gráfica da escada; contornos, seta, corte e inclinação.
-    ramps: shown('stair')
+    // Rampas: categoria própria (padrão de estilo igual ao da escada); contornos, seta, corte e inclinação.
+    ramps: shown('ramp')
       ? resolveRampsOnLevel(p, levelId)
           .filter((rr) => !hidden.has(rr.id))
           .map((rr) => rampDxf(p, rr, { cutZ: view.cutZ, topZ: view.topZ }))
@@ -318,11 +319,14 @@ export { areaPlanDxf } from './dxfAreaPlan.ts';
 export function planDxf(p: Project, levelId: Id, showRoofProjection = true, units?: DxfUnit, lang: Lang = activeLang(), planId?: Id): string {
   const pid = planViewFor(p, levelId, planId)?.id;
   const doc = dxfDocOf(p, levelId, dxfGeometryOf(p, levelId, showRoofProjection, units, planId), lang);
-  const shown = planGraphicsOf(p, levelId, planId).overrides.generic.visible !== false;
+  const vg = planGraphicsOf(p, levelId, planId);
+  // Categorias ocultas na vista: os elementos delas (componentes inclusos, cada um na categoria da família) não saem.
+  const ocultos = new Set<Id>(hiddenElementIdsOf(p, { categories: GRAPHICS_CATEGORIES.filter((c) => vg.overrides[c].visible === false) }));
   // Planta de disciplina: cada uma desenha só os genéricos e componentes visíveis nela (Hide in View da própria planta).
-  const ocultos: ReadonlySet<Id> | undefined = pid === undefined ? undefined : new Set(ocultosPermanentesDaPlanta(p, levelId, pid));
-  const generics = shown ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang), ocultos) : [];
-  const componentes = shown ? dxfComponentEntities(p, levelId, DXF_LAYER_COMPONENTE, ocultos) : [];
+  if (pid !== undefined) for (const id of ocultosPermanentesDaPlanta(p, levelId, pid)) ocultos.add(id);
+  // Importados seguem a categoria 'generic'; componentes seguem a categoria da própria família (adendo 2 do ADR 0060).
+  const generics = vg.overrides.generic.visible !== false ? dxfGenericEntities(p, levelId, dxfLayerName(DXF_LAYER_GENERIC, lang), ocultos) : [];
+  const componentes = dxfComponentEntities(p, levelId, DXF_LAYER_COMPONENTE, ocultos);
   // A camada dos importados entra com a cor da categoria (cinza), como as do nível.
   const genericLayer = dxfLayerName(DXF_LAYER_GENERIC, lang);
   const layers = generics.length > 0 && !doc.layers.some((l) => l.name === genericLayer)
@@ -359,19 +363,24 @@ export function dxfLayerTableOf(p: Project, target: DxfExportTarget, lang: Lang 
       return { name, style: geo.layerStyles?.[canonical] ?? dxfLayerStyleOf(name, geo.lineWeights?.[canonical]) };
     });
     // A camada dos importados só entra no arquivo quando há `Generic` no nível e a categoria está visível.
-    const visible = planGraphicsOf(p, target.levelId, target.planId).overrides.generic.visible !== false;
-    // Planta de disciplina: a tabela só lista o que o arquivo leva, sem os genéricos/componentes ocultos nela.
+    const vg = planGraphicsOf(p, target.levelId, target.planId);
+    // Categorias ocultas na vista (as novas inclusas), somadas ao Hide in View da planta de disciplina.
+    const ocultos = new Set<Id>(hiddenElementIdsOf(p, { categories: GRAPHICS_CATEGORIES.filter((c) => vg.overrides[c].visible === false) }));
     const pid = planViewFor(p, target.levelId, target.planId)?.id;
-    const ocultos: ReadonlySet<Id> | undefined = pid === undefined ? undefined : new Set(ocultosPermanentesDaPlanta(p, target.levelId, pid));
+    if (pid !== undefined) for (const id of ocultosPermanentesDaPlanta(p, target.levelId, pid)) ocultos.add(id);
     const hasInLevel = (kind: 'generic' | 'component'): boolean =>
-      Object.values(p.elements).some((e) => e.kind === kind && e.levelId === target.levelId && !ocultos?.has(e.id));
-    const generic = visible && hasInLevel('generic');
+      Object.values(p.elements).some((e) => e.kind === kind && e.levelId === target.levelId && !ocultos.has(e.id));
+    const generic = vg.overrides.generic.visible !== false && hasInLevel('generic');
     if (generic && !rows.some((r) => r.name === dxfLayerName(DXF_LAYER_GENERIC, lang))) {
       rows.push({ name: dxfLayerName(DXF_LAYER_GENERIC, lang), style: p.dxfLayers?.[DXF_LAYER_GENERIC] ?? dxfLayerStyleOf(DXF_LAYER_GENERIC) });
       rows.sort((a, b) => a.name.localeCompare(b.name));
     }
-    // O mesmo vale para os componentes, com o verde da camada `COMPONENTES`.
-    const componente = visible && hasInLevel('component');
+    // O mesmo vale para os componentes, com o verde da camada `COMPONENTES`, cada um na categoria própria da família.
+    const componente = Object.values(p.elements).some((e) => {
+      if (e.kind !== 'component' || e.levelId !== target.levelId || ocultos.has(e.id)) return false;
+      const c = categoriaDoElemento(e, p);
+      return c !== null && vg.overrides[c].visible !== false;
+    });
     if (componente && !rows.some((r) => r.name === DXF_LAYER_COMPONENTE)) {
       rows.push({ name: DXF_LAYER_COMPONENTE, style: p.dxfLayers?.[DXF_LAYER_COMPONENTE] ?? COMPONENTE_LAYER_STYLE });
       rows.sort((a, b) => a.name.localeCompare(b.name));

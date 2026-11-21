@@ -43,10 +43,15 @@ describe('planDxf: componentes na planta', () => {
     expect(dxfLayerTableOf(p, { kind: 'plan', levelId: 'lv_0' }).some((r) => r.name === 'COMPONENTES')).toBe(false);
   });
 
-  it('a categoria generic oculta esconde os componentes, como os importados', () => {
+  it('a categoria própria do componente (component) o esconde; a generic não o esconde mais', () => {
     const p = projectWithComponent();
-    applyCommand(p, { type: 'setLevelGraphics', levelId: 'lv_0', patch: { overrides: { generic: { visible: false } } } });
+    applyCommand(p, { type: 'setLevelGraphics', levelId: 'lv_0', patch: { overrides: { component: { visible: false } } } });
     expect(planDxf(p, 'lv_0')).not.toContain('COMPONENTES');
     expect(dxfLayerTableOf(p, { kind: 'plan', levelId: 'lv_0' }).some((r) => r.name === 'COMPONENTES')).toBe(false);
+    // A categoria dos importados não manda mais nos componentes (adendo 2 do ADR 0060): cada um tem a sua.
+    const comGenericOculta = projectWithComponent();
+    applyCommand(comGenericOculta, { type: 'setLevelGraphics', levelId: 'lv_0', patch: { overrides: { generic: { visible: false } } } });
+    expect(planDxf(comGenericOculta, 'lv_0')).toContain('\r\nCOMPONENTES\r\n');
+    expect(dxfLayerTableOf(comGenericOculta, { kind: 'plan', levelId: 'lv_0' }).some((r) => r.name === 'COMPONENTES')).toBe(true);
   });
 });

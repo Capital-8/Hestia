@@ -12,7 +12,6 @@ import {
   resolveLevel,
   resolveRoofs,
   resolveRampsOnLevel,
-  resolveRooms,
   resolveSlabs,
   resolveStairsOnLevel,
   type OpeningGeometry,
@@ -22,6 +21,7 @@ import {
 } from '@hestia/engine';
 import {
   GRAPHICS_CATEGORIES,
+  categoriaDoElemento,
   isOpening,
   isWall,
   levelElevation,
@@ -30,6 +30,7 @@ import {
   openingsOfWall,
   viewRangeOf,
   wallsOnLevel,
+  type Element,
   type GraphicsCategory,
   type Id,
   type PartialStructure,
@@ -91,24 +92,24 @@ const memo = new WeakMap<Project, Map<string, PlanView>>();
 
 const OUTLINE_CLASSES: OutlineClass[] = ['projection-above', 'projection-below', 'beyond'];
 
-/** Ids dos elementos do nível cuja categoria está oculta na vista (paredes, aberturas, pisos, lajes, telhados, escadas e ambientes). */
+/** Ids dos elementos do nível cuja categoria está oculta na vista (a categoria decide pelo modelo, `categoriaDoElemento`). */
 function categoryHiddenIds(p: Project, levelId: Id, hiddenCats: HiddenCats): Set<Id> {
   const out = new Set<Id>();
   if (hiddenCats.size === 0) return out;
-  const add = (c: GraphicsCategory, id: Id): void => {
-    if (hiddenCats.has(c)) out.add(id);
+  const add = (e: Element): void => {
+    const c = categoriaDoElemento(e, p);
+    if (c !== null && hiddenCats.has(c)) out.add(e.id);
   };
+  // Paredes do nível e as aberturas delas (a abertura não tem `levelId`: pertence à vista pelo hospedeiro).
   for (const w of wallsOnLevel(p, levelId)) {
-    add('wall', w.id);
-    for (const o of openingsOfWall(p, w.id)) add(o.kind, o.id);
+    add(w);
+    for (const o of openingsOfWall(p, w.id)) add(o);
   }
-  for (const f of resolveFloors(p, levelId)) add('floor', f.floorId);
-  for (const s of resolveSlabs(p, levelId)) add('slab', s.slabId);
-  for (const r of resolveRoofs(p, levelId)) add('roof', r.roofId);
-  for (const s of resolveStairsOnLevel(p, levelId)) add('stair', s.id);
-  for (const r of resolveRampsOnLevel(p, levelId)) add('stair', r.id);
-  for (const r of resolveRooms(p, levelId)) add('room', r.roomId);
-  for (const e of Object.values(p.elements)) if (e.kind === 'railing' && e.levelId === levelId) add('railing', e.id);
+  // Demais elementos do nível: pilar, viga, sapata, laje, forro, escada, rampa, componente, ambiente, guarda-corpo...
+  for (const e of Object.values(p.elements)) {
+    if (!('levelId' in e) || e.levelId !== levelId) continue;
+    add(e);
+  }
   return out;
 }
 

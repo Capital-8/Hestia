@@ -59,7 +59,7 @@ export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[
   const cats = new Set(categories);
   const doModelo = Object.values(p.elements)
     .filter((e) => {
-      const c = categoriaDoElemento(e);
+      const c = categoriaDoElemento(e, p);
       return c !== null && cats.has(c);
     })
     .map((e) => e.id);
@@ -74,7 +74,7 @@ function elementosDoSitio(p: Project): Array<{ id: Id; categoria: 'site' | 'lot'
   if (!lista) {
     lista = [];
     for (const e of Object.values(p.elements)) {
-      const c = categoriaDoElemento(e);
+      const c = categoriaDoElemento(e, p);
       if (c === 'site' || c === 'lot') lista.push({ id: e.id, categoria: c });
     }
     sitioPorProjeto.set(p, lista);
@@ -379,7 +379,7 @@ export function selectedCategories(p: Project, ids: readonly Id[] = useUi.getSta
   const out = new Set<GraphicsCategory>();
   for (const id of ids) {
     const e = p.elements[id];
-    const c = e ? categoriaDoElemento(e) : null;
+    const c = e ? categoriaDoElemento(e, p) : null;
     if (c) out.add(c);
   }
   // Anotações (cotas, textos, etiquetas...) da vista ativa pertencem à categoria 'annotation'.
