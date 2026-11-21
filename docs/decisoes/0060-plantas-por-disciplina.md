@@ -362,3 +362,13 @@ Convenções: caminhos a partir da raiz do worktree. "Teste" = teste novo exigid
 - **Arquivos:** `ui/sheet/*` (fonte "planta de disciplina" ao inserir vista), diálogo DXF (alvos `pv:`), `docs/disciplinas/ESTADO.md` (estado da frente).
 - **Pronto quando:** inserir planta de Estrutura numa prancha, exportar PDF e DXF, salvar, reabrir e conferir no navegador (câmera, visibilidade temporária por planta, cotas isoladas).
 - **Testes:** inserção na prancha; chaves de marcação `pv:`; roteiro manual registrado no estado da frente.
+
+## Adendo 1 (2026-11-21): disciplina do componente vem da família; elementos de exemplo
+
+**Decisão do dono:** o MEP completo (ADR 0061, `MepRun`, eletroduto) fica para depois; esta frente fecha só as disciplinas, "redondo e funcional". Para testar as plantas de Hidrossanitário, Elétrico e HVAC sem MEP, entram **famílias de exemplo** no sistema de componentes.
+
+**Revisão da §1.2:** `component` deixa de ser sempre `arquitetura`. A disciplina de um componente vem de `Familia.disciplina?` (campo opcional); **sem o campo continua `arquitetura`**, então arquivo e família existentes não mudam. `furniture` (móvel antigo) segue `arquitetura`. Consequência: `disciplineOfElement` precisa do projeto (ou de um resolvedor de família) para consultar a família do componente: `disciplineOfElement(el, project)`; os chamadores (`visibilityOf` na 3.2b e os testes) passam o projeto. A tabela exaustiva por `kind` continua valendo para os demais.
+
+**Famílias de exemplo (blocos paramétricos, formas simples; o editor de famílias só faz peças prismáticas):** hidrossanitário (vaso sanitário, lavatório, ralo), elétrico (tomada, interruptor, luminária de teto, quadro de distribuição), HVAC (difusor de teto, evaporadora split já existente `fam_ar_split` ganha `disciplina: 'hvac'`). Mais um **projeto de exemplo** (modelo de arquivo) com uma casa pequena que traz elementos de cada disciplina e uma planta de cada disciplina já criada.
+
+**Item adiado:** derivar a disciplina de um `generic` importado pela classe IFC de origem (`IFCPIPE*`, `IFCCABLE*`, `IFCDUCT*`, `IFCBEAM`, `IFCCOLUMN`). Fica para depois das fases 3.4 e 4.
