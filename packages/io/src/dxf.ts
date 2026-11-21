@@ -371,6 +371,16 @@ export const DXF_CATEGORY_COLORS: Record<GraphicsCategory, number> = {
   room: 7,
   annotation: 7,
   generic: 8,
+  // Categorias por elemento (etapa 4.5a): a cor da categoria de origem, para a saída DXF não mudar.
+  column: 1,
+  beam: 4,
+  footing: 4,
+  ceiling: 5,
+  ramp: 6,
+  component: 8,
+  plumbingFixture: 8,
+  electricalFixture: 8,
+  mechanicalEquipment: 8,
 };
 
 /** Estilo padrão de uma camada da planta: cor da categoria, tipo de linha do papel dela e a espessura pedida. */

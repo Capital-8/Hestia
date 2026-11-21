@@ -23,7 +23,7 @@ function projeto(): ProjectStore {
   return s;
 }
 
-const CATEGORIAS = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'site', 'lot', 'mass', 'room', 'annotation', 'generic'] as const;
+const CATEGORIAS = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'site', 'lot', 'mass', 'room', 'annotation', 'generic', 'column', 'beam', 'footing', 'ceiling', 'ramp', 'component', 'plumbingFixture', 'electricalFixture', 'mechanicalEquipment'] as const;
 
 describe('resolvedor de plantas · planta padrão (sem planViews)', () => {
   it('levelGraphicsOf continua devolvendo o padrão do Hestia para nível sem gráficos (valores literais)', () => {

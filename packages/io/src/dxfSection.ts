@@ -78,6 +78,16 @@ const CATEGORY_LAYER: Record<GraphicsCategory, string> = {
   room: 'CORTE_AMBIENTE',
   annotation: 'CORTE_ANOTACAO',
   generic: 'CORTE_IMPORTADO',
+  // Categorias por elemento (etapa 4.5a): apontam para a camada antiga, para a saída DXF não mudar.
+  column: 'CORTE_PAREDE',
+  beam: 'CORTE_LAJE',
+  footing: 'CORTE_LAJE',
+  ceiling: 'CORTE_PISO',
+  ramp: 'CORTE_ESCADA',
+  component: 'CORTE_IMPORTADO',
+  plumbingFixture: 'CORTE_IMPORTADO',
+  electricalFixture: 'CORTE_IMPORTADO',
+  mechanicalEquipment: 'CORTE_IMPORTADO',
 };
 
 /** Contorno externo do corte/elevação (união das regiões visíveis). */

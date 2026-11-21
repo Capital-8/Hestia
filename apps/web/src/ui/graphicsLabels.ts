@@ -19,6 +19,16 @@ const CATEGORY_KEY: Record<GraphicsCategory, keyof Dict> = {
   room: 'tool_room',
   annotation: 'cvn_cat_annotation',
   generic: 'cvn_cat_generic',
+  // Categorias por elemento (etapa 4.5a): até a ficha de interface (4.5d), usam o rótulo da categoria de origem.
+  column: 'tool_wall',
+  beam: 'tool_slab',
+  footing: 'tool_slab',
+  ceiling: 'tool_floor',
+  ramp: 'cvn_cat_stair',
+  component: 'cvn_cat_generic',
+  plumbingFixture: 'cvn_cat_generic',
+  electricalFixture: 'cvn_cat_generic',
+  mechanicalEquipment: 'cvn_cat_generic',
 };
 
 const VISUAL_STYLE_KEY: Record<VisualStyle, keyof Dict> = {

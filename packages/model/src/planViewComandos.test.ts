@@ -112,7 +112,7 @@ describe('comandos de planta adicional (PlanView)', () => {
     expect(g.scale).toBe(50);
     expect(g.detail).toBe('byScale');
     expect(g.overrides.slab).toEqual({ visible: true, transparency: 0, halftone: true });
-    expect(Object.keys(g.overrides)).toHaveLength(14);
+    expect(Object.keys(g.overrides)).toHaveLength(23);
     s.exec({ type: 'setPlanGraphics', planId: 'pv1', patch: { detail: 'fine' } });
     expect(s.project.planViews![0]!.graphics).toMatchObject({ scale: 50, detail: 'fine' });
     s.exec({ type: 'resetPlanGraphics', planId: 'pv1' });

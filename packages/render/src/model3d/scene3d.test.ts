@@ -407,9 +407,9 @@ describe('cache de materiais e limpeza', () => {
 });
 
 /** Substituições padrão (todas as categorias visíveis, sem transparência nem meio-tom). */
-function defaultsOverrides(): Record<'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'railing' | 'mass' | 'site' | 'lot' | 'room' | 'annotation' | 'generic',{ visible: boolean; transparency: number; halftone: boolean; color?: string }> {
+function defaultsOverrides(): Record<'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'railing' | 'mass' | 'site' | 'lot' | 'room' | 'annotation' | 'generic' | 'column' | 'beam' | 'footing' | 'ceiling' | 'ramp' | 'component' | 'plumbingFixture' | 'electricalFixture' | 'mechanicalEquipment',{ visible: boolean; transparency: number; halftone: boolean; color?: string }> {
   const ok = { visible: true, transparency: 0, halftone: false };
-  return { wall: ok, door: ok, window: ok, floor: ok, slab: ok, roof: ok, stair: ok, railing: ok, mass: ok, site: ok, lot: ok, room: ok, annotation: ok, generic: ok };
+  return { wall: ok, door: ok, window: ok, floor: ok, slab: ok, roof: ok, stair: ok, railing: ok, mass: ok, site: ok, lot: ok, room: ok, annotation: ok, generic: ok, column: ok, beam: ok, footing: ok, ceiling: ok, ramp: ok, component: ok, plumbingFixture: ok, electricalFixture: ok, mechanicalEquipment: ok };
 }
 
 describe('esquadrias no 3D: folhas e espessuras do tipo', () => {
