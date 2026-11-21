@@ -44,6 +44,7 @@ import { cadPlanOps } from './cad.ts';
 import { componentsPlanOps } from './planComponents.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type FillOp, type LabelOp, type PlanDrawList, type PlanOps, type PlanProfile, type PlanTheme, type StrokeOp } from './types.ts';
 
+import { buildPlanHalftone } from './halftone.ts';
 import { buildPlanOverlay } from './planOverlay.ts';
 import type { Lang } from '../i18n.ts';
 
@@ -84,6 +85,11 @@ export interface PlanInput {
   profile?: PlanProfile;
   /** Elementos ocultos nesta vista (Hide in View + temporário). */
   hidden?: ReadonlySet<Id>;
+  /**
+   * Elementos em meio-tom nesta vista (tom `halftone` da disciplina, decisão 0060 §4.3). Ausente ou vazio = desenho de
+   * hoje. Eles saem da geometria normal e voltam como contorno atenuado, por baixo do desenho normal; o oculto vence o tom.
+   */
+  halftone?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
   /**
@@ -373,6 +379,11 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     }
   }
 
+  // Meio-tom da disciplina (decisão 0060 §4.3): contorno atenuado por baixo de tudo o que é do edifício, acima do
+  // subpavimento de referência. Os elementos dele saíram da geometria normal (o `planContext` os põe em `hidden`).
+  const meioTom = buildPlanHalftone(input);
+  fills.push(...meioTom.fills);
+  strokes.push(...meioTom.strokes);
   // Terreno do nível (ficha V2): regiões, curvas, borda, rótulos e cotas, na categoria `site`; vai atrás de tudo o que é do edifício.
   if (!areaPlan) addOps(terrenoOpsDaPlanta(input, paint.site, scale), paint.site, !rp);
   // Lajes e pisos pela cota da face superior (decisão 0023 §3): o mais alto desenha por último; pisos antes das paredes.
@@ -392,13 +403,13 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
   // Rampas do nível: junto das escadas, com o mesmo estilo da categoria.
   if (profile.ramps) addOps(rampFills(p, ramps, theme, input.dark, detail, v, view ? { cutZ: view.cutZ, topZ: view.topZ } : undefined, paint.stair, scale), paint.stair, !rp);
   // Guarda-corpos (decisao 0055): linhas do kernel Rust, no estilo da categoria de escadas.
-  if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
+  if (profile.stairs && input.guardaCorpo !== 'sem') addOps(guardaCorpoOps(p, input.levelId, ocultosDoGuardaCorpo(p, input.levelId, hidden, input.revealed, paint.railing.visible), theme, input.dark, paint.stair, view?.cutZ), paint.stair, !rp);
   // Lotes do nível (ficha P2): contorno, área edificável e texto dos lados, no estilo da categoria `lot`; só de planta (não entram em corte nem 3D).
   if (!areaPlan) addOps(loteOpsDaPlanta(input, paint.lot, scale), paint.lot, !rp);
   // Elementos estruturais do nível (sapatas, vigas, pilares): sapatas antes das paredes, pilares em corte.
   if (!rp) addOps(structuralPlanOps(p, input.levelId, theme, input.dark, detail, hidden, paint.wall, paint.slab, scale), paint.wall, true);
   // Massas (plano de massa): linhas do kernel no estilo da categoria `mass`. Pelo quadro saem à parte; aqui só na impressão, captura e testes.
-  if (profile.stairs && input.massa !== 'sem' && !rp) addOps(massaOps(p, input.levelId, ocultosDaMassa(p, input.hidden, input.revealed, paint.mass.visible), theme, input.dark, paint.mass, view?.cutZ), paint.mass, true);
+  if (profile.stairs && input.massa !== 'sem' && !rp) addOps(massaOps(p, input.levelId, ocultosDaMassa(p, hidden, input.revealed, paint.mass.visible), theme, input.dark, paint.mass, view?.cutZ), paint.mass, true);
   // Paredes cortina (decisão 0056): linhas do kernel Rust nos três níveis de detalhe, no estilo da categoria parede; sem kernel, só o eixo.
   if (profile.walls !== 'hidden' && !rp) addOps(cortinaOps(p, input.levelId, hidden, theme, input.dark, paint.wall, view?.cutZ, detail), paint.wall, true);
   // Forros: só na planta de forro (na planta baixa eles estão acima do topo e não saem).

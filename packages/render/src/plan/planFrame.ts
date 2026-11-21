@@ -55,6 +55,8 @@ export interface PlanViewState {
   inference: Inference | null;
   /** Elementos ocultos nesta vista (Hide in View + temporário). */
   hidden?: ReadonlySet<Id>;
+  /** Elementos em meio-tom nesta vista (tom `halftone` da disciplina, decisão 0060 §4.3). */
+  halftone?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
   /** Resolução do nível (o app a guarda em cache). */
@@ -100,13 +102,20 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, planId, tagGhost: s.tagGhost, hidden: s.hidden, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, planId, tagGhost: s.tagGhost, hidden: s.hidden, halftone: s.halftone, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
   // Guarda-corpo e massa têm camada e chave próprias: os ocultos/revelados deles ficam fora da chave do resto da planta, e a versão do projeto
   // que a geometria vê não muda quando só um deles muda (ver `versoesDaPlanta`).
   const ehGuarda = (id: Id): boolean => p.elements[id]?.kind === 'railing';
   const ehMassa = (id: Id): boolean => p.elements[id]?.kind === 'mass';
   const idsDe = (c: ReadonlySet<Id> | undefined, filtro: (id: Id) => boolean): string => (c?.size ? [...c].filter(filtro).sort().join(',') : '');
-  const par = (filtro: (id: Id) => boolean): string => { const h = idsDe(s.hidden, filtro); const r = idsDe(s.revealed, filtro); return h || r ? `${h}|${r}` : ''; };
+  // O meio-tom entra na chave: o conjunto dele muda o que a camada desenha (atenuado em vez de normal).
+  const par = (filtro: (id: Id) => boolean): string => {
+    const h = idsDe(s.hidden, filtro);
+    const r = idsDe(s.revealed, filtro);
+    const t = idsDe(s.halftone, filtro);
+    const hr = h || r ? `${h}|${r}` : '';
+    return t ? `${hr}|h:${t}` : hr;
+  };
   const visKey = par((id) => !ehGuarda(id));
   const visGuarda = par(ehGuarda);
   const visMassa = par(ehMassa);

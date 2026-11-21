@@ -193,8 +193,11 @@ export function planContext(input: PlanInput): PlanContext {
   const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId, planId), input.levelId, paredesOcultas, planId);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
+  // O meio-tom da disciplina (decisão 0060 §4.3) sai da geometria normal e volta em `buildPlanHalftone`, por baixo.
+  // O Reveal o desenha de novo normalmente, como faz com qualquer oculto: por isso ele fica fora deste conjunto.
+  const meioTom = input.halftone ? [...input.halftone].filter((id) => !revealed?.has(id)) : undefined;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
-  const hidden = uniaoOcultos(view?.hidden, doUsuario);
+  const hidden = uniaoOcultos(uniaoOcultos(view?.hidden, doUsuario), meioTom);
   const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : paint.roof.visible ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));
