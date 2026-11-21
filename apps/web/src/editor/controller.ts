@@ -28,6 +28,7 @@ import {
   type TemplateId,
 } from '@hestia/model';
 import { annotationAt, roomTagAt, DEFAULT_SNAP, createTool, execWithHostedLoss, isStairTool, resolveSectionAnnotations, roofStepMessage, sectionInferContext, sectionSnapIndexDoProjeto, setPasteClip, type HostedApplyResult, type PointerInfo, type ShortcutCommand, type Tool, type ToolEnv, type ToolId, pickRefCommands, PluginTool, type PluginToolBridge, type PluginToolSpec } from '@hestia/tools';
+import { podeSelecionar } from '@hestia/tools/src/visibilidade.ts';
 import { ResolucaoCancelada } from '@hestia/engine/src/worker/protocolo.ts';
 import type { ClienteResolucao } from '@hestia/engine/src/worker/cliente.ts';
 import { criarClienteResolucao } from './resolveWorker.ts';
@@ -280,6 +281,7 @@ export class Editor {
     // Planta de disciplina (0060): só a de piso com `planViewId` válido; `viewPlanId(env)` o prefere ao da planta de área.
     planViewId: () => this.planViewIdNow(),
     hiddenInView: () => this.ocultosDaPlanta(),
+    halftoneInView: () => this.meioTomDaPlanta(),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -410,6 +412,14 @@ export class Editor {
     const st = useUi.getState();
     const daVista = visibilityOf(p, st).hidden;
     return ocultosDoSitio(p, daVista, planGraphicsOf(p, st.levelId, planViewIdDe(st)), () => daVista);
+  }
+
+  /**
+   * Meio-tom da planta ativa (tom `halftone` da disciplina do elemento). Vale para captura e cota, mas não para
+   * seleção por clique/caixa (decisão 0060 §4.1); a seleção por 3D e pela árvore não depende da planta.
+   */
+  meioTomDaPlanta(): ReadonlySet<Id> {
+    return visibilityOf(this.store.project, useUi.getState()).halftone;
   }
 
   /** Caixa do corte para enquadrar: a do `SectionResult` ampliada na vertical pela faixa de cota do terreno visível (o terreno vem do kernel, fora do `SectionResult`). */
@@ -727,7 +737,10 @@ export class Editor {
         const anotacao = annotationAt(this.project, ui.levelId, info.raw, this.env.metersPerPixel(), this.planViewIdNow() ?? planId ?? undefined);
         // Etiqueta de ambiente (RoomTag) da vista: é selecionável e arrastável pelo `selectTool` (grava em RoomTag.at).
         const etiqueta = ui.planKind === 'area' && planId ? roomTagAt(this.project, info.raw, this.env.metersPerPixel(), planId) : null;
-        const hit = anotacao || etiqueta ? null : labelHit(this.project, ui.levelId, scale, planId, info.raw);
+        // A seleção por clique que o próprio controlador faz (sem passar pela ferramenta) obedece à tabela da §4.1:
+        // meio-tom e oculto não selecionam, então o rótulo de uma disciplina que não é a da planta não pega o clique.
+        const sobCursor = anotacao || etiqueta ? null : labelHit(this.project, ui.levelId, scale, planId, info.raw);
+        const hit = sobCursor && podeSelecionar(this.env, sobCursor.roomId, 'clique') ? sobCursor : null;
         if (hit) {
           this.tagDrag = { planId, roomId: hit.roomId, offset: { x: hit.at.x - info.raw.x, y: hit.at.y - info.raw.y }, at: hit.at, moved: false };
           useUi.setState({ status: { key: 'eds_msg_room_tag_drag_hint' } });

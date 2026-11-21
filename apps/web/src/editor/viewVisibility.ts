@@ -1,4 +1,4 @@
-import { categoriaDoElemento, planHiddenOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoriaDoElemento, disciplineOfElement, planHiddenOf, planOf, planTonesOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -119,17 +119,56 @@ export function removeHidden(a: ViewHidden | undefined, remove: ViewHidden): Vie
   return { ...(elements.length ? { elements } : {}), ...(categories.length ? { categories } : {}) };
 }
 
-/** Conjuntos efetivos de visibilidade da vista ativa. `hidden` não é desenhado; `revealed` é desenhado com borda azul. */
+/** Conjuntos efetivos de visibilidade da vista ativa. `hidden` não é desenhado nem seleciona; `halftone` desenha atenuado e só serve de captura/cota; `revealed` é desenhado com borda azul. */
 export interface ViewVisibilitySets {
   hidden: ReadonlySet<Id>;
+  halftone: ReadonlySet<Id>;
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), revealed: new Set(), reveal: false, temporary: false };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false };
 
-/** Resolve permanente + temporário + Reveal para a vista ativa. */
+/**
+ * Conjuntos de tom de disciplina da planta ativa, já separados por efeito: `hidden` (o tom `hidden` da disciplina
+ * do elemento) e `halftone`. Ficam guardados por projeto (a tabela de predefinidos e os desvios só mudam com o
+ * projeto) e por planta. Elementos `geral` nunca entram: o tom é só de disciplina (decisão 0060 §4.1).
+ */
+interface TonsDaPlanta {
+  hidden: ReadonlySet<Id>;
+  halftone: ReadonlySet<Id>;
+}
+
+const tonsPorProjeto = new WeakMap<Project, Map<string, TonsDaPlanta>>();
+
+function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined): TonsDaPlanta {
+  const chave = `${levelId}\u0000${planViewId ?? ''}`;
+  let porPlanta = tonsPorProjeto.get(p);
+  if (!porPlanta) {
+    porPlanta = new Map();
+    tonsPorProjeto.set(p, porPlanta);
+  }
+  const guardado = porPlanta.get(chave);
+  if (guardado) return guardado;
+  const tons = planTonesOf(planOf(p, levelId, planViewId));
+  const hidden = new Set<Id>();
+  const halftone = new Set<Id>();
+  for (const e of Object.values(p.elements)) {
+    const disciplina = disciplineOfElement(e);
+    if (disciplina === 'geral') continue;
+    if (tons[disciplina] === 'hidden') hidden.add(e.id);
+    else if (tons[disciplina] === 'halftone') halftone.add(e.id);
+  }
+  const resultado = { hidden, halftone };
+  porPlanta.set(chave, resultado);
+  return resultado;
+}
+
+/**
+ * Resolve permanente + temporário + Reveal para a vista ativa, e o meio-tom da disciplina (decisão 0060 §4.1):
+ * (1) oculto vence (Hide in View, categoria, temporário ou tom `hidden`); (2) senão, tom `halftone`; (3) normal.
+ */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st);
   const key = visibilityKeyOf(st);
@@ -145,13 +184,26 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  const baseHidden = isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
-  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário), isolados-fora e categorias.
+  // O tom de disciplina é só de vista de planta; no 3D e no corte a visibilidade é a de sempre.
+  const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta) : null;
+  const toneHidden = tons?.hidden ?? new Set<Id>();
+  let baseHidden: Id[];
+  if (isolateIds.length > 0) {
+    baseHidden = allIds.filter((id) => !isolateSet.has(id));
+    // O tom `hidden` da disciplina vence até o isolamento: isolar não reexibe outra disciplina.
+    for (const id of toneHidden) if (isolateSet.has(id) && !baseHidden.includes(id)) baseHidden.push(id);
+  } else {
+    baseHidden = uniq([...permanentIds, ...tempIds, ...toneHidden]);
+  }
+  const baseHiddenSet = new Set(baseHidden);
+  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário/tom), isolados-fora e categorias.
   const revealedIds = reveal ? baseHidden : [];
   const revealed = new Set(revealedIds);
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
+  // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
+  const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, revealed, reveal, temporary };
+  return { hidden, halftone, revealed, reveal, temporary };
 }
 
 /** Atualiza o estado temporário da vista ativa. */
