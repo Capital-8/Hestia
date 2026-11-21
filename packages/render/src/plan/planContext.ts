@@ -175,6 +175,22 @@ export interface PlanContext {
  */
 export const planIdOf = (input: Pick<PlanInput, 'areaPlan' | 'planId'>): Id | undefined => (input.areaPlan ? undefined : input.planId);
 
+/**
+ * Vista da planta como a TELA a resolve (decisão 0013): sem as paredes ocultas pelo usuário (as vizinhas fecham a junção
+ * e nenhuma silhueta delas sobra) e com o estado das aberturas delas tirado da vista inteira (a esquadria tem
+ * visibilidade própria). `hidden` é o oculto do usuário (Hide in View permanente + temporário, já sem os revelados).
+ * `planId` segue `planViewOf`: ausente/desconhecido = planta padrão. É o ponto único do DXF da planta de disciplina.
+ */
+export function planViewVisivel(p: Project, levelId: Id, planId: Id | undefined, hidden: ReadonlySet<Id> | undefined): PlanView {
+  // Parede oculta pelo usuário: a vista é resolvida sem ela (as vizinhas fecham a junção); o id continua em `hidden`.
+  const paredesOcultas = hidden ? [...hidden].filter((id) => {
+    const e = p.elements[id];
+    return isWall(e) && (e.levelId === levelId || deNivelOuCruza(p, levelId, id));
+  }) : undefined;
+  const pVis = paredesOcultas?.length ? projetoSemParedes(p, levelId, paredesOcultas) : p;
+  return comEsquadriasIndependentes(p, planViewOf(pVis, levelId, planId), levelId, paredesOcultas, planId);
+}
+
 export function planContext(input: PlanInput): PlanContext {
   const { project: p, viewport: v } = input;
   const planId = planIdOf(input);
@@ -184,13 +200,7 @@ export function planContext(input: PlanInput): PlanContext {
   const revealed = input.revealed;
   // Hide in View (permanente + temporário) que não está no modo Reveal. O Reveal o desenha de novo, com borda azul.
   const doUsuario = input.hidden ? [...input.hidden].filter((id) => !revealed?.has(id)) : undefined;
-  // Parede oculta pelo usuário: a vista é resolvida sem ela (as vizinhas fecham a junção); o id continua em `hidden`.
-  const paredesOcultas = doUsuario?.filter((id) => {
-    const e = p.elements[id];
-    return isWall(e) && (e.levelId === input.levelId || deNivelOuCruza(p, input.levelId, id));
-  });
-  const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
-  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId, planId), input.levelId, paredesOcultas, planId);
+  const view = rp ? null : planViewVisivel(p, input.levelId, planId, doUsuario ? new Set(doUsuario) : undefined);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
   // O meio-tom da disciplina (decisão 0060 §4.3) sai da geometria normal e volta em `buildPlanHalftone`, por baixo.

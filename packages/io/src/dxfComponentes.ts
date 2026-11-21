@@ -18,11 +18,12 @@ const pointOf = (q: { x: number; y: number }): DxfPoint => ({ x: q.x, y: q.y });
 /**
  * Entidades R2000 dos componentes do nível: uma polilinha fechada por anel da pegada (contorno e furos), na camada
  * `COMPONENTES` (`layer`), em ordem determinística de `id`. A cor vai na própria entidade (código 62), verde. Componente
- * sem pegada não desenha nada. Sem componentes: lista vazia.
+ * sem pegada não desenha nada. Sem componentes: lista vazia. `hidden` (planta de disciplina, decisão 0060 §7): os ids
+ * ocultos na vista não saem.
  */
-export function dxfComponentEntities(p: Project, levelId: Id, layer = DXF_LAYER_COMPONENTE): DxfPolylineEntity[] {
+export function dxfComponentEntities(p: Project, levelId: Id, layer = DXF_LAYER_COMPONENTE, hidden?: ReadonlySet<Id>): DxfPolylineEntity[] {
   const components = Object.values(p.elements)
-    .filter((e): e is Component => isComponent(e) && e.levelId === levelId)
+    .filter((e): e is Component => isComponent(e) && e.levelId === levelId && !hidden?.has(e.id))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const out: DxfPolylineEntity[] = [];
   for (const comp of components) {
