@@ -83,6 +83,10 @@ export const PT_SHELL_CHROME = {
   shc_reveal_exit: 'Sair de Revelar elementos ocultos (RH)',
   shc_viewbar_aria: 'Barra de controle da vista',
   shc_viewbar_more: 'Mais controles da vista',
+  shc_discipline: 'Disciplina',
+  shc_discipline_tip: 'Disciplina desta planta',
+  shc_tones: 'Tons',
+  shc_tones_tip: 'Tons por disciplina',
 
   // Tutorial de primeiros passos
   shc_tut_title: 'Primeiros passos',
@@ -295,6 +299,10 @@ export const EN_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Exit Reveal Hidden Elements (RH)',
   shc_viewbar_aria: 'View control bar',
   shc_viewbar_more: 'More view controls',
+  shc_discipline: 'Discipline',
+  shc_discipline_tip: 'Discipline of this plan',
+  shc_tones: 'Tones',
+  shc_tones_tip: 'Discipline tones',
 
   // Getting started tutorial
   shc_tut_title: 'Getting started',
@@ -501,6 +509,10 @@ export const ES_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Salir de Revelar elementos ocultos (RH)',
   shc_viewbar_aria: 'Barra de control de la vista',
   shc_viewbar_more: 'Más controles de la vista',
+  shc_discipline: 'Disciplina',
+  shc_discipline_tip: 'Disciplina de esta planta',
+  shc_tones: 'Tonos',
+  shc_tones_tip: 'Tonos por disciplina',
 
   shc_tut_title: 'Primeros pasos',
   shc_tut_step_walls: 'Dibuje un circuito de muros{w} — haga clic en los puntos y cierre en el primero',
@@ -697,6 +709,10 @@ export const DE_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Ausgeblendete Elemente anzeigen beenden (RH)',
   shc_viewbar_aria: 'Ansichtssteuerungsleiste',
   shc_viewbar_more: 'Weitere Ansichtssteuerungen',
+  shc_discipline: 'Disziplin',
+  shc_discipline_tip: 'Disziplin dieses Plans',
+  shc_tones: 'Töne',
+  shc_tones_tip: 'Töne nach Disziplin',
 
   shc_tut_title: 'Erste Schritte',
   shc_tut_step_walls: 'Zeichnen Sie eine Wandschleife{w} — klicken Sie die Punkte und schließen Sie am ersten',
@@ -893,6 +909,10 @@ export const FR_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Quitter l\'affichage des éléments masqués (RH)',
   shc_viewbar_aria: 'Barre de contrôle de la vue',
   shc_viewbar_more: 'Plus de contrôles de la vue',
+  shc_discipline: 'Discipline',
+  shc_discipline_tip: 'Discipline de ce plan',
+  shc_tones: 'Tons',
+  shc_tones_tip: 'Tons par discipline',
 
   shc_tut_title: 'Premiers pas',
   shc_tut_step_walls: 'Dessinez une boucle de murs{w} — cliquez sur les points et fermez sur le premier',
@@ -1089,6 +1109,10 @@ export const IT_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Esci da Mostra elementi nascosti (RH)',
   shc_viewbar_aria: 'Barra di controllo della vista',
   shc_viewbar_more: 'Altri controlli della vista',
+  shc_discipline: 'Disciplina',
+  shc_discipline_tip: 'Disciplina di questa pianta',
+  shc_tones: 'Toni',
+  shc_tones_tip: 'Toni per disciplina',
 
   shc_tut_title: 'Primi passi',
   shc_tut_step_walls: 'Disegna un circuito di pareti{w} — fai clic sui punti e chiudi sul primo',
@@ -1285,6 +1309,10 @@ export const PL_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_reveal_exit: 'Wyjdź z pokazywania ukrytych elementów (RH)',
   shc_viewbar_aria: 'Pasek sterowania widokiem',
   shc_viewbar_more: 'Więcej kontrolek widoku',
+  shc_discipline: 'Dyscyplina',
+  shc_discipline_tip: 'Dyscyplina tego rzutu',
+  shc_tones: 'Tony',
+  shc_tones_tip: 'Tony według dyscypliny',
 
   shc_tut_title: 'Pierwsze kroki',
   shc_tut_step_walls: 'Narysuj pętlę ścian{w} — klikaj punkty i zamknij na pierwszym',

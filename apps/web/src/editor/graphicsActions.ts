@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, planGraphicsOf, sectionGraphicsOf, view3dOf, type Command, type Id, type Project, type ProjectStore, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, DISCIPLINE_TONE_PRESETS, graphicsOf, planGraphicsOf, planViewById, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -99,6 +99,78 @@ export function restorePlanGraphicsDefault(store: ProjectStore, target: PlanTarg
     const pv = (store.project.planViews ?? []).find((x) => x.id === target.planId && x.levelId === target.levelId);
     if (pv && !pv.graphics) return OK;
     store.exec({ type: 'resetPlanGraphics', planId: target.planId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/** Tons gravados são iguais? (a ordem das chaves não importa; ausência e `undefined` valem o mesmo). */
+function sameTones(a: Partial<Record<Discipline, Tone>>, b: Partial<Record<Discipline, Tone>>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((k) => a[k as Discipline] === b[k as Discipline]);
+}
+
+/**
+ * Muda o tom de UMA disciplina numa planta de disciplina (decisão 0060 §4.2). Grava só o desvio: o tom igual ao
+ * predefinido apaga a chave, e a tabela predefinida nunca é copiada para `PlanView.tones`. A planta padrão não tem
+ * tons (lê o predefinido de Arquitetura) e por isso não é alvo desta ação.
+ */
+export function editPlanTone(store: ProjectStore, planId: Id, discipline: Discipline, tone: Tone, label = 'eds_undo_change_plan_tones'): GraphicsEdit {
+  const plan = planViewById(store.project, planId);
+  if (!plan) {
+    try {
+      const tones: Partial<Record<Discipline, Tone>> = {};
+      tones[discipline] = tone;
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  const preset = DISCIPLINE_TONE_PRESETS[plan.discipline][discipline];
+  const current = plan.tones ?? {};
+  const next: Partial<Record<Discipline, Tone>> = { ...current };
+  if (tone === preset) delete next[discipline];
+  else next[discipline] = tone;
+  if (sameTones(next, current)) return OK;
+  try {
+    store.exec({ type: 'updatePlanView', id: planId, patch: { tones: Object.keys(next).length > 0 ? next : undefined } }, label, useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/**
+ * Restaura o predefinido de uma disciplina (ou de todas, sem `discipline`) numa planta de disciplina: apaga só os
+ * desvios de tom, nunca os gráficos. Sem desvio não cria passo de desfazer.
+ */
+export function restorePlanTones(store: ProjectStore, planId: Id, discipline?: Discipline, label = 'eds_undo_restore_plan_tones'): GraphicsEdit {
+  const plan = planViewById(store.project, planId);
+  if (!plan) {
+    try {
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones: undefined } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  const current = plan.tones ?? {};
+  if (discipline === undefined) {
+    if (Object.keys(current).length === 0) return OK;
+    try {
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones: undefined } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  if (current[discipline] === undefined) return OK;
+  const next = { ...current };
+  delete next[discipline];
+  try {
+    store.exec({ type: 'updatePlanView', id: planId, patch: { tones: Object.keys(next).length > 0 ? next : undefined } }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);

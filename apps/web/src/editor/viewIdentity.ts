@@ -144,7 +144,27 @@ export function planDialogTarget(levelId: Id, planViewId?: Id | null): string {
   return planViewId ? `pv:${planViewId}` : levelId;
 }
 
-/** Id da planta de disciplina de um alvo do diálogo (`pv:<id>`); `undefined` quando o alvo é um nível. */
+/** Aba do diálogo de gráficos: as substituições por categoria ou os tons por disciplina (decisão 0060 §4.2). */
+export type GraphicsDialogTab = 'categories' | 'tones';
+const TONES_TAB_SUFFIX = '#tones';
+
+/** Alvo do diálogo de gráficos já aberto na aba de tons; o atalho da barra de vista usa este alvo. */
+export function planTonesDialogTarget(levelId: Id, planViewId?: Id | null): string {
+  return `${planDialogTarget(levelId, planViewId)}${TONES_TAB_SUFFIX}`;
+}
+
+/** Alvo do diálogo sem o sufixo da aba (o id do nível ou `pv:<id>`). */
+export function dialogTargetWithoutTab(target: string): string {
+  return target.endsWith(TONES_TAB_SUFFIX) ? target.slice(0, -TONES_TAB_SUFFIX.length) : target;
+}
+
+/** Aba inicial do diálogo de gráficos: `tones` quando o alvo veio do atalho de tons; senão, as categorias. */
+export function graphicsDialogTabOfTarget(target: string): GraphicsDialogTab {
+  return target.endsWith(TONES_TAB_SUFFIX) ? 'tones' : 'categories';
+}
+
+/** Id da planta de disciplina de um alvo do diálogo (`pv:<id>`, com ou sem o sufixo da aba); `undefined` quando o alvo é um nível. */
 export function planViewIdOfDialogTarget(target: string): Id | undefined {
-  return target.startsWith('pv:') ? target.slice(3) : undefined;
+  const base = dialogTargetWithoutTab(target);
+  return base.startsWith('pv:') ? base.slice(3) : undefined;
 }
