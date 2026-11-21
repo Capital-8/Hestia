@@ -117,6 +117,7 @@ export * from './areaPlanCommands.ts';
 export * from './planView.ts';
 export * from './planViewCommands.ts';
 export * from './discipline.ts';
+export * from './registroCategorias.ts';
 export * from './grid.ts';
 export * from './dimensionSettings.ts';
 export * from './units.ts';
