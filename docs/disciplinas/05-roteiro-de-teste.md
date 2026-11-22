@@ -71,6 +71,39 @@ Feche e reabra o projeto: plantas, tons, anotações e prancha iguais. Abra tamb
 ## 10. Idioma
 O idioma automático está em outra branch (`feat/idioma-automatico`), **não** nesta. Não é testado aqui.
 
+## 11. Disciplina na vista (Propriedades)
+1. Planta padrão: abra as Propriedades da vista e troque a **Disciplina** para Estrutura. As paredes ficam em meio-tom, pilares/vigas/sapatas normais; as mesmas regras valem no 3D e no corte.
+2. Planta de disciplina: a disciplina deixa de ser só leitura; troque e confira que os tons recalculam. "Restaurar predefinido" volta a Arquitetura.
+3. 3D: escolha a disciplina da vista 3D (ou "Todas"). Confira o meio-tom e o oculto por categoria.
+4. **Desfazer** cada troca: um passo só.
+
+## 12. Minha disciplina (pessoal)
+1. Na barra da vista, escolha **Minha disciplina** = Estrutura numa planta de Arquitetura. Você vê arquitetura em meio-tom; o arquivo **não** muda.
+2. Troque para Elétrico e depois para Automática. A vista volta ao tom da planta.
+3. Salve, feche e reabra: a escolha pessoal não volta (é de sessão) e o projeto está intacto.
+
+## 13. Configurador de disciplinas
+1. Abra **Configurar disciplinas** (aba de tons da Visibilidade ou menu do navegador).
+2. Escolha Estrutura e mude Parede para **Oculto**; confira na planta de Estrutura. "Restaurar predefinido" desfaz.
+3. Crie a disciplina **Paisagismo** (nome e cor), mude a origem da categoria "Terreno e lote" para ela e confira o agrupamento.
+4. Exclua Paisagismo: as plantas/famílias dela voltam para Arquitetura; **Desfazer** restaura tudo num passo.
+5. Arquivo antigo (sem perfis): abre igual; o configurador mostra os predefinidos.
+
+## 14. 3D e corte
+1. Com Minha disciplina = Estrutura, no 3D as paredes ficam esmaecidas e **não selecionam**; o oculto some e não captura snap.
+2. No corte, a parede em meio-tom continua desenhada, atenuada; a oculta some.
+3. Alterne Normal/Meio-tom/Oculto no configurador e confira as três vistas (planta, 3D, corte).
+
+## 15. Colaborar
+1. Duas sessões na mesma sala, cada uma com a sua **Minha disciplina**.
+2. O cursor remoto mostra "Nome · Disciplina"; o projeto de quem abre não muda de disciplina.
+3. Feche a sessão de uma: a outra continua com a própria disciplina.
+
+## 16. IFC importado
+1. Importe o arquivo de instalações de teste (ou use o modelo "Teste de disciplinas (completo)"): tubo, duto e cabo aparecem em Hidrossanitário, HVAC e Elétrico.
+2. Ocultar a categoria `plumbingFixture` esconde só o tubo; `generic` não o esconde.
+3. Um IFC antigo sem essas classes continua entrando como antes.
+
 ## Como relatar
 Para cada falha: passo, o que esperava, o que viu, uma captura e, se possível, o projeto salvo. Falhas de **tela** (feio, confuso) contam
 tanto quanto as de comportamento, porque nenhuma tela foi vista por quem implementou.

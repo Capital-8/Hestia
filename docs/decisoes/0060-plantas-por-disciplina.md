@@ -398,3 +398,5 @@ Convenções: caminhos a partir da raiz do worktree. "Teste" = teste novo exigid
 7. **Garantia de cobertura (novo elemento):** `DISCIPLINE_OF_KIND` e o registro de categorias são `Record` exaustivos (o `tsc` obriga), testes de completude (todo kind tem categoria e disciplina coerentes; toda categoria está no registro; todo `disciplina` declarado numa família é válido e as famílias de instalações declaram a sua; família sem o campo é Arquitetura por definição, para arquivos antigos voltarem idênticos) e a checklist `docs/disciplinas/06-checklist-novo-elemento.md`, repetida em `REGRAS-GO.md`.
 
 **Fases:** 0 fundação (registro, identificador, testes, checklist), 1 dados e esquema 32, 2 disciplina editável na vista, 3 configurador e gestão de disciplinas, 4 minha disciplina, 5 3D e cortes, 6 colaborar, 7 disciplina do IFC importado, 8 fechamento.
+
+**Estado em 2026-11-22:** fases 0–7 implementadas e integradas; ver `docs/disciplinas/ESTADO.md` para arquivos, testes e o que ficou fora. A suíte completa e o `perf` rodam na CI do PR da frente.
