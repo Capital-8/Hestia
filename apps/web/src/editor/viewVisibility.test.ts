@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildTemplate } from '@hestia/model';
+import { FAMILIA_ARMARIO, buildTemplate, createEmptyProject, type Element } from '@hestia/model';
 import { annotationIdsOfActiveView } from './viewAnnotations.ts';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
@@ -158,6 +158,30 @@ describe('visibilidade por vista', () => {
   });
 });
 
+describe('tom por categoria no corte/elevação (decisão 0060, adendo 3, decisão 4)', () => {
+  /** Projeto com uma parede e um componente hidrossanitário (categoria `plumbingFixture`). */
+  const comHidraulico = () => {
+    const p = createEmptyProject();
+    const familia = structuredClone(FAMILIA_ARMARIO);
+    familia.id = 'fam_hid';
+    familia.disciplina = 'hidrossanitario';
+    p.componentFamilies = { fam_hid: familia };
+    p.elements['e_wall'] = { id: 'e_wall', kind: 'wall', order: 0 } as unknown as Element;
+    p.elements['e_vaso'] = { id: 'e_vaso', kind: 'component', order: 0, familyId: 'fam_hid' } as unknown as Element;
+    editor.load(p, 'corte.hestia.json');
+  };
+
+  it('na vista de corte, a parede fica em meio-tom (não oculta) e o componente hidráulico oculto', () => {
+    comHidraulico();
+    useUi.setState({ view: 'section', sectionId: 'sec1', minhaDisciplina: 'estrutura' });
+    const vis = visibilityOf(editor.project, useUi.getState());
+    expect(vis.toneCategories.wall).toBe('halftone');
+    expect(vis.toneCategories.plumbingFixture).toBe('hidden');
+    expect(vis.hidden.has('e_wall')).toBe(false);
+    expect(vis.hidden.has('e_vaso')).toBe(true);
+  });
+});
+
 describe('planta de disciplina na vista ativa (decisão 0060 §4 e §5)', () => {
   afterEach(() => useUi.setState({ planViewId: null }));
 
@@ -201,6 +225,16 @@ describe('planta de disciplina na vista ativa (decisão 0060 §4 e §5)', () => 
     expect(vis.toneCategories.wall).toBe('halftone');
     expect(vis.toneCategories.plumbingFixture).toBe('hidden');
     expect(vis.toneCategories.column).toBe('normal');
+  });
+
+  it('na vista de corte, o tom por categoria segue a minha disciplina: parede em meio-tom fica visível e instalação oculta some', () => {
+    const p = buildTemplate('casa-disciplinas');
+    useUi.setState({ view: 'section', sectionId: 'sec1', minhaDisciplina: 'estrutura' });
+    const vis = visibilityOf(p, useUi.getState());
+    expect(vis.toneCategories.wall).toBe('halftone');
+    expect(vis.hidden.has('cd_w_s')).toBe(false);
+    expect(vis.toneCategories.plumbingFixture).toBe('hidden');
+    expect(vis.hidden.has('cd_c_vaso')).toBe(true);
   });
 
   it('o zoom de escala da planta de disciplina é o dela (padrão: o do nível)', () => {

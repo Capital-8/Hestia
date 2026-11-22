@@ -609,7 +609,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
       vperf?.mark('b_ini');
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, vis.toneCategories, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
       vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;

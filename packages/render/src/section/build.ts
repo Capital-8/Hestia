@@ -3,7 +3,7 @@ import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits, type Tone } from '@hestia/model';
 import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
 import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
@@ -37,6 +37,8 @@ export interface SectionInput {
   highlight?: { selection: Id[]; hover: Id | null; aviso?: Id[] };
   /** Linhas finas só na tela (decisão 0015): todo traço do modelo sai com 1 px. Padrão desligado; a prancha não passa. */
   thinLines?: boolean;
+  /** Tom por categoria da disciplina de trabalho (decisão 0060, adendo 3, decisão 4): `hidden`/`halftone`/`normal`. */
+  toneCategories?: Partial<Record<GraphicsCategory, Tone>>;
 }
 
 /** Caixilho de vidro (opaco na linha oculta, como o dono decidiu) e folha de porta: cores fixas do desenho. */
@@ -87,7 +89,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const labels: LabelOp[] = [];
   const paper = input.dark ? theme.bg : '#ffffff';
   const maxDepth = Math.max(1e-6, ...s.beyond.map((b) => b.depth), ...s.openings.map((o) => o.depth));
-  const style = sectionStyleOf(p, v.zoom);
+  const style = sectionStyleOf(p, v.zoom, input.toneCategories);
   const { detail, paint, visual, saved } = style;
   // Arame e grosso não têm superfícies: no arame só contornos; no grosso, só os contornos do modelo.
   const wire = visual === 'wireframe';

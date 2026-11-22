@@ -39,4 +39,25 @@ describe('sectionStyleOf (gráficos do corte/elevação)', () => {
     expect(s.visual).toBe('wireframe');
     expect(s.detail).toBe('coarse');
   });
+
+  it('meio-tom por categoria: o paint da parede continua visível e fica em meio-tom', () => {
+    const p = createEmptyProject();
+    const s = sectionStyleOf(p, 60, { wall: 'halftone' });
+    expect(s.paint.wall.halftone).toBe(true);
+    expect(s.paint.wall.visible).toBe(true);
+  });
+
+  it('tom oculto por categoria: o paint da parede deixa de ser visível', () => {
+    const p = createEmptyProject();
+    const s = sectionStyleOf(p, 60, { wall: 'hidden' });
+    expect(s.paint.wall.visible).toBe(false);
+  });
+
+  it('sem o mapa de tons (ou com tom normal) o resultado é o de antes', () => {
+    const p = createEmptyProject();
+    const antes = sectionStyleOf(p, 60);
+    expect(sectionStyleOf(p, 60, { wall: 'normal' })).toEqual(antes);
+    expect(antes.paint.wall.visible).toBe(true);
+    expect(antes.paint.wall.halftone).toBe(false);
+  });
 });

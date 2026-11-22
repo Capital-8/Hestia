@@ -1,5 +1,5 @@
 import { mapaCorteAterroLigado, type SectionResult } from '@hestia/engine';
-import type { Id, Project } from '@hestia/model';
+import type { GraphicsCategory, Id, Project, Tone } from '@hestia/model';
 import { resolverLista } from '../plan/zoomOps.ts';
 import type { PlanDrawList, PlanTheme } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
@@ -31,6 +31,8 @@ export interface SectionFrameInput {
   levelExtents?: Record<Id, { a: number; b: number }>;
   highlight?: { selection: Id[]; hover: Id | null; aviso?: Id[] };
   thinLines?: boolean;
+  /** Tom por categoria da disciplina de trabalho: muda as cores/visibilidade do desenho, então entra na chave. */
+  toneCategories?: Partial<Record<GraphicsCategory, Tone>>;
 }
 
 /** Contadores do caminho de corte, para a bancada (`?debug=1`). */
@@ -99,7 +101,9 @@ export class SectionFrame {
     const rev = i.revealed?.size ? `r:${[...i.revealed].sort().join(',')}` : '';
     const ann = i.annotations ? JSON.stringify(i.annotations) : '';
     const ext = i.levelExtents ? JSON.stringify(i.levelExtents) : '';
-    return [i.version, i.sectionId, identidadeDaSecao(i.section), i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', mapaCorteAterroLigado() ? 'm' : '-', hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
+    // O mapa de tons é objeto novo a cada quadro: a chave é a forma estável (categoria:tom em ordem).
+    const tons = i.toneCategories ? Object.entries(i.toneCategories).sort(([a], [b]) => a.localeCompare(b)).map(([c, tom]) => `${c}:${tom}`).join(',') : '';
+    return [i.version, i.sectionId, identidadeDaSecao(i.section), i.theme.bg, i.theme.ink, i.dark ? 'd' : 'l', i.showGrid ? 'g' : '-', i.thinLines ? 't' : '-', mapaCorteAterroLigado() ? 'm' : '-', tons, hid, rev, ann, ext, sel, hl?.hover ?? '', (hl?.aviso ?? []).join(',')].join('|');
   }
 
   /**
@@ -126,6 +130,7 @@ export class SectionFrame {
         levelExtents: input.levelExtents,
         highlight: input.highlight,
         thinLines: input.thinLines,
+        toneCategories: input.toneCategories,
       });
       this.ultimoBuildMs = performance.now() - t0;
       this.totalBuildMs += this.ultimoBuildMs;

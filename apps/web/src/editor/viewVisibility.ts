@@ -126,7 +126,7 @@ export interface ViewVisibilitySets {
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
-  /** Tom por categoria da disciplina de trabalho (usado pela cena 3D; no corte/planta o tom é por elemento). */
+  /** Tom por categoria da disciplina de trabalho (usado pela cena 3D e pelo corte; na planta o tom é por elemento). */
   toneCategories: Partial<Record<GraphicsCategory, Tone>>;
 }
 
@@ -224,9 +224,20 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
       : st.view === 'plan'
         ? planOf(p, st.levelId, planta).discipline
         : DEFAULT_DISCIPLINE);
+  const toneCategories = st.view === 'plan' || st.view === '3d' || st.view === 'section' ? tonsPorCategoria(p, trabalho) : {};
   // O tom por elemento continua valendo só na planta (regra da ficha F4); o mapa por categoria vale nas três vistas.
   const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;
-  const toneHidden = tons?.hidden ?? new Set<Id>();
+  // Corte/elevação: a disciplina de trabalho (`st.minhaDisciplina` ou a padrão) oculta por categoria. O meio-tom continua
+  // desenhado, então só o tom `hidden` entra no conjunto.
+  let toneHidden: ReadonlySet<Id> = tons?.hidden ?? new Set<Id>();
+  if (st.view === 'section') {
+    const ocultas = new Set<Id>();
+    for (const e of Object.values(p.elements)) {
+      const categoria = categoriaDoElemento(e, p);
+      if (categoria !== null && toneCategories[categoria] === 'hidden') ocultas.add(e.id);
+    }
+    toneHidden = ocultas;
+  }
   let baseHidden: Id[];
   if (isolateIds.length > 0) {
     baseHidden = allIds.filter((id) => !isolateSet.has(id));
@@ -243,7 +254,6 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
   const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  const toneCategories = st.view === 'plan' || st.view === '3d' || st.view === 'section' ? tonsPorCategoria(p, trabalho) : {};
   return { hidden, halftone, revealed, reveal, temporary, toneCategories };
 }
 

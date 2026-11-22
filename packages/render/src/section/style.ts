@@ -9,6 +9,7 @@ import {
   type GraphicsCategory,
   type Project,
   type ProjectGraphics,
+  type Tone,
   type VisualStyle,
 } from '@hestia/model';
 import { espessuraDePapel } from '../plan/espessura.ts';
@@ -45,14 +46,21 @@ function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride,
  * Gráficos do corte/elevação: escala, detalhe, estilo visual e substituições por categoria. Como a vista cruza níveis,
  * as configurações ficam em `Project.sectionGraphics` (decisão 0015); sem o campo salvo, o detalhe é o do projeto
  * (`settings.detail`) e o desenho mantém os traços fixos anteriores à decisão.
+ *
+ * `toneCategories` é o tom da disciplina de trabalho por categoria (decisão 0060, adendo 3, decisão 4): `hidden` desliga
+ * a categoria no desenho e `halftone` a atenua; `normal` (ou ausente) não altera nada. Sem o mapa, o resultado é o de antes.
  */
-export function sectionStyleOf(p: Project, zoom: number): SectionStyle {
+export function sectionStyleOf(p: Project, zoom: number, toneCategories?: Partial<Record<GraphicsCategory, Tone>>): SectionStyle {
   const g = sectionGraphicsOf(p);
   const gp = graphicsOf(p);
   const visual: PlanVisual = isPlanVisual(g.style) ? g.style : 'hiddenLine';
   const saved = p.sectionGraphics !== undefined;
   const detail = saved ? detailOf(g, gp) : (p.settings.detail ?? 'medium');
   const paint = {} as Record<GraphicsCategory, PlanPaint>;
-  for (const c of GRAPHICS_CATEGORIES) paint[c] = paintOf(gp, c, g.overrides[c], zoom, g.scale, visual);
+  for (const c of GRAPHICS_CATEGORIES) {
+    const base = paintOf(gp, c, g.overrides[c], zoom, g.scale, visual);
+    const tom = toneCategories?.[c];
+    paint[c] = tom === 'hidden' ? { ...base, visible: false } : tom === 'halftone' ? { ...base, halftone: true } : base;
+  }
   return { saved, scale: g.scale, detail, visual, partial: g.partialStructure, paint };
 }
