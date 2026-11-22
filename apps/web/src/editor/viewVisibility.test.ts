@@ -5,7 +5,7 @@ import { useUi } from './state.ts';
 import { editor } from './controller.ts';
 import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideInView, viewHiddenTargetOf, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
-afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null }));
+afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null, minhaDisciplina: null }));
 
 const parede = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'wall')!;
 const porta = (p: ReturnType<typeof buildTemplate>) => Object.values(p.elements).find((e) => e.kind === 'door')!;
@@ -191,6 +191,16 @@ describe('planta de disciplina na vista ativa (decisão 0060 §4 e §5)', () => 
     hideInView([w.id]);
     expect(editor.project.levels[0]!.hidden).toEqual({ elements: [w.id] });
     expect(editor.project.planViews).toBeUndefined();
+  });
+
+  it('na vista 3D, o tom por categoria segue a minha disciplina (parede meio-tom, instalação oculta, pilar normal)', () => {
+    editor.newProject('house2');
+    const p = editor.project;
+    useUi.setState({ view: '3d', minhaDisciplina: 'estrutura' });
+    const vis = visibilityOf(p, useUi.getState());
+    expect(vis.toneCategories.wall).toBe('halftone');
+    expect(vis.toneCategories.plumbingFixture).toBe('hidden');
+    expect(vis.toneCategories.column).toBe('normal');
   });
 
   it('o zoom de escala da planta de disciplina é o dela (padrão: o do nível)', () => {

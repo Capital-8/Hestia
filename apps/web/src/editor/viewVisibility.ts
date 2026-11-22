@@ -1,4 +1,4 @@
-import { categoriaDoElemento, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, type Discipline, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, view3dOf, type Discipline, type GraphicsCategory, type Id, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -126,9 +126,23 @@ export interface ViewVisibilitySets {
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
+  /** Tom por categoria da disciplina de trabalho (usado pela cena 3D; no corte/planta o tom é por elemento). */
+  toneCategories: Partial<Record<GraphicsCategory, Tone>>;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {} };
+
+/**
+ * Tom de cada categoria na disciplina de trabalho (adendo 3, decisão 4), para a cena 3D. Lê pelo registro único de
+ * categorias (`categoriasPorDisciplina`) e pela função única de precedência (`tomDaCategoria`): `geral` sai `normal`.
+ */
+export function tonsPorCategoria(p: Project, trabalho: Discipline): Partial<Record<GraphicsCategory, Tone>> {
+  const out: Partial<Record<GraphicsCategory, Tone>> = {};
+  for (const grupo of categoriasPorDisciplina()) {
+    for (const categoria of grupo.categorias) out[categoria] = tomDaCategoria(p, { discipline: trabalho }, categoria);
+  }
+  return out;
+}
 
 /**
  * Conjuntos de tom de disciplina da planta ativa, já separados por efeito: `hidden` (o tom `hidden` da disciplina
@@ -202,7 +216,15 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  // O tom de disciplina é só de vista de planta; no 3D e no corte a visibilidade é a de sempre.
+  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (3D, planta de disciplina ou padrão).
+  const trabalho: Discipline =
+    st.minhaDisciplina ??
+    (st.view === '3d'
+      ? (view3dOf(p).discipline ?? DEFAULT_DISCIPLINE)
+      : st.view === 'plan'
+        ? planOf(p, st.levelId, planta).discipline
+        : DEFAULT_DISCIPLINE);
+  // O tom por elemento continua valendo só na planta (regra da ficha F4); o mapa por categoria vale nas três vistas.
   const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;
   const toneHidden = tons?.hidden ?? new Set<Id>();
   let baseHidden: Id[];
@@ -221,7 +243,8 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
   const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, halftone, revealed, reveal, temporary };
+  const toneCategories = st.view === 'plan' || st.view === '3d' || st.view === 'section' ? tonsPorCategoria(p, trabalho) : {};
+  return { hidden, halftone, revealed, reveal, temporary, toneCategories };
 }
 
 /** Atualiza o estado temporário da vista ativa. */
