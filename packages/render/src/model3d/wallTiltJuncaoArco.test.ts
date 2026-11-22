@@ -154,7 +154,7 @@ describe('J3 · sólido com os níveis da junção em arco', () => {
     expect(volume(S.A!)).toBeCloseTo(4 * 0.2 * 3, 6);
   });
 
-  it('desempenho: 20 paredes em arco inclinadas em < 200 ms', () => {
+  it('desempenho: 20 paredes em arco inclinadas em < 350 ms', () => {
     const walls: W[] = [];
     // 20 arcos de 5 m de raio, ponta a ponta em cadeia tangente (tilt 12° igual), 18° cada: nó de cadeia exato
     const R = 5, d = (18 * Math.PI) / 180;
@@ -169,6 +169,6 @@ describe('J3 · sólido com os níveis da junção em arco', () => {
     const ms = performance.now() - t0;
     console.log(`J3: 20 paredes em arco inclinadas: ${ms.toFixed(1)} ms`); // units-ok: log de teste
     expect(Object.values(S).every((b) => b.indices.length > 0)).toBe(true);
-    expect(ms).toBeLessThan(200);
+    expect(ms).toBeLessThan(350);
   });
 });

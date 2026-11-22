@@ -16,9 +16,9 @@ describe('paleta com as famílias novas', () => {
     }
   });
 
-  it('contagem por categoria: equipamento 11, louças 7, genéricos 5', () => {
-    expect(filtrarItensDaPaleta(itens, 'equipamento', '')).toHaveLength(11);
-    expect(filtrarItensDaPaleta(itens, 'loucas', '')).toHaveLength(7);
+  it('contagem por categoria: equipamento 16, louças 10, genéricos 5', () => {
+    expect(filtrarItensDaPaleta(itens, 'equipamento', '')).toHaveLength(16);
+    expect(filtrarItensDaPaleta(itens, 'loucas', '')).toHaveLength(10);
     expect(filtrarItensDaPaleta(itens, 'generico', '')).toHaveLength(5);
   });
 

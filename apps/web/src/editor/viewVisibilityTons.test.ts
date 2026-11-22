@@ -196,11 +196,19 @@ describe('guarda de texto: a regra de tom mora só em visibilityOf', () => {
   const raiz = join(__dirname, '..');
   const arquivos = producao(raiz);
 
-  it('tomDaCategoria só em editor/viewVisibility.ts', () => {
+  it('tomDaCategoria só em viewVisibility (aplicar) e disciplineConfig (matriz)', () => {
     const achados = arquivos
       .filter((f) => /\btomDaCategoria\s*\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(raiz.length + 1))
       .sort();
-    expect(achados).toEqual(['editor/viewVisibility.ts']);
+    expect(achados).toEqual(['editor/disciplineConfig.ts', 'editor/viewVisibility.ts']);
+  });
+
+  it('planTonesOf/DISCIPLINE_TONE_PRESETS só no diálogo de visibilidade (leitura legada)', () => {
+    const achados = arquivos
+      .filter((f) => /\bplanTonesOf\s*\(|\bDISCIPLINE_TONE_PRESETS\b/.test(readFileSync(f, 'utf8')))
+      .map((f) => f.slice(raiz.length + 1))
+      .sort();
+    expect(achados).toEqual(['ui/dialogs/GraphicsVisibilityDialog.tsx']);
   });
 });
