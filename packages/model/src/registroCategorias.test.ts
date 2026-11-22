@@ -4,8 +4,10 @@ import {
   CATEGORY_REGISTRY,
   DISCIPLINAS_EXEMPLO,
   DISCIPLINE_OF_KIND,
+  DISCIPLINE_ORDER,
   GRAPHICS_CATEGORIES,
   categoriaDoElemento,
+  categoriasPorDisciplina,
   disciplinaDaCategoria,
   isDiscipline,
   makeBeam,
@@ -24,10 +26,13 @@ import {
   makeTerrain,
   makeTerrainRegion,
   makeWall,
+  tomPredefinidoDaCategoria,
+  type Discipline,
   type Element,
   type ElementDiscipline,
   type Familia,
   type GraphicsCategory,
+  type Tone,
 } from './index.ts';
 
 /*
@@ -230,4 +235,72 @@ describe('componente de família de exemplo cai na categoria da sua disciplina (
       expect(disciplinaDaCategoria(categoria!)).toBe(disciplina);
     },
   );
+});
+
+/** Ordem esperada das disciplinas do configurador: as cinco embutidas na ordem de `DISCIPLINES` e `geral` no fim. */
+const ESPERADO_ORDEM: readonly ElementDiscipline[] = ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac', 'geral'];
+
+/** Agrupamento literal do adendo 3: categorias de cada disciplina, na ordem de `GRAPHICS_CATEGORIES`. */
+const ESPERADO_GRUPOS: Array<{ disciplina: ElementDiscipline; categorias: GraphicsCategory[] }> = [
+  {
+    disciplina: 'arquitetura',
+    categorias: ['wall', 'door', 'window', 'floor', 'roof', 'stair', 'railing', 'mass', 'room', 'ceiling', 'ramp', 'component'],
+  },
+  { disciplina: 'estrutura', categorias: ['slab', 'column', 'beam', 'footing'] },
+  { disciplina: 'hidrossanitario', categorias: ['plumbingFixture'] },
+  { disciplina: 'eletrico', categorias: ['electricalFixture'] },
+  { disciplina: 'hvac', categorias: ['mechanicalEquipment'] },
+  { disciplina: 'geral', categorias: ['site', 'lot', 'annotation', 'generic'] },
+];
+
+/** Tom predefinido por (disciplina de trabalho, categoria), literal do adendo 3 e da tabela §4.2. */
+const ESPERADO_TONS: Array<[Discipline, GraphicsCategory, Tone]> = [
+  ['estrutura', 'wall', 'halftone'],
+  ['estrutura', 'column', 'normal'],
+  ['eletrico', 'plumbingFixture', 'hidden'],
+  ['eletrico', 'electricalFixture', 'normal'],
+  // disciplina criada pelo usuário: mesma = normal, outra = meio-tom; `geral` nunca recebe tom
+  ['paisagismo', 'wall', 'halftone'],
+  ['paisagismo', 'site', 'normal'],
+  ['paisagismo', 'component', 'halftone'],
+];
+
+describe('ordem das disciplinas do configurador (adendo 3, decisão 2)', () => {
+  it('DISCIPLINE_ORDER são as embutidas na ordem de DISCIPLINES e geral no fim', () => {
+    expect(DISCIPLINE_ORDER).toEqual(ESPERADO_ORDEM);
+  });
+});
+
+describe('categoriasPorDisciplina (adendo 3, decisão 2)', () => {
+  it('cobre todas as categorias, cada uma exatamente uma vez, sem sobras', () => {
+    const grupos = categoriasPorDisciplina();
+    const planas = grupos.flatMap((g) => g.categorias);
+    expect(planas.length).toBe(23);
+    expect(new Set(planas).size).toBe(23);
+    expect([...planas].sort()).toEqual([...GRAPHICS_CATEGORIES].sort());
+  });
+
+  it('agrupa nas disciplinas de DISCIPLINE_ORDER, na ordem de GRAPHICS_CATEGORIES dentro do grupo', () => {
+    expect(categoriasPorDisciplina()).toEqual(ESPERADO_GRUPOS);
+  });
+
+  it('toda disciplina do resultado está em DISCIPLINE_ORDER e cada uma aparece no máximo uma vez', () => {
+    const disciplinas = categoriasPorDisciplina().map((g) => g.disciplina);
+    expect(new Set(disciplinas).size).toBe(disciplinas.length);
+    for (const d of disciplinas) expect(DISCIPLINE_ORDER).toContain(d);
+  });
+
+  it('toda disciplina de DISCIPLINE_ORDER com categoria aparece exatamente uma vez', () => {
+    const disciplinas = categoriasPorDisciplina().map((g) => g.disciplina);
+    for (const d of DISCIPLINE_ORDER) {
+      const temCategoria = ESPERADO_GRUPOS.some((g) => g.disciplina === d);
+      expect(disciplinas.filter((x) => x === d).length).toBe(temCategoria ? 1 : 0);
+    }
+  });
+});
+
+describe('tomPredefinidoDaCategoria (adendo 3, decisão 4)', () => {
+  it.each(ESPERADO_TONS)('planta de %s, categoria %s → %s', (trabalho, categoria, esperado) => {
+    expect(tomPredefinidoDaCategoria(trabalho, categoria)).toBe(esperado);
+  });
 });
