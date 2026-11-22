@@ -22,10 +22,13 @@ describe('Contrato de cidadania BIM (Regras 7–12)', () => {
     expect(filtros).toContain('isFooting');
     expect(filtros).toContain('levelId: Id | null');
 
+    // A classificação por categoria (pilar/viga/sapata) mora na fonte única do modelo; a visibilidade a consome.
+    const cats = ler('packages/model/src/graphics.ts');
+    expect(cats).toMatch(/case 'column':/);
+    expect(cats).toMatch(/case 'beam':/);
+    expect(cats).toMatch(/case 'footing':/);
     const vis = ler('apps/web/src/editor/viewVisibility.ts');
-    expect(vis).toMatch(/case 'column':/);
-    expect(vis).toMatch(/case 'beam':/);
-    expect(vis).toMatch(/case 'footing':/);
+    expect(vis).toContain('categoriaDoElemento');
 
     const pick = ler('packages/render/src/section/pick.ts');
     expect(pick).toContain("'columnId'");

@@ -196,11 +196,12 @@ describe('guarda de texto: a regra de tom mora só em visibilityOf', () => {
   const raiz = join(__dirname, '..');
   const arquivos = producao(raiz);
 
-  it('planTonesOf/DISCIPLINE_TONE_PRESETS só em editor/viewVisibility.ts', () => {
+  it('planTonesOf/DISCIPLINE_TONE_PRESETS só nos três consumidores previstos (regra no modelo)', () => {
     const achados = arquivos
       .filter((f) => /\bplanTonesOf\s*\(|\bDISCIPLINE_TONE_PRESETS\b/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(raiz.length + 1))
       .sort();
-    expect(achados).toEqual(['editor/viewVisibility.ts']);
+    // A precedência mora em planTonesOf (modelo); estes três só leem o resultado para aplicar/editar/exibir.
+    expect(achados).toEqual(['editor/graphicsActions.ts', 'editor/viewVisibility.ts', 'ui/dialogs/GraphicsVisibilityDialog.tsx']);
   });
 });
