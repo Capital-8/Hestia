@@ -144,6 +144,13 @@ describe('arrastar uma vista do navegador para a prancha', () => {
     expect(naturalScaleOf(p, { kind: '3d' })).toBe(100);
   });
 
+  it('planta de disciplina: a escala natural é a da própria cópia, e a padrão segue a do nível', () => {
+    const p = casa();
+    p.planViews = [{ id: 'pv_est', levelId: 'lv_0', discipline: 'estrutura', name: 'Estrutura', graphics: { scale: 50 } as never }];
+    expect(naturalScaleOf(p, { kind: 'plan', levelId: 'lv_0', planId: 'pv_est' })).toBe(50);
+    expect(naturalScaleOf(p, { kind: 'plan', levelId: 'lv_0' })).toBe(100);
+  });
+
   it('coloca a vista centrada no ponto solto, na escala natural, e cabe na folha', () => {
     const p = casa();
     const sh: Sheet = { id: 's1', number: 'A-101', name: 'Planta', size: 'A3', orientation: 'landscape', margin: 10, titleBlock: emptyTitleBlock(), viewports: [] };

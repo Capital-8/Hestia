@@ -35,6 +35,7 @@ import type { PaneId } from '../editor/panes.ts';
 const TOLERANCIA_SUB_3D = 0.08;
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D, registrarPreparoCena3D } from '../editor/vista3dAoVivo.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
+import { planViewIdDe } from '../editor/viewIdentity.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
 import { cursorForView } from './cursor.ts';
 import { selecionarNivelNoClique } from './nivelPick3d.ts';
@@ -482,7 +483,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const p = editor.project;
     // Estilo visual do PRÓPRIO painel (`pane.style`) sobre o do projeto; painel sem estilo usa o projeto como sempre.
     const estilo = estiloDoPainelAgora(paneId);
-    const pEstilo = projetoDoPainel(p, estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId });
+    const pEstilo = projetoDoPainel(p, estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) });
     const vis = visibilityOf(p, st);
     const theme = dark ? DARK : LIGHT;
     if (st.view === '3d') {
@@ -727,7 +728,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Grade visível quando o botão de grade está ligado ou quando a captura por grade está ativa (o que se captura, se vê).
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
-    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
+    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${[...vis.halftone].sort().join(',')}`;
     const blocoPlan = useInsercaoBloco.getState().ativo;
     const previasBloco = blocoPlan && blocoPlan.ultimoPonto
       ? pegadaDoComponente(blocoPlan.projetoPrevia, blocoPlan.rascunho)
@@ -738,7 +739,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const blocoPlanKey = blocoPlan && blocoPlan.ultimoPonto
       ? `${blocoPlan.familiaId}:${blocoPlan.rascunho.x}:${blocoPlan.rascunho.y}:${blocoPlan.rascunho.rotation}`
       : '';
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, planViewIdDe(st) ?? '', areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, planId: planViewIdDe(st), tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId, planId: planViewIdDe(st) }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, halftone: vis.halftone, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);
@@ -804,7 +805,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
     const hidden = visibilityOf(editor.project, st).hidden;
     const ids = [
-      ...idsNaCaixaDoCorte(result, wa, wb, hidden),
+      ...idsNaCaixaDoCorte(result, wa, wb, hidden, editor.project),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
       ...guardaCorposNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden),
       // Massa também é do kernel (consulta 143), fora do resultado do corte: mesma caixa.
@@ -1738,7 +1739,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         if (vv) {
           const alvo = st2.view === 'section'
             ? ({ vista: 'section', sectionId: st2.sectionId, hitId: sectionPickAt(s)?.id ?? null } as const)
-            : ({ vista: 'plan', levelId: st2.levelId, planId: st2.planKind === 'area' ? (st2.areaPlanId ?? undefined) : undefined, mpp: 1 / vv.zoom } as const);
+            : ({ vista: 'plan', levelId: st2.levelId, planId: st2.planKind === 'area' ? (st2.areaPlanId ?? undefined) : planViewIdDe(st2), mpp: 1 / vv.zoom } as const);
           const mundo = screenToWorld(vv, s);
           const id = cotaParaEditar(editor.project, alvo, mundo);
           if (id) useUi.setState({ dimEditId: id });

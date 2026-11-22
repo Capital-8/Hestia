@@ -4,6 +4,7 @@ import {
   beamElevationSpan,
   beamProfileRingSZ,
   beamsOnLevel,
+  categoriaDoElemento,
   columnElevationSpan,
   columnPolygon,
   columnsOnLevel,
@@ -107,7 +108,9 @@ function batchOf(byMat: Map<string, SolidBatch>, m: Id, cat: GraphicsCategory): 
 }
 
 /**
- * Constrói os sólidos 3D dos elementos estruturais (pilares, vigas e sapatas) do nível.
+ * Constrói os sólidos 3D dos elementos estruturais (pilares, vigas e sapatas) do nível. A categoria de cada peça vem de
+ * `categoriaDoElemento` (uma regra só, no modelo): pilar, viga e sapata têm categoria própria e não acompanham a parede
+ * nem a laje no "Ocultar categoria" (adendo 2 do ADR 0060). Ocultar por elemento continua sendo o filtro `oculto`.
  */
 export function buildStructuralSolids(
   p: Project,
@@ -116,36 +119,42 @@ export function buildStructuralSolids(
 ): SolidBatch[] {
   const byMat = new Map<string, SolidBatch>();
 
-  // Pilares: categoria 'wall', extrusão de z0 a z1.
+  // Pilares: extrusão de z0 a z1.
   for (const c of columnsOnLevel(p, levelId)) {
     if (oculto?.(c.id)) continue;
     const type = findColumnType(p, c.typeId);
     const span = columnElevationSpan(p, c);
     const poly = columnPolygon(c, type);
-    const b = batchOf(byMat, type.materialId, 'wall');
+    const cat = categoriaDoElemento(c, p);
+    if (!cat) continue;
+    const b = batchOf(byMat, type.materialId, cat);
     ofElement(b, c.id, () => {
       extrudePolygon(b, [poly], span.z0, span.z1);
     });
   }
 
-  // Vigas: categoria 'slab', extrusão horizontal da seção transversal (retangular, T ou perfil I/W) de a até b.
+  // Vigas: extrusão horizontal da seção transversal (retangular, T ou perfil I/W) de a até b.
   for (const b of beamsOnLevel(p, levelId)) {
     if (oculto?.(b.id)) continue;
     const type = findBeamType(p, b.typeId);
     const span = beamElevationSpan(p, b, type);
-    const batch = batchOf(byMat, type.materialId, 'slab');
+    const cat = categoriaDoElemento(b, p);
+    if (!cat) continue;
+    const batch = batchOf(byMat, type.materialId, cat);
     ofElement(batch, b.id, () => {
       extrudeBeamProfile(batch, b, type, span.z0, span.z1);
     });
   }
 
-  // Sapatas: categoria 'slab', extrusão de z0 a z1.
+  // Sapatas: extrusão de z0 a z1.
   for (const f of footingsOnLevel(p, levelId)) {
     if (oculto?.(f.id)) continue;
     const type = findFootingType(p, f.typeId);
     const span = footingElevationSpan(p, f, type);
     const poly = footingPolygon(f, type);
-    const batch = batchOf(byMat, type.materialId, 'slab');
+    const cat = categoriaDoElemento(f, p);
+    if (!cat) continue;
+    const batch = batchOf(byMat, type.materialId, cat);
     ofElement(batch, f.id, () => {
       extrudePolygon(batch, [poly], span.z0, span.z1);
     });

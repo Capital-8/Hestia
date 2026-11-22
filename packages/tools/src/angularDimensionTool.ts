@@ -13,6 +13,7 @@ import {
 import { alignFeaturesAt, type AlignFeature } from './alignFeatures.ts';
 import { angularReachLinks, frameOfWall, pointAt } from '@hestia/engine';
 import { addSectionDimension, ToolBase, viewPlanId } from './base.ts';
+import { ocultosNaVista, podeCapturar } from './visibilidade.ts';
 import { contextoDeTraco, lerComprimentoDigitado, pontoPorComprimento } from './desenhoPolilinha.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
@@ -88,16 +89,18 @@ export class AngularDimensionTool extends ToolBase {
   private candidates(at: Vec2): AlignFeature[] {
     // Corte/elevação: as referências são as arestas da vista (t, z); a planta não entra.
     const sec = this.env.section?.();
-    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), this.env.hiddenInView?.(), this.uiLang(), this.env.project());
+    if (sec) return sectionRefFeatures(sec, at, this.env.metersPerPixel(), sec.hidden?.(), this.uiLang(), this.env.project());
+    const ocultos = ocultosNaVista(this.env);
+    const envCaptura = { hiddenInView: () => ocultos };
     return alignFeaturesAt({
       project: this.env.project(),
       levelId: this.env.levelId(),
       at,
       metersPerPixel: this.env.metersPerPixel(),
       prefer: this.env.options().alignPrefer ?? 'faces',
-      hidden: this.env.hiddenInView?.(),
+      captura: (id) => podeCapturar(envCaptura, id),
       referenceOnly: true,
-      planId: this.env.areaPlanId?.() ?? undefined,
+      planId: viewPlanId(this.env),
     }).filter((f) => LINE_REFERENCE_KINDS.has(f.kind));
   }
 

@@ -6,7 +6,7 @@ import { useProjetoDerivado } from './editor/projetoDerivado.ts';
 import { useUi } from './editor/state.ts';
 import { useI18n } from './editor/i18n.ts';
 import { atalhoAtual } from './editor/shortcutConfig.ts';
-import { guardarSessao, lerSessao, limparSessao } from './editor/sessao.ts';
+import { guardarSessao, lerSessao, limparSessao, sessaoNoProjeto } from './editor/sessao.ts';
 import { tabOf } from './editor/viewTabActions.ts';
 import type { OpenView, PlanKind } from './editor/openViews.ts';
 import { useCollabIntegration } from './collab/useCollabIntegration.ts';
@@ -317,6 +317,7 @@ export function App(): ReactElement {
   const nivelAtivo = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const areaPlanId = useUi((s) => s.areaPlanId);
+  const planViewId = useUi((s) => s.planViewId);
   const sectionId = useUi((s) => s.sectionId);
   const faceView = useUi((s) => s.faceView);
   const abas = useUi((s) => s.openViews);
@@ -369,10 +370,12 @@ export function App(): ReactElement {
           limparSessao();
           return;
         }
+        // Planta de disciplina que não existe mais no projeto aberto vira planta padrão (vista ativa e abas).
+        const s = sessaoNoProjeto(sessao, editor.project);
         useUi.setState({
-          tela: 'editor', view: sessao.view, levelId: sessao.levelId, planKind: sessao.planKind as PlanKind, areaPlanId: sessao.areaPlanId, sectionId: sessao.sectionId,
-          ...(sessao.faceView ? { faceView: sessao.faceView } : {}),
-          ...(sessao.openViews.length ? { openViews: sessao.openViews as OpenView[] } : {}),
+          tela: 'editor', view: s.view, levelId: s.levelId, planKind: s.planKind as PlanKind, areaPlanId: s.areaPlanId, planViewId: s.planViewId ?? null, sectionId: s.sectionId,
+          ...(s.faceView ? { faceView: s.faceView } : {}),
+          ...(s.openViews.length ? { openViews: s.openViews as OpenView[] } : {}),
         });
       } finally {
         // Sucesso ou falha: a tela neutra sai; quem manda daqui em diante é o estado (`editor` ou `home`).
@@ -384,8 +387,8 @@ export function App(): ReactElement {
   // Guarda a sessão a cada mudança de vista/projeto: é o que o F5 reabre.
   useEffect(() => {
     if (tela !== 'editor') return;
-    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, areaPlanId, sectionId, ...(vista === 'face' && faceView ? { faceView } : {}), openViews: abas });
-  }, [tela, vista, nivelAtivo, planKind, areaPlanId, sectionId, faceView, abas]);
+    guardarSessao({ pasta: editor.pastaNaBiblioteca, view: vista, levelId: nivelAtivo, planKind, areaPlanId, ...(planViewId ? { planViewId } : {}), sectionId, ...(vista === 'face' && faceView ? { faceView } : {}), openViews: abas });
+  }, [tela, vista, nivelAtivo, planKind, areaPlanId, planViewId, sectionId, faceView, abas]);
 
   // Voltar de propósito para a tela de projetos encerra a sessão da aba: F5 ali continua na tela de projetos. Durante
   // a retomada o estado ainda é `home`, mas a sessão está sendo usada — não pode ser apagada agora.

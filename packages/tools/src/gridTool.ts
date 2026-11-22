@@ -216,7 +216,7 @@ export class GridTool extends ToolBase {
   }
 
   private wallAt(at: Vec2) {
-    const hit = pickAt(this.env.project(), this.env.levelId(), at, this.env.metersPerPixel());
+    const hit = pickAt(this.env.project(), this.env.levelId(), at, this.env.metersPerPixel(), this.env);
     const w = hit?.kind === 'wall' ? this.env.project().elements[hit.id] : undefined;
     return isWall(w) ? w : null;
   }

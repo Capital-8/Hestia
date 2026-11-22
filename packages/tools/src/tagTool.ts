@@ -38,7 +38,7 @@ export class TagTool extends ToolBase {
   /** Elemento a etiquetar: o que está sob o cursor na planta; senão o selecionado (corte, elevação e 3D). */
   private hostAt(p: PointerInfo): Id | null {
     const project = this.env.project();
-    const hit = pickAt(project, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const hit = pickAt(project, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (hit) return hit.id;
     return this.env.selection().find((id) => project.elements[id]) ?? null;
   }

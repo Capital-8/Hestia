@@ -1,5 +1,5 @@
 import type { Project, Sheet, SheetViewport, SheetViewSource } from '@hestia/model';
-import { sectionTitleOf, sheetInnerBox, areaPlanOf, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
+import { sectionTitleOf, sheetInnerBox, areaPlanOf, planViewFor, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
 import { emptyParts, type ViewportParts } from './types.ts';
 import { t as translate, type Lang } from '../i18n.ts';
 
@@ -37,7 +37,8 @@ export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport, 
 
 function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
   const missing = translate(lang, 'rn_sheet_view_missing');
-  if (view.kind === 'plan') return p.levels.find((l) => l.id === view.levelId)?.name ?? missing;
+  // Planta de disciplina (decisão 0060 §6) leva o nome dela; `planId` que não resolve cai no nome do nível.
+  if (view.kind === 'plan') return planViewFor(p, view.levelId, view.planId)?.name ?? p.levels.find((l) => l.id === view.levelId)?.name ?? missing;
   if (view.kind === 'areaPlan') return areaPlanOf(p, view.planId)?.name ?? missing;
   if (view.kind === 'areaTable') return translate(lang, 'rn_sheet_area_table');
   if (view.kind === 'section') {

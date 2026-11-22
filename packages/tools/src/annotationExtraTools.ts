@@ -7,6 +7,7 @@ import {
   defaultSpotFamilyIdOf,
   formatQuantity,
   newId,
+  planGraphicsOf,
   unitsOf,
   type Id,
   type Project,
@@ -17,11 +18,11 @@ import {
 import { add, type Vec2 } from '@hestia/geom';
 import { addSectionRevisionCloud, addSectionSpot, addSectionSymbol, ToolBase, viewPlanId } from './base.ts';
 import { pickAt } from './pick.ts';
-import type { PointerInfo } from './types.ts';
+import type { PointerInfo, ToolEnv } from './types.ts';
 
-function elevationAt(p: Project, levelId: Id, pt: Vec2, mpp: number): number {
+function elevationAt(p: Project, levelId: Id, pt: Vec2, mpp: number, env?: ToolEnv): number {
   const base = p.levels.find((l) => l.id === levelId)?.elevation ?? 0;
-  const hit = pickAt(p, levelId, pt, mpp);
+  const hit = pickAt(p, levelId, pt, mpp, env);
   const el = hit ? p.elements[hit.id] : undefined;
   if (!el) return base;
   if ('heightOffset' in el && typeof el.heightOffset === 'number') return base + el.heightOffset;
@@ -76,7 +77,7 @@ export class SpotElevationTool extends ToolBase {
 
   private measureZ(pt: Vec2): number {
     if (this.isSection()) return pt.y;
-    return elevationAt(this.env.project(), this.env.levelId(), pt, this.env.metersPerPixel());
+    return elevationAt(this.env.project(), this.env.levelId(), pt, this.env.metersPerPixel(), this.env);
   }
 
   override move(p: PointerInfo): void {
@@ -213,7 +214,8 @@ export class NorthArrowTool extends ToolBase {
   }
 
   private segsAt(c: Vec2): Array<[Vec2, Vec2]> {
-    const scale = this.env.project().levels.find((l) => l.id === this.env.levelId())?.graphics?.scale ?? 50;
+    // Escala da vista: a da planta ativa (padrão ou de disciplina); sem gráficos salvos, o padrão do Hestia (1:100; era 50 aqui).
+    const scale = this.env.viewScale?.() ?? planGraphicsOf(this.env.project(), this.env.levelId(), viewPlanId(this.env)).scale;
     const r = (scale / 1000) * 6;
     const out: Array<[Vec2, Vec2]> = [];
     const n = 16;

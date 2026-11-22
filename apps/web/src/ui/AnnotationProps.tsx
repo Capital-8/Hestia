@@ -64,7 +64,7 @@ export interface NotaSelecionada {
 
 /**
  * Anotação selecionada na vista. Com `sectionId` procura nas anotações da vista de corte/elevação; com `planId`, só nas da
- * planta de área; sem eles, no nível (planta de piso). Um id de elemento nunca vira anotação.
+ * planta de área ou de disciplina; sem eles, no nível (planta de piso). Um id de elemento nunca vira anotação.
  */
 export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | null, sectionId?: Id | null): NotaSelecionada | null {
   if (ids.length !== 1) return null;
@@ -89,7 +89,8 @@ export function selectedNote(p: Project, levelId: Id, ids: Id[], planId?: Id | n
     return symbol ? { symbol, section: true } : null;
   }
   if (planId) {
-    const plan = areaPlanOf(p, planId);
+    // Planta de área ou de disciplina (ids únicos no projeto; a de disciplina precisa ser do nível).
+    const plan = areaPlanOf(p, planId) ?? (p.planViews ?? []).find((x) => x.id === planId && x.levelId === levelId);
     if (!plan) return null;
     const a = planAnnotationsOf(plan);
     const dim = a.dimensions.find((d) => d.id === id);

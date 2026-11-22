@@ -25,6 +25,8 @@ import {
   isFooting,
   isCurtainType,
   isWall,
+  disciplineLabel,
+  planOf,
   type DetailLevel,
   type JoinKind,
   openingHeight,
@@ -45,6 +47,8 @@ import {
 import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
+import { planViewIdDe } from '../editor/viewIdentity.ts';
+import { renomearPlanta } from '../editor/planViewActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
 import { avisoLimiteInclinacao, grauDeRad, inclinarParedes, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
@@ -407,7 +411,7 @@ function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
 }
 
 function ViewProps(): ReactElement {
-  const { t } = useT();
+  const { t, lang } = useT();
   const fmt = useFormat(); const p = useProject();
   const s = useUi();
   const lvl = p.levels.find((l) => l.id === s.levelId);
@@ -415,7 +419,12 @@ function ViewProps(): ReactElement {
   // A planta de cobertura mostra as mesmas propriedades da de piso do nível; só o nome do tipo muda.
   const roof = s.view === 'plan' && s.planKind === 'roof';
   const areaPlan = s.view === 'plan' && s.planKind === 'area' ? activeAreaPlan(p, s.areaPlanId) : undefined;
-  const title = s.view === 'plan' ? areaPlan ? `${areaPlan.name} · ${lvl?.name ?? ''}` : `${roof ? t('prc_view_roof_plan') : t('prc_view_plan')} · ${lvl?.name ?? ''}` : s.view === 'section' ? `${section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')} · ${section?.name ?? ''}` : t('prc_view_3d');
+  const activePlanViewId = planViewIdDe(s);
+  const resolvedPlan = activePlanViewId ? planOf(p, s.levelId, activePlanViewId) : undefined;
+  const disciplinePlan = resolvedPlan && !resolvedPlan.isDefault ? resolvedPlan : undefined;
+  const title = s.view === 'plan'
+    ? disciplinePlan ? `${disciplinePlan.name} · ${lvl?.name ?? ''}` : areaPlan ? `${areaPlan.name} · ${lvl?.name ?? ''}` : `${roof ? t('prc_view_roof_plan') : t('prc_view_plan')} · ${lvl?.name ?? ''}`
+    : s.view === 'section' ? `${section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')} · ${section?.name ?? ''}` : t('prc_view_3d');
   const kindLabel = s.view === 'plan' ? (areaPlan ? t('prc_view_area_plan') : roof ? t('prc_view_roof_plan') : t('prc_view_floor_plan')) : s.view === 'section' ? (section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')) : t('prc_view_3d');
   return (
     <>
@@ -423,6 +432,14 @@ function ViewProps(): ReactElement {
         <div className="rv-head"><b>{kindLabel}</b><span>{title}</span></div>
       </div>
       <Group title={t('prc_pgrp_view')} stateKey="view">
+        {disciplinePlan && (
+          <>
+            <Row label={t('prd_fld_name')} htmlFor="v-plan-name">
+              <TextField id="v-plan-name" value={disciplinePlan.name} onCommit={(v) => { if (v.trim()) renomearPlanta(editor.store, disciplinePlan.planId!, v); }} />
+            </Row>
+            <Row label={t('prd_fld_discipline')} readOnly><span className="val">{disciplineLabel(lang, disciplinePlan.discipline)}</span></Row>
+          </>
+        )}
         <Row label={t('prc_fld_level')} htmlFor="v-level">
           <select id="v-level" className="select" value={s.levelId} onChange={(e) => editor.selectLevel(e.target.value, s.planKind)}>
             {p.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -451,7 +468,7 @@ function ViewProps(): ReactElement {
       </Group>
       {areaPlan ? <AreaProfileGroups key={`ap-${areaPlan.id}`} plan={areaPlan} /> : null}
       {s.view === 'plan' && <ViewRangeGroup key={`vr-${s.levelId}`} levelId={s.levelId} />}
-      {s.view === 'plan' && <LevelGraphicsGroup key={`lg-${s.levelId}`} levelId={s.levelId} />}
+      {s.view === 'plan' && <LevelGraphicsGroup key={`lg-${s.levelId}-${planViewIdDe(s) ?? ''}`} levelId={s.levelId} planViewId={planViewIdDe(s)} />}
       {s.view === '3d' && <View3DGroup />}
       {s.view === 'section' && <SectionGraphicsGroup />}
       {s.view === 'section' && section ? <SectionViewProps view={section} /> : null}
@@ -475,7 +492,7 @@ export function Properties(): ReactElement {
   const sel = useDeferredValue(useUi((s) => s.selection));
   // Na planta de área, cotas/textos vivem em `plan.annotations`; no corte/elevação, em `SectionView.annotations`: a
   // seleção precisa procurar na vista certa, não no nível.
-  const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : null));
+  const planId = useUi((s) => (s.planKind === 'area' ? s.areaPlanId : (planViewIdDe(s) ?? null)));
   const sectionId = useUi((s) => (s.view === 'section' ? s.sectionId : null));
   const note = selectedNote(p, useUi((s) => s.levelId), sel, planId, sectionId);
   const view = selectedView(p, sel);

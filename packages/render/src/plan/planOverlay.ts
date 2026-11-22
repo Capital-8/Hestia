@@ -12,7 +12,7 @@ import { rampFootprint, rampSelectionOps } from './ramps.ts';
 import { structuralPegadas, structuralSelectionOps } from './structural.ts';
 import { guideStrokes, previewOverlay, snapMarker, snapTooltipLabel } from './overlay.ts';
 import { hiddenSelectionOps, planViewOf, type PlanView } from './view.ts';
-import { planContext, type PlanContext } from './planContext.ts';
+import { planContext, planIdOf, type PlanContext } from './planContext.ts';
 import { ambientesDoNivel, lajesDoNivel, pisosDoNivel, telhadosDoNivel } from './resolucao.ts';
 import { labelGhostOps } from './areaPlan.ts';
 import { annotationHighlightOps, blocoEm, drawnAnnotations, textBlockModel } from './notes.ts';
@@ -155,7 +155,7 @@ function revealedOutlineOps(input: PlanInput, ctx: PlanContext): PlanOps {
   // Anotações: caixa em volta do texto (texto, cota) e o próprio traço (linha/região de detalhe e separador de ambiente).
   const scale = input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : style.scale;
   const mPerMm = scale / 1000;
-  const annotations = drawnAnnotations(p, levelId, input.areaPlan);
+  const annotations = drawnAnnotations(p, levelId, input.areaPlan, planIdOf(input));
   const sel = new Set(ids);
   const caixa = (at: Vec2, w: number, h: number, rotation: number): void => {
     out.strokes.push({ pts: blocoEm(at, w, h, rotation, REVEAL_FOLGA_MM * mPerMm), closed: true, widthPx: 2, color: REVEAL, alpha: 1 });
@@ -192,7 +192,7 @@ const vazio = (): PlanOps => ({ fills: [], strokes: [], labels: [] });
 
 /** Anotações que a vista desenha (as da vista, ou as do nível) e a escala de papel em que o bloco do texto é medido. */
 function anotacoesDaVista(input: PlanInput, escala: number): { annotations: ReturnType<typeof drawnAnnotations>; scale: number } {
-  return { annotations: drawnAnnotations(input.project, input.levelId, input.areaPlan), scale: input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : escala };
+  return { annotations: drawnAnnotations(input.project, input.levelId, input.areaPlan, planIdOf(input)), scale: input.areaPlan && input.areaPlan.scale > 0 ? input.areaPlan.scale : escala };
 }
 
 /** Junta o destaque das anotações (caixa, alça do texto e realce do hover) à sobreposição. */
@@ -410,6 +410,6 @@ export function buildPlanOverlay(input: PlanInput): PlanOps {
  */
 export function buildPlanScreenOverlay(input: PlanInput): PlanOps {
   const o = buildPlanOverlay(input);
-  const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId), input.selection, input.theme);
+  const ghosts = hiddenSelectionOps(input.project, input.levelId, planViewOf(input.project, input.levelId, planIdOf(input)), input.selection, input.theme);
   return ghosts.length ? { ...o, strokes: [...o.strokes, ...ghosts] } : o;
 }

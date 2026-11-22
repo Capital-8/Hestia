@@ -30,7 +30,7 @@ export async function exportPdf(): Promise<void> {
     // Sem prancha: cria uma com a planta do nível atual (ação com desfazer) e exporta essa.
     let bytes = sheetsPdfOf(editor.project, useI18n.getState().lang);
     if (!bytes) {
-      pranchaDaPlantaAtual(editor.store, useUi.getState().levelId);
+      pranchaDaPlantaAtual(editor.store, useUi.getState().levelId, useUi.getState().planViewId ?? undefined);
       bytes = sheetsPdfOf(editor.project, useI18n.getState().lang);
     }
     say(bytes ? await savePdf(`${editor.project.name || 'projeto'}-pranchas.pdf`, bytes) : tr('edc_no_sheets_to_export'));

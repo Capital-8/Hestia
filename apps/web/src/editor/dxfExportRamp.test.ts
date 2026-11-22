@@ -89,10 +89,13 @@ describe('DXF da rampa reta (H=0,80, 9,60 m)', () => {
     expect(hasEntity(out, 'LINE', 'RAMPA_CORTE')).toBe(true);
   });
 
-  it('com a categoria stair oculta: nenhuma camada de rampa', () => {
-    const p = withGraphics(straightRamp(), { stair: { visible: false } });
+  it('com a categoria ramp oculta: nenhuma camada de rampa; a categoria stair não manda nela', () => {
+    const p = withGraphics(straightRamp(), { ramp: { visible: false } });
     const out = planDxf(p, 'lv_0');
     expect(out).not.toContain('RAMPA');
+    // A rampa tem categoria própria (adendo 2 do ADR 0060): ocultar a escada não a tira.
+    const semEscada = planDxf(withGraphics(straightRamp(), { stair: { visible: false } }), 'lv_0');
+    expect(hasEntity(semEscada, 'POLYLINE', 'RAMPA')).toBe(true);
   });
 
   it('a rotação do texto de uma rampa ao longo de +Y é 90 graus, no meio do eixo', () => {

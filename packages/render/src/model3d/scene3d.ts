@@ -1395,13 +1395,16 @@ export class ModelScene {
     for (const c of paredes.caixas) caixas?.adicionar('wall', c.materialId, c.wallId, c.matriz, false);
     caixas?.adicionarArestas(paredes.arestas);
     const floors = shown('floor') ? resolveFloors(p, lv.levelId).filter((f) => !oculto(f.floorId)) : [];
-    const ceilings = shown('floor') ? resolveCeilings(p, lv.levelId).filter((c) => !oculto(c.ceilingId)) : [];
+    // Forro, rampa, pilar, viga, sapata e componentes têm categoria própria (adendo 2 do ADR 0060): ocultar `floor`,
+    // `stair`, `wall`, `slab` ou `generic` não os leva junto.
+    const ceilings = shown('ceiling') ? resolveCeilings(p, lv.levelId).filter((c) => !oculto(c.ceilingId)) : [];
     const slabs = shown('slab') ? resolveSlabs(p, lv.levelId).filter((s) => !oculto(s.slabId)) : [];
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
-    const rampasNivel = shown('stair') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
+    const rampasNivel = shown('ramp') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
     const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
-    const componentes = shown('generic') ? buildComponentSolids(pGen, lv.levelId) : [];
-    if (shown('generic')) this.moveis.montar(grupo, this.mats, p, lv.levelId, this.frame.shadows, this.ocultos);
+    // Componentes: cada lote já sai com a categoria da disciplina da família; só os visíveis nesta vista entram.
+    const componentes = buildComponentSolids(pGen, lv.levelId).filter((b) => shown(b.category));
+    if (shown('component')) this.moveis.montar(grupo, this.mats, p, lv.levelId, this.frame.shadows, this.ocultos);
     const batches: LoteSolido[] = [
       ...paredes.batches,
       ...buildFloorSolids(floors, juncao, p),
@@ -1412,8 +1415,7 @@ export class ModelScene {
       ...buildStairSolids(escadasNivel, (s) => stairArrivalTop(p, s).top),
       ...buildRampSolids(rampasNivel),
       ...genericos,
-      ...buildStructuralSolids(p, lv.levelId, oculto),
-      ...componentes,
+      ...buildStructuralSolids(p, lv.levelId, oculto).filter((b) => shown(b.category)),
       ...componentes,
     ];
     // Reveal: o modelo normal continua desenhado; os elementos revelados ganham só as arestas azuis (sem preenchimento).
@@ -1451,9 +1453,10 @@ export class ModelScene {
       const revRampas = rampasNivel.filter((r) => revelado(r.id));
       if (revRampas.length) arestasDe(buildRampSolids(revRampas));
       if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
-      const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id));
+      const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id)).filter((b) => shown(b.category));
       if (revEstrutural.length) arestasDe(revEstrutural);
-      if (shown('generic')) arestasDe(buildComponentSolids(this.soRevelados ?? p, lv.levelId));
+      const revComponentes = buildComponentSolids(this.soRevelados ?? p, lv.levelId).filter((b) => shown(b.category));
+      if (revComponentes.length) arestasDe(revComponentes);
     }
     const materialOf = (id: Id): Material | undefined => materialNoProjeto(p.materials, id) ?? eave.materials[id] ?? MATERIAIS_DE_COMPONENTE[id];
     // Caminho de referência (`instanciar: false`): cada nível tem as suas malhas. Caminho padrão: os sólidos vão para os

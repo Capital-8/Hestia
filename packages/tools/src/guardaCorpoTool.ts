@@ -13,7 +13,7 @@ import {
   unitsOf,
 } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
-import { ToolBase } from './base.ts';
+import { ToolBase, viewPlanId } from './base.ts';
 import { contextoDeTraco, RascunhoPolilinha } from './desenhoPolilinha.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
@@ -114,7 +114,7 @@ export class GuardaCorpoTool extends ToolBase {
     const tail = this.r.ultimo;
     if (tail) {
       items.push({ kind: 'line', a: tail, b: q, dashed: true });
-      items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), tail, q, this.env.metersPerPixel(), unitsOf(this.env.project())));
+      items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), viewPlanId(this.env), tail, q, this.env.metersPerPixel(), unitsOf(this.env.project())));
     }
     this.items = items;
   }

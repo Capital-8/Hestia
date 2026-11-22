@@ -1,4 +1,5 @@
-import { DIM_FAMILY_PADRAO, planAnnotationsOf, planOwnsAnnotations, sectionAnnotationsOf, type Id, type Project, type SectionAnnotations } from '@hestia/model';
+import { DIM_FAMILY_PADRAO, planAnnotationsOf, planOwnsAnnotations, planViewAnnotationsOf, sectionAnnotationsOf, type Id, type Project, type SectionAnnotations } from '@hestia/model';
+import { planViewIdDe } from './viewIdentity.ts';
 import type { useUi } from './state.ts';
 
 /** Anotação da vista ativa (cota, texto, linha/região de detalhe, etiqueta ou separador de ambiente). */
@@ -10,7 +11,7 @@ export interface ViewAnnotation {
   typeKey: string;
 }
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId'>>;
 
 /**
  * Anotações da vista ativa: no corte/elevação as da própria vista; na planta de área as dela (ou as do nível, se herda);
@@ -35,7 +36,11 @@ export function annotationsOfActiveView(p: Project, st: ViewState): ViewAnnotati
   } else if (st.view === 'plan') {
     const level = p.levels.find((l) => l.id === st.levelId);
     const plan = st.planKind === 'area' && st.areaPlanId ? p.areaPlans?.find((a) => a.id === st.areaPlanId) : undefined;
-    if (plan && planOwnsAnnotations(plan)) fonte = planAnnotationsOf(plan);
+    // Planta de disciplina: as anotações são as da própria cópia (nunca as do nível, decisão 0060 §5).
+    const planId = planViewIdDe(st);
+    const pv = planId ? (p.planViews ?? []).find((x) => x.id === planId && x.levelId === st.levelId) : undefined;
+    if (pv) fonte = planViewAnnotationsOf(pv);
+    else if (plan && planOwnsAnnotations(plan)) fonte = planAnnotationsOf(plan);
     else {
       fonte = level;
       separadores = plan ? [] : (level?.roomSeparators ?? []);

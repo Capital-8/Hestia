@@ -525,6 +525,23 @@ describe('normalizeLayout', () => {
   });
 });
 
+describe('planta de disciplina em painéis guardados', () => {
+  const comPlanta = (view: object): unknown => ({ root: { kind: 'leaf', pane: { id: 'p1', view, style: {}, sync: { followLevel: true, followSelection: true, lockCameraTo: null }, camera3d: null, camera2d: null } }, activeId: 'p1', maximizedId: null });
+  const viewDe = (l: PaneLayout): PaneView => leaves(l.root)[0]!.view;
+
+  it('painel ANTIGO (sem o campo) abre na planta padrão e não ganha o campo', () => {
+    expect(viewDe(normalizeLayout(comPlanta({ kind: 'plan', levelId: 'lv_1', planKind: 'floor' }), FB))).toEqual({ kind: 'plan', levelId: 'lv_1', planKind: 'floor' });
+  });
+  it('planViewId guardado volta com a vista; round-trip JSON não muda nada', () => {
+    const l = singlePaneLayout({ kind: 'plan', levelId: 'lv_1', planViewId: 'pv_a' }, 'p1');
+    expect(viewDe(normalizeLayout(JSON.parse(JSON.stringify(l)), FB))).toEqual({ kind: 'plan', levelId: 'lv_1', planViewId: 'pv_a' });
+  });
+  it('valor inválido, ou planViewId em cobertura/área, é descartado', () => {
+    expect('planViewId' in (viewDe(normalizeLayout(comPlanta({ kind: 'plan', levelId: 'lv_1', planViewId: 3 }), FB)) as object)).toBe(false);
+    expect('planViewId' in (viewDe(normalizeLayout(comPlanta({ kind: 'plan', levelId: 'lv_1', planKind: 'roof', planViewId: 'pv_a' }), FB)) as object)).toBe(false);
+  });
+});
+
 describe('persistência (navegador falso)', () => {
   function fakeStorage(): Map<string, string> {
     const store = new Map<string, string>();

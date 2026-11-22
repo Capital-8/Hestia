@@ -20,6 +20,7 @@ export function DimValueEditor(): ReactElement | null {
   const levelId = useUi((s) => s.levelId);
   const areaPlanId = useUi((s) => s.areaPlanId);
   const planKind = useUi((s) => s.planKind);
+  const planViewId = useUi((s) => s.planViewId);
   const sectionId = useUi((s) => s.sectionId);
   useUi((s) => s.previewTick);
   const [text, setText] = useState('');
@@ -29,7 +30,7 @@ export function DimValueEditor(): ReactElement | null {
   const close = (): void => useUi.setState({ dimEditId: null });
 
   const project = editor.project;
-  const found = id ? findEditDim(project, { view, levelId, areaPlanId, planKind, sectionId }, id) : null;
+  const found = id ? findEditDim(project, { view, levelId, areaPlanId, planKind, sectionId, planViewId }, id) : null;
   const foundId = found?.dim.id;
   useEffect(() => {
     if (!found) return;

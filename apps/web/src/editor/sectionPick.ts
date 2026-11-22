@@ -55,7 +55,7 @@ export function sectionPickAt(s: ScreenPt): SectionHit | null {
   // Massa (ficha V3): o contorno cortado ou projetado do kernel é a região clicável; oculta ou categoria desligada não é alvo.
   const massa = pickMassaNoCorte(editor.project, result, hidden, point, TOLERANCE_PX / v.zoom);
   if (massa) return { id: massa, kind: 'mass' };
-  const elemento = pickSection(result, point, TOLERANCE_PX / v.zoom, hidden);
+  const elemento = pickSection(result, point, TOLERANCE_PX / v.zoom, hidden, editor.project);
   if (elemento) return elemento;
   // O terreno fica atrás do edifício: só vale quando nenhum elemento foi achado.
   return terrenoNoPontoDoCorte(editor.project, result, hidden, v.zoom, point);

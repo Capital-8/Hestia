@@ -3,6 +3,7 @@ import {
   graphicsIssues,
   graphicsOf,
   levelGraphicsOf,
+  planGraphicsOf,
   sectionGraphicsOf,
   view3dOf,
   type CategoryLineStyle,
@@ -79,6 +80,24 @@ export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<V
 
 export function resetLevelGraphics(p: Project, levelId: Id, lang: Lang = 'pt'): void {
   delete levelOf(p, levelId, lang).graphics;
+}
+
+function planViewRef(p: Project, planId: Id, lang: Lang) {
+  const v = p.planViews?.find((x) => x.id === planId);
+  if (!v) throw new Error(t(lang, 'md_plan_view_missing'));
+  return v;
+}
+
+/** Gráficos de uma planta adicional (decisão 0060): mesma regra de `applyLevelGraphics`, gravando em `PlanView.graphics`. */
+export function applyPlanGraphics(p: Project, planId: Id, patch: DeepPartial<ViewGraphics>, lang: Lang = 'pt'): void {
+  const v = planViewRef(p, planId, lang);
+  const next = mergeLevel(copy(planGraphicsOf(p, v.levelId, v.id)), copy(patch));
+  refuse(graphicsIssues(next, lang));
+  v.graphics = next;
+}
+
+export function resetPlanGraphics(p: Project, planId: Id, lang: Lang = 'pt'): void {
+  delete planViewRef(p, planId, lang).graphics;
 }
 
 export function applyView3D(p: Project, patch: DeepPartial<View3DSettings>, lang: Lang = 'pt'): void {

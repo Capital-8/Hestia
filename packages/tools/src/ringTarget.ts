@@ -8,16 +8,18 @@ import { pickAt } from './pick.ts';
 import { pickRingEdgeAt } from './ringEdgePick.ts';
 import type { EdgePick, RingRef } from './ringEdge.ts';
 import type { ToolEnv } from './types.ts';
+import type { VisibilidadeEnv } from './visibilidade.ts';
 
 /** Alvo de uma ferramenta de modificar: parede (pelo id) ou aresta de um anel (piso, laje, telhado, forro). */
 export type LineTarget = { kind: 'wall'; id: Id } | { kind: 'edge'; pick: EdgePick };
 
 /**
  * Pick unificado das ferramentas de modificar. Parede (e abertura, que conta como a parede) vence; sem parede, a aresta
- * de anel mais próxima. Devolve null se não há nada sob o cursor.
+ * de anel mais próxima. Devolve null se não há nada sob o cursor. Com `env`, o que não se seleciona (oculto/meio-tom) não
+ * é alvo.
  */
-export function pickLineTarget(p: Project, levelId: Id, at: Vec2, mpp: number): LineTarget | null {
-  const hit = pickAt(p, levelId, at, mpp);
+export function pickLineTarget(p: Project, levelId: Id, at: Vec2, mpp: number, env?: VisibilidadeEnv): LineTarget | null {
+  const hit = pickAt(p, levelId, at, mpp, env);
   if (hit?.kind === 'wall') return { kind: 'wall', id: hit.id };
   const edge = pickRingEdgeAt(p, levelId, at, mpp);
   return edge ? { kind: 'edge', pick: edge } : null;
@@ -61,7 +63,7 @@ export function commitRingEdit(env: ToolEnv, ref: RingRef, ring: Vec2[]): boolea
 }
 
 /** Aresta de anel sob o cursor (parede não conta: null se o alvo é parede ou não há nada). */
-export function edgeAtCursor(env: Pick<ToolEnv, 'project' | 'levelId' | 'metersPerPixel'>, at: Vec2): EdgePick | null {
-  const t = pickLineTarget(env.project(), env.levelId(), at, env.metersPerPixel());
+export function edgeAtCursor(env: Pick<ToolEnv, 'project' | 'levelId' | 'metersPerPixel'> & VisibilidadeEnv, at: Vec2): EdgePick | null {
+  const t = pickLineTarget(env.project(), env.levelId(), at, env.metersPerPixel(), env);
   return t?.kind === 'edge' ? t.pick : null;
 }

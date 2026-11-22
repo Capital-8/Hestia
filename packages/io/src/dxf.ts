@@ -161,6 +161,11 @@ export interface DxfLevelGeometry {
    * oculta, ou sem massa no nível): a camada não sai. Presente e vazio = a camada entra na tabela LAYER sem entidades.
    */
   masses?: DxfMassPath[];
+  /**
+   * Pilares, vigas e sapatas que a vista esconde (categoria ou Hide in View). Ausente = todos os estruturais do nível saem,
+   * como antes da etapa 4.5b. Quem monta é o web, com o mesmo `hidden` da planta.
+   */
+  structuralHidden?: Id[];
 }
 
 /** Polilinha de cortina em planta: a camada da peça e os pontos (em metros); `closed` fecha o contorno e `dashed` põe o tracejado. */
@@ -371,6 +376,16 @@ export const DXF_CATEGORY_COLORS: Record<GraphicsCategory, number> = {
   room: 7,
   annotation: 7,
   generic: 8,
+  // Categorias por elemento (etapa 4.5a): a cor da categoria de origem, para a saída DXF não mudar.
+  column: 1,
+  beam: 4,
+  footing: 4,
+  ceiling: 5,
+  ramp: 6,
+  component: 8,
+  plumbingFixture: 8,
+  electricalFixture: 8,
+  mechanicalEquipment: 8,
 };
 
 /** Estilo padrão de uma camada da planta: cor da categoria, tipo de linha do papel dela e a espessura pedida. */
@@ -536,7 +551,7 @@ function shapesOf(project: Project, geo: DxfLevelGeometry, levelId?: Id): Shape[
   for (const tn of geo.terreno ?? []) {
     if (tn.pts.length >= 2) out.push({ layer: tn.layer, pts: tn.pts, closed: tn.closed, ...(tn.dashed === true ? { dashed: true } : {}), ...(tn.elevation === undefined ? {} : { elevation: tn.elevation }) });
   }
-  if (levelId) out.push(...structuralDxfShapes(project, levelId));
+  if (levelId) out.push(...structuralDxfShapes(project, levelId, new Set(geo.structuralHidden ?? [])));
   for (const m of geo.masses ?? []) out.push({ layer: DXF_LAYER_MASS, pts: m.pts, closed: m.closed, ...(m.dashed === true ? { dashed: true } : {}) });
   return out;
 }

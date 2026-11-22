@@ -1,6 +1,6 @@
 import { ordemDeAvaliacao } from './grafo.ts';
 import type { Familia } from './tipos.ts';
-import { validarDuplicados, validarIds, validarLimites, validarObrigatorios } from './validarEstrutura.ts';
+import { validarDuplicados, validarIds, validarLimites, validarObrigatorios, validarDisciplina } from './validarEstrutura.ts';
 import { validarEncaixe } from './validarEncaixe.ts';
 import { validarFormulas } from './validarFormulas.ts';
 import { validarParametros } from './validarParametros.ts';
@@ -57,6 +57,8 @@ export interface Problema {
  *    `peca.material` que coincide com id de parâmetro exige que ele seja 'material' ou 'chapa'; se não coincide com nenhum
  *    parâmetro é id de material do projeto e NÃO é conferido.
  * 8. ciclo — `ordemDeAvaliacao` com ciclo: UM erro 'ciclo' com os ids na mensagem ('familia').
+ * 9. disciplina (adendo 1 do ADR 0060) — `disciplina` ausente é válida; presente fora das cinco das plantas = erro
+ *    'tipo' ('familia').
  */
 export function validarFamilia(f: Familia): Problema[] {
   if (!ehObjeto(f)) {
@@ -74,6 +76,7 @@ export function validarFamilia(f: Familia): Problema[] {
     ...validarReferencias(f),
     ...validarCiclo(f),
     ...validarEncaixe(f),
+    ...validarDisciplina(f),
   ];
 }
 

@@ -44,6 +44,8 @@ const PT = {
   md_tpl_building10_desc: 'Núcleo de circulação central e quatro unidades por andar; lajes e pisos param no núcleo.',
   md_tpl_studio: 'Quitinete',
   md_tpl_studio_desc: 'Ambiente único com banheiro, para testar rápido.',
+  md_tpl_casa_disciplinas: 'Teste de disciplinas (completo)',
+  md_tpl_casa_disciplinas_desc: 'Dois pavimentos de 6 × 8 m com todas as categorias gráficas, componentes de cada disciplina, oito plantas de disciplina, anotações de teste e uma prancha com Estrutura e Elétrico.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Laje maciça 19 (prédio)',
@@ -72,6 +74,25 @@ const PT = {
   md_cat_room: 'ambiente',
   md_cat_annotation: 'anotação',
   md_cat_generic: 'objeto importado',
+  md_cat_column: 'pilar',
+  md_cat_beam: 'viga',
+  md_cat_footing: 'sapata',
+  md_cat_ceiling: 'forro',
+  md_cat_ramp: 'rampa',
+  md_cat_component: 'componente',
+  md_cat_plumbing_fixture: 'aparelho hidrossanitário',
+  md_cat_electrical_fixture: 'dispositivo elétrico',
+  md_cat_mechanical_equipment: 'equipamento de HVAC',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Arquitetura',
+  md_disc_estrutura: 'Estrutura',
+  md_disc_hidrossanitario: 'Hidrossanitário',
+  md_disc_eletrico: 'Elétrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Oculto',
+  md_tone_halftone: 'Meio-tom',
+  md_tone_normal: 'Normal',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
@@ -277,6 +298,7 @@ const PT = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Nível inexistente',
   md_area_plan_missing: 'Planta de área inexistente',
+  md_plan_view_missing: 'Planta inexistente',
   md_view_missing: 'Vista inexistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -364,6 +386,7 @@ const PT = {
   md_cmd_separator_coords: 'As coordenadas da linha de separação devem ser números finitos.',
   md_cmd_separator_two_points: 'A linha de separação precisa de dois pontos distintos.',
   md_cmd_plan_id_exists: 'Já existe planta de área com este id',
+  md_cmd_plan_view_id_exists: 'Já existe planta com este id',
   md_cmd_tag_wrong_plan: 'A etiqueta aponta para outra planta',
   md_cmd_tag_id_exists: 'Já existe etiqueta com este id na planta',
   md_cmd_room_tag_exists: 'Este ambiente já tem etiqueta nesta planta',
@@ -635,6 +658,8 @@ const EN: Record<Key, string> = {
   md_tpl_building10_desc: 'Central circulation core and four units per floor; slabs and floors stop at the core.',
   md_tpl_studio: 'Studio Apartment',
   md_tpl_studio_desc: 'Single room with bathroom, for quick testing.',
+  md_tpl_casa_disciplinas: 'Discipline Test (Full)',
+  md_tpl_casa_disciplinas_desc: 'Two 6 × 8 m floors with every graphics category, components for each discipline, eight discipline plans, test annotations and a sheet with Structure and Electrical.',
 
   md_tpl_pd_slab: 'Solid Slab 19 (Building)',
   md_tpl_pd_slab_desc: 'Leveling and ceiling stop at the inner face of the core; the structure stops at the outer face of the core.',
@@ -660,6 +685,24 @@ const EN: Record<Key, string> = {
   md_cat_room: 'room',
   md_cat_annotation: 'annotation',
   md_cat_generic: 'imported object',
+  md_cat_column: 'column',
+  md_cat_beam: 'beam',
+  md_cat_footing: 'footing',
+  md_cat_ceiling: 'ceiling',
+  md_cat_ramp: 'ramp',
+  md_cat_component: 'component',
+  md_cat_plumbing_fixture: 'plumbing fixture',
+  md_cat_electrical_fixture: 'electrical fixture',
+  md_cat_mechanical_equipment: 'mechanical equipment',
+
+  md_disc_arquitetura: 'Architecture',
+  md_disc_estrutura: 'Structure',
+  md_disc_hidrossanitario: 'Plumbing',
+  md_disc_eletrico: 'Electrical',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Hidden',
+  md_tone_halftone: 'Halftone',
+  md_tone_normal: 'Normal',
 
   md_role_north: 'North',
   md_role_south: 'South',
@@ -847,6 +890,7 @@ const EN: Record<Key, string> = {
 
   md_level_missing: 'Level does not exist',
   md_area_plan_missing: 'Area plan does not exist',
+  md_plan_view_missing: 'Plan view does not exist',
   md_view_missing: 'View does not exist',
 
   md_cmd_not_cad: 'Element is not CAD: {id}',
@@ -933,6 +977,7 @@ const EN: Record<Key, string> = {
   md_cmd_separator_coords: 'The room separator coordinates must be finite numbers.',
   md_cmd_separator_two_points: 'The room separator needs two distinct points.',
   md_cmd_plan_id_exists: 'An area plan with this id already exists',
+  md_cmd_plan_view_id_exists: 'A plan view with this id already exists',
   md_cmd_tag_wrong_plan: 'The tag points to another plan',
   md_cmd_tag_id_exists: 'A tag with this id already exists in the plan',
   md_cmd_room_tag_exists: 'This room already has a tag in this plan',
@@ -1294,6 +1339,8 @@ const ES: Record<Key, string> = {
   md_tpl_building10_desc: 'Núcleo de circulación central y cuatro unidades por planta; losas y suelos terminan en el núcleo.',
   md_tpl_studio: 'Estudio',
   md_tpl_studio_desc: 'Ambiente único con baño, para probar rápido.',
+  md_tpl_casa_disciplinas: 'Prueba de disciplinas (completa)',
+  md_tpl_casa_disciplinas_desc: 'Dos plantas de 6 × 8 m con todas las categorías gráficas, componentes de cada disciplina, ocho plantas de disciplina, anotaciones de prueba y una lámina con Estructura y Eléctrico.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Losa maciza 19 (edificio)',
@@ -1322,6 +1369,25 @@ const ES: Record<Key, string> = {
   md_cat_room: 'ambiente',
   md_cat_annotation: 'anotación',
   md_cat_generic: 'objeto importado',
+  md_cat_column: 'columna',
+  md_cat_beam: 'viga',
+  md_cat_footing: 'zapata',
+  md_cat_ceiling: 'cielorraso',
+  md_cat_ramp: 'rampa',
+  md_cat_component: 'componente',
+  md_cat_plumbing_fixture: 'aparato sanitario',
+  md_cat_electrical_fixture: 'dispositivo eléctrico',
+  md_cat_mechanical_equipment: 'equipo de climatización',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Arquitectura',
+  md_disc_estrutura: 'Estructura',
+  md_disc_hidrossanitario: 'Hidrosanitario',
+  md_disc_eletrico: 'Eléctrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Oculto',
+  md_tone_halftone: 'Semitono',
+  md_tone_normal: 'Normal',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
@@ -1527,6 +1593,7 @@ const ES: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Nivel inexistente',
   md_area_plan_missing: 'Planta de área inexistente',
+  md_plan_view_missing: 'Planta inexistente',
   md_view_missing: 'Vista inexistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -1614,6 +1681,7 @@ const ES: Record<Key, string> = {
   md_cmd_separator_coords: 'Las coordenadas de la línea de separación deben ser números finitos.',
   md_cmd_separator_two_points: 'La línea de separación necesita dos puntos distintos.',
   md_cmd_plan_id_exists: 'Ya existe una planta de área con este id',
+  md_cmd_plan_view_id_exists: 'Ya existe una planta con este id',
   md_cmd_tag_wrong_plan: 'La etiqueta apunta a otra planta',
   md_cmd_tag_id_exists: 'Ya existe una etiqueta con este id en la planta',
   md_cmd_room_tag_exists: 'Este ambiente ya tiene etiqueta en esta planta',
@@ -1886,6 +1954,8 @@ const DE: Record<Key, string> = {
   md_tpl_building10_desc: 'Zentraler Erschließungskern und vier Einheiten pro Geschoss; Decken und Böden enden am Kern.',
   md_tpl_studio: 'Einzimmerwohnung',
   md_tpl_studio_desc: 'Ein einziger Raum mit Bad, zum schnellen Testen.',
+  md_tpl_casa_disciplinas: 'Disziplinen-Test (vollständig)',
+  md_tpl_casa_disciplinas_desc: 'Zwei Geschosse von 6 × 8 m mit allen Grafik-Kategorien, Komponenten jeder Disziplin, acht Disziplinansichten, Testbeschriftungen und einem Plan mit Tragwerk und Elektro.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Massivdecke 19 (Gebäude)',
@@ -1914,6 +1984,25 @@ const DE: Record<Key, string> = {
   md_cat_room: 'Raum',
   md_cat_annotation: 'Beschriftung',
   md_cat_generic: 'importiertes Objekt',
+  md_cat_column: 'Stütze',
+  md_cat_beam: 'Träger',
+  md_cat_footing: 'Fundament',
+  md_cat_ceiling: 'Unterdecke',
+  md_cat_ramp: 'Rampe',
+  md_cat_component: 'Komponente',
+  md_cat_plumbing_fixture: 'Sanitärbauteil',
+  md_cat_electrical_fixture: 'Elektrobauteil',
+  md_cat_mechanical_equipment: 'HLK-Gerät',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architektur',
+  md_disc_estrutura: 'Tragwerk',
+  md_disc_hidrossanitario: 'Sanitär',
+  md_disc_eletrico: 'Elektro',
+  md_disc_hvac: 'HLK',
+  md_tone_hidden: 'Ausgeblendet',
+  md_tone_halftone: 'Halbton',
+  md_tone_normal: 'Normal',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norden',
@@ -2119,6 +2208,7 @@ const DE: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Ebene nicht vorhanden',
   md_area_plan_missing: 'Flächenplan nicht vorhanden',
+  md_plan_view_missing: 'Grundrissansicht nicht vorhanden',
   md_view_missing: 'Ansicht nicht vorhanden',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -2206,6 +2296,7 @@ const DE: Record<Key, string> = {
   md_cmd_separator_coords: 'Die Koordinaten der Raumtrennlinie müssen endliche Zahlen sein.',
   md_cmd_separator_two_points: 'Die Raumtrennlinie benötigt zwei unterschiedliche Punkte.',
   md_cmd_plan_id_exists: 'Ein Flächenplan mit dieser ID ist bereits vorhanden',
+  md_cmd_plan_view_id_exists: 'Eine Grundrissansicht mit dieser ID ist bereits vorhanden',
   md_cmd_tag_wrong_plan: 'Die Beschriftung verweist auf einen anderen Plan',
   md_cmd_tag_id_exists: 'Eine Beschriftung mit dieser ID ist im Plan bereits vorhanden',
   md_cmd_room_tag_exists: 'Dieser Raum hat in diesem Plan bereits eine Beschriftung',
@@ -2478,6 +2569,8 @@ const FR: Record<Key, string> = {
   md_tpl_building10_desc: 'Noyau de circulation central et quatre unités par étage ; les dalles et les sols s\'arrêtent au noyau.',
   md_tpl_studio: 'Studio',
   md_tpl_studio_desc: 'Pièce unique avec salle de bains, pour tester rapidement.',
+  md_tpl_casa_disciplinas: 'Test des disciplines (complet)',
+  md_tpl_casa_disciplinas_desc: 'Deux niveaux de 6 × 8 m avec toutes les catégories graphiques, des composants pour chaque discipline, huit vues de discipline, des annotations de test et une planche avec Structure et Électricité.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Dalle pleine 19 (immeuble)',
@@ -2506,6 +2599,25 @@ const FR: Record<Key, string> = {
   md_cat_room: 'pièce',
   md_cat_annotation: 'annotation',
   md_cat_generic: 'objet importé',
+  md_cat_column: 'poteau',
+  md_cat_beam: 'poutre',
+  md_cat_footing: 'semelle',
+  md_cat_ceiling: 'plafond',
+  md_cat_ramp: 'rampe',
+  md_cat_component: 'composant',
+  md_cat_plumbing_fixture: 'appareil sanitaire',
+  md_cat_electrical_fixture: 'appareil électrique',
+  md_cat_mechanical_equipment: 'équipement de CVC',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architecture',
+  md_disc_estrutura: 'Structure',
+  md_disc_hidrossanitario: 'Plomberie',
+  md_disc_eletrico: 'Électricité',
+  md_disc_hvac: 'CVC',
+  md_tone_hidden: 'Masqué',
+  md_tone_halftone: 'Demi-teinte',
+  md_tone_normal: 'Normal',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
@@ -2711,6 +2823,7 @@ const FR: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Niveau inexistant',
   md_area_plan_missing: 'Plan de surface inexistant',
+  md_plan_view_missing: 'Plan inexistant',
   md_view_missing: 'Vue inexistante',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -2798,6 +2911,7 @@ const FR: Record<Key, string> = {
   md_cmd_separator_coords: 'Les coordonnées de la ligne de séparation doivent être des nombres finis.',
   md_cmd_separator_two_points: 'La ligne de séparation doit avoir deux points distincts.',
   md_cmd_plan_id_exists: 'Un plan de surface avec cet identifiant existe déjà',
+  md_cmd_plan_view_id_exists: 'Un plan avec cet identifiant existe déjà',
   md_cmd_tag_wrong_plan: 'L\'étiquette pointe vers un autre plan',
   md_cmd_tag_id_exists: 'Une étiquette avec cet identifiant existe déjà dans le plan',
   md_cmd_room_tag_exists: 'Cette pièce a déjà une étiquette dans ce plan',
@@ -3070,6 +3184,8 @@ const IT: Record<Key, string> = {
   md_tpl_building10_desc: 'Nucleo di circolazione centrale e quattro unità per piano; solai e pavimenti si fermano al nucleo.',
   md_tpl_studio: 'Monolocale',
   md_tpl_studio_desc: 'Ambiente unico con bagno, per testare rapidamente.',
+  md_tpl_casa_disciplinas: 'Test delle discipline (completo)',
+  md_tpl_casa_disciplinas_desc: 'Due piani di 6 × 8 m con tutte le categorie grafiche, componenti per ogni disciplina, otto piante di disciplina, annotazioni di prova e una tavola con Struttura ed Elettrico.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Solaio pieno 19 (edificio)',
@@ -3098,6 +3214,25 @@ const IT: Record<Key, string> = {
   md_cat_room: 'locale',
   md_cat_annotation: 'annotazione',
   md_cat_generic: 'oggetto importato',
+  md_cat_column: 'pilastro',
+  md_cat_beam: 'trave',
+  md_cat_footing: 'plinto',
+  md_cat_ceiling: 'controsoffitto',
+  md_cat_ramp: 'rampa',
+  md_cat_component: 'componente',
+  md_cat_plumbing_fixture: 'apparecchio sanitario',
+  md_cat_electrical_fixture: 'dispositivo elettrico',
+  md_cat_mechanical_equipment: 'apparecchiatura HVAC',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architettura',
+  md_disc_estrutura: 'Struttura',
+  md_disc_hidrossanitario: 'Idraulico',
+  md_disc_eletrico: 'Elettrico',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Nascosto',
+  md_tone_halftone: 'Mezzatinta',
+  md_tone_normal: 'Normale',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
@@ -3303,6 +3438,7 @@ const IT: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Livello inesistente',
   md_area_plan_missing: 'Pianta di area inesistente',
+  md_plan_view_missing: 'Pianta inesistente',
   md_view_missing: 'Vista inesistente',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -3390,6 +3526,7 @@ const IT: Record<Key, string> = {
   md_cmd_separator_coords: 'Le coordinate della linea di separazione devono essere numeri finiti.',
   md_cmd_separator_two_points: 'La linea di separazione richiede due punti distinti.',
   md_cmd_plan_id_exists: 'Esiste già una pianta di area con questo id',
+  md_cmd_plan_view_id_exists: 'Esiste già una pianta con questo id',
   md_cmd_tag_wrong_plan: 'L\'etichetta punta a un\'altra pianta',
   md_cmd_tag_id_exists: 'Esiste già un\'etichetta con questo id nella pianta',
   md_cmd_room_tag_exists: 'Questo locale ha già un\'etichetta in questa pianta',
@@ -3675,6 +3812,8 @@ const PL: Record<Key, string> = {
   md_tpl_building10_desc: 'Centralny rdzeń komunikacyjny i cztery lokale na kondygnacji; stropy i posadzki kończą się przy rdzeniu.',
   md_tpl_studio: 'Kawalerka',
   md_tpl_studio_desc: 'Jedno pomieszczenie z łazienką, do szybkich testów.',
+  md_tpl_casa_disciplinas: 'Test dyscyplin (kompletny)',
+  md_tpl_casa_disciplinas_desc: 'Dwie kondygnacje 6 × 8 m ze wszystkimi kategoriami graficznymi, komponentami każdej dyscypliny, ośmioma rzutami dyscyplin, adnotacjami testowymi i arkuszem z Konstrukcją i Elektryką.',
 
   // ---- templates: tipos e vistas próprias ----------------------------------------------------------------
   md_tpl_pd_slab: 'Strop pełny 19 (budynek)',
@@ -3703,6 +3842,25 @@ const PL: Record<Key, string> = {
   md_cat_room: 'pomieszczenie',
   md_cat_annotation: 'adnotacja',
   md_cat_generic: 'obiekt importowany',
+  md_cat_column: 'słup',
+  md_cat_beam: 'belka',
+  md_cat_footing: 'stopa fundamentowa',
+  md_cat_ceiling: 'sufit podwieszany',
+  md_cat_ramp: 'rampa',
+  md_cat_component: 'komponent',
+  md_cat_plumbing_fixture: 'przybór sanitarny',
+  md_cat_electrical_fixture: 'osprzęt elektryczny',
+  md_cat_mechanical_equipment: 'urządzenie HVAC',
+
+  // ---- disciplinas e tons (decisão 0060) --------------------------------------------------------------
+  md_disc_arquitetura: 'Architektura',
+  md_disc_estrutura: 'Konstrukcja',
+  md_disc_hidrossanitario: 'Instalacje sanitarne',
+  md_disc_eletrico: 'Elektryka',
+  md_disc_hvac: 'HVAC',
+  md_tone_hidden: 'Ukryty',
+  md_tone_halftone: 'Półton',
+  md_tone_normal: 'Normalny',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Północ',
@@ -3908,6 +4066,7 @@ const PL: Record<Key, string> = {
   // ---- gráficos: comandos ---------------------------------------------------------------------------------
   md_level_missing: 'Poziom nie istnieje',
   md_area_plan_missing: 'Rzut powierzchni nie istnieje',
+  md_plan_view_missing: 'Rzut nie istnieje',
   md_view_missing: 'Widok nie istnieje',
 
   // ---- comandos: validações -------------------------------------------------------------------------------
@@ -3995,6 +4154,7 @@ const PL: Record<Key, string> = {
   md_cmd_separator_coords: 'Współrzędne linii podziału muszą być skończonymi liczbami.',
   md_cmd_separator_two_points: 'Linia podziału wymaga dwóch różnych punktów.',
   md_cmd_plan_id_exists: 'Rzut powierzchni o tym identyfikatorze już istnieje',
+  md_cmd_plan_view_id_exists: 'Rzut o tym identyfikatorze już istnieje',
   md_cmd_tag_wrong_plan: 'Etykieta wskazuje inny rzut',
   md_cmd_tag_id_exists: 'Etykieta o tym identyfikatorze już istnieje na rzucie',
   md_cmd_room_tag_exists: 'To pomieszczenie ma już etykietę na tym rzucie',

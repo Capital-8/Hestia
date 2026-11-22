@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { PLAN_VISUAL_STYLES, levelGraphicsOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { disciplineLabel, PLAN_VISUAL_STYLES, planGraphicsOf, planOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
-import { editLevelGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { editPlanGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { planTonesDialogTarget, planViewIdDe } from '../editor/viewIdentity.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { resetTemporaryHidden, temporaryHideActive, temporaryHideSelection, toggleRevealHidden, visibilityOf } from '../editor/viewVisibility.ts';
@@ -38,18 +39,23 @@ export function ViewControlBar(): ReactElement | null {
   const p = useProject();
   const view = useUi((s) => s.view);
   const levelId = useUi((s) => s.levelId);
-  const { t } = useT();
+  const planKind = useUi((s) => s.planKind);
+  const planViewId = useUi((s) => s.planViewId);
+  const { t, lang } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
   if (view === 'sheet' || view === 'face') return null;
 
   const is3d = view === '3d';
-  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, levelId);
+  const planId = planViewIdDe({ view, planKind, planViewId });
+  const plan = planId && view === 'plan' ? planOf(p, levelId, planId) : undefined;
+  const disciplinePlan = plan && !plan.isDefault ? plan : undefined;
+  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
   const report = (r: GraphicsEdit): void => {
     if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shc_view_error' } });
   };
   const editPlan = (patch: Partial<Pick<ViewGraphics, 'scale' | 'detail' | 'style'>>): void =>
-    report(view === 'section' ? editSectionGraphics(editor.store, patch) : editLevelGraphics(editor.store, levelId, patch));
+    report(view === 'section' ? editSectionGraphics(editor.store, patch) : editPlanGraphics(editor.store, { levelId, planId }, patch));
   const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void => report(editView3D(editor.store, patch));
 
   const scale = !is3d ? (g as ViewGraphics).scale : 0;
@@ -112,6 +118,30 @@ export function ViewControlBar(): ReactElement | null {
   const scaleTip = t('shc_view_scale_tip');
   const detailTip = t('shc_detail_level');
   const styleTip = t('shc_visual_style');
+  if (disciplinePlan) {
+    const disco = disciplineLabel(lang, disciplinePlan.discipline);
+    const discoTip = t('shc_discipline_tip');
+    const discoField = (
+      <span className="vcb-field" title={discoTip} aria-label={discoTip}>
+        <Icon name="layers" size={14} />
+        <span>{disco}</span>
+      </span>
+    );
+    items.push({ key: 'disciplina', priority: 4, node: discoField });
+    const tonesTip = t('shc_tones_tip');
+    const tonesBtn = (
+      <button
+        className="vcb-btn"
+        title={tonesTip}
+        aria-label={tonesTip}
+        onClick={() => useUi.setState({ dialog: 'graphicsVisibility', dialogArg: planTonesDialogTarget(levelId, planId) })}
+      >
+        <Icon name="eye" size={14} />
+        <span>{t('shc_tones')}</span>
+      </button>
+    );
+    items.push(grouped('tons', 2, tonesBtn, true));
+  }
   if (!is3d) {
     items.push({ key: 'escala', priority: 3, node: field('scale', scaleTip, scaleLabel, scaleCtl, false), menu: field('scale', scaleTip, scaleLabel, scaleCtl, true) });
     items.push({ key: 'detalhe', priority: 3, node: field('detail', detailTip, detailLabel, detailCtl, false), menu: field('detail', detailTip, detailLabel, detailCtl, true) });

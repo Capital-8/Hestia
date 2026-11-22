@@ -9,6 +9,7 @@
  * - `Pset_Hestia_Project`, ligado ao `IfcProject`: `HestiaVersion` (1), `SchemaVersion`, `NextOrder`, `SettingsJSON`,
  *   `TypesJSON` (mapas de tipo do projeto), `MaterialsJSON`, `LevelsJSON`, `DefaultsJSON` e os dados que não têm
  *   entidade IFC (`ViewsJSON`, `SheetsJSON`, `GridsJSON`, `GraphicsJSON`, `View3DJSON`, `SectionGraphicsJSON`).
+ *   `PlanViewsJSON` (plantas de disciplina, decisão 0060 §8.4) sai só quando o projeto tem alguma; sem ele, o arquivo é o de antes.
  *
  * O GlobalId do pset e o da relação são derivados do id do elemento (`hestia:<id>` / `hestiarel:<id>`), então o
  * arquivo continua determinístico.
@@ -170,6 +171,8 @@ function projectPset(sink: HestiaSink, p: Project, project: number): void {
     property(sink, 'View3DJSON', longText(JSON.stringify(p.view3d ?? null))),
     property(sink, 'SectionGraphicsJSON', longText(JSON.stringify(p.sectionGraphics ?? null))),
   ];
+  // Plantas de disciplina: a `PlanView` inteira (id, nível, nome, disciplina, gráficos, ocultação, tons e anotações).
+  if (p.planViews && p.planViews.length > 0) props.push(property(sink, 'PlanViewsJSON', longText(JSON.stringify(p.planViews))));
   const pset = sink.add('IFCPROPERTYSET', [gid('hestia:project'), OMIT, stepString(HESTIA_PROJECT_PSET), OMIT, list(props)]);
   sink.add('IFCRELDEFINESBYPROPERTIES', [gid('hestiarel:project'), OMIT, OMIT, OMIT, list([ref(project)]), ref(pset)]);
 }

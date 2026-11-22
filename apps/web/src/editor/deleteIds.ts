@@ -3,6 +3,7 @@ import { removerItensDeTerreno, itemDeTerrenoDoId } from '@hestia/tools';
 import { areaMergePreview, removesCircuit, roomsToRemove } from './areaMerge.ts';
 import { pedirConfirmacaoAreaMerge } from './areaMergePrompt.ts';
 import { useUi } from './state.ts';
+import { normalizaPlanViewId, planViewIdDe } from './viewIdentity.ts';
 
 /**
  * Executa as remoções num passo de desfazer. A regra de áreas só entra quando `areaMergePreview` encontra uma fusão;
@@ -71,10 +72,12 @@ function deletePlanSelectionIn(store: ProjectStore, planId: Id, ids: Id[]): void
  * ambiente (guardados no nível, fora de project.elements) pelos próprios comandos. Tudo num único passo de desfazer.
  */
 export function deleteSelectionIn(store: ProjectStore): void | Promise<void> {
-  const { selection: ids, levelId, view, planKind, areaPlanId } = useUi.getState();
+  const st = useUi.getState();
+  const { selection: ids, levelId, view, planKind, areaPlanId } = st;
   if (!ids.length) return;
   if (view === 'plan' && planKind === 'area' && areaPlanId) return deletePlanSelectionIn(store, areaPlanId, ids);
-  const notes = annotationRemovals(store.project, levelId, ids);
+  // Planta de disciplina: as anotações a excluir são as da própria planta (dona), nunca as do nível (0060 §5).
+  const notes = annotationRemovals(store.project, levelId, ids, normalizaPlanViewId(store.project, levelId, planKind, planViewIdDe(st)) ?? undefined);
   const views = viewRemovals(store.project, ids);
   const separators = levelRoomSeparators(store.project, levelId).filter((r) => ids.includes(r.id)).map((r) => r.id);
   // Grades pertencem ao projeto (fora de project.elements e dos níveis): removeGrid.

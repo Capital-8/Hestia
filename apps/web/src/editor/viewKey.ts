@@ -1,4 +1,5 @@
 import type { Id } from '@hestia/model';
+import { cameraKeyOf, type ViewIdentityFields } from './viewIdentity.ts';
 
 /** Campos que identificam a vista 2D (o subconjunto de `PaneViewFields` que a chave de câmera usa). */
 export interface ViewKeyFields {
@@ -7,9 +8,14 @@ export interface ViewKeyFields {
   sectionId: Id | null;
   planKind: 'floor' | 'roof' | 'area';
   areaPlanId: Id | null;
+  /** Planta de disciplina (só vale com `planKind` 'floor'); ausente = planta padrão. */
+  planViewId?: Id | null;
 }
 
-/** Chave da câmera 2D: cada planta tem a sua (a de cobertura tem outra, do mesmo nível); cada corte ou elevação tem a própria. */
+/**
+ * Chave da câmera 2D: a chave canônica de `viewIdentity.ts` (`plan:`, `pv:`, `roof:`, `area:`, `section:`). Cada planta
+ * tem a sua, inclusive duas plantas do mesmo nível; cada corte ou elevação tem a própria. A câmera vive só em memória.
+ */
 export function viewKeyOf(f: ViewKeyFields): Id {
-  return f.view === 'section' ? `sec:${f.sectionId}` : f.planKind === 'roof' ? `roof:${f.levelId}` : f.planKind === 'area' ? `area:${f.areaPlanId ?? f.levelId}` : f.levelId;
+  return cameraKeyOf(f satisfies ViewIdentityFields);
 }

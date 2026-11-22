@@ -81,7 +81,7 @@ export class SplitTool extends ToolBase {
   /** Parede sob o cursor; uma abertura conta como a parede que a hospeda. */
   private wallAt(p: PointerInfo): Wall | null {
     const pr = this.env.project();
-    const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const hit = pickAt(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (!hit) return null;
     const el = pr.elements[hit.id];
     const host = isOpening(el) ? pr.elements[el.hostId] : el;
@@ -175,7 +175,7 @@ export class SplitTool extends ToolBase {
   /** Sem parede sob o cursor: aresta de anel (Dividir aresta) ou piso/laje (para a divisão em dois cliques). */
   private moveNonWall(p: PointerInfo): void {
     if (this.withGap) return;
-    const target = pickLineTarget(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const target = pickLineTarget(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (target?.kind === 'edge') {
       this.items.push({ kind: 'highlight', ids: [target.pick.ref.elementId] });
       this.items.push({ kind: 'point', at: target.pick.at });
@@ -252,7 +252,7 @@ export class SplitTool extends ToolBase {
       return;
     }
     const pr = this.env.project();
-    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (target?.kind === 'edge') {
       this.splitEdge(target.pick);
       return;

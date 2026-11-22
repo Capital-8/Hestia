@@ -26,10 +26,11 @@ function openRing(ring: DxfPoint[]): DxfPoint[] | null {
  * Entidades R2000 de cada `Generic` do nível que tem `outline` em planta: uma polilinha fechada por objeto, na camada
  * `IMPORTADO` (`layer`), em ordem determinística de `id`. A cor vai na própria entidade (código 62), cinza; a camada entra
  * na tabela LAYER com o padrão do escritor. Outline com menos de 3 pontos não desenha nada. Sem genéricos: lista vazia.
+ * `hidden` (planta de disciplina, decisão 0060 §7): os ids ocultos na vista não saem.
  */
-export function dxfGenericEntities(p: Project, levelId: Id, layer = DXF_LAYER_GENERIC): DxfPolylineEntity[] {
+export function dxfGenericEntities(p: Project, levelId: Id, layer = DXF_LAYER_GENERIC, hidden?: ReadonlySet<Id>): DxfPolylineEntity[] {
   const generics = Object.values(p.elements)
-    .filter((e): e is Generic => isGeneric(e) && e.levelId === levelId)
+    .filter((e): e is Generic => isGeneric(e) && e.levelId === levelId && !hidden?.has(e.id))
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const out: DxfPolylineEntity[] = [];
   for (const g of generics) {

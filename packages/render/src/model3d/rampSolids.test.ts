@@ -25,7 +25,7 @@ describe('sólidos de rampa (3D, §4.2)', () => {
     const rr = build(0.8);
     const batches = buildRampSolids([rr]);
     expect(batches).toHaveLength(1);
-    expect(batches[0]!.category).toBe('stair');
+    expect(batches[0]!.category).toBe('ramp');
     expect(batches[0]!.materialId).toBe(TYPE.materialId);
     expect(batches[0]!.ids.length).toBeGreaterThan(0);
     const zs = batches[0]!.positions.filter((_, i) => i % 3 === 2);

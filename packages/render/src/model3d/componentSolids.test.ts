@@ -47,14 +47,14 @@ describe('buildComponentSolids', () => {
     const q = com(p, comp(p, 'c1', { levelId: 'outro' as never }));
     expect(buildComponentSolids(q, p.levels[0]!.id)).toEqual([]);
   });
-  it('um componente: lotes por material, categoria genérica, ordenados, com a faixa do elemento e o volume das peças', () => {
+  it('um componente: lotes por material, categoria da arquitetura, ordenados, com a faixa do elemento e o volume das peças', () => {
     const p0 = base();
     const c = comp(p0, 'c1');
     const p = com(p0, c);
     const lotes = buildComponentSolids(p, p.levels[0]!.id);
     expect(lotes.map((l) => l.materialId)).toEqual(['comp_corpo', 'comp_fundo', 'comp_porta', 'comp_rodape', 'comp_tampo']);
     for (const l of lotes) {
-      expect(l.category).toBe('generic');
+      expect(l.category).toBe('component');
       expect(l.positions.length).toBe(l.normals.length);
       expect(l.ids.length).toBeGreaterThan(0);
       for (const r of l.ids) { expect(r.id).toBe('c1'); expect(r.count % 3).toBe(0); expect(r.start + r.count).toBeLessThanOrEqual(l.indices.length); }

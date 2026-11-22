@@ -2,6 +2,7 @@ import { dimensionGeometry, dimensionPoints, formatQuantity, sectionAnnotationsO
 import { drivenEditCommands, parseQuantityText, viewAnnotationsOf } from '@hestia/tools';
 import type { Vec2 } from '@hestia/geom';
 import { t, type Lang } from '../../editor/i18n.ts';
+import { planViewIdDe } from '../../editor/viewIdentity.ts';
 
 export interface DimEditScope {
   view: string;
@@ -9,18 +10,20 @@ export interface DimEditScope {
   areaPlanId: Id | null;
   planKind: string;
   sectionId: Id | null;
+  /** Planta de disciplina ativa (0060); ausente = nenhuma. */
+  planViewId?: Id | null;
 }
 
 export interface FoundDim { dim: Dimension; inSection: boolean; scale: number }
 
-/** Acha a cota permanente editada: na vista de corte/elevação (anotações da vista) ou na planta (nível ou planta de área). */
+/** Acha a cota permanente editada: na vista de corte/elevação (anotações da vista) ou na planta (nível, planta de área ou de disciplina). */
 export function findEditDim(project: Project, scope: DimEditScope, id: Id): FoundDim | null {
   if (scope.view === 'section') {
     const v = project.views.find((x) => x.id === scope.sectionId);
     const dim = sectionAnnotationsOf(v as never).dimensions.find((d) => d.id === id);
     return dim ? { dim, inSection: true, scale: 100 } : null;
   }
-  const va = viewAnnotationsOf(project, scope.levelId, scope.planKind === 'area' ? (scope.areaPlanId ?? undefined) : undefined);
+  const va = viewAnnotationsOf(project, scope.levelId, scope.planKind === 'area' ? (scope.areaPlanId ?? undefined) : planViewIdDe(scope));
   const dim = va.dimensions.find((d) => d.id === id);
   return dim ? { dim, inSection: false, scale: va.scale } : null;
 }

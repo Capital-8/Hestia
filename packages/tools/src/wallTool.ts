@@ -1,7 +1,7 @@
 import { add, arcFromSagitta, cross, dist, mul, norm, sagFromThreePoints, sub, v2, type Vec2 } from '@hestia/geom';
 import { exteriorOffset } from '@hestia/engine';
 import { formatQuantity, makeWall, wallThicknessOf, wallTiltIssue, unitsOf, type ResolvedUnits, type Wall } from '@hestia/model';
-import { ToolBase, makeId } from './base.ts';
+import { ToolBase, makeId, viewPlanId } from './base.ts';
 import { draftAngleItemsForConnection } from './anglePreview.ts';
 import { segmentLengthDim } from './dims/providers/wall.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
@@ -330,7 +330,7 @@ export class WallTool extends ToolBase {
     this.items.push({ kind: 'wallBand', a, b, thickness, sMid }, ...this.tiltTopItems(a, b));
     const axis = norm(sub(b, a));
     const axisOffset = mul(v2(-axis.y, axis.x), sMid);
-    this.items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), this.env.areaPlanId?.(), a, b, this.env.metersPerPixel(), unitsOf(this.env.project()), {
+    this.items.push(...draftAngleItemsForConnection(this.env.project(), this.env.levelId(), viewPlanId(this.env), a, b, this.env.metersPerPixel(), unitsOf(this.env.project()), {
       a: add(a, axisOffset), b: add(b, axisOffset), thickness,
     }));
     // Trecho reto: a cota dinâmica (`tempDims`) é a única leitura, só comprimento — sem rótulo duplicado nem ângulo.

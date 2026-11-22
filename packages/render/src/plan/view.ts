@@ -12,7 +12,6 @@ import {
   resolveLevel,
   resolveRoofs,
   resolveRampsOnLevel,
-  resolveRooms,
   resolveSlabs,
   resolveStairsOnLevel,
   type OpeningGeometry,
@@ -22,13 +21,16 @@ import {
 } from '@hestia/engine';
 import {
   GRAPHICS_CATEGORIES,
+  categoriaDoElemento,
   isOpening,
   isWall,
   levelElevation,
-  levelGraphicsOf,
+  planGraphicsOf,
+  planViewFor,
   openingsOfWall,
   viewRangeOf,
   wallsOnLevel,
+  type Element,
   type GraphicsCategory,
   type Id,
   type PartialStructure,
@@ -90,24 +92,24 @@ const memo = new WeakMap<Project, Map<string, PlanView>>();
 
 const OUTLINE_CLASSES: OutlineClass[] = ['projection-above', 'projection-below', 'beyond'];
 
-/** Ids dos elementos do nível cuja categoria está oculta na vista (paredes, aberturas, pisos, lajes, telhados, escadas e ambientes). */
+/** Ids dos elementos do nível cuja categoria está oculta na vista (a categoria decide pelo modelo, `categoriaDoElemento`). */
 function categoryHiddenIds(p: Project, levelId: Id, hiddenCats: HiddenCats): Set<Id> {
   const out = new Set<Id>();
   if (hiddenCats.size === 0) return out;
-  const add = (c: GraphicsCategory, id: Id): void => {
-    if (hiddenCats.has(c)) out.add(id);
+  const add = (e: Element): void => {
+    const c = categoriaDoElemento(e, p);
+    if (c !== null && hiddenCats.has(c)) out.add(e.id);
   };
+  // Paredes do nível e as aberturas delas (a abertura não tem `levelId`: pertence à vista pelo hospedeiro).
   for (const w of wallsOnLevel(p, levelId)) {
-    add('wall', w.id);
-    for (const o of openingsOfWall(p, w.id)) add(o.kind, o.id);
+    add(w);
+    for (const o of openingsOfWall(p, w.id)) add(o);
   }
-  for (const f of resolveFloors(p, levelId)) add('floor', f.floorId);
-  for (const s of resolveSlabs(p, levelId)) add('slab', s.slabId);
-  for (const r of resolveRoofs(p, levelId)) add('roof', r.roofId);
-  for (const s of resolveStairsOnLevel(p, levelId)) add('stair', s.id);
-  for (const r of resolveRampsOnLevel(p, levelId)) add('stair', r.id);
-  for (const r of resolveRooms(p, levelId)) add('room', r.roomId);
-  for (const e of Object.values(p.elements)) if (e.kind === 'railing' && e.levelId === levelId) add('railing', e.id);
+  // Demais elementos do nível: pilar, viga, sapata, laje, forro, escada, rampa, componente, ambiente, guarda-corpo...
+  for (const e of Object.values(p.elements)) {
+    if (!('levelId' in e) || e.levelId !== levelId) continue;
+    add(e);
+  }
   return out;
 }
 
@@ -169,13 +171,20 @@ function projetoDaVista(p: Project): Project {
   return p;
 }
 
-/** Vista da planta do nível (memorizada por projeto, nível, exibição parcial e categorias ocultas). */
-export function planViewOf(p0: Project, levelId: Id): PlanView {
+/**
+ * Vista da planta do nível (memorizada por projeto, planta, nível, exibição parcial e categorias ocultas). `planId`
+ * (decisão 0060): planta de disciplina do nível; ausente, desconhecida ou de outro nível = planta padrão. A chave leva o
+ * id da planta que RESOLVEU (não o pedido): duas plantas do mesmo nível nunca compartilham geometria, e um id que cai na
+ * padrão reaproveita a vista dela. A vista só depende de partial e categorias ocultas (nunca de `Level.hidden`): o Hide
+ * in View chega ao desenho como `PlanInput.hidden`, calculado pelo app (`visibilityOf`).
+ */
+export function planViewOf(p0: Project, levelId: Id, planId?: Id): PlanView {
   // Paredes de outros níveis que cruzam o corte entram como paredes deste nível (ver `projetoDaPlanta`).
   const p = projetoDaPlanta(projetoDaVista(p0), levelId);
-  const g = levelGraphicsOf(p, levelId);
+  const pid = planViewFor(p, levelId, planId)?.id;
+  const g = planGraphicsOf(p, levelId, pid);
   const hiddenCats = new Set(GRAPHICS_CATEGORIES.filter((c) => !g.overrides[c].visible));
-  const key = `${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
+  const key = `${pid ? `pv:${pid}|` : ''}${levelId}|${g.partialStructure}|${[...hiddenCats].join(',')}`;
   let byKey = memo.get(p);
   if (!byKey) {
     byKey = new Map();

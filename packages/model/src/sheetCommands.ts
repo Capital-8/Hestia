@@ -22,13 +22,27 @@ export function dropOrphanViewports(p: Project): void {
   p.sheets = p.sheets.map((s) => (s.viewports.some((v) => viewSourceIssue(p, v.view)) ? { ...s, viewports: s.viewports.filter((v) => !viewSourceIssue(p, v.view)) } : s));
 }
 
-/** Motivo de recusa de uma fonte de vista (nível ou seção que precisa existir), ou null. */
-export function viewSourceIssue(p: Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans'>>, view: SheetViewSource, lang: Lang = 'pt'): string | null {
+type SourceProject = Pick<Project, 'levels' | 'views'> & Partial<Pick<Project, 'areaPlans' | 'planViews'>>;
+
+/** Motivo de recusa de uma fonte de vista SEM olhar `planId` (nível ou seção que precisa existir), ou null. */
+export function viewSourceBaseIssue(p: SourceProject, view: SheetViewSource, lang: Lang = 'pt'): string | null {
   if (view.kind === 'plan' && !p.levels.some((l) => l.id === view.levelId)) return translate(lang, 'md_level_missing');
   if (view.kind === 'areaPlan' && !(p.areaPlans ?? []).some((a) => a.id === view.planId)) return translate(lang, 'md_area_plan_missing');
   if (view.kind === 'section' && !p.views.some((v) => v.id === view.sectionId)) return translate(lang, 'md_cmd_section_missing');
   if (view.kind === '3d' && view.camera !== undefined) return sheetView3DCameraIssue(view.camera);
   return null;
+}
+
+/** `planId` da vista de planta que não resolve (planta adicional inexistente ou de outro nível), ou null (decisão 0060 §6). */
+export function viewPlanRefIssue(p: SourceProject, view: SheetViewSource, lang: Lang = 'pt'): string | null {
+  if (view.kind !== 'plan' || view.planId === undefined) return null;
+  const plan = (p.planViews ?? []).find((x) => x.id === view.planId);
+  return plan && plan.levelId === view.levelId ? null : translate(lang, 'md_plan_view_missing');
+}
+
+/** Motivo de recusa de uma fonte de vista (nível, seção ou planta adicional que precisa existir), ou null. */
+export function viewSourceIssue(p: SourceProject, view: SheetViewSource, lang: Lang = 'pt'): string | null {
+  return viewSourceBaseIssue(p, view, lang) ?? viewPlanRefIssue(p, view, lang);
 }
 
 const refuse = (issue: string | null): void => {

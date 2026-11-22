@@ -241,7 +241,7 @@ export class TrimTool extends ToolBase {
       return;
     }
     const pr = this.env.project();
-    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     this.items = target ? [{ kind: 'highlight', ids: [target.kind === 'wall' ? target.id : target.pick.ref.elementId] }] : [];
     const held = [
       ...(this.first ? [this.first.id] : []),
@@ -471,7 +471,7 @@ export class TrimTool extends ToolBase {
 
   /** Reta da parede ou da aresta sob o clique, como referência do guarda-corpo. */
   private refSob(p: PointerInfo, pr: Project): RetaRef | null {
-    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (!target) return null;
     if (target.kind === 'edge') return { p: target.pick.a, d: sub(target.pick.b, target.pick.a) };
     const f = frameOfWall(pr, target.id);
@@ -545,7 +545,7 @@ export class TrimTool extends ToolBase {
       return;
     }
     const pr = this.env.project();
-    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel());
+    const target = pickLineTarget(pr, this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
     if (!target) {
       this.env.say('Clique sobre uma parede ou aresta.');
       return;

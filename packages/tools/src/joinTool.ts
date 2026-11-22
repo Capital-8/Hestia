@@ -133,7 +133,7 @@ export class JoinTool extends ToolBase {
         return 'Clique no canto/ponta onde duas paredes se encontram. Esta ponta não tem outra parede para unir.';
       }
     }
-    if (pickAt(pr, this.env.levelId(), p, this.env.metersPerPixel())) return 'Clique no canto/ponta onde duas paredes se encontram. No meio do vão não há junção.';
+    if (pickAt(pr, this.env.levelId(), p, this.env.metersPerPixel(), this.env)) return 'Clique no canto/ponta onde duas paredes se encontram. No meio do vão não há junção.';
     return 'Clique no canto/ponta onde duas paredes se encontram.';
   }
 

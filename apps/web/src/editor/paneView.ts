@@ -14,6 +14,8 @@ export interface PaneViewFields {
   sheetId: Id | null;
   planKind: PlanKind;
   areaPlanId: Id | null;
+  /** Planta de disciplina (só com `planKind` 'floor'); ausente = planta padrão. Só aparece quando definida. */
+  planViewId?: Id | null;
   faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
 
@@ -31,7 +33,7 @@ export const PaneContext = createContext<PaneContextValue | null>(null);
 export function fieldsOfView(v: PaneView, fallbackLevelId: Id): PaneViewFields {
   switch (v.kind) {
     case 'plan':
-      return { view: 'plan', levelId: v.levelId, sectionId: null, sheetId: null, planKind: planKindOf(v), areaPlanId: planKindOf(v) === 'area' ? (v.areaPlanId ?? null) : null, faceView: null };
+      return { view: 'plan', levelId: v.levelId, sectionId: null, sheetId: null, planKind: planKindOf(v), areaPlanId: planKindOf(v) === 'area' ? (v.areaPlanId ?? null) : null, faceView: null, ...(planKindOf(v) === 'floor' && v.planViewId ? { planViewId: v.planViewId } : {}) };
     case '3d':
       return { view: '3d', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null };
     case 'section':
@@ -45,7 +47,7 @@ export function fieldsOfView(v: PaneView, fallbackLevelId: Id): PaneViewFields {
 
 /** Os campos de vista de um estado da interface (descarta o resto). */
 export function pickViewFields(s: PaneViewFields): PaneViewFields {
-  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId, faceView: s.faceView ?? null };
+  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId, faceView: s.faceView ?? null, ...(s.planKind === 'floor' && s.planViewId ? { planViewId: s.planViewId } : {}) };
 }
 
 /** Estado da interface com a vista sobreposta pela do painel (leituras do canvas de um painel inativo). */

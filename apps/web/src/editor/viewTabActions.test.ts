@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createEmptyProject, makeWall } from '@hestia/model';
+import { createEmptyProject, makePlanView, makeWall } from '@hestia/model';
 import { editor } from './controller.ts';
+import { viewKey } from './openViews.ts';
 import { DEFAULT_OPTIONS, useUi } from './state.ts';
-import { activateView, openFaceStudioTab, tabOf } from './viewTabActions.ts';
+import { activateView, closeTab, openFaceStudioTab, tabOf } from './viewTabActions.ts';
 
 /** Projeto vazio e opções padrão: o modo de perímetro abre pela ferramenta Piso. */
 function iniciar(): void {
@@ -41,6 +42,20 @@ describe('activateView com o modo de perímetro aberto', () => {
     useUi.setState({ openViews: [] });
     activateView({ kind: 'plan', levelId });
     expect(useUi.getState().openViews).toEqual([{ kind: 'plan', levelId }]);
+  });
+
+  it('aba de planta de disciplina: nome com a disciplina, ativa e fecha deixando a padrão', () => {
+    const p = createEmptyProject();
+    p.planViews = [makePlanView({ id: 'pv_e', levelId: 'lv_0', name: 'Fôrmas', discipline: 'estrutura' })];
+    editor.load(p, 'teste.hestia.json');
+    const pv = { kind: 'plan', levelId: 'lv_0', planViewId: 'pv_e' } as const;
+    expect(tabOf(editor.project, pv)).toEqual({ icon: 'plan', label: 'Fôrmas · Estrutura' });
+    activateView(pv);
+    expect(useUi.getState().planViewId).toBe('pv_e');
+    expect(useUi.getState().openViews.map(viewKey)).toEqual(['plan:lv_0', 'pv:pv_e']);
+    closeTab(pv);
+    expect(useUi.getState().planViewId).toBeNull();
+    expect(useUi.getState().openViews.map(viewKey)).toEqual(['plan:lv_0']);
   });
 
   it('openFaceStudioTab abre a aba do estúdio da face quando o elemento existe e é pintável', () => {

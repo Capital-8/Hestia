@@ -2,6 +2,7 @@ import { levelElevation, viewRangeOf, type Id, type Project } from '@hestia/mode
 import type { PlanInput } from './build.ts';
 import { guardaCorpoOps } from './guardaCorpo.ts';
 import { paintOps, planStyleOf } from './style.ts';
+import { planIdOf } from './planContext.ts';
 import { areaPlanProfile, FLOOR_PLAN_PROFILE, type PlanOps, type PlanProfile } from './types.ts';
 
 /**
@@ -26,7 +27,7 @@ export function buildPlanGuardaCorpo(input: PlanInput): PlanOps {
   if (!profile.stairs || input.roofPlanMode === true) return vazio;
   const nivel = p.levels.find((l) => l.id === input.levelId);
   if (!nivel) return vazio;
-  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale);
+  const style = planStyleOf(p, input.levelId, input.viewport.zoom, input.areaPlan?.scale, planIdOf(input));
   const fillBase = input.dark ? theme.bg : '#ffffff';
   const cutZ = levelElevation(p, input.levelId) + viewRangeOf(p, input.levelId).cut;
   const ocultos = ocultosDoGuardaCorpo(p, input.levelId, input.hidden, input.revealed, style.paint.railing.visible);

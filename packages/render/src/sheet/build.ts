@@ -10,7 +10,7 @@ import type { Lang } from '../i18n.ts';
 function partsOfViewport(p: Project, v: SheetViewport, lang: Lang): ViewportParts {
   switch (v.view.kind) {
     case 'plan':
-      return planPartsOf(p, v.view.levelId, v, lang);
+      return planPartsOf(p, v.view.levelId, v, lang, v.view.planId);
     case 'areaPlan':
       return areaPlanPartsOf(p, v.view.planId, v, lang);
     case 'areaTable':

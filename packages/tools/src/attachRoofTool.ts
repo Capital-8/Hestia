@@ -3,7 +3,7 @@ import { resolveAllRoofs, roofAxisReport } from '@hestia/engine';
 import { ToolBase } from './base.ts';
 import { pickAt } from './pick.ts';
 import { pickRoofAt } from './roofPick.ts';
-import type { PointerInfo } from './types.ts';
+import type { PointerInfo, ToolEnv } from './types.ts';
 import { t as translate, type Lang } from './i18n.ts';
 
 /** Trecho do eixo fora do telhado menor que isto (m) não é avisado (mesma folga do C2). */
@@ -16,13 +16,13 @@ const fmt = (u: ResolvedUnits, m: number): string => formatQuantity(u, 'length',
  * erra quando a superfície vista é o beiral ou o topo de uma parede anexada, que cai fora da pegada da parede. Na planta,
  * a parede sob o ponto. A abertura vale pela parede que a hospeda; só paredes do nível atual.
  */
-function wallUnder(p: Project, levelId: Id, info: PointerInfo, mpp: number): Id | null {
+function wallUnder(p: Project, levelId: Id, info: PointerInfo, mpp: number, env?: ToolEnv): Id | null {
   if (info.hit3d !== undefined) {
     const e = info.hit3d ? p.elements[info.hit3d] : undefined;
     const w = e && isOpening(e) ? p.elements[e.hostId] : e;
     return w && isWall(w) ? w.id : null;
   }
-  const hit = pickAt(p, levelId, info.raw, mpp);
+  const hit = pickAt(p, levelId, info.raw, mpp, env);
   if (!hit) return null;
   const e = p.elements[hit.id];
   if (isWall(e)) return e.id;
@@ -120,7 +120,7 @@ export class AttachRoofTool extends ToolBase {
     const levelId = this.env.levelId();
     const mpp = this.env.metersPerPixel();
     if (this.stage === 'walls') {
-      const w = wallUnder(pr, levelId, p, mpp);
+      const w = wallUnder(pr, levelId, p, mpp, this.env);
       if (!w) {
         const onRoof = !!p.hit3d && isRoof(pr.elements[p.hit3d]);
         this.env.say(this.t(onRoof ? 'tl_msg_that_is_roof' : 'tl_msg_click_wall_then_enter'));
@@ -133,7 +133,7 @@ export class AttachRoofTool extends ToolBase {
     const roof = roofUnder(pr, levelId, p, mpp);
     if (!roof) {
       // Se clicou numa parede na etapa do telhado, troca a seleção para essa parede
-      const w = wallUnder(pr, levelId, p, mpp);
+      const w = wallUnder(pr, levelId, p, mpp, this.env);
       if (w) {
         this.walls = [w];
         this.env.setSelection([w]);
@@ -220,7 +220,7 @@ export class DetachRoofTool extends ToolBase {
 
   override click(p: PointerInfo): void {
     this.raw = p.raw;
-    const w = wallUnder(this.env.project(), this.env.levelId(), p, this.env.metersPerPixel());
+    const w = wallUnder(this.env.project(), this.env.levelId(), p, this.env.metersPerPixel(), this.env);
     if (!w) {
       this.env.say(this.t('tl_msg_click_attached_wall'));
       return;

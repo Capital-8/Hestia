@@ -7,6 +7,7 @@ import { SALA_AREAS } from './salaAreas.ts';
 import { FAMILIA_GAVETA } from './gaveta.ts';
 import { ALTO_PADRAO } from './altoPadrao.ts';
 import { NOVAS } from './novas.ts';
+import { DISCIPLINAS_EXEMPLO } from './disciplinasExemplo.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -16,7 +17,8 @@ import { NOVAS } from './novas.ts';
 
 export { FAMILIA_GAVETA };
 export { NOVAS as FAMILIAS_NOVAS };
-export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS];
+export { DISCIPLINAS_EXEMPLO };
+export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS, ...DISCIPLINAS_EXEMPLO];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
@@ -24,6 +26,7 @@ export const IDS_OBRIGATORIOS = {
   dormitorio: ['fam_guarda_roupa_modulo', 'fam_guarda_roupa_conjunto', 'fam_comoda', 'fam_criado_mudo', 'fam_cama_bau', 'fam_painel_tv'],
   salaAreas: ['fam_rack', 'fam_estante', 'fam_mesa_gaveteiro', 'fam_gabinete_banheiro', 'fam_armario_lavanderia', 'fam_escrivaninha'],
   geral: ['fam_modulo_branco', 'fam_bloco_livre', 'fam_mesa', 'fam_banco', 'fam_prateleira', 'fam_painel_ripado'],
+  disciplinasExemplo: ['fam_vaso_sanitario', 'fam_lavatorio', 'fam_ralo', 'fam_tomada', 'fam_interruptor', 'fam_luminaria_teto', 'fam_quadro_distribuicao', 'fam_difusor_teto'],
 } as const;
 
 export function familiaDaBiblioteca(id: string): Familia | undefined {

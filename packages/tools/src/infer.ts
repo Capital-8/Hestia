@@ -318,8 +318,8 @@ export function infer(rawCursor: Vec2, ctx: InferContext): Inference {
   // Pavimento atual e, se visível como referência, o de baixo: o que se vê na planta é o que se captura.
   const levels: Id[] = ctx.underlayLevelId ? [ctx.levelId, ctx.underlayLevelId] : [ctx.levelId];
   // Na seção, a geometria da planta não é alvo: o que vale são os pontos e arestas da vista.
-  const facesIn = (): WallFaces[] => (ctx.section ? [] : levels.flatMap((l) => facesOf(projetoDaPlanta(ctx.project, l), l)));
-  const walls = ctx.section ? [] : levels.flatMap((l) => wallsOfPlan(ctx.project, l)).filter((w) => !ctx.ignore?.has(w.id) && (ctx.isVisible?.(w) ?? true));
+  const facesIn = (): WallFaces[] => (ctx.section ? [] : levels.flatMap((l) => facesOf(projetoDaPlanta(ctx.project, l), l)).filter((wf) => !ctx.hiddenIds?.has(wf.wallId)));
+  const walls = ctx.section ? [] : levels.flatMap((l) => wallsOfPlan(ctx.project, l)).filter((w) => !ctx.ignore?.has(w.id) && !ctx.hiddenIds?.has(w.id) && (ctx.isVisible?.(w) ?? true));
   const cands: Cand[] = [];
   /** Escolha final. Com Orto/Polar travado só valem os candidatos sobre a reta; a própria reta é o candidato de reserva. */
   const decide = (grid: number | undefined): Inference => {

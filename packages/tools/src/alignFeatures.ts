@@ -95,6 +95,8 @@ export interface AlignQuery {
   metersPerPixel: number;
   prefer?: AlignPrefer;
   hidden?: ReadonlySet<Id>;
+  /** Predicado de captura por elemento (oculto não entra; meio-tom entra). Vale no lugar de um conjunto pronto. */
+  captura?: (id: Id) => boolean;
   /** Só linhas que servem como referência de cota (grade, detalhe, separador), sem política de movimento. */
   referenceOnly?: boolean;
   /** Planta de área da vista, para enxergar linhas de detalhe/separadores da vista. */
@@ -482,6 +484,11 @@ export function footingFeatures(p: Project, levelId: Id, at: Vec2, mpp: number, 
 }
 
 export function alignFeaturesAt(q: AlignQuery): AlignFeature[] {
+  // Um predicado de captura vira o conjunto de ocultos uma vez: as funções internas já filtram por conjunto.
+  if (q.captura) {
+    const captura = q.captura;
+    q = { ...q, hidden: new Set<Id>(Object.keys(q.project.elements).filter((id) => !captura(id))) };
+  }
   const prefer = q.prefer ?? 'faces';
   const out: AlignFeature[] = [];
   for (const w of wallsOfPlan(q.project, q.levelId)) {

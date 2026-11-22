@@ -182,7 +182,7 @@ export class PluginTool extends ToolBase {
     const pr = this.prompt;
     if (this.failed || !pr) return;
     if (pr.kind === 'pick-element') {
-      const hit = pickAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
+      const hit = pickAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel(), this.env);
       if (!hit) { this.env.say(this.spec.messages.nothingToPick); return; }
       this.collected[pr.key] = { elementId: hit.id };
       this.advance(pr, p.raw, hit.id);

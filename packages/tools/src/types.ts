@@ -81,8 +81,18 @@ export interface ToolEnv {
   viewScale?(): number;
   /** Elementos ocultos na planta atual (fora do intervalo de vista ou categoria oculta): não são alvo de captura (S-07). Ausente = nenhum. */
   hiddenInView?(): ReadonlySet<Id>;
+  /**
+   * Elementos em meio-tom na planta atual (tom `halftone` da disciplina): continuam capturáveis e servem de referência
+   * de cota, mas não são selecionáveis por clique nem por caixa (decisão 0060 §4.1). Ausente = nenhum.
+   */
+  halftoneInView?(): ReadonlySet<Id>;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
+  /**
+   * Planta de disciplina aberta na vista (`PlanView` adicional do nível), quando a planta ativa é uma; null/ausente na
+   * planta padrão e na de área. É planta de piso: o modelo edita como na padrão, e só as anotações são da planta.
+   */
+  planViewId?(): Id | null;
   /** Pavimento de referência visível na planta (o de baixo, com Subpavimento ligado), ou null. A captura usa o que se vê. */
   underlayLevelId?(): Id | null;
   gridStep(): number;

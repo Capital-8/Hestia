@@ -8,13 +8,19 @@ import type { SnapKind } from './types.ts';
 export interface OpeningSnapSegment {
   a: Vec2;
   b: Vec2;
+  /** Parede hospedeira (o `ignore` do arrasto da parede continua valendo). */
   hostId: Id;
+  /** A própria abertura: o filtro de visibilidade dela é independente do da parede. */
+  openingId: Id;
   /** Tipo da captura no segmento (a ombreira é 'face'); ausente = 'nearest', como as arestas de piso. */
   kind?: SnapKind;
 }
 
+/** Ponto de captura de abertura: leva o id da abertura além do id da parede hospedeira. */
+export type OpeningSnapPoint = SnapPoint & { openingId: Id };
+
 export interface OpeningSnapGeometry {
-  points: SnapPoint[];
+  points: OpeningSnapPoint[];
   segments: OpeningSnapSegment[];
 }
 
@@ -71,7 +77,7 @@ function swingPoints(t: OpeningType, g: ReturnType<typeof openingGeometry>, mode
 
 /** Abertura com os pontos e as ombreiras para a captura. `hostId` é a parede: some quando ela está em `ignore`. */
 function geometryOfLevel(p: Project, levelId: Id): OpeningSnapGeometry {
-  const points: SnapPoint[] = [];
+  const points: OpeningSnapPoint[] = [];
   const segments: OpeningSnapSegment[] = [];
   for (const w of wallsOfPlan(p, levelId)) {
     const f = frameOfWall(p, w.id);
@@ -83,16 +89,16 @@ function geometryOfLevel(p: Project, levelId: Id): OpeningSnapGeometry {
       const t0 = o.offset - half;
       const t1 = o.offset + half;
       for (const s of [f.sHi, f.sLo]) {
-        points.push({ ...at(f, t0, s), hostId: w.id, kind: 'endpoint' });
-        points.push({ ...at(f, t1, s), hostId: w.id, kind: 'endpoint' });
+        points.push({ ...at(f, t0, s), hostId: w.id, openingId: o.id, kind: 'endpoint' });
+        points.push({ ...at(f, t1, s), hostId: w.id, openingId: o.id, kind: 'endpoint' });
       }
-      points.push({ ...at(f, o.offset, f.sMid), hostId: w.id, kind: 'center' });
-      segments.push({ a: at(f, t0, f.sHi), b: at(f, t0, f.sLo), hostId: w.id, kind: 'face' });
-      segments.push({ a: at(f, t1, f.sHi), b: at(f, t1, f.sLo), hostId: w.id, kind: 'face' });
+      points.push({ ...at(f, o.offset, f.sMid), hostId: w.id, openingId: o.id, kind: 'center' });
+      segments.push({ a: at(f, t0, f.sHi), b: at(f, t0, f.sLo), hostId: w.id, openingId: o.id, kind: 'face' });
+      segments.push({ a: at(f, t1, f.sHi), b: at(f, t1, f.sLo), hostId: w.id, openingId: o.id, kind: 'face' });
       if (o.kind !== 'door') continue;
       const g = openingGeometry(p, o, f);
       const model = buildOpeningModel(p, o, g, f);
-      for (const q of swingPoints(t, g, model)) points.push({ ...q, hostId: w.id, kind: 'endpoint' });
+      for (const q of swingPoints(t, g, model)) points.push({ ...q, hostId: w.id, openingId: o.id, kind: 'endpoint' });
     }
   }
   return { points, segments };
@@ -101,9 +107,9 @@ function geometryOfLevel(p: Project, levelId: Id): OpeningSnapGeometry {
 /**
  * Pontos e segmentos de captura das aberturas do nível: os quatro cantos do vão nas duas faces, o centro e as
  * ombreiras; nas portas de giro, também a dobradiça e a ponta do arco. `isVisible` é o mesmo filtro da captura das
- * paredes (ocultas ou fora do recorte não entram).
+ * paredes (ocultas ou fora do recorte não entram); `isOpeningVisible` filtra a própria abertura pelo id dela.
  */
-export function openingSnapGeometry(p: Project, levelId: Id, isVisible?: (w: Wall) => boolean): OpeningSnapGeometry {
+export function openingSnapGeometry(p: Project, levelId: Id, isVisible?: (w: Wall) => boolean, isOpeningVisible?: (id: Id) => boolean): OpeningSnapGeometry {
   let byLevel = cache.get(p);
   if (!byLevel) {
     byLevel = new Map();
@@ -114,10 +120,13 @@ export function openingSnapGeometry(p: Project, levelId: Id, isVisible?: (w: Wal
     all = geometryOfLevel(p, levelId);
     byLevel.set(levelId, all);
   }
-  if (!isVisible) return all;
-  const visible = new Set(wallsOfPlan(p, levelId).filter(isVisible).map((w) => w.id));
+  if (!isVisible && !isOpeningVisible) return all;
+  const visible = isVisible ? new Set(wallsOfPlan(p, levelId).filter(isVisible).map((w) => w.id)) : null;
+  const passa = (q: { hostId?: Id; openingId: Id }): boolean =>
+    (visible === null || q.hostId === undefined || visible.has(q.hostId)) &&
+    (isOpeningVisible === undefined || isOpeningVisible(q.openingId));
   return {
-    points: all.points.filter((q) => q.hostId === undefined || visible.has(q.hostId)),
-    segments: all.segments.filter((s) => visible.has(s.hostId)),
+    points: all.points.filter(passa),
+    segments: all.segments.filter(passa),
   };
 }

@@ -1,7 +1,9 @@
 import { unitsOf, type Id, type Project } from '@hestia/model';
 import type { DxfUnit } from '@hestia/io';
 import type { DxfBatchGroup, DxfBatchTarget } from './dxfBatch.types.ts';
+import type { DxfExportTarget } from './dxfExport.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
+import { dxfTargetKeyOfFields } from './viewIdentity.ts';
 
 /**
  * Lógica pura do diálogo de exportação em lote (fase 4): unidade padrão, agrupamento da lista, alvo ativo e seleção
@@ -59,6 +61,8 @@ export interface DxfActiveView {
   levelId: Id;
   areaPlanId: Id | null;
   sectionId: Id | null;
+  /** Planta de disciplina ativa (ausente = planta padrão). */
+  planViewId?: Id | null;
 }
 
 /**
@@ -66,10 +70,9 @@ export interface DxfActiveView {
  * próprio: devolve null e o diálogo cai na primeira planta.
  */
 export function activeDxfTargetKey(ui: DxfActiveView): string | null {
-  if (ui.view === 'plan' && ui.planKind === 'area' && ui.areaPlanId) return `area:${ui.areaPlanId}`;
-  if (ui.view === 'section' && ui.sectionId) return `section:${ui.sectionId}`;
-  if (ui.view === 'plan' && ui.planKind !== 'area' && ui.planKind !== 'roof') return `plan:${ui.levelId}`;
-  return null;
+  const planKind = ui.planKind === 'roof' || ui.planKind === 'area' ? ui.planKind : 'floor';
+  const view = ui.view === 'plan' || ui.view === 'section' ? ui.view : null;
+  return view ? dxfTargetKeyOfFields({ view, levelId: ui.levelId, planKind, areaPlanId: ui.areaPlanId, planViewId: ui.planViewId, sectionId: ui.sectionId }) : null;
 }
 
 /** Seleção inicial: o alvo ativo, se existir na lista; senão a primeira planta (ou o primeiro alvo de qualquer tipo). */
@@ -77,4 +80,16 @@ export function defaultDxfSelection(targets: readonly DxfBatchTarget[], activeKe
   if (activeKey && targets.some((t) => t.key === activeKey)) return [activeKey];
   const first = targets.find((t) => t.group === 'plantas') ?? targets[0];
   return first ? [first.key] : [];
+}
+
+/**
+ * Alvo da tabela de camadas (a primeira vista marcada). A planta leva o `planId` junto: a de disciplina mostra os pesos
+ * e a escala dela, nunca os da planta padrão do nível (decisão 0060 §7).
+ */
+export function layerTargetOf(target: DxfBatchTarget | null, showRoofProjection: boolean): DxfExportTarget | null {
+  if (!target) return null;
+  if (target.kind === 'plan') return { kind: 'plan', levelId: target.levelId, showRoofProjection, planId: target.planId };
+  if (target.kind === 'area') return { kind: 'area', planId: target.planId };
+  if (target.kind === 'section') return { kind: 'section', sectionId: target.viewId };
+  return null;
 }

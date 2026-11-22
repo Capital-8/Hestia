@@ -1,3 +1,4 @@
+import type { Discipline } from '../../planView.ts';
 import {
   FAMILIA_FORMATO,
   FAMILIA_VERSAO,
@@ -100,6 +101,8 @@ export interface DadosNova {
   id: string;
   nome: string;
   categoria: CategoriaFamilia;
+  /** Disciplina dos componentes da família (adendo 1 do ADR 0060); ausente = `arquitetura`. */
+  disciplina?: Discipline;
   descricao: string;
   hospedagem?: Hospedagem;
   parametros: Parametro[];
@@ -120,6 +123,7 @@ export function nova(d: DadosNova): Familia {
     id: d.id,
     nome: d.nome,
     categoria: d.categoria,
+    disciplina: d.disciplina,
     descricao: d.descricao,
     unidade: 'mm',
     hospedagem: d.hospedagem ?? 'nivel',

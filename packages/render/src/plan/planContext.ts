@@ -33,6 +33,16 @@ export function anotacoesSemOcultos(a: AreaPlanAnnotations, hidden: ReadonlySet<
   return { dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags) };
 }
 
+/** Filtra TODAS as anotações de uma planta de disciplina pelos ids ocultos (inclui cotas de ponto, nuvens e símbolos). */
+export function anotacoesDePlantaSemOcultos(a: AreaPlanAnnotations, hidden: ReadonlySet<Id> | undefined): AreaPlanAnnotations {
+  if (!hidden?.size) return a;
+  const keep = <T extends { id: Id }>(xs: T[]): T[] => xs.filter((x) => !hidden.has(x.id));
+  return {
+    dimensions: keep(a.dimensions), texts: keep(a.texts), detailLines: keep(a.detailLines), detailRegions: keep(a.detailRegions), tags: keep(a.tags),
+    spots: keep(a.spots ?? []), revisionClouds: keep(a.revisionClouds ?? []), symbols: keep(a.symbols ?? []),
+  };
+}
+
 /**
  * Projeto do nível sem as anotações ocultas (cotas, textos, linhas/regiões de detalhe, separadores e etiquetas) e sem as
  * marcas de corte ocultas: `noteOps` e as etiquetas leem o nível, não recebem um conjunto de ocultos, então o filtro
@@ -76,10 +86,10 @@ const deNivelOuCruza = (p: Project, levelId: Id, id: Id): boolean => paredesDoNi
  * hospedado tem visibilidade própria: aqui o estado de cada abertura de parede oculta (corte, projeção, intervalo,
  * categoria) volta da vista do projeto inteiro, para ela ser decidida pelo próprio id e não pelo hospedeiro.
  */
-function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined): PlanView {
+function comEsquadriasIndependentes(p: Project, view: PlanView, levelId: Id, paredesOcultas: readonly Id[] | undefined, planId?: Id): PlanView {
   if (!paredesOcultas?.length) return view;
   const donas = new Set(paredesOcultas);
-  const cheia = planViewOf(p, levelId);
+  const cheia = planViewOf(p, levelId, planId);
   const cls = new Map(view.cls);
   const hidden = new Set(view.hidden);
   const categoryHidden = new Set(view.categoryHidden);
@@ -159,25 +169,45 @@ export interface PlanContext {
   ramps: ResolvedRamp[];
 }
 
+/**
+ * Planta de disciplina da entrada, ou undefined (planta padrão). Planta de área tem prioridade (a de disciplina é de
+ * piso; as duas nunca estão abertas juntas, mas a de área manda se vierem as duas).
+ */
+export const planIdOf = (input: Pick<PlanInput, 'areaPlan' | 'planId'>): Id | undefined => (input.areaPlan ? undefined : input.planId);
+
+/**
+ * Vista da planta como a TELA a resolve (decisão 0013): sem as paredes ocultas pelo usuário (as vizinhas fecham a junção
+ * e nenhuma silhueta delas sobra) e com o estado das aberturas delas tirado da vista inteira (a esquadria tem
+ * visibilidade própria). `hidden` é o oculto do usuário (Hide in View permanente + temporário, já sem os revelados).
+ * `planId` segue `planViewOf`: ausente/desconhecido = planta padrão. É o ponto único do DXF da planta de disciplina.
+ */
+export function planViewVisivel(p: Project, levelId: Id, planId: Id | undefined, hidden: ReadonlySet<Id> | undefined): PlanView {
+  // Parede oculta pelo usuário: a vista é resolvida sem ela (as vizinhas fecham a junção); o id continua em `hidden`.
+  const paredesOcultas = hidden ? [...hidden].filter((id) => {
+    const e = p.elements[id];
+    return isWall(e) && (e.levelId === levelId || deNivelOuCruza(p, levelId, id));
+  }) : undefined;
+  const pVis = paredesOcultas?.length ? projetoSemParedes(p, levelId, paredesOcultas) : p;
+  return comEsquadriasIndependentes(p, planViewOf(pVis, levelId, planId), levelId, paredesOcultas, planId);
+}
+
 export function planContext(input: PlanInput): PlanContext {
   const { project: p, viewport: v } = input;
-  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale);
+  const planId = planIdOf(input);
+  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, planId);
   const paint = style.paint;
   const rp = input.roofPlanMode === true;
   const revealed = input.revealed;
   // Hide in View (permanente + temporário) que não está no modo Reveal. O Reveal o desenha de novo, com borda azul.
   const doUsuario = input.hidden ? [...input.hidden].filter((id) => !revealed?.has(id)) : undefined;
-  // Parede oculta pelo usuário: a vista é resolvida sem ela (as vizinhas fecham a junção); o id continua em `hidden`.
-  const paredesOcultas = doUsuario?.filter((id) => {
-    const e = p.elements[id];
-    return isWall(e) && (e.levelId === input.levelId || deNivelOuCruza(p, input.levelId, id));
-  });
-  const pVis = paredesOcultas?.length ? projetoSemParedes(p, input.levelId, paredesOcultas) : p;
-  const view = rp ? null : comEsquadriasIndependentes(p, planViewOf(pVis, input.levelId), input.levelId, paredesOcultas);
+  const view = rp ? null : planViewVisivel(p, input.levelId, planId, doUsuario ? new Set(doUsuario) : undefined);
   const up = view?.range.direction === 'up';
   const geo: ResolvedLevel = view ? view.geo : input.resolved;
+  // O meio-tom da disciplina (decisão 0060 §4.3) sai da geometria normal e volta em `buildPlanHalftone`, por baixo.
+  // O Reveal o desenha de novo normalmente, como faz com qualquer oculto: por isso ele fica fora deste conjunto.
+  const meioTom = input.halftone ? [...input.halftone].filter((id) => !revealed?.has(id)) : undefined;
   // `view.hidden` já traz o intervalo e a categoria; ele manda sobre o Reveal (o intervalo não é Hide in View).
-  const hidden = uniaoOcultos(view?.hidden, doUsuario);
+  const hidden = uniaoOcultos(uniaoOcultos(view?.hidden, doUsuario), meioTom);
   const roofOff: ReadonlySet<Id> | undefined = view ? view.categoryHidden : paint.roof.visible ? undefined : new Set(telhadosDoNivel(p, input.levelId).map((r) => r.roofId));
   const roofHidden = view ? hidden : uniaoOcultos(roofOff, doUsuario);
   const stairs = escadasDoNivel(p, input.levelId).filter((s) => !hidden?.has(s.id));

@@ -19,7 +19,7 @@ describe('câmera 2D de painel inativo', () => {
     const v = ownViewport(ref, plan(lv), 800, 600, null);
     expect(v.width).toBe(800);
     expect(v.height).toBe(600);
-    expect(ref.current?.key).toBe(lv);
+    expect(ref.current?.key).toBe(`plan:${lv}`);
     expect(editor.viewport()).toBe(antes);
   });
 
@@ -35,7 +35,7 @@ describe('câmera 2D de painel inativo', () => {
     const ref: OwnCameraRef = { current: null };
     ownViewport(ref, plan('lv_a'), 400, 300, { zoom: 80, center: { x: 2, y: 3 } });
     const v = ownViewport(ref, plan('lv_b'), 400, 300, { zoom: 10, center: { x: 0, y: 0 } });
-    expect(ref.current?.key).toBe('lv_b');
+    expect(ref.current?.key).toBe('plan:lv_b');
     expect(v.zoom).toBe(10);
   });
 

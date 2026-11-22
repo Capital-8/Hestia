@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, levelGraphicsOf, sectionGraphicsOf, view3dOf, type Command, type Id, type Project, type ProjectStore, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, DISCIPLINE_TONE_PRESETS, graphicsOf, planGraphicsOf, planViewById, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -31,8 +31,27 @@ export function alreadyApplied(patch: unknown, current: unknown): boolean {
 export function editLevelGraphics(store: ProjectStore, levelId: Id, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
   try {
     const exists = store.project.levels.some((l) => l.id === levelId);
-    if (exists && alreadyApplied(patch, levelGraphicsOf(store.project, levelId))) return OK;
+    if (exists && alreadyApplied(patch, planGraphicsOf(store.project, levelId))) return OK;
     store.exec({ type: 'setLevelGraphics', levelId, patch }, label, useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/**
+ * Planta alvo de uma edição de gráficos (decisão 0060 §2): a padrão do nível (`planId` ausente) ou uma planta de
+ * disciplina do mesmo nível. Sem `planId`, é exatamente `editLevelGraphics`.
+ */
+export interface PlanTarget { levelId: Id; planId?: Id }
+
+/** Aplica os gráficos de uma planta: a padrão grava em `Level.graphics`; a de disciplina, na própria cópia. */
+export function editPlanGraphics(store: ProjectStore, target: PlanTarget, patch: LevelGraphicsPatch, label = 'eds_undo_change_view_graphics'): GraphicsEdit {
+  if (target.planId === undefined) return editLevelGraphics(store, target.levelId, patch, label);
+  try {
+    const pv = (store.project.planViews ?? []).find((x) => x.id === target.planId && x.levelId === target.levelId);
+    if (pv && alreadyApplied(patch, planGraphicsOf(store.project, target.levelId, target.planId))) return OK;
+    store.exec({ type: 'setPlanGraphics', planId: target.planId, patch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -67,6 +86,91 @@ export function restoreLevelGraphicsDefault(store: ProjectStore, levelId: Id): G
     const lv = store.project.levels.find((l) => l.id === levelId);
     if (lv && !lv.graphics) return OK;
     store.exec({ type: 'resetLevelGraphics', levelId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/** Volta os gráficos de uma planta ao padrão: a padrão apaga `Level.graphics`; a de disciplina, a própria cópia. */
+export function restorePlanGraphicsDefault(store: ProjectStore, target: PlanTarget): GraphicsEdit {
+  if (target.planId === undefined) return restoreLevelGraphicsDefault(store, target.levelId);
+  try {
+    const pv = (store.project.planViews ?? []).find((x) => x.id === target.planId && x.levelId === target.levelId);
+    if (pv && !pv.graphics) return OK;
+    store.exec({ type: 'resetPlanGraphics', planId: target.planId }, 'eds_undo_restore_view_graphics', useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/** Tons gravados são iguais? (a ordem das chaves não importa; ausência e `undefined` valem o mesmo). */
+function sameTones(a: Partial<Record<Discipline, Tone>>, b: Partial<Record<Discipline, Tone>>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((k) => a[k as Discipline] === b[k as Discipline]);
+}
+
+/**
+ * Muda o tom de UMA disciplina numa planta de disciplina (decisão 0060 §4.2). Grava só o desvio: o tom igual ao
+ * predefinido apaga a chave, e a tabela predefinida nunca é copiada para `PlanView.tones`. A planta padrão não tem
+ * tons (lê o predefinido de Arquitetura) e por isso não é alvo desta ação.
+ */
+export function editPlanTone(store: ProjectStore, planId: Id, discipline: Discipline, tone: Tone, label = 'eds_undo_change_plan_tones'): GraphicsEdit {
+  const plan = planViewById(store.project, planId);
+  if (!plan) {
+    try {
+      const tones: Partial<Record<Discipline, Tone>> = {};
+      tones[discipline] = tone;
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  const preset = DISCIPLINE_TONE_PRESETS[plan.discipline][discipline];
+  const current = plan.tones ?? {};
+  const next: Partial<Record<Discipline, Tone>> = { ...current };
+  if (tone === preset) delete next[discipline];
+  else next[discipline] = tone;
+  if (sameTones(next, current)) return OK;
+  try {
+    store.exec({ type: 'updatePlanView', id: planId, patch: { tones: Object.keys(next).length > 0 ? next : undefined } }, label, useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/**
+ * Restaura o predefinido de uma disciplina (ou de todas, sem `discipline`) numa planta de disciplina: apaga só os
+ * desvios de tom, nunca os gráficos. Sem desvio não cria passo de desfazer.
+ */
+export function restorePlanTones(store: ProjectStore, planId: Id, discipline?: Discipline, label = 'eds_undo_restore_plan_tones'): GraphicsEdit {
+  const plan = planViewById(store.project, planId);
+  if (!plan) {
+    try {
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones: undefined } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  const current = plan.tones ?? {};
+  if (discipline === undefined) {
+    if (Object.keys(current).length === 0) return OK;
+    try {
+      store.exec({ type: 'updatePlanView', id: planId, patch: { tones: undefined } }, label, useI18n.getState().lang);
+      return OK;
+    } catch (e) {
+      return failed(e);
+    }
+  }
+  if (current[discipline] === undefined) return OK;
+  const next = { ...current };
+  delete next[discipline];
+  try {
+    store.exec({ type: 'updatePlanView', id: planId, patch: { tones: Object.keys(next).length > 0 ? next : undefined } }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -119,12 +223,12 @@ export function restoreProjectGraphicsDefault(store: ProjectStore): GraphicsEdit
   );
 }
 
-/** Alvo das linhas finas (decisão 0015): a planta de um nível, ou o corte/elevação aberto (um conjunto para todos os cortes). */
-export type ThinLinesTarget = { levelId: Id } | 'section';
+/** Alvo das linhas finas (decisão 0015): a planta de um nível (padrão, ou a de disciplina com `planId`), ou o corte/elevação aberto (um conjunto para todos os cortes). */
+export type ThinLinesTarget = PlanTarget | 'section';
 
 /** Linhas finas da vista ativa ligadas? Sem o campo salvo, ligadas (padrão do Hestia). */
 export function thinLinesOn(p: Project, target: ThinLinesTarget): boolean {
-  return (target === 'section' ? sectionGraphicsOf(p) : levelGraphicsOf(p, target.levelId)).thinLines === true;
+  return (target === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, target.levelId, target.planId)).thinLines === true;
 }
 
 /** Níveis de referência (datum) ligados no 3D? Sem o campo salvo, ligados (padrão do Hestia). */
@@ -136,5 +240,5 @@ export function showLevelsOn(v3: Pick<View3DSettings, 'showLevels'> | undefined 
 export function editThinLines(store: ProjectStore, target: ThinLinesTarget, on: boolean): GraphicsEdit {
   return target === 'section'
     ? editSectionGraphics(store, { thinLines: on }, 'eds_undo_toggle_section_thin_lines')
-    : editLevelGraphics(store, target.levelId, { thinLines: on }, 'eds_undo_toggle_plan_thin_lines');
+    : editPlanGraphics(store, target, { thinLines: on }, 'eds_undo_toggle_plan_thin_lines');
 }

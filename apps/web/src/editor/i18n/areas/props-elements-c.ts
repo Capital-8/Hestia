@@ -133,6 +133,7 @@ export const PT_PROPS_ELEMENTS_C = {
 
   // Gráficos da vista
   prd_pgrp_view_graphics: 'Gráficos da vista',
+  prd_fld_discipline: 'Disciplina',
   prd_aria_plan_scale: 'Escala da planta',
   prd_opt_other_scale: 'Outra',
   prd_fld_detail: 'Detalhe',
@@ -298,6 +299,7 @@ export const EN_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
 
   // View graphics
   prd_pgrp_view_graphics: 'View Graphics',
+  prd_fld_discipline: 'Discipline',
   prd_aria_plan_scale: 'Plan scale',
   prd_opt_other_scale: 'Other',
   prd_fld_detail: 'Detail Level',
@@ -455,6 +457,7 @@ export const ES_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_btn_zoom_fit: 'Encuadrar',
 
   prd_pgrp_view_graphics: 'Gráficos de la vista',
+  prd_fld_discipline: 'Disciplina',
   prd_aria_plan_scale: 'Escala del plano',
   prd_opt_other_scale: 'Otra',
   prd_fld_detail: 'Nivel de detalle',
@@ -611,6 +614,7 @@ export const DE_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_btn_zoom_fit: 'Einpassen',
 
   prd_pgrp_view_graphics: 'Ansichtsgrafik',
+  prd_fld_discipline: 'Disziplin',
   prd_aria_plan_scale: 'Grundrissmaßstab',
   prd_opt_other_scale: 'Andere',
   prd_fld_detail: 'Detailgrad',
@@ -767,6 +771,7 @@ export const FR_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_btn_zoom_fit: 'Cadrer',
 
   prd_pgrp_view_graphics: 'Graphismes de la vue',
+  prd_fld_discipline: 'Discipline',
   prd_aria_plan_scale: 'Échelle du plan',
   prd_opt_other_scale: 'Autre',
   prd_fld_detail: 'Niveau de détail',
@@ -923,6 +928,7 @@ export const IT_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_btn_zoom_fit: 'Inquadra',
 
   prd_pgrp_view_graphics: 'Grafica della vista',
+  prd_fld_discipline: 'Disciplina',
   prd_aria_plan_scale: 'Scala della pianta',
   prd_opt_other_scale: 'Altra',
   prd_fld_detail: 'Livello di dettaglio',
@@ -1079,6 +1085,7 @@ export const PL_PROPS_ELEMENTS_C: Record<keyof typeof PT_PROPS_ELEMENTS_C, strin
   prd_btn_zoom_fit: 'Dopasuj',
 
   prd_pgrp_view_graphics: 'Grafika widoku',
+  prd_fld_discipline: 'Dyscyplina',
   prd_aria_plan_scale: 'Skala rzutu',
   prd_opt_other_scale: 'Inna',
   prd_fld_detail: 'Poziom szczegółowości',

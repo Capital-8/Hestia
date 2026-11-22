@@ -1,5 +1,6 @@
+import { disciplineOfElement } from './discipline.ts';
 import { t, type Lang } from './i18n.ts';
-import type { DetailLevel, Id, Project } from './types.ts';
+import type { DetailLevel, Element, Id, Project } from './types.ts';
 
 /**
  * Gráficos de vista (decisão 0015): pesos de linha por escala, estilo por categoria, estilo visual, visibilidade e
@@ -7,8 +8,31 @@ import type { DetailLevel, Id, Project } from './types.ts';
  */
 
 /** Categorias com estilo gráfico próprio (Revit: Object Styles; ArchiCAD: regras de substituição). */
-export type GraphicsCategory = 'wall' | 'door' | 'window' | 'floor' | 'slab' | 'roof' | 'stair' | 'railing' | 'mass' | 'site' | 'lot' | 'room' | 'annotation' | 'generic';
-export const GRAPHICS_CATEGORIES: readonly GraphicsCategory[] = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'mass', 'site', 'lot', 'room', 'annotation', 'generic'];
+export type GraphicsCategory =
+  | 'wall'
+  | 'door'
+  | 'window'
+  | 'floor'
+  | 'slab'
+  | 'roof'
+  | 'stair'
+  | 'railing'
+  | 'mass'
+  | 'site'
+  | 'lot'
+  | 'room'
+  | 'annotation'
+  | 'generic'
+  | 'column'
+  | 'beam'
+  | 'footing'
+  | 'ceiling'
+  | 'ramp'
+  | 'component'
+  | 'plumbingFixture'
+  | 'electricalFixture'
+  | 'mechanicalEquipment';
+export const GRAPHICS_CATEGORIES: readonly GraphicsCategory[] = ['wall', 'door', 'window', 'floor', 'slab', 'roof', 'stair', 'railing', 'mass', 'site', 'lot', 'room', 'annotation', 'generic', 'column', 'beam', 'footing', 'ceiling', 'ramp', 'component', 'plumbingFixture', 'electricalFixture', 'mechanicalEquipment'];
 /** Nome da categoria nas mensagens de validação, no idioma pedido. */
 export function graphicsCategoryLabels(lang: Lang = 'pt'): Record<GraphicsCategory, string> {
   return {
@@ -26,6 +50,15 @@ export function graphicsCategoryLabels(lang: Lang = 'pt'): Record<GraphicsCatego
     room: t(lang, 'md_cat_room'),
     annotation: t(lang, 'md_cat_annotation'),
     generic: t(lang, 'md_cat_generic'),
+    column: t(lang, 'md_cat_column'),
+    beam: t(lang, 'md_cat_beam'),
+    footing: t(lang, 'md_cat_footing'),
+    ceiling: t(lang, 'md_cat_ceiling'),
+    ramp: t(lang, 'md_cat_ramp'),
+    component: t(lang, 'md_cat_component'),
+    plumbingFixture: t(lang, 'md_cat_plumbing_fixture'),
+    electricalFixture: t(lang, 'md_cat_electrical_fixture'),
+    mechanicalEquipment: t(lang, 'md_cat_mechanical_equipment'),
   };
 }
 
@@ -178,6 +211,17 @@ export const DEFAULT_CATEGORY_STYLES: Record<GraphicsCategory, CategoryLineStyle
   room: { cutWeight: 1, projectionWeight: 1 },
   annotation: { cutWeight: 1, projectionWeight: 1 },
   generic: { cutWeight: 2, projectionWeight: 1 },
+  // Categorias por elemento (adendo 2 do ADR 0060): cada uma copia o estilo da categoria de onde saiu, para arquivo
+  // antigo (sem as chaves novas em `overrides`) desenhar exatamente como antes.
+  column: { cutWeight: 5, projectionWeight: 2 },
+  beam: { cutWeight: 4, projectionWeight: 1 },
+  footing: { cutWeight: 4, projectionWeight: 1 },
+  ceiling: { cutWeight: 3, projectionWeight: 1 },
+  ramp: { cutWeight: 4, projectionWeight: 2 },
+  component: { cutWeight: 2, projectionWeight: 1 },
+  plumbingFixture: { cutWeight: 2, projectionWeight: 1 },
+  electricalFixture: { cutWeight: 2, projectionWeight: 1 },
+  mechanicalEquipment: { cutWeight: 2, projectionWeight: 1 },
 };
 
 export const DEFAULT_PROJECT_GRAPHICS: ProjectGraphics = {
@@ -202,6 +246,15 @@ export const defaultOverrides = (): Record<GraphicsCategory, CategoryOverride> =
   room: defaultOverride(),
   annotation: defaultOverride(),
   generic: defaultOverride(),
+  column: defaultOverride(),
+  beam: defaultOverride(),
+  footing: defaultOverride(),
+  ceiling: defaultOverride(),
+  ramp: defaultOverride(),
+  component: defaultOverride(),
+  plumbingFixture: defaultOverride(),
+  electricalFixture: defaultOverride(),
+  mechanicalEquipment: defaultOverride(),
 });
 
 export const DEFAULT_VIEW_GRAPHICS: ViewGraphics = {
@@ -266,10 +319,123 @@ export function graphicsOf(p: Pick<Project, 'graphics'>): ProjectGraphics {
   };
 }
 
-/** Gráficos da planta de um nível com os padrões aplicados. Nível inexistente: o padrão. */
-export function levelGraphicsOf(p: Pick<Project, 'levels'>, levelId: Id): ViewGraphics {
-  const g = p.levels.find((l) => l.id === levelId)?.graphics;
+/** Entrada mínima do projeto que o resolvedor de plantas precisa (`planViews` ausente = nenhuma planta adicional). */
+type PlanSource = Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>;
+
+/**
+ * Categoria gráfica de um elemento do modelo (o que "Ocultar categoria" atinge). Fica no modelo para a tela, a prancha e
+ * o DXF usarem a mesma regra; `null` = o elemento não pertence a nenhuma categoria da lista.
+ *
+ * Elementos de estrutura têm categoria própria (adendo 2 do ADR 0060): pilar, viga, sapata, forro e rampa deixam de
+ * compartilhar a categoria da parede/laje/piso/escada, para que ocultar um não oculte o outro. Componentes ganham uma
+ * categoria POR DISCIPLINA da família (adendo 1): arquitetura e estrutura = `component`, hidrossanitário =
+ * `plumbingFixture`, elétrico = `electricalFixture`, HVAC = `mechanicalEquipment`. Sem o projeto, a disciplina usa só a
+ * biblioteca base (família do projeto não é encontrada), como em `disciplineOfElement`.
+ */
+export function categoriaDoElemento(e: { kind: string; familyId?: Id }, p?: Pick<Project, 'componentFamilies'>): GraphicsCategory | null {
+  switch (e.kind) {
+    case 'wall': return 'wall';
+    case 'door': return 'door';
+    case 'window': return 'window';
+    case 'floor': return 'floor';
+    case 'slab': return 'slab';
+    case 'beam': return 'beam';
+    case 'footing': return 'footing';
+    case 'ceiling': return 'ceiling';
+    case 'column': return 'column';
+    case 'roof': return 'roof';
+    case 'stair': return 'stair';
+    case 'ramp': return 'ramp';
+    case 'railing': return 'railing';
+    case 'mass': return 'mass';
+    case 'room': return 'room';
+    case 'terrain':
+    case 'terrainRegion': return 'site';
+    case 'lot': return 'lot';
+    case 'cad':
+    case 'generic': return 'generic';
+    case 'furniture': return 'component';
+    case 'component': {
+      const disciplina = disciplineOfElement(e as unknown as Element, p ?? {});
+      switch (disciplina) {
+        case 'hidrossanitario': return 'plumbingFixture';
+        case 'eletrico': return 'electricalFixture';
+        case 'hvac': return 'mechanicalEquipment';
+        default: return 'component';
+      }
+    }
+    case 'dimension':
+    case 'text':
+    case 'detailLine':
+    case 'detailRegion':
+    case 'tag':
+    case 'roomSeparator': return 'annotation';
+    default: return null;
+  }
+}
+
+/**
+ * Ids de ELEMENTOS ocultos por uma ocultação permanente (Hide in View): os listados e os de cada categoria oculta. Sem o
+ * estado temporário nem as anotações da vista (que dependem da tela). Usado pela prancha e pelo DXF da planta de disciplina.
+ */
+export function hiddenElementIdsOf(p: Pick<Project, 'elements' | 'componentFamilies'>, h: ViewHidden | undefined): Id[] {
+  const cats = new Set(h?.categories ?? []);
+  const porCategoria = cats.size === 0 ? [] : Object.values(p.elements).filter((e) => {
+    const c = categoriaDoElemento(e, p);
+    return c !== null && cats.has(c);
+  }).map((e) => e.id);
+  return [...(h?.elements ?? []), ...porCategoria];
+}
+
+/**
+ * Planta adicional (`Project.planViews`) pedida, ou undefined. Id ausente, desconhecido ou de OUTRO nível não resolve:
+ * quem chama cai na planta padrão do nível (decisão 0060 §2; nunca lança).
+ */
+export function planViewFor(p: Pick<Project, 'planViews'>, levelId: Id, planId: Id | undefined) {
+  if (planId === undefined) return undefined;
+  const v = p.planViews?.find((x) => x.id === planId);
+  return v && v.levelId === levelId ? v : undefined;
+}
+
+/**
+ * Gráficos de uma planta de piso com os padrões aplicados (decisão 0060 §2). Sem `planId`, ou com `planId` que não
+ * resolve neste nível, é a planta padrão do nível (`Level.graphics`; nível inexistente: o padrão do Hestia).
+ */
+export function planGraphicsOf(p: PlanSource, levelId: Id, planId?: Id): ViewGraphics {
+  const v = planViewFor(p, levelId, planId);
+  const g = v ? v.graphics : p.levels.find((l) => l.id === levelId)?.graphics;
   return { ...DEFAULT_VIEW_GRAPHICS, ...(g ?? {}), overrides: mergeOverrides(g?.overrides) };
+}
+
+/**
+ * A planta tem gráficos GRAVADOS (`Level.graphics` na padrão, `PlanView.graphics` na adicional)? Sem eles o detalhe da
+ * planta é o do projeto (`settings.detail`), como antes da decisão 0015 (ver `planStyleOf`).
+ */
+export function planGraphicsSaved(p: PlanSource, levelId: Id, planId?: Id): boolean {
+  const v = planViewFor(p, levelId, planId);
+  return (v ? v.graphics : p.levels.find((l) => l.id === levelId)?.graphics) !== undefined;
+}
+
+/**
+ * Ocultação permanente (Hide in View) de uma planta de piso: `Level.hidden` na planta padrão, `PlanView.hidden` na
+ * adicional. Nunca undefined; a mesma regra de `permanentHiddenOf` (planta sem ocultação = `{}`).
+ */
+export function planHiddenOf(p: PlanSource, levelId: Id, planId?: Id): ViewHidden {
+  const v = planViewFor(p, levelId, planId);
+  return (v ? v.hidden : p.levels.find((l) => l.id === levelId)?.hidden) ?? {};
+}
+
+/** Ocultação permanente da planta de cobertura do nível (`Level.roofHidden`; vista separada da planta de piso). */
+export function roofHiddenOf(p: Pick<Project, 'levels'>, levelId: Id): ViewHidden {
+  return p.levels.find((l) => l.id === levelId)?.roofHidden ?? {};
+}
+
+/**
+ * Gráficos da planta padrão de um nível com os padrões aplicados. Nível inexistente: o padrão.
+ * Wrapper transitório de `planGraphicsOf` (decisão 0060 §2): sai quando o último chamador migrar (etapa 2.3).
+ */
+export function levelGraphicsOf(p: Pick<Project, 'levels'>, levelId: Id): ViewGraphics {
+  return planGraphicsOf(p, levelId);
 }
 
 /** Gráficos do corte/elevação com os padrões aplicados (não há nível natural: a vista cruza níveis). */

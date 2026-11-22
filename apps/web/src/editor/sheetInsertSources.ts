@@ -1,5 +1,6 @@
-import { projectView3DPoints, sectionTitleOf, type Project, type SheetViewSource } from '@hestia/model';
+import { planViewsOfLevel, projectView3DPoints, sectionTitleOf, type Project, type SheetViewSource } from '@hestia/model';
 import { t, type Lang } from './i18n.ts';
+import { planKey, viewKey } from './viewIdentity.ts';
 
 /**
  * Lista de vistas da janela "Inserir vistas": o que o projeto oferece, agrupado por tipo (plantas dos níveis, cortes,
@@ -26,13 +27,28 @@ export interface GrupoVistas {
 /** Linha da lista rolável: cabeçalho de grupo ou uma vista marcável. */
 export type LinhaVistas = { kind: 'grupo'; titulo: string } | { kind: 'vista'; fonte: FonteVista };
 
+/**
+ * Chave da fonte que corresponde a uma vista já escolhida (arraste do Navegador, com ou sem Shift): a mesma marcação da
+ * lista. A planta de disciplina leva o `planId` na chave (`pv:`), senão o arraste marcaria a planta padrão do nível.
+ */
+export function chaveDaFonteDeVista(v: SheetViewSource): string | null {
+  if (v.kind === 'plan') return planKey(v.levelId, v.planId);
+  if (v.kind === 'section') return viewKey({ kind: 'section', viewId: v.sectionId });
+  if (v.kind === '3d') return v.pointId ? `3d:${v.pointId}` : '3d';
+  return null;
+}
+
 /** Grupos na ordem: plantas, cortes, elevações e 3D. Grupo vazio some (o 3D sempre tem o enquadramento padrão). */
 export function gruposDeVistas(p: Project, lang: Lang): GrupoVistas[] {
-  const plantas: FonteVista[] = p.levels.map((l) => ({ key: `plan:${l.id}`, label: l.name, view: { kind: 'plan', levelId: l.id } }));
+  // Cada nível traz a planta padrão e, logo depois, as plantas de disciplina dele (decisão 0060 §6).
+  const plantas: FonteVista[] = p.levels.flatMap((l): FonteVista[] => [
+    { key: planKey(l.id), label: l.name, view: { kind: 'plan', levelId: l.id } },
+    ...planViewsOfLevel(p, l.id).map((pv): FonteVista => ({ key: planKey(l.id, pv.id), label: `${l.name} · ${pv.name}`, view: { kind: 'plan', levelId: l.id, planId: pv.id } })),
+  ]);
   const porTipo = (kind: 'section' | 'elevation'): FonteVista[] =>
     p.views
       .filter((v) => (kind === 'elevation' ? v.kind === 'elevation' : v.kind !== 'elevation'))
-      .map((v) => ({ key: `section:${v.id}`, label: sectionTitleOf(v), view: { kind: 'section', sectionId: v.id } }));
+      .map((v) => ({ key: viewKey({ kind: 'section', viewId: v.id }), label: sectionTitleOf(v), view: { kind: 'section', sectionId: v.id } }));
   const modelos: FonteVista[] = [
     ...projectView3DPoints(p).map((ponto) => ({ key: `3d:${ponto.id}`, label: ponto.name, view: { kind: '3d' as const, pointId: ponto.id } })),
     { key: '3d', label: t(lang, 'dlc_src_3d_default'), view: { kind: '3d' } },

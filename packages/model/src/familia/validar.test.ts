@@ -159,6 +159,20 @@ describe('validarFamilia', () => {
     expect(c[0]!.mensagem).toContain('esp');
     expect(c[0]!.mensagem).toContain('zBase');
   });
+  it('9 disciplina: ausente é válida; fora das cinco é erro em familia', () => {
+    const f = nova();
+    expect(validarFamilia(f)).toEqual([]);
+    for (const d of ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac'] as const) {
+      const g = nova();
+      g.disciplina = d;
+      expect(validarFamilia(g)).toEqual([]);
+    }
+    const h = nova();
+    (h as { disciplina?: string }).disciplina = 'piscina';
+    const erros = achar(h, 'tipo', 'familia');
+    expect(erros).toHaveLength(1);
+    expect(erros[0]!.mensagem).toContain('disciplina');
+  });
   it('todos os problemas vêm com nível, código, mensagem e onde preenchidos', () => {
     const f = nova();
     param(f, 'L').id = '1x';

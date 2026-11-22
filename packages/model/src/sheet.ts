@@ -55,7 +55,8 @@ export interface SheetView3DCamera {
 
 /** O que a vista mostra: planta de um nível, planta de área, corte/elevação de uma seção do projeto ou o 3D vetorial. */
 export type SheetViewSource =
-  | { kind: 'plan'; levelId: Id }
+  /** `planId` ausente = planta padrão do nível (prancha antiga); presente e válido = planta adicional (decisão 0060 §6). */
+  | { kind: 'plan'; levelId: Id; planId?: Id }
   | { kind: 'areaPlan'; planId: Id }
   | { kind: 'areaTable' }
   | { kind: 'section'; sectionId: Id }

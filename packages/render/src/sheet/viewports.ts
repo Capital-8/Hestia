@@ -1,5 +1,5 @@
 import { areaTableAllRows, resolveLevel } from '@hestia/engine';
-import { areaPlanOf, levelGraphicsOf, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
+import { areaPlanOf, hiddenElementIdsOf, levelGraphicsOf, planGraphicsOf, planHiddenOf, planViewFor, sectionAnnotationsOf, sectionGraphicsOf, sectionPoints, unitsOf, type Id, type Project, type SheetViewport, type SheetViewSource } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import { buildPlanDrawList, levelBox } from '../plan/build.ts';
 import { LIGHT } from '../plan/types.ts';
@@ -11,10 +11,16 @@ import { fmtNumLang as fmtNum, t, type Lang } from '../i18n.ts';
 
 /**
  * Projeto com a escala da vista da prancha: os gráficos do nível (ou do corte) passam a usar a escala da própria vista,
- * então os pesos (`lineWeightMm`) e o detalhe saem da escala escolhida na prancha, não da do nível.
+ * então os pesos (`lineWeightMm`) e o detalhe saem da escala escolhida na prancha, não da do nível. A escala vai na
+ * cópia certa: `PlanView.graphics` da planta de disciplina (decisão 0060 §6), `Level.graphics` na padrão.
  */
 function withSheetScale(p: Project, view: SheetViewSource, scale: number): Project {
   if (view.kind === 'plan') {
+    const pv = planViewFor(p, view.levelId, view.planId);
+    if (pv) {
+      const graphics = { ...planGraphicsOf(p, view.levelId, pv.id), scale };
+      return { ...p, planViews: (p.planViews ?? []).map((x) => (x.id === pv.id ? { ...x, graphics } : x)) };
+    }
     const graphics = { ...levelGraphicsOf(p, view.levelId), scale };
     return { ...p, levels: p.levels.map((l) => (l.id === view.levelId ? { ...l, graphics } : l)) };
   }
@@ -31,15 +37,24 @@ function withSheetScale(p: Project, view: SheetViewSource, scale: number): Proje
 const centreOf = (b: { minX: number; minY: number; maxX: number; maxY: number } | null): Vec2 =>
   b ? { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 } : { x: 0, y: 0 };
 
-/** Planta de um nível na escala da vista, centrada no conteúdo do nível. Nível inexistente: sem partes. */
-export function planPartsOf(p: Project, levelId: Id, vp: SheetViewport, lang: Lang = 'pt'): ViewportParts {
+/**
+ * Planta de um nível na escala da vista, centrada no conteúdo do nível. `planId` (decisão 0060 §6): planta de disciplina
+ * do nível, com os gráficos, a ocultação e as anotações dela; ausente ou que não resolve neste nível = planta padrão
+ * (a prancha não quebra). Nível inexistente: sem partes.
+ */
+export function planPartsOf(p: Project, levelId: Id, vp: SheetViewport, lang: Lang = 'pt', planId?: Id): ViewportParts {
   if (!p.levels.some((l) => l.id === levelId)) return emptyParts();
-  const pp = withSheetScale(p, { kind: 'plan', levelId }, vp.scale);
+  const pid = planViewFor(p, levelId, planId)?.id;
+  const pp = withSheetScale(p, { kind: 'plan', levelId, ...(pid === undefined ? {} : { planId: pid }) }, vp.scale);
   const centre = centreOf(levelBox(p, levelId));
   const m = viewMappingOf(vp, centre);
+  // Hide in View da planta de disciplina entra como ocultos do desenho (a padrão segue como antes, sem `Level.hidden`).
+  const oculto = pid === undefined ? undefined : new Set(hiddenElementIdsOf(p, planHiddenOf(p, levelId, pid)));
   const list = buildPlanDrawList({
     project: pp,
     levelId,
+    ...(pid === undefined ? {} : { planId: pid }),
+    ...(oculto === undefined ? {} : { hidden: oculto }),
     resolved: resolveLevel(p, levelId),
     below: null,
     viewport: { cx: m.cx, cy: m.cy, zoom: m.zoom, width: m.width, height: m.height },

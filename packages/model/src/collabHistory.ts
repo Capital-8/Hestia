@@ -56,6 +56,7 @@ const COLLECTION_KEYS = new Set([
   'sheets',
   'grids',
   'areaPlans',
+  'planViews',
   'copyLinks',
 ]);
 
@@ -121,6 +122,12 @@ export function checkModelIntegrityForCollab(
     for (const tag of plan.tags) {
       if (!isRoom(project.elements[tag.roomId])) orphanIds.push(tag.id);
     }
+    for (const tag of plan.annotations?.tags ?? []) {
+      if (!project.elements[tag.hostId]) orphanIds.push(tag.id);
+    }
+  }
+
+  for (const plan of project.planViews ?? []) {
     for (const tag of plan.annotations?.tags ?? []) {
       if (!project.elements[tag.hostId]) orphanIds.push(tag.id);
     }

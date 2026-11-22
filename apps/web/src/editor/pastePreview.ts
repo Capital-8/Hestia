@@ -107,6 +107,8 @@ export interface OrigemDoColar {
   sectionId: Id | null;
   planKind: 'floor' | 'roof' | 'area';
   areaPlanId: Id | null;
+  /** Planta de disciplina de origem (ausente = planta padrão). */
+  planViewId?: Id | null;
 }
 
 let origemDoDialogo: OrigemDoColar | null = null;

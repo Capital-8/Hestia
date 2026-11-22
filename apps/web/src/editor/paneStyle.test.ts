@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, view3dOf, type Project } from '@hestia/model';
+import { DEFAULT_VIEW_3D, DEFAULT_VIEW_GRAPHICS, planGraphicsOf, view3dOf, type Project } from '@hestia/model';
 import { editor } from './controller.ts';
 import { initialLayout, usePanes } from './paneStore.ts';
 import { PANE_STYLE_PRESETS, descreverEstiloAplicado, effectivePlanGraphics, effectiveView3d, projetoDoPainel } from './paneStyle.ts';
@@ -59,6 +59,20 @@ describe('projetoDoPainel e descreverEstiloAplicado', () => {
     expect(projetoDoPainel(p, { style: 'wireframe' }, { kind: '3d' })).toBe(a);
     expect(view3dOf(a).style).toBe('wireframe');
     expect(view3dOf(p).style).toBe(view3dOf(editor.project).style);
+  });
+  it('painel de planta de disciplina: o estilo vai para a cópia da planta; a padrão e os níveis seguem os mesmos', () => {
+    const lv = editor.project.levels[0]!.id;
+    const q: Project = { ...editor.project, planViews: [{ id: 'pv_est', levelId: lv, discipline: 'estrutura', name: 'Estrutura' }] };
+    const a = projetoDoPainel(q, { style: 'wireframe' }, { kind: 'plan', levelId: lv, planId: 'pv_est' });
+    expect(planGraphicsOf(a, lv, 'pv_est').style).toBe('wireframe');
+    expect(a.levels).toBe(q.levels);
+    expect(planGraphicsOf(a, lv).style).toBe(planGraphicsOf(q, lv).style);
+    // Planta padrão (sem planId): troca o gráfico do nível, como sempre.
+    const b = projetoDoPainel(q, { style: 'wireframe' }, { kind: 'plan', levelId: lv });
+    expect(planGraphicsOf(b, lv).style).toBe('wireframe');
+    expect(b.planViews).toBe(q.planViews);
+    // Sem nada a mudar, devolve o próprio projeto.
+    expect(projetoDoPainel(q, {}, { kind: 'plan', levelId: lv, planId: 'pv_est' })).toBe(q);
   });
   it('setPaneStyle muda só o painel: projeto inalterado e descrição reflete o estilo', () => {
     const p = editor.project;

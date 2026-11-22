@@ -1,9 +1,10 @@
-import type { GraphicsCategory, Id, Project, ViewGraphics, ViewHiddenTarget, ViewHidden } from '@hestia/model';
+import { categoriaDoElemento, disciplineOfElement, planHiddenOf, planOf, planTonesOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId'>>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -16,22 +17,20 @@ export interface TempViewVisibility {
 }
 
 /** Chave estável da vista ativa (a mesma ideia de `Editor.viewKey`, mas para a visibilidade). */
-export function visibilityKeyOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): string | null {
-  if (st.view === 'sheet' || st.view === 'face') return null;
-  if (st.view === '3d') return '3d';
-  if (st.view === 'section') return st.sectionId ? `section:${st.sectionId}` : null;
-  if (st.planKind === 'area') return st.areaPlanId ? `area:${st.areaPlanId}` : null;
-  if (st.planKind === 'roof') return `roof:${st.levelId}`;
-  return `plan:${st.levelId}`;
+export function visibilityKeyOf(st: ViewState): string | null {
+  return visibilityKeyOfFields(st);
 }
 
 /** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
-export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'>): ViewHiddenTarget | null {
+export function viewHiddenTargetOf(st: ViewState): ViewHiddenTarget | null {
   if (st.view === 'sheet' || st.view === 'face') return null;
   if (st.view === '3d') return { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;
   if (st.planKind === 'roof') return { kind: 'roof', levelId: st.levelId };
+  // Planta de disciplina: a ocultação permanente grava na própria cópia (`PlanView.hidden`), nunca no nível.
+  const planId = planViewIdDe(st);
+  if (planId) return { kind: 'planView', planId };
   return { kind: 'plan', levelId: st.levelId };
 }
 
@@ -39,9 +38,10 @@ export function viewHiddenTargetOf(st: Pick<ReturnType<typeof useUi.getState>, '
 export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): ViewHidden {
   if (!target) return {};
   switch (target.kind) {
-    case 'plan': return p.levels.find((l) => l.id === target.levelId)?.hidden ?? {};
+    case 'plan': return planHiddenOf(p, target.levelId);
     case 'roof': return p.levels.find((l) => l.id === target.levelId)?.roofHidden ?? {};
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden ?? {};
+    case 'planView': return p.planViews?.find((x) => x.id === target.planId)?.hidden ?? {};
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
@@ -49,39 +49,6 @@ export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): 
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)];
 const redesenhar = (): void => useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
-
-/** Categoria gráfica de um elemento do modelo (o que "Ocultar categoria" atinge). */
-function categoriaDoElemento(e: { kind: string }): GraphicsCategory | null {
-  switch (e.kind) {
-    case 'wall': return 'wall';
-    case 'door': return 'door';
-    case 'window': return 'window';
-    case 'floor': return 'floor';
-    case 'slab':
-    case 'beam':
-    case 'footing': return 'slab';
-    case 'ceiling': return 'floor';
-    case 'column': return 'wall';
-    case 'roof': return 'roof';
-    case 'stair':
-    case 'ramp': return 'stair';
-    case 'railing': return 'railing';
-    case 'mass': return 'mass';
-    case 'room': return 'room';
-    case 'terrain':
-    case 'terrainRegion': return 'site';
-    case 'lot': return 'lot';
-    case 'cad':
-    case 'generic': return 'generic';
-    case 'dimension':
-    case 'text':
-    case 'detailLine':
-    case 'detailRegion':
-    case 'tag':
-    case 'roomSeparator': return 'annotation';
-    default: return null;
-  }
-}
 
 /**
  * Ids dos elementos que pertencem às categorias dadas. Com `st`, a categoria 'annotation' também alcança as anotações
@@ -92,7 +59,7 @@ export function categoryIdsOf(p: Project, categories: readonly GraphicsCategory[
   const cats = new Set(categories);
   const doModelo = Object.values(p.elements)
     .filter((e) => {
-      const c = categoriaDoElemento(e);
+      const c = categoriaDoElemento(e, p);
       return c !== null && cats.has(c);
     })
     .map((e) => e.id);
@@ -107,7 +74,7 @@ function elementosDoSitio(p: Project): Array<{ id: Id; categoria: 'site' | 'lot'
   if (!lista) {
     lista = [];
     for (const e of Object.values(p.elements)) {
-      const c = categoriaDoElemento(e);
+      const c = categoriaDoElemento(e, p);
       if (c === 'site' || c === 'lot') lista.push({ id: e.id, categoria: c });
     }
     sitioPorProjeto.set(p, lista);
@@ -152,23 +119,73 @@ export function removeHidden(a: ViewHidden | undefined, remove: ViewHidden): Vie
   return { ...(elements.length ? { elements } : {}), ...(categories.length ? { categories } : {}) };
 }
 
-/** Conjuntos efetivos de visibilidade da vista ativa. `hidden` não é desenhado; `revealed` é desenhado com borda azul. */
+/** Conjuntos efetivos de visibilidade da vista ativa. `hidden` não é desenhado nem seleciona; `halftone` desenha atenuado e só serve de captura/cota; `revealed` é desenhado com borda azul. */
 export interface ViewVisibilitySets {
   hidden: ReadonlySet<Id>;
+  halftone: ReadonlySet<Id>;
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), revealed: new Set(), reveal: false, temporary: false };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false };
 
-/** Resolve permanente + temporário + Reveal para a vista ativa. */
+/**
+ * Conjuntos de tom de disciplina da planta ativa, já separados por efeito: `hidden` (o tom `hidden` da disciplina
+ * do elemento) e `halftone`. Ficam guardados por projeto (a tabela de predefinidos e os desvios só mudam com o
+ * projeto) e por planta. Elementos `geral` nunca entram: o tom é só de disciplina (decisão 0060 §4.1).
+ */
+interface TonsDaPlanta {
+  hidden: ReadonlySet<Id>;
+  halftone: ReadonlySet<Id>;
+}
+
+/**
+ * Cache por projeto. Além da identidade do projeto (o store cria um projeto novo a cada comando), o mapa de famílias é
+ * conferido: trocar/alterar a família de um componente muda a disciplina dele e tem de refazer os tons.
+ */
+interface CacheDeTons {
+  familias: Project['componentFamilies'];
+  plantas: Map<string, TonsDaPlanta>;
+}
+
+const tonsPorProjeto = new WeakMap<Project, CacheDeTons>();
+
+function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined): TonsDaPlanta {
+  let cache = tonsPorProjeto.get(p);
+  if (!cache || cache.familias !== p.componentFamilies) {
+    cache = { familias: p.componentFamilies, plantas: new Map() };
+    tonsPorProjeto.set(p, cache);
+  }
+  const chave = `${levelId}\u0000${planViewId ?? ''}`;
+  const guardado = cache.plantas.get(chave);
+  if (guardado) return guardado;
+  const tons = planTonesOf(planOf(p, levelId, planViewId));
+  const hidden = new Set<Id>();
+  const halftone = new Set<Id>();
+  for (const e of Object.values(p.elements)) {
+    const disciplina = disciplineOfElement(e, p);
+    if (disciplina === 'geral') continue;
+    if (tons[disciplina] === 'hidden') hidden.add(e.id);
+    else if (tons[disciplina] === 'halftone') halftone.add(e.id);
+  }
+  const resultado = { hidden, halftone };
+  cache.plantas.set(chave, resultado);
+  return resultado;
+}
+
+/**
+ * Resolve permanente + temporário + Reveal para a vista ativa, e o meio-tom da disciplina (decisão 0060 §4.1):
+ * (1) oculto vence (Hide in View, categoria, temporário ou tom `hidden`); (2) senão, tom `halftone`; (3) normal.
+ */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st);
   const key = visibilityKeyOf(st);
   if (!target || !key) return VAZIO;
   const temp = st.viewTemp[key] ?? {};
-  const permanent = permanentHiddenOf(p, target);
+  // Planta de disciplina: a ocultação permanente é a da própria planta (`planHiddenOf`); a padrão e as outras, a do alvo.
+  const planta = planViewIdDe(st);
+  const permanent = planta ? planHiddenOf(p, st.levelId, planta) : permanentHiddenOf(p, target);
   const permanentIds = uniq([...(permanent.elements ?? []), ...categoryIdsOf(p, permanent.categories, st)]);
   const tempIds = uniq([...(temp.hidden?.elements ?? []), ...categoryIdsOf(p, temp.hidden?.categories, st)]);
   const isolate = temp.isolated;
@@ -176,13 +193,26 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  const baseHidden = isolateIds.length > 0 ? allIds.filter((id) => !isolateSet.has(id)) : uniq([...permanentIds, ...tempIds]);
-  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário), isolados-fora e categorias.
+  // O tom de disciplina é só de vista de planta; no 3D e no corte a visibilidade é a de sempre.
+  const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta) : null;
+  const toneHidden = tons?.hidden ?? new Set<Id>();
+  let baseHidden: Id[];
+  if (isolateIds.length > 0) {
+    baseHidden = allIds.filter((id) => !isolateSet.has(id));
+    // O tom `hidden` da disciplina vence até o isolamento: isolar não reexibe outra disciplina.
+    for (const id of toneHidden) if (isolateSet.has(id) && !baseHidden.includes(id)) baseHidden.push(id);
+  } else {
+    baseHidden = uniq([...permanentIds, ...tempIds, ...toneHidden]);
+  }
+  const baseHiddenSet = new Set(baseHidden);
+  // Reveal mostra tudo o que está fora da vista: ocultos (permanente/temporário/tom), isolados-fora e categorias.
   const revealedIds = reveal ? baseHidden : [];
   const revealed = new Set(revealedIds);
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
+  // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
+  const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, revealed, reveal, temporary };
+  return { hidden, halftone, revealed, reveal, temporary };
 }
 
 /** Atualiza o estado temporário da vista ativa. */
@@ -349,7 +379,7 @@ export function selectedCategories(p: Project, ids: readonly Id[] = useUi.getSta
   const out = new Set<GraphicsCategory>();
   for (const id of ids) {
     const e = p.elements[id];
-    const c = e ? categoriaDoElemento(e) : null;
+    const c = e ? categoriaDoElemento(e, p) : null;
     if (c) out.add(c);
   }
   // Anotações (cotas, textos, etiquetas...) da vista ativa pertencem à categoria 'annotation'.

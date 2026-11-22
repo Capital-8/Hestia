@@ -1,6 +1,6 @@
 import {
   areaPlanOf,
-  levelGraphicsOf,
+  planGraphicsOf,
   newViewportId,
   sectionGraphicsOf,
   sectionPoints,
@@ -198,7 +198,7 @@ export function sheetsPerLevelAction(store: ProjectStore, scale = 100): Id[] {
 
 /** Escala natural de uma vista (a que ela tem no projeto), usada ao arrastá-la do navegador para a prancha. */
 export function naturalScaleOf(p: Project, view: SheetViewSource): number {
-  if (view.kind === 'plan') return levelGraphicsOf(p, view.levelId).scale;
+  if (view.kind === 'plan') return planGraphicsOf(p, view.levelId, view.planId).scale;
   if (view.kind === 'areaPlan') return areaPlanOf(p, view.planId)?.scale ?? 100;
   if (view.kind === 'section') return sectionGraphicsOf(p).scale;
   return 100;

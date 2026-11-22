@@ -7,7 +7,8 @@ import type { SheetPoint, ViewportParts } from './types.ts';
 /**
  * Cache do desenho de cada vista da prancha (desempenho 0.2.5).
  *
- * Chave: idioma + fonte da vista + escala + tamanho da caixa + âncora RELATIVA à caixa. Validade: assinatura do modelo
+ * Chave: idioma + fonte da vista (com o `planId` da planta de disciplina, então duas plantas do mesmo nível nunca
+ * dividem partes) + escala + tamanho da caixa + âncora RELATIVA à caixa. Validade: assinatura do modelo
  * (`modelSig`: todos os campos do projeto menos `sheets`). A posição da caixa (`at`) NÃO entra na chave: o desenho é só
  * transladado por (at - at do cache), o que torna mover uma vista (e inserir outra) livres de recálculo. Vistas 3D não
  * entram no cache (a câmera ao vivo não faz parte do projeto).

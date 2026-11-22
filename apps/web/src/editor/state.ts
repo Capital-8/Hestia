@@ -65,6 +65,8 @@ export interface UiState {
   planKind: PlanKind;
   /** Planta de área ativa quando `planKind` é 'area'. */
   areaPlanId: Id | null;
+  /** Planta de disciplina ativa (planta de piso adicional do nível, decisão 0060); null = planta padrão. Só vale com `planKind` 'floor'. */
+  planViewId: Id | null;
   /** Rótulo em arraste (fantasma), compartilhado por qualquer planta. */
   tagDrag: { planId: Id; roomId: Id; at: Vec2 } | null;
   /** Ferramenta Alinhar ativa na prancha (sessão; decisão 0039). */
@@ -401,6 +403,7 @@ export const useUi = create<UiState>(() => ({
   levelId: 'lv_0',
   planKind: 'floor',
   areaPlanId: null,
+  planViewId: null,
   tagDrag: null,
   sheetAlign: false,
   sheetMove: false,
@@ -486,7 +489,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.planViewId === prev.planViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);

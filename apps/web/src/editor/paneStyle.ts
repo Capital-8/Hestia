@@ -1,4 +1,4 @@
-import { PLAN_VISUAL_STYLES, levelGraphicsOf, sectionGraphicsOf, view3dOf, type Id, type Project, type View3DSettings, type ViewGraphics, type VisualStyle } from '@hestia/model';
+import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type Id, type Project, type View3DSettings, type ViewGraphics, type VisualStyle } from '@hestia/model';
 import { findPane, type PaneId, type PaneStyle } from './panes.ts';
 import { usePanes } from './paneStore.ts';
 import { editor } from './controller.ts';
@@ -43,27 +43,36 @@ export const PANE_STYLE_PRESETS: { readonly view3d: readonly PaneStylePreset[]; 
 const derivados = new WeakMap<Project, Map<string, Project>>();
 
 /**
+ * Cópia rasa do projeto com os gráficos de UMA planta trocados: a padrão grava em `levels[].graphics`; a de disciplina,
+ * em `planViews[].graphics`. Só o desenho usa (nunca é gravado). Sem `planId`, é a substituição que já existia.
+ */
+export function comGraficosDaPlanta(p: Project, levelId: Id, planId: Id | undefined, g: ViewGraphics): Project {
+  if (planId === undefined) return { ...p, levels: p.levels.map((l) => (l.id === levelId ? { ...l, graphics: g } : l)) };
+  return { ...p, planViews: (p.planViews ?? []).map((x) => (x.id === planId && x.levelId === levelId ? { ...x, graphics: g } : x)) };
+}
+
+/**
  * Projeto "visto pelo painel": cópia rasa do projeto com os gráficos da vista trocados pelos efetivos. Só serve ao
  * desenho (nunca é gravado). Memorizado por (projeto, estilo, vista) para a identidade ser estável entre quadros: os
  * caches da cena (por projeto) continuam valendo. Estilo que não muda nada devolve o próprio projeto.
  */
-export function projetoDoPainel(p: Project, s: PaneStyle, alvo: { kind: '3d' } | { kind: 'plan'; levelId: Id } | { kind: 'section' }): Project {
+export function projetoDoPainel(p: Project, s: PaneStyle, alvo: { kind: '3d' } | { kind: 'plan'; levelId: Id; planId?: Id } | { kind: 'section' }): Project {
   let base: Project = p;
   if (alvo.kind === '3d') {
     const v = view3dOf(p);
     const e = effectiveView3d(v, s);
     if (e !== v) base = { ...p, view3d: e };
   } else if (alvo.kind === 'plan') {
-    const g = levelGraphicsOf(p, alvo.levelId);
+    const g = planGraphicsOf(p, alvo.levelId, alvo.planId);
     const e = effectivePlanGraphics(g, s);
-    if (e !== g) base = { ...p, levels: p.levels.map((l) => (l.id === alvo.levelId ? { ...l, graphics: e } : l)) };
+    if (e !== g) base = comGraficosDaPlanta(p, alvo.levelId, alvo.planId, e);
   } else {
     const g = sectionGraphicsOf(p);
     const e = effectivePlanGraphics(g, s);
     if (e !== g) base = { ...p, sectionGraphics: e };
   }
   if (base === p) return p;
-  const key = `${alvo.kind}|${alvo.kind === 'plan' ? alvo.levelId : ''}|${s.style ?? ''}|${s.shadows ?? ''}|${s.edges ?? ''}|${s.background ?? ''}|${s.thinLines ?? ''}`;
+  const key = `${alvo.kind}|${alvo.kind === 'plan' ? `${alvo.levelId}|${alvo.planId ?? ''}` : ''}|${s.style ?? ''}|${s.shadows ?? ''}|${s.edges ?? ''}|${s.background ?? ''}|${s.thinLines ?? ''}`;
   let m = derivados.get(p);
   if (!m) derivados.set(p, (m = new Map()));
   const guardado = m.get(key);
@@ -86,7 +95,7 @@ export function descreverEstiloAplicado(paneId: PaneId): EstiloAplicado | null {
     return { style: e.style, shadows: e.shadows, edges: e.edges, background: e.background };
   }
   if (v.kind === 'plan' || v.kind === 'section') {
-    const base = v.kind === 'plan' ? levelGraphicsOf(p, v.levelId) : sectionGraphicsOf(p);
+    const base = v.kind === 'plan' ? planGraphicsOf(p, v.levelId, v.planViewId ?? undefined) : sectionGraphicsOf(p);
     return { style: effectivePlanGraphics(base, pane.style).style, shadows: false, edges: false, background: null };
   }
   return null;

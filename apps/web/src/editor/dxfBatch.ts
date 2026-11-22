@@ -1,6 +1,7 @@
-import { levelGraphicsOf, sectionGraphicsOf, sectionTitleOf, type Id, type Project } from '@hestia/model';
+import { planGraphicsOf, planViewsOfLevel, sectionGraphicsOf, sectionTitleOf, type Id, type Project } from '@hestia/model';
 import type { DxfBatchFile, DxfBatchOptions, DxfBatchRenderers, DxfBatchResult, DxfBatchSkip, DxfBatchTarget } from './dxfBatch.types.ts';
 import { t as tr, useI18n, type Lang } from './i18n.ts';
+import { planKey, viewKey } from './viewIdentity.ts';
 
 /** Idioma ativo (fora do React); `options.lang` manda quando presente. */
 const activeLang = (): Lang => useI18n.getState().lang;
@@ -27,12 +28,16 @@ export function dxfSanitizeName(text: string, lang: Lang = 'pt'): string {
 /** Documentos exportáveis do projeto, na ordem do diálogo: plantas, áreas, cortes/elevações e pranchas. */
 export function dxfBatchTargetsOf(p: Project): DxfBatchTarget[] {
   return [
-    ...p.levels.map((l): DxfBatchTarget => ({ kind: 'plan', key: `plan:${l.id}`, levelId: l.id, label: l.name, group: 'plantas' })),
-    ...(p.areaPlans ?? []).map((a): DxfBatchTarget => ({ kind: 'area', key: `area:${a.id}`, planId: a.id, label: a.name, group: 'areas' })),
+    // Cada nível: a planta padrão e, logo depois, as plantas de disciplina dele (chave `pv:`, decisão 0060 §7).
+    ...p.levels.flatMap((l): DxfBatchTarget[] => [
+      { kind: 'plan', key: planKey(l.id), levelId: l.id, label: l.name, group: 'plantas' },
+      ...planViewsOfLevel(p, l.id).map((pv): DxfBatchTarget => ({ kind: 'plan', key: planKey(l.id, pv.id), levelId: l.id, planId: pv.id, label: pv.name, group: 'plantas' })),
+    ]),
+    ...(p.areaPlans ?? []).map((a): DxfBatchTarget => ({ kind: 'area', key: viewKey({ kind: 'plan', levelId: a.levelId, planKind: 'area', areaPlanId: a.id }), planId: a.id, label: a.name, group: 'areas' })),
     ...p.views.map(
-      (v): DxfBatchTarget => ({ kind: 'section', key: `section:${v.id}`, viewId: v.id, label: sectionTitleOf(v), group: 'cortes', elevation: v.kind === 'elevation' }),
+      (v): DxfBatchTarget => ({ kind: 'section', key: viewKey({ kind: 'section', viewId: v.id }), viewId: v.id, label: sectionTitleOf(v), group: 'cortes', elevation: v.kind === 'elevation' }),
     ),
-    ...(p.sheets ?? []).map((s): DxfBatchTarget => ({ kind: 'sheet', key: `sheet:${s.id}`, sheetId: s.id, label: `${s.number} ${s.name}`, group: 'pranchas' })),
+    ...(p.sheets ?? []).map((s): DxfBatchTarget => ({ kind: 'sheet', key: viewKey({ kind: 'sheet', sheetId: s.id }), sheetId: s.id, label: `${s.number} ${s.name}`, group: 'pranchas' })),
   ];
 }
 
@@ -79,7 +84,7 @@ function areaPlanDe(p: Project, planId: Id) {
 /** Valores dos tokens do modelo de nome. */
 function tokensOf(p: Project, t: DxfBatchTarget, options: DxfBatchOptions, lang: Lang): Record<string, string> {
   const projeto = options.prefix.trim() || p.name;
-  if (t.kind === 'plan') return { projeto, tipo: tr(lang, 'io_batch_type_plan'), nome: t.label, nivel: t.label, prancha: '' };
+  if (t.kind === 'plan') return { projeto, tipo: tr(lang, 'io_batch_type_plan'), nome: t.label, nivel: nivelDe(p, t.levelId), prancha: '' };
   if (t.kind === 'area') {
     const plan = areaPlanDe(p, t.planId);
     return { projeto, tipo: tr(lang, 'io_batch_type_area'), nome: t.label, nivel: plan ? nivelDe(p, plan.levelId) : '', prancha: '' };
@@ -99,7 +104,7 @@ function nomeDe(p: Project, t: DxfBatchTarget, options: DxfBatchOptions, lang: L
 
 /** Escala de papel do alvo, no formato `1:<denominador>`; prancha fica vazia (a escala é da folha). */
 function escalaDe(p: Project, t: DxfBatchTarget): string {
-  if (t.kind === 'plan') return `1:${levelGraphicsOf(p, t.levelId).scale}`;
+  if (t.kind === 'plan') return `1:${planGraphicsOf(p, t.levelId, t.planId).scale}`;
   if (t.kind === 'area') {
     const plan = areaPlanDe(p, t.planId);
     return plan ? `1:${plan.scale}` : '';
@@ -110,7 +115,7 @@ function escalaDe(p: Project, t: DxfBatchTarget): string {
 
 /** Nível do alvo no manifest (corte/elevação e prancha não têm nível natural). */
 function nivelDoAlvo(p: Project, t: DxfBatchTarget): string {
-  if (t.kind === 'plan') return t.label;
+  if (t.kind === 'plan') return nivelDe(p, t.levelId);
   if (t.kind === 'area') {
     const plan = areaPlanDe(p, t.planId);
     return plan ? nivelDe(p, plan.levelId) : '';
@@ -150,7 +155,7 @@ function leiaMeDe(options: DxfBatchOptions, contagem: number, lang: Lang): strin
 
 /** Renderiza um alvo pelo renderizador do tipo. Lança se o renderizador lançar. */
 function renderizar(p: Project, t: DxfBatchTarget, options: DxfBatchOptions, renderers: DxfBatchRenderers, lang: Lang): string {
-  if (t.kind === 'plan') return renderers.plan(p, t.levelId, options);
+  if (t.kind === 'plan') return renderers.plan(p, t.levelId, options, t.planId);
   if (t.kind === 'area') return renderers.area(p, t.planId, options);
   if (t.kind === 'section') return renderers.section(p, t.viewId, options);
   const sheet = renderers.sheet;

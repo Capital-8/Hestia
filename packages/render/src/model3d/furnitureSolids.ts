@@ -335,7 +335,7 @@ function malhaDePicking(caixas: CaixaDeInstancia[], material: THREE.Material): T
   geo.setIndex(new THREE.BufferAttribute(idx, 1));
   const mesh = new THREE.Mesh(geo, material);
   // Visível para a seleção por caixa e o picking, mas sem cor nem profundidade (o material é o de picking).
-  mesh.userData = { kind: 'generic', ranges, moveisPick: true };
+  mesh.userData = { kind: 'component', ranges, moveisPick: true };
   mesh.frustumCulled = false;
   return mesh;
 }
@@ -390,7 +390,7 @@ export function buildFurnitureLevel(p: Project, levelId: Id, ctx: ContextoMoveis
         mesh.castShadow = ctx.sombras === true;
         mesh.receiveShadow = ctx.sombras === true;
         mesh.userData = {
-          kind: 'generic',
+          kind: 'component',
           semPick: true,
           moveis: true,
           furnitureIds: g.ids,
@@ -417,7 +417,7 @@ export function buildFurnitureGhostBatches(p: Project, levelId: Id): SolidBatch[
   const assets = p.furniture?.assets;
   if (!assets) return [];
   const cota = cotaDoNivel(p, levelId);
-  const batch: SolidBatch = { materialId: 'mat_concreto', category: 'generic', positions: [], normals: [], indices: [], ids: [] };
+  const batch: SolidBatch = { materialId: 'mat_concreto', category: 'component', positions: [], normals: [], indices: [], ids: [] };
   for (const e of Object.values(p.elements)) {
     if (!isFurniture(e) || e.levelId !== levelId) continue;
     const asset = assets[e.assetId];

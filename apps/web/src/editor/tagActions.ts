@@ -2,6 +2,7 @@ import { areaPlanOf, defaultTagFamilyIdOf, duplicateMarks, isOpening, isWall, ma
 import { levelFrames, openingTagPoint, pointAt } from '@hestia/engine';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
+import { planViewIdDe } from './viewIdentity.ts';
 
 function levelOf(p: Project, element: Element): Id | null {
   if ('levelId' in element) return element.levelId;
@@ -45,10 +46,15 @@ export interface TagAllOptions {
 function activeViewTagContext(p: Project): { levelId: Id; planId?: Id; sectionId?: Id; existing: Set<Id> } {
   const st = useUi.getState();
   const levelId = st.levelId;
-  const planId = st.planKind === 'area' && st.areaPlanId ? st.areaPlanId : undefined;
+  // Planta dona das anotações: a de área ou a de disciplina (0060 §5); a padrão usa as do nível.
+  const pvId = planViewIdDe(st);
+  const pv = pvId ? (p.planViews ?? []).find((x) => x.id === pvId && x.levelId === levelId) : undefined;
+  const planId = pv ? pv.id : st.planKind === 'area' && st.areaPlanId ? st.areaPlanId : undefined;
   const sectionId = st.view === 'section' && st.sectionId ? st.sectionId : undefined;
   const currentTags = sectionId
     ? sectionAnnotationsOf(p.views.find((v) => v.id === sectionId)).tags
+    : pv
+      ? planAnnotationsOf(pv).tags
     : planId
       ? (areaPlanOf(p, planId) ? planAnnotationsOf(areaPlanOf(p, planId)!).tags : [])
       : (p.levels.find((x) => x.id === levelId)?.tags ?? []);

@@ -13,7 +13,7 @@ export type DxfBatchGroup = 'plantas' | 'areas' | 'cortes' | 'pranchas';
 
 /** Um documento exportável: planta de nível, planta de área, corte/elevação ou prancha. */
 export type DxfBatchTarget =
-  | { kind: 'plan'; key: string; levelId: Id; label: string; group: 'plantas' }
+  | { kind: 'plan'; key: string; levelId: Id; planId?: Id; label: string; group: 'plantas' }
   | { kind: 'area'; key: string; planId: Id; label: string; group: 'areas' }
   | { kind: 'section'; key: string; viewId: Id; label: string; group: 'cortes'; elevation: boolean }
   | { kind: 'sheet'; key: string; sheetId: Id; label: string; group: 'pranchas' };
@@ -34,7 +34,8 @@ export interface DxfBatchOptions {
 
 /** Renderizadores por tipo de documento; cada um devolve o texto do DXF já na unidade pedida. */
 export interface DxfBatchRenderers {
-  plan(p: Project, levelId: Id, options: DxfBatchOptions): string;
+  /** `planId`: planta de disciplina (decisão 0060 §7); ausente = planta padrão do nível. */
+  plan(p: Project, levelId: Id, options: DxfBatchOptions, planId?: Id): string;
   area(p: Project, planId: Id, options: DxfBatchOptions): string;
   section(p: Project, viewId: Id, options: DxfBatchOptions): string;
   /** Prancha como plotada (modo do Revit). Ausente = prancha marcada entra em `skipped`. */
