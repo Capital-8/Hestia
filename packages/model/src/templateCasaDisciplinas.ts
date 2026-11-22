@@ -39,8 +39,9 @@ import { makeWall } from './wall.ts';
  * Teste de disciplinas completo (decisão 0060, adendos 1 e 2): dois pavimentos de 6 × 8 m, um térreo e um superior, com
  * elementos de todas as categorias gráficas que se criam por comando, de propósito misturados e próximos: paredes (uma
  * curva), portas e janelas, piso, laje, forro, telhado, escada, rampa, guarda-corpo, ambientes, pilares, vigas, sapatas,
- * terreno, lote, massa, CAD, genérico, móvel importado, móveis de arquitetura e os componentes de exemplo das disciplinas
- * hidrossanitária, elétrica e HVAC. As quatro plantas de disciplina existem em CADA pavimento, com o nome padrão
+ * terreno, lote, massa, CAD, genérico (um proxy e três instalações importadas do IFC: tubo, duto e cabo, cuja disciplina
+ * vem da classe de origem — adendo 3, fase 7), móvel importado, móveis de arquitetura e os componentes de exemplo das
+ * disciplinas hidrossanitária, elétrica e HVAC. As quatro plantas de disciplina existem em CADA pavimento, com o nome padrão
  * "<Nível> - <Disciplina>", para testar a troca de nível mantendo a disciplina.
  *
  * Anotações de teste (decisão 0060 §5): uma cota e um texto na planta de Estrutura do térreo, uma cota na de Elétrico do
@@ -70,6 +71,35 @@ const abertura = (id: Id, hostId: Id, typeId: Id, offset: number, kind: 'door' |
   type: 'addOpening',
   opening: { id, kind, typeId, hostId, offset, flipHand: false, flipFacing: false, sillOverride: null, mark: '' },
 });
+
+/**
+ * Genérico pequeno importado do IFC (adendo 3, fase 7): caixa de 0,3 × 0,3 × 0,3 m no térreo, em (x, y), com contorno
+ * retangular em planta para aparecer nas plantas de disciplina. A disciplina e a categoria vêm de `sourceClass`.
+ */
+const genericoIfc = (id: Id, sourceClass: string, name: string, x: number, y: number): Command => {
+  const s = 0.3;
+  return {
+    type: 'addGeneric',
+    generic: {
+      id,
+      kind: 'generic',
+      levelId: TERREO,
+      name,
+      sourceClass,
+      mesh: {
+        // Em memória a malha fica em arrays tipados (types.ts): serializar → abrir → serializar é idêntico.
+        positions: Float32Array.from([
+          x, y, 0, x + s, y, 0, x + s, y + s, 0, x, y + s, 0,
+          x, y, s, x + s, y, s, x + s, y + s, s, x, y + s, s,
+        ]),
+        indices: Uint32Array.from([
+          0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 2, 3, 7, 2, 7, 6, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5,
+        ]),
+      },
+      outline: rect(x, y, x + s, y + s),
+    },
+  };
+};
 
 const componente = (id: Id, familyId: Id, levelId: Id, x: number, y: number, z: number, rotation: number, mark: string): Command => {
   const component: Omit<Component, 'order'> = {
@@ -391,6 +421,10 @@ const SITIO: Command[] = [
       ],
     },
   },
+  // Instalações importadas do IFC (adendo 3, fase 7): a disciplina vem da classe de origem (`sourceClass`).
+  genericoIfc('g_ifc_pipe', 'IFCPIPESEGMENT', 'Tubo de água (IFC)', 8, 9.5),
+  genericoIfc('g_ifc_duct', 'IFCDUCTSEGMENT', 'Duto de ar (IFC)', 8.5, 9.5),
+  genericoIfc('g_ifc_cable', 'IFCCABLESEGMENT', 'Cabo elétrico (IFC)', 9, 9.5),
 ];
 
 /** Móvel importado mínimo (um tapete raso) para cobrir o kind `furniture`. */

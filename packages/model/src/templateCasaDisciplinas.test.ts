@@ -255,3 +255,52 @@ describe('modelo inicial "Teste de disciplinas (completo)"', () => {
     expect(prancha.viewports.map((v) => v.scale)).toEqual([50, 50]);
   });
 });
+
+/*
+ * F7b (adendo 3, fase 7): o modelo de teste ganhou três genéricos de instalações importados do IFC, cuja disciplina e
+ * categoria vêm da classe de origem (`sourceClass`). Os ids, classes, nomes e disciplinas esperados são LITERAIS.
+ */
+describe('genéricos de instalações IFC no modelo de teste', () => {
+  type Generico = Extract<Element, { kind: 'generic' }>;
+  const p = projeto();
+  const porId = (id: string): Generico => p.elements[id] as Generico;
+  const genericos = Object.values(p.elements).filter((e): e is Generico => e.kind === 'generic');
+  /** Os três genéricos de instalações (hidrossanitário, HVAC e elétrico); o proxy `cd_generico` continua `geral`. */
+  const deInstalacao = genericos.filter((e) => ['hidrossanitario', 'hvac', 'eletrico'].includes(disciplineOfElement(e, p)));
+
+  it('contém exatamente 3 genéricos de instalações, um por disciplina', () => {
+    expect(genericos.map((e) => e.id).sort()).toEqual(['cd_generico', 'g_ifc_cable', 'g_ifc_duct', 'g_ifc_pipe']);
+    expect(deInstalacao.map((e) => e.id).sort()).toEqual(['g_ifc_cable', 'g_ifc_duct', 'g_ifc_pipe']);
+    expect(disciplineOfElement(porId('g_ifc_pipe'), p)).toBe('hidrossanitario');
+    expect(disciplineOfElement(porId('g_ifc_duct'), p)).toBe('hvac');
+    expect(disciplineOfElement(porId('g_ifc_cable'), p)).toBe('eletrico');
+    expect(disciplineOfElement(porId('cd_generico'), p)).toBe('geral');
+  });
+
+  it('a categoria de cada um vem da classe de origem', () => {
+    expect(categoriaDoElemento(porId('g_ifc_pipe'), p)).toBe('plumbingFixture');
+    expect(categoriaDoElemento(porId('g_ifc_duct'), p)).toBe('mechanicalEquipment');
+    expect(categoriaDoElemento(porId('g_ifc_cable'), p)).toBe('electricalFixture');
+    expect(categoriaDoElemento(porId('cd_generico'), p)).toBe('generic');
+  });
+
+  it('cada um tem id, nome e classe literais e contorno em planta com ao menos 3 pontos', () => {
+    const ESPERADO: Array<[string, string, string]> = [
+      ['g_ifc_pipe', 'IFCPIPESEGMENT', 'Tubo de água (IFC)'],
+      ['g_ifc_duct', 'IFCDUCTSEGMENT', 'Duto de ar (IFC)'],
+      ['g_ifc_cable', 'IFCCABLESEGMENT', 'Cabo elétrico (IFC)'],
+    ];
+    for (const [id, classe, nome] of ESPERADO) {
+      const e = porId(id);
+      expect(e.id, id).toBe(id);
+      expect(e.name, id).toBe(nome);
+      expect(e.sourceClass, id).toBe(classe);
+      expect(e.levelId, id).toBe('lv_0');
+      expect(e.outline?.length ?? 0, id).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('o modelo continua sem nenhum problema de validação', () => {
+    expect(validateProject(p)).toEqual([]);
+  });
+});
