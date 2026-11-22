@@ -188,8 +188,8 @@ describe('camposTravadosPelaComposicao', () => {
 });
 
 describe('esquema', () => {
-  it('SCHEMA_VERSION é 31', () => {
-    expect(SCHEMA_VERSION).toBe(31);
-    expect(createEmptyProject().schemaVersion).toBe(31);
+  it('SCHEMA_VERSION é 32', () => {
+    expect(SCHEMA_VERSION).toBe(32);
+    expect(createEmptyProject().schemaVersion).toBe(32);
   });
 });
