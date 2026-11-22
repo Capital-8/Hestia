@@ -8,7 +8,6 @@ import {
   GRAPHICS_CATEGORIES,
   categoriaDoElemento,
   categoriasPorDisciplina,
-  disciplinaDaCategoria,
   isDiscipline,
   makeBeam,
   makeCeiling,
@@ -34,6 +33,8 @@ import {
   type GraphicsCategory,
   type Tone,
 } from './index.ts';
+// A versão do REGISTRO puro (sem remapeamento por projeto); a do barril é a de `disciplineProfile.ts`.
+import { disciplinaDaCategoria } from './registroCategorias.ts';
 
 /*
  * Registro único de categorias (decisão 0060, adendo 3, §2) e garantia de cobertura de disciplina

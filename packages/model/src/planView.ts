@@ -94,10 +94,12 @@ export function planOf(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planV
       tones: { ...(view.tones ?? {}) },
     };
   }
+  const nivel = p.levels.find((l) => l.id === levelId);
+  const disciplinaDoNivel = nivel?.discipline;
   return {
     levelId,
-    discipline: DEFAULT_DISCIPLINE,
-    name: p.levels.find((l) => l.id === levelId)?.name ?? '',
+    discipline: isDisciplineId(disciplinaDoNivel) ? disciplinaDoNivel : DEFAULT_DISCIPLINE,
+    name: nivel?.name ?? '',
     isDefault: true,
     graphics: planGraphicsOf(p, levelId),
     hidden: planHiddenOf(p, levelId),

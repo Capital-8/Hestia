@@ -1,5 +1,6 @@
 import { disciplineOfElement } from './discipline.ts';
 import { t, type Lang } from './i18n.ts';
+import type { Discipline } from './planView.ts';
 import type { DetailLevel, Element, Id, Project } from './types.ts';
 
 /**
@@ -151,6 +152,11 @@ export interface ViewGraphics {
 
 /** Gráficos do modelo 3D (o app tem uma vista 3D). */
 export interface View3DSettings {
+  /**
+   * Disciplina de trabalho da vista 3D (decisão 0060, adendo 3). Ausente = todas as disciplinas, o comportamento de
+   * hoje; dado inválido é ignorado na leitura (cai em "todas"), nunca quebra.
+   */
+  discipline?: Discipline;
   style: VisualStyle;
   partialStructure: PartialStructure;
   overrides: Record<GraphicsCategory, CategoryOverride>;
