@@ -1,6 +1,19 @@
 import { familiaDoComponente } from './componentes.ts';
 import { familiaDaBiblioteca } from './familia/biblioteca/index.ts';
-import { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone, type Discipline, type PlanView, type Tone } from './planView.ts';
+import {
+  BUILTIN_DISCIPLINES,
+  DEFAULT_DISCIPLINE,
+  DISCIPLINES,
+  TONES,
+  isBuiltinDiscipline,
+  isDiscipline,
+  isDisciplineId,
+  isTone,
+  type BuiltinDiscipline,
+  type Discipline,
+  type PlanView,
+  type Tone,
+} from './planView.ts';
 import type { Element, Project } from './types.ts';
 
 /**
@@ -11,8 +24,8 @@ import type { Element, Project } from './types.ts';
  * valem para eles.
  */
 
-export { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone };
-export type { Discipline, Tone };
+export { BUILTIN_DISCIPLINES, DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isBuiltinDiscipline, isDiscipline, isDisciplineId, isTone };
+export type { BuiltinDiscipline, Discipline, Tone };
 
 /** Disciplina derivada de um elemento: as cinco das plantas, ou `geral` (terrain, lote, terreno, CAD, importado). */
 export type ElementDiscipline = Discipline | 'geral';
@@ -63,11 +76,11 @@ export function disciplineOfElement(el: Element, p: Pick<Project, 'componentFami
 }
 
 /**
- * Predefinidos de tom por planta (tabela da ADR §4.2): para cada disciplina da planta, o tom de cada disciplina
- * de elemento. `geral` não tem coluna: nunca recebe tom (§4.1, passo 3). O dono desvia por planta em
- * `PlanView.tones`, e o desvio vale sobre o predefinido (não substitui a tabela inteira).
+ * Predefinidos de tom por planta (tabela da ADR §4.2): para cada disciplina embutida da planta, o tom de cada
+ * disciplina embutida de elemento. `geral` não tem coluna: nunca recebe tom (§4.1, passo 3). O dono desvia por planta
+ * em `PlanView.tones`, e o desvio vale sobre o predefinido (não substitui a tabela inteira).
  */
-export const DISCIPLINE_TONE_PRESETS: Record<Discipline, Record<Discipline, Tone>> = {
+export const DISCIPLINE_TONE_PRESETS: Record<BuiltinDiscipline, Record<BuiltinDiscipline, Tone>> = {
   arquitetura: { arquitetura: 'normal', estrutura: 'normal', hidrossanitario: 'halftone', eletrico: 'halftone', hvac: 'halftone' },
   estrutura: { arquitetura: 'halftone', estrutura: 'normal', hidrossanitario: 'hidden', eletrico: 'hidden', hvac: 'hidden' },
   hidrossanitario: { arquitetura: 'halftone', estrutura: 'halftone', hidrossanitario: 'normal', eletrico: 'hidden', hvac: 'hidden' },
@@ -76,16 +89,33 @@ export const DISCIPLINE_TONE_PRESETS: Record<Discipline, Record<Discipline, Tone
 };
 
 /**
+ * Tom predefinido de uma disciplina de elemento na planta de `trabalho` (adendo 3, decisão 4). As duas embutidas
+ * usam a tabela §4.2; fora dela, a regra de fallback: a mesma disciplina é `normal`, outra é `halftone`.
+ */
+export function presetTone(trabalho: Discipline, elemento: Discipline): Tone {
+  if (isBuiltinDiscipline(trabalho) && isBuiltinDiscipline(elemento)) return DISCIPLINE_TONE_PRESETS[trabalho][elemento];
+  return trabalho === elemento ? 'normal' : 'halftone';
+}
+
+/**
  * Tons efetivos de uma planta: o predefinido da disciplina dela combinado com os desvios gravados em
  * `PlanView.tones` (o desvio vale sobre o predefinido). Sem planta (a padrão do nível) usa o predefinido de
  * Arquitetura e **não grava nada** (`Level` não ganha campo — ADR §4.2). Aceita `ResolvedPlan`, que tem os
  * mesmos campos `discipline` e `tones`. Entradas malformadas (disciplina ou tom inválidos, valor ausente)
  * são ignoradas: a leitura nunca quebra por dado ruim (a validação de `planViewIssues` é que sinaliza).
+ * As cinco embutidas sempre saem; a própria disciplina da planta, se não for embutida, entra como `normal`.
+ * Desvios só valem para as embutidas ou para a própria disciplina da planta, porque as disciplinas do projeto
+ * ainda não são gravadas nesta fase (adendo 3, fase 0).
  */
-export function planTonesOf(planView?: Pick<PlanView, 'discipline' | 'tones'>): Record<Discipline, Tone> {
-  const out: Record<Discipline, Tone> = { ...DISCIPLINE_TONE_PRESETS[planView?.discipline ?? DEFAULT_DISCIPLINE] };
+export function planTonesOf(planView?: Pick<PlanView, 'discipline' | 'tones'>): Record<string, Tone> {
+  const trabalho = planView?.discipline ?? DEFAULT_DISCIPLINE;
+  const out: Record<string, Tone> = {};
+  for (const d of DISCIPLINES) out[d] = presetTone(trabalho, d);
+  if (!isBuiltinDiscipline(trabalho) && isDisciplineId(trabalho)) out[trabalho] = presetTone(trabalho, trabalho);
   for (const [d, tone] of Object.entries(planView?.tones ?? {})) {
-    if (isDiscipline(d) && isTone(tone)) out[d] = tone;
+    // Desvio só de disciplina conhecida nesta fase: embutida ou a própria disciplina da planta (as do projeto ainda
+    // não são gravadas). Mantém o comportamento dos arquivos atuais e ignora chave desconhecida sem lançar.
+    if (isDisciplineId(d) && isTone(tone) && (isBuiltinDiscipline(d) || d === trabalho)) out[d] = tone;
   }
   return out;
 }

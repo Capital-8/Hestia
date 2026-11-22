@@ -10,18 +10,26 @@ import type { Id, Project } from './types.ts';
  * adicionais. Ausente = nenhuma, e um arquivo sem a coleção abre e desenha exatamente como antes.
  */
 
-/** Disciplinas das plantas. União fechada: cada valor terá predefinido de tom e rótulo traduzido (etapa 3.1). */
-export type Discipline = 'arquitetura' | 'estrutura' | 'hidrossanitario' | 'eletrico' | 'hvac';
+/** Disciplinas embutidas das plantas. Tabelas sobre elas continuam exaustivas (predefinido e rótulo traduzido). */
+export type BuiltinDiscipline = 'arquitetura' | 'estrutura' | 'hidrossanitario' | 'eletrico' | 'hvac';
+/** Disciplina é identificador (texto): as embutidas acima mais as criadas no projeto (adendo 3). */
+export type Discipline = string;
 /** Tom de uma disciplina numa planta: oculta, meio-tom ou normal (a regra de visibilidade entra na etapa 3.2). */
 export type Tone = 'hidden' | 'halftone' | 'normal';
 
-export const DISCIPLINES: readonly Discipline[] = ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac'];
+export const DISCIPLINES: readonly BuiltinDiscipline[] = ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac'];
+/** Alias explícito da lista das cinco embutidas (as disciplinas do usuário ainda não são gravadas). */
+export const BUILTIN_DISCIPLINES: readonly BuiltinDiscipline[] = DISCIPLINES;
 export const TONES: readonly Tone[] = ['hidden', 'halftone', 'normal'];
 
 /** Disciplina da planta padrão de todo nível (a que reproduz o desenho de hoje). */
-export const DEFAULT_DISCIPLINE: Discipline = 'arquitetura';
+export const DEFAULT_DISCIPLINE: BuiltinDiscipline = 'arquitetura';
 
-export const isDiscipline = (x: unknown): x is Discipline => typeof x === 'string' && (DISCIPLINES as readonly string[]).includes(x);
+export const isBuiltinDiscipline = (x: unknown): x is BuiltinDiscipline => typeof x === 'string' && (DISCIPLINES as readonly string[]).includes(x);
+/** Nome mantido para os chamadores: verdadeiro só para as cinco embutidas. */
+export const isDiscipline = isBuiltinDiscipline;
+/** Identificador de disciplina: texto não vazio, sem espaços nas pontas, até 40 caracteres (embutida ou do projeto). */
+export const isDisciplineId = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= 40 && x.trim() === x;
 export const isTone = (x: unknown): x is Tone => typeof x === 'string' && (TONES as readonly string[]).includes(x);
 
 /** Anotações de uma planta adicional: mesmas estruturas da planta de área; ausente = vazio (nunca herda do nível). */

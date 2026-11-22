@@ -166,7 +166,7 @@ const TONS: Record<Discipline, Partial<Record<ElementDiscipline, Tom>>> = {
   hvac: { arquitetura: 'halftone', estrutura: 'halftone', hidrossanitario: 'hidden', eletrico: 'hidden', hvac: 'normal' },
 };
 const disciplinasComTom = (planta: Discipline, tom: Tom): ElementDiscipline[] =>
-  DISCIPLINAS.filter((d) => TONS[planta][d] === tom);
+  DISCIPLINAS.filter((d) => TONS[planta]?.[d] === tom);
 const idsComTom = (planta: Discipline, tom: Tom, nivel: Nivel): Id[] =>
   noNivel(disciplinasComTom(planta, tom).flatMap(daDisciplina), nivel);
 
