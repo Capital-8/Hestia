@@ -1,10 +1,26 @@
 import { useEffect, useRef } from 'react';
-import type { Id } from '@hestia/model';
+import type { CollabPresence, Discipline, Id } from '@hestia/model';
 import { editor } from '../editor/controller.ts';
 import { useUi, type ViewKind } from '../editor/state.ts';
 import { activateView } from '../editor/viewTabActions.ts';
 import { collabManager, useCollab } from './session.ts';
 import { parseCollabUrlParams } from './tokens.ts';
+
+/**
+ * Presença publicada aos demais colaboradores: a disciplina é a pessoal de quem olha (`minhaDisciplina`), nunca a da
+ * vista; `null` (automática) não publica disciplina e cada lado usa a sua.
+ */
+export function presencaParaPublicar(input: {
+  view: ViewKind;
+  levelId: Id;
+  sectionId: Id | null;
+  sheetId: Id | null;
+  selection: Id[];
+  minhaDisciplina: Discipline | null;
+}): Omit<CollabPresence, 'updatedAt'> {
+  const { view, levelId, sectionId, sheetId, selection, minhaDisciplina } = input;
+  return { view, levelId, sectionId, sheetId, selection, discipline: minhaDisciplina ?? undefined };
+}
 
 /**
  * Conecta o `collabManager` ao `editor.store`, processa convite na URL (`?collab=...&token=...`)
@@ -17,6 +33,7 @@ export function useCollabIntegration(view: ViewKind, levelId: Id, sectionId: Id 
   const prevPendingRef = useRef(0);
   const sheetId = useUi((s) => s.sheetId);
   const selection = useUi((s) => s.selection);
+  const minhaDisciplina = useUi((s) => s.minhaDisciplina);
 
   useEffect(() => {
     const detach = collabManager.attachStore(editor.store, {
@@ -60,6 +77,8 @@ export function useCollabIntegration(view: ViewKind, levelId: Id, sectionId: Id 
 
   useEffect(() => {
     if (collabMode === 'off') return;
-    collabManager.publishPresence({ view, levelId, sectionId, sheetId, selection });
-  }, [collabMode, view, levelId, sectionId, sheetId, selection]);
+    collabManager.publishPresence(
+      presencaParaPublicar({ view, levelId, sectionId, sheetId, selection, minhaDisciplina: useUi.getState().minhaDisciplina }),
+    );
+  }, [collabMode, view, levelId, sectionId, sheetId, selection, minhaDisciplina]);
 }

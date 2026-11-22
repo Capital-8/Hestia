@@ -1,5 +1,6 @@
 import type { Patch } from 'immer';
 import type { Command } from './commands.ts';
+import type { Discipline } from './planView.ts';
 import type { Project } from './types.ts';
 
 /** Papel de um participante na sessão colaborativa. */
@@ -39,6 +40,8 @@ export interface CollabPresence {
   sectionId?: string | null;
   sheetId?: string | null;
   cursor?: { x: number; y: number } | null;
+  /** Disciplina de trabalho de quem publica (adendo 3 da 0060); ausente = disciplina automática da vista. */
+  discipline?: Discipline;
   selection: string[];
   camera3d?: {
     azimuth: number;
