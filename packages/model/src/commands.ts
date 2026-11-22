@@ -79,7 +79,7 @@ import {
 } from './terrainLotFamilies.ts';
 import type { MarkAssignment } from './marks.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
-import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { DeepPartial, GraphicsCategory, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
 import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
 import type { SectionAnnotations } from './sectionAnnotations.ts';
@@ -134,7 +134,9 @@ import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyPlanViewCommand, dropPlanViewsOfLevel, type PlanViewPatch } from './planViewCommands.ts';
-import type { PlanView } from './planView.ts';
+import type { PlanView, Discipline } from './planView.ts';
+import { applyDisciplineProfileCommand } from './disciplineProfileCommands.ts';
+import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
@@ -309,6 +311,11 @@ export type Command =
   | { type: 'removePlanView'; id: Id }
   | { type: 'setPlanGraphics'; planId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetPlanGraphics'; planId: Id }
+  | { type: 'setDisciplineProfile'; discipline: Discipline; tones: DisciplineProfile | null }
+  | { type: 'setCategoryDiscipline'; category: GraphicsCategory; discipline?: Discipline }
+  | { type: 'addProjectDiscipline'; discipline: ProjectDiscipline }
+  | { type: 'updateProjectDiscipline'; id: Discipline; name?: string; color?: string }
+  | { type: 'removeProjectDiscipline'; id: Discipline }
   | { type: 'addRoomTag'; planId: Id; tag: RoomTag }
   | { type: 'updateRoomTag'; planId: Id; id: Id; patch: Partial<Omit<RoomTag, 'id' | 'planId' | 'roomId'>> }
   | { type: 'removeRoomTag'; planId: Id; id: Id }
@@ -806,6 +813,13 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       l.viewRange = next;
       break;
     }
+    case 'setDisciplineProfile':
+    case 'setCategoryDiscipline':
+    case 'addProjectDiscipline':
+    case 'updateProjectDiscipline':
+    case 'removeProjectDiscipline':
+      applyDisciplineProfileCommand(p, c, lang);
+      break;
     case 'setProjectGraphics':
       applyProjectGraphics(p, c.patch, lang);
       break;

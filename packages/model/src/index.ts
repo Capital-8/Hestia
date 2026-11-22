@@ -128,6 +128,7 @@ export {
   type DisciplineProfile,
   type ProjectDiscipline,
 } from './disciplineProfile.ts';
+export * from './disciplineProfileCommands.ts';
 export * from './registroCategorias.ts';
 export * from './grid.ts';
 export * from './dimensionSettings.ts';

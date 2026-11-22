@@ -335,6 +335,16 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar gráficos da planta';
     case 'resetPlanGraphics':
       return 'Restaurar gráficos da planta';
+    case 'setDisciplineProfile':
+      return 'Alterar perfil da disciplina';
+    case 'setCategoryDiscipline':
+      return 'Remapear disciplina da categoria';
+    case 'addProjectDiscipline':
+      return 'Criar disciplina';
+    case 'updateProjectDiscipline':
+      return 'Editar disciplina';
+    case 'removeProjectDiscipline':
+      return 'Excluir disciplina';
     case 'addRoomTag':
       return 'Criar etiqueta de ambiente';
     case 'updateRoomTag':
