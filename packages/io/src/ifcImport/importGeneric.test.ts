@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import fzkHaus from '../../../../tests/ifc/fixtures/fzk-haus.ifc?raw';
 import { importIfc } from './index.ts';
-import { isGeneric } from '@hestia/model';
+import { ifcBoxes } from './ifcTestKit.ts';
+import { disciplineOfElement, isGeneric } from '@hestia/model';
 
 describe('objetos importados (elemento genérico)', () => {
   const { project, report } = importIfc(fzkHaus);
@@ -41,5 +42,14 @@ describe('objetos importados (elemento genérico)', () => {
       const id = `im_${g.color!.replace('#', '').toLowerCase()}`;
       expect(project.materials[id]?.color).toBe(g.color);
     }
+  });
+
+  it('produto de tubulação vira genérico com disciplina hidrossanitária', () => {
+    const { project: p } = importIfc(
+      ifcBoxes([{ id: 1, type: 'IFCPIPESEGMENT', name: 'Tubo de água', x: 0, y: 0, z: 0, dx: 0.1, dy: 0.1, dz: 3, tail: '.RIGIDSEGMENT.' }]),
+    );
+    const tubos = Object.values(p.elements).filter(isGeneric).filter((g) => g.sourceClass === 'IFCPIPESEGMENT');
+    expect(tubos).toHaveLength(1);
+    expect(disciplineOfElement(tubos[0]!, p)).toBe('hidrossanitario');
   });
 });
