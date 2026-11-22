@@ -17,6 +17,25 @@ const generic = (id: string, levelId = 'lv_0'): Generic => ({
 });
 
 describe('malha do objeto importado no 3D', () => {
+  it('o filtro por elemento decide quem entra no lote, que continua da categoria `generic` (adendo 3 do ADR 0060)', () => {
+    // O que a cena passa aqui é `categoriaDoElemento` (a categoria do importado vem da classe de origem). Os valores
+    // esperados são LITERAIS: `g_ifc_pipe` é hidrossanitário e `g_ifc_duct` é HVAC.
+    const categoriaDoElementoTeste: Record<string, 'plumbingFixture' | 'mechanicalEquipment'> = {
+      g_ifc_pipe: 'plumbingFixture',
+      g_ifc_duct: 'mechanicalEquipment',
+    };
+    const p = createEmptyProject();
+    p.elements = {
+      g_ifc_pipe: { ...generic('g_ifc_pipe'), sourceClass: 'IFCPIPESEGMENT' },
+      g_ifc_duct: { ...generic('g_ifc_duct'), sourceClass: 'IFCDUCTSEGMENT' },
+    };
+    const lote = buildGenericSolids(p, 'lv_0', (e) => categoriaDoElementoTeste[e.id] !== 'mechanicalEquipment')[0];
+    expect(lote, 'lote do tubo').toBeDefined();
+    expect(lote!.category).toBe('generic');
+    expect(lote!.ids.map((r) => r.id)).toEqual(['g_ifc_pipe']);
+    expect(lote!.positions).toHaveLength(9);
+  });
+
   it('gera um triângulo com normal e a faixa do elemento', () => {
     const p = createEmptyProject();
     p.elements = { g_a: generic('g_a') };

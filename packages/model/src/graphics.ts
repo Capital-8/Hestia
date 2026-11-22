@@ -337,8 +337,24 @@ type PlanSource = Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>;
  * categoria POR DISCIPLINA da família (adendo 1): arquitetura e estrutura = `component`, hidrossanitário =
  * `plumbingFixture`, elétrico = `electricalFixture`, HVAC = `mechanicalEquipment`. Sem o projeto, a disciplina usa só a
  * biblioteca base (família do projeto não é encontrada), como em `disciplineOfElement`.
+ *
+ * Importado do IFC (`generic`, e `cad` com `sourceClass`) segue a disciplina da classe de origem (adendo 3, fase 7):
+ * hidrossanitário = `plumbingFixture`, elétrico = `electricalFixture`, HVAC = `mechanicalEquipment`; o resto = `generic`.
+ * `cad` sem `sourceClass` continua `generic`.
  */
-export function categoriaDoElemento(e: { kind: string; familyId?: Id }, p?: Pick<Project, 'componentFamilies'>): GraphicsCategory | null {
+export function categoriaDoElemento(
+  e: { kind: string; familyId?: Id; sourceClass?: string; predefinedType?: string; objectType?: string },
+  p?: Pick<Project, 'componentFamilies'>,
+): GraphicsCategory | null {
+  const categoriaDoImportado = (): GraphicsCategory => {
+    const disciplina = disciplineOfElement(e as unknown as Element, p ?? {});
+    switch (disciplina) {
+      case 'hidrossanitario': return 'plumbingFixture';
+      case 'eletrico': return 'electricalFixture';
+      case 'hvac': return 'mechanicalEquipment';
+      default: return 'generic';
+    }
+  };
   switch (e.kind) {
     case 'wall': return 'wall';
     case 'door': return 'door';
@@ -359,7 +375,8 @@ export function categoriaDoElemento(e: { kind: string; familyId?: Id }, p?: Pick
     case 'terrainRegion': return 'site';
     case 'lot': return 'lot';
     case 'cad':
-    case 'generic': return 'generic';
+      return typeof e.sourceClass === 'string' && e.sourceClass.trim() !== '' ? categoriaDoImportado() : 'generic';
+    case 'generic': return categoriaDoImportado();
     case 'furniture': return 'component';
     case 'component': {
       const disciplina = disciplineOfElement(e as unknown as Element, p ?? {});

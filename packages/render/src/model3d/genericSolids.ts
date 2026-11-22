@@ -8,12 +8,17 @@ import type { ElementRange, LoteSolido } from './solids.ts';
  * do tamanho exato (contagem numa primeira passada), sem arrays JS intermediários: num IFC de milhões de triângulos isso
  * é a diferença entre centenas de MB de heap e nenhum. A faixa de índices do elemento (`ids`) segue como nas paredes,
  * para o picking do 3D. A cor do IFC vira um lote por material (`im_<hex>`, criado na importação).
+ *
+ * `visivel` (opcional): filtro por ELEMENTO, para a vista decidir com a regra do modelo (`categoriaDoElemento`, que no
+ * importado vem da classe de origem — adendo 3 do ADR 0060). O lote continua na categoria `generic`: é ela que dá o
+ * sombreamento chapado da malha soldada e a chave do lote na GPU; o que muda é só quem entra no lote.
  */
-export function buildGenericSolids(p: Project, levelId: Id): LoteSolido[] {
+export function buildGenericSolids(p: Project, levelId: Id, visivel?: (e: Generic) => boolean): LoteSolido[] {
   // Passada 1: elementos por material e contagem exata de vértices/índices.
   const grupos = new Map<string, { elementos: Generic[]; nV: number; nI: number }>();
   for (const e of Object.values(p.elements)) {
     if (!isGeneric(e) || e.levelId !== levelId) continue;
+    if (visivel && !visivel(e)) continue;
     const nI = e.mesh.indices.length - (e.mesh.indices.length % 3);
     if (nI === 0) continue;
     const materialId = materialOf(e);

@@ -43,7 +43,7 @@ interface ElementoDoTeste {
   disciplina: ElementDiscipline;
 }
 
-/** Os 83 elementos do modelo de teste, um por linha, com o que se espera de cada eixo. */
+/** Os 86 elementos do modelo de teste, um por linha, com o que se espera de cada eixo. */
 const ELEMENTOS: readonly ElementoDoTeste[] = [
   // Térreo — arquitetura (paredes, aberturas, piso, forro, escada, ambientes e componentes).
   { id: 'cd_w_s', kind: 'wall', level: 'lv_0', categoria: 'wall', disciplina: 'arquitetura' },
@@ -94,6 +94,10 @@ const ELEMENTOS: readonly ElementoDoTeste[] = [
   { id: 'cd_massa', kind: 'mass', level: 'lv_0', categoria: 'mass', disciplina: 'arquitetura' },
   { id: 'cd_cad', kind: 'cad', level: 'lv_0', categoria: 'generic', disciplina: 'geral' },
   { id: 'cd_generico', kind: 'generic', level: 'lv_0', categoria: 'generic', disciplina: 'geral' },
+  // Térreo — instalações importadas do IFC (adendo 3, fase 7): disciplina e categoria pela classe de origem.
+  { id: 'g_ifc_pipe', kind: 'generic', level: 'lv_0', categoria: 'plumbingFixture', disciplina: 'hidrossanitario' },
+  { id: 'g_ifc_duct', kind: 'generic', level: 'lv_0', categoria: 'mechanicalEquipment', disciplina: 'hvac' },
+  { id: 'g_ifc_cable', kind: 'generic', level: 'lv_0', categoria: 'electricalFixture', disciplina: 'eletrico' },
   { id: 'cd_furn_tapete', kind: 'furniture', level: 'lv_0', categoria: 'component', disciplina: 'arquitetura' },
   // Pavimento 2 — arquitetura.
   { id: 'cd2_w_s', kind: 'wall', level: 'lv_1', categoria: 'wall', disciplina: 'arquitetura' },

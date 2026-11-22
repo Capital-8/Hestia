@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
 import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, temTerreno, type MalhaTerreno, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type Tone, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, categoriaDoElemento, type Generic, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type Tone, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -1451,7 +1451,14 @@ export class ModelScene {
     const slabs = shown('slab') ? resolveSlabs(p, lv.levelId).filter((s) => !oculto(s.slabId)) : [];
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('ramp') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
-    const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    // Genéricos: o lote continua na categoria `generic` (malha soldada, chapada), mas a ocultação por categoria segue
+    // `categoriaDoElemento` — no importado do IFC a categoria vem da classe de origem (adendo 3 do ADR 0060, fase 7),
+    // então ocultar a categoria da instalação esconde tubo/duto/cabo e deixa o proxy com o CAD.
+    const genericoVisivel = (e: Generic): boolean => {
+      const c = categoriaDoElemento(e, p);
+      return c === null || shown(c);
+    };
+    const genericos = buildGenericSolids(pGen, lv.levelId, genericoVisivel);
     // Componentes: cada lote já sai com a categoria da disciplina da família; só os visíveis nesta vista entram.
     const componentes = buildComponentSolids(pGen, lv.levelId).filter((b) => shown(b.category));
     if (shown('component')) this.moveis.montar(grupo, this.mats, p, lv.levelId, this.frame.shadows, this.ocultos);
@@ -1502,7 +1509,7 @@ export class ModelScene {
       if (revEscadas.length) arestasDe(buildStairSolids(revEscadas, (s) => stairArrivalTop(p, s).top));
       const revRampas = rampasNivel.filter((r) => revelado(r.id));
       if (revRampas.length) arestasDe(buildRampSolids(revRampas));
-      if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
+      arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId, genericoVisivel));
       const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id)).filter((b) => shown(b.category));
       if (revEstrutural.length) arestasDe(revEstrutural);
       const revComponentes = buildComponentSolids(this.soRevelados ?? p, lv.levelId).filter((b) => shown(b.category));

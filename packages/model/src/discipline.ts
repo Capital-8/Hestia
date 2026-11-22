@@ -63,12 +63,90 @@ export const DISCIPLINE_OF_KIND: Record<Element['kind'], ElementDiscipline> = {
 };
 
 /**
+ * Disciplina de um produto IFC importado, pela classe de origem (adendo 3, fase 7). Chaves em MAIÚSCULAS, como o STEP
+ * grava. O que não está aqui (telhado, mobiliário, parede genérica...) continua `geral`.
+ */
+export const IFC_CLASS_DISCIPLINE: Record<string, ElementDiscipline> = {
+  // estrutura
+  IFCCOLUMN: 'estrutura',
+  IFCBEAM: 'estrutura',
+  IFCFOOTING: 'estrutura',
+  IFCSLAB: 'estrutura',
+  // hidrossanitário
+  IFCPIPESEGMENT: 'hidrossanitario',
+  IFCPIPEFITTING: 'hidrossanitario',
+  IFCSANITARYTERMINAL: 'hidrossanitario',
+  IFCWASTETERMINAL: 'hidrossanitario',
+  IFCVALVE: 'hidrossanitario',
+  IFCPUMP: 'hidrossanitario',
+  IFCTANK: 'hidrossanitario',
+  // só quando o tipo predefinido/tipo de objeto não apontar cabo nem ar (ver `disciplinaDoFluxo`)
+  IFCFLOWSEGMENT: 'hidrossanitario',
+  // elétrico
+  IFCCABLECARRIERSEGMENT: 'eletrico',
+  IFCCABLECARRIERFITTING: 'eletrico',
+  IFCCABLESEGMENT: 'eletrico',
+  IFCLIGHTFIXTURE: 'eletrico',
+  IFCOUTLET: 'eletrico',
+  IFCSWITCHINGDEVICE: 'eletrico',
+  IFCELECTRICDISTRIBUTIONBOARD: 'eletrico',
+  IFCJUNCTIONBOX: 'eletrico',
+  // HVAC
+  IFCDUCTSEGMENT: 'hvac',
+  IFCDUCTFITTING: 'hvac',
+  IFCAIRTERMINAL: 'hvac',
+  IFCAIRTERMINALBOX: 'hvac',
+  IFCDAMPER: 'hvac',
+  IFCFAN: 'hvac',
+  IFCBOILER: 'hvac',
+  IFCCHILLER: 'hvac',
+  IFCCOOLINGTOWER: 'hvac',
+  IFCENERGYCONVERSIONDEVICE: 'hvac',
+};
+
+/** Classes genéricas do `IfcDistributionFlowElement`: só o tipo predefinido/tipo de objeto separa água, cabo e ar. */
+const FLOW_CLASSES = new Set(['IFCFLOWSEGMENT', 'IFCFLOWFITTING', 'IFCFLOWTERMINAL']);
+
+/** Disciplina de uma classe genérica de fluxo pelos indícios do tipo; sem indício, `geral`. */
+function disciplinaDoFluxo(predefinedType?: string, objectType?: string): ElementDiscipline {
+  const tipo = typeof predefinedType === 'string' ? predefinedType : '';
+  const objeto = typeof objectType === 'string' ? objectType : '';
+  const s = `${tipo} ${objeto}`.trim().toUpperCase();
+  if (s === '') return 'geral';
+  if (/CABLE|CONDUIT|WIRE|ELECTR|BUS|TELECOM/.test(s)) return 'eletrico';
+  if (/PIPE|WATER|SEWAGE|DRAIN|RAIN|WASTE|TUBUL|AGUA|ESGOTO|HIDRAUL|\bVENT\b/.test(s)) return 'hidrossanitario';
+  if (/DUCT|AIR|HVAC|EXHAUST|FUME|VENTIL|CLIMAT|DUTO|CONDICIONADO/.test(s)) return 'hvac';
+  return 'geral';
+}
+
+/**
+ * Disciplina de um produto importado do IFC pela classe de origem (adendo 3, fase 7). Normaliza espaços e caixa;
+ * classe desconhecida, vazia ou dado malformado devolve `geral`. Nunca lança.
+ */
+export function disciplineDaClasseIfc(sourceClass: string, predefinedType?: string, objectType?: string): ElementDiscipline {
+  const classe = typeof sourceClass === 'string' ? sourceClass.trim().toUpperCase() : '';
+  if (FLOW_CLASSES.has(classe)) return disciplinaDoFluxo(predefinedType, objectType);
+  return IFC_CLASS_DISCIPLINE[classe] ?? 'geral';
+}
+
+/**
  * Disciplina de um elemento (adendo 1 do ADR 0060). Para todos os kinds vale a tabela exaustiva; `component` é a
  * exceção: a disciplina vem de `Familia.disciplina`, procurada primeiro nas famílias do projeto e, se não houver, na
- * biblioteca base. Família ausente (componente órfão), família sem o campo ou valor malformado = Arquitetura, que é o
- * comportamento dos arquivos antigos. Nunca lança.
+ * biblioteca base. Produto importado (`generic`, e `cad` quando traz a origem) usa a classe IFC de origem (fase 7);
+ * sem `sourceClass`, continua `geral`, como antes. Família ausente (componente órfão), família sem o campo ou valor
+ * malformado = Arquitetura, que é o comportamento dos arquivos antigos. Nunca lança.
  */
 export function disciplineOfElement(el: Element, p: Pick<Project, 'componentFamilies'>): ElementDiscipline {
+  if (el.kind === 'generic' || el.kind === 'cad') {
+    const importado = el as { sourceClass?: unknown; predefinedType?: unknown; objectType?: unknown };
+    if (typeof importado.sourceClass === 'string' && importado.sourceClass.trim() !== '') {
+      return disciplineDaClasseIfc(
+        importado.sourceClass,
+        typeof importado.predefinedType === 'string' ? importado.predefinedType : undefined,
+        typeof importado.objectType === 'string' ? importado.objectType : undefined,
+      );
+    }
+  }
   if (el.kind !== 'component') return DISCIPLINE_OF_KIND[el.kind];
   const familia = familiaDoComponente(p, el) ?? familiaDaBiblioteca(el.familyId);
   const disciplina = familia?.disciplina;
