@@ -254,6 +254,10 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
           <p className="hint">{t('dlt_vis_help')}</p>
         </>
       )}
+      <div className="prow">
+        <span />
+        <button className="btn small" onClick={() => useUi.setState({ dialog: 'disciplineConfig' })}>{t('dsc_title')}</button>
+      </div>
     </Dialog>
   );
 }

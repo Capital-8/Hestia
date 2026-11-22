@@ -67,6 +67,7 @@ export function menuDoNivel(levelId: Id, lang: Lang): MenuItem[] {
       })),
     },
     { label: t(lang, 'cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }), sep: true },
+    { label: t(lang, 'dsc_title'), run: () => useUi.setState({ dialog: 'disciplineConfig' }) },
   ];
 }
 
@@ -89,6 +90,7 @@ export function menuDaPlantaDeDisciplina(plan: PlanView, lang: Lang, onRename: (
     { label: t(lang, 'cvn_br_duplicate_with_annotations'), run: () => { duplicarPlanta(editor.store, plan.id, { withAnnotations: true }); } },
     { label: t(lang, 'cvn_br_rename'), run: onRename },
     { label: t(lang, 'cvn_br_delete'), run: () => { void excluirPlantaComConfirmacao(plan.id, plan.name, lang); }, danger: true, sep: true },
+    { label: t(lang, 'dsc_title'), run: () => useUi.setState({ dialog: 'disciplineConfig' }) },
   ];
 }
 

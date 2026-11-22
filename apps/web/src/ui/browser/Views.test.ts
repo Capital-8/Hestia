@@ -111,7 +111,7 @@ describe('navegador: menus das plantas de disciplina', () => {
 
   it('"Nova planta de disciplina" tem o submenu das cinco disciplinas e cria e abre a planta', () => {
     const menu = menuDoNivel('lv_0', 'pt');
-    expect(menu.map((i) => i.label)).toEqual(['Abrir', 'Nova planta de disciplina', 'Níveis…']);
+    expect(menu.map((i) => i.label)).toEqual(['Abrir', 'Nova planta de disciplina', 'Níveis…', 'Configurar disciplinas']);
     const submenu = menu[1]!.submenu!;
     expect(submenu.map((i) => i.label)).toEqual(['Arquitetura', 'Estrutura', 'Hidrossanitário', 'Elétrico', 'HVAC']);
     submenu[1]!.run!();
@@ -124,7 +124,7 @@ describe('navegador: menus das plantas de disciplina', () => {
   it('duplicar (com e sem anotações), renomear e excluir com a confirmação do app', async () => {
     let pediuRenome = false;
     const menu = menuDaPlantaDeDisciplina(planViewById(editor.project, 'pv_a')!, 'pt', () => { pediuRenome = true; });
-    expect(menu.map((i) => i.label)).toEqual(['Abrir', 'Duplicar', 'Duplicar com anotações', 'Renomear', 'Excluir']);
+    expect(menu.map((i) => i.label)).toEqual(['Abrir', 'Duplicar', 'Duplicar com anotações', 'Renomear', 'Excluir', 'Configurar disciplinas']);
 
     menu[0]!.run!();
     expect(useUi.getState().planViewId).toBe('pv_a');
