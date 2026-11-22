@@ -1,4 +1,4 @@
-import { categoriaDoElemento, disciplineOfElement, planHiddenOf, planOf, planTonesOf, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { categoriaDoElemento, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, type Discipline, type GraphicsCategory, type Id, type Project, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -133,7 +133,8 @@ const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), reve
 /**
  * Conjuntos de tom de disciplina da planta ativa, já separados por efeito: `hidden` (o tom `hidden` da disciplina
  * do elemento) e `halftone`. Ficam guardados por projeto (a tabela de predefinidos e os desvios só mudam com o
- * projeto) e por planta. Elementos `geral` nunca entram: o tom é só de disciplina (decisão 0060 §4.1).
+ * projeto), por planta e pela disciplina de trabalho pessoal. Elementos `geral` nunca entram: o tom é só de
+ * disciplina (decisão 0060 §4.1) e agora é resolvido por categoria (`tomDaCategoria`).
  */
 interface TonsDaPlanta {
   hidden: ReadonlySet<Id>;
@@ -151,23 +152,31 @@ interface CacheDeTons {
 
 const tonsPorProjeto = new WeakMap<Project, CacheDeTons>();
 
-function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined): TonsDaPlanta {
+function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minhaDisciplina: Discipline | null): TonsDaPlanta {
   let cache = tonsPorProjeto.get(p);
   if (!cache || cache.familias !== p.componentFamilies) {
     cache = { familias: p.componentFamilies, plantas: new Map() };
     tonsPorProjeto.set(p, cache);
   }
-  const chave = `${levelId}\u0000${planViewId ?? ''}`;
+  // A disciplina de trabalho é pessoal: entra na chave para o cache não reaproveitar os tons de outra disciplina.
+  const chave = `${levelId}\u0000${planViewId ?? ''}\u0000${minhaDisciplina ?? ''}`;
   const guardado = cache.plantas.get(chave);
   if (guardado) return guardado;
-  const tons = planTonesOf(planOf(p, levelId, planViewId));
+  // Tom por categoria (adendo 3, decisão 4): a planta entra com a disciplina de trabalho (`minhaDisciplina` ou a da vista);
+  // a exceção de tom da própria planta continua valendo dentro de `tomDaCategoria`.
+  const plano = planOf(p, levelId, planViewId);
+  const trabalho = minhaDisciplina ?? plano.discipline;
+  const planoDeTrabalho = { discipline: trabalho, tones: plano.tones };
   const hidden = new Set<Id>();
   const halftone = new Set<Id>();
   for (const e of Object.values(p.elements)) {
+    const categoria = categoriaDoElemento(e, p);
+    if (categoria === null) continue;
     const disciplina = disciplineOfElement(e, p);
     if (disciplina === 'geral') continue;
-    if (tons[disciplina] === 'hidden') hidden.add(e.id);
-    else if (tons[disciplina] === 'halftone') halftone.add(e.id);
+    const tom = tomDaCategoria(p, planoDeTrabalho, categoria, disciplina);
+    if (tom === 'hidden') hidden.add(e.id);
+    else if (tom === 'halftone') halftone.add(e.id);
   }
   const resultado = { hidden, halftone };
   cache.plantas.set(chave, resultado);
@@ -194,7 +203,7 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
   // O tom de disciplina é só de vista de planta; no 3D e no corte a visibilidade é a de sempre.
-  const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta) : null;
+  const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;
   const toneHidden = tons?.hidden ?? new Set<Id>();
   let baseHidden: Id[];
   if (isolateIds.length > 0) {

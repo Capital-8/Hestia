@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { disciplineLabel, PLAN_VISUAL_STYLES, planGraphicsOf, planOf, sectionGraphicsOf, view3dOf, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { disciplineLabel, disciplinasDoProjeto, isBuiltinDiscipline, PLAN_VISUAL_STYLES, planGraphicsOf, planOf, sectionGraphicsOf, view3dOf, type Discipline, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { editPlanGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
 import { planTonesDialogTarget, planViewIdDe } from '../editor/viewIdentity.ts';
@@ -41,6 +41,7 @@ export function ViewControlBar(): ReactElement | null {
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
+  const minhaDisciplina = useUi((s) => s.minhaDisciplina);
   const { t, lang } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
@@ -106,6 +107,35 @@ export function ViewControlBar(): ReactElement | null {
     </select>
   );
 
+  // Disciplina de trabalho pessoal (decisão 0060, adendo 3): mora na sessão, nunca no projeto. "Automática" usa a da vista.
+  const minhas = disciplinasDoProjeto(p);
+  const minhaLabel = t('shc_my_discipline');
+  const minhaTip = t('shc_my_discipline_tip');
+  const minhaCtl = (
+    <select
+      className="vcb-select"
+      value={minhaDisciplina ?? ''}
+      aria-label={minhaLabel}
+      onChange={(e) => {
+        const escolhida = e.target.value ? (e.target.value as Discipline) : null;
+        useUi.setState((s) => ({ minhaDisciplina: escolhida, previewTick: s.previewTick + 1 }));
+      }}
+    >
+      <option value="">{t('shc_my_discipline_auto')}</option>
+      {minhas.map((d) => (
+        <option key={d.id} value={d.id}>
+          {isBuiltinDiscipline(d.id) ? disciplineLabel(lang, d.id) : d.name}
+        </option>
+      ))}
+    </select>
+  );
+  const minhaItem: FitItem = {
+    key: 'minha-disciplina',
+    priority: 3,
+    node: field('user', minhaTip, minhaLabel, minhaCtl, false),
+    menu: field('user', minhaTip, minhaLabel, minhaCtl, true),
+  };
+
   // Itens da barra, na ordem visual. `node` vai para a barra; `menu` (padrão: o próprio `node`) vai para o popup. Os
   // separadores entram no `node` do item que vem depois, para sair junto com ele.
   const items: FitItem[] = [];
@@ -128,6 +158,7 @@ export function ViewControlBar(): ReactElement | null {
       </span>
     );
     items.push({ key: 'disciplina', priority: 4, node: discoField });
+    items.push(minhaItem);
     const tonesTip = t('shc_tones_tip');
     const tonesBtn = (
       <button
@@ -141,6 +172,8 @@ export function ViewControlBar(): ReactElement | null {
       </button>
     );
     items.push(grouped('tons', 2, tonesBtn, true));
+  } else {
+    items.push(minhaItem);
   }
   if (!is3d) {
     items.push({ key: 'escala', priority: 3, node: field('scale', scaleTip, scaleLabel, scaleCtl, false), menu: field('scale', scaleTip, scaleLabel, scaleCtl, true) });

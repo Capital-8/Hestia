@@ -196,9 +196,9 @@ describe('guarda de texto: a regra de tom mora só em visibilityOf', () => {
   const raiz = join(__dirname, '..');
   const arquivos = producao(raiz);
 
-  it('planTonesOf/DISCIPLINE_TONE_PRESETS só em editor/viewVisibility.ts', () => {
+  it('tomDaCategoria só em editor/viewVisibility.ts', () => {
     const achados = arquivos
-      .filter((f) => /\bplanTonesOf\s*\(|\bDISCIPLINE_TONE_PRESETS\b/.test(readFileSync(f, 'utf8')))
+      .filter((f) => /\btomDaCategoria\s*\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(raiz.length + 1))
       .sort();
     expect(achados).toEqual(['editor/viewVisibility.ts']);

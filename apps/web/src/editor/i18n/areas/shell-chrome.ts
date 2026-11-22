@@ -87,6 +87,9 @@ export const PT_SHELL_CHROME = {
   shc_discipline_tip: 'Disciplina desta planta',
   shc_tones: 'Tons',
   shc_tones_tip: 'Tons por disciplina',
+  shc_my_discipline: 'Minha disciplina',
+  shc_my_discipline_tip: 'Disciplina de trabalho pessoal (não é gravada no projeto)',
+  shc_my_discipline_auto: 'Automática',
 
   // Tutorial de primeiros passos
   shc_tut_title: 'Primeiros passos',
@@ -303,6 +306,9 @@ export const EN_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Discipline of this plan',
   shc_tones: 'Tones',
   shc_tones_tip: 'Discipline tones',
+  shc_my_discipline: 'My discipline',
+  shc_my_discipline_tip: 'Personal work discipline (not saved in the project)',
+  shc_my_discipline_auto: 'Automatic',
 
   // Getting started tutorial
   shc_tut_title: 'Getting started',
@@ -513,6 +519,9 @@ export const ES_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Disciplina de esta planta',
   shc_tones: 'Tonos',
   shc_tones_tip: 'Tonos por disciplina',
+  shc_my_discipline: 'Mi disciplina',
+  shc_my_discipline_tip: 'Disciplina de trabajo personal (no se guarda en el proyecto)',
+  shc_my_discipline_auto: 'Automática',
 
   shc_tut_title: 'Primeros pasos',
   shc_tut_step_walls: 'Dibuje un circuito de muros{w} — haga clic en los puntos y cierre en el primero',
@@ -713,6 +722,9 @@ export const DE_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Disziplin dieses Plans',
   shc_tones: 'Töne',
   shc_tones_tip: 'Töne nach Disziplin',
+  shc_my_discipline: 'Meine Disziplin',
+  shc_my_discipline_tip: 'Persönliche Arbeitsdisziplin (wird nicht im Projekt gespeichert)',
+  shc_my_discipline_auto: 'Automatisch',
 
   shc_tut_title: 'Erste Schritte',
   shc_tut_step_walls: 'Zeichnen Sie eine Wandschleife{w} — klicken Sie die Punkte und schließen Sie am ersten',
@@ -913,6 +925,9 @@ export const FR_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Discipline de ce plan',
   shc_tones: 'Tons',
   shc_tones_tip: 'Tons par discipline',
+  shc_my_discipline: 'Ma discipline',
+  shc_my_discipline_tip: 'Discipline de travail personnelle (non enregistrée dans le projet)',
+  shc_my_discipline_auto: 'Automatique',
 
   shc_tut_title: 'Premiers pas',
   shc_tut_step_walls: 'Dessinez une boucle de murs{w} — cliquez sur les points et fermez sur le premier',
@@ -1113,6 +1128,9 @@ export const IT_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Disciplina di questa pianta',
   shc_tones: 'Toni',
   shc_tones_tip: 'Toni per disciplina',
+  shc_my_discipline: 'La mia disciplina',
+  shc_my_discipline_tip: 'Disciplina di lavoro personale (non salvata nel progetto)',
+  shc_my_discipline_auto: 'Automatica',
 
   shc_tut_title: 'Primi passi',
   shc_tut_step_walls: 'Disegna un circuito di pareti{w} — fai clic sui punti e chiudi sul primo',
@@ -1313,6 +1331,9 @@ export const PL_SHELL_CHROME: Record<keyof typeof PT_SHELL_CHROME, string> = {
   shc_discipline_tip: 'Dyscyplina tego rzutu',
   shc_tones: 'Tony',
   shc_tones_tip: 'Tony według dyscypliny',
+  shc_my_discipline: 'Moja dyscyplina',
+  shc_my_discipline_tip: 'Osobista dyscyplina pracy (nie jest zapisywana w projekcie)',
+  shc_my_discipline_auto: 'Automatyczna',
 
   shc_tut_title: 'Pierwsze kroki',
   shc_tut_step_walls: 'Narysuj pętlę ścian{w} — klikaj punkty i zamknij na pierwszym',
