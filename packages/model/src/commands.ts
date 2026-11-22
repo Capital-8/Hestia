@@ -85,10 +85,12 @@ import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
 import type { SectionAnnotations } from './sectionAnnotations.ts';
 import { applySectionLevelExtent, type SectionLevelExtent } from './sectionLevelExtents.ts';
 import {
+  applyLevelDiscipline,
   applyLevelGraphics,
   applyProjectGraphics,
   applySectionGraphics,
   applyView3D,
+  applyView3dDiscipline,
   resetLevelGraphics,
   resetSectionGraphics,
   resetView3D,
@@ -134,7 +136,7 @@ import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyPlanViewCommand, dropPlanViewsOfLevel, type PlanViewPatch } from './planViewCommands.ts';
-import type { PlanView, Discipline } from './planView.ts';
+import type { Discipline, PlanView } from './planView.ts';
 import { applyDisciplineProfileCommand } from './disciplineProfileCommands.ts';
 import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
@@ -260,8 +262,12 @@ export type Command =
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
   | { type: 'setLevelGraphics'; levelId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetLevelGraphics'; levelId: Id }
+  /** Disciplina da planta PADRÃO do nível (decisão 0060, adendo 3); `undefined` remove o campo. */
+  | { type: 'setLevelDiscipline'; levelId: Id; discipline?: Discipline }
   | { type: 'setView3D'; patch: DeepPartial<View3DSettings> }
   | { type: 'resetView3D' }
+  /** Disciplina de trabalho da vista 3D; `undefined` volta a "todas" (remove o campo). */
+  | { type: 'setView3dDiscipline'; discipline?: Discipline }
   | { type: 'setViewHidden'; target: ViewHiddenTarget; hidden: ViewHidden | undefined }
   | { type: 'setSectionAnnotations'; sectionId: Id; annotations: SectionAnnotations | undefined }
   | { type: 'setSectionLevelExtent'; sectionId: Id; levelId: Id; extent: SectionLevelExtent | undefined }
@@ -829,11 +835,17 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'resetLevelGraphics':
       resetLevelGraphics(p, c.levelId, lang);
       break;
+    case 'setLevelDiscipline':
+      applyLevelDiscipline(p, c.levelId, c.discipline, lang);
+      break;
     case 'setView3D':
       applyView3D(p, c.patch, lang);
       break;
     case 'resetView3D':
       resetView3D(p);
+      break;
+    case 'setView3dDiscipline':
+      applyView3dDiscipline(p, c.discipline, lang);
       break;
     case 'setViewHidden':
       applyViewHidden(p, c.target, c.hidden, lang);

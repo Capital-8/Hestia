@@ -121,12 +121,19 @@ export const planIdTaken = (p: Partial<Pick<Project, 'planViews' | 'areaPlans'>>
  * Problemas de UMA planta adicional (comando e validação), sem o prefixo do contexto. Unicidade do id é do projeto
  * (`planIdTaken`), não da planta. Vazio = válida.
  */
-export function planViewIssues(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>, plan: PlanView, lang: Lang = 'pt'): string[] {
+/** A disciplina da planta é embutida ou declarada validamente no projeto? (adendo 3: as do usuário também valem). */
+function disciplinaConhecida(p: Partial<Pick<Project, 'disciplines'>>, discipline: PlanView['discipline']): boolean {
+  if (isDiscipline(discipline)) return true;
+  if (!isDisciplineId(discipline)) return false;
+  return (p.disciplines ?? []).some((d) => d !== null && typeof d === 'object' && isDisciplineId(d.id) && d.id === discipline);
+}
+
+export function planViewIssues(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews' | 'disciplines'>>, plan: PlanView, lang: Lang = 'pt'): string[] {
   const out: string[] = [];
   if (typeof plan.id !== 'string' || !plan.id) out.push('A planta precisa de um id.');
   if (typeof plan.name !== 'string' || !plan.name.trim()) out.push('A planta precisa de nome.');
   if (!p.levels.some((l) => l.id === plan.levelId)) out.push(t(lang, 'md_level_missing'));
-  if (!isDiscipline(plan.discipline)) out.push(`Disciplina inválida: "${String(plan.discipline)}".`);
+  if (!disciplinaConhecida(p, plan.discipline)) out.push(`Disciplina inválida: "${String(plan.discipline)}".`);
   if (plan.tones !== undefined) {
     if (plan.tones === null || typeof plan.tones !== 'object' || Array.isArray(plan.tones)) out.push('Os tons da planta precisam ser um objeto disciplina → tom.');
     else

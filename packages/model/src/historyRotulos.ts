@@ -165,10 +165,14 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar gráficos da vista';
     case 'resetLevelGraphics':
       return 'Restaurar gráficos da vista';
+    case 'setLevelDiscipline':
+      return 'Alterar disciplina da planta';
     case 'setView3D':
       return 'Alterar a vista 3D';
     case 'resetView3D':
       return 'Restaurar a vista 3D';
+    case 'setView3dDiscipline':
+      return 'Alterar disciplina do 3D';
     case 'setViewHidden':
       return 'Ocultar na vista';
     case 'setSectionAnnotations':

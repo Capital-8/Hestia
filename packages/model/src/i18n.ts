@@ -93,6 +93,7 @@ const PT = {
   md_tone_hidden: 'Oculto',
   md_tone_halftone: 'Meio-tom',
   md_tone_normal: 'Normal',
+  md_cmd_discipline_invalid: 'Disciplina desconhecida: "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
@@ -710,6 +711,7 @@ const EN: Record<Key, string> = {
   md_tone_hidden: 'Hidden',
   md_tone_halftone: 'Halftone',
   md_tone_normal: 'Normal',
+  md_cmd_discipline_invalid: 'Unknown discipline: "{id}"',
 
   md_role_north: 'North',
   md_role_south: 'South',
@@ -1402,6 +1404,7 @@ const ES: Record<Key, string> = {
   md_tone_hidden: 'Oculto',
   md_tone_halftone: 'Semitono',
   md_tone_normal: 'Normal',
+  md_cmd_discipline_invalid: 'Disciplina desconocida: "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norte',
@@ -2024,6 +2027,7 @@ const DE: Record<Key, string> = {
   md_tone_hidden: 'Ausgeblendet',
   md_tone_halftone: 'Halbton',
   md_tone_normal: 'Normal',
+  md_cmd_discipline_invalid: 'Unbekannte Disziplin: "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Norden',
@@ -2646,6 +2650,7 @@ const FR: Record<Key, string> = {
   md_tone_hidden: 'Masqué',
   md_tone_halftone: 'Demi-teinte',
   md_tone_normal: 'Normal',
+  md_cmd_discipline_invalid: 'Discipline inconnue : "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
@@ -3268,6 +3273,7 @@ const IT: Record<Key, string> = {
   md_tone_hidden: 'Nascosto',
   md_tone_halftone: 'Mezzatinta',
   md_tone_normal: 'Normale',
+  md_cmd_discipline_invalid: 'Disciplina sconosciuta: "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Nord',
@@ -3903,6 +3909,7 @@ const PL: Record<Key, string> = {
   md_tone_hidden: 'Ukryty',
   md_tone_halftone: 'Półton',
   md_tone_normal: 'Normalny',
+  md_cmd_discipline_invalid: 'Nieznana dyscyplina: "{id}"',
 
   // ---- papel da elevação ----------------------------------------------------------------------------------
   md_role_north: 'Północ',
