@@ -1,14 +1,24 @@
 import {
+  disciplineLabel,
+  disciplinasDoProjeto,
+  isBuiltinDiscipline,
   planViewById,
   planViewsOf,
   planViewForDiscipline,
   type Discipline,
   type Id,
+  type Project,
   type ProjectStore,
 } from '@hestia/model';
 import { editor } from './controller.ts';
-import { t, useI18n } from './i18n.ts';
+import { t, useI18n, type Lang } from './i18n.ts';
 import { useUi } from './state.ts';
+
+/** Rótulo da disciplina: as embutidas usam o texto traduzido; as do projeto, o nome declarado (id como último recurso). */
+export function rotuloDaDisciplina(p: Pick<Project, 'disciplines'>, lang: Lang, id: Discipline): string {
+  if (isBuiltinDiscipline(id)) return disciplineLabel(lang, id);
+  return disciplinasDoProjeto(p).find((d) => d.id === id)?.name ?? id;
+}
 
 /**
  * Ações das plantas adicionais por disciplina (decisão 0060 §12, etapa 3.3): criar, duplicar, renomear e excluir.
@@ -55,4 +65,19 @@ export function excluirPlanta(store: ProjectStore, planId: Id): boolean {
   store.exec({ type: 'removePlanView', id: planId }, 'eds_undo_delete_plan_view');
   if (useUi.getState().planViewId === planId) editor.selectLevel(plan.levelId, 'floor', null, null);
   return true;
+}
+
+/** Disciplina da planta PADRÃO do nível (decisão 0060, adendo 3); `undefined` volta a Arquitetura. */
+export function definirDisciplinaDaPlantaPadrao(store: ProjectStore, levelId: Id, discipline?: Discipline): void {
+  return store.exec({ type: 'setLevelDiscipline', levelId, ...(discipline === undefined ? {} : { discipline }) }, undefined, useI18n.getState().lang);
+}
+
+/** Disciplina de uma planta de disciplina (a própria planta); os tons predefinidos acompanham a nova disciplina. */
+export function definirDisciplinaDaPlanta(store: ProjectStore, planId: Id, discipline?: Discipline): void {
+  return store.exec({ type: 'updatePlanView', id: planId, patch: { ...(discipline === undefined ? {} : { discipline }) } }, undefined, useI18n.getState().lang);
+}
+
+/** Disciplina de trabalho da vista 3D; `undefined` volta a mostrar todas as disciplinas. */
+export function definirDisciplinaDo3d(store: ProjectStore, discipline?: Discipline): void {
+  return store.exec({ type: 'setView3dDiscipline', ...(discipline === undefined ? {} : { discipline }) }, undefined, useI18n.getState().lang);
 }

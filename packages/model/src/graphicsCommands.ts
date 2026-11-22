@@ -14,6 +14,8 @@ import {
   type View3DSettings,
   type ViewGraphics,
 } from './graphics.ts';
+import { disciplinaExiste } from './disciplineProfile.ts';
+import { isDisciplineId, type Discipline } from './planView.ts';
 import type { Id, Project } from './types.ts';
 import { t, type Lang } from './i18n.ts';
 
@@ -80,6 +82,34 @@ export function applyLevelGraphics(p: Project, levelId: Id, patch: DeepPartial<V
 
 export function resetLevelGraphics(p: Project, levelId: Id, lang: Lang = 'pt'): void {
   delete levelOf(p, levelId, lang).graphics;
+}
+
+/** Disciplina informada precisa ser um id válido e existir no projeto (embutida ou do projeto); `undefined` limpa. */
+function ensureDiscipline(p: Pick<Project, 'disciplines'>, discipline: Discipline | undefined, lang: Lang): void {
+  if (discipline === undefined) return;
+  if (!isDisciplineId(discipline) || !disciplinaExiste(p, discipline)) {
+    throw new Error(t(lang, 'md_cmd_discipline_invalid', { id: String(discipline) }));
+  }
+}
+
+/** Disciplina da planta PADRÃO do nível: `undefined` apaga o campo (volta a Arquitetura, decisão 0060 adendo 3). */
+export function applyLevelDiscipline(p: Project, levelId: Id, discipline: Discipline | undefined, lang: Lang = 'pt'): void {
+  const l = levelOf(p, levelId, lang);
+  ensureDiscipline(p, discipline, lang);
+  if (discipline === undefined) delete l.discipline;
+  else l.discipline = discipline;
+}
+
+/** Disciplina de trabalho da vista 3D: `undefined` apaga o campo (a vista volta a mostrar todas). */
+export function applyView3dDiscipline(p: Project, discipline: Discipline | undefined, lang: Lang = 'pt'): void {
+  ensureDiscipline(p, discipline, lang);
+  if (discipline !== undefined) {
+    p.view3d = { ...(p.view3d ?? {}), discipline } as View3DSettings;
+    return;
+  }
+  if (!p.view3d) return;
+  delete p.view3d.discipline;
+  if (Object.keys(p.view3d).length === 0) delete p.view3d;
 }
 
 function planViewRef(p: Project, planId: Id, lang: Lang) {
