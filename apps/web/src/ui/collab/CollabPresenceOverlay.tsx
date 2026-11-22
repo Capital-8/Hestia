@@ -1,10 +1,24 @@
 import { type ReactElement } from 'react';
 import { worldToScreen } from '@hestia/render';
-import type { CollabPresence } from '@hestia/model';
+import type { CollabPeer, CollabPresence, Project } from '@hestia/model';
 import { collabManager, useCollab } from '../../collab/session.ts';
 import { editor } from '../../editor/controller.ts';
-import { useT } from '../../editor/i18n.ts';
+import { useT, type Lang } from '../../editor/i18n.ts';
+import { rotuloDaDisciplina } from '../../editor/planViewActions.ts';
 import { useUi } from '../../editor/state.ts';
+
+/**
+ * Texto do rótulo de um cursor remoto: o nome do peer e, quando ele publicou sua disciplina de trabalho, o rótulo
+ * dessa disciplina ("Ana · Estrutura"). Presença sem disciplina continua exibindo só o nome.
+ */
+export function rotuloDoCursor(
+  peer: Pick<CollabPeer, 'name' | 'presence'>,
+  p: Pick<Project, 'disciplines'>,
+  lang: Lang,
+): string {
+  const discipline = peer.presence?.discipline;
+  return discipline ? `${peer.name} · ${rotuloDaDisciplina(p, lang, discipline)}` : peer.name;
+}
 
 function matchesActiveView(
   p: CollabPresence,
@@ -26,7 +40,7 @@ function matchesActiveView(
  * - Camada SVG não intrusiva (`pointer-events: none`) de cursores 2D remotos quando autorizado.
  */
 export function CollabPresenceOverlay(): ReactElement | null {
-  const { t } = useT();
+  const { t, lang } = useT();
   const mode = useCollab((s) => s.mode);
   const approvalStatus = useCollab((s) => s.approvalStatus);
   const myPeerId = useCollab((s) => s.myPeerId);
@@ -99,23 +113,26 @@ export function CollabPresenceOverlay(): ReactElement | null {
       aria-hidden="true"
       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 15, overflow: 'hidden' }}
     >
-      {cursors.map(({ peer, screen }) => (
-        <g key={peer.id} transform={`translate(${screen.x}, ${screen.y})`}>
-          <path
-            d="M0 0 L0 14 L3.5 10.5 L6.5 16 L8.5 15 L5.5 9.5 L10 9.5 Z"
-            fill={peer.color}
-            stroke="#ffffff"
-            strokeWidth={1.2}
-            strokeLinejoin="round"
-          />
-          <g transform="translate(12, 12)">
-            <rect x={0} y={0} width={Math.max(44, peer.name.length * 6.5 + 12)} height={18} rx={9} fill={peer.color} />
-            <text x={7} y={12.5} fill="#ffffff" fontSize={10.5} fontWeight={600} fontFamily="var(--font-ui)">
-              {peer.name}
-            </text>
+      {cursors.map(({ peer, screen }) => {
+        const rotulo = rotuloDoCursor(peer, editor.project, lang);
+        return (
+          <g key={peer.id} transform={`translate(${screen.x}, ${screen.y})`}>
+            <path
+              d="M0 0 L0 14 L3.5 10.5 L6.5 16 L8.5 15 L5.5 9.5 L10 9.5 Z"
+              fill={peer.color}
+              stroke="#ffffff"
+              strokeWidth={1.2}
+              strokeLinejoin="round"
+            />
+            <g transform="translate(12, 12)">
+              <rect x={0} y={0} width={Math.max(44, rotulo.length * 6.5 + 12)} height={18} rx={9} fill={peer.color} />
+              <text x={7} y={12.5} fill="#ffffff" fontSize={10.5} fontWeight={600} fontFamily="var(--font-ui)">
+                {rotulo}
+              </text>
+            </g>
           </g>
-        </g>
-      ))}
+        );
+      })}
     </svg>
   );
 }
