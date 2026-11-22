@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, SchemaError, SCHEMA_VERSION, createEmptyProject, emptyTitleBlock, makeLevel, makeWall, migrateProject, ProjectStore, type AreaPlan, type Sheet } from './index.ts';
+import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, SchemaError, SCHEMA_VERSION, createEmptyProject, emptyTitleBlock, makeLevel, makeWall, migrateProject, ProjectStore, type AreaPlan, type Project, type Sheet } from './index.ts';
 
 /*
  * Fixtures de esquema (decisão 0060, fase 1B): um projeto com os campos que a fase 2 vai mexer (`Level.graphics`,
- * `Level.hidden`, pranchas com vista, anotações do nível e da planta de área). A ida e volta serializar → abrir →
- * serializar tem de ser idêntica no esquema atual (31). Hoje o programa recusa arquivo de versão mais nova (32).
+ * `Level.hidden`, pranchas com vista, anotações do nível e da planta de área) e os da fase 1B (`disciplines`,
+ * `disciplineProfiles`, `categoryDiscipline`). A ida e volta serializar → abrir → serializar tem de ser idêntica no
+ * esquema atual (32). Hoje o programa recusa arquivo de versão mais nova (33).
  */
 
 const sheet: Sheet = {
@@ -50,20 +51,24 @@ function projetoComCampos() {
   s.exec({ type: 'addText', levelId: 'lv_0', text: { id: 'tn', at: { x: 2, y: 3 }, text: 'NOTA DO NIVEL', height: 3, rotation: 0 } });
   s.exec({ type: 'addAreaPlan', plan: areaPlan });
   s.exec({ type: 'addSheet', sheet });
-  return s.project;
+  const p = JSON.parse(JSON.stringify(s.project)) as Project;
+  p.disciplines = [{ id: 'paisagismo', name: 'Paisagismo', color: '#33aa55' }];
+  p.disciplineProfiles = { estrutura: { wall: 'halftone', slab: 'normal' }, paisagismo: { wall: 'normal' } };
+  p.categoryDiscipline = { wall: 'paisagismo' };
+  return p;
 }
 
-describe('esquema: fixtures de ida e volta (esquema 31)', () => {
-  it('projeto com graphics, hidden, prancha e anotações: serializar → abrir → serializar é idêntico', () => {
+describe('esquema: fixtures de ida e volta (esquema 32)', () => {
+  it('projeto com graphics, hidden, prancha, anotações e perfis: serializar → abrir → serializar é idêntico', () => {
     const texto = JSON.stringify(projetoComCampos());
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(31);
+    expect(volta.schemaVersion).toBe(32);
     expect(JSON.stringify(volta)).toBe(texto);
     // Segunda volta: a estabilidade vale para mais de uma ida e volta.
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
   });
 
-  it('os campos chegam à volta com os valores gravados (graphics, hidden, cota, texto, planta de área, prancha)', () => {
+  it('os campos chegam à volta com os valores gravados (graphics, hidden, cota, texto, planta de área, prancha, disciplinas)', () => {
     const p = migrateProject(JSON.parse(JSON.stringify(projetoComCampos())));
     const lv0 = p.levels.find((l) => l.id === 'lv_0')!;
     const lv1 = p.levels.find((l) => l.id === 'lv_1')!;
@@ -78,19 +83,22 @@ describe('esquema: fixtures de ida e volta (esquema 31)', () => {
     expect(p.areaPlans?.[0]?.annotations?.dimensions.map((d) => d.id)).toEqual(['dA']);
     expect(p.areaPlans?.[0]?.annotations?.texts.map((t) => t.text)).toEqual(['NOTA DA AREA']);
     expect(p.sheets?.[0]).toMatchObject({ number: 'A-101', viewports: [expect.objectContaining({ id: 'v1', scale: 50 })] });
+    expect(p.disciplines).toEqual([{ id: 'paisagismo', name: 'Paisagismo', color: '#33aa55' }]);
+    expect(p.disciplineProfiles).toEqual({ estrutura: { wall: 'halftone', slab: 'normal' }, paisagismo: { wall: 'normal' } });
+    expect(p.categoryDiscipline).toEqual({ wall: 'paisagismo' });
   });
 
-  it('a versão atual é 31 e um arquivo de versão 31 abre e permanece na 31', () => {
-    expect(SCHEMA_VERSION).toBe(31);
+  it('a versão atual é 32 e um arquivo de versão 32 abre e permanece na 32', () => {
+    expect(SCHEMA_VERSION).toBe(32);
     const raw = JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>;
-    expect(raw.schemaVersion).toBe(31);
-    expect(migrateProject(raw).schemaVersion).toBe(31);
+    expect(raw.schemaVersion).toBe(32);
+    expect(migrateProject(raw).schemaVersion).toBe(32);
   });
 
-  it('versão futura (32 = atual + 1) é recusada com SchemaError citando 32 e 31 (migrate.ts:315)', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 32 };
+  it('versão futura (33 = atual + 1) é recusada com SchemaError citando 33 e 32 (migrate.ts:319)', () => {
+    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 33 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 32');
-    expect(() => migrateProject(raw)).toThrow('(31)');
+    expect(() => migrateProject(raw)).toThrow('versão 33');
+    expect(() => migrateProject(raw)).toThrow('(32)');
   });
 });

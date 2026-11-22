@@ -78,15 +78,15 @@ function arquivoV29(): Record<string, unknown> {
 }
 
 describe('esquema 30 (campos aditivos da versão 30)', () => {
-  it('a versão atual é 31 e o projeto novo sai na 31', () => {
-    expect(SCHEMA_VERSION).toBe(31);
-    expect(createEmptyProject().schemaVersion).toBe(31);
+  it('a versão atual é 32 e o projeto novo sai na 32', () => {
+    expect(SCHEMA_VERSION).toBe(32);
+    expect(createEmptyProject().schemaVersion).toBe(32);
   });
 
-  it('arquivo 29 com terreno, componente, móvel e família abre, vira 31 e preserva esses campos byte a byte', () => {
+  it('arquivo 29 com terreno, componente, móvel e família abre, vira 32 e preserva esses campos byte a byte', () => {
     const raw = arquivoV29();
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(31);
+    expect(p.schemaVersion).toBe(32);
     const elements = raw.elements as Record<string, unknown>;
     expect(JSON.stringify(p.elements.tn1)).toBe(JSON.stringify(elements.tn1));
     expect(JSON.stringify(p.elements.c1)).toBe(JSON.stringify(elements.c1));
@@ -96,32 +96,32 @@ describe('esquema 30 (campos aditivos da versão 30)', () => {
     expect(JSON.stringify(p.settings.terrainTypes)).toBe(JSON.stringify((raw.settings as Record<string, unknown>).terrainTypes));
   });
 
-  it('projeto salvo na 31 fecha o ciclo serializar → abrir → serializar idêntico', () => {
+  it('projeto salvo na 32 fecha o ciclo serializar → abrir → serializar idêntico', () => {
     const p = migrateProject(arquivoV29());
     const texto = JSON.stringify(p);
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(31);
+    expect(volta.schemaVersion).toBe(32);
     expect(JSON.stringify(volta)).toBe(texto);
   });
 
-  it('arquivo de versão 32 é recusado, com a mensagem citando 32 e 31', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 32 };
+  it('arquivo de versão 33 é recusado, com a mensagem citando 33 e 32', () => {
+    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 33 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 32');
-    expect(() => migrateProject(raw)).toThrow('(31)');
+    expect(() => migrateProject(raw)).toThrow('versão 33');
+    expect(() => migrateProject(raw)).toThrow('(32)');
   });
 
-  it('arquivo de versão 25 percorre a cadeia 25 → 31 sem erro', () => {
+  it('arquivo de versão 25 percorre a cadeia 25 → 32 sem erro', () => {
     const raw = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
     raw.schemaVersion = 25;
     delete raw.columnTypes;
     delete raw.beamTypes;
     delete raw.footingTypes;
     let p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(31);
+    expect(p.schemaVersion).toBe(32);
     expect(Object.keys(p.columnTypes ?? {}).length).toBeGreaterThan(0);
     expect(Object.keys(p.beamTypes ?? {}).length).toBeGreaterThan(0);
     p = migrateProject(JSON.parse(JSON.stringify(p)));
-    expect(p.schemaVersion).toBe(31);
+    expect(p.schemaVersion).toBe(32);
   });
 });
