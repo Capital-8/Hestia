@@ -118,3 +118,18 @@ Estado documental das fases do Adendo 3 (decisão 0060, `docs/decisoes/0060-plan
 
 **Portões de integração:** o worktree de integração (`disc2`) passou typecheck, eslint e a rede de testes de todas as fases; a suíte completa e o `perf` rodam na CI do PR da frente.
 
+## Pacote de UX de 2026-11-23 (segunda rodada)
+
+| Frente | Entrega | Arquivos principais | Testes |
+|---|---|---|---|
+| **Apresentação** | `Apresentacao` = `tone` + `clareamento` + `opacidade`; normalização do tom legado; preset de Estrutura × Arquitetura em 50% de opacidade; esquema **33** | `planView.ts`, `disciplineProfile.ts`, `migrate.ts` | `apresentacao.test.ts`, `esquema33.test.ts`, `disciplineProfileTolerancia.test.ts` |
+| **Render** | Clareamento e opacidade em planta, corte e 3D; referência não seleciona; transparência no material 3D | `plan/style.ts`, `plan/build.ts`, `section/style.ts`, `section/build.ts`, `model3d/materiais3d.ts`, `model3d/scene3d.ts` | `plan/apresentacao.test.ts`, `section/apresentacao.test.ts`, `model3d/apresentacao3d.test.ts` |
+| **Trava** | `podeEditar` + `liberarEdicao`; elementos de outra disciplina visíveis e não selecionáveis; terreno/lote/CAD em Arquitetura | `disciplineProfile.ts`, `viewVisibility.ts`, `packages/tools/*`, `ViewControlBar.tsx` | `podeEditar.test.ts`, `bloqueioDisciplina.test.ts`, `disciplinaBloqueada.test.ts` |
+| **Configurador** | Abas Simples/Avançado; slider global de opacidade; clareamento/opacidade por categoria; botão “Disciplinas” | `disciplineConfig.ts`, `DisciplineConfigDialog.tsx`, `ViewControlBar.tsx` | `disciplineConfig.test.ts` |
+| **HR** | `HR` reexibe tudo permanentemente (Hide in View + temporário); `RH` intocado | `controller.ts`, `viewVisibility.ts` | `atalhoVisibilidade.test.ts`, `viewVisibility.test.ts` |
+| **Terreno/lote** | Dono Arquitetura; em outras disciplinas ficam referência e travados | `discipline.ts`, `registroCategorias.ts` | `discipline.test.ts`, `registroCategorias.test.ts`, `isolamentoOcultar.test.ts` |
+| **Vistas 3D** | `View3DView` salva no projeto (câmera, settings, disciplina, tons); add/duplicar/renomear/excluir; navegador e abas | `view3dViews.ts`, `view3dViewCommands.ts`, `viewIdentity.ts`, navegador | `view3dViews.test.ts` |
+| **Docs** | Roteiro seções 17–21 (opacidade, trava, HR, configurador, vistas 3D) | `05-roteiro-de-teste.md` | — |
+
+**Fora desta rodada:** cadeado visual dentro de `Properties` (a mensagem de status e a barra já cobrem); prancha das vistas 3D salvas; validação global de `view3dViews` em `validate.ts` (os comandos validam); e as pendências anteriores de MEP/DXF/IFC de exportação.
+
