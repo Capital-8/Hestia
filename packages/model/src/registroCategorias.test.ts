@@ -53,8 +53,8 @@ const ESPERADO_REGISTRO: Record<GraphicsCategory, ElementDiscipline> = {
   stair: 'arquitetura',
   railing: 'arquitetura',
   mass: 'arquitetura',
-  site: 'geral',
-  lot: 'geral',
+  site: 'arquitetura',
+  lot: 'arquitetura',
   room: 'arquitetura',
   annotation: 'geral',
   generic: 'geral',
@@ -245,13 +245,13 @@ const ESPERADO_ORDEM: readonly ElementDiscipline[] = ['arquitetura', 'estrutura'
 const ESPERADO_GRUPOS: Array<{ disciplina: ElementDiscipline; categorias: GraphicsCategory[] }> = [
   {
     disciplina: 'arquitetura',
-    categorias: ['wall', 'door', 'window', 'floor', 'roof', 'stair', 'railing', 'mass', 'room', 'ceiling', 'ramp', 'component'],
+    categorias: ['wall', 'door', 'window', 'floor', 'roof', 'stair', 'railing', 'mass', 'site', 'lot', 'room', 'ceiling', 'ramp', 'component'],
   },
   { disciplina: 'estrutura', categorias: ['slab', 'column', 'beam', 'footing'] },
   { disciplina: 'hidrossanitario', categorias: ['plumbingFixture'] },
   { disciplina: 'eletrico', categorias: ['electricalFixture'] },
   { disciplina: 'hvac', categorias: ['mechanicalEquipment'] },
-  { disciplina: 'geral', categorias: ['site', 'lot', 'annotation', 'generic'] },
+  { disciplina: 'geral', categorias: ['annotation', 'generic'] },
 ];
 
 /** Tom predefinido por (disciplina de trabalho, categoria), literal do adendo 3 e da tabela §4.2. */
@@ -260,9 +260,10 @@ const ESPERADO_TONS: Array<[Discipline, GraphicsCategory, Tone]> = [
   ['estrutura', 'column', 'normal'],
   ['eletrico', 'plumbingFixture', 'hidden'],
   ['eletrico', 'electricalFixture', 'normal'],
-  // disciplina criada pelo usuário: mesma = normal, outra = meio-tom; `geral` nunca recebe tom
+  // disciplina criada pelo usuário: mesma = normal, outra = meio-tom; terreno e lote agora são de Arquitetura
   ['paisagismo', 'wall', 'halftone'],
-  ['paisagismo', 'site', 'normal'],
+  ['paisagismo', 'site', 'halftone'],
+  ['paisagismo', 'annotation', 'normal'],
   ['paisagismo', 'component', 'halftone'],
 ];
 

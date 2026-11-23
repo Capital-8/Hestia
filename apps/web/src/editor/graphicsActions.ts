@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type Tone, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type TomOuApresentacao, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -106,7 +106,7 @@ export function restorePlanGraphicsDefault(store: ProjectStore, target: PlanTarg
 }
 
 /** Tons gravados são iguais? (a ordem das chaves não importa; ausência e `undefined` valem o mesmo). */
-function sameTones(a: Partial<Record<Discipline, Tone>>, b: Partial<Record<Discipline, Tone>>): boolean {
+function sameTones(a: Partial<Record<Discipline, TomOuApresentacao>>, b: Partial<Record<Discipline, TomOuApresentacao>>): boolean {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   return [...keys].every((k) => a[k as Discipline] === b[k as Discipline]);
 }
@@ -120,7 +120,7 @@ export function editPlanTone(store: ProjectStore, planId: Id, discipline: Discip
   const plan = planViewById(store.project, planId);
   if (!plan) {
     try {
-      const tones: Partial<Record<Discipline, Tone>> = {};
+      const tones: Partial<Record<Discipline, TomOuApresentacao>> = {};
       tones[discipline] = tone;
       store.exec({ type: 'updatePlanView', id: planId, patch: { tones } }, label, useI18n.getState().lang);
       return OK;
@@ -130,7 +130,7 @@ export function editPlanTone(store: ProjectStore, planId: Id, discipline: Discip
   }
   const preset = presetTone(plan.discipline, discipline);
   const current = plan.tones ?? {};
-  const next: Partial<Record<Discipline, Tone>> = { ...current };
+  const next: Partial<Record<Discipline, TomOuApresentacao>> = { ...current };
   if (tone === preset) delete next[discipline];
   else next[discipline] = tone;
   if (sameTones(next, current)) return OK;

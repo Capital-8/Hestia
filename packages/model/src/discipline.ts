@@ -9,6 +9,8 @@ import {
   isDiscipline,
   isDisciplineId,
   isTone,
+  isTomOuApresentacao,
+  apresentacaoDe,
   type BuiltinDiscipline,
   type Discipline,
   type PlanView,
@@ -24,10 +26,10 @@ import type { Element, Project } from './types.ts';
  * valem para eles.
  */
 
-export { BUILTIN_DISCIPLINES, DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isBuiltinDiscipline, isDiscipline, isDisciplineId, isTone };
+export { BUILTIN_DISCIPLINES, DEFAULT_DISCIPLINE, DISCIPLINES, TONES, apresentacaoDe, isBuiltinDiscipline, isDiscipline, isDisciplineId, isTone, isTomOuApresentacao };
 export type { BuiltinDiscipline, Discipline, Tone };
 
-/** Disciplina derivada de um elemento: as cinco das plantas, ou `geral` (terrain, lote, terreno, CAD, importado). */
+/** Disciplina derivada de um elemento: as cinco das plantas, ou `geral` (CAD e importado sem classe IFC). */
 export type ElementDiscipline = Discipline | 'geral';
 
 /**
@@ -49,15 +51,16 @@ export const DISCIPLINE_OF_KIND: Record<Element['kind'], ElementDiscipline> = {
   room: 'arquitetura',
   furniture: 'arquitetura',
   component: 'arquitetura',
+  // terreno e lote pertencem a Arquitetura (plano de UX de 2026-11-23, §Terreno e lote)
+  terrain: 'arquitetura',
+  terrainRegion: 'arquitetura',
+  lot: 'arquitetura',
   // estrutura (ADR §1.2)
   column: 'estrutura',
   beam: 'estrutura',
   footing: 'estrutura',
   slab: 'estrutura',
   // geral (ADR §1.2; anotações também são `geral`, mas não são elementos da união)
-  terrain: 'geral',
-  terrainRegion: 'geral',
-  lot: 'geral',
   cad: 'geral',
   generic: 'geral',
 };
@@ -190,10 +193,10 @@ export function planTonesOf(planView?: Pick<PlanView, 'discipline' | 'tones'>): 
   const out: Record<string, Tone> = {};
   for (const d of DISCIPLINES) out[d] = presetTone(trabalho, d);
   if (!isBuiltinDiscipline(trabalho) && isDisciplineId(trabalho)) out[trabalho] = presetTone(trabalho, trabalho);
-  for (const [d, tone] of Object.entries(planView?.tones ?? {})) {
+  for (const [d, valor] of Object.entries(planView?.tones ?? {})) {
     // Desvio só de disciplina conhecida nesta fase: embutida ou a própria disciplina da planta (as do projeto ainda
     // não são gravadas). Mantém o comportamento dos arquivos atuais e ignora chave desconhecida sem lançar.
-    if (isDisciplineId(d) && isTone(tone) && (isBuiltinDiscipline(d) || d === trabalho)) out[d] = tone;
+    if (isDisciplineId(d) && isTomOuApresentacao(valor) && (isBuiltinDiscipline(d) || d === trabalho)) out[d] = apresentacaoDe(valor).tone;
   }
   return out;
 }

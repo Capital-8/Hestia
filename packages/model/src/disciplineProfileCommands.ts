@@ -2,7 +2,7 @@ import type { Command } from './commands.ts';
 import { disciplinaExiste, type DisciplineProfile, type ProjectDiscipline } from './disciplineProfile.ts';
 import { GRAPHICS_CATEGORIES, type GraphicsCategory } from './graphics.ts';
 import { t, type Lang } from './i18n.ts';
-import { DEFAULT_DISCIPLINE, isDiscipline, isDisciplineId, isTone, type Discipline, type Tone } from './planView.ts';
+import { DEFAULT_DISCIPLINE, isDiscipline, isDisciplineId, isTomOuApresentacao, type Discipline } from './planView.ts';
 import type { Project } from './types.ts';
 
 /**
@@ -32,10 +32,10 @@ export function applySetDisciplineProfile(p: Project, discipline: Discipline, to
   }
   if (typeof tones !== 'object' || Array.isArray(tones)) throw new Error(t(lang, 'md_cmd_disc_tone', { tone: String(tones) }));
   const clean: DisciplineProfile = {};
-  for (const [category, tone] of Object.entries(tones)) {
+  for (const [category, valor] of Object.entries(tones)) {
     if (!(GRAPHICS_CATEGORIES as readonly string[]).includes(category)) throw new Error(t(lang, 'md_cmd_disc_category', { category }));
-    if (!isTone(tone)) throw new Error(t(lang, 'md_cmd_disc_tone', { tone: String(tone) }));
-    clean[category as GraphicsCategory] = tone as Tone;
+    if (!isTomOuApresentacao(valor)) throw new Error(t(lang, 'md_cmd_disc_tone', { tone: String(valor) }));
+    clean[category as GraphicsCategory] = typeof valor === 'string' ? valor : { ...valor };
   }
   if (Object.keys(clean).length === 0) {
     if (!p.disciplineProfiles) return;

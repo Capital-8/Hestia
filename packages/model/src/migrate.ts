@@ -308,6 +308,11 @@ const migrations: Record<number, Migration> = {
   // 3D (decisão 0060, adendo 3). Tudo opcional e aditivo: ausente = predefinido (as embutidas e a origem do registro), sem
   // nada a converter. O bump existe porque um programa antigo ignoraria esses campos e os apagaria ao salvar.
   31: (raw) => ({ ...raw }),
+  // v32 → v33: apresentação por disciplina (tom + clareamento + opacidade) em `DisciplineProfile` e `PlanView.tones`,
+  // e terreno/lote passam a Arquitetura (plano de UX das disciplinas, 2026-11-23). Identidade: todo valor novo é opcional
+  // e ausente preserva o comportamento anterior; a disciplina de terreno/lote é derivada e não está gravada no arquivo.
+  // O bump existe porque um programa antigo ignoraria clareamento/opacidade e os apagaria ao salvar.
+  32: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

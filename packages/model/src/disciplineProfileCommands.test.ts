@@ -28,14 +28,20 @@ describe('setDisciplineProfile (perfil por disciplina)', () => {
     const s = comDisciplina();
     s.exec({ type: 'setDisciplineProfile', discipline: 'seguranca', tones: { wall: 'hidden', door: 'halftone' } });
     expect(s.project.disciplineProfiles).toEqual({ seguranca: { wall: 'hidden', door: 'halftone' } });
-    expect(perfilDaDisciplina(s.project, 'seguranca')).toEqual({ wall: 'hidden', door: 'halftone' });
+    expect(perfilDaDisciplina(s.project, 'seguranca')).toEqual({
+      wall: { tone: 'hidden', clareamento: 0, opacidade: 1 },
+      door: { tone: 'halftone', clareamento: 0.5, opacidade: 1 },
+    });
 
     s.undo();
     expect(s.project.disciplineProfiles).toBeUndefined();
     expect(perfilDaDisciplina(s.project, 'seguranca')).toEqual({});
 
     s.redo();
-    expect(perfilDaDisciplina(s.project, 'seguranca')).toEqual({ wall: 'hidden', door: 'halftone' });
+    expect(perfilDaDisciplina(s.project, 'seguranca')).toEqual({
+      wall: { tone: 'hidden', clareamento: 0, opacidade: 1 },
+      door: { tone: 'halftone', clareamento: 0.5, opacidade: 1 },
+    });
   });
 
   it('perfil vazio e null removem a disciplina de disciplineProfiles', () => {
