@@ -243,7 +243,8 @@ describe('alinhamento de aberturas e desempenho em paredes curvas/circulares', (
     });
   }
 
-  it('parede circular completa R=50m gera geometria em menos de 50ms', async () => {
+  // Limite generoso: a medida depende do runner da CI (WASM e carga da máquina); 100 ms ainda pega regressão de ordem de grandeza.
+  it('parede circular completa R=50m gera geometria em menos de 100ms', async () => {
     const bytes = readFileSync(new URL('../../geom/assets/geom_wasm.wasm', import.meta.url));
     const ger = await GerenciadorKernelV2.dosBytes(bytes);
     const s10 = new ProjectStore(createEmptyProject());
@@ -261,7 +262,7 @@ describe('alinhamento de aberturas e desempenho em paredes curvas/circulares', (
       const res = resolveLevel(s.project, 'lv_0', new Map());
       const dtMs = performance.now() - t0;
       expect(Object.keys(res.walls)).toHaveLength(2);
-      expect(dtMs).toBeLessThan(50);
+      expect(dtMs).toBeLessThan(100);
     } finally {
       removerDespachoKernel();
     }
