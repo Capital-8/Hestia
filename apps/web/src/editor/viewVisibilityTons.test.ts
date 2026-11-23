@@ -196,9 +196,9 @@ describe('guarda de texto: a regra de tom mora só em visibilityOf', () => {
   const raiz = join(__dirname, '..');
   const arquivos = producao(raiz);
 
-  it('tomDaCategoria só em viewVisibility (aplicar) e disciplineConfig (matriz)', () => {
+  it('tomDaCategoria/apresentacaoDaCategoria só em viewVisibility (aplicar) e disciplineConfig (matriz)', () => {
     const achados = arquivos
-      .filter((f) => /\btomDaCategoria\s*\(/.test(readFileSync(f, 'utf8')))
+      .filter((f) => /\b(?:tomDaCategoria|apresentacaoDaCategoria)\s*\(/.test(readFileSync(f, 'utf8')))
       .map((f) => f.slice(raiz.length + 1))
       .sort();
     expect(achados).toEqual(['editor/disciplineConfig.ts', 'editor/viewVisibility.ts']);
