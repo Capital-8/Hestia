@@ -161,7 +161,8 @@ export function podeEditar(
   if (liberar || trabalho === 'todas') return true;
   try {
     const dono = disciplineOfElement(el, p);
-    if (dono === 'geral') return trabalho === 'geral';
+    // `geral` (CAD e importado sem classe IFC) é de Arquitetura para edição: é referência de projeto, não de MEP.
+    if (dono === 'geral') return trabalho === 'geral' || trabalho === 'arquitetura';
     return dono === trabalho;
   } catch {
     return false;

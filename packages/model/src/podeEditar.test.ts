@@ -34,9 +34,10 @@ describe('podeEditar', () => {
     expect(podeEditar(p, terreno, 'todas', false)).toBe(true);
   });
 
-  it('geral só edita elementos gerais (CAD sem classe IFC) ou com liberar', () => {
+  it('geral (CAD sem classe IFC) edita em Arquitetura, bloqueia em estrutura e libera com o botão', () => {
     expect(podeEditar(p, cad, 'geral', false)).toBe(true);
-    expect(podeEditar(p, cad, 'arquitetura', false)).toBe(false);
+    expect(podeEditar(p, cad, 'arquitetura', false)).toBe(true);
+    expect(podeEditar(p, cad, 'estrutura', false)).toBe(false);
     expect(podeEditar(p, cad, 'estrutura', true)).toBe(true);
   });
 
