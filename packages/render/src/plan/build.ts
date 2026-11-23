@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { pointInMulti, ringArea, union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { buildOpeningModel, cutLevelByJunction, esquadriasDaCortina, frameOfWall, modeloDaEsquadriaCortina, openingGeometry, viewClassOf, type OpeningGeometry, type OpeningModel, type ResolvedFloor, type ResolvedLevel, type ResolvedRoof, type ResolvedRoom, type ResolvedSlab, type ViewClass } from '@hestia/engine';
-import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, planAnnotationsOf, planViewFor, projectGrids, wallsCrossingCut, type AreaPlan, type DetailLevel, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
+import { levelElevation, openingTypeById, dimensionStyleOf, isGeneric, levelDimensions, levelRoomSeparators, openingAngle2d, openingDetail2d, openingLeafPlan, openingPlanDisplay, openingShowSwing, openingSwingStyle, planAnnotationIds, planAnnotationsOf, planViewFor, projectGrids, wallsCrossingCut, type Apresentacao, type AreaPlan, type DetailLevel, type GraphicsCategory, type HatchKind, type Id, type Opening, type Project } from '@hestia/model';
 import { resolveRooms } from '@hestia/engine';
 import { areaPlanLegendOps, areaPlanRoomOps, areaPlanTableOps, areaPlanTagOps } from './areaPlan.ts';
 import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampasDoNivel, telhadosDoNivel } from './resolucao.ts';
@@ -92,6 +92,11 @@ export interface PlanInput {
   halftone?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /**
+   * Apresentação da disciplina de trabalho por categoria (plano de UX de 2026-11-23): tom, clareamento e opacidade.
+   * Ausente = o desenho de hoje. As categorias sem aparição explícita ficam normais.
+   */
+  apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>;
   /**
    * Guarda-corpo (decisão 0055) tem camada própria na planta: `'sem'` tira os guarda-corpos da geometria do nível (o quadro os desenha à parte,
    * ver `buildPlanGuardaCorpo`, em guardaCorpoCamada.ts); sem o campo, eles saem junto da geometria, como antes (impressão, captura e testes).

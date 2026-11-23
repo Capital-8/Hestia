@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
 import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, temTerreno, type MalhaTerreno, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, categoriaDoElemento, type Generic, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type Tone, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { apresentacaoDe, massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, categoriaDoElemento, type Apresentacao, type Generic, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type Tone, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -79,6 +79,11 @@ export interface Scene3DOptions {
   /** Tom por categoria da disciplina de trabalho (`visibilityOf`): oculto some e meio-tom fica atenuado e não seleciona. */
   toneCategories?: Partial<Record<GraphicsCategory, Tone>>;
   /**
+   * Apresentação da disciplina de trabalho por categoria (plano de UX de 2026-11-23): tom, clareamento e opacidade.
+   * `halftone` continua fora do picking; `normal` com opacidade é desenhado translúcido e selecionável.
+   */
+  apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>;
+  /**
    * Níveis cuja resolução ainda é a anterior à edição (a montagem os mantém na tela enquanto o novo não chega). Eles
    * entram na cena, mas **não** no cache de malha: a chave do nível vem do projeto atual, e a malha foi montada com
    * outro conteúdo — guardada, ela seria devolvida para sempre quando o nível correto chegasse (ver `montagem3dProgressiva`).
@@ -110,16 +115,28 @@ export function sunDirection(azimuth: number, elevation: number): THREE.Vector3 
 }
 
 /**
- * Vista efetiva com o tom das categorias: `hidden` desliga a categoria e `halftone` liga a atenuação do material.
- * `normal` não altera nada. A vista original não é modificada (o `overrides` só é copiado quando um tom age).
+ * Vista efetiva com o tom e a apresentação das categorias: `hidden` desliga a categoria, `halftone` liga a atenuação do
+ * material e a opacidade da apresentação é combinada com a transparência da vista (multiplicada, sem apagar a do usuário).
+ * `normal` opaco não altera nada. A vista original não é modificada (o `overrides` só é copiado quando algo age).
  */
-export function viewComTons(view: View3DSettings, toneCategories?: Partial<Record<GraphicsCategory, Tone>>): View3DSettings {
+export function viewComTons(view: View3DSettings, toneCategories?: Partial<Record<GraphicsCategory, Tone>>, apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>): View3DSettings {
   let overrides: View3DSettings['overrides'] | null = null;
-  for (const [cat, tom] of Object.entries(toneCategories ?? {}) as Array<[GraphicsCategory, Tone | undefined]>) {
-    if (tom !== 'hidden' && tom !== 'halftone') continue;
+  const categorias = new Set<GraphicsCategory>([
+    ...(Object.keys(toneCategories ?? {}) as GraphicsCategory[]),
+    ...(Object.keys(apresentacoes ?? {}) as GraphicsCategory[]),
+  ]);
+  for (const cat of categorias) {
+    const ap = apresentacoes?.[cat] ? apresentacaoDe(apresentacoes[cat]) : undefined;
+    const tom = ap?.tone ?? toneCategories?.[cat];
+    const opacidade = ap ? Math.min(1, Math.max(0, ap.opacidade ?? 1)) : 1;
+    if (tom !== 'hidden' && tom !== 'halftone' && opacidade === 1) continue;
     overrides ??= { ...view.overrides };
     const atual = overrides[cat];
-    overrides[cat] = tom === 'hidden' ? { ...atual, visible: false } : { ...atual, halftone: true };
+    let next = atual;
+    if (tom === 'hidden') next = { ...next, visible: false };
+    else if (tom === 'halftone') next = { ...next, halftone: true };
+    if (opacidade < 1) next = { ...next, transparency: 1 - (1 - atual.transparency) * opacidade };
+    overrides[cat] = next;
   }
   return overrides ? { ...view, overrides } : view;
 }
@@ -488,20 +505,21 @@ export class ModelScene {
   update(p: Project, levels: ResolvedLevel[], opt: Scene3DOptions): void {
     const view = view3dOf(p);
     // Tom por categoria (adendo 3, decisão 4): `hidden` desliga a categoria e `halftone` atenua o material. A vista
-    // efetiva é a que a cena usa em tudo (frame, materiais, `shown()`); o tom também entra na chave do nível.
-    const viewEfetiva = viewComTons(view, opt.toneCategories);
-    this.halftoneCats = new Set(
-      (Object.entries(opt.toneCategories ?? {}) as Array<[GraphicsCategory, Tone | undefined]>)
-        .filter(([, tom]) => tom === 'halftone')
-        .map(([cat]) => cat),
-    );
+    // efetiva é a que a cena usa em tudo (frame, materiais, `shown()`); o tom e a apresentação também entram na chave do nível.
+    const viewEfetiva = viewComTons(view, opt.toneCategories, opt.apresentacoes);
+    const halftoneCats = new Set<GraphicsCategory>();
+    for (const [cat, tom] of Object.entries(opt.toneCategories ?? {}) as Array<[GraphicsCategory, Tone | undefined]>) {
+      if (tom === 'halftone' && !opt.apresentacoes?.[cat]) halftoneCats.add(cat);
+    }
+    for (const [cat, ap] of Object.entries(opt.apresentacoes ?? {}) as Array<[GraphicsCategory, Apresentacao | undefined]>) if (ap && apresentacaoDe(ap).tone === 'halftone') halftoneCats.add(cat);
+    this.halftoneCats = halftoneCats;
     this.frame = {
       view: viewEfetiva,
       dark: opt.dark,
       edges: isLineStyle(viewEfetiva.style) || viewEfetiva.edges,
       shadows: viewEfetiva.style === 'realistic' && viewEfetiva.shadows,
     };
-    this.mats.marco = { view: viewEfetiva, dark: opt.dark };
+    this.mats.marco = { view: viewEfetiva, dark: opt.dark, apresentacoes: opt.apresentacoes };
     this.mats.used = new Set();
     this.moveis.inicio();
     this.ultimaAtualizacao = { p, levels, opt };
@@ -523,8 +541,9 @@ export class ModelScene {
         // Decisão do projeto sobre as arestas dos genéricos: mudá-la refaz todos os níveis (senão um nível cacheado manteria as arestas).
         genericosAcimaDoOrcamento(p.elements),
         this.versaoTexturas(),
-        // O tom por categoria muda o material e o picking: entra na chave para o nível não reusar a malha antiga.
+        // O tom e a apresentação por categoria mudam material e picking: entram na chave para o nível não reusar a malha antiga.
         JSON.stringify(opt.toneCategories ?? {}),
+        JSON.stringify(opt.apresentacoes ?? {}),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
@@ -651,10 +670,12 @@ export class ModelScene {
    * (`pairCuts`); logo as demais peças do nível e dos vizinhos ficam iguais, e a chave deles só é renovada.
    */
   atualizarAberturas(p: Project, pAnt: Project, levelId: Id, wallIds: readonly Id[], lv: ResolvedLevel, opt: Scene3DOptions): boolean {
-    const view = viewComTons(view3dOf(p), opt.toneCategories);
+    const view = viewComTons(view3dOf(p), opt.toneCategories, opt.apresentacoes);
     if (!this.instanciar || this.projeto !== pAnt || pAnt.view3d !== p.view3d || opt.dark !== this.frame.dark) return this.recusar(1);
     // Meio-tom muda o material e o picking das caixas: o caminho rápido não sabe refazer isso, cai na remontagem normal.
     if (this.halftoneCats.size || Object.values(opt.toneCategories ?? {}).some((tom) => tom === 'halftone')) return this.recusar(12);
+    // Clareamento/opacidade (ou qualquer tom não normal) também mudam o material: remontagem normal.
+    if (opt.apresentacoes && Object.values(opt.apresentacoes).some((ap) => ap && (ap.tone !== 'normal' || (ap.clareamento ?? 0) > 0 || (ap.opacidade ?? 1) < 1))) return this.recusar(12);
     if (isLineStyle(view.style) || this.ocultos.size || this.revelados.size || (opt.hidden?.size ?? 0) || (opt.revealed?.size ?? 0)) return this.recusar(2);
     if (view.partialStructure !== 'entire') return this.recusar(3);
     if (!view.overrides.wall.visible || !view.overrides.door.visible || !view.overrides.window.visible) return this.recusar(4);
@@ -1185,9 +1206,9 @@ export class ModelScene {
 
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
-    // A vista efetiva já traz o tom por categoria, que muda o material e o picking: entra na chave do nível.
+    // A vista efetiva já traz o tom e a opacidade por categoria, que mudam o material e o picking: entram na chave do nível.
     const view = this.frame.view;
-    const chaves = chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements), this.versaoTexturas(), JSON.stringify(opt.toneCategories ?? {})]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
+    const chaves = chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements), this.versaoTexturas(), JSON.stringify(opt.toneCategories ?? {}), JSON.stringify(opt.apresentacoes ?? {})]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
     this.moveis.chaves(p, chaves, this.ocultos);
     return chaves;
   }
