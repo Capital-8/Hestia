@@ -71,38 +71,66 @@ Feche e reabra o projeto: plantas, tons, anotações e prancha iguais. Abra tamb
 ## 10. Idioma
 O idioma automático está em outra branch (`feat/idioma-automatico`), **não** nesta. Não é testado aqui.
 
+## Adendo 3 — validação manual (disciplina da vista, disciplina pessoal, configurador, 3D/corte, colaborar, IFC)
+
+As seções 11–16 abaixo validam o **Adendo 3** da decisão 0060 e completam o roteiro acima. Cada passo se marca
+**OK / falhou / estranho** e se anota na coluna *Observação* o que a tela mostrou de diferente do esperado (nome de
+botão, tom, cor), como na regra do cabeçalho.
+
 ## 11. Disciplina na vista (Propriedades)
-1. Planta padrão: abra as Propriedades da vista e troque a **Disciplina** para Estrutura. As paredes ficam em meio-tom, pilares/vigas/sapatas normais; as mesmas regras valem no 3D e no corte.
-2. Planta de disciplina: a disciplina deixa de ser só leitura; troque e confira que os tons recalculam. "Restaurar predefinido" volta a Arquitetura.
-3. 3D: escolha a disciplina da vista 3D (ou "Todas"). Confira o meio-tom e o oculto por categoria.
-4. **Desfazer** cada troca: um passo só.
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 11.1 | **Planta padrão**: abra as Propriedades da vista e troque a **Disciplina** para Estrutura | As paredes/portas ficam em meio-tom e pilares/vigas/sapatas/lajes normais (tabela §4.2); só essa planta muda | OK / falhou / estranho | |
+| 11.2 | **Planta de disciplina**: a disciplina deixa de ser só leitura; troque e confira | Os tons recalculam para a nova disciplina; nome, anotações e as outras plantas não mudam. "**Restaurar predefinido**" volta a Arquitetura | OK / falhou / estranho | |
+| 11.3 | **3D**: escolha a disciplina da vista 3D (ou "Todas") e confira na planta, no 3D e no corte | Meio-tom e oculto por categoria valem nas três vistas; "Restaurar predefinido" volta a "Todas" | OK / falhou / estranho | |
+| 11.4 | **Desfazer** cada troca | Um passo de histórico por mudança; refazer reaplica | OK / falhou / estranho | |
 
 ## 12. Minha disciplina (pessoal)
-1. Na barra da vista, escolha **Minha disciplina** = Estrutura numa planta de Arquitetura. Você vê arquitetura em meio-tom; o arquivo **não** muda.
-2. Troque para Elétrico e depois para Automática. A vista volta ao tom da planta.
-3. Salve, feche e reabra: a escolha pessoal não volta (é de sessão) e o projeto está intacto.
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 12.1 | Na barra da vista, escolha **Minha disciplina** = Estrutura numa planta de Arquitetura | Você vê arquitetura em meio-tom; o campo "Disciplina" da vista **não** muda e o arquivo **não** muda | OK / falhou / estranho | |
+| 12.2 | Troque em **planta, 3D e corte**; depois Elétrico e **Automática** | A pessoal vale nas três vistas e vence o tom da planta (precedência, adendo 3 decisão 4); em "Automática" a vista volta ao tom dela, sem resíduo de cache | OK / falhou / estranho | |
+| 12.3 | **Salvar, fechar e reabrir** | A escolha pessoal não volta (é de sessão) e o projeto está intacto: serializar não grava "minha disciplina" | OK / falhou / estranho | |
 
-## 13. Configurador de disciplinas
-1. Abra **Configurar disciplinas** (aba de tons da Visibilidade ou menu do navegador).
-2. Escolha Estrutura e mude Parede para **Oculto**; confira na planta de Estrutura. "Restaurar predefinido" desfaz.
-3. Crie a disciplina **Paisagismo** (nome e cor), mude a origem da categoria "Terreno e lote" para ela e confira o agrupamento.
-4. Exclua Paisagismo: as plantas/famílias dela voltam para Arquitetura; **Desfazer** restaura tudo num passo.
-5. Arquivo antigo (sem perfis): abre igual; o configurador mostra os predefinidos.
+## 13. Configurador
+Entrada: "Configurar disciplinas" no menu do navegador de plantas ou o botão no diálogo de Visibilidade/Gráficos.
+
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 13.1 | Abra e veja a **matriz categoria × tom** de cada disciplina (ex.: Estrutura) | Categorias agrupadas pela disciplina de origem; sem perfil gravado aparece o predefinido; categoria de `geral` (terreno, CAD...) nunca recebe tom | OK / falhou / estranho | |
+| 13.2 | Escolha Estrutura e mude Parede para **Oculto**; confira na planta de Estrutura; restaure | Só a disciplina selecionada muda; "Restaurar predefinido"/perfil volta ao normal | OK / falhou / estranho | |
+| 13.3 | **Crie** a disciplina **Paisagismo** (nome e cor) e mude a origem da categoria "Terreno e lote" para ela | Aparece na lista, no campo "Disciplina" das vistas e em "Minha disciplina"; o remapeamento dá conteúdo a ela e move a categoria no agrupamento | OK / falhou / estranho | |
+| 13.4 | **Renomeie** / mude cor | O rótulo atualiza em toda a interface | OK / falhou / estranho | |
+| 13.5 | **Exclua** Paisagismo (com plantas/famílias/categorias usando-a) | Pede confirmação; as plantas e famílias **voltam para Arquitetura**, referências do nível/3D são limpas; nada quebra | OK / falhou / estranho | |
+| 13.6 | **Desfazer** cada ação acima | Restaura tudo num passo só, sem perfil nem remapeamento órfão | OK / falhou / estranho | |
+| 13.7 | Abra um **arquivo antigo** (sem perfis) | Abre igual; o configurador mostra só os predefinidos, sem gravar nada | OK / falhou / estranho | |
 
 ## 14. 3D e corte
-1. Com Minha disciplina = Estrutura, no 3D as paredes ficam esmaecidas e **não selecionam**; o oculto some e não captura snap.
-2. No corte, a parede em meio-tom continua desenhada, atenuada; a oculta some.
-3. Alterne Normal/Meio-tom/Oculto no configurador e confira as três vistas (planta, 3D, corte).
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 14.1 | Com Minha disciplina = Estrutura, olhe a **parede em meio-tom** no 3D | Desenhada esmaecida e **não seleciona** ao clique | OK / falhou / estranho | |
+| 14.2 | Parede **oculta** no perfil | Some do 3D (sai da malha e do picking); nenhuma outra categoria some junto | OK / falhou / estranho | |
+| 14.3 | Parede **normal** | Cor e seleção normais de novo | OK / falhou / estranho | |
+| 14.4 | **Corte/elevação** com meio-tom e oculto | A parede em meio-tom continua desenhada, atenuada; a oculta some | OK / falhou / estranho | |
+| 14.5 | **Snap e cota no meio-tom** (planta e corte) | O cursor continua capturando e a cota continua referenciando o elemento em meio-tom; clique e caixa **não** selecionam (regra §4.1) | OK / falhou / estranho | |
+| 14.6 | Alterne Normal/Meio-tom/Oculto no configurador | As três vistas (planta, 3D, corte) acompanham sem recarregar o projeto | OK / falhou / estranho | |
 
 ## 15. Colaborar
-1. Duas sessões na mesma sala, cada uma com a sua **Minha disciplina**.
-2. O cursor remoto mostra "Nome · Disciplina"; o projeto de quem abre não muda de disciplina.
-3. Feche a sessão de uma: a outra continua com a própria disciplina.
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 15.1 | Duas sessões na mesma sala, cada uma com a sua **Minha disciplina** | Cada sessão vê os tons da própria disciplina; nada no projeto muda | OK / falhou / estranho | |
+| 15.2 | Olhe o **cursor remoto** | Mostra "Nome · Disciplina" do outro; sem disciplina escolhida, só o nome; atualiza ao trocar, sem reconectar | OK / falhou / estranho | |
+| 15.3 | Confira o projeto de **quem abre** | O projeto de quem abre **não muda** ao salvar/reabrir por causa do colaborar (a disciplina é presença, não dado) | OK / falhou / estranho | |
+| 15.4 | Feche a sessão de uma | A outra continua com a própria disciplina | OK / falhou / estranho | |
 
 ## 16. IFC importado
-1. Importe o arquivo de instalações de teste (ou use o modelo "Teste de disciplinas (completo)"): tubo, duto e cabo aparecem em Hidrossanitário, HVAC e Elétrico.
-2. Ocultar a categoria `plumbingFixture` esconde só o tubo; `generic` não o esconde.
-3. Um IFC antigo sem essas classes continua entrando como antes.
+| # | Passo | Esperado | Resultado | Observação |
+|---|---|---|---|---|
+| 16.1 | **Importe o arquivo de instalações de teste** (ou use o modelo "Teste de disciplinas (completo)", que já traz `g_ifc_pipe`/`g_ifc_duct`/`g_ifc_cable`) | Tubo cai em Hidrossanitário, duto em HVAC, cabo em Elétrico; proxy/classe desconhecida fica `geral` | OK / falhou / estranho | |
+| 16.2 | Confira os tons nas plantas | Na planta de Estrutura eles somem/ficam em meio-tom pelo perfil; na disciplina própria, normais | OK / falhou / estranho | |
+| 16.3 | Oculte a categoria `plumbingFixture` | Esconde **só** o tubo; `generic` (proxy) não sai junto, e o `generic` do proxy nunca recebe tom de disciplina | OK / falhou / estranho | |
+| 16.4 | Repita no **3D** | O tom por categoria vale também no 3D (conserto F7b) | OK / falhou / estranho | |
+| 16.5 | Importe um **IFC antigo**, sem essas classes | Continua entrando como antes: tudo `geral`/`generic`, nenhuma disciplina inventada | OK / falhou / estranho | |
 
 ## Como relatar
 Para cada falha: passo, o que esperava, o que viu, uma captura e, se possível, o projeto salvo. Falhas de **tela** (feio, confuso) contam
