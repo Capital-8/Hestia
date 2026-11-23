@@ -78,6 +78,17 @@ describe('navegador: plantas de disciplina sob o nível', () => {
     expect(html.indexOf('Armação')).toBeLessThan(html.indexOf('Tomadas'));
   });
 
+  it('disciplina criada mostra o nome declarado no grupo, nunca uma string vazia', () => {
+    const s = new ProjectStore(createEmptyProject());
+    s.exec({ type: 'addProjectDiscipline', discipline: { id: 'paisagismo', name: 'Paisagismo' } });
+    s.exec({ type: 'addPlanView', plan: makePlanView({ id: 'pv_p1', levelId: 'lv_0', name: 'Jardim', discipline: 'paisagismo' }) });
+    s.exec({ type: 'addPlanView', plan: makePlanView({ id: 'pv_p2', levelId: 'lv_0', name: 'Canteiros', discipline: 'paisagismo' }) });
+    editor.load(s.project, 'teste.hestia.json');
+    const html = nivel();
+    expect(html).toContain('data-node="g:disc:lv_0:paisagismo"');
+    expect(html).toContain('>Paisagismo<');
+  });
+
   it('uma única planta adicional aparece direto sob o nível, sem grupo de disciplina', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({ type: 'addPlanView', plan: makePlanView({ id: 'pv_so', levelId: 'lv_0', name: 'Hidráulica', discipline: 'hidrossanitario' }) });

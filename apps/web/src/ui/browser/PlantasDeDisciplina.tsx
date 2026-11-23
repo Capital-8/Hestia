@@ -3,7 +3,7 @@ import { disciplineLabel, DISCIPLINES, formatQuantity, type Discipline, type Id,
 import { editor } from '../../editor/controller.ts';
 import { pedirConfirmacao } from '../../editor/confirmacaoPrompt.ts';
 import { t, useT, type Lang } from '../../editor/i18n.ts';
-import { criarPlantaDeDisciplina, duplicarPlanta, excluirPlanta, renomearPlanta } from '../../editor/planViewActions.ts';
+import { criarPlantaDeDisciplina, duplicarPlanta, excluirPlanta, renomearPlanta, rotuloDaDisciplina } from '../../editor/planViewActions.ts';
 import { beginSheetDrag, endSheetDrag, SHEET_VIEW_MIME } from '../../editor/sheetDrag.ts';
 import { useUi } from '../../editor/state.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
@@ -171,6 +171,7 @@ function agruparPorDisciplina(plans: readonly PlanView[]): Array<[Discipline, Pl
  */
 export function NivelDePlantas({ level, plans }: { level: Level; plans: readonly PlanView[] }): ReactElement {
   const { t, lang } = useT();
+  const p = editor.project;
   const units = useUnits();
   const view = useUi((s) => s.view);
   const planKind = useUi((s) => s.planKind);
@@ -209,7 +210,7 @@ export function NivelDePlantas({ level, plans }: { level: Level; plans: readonly
         <PlantaDeDisciplinaNode plan={plans[0]!} />
       ) : (
         agruparPorDisciplina(plans).map(([discipline, lista]) => (
-          <Node key={discipline} id={`g:disc:${level.id}:${discipline}`} label={disciplineLabel(lang, discipline)} icon={ICONE_DA_DISCIPLINA[discipline]} group open>
+          <Node key={discipline} id={`g:disc:${level.id}:${discipline}`} label={rotuloDaDisciplina(p, lang, discipline) || `Disciplina ${discipline}`} icon={ICONE_DA_DISCIPLINA[discipline]} group open>
             {lista.map((plan) => <PlantaDeDisciplinaNode key={plan.id} plan={plan} />)}
           </Node>
         ))

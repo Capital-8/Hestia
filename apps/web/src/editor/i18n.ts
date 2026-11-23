@@ -906,7 +906,7 @@ export function nomeComandoLang(cmd: string, lang: Lang): string {
     temporaryCategory: ['Ocultar temporariamente (categoria)', 'Temporary Hide (Category)'],
     temporaryIsolate: ['Isolar temporariamente (elemento)', 'Temporary Isolate (Element)'],
     isolateCategory: ['Isolar temporariamente (categoria)', 'Temporary Isolate (Category)'],
-    resetTemporary: ['Restaurar hide/isolate temporário', 'Reset Temporary Hide/Isolate'],
+    resetTemporary: ['Reexibir tudo na vista (HR)', 'Unhide All in View (HR)'],
     hideInView: ['Ocultar na vista (elemento)', 'Hide in View (Element)'],
     hideCategoryInView: ['Ocultar na vista (categoria)', 'Hide in View (Category)'],
     revealHidden: ['Revelar elementos ocultos', 'Reveal Hidden Elements'],

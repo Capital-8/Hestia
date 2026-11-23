@@ -366,18 +366,27 @@ export function temporaryIsolate(elements: readonly Id[], categories: readonly G
   pruneHiddenSelection({ key: 'eds_msg_temp_isolated' });
 }
 
-/** Reexibe tudo da vista: ocultação permanente e temporária (não mexe no modo Reveal). */
+/**
+ * Reexibe tudo na vista ativa (HR): limpa o Hide in View permanente (elementos e categorias, num passo de desfazer) e
+ * o estado temporário (HH/HI/IC e o modo Reveal). Não toca no perfil de disciplina nem em "Visibilidade e gráficos".
+ */
 export function unhideAllInView(): void {
   const st = useUi.getState();
+  const key = visibilityKeyOf(st);
   const target = viewHiddenTargetOf(st);
-  if (target && permanentHiddenOf(editor.project, target)) {
+  const permanente: ViewHidden = target ? permanentHiddenOf(editor.project, target) : {};
+  const temPermanente = (permanente.elements?.length ?? 0) > 0 || (permanente.categories?.length ?? 0) > 0;
+  const temp = key ? st.viewTemp[key] : undefined;
+  const temTemporario = !!(temp?.hidden || temp?.isolated || temp?.reveal);
+  if (temPermanente && target) {
     editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   }
-  setTemp({ hidden: undefined, isolated: undefined });
-  useUi.setState({ status: { key: 'eds_msg_unhide_all_reveal' } });
+  if (temTemporario) setTemp(null);
+  redesenhar();
+  useUi.setState({ status: { key: temPermanente || temTemporario ? 'eds_msg_unhide_all_done' : 'eds_msg_unhide_all_none' } });
 }
 
-/** Reset do hide/isolate temporário (HR). */
+/** Reset do hide/isolate temporário (botão da barra da vista; o HR reexibe tudo por `unhideAllInView`). */
 export function resetTemporaryHidden(): void {
   setTemp({ hidden: undefined, isolated: undefined });
   useUi.setState({ status: { key: 'eds_msg_temp_reset' } });
