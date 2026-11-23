@@ -135,6 +135,21 @@ export function ViewControlBar(): ReactElement | null {
     node: field('user', minhaTip, minhaLabel, minhaCtl, false),
     menu: field('user', minhaTip, minhaLabel, minhaCtl, true),
   };
+  // Configurador de disciplinas (plano de UX de 2026-11-23): abre no projeto inteiro, já na disciplina de trabalho.
+  const disciplinasLabel = t('dsc_button');
+  const disciplinasTip = t('dsc_title');
+  const disciplinasBtn = (
+    <button
+      className="vcb-btn"
+      title={disciplinasTip}
+      aria-label={disciplinasTip}
+      onClick={() => useUi.setState({ dialog: 'disciplineConfig', dialogArg: minhaDisciplina })}
+    >
+      <Icon name="layers" size={14} />
+      <span>{disciplinasLabel}</span>
+    </button>
+  );
+  const disciplinasItem: FitItem = { key: 'disciplinas', priority: 3, node: disciplinasBtn };
 
   // Itens da barra, na ordem visual. `node` vai para a barra; `menu` (padrão: o próprio `node`) vai para o popup. Os
   // separadores entram no `node` do item que vem depois, para sair junto com ele.
@@ -159,6 +174,7 @@ export function ViewControlBar(): ReactElement | null {
     );
     items.push({ key: 'disciplina', priority: 4, node: discoField });
     items.push(minhaItem);
+    items.push(disciplinasItem);
     const tonesTip = t('shc_tones_tip');
     const tonesBtn = (
       <button
@@ -174,6 +190,7 @@ export function ViewControlBar(): ReactElement | null {
     items.push(grouped('tons', 2, tonesBtn, true));
   } else {
     items.push(minhaItem);
+    items.push(disciplinasItem);
   }
   if (!is3d) {
     items.push({ key: 'escala', priority: 3, node: field('scale', scaleTip, scaleLabel, scaleCtl, false), menu: field('scale', scaleTip, scaleLabel, scaleCtl, true) });
