@@ -59,7 +59,7 @@ import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
 import { destinoDoDelete, ligarSincroniaDaEdicao } from './terrenoEdicao.ts';
 import { caixaDoCorteComTerreno } from './terrenoVista.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
@@ -139,11 +139,14 @@ function labelHit(p: Project, levelId: Id, scale: number, planId: Id | null, at:
  * Controlador do editor: junta projeto (histórico), ferramenta ativa, seleção e vistas.
  * A interface só lê estado e chama ações; as regras vivem aqui e nos pacotes.
  */
+/** HR ganha uma ação própria (reexibir tudo), além dos comandos do perfil de atalhos. */
+type VisCommand = ShortcutCommand | 'unhideAll';
+
 /** Sequências de visibilidade que funcionam no 3D e no corte mesmo com outro perfil de atalhos. */
-const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
-  HH: 'temporaryHide', HC: 'temporaryCategory', HI: 'temporaryIsolate', IC: 'isolateCategory', HR: 'resetTemporary',
+const VIS_SEQUENCES: Record<string, VisCommand> = {
+  HH: 'temporaryHide', HC: 'temporaryCategory', HI: 'temporaryIsolate', IC: 'isolateCategory', HR: 'unhideAll',
   EH: 'hideInView', VH: 'hideCategoryInView', RH: 'revealHidden', EU: 'unhideInView', VU: 'unhideCategoryInView',
-  V1: 'temporaryHide', V2: 'temporaryCategory', V3: 'temporaryIsolate', V4: 'isolateCategory', V5: 'resetTemporary',
+  V1: 'temporaryHide', V2: 'temporaryCategory', V3: 'temporaryIsolate', V4: 'isolateCategory', V5: 'unhideAll',
   V6: 'hideInView', V7: 'hideCategoryInView', V8: 'revealHidden', V9: 'unhideInView', V0: 'unhideCategoryInView',
 };
 
@@ -643,13 +646,15 @@ export class Editor {
   }
 
   /** Executa um atalho de visibilidade; falso quando o comando é de ferramenta (o chamador decide). */
-  private executaComandoDeVisibilidade(cmd: ShortcutCommand): boolean {
+  private executaComandoDeVisibilidade(cmd: VisCommand): boolean {
     switch (cmd) {
       case 'temporaryHide': temporaryHideSelection(); return true;
       case 'temporaryCategory': temporarySelectedCategory(false); return true;
       case 'temporaryIsolate': temporaryIsolateSelection(); return true;
       case 'isolateCategory': temporarySelectedCategory(true); return true;
-      case 'resetTemporary': resetTemporaryHidden(); return true;
+      // HR (perfil ou sequência própria) reexibe tudo na vista: Hide in View + temporário, num passo de desfazer.
+      case 'resetTemporary': unhideAllInView(); return true;
+      case 'unhideAll': unhideAllInView(); return true;
       case 'hideInView': hideSelectionInView(); return true;
       case 'hideCategoryInView': hideSelectedCategoryInView(); return true;
       case 'revealHidden': toggleRevealHidden(); return true;

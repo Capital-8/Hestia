@@ -3,7 +3,8 @@ import { FAMILIA_ARMARIO, buildTemplate, createEmptyProject, type Element } from
 import { annotationIdsOfActiveView } from './viewAnnotations.ts';
 import { useUi } from './state.ts';
 import { editor } from './controller.ts';
-import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideInView, viewHiddenTargetOf, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
+import { resolveText } from './i18n.ts';
+import { categoryIdsOf, hideInView, mergeHidden, removeHidden, temporaryHide, temporaryIsolate, toggleRevealHidden, unhideAllInView, unhideInView, viewHiddenTargetOf, visibilityKeyOf, visibilityOf } from './viewVisibility.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null, minhaDisciplina: null }));
 
@@ -65,6 +66,20 @@ describe('visibilidade por vista', () => {
     expect(iso.hidden.has(d.id)).toBe(false);
     useUi.setState({ viewTemp: {} });
     expect(visibilityOf(p, useUi.getState()).hidden.size).toBe(0);
+  });
+
+  it('Reexibir tudo limpa elemento, categoria, temporário e Reveal; um undo restaura o permanente', () => {
+    editor.newProject('house2');
+    const w = parede(editor.project);
+    useUi.setState({ view: '3d', viewTemp: {}, selection: [] });
+    editor.store.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: { elements: [w.id], categories: ['door'] } }, 'teste');
+    useUi.setState({ viewTemp: { '3d': { hidden: { elements: [w.id] }, isolated: { categories: ['door'] }, reveal: true } } });
+    unhideAllInView();
+    expect(editor.project.view3d?.hidden).toBeUndefined();
+    expect(useUi.getState().viewTemp['3d']).toBeUndefined();
+    expect(resolveText(useUi.getState().status, 'pt')).toBe('Tudo reexibido nesta vista. Ctrl+Z desfaz.');
+    editor.store.undo();
+    expect(editor.project.view3d?.hidden).toEqual({ elements: [w.id], categories: ['door'] });
   });
 
   const VISTAS: Array<[string, Partial<ReturnType<typeof useUi.getState>>, string]> = [
