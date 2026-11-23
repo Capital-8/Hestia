@@ -1,4 +1,5 @@
-import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, view3dOf, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+/* eslint-disable max-lines -- visibilidade, tons, apresentação, bloqueio de edição, Hide/Reveal e temporários no mesmo dono. */
+import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, podeEditar, tomDaCategoria, view3dOf, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -123,6 +124,11 @@ export function removeHidden(a: ViewHidden | undefined, remove: ViewHidden): Vie
 export interface ViewVisibilitySets {
   hidden: ReadonlySet<Id>;
   halftone: ReadonlySet<Id>;
+  /**
+   * Elementos visíveis (não ocultos) que a disciplina de trabalho não pode editar: são desenhados normalmente, mas não
+   * selecionam; snap e cota continuam. “Liberar edição” esvazia o conjunto.
+   */
+  bloqueados: ReadonlySet<Id>;
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
@@ -135,7 +141,7 @@ export interface ViewVisibilitySets {
   apresentacoes: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {}, apresentacoes: {} };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), bloqueados: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {}, apresentacoes: {} };
 
 /**
  * Apresentação de cada categoria na disciplina de trabalho (plano de UX de 2026-11-23). Lê pelo registro único de
@@ -217,9 +223,36 @@ function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minha
   return resultado;
 }
 
+/** Cache dos elementos que a disciplina de trabalho não edita (muda só com o projeto, a disciplina ou “Liberar edição”). */
+interface CacheDeBloqueados {
+  familias: Project['componentFamilies'];
+  porTrabalho: Map<string, ReadonlySet<Id>>;
+}
+
+const bloqueadosPorProjeto = new WeakMap<Project, CacheDeBloqueados>();
+
+/** Elementos que `podeEditar` recusa para a disciplina de trabalho (sem considerar a ocultação da vista). */
+function bloqueadosDaDisciplina(p: Project, trabalho: Discipline | 'todas', liberar: boolean): ReadonlySet<Id> {
+  let cache = bloqueadosPorProjeto.get(p);
+  if (!cache || cache.familias !== p.componentFamilies) {
+    cache = { familias: p.componentFamilies, porTrabalho: new Map() };
+    bloqueadosPorProjeto.set(p, cache);
+  }
+  const chave = `${trabalho}\u0000${liberar ? '1' : '0'}`;
+  const guardado = cache.porTrabalho.get(chave);
+  if (guardado) return guardado;
+  const out = new Set<Id>();
+  if (trabalho !== 'todas' && !liberar) {
+    for (const el of Object.values(p.elements)) if (!podeEditar(p, el, trabalho, false)) out.add(el.id);
+  }
+  cache.porTrabalho.set(chave, out);
+  return out;
+}
+
 /**
  * Resolve permanente + temporário + Reveal para a vista ativa, e o meio-tom da disciplina (decisão 0060 §4.1):
  * (1) oculto vence (Hide in View, categoria, temporário ou tom `hidden`); (2) senão, tom `halftone`; (3) normal.
+ * Os bloqueados de edição (plano de UX de 2026-11-23) são o que sobra visível e que `podeEditar` recusa.
  */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st);
@@ -282,8 +315,11 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
   // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
   const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
+  // Bloqueados de edição: visíveis na vista (não ocultos), independentemente do tom. Não entram em hidden/halftone.
+  const bloqueados = new Set<Id>();
+  for (const id of bloqueadosDaDisciplina(p, trabalho, st.liberarEdicao)) if (!hidden.has(id)) bloqueados.add(id);
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, halftone, revealed, reveal, temporary, toneCategories, apresentacoes: apresentacoesDaVista };
+  return { hidden, halftone, bloqueados, revealed, reveal, temporary, toneCategories, apresentacoes: apresentacoesDaVista };
 }
 
 /** Atualiza o estado temporário da vista ativa. */

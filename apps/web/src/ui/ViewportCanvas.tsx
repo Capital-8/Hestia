@@ -806,7 +806,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const wa = screenToWorld(v, a);
     const wb = screenToWorld(v, b);
     const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
-    const hidden = visibilityOf(editor.project, st).hidden;
+    const vis = visibilityOf(editor.project, st);
+    const hidden = vis.hidden;
     const ids = [
       ...idsNaCaixaDoCorte(result, wa, wb, hidden, editor.project),
       // Guarda-corpo é desenhado pelo kernel, fora do resultado do corte: entra pela mesma caixa.
@@ -817,7 +818,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       ...terrenosNaCaixaDoCorteDoProjeto(editor.project, result, wa, wb, hidden, v.zoom),
       // Cotas e demais anotações do corte entram com a mesma regra janela×cruzamento.
       ...anotacoesNaCaixaDoCorte(sectionAnnotationsOf(view), wa, wb, editor.viewScale()),
-    ];
+    ].filter((id) => !vis.bloqueados.has(id));
     useUi.setState({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null });
   };
   /** Caixa da seleção na 3D (arrasto com Selecionar): pontas da tela viram NDC, como `elementAt3d`; janela ou cruzamento pelo sentido. */
@@ -826,7 +827,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const ndc = (p: Pt): Pt => ({ x: (p.x / r.width) * 2 - 1, y: 1 - (p.y / r.height) * 2 });
     const na = ndc(a);
     const nb = ndc(b);
-    const ids = idsNaCaixaDaTela(model.current.scene, model.current.orbit.camera, { x0: na.x, y0: na.y, x1: nb.x, y1: nb.y }, modoDaCaixa(a, b));
+    const bloqueados = visibilityOf(editor.project, paneState()).bloqueados;
+    const ids = idsNaCaixaDaTela(model.current.scene, model.current.orbit.camera, { x0: na.x, y0: na.y, x1: nb.x, y1: nb.y }, modoDaCaixa(a, b)).filter((id) => !bloqueados.has(id));
     useUi.setState((st) => ({ selection: selecaoComCaixa(st.selection, ids, somar), selectedLevel: null }));
   };
   const gesture = useRef<{ dist: number; mid: Pt } | null>(null);
@@ -968,9 +970,14 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   /** A esquadria virtual da parede cortina (ADR 0056 §7.6) conta como a própria parede para quem só entende elementos do projeto (hover, menu, ferramentas). */
   const comoElementoDoProjeto = <T extends { id: string } | null>(el: T): T => (el && lerIdEsquadriaCortina(el.id) ? { ...el, id: idDoProjetoDoPick(el.id) } : el);
   const elementAt3d = (s: Pt) => comoElementoDoProjeto(elementBrutoAt3d(s));
+  /** Elemento sob o cursor que pode ser alvo na vista (o bloqueado por disciplina continua desenhado, mas não é alvo). */
+  const elementoSelecionavel3d = (s: Pt) => {
+    const el = elementAt3d(s);
+    return el && !editor.bloqueadoNaVista(el.id) ? el : null;
+  };
   /** Ponto (x, y) da parede sob o cursor na vista 3D, para encaixe preciso ao arrastar sobre paredes. */
   const paredeSobCursor3d = (s: Pt): { x: number; y: number } | undefined => {
-    const hit = elementAt3d(s);
+    const hit = elementoSelecionavel3d(s);
     if (hit?.kind === 'wall') return { x: hit.point.x, y: hit.point.y };
     return undefined;
   };
@@ -1025,7 +1032,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         if (useUi.getState().hover !== null) useUi.setState({ hover: null });
         return;
       }
-      const id = elementAt3d(at)?.id ?? null;
+      const id = elementoSelecionavel3d(at)?.id ?? null;
       if (stNow.hover !== id) useUi.setState({ hover: id });
     });
   };
@@ -1036,7 +1043,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   // Ferramenta que declara `hover3d` (Porta na cortina) recebe, na 3D, o ponto e a altura da superfície sob o cursor.
   const infoDe = (s: Pt, m: Mods) => {
     if (paneState().view === '3d' && editor.activeTool.hover3d) {
-      const el = elementAt3d(s);
+      const el = elementoSelecionavel3d(s);
       return { raw: el ? { x: el.point.x, y: el.point.y } : { x: 0, y: 0 }, ...m, hit3d: el?.id ?? null, hitZ: el?.point.z };
     }
     return { raw: screenToWorld(editor.viewport() as Viewport, s), ...m };
@@ -1200,7 +1207,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       }
       // Pressionar sobre um componente arma o arrasto na altura clicada; antes do limiar, soltar ainda é o clique de sempre.
       if (e.button === 0 && !spaceDown.current && !e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey && !emPrevia) {
-        const hit = elementAt3d(s);
+        const hit = elementoSelecionavel3d(s);
         const armado = hit && armarArrastoNoPonto(editor.project, hit.id, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), useUi.getState().selection, hit.point.z);
         if (armado) {
           arrastoComp.current = armado;
@@ -1706,7 +1713,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         const hit = pick3dAt(s);
         const bruto = elementBrutoAt3d(s);
         const el = comoElementoDoProjeto(bruto);
-        if (editor.activeTool.pick3d) {
+        // O bloqueado por disciplina não é alvo: o clique só avisa a quem pertence.
+        if (el && editor.bloqueadoNaVista(el.id)) editor.avisarBloqueado(el.id);
+        else if (editor.activeTool.pick3d) {
           if (hit || el) {
             editor.pointer('click', { raw: hit ?? { x: 0, y: 0 }, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, hit3d: el?.id ?? null, hitZ: el?.point.z });
           } else {
@@ -1720,7 +1729,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
           if (el) {
             const antes = paneState().selection;
             const comum = !(e.shiftKey || e.ctrlKey || e.metaKey);
-            clickSelect3d(el.id, !comum);
+            editor.selecionarNaVista(el.id, !comum);
             // Esquadria da célula da cortina: o clique nela escolhe a esquadria (subelemento `opening`) de uma vez, sem a parede antes.
             // Parede cortina já selecionada sozinha: o clique sobre a linha ou o painel escolhe o subelemento (sem nada, a parede inteira).
             const daEsquadria = comum && bruto ? subelementoDaEsquadriaCortina(editor.project, bruto.id) : null;
@@ -1731,7 +1740,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       }
     }
     // Clique sem arrasto no corte ou na elevação: o mesmo caminho da 3D (clickSelect3d, que usa selectionAfterClick).
-    if (!d.moved && d.pick && paneState().view === 'section') clickSelect3d(sectionPickAt(s)?.id ?? null, e.shiftKey || e.ctrlKey || e.metaKey);
+    if (!d.moved && d.pick && paneState().view === 'section') editor.selecionarNaVista(sectionPickAt(s)?.id ?? null, e.shiftKey || e.ctrlKey || e.metaKey);
     // Duplo clique em cota permanente (Selecionar, planta ou corte): abre o editor de valor (dimEditId, frente I3).
     if (!d.moved && e.button === 0 && editor.activeTool.id === 'select' && paneState().view !== '3d') {
       const agora: CliqueAnterior = { t: performance.now(), x: s.x, y: s.y };
