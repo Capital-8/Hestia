@@ -69,6 +69,11 @@ export interface UiState {
   planViewId: Id | null;
   /** Disciplina de trabalho pessoal (sessão, decidida no adendo 3 da 0060): null = usa a disciplina da vista. Nunca vai para o projeto. */
   minhaDisciplina: Discipline | null;
+  /**
+   * “Editar outras disciplinas” (sessão, plano de UX de 2026-11-23): libera selecionar e editar elementos de outras
+   * disciplinas na vista ativa. Padrão falso; nunca vai para o projeto.
+   */
+  liberarEdicao: boolean;
   /** Rótulo em arraste (fantasma), compartilhado por qualquer planta. */
   tagDrag: { planId: Id; roomId: Id; at: Vec2 } | null;
   /** Ferramenta Alinhar ativa na prancha (sessão; decisão 0039). */
@@ -407,6 +412,7 @@ export const useUi = create<UiState>(() => ({
   areaPlanId: null,
   planViewId: null,
   minhaDisciplina: null,
+  liberarEdicao: false,
   tagDrag: null,
   sheetAlign: false,
   sheetMove: false,

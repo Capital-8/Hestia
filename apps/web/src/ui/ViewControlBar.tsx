@@ -42,6 +42,7 @@ export function ViewControlBar(): ReactElement | null {
   const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
   const minhaDisciplina = useUi((s) => s.minhaDisciplina);
+  const liberarEdicao = useUi((s) => s.liberarEdicao);
   const { t, lang } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
@@ -192,6 +193,11 @@ export function ViewControlBar(): ReactElement | null {
     items.push(minhaItem);
     items.push(disciplinasItem);
   }
+  // “Editar outras disciplinas” (plano de UX de 2026-11-23): libera a edição dos elementos travados, só nesta sessão.
+  const liberarLabel = t('shc_edit_other_disciplines');
+  const liberarTip = t('shc_edit_other_disciplines_tip');
+  const liberarBtn = toggle(liberarLabel, 'edit', liberarEdicao, () => useUi.setState((s) => ({ liberarEdicao: !s.liberarEdicao, previewTick: s.previewTick + 1 })), liberarTip);
+  items.push({ key: 'liberar-edicao', priority: 3, node: liberarBtn });
   if (!is3d) {
     items.push({ key: 'escala', priority: 3, node: field('scale', scaleTip, scaleLabel, scaleCtl, false), menu: field('scale', scaleTip, scaleLabel, scaleCtl, true) });
     items.push({ key: 'detalhe', priority: 3, node: field('detail', detailTip, detailLabel, detailCtl, false), menu: field('detail', detailTip, detailLabel, detailCtl, true) });

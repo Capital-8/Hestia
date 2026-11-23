@@ -86,6 +86,15 @@ export interface ToolEnv {
    * de cota, mas não são selecionáveis por clique nem por caixa (decisão 0060 §4.1). Ausente = nenhum.
    */
   halftoneInView?(): ReadonlySet<Id>;
+  /**
+   * Elementos bloqueados por disciplina na vista ativa (plano de UX de 2026-11-23): visíveis e capturáveis, mas não
+   * selecionáveis por clique, caixa ou filtro. Ausente = nenhum.
+   */
+  bloqueados?(): ReadonlySet<Id>;
+  /**
+   * Mensagem “Pertence a <disciplina>; …” para o elemento bloqueado, no idioma da interface. Ausente = sem mensagem.
+   */
+  mensagemBloqueado?(id: Id): string | null;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
   /**

@@ -46,7 +46,7 @@ import { stairHandlePreview } from './stairGrips.ts';
 import { stairFreeHandlePreview } from './stairFreeGrips.ts';
 import { spiralHandlePreview } from './stairSpiralGrips.ts';
 import { rampHandlePreview } from './rampGrips.ts';
-import { meioTomNaVista, ocultosNaVista, podeSelecionar, temNaoSelecionavel, type VisibilidadeEnv } from './visibilidade.ts';
+import { bloqueadosNaVista, meioTomNaVista, ocultosNaVista, podeSelecionar, temNaoSelecionavel, type VisibilidadeEnv } from './visibilidade.ts';
 import type { PointerInfo } from './types.ts';
 
 // As alças de vértice da região de terreno entram na seleção (uma vez só; ver `terrainRegionHandles.ts`).
@@ -149,10 +149,10 @@ export class SelectTool extends ToolBase {
    * (oculto ou meio-tom), para que o hit-test e a janela não os selecionem (e não os deixem tapando o que está por
    * baixo). Planta de piso sem nada oculto/meio-tom: o próprio projeto.
    */
-  private visibleProject(): Project {
+  private visibleProject(semBloqueio = false): Project {
     const pr = this.env.project();
     const ly = this.layers();
-    const vista = this.vista();
+    const vista = this.vista(semBloqueio);
     const temFiltro = temNaoSelecionavel(vista);
     if (!temFiltro && (!ly || (ly.walls !== 'hidden' && ly.openings && ly.floors))) return pr;
     const key = `${ly?.walls ?? ''}|${ly?.openings ?? ''}|${ly?.floors ?? ''}`;
@@ -175,10 +175,10 @@ export class SelectTool extends ToolBase {
    * ocultas (ou em meio-tom) e as aberturas visíveis a parede continua no índice (o chamador descarta os acertos de
    * parede que não se selecionam).
    */
-  private wallPickProject(): Project {
+  private wallPickProject(semBloqueio = false): Project {
     const ly = this.layers();
-    if (!ly || ly.walls !== 'hidden' || !ly.openings) return this.visibleProject();
-    const vista = this.vista();
+    if (!ly || ly.walls !== 'hidden' || !ly.openings) return this.visibleProject(semBloqueio);
+    const vista = this.vista(semBloqueio);
     const pr = this.env.project();
     const elements: Project['elements'] = {};
     for (const [id, e] of Object.entries(pr.elements)) {
@@ -206,10 +206,12 @@ export class SelectTool extends ToolBase {
    * Ambiente de visibilidade com os conjuntos lidos UMA vez: `podeSelecionar` é chamado por elemento e não pode
    * reconsultar a visibilidade da vista (que recalcula a ocultação a cada chamada).
    */
-  private vista(): VisibilidadeEnv {
+  private vista(semBloqueio = false): VisibilidadeEnv {
     const ocultos = ocultosNaVista(this.env);
     const meios = meioTomNaVista(this.env);
-    return { hiddenInView: () => ocultos, halftoneInView: () => meios };
+    if (semBloqueio) return { hiddenInView: () => ocultos, halftoneInView: () => meios };
+    const bloqueados = bloqueadosNaVista(this.env);
+    return { hiddenInView: () => ocultos, halftoneInView: () => meios, bloqueados: () => bloqueados };
   }
 
   /** Planta de área: elementos de modelo não se movem nem mostram alças (a vista é de análise/anotação). */
@@ -260,16 +262,16 @@ export class SelectTool extends ToolBase {
   }
 
   /** Parede, abertura ou piso sob o cursor (aberturas têm prioridade sobre a parede; a parede, sobre o piso). */
-  private hitAt(at: Vec2): AnyHit | null {
+  private hitAt(at: Vec2, semBloqueio = false): AnyHit | null {
     const pr = this.env.project();
     const lv = this.env.levelId();
     const mpp = this.env.metersPerPixel();
     const planId = this.planId();
     const ly = this.layers();
-    const vista = this.vista();
+    const vista = this.vista(semBloqueio);
     const hidden = ocultosNaVista(vista);
     const sel = (id: Id): boolean => podeSelecionar(vista, id, 'clique');
-    const vp = this.visibleProject();
+    const vp = this.visibleProject(semBloqueio);
     const detail = detailItemAt(pr, lv, at, mpp, planId);
     if (detail && sel(detail)) return { id: detail, kind: 'annotation' };
     const overlay = overlayAnnotationAt(pr, lv, at, mpp, planId);
@@ -287,7 +289,7 @@ export class SelectTool extends ToolBase {
       const rt = roomTagAt(pr, at, mpp, areaId);
       if (rt && sel(rt)) return { id: rt, kind: 'annotation' };
     }
-    const hit = pickAt(this.wallPickProject(), lv, at, mpp, vista);
+    const hit = pickAt(this.wallPickProject(semBloqueio), lv, at, mpp, vista);
     if (hit && !(ly?.walls === 'hidden' && hit.kind === 'wall')) return hit;
     // Linha de separação de ambiente (guardada no nível, fora de project.elements): tem prioridade sobre piso, laje, forro,
     // telhado e escada que estejam embaixo dela, como no Revit. Parede e abertura continuam ganhando o clique.
@@ -346,6 +348,17 @@ export class SelectTool extends ToolBase {
     if (an && sel(an.id)) return { id: an.id, kind: 'annotation' };
     const vm = ly && !ly.sectionMarks ? null : sectionMarkAt(pr, lv, at, mpp, planId);
     return vm && sel(vm) ? { id: vm, kind: 'view' } : null;
+  }
+
+  /**
+   * Elemento bloqueado por disciplina sob o cursor, quando existe: o clique não seleciona e a barra avisa a quem ele
+   * pertence. A detecção ignora o próprio bloqueio (senão o alvo sumiria do hit-test), mas mantém oculto e meio-tom.
+   */
+  private hitBloqueadoAt(at: Vec2): Id | null {
+    const bloqueados = bloqueadosNaVista(this.env);
+    if (bloqueados.size === 0) return null;
+    const id = this.hitAt(at, true)?.id;
+    return id && bloqueados.has(id) ? id : null;
   }
 
   override move(p: PointerInfo): void {
@@ -530,6 +543,14 @@ export class SelectTool extends ToolBase {
     this.downPt = p.raw;
     this.moveBase = null;
     this.moveIgnore = {};
+    // Elemento de outra disciplina (visível e normal): não seleciona nem arrasta; a barra diz a quem pertence.
+    const bloqueado = this.hitBloqueadoAt(p.raw);
+    if (bloqueado) {
+      const msg = this.env.mensagemBloqueado?.(bloqueado);
+      if (msg) this.env.say(msg);
+      this.mode = 'idle';
+      return;
+    }
     const sel = this.env.selection();
     const planId = this.planId();
     const somenteLeitura = this.somenteLeitura;

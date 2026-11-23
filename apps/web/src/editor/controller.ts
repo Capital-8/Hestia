@@ -17,6 +17,10 @@ import {
   serializeProject,
   newId,
   isComponent,
+  disciplineLabel,
+  disciplineOfElement,
+  disciplinasDoProjeto,
+  isBuiltinDiscipline,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
   type SectionAnnotations,
@@ -52,7 +56,7 @@ import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { normalizaPlanViewId, planKey, planViewIdDe, viewKey as identityKey } from './viewIdentity.ts';
 import { opcoesDeEncaixeAtuais } from './encaixeComponente.ts';
 import { alternarModoGizmo, tabTrocaModoGizmo } from './modoGizmo.ts';
-import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
+import { clickSelect3d, key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { pedirConfirmacao } from './confirmacaoPrompt.ts';
@@ -286,6 +290,8 @@ export class Editor {
     planViewId: () => this.planViewIdNow(),
     hiddenInView: () => this.ocultosDaPlanta(),
     halftoneInView: () => this.meioTomDaPlanta(),
+    bloqueados: () => this.bloqueadosDaVista(),
+    mensagemBloqueado: (id) => this.mensagemBloqueado(id),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -424,6 +430,46 @@ export class Editor {
    */
   meioTomDaPlanta(): ReadonlySet<Id> {
     return visibilityOf(this.store.project, useUi.getState()).halftone;
+  }
+
+  /** Elementos bloqueados por disciplina na vista ativa (visíveis, mas fora da edição sem “Liberar edição”). */
+  bloqueadosDaVista(): ReadonlySet<Id> {
+    return visibilityOf(this.store.project, useUi.getState()).bloqueados;
+  }
+
+  /** O elemento está bloqueado na vista ativa? */
+  bloqueadoNaVista(id: Id): boolean {
+    return this.bloqueadosDaVista().has(id);
+  }
+
+  /** “Pertence a <disciplina>; troque a disciplina da vista ou libere a edição.”, no idioma da interface. */
+  mensagemBloqueado(id: Id): string | null {
+    const p = this.store.project;
+    const el = p.elements[id];
+    if (!el) return null;
+    const lang = useI18n.getState().lang;
+    const dono = disciplineOfElement(el, p);
+    const disciplina = dono === 'geral'
+      ? t(lang, 'cvn_catgrp_general')
+      : isBuiltinDiscipline(dono)
+        ? disciplineLabel(lang, dono)
+        : (disciplinasDoProjeto(p).find((d) => d.id === dono)?.name ?? dono);
+    return t(lang, 'eds_msg_blocked_discipline', { disciplina });
+  }
+
+  /** Avisa na barra que o elemento clicado pertence a outra disciplina. */
+  avisarBloqueado(id: Id): void {
+    const msg = this.mensagemBloqueado(id);
+    if (msg) useUi.setState({ status: msg });
+  }
+
+  /**
+   * Clique de seleção nas vistas 3D e de corte (e no menu de contexto): o bloqueado por disciplina não entra na seleção;
+   * a barra diz a quem pertence. A planta passa pela ferramenta Selecionar, que usa o mesmo conjunto.
+   */
+  selecionarNaVista(id: Id | null, additive: boolean): void {
+    if (id && this.bloqueadoNaVista(id)) { this.avisarBloqueado(id); return; }
+    clickSelect3d(id, additive);
   }
 
   /** Caixa do corte para enquadrar: a do `SectionResult` ampliada na vertical pela faixa de cota do terreno visível (o terreno vem do kernel, fora do `SectionResult`). */
@@ -1279,19 +1325,30 @@ export class Editor {
   }
 
   /** Seleciona todas as paredes e aberturas do nível ativo com o tipo dado. */
-  selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
+  selectAllOfType(typeId: Id): number {
+    const st = useUi.getState();
+    return transfer.ofType(this.project, st.levelId, typeId, visibilityOf(this.project, st).bloqueados);
+  }
   /** "Mesmo tipo" (botão na aba Modificar). */
-  selectAllOfSelectedType(): boolean { this.setTool('select'); return transfer.sameType(this.project, useUi.getState().levelId) > 0; }
+  selectAllOfSelectedType(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    return transfer.sameType(this.project, st.levelId, visibilityOf(this.project, st).bloqueados) > 0;
+  }
   /** "Visíveis na vista": o mesmo tipo da seleção, só do que a vista ativa mostra (planta ou corte/elevação). */
   selectAllVisibleOfSelectedType(): boolean {
     this.setTool('select');
     const st = useUi.getState();
-    const hidden = visibilityOf(this.project, st).hidden;
+    const vis = visibilityOf(this.project, st);
     const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
-    return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
+    return transfer.sameTypeVisible(this.project, st.levelId, vis.hidden, result, vis.bloqueados) > 0;
   }
   /** "Mesmo nome" dos ambientes selecionados (botão na aba Modificar). */
-  selectAllOfSelectedName(): boolean { this.setTool('select'); return transfer.sameName(this.project, useUi.getState().levelId) > 0; }
+  selectAllOfSelectedName(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    return transfer.sameName(this.project, st.levelId, visibilityOf(this.project, st).bloqueados) > 0;
+  }
 
   /** Ctrl+Z / Ctrl+Y no croqui da escada: desfaz ou refaz a última linha pegada. Sem pegada, vale o histórico do modelo. */
   private stairPickHistory(redo: boolean): boolean {

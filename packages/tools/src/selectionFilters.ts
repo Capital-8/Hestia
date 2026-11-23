@@ -44,10 +44,11 @@ function onLevel(p: Project, id: Id, levelId: Id | null): boolean {
 }
 
 /** Todos os elementos do nível (ou de todo o projeto quando `levelId === null`) que usam o tipo `typeId`. */
-export function idsOfType(p: Project, levelId: Id | null, typeId: Id): Id[] {
+export function idsOfType(p: Project, levelId: Id | null, typeId: Id, bloqueados?: ReadonlySet<Id>): Id[] {
   return Object.values(p.elements)
     .filter(
       (e) =>
+        !bloqueados?.has(e.id) &&
         (isWall(e) ||
           isOpening(e) ||
           isFloor(e) ||
@@ -67,9 +68,10 @@ export function idsOfType(p: Project, levelId: Id | null, typeId: Id): Id[] {
 }
 
 /** Todos os elementos de uma categoria no nível. */
-export function idsOfCategory(p: Project, levelId: Id, category: ElementCategory): Id[] {
+export function idsOfCategory(p: Project, levelId: Id, category: ElementCategory, bloqueados?: ReadonlySet<Id>): Id[] {
   return Object.values(p.elements)
     .filter((e) => {
+      if (bloqueados?.has(e.id)) return false;
       if (category === 'walls') return isWall(e) && onLevel(p, e.id, levelId);
       if (category === 'floors') return isFloor(e) && onLevel(p, e.id, levelId);
       if (category === 'slabs') return isSlab(e) && onLevel(p, e.id, levelId);
