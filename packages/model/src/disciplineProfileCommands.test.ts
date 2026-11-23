@@ -3,6 +3,7 @@ import {
   FAMILIA_ARMARIO,
   ProjectStore,
   createEmptyProject,
+  makeView3DView,
   perfilDaDisciplina,
   view3dOf,
   type Familia,
@@ -121,6 +122,9 @@ describe('removeProjectDiscipline (excluir disciplina do projeto)', () => {
     p.planViews = [{ id: 'pv_seg', levelId: 'lv_0', discipline: 'seguranca', name: 'Térreo - Segurança' }];
     p.levels[0]!.discipline = 'seguranca';
     p.view3d = { ...view3dOf(p), discipline: 'seguranca' };
+    p.view3dViews = [
+      { ...makeView3DView(p, { id: 'v3d_seg', name: '3D Seg' }), discipline: 'seguranca', tones: { seguranca: 'hidden', arquitetura: 'normal' } },
+    ];
     p.componentFamilies = {
       fam_seg: familiaCom('fam_seg', 'seguranca'),
       fam_hid: familiaCom('fam_hid', 'hidrossanitario'),
@@ -138,6 +142,8 @@ describe('removeProjectDiscipline (excluir disciplina do projeto)', () => {
     expect(s.project.planViews).toEqual([{ id: 'pv_seg', levelId: 'lv_0', discipline: 'arquitetura', name: 'Térreo - Segurança' }]);
     expect(s.project.levels[0]!.discipline).toBeUndefined();
     expect(s.project.view3d?.discipline).toBeUndefined();
+    expect(s.project.view3dViews?.[0]?.discipline).toBeUndefined();
+    expect(s.project.view3dViews?.[0]?.tones).toEqual({ arquitetura: 'normal' });
     expect(s.project.componentFamilies?.fam_seg?.disciplina).toBe('arquitetura');
     expect(s.project.componentFamilies?.fam_hid?.disciplina).toBe('hidrossanitario');
 
@@ -148,6 +154,8 @@ describe('removeProjectDiscipline (excluir disciplina do projeto)', () => {
     expect(s.project.planViews).toEqual([{ id: 'pv_seg', levelId: 'lv_0', discipline: 'seguranca', name: 'Térreo - Segurança' }]);
     expect(s.project.levels[0]!.discipline).toBe('seguranca');
     expect(s.project.view3d?.discipline).toBe('seguranca');
+    expect(s.project.view3dViews?.[0]?.discipline).toBe('seguranca');
+    expect(s.project.view3dViews?.[0]?.tones).toEqual({ seguranca: 'hidden', arquitetura: 'normal' });
     expect(s.project.componentFamilies?.fam_seg?.disciplina).toBe('seguranca');
     expect(s.project.componentFamilies?.fam_hid?.disciplina).toBe('hidrossanitario');
   });

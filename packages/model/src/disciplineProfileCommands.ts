@@ -121,6 +121,13 @@ export function applyRemoveProjectDiscipline(p: Project, id: Discipline, lang: L
     if (level.discipline === id) delete level.discipline;
   }
   if (p.view3d?.discipline === id) delete p.view3d.discipline;
+  for (const view of p.view3dViews ?? []) {
+    if (view.discipline === id) delete view.discipline;
+    if (view.tones && id in view.tones) {
+      delete view.tones[id];
+      if (Object.keys(view.tones).length === 0) delete view.tones;
+    }
+  }
   for (const family of Object.values(p.componentFamilies ?? {})) {
     if (family.disciplina === id) family.disciplina = DEFAULT_DISCIPLINE;
   }
