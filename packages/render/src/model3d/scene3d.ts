@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- a cena 3D reúne o port GPU (faixas/sombras) e o alizar/esquadrias do plano; extrair depois. */
 import * as THREE from 'three';
 import { servicoMassa, entradaMassaDoProjeto, massasDoProjeto, servicoCortina, temTerreno, type MalhaTerreno, esquadriasDaCortina, modeloDaEsquadriaCortina, paredesCortina, temCortina, servicoGuardaCorpo, ServicoGuardaCorpo, applyPartialStructure, frameOfWall, openingGeometry, junctionOfWalls, pisoOuLajeNaFaixa, type JunctionLevel, type ResolvedWall, resolveCeilings, junctionLevel, resolveFloors, resolveRamps, resolveRoofs, resolveSlabs, resolveStairs, stairArrivalTop, type ResolvedLevel } from '@hestia/engine';
-import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type View3DSettings, type VisualStyle } from '@hestia/model';
+import { massIssue, openingsOfWall, terminoEhRegraParede, view3dOf, wallBaseElevation, wallHeight, wallsOnLevel, categoriaDoElemento, type Generic, type GraphicsCategory, type Id, type Material, type Opening, type Project, type SubelementoCortina, type Terrain, type TerrainRegion, type Tone, type View3DSettings, type VisualStyle } from '@hestia/model';
 import { DARK, LIGHT } from '../plan/types.ts';
 import { AVISO } from '../aviso.ts';
 import { projetoDaJuncao } from '../plan/viewContext.ts';
@@ -76,6 +76,8 @@ export interface Scene3DOptions {
   hidden?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /** Tom por categoria da disciplina de trabalho (`visibilityOf`): oculto some e meio-tom fica atenuado e não seleciona. */
+  toneCategories?: Partial<Record<GraphicsCategory, Tone>>;
   /**
    * Níveis cuja resolução ainda é a anterior à edição (a montagem os mantém na tela enquanto o novo não chega). Eles
    * entram na cena, mas **não** no cache de malha: a chave do nível vem do projeto atual, e a malha foi montada com
@@ -105,6 +107,21 @@ export function sunDirection(azimuth: number, elevation: number): THREE.Vector3 
   const a = (azimuth * Math.PI) / 180;
   const e = (elevation * Math.PI) / 180;
   return new THREE.Vector3(Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e));
+}
+
+/**
+ * Vista efetiva com o tom das categorias: `hidden` desliga a categoria e `halftone` liga a atenuação do material.
+ * `normal` não altera nada. A vista original não é modificada (o `overrides` só é copiado quando um tom age).
+ */
+export function viewComTons(view: View3DSettings, toneCategories?: Partial<Record<GraphicsCategory, Tone>>): View3DSettings {
+  let overrides: View3DSettings['overrides'] | null = null;
+  for (const [cat, tom] of Object.entries(toneCategories ?? {}) as Array<[GraphicsCategory, Tone | undefined]>) {
+    if (tom !== 'hidden' && tom !== 'halftone') continue;
+    overrides ??= { ...view.overrides };
+    const atual = overrides[cat];
+    overrides[cat] = tom === 'hidden' ? { ...atual, visible: false } : { ...atual, halftone: true };
+  }
+  return overrides ? { ...view, overrides } : view;
 }
 
 /** Estilos de linhas: sempre mostram as arestas, com ou sem faces. */
@@ -255,6 +272,8 @@ export class ModelScene {
   /** Elementos ocultos (Hide in View + temporário) e revelados (Reveal) da atualização corrente. */
   private ocultos: ReadonlySet<Id> = NADA;
   private revelados: ReadonlySet<Id> = NADA;
+  /** Categorias em meio-tom nesta atualização: desenhadas, mas fora do picking (modelo e camada de picking). */
+  private halftoneCats: ReadonlySet<GraphicsCategory> = new Set();
   /** Projeto sem os elementos ocultos: genéricos e CAD não têm construtor por id (ver `montarNivel`). */
   private semOcultos: Project | null = null;
   /** Projeto só com os elementos revelados: os genéricos do Reveal saem daqui (idem). */
@@ -376,13 +395,15 @@ export class ModelScene {
    * faces na cena (decisão 0015): a geometria vai para a lista de picking, montada à parte no fim (`buildPickLayer`).
    */
   private draw(parent: THREE.Object3D, geo: THREE.BufferGeometry, m: Material | undefined, cat: GraphicsCategory, edges: boolean, ranges: ElementRange[]): void {
+    // Meio-tom não seleciona: as faixas ficam vazias (sem BVH, sem ID por GPU e sem realce), mas a malha continua.
+    const faixas = this.halftoneCats.has(cat) ? [] : ranges;
     if (this.frame.view.style !== 'wireframe') {
       const mesh = new THREE.Mesh(geo, this.mats.face(m, cat));
       mesh.castShadow = this.frame.shadows;
       mesh.receiveShadow = this.frame.shadows;
-      mesh.userData = { kind: cat, ranges };
+      mesh.userData = { kind: cat, ranges: faixas };
       parent.add(mesh);
-    } else this.picks.push({ geo, owner: parent, kind: cat, ranges });
+    } else this.picks.push({ geo, owner: parent, kind: cat, ranges: faixas });
     if (edges) parent.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, EDGE_ANGLE), this.mats.edge()));
   }
 
@@ -391,7 +412,8 @@ export class ModelScene {
    * modelo (`pickLayer`), para o modelo continuar sem malhas nesse estilo. As peças vêm dos níveis da cena.
    */
   private buildPickLayer(): void {
-    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks), ...this.massaNaCena.flatMap((g) => g.picks), ...this.terrenoNaCena.flatMap((g) => g.picks)];
+    // Meio-tom desenha, mas não entra na camada de picking (nem no BVH nem no ID por GPU).
+    const fontes = [...this.cenaNiveis.flatMap((e) => e.picks), ...this.guardaCorpoNaCena.flatMap((g) => g.picks), ...this.cortinaNaCena.flatMap((g) => g.picks), ...this.massaNaCena.flatMap((g) => g.picks), ...this.terrenoNaCena.flatMap((g) => g.picks)].filter((s) => !this.halftoneCats.has(s.kind));
     if (!fontes.length) return;
     this.model.updateMatrixWorld(true);
     const pick = this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -402,6 +424,21 @@ export class ModelScene {
       mesh.userData = { kind: s.kind, ranges: s.ranges, semRealce: s.semRealce === true };
       this.pickLayer.add(mesh);
     }
+  }
+
+  /**
+   * Zera as faixas de elemento das malhas de categorias em meio-tom dentro do grupo. A malha (caixa instanciada de
+   * picking, massa ou peça desenhada) continua na cena, mas sem id: o BVH, o ID por GPU, a seleção por caixa e o realce
+   * não a alcançam. É o "meio-tom não seleciona no 3D" sem tirar o desenho.
+   */
+  private limparFaixasDeMeioTom(grupo: THREE.Object3D): void {
+    if (!this.halftoneCats.size) return;
+    grupo.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const d = m.userData as { kind?: GraphicsCategory; ranges?: ElementRange[] };
+      if (d.ranges && d.kind && this.halftoneCats.has(d.kind)) d.ranges = [];
+    });
   }
 
   /** Tira da cena o modelo e as malhas de picking. Não libera nada: as geometrias são dos níveis (ver `update`). */
@@ -450,13 +487,21 @@ export class ModelScene {
    */
   update(p: Project, levels: ResolvedLevel[], opt: Scene3DOptions): void {
     const view = view3dOf(p);
+    // Tom por categoria (adendo 3, decisão 4): `hidden` desliga a categoria e `halftone` atenua o material. A vista
+    // efetiva é a que a cena usa em tudo (frame, materiais, `shown()`); o tom também entra na chave do nível.
+    const viewEfetiva = viewComTons(view, opt.toneCategories);
+    this.halftoneCats = new Set(
+      (Object.entries(opt.toneCategories ?? {}) as Array<[GraphicsCategory, Tone | undefined]>)
+        .filter(([, tom]) => tom === 'halftone')
+        .map(([cat]) => cat),
+    );
     this.frame = {
-      view,
+      view: viewEfetiva,
       dark: opt.dark,
-      edges: isLineStyle(view.style) || view.edges,
-      shadows: view.style === 'realistic' && view.shadows,
+      edges: isLineStyle(viewEfetiva.style) || viewEfetiva.edges,
+      shadows: viewEfetiva.style === 'realistic' && viewEfetiva.shadows,
     };
-    this.mats.marco = { view, dark: opt.dark };
+    this.mats.marco = { view: viewEfetiva, dark: opt.dark };
     this.mats.used = new Set();
     this.moveis.inicio();
     this.ultimaAtualizacao = { p, levels, opt };
@@ -478,6 +523,8 @@ export class ModelScene {
         // Decisão do projeto sobre as arestas dos genéricos: mudá-la refaz todos os níveis (senão um nível cacheado manteria as arestas).
         genericosAcimaDoOrcamento(p.elements),
         this.versaoTexturas(),
+        // O tom por categoria muda o material e o picking: entra na chave para o nível não reusar a malha antiga.
+        JSON.stringify(opt.toneCategories ?? {}),
       ]),
       // A visibilidade entra só na chave do nível que contém o elemento (e na dos vizinhos): ocultar uma parede não remonta o resto.
       { ocultos: this.ocultos, revelados: this.revelados },
@@ -604,8 +651,10 @@ export class ModelScene {
    * (`pairCuts`); logo as demais peças do nível e dos vizinhos ficam iguais, e a chave deles só é renovada.
    */
   atualizarAberturas(p: Project, pAnt: Project, levelId: Id, wallIds: readonly Id[], lv: ResolvedLevel, opt: Scene3DOptions): boolean {
-    const view = view3dOf(p);
+    const view = viewComTons(view3dOf(p), opt.toneCategories);
     if (!this.instanciar || this.projeto !== pAnt || pAnt.view3d !== p.view3d || opt.dark !== this.frame.dark) return this.recusar(1);
+    // Meio-tom muda o material e o picking das caixas: o caminho rápido não sabe refazer isso, cai na remontagem normal.
+    if (this.halftoneCats.size || Object.values(opt.toneCategories ?? {}).some((tom) => tom === 'halftone')) return this.recusar(12);
     if (isLineStyle(view.style) || this.ocultos.size || this.revelados.size || (opt.hidden?.size ?? 0) || (opt.revealed?.size ?? 0)) return this.recusar(2);
     if (view.partialStructure !== 'entire') return this.recusar(3);
     if (!view.overrides.wall.visible || !view.overrides.door.visible || !view.overrides.window.visible) return this.recusar(4);
@@ -1076,7 +1125,7 @@ export class ModelScene {
       if (lote.faixas.length) {
         geo = geometriaDoLoteDeMassas(lote);
         ids = lote.faixas.map((f) => f.id);
-        mesh = malhaDeMassas(geo, materiaisDoLote(this.mats, view, ids.map((id) => corDaMassa(p, id))), lote.faixas);
+        mesh = malhaDeMassas(geo, materiaisDoLote(this.mats, view, ids.map((id) => corDaMassa(p, id))), this.halftoneCats.has('mass') ? [] : lote.faixas);
         // Wireframe não desenha a face: a malha vai só para o picking (como o `draw`).
         if (view.style === 'wireframe') picks.push({ geo, owner: grupo, kind: 'mass', ranges: lote.faixas });
         else grupo.add(mesh);
@@ -1136,8 +1185,9 @@ export class ModelScene {
 
   /** Chaves de conteúdo dos níveis do projeto, com a marca da vista e a visibilidade desta atualização. */
   private chavesPara(p: Project, opt: Scene3DOptions): Map<Id, string> {
-    const view = view3dOf(p);
-    const chaves = chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements), this.versaoTexturas()]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
+    // A vista efetiva já traz o tom por categoria, que muda o material e o picking: entra na chave do nível.
+    const view = this.frame.view;
+    const chaves = chavesDeNivel(p, JSON.stringify([opt.dark, this.frame.edges, this.frame.shadows, view.style, genericosAcimaDoOrcamento(p.elements), this.versaoTexturas(), JSON.stringify(opt.toneCategories ?? {})]), { ocultos: this.ocultos, revelados: this.revelados }, { semGuardaCorpo: true, semMassa: true });
     this.moveis.chaves(p, chaves, this.ocultos);
     return chaves;
   }
@@ -1401,7 +1451,14 @@ export class ModelScene {
     const slabs = shown('slab') ? resolveSlabs(p, lv.levelId).filter((s) => !oculto(s.slabId)) : [];
     const escadasNivel = shown('stair') ? escadas.filter((s) => s.levelId === lv.levelId && !oculto(s.id)) : [];
     const rampasNivel = shown('ramp') ? rampas.filter((r) => r.levelId === lv.levelId && !oculto(r.id)) : [];
-    const genericos = shown('generic') ? buildGenericSolids(pGen, lv.levelId) : [];
+    // Genéricos: o lote continua na categoria `generic` (malha soldada, chapada), mas a ocultação por categoria segue
+    // `categoriaDoElemento` — no importado do IFC a categoria vem da classe de origem (adendo 3 do ADR 0060, fase 7),
+    // então ocultar a categoria da instalação esconde tubo/duto/cabo e deixa o proxy com o CAD.
+    const genericoVisivel = (e: Generic): boolean => {
+      const c = categoriaDoElemento(e, p);
+      return c === null || shown(c);
+    };
+    const genericos = buildGenericSolids(pGen, lv.levelId, genericoVisivel);
     // Componentes: cada lote já sai com a categoria da disciplina da família; só os visíveis nesta vista entram.
     const componentes = buildComponentSolids(pGen, lv.levelId).filter((b) => shown(b.category));
     if (shown('component')) this.moveis.montar(grupo, this.mats, p, lv.levelId, this.frame.shadows, this.ocultos);
@@ -1452,7 +1509,7 @@ export class ModelScene {
       if (revEscadas.length) arestasDe(buildStairSolids(revEscadas, (s) => stairArrivalTop(p, s).top));
       const revRampas = rampasNivel.filter((r) => revelado(r.id));
       if (revRampas.length) arestasDe(buildRampSolids(revRampas));
-      if (shown('generic')) arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId));
+      arestasDe(buildGenericSolids(this.soRevelados ?? p, lv.levelId, genericoVisivel));
       const revEstrutural = buildStructuralSolids(p, lv.levelId, (id) => !revelado(id)).filter((b) => shown(b.category));
       if (revEstrutural.length) arestasDe(revEstrutural);
       const revComponentes = buildComponentSolids(this.soRevelados ?? p, lv.levelId).filter((b) => shown(b.category));
@@ -1468,7 +1525,8 @@ export class ModelScene {
       // Lotes do nível juntados por categoria e material: uma malha por grupo (ver `lotesMalha3d.ts`).
       this.desenharLotes(grupo, batches, this.frame.edges, materialOf, [], semGenericos);
     } else {
-      lotes.push(...batches);
+      // Meio-tom continua desenhado (a geometria e o material), mas sem faixas: não seleciona no 3D.
+      for (const b of batches) lotes.push(this.halftoneCats.has(b.category) ? { ...b, ids: [] } : b);
       for (const b of batches) this.mats.face(materialOf(b.materialId), b.category);
     }
     // Esquadrias: cada uma tem o seu grupo (no vão); as peças fixas são juntadas por material dentro dele, e a folha aberta
@@ -1502,6 +1560,7 @@ export class ModelScene {
           }
           for (const pr of a.prismas) {
             const lote = loteDeGeometria(pr.geometry, pr.materialId, o.kind, o.id);
+            if (this.halftoneCats.has(o.kind)) lote.ids = [];
             lotes.push(lote);
             if (!linhas) prismasSemArestas.add(lote);
             this.mats.face(materialNoProjeto(p.materials, pr.materialId), o.kind);
@@ -1537,6 +1596,7 @@ export class ModelScene {
     }
     // Malhas de picking (invisíveis) e arestas das caixas: no grupo do nível, para o cache, o picking e o realce as acharem.
     const montadas = caixas?.montar(grupo, this.mats.cached('pick', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false })));
+    this.limparFaixasDeMeioTom(grupo);
     let arestasSolidas: Float32Array | undefined;
     let arestas: Float32Array | undefined;
     if (this.instanciar) {
@@ -1664,6 +1724,7 @@ export class ModelScene {
     this.faixasDeSombra = [];
     this.ocultos = NADA;
     this.revelados = NADA;
+    this.halftoneCats = new Set();
     this.semOcultos = null;
     this.soRevelados = null;
     this.lotes.dispose();

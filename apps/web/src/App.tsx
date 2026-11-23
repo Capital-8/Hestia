@@ -79,6 +79,7 @@ import { MassPisosDialog } from './ui/dialogs/MassPisosDialog.tsx';
 import { MassParedesDialog } from './ui/dialogs/MassParedesDialog.tsx';
 import { OpeningScheduleDialog } from './ui/dialogs/OpeningScheduleDialog.tsx';
 import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.tsx';
+import { DisciplineConfigDialog } from './ui/dialogs/DisciplineConfigDialog.tsx';
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
@@ -234,6 +235,8 @@ function Dialogs(): ReactElement | null {
       return arg ? <RevisionDialog sheetId={arg} /> : null;
     case 'graphicsVisibility':
       return arg ? <GraphicsVisibilityDialog target={arg} /> : null;
+    case 'disciplineConfig':
+      return <DisciplineConfigDialog />;
     case 'lineWeights':
       return <LineWeightsDialog />;
     case 'dxfLayers':

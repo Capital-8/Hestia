@@ -440,6 +440,25 @@ describe('gráficos do corte/elevação (decisão 0015)', () => {
     expect(closedWidths(semParede)).not.toContain(weightPx(5, 100));
   });
 
+  it('parede em meio-tom por tom de categoria continua desenhada, com a cor do traço misturada ao papel', () => {
+    const base = styledBox({ scale: 100 }, () => cross([]));
+    const meio = { ...base, toneCategories: { wall: 'halftone' as const } };
+    const d = buildSectionDrawList(meio);
+    // O corte da parede continua com o peso 5 (não sumiu) e o traço vai 50 % para o papel: #16181c +35 % papel +50 % papel.
+    expect(closedWidths(d)).toContain(weightPx(5, 100));
+    expect(d.strokes.some((s) => s.closed && s.widthPx === weightPx(5, 100) && s.color === '#b4b4b5')).toBe(true);
+    // Sem o tom, o mesmo traço sai na cor de antes (não misturada).
+    expect(buildSectionDrawList(base).strokes.some((s) => s.color === '#b4b4b5')).toBe(false);
+  });
+
+  it('parede oculta por tom de categoria não sai', () => {
+    const base = styledBox({ scale: 100 }, () => cross([]));
+    expect(closedWidths(buildSectionDrawList(base))).toContain(weightPx(5, 100));
+    const oculto = buildSectionDrawList({ ...base, toneCategories: { wall: 'hidden' as const } });
+    expect(closedWidths(oculto)).not.toContain(weightPx(5, 100));
+    expect(oculto.strokes.some((s) => s.closed && s.widthPx === weightPx(5, 100))).toBe(false);
+  });
+
   it('arame não preenche (nem hachura); grosso fica só com os contornos', () => {
     const arame = buildSectionDrawList(styledBox({ style: 'wireframe' }));
     expect(arame.fills).toHaveLength(0);

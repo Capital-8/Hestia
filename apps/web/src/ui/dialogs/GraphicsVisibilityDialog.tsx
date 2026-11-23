@@ -1,7 +1,6 @@
 import { useEffect, useState, Fragment, type ReactElement } from 'react';
 import {
   DISCIPLINES,
-  DISCIPLINE_TONE_PRESETS,
   GRAPHICS_CATEGORIES,
   disciplineLabel,
   graphicsOf,
@@ -9,6 +8,7 @@ import {
   planOf,
   planTonesOf,
   planViewById,
+  presetTone,
   sectionGraphicsOf,
   tDoModelo,
   view3dOf,
@@ -90,7 +90,9 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
   // Sem plantas de disciplina no projeto, o diálogo fica idêntico ao de hoje (sem abas); a aba entra quando o recurso existe.
   const showPlanTabs = !is3d && !isSection && plan !== undefined && (p.planViews?.length ?? 0) > 0;
   const tones = plan ? planTonesOf(plan) : null;
-  const presets = plan ? DISCIPLINE_TONE_PRESETS[plan.discipline] : null;
+  const presets: Record<string, Tone> | null = plan
+    ? Object.fromEntries(DISCIPLINES.map((d): [string, Tone] => [d, presetTone(plan.discipline, d)]))
+    : null;
   const readOnly = plan?.isDefault === true;
   const deviations = plan && presets ? DISCIPLINES.filter((d) => plan.tones[d] !== undefined && tones![d] !== presets[d]) : [];
   const failedTones = plan && presets ? DISCIPLINES.filter((d) => toneErrors[d]) : [];
@@ -143,7 +145,7 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
                     <td>{disciplineLabel(lang, d)}</td>
                     <td>
                       {readOnly ? (
-                        <span className="val">{toneLabel(lang, tones![d])}</span>
+                        <span className="val">{toneLabel(lang, tones![d]!)}</span>
                       ) : (
                         <select
                           id={`gv-tone-${d}`}
@@ -156,7 +158,7 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
                         </select>
                       )}
                     </td>
-                    <td><span className="val soft">{toneLabel(lang, presets![d])}</span></td>
+                    <td><span className="val soft">{toneLabel(lang, presets![d]!)}</span></td>
                     <td>{deviation ? <span className="vr-msg">{t('dlt_ton_changed')}</span> : <span className="val soft">{t('dlt_ton_default')}</span>}</td>
                     {!readOnly && (
                       <td>
@@ -252,6 +254,10 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
           <p className="hint">{t('dlt_vis_help')}</p>
         </>
       )}
+      <div className="prow">
+        <span />
+        <button className="btn small" onClick={() => useUi.setState({ dialog: 'disciplineConfig' })}>{t('dsc_title')}</button>
+      </div>
     </Dialog>
   );
 }

@@ -177,13 +177,13 @@ describe('transformação padrão e linhas', () => {
 });
 
 describe('migração', () => {
-  it('projeto v24 sem grupos migra para 31 sem componentGroups', () => {
+  it('projeto v24 sem grupos migra para 32 sem componentGroups', () => {
     const antigo = JSON.parse(JSON.stringify(createEmptyProject('antigo'))) as Record<string, unknown>;
     antigo.schemaVersion = 24;
     delete antigo.componentGroups;
     const p = migrateProject(antigo);
-    expect(SCHEMA_VERSION).toBe(31);
-    expect(p.schemaVersion).toBe(31);
+    expect(SCHEMA_VERSION).toBe(32);
+    expect(p.schemaVersion).toBe(32);
     expect(p.componentGroups).toBeUndefined();
   });
 });

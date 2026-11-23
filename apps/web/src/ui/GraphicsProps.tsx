@@ -1,8 +1,9 @@
 import { useState, type ReactElement } from 'react';
-import { PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, disciplinasDoProjeto, planGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { editPlanGraphics, editSectionGraphics, editView3D, restorePlanGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
+import { definirDisciplinaDo3d, rotuloDaDisciplina } from '../editor/planViewActions.ts';
 import { planDialogTarget } from '../editor/viewIdentity.ts';
 import { useUi } from '../editor/state.ts';
 import { Check, Group, NumField, Row } from './fields.tsx';
@@ -138,6 +139,13 @@ export function View3DGroup(): ReactElement {
   const hidden = categoriesInGroups().filter((c) => !v.overrides[c].visible);
   return (
     <Group title={t('prd_pgrp_3d_graphics')}>
+      <Row label={t('prd_fld_discipline')} htmlFor="v3-discipline">
+        <select id="v3-discipline" className="select" value={v.discipline ?? ''} onChange={(e) => definirDisciplinaDo3d(editor.store, e.target.value || undefined)}>
+          <option value="">{t('prd_discipline_all')}</option>
+          {disciplinasDoProjeto(p).map((d) => <option key={d.id} value={d.id}>{rotuloDaDisciplina(p, lang, d.id)}</option>)}
+        </select>
+      </Row>
+      <div className="prow"><span /><button className="chiplink" disabled={v.discipline === undefined} onClick={() => definirDisciplinaDo3d(editor.store, undefined)}>{t('prd_btn_restore_discipline')}</button></div>
       <Row label={t('prd_fld_visual_style')} htmlFor="v3-style">
         <select id="v3-style" className="select" value={v.style} onChange={(e) => edit({ style: e.target.value as View3DSettings['style'] })}>
           {VISUAL_STYLES.map((k) => <option key={k} value={k}>{visualStyleLabel(k, lang)}</option>)}

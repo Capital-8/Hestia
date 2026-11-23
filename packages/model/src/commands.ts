@@ -79,16 +79,18 @@ import {
 } from './terrainLotFamilies.ts';
 import type { MarkAssignment } from './marks.ts';
 import { dimensionFamilyIssue, dimensionFamiliesOf, removeDimensionFamilyFrom, writeDimensionFamily, type DimensionFamily } from './dimensionFamily.ts';
-import type { DeepPartial, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { DeepPartial, GraphicsCategory, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import { applyViewHidden } from './viewHiddenCommands.ts';
 import { applySectionAnnotations } from './sectionAnnotationCommands.ts';
 import type { SectionAnnotations } from './sectionAnnotations.ts';
 import { applySectionLevelExtent, type SectionLevelExtent } from './sectionLevelExtents.ts';
 import {
+  applyLevelDiscipline,
   applyLevelGraphics,
   applyProjectGraphics,
   applySectionGraphics,
   applyView3D,
+  applyView3dDiscipline,
   resetLevelGraphics,
   resetSectionGraphics,
   resetView3D,
@@ -134,7 +136,9 @@ import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyPlanViewCommand, dropPlanViewsOfLevel, type PlanViewPatch } from './planViewCommands.ts';
-import type { PlanView } from './planView.ts';
+import type { Discipline, PlanView } from './planView.ts';
+import { applyDisciplineProfileCommand } from './disciplineProfileCommands.ts';
+import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
 import { applyAreaPlanCommand, dropAreaPlansOfLevel, dropRoomTags, prunePlanElementTags } from './areaPlanCommands.ts';
 import type { AreaPlan, ColorScheme, RoomCategory, RoomTag } from './areaPlan.ts';
 import type { Lang } from './i18n.ts';
@@ -258,8 +262,12 @@ export type Command =
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
   | { type: 'setLevelGraphics'; levelId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetLevelGraphics'; levelId: Id }
+  /** Disciplina da planta PADRÃO do nível (decisão 0060, adendo 3); `undefined` remove o campo. */
+  | { type: 'setLevelDiscipline'; levelId: Id; discipline?: Discipline }
   | { type: 'setView3D'; patch: DeepPartial<View3DSettings> }
   | { type: 'resetView3D' }
+  /** Disciplina de trabalho da vista 3D; `undefined` volta a "todas" (remove o campo). */
+  | { type: 'setView3dDiscipline'; discipline?: Discipline }
   | { type: 'setViewHidden'; target: ViewHiddenTarget; hidden: ViewHidden | undefined }
   | { type: 'setSectionAnnotations'; sectionId: Id; annotations: SectionAnnotations | undefined }
   | { type: 'setSectionLevelExtent'; sectionId: Id; levelId: Id; extent: SectionLevelExtent | undefined }
@@ -309,6 +317,11 @@ export type Command =
   | { type: 'removePlanView'; id: Id }
   | { type: 'setPlanGraphics'; planId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetPlanGraphics'; planId: Id }
+  | { type: 'setDisciplineProfile'; discipline: Discipline; tones: DisciplineProfile | null }
+  | { type: 'setCategoryDiscipline'; category: GraphicsCategory; discipline?: Discipline }
+  | { type: 'addProjectDiscipline'; discipline: ProjectDiscipline }
+  | { type: 'updateProjectDiscipline'; id: Discipline; name?: string; color?: string }
+  | { type: 'removeProjectDiscipline'; id: Discipline }
   | { type: 'addRoomTag'; planId: Id; tag: RoomTag }
   | { type: 'updateRoomTag'; planId: Id; id: Id; patch: Partial<Omit<RoomTag, 'id' | 'planId' | 'roomId'>> }
   | { type: 'removeRoomTag'; planId: Id; id: Id }
@@ -806,6 +819,13 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       l.viewRange = next;
       break;
     }
+    case 'setDisciplineProfile':
+    case 'setCategoryDiscipline':
+    case 'addProjectDiscipline':
+    case 'updateProjectDiscipline':
+    case 'removeProjectDiscipline':
+      applyDisciplineProfileCommand(p, c, lang);
+      break;
     case 'setProjectGraphics':
       applyProjectGraphics(p, c.patch, lang);
       break;
@@ -815,11 +835,17 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'resetLevelGraphics':
       resetLevelGraphics(p, c.levelId, lang);
       break;
+    case 'setLevelDiscipline':
+      applyLevelDiscipline(p, c.levelId, c.discipline, lang);
+      break;
     case 'setView3D':
       applyView3D(p, c.patch, lang);
       break;
     case 'resetView3D':
       resetView3D(p);
+      break;
+    case 'setView3dDiscipline':
+      applyView3dDiscipline(p, c.discipline, lang);
       break;
     case 'setViewHidden':
       applyViewHidden(p, c.target, c.hidden, lang);

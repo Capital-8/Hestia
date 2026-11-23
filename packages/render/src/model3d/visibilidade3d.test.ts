@@ -240,6 +240,40 @@ describe('Reveal: contorno azul sem mudar o modelo normal', () => {
   });
 });
 
+describe('tom por categoria na cena 3D', () => {
+  const paredes = (ms: ModelScene): THREE.Mesh[] => malhas(ms).filter((m) => m.userData.kind === 'wall');
+
+  it('toneCategories wall hidden: a parede sai da cena e do picking', () => {
+    const p = casa();
+    expect(paredes(cena(p)).length).toBeGreaterThan(0);
+
+    const ms = cena(p, { toneCategories: { wall: 'hidden' } });
+    expect(paredes(ms)).toHaveLength(0);
+    for (const id of ['a', 'b', 'c', 'd']) {
+      expect(ms.selectionBounds([id])).toBeNull();
+      expect(faixas(ms).some((r) => r.id === id)).toBe(false);
+    }
+  });
+
+  it('toneCategories wall halftone: a malha continua, a cor clareia e o id não entra no picking', () => {
+    const p = casa();
+    const base = cena(p);
+    const semTom = paredes(base).map((m) => (m.material as THREE.MeshStandardMaterial).color.getHexString());
+
+    const ms = cena(p, { toneCategories: { wall: 'halftone' } });
+    expect(paredes(ms)).toHaveLength(paredes(base).length);
+    const comTom = paredes(ms).map((m) => (m.material as THREE.MeshStandardMaterial).color.getHexString());
+    expect(comTom.some((cor) => !semTom.includes(cor))).toBe(true);
+
+    for (const id of ['a', 'b', 'c', 'd']) {
+      expect(faixas(ms).some((r) => r.id === id)).toBe(false);
+      expect(ms.selectionBounds([id])).toBeNull();
+    }
+    // As outras categorias continuam selecionáveis.
+    expect(ms.selectionBounds(['f'])).not.toBeNull();
+  });
+});
+
 describe('sem Hide/Reveal a cena continua igual', () => {
   it('conjuntos vazios dão a mesma cena e os mesmos limites de seleção', () => {
     const p = casa();

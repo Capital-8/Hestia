@@ -25,7 +25,7 @@ import {
   isFooting,
   isCurtainType,
   isWall,
-  disciplineLabel,
+  disciplinasDoProjeto,
   planOf,
   type DetailLevel,
   type JoinKind,
@@ -48,7 +48,7 @@ import { editor, useProject } from '../editor/controller.ts';
 import { fmtNum, t as traduz, toolLabel, useT, type Lang } from '../editor/i18n.ts';
 import { editViewRange, restoreViewRangeDefault } from '../editor/viewRangeActions.ts';
 import { planViewIdDe } from '../editor/viewIdentity.ts';
-import { renomearPlanta } from '../editor/planViewActions.ts';
+import { definirDisciplinaDaPlanta, definirDisciplinaDaPlantaPadrao, renomearPlanta, rotuloDaDisciplina } from '../editor/planViewActions.ts';
 import { setGridStep, setRoofProjection, setSnap, useUi } from '../editor/state.ts';
 import { avisoLimiteInclinacao, grauDeRad, inclinarParedes, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 import { avisoSemNivelAcima, proximoNivelAcima, setBaseNoPiso, setTopoNoPiso } from '../editor/wallFloorActions.ts';
@@ -422,6 +422,7 @@ function ViewProps(): ReactElement {
   const activePlanViewId = planViewIdDe(s);
   const resolvedPlan = activePlanViewId ? planOf(p, s.levelId, activePlanViewId) : undefined;
   const disciplinePlan = resolvedPlan && !resolvedPlan.isDefault ? resolvedPlan : undefined;
+  const opcoesDeDisciplina = disciplinasDoProjeto(p).map((d) => <option key={d.id} value={d.id}>{rotuloDaDisciplina(p, lang, d.id)}</option>);
   const title = s.view === 'plan'
     ? disciplinePlan ? `${disciplinePlan.name} · ${lvl?.name ?? ''}` : areaPlan ? `${areaPlan.name} · ${lvl?.name ?? ''}` : `${roof ? t('prc_view_roof_plan') : t('prc_view_plan')} · ${lvl?.name ?? ''}`
     : s.view === 'section' ? `${section?.kind === 'elevation' ? t('prc_view_elevation') : t('prc_view_section')} · ${section?.name ?? ''}` : t('prc_view_3d');
@@ -437,7 +438,22 @@ function ViewProps(): ReactElement {
             <Row label={t('prd_fld_name')} htmlFor="v-plan-name">
               <TextField id="v-plan-name" value={disciplinePlan.name} onCommit={(v) => { if (v.trim()) renomearPlanta(editor.store, disciplinePlan.planId!, v); }} />
             </Row>
-            <Row label={t('prd_fld_discipline')} readOnly><span className="val">{disciplineLabel(lang, disciplinePlan.discipline)}</span></Row>
+            <Row label={t('prd_fld_discipline')} htmlFor="v-plan-discipline">
+              <select id="v-plan-discipline" className="select" value={disciplinePlan.discipline} onChange={(e) => definirDisciplinaDaPlanta(editor.store, disciplinePlan.planId!, e.target.value)}>
+                {opcoesDeDisciplina}
+              </select>
+            </Row>
+            <div className="prow"><span /><button className="chiplink" disabled={disciplinePlan.discipline === 'arquitetura'} onClick={() => definirDisciplinaDaPlanta(editor.store, disciplinePlan.planId!, 'arquitetura')}>{t('prd_btn_restore_discipline')}</button></div>
+          </>
+        )}
+        {!disciplinePlan && s.view === 'plan' && s.planKind === 'floor' && (
+          <>
+            <Row label={t('prd_fld_discipline')} htmlFor="v-level-discipline">
+              <select id="v-level-discipline" className="select" value={lvl?.discipline ?? 'arquitetura'} onChange={(e) => definirDisciplinaDaPlantaPadrao(editor.store, s.levelId, e.target.value)}>
+                {opcoesDeDisciplina}
+              </select>
+            </Row>
+            <div className="prow"><span /><button className="chiplink" disabled={lvl?.discipline === undefined} onClick={() => definirDisciplinaDaPlantaPadrao(editor.store, s.levelId, undefined)}>{t('prd_btn_restore_discipline')}</button></div>
           </>
         )}
         <Row label={t('prc_fld_level')} htmlFor="v-level">

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FaceLayerTarget, FaceSlot, Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
+import type { Discipline, FaceLayerTarget, FaceSlot, Id, LocationLine, OpeningDimRef, SubelementoCortina, WallDimRef } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { Backend, FaceHit } from '@hestia/render';
 import { DEFAULT_DISJOIN, DEFAULT_RAMP_OPTIONS, DEFAULT_SNAP, DEFAULT_STAIR_RUN_OPTIONS, type DimCustomTarget, type SnapOptions, type ToolId, type ToolOptions } from '@hestia/tools';
@@ -45,7 +45,7 @@ export interface FaceStudioState {
  * Quem quiser seguir o sistema ou usar o escuro escolhe no menu Arquivo; a escolha vale só para a sessão.
  */
 export const DEFAULT_THEME: ThemePref = 'light';
-export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'terrainTypes' | 'terrainContourFamilies' | 'terrainSpotFamilies' | 'lotFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'roofStep' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'collab' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' | 'importFurniture' /* SUPLEMENTOS: diálogos de suplemento */;
+export type DialogKind = 'wallType' | 'floorType' | 'materials' | 'levels' | 'openingType' | 'start' | 'shortcuts' | 'shortcutsConfig' | 'about' | 'schedule' | 'floorSchedule' | 'slabType' | 'slabSchedule' | 'ceilingType' | 'ceilingSchedule' | 'roofType' | 'roofSchedule' | 'stairType' | 'stairSchedule' | 'rampType' | 'guardaCorpoType' | 'massSecoes' | 'normaGuardaCorpo' | 'rampSchedule' | 'guardaCorpoSchedule' | 'openingSchedule' | 'graphicsVisibility' | 'disciplineConfig' | 'lineWeights' | 'dxfLayers' | 'sheet' | 'addView' | 'renumberSheets' | 'revision' | 'publish' | 'roomSchedule' | 'roomCategories' | 'cotasAuto' | 'dimensionFamilies' | 'tagFamilies' | 'tagAll' | 'textFamilies' | 'spotFamilies' | 'revisionCloudFamilies' | 'northArrowFamilies' | 'terrainTypes' | 'terrainContourFamilies' | 'terrainSpotFamilies' | 'lotFamilies' | 'moveLevel' | 'levelMoveConflict' | 'gridType' | 'units' | 'dimensions' | 'hostedLoss' | 'confirmacao' | 'roofStep' | 'alerta' | 'areaMerge' | 'importCad' | 'manageCad' | 'experimentos' | 'selectLevels' | 'updatePrompt' | 'salvarSemPasta' | 'externalTools' | 'collab' | 'columnType' | 'beamType' | 'footingType' | 'columnSchedule' | 'beamSchedule' | 'footingSchedule' | 'massSchedule' | 'massPisos' | 'massParedes' | 'wallTilt' | null | 'pluginDialog' | 'pluginManager' | 'pluginResult' | 'pluginBatchPreview' | 'pluginSchedule' | 'importFurniture' /* SUPLEMENTOS: diálogos de suplemento */;
 
 export interface UiState {
   tool: ToolId;
@@ -67,6 +67,8 @@ export interface UiState {
   areaPlanId: Id | null;
   /** Planta de disciplina ativa (planta de piso adicional do nível, decisão 0060); null = planta padrão. Só vale com `planKind` 'floor'. */
   planViewId: Id | null;
+  /** Disciplina de trabalho pessoal (sessão, decidida no adendo 3 da 0060): null = usa a disciplina da vista. Nunca vai para o projeto. */
+  minhaDisciplina: Discipline | null;
   /** Rótulo em arraste (fantasma), compartilhado por qualquer planta. */
   tagDrag: { planId: Id; roomId: Id; at: Vec2 } | null;
   /** Ferramenta Alinhar ativa na prancha (sessão; decisão 0039). */
@@ -404,6 +406,7 @@ export const useUi = create<UiState>(() => ({
   planKind: 'floor',
   areaPlanId: null,
   planViewId: null,
+  minhaDisciplina: null,
   tagDrag: null,
   sheetAlign: false,
   sheetMove: false,

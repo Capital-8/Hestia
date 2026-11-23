@@ -376,7 +376,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const v3 = view3dOf(p);
     // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
     // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
-    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}`;
+    // O tom por categoria (disciplina de trabalho) também muda a cena: entra na chave para o mapa novo chegar à montagem.
+    const tonsKey = Object.entries(vis.toneCategories).sort(([a], [b]) => a.localeCompare(b)).map(([c, tom]) => `${c}:${tom}`).join(',');
+    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${tonsKey}`;
     const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}|${texturas3d.versao}`;
     if (key === modelKey.current) return false;
     modelKey.current = key;
@@ -391,7 +393,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
     // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
     if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
-    montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed }, st.levelId);
+    montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed, toneCategories: vis.toneCategories }, st.levelId);
     return true;
   }, [paneId]);
   // Kernel Rust carregado depois da primeira montagem: o que foi desenhado sem os guarda-corpos (3D, planta, corte) é invalidado e refeito
@@ -607,7 +609,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
       vperf?.mark('b_ini');
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, vis.toneCategories, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
       vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;

@@ -44,11 +44,11 @@ describe('barra de vista na planta de disciplina (etapa 4.2)', () => {
     expect(out).toContain('>Tons<');
   });
 
-  it('na planta padrão a barra fica como hoje: sem disciplina e sem o atalho de tons', () => {
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, planViewId: null });
+  it('na planta padrão a barra mantém o atalho de tons desligado e mostra a minha disciplina', () => {
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, planViewId: null, minhaDisciplina: null });
     const out = renderToStaticMarkup(createElement(ViewControlBar));
     expect(out).not.toContain('Tons por disciplina');
-    expect(out).not.toContain('>Estrutura<');
+    expect(out).toContain('aria-label="Minha disciplina"');
   });
 });
 
@@ -76,13 +76,14 @@ describe('propriedades da planta de disciplina (etapa 4.2)', () => {
     expect(editor.store.project.levels[0]!.graphics).toBeUndefined();
   });
 
-  it('na planta padrão o título não mostra planta de disciplina e a escala vem de Level.graphics', () => {
-    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, planViewId: null, selection: [], sectionId: null });
+  it('na planta padrão o título não mostra planta de disciplina, a disciplina é editável e a escala vem de Level.graphics', () => {
+    useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, planViewId: null, selection: [], sectionId: null, minhaDisciplina: null });
     editPlanGraphics(editor.store, { levelId: 'lv_0' }, { scale: 50 });
     const out = renderToStaticMarkup(createElement(Properties));
     expect(out).toContain('>Planta · Térreo<');
     expect(out).not.toContain('id="v-plan-name"');
-    expect(out).not.toContain('>Disciplina<');
+    expect(out).toContain('id="v-level-discipline"');
+    expect(out).toContain('>Disciplina<');
     expect(out).toMatch(/<option value="50" selected="">1:50<\/option>/);
     expect(editor.store.project.levels[0]!.graphics?.scale).toBe(50);
     expect(editor.store.project.planViews).toBeUndefined();

@@ -18,7 +18,7 @@ import type { ViewRange } from './viewRange.ts';
 import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
-import type { ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { GraphicsCategory, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
 import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
@@ -27,7 +27,8 @@ import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
-import type { PlanView } from './planView.ts';
+import type { Discipline, PlanView } from './planView.ts';
+import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
 import type { CopyLink } from './copyLink.ts';
@@ -40,13 +41,14 @@ import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdent
 import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
+/** v32: perfis de disciplina (`Project.disciplineProfiles`), disciplinas do projeto (`Project.disciplines`), remapeamento de categoria (`Project.categoryDiscipline`), disciplina da planta padrão (`Level.discipline`) e do 3D (`View3DSettings.discipline`), decisão 0060, adendo 3. A migração 31 → 32 só avança a versão: dados novos são opcionais e ausentes valem predefinido, e assim um programa antigo recusa um arquivo 32 em vez de apagá-los ao salvar. */
 /** v31: `Project.planViews` (plantas de piso adicionais por disciplina, decisão 0060; opcional, ausente = nenhuma): a migração 30 → 31 só avança a versão, e assim um programa antigo recusa um arquivo 31 em vez de apagar a coleção ao salvar. */
 /** v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `Project.componentFamilies`), móveis importados (`Furniture`, `Project.furniture`) e tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`). A migração 29 → 30 só avança a versão, e assim um programa antigo recusa um arquivo 30. */
 /** v29: terreno, região de terreno, lote e `localizacao` do projeto: a migração 28 → 29 só avança a versão (terreno virou 29 ao integrar com a main, que usou 26 a 28 para massa, parede inclinada e tríade estrutural). */
 /** v28: tríade estrutural (pilar, viga, sapata): a migração 27 → 28 popula os tipos padrão ausentes. */
 /** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';
@@ -225,6 +227,11 @@ export interface Level {
   graphics?: ViewGraphics;
   /** Elementos/categorias ocultos na planta de piso deste nível (Hide in View). */
   hidden?: ViewHidden;
+  /**
+   * Disciplina da planta PADRÃO deste nível (ausente = `DEFAULT_DISCIPLINE`, arquitetura, que é o comportamento de
+   * hoje). Dado inválido é ignorado na leitura (cai na padrão), nunca quebra.
+   */
+  discipline?: Discipline;
   /** Elementos/categorias ocultos na planta de cobertura deste nível (vista separada da planta de piso). */
   roofHidden?: ViewHidden;
   /** Cotas permanentes da planta (decisão 0019); ausente = nenhuma. */
@@ -1124,6 +1131,21 @@ export interface Project {
   areaPlans?: AreaPlan[];
   /** Plantas de piso ADICIONAIS por disciplina (decisão 0060); a planta padrão de cada nível é o próprio `Level`. Ausente = nenhuma. */
   planViews?: PlanView[];
+  /**
+   * Disciplinas criadas pelo usuário, além das cinco embutidas (decisão 0060, adendo 3). Ausente = só as embutidas.
+   * Entrada malformada é ignorada na leitura; nunca quebra.
+   */
+  disciplines?: ProjectDiscipline[];
+  /**
+   * Perfil de tom por categoria de cada disciplina (`disciplina → categoria → tom`), adendo 3, decisão 3.
+   * Ausente = predefinido; categoria ou tom inválido é ignorado na leitura, nunca quebra.
+   */
+  disciplineProfiles?: Record<string, DisciplineProfile>;
+  /**
+   * Remapeamento da disciplina de origem de uma categoria (adendo 3, decisão 3). Ausente = origem do registro
+   * (`registroCategorias.ts`); valor inválido é ignorado na leitura, nunca quebra.
+   */
+  categoryDiscipline?: Partial<Record<GraphicsCategory, Discipline>>;
   /** Categorias de ambiente; ausente = as padrão (`DEFAULT_ROOM_CATEGORIES`). */
   roomCategories?: RoomCategory[];
   /** Esquemas de cores das plantas de área; ausente = nenhum. */

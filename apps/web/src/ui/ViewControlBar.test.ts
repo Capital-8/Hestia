@@ -23,6 +23,7 @@ vi.mock('../editor/state.ts', async (importOriginal) => {
 import { editor } from '../editor/controller.ts';
 import { editView3D, showLevelsOn } from '../editor/graphicsActions.ts';
 import { useUi } from '../editor/state.ts';
+import { View3DGroup } from './GraphicsProps.tsx';
 import { ViewControlBar } from './ViewControlBar.tsx';
 
 const LEVELS_LABEL = 'Mostrar/ocultar níveis de referência';
@@ -45,6 +46,17 @@ describe('showLevelsOn (níveis de referência do 3D)', () => {
     expect(showLevelsOn({})).toBe(true);
     expect(showLevelsOn({ showLevels: true })).toBe(true);
     expect(showLevelsOn({ showLevels: false })).toBe(false);
+  });
+});
+
+describe('seletor de disciplina nas propriedades da vista 3D', () => {
+  it('começa em "Todas" (campo ausente) e mostra a disciplina gravada', () => {
+    const semDisciplina = renderToStaticMarkup(createElement(View3DGroup));
+    expect(semDisciplina).toContain('id="v3-discipline"');
+    expect(semDisciplina).toContain('<option value="" selected="">Todas</option>');
+    editor.store.exec({ type: 'setView3dDiscipline', discipline: 'estrutura' });
+    const comDisciplina = renderToStaticMarkup(createElement(View3DGroup));
+    expect(comDisciplina).toContain('<option value="estrutura" selected="">Estrutura</option>');
   });
 });
 

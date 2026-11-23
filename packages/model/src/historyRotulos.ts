@@ -165,10 +165,14 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar gráficos da vista';
     case 'resetLevelGraphics':
       return 'Restaurar gráficos da vista';
+    case 'setLevelDiscipline':
+      return 'Alterar disciplina da planta';
     case 'setView3D':
       return 'Alterar a vista 3D';
     case 'resetView3D':
       return 'Restaurar a vista 3D';
+    case 'setView3dDiscipline':
+      return 'Alterar disciplina do 3D';
     case 'setViewHidden':
       return 'Ocultar na vista';
     case 'setSectionAnnotations':
@@ -335,6 +339,16 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar gráficos da planta';
     case 'resetPlanGraphics':
       return 'Restaurar gráficos da planta';
+    case 'setDisciplineProfile':
+      return 'Alterar perfil da disciplina';
+    case 'setCategoryDiscipline':
+      return 'Remapear disciplina da categoria';
+    case 'addProjectDiscipline':
+      return 'Criar disciplina';
+    case 'updateProjectDiscipline':
+      return 'Editar disciplina';
+    case 'removeProjectDiscipline':
+      return 'Excluir disciplina';
     case 'addRoomTag':
       return 'Criar etiqueta de ambiente';
     case 'updateRoomTag':

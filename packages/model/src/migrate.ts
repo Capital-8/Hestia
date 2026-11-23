@@ -304,6 +304,10 @@ const migrations: Record<number, Migration> = {
   // vista 'plan' da prancha. Aditivo e opcional: a migração só adiciona o que falta, e nada falta (ausente = nenhuma planta
   // adicional). O bump existe porque um programa antigo ignoraria a coleção e a apagaria ao salvar: com ele, recusa o arquivo.
   30: (raw) => ({ ...raw }),
+  // v31 → v32: perfis por disciplina, disciplinas do projeto, remapeamento de categoria, disciplina da planta padrão e do
+  // 3D (decisão 0060, adendo 3). Tudo opcional e aditivo: ausente = predefinido (as embutidas e a origem do registro), sem
+  // nada a converter. O bump existe porque um programa antigo ignoraria esses campos e os apagaria ao salvar.
+  31: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

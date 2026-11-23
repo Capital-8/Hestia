@@ -10,18 +10,26 @@ import type { Id, Project } from './types.ts';
  * adicionais. Ausente = nenhuma, e um arquivo sem a coleção abre e desenha exatamente como antes.
  */
 
-/** Disciplinas das plantas. União fechada: cada valor terá predefinido de tom e rótulo traduzido (etapa 3.1). */
-export type Discipline = 'arquitetura' | 'estrutura' | 'hidrossanitario' | 'eletrico' | 'hvac';
+/** Disciplinas embutidas das plantas. Tabelas sobre elas continuam exaustivas (predefinido e rótulo traduzido). */
+export type BuiltinDiscipline = 'arquitetura' | 'estrutura' | 'hidrossanitario' | 'eletrico' | 'hvac';
+/** Disciplina é identificador (texto): as embutidas acima mais as criadas no projeto (adendo 3). */
+export type Discipline = string;
 /** Tom de uma disciplina numa planta: oculta, meio-tom ou normal (a regra de visibilidade entra na etapa 3.2). */
 export type Tone = 'hidden' | 'halftone' | 'normal';
 
-export const DISCIPLINES: readonly Discipline[] = ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac'];
+export const DISCIPLINES: readonly BuiltinDiscipline[] = ['arquitetura', 'estrutura', 'hidrossanitario', 'eletrico', 'hvac'];
+/** Alias explícito da lista das cinco embutidas (as disciplinas do usuário ainda não são gravadas). */
+export const BUILTIN_DISCIPLINES: readonly BuiltinDiscipline[] = DISCIPLINES;
 export const TONES: readonly Tone[] = ['hidden', 'halftone', 'normal'];
 
 /** Disciplina da planta padrão de todo nível (a que reproduz o desenho de hoje). */
-export const DEFAULT_DISCIPLINE: Discipline = 'arquitetura';
+export const DEFAULT_DISCIPLINE: BuiltinDiscipline = 'arquitetura';
 
-export const isDiscipline = (x: unknown): x is Discipline => typeof x === 'string' && (DISCIPLINES as readonly string[]).includes(x);
+export const isBuiltinDiscipline = (x: unknown): x is BuiltinDiscipline => typeof x === 'string' && (DISCIPLINES as readonly string[]).includes(x);
+/** Nome mantido para os chamadores: verdadeiro só para as cinco embutidas. */
+export const isDiscipline = isBuiltinDiscipline;
+/** Identificador de disciplina: texto não vazio, sem espaços nas pontas, até 40 caracteres (embutida ou do projeto). */
+export const isDisciplineId = (x: unknown): x is string => typeof x === 'string' && x.length > 0 && x.length <= 40 && x.trim() === x;
 export const isTone = (x: unknown): x is Tone => typeof x === 'string' && (TONES as readonly string[]).includes(x);
 
 /** Anotações de uma planta adicional: mesmas estruturas da planta de área; ausente = vazio (nunca herda do nível). */
@@ -86,10 +94,12 @@ export function planOf(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planV
       tones: { ...(view.tones ?? {}) },
     };
   }
+  const nivel = p.levels.find((l) => l.id === levelId);
+  const disciplinaDoNivel = nivel?.discipline;
   return {
     levelId,
-    discipline: DEFAULT_DISCIPLINE,
-    name: p.levels.find((l) => l.id === levelId)?.name ?? '',
+    discipline: isDisciplineId(disciplinaDoNivel) ? disciplinaDoNivel : DEFAULT_DISCIPLINE,
+    name: nivel?.name ?? '',
     isDefault: true,
     graphics: planGraphicsOf(p, levelId),
     hidden: planHiddenOf(p, levelId),
@@ -111,12 +121,19 @@ export const planIdTaken = (p: Partial<Pick<Project, 'planViews' | 'areaPlans'>>
  * Problemas de UMA planta adicional (comando e validação), sem o prefixo do contexto. Unicidade do id é do projeto
  * (`planIdTaken`), não da planta. Vazio = válida.
  */
-export function planViewIssues(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews'>>, plan: PlanView, lang: Lang = 'pt'): string[] {
+/** A disciplina da planta é embutida ou declarada validamente no projeto? (adendo 3: as do usuário também valem). */
+function disciplinaConhecida(p: Partial<Pick<Project, 'disciplines'>>, discipline: PlanView['discipline']): boolean {
+  if (isDiscipline(discipline)) return true;
+  if (!isDisciplineId(discipline)) return false;
+  return (p.disciplines ?? []).some((d) => d !== null && typeof d === 'object' && isDisciplineId(d.id) && d.id === discipline);
+}
+
+export function planViewIssues(p: Pick<Project, 'levels'> & Partial<Pick<Project, 'planViews' | 'disciplines'>>, plan: PlanView, lang: Lang = 'pt'): string[] {
   const out: string[] = [];
   if (typeof plan.id !== 'string' || !plan.id) out.push('A planta precisa de um id.');
   if (typeof plan.name !== 'string' || !plan.name.trim()) out.push('A planta precisa de nome.');
   if (!p.levels.some((l) => l.id === plan.levelId)) out.push(t(lang, 'md_level_missing'));
-  if (!isDiscipline(plan.discipline)) out.push(`Disciplina inválida: "${String(plan.discipline)}".`);
+  if (!disciplinaConhecida(p, plan.discipline)) out.push(`Disciplina inválida: "${String(plan.discipline)}".`);
   if (plan.tones !== undefined) {
     if (plan.tones === null || typeof plan.tones !== 'object' || Array.isArray(plan.tones)) out.push('Os tons da planta precisam ser um objeto disciplina → tom.');
     else

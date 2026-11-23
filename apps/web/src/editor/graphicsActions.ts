@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, DISCIPLINE_TONE_PRESETS, graphicsOf, planGraphicsOf, planViewById, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type Tone, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -128,7 +128,7 @@ export function editPlanTone(store: ProjectStore, planId: Id, discipline: Discip
       return failed(e);
     }
   }
-  const preset = DISCIPLINE_TONE_PRESETS[plan.discipline][discipline];
+  const preset = presetTone(plan.discipline, discipline);
   const current = plan.tones ?? {};
   const next: Partial<Record<Discipline, Tone>> = { ...current };
   if (tone === preset) delete next[discipline];

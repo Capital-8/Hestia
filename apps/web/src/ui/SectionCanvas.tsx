@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { sectionAnnotationsOf, type Id, type Project } from '@hestia/model';
+import { sectionAnnotationsOf, type GraphicsCategory, type Id, type Project, type Tone } from '@hestia/model';
 import { anotacoesSemOcultas } from '../editor/viewAnnotations.ts';
 import { DARK, LIGHT, sectionFrame, type PlanDrawList, type SectionFrame, type Viewport } from '@hestia/render';
 import { editor, useProject } from '../editor/controller.ts';
@@ -23,7 +23,7 @@ import { Icon } from './Icon.tsx';
  * `estado` é o estado da interface "como o painel o vê" (o `sectionId` do próprio painel): sem ele vale o do app. Um painel
  * de corte inativo precisa do seu, senão desenha vazio. `frame` é o cache de lista do painel (o painel ativo usa o global).
  */
-export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, lang: Lang = 'pt', projeto?: Project, estado?: UiState, frame: SectionFrame = sectionFrame): PlanDrawList | null {
+export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlySet<Id>, revealed?: ReadonlySet<Id>, toneCategories?: Partial<Record<GraphicsCategory, Tone>>, lang: Lang = 'pt', projeto?: Project, estado?: UiState, frame: SectionFrame = sectionFrame): PlanDrawList | null {
   const st = estado ?? useUi.getState();
   const section = editor.sectionOf(st.sectionId);
   if (!section || !st.sectionId) return null;
@@ -43,6 +43,7 @@ export function buildSectionFrame(v: Viewport, dark: boolean, hidden?: ReadonlyS
     levelExtents: view?.levelExtents,
     highlight: { selection: st.selection, hover: st.hover, aviso: st.avisoParede ? [st.avisoParede] : [] },
     thinLines: thinLinesOn(projeto ?? editor.project, 'section'),
+    toneCategories,
     lang,
   };
   return frame.drawList(entrada, v, gpu);

@@ -1,6 +1,19 @@
 import { familiaDoComponente } from './componentes.ts';
 import { familiaDaBiblioteca } from './familia/biblioteca/index.ts';
-import { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone, type Discipline, type PlanView, type Tone } from './planView.ts';
+import {
+  BUILTIN_DISCIPLINES,
+  DEFAULT_DISCIPLINE,
+  DISCIPLINES,
+  TONES,
+  isBuiltinDiscipline,
+  isDiscipline,
+  isDisciplineId,
+  isTone,
+  type BuiltinDiscipline,
+  type Discipline,
+  type PlanView,
+  type Tone,
+} from './planView.ts';
 import type { Element, Project } from './types.ts';
 
 /**
@@ -11,8 +24,8 @@ import type { Element, Project } from './types.ts';
  * valem para eles.
  */
 
-export { DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isDiscipline, isTone };
-export type { Discipline, Tone };
+export { BUILTIN_DISCIPLINES, DEFAULT_DISCIPLINE, DISCIPLINES, TONES, isBuiltinDiscipline, isDiscipline, isDisciplineId, isTone };
+export type { BuiltinDiscipline, Discipline, Tone };
 
 /** Disciplina derivada de um elemento: as cinco das plantas, ou `geral` (terrain, lote, terreno, CAD, importado). */
 export type ElementDiscipline = Discipline | 'geral';
@@ -50,12 +63,90 @@ export const DISCIPLINE_OF_KIND: Record<Element['kind'], ElementDiscipline> = {
 };
 
 /**
+ * Disciplina de um produto IFC importado, pela classe de origem (adendo 3, fase 7). Chaves em MAIÚSCULAS, como o STEP
+ * grava. O que não está aqui (telhado, mobiliário, parede genérica...) continua `geral`.
+ */
+export const IFC_CLASS_DISCIPLINE: Record<string, ElementDiscipline> = {
+  // estrutura
+  IFCCOLUMN: 'estrutura',
+  IFCBEAM: 'estrutura',
+  IFCFOOTING: 'estrutura',
+  IFCSLAB: 'estrutura',
+  // hidrossanitário
+  IFCPIPESEGMENT: 'hidrossanitario',
+  IFCPIPEFITTING: 'hidrossanitario',
+  IFCSANITARYTERMINAL: 'hidrossanitario',
+  IFCWASTETERMINAL: 'hidrossanitario',
+  IFCVALVE: 'hidrossanitario',
+  IFCPUMP: 'hidrossanitario',
+  IFCTANK: 'hidrossanitario',
+  // só quando o tipo predefinido/tipo de objeto não apontar cabo nem ar (ver `disciplinaDoFluxo`)
+  IFCFLOWSEGMENT: 'hidrossanitario',
+  // elétrico
+  IFCCABLECARRIERSEGMENT: 'eletrico',
+  IFCCABLECARRIERFITTING: 'eletrico',
+  IFCCABLESEGMENT: 'eletrico',
+  IFCLIGHTFIXTURE: 'eletrico',
+  IFCOUTLET: 'eletrico',
+  IFCSWITCHINGDEVICE: 'eletrico',
+  IFCELECTRICDISTRIBUTIONBOARD: 'eletrico',
+  IFCJUNCTIONBOX: 'eletrico',
+  // HVAC
+  IFCDUCTSEGMENT: 'hvac',
+  IFCDUCTFITTING: 'hvac',
+  IFCAIRTERMINAL: 'hvac',
+  IFCAIRTERMINALBOX: 'hvac',
+  IFCDAMPER: 'hvac',
+  IFCFAN: 'hvac',
+  IFCBOILER: 'hvac',
+  IFCCHILLER: 'hvac',
+  IFCCOOLINGTOWER: 'hvac',
+  IFCENERGYCONVERSIONDEVICE: 'hvac',
+};
+
+/** Classes genéricas do `IfcDistributionFlowElement`: só o tipo predefinido/tipo de objeto separa água, cabo e ar. */
+const FLOW_CLASSES = new Set(['IFCFLOWSEGMENT', 'IFCFLOWFITTING', 'IFCFLOWTERMINAL']);
+
+/** Disciplina de uma classe genérica de fluxo pelos indícios do tipo; sem indício, `geral`. */
+function disciplinaDoFluxo(predefinedType?: string, objectType?: string): ElementDiscipline {
+  const tipo = typeof predefinedType === 'string' ? predefinedType : '';
+  const objeto = typeof objectType === 'string' ? objectType : '';
+  const s = `${tipo} ${objeto}`.trim().toUpperCase();
+  if (s === '') return 'geral';
+  if (/CABLE|CONDUIT|WIRE|ELECTR|BUS|TELECOM/.test(s)) return 'eletrico';
+  if (/PIPE|WATER|SEWAGE|DRAIN|RAIN|WASTE|TUBUL|AGUA|ESGOTO|HIDRAUL|\bVENT\b/.test(s)) return 'hidrossanitario';
+  if (/DUCT|AIR|HVAC|EXHAUST|FUME|VENTIL|CLIMAT|DUTO|CONDICIONADO/.test(s)) return 'hvac';
+  return 'geral';
+}
+
+/**
+ * Disciplina de um produto importado do IFC pela classe de origem (adendo 3, fase 7). Normaliza espaços e caixa;
+ * classe desconhecida, vazia ou dado malformado devolve `geral`. Nunca lança.
+ */
+export function disciplineDaClasseIfc(sourceClass: string, predefinedType?: string, objectType?: string): ElementDiscipline {
+  const classe = typeof sourceClass === 'string' ? sourceClass.trim().toUpperCase() : '';
+  if (FLOW_CLASSES.has(classe)) return disciplinaDoFluxo(predefinedType, objectType);
+  return IFC_CLASS_DISCIPLINE[classe] ?? 'geral';
+}
+
+/**
  * Disciplina de um elemento (adendo 1 do ADR 0060). Para todos os kinds vale a tabela exaustiva; `component` é a
  * exceção: a disciplina vem de `Familia.disciplina`, procurada primeiro nas famílias do projeto e, se não houver, na
- * biblioteca base. Família ausente (componente órfão), família sem o campo ou valor malformado = Arquitetura, que é o
- * comportamento dos arquivos antigos. Nunca lança.
+ * biblioteca base. Produto importado (`generic`, e `cad` quando traz a origem) usa a classe IFC de origem (fase 7);
+ * sem `sourceClass`, continua `geral`, como antes. Família ausente (componente órfão), família sem o campo ou valor
+ * malformado = Arquitetura, que é o comportamento dos arquivos antigos. Nunca lança.
  */
 export function disciplineOfElement(el: Element, p: Pick<Project, 'componentFamilies'>): ElementDiscipline {
+  if (el.kind === 'generic' || el.kind === 'cad') {
+    const importado = el as { sourceClass?: unknown; predefinedType?: unknown; objectType?: unknown };
+    if (typeof importado.sourceClass === 'string' && importado.sourceClass.trim() !== '') {
+      return disciplineDaClasseIfc(
+        importado.sourceClass,
+        typeof importado.predefinedType === 'string' ? importado.predefinedType : undefined,
+        typeof importado.objectType === 'string' ? importado.objectType : undefined,
+      );
+    }
+  }
   if (el.kind !== 'component') return DISCIPLINE_OF_KIND[el.kind];
   const familia = familiaDoComponente(p, el) ?? familiaDaBiblioteca(el.familyId);
   const disciplina = familia?.disciplina;
@@ -63,11 +154,11 @@ export function disciplineOfElement(el: Element, p: Pick<Project, 'componentFami
 }
 
 /**
- * Predefinidos de tom por planta (tabela da ADR §4.2): para cada disciplina da planta, o tom de cada disciplina
- * de elemento. `geral` não tem coluna: nunca recebe tom (§4.1, passo 3). O dono desvia por planta em
- * `PlanView.tones`, e o desvio vale sobre o predefinido (não substitui a tabela inteira).
+ * Predefinidos de tom por planta (tabela da ADR §4.2): para cada disciplina embutida da planta, o tom de cada
+ * disciplina embutida de elemento. `geral` não tem coluna: nunca recebe tom (§4.1, passo 3). O dono desvia por planta
+ * em `PlanView.tones`, e o desvio vale sobre o predefinido (não substitui a tabela inteira).
  */
-export const DISCIPLINE_TONE_PRESETS: Record<Discipline, Record<Discipline, Tone>> = {
+export const DISCIPLINE_TONE_PRESETS: Record<BuiltinDiscipline, Record<BuiltinDiscipline, Tone>> = {
   arquitetura: { arquitetura: 'normal', estrutura: 'normal', hidrossanitario: 'halftone', eletrico: 'halftone', hvac: 'halftone' },
   estrutura: { arquitetura: 'halftone', estrutura: 'normal', hidrossanitario: 'hidden', eletrico: 'hidden', hvac: 'hidden' },
   hidrossanitario: { arquitetura: 'halftone', estrutura: 'halftone', hidrossanitario: 'normal', eletrico: 'hidden', hvac: 'hidden' },
@@ -76,16 +167,33 @@ export const DISCIPLINE_TONE_PRESETS: Record<Discipline, Record<Discipline, Tone
 };
 
 /**
+ * Tom predefinido de uma disciplina de elemento na planta de `trabalho` (adendo 3, decisão 4). As duas embutidas
+ * usam a tabela §4.2; fora dela, a regra de fallback: a mesma disciplina é `normal`, outra é `halftone`.
+ */
+export function presetTone(trabalho: Discipline, elemento: Discipline): Tone {
+  if (isBuiltinDiscipline(trabalho) && isBuiltinDiscipline(elemento)) return DISCIPLINE_TONE_PRESETS[trabalho][elemento];
+  return trabalho === elemento ? 'normal' : 'halftone';
+}
+
+/**
  * Tons efetivos de uma planta: o predefinido da disciplina dela combinado com os desvios gravados em
  * `PlanView.tones` (o desvio vale sobre o predefinido). Sem planta (a padrão do nível) usa o predefinido de
  * Arquitetura e **não grava nada** (`Level` não ganha campo — ADR §4.2). Aceita `ResolvedPlan`, que tem os
  * mesmos campos `discipline` e `tones`. Entradas malformadas (disciplina ou tom inválidos, valor ausente)
  * são ignoradas: a leitura nunca quebra por dado ruim (a validação de `planViewIssues` é que sinaliza).
+ * As cinco embutidas sempre saem; a própria disciplina da planta, se não for embutida, entra como `normal`.
+ * Desvios só valem para as embutidas ou para a própria disciplina da planta, porque as disciplinas do projeto
+ * ainda não são gravadas nesta fase (adendo 3, fase 0).
  */
-export function planTonesOf(planView?: Pick<PlanView, 'discipline' | 'tones'>): Record<Discipline, Tone> {
-  const out: Record<Discipline, Tone> = { ...DISCIPLINE_TONE_PRESETS[planView?.discipline ?? DEFAULT_DISCIPLINE] };
+export function planTonesOf(planView?: Pick<PlanView, 'discipline' | 'tones'>): Record<string, Tone> {
+  const trabalho = planView?.discipline ?? DEFAULT_DISCIPLINE;
+  const out: Record<string, Tone> = {};
+  for (const d of DISCIPLINES) out[d] = presetTone(trabalho, d);
+  if (!isBuiltinDiscipline(trabalho) && isDisciplineId(trabalho)) out[trabalho] = presetTone(trabalho, trabalho);
   for (const [d, tone] of Object.entries(planView?.tones ?? {})) {
-    if (isDiscipline(d) && isTone(tone)) out[d] = tone;
+    // Desvio só de disciplina conhecida nesta fase: embutida ou a própria disciplina da planta (as do projeto ainda
+    // não são gravadas). Mantém o comportamento dos arquivos atuais e ignora chave desconhecida sem lançar.
+    if (isDisciplineId(d) && isTone(tone) && (isBuiltinDiscipline(d) || d === trabalho)) out[d] = tone;
   }
   return out;
 }
