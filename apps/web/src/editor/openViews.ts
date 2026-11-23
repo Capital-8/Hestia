@@ -14,7 +14,7 @@ export type PlanKind = 'floor' | 'roof' | 'area';
  */
 export type OpenView =
   | { kind: 'plan'; levelId: Id; planKind?: PlanKind; areaPlanId?: Id; planViewId?: Id }
-  | { kind: '3d' }
+  | { kind: '3d'; viewId?: Id }
   | { kind: 'section'; viewId: Id }
   | { kind: 'sheet'; sheetId: Id }
   | { kind: 'face'; elementId: Id; face: FaceSlot; layer: FaceLayerTarget };
@@ -31,6 +31,8 @@ export interface ActiveViewFields {
   areaPlanId?: Id | null;
   /** Planta de disciplina ativa quando `planKind` é 'floor'; ausente ou nulo = planta padrão do nível. */
   planViewId?: Id | null;
+  /** Vista 3D salva quando `view` é '3d'; ausente ou nulo = 3D padrão. */
+  view3dViewId?: Id | null;
   /** Estúdio da face (2D) ativo quando `view` é 'face'. */
   faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
@@ -125,7 +127,7 @@ export function activeViewOf(ui: ActiveViewFields): OpenView | null {
       if (planKindOf(ui) === 'roof') return { kind: 'plan', levelId: ui.levelId, planKind: 'roof' };
       return ui.planViewId ? { kind: 'plan', levelId: ui.levelId, planViewId: ui.planViewId } : { kind: 'plan', levelId: ui.levelId };
     case '3d':
-      return { kind: '3d' };
+      return ui.view3dViewId ? { kind: '3d', viewId: ui.view3dViewId } : { kind: '3d' };
     case 'section':
       return ui.sectionId ? { kind: 'section', viewId: ui.sectionId } : null;
     case 'sheet':

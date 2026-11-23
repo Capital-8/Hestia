@@ -1,4 +1,4 @@
-import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type Id, type Project, type View3DSettings, type ViewGraphics, type VisualStyle } from '@hestia/model';
+import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type Id, type Project, type View3DSettings, type View3DView, type ViewGraphics, type VisualStyle } from '@hestia/model';
 import { findPane, type PaneId, type PaneStyle } from './panes.ts';
 import { usePanes } from './paneStore.ts';
 import { editor } from './controller.ts';
@@ -41,6 +41,25 @@ export const PANE_STYLE_PRESETS: { readonly view3d: readonly PaneStylePreset[]; 
 };
 
 const derivados = new WeakMap<Project, Map<string, Project>>();
+
+/**
+ * Projeto "visto" por uma vista 3D salva: cópia rasa com os gráficos da vista (`settings`) no lugar dos do projeto.
+ * Só o desenho usa (nunca é gravado) e a disciplina da vista, quando existe, entra nos gráficos para a cena e o estilo
+ * concordarem. Memorizado por projeto + id da vista para a identidade ser estável entre quadros.
+ */
+const derivadosVista3d = new WeakMap<Project, Map<Id, Project>>();
+
+export function projetoDaVista3d(p: Project, view: View3DView | undefined): Project {
+  if (!view) return p;
+  let m = derivadosVista3d.get(p);
+  if (!m) derivadosVista3d.set(p, (m = new Map()));
+  const guardado = m.get(view.id);
+  if (guardado) return guardado;
+  const settings: View3DSettings = view.discipline ? { ...view.settings, discipline: view.discipline } : view.settings;
+  const out: Project = { ...p, view3d: settings };
+  m.set(view.id, out);
+  return out;
+}
 
 /**
  * Cópia rasa do projeto com os gráficos de UMA planta trocados: a padrão grava em `levels[].graphics`; a de disciplina,

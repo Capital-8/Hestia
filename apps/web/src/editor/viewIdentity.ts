@@ -13,14 +13,15 @@ import type { PlanKind } from './openViews.ts';
  *   area:<areaPlanId>   planta de área
  *   section:<viewId>    corte ou elevação
  *   sheet:<sheetId>     prancha
- *   3d                  modelo 3D
+ *   3d                  modelo 3D padrão
+ *   3d:<viewId>         vista 3D salva (`Project.view3dViews`)
  *   face:<elementId>:<face>:<layer>
  */
 
 /** Vista descrita por tipo: o formato de `OpenView` (aceita também `PaneView`). */
 export type ViewIdentity =
   | { kind: 'plan'; levelId: Id; planKind?: PlanKind; areaPlanId?: Id | null; planViewId?: Id | null }
-  | { kind: '3d' }
+  | { kind: '3d'; viewId?: Id }
   | { kind: 'section'; viewId: Id }
   | { kind: 'sheet'; sheetId: Id }
   | { kind: 'face'; elementId: Id; face: FaceSlot; layer: FaceLayerTarget };
@@ -34,6 +35,8 @@ export interface ViewIdentityFields {
   planKind?: PlanKind;
   areaPlanId?: Id | null;
   planViewId?: Id | null;
+  /** Vista 3D salva ativa quando `view` é '3d'; ausente ou nula = 3D padrão. */
+  view3dViewId?: Id | null;
   faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
 
@@ -48,7 +51,7 @@ export function viewKey(v: ViewIdentity): string {
       if (v.planKind === 'roof') return `roof:${v.levelId}`;
       return v.planViewId ? `pv:${v.planViewId}` : `plan:${v.levelId}`;
     case '3d':
-      return '3d';
+      return v.viewId ? `3d:${v.viewId}` : '3d';
     case 'section':
       return `section:${v.viewId}`;
     case 'sheet':
@@ -77,7 +80,7 @@ export function identityOfFields(f: ViewIdentityFields): ViewIdentity | null {
     case 'plan':
       return { kind: 'plan', levelId: f.levelId, planKind: f.planKind, areaPlanId: f.areaPlanId, planViewId: f.planViewId };
     case '3d':
-      return { kind: '3d' };
+      return { kind: '3d', ...(f.view3dViewId ? { viewId: f.view3dViewId } : {}) };
     case 'section':
       return f.sectionId ? { kind: 'section', viewId: f.sectionId } : null;
     case 'sheet':

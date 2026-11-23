@@ -27,6 +27,7 @@ export function viewHiddenOf(p: Project, target: ViewHiddenTarget): ViewHidden |
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden;
     case 'planView': return p.planViews?.find((a) => a.id === target.planId)?.hidden;
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden;
+    case 'view3d': return p.view3dViews?.find((v) => v.id === target.viewId)?.settings.hidden;
     case '3d': return view3dOf(p).hidden;
   }
 }
@@ -67,6 +68,13 @@ export function applyViewHidden(p: Project, target: ViewHiddenTarget, hidden: Vi
     }
     case '3d': {
       p.view3d = { ...view3dOf(p), ...(clean ? { hidden: clean } : { hidden: undefined }) };
+      return;
+    }
+    case 'view3d': {
+      const v = p.view3dViews?.find((x) => x.id === target.viewId);
+      if (!v) throw new Error(t(lang, 'md_v3dview_missing', { id: target.viewId }));
+      if (clean) v.settings = { ...v.settings, hidden: clean };
+      else delete v.settings.hidden;
       return;
     }
   }

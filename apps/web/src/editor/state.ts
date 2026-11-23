@@ -67,6 +67,8 @@ export interface UiState {
   areaPlanId: Id | null;
   /** Planta de disciplina ativa (planta de piso adicional do nível, decisão 0060); null = planta padrão. Só vale com `planKind` 'floor'. */
   planViewId: Id | null;
+  /** Vista 3D salva ativa (`Project.view3dViews`); null = 3D padrão. Só vale com `view` '3d'. */
+  view3dViewId: Id | null;
   /** Disciplina de trabalho pessoal (sessão, decidida no adendo 3 da 0060): null = usa a disciplina da vista. Nunca vai para o projeto. */
   minhaDisciplina: Discipline | null;
   /**
@@ -411,6 +413,7 @@ export const useUi = create<UiState>(() => ({
   planKind: 'floor',
   areaPlanId: null,
   planViewId: null,
+  view3dViewId: null,
   minhaDisciplina: null,
   liberarEdicao: false,
   tagDrag: null,
@@ -498,7 +501,7 @@ export function toggleFileMenu(): void {
 }
 
 useUi.subscribe((s, prev) => {
-  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.planViewId === prev.planViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
+  if (s.view === prev.view && s.levelId === prev.levelId && s.planKind === prev.planKind && s.areaPlanId === prev.areaPlanId && s.planViewId === prev.planViewId && s.view3dViewId === prev.view3dViewId && s.sectionId === prev.sectionId && s.sheetId === prev.sheetId && s.faceView === prev.faceView) return;
   const active = activeViewOf(s);
   if (!active) return;
   const next = addView(s.openViews, active);

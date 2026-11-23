@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { disciplineLabel, disciplinasDoProjeto, isBuiltinDiscipline, PLAN_VISUAL_STYLES, planGraphicsOf, planOf, sectionGraphicsOf, view3dOf, type Discipline, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
-import { editPlanGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { editPlanGraphics, editSectionGraphics, editView3D, editView3dSaved, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
 import { planTonesDialogTarget, planViewIdDe } from '../editor/viewIdentity.ts';
+import { vista3dSalvaDe } from '../editor/vista3dSalva.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { resetTemporaryHidden, temporaryHideActive, temporaryHideSelection, toggleRevealHidden, visibilityOf } from '../editor/viewVisibility.ts';
@@ -41,6 +42,7 @@ export function ViewControlBar(): ReactElement | null {
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
+  const view3dViewId = useUi((s) => s.view3dViewId);
   const minhaDisciplina = useUi((s) => s.minhaDisciplina);
   const liberarEdicao = useUi((s) => s.liberarEdicao);
   const { t, lang } = useT();
@@ -52,13 +54,15 @@ export function ViewControlBar(): ReactElement | null {
   const planId = planViewIdDe({ view, planKind, planViewId });
   const plan = planId && view === 'plan' ? planOf(p, levelId, planId) : undefined;
   const disciplinePlan = plan && !plan.isDefault ? plan : undefined;
-  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
+  const vista3dSalva = is3d ? vista3dSalvaDe(p, { view, view3dViewId }) : undefined;
+  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(vista3dSalva ? { view3d: vista3dSalva.settings } : p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
   const report = (r: GraphicsEdit): void => {
     if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shc_view_error' } });
   };
   const editPlan = (patch: Partial<Pick<ViewGraphics, 'scale' | 'detail' | 'style'>>): void =>
     report(view === 'section' ? editSectionGraphics(editor.store, patch) : editPlanGraphics(editor.store, { levelId, planId }, patch));
-  const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void => report(editView3D(editor.store, patch));
+  const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void =>
+    report(vista3dSalva ? editView3dSaved(editor.store, vista3dSalva.id, patch) : editView3D(editor.store, patch));
 
   const scale = !is3d ? (g as ViewGraphics).scale : 0;
   const v3 = is3d ? (g as View3DSettings) : null;

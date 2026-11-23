@@ -53,7 +53,7 @@ function mergeLevel(cur: ViewGraphics, patch: DeepPartial<ViewGraphics>): ViewGr
   return { ...cur, ...patch, overrides: mergeOverrides(cur.overrides, patch.overrides) } as ViewGraphics;
 }
 
-function mergeView3D(cur: View3DSettings, patch: DeepPartial<View3DSettings>): View3DSettings {
+export function mergeView3D(cur: View3DSettings, patch: DeepPartial<View3DSettings>): View3DSettings {
   return { ...cur, ...patch, overrides: mergeOverrides(cur.overrides, patch.overrides) } as View3DSettings;
 }
 

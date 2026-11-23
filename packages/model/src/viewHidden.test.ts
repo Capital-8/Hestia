@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEmptyProject, ProjectStore } from '@hestia/model';
+import { createEmptyProject, makeView3DView, ProjectStore, view3dOf } from '@hestia/model';
 import type { SectionView } from '@hestia/model';
 
 describe('setViewHidden', () => {
@@ -36,5 +36,19 @@ describe('setViewHidden', () => {
     s.exec({ type: 'setViewHidden', target: { kind: '3d' }, hidden: undefined });
     expect(s.project.view3d?.hidden).toBeUndefined();
     expect(() => s.exec({ type: 'setViewHidden', target: { kind: 'plan', levelId: 'lv_0' }, hidden: { categories: ['nope' as never] } })).toThrow(/categorias/);
+  });
+
+  it('vista 3D salva grava em settings.hidden sem tocar na 3D padrão nem nas outras salvas', () => {
+    const s = new ProjectStore(createEmptyProject());
+    const p = s.project;
+    p.view3d = { ...view3dOf({}), hidden: { elements: ['padrao'] } };
+    p.view3dViews = [makeView3DView(p, { id: 'v3d_a', name: 'A' }), makeView3DView(p, { id: 'v3d_b', name: 'B' })];
+    s.exec({ type: 'setViewHidden', target: { kind: 'view3d', viewId: 'v3d_a' }, hidden: { elements: ['w1'] } });
+    expect(s.project.view3dViews?.[0]?.settings.hidden).toEqual({ elements: ['w1'] });
+    expect(s.project.view3d?.hidden).toEqual({ elements: ['padrao'] });
+    expect(s.project.view3dViews?.[1]?.settings.hidden).toBeUndefined();
+    s.undo();
+    expect(s.project.view3dViews?.[0]?.settings.hidden).toBeUndefined();
+    expect(s.project.view3d?.hidden).toEqual({ elements: ['padrao'] });
   });
 });

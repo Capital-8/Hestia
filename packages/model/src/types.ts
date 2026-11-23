@@ -1055,6 +1055,8 @@ export type ViewHiddenTarget =
   /** Planta ADICIONAL de piso (decisão 0060): grava em `PlanView.hidden`; a planta padrão é `{ kind: 'plan' }`. */
   | { kind: 'planView'; planId: Id }
   | { kind: 'section'; viewId: Id }
+  /** Vista 3D salva (`Project.view3dViews`): grava em `View3DView.settings.hidden`; a padrão é `{ kind: '3d' }`. */
+  | { kind: 'view3d'; viewId: Id }
   | { kind: '3d' };
 
 export interface Project {

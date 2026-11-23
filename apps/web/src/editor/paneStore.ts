@@ -172,7 +172,7 @@ export function reconcilePanes(p: Project): void {
 }
 
 const mudouVista = (a: ActiveViewFields, b: ActiveViewFields): boolean =>
-  a.view !== b.view || a.levelId !== b.levelId || a.planKind !== b.planKind || a.areaPlanId !== b.areaPlanId || (a.planViewId ?? null) !== (b.planViewId ?? null) || a.sectionId !== b.sectionId || a.sheetId !== b.sheetId || a.faceView !== b.faceView;
+  a.view !== b.view || a.levelId !== b.levelId || a.planKind !== b.planKind || a.areaPlanId !== b.areaPlanId || (a.planViewId ?? null) !== (b.planViewId ?? null) || (a.view3dViewId ?? null) !== (b.view3dViewId ?? null) || a.sectionId !== b.sectionId || a.sheetId !== b.sheetId || a.faceView !== b.faceView;
 
 /** Liga a sincronização `useUi` → painel ativo (sincroniza já na partida). Devolve a função que desliga. */
 export function startPaneSync(): () => void {
