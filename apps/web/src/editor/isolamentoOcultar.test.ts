@@ -88,9 +88,9 @@ const ELEMENTOS: readonly ElementoDoTeste[] = [
   { id: 'cd_c_difusor', kind: 'component', level: 'lv_0', categoria: 'mechanicalEquipment', disciplina: 'hvac' },
   { id: 'cd_c_split', kind: 'component', level: 'lv_0', categoria: 'mechanicalEquipment', disciplina: 'hvac' },
   // Térreo — geral e sítio.
-  { id: 'cd_terreno', kind: 'terrain', level: 'lv_0', categoria: 'site', disciplina: 'geral' },
-  { id: 'cd_regiao', kind: 'terrainRegion', level: 'lv_0', categoria: 'site', disciplina: 'geral' },
-  { id: 'cd_lote', kind: 'lot', level: 'lv_0', categoria: 'lot', disciplina: 'geral' },
+  { id: 'cd_terreno', kind: 'terrain', level: 'lv_0', categoria: 'site', disciplina: 'arquitetura' },
+  { id: 'cd_regiao', kind: 'terrainRegion', level: 'lv_0', categoria: 'site', disciplina: 'arquitetura' },
+  { id: 'cd_lote', kind: 'lot', level: 'lv_0', categoria: 'lot', disciplina: 'arquitetura' },
   { id: 'cd_massa', kind: 'mass', level: 'lv_0', categoria: 'mass', disciplina: 'arquitetura' },
   { id: 'cd_cad', kind: 'cad', level: 'lv_0', categoria: 'generic', disciplina: 'geral' },
   { id: 'cd_generico', kind: 'generic', level: 'lv_0', categoria: 'generic', disciplina: 'geral' },
