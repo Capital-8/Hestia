@@ -28,6 +28,7 @@ import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
 import type { AreaPlan, ColorScheme, RoomCategory } from './areaPlan.ts';
 import type { Discipline, PlanView } from './planView.ts';
+import type { View3DView } from './view3dViews.ts';
 import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
 import type { DxfLayerStyle } from './dxfLayerStyle.ts';
 import type { CadDrawing } from './cad.ts';
@@ -41,7 +42,7 @@ import type { MaterialAparencia, MaterialFisico, MaterialGraficos, MaterialIdent
 import type { Furniture, FurnitureProjectData } from './furniture/types.ts';
 
 export type Id = string;
-/** v33: apresentação por disciplina (tom + clareamento + opacidade) em `DisciplineProfile` e `PlanView.tones`, e terreno/lote em Arquitetura (plano de UX das disciplinas, 2026-11-23). A migração 32 → 33 é identidade: tudo é opcional e ausente vale o comportamento anterior; o bump existe porque um programa antigo ignoraria os campos novos e os apagaria ao salvar. */
+/** v33: apresentação por disciplina (tom + clareamento + opacidade) em `DisciplineProfile` e `PlanView.tones`, terreno/lote em Arquitetura e vistas 3D salvas (`Project.view3dViews`) (plano de UX das disciplinas, 2026-11-23). A migração 32 → 33 é identidade: tudo é opcional e ausente vale o comportamento anterior; o bump existe porque um programa antigo ignoraria os campos novos e os apagaria ao salvar. */
 /** v32: perfis de disciplina (`Project.disciplineProfiles`), disciplinas do projeto (`Project.disciplines`), remapeamento de categoria (`Project.categoryDiscipline`), disciplina da planta padrão (`Level.discipline`) e do 3D (`View3DSettings.discipline`), decisão 0060, adendo 3. A migração 31 → 32 só avança a versão: dados novos são opcionais e ausentes valem predefinido, e assim um programa antigo recusa um arquivo 32 em vez de apagá-los ao salvar. */
 /** v31: `Project.planViews` (plantas de piso adicionais por disciplina, decisão 0060; opcional, ausente = nenhuma): a migração 30 → 31 só avança a versão, e assim um programa antigo recusa um arquivo 31 em vez de apagar a coleção ao salvar. */
 /** v30: campos novos opcionais e aditivos: móveis da Biblioteca (`component`, `Project.componentFamilies`), móveis importados (`Furniture`, `Project.furniture`) e tipo de terreno (`suavizarCurvas`, `toleranciaSuavizacao`). A migração 29 → 30 só avança a versão, e assim um programa antigo recusa um arquivo 30. */
@@ -1132,6 +1133,8 @@ export interface Project {
   areaPlans?: AreaPlan[];
   /** Plantas de piso ADICIONAIS por disciplina (decisão 0060); a planta padrão de cada nível é o próprio `Level`. Ausente = nenhuma. */
   planViews?: PlanView[];
+  /** Vistas 3D salvas do projeto (plano de UX das disciplinas); a vista 3D padrão é `Project.view3d`. Ausente = nenhuma. */
+  view3dViews?: View3DView[];
   /**
    * Disciplinas criadas pelo usuário, além das cinco embutidas (decisão 0060, adendo 3). Ausente = só as embutidas.
    * Entrada malformada é ignorada na leitura; nunca quebra.

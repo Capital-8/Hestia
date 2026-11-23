@@ -473,6 +473,13 @@ const PT = {
   md_v3d_exists: 'Ponto de vista 3D já existe',
   md_v3d_order_incomplete: 'A ordem dos pontos de vista 3D está incompleta.',
   md_v3d_order_unknown: 'A ordem dos pontos de vista 3D cita um ponto inexistente.',
+  md_v3dview_missing: 'Vista 3D salva inexistente: {id}',
+  md_v3dview_id_invalid: 'A vista 3D precisa de um id válido.',
+  md_v3dview_id_exists: 'Já existe vista 3D com este id: {id}',
+  md_v3dview_name_required: 'A vista 3D precisa de nome.',
+  md_v3dview_name_exists: 'Já existe vista 3D chamada "{name}".',
+  md_v3dview_camera: 'A câmera da vista 3D precisa de ângulos finitos, distância maior que zero e alvo finito.',
+  md_v3dview_settings: 'Os gráficos da vista 3D são inválidos.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'guarda-corpo',
@@ -1069,6 +1076,13 @@ const EN: Record<Key, string> = {
   md_v3d_exists: '3D view point already exists',
   md_v3d_order_incomplete: 'The 3D view point order is incomplete.',
   md_v3d_order_unknown: 'The 3D view point order mentions a point that does not exist.',
+  md_v3dview_missing: 'Saved 3D view not found: {id}',
+  md_v3dview_id_invalid: 'The 3D view needs a valid id.',
+  md_v3dview_id_exists: 'A 3D view with this id already exists: {id}',
+  md_v3dview_name_required: 'The 3D view needs a name.',
+  md_v3dview_name_exists: 'A 3D view named "{name}" already exists.',
+  md_v3dview_camera: 'The 3D view camera needs finite angles, a distance greater than zero and a finite target.',
+  md_v3dview_settings: 'The 3D view graphics are invalid.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'railings',
@@ -1784,6 +1798,13 @@ const ES: Record<Key, string> = {
   md_v3d_exists: 'El punto de vista 3D ya existe',
   md_v3d_order_incomplete: 'El orden de los puntos de vista 3D está incompleto.',
   md_v3d_order_unknown: 'El orden de los puntos de vista 3D menciona un punto inexistente.',
+  md_v3dview_missing: 'Vista 3D guardada inexistente: {id}',
+  md_v3dview_id_invalid: 'La vista 3D necesita un id válido.',
+  md_v3dview_id_exists: 'Ya existe una vista 3D con este id: {id}',
+  md_v3dview_name_required: 'La vista 3D necesita un nombre.',
+  md_v3dview_name_exists: 'Ya existe una vista 3D llamada "{name}".',
+  md_v3dview_camera: 'La cámara de la vista 3D necesita ángulos finitos, distancia mayor que cero y objetivo finito.',
+  md_v3dview_settings: 'Los gráficos de la vista 3D no son válidos.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'barandillas',
@@ -2407,6 +2428,13 @@ const DE: Record<Key, string> = {
   md_v3d_exists: 'Der 3D-Ansichtspunkt ist bereits vorhanden',
   md_v3d_order_incomplete: 'Die Reihenfolge der 3D-Ansichtspunkte ist unvollständig.',
   md_v3d_order_unknown: 'Die Reihenfolge der 3D-Ansichtspunkte verweist auf einen nicht vorhandenen Punkt.',
+  md_v3dview_missing: 'Gespeicherte 3D-Ansicht nicht vorhanden: {id}',
+  md_v3dview_id_invalid: 'Die 3D-Ansicht benötigt eine gültige ID.',
+  md_v3dview_id_exists: 'Eine 3D-Ansicht mit dieser ID ist bereits vorhanden: {id}',
+  md_v3dview_name_required: 'Die 3D-Ansicht benötigt einen Namen.',
+  md_v3dview_name_exists: 'Eine 3D-Ansicht namens "{name}" ist bereits vorhanden.',
+  md_v3dview_camera: 'Die Kamera der 3D-Ansicht benötigt endliche Winkel, einen Abstand größer als null und ein endliches Ziel.',
+  md_v3dview_settings: 'Die Grafik der 3D-Ansicht ist ungültig.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'Geländer',
@@ -3030,6 +3058,13 @@ const FR: Record<Key, string> = {
   md_v3d_exists: 'Le point de vue 3D existe déjà',
   md_v3d_order_incomplete: 'L\'ordre des points de vue 3D est incomplet.',
   md_v3d_order_unknown: 'L\'ordre des points de vue 3D mentionne un point inexistant.',
+  md_v3dview_missing: 'Vue 3D enregistrée inexistante : {id}',
+  md_v3dview_id_invalid: 'La vue 3D nécessite un identifiant valide.',
+  md_v3dview_id_exists: 'Une vue 3D avec cet identifiant existe déjà : {id}',
+  md_v3dview_name_required: 'La vue 3D nécessite un nom.',
+  md_v3dview_name_exists: 'Une vue 3D nommée « {name} » existe déjà.',
+  md_v3dview_camera: 'La caméra de la vue 3D nécessite des angles finis, une distance supérieure à zéro et une cible finie.',
+  md_v3dview_settings: 'Les graphismes de la vue 3D sont invalides.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'garde-corps',
@@ -3653,6 +3688,13 @@ const IT: Record<Key, string> = {
   md_v3d_exists: 'Il punto di vista 3D esiste già',
   md_v3d_order_incomplete: 'L\'ordine dei punti di vista 3D è incompleto.',
   md_v3d_order_unknown: 'L\'ordine dei punti di vista 3D menziona un punto inesistente.',
+  md_v3dview_missing: 'Vista 3D salvata inesistente: {id}',
+  md_v3dview_id_invalid: 'La vista 3D richiede un id valido.',
+  md_v3dview_id_exists: 'Esiste già una vista 3D con questo id: {id}',
+  md_v3dview_name_required: 'La vista 3D richiede un nome.',
+  md_v3dview_name_exists: 'Esiste già una vista 3D chiamata "{name}".',
+  md_v3dview_camera: 'La camera della vista 3D richiede angoli finiti, distanza maggiore di zero e obiettivo finito.',
+  md_v3dview_settings: 'La grafica della vista 3D non è valida.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'parapetti',
@@ -4289,6 +4331,13 @@ const PL: Record<Key, string> = {
   md_v3d_exists: 'Punkt widoku 3D już istnieje',
   md_v3d_order_incomplete: 'Kolejność punktów widoku 3D jest niekompletna.',
   md_v3d_order_unknown: 'Kolejność punktów widoku 3D odwołuje się do nieistniejącego punktu.',
+  md_v3dview_missing: 'Zapisany widok 3D nie istnieje: {id}',
+  md_v3dview_id_invalid: 'Widok 3D wymaga prawidłowego identyfikatora.',
+  md_v3dview_id_exists: 'Widok 3D o tym identyfikatorze już istnieje: {id}',
+  md_v3dview_name_required: 'Widok 3D wymaga nazwy.',
+  md_v3dview_name_exists: 'Widok 3D o nazwie „{name}” już istnieje.',
+  md_v3dview_camera: 'Kamera widoku 3D wymaga skończonych kątów, odległości większej od zera i skończonego celu.',
+  md_v3dview_settings: 'Grafika widoku 3D jest nieprawidłowa.',
 
   // ---- guarda-corpo e corrimão (decisão 0055) ------------------------------------------------------------------
   md_cat_railing: 'balustrady',
