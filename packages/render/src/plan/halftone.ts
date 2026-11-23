@@ -111,7 +111,7 @@ export function buildPlanHalftone(input: PlanInput): PlanOps {
   const massas = ids.filter((id) => p.elements[id]?.kind === 'mass');
   if (massas.length > 0) {
     const outras = new Set(Object.values(p.elements).filter((e) => e.kind === 'mass' && !selecionados.has(e.id)).map((e) => e.id));
-    const paint = planStyleOf(p, levelId, input.viewport.zoom, input.areaPlan?.scale, planIdOf(input)).paint;
+    const paint = planStyleOf(p, levelId, input.viewport.zoom, input.areaPlan?.scale, planIdOf(input), input.apresentacoes).paint;
     for (const s of massaOps(p, levelId, outras, theme, input.dark, paint.mass, view?.cutZ).strokes) out.strokes.push({ ...s, widthPx: MEIO_TOM_PX, color: cor, alpha: 1 });
   }
   return out;

@@ -8,6 +8,8 @@ import {
   planGraphicsSaved,
   lineWeightMm,
   PLAN_VISUAL_STYLES,
+  apresentacaoDe,
+  type Apresentacao,
   type CategoryOverride,
   type DetailLevel,
   type GraphicsCategory,
@@ -34,6 +36,10 @@ export interface PlanPaint {
   /** Cor de base das superfícies desta categoria nesta vista; null = a do material. */
   color: string | null;
   halftone: boolean;
+  /** 0..1 — mistura da cor com o papel (0 = cor original; 1 = papel). */
+  clareamento: number;
+  /** 0..1 — opacidade do preenchimento/hachura e das linhas (1 = opaco). */
+  opacidade: number;
   /** Fator das alphas dos preenchimentos: 1 − transparência. */
   alpha: number;
   /** Largura do que é cortado (contornos principais), em px no zoom da vista. */
@@ -57,16 +63,21 @@ export interface PlanStyle {
 
 const isPlanVisual = (v: VisualStyle): v is PlanVisual => (PLAN_VISUAL_STYLES as readonly VisualStyle[]).includes(v);
 
-function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual): PlanPaint {
+function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual, apresentacao?: Apresentacao): PlanPaint {
   const base = gp.categories[c];
   const espessura = (weight: number): Espessura => espessuraDePapel(lineWeightMm(gp.lineWeights, weight, scale), zoom, scale);
   const cut = espessura(ov.cutWeight ?? base.cutWeight);
   const proj = espessura(ov.projectionWeight ?? base.projectionWeight);
+  const ap = apresentacao ? apresentacaoDe(apresentacao) : undefined;
+  const halftone = ap ? ap.tone === 'halftone' || ov.halftone : ov.halftone;
+  const clareamento = ap ? Math.max(ap.clareamento ?? (ap.tone === 'halftone' ? 0.5 : 0), ov.halftone ? 0.5 : 0) : halftone ? 0.5 : 0;
   return {
-    visible: ov.visible,
+    visible: ov.visible && (ap ? ap.tone !== 'hidden' : true),
     visual,
     color: ov.color ?? null,
-    halftone: ov.halftone,
+    halftone,
+    clareamento,
+    opacidade: ap?.opacidade ?? 1,
     alpha: 1 - ov.transparency,
     cutPx: cut.widthPx,
     projPx: proj.widthPx,
@@ -80,8 +91,11 @@ function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride,
  * larguras em px de tela no `zoom` corrente. Sem gráficos salvos na planta, o detalhe é o do projeto (`settings.detail`),
  * como antes da decisão 0015; com eles, vale `detailOf` (pela escala). `planId` (decisão 0060): planta de disciplina do
  * nível; ausente, desconhecida ou de outro nível = planta padrão (`Level.graphics`), o comportamento de sempre.
+ *
+ * `apresentacoes` (plano de UX de 2026-11-23) é a apresentação da disciplina de trabalho por categoria (tom, clareamento e
+ * opacidade). Sem o mapa, o resultado é o de hoje.
  */
-export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride?: number, planId?: Id): PlanStyle {
+export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride?: number, planId?: Id, apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>): PlanStyle {
   const g = planGraphicsOf(p, levelId, planId);
   const gp = graphicsOf(p);
   const visual: PlanVisual = isPlanVisual(g.style) ? g.style : 'hiddenLine';
@@ -89,7 +103,7 @@ export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride
   const detail: DetailLevel = saved ? detailOf(g, gp) : (p.settings.detail ?? 'medium');
   const escala = scaleOverride && scaleOverride > 0 ? scaleOverride : g.scale;
   const paint = {} as Record<GraphicsCategory, PlanPaint>;
-  for (const c of GRAPHICS_CATEGORIES) paint[c] = paintOf(gp, c, g.overrides[c], zoom, escala, visual);
+  for (const c of GRAPHICS_CATEGORIES) paint[c] = paintOf(gp, c, g.overrides[c], zoom, escala, visual, apresentacoes?.[c]);
   return { scale: escala, detail, visual, partial: g.partialStructure, paint };
 }
 
@@ -123,22 +137,31 @@ interface Ops {
 
 /**
  * Aplica o estilo de uma categoria às operações dela: no arame, só as faixas de contorno; transparência nas alphas das
- * superfícies (não nos contornos); meio-tom (50 % com o papel) nas cores de preenchimento, hachura e traço.
+ * superfícies (não nos contornos); clareamento (mistura com o papel) nas cores de preenchimento, hachura e traço; e a
+ * opacidade da apresentação nas alphas (as linhas nunca abaixo de 0,3, para não sumirem).
  */
 export function paintOps(ops: Ops, pt: PlanPaint, paper: string): Ops {
   const wire = pt.visual === 'wireframe';
-  if (!wire && pt.alpha === 1 && !pt.halftone) return ops;
+  const clareamento = pt.clareamento ?? 0;
+  const op = Math.min(1, Math.max(0, pt.opacidade ?? 1));
+  if (!wire && pt.alpha === 1 && !pt.halftone && clareamento === 0 && op === 1) return ops;
+  const clarear = (color: string): string => (clareamento > 0 ? mix(color, paper, clareamento) : color);
   const fills: FillOp[] = [];
   for (const f of ops.fills) {
     if (wire && !f.contour) continue;
-    const k = f.contour ? 1 : pt.alpha;
-    const out: FillOp = { polygons: f.polygons, color: pt.halftone ? mix(f.color, paper, 0.5) : f.color, alpha: f.alpha * k };
+    const k = f.contour ? op : pt.alpha * op;
+    const out: FillOp = { polygons: f.polygons, color: clarear(f.color), alpha: f.alpha * k };
     if (f.contour) out.contour = true;
     if (f.faixa) out.faixa = f.faixa;
     if (f.deslocamentoPx) out.deslocamentoPx = f.deslocamentoPx;
-    if (f.hatch) out.hatch = { kind: f.hatch.kind, color: pt.halftone ? mix(f.hatch.color, paper, 0.5) : f.hatch.color, alpha: (f.hatch.alpha ?? 1) * k, ...(f.hatch.zoomMin !== undefined ? { zoomMin: f.hatch.zoomMin } : {}) };
+    if (f.hatch) out.hatch = { kind: f.hatch.kind, color: clarear(f.hatch.color), alpha: (f.hatch.alpha ?? 1) * k, ...(f.hatch.zoomMin !== undefined ? { zoomMin: f.hatch.zoomMin } : {}) };
     fills.push(out);
   }
-  const strokes = pt.halftone ? ops.strokes.map((s) => ({ ...s, color: mix(s.color, paper, 0.5) })) : ops.strokes;
+  let strokes = ops.strokes;
+  if (pt.clareamento > 0) strokes = strokes.map((s) => ({ ...s, color: clarear(s.color) }));
+  if (op < 1) {
+    const linha = Math.max(0.3, op);
+    strokes = strokes.map((s) => ({ ...s, alpha: (s.alpha ?? 1) * linha }));
+  }
   return { fills, strokes, labels: ops.labels };
 }

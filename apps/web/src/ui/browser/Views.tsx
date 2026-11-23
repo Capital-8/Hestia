@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactElement } from 'react';
-import { areaPlansOf, planViewsOfLevel, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, type Element, type SectionView, type SheetViewSource, type View3DPoint } from '@hestia/model';
+import { areaPlansOf, planViewsOfLevel, projectSheets, projectView3DPoints, view3DPointOf, view3DPointsUsage, view3dViewOf, view3dViewsOf, type Element, type SectionView, type SheetViewSource, type View3DPoint, type View3DView } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
 import { fmtNum, t, useI18n, useT } from '../../editor/i18n.ts';
 import { duplicateSheetCommand, addSheetAction } from '../../editor/sheetActions.ts';
@@ -9,6 +9,8 @@ import { createAreaPlansForLevels, openAreaPlan } from '../../editor/areaPlanAct
 import { useUi, type DialogKind } from '../../editor/state.ts';
 import { activateView } from '../../editor/viewTabActions.ts';
 import { atualizarPonto3DAction, excluirPonto3DAction, irParaPonto3DAction, renomearPonto3DAction, salvarPonto3DAction } from '../../editor/view3dPointActions.ts';
+import { abrirVista3dAction, duplicarVista3dAction, excluirVista3dAction, novaVista3dAction, renomearVista3dAction } from '../../editor/vista3dSalvaAcoes.ts';
+import { pedirConfirmacao } from '../../editor/confirmacaoPrompt.ts';
 import { NivelDePlantas } from './PlantasDeDisciplina.tsx';
 import { Node, type DragData, type MenuItem } from './Tree.tsx';
 import { viewKey } from '../../editor/viewIdentity.ts';
@@ -145,10 +147,75 @@ export function View3DPointNode({ point, pranchas }: { point: View3DPoint; pranc
   );
 }
 
+/**
+ * Vista 3D salva do projeto (`Project.view3dViews`): duplo clique abre na aba `3d:<id>`; o menu duplica, renomeia no
+ * lugar ou exclui (com confirmação). Fechar a aba não apaga a vista; excluir não toca no modelo nem no 3D padrão.
+ */
+export function Vista3dNode({ view }: { view: View3DView }): ReactElement {
+  const { t } = useT();
+  const active = useUi((s) => s.view === '3d' && s.view3dViewId === view.id);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(view.name);
+  // Enter, Esc e a perda de foco podem disparar em sequência; só o primeiro encerra a edição.
+  const editingRef = useRef(false);
+  const open = (): void => {
+    const erro = abrirVista3dAction(view.id);
+    if (erro) say(erro);
+  };
+  const start = (): void => {
+    editingRef.current = true;
+    setDraft(view.name);
+    setEditing(true);
+  };
+  const finish = (save: boolean): void => {
+    if (!editingRef.current) return;
+    editingRef.current = false;
+    setEditing(false);
+    const nome = draft.trim();
+    if (save && nome !== view.name) say(renomearVista3dAction(editor.store, view.id, nome) ?? t('cvn_br_status_3d_renamed', { name: nome }));
+  };
+  const duplicar = (): void => {
+    const r = duplicarVista3dAction(editor.store, view.id);
+    if ('erro' in r) return say(r.erro);
+    const nome = view3dViewOf(editor.project, r.id)?.name ?? '';
+    say(abrirVista3dAction(r.id) ?? t('cvn_br_status_3d_duplicated', { name: nome }));
+  };
+  const excluir = (): void => {
+    void pedirConfirmacao(t('cvn_br_confirm_delete_3d', { name: view.name })).then((ok) => {
+      if (!ok) return;
+      say(excluirVista3dAction(editor.store, view.id) ?? t('cvn_br_status_3d_deleted'));
+    });
+  };
+  const label = editing ? (
+    <input
+      className="input view-rename"
+      aria-label={t('cvn_br_rename_aria', { name: view.name })}
+      autoFocus
+      value={draft}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+      }}
+      onBlur={() => finish(true)}
+    />
+  ) : view.name;
+  const menu: MenuItem[] = [
+    { label: t('btn_open'), run: open },
+    { label: t('cvn_br_duplicate'), run: duplicar },
+    { label: t('cvn_br_rename'), run: start },
+    { label: t('cvn_br_delete'), run: excluir, danger: true, sep: true },
+  ];
+  return <Node id={`v3dv:${view.id}`} label={label} icon="cube" bold={active} title={t('cvn_br_3d_saved_title')} onOpen={open} menu={menu} />;
+}
+
 export function ViewsTree(): ReactElement {
   const { t, lang } = useT();
   const p = useProject();
   const view = useUi((s) => s.view);
+  const view3dViewId = useUi((s) => s.view3dViewId);
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const areaPlanId = useUi((s) => s.areaPlanId);
@@ -156,7 +223,15 @@ export function ViewsTree(): ReactElement {
   const sections = p.views.filter((v) => v.kind === 'section');
   const elevations = p.views.filter((v) => v.kind === 'elevation');
   const pontos3D = projectView3DPoints(p);
+  const vistas3d = view3dViewsOf(p);
   const genMenu: MenuItem[] = [{ label: t('cvn_br_generate_elevations'), run: () => editor.generateElevations(), hint: t('cvn_br_generate_elevations_hint') }];
+  /** Nova vista 3D salva com a câmera atual; abre a cópia. */
+  const novaVista3d = (): void => {
+    const r = novaVista3dAction(editor.store);
+    if ('erro' in r) return say(r.erro);
+    const nome = view3dViewOf(editor.project, r.id)?.name ?? t('cvn_br_default_3d_name');
+    say(abrirVista3dAction(r.id) ?? t('cvn_br_status_3d_created', { name: nome }));
+  };
   /** Salva a câmera da vista 3D viva como ponto novo; o nome padrão (Vista 3D, Vista 3D 2…) renomeia-se no menu do ponto. */
   const salvarVista3D = (): void => {
     const r = salvarPonto3DAction(editor.store);
@@ -169,6 +244,22 @@ export function ViewsTree(): ReactElement {
         {p.levels.map((l) => (
           <NivelDePlantas key={l.id} level={l} plans={planViewsOfLevel(p, l.id)} />
         ))}
+      </Node>
+      {/* Vistas 3D: o 3D padrão (`Project.view3d`) e as vistas salvas (`Project.view3dViews`, aba `3d:<id>`). */}
+      <Node
+        id="g:3d"
+        label={t('cvn_br_3d_saved_group')}
+        icon="cube"
+        group
+        open
+        menu={[
+          { label: t('cvn_br_3d_new_view'), run: novaVista3d, hint: t('cvn_br_3d_new_view_hint') },
+          { label: t('cvn_br_save_view'), run: salvarVista3D, sep: true, hint: t('cvn_br_save_view_hint') },
+        ]}
+      >
+        <Node id="v:3d" label={t('cvn_br_3d_default')} icon="cube" bold={view === '3d' && !view3dViewId} onOpen={() => activateView({ kind: '3d' })} menu={[{ label: t('btn_open'), run: () => activateView({ kind: '3d' }) }, { label: t('cvn_br_3d_new_view'), run: novaVista3d, sep: true, hint: t('cvn_br_3d_new_view_hint') }]} drag={dragView({ kind: '3d' }, t('cvn_br_3d_default'))} />
+        {vistas3d.map((v) => <Vista3dNode key={v.id} view={v} />)}
+        {pontos3D.map((pt) => <View3DPointNode key={pt.id} point={pt} pranchas={view3DPointsUsage(p, pt.id).length} />)}
       </Node>
       {/* Cobertura: a planta do nível com o telhado completo e opaco (ver `roofPlanMode`); mesmos níveis do projeto. */}
       <Node id="g:roofs" label={t('cvn_br_roof_plans_node')} group open menu={[{ label: t('cvn_br_levels'), run: () => useUi.setState({ dialog: 'levels' }) }]}>
@@ -224,10 +315,6 @@ export function ViewsTree(): ReactElement {
             ]}
           />
         ))}
-      </Node>
-      <Node id="g:3d" label={t('cvn_br_3d_views_node')} group open menu={[{ label: t('cvn_br_save_view'), run: salvarVista3D, hint: t('cvn_br_save_view_hint') }]}>
-        <Node id="v:3d" label={t('cvn_br_3d_model')} icon="cube" bold={view === '3d'} onOpen={() => activateView({ kind: '3d' })} menu={[{ label: t('btn_open'), run: () => activateView({ kind: '3d' }) }, { label: t('cvn_br_save_view'), run: salvarVista3D, sep: true, hint: t('cvn_br_save_view_hint') }]} drag={dragView({ kind: '3d' }, t('cvn_br_3d_model'))} />
-        {pontos3D.map((pt) => <View3DPointNode key={pt.id} point={pt} pranchas={view3DPointsUsage(p, pt.id).length} />)}
       </Node>
       <Node id="g:elev" label={t('cvn_br_elevations_node')} group menu={genMenu} empty={t('cvn_br_elevations_empty')}>
         {elevations.length ? elevations.map((v) => <SectionNode key={v.id} view={v} />) : undefined}

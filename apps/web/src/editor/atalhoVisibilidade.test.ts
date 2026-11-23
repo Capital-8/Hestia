@@ -30,7 +30,31 @@ describe('atalhos de visibilidade no 3D e no corte', () => {
     expect(resolveText(useUi.getState().status, 'pt')).toContain('Oculto temporariamente');
     atalho('H', 'R');
     expect(useUi.getState().viewTemp['3d']?.hidden).toBeUndefined();
-    expect(resolveText(useUi.getState().status, 'pt')).toContain('restaurado');
+    expect(resolveText(useUi.getState().status, 'pt')).toContain('Tudo reexibido');
+  });
+
+  it('HR limpa o Hide in View e o temporário, com um passo de desfazer; RH continua alternando o Reveal', () => {
+    atalho('E', 'H');
+    expect(editor.project.view3d?.hidden?.elements).toEqual(['A']);
+    useUi.setState({ selection: ['A'] });
+    atalho('H', 'H');
+    expect(useUi.getState().viewTemp['3d']?.hidden?.elements).toEqual(['A']);
+    atalho('H', 'R');
+    expect(editor.project.view3d?.hidden?.elements).toBeUndefined();
+    expect(useUi.getState().viewTemp['3d']).toBeUndefined();
+    expect(resolveText(useUi.getState().status, 'pt')).toBe('Tudo reexibido nesta vista. Ctrl+Z desfaz.');
+    editor.store.undo();
+    expect(editor.project.view3d?.hidden?.elements).toEqual(['A']);
+
+    atalho('R', 'H');
+    expect(useUi.getState().viewTemp['3d']?.reveal).toBe(true);
+    atalho('R', 'H');
+    expect(useUi.getState().viewTemp['3d']?.reveal).toBe(false);
+  });
+
+  it('HR sem nada oculto avisa que não havia o que reexibir', () => {
+    atalho('H', 'R');
+    expect(resolveText(useUi.getState().status, 'pt')).toBe('Nada oculto nesta vista.');
   });
 
   it('EH oculta na vista 3D e EU reexibe; RH liga o Reveal', () => {

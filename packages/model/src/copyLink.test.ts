@@ -331,8 +331,8 @@ describe('migração do vínculo de andar-tipo (v22 → v23)', () => {
     raw.schemaVersion = 22;
     delete raw.copyLinks;
     const m: Project = migrateProject(raw);
-    expect(SCHEMA_VERSION).toBe(32);
-    expect(m.schemaVersion).toBe(32);
+    expect(SCHEMA_VERSION).toBe(33);
+    expect(m.schemaVersion).toBe(33);
     expect(m.copyLinks ?? []).toEqual([]);
     expect(m.levels).toHaveLength(2);
   });

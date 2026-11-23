@@ -136,6 +136,8 @@ import { isFurniture, transformFurniture } from './furniture/geometry.ts';
 import { applyFacePaintCommand, type FacePaintCommand } from './facePaint.ts';
 import type { CopyLink } from './copyLink.ts';
 import { applyPlanViewCommand, dropPlanViewsOfLevel, type PlanViewPatch } from './planViewCommands.ts';
+import { applyView3dViewCommand, type View3dViewPatch } from './view3dViewCommands.ts';
+import type { View3DView } from './view3dViews.ts';
 import type { Discipline, PlanView } from './planView.ts';
 import { applyDisciplineProfileCommand } from './disciplineProfileCommands.ts';
 import type { DisciplineProfile, ProjectDiscipline } from './disciplineProfile.ts';
@@ -315,6 +317,10 @@ export type Command =
   | { type: 'updatePlanView'; id: Id; patch: PlanViewPatch }
   | { type: 'duplicatePlanView'; id: Id; withAnnotations?: boolean; newPlanId?: Id }
   | { type: 'removePlanView'; id: Id }
+  | { type: 'addView3d'; view: View3DView }
+  | { type: 'duplicateView3d'; id: Id; newViewId?: Id }
+  | { type: 'updateView3d'; id: Id; patch: View3dViewPatch }
+  | { type: 'removeView3d'; id: Id }
   | { type: 'setPlanGraphics'; planId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetPlanGraphics'; planId: Id }
   | { type: 'setDisciplineProfile'; discipline: Discipline; tones: DisciplineProfile | null }
@@ -825,6 +831,12 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'updateProjectDiscipline':
     case 'removeProjectDiscipline':
       applyDisciplineProfileCommand(p, c, lang);
+      break;
+    case 'addView3d':
+    case 'duplicateView3d':
+    case 'updateView3d':
+    case 'removeView3d':
+      applyView3dViewCommand(p, c, lang);
       break;
     case 'setProjectGraphics':
       applyProjectGraphics(p, c.patch, lang);

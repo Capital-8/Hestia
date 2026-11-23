@@ -168,6 +168,7 @@ export const PT_EDITOR_STATUS = {
   eds_msg_unhide_select: 'Selecione elementos (ou uma categoria) para reexibir na vista.',
   eds_msg_unhidden_done: 'Elementos reexibidos nesta vista. Ctrl+Z desfaz.',
   eds_msg_unhide_all_done: 'Tudo reexibido nesta vista. Ctrl+Z desfaz.',
+  eds_msg_unhide_all_none: 'Nada oculto nesta vista.',
   eds_msg_temp_hide_select: 'Selecione elementos para ocultar temporariamente (HH).',
   eds_msg_temp_hidden: 'Oculto temporariamente nesta vista. HR restaura.',
   eds_msg_temp_isolate_select: 'Selecione elementos para isolar temporariamente (HI).',
@@ -179,6 +180,7 @@ export const PT_EDITOR_STATUS = {
   eds_msg_hide_category_select: 'Selecione elementos de uma só categoria para ocultar a categoria.',
   eds_msg_unhide_category_select: 'Selecione elementos de uma só categoria para reexibir a categoria.',
   eds_msg_category_select: 'Selecione elementos de uma só categoria.',
+  eds_msg_blocked_discipline: 'Pertence a {disciplina}; troque a disciplina da vista ou libere a edição.',
 
   // Gráficos
   eds_msg_graphics_invalid: 'Gráficos inválidos.',
@@ -396,6 +398,7 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Select elements (or a category) to unhide in the view.',
   eds_msg_unhidden_done: 'Elements unhidden in this view. Ctrl+Z to undo.',
   eds_msg_unhide_all_done: 'Everything unhidden in this view. Ctrl+Z to undo.',
+  eds_msg_unhide_all_none: 'Nothing hidden in this view.',
   eds_msg_temp_hide_select: 'Select elements to hide temporarily (HH).',
   eds_msg_temp_hidden: 'Temporarily hidden in this view. HR restores.',
   eds_msg_temp_isolate_select: 'Select elements to isolate temporarily (HI).',
@@ -407,6 +410,7 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Select elements of a single category to hide the category.',
   eds_msg_unhide_category_select: 'Select elements of a single category to unhide the category.',
   eds_msg_category_select: 'Select elements of a single category.',
+  eds_msg_blocked_discipline: 'Belongs to {disciplina}; change the view discipline or release editing.',
 
   // Gráficos
   eds_msg_graphics_invalid: 'Invalid graphics.',
@@ -612,6 +616,7 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Seleccione elementos (o una categoría) para reexhibir en la vista.',
   eds_msg_unhidden_done: 'Elementos reexhibidos en esta vista. Ctrl+Z deshace.',
   eds_msg_unhide_all_done: 'Todo reexhibido en esta vista. Ctrl+Z deshace.',
+  eds_msg_unhide_all_none: 'Nada oculto en esta vista.',
   eds_msg_temp_hide_select: 'Seleccione elementos para ocultar temporalmente (HH).',
   eds_msg_temp_hidden: 'Oculto temporalmente en esta vista. HR restaura.',
   eds_msg_temp_isolate_select: 'Seleccione elementos para aislar temporalmente (HI).',
@@ -623,6 +628,7 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Seleccione elementos de una sola categoría para ocultar la categoría.',
   eds_msg_unhide_category_select: 'Seleccione elementos de una sola categoría para reexhibir la categoría.',
   eds_msg_category_select: 'Seleccione elementos de una sola categoría.',
+  eds_msg_blocked_discipline: 'Pertenece a {disciplina}; cambie la disciplina de la vista o libere la edición.',
 
   eds_msg_graphics_invalid: 'Gráficos no válidos.',
   eds_undo_change_view_graphics: 'Cambiar gráficos de la vista',
@@ -826,6 +832,7 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Wählen Sie Elemente (oder eine Kategorie), um sie in der Ansicht einzublenden.',
   eds_msg_unhidden_done: 'Elemente in dieser Ansicht eingeblendet. Ctrl+Z macht rückgängig.',
   eds_msg_unhide_all_done: 'Alles in dieser Ansicht eingeblendet. Ctrl+Z macht rückgängig.',
+  eds_msg_unhide_all_none: 'Nichts in dieser Ansicht ausgeblendet.',
   eds_msg_temp_hide_select: 'Wählen Sie Elemente zum temporären Ausblenden (HH).',
   eds_msg_temp_hidden: 'In dieser Ansicht temporär ausgeblendet. HR stellt wieder her.',
   eds_msg_temp_isolate_select: 'Wählen Sie Elemente zum temporären Isolieren (HI).',
@@ -837,6 +844,7 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Wählen Sie Elemente einer einzigen Kategorie, um die Kategorie auszublenden.',
   eds_msg_unhide_category_select: 'Wählen Sie Elemente einer einzigen Kategorie, um die Kategorie einzublenden.',
   eds_msg_category_select: 'Wählen Sie Elemente einer einzigen Kategorie.',
+  eds_msg_blocked_discipline: 'Gehört zu {disciplina}; ändern Sie die Disziplin der Ansicht oder geben Sie die Bearbeitung frei.',
 
   eds_msg_graphics_invalid: 'Ungültige Grafik.',
   eds_undo_change_view_graphics: 'Ansichtsgrafik ändern',
@@ -1040,6 +1048,7 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Sélectionnez des éléments (ou une catégorie) à afficher dans la vue.',
   eds_msg_unhidden_done: 'Éléments affichés dans cette vue. Ctrl+Z annule.',
   eds_msg_unhide_all_done: 'Tout affiché dans cette vue. Ctrl+Z annule.',
+  eds_msg_unhide_all_none: 'Rien de masqué dans cette vue.',
   eds_msg_temp_hide_select: 'Sélectionnez des éléments à masquer temporairement (HH).',
   eds_msg_temp_hidden: 'Masqué temporairement dans cette vue. HR rétablit.',
   eds_msg_temp_isolate_select: 'Sélectionnez des éléments à isoler temporairement (HI).',
@@ -1051,6 +1060,7 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Sélectionnez des éléments d\'une seule catégorie pour masquer la catégorie.',
   eds_msg_unhide_category_select: 'Sélectionnez des éléments d\'une seule catégorie pour afficher la catégorie.',
   eds_msg_category_select: 'Sélectionnez des éléments d\'une seule catégorie.',
+  eds_msg_blocked_discipline: 'Appartient à {disciplina} ; changez la discipline de la vue ou libérez la modification.',
 
   eds_msg_graphics_invalid: 'Graphismes non valides.',
   eds_undo_change_view_graphics: 'Modifier les graphismes de la vue',
@@ -1254,6 +1264,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Seleziona elementi (o una categoria) da mostrare nella vista.',
   eds_msg_unhidden_done: 'Elementi mostrati in questa vista. Ctrl+Z annulla.',
   eds_msg_unhide_all_done: 'Tutto mostrato in questa vista. Ctrl+Z annulla.',
+  eds_msg_unhide_all_none: 'Niente nascosto in questa vista.',
   eds_msg_temp_hide_select: 'Seleziona elementi da nascondere temporaneamente (HH).',
   eds_msg_temp_hidden: 'Nascosto temporaneamente in questa vista. HR ripristina.',
   eds_msg_temp_isolate_select: 'Seleziona elementi da isolare temporaneamente (HI).',
@@ -1265,6 +1276,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Seleziona elementi di una sola categoria per nascondere la categoria.',
   eds_msg_unhide_category_select: 'Seleziona elementi di una sola categoria per mostrare la categoria.',
   eds_msg_category_select: 'Seleziona elementi di una sola categoria.',
+  eds_msg_blocked_discipline: 'Appartiene a {disciplina}; cambia la disciplina della vista o libera la modifica.',
 
   eds_msg_graphics_invalid: 'Grafica non valida.',
   eds_undo_change_view_graphics: 'Modifica grafica della vista',
@@ -1468,6 +1480,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_select: 'Wybierz elementy (lub kategorię) do pokazania w widoku.',
   eds_msg_unhidden_done: 'Elementy pokazane w tym widoku. Ctrl+Z cofa.',
   eds_msg_unhide_all_done: 'Wszystko pokazane w tym widoku. Ctrl+Z cofa.',
+  eds_msg_unhide_all_none: 'Nic nie jest ukryte w tym widoku.',
   eds_msg_temp_hide_select: 'Wybierz elementy do tymczasowego ukrycia (HH).',
   eds_msg_temp_hidden: 'Tymczasowo ukryte w tym widoku. HR przywraca.',
   eds_msg_temp_isolate_select: 'Wybierz elementy do tymczasowego odizolowania (HI).',
@@ -1479,6 +1492,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_hide_category_select: 'Wybierz elementy jednej kategorii, aby ukryć kategorię.',
   eds_msg_unhide_category_select: 'Wybierz elementy jednej kategorii, aby pokazać kategorię.',
   eds_msg_category_select: 'Wybierz elementy jednej kategorii.',
+  eds_msg_blocked_discipline: 'Należy do {disciplina}; zmień dyscyplinę widoku lub odblokuj edycję.',
 
   eds_msg_graphics_invalid: 'Nieprawidłowa grafika.',
   eds_undo_change_view_graphics: 'Zmień grafikę widoku',

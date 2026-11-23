@@ -335,6 +335,14 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Duplicar planta';
     case 'removePlanView':
       return 'Excluir planta';
+    case 'addView3d':
+      return 'Criar vista 3D';
+    case 'duplicateView3d':
+      return 'Duplicar vista 3D';
+    case 'updateView3d':
+      return Object.keys(c.patch).every((k) => k === 'name') ? 'Renomear vista 3D' : 'Alterar vista 3D';
+    case 'removeView3d':
+      return 'Excluir vista 3D';
     case 'setPlanGraphics':
       return 'Alterar gráficos da planta';
     case 'resetPlanGraphics':

@@ -12,6 +12,8 @@ export interface OpcoesMakeEnv {
   hiddenIds?: Iterable<Id>;
   /** Elementos em meio-tom na vista (alimentam `halftoneInView`). Padrão: vazio. */
   halftoneIds?: Iterable<Id>;
+  /** Elementos bloqueados por disciplina (alimentam `bloqueados`). Padrão: vazio. */
+  blockedIds?: Iterable<Id>;
   /** Planta de disciplina aberta (`ToolEnv.planViewId`; só existe no ambiente quando informada). */
   planViewId?: Id;
 }
@@ -21,6 +23,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject()), opts: Op
   const levelId: Id = opts.levelId ?? 'lv_0';
   const hidden: ReadonlySet<Id> | null = opts.hiddenIds ? new Set<Id>(opts.hiddenIds) : null;
   const halftone: ReadonlySet<Id> | null = opts.halftoneIds ? new Set<Id>(opts.halftoneIds) : null;
+  const bloqueados: ReadonlySet<Id> | null = opts.blockedIds ? new Set<Id>(opts.blockedIds) : null;
   let selection: Id[] = [];
   let finished = 0;
   let areaPlan: Id | null = null;
@@ -39,6 +42,7 @@ export function makeEnv(store = new ProjectStore(createEmptyProject()), opts: Op
     levelId: () => levelId,
     ...(hidden ? { hiddenInView: () => hidden } : {}),
     ...(halftone ? { halftoneInView: () => halftone } : {}),
+    ...(bloqueados ? { bloqueados: () => bloqueados } : {}),
     selection: () => selection,
     setSelection: (ids) => { selection = ids; },
     exec: (c) => store.exec(c),

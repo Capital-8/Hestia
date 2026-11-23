@@ -79,9 +79,9 @@ describe('remapeamento da disciplina de origem da categoria', () => {
 });
 
 describe('categoria geral nunca recebe tom', () => {
-  it('site continua normal mesmo com perfil de arquitetura', () => {
-    const p = projeto({ disciplineProfiles: { arquitetura: { site: 'hidden' } } });
-    expect(tomDaCategoria(p, undefined, 'site')).toBe('normal');
+  it('a anotação continua normal mesmo com perfil de arquitetura', () => {
+    const p = projeto({ disciplineProfiles: { arquitetura: { annotation: 'hidden' } } });
+    expect(tomDaCategoria(p, undefined, 'annotation')).toBe('normal');
   });
 });
 

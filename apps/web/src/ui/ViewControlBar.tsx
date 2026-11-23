@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { disciplineLabel, disciplinasDoProjeto, isBuiltinDiscipline, PLAN_VISUAL_STYLES, planGraphicsOf, planOf, sectionGraphicsOf, view3dOf, type Discipline, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
-import { editPlanGraphics, editSectionGraphics, editView3D, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
+import { editPlanGraphics, editSectionGraphics, editView3D, editView3dSaved, showLevelsOn, type GraphicsEdit } from '../editor/graphicsActions.ts';
 import { planTonesDialogTarget, planViewIdDe } from '../editor/viewIdentity.ts';
+import { vista3dSalvaDe } from '../editor/vista3dSalva.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
 import { resetTemporaryHidden, temporaryHideActive, temporaryHideSelection, toggleRevealHidden, visibilityOf } from '../editor/viewVisibility.ts';
@@ -41,7 +42,9 @@ export function ViewControlBar(): ReactElement | null {
   const levelId = useUi((s) => s.levelId);
   const planKind = useUi((s) => s.planKind);
   const planViewId = useUi((s) => s.planViewId);
+  const view3dViewId = useUi((s) => s.view3dViewId);
   const minhaDisciplina = useUi((s) => s.minhaDisciplina);
+  const liberarEdicao = useUi((s) => s.liberarEdicao);
   const { t, lang } = useT();
   const selection = useUi((s) => s.selection);
   const viewTemp = useUi((s) => s.viewTemp);
@@ -51,13 +54,15 @@ export function ViewControlBar(): ReactElement | null {
   const planId = planViewIdDe({ view, planKind, planViewId });
   const plan = planId && view === 'plan' ? planOf(p, levelId, planId) : undefined;
   const disciplinePlan = plan && !plan.isDefault ? plan : undefined;
-  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
+  const vista3dSalva = is3d ? vista3dSalvaDe(p, { view, view3dViewId }) : undefined;
+  const g: ViewGraphics | View3DSettings = is3d ? view3dOf(vista3dSalva ? { view3d: vista3dSalva.settings } : p) : view === 'section' ? sectionGraphicsOf(p) : planGraphicsOf(p, levelId, planId);
   const report = (r: GraphicsEdit): void => {
     if (!r.ok) useUi.setState({ status: r.error ?? { key: 'shc_view_error' } });
   };
   const editPlan = (patch: Partial<Pick<ViewGraphics, 'scale' | 'detail' | 'style'>>): void =>
     report(view === 'section' ? editSectionGraphics(editor.store, patch) : editPlanGraphics(editor.store, { levelId, planId }, patch));
-  const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void => report(editView3D(editor.store, patch));
+  const edit3d = (patch: Partial<Pick<View3DSettings, 'style' | 'shadows' | 'edges' | 'openOpenings' | 'showLevels'>>): void =>
+    report(vista3dSalva ? editView3dSaved(editor.store, vista3dSalva.id, patch) : editView3D(editor.store, patch));
 
   const scale = !is3d ? (g as ViewGraphics).scale : 0;
   const v3 = is3d ? (g as View3DSettings) : null;
@@ -135,6 +140,21 @@ export function ViewControlBar(): ReactElement | null {
     node: field('user', minhaTip, minhaLabel, minhaCtl, false),
     menu: field('user', minhaTip, minhaLabel, minhaCtl, true),
   };
+  // Configurador de disciplinas (plano de UX de 2026-11-23): abre no projeto inteiro, já na disciplina de trabalho.
+  const disciplinasLabel = t('dsc_button');
+  const disciplinasTip = t('dsc_title');
+  const disciplinasBtn = (
+    <button
+      className="vcb-btn"
+      title={disciplinasTip}
+      aria-label={disciplinasTip}
+      onClick={() => useUi.setState({ dialog: 'disciplineConfig', dialogArg: minhaDisciplina })}
+    >
+      <Icon name="layers" size={14} />
+      <span>{disciplinasLabel}</span>
+    </button>
+  );
+  const disciplinasItem: FitItem = { key: 'disciplinas', priority: 3, node: disciplinasBtn };
 
   // Itens da barra, na ordem visual. `node` vai para a barra; `menu` (padrão: o próprio `node`) vai para o popup. Os
   // separadores entram no `node` do item que vem depois, para sair junto com ele.
@@ -159,6 +179,7 @@ export function ViewControlBar(): ReactElement | null {
     );
     items.push({ key: 'disciplina', priority: 4, node: discoField });
     items.push(minhaItem);
+    items.push(disciplinasItem);
     const tonesTip = t('shc_tones_tip');
     const tonesBtn = (
       <button
@@ -174,7 +195,13 @@ export function ViewControlBar(): ReactElement | null {
     items.push(grouped('tons', 2, tonesBtn, true));
   } else {
     items.push(minhaItem);
+    items.push(disciplinasItem);
   }
+  // “Editar outras disciplinas” (plano de UX de 2026-11-23): libera a edição dos elementos travados, só nesta sessão.
+  const liberarLabel = t('shc_edit_other_disciplines');
+  const liberarTip = t('shc_edit_other_disciplines_tip');
+  const liberarBtn = toggle(liberarLabel, 'edit', liberarEdicao, () => useUi.setState((s) => ({ liberarEdicao: !s.liberarEdicao, previewTick: s.previewTick + 1 })), liberarTip);
+  items.push({ key: 'liberar-edicao', priority: 3, node: liberarBtn });
   if (!is3d) {
     items.push({ key: 'escala', priority: 3, node: field('scale', scaleTip, scaleLabel, scaleCtl, false), menu: field('scale', scaleTip, scaleLabel, scaleCtl, true) });
     items.push({ key: 'detalhe', priority: 3, node: field('detail', detailTip, detailLabel, detailCtl, false), menu: field('detail', detailTip, detailLabel, detailCtl, true) });

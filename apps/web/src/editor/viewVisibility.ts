@@ -1,10 +1,12 @@
-import { categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, view3dOf, type Discipline, type GraphicsCategory, type Id, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+/* eslint-disable max-lines -- visibilidade, tons, apresentação, bloqueio de edição, Hide/Reveal e temporários no mesmo dono. */
+import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, podeEditar, tomDaCategoria, view3dOf, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
+import { vista3dSalvaDe } from './vista3dSalva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId'>>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId' | 'view3dViewId'>>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -24,7 +26,7 @@ export function visibilityKeyOf(st: ViewState): string | null {
 /** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
 export function viewHiddenTargetOf(st: ViewState): ViewHiddenTarget | null {
   if (st.view === 'sheet' || st.view === 'face') return null;
-  if (st.view === '3d') return { kind: '3d' };
+  if (st.view === '3d') return st.view3dViewId ? { kind: 'view3d', viewId: st.view3dViewId } : { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;
   if (st.planKind === 'roof') return { kind: 'roof', levelId: st.levelId };
@@ -43,6 +45,7 @@ export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): 
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden ?? {};
     case 'planView': return p.planViews?.find((x) => x.id === target.planId)?.hidden ?? {};
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
+    case 'view3d': return p.view3dViews?.find((v) => v.id === target.viewId)?.settings.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
 }
@@ -123,24 +126,47 @@ export function removeHidden(a: ViewHidden | undefined, remove: ViewHidden): Vie
 export interface ViewVisibilitySets {
   hidden: ReadonlySet<Id>;
   halftone: ReadonlySet<Id>;
+  /**
+   * Elementos visíveis (não ocultos) que a disciplina de trabalho não pode editar: são desenhados normalmente, mas não
+   * selecionam; snap e cota continuam. “Liberar edição” esvazia o conjunto.
+   */
+  bloqueados: ReadonlySet<Id>;
   revealed: ReadonlySet<Id>;
   reveal: boolean;
   temporary: boolean;
   /** Tom por categoria da disciplina de trabalho (usado pela cena 3D e pelo corte; na planta o tom é por elemento). */
   toneCategories: Partial<Record<GraphicsCategory, Tone>>;
+  /**
+   * Apresentação (tom, clareamento e opacidade) de cada categoria na disciplina de trabalho (plano de UX de 2026-11-23).
+   * Usada pela 3D, pelo corte e pela planta; `toneCategories` é o derivado legado (só o tom) para os chamadores antigos.
+   */
+  apresentacoes: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {} };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), bloqueados: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {}, apresentacoes: {} };
 
 /**
- * Tom de cada categoria na disciplina de trabalho (adendo 3, decisão 4), para a cena 3D. Lê pelo registro único de
- * categorias (`categoriasPorDisciplina`) e pela função única de precedência (`tomDaCategoria`): `geral` sai `normal`.
+ * Apresentação de cada categoria na disciplina de trabalho (plano de UX de 2026-11-23). Lê pelo registro único de
+ * categorias (`categoriasPorDisciplina`) e pela função única de precedência (`apresentacaoDaCategoria`): `geral` sai
+ * normal opaco. `null`/`'todas'` = sem disciplina de trabalho: nada vira referência (mapa vazio).
+ */
+export function apresentacoesPorCategoria(p: Project, trabalho: Discipline | 'todas' | null, plano?: Pick<PlanView, 'discipline' | 'tones'>): Partial<Record<GraphicsCategory, Apresentacao>> {
+  const out: Partial<Record<GraphicsCategory, Apresentacao>> = {};
+  if (trabalho === null || trabalho === 'todas') return out;
+  const vista = plano?.discipline ? plano : { discipline: trabalho };
+  for (const grupo of categoriasPorDisciplina()) {
+    for (const categoria of grupo.categorias) out[categoria] = apresentacaoDaCategoria(p, vista, categoria);
+  }
+  return out;
+}
+
+/**
+ * Tom de cada categoria na disciplina de trabalho (adendo 3, decisão 4), para os chamadores antigos da cena 3D. É o
+ * derivado de `apresentacoesPorCategoria` (só o tom); `geral` sai `normal`.
  */
 export function tonsPorCategoria(p: Project, trabalho: Discipline): Partial<Record<GraphicsCategory, Tone>> {
   const out: Partial<Record<GraphicsCategory, Tone>> = {};
-  for (const grupo of categoriasPorDisciplina()) {
-    for (const categoria of grupo.categorias) out[categoria] = tomDaCategoria(p, { discipline: trabalho }, categoria);
-  }
+  for (const [categoria, ap] of Object.entries(apresentacoesPorCategoria(p, trabalho)) as Array<[GraphicsCategory, Apresentacao]>) out[categoria] = ap.tone;
   return out;
 }
 
@@ -153,6 +179,7 @@ export function tonsPorCategoria(p: Project, trabalho: Discipline): Partial<Reco
 interface TonsDaPlanta {
   hidden: ReadonlySet<Id>;
   halftone: ReadonlySet<Id>;
+  apresentacoes: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
 /**
@@ -172,15 +199,16 @@ function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minha
     cache = { familias: p.componentFamilies, plantas: new Map() };
     tonsPorProjeto.set(p, cache);
   }
-  // A disciplina de trabalho é pessoal: entra na chave para o cache não reaproveitar os tons de outra disciplina.
-  const chave = `${levelId}\u0000${planViewId ?? ''}\u0000${minhaDisciplina ?? ''}`;
-  const guardado = cache.plantas.get(chave);
-  if (guardado) return guardado;
   // Tom por categoria (adendo 3, decisão 4): a planta entra com a disciplina de trabalho (`minhaDisciplina` ou a da vista);
-  // a exceção de tom da própria planta continua valendo dentro de `tomDaCategoria`.
+  // a exceção de tom da própria planta continua valendo dentro de `apresentacaoDaCategoria`.
   const plano = planOf(p, levelId, planViewId);
   const trabalho = minhaDisciplina ?? plano.discipline;
   const planoDeTrabalho = { discipline: trabalho, tones: plano.tones };
+  const apresentacoes = apresentacoesPorCategoria(p, planoDeTrabalho.discipline, planoDeTrabalho);
+  // A disciplina de trabalho e a apresentação são pessoais: entram na chave para o cache não reaproveitar o mapa de outra.
+  const chave = `${levelId}\u0000${planViewId ?? ''}\u0000${minhaDisciplina ?? ''}\u0000${JSON.stringify(apresentacoes)}`;
+  const guardado = cache.plantas.get(chave);
+  if (guardado) return guardado;
   const hidden = new Set<Id>();
   const halftone = new Set<Id>();
   for (const e of Object.values(p.elements)) {
@@ -192,14 +220,41 @@ function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minha
     if (tom === 'hidden') hidden.add(e.id);
     else if (tom === 'halftone') halftone.add(e.id);
   }
-  const resultado = { hidden, halftone };
+  const resultado = { hidden, halftone, apresentacoes };
   cache.plantas.set(chave, resultado);
   return resultado;
+}
+
+/** Cache dos elementos que a disciplina de trabalho não edita (muda só com o projeto, a disciplina ou “Liberar edição”). */
+interface CacheDeBloqueados {
+  familias: Project['componentFamilies'];
+  porTrabalho: Map<string, ReadonlySet<Id>>;
+}
+
+const bloqueadosPorProjeto = new WeakMap<Project, CacheDeBloqueados>();
+
+/** Elementos que `podeEditar` recusa para a disciplina de trabalho (sem considerar a ocultação da vista). */
+function bloqueadosDaDisciplina(p: Project, trabalho: Discipline | 'todas', liberar: boolean): ReadonlySet<Id> {
+  let cache = bloqueadosPorProjeto.get(p);
+  if (!cache || cache.familias !== p.componentFamilies) {
+    cache = { familias: p.componentFamilies, porTrabalho: new Map() };
+    bloqueadosPorProjeto.set(p, cache);
+  }
+  const chave = `${trabalho}\u0000${liberar ? '1' : '0'}`;
+  const guardado = cache.porTrabalho.get(chave);
+  if (guardado) return guardado;
+  const out = new Set<Id>();
+  if (trabalho !== 'todas' && !liberar) {
+    for (const el of Object.values(p.elements)) if (!podeEditar(p, el, trabalho, false)) out.add(el.id);
+  }
+  cache.porTrabalho.set(chave, out);
+  return out;
 }
 
 /**
  * Resolve permanente + temporário + Reveal para a vista ativa, e o meio-tom da disciplina (decisão 0060 §4.1):
  * (1) oculto vence (Hide in View, categoria, temporário ou tom `hidden`); (2) senão, tom `halftone`; (3) normal.
+ * Os bloqueados de edição (plano de UX de 2026-11-23) são o que sobra visível e que `podeEditar` recusa.
  */
 export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st);
@@ -216,17 +271,30 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (3D, planta de disciplina ou padrão).
-  const trabalho: Discipline =
+  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (vista 3D salva, 3D padrão, planta de disciplina ou
+  // padrão). Na 3D ausente = todas as disciplinas (nenhuma vira referência); no corte, a padrão.
+  const vista3d = st.view === '3d' ? vista3dSalvaDe(p, st) : undefined;
+  const servicos3d = st.view === '3d' ? view3dOf(p) : undefined;
+  const disciplinaDaVista3d = vista3d?.discipline ?? vista3d?.settings.discipline ?? servicos3d?.discipline;
+  const trabalho: Discipline | 'todas' =
     st.minhaDisciplina ??
     (st.view === '3d'
-      ? (view3dOf(p).discipline ?? DEFAULT_DISCIPLINE)
+      ? (disciplinaDaVista3d ?? 'todas')
       : st.view === 'plan'
         ? planOf(p, st.levelId, planta).discipline
         : DEFAULT_DISCIPLINE);
-  const toneCategories = st.view === 'plan' || st.view === '3d' || st.view === 'section' ? tonsPorCategoria(p, trabalho) : {};
+  // Os tons da vista 3D salva são exceções por disciplina, como os da planta de disciplina.
+  const planoTons3d = vista3d && trabalho !== 'todas' ? { discipline: trabalho, ...(vista3d.tones ? { tones: vista3d.tones } : {}) } : undefined;
+  const apresentacoes =
+    st.view === '3d' || st.view === 'section'
+      ? apresentacoesPorCategoria(p, trabalho, planoTons3d)
+      : {};
   // O tom por elemento continua valendo só na planta (regra da ficha F4); o mapa por categoria vale nas três vistas.
   const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;
+  // A apresentação da planta é a do cache de tons (mesma precedência, com os desvios da própria planta).
+  const apresentacoesDaVista = tons?.apresentacoes ?? apresentacoes;
+  const toneCategories: Partial<Record<GraphicsCategory, Tone>> = {};
+  for (const [categoria, ap] of Object.entries(apresentacoesDaVista) as Array<[GraphicsCategory, Apresentacao]>) toneCategories[categoria] = ap.tone;
   // Corte/elevação: a disciplina de trabalho (`st.minhaDisciplina` ou a padrão) oculta por categoria. O meio-tom continua
   // desenhado, então só o tom `hidden` entra no conjunto.
   let toneHidden: ReadonlySet<Id> = tons?.hidden ?? new Set<Id>();
@@ -253,8 +321,11 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const hidden = new Set(baseHidden.filter((id) => !revealed.has(id)));
   // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
   const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
+  // Bloqueados de edição: visíveis na vista (não ocultos), independentemente do tom. Não entram em hidden/halftone.
+  const bloqueados = new Set<Id>();
+  for (const id of bloqueadosDaDisciplina(p, trabalho, st.liberarEdicao)) if (!hidden.has(id)) bloqueados.add(id);
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, halftone, revealed, reveal, temporary, toneCategories };
+  return { hidden, halftone, bloqueados, revealed, reveal, temporary, toneCategories, apresentacoes: apresentacoesDaVista };
 }
 
 /** Atualiza o estado temporário da vista ativa. */
@@ -366,18 +437,27 @@ export function temporaryIsolate(elements: readonly Id[], categories: readonly G
   pruneHiddenSelection({ key: 'eds_msg_temp_isolated' });
 }
 
-/** Reexibe tudo da vista: ocultação permanente e temporária (não mexe no modo Reveal). */
+/**
+ * Reexibe tudo na vista ativa (HR): limpa o Hide in View permanente (elementos e categorias, num passo de desfazer) e
+ * o estado temporário (HH/HI/IC e o modo Reveal). Não toca no perfil de disciplina nem em "Visibilidade e gráficos".
+ */
 export function unhideAllInView(): void {
   const st = useUi.getState();
+  const key = visibilityKeyOf(st);
   const target = viewHiddenTargetOf(st);
-  if (target && permanentHiddenOf(editor.project, target)) {
+  const permanente: ViewHidden = target ? permanentHiddenOf(editor.project, target) : {};
+  const temPermanente = (permanente.elements?.length ?? 0) > 0 || (permanente.categories?.length ?? 0) > 0;
+  const temp = key ? st.viewTemp[key] : undefined;
+  const temTemporario = !!(temp?.hidden || temp?.isolated || temp?.reveal);
+  if (temPermanente && target) {
     editor.store.exec({ type: 'setViewHidden', target, hidden: undefined }, 'eds_undo_unhide_all_view');
   }
-  setTemp({ hidden: undefined, isolated: undefined });
-  useUi.setState({ status: { key: 'eds_msg_unhide_all_reveal' } });
+  if (temTemporario) setTemp(null);
+  redesenhar();
+  useUi.setState({ status: { key: temPermanente || temTemporario ? 'eds_msg_unhide_all_done' : 'eds_msg_unhide_all_none' } });
 }
 
-/** Reset do hide/isolate temporário (HR). */
+/** Reset do hide/isolate temporário (botão da barra da vista; o HR reexibe tudo por `unhideAllInView`). */
 export function resetTemporaryHidden(): void {
   setTemp({ hidden: undefined, isolated: undefined });
   useUi.setState({ status: { key: 'eds_msg_temp_reset' } });

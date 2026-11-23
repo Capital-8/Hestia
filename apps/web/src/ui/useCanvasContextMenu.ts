@@ -73,6 +73,10 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
  * No vazio o menu é o de "sem seleção", e a seleção é mantida.
  */
 export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | undefined, view: MenuView): void {
+  if (alvo && editor.bloqueadoNaVista(alvo)) {
+    editor.avisarBloqueado(alvo);
+    return;
+  }
   if (alvo && !useUi.getState().selection.includes(alvo)) clickSelect3d(alvo, false);
   const ctx = contextoAtual(view);
   const noVazio = alvo === null ? { ...ctx, hasSelection: false, selectionKinds: [], singleType: false, canCopy: false } : ctx;

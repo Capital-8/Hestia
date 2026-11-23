@@ -35,9 +35,9 @@ const ESPERADO_POR_KIND: Record<Element['kind'], 'arquitetura' | 'estrutura' | '
   beam: 'estrutura',
   footing: 'estrutura',
   slab: 'estrutura',
-  terrain: 'geral',
-  terrainRegion: 'geral',
-  lot: 'geral',
+  terrain: 'arquitetura',
+  terrainRegion: 'arquitetura',
+  lot: 'arquitetura',
   cad: 'geral',
   generic: 'geral',
 };

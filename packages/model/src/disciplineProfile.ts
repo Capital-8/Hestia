@@ -1,14 +1,25 @@
-import { presetTone, type Discipline, type ElementDiscipline, type Tone } from './discipline.ts';
+import { disciplineOfElement, presetTone, type Discipline, type ElementDiscipline } from './discipline.ts';
 import { GRAPHICS_CATEGORIES, type GraphicsCategory } from './graphics.ts';
-import { DEFAULT_DISCIPLINE, DISCIPLINES, isDiscipline, isDisciplineId, isTone, type PlanView } from './planView.ts';
+import {
+  DEFAULT_DISCIPLINE,
+  DISCIPLINES,
+  apresentacaoDe,
+  isDiscipline,
+  isDisciplineId,
+  isTomOuApresentacao,
+  type Apresentacao,
+  type PlanView,
+  type TomOuApresentacao,
+} from './planView.ts';
 import { disciplinaDaCategoria as disciplinaDaCategoriaDoRegistro } from './registroCategorias.ts';
-import type { Project } from './types.ts';
+import type { Element, Project } from './types.ts';
 
 /**
- * Perfis por disciplina (decisão 0060, adendo 3, decisões 1, 3, 4 e 6): as disciplinas do projeto (as cinco embutidas
- * mais as criadas pelo usuário), o tom de cada categoria dentro de uma disciplina e o remapeamento da disciplina de
- * origem de uma categoria. Tudo opcional no projeto; ausente = comportamento de hoje. Dado inválido (disciplina,
- * categoria ou tom desconhecido) é ignorado na leitura e preservado no arquivo: nenhuma função daqui lança.
+ * Perfis por disciplina (decisão 0060, adendo 3, decisões 1, 3, 4 e 6; apresentação do plano de UX de 2026-11-23): as
+ * disciplinas do projeto (as cinco embutidas mais as criadas pelo usuário), a apresentação de cada categoria dentro de
+ * uma disciplina (tom, clareamento e opacidade) e o remapeamento da disciplina de origem de uma categoria. Tudo opcional
+ * no projeto; ausente = comportamento de hoje. Dado inválido (disciplina, categoria ou apresentação desconhecida) é
+ * ignorado na leitura e preservado no arquivo: nenhuma função daqui lança.
  */
 
 /** Disciplina declarada no projeto (`Project.disciplines`): id estável, nome exibido e cor opcional. */
@@ -18,8 +29,8 @@ export interface ProjectDiscipline {
   color?: string;
 }
 
-/** Tom de cada categoria dentro de uma disciplina: só as categorias presentes desviam; ausente = predefinido. */
-export type DisciplineProfile = Partial<Record<GraphicsCategory, Tone>>;
+/** Apresentação de cada categoria dentro de uma disciplina: só as categorias presentes desviam; ausente = predefinido. */
+export type DisciplineProfile = Partial<Record<GraphicsCategory, TomOuApresentacao>>;
 
 /** Entrada de disciplina do projeto que serve como fonte de id (objeto com id válido e fora das embutidas). */
 function idValido(item: ProjectDiscipline): boolean {
@@ -66,8 +77,9 @@ export function disciplinaDaCategoria(
 }
 
 /**
- * Perfil de uma disciplina com só categorias conhecidas e tons válidos. Perfil ausente, categoria desconhecida ou tom
- * malformado são ignorados (a validação do projeto é que sinaliza); nunca lança.
+ * Perfil de uma disciplina com só categorias conhecidas e apresentações válidas, normalizadas para objeto. Perfil
+ * ausente, categoria desconhecida ou apresentação malformada são ignorados (a validação do projeto é que sinaliza);
+ * nunca lança.
  */
 export function perfilDaDisciplina(p: Pick<Project, 'disciplineProfiles'>, d: Discipline): DisciplineProfile {
   const out: DisciplineProfile = {};
@@ -75,33 +87,84 @@ export function perfilDaDisciplina(p: Pick<Project, 'disciplineProfiles'>, d: Di
   if (bruto === null || typeof bruto !== 'object' || Array.isArray(bruto)) return out;
   const registro = bruto as Record<string, unknown>;
   for (const c of GRAPHICS_CATEGORIES) {
-    const tom = registro[c];
-    if (isTone(tom)) out[c] = tom;
+    const valor = registro[c];
+    if (isTomOuApresentacao(valor)) out[c] = apresentacaoDe(valor);
   }
   return out;
 }
 
+/** Normal opaco, o ponto de partida de toda categoria sem desvio de disciplina (§4.1). */
+const NORMAL: Apresentacao = { tone: 'normal', clareamento: 0, opacidade: 1 };
+
 /**
- * Tom de uma categoria na planta (adendo 3, decisão 4), precedência do mais forte ao mais fraco:
+ * Apresentação predefinida de uma disciplina de elemento na planta de `trabalho` (tabela §4.2 convertida). O par
+ * `estrutura | arquitetura` ganha o clareamento leve e a opacidade de referência da decisão 3 do plano de UX; o resto
+ * dos `halftone` mantém o visual de hoje (clareamento 0,5, opaco). `geral` nunca recebe tom: normal opaco.
+ */
+export function presetApresentacao(trabalho: Discipline, elemento: ElementDiscipline): Apresentacao {
+  if (elemento === 'geral') return { ...NORMAL };
+  if (trabalho === 'estrutura' && elemento === 'arquitetura') return { tone: 'halftone', clareamento: 0.2, opacidade: 0.5 };
+  if (trabalho === 'arquitetura' && elemento === 'estrutura') return { ...NORMAL };
+  const tone = presetTone(trabalho, elemento);
+  return tone === 'halftone' ? { tone, clareamento: 0.5, opacidade: 1 } : { tone, clareamento: 0, opacidade: 1 };
+}
+
+/**
+ * Apresentação de uma categoria na planta (adendo 3, decisão 4; plano de UX de 2026-11-23), precedência do mais forte
+ * ao mais fraco:
  * 1. exceção da vista (`PlanView.tones[alvo]`), onde `alvo` é a disciplina do elemento ou a de origem da categoria;
  * 2. perfil da disciplina de trabalho da planta (`Project.disciplineProfiles`);
- * 3. predefinido (`presetTone` da disciplina de trabalho; categorias `geral` nunca recebem tom, ficam `normal`).
- * Disciplina de trabalho inválida cai em `DEFAULT_DISCIPLINE`; nunca lança.
+ * 3. predefinido (`presetApresentacao` da disciplina de trabalho; categorias `geral` nunca recebem tom, ficam `normal`).
+ * Disciplina de trabalho inválida cai em `DEFAULT_DISCIPLINE`; valor gravado inválido é ignorado; nunca lança.
+ */
+export function apresentacaoDaCategoria(
+  p: Pick<Project, 'disciplineProfiles' | 'categoryDiscipline' | 'disciplines'>,
+  plan: Pick<PlanView, 'discipline' | 'tones'> | undefined,
+  categoria: GraphicsCategory,
+  disciplinaElemento?: ElementDiscipline,
+): Apresentacao {
+  const alvo = disciplinaElemento ?? disciplinaDaCategoria(p, categoria);
+  // Elementos e categorias `geral` não dependem de disciplina (§4.1): nenhum perfil nem exceção se aplica.
+  if (alvo === 'geral') return { ...NORMAL };
+  const excecao = plan?.tones?.[alvo];
+  if (isTomOuApresentacao(excecao)) return apresentacaoDe(excecao);
+  const disciplinaDaPlanta = plan?.discipline;
+  const trabalho = isDisciplineId(disciplinaDaPlanta) ? disciplinaDaPlanta : DEFAULT_DISCIPLINE;
+  const doPerfil = perfilDaDisciplina(p, trabalho)[categoria];
+  if (doPerfil !== undefined) return apresentacaoDe(doPerfil);
+  return presetApresentacao(trabalho, alvo);
+}
+
+/**
+ * Tom de uma categoria na planta: a mesma precedência de `apresentacaoDaCategoria`, só com o tom. Mantida para os
+ * chamadores antigos que não usam clareamento/opacidade.
  */
 export function tomDaCategoria(
   p: Pick<Project, 'disciplineProfiles' | 'categoryDiscipline' | 'disciplines'>,
   plan: Pick<PlanView, 'discipline' | 'tones'> | undefined,
   categoria: GraphicsCategory,
   disciplinaElemento?: ElementDiscipline,
-): Tone {
-  const alvo = disciplinaElemento ?? disciplinaDaCategoria(p, categoria);
-  // Elementos e categorias `geral` não dependem de disciplina (§4.1): nenhum perfil nem exceção se aplica.
-  if (alvo === 'geral') return 'normal';
-  const excecao = plan?.tones?.[alvo];
-  if (isTone(excecao)) return excecao;
-  const disciplinaDaPlanta = plan?.discipline;
-  const trabalho = isDisciplineId(disciplinaDaPlanta) ? disciplinaDaPlanta : DEFAULT_DISCIPLINE;
-  const tomDoPerfil = perfilDaDisciplina(p, trabalho)[categoria];
-  if (isTone(tomDoPerfil)) return tomDoPerfil;
-  return presetTone(trabalho, alvo);
+): Apresentacao['tone'] {
+  return apresentacaoDaCategoria(p, plan, categoria, disciplinaElemento).tone;
+}
+
+/**
+ * Uma pessoa pode editar `el` trabalhando em `trabalho`? `true` com “Liberar edição” ou com `todas`; senão só na
+ * disciplina dona do elemento (terreno e lote agora são de Arquitetura; `geral` só edita em `geral`). Nunca lança.
+ */
+export function podeEditar(
+  p: Pick<Project, 'componentFamilies'>,
+  el: Element,
+  trabalho: Discipline | 'todas',
+  liberar: boolean,
+): boolean {
+  if (liberar || trabalho === 'todas') return true;
+  try {
+    const dono = disciplineOfElement(el, p);
+    // `geral` (CAD e importado sem classe IFC) é de Arquitetura para edição: é referência de projeto, não de MEP.
+    if (dono === 'geral') return trabalho === 'geral' || trabalho === 'arquitetura';
+    return dono === trabalho;
+  } catch {
+    return false;
+  }
 }

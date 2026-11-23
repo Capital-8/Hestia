@@ -17,6 +17,10 @@ import {
   serializeProject,
   newId,
   isComponent,
+  disciplineLabel,
+  disciplineOfElement,
+  disciplinasDoProjeto,
+  isBuiltinDiscipline,
   sectionAnnotationsOf,
   setSectionDimensionResolver,
   type SectionAnnotations,
@@ -52,14 +56,14 @@ import { viewKeyOf, type ViewKeyFields } from './viewKey.ts';
 import { normalizaPlanViewId, planKey, planViewIdDe, viewKey as identityKey } from './viewIdentity.ts';
 import { opcoesDeEncaixeAtuais } from './encaixeComponente.ts';
 import { alternarModoGizmo, tabTrocaModoGizmo } from './modoGizmo.ts';
-import { key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
+import { clickSelect3d, key3d, setSnap, toggleOrtho, togglePolar, useUi } from './state.ts';
 import { defaultOpenViews, type PlanKind } from './openViews.ts';
 import { casador, useAtalhos } from './shortcutConfig.ts'; import { clearSelectionForTool } from './toolSelection.ts';
 import { pedirConfirmacao } from './confirmacaoPrompt.ts';
 import { elevationCommand, type PlanBox } from './elevations.ts';
 import { deleteSelectionIn } from './deleteIds.ts';
 import { deleteSectionAnnotationsIn, sectionAnnotationIdsIn } from './sectionHandles.ts';
-import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, resetTemporaryHidden, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
+import { hideSelectedCategoryInView, hideSelectionInView, resetAllTemporary, temporaryHideSelection, temporaryIsolateSelection, temporarySelectedCategory, toggleRevealHidden, unhideAllInView, unhideSelectedCategoryInView, unhideSelectionInView, visibilityOf, ocultosDoSitio } from './viewVisibility.ts';
 import { destinoDoDelete, ligarSincroniaDaEdicao } from './terrenoEdicao.ts';
 import { caixaDoCorteComTerreno } from './terrenoVista.ts';
 import { deleteViewAction, renameViewAction, updateViewAction } from './sectionViewActions.ts';
@@ -139,11 +143,14 @@ function labelHit(p: Project, levelId: Id, scale: number, planId: Id | null, at:
  * Controlador do editor: junta projeto (histórico), ferramenta ativa, seleção e vistas.
  * A interface só lê estado e chama ações; as regras vivem aqui e nos pacotes.
  */
+/** HR ganha uma ação própria (reexibir tudo), além dos comandos do perfil de atalhos. */
+type VisCommand = ShortcutCommand | 'unhideAll';
+
 /** Sequências de visibilidade que funcionam no 3D e no corte mesmo com outro perfil de atalhos. */
-const VIS_SEQUENCES: Record<string, ShortcutCommand> = {
-  HH: 'temporaryHide', HC: 'temporaryCategory', HI: 'temporaryIsolate', IC: 'isolateCategory', HR: 'resetTemporary',
+const VIS_SEQUENCES: Record<string, VisCommand> = {
+  HH: 'temporaryHide', HC: 'temporaryCategory', HI: 'temporaryIsolate', IC: 'isolateCategory', HR: 'unhideAll',
   EH: 'hideInView', VH: 'hideCategoryInView', RH: 'revealHidden', EU: 'unhideInView', VU: 'unhideCategoryInView',
-  V1: 'temporaryHide', V2: 'temporaryCategory', V3: 'temporaryIsolate', V4: 'isolateCategory', V5: 'resetTemporary',
+  V1: 'temporaryHide', V2: 'temporaryCategory', V3: 'temporaryIsolate', V4: 'isolateCategory', V5: 'unhideAll',
   V6: 'hideInView', V7: 'hideCategoryInView', V8: 'revealHidden', V9: 'unhideInView', V0: 'unhideCategoryInView',
 };
 
@@ -283,6 +290,8 @@ export class Editor {
     planViewId: () => this.planViewIdNow(),
     hiddenInView: () => this.ocultosDaPlanta(),
     halftoneInView: () => this.meioTomDaPlanta(),
+    bloqueados: () => this.bloqueadosDaVista(),
+    mensagemBloqueado: (id) => this.mensagemBloqueado(id),
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),
@@ -421,6 +430,46 @@ export class Editor {
    */
   meioTomDaPlanta(): ReadonlySet<Id> {
     return visibilityOf(this.store.project, useUi.getState()).halftone;
+  }
+
+  /** Elementos bloqueados por disciplina na vista ativa (visíveis, mas fora da edição sem “Liberar edição”). */
+  bloqueadosDaVista(): ReadonlySet<Id> {
+    return visibilityOf(this.store.project, useUi.getState()).bloqueados;
+  }
+
+  /** O elemento está bloqueado na vista ativa? */
+  bloqueadoNaVista(id: Id): boolean {
+    return this.bloqueadosDaVista().has(id);
+  }
+
+  /** “Pertence a <disciplina>; troque a disciplina da vista ou libere a edição.”, no idioma da interface. */
+  mensagemBloqueado(id: Id): string | null {
+    const p = this.store.project;
+    const el = p.elements[id];
+    if (!el) return null;
+    const lang = useI18n.getState().lang;
+    const dono = disciplineOfElement(el, p);
+    const disciplina = dono === 'geral'
+      ? t(lang, 'cvn_catgrp_general')
+      : isBuiltinDiscipline(dono)
+        ? disciplineLabel(lang, dono)
+        : (disciplinasDoProjeto(p).find((d) => d.id === dono)?.name ?? dono);
+    return t(lang, 'eds_msg_blocked_discipline', { disciplina });
+  }
+
+  /** Avisa na barra que o elemento clicado pertence a outra disciplina. */
+  avisarBloqueado(id: Id): void {
+    const msg = this.mensagemBloqueado(id);
+    if (msg) useUi.setState({ status: msg });
+  }
+
+  /**
+   * Clique de seleção nas vistas 3D e de corte (e no menu de contexto): o bloqueado por disciplina não entra na seleção;
+   * a barra diz a quem pertence. A planta passa pela ferramenta Selecionar, que usa o mesmo conjunto.
+   */
+  selecionarNaVista(id: Id | null, additive: boolean): void {
+    if (id && this.bloqueadoNaVista(id)) { this.avisarBloqueado(id); return; }
+    clickSelect3d(id, additive);
   }
 
   /** Caixa do corte para enquadrar: a do `SectionResult` ampliada na vertical pela faixa de cota do terreno visível (o terreno vem do kernel, fora do `SectionResult`). */
@@ -643,13 +692,15 @@ export class Editor {
   }
 
   /** Executa um atalho de visibilidade; falso quando o comando é de ferramenta (o chamador decide). */
-  private executaComandoDeVisibilidade(cmd: ShortcutCommand): boolean {
+  private executaComandoDeVisibilidade(cmd: VisCommand): boolean {
     switch (cmd) {
       case 'temporaryHide': temporaryHideSelection(); return true;
       case 'temporaryCategory': temporarySelectedCategory(false); return true;
       case 'temporaryIsolate': temporaryIsolateSelection(); return true;
       case 'isolateCategory': temporarySelectedCategory(true); return true;
-      case 'resetTemporary': resetTemporaryHidden(); return true;
+      // HR (perfil ou sequência própria) reexibe tudo na vista: Hide in View + temporário, num passo de desfazer.
+      case 'resetTemporary': unhideAllInView(); return true;
+      case 'unhideAll': unhideAllInView(); return true;
       case 'hideInView': hideSelectionInView(); return true;
       case 'hideCategoryInView': hideSelectedCategoryInView(); return true;
       case 'revealHidden': toggleRevealHidden(); return true;
@@ -1128,7 +1179,7 @@ export class Editor {
     } else if (o.view === 'plan') {
       useUi.setState({ view: 'plan', planKind: o.planKind, areaPlanId: o.areaPlanId, planViewId: normalizaPlanViewId(this.project, o.levelId, o.planKind, o.planViewId), sectionId: null, levelId: o.levelId });
     } else {
-      useUi.setState({ view: '3d' });
+      useUi.setState({ view: '3d', view3dViewId: null });
     }
   }
 
@@ -1274,19 +1325,30 @@ export class Editor {
   }
 
   /** Seleciona todas as paredes e aberturas do nível ativo com o tipo dado. */
-  selectAllOfType(typeId: Id): number { return transfer.ofType(this.project, useUi.getState().levelId, typeId); }
+  selectAllOfType(typeId: Id): number {
+    const st = useUi.getState();
+    return transfer.ofType(this.project, st.levelId, typeId, visibilityOf(this.project, st).bloqueados);
+  }
   /** "Mesmo tipo" (botão na aba Modificar). */
-  selectAllOfSelectedType(): boolean { this.setTool('select'); return transfer.sameType(this.project, useUi.getState().levelId) > 0; }
+  selectAllOfSelectedType(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    return transfer.sameType(this.project, st.levelId, visibilityOf(this.project, st).bloqueados) > 0;
+  }
   /** "Visíveis na vista": o mesmo tipo da seleção, só do que a vista ativa mostra (planta ou corte/elevação). */
   selectAllVisibleOfSelectedType(): boolean {
     this.setTool('select');
     const st = useUi.getState();
-    const hidden = visibilityOf(this.project, st).hidden;
+    const vis = visibilityOf(this.project, st);
     const result = st.view === 'section' && st.sectionId ? this.sectionOf(st.sectionId) : null;
-    return transfer.sameTypeVisible(this.project, st.levelId, hidden, result) > 0;
+    return transfer.sameTypeVisible(this.project, st.levelId, vis.hidden, result, vis.bloqueados) > 0;
   }
   /** "Mesmo nome" dos ambientes selecionados (botão na aba Modificar). */
-  selectAllOfSelectedName(): boolean { this.setTool('select'); return transfer.sameName(this.project, useUi.getState().levelId) > 0; }
+  selectAllOfSelectedName(): boolean {
+    this.setTool('select');
+    const st = useUi.getState();
+    return transfer.sameName(this.project, st.levelId, visibilityOf(this.project, st).bloqueados) > 0;
+  }
 
   /** Ctrl+Z / Ctrl+Y no croqui da escada: desfaz ou refaz a última linha pegada. Sem pegada, vale o histórico do modelo. */
   private stairPickHistory(redo: boolean): boolean {
@@ -1363,12 +1425,12 @@ export class Editor {
     this.setTool('select');
   }
 
-  setView(v: 'plan' | '3d'): void {
+  setView(v: 'plan' | '3d', viewId: Id | null = null): void {
     if (this.perimetro.bloqueiaNavegacao()) return;
     // Mudar de vista encerra o arraste de rótulo: o gesto pertence à planta em que começou.
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
-    useUi.setState((s) => ({ view: v, hover: null, typed: '', previewTick: s.previewTick + 1 }));
+    useUi.setState((s) => ({ view: v, ...(v === '3d' ? { view3dViewId: viewId, ...(viewId ? { seen3d: true } : {}) } : {}), hover: null, typed: '', previewTick: s.previewTick + 1 }));
   }
 
   // ---------- arquivo ----------
@@ -1404,7 +1466,7 @@ export class Editor {
     this.viewports.clear();
     this.sectionCache.clear(); this.sectionPending.clear(); this.sectionToFrame.clear(); this.sectionClient?.cancelarTodos();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
-    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, planViewId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
+    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, planViewId: null, view3dViewId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
     this.aquecerCorteSeInclinada(true);
   }

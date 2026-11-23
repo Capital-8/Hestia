@@ -71,7 +71,9 @@ export function hoverSectionAt(s: ScreenPt): void {
   frame = requestAnimationFrame(() => {
     frame = 0;
     if (!last || useUi.getState().view !== 'section') return;
-    const id = sectionPickAt(last)?.id ?? null;
+    const bruto = sectionPickAt(last)?.id ?? null;
+    // Bloqueado por disciplina continua desenhado, mas não é alvo de realce nem de clique no corte.
+    const id = bruto && visibilityOf(editor.project, useUi.getState()).bloqueados.has(bruto) ? null : bruto;
     if (useUi.getState().hover !== id) useUi.setState({ hover: id });
   });
 }

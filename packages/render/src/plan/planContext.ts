@@ -194,7 +194,7 @@ export function planViewVisivel(p: Project, levelId: Id, planId: Id | undefined,
 export function planContext(input: PlanInput): PlanContext {
   const { project: p, viewport: v } = input;
   const planId = planIdOf(input);
-  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, planId);
+  const style = planStyleOf(p, input.levelId, v.zoom, input.areaPlan?.scale, planId, input.apresentacoes);
   const paint = style.paint;
   const rp = input.roofPlanMode === true;
   const revealed = input.revealed;

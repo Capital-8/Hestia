@@ -116,14 +116,19 @@ export * from './viewProfile.ts';
 export * from './areaPlanCommands.ts';
 export * from './planView.ts';
 export * from './planViewCommands.ts';
+export * from './view3dViews.ts';
+export * from './view3dViewCommands.ts';
 export * from './discipline.ts';
 // `disciplinaDaCategoria` no barril é a versão por projeto (remapeamento + registro): a do registro puro continua em
 // `registroCategorias.ts` e é re-exportada abaixo; o export explícito aqui resolve o nome ambíguo.
 export {
+  apresentacaoDaCategoria,
   disciplinaDaCategoria,
   disciplinaExiste,
   disciplinasDoProjeto,
   perfilDaDisciplina,
+  podeEditar,
+  presetApresentacao,
   tomDaCategoria,
   type DisciplineProfile,
   type ProjectDiscipline,

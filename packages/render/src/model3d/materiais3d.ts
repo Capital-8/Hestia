@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { view3dOf, type GraphicsCategory, type Material, type View3DSettings } from '@hestia/model';
+import { apresentacaoDe, view3dOf, type Apresentacao, type GraphicsCategory, type Material, type View3DSettings } from '@hestia/model';
 import { mix } from '../plan/color.ts';
 import { aplicarTexturaTriplanar, chaveDaTextura, type TexturasProvedor3D } from './texturas3d.ts';
 import { obterTexturasAcabamento } from './texturasMobiliario.ts';
@@ -47,10 +47,11 @@ triUv *= ${TRIPLANAR_ESCALA.toFixed(2)}; // units-ok: escala UV de shader GLSL
   return mat;
 }
 
-/** O que define o tipo dos materiais: a vista 3D e o tema. */
+/** O que define o tipo dos materiais: a vista 3D, o tema e a apresentação por categoria (tom, clareamento e opacidade). */
 export interface MarcoMateriais {
   view: View3DSettings;
   dark: boolean;
+  apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
 /**
@@ -90,12 +91,22 @@ export class Materiais3D {
     const style = view.style;
     const ov = view.overrides[cat];
     const t = clamp01(ov.transparency);
+    // Apresentação da categoria (plano de UX de 2026-11-23): clareamento mistura a cor com o papel e a opacidade entra
+    // junto da transparência da vista. A vista efetiva (`viewComTons`) já combina a opacidade na transparência; quando
+    // isso acontece, o valor da apresentação não é aplicado duas vezes.
+    const ap = this.marco.apresentacoes?.[cat] ? apresentacaoDe(this.marco.apresentacoes[cat]) : undefined;
+    const clareamento = ap ? (ap.clareamento ?? (ap.tone === 'halftone' ? 0.5 : 0)) : ov.halftone ? 0.5 : 0;
+    const opacidade = ap ? clamp01(ap.opacidade ?? 1) : 1;
+    const transparenciaAp = 1 - opacidade;
+    const tEfetiva = t + 1e-9 >= transparenciaAp ? t : 1 - (1 - t) * opacidade;
+    const paper = dark ? '#2a2f36' : '#ffffff';
     if (style === 'hiddenLine') {
-      return this.cached(`${style}|${dark}|${cat}|${t}`, () => new THREE.MeshBasicMaterial({
+      return this.cached(`${style}|${dark}|${cat}|${t}|${clareamento}|${opacidade}`, () => new THREE.MeshBasicMaterial({
         color: dark ? PAPER.dark : PAPER.light,
-        transparent: t > 0,
-        opacity: 1 - t,
+        transparent: 1 - tEfetiva < 1,
+        opacity: 1 - tEfetiva,
         side: THREE.FrontSide,
+        ...(opacidade < 1 ? { depthWrite: false } : {}),
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1,
@@ -105,13 +116,13 @@ export class Materiais3D {
     const gloss = m?.gloss ?? 0.1;
     const base = tex?.opacity ?? m?.opacity ?? 1;
     const colorOf = ov.color ?? m?.color ?? fallback;
-    const color = ov.halftone ? mix(colorOf, '#ffffff', 0.5) : colorOf;
+    const color = clareamento > 0 ? mix(colorOf, paper, clareamento) : colorOf;
     const tx = style === 'realistic' ? chaveDaTextura(m, this.texturas) : '';
     // Mapas procedurais do mobiliário (acabamentos de componentes): só quando o material não tem textura do catálogo.
-    const usarMapa = Boolean(tex?.map && !tx && !ov.color && !ov.halftone && (style === 'realistic' || style === 'shaded'));
-    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, m?.aparencia?.metal ?? '', m?.aparencia?.rugosidade ?? '', usarMapa ? 'tex' : ''].join('|');
+    const usarMapa = Boolean(tex?.map && !tx && !ov.color && clareamento === 0 && (style === 'realistic' || style === 'shaded'));
+    const key = [style, dark, cat, t, ov.color ?? '', ov.halftone, m?.id ?? '', m?.color ?? '', gloss, base, fallback, tx, m?.aparencia?.metal ?? '', m?.aparencia?.rugosidade ?? '', usarMapa ? 'tex' : '', clareamento, opacidade].join('|');
     return this.cached(key, () => {
-      const opacity = base * (1 - t);
+      const opacity = base * (1 - tEfetiva);
       const corFinal = usarMapa ? 0xffffff : color;
       // `generic`: malha soldada sem normais por vértice; o sombreamento chapado sai das derivadas no shader.
       const props = {
@@ -120,7 +131,7 @@ export class Materiais3D {
         opacity,
         side: THREE.FrontSide,
         ...(cat === 'generic' ? { flatShading: true } : {}),
-        ...(m?.id?.startsWith('comp_vidro_') ? { depthWrite: false } : {}),
+        ...(opacidade < 1 || m?.id?.startsWith('comp_vidro_') ? { depthWrite: false } : {}),
       };
       if (style === 'realistic') {
         if (usarMapa && tex) {

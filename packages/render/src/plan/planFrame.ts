@@ -1,4 +1,4 @@
-import { unitsOf, type Id, type Project, type ResolvedUnits, type SubelementoCortina } from '@hestia/model';
+import { unitsOf, type Apresentacao, type GraphicsCategory, type Id, type Project, type ResolvedUnits, type SubelementoCortina } from '@hestia/model';
 import type { Vec2 } from '@hestia/geom';
 import type { ResolvedLevel, ResolvedRoof } from '@hestia/engine';
 import type { Inference, PreviewItem } from '@hestia/tools';
@@ -59,6 +59,8 @@ export interface PlanViewState {
   halftone?: ReadonlySet<Id>;
   /** Elementos que o modo Reveal mostra com borda azul. */
   revealed?: ReadonlySet<Id>;
+  /** Apresentação da disciplina de trabalho por categoria (tom, clareamento e opacidade); ausente = desenho de hoje. */
+  apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>;
   /** Resolução do nível (o app a guarda em cache). */
   resolve: (id: Id) => ResolvedLevel;
   /** Esboço do perímetro em edição, desenhado sobre a planta (ausente fora do modo). */
@@ -102,7 +104,9 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   // A planta de área usa as MESMAS sobreposições da planta de piso. Ela bloqueia as ferramentas de modelo
   // (`AREA_PLAN_TOOLS`), mas o `select` ainda move o elemento selecionado; por isso mantém destaque, alças e fantasmas
   // iguais aos do piso. Se o select virar somente leitura, suprimir as alças de modelo aqui.
-  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, planId, tagGhost: s.tagGhost, hidden: s.hidden, halftone: s.halftone, revealed: s.revealed, lang, subelemento: s.subelemento ?? null };
+  const base = { project: p, levelId, viewport: v, theme, dark, showGrid: s.showGrid, thinLines: s.thinLines, showRoofProjection: s.showRoofProjection, roofPlanMode: rp, areaPlan: s.areaPlan, planId, tagGhost: s.tagGhost, hidden: s.hidden, halftone: s.halftone, revealed: s.revealed, apresentacoes: s.apresentacoes, lang, subelemento: s.subelemento ?? null };
+  // A apresentação por categoria muda cores e alphas do desenho (clareamento/opacidade): entra nas chaves das camadas.
+  const apsKey = s.apresentacoes ? JSON.stringify(s.apresentacoes) : '';
   // Guarda-corpo e massa têm camada e chave próprias: os ocultos/revelados deles ficam fora da chave do resto da planta, e a versão do projeto
   // que a geometria vê não muda quando só um deles muda (ver `versoesDaPlanta`).
   const ehGuarda = (id: Id): boolean => p.elements[id]?.kind === 'railing';
@@ -122,9 +126,9 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
   const versoes = versoesDaPlanta(p);
   const temGuarda = ServicoGuardaCorpo.temGuardaCorpo(p);
   // Sem guarda-corpo no projeto a camada é vazia e a chave não muda (nem a prontidão do kernel entra).
-  const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visGuarda}` : `vazio|${levelId}|${modo0(rp)}`;
+  const guardaKey = temGuarda ? `${versoes.global}|${versoes.porNivel.get(levelId) ?? 0}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoGuardaCorpo().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visGuarda}|${apsKey}` : `vazio|${levelId}|${modo0(rp)}`;
   // Massas: camada própria. Sem massa no projeto a chave não muda (nem a prontidão do kernel entra); com massa, muda com elas, com a vista e com o kernel.
-  const massaKey = temMassaNoProjeto(p) ? `${versoes.massa}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoMassa().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visMassa}` : `vazio|${levelId}|${modo0(rp)}`;
+  const massaKey = temMassaNoProjeto(p) ? `${versoes.massa}|${levelId}|${modo0(rp)}|${dark}|${lang}|${servicoMassa().pronto()}|${s.areaPlan ? 'area' : ''}|${planId ?? ''}|${visMassa}|${apsKey}` : `vazio|${levelId}|${modo0(rp)}`;
   // Uma resolução por atualização, mesmo com as camadas de sobreposição sendo refeitas na mesma passagem.
   let resolvida: ResolvedLevel | null = null;
   const resolvido = (): ResolvedLevel => (rp ? (resolvida ??= s.resolve(levelId)) : resolucaoVazia(levelId));
@@ -135,7 +139,7 @@ export function planFrameUpdateOf(s: PlanViewState): PlanFrameUpdate {
     theme,
     gpu: s.gpu,
     showGrid: s.showGrid,
-    geometryKey: `${versoes.resto}|${temCortina(p) ? servicoCortina().pronto() : '-'}|${temTerreno(p) ? `${servicoTerreno().pronto()}${mapaCorteAterroLigado() ? 'm' : ''}` : '-'}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}`,
+    geometryKey: `${versoes.resto}|${temCortina(p) ? servicoCortina().pronto() : '-'}|${temTerreno(p) ? `${servicoTerreno().pronto()}${mapaCorteAterroLigado() ? 'm' : ''}` : '-'}|${levelId}|${modo}|${dark}|${lang}|${s.showUnderlay}|${s.underlayLevel ?? ''}|${s.showRoofProjection}|${s.sketch ? 'dim' : ''}|${geoSel.join(',')}|${s.tagGhost?.roomId ?? ''}|${areaKey}|${visKey}|${apsKey}`,
     guardaKey,
     massaKey,
     // Três chaves de sobreposição: a seleção, o alvo do cursor e a camada viva (prévia, guias e captura). Cursor e

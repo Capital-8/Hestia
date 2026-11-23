@@ -10,6 +10,8 @@ export interface ViewKeyFields {
   areaPlanId: Id | null;
   /** Planta de disciplina (só vale com `planKind` 'floor'); ausente = planta padrão. */
   planViewId?: Id | null;
+  /** Vista 3D salva; ausente = 3D padrão (a chave de câmera 2D do 3D segue a planta do nível). */
+  view3dViewId?: Id | null;
 }
 
 /**

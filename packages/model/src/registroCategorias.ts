@@ -21,8 +21,8 @@ export const CATEGORY_REGISTRY: Record<GraphicsCategory, { disciplina: ElementDi
   stair: { disciplina: 'arquitetura' },
   railing: { disciplina: 'arquitetura' },
   mass: { disciplina: 'arquitetura' },
-  site: { disciplina: 'geral' },
-  lot: { disciplina: 'geral' },
+  site: { disciplina: 'arquitetura' },
+  lot: { disciplina: 'arquitetura' },
   room: { disciplina: 'arquitetura' },
   annotation: { disciplina: 'geral' },
   generic: { disciplina: 'geral' },
@@ -44,8 +44,8 @@ export function disciplinaDaCategoria(c: GraphicsCategory): ElementDiscipline {
 
 /**
  * Ordem das disciplinas para o configurador (adendo 3, decisões 2 e 4): as cinco embutidas das plantas, na ordem de
- * `DISCIPLINES`, e `geral` no fim. O grupo `geral` existe porque há categorias sem disciplina de trabalho (terreno,
- * lote, anotação, genérico), que o configurador mostra como bloco próprio.
+ * `DISCIPLINES`, e `geral` no fim. O grupo `geral` existe porque há categorias sem disciplina de trabalho (anotação e
+ * genérico, além do CAD/importado), que o configurador mostra como bloco próprio.
  */
 export const DISCIPLINE_ORDER: readonly ElementDiscipline[] = [...DISCIPLINES, 'geral'];
 

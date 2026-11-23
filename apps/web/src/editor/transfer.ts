@@ -254,16 +254,16 @@ export class Transfer {
     });
   }
 
-  /** Seleciona os elementos do nível com o tipo dado. Devolve quantos. */
-  ofType(p: Project, levelId: Id, typeId: Id): number {
-    const ids = idsOfType(p, levelId, typeId);
+  /** Seleciona os elementos do nível com o tipo dado (sem os bloqueados por disciplina). Devolve quantos. */
+  ofType(p: Project, levelId: Id, typeId: Id, bloqueados?: ReadonlySet<Id>): number {
+    const ids = idsOfType(p, levelId, typeId, bloqueados);
     useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
     return ids.length;
   }
 
   /** "Mesmo nome" (ambientes): seleciona todos os ambientes do nível com o nome dos ambientes selecionados. Devolve quantos. */
-  sameName(p: Project, levelId: Id): number {
-    const ids = sameNameRoomIds(p, levelId, useUi.getState().selection);
+  sameName(p: Project, levelId: Id, bloqueados?: ReadonlySet<Id>): number {
+    const ids = sameNameRoomIds(p, levelId, useUi.getState().selection).filter((id) => !bloqueados?.has(id));
     useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_name_selected', args: { n: ids.length } } : { key: 'edc_same_name_hint' } });
     return ids.length;
   }
@@ -304,7 +304,7 @@ export class Transfer {
   }
 
   /** "Mesmo tipo": seleciona todos do tipo da seleção atual (que precisa ser de um só tipo). */
-  sameType(p: Project, levelId: Id): number {
+  sameType(p: Project, levelId: Id, bloqueados?: ReadonlySet<Id>): number {
     const notas = this.ofAnnotationType(p, null);
     if (notas !== null) return notas;
     const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
@@ -312,14 +312,14 @@ export class Transfer {
       useUi.setState({ status: r.error });
       return 0;
     }
-    return this.ofType(p, this.levelOfSelection(p, levelId), r.typeId);
+    return this.ofType(p, this.levelOfSelection(p, levelId), r.typeId, bloqueados);
   }
 
   /**
    * "Visíveis na vista": o tipo da seleção, só do que a vista mostra. Na planta, os do pavimento que não estão ocultos;
    * no corte/elevação (`section` calculado), os que aparecem no desenho, de qualquer pavimento; no 3D, os visíveis em todos os pavimentos. Devolve quantos.
    */
-  sameTypeVisible(p: Project, activeLevelId: Id, hidden: ReadonlySet<Id>, section: SectionResult | null): number {
+  sameTypeVisible(p: Project, activeLevelId: Id, hidden: ReadonlySet<Id>, section: SectionResult | null, bloqueados?: ReadonlySet<Id>): number {
     const notas = this.ofAnnotationType(p, hidden);
     if (notas !== null) return notas;
     const r = selectedTypeId(p, useUi.getState().selection, useI18n.getState().lang);
@@ -329,9 +329,10 @@ export class Transfer {
     }
     const view = useUi.getState().view;
     const levelId = this.levelOfSelection(p, activeLevelId);
-    const ids = view === 'section'
+    const ids = (view === 'section'
       ? (section ? idsVisiveisDoTipoNoCorte(p, section, r.typeId, hidden) : [])
-      : idsOfType(p, view === '3d' ? null : levelId, r.typeId).filter((id) => !hidden.has(id));
+      : idsOfType(p, view === '3d' ? null : levelId, r.typeId).filter((id) => !hidden.has(id)))
+      .filter((id) => !bloqueados?.has(id));
     useUi.setState({ selection: ids, status: ids.length ? { key: 'edc_same_type_selected', args: { n: ids.length } } : { key: 'edc_same_type_none' } });
     return ids.length;
   }
