@@ -1,4 +1,4 @@
-import { categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, view3dOf, type Discipline, type GraphicsCategory, type Id, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, tomDaCategoria, view3dOf, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
@@ -128,19 +128,37 @@ export interface ViewVisibilitySets {
   temporary: boolean;
   /** Tom por categoria da disciplina de trabalho (usado pela cena 3D e pelo corte; na planta o tom é por elemento). */
   toneCategories: Partial<Record<GraphicsCategory, Tone>>;
+  /**
+   * Apresentação (tom, clareamento e opacidade) de cada categoria na disciplina de trabalho (plano de UX de 2026-11-23).
+   * Usada pela 3D, pelo corte e pela planta; `toneCategories` é o derivado legado (só o tom) para os chamadores antigos.
+   */
+  apresentacoes: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
-const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {} };
+const VAZIO: ViewVisibilitySets = { hidden: new Set(), halftone: new Set(), revealed: new Set(), reveal: false, temporary: false, toneCategories: {}, apresentacoes: {} };
 
 /**
- * Tom de cada categoria na disciplina de trabalho (adendo 3, decisão 4), para a cena 3D. Lê pelo registro único de
- * categorias (`categoriasPorDisciplina`) e pela função única de precedência (`tomDaCategoria`): `geral` sai `normal`.
+ * Apresentação de cada categoria na disciplina de trabalho (plano de UX de 2026-11-23). Lê pelo registro único de
+ * categorias (`categoriasPorDisciplina`) e pela função única de precedência (`apresentacaoDaCategoria`): `geral` sai
+ * normal opaco. `null`/`'todas'` = sem disciplina de trabalho: nada vira referência (mapa vazio).
+ */
+export function apresentacoesPorCategoria(p: Project, trabalho: Discipline | 'todas' | null, plano?: Pick<PlanView, 'discipline' | 'tones'>): Partial<Record<GraphicsCategory, Apresentacao>> {
+  const out: Partial<Record<GraphicsCategory, Apresentacao>> = {};
+  if (trabalho === null || trabalho === 'todas') return out;
+  const vista = plano?.discipline ? plano : { discipline: trabalho };
+  for (const grupo of categoriasPorDisciplina()) {
+    for (const categoria of grupo.categorias) out[categoria] = apresentacaoDaCategoria(p, vista, categoria);
+  }
+  return out;
+}
+
+/**
+ * Tom de cada categoria na disciplina de trabalho (adendo 3, decisão 4), para os chamadores antigos da cena 3D. É o
+ * derivado de `apresentacoesPorCategoria` (só o tom); `geral` sai `normal`.
  */
 export function tonsPorCategoria(p: Project, trabalho: Discipline): Partial<Record<GraphicsCategory, Tone>> {
   const out: Partial<Record<GraphicsCategory, Tone>> = {};
-  for (const grupo of categoriasPorDisciplina()) {
-    for (const categoria of grupo.categorias) out[categoria] = tomDaCategoria(p, { discipline: trabalho }, categoria);
-  }
+  for (const [categoria, ap] of Object.entries(apresentacoesPorCategoria(p, trabalho)) as Array<[GraphicsCategory, Apresentacao]>) out[categoria] = ap.tone;
   return out;
 }
 
@@ -153,6 +171,7 @@ export function tonsPorCategoria(p: Project, trabalho: Discipline): Partial<Reco
 interface TonsDaPlanta {
   hidden: ReadonlySet<Id>;
   halftone: ReadonlySet<Id>;
+  apresentacoes: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
 /**
@@ -172,15 +191,16 @@ function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minha
     cache = { familias: p.componentFamilies, plantas: new Map() };
     tonsPorProjeto.set(p, cache);
   }
-  // A disciplina de trabalho é pessoal: entra na chave para o cache não reaproveitar os tons de outra disciplina.
-  const chave = `${levelId}\u0000${planViewId ?? ''}\u0000${minhaDisciplina ?? ''}`;
-  const guardado = cache.plantas.get(chave);
-  if (guardado) return guardado;
   // Tom por categoria (adendo 3, decisão 4): a planta entra com a disciplina de trabalho (`minhaDisciplina` ou a da vista);
-  // a exceção de tom da própria planta continua valendo dentro de `tomDaCategoria`.
+  // a exceção de tom da própria planta continua valendo dentro de `apresentacaoDaCategoria`.
   const plano = planOf(p, levelId, planViewId);
   const trabalho = minhaDisciplina ?? plano.discipline;
   const planoDeTrabalho = { discipline: trabalho, tones: plano.tones };
+  const apresentacoes = apresentacoesPorCategoria(p, planoDeTrabalho.discipline, planoDeTrabalho);
+  // A disciplina de trabalho e a apresentação são pessoais: entram na chave para o cache não reaproveitar o mapa de outra.
+  const chave = `${levelId}\u0000${planViewId ?? ''}\u0000${minhaDisciplina ?? ''}\u0000${JSON.stringify(apresentacoes)}`;
+  const guardado = cache.plantas.get(chave);
+  if (guardado) return guardado;
   const hidden = new Set<Id>();
   const halftone = new Set<Id>();
   for (const e of Object.values(p.elements)) {
@@ -192,7 +212,7 @@ function tonsDaPlanta(p: Project, levelId: Id, planViewId: Id | undefined, minha
     if (tom === 'hidden') hidden.add(e.id);
     else if (tom === 'halftone') halftone.add(e.id);
   }
-  const resultado = { hidden, halftone };
+  const resultado = { hidden, halftone, apresentacoes };
   cache.plantas.set(chave, resultado);
   return resultado;
 }
@@ -216,17 +236,26 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (3D, planta de disciplina ou padrão).
-  const trabalho: Discipline =
+  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (3D, planta de disciplina ou padrão). Na 3D ausente =
+  // todas as disciplinas (nenhuma vira referência); no corte, a padrão.
+  const disciplinaDaVista3d = st.view === '3d' ? view3dOf(p).discipline : undefined;
+  const trabalho: Discipline | 'todas' =
     st.minhaDisciplina ??
     (st.view === '3d'
-      ? (view3dOf(p).discipline ?? DEFAULT_DISCIPLINE)
+      ? (disciplinaDaVista3d ?? 'todas')
       : st.view === 'plan'
         ? planOf(p, st.levelId, planta).discipline
         : DEFAULT_DISCIPLINE);
-  const toneCategories = st.view === 'plan' || st.view === '3d' || st.view === 'section' ? tonsPorCategoria(p, trabalho) : {};
+  const apresentacoes =
+    st.view === '3d' || st.view === 'section'
+      ? apresentacoesPorCategoria(p, trabalho)
+      : {};
   // O tom por elemento continua valendo só na planta (regra da ficha F4); o mapa por categoria vale nas três vistas.
   const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;
+  // A apresentação da planta é a do cache de tons (mesma precedência, com os desvios da própria planta).
+  const apresentacoesDaVista = tons?.apresentacoes ?? apresentacoes;
+  const toneCategories: Partial<Record<GraphicsCategory, Tone>> = {};
+  for (const [categoria, ap] of Object.entries(apresentacoesDaVista) as Array<[GraphicsCategory, Apresentacao]>) toneCategories[categoria] = ap.tone;
   // Corte/elevação: a disciplina de trabalho (`st.minhaDisciplina` ou a padrão) oculta por categoria. O meio-tom continua
   // desenhado, então só o tom `hidden` entra no conjunto.
   let toneHidden: ReadonlySet<Id> = tons?.hidden ?? new Set<Id>();
@@ -254,7 +283,7 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   // O meio-tom só vale para quem não caiu na etapa 1 (oculto vence o tom, inclusive no Reveal).
   const halftone = new Set([...(tons?.halftone ?? [])].filter((id) => !baseHiddenSet.has(id)));
   const temporary = !!(temp.hidden || temp.isolated || temp.reveal);
-  return { hidden, halftone, revealed, reveal, temporary, toneCategories };
+  return { hidden, halftone, revealed, reveal, temporary, toneCategories, apresentacoes: apresentacoesDaVista };
 }
 
 /** Atualiza o estado temporário da vista ativa. */

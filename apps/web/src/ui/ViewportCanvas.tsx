@@ -378,7 +378,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
     // O tom por categoria (disciplina de trabalho) também muda a cena: entra na chave para o mapa novo chegar à montagem.
     const tonsKey = Object.entries(vis.toneCategories).sort(([a], [b]) => a.localeCompare(b)).map(([c, tom]) => `${c}:${tom}`).join(',');
-    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${tonsKey}`;
+    const apsKey = JSON.stringify(vis.apresentacoes);
+    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${tonsKey}|${apsKey}`;
     const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}|${texturas3d.versao}`;
     if (key === modelKey.current) return false;
     modelKey.current = key;
@@ -393,7 +394,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
     // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
     if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
-    montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed, toneCategories: vis.toneCategories }, st.levelId);
+    montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed, toneCategories: vis.toneCategories, apresentacoes: vis.apresentacoes }, st.levelId);
     return true;
   }, [paneId]);
   // Kernel Rust carregado depois da primeira montagem: o que foi desenhado sem os guarda-corpos (3D, planta, corte) é invalidado e refeito
@@ -609,7 +610,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       // Lista BASE do corte: muda só com projeto/vista/tema/seleção/hover/gráficos/anotações/extensões. Fica em `secDl`
       // e só é reenviada quando a referência muda — prévia, inferência e alças vão para as camadas vivas, abaixo.
       vperf?.mark('b_ini');
-      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, vis.toneCategories, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
+      const built = buildSectionFrame(v, dark, vis.hidden, vis.revealed, vis.toneCategories, vis.apresentacoes, lang, pEstilo, st, ativo ? undefined : (ownSectionFrame.current ??= new SectionFrame()));
       vperf?.mark('b_fim');
       if (!built && secVazia.current?.bg !== theme.bg) secVazia.current = { bg: theme.bg, dl: { background: theme.bg, fills: [], strokes: [], labels: [] } };
       const baseDl = built ?? secVazia.current!.dl;
@@ -730,7 +731,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Grade visível quando o botão de grade está ligado ou quando a captura por grade está ativa (o que se captura, se vê).
     const gridOn = st.showGrid || (st.options.snap?.enabled !== false && !!st.options.snap?.grid);
     const areaPlan = st.planKind === 'area' && st.areaPlanId ? (p.areaPlans ?? []).find((x) => x.id === st.areaPlanId) : undefined;
-    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${[...vis.halftone].sort().join(',')}`;
+    const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${[...vis.halftone].sort().join(',')}|${JSON.stringify(vis.apresentacoes)}`;
     const blocoPlan = useInsercaoBloco.getState().ativo;
     const previasBloco = blocoPlan && blocoPlan.ultimoPonto
       ? pegadaDoComponente(blocoPlan.projetoPrevia, blocoPlan.rascunho)
@@ -741,7 +742,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const blocoPlanKey = blocoPlan && blocoPlan.ultimoPonto
       ? `${blocoPlan.familiaId}:${blocoPlan.rascunho.x}:${blocoPlan.rascunho.y}:${blocoPlan.rascunho.rotation}`
       : '';
-    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, planViewIdDe(st) ?? '', areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, planId: planViewIdDe(st), tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId, planId: planViewIdDe(st) }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, halftone: vis.halftone, revealed: vis.revealed, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
+    const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, planViewIdDe(st) ?? '', areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, planId: planViewIdDe(st), tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId, planId: planViewIdDe(st) }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, halftone: vis.halftone, revealed: vis.revealed, apresentacoes: vis.apresentacoes, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
     if (g) {
       g.gpu.setSize(w, h, dpr);
       plan.current.setViewport(v);

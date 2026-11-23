@@ -3,7 +3,7 @@ import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
 import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
-import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits, type Tone } from '@hestia/model';
+import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type Apresentacao, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits, type Tone } from '@hestia/model';
 import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
 import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
@@ -39,6 +39,8 @@ export interface SectionInput {
   thinLines?: boolean;
   /** Tom por categoria da disciplina de trabalho (decisão 0060, adendo 3, decisão 4): `hidden`/`halftone`/`normal`. */
   toneCategories?: Partial<Record<GraphicsCategory, Tone>>;
+  /** Apresentação da disciplina de trabalho por categoria (tom, clareamento e opacidade); vence o tom legado. */
+  apresentacoes?: Partial<Record<GraphicsCategory, Apresentacao>>;
 }
 
 /** Caixilho de vidro (opaco na linha oculta, como o dono decidiu) e folha de porta: cores fixas do desenho. */
@@ -89,7 +91,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const labels: LabelOp[] = [];
   const paper = input.dark ? theme.bg : '#ffffff';
   const maxDepth = Math.max(1e-6, ...s.beyond.map((b) => b.depth), ...s.openings.map((o) => o.depth));
-  const style = sectionStyleOf(p, v.zoom, input.toneCategories);
+  const style = sectionStyleOf(p, v.zoom, input.toneCategories, input.apresentacoes);
   const { detail, paint, visual, saved } = style;
   // Arame e grosso não têm superfícies: no arame só contornos; no grosso, só os contornos do modelo.
   const wire = visual === 'wireframe';
@@ -117,7 +119,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   const hatchZoomMin = detail === 'fine' ? 0 : SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS;
   const hatchFor = (kind: HatchKind | undefined, color: string): { kind: HatchKind; color: string; zoomMin?: number } | undefined =>
     !wire && kind && kind !== 'none' ? { kind, color, ...(hatchZoomMin > 0 ? { zoomMin: hatchZoomMin } : {}) } : undefined;
-  const halftone = (color: string, pt: PlanPaint): string => (pt.halftone ? mix(color, paper, 0.5) : color);
+  const halftone = (color: string, pt: PlanPaint): string => ((pt.clareamento ?? 0) > 0 ? mix(color, paper, pt.clareamento!) : color);
+  /** Fator de opacidade das linhas: nunca abaixo de 0,3 para o traço não sumir. */
+  const linhaOpacidade = (pt: PlanPaint): number => Math.max(0.3, Math.min(1, Math.max(0, pt.opacidade ?? 1)));
   // Para o contorno externo de uma vista com categoria oculta: a silhueta do motor une tudo, então ela é refeita dos itens visíveis.
   const silhouetteParts: MultiPolygon[] = [];
   // Hide in View/Reveal: o input já traz os conjuntos efetivos da vista. `hidden` não é desenhado; `revealed` só ganha
@@ -197,10 +201,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
       const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
       const hatch = cpB.padrao ? hatchFor(cpB.padrao.kind, halftone(cpB.padrao.color, pt)) : undefined;
-      fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
+      fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
     }
     const line = mix(theme.ink, paper, 0.5 * (b.depth / maxDepth));
-    for (const ring of ringsOf(b.polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(byProximity(projWidth(cat), b.depth)), color: halftone(line, pt), alpha: 1 });
+    for (const ring of ringsOf(b.polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(byProximity(projWidth(cat), b.depth)), color: halftone(line, pt), alpha: linhaOpacidade(pt) });
     if (owner && isRevealed(owner.id)) revealOutline(b.polygons);
   };
 
@@ -219,14 +223,14 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     if (isRevealed(o.openingId)) revealOutline(polygons);
     const edge = openingEdge(kind, cut);
     const outline = (): void => {
-      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cut ? edge : byProximity(edge, o.depth)), color: halftone(theme.ink, pt), alpha: 1 });
+      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cut ? edge : byProximity(edge, o.depth)), color: halftone(theme.ink, pt), alpha: linhaOpacidade(pt) });
     };
     const symbol = (pts: Vec2[], dashed: boolean): void => {
       if (detail === 'coarse') return;
-      strokes.push({ pts, closed: false, ...strokeWidth(symbolWidth(kind)), color: halftone(theme.inkSoft, pt), alpha: 1, ...(dashed ? { dash: [4, 3] as [number, number] } : {}) });
+      strokes.push({ pts, closed: false, ...strokeWidth(symbolWidth(kind)), color: halftone(theme.inkSoft, pt), alpha: linhaOpacidade(pt), ...(dashed ? { dash: [4, 3] as [number, number] } : {}) });
     };
     if (!model) {
-      if (!noFill) fills.push({ polygons, color: halftone(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha });
+      if (!noFill) fills.push({ polygons, color: halftone(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha * pt.opacidade });
       outline();
       return;
     }
@@ -311,9 +315,9 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const primeira = item.itens[0]!.part;
       const cortada = item.itens.find((x) => isCut(x.part))?.part;
       const hatch = cortada ? hatchOf(cortada) : undefined;
-      if (!noFill) fills.push({ polygons, color: halftone(colorOf(primeira), pt), alpha: pt.alpha, ...(hatch ? { hatch } : {}) });
+      if (!noFill) fills.push({ polygons, color: halftone(colorOf(primeira), pt), alpha: pt.alpha * pt.opacidade, ...(hatch ? { hatch } : {}) });
       const dash = primeira.dashed ? { dash: [6, 3] as [number, number] } : {};
-      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(edge), color: halftone(theme.ink, pt), alpha: 1, ...dash });
+      for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(edge), color: halftone(theme.ink, pt), alpha: linhaOpacidade(pt), ...dash });
     }
     // Linha central só na janela de correr (2 ou 3 folhas), como antes (C6).
     const slides = model.openings.filter((x) => x.kind === 'slide').length;
@@ -372,10 +376,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
           const base = pt.color ?? cp.fundo;
           const color = pt.visual === 'shaded' ? base : mix(base, paper, input.dark ? 0.5 : 0.58);
           const hatch = cp.padrao ? hatchFor(cp.padrao.kind, halftone(cp.padrao.color, pt)) : undefined;
-          fills.push({ polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
+          fills.push({ polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
         }
         const line = halftone(mix(theme.ink, paper, 0.35), pt);
-        for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cutWidth(cat)), color: line, alpha: 1 });
+        for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cutWidth(cat)), color: line, alpha: linhaOpacidade(pt) });
         // Reveal do corte unido: contorna só as peças reveladas (sem `parts`, a região inteira, se alguma origem foi revelada).
         const revealParts = parts?.filter((part) => isRevealed(ownerOf(part.origin)?.id));
         if (revealParts && revealParts.length > 0) for (const part of revealParts) revealOutline(part.polygons);
@@ -403,13 +407,13 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
         const fade = 0.55 + 0.35 * (f.sample.depth / maxDepth);
         const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
         const hatch = cpF.padrao ? hatchFor(cpF.padrao.kind, halftone(cpF.padrao.color, pt)) : undefined;
-        fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha, hatch });
+        fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
       }
     }
     if (rd.silhouette.length > 0) silhouetteParts.push(rd.silhouette);
     const width = strokeWidth(byProximity(projWidth(cat), rd.depth));
-    for (const ring of ringsOf(rd.silhouette)) strokes.push({ pts: ring, closed: true, ...width, color: line, alpha: 1 });
-    for (const [a, b] of rd.segments) strokes.push({ pts: [a, b], closed: false, ...width, color: line, alpha: 1 });
+    for (const ring of ringsOf(rd.silhouette)) strokes.push({ pts: ring, closed: true, ...width, color: line, alpha: linhaOpacidade(pt) });
+    for (const [a, b] of rd.segments) strokes.push({ pts: [a, b], closed: false, ...width, color: line, alpha: linhaOpacidade(pt) });
   }
   // Membranas de piso e laje: linha tracejada na cota da face (decisão 0023 §5), na espessura do corte do dono.
   for (const m of s.membranes) {
