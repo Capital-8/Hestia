@@ -132,6 +132,41 @@ Entrada: "Configurar disciplinas" no menu do navegador de plantas ou o botão no
 | 16.4 | Repita no **3D** | O tom por categoria vale também no 3D (conserto F7b) | OK / falhou / estranho | |
 | 16.5 | Importe um **IFC antigo**, sem essas classes | Continua entrando como antes: tudo `geral`/`generic`, nenhuma disciplina inventada | OK / falhou / estranho | |
 
+## 17. Clareamento e opacidade (pacote de UX de 2026-11-23)
+1. Abra **Disciplinas** → **Avançado**, escolha a vista Estrutura e a categoria Parede. Coloque **Clarear 20%** e **Opacidade 50%**.
+2. Na planta de Estrutura, a parede fica translúcida e a estrutura aparece por trás; as linhas continuam legíveis.
+3. No 3D, a parede fica esmaecida e transparente; o pilar aparece através dela. Clicar na parede **não seleciona**.
+4. No corte, a parede continua desenhada, atenuada. Ocultar a categoria faz sumir.
+5. Volte para **Normal** ou **Oculto** e confira que clareamento/opacidade só valem em Referência.
+
+## 18. Trava de edição (dono da disciplina)
+1. Na planta de Estrutura, tente selecionar uma parede: deve aparecer “Pertence a Arquitetura; troque a disciplina da vista ou libere a edição” e **não** selecionar.
+2. Pilar/viga/sapata selecionam normalmente.
+3. Ligue **Editar outras disciplinas** na barra da vista: a parede passa a selecionar.
+4. Terreno e lote: em Estrutura ficam visíveis (Referência) e travados; em Arquitetura selecionam e editam.
+5. No 3D e no corte, a mesma regra. Snap e cota continuam funcionando nos elementos travados.
+
+## 19. HR e RH
+1. Oculte uma parede com **EH** (Hide in View) e uma categoria com **VH**.
+2. Aperte **HR**: tudo volta, permanentemente, num passo. `Ctrl+Z` desfaz.
+3. Aperte **RH**: os ocultos aparecem com borda azul só enquanto o RH estiver ativo; ao sair, voltam a ficar ocultos. O RH não muda nada.
+4. Com a vista sem nada oculto, **HR** mostra “Nada oculto nesta vista.”
+
+## 20. Configurador simples e avançado
+1. Abra **Disciplinas** (barra da vista). No modo **Simples**, escolha Estrutura e marque Arquitetura como **Referência**, Hidro/Elétrico/HVAC como **Oculto**.
+2. Arraste o slider **Opacidade das referências** para 30% e 70%; confira a prévia.
+3. Em **Avançado**, ajuste só a Parede para Oculto e o Pilar para Normal. Confira que a exceção vale na planta/3D/corte.
+4. “Copiar de…” uma disciplina, “Restaurar predefinido” e **Desfazer** cada passo.
+5. Crie a disciplina **Paisagismo**, mude a origem de “Terreno e lote” para ela e confira o grupo no navegador com nome e cor.
+6. Exclua Paisagismo: plantas/famílias voltam para Arquitetura; `Ctrl+Z` restaura.
+
+## 21. Vistas 3D salvas
+1. No navegador, abra **Vistas 3D**. A “3D padrão” continua.
+2. **Duplicar** a 3D padrão, renomeie para “3D Estrutura” e escolha a disciplina Estrutura; a câmera é copiada.
+3. Gire a câmera, salve a vista e alterne entre “3D padrão” e “3D Estrutura”: cada uma mantém a sua câmera e disciplina.
+4. Crie “3D Arquitetura” com outra disciplina; confira que uma não altera a outra.
+5. Exclua uma vista 3D; `Ctrl+Z` restaura. A vista 3D padrão não pode ser excluída.
+
 ## Como relatar
 Para cada falha: passo, o que esperava, o que viu, uma captura e, se possível, o projeto salvo. Falhas de **tela** (feio, confuso) contam
 tanto quanto as de comportamento, porque nenhuma tela foi vista por quem implementou.
