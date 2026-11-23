@@ -1,4 +1,4 @@
-import { disciplineLabel, isFacePaintableElement, sheetOf, type FaceLayerTarget, type FaceSlot, type Id, type Project } from '@hestia/model';
+import { disciplineLabel, isFacePaintableElement, sheetOf, view3dViewOf, type FaceLayerTarget, type FaceSlot, type Id, type Project } from '@hestia/model';
 import { openAreaPlan } from './areaPlanActions.ts';
 import { editor } from './controller.ts';
 import { t, useI18n } from './i18n.ts';
@@ -26,6 +26,11 @@ export function tabOf(p: Project, v: OpenView): { icon: 'plan' | 'roof' | 'cube'
       return planKindOf(v) === 'roof' ? { icon: 'roof', label: t(lang, 'eds_tab_roof_plan', { name: l.name }) } : { icon: 'plan', label: l.name };
     }
     case '3d':
+      // Vista 3D salva: a aba leva o nome dela; sem ela no projeto (excluída), a aba some. Fechar não apaga nada.
+      if (v.viewId) {
+        const salva = view3dViewOf(p, v.viewId);
+        return salva ? { icon: 'cube', label: salva.name } : null;
+      }
       return { icon: 'cube', label: t(lang, 'eds_tab_3d_model') };
     case 'section': {
       const sv = p.views.find((x) => x.id === v.viewId);
@@ -68,8 +73,8 @@ function navega(v: OpenView): boolean {
       return s.view === 'plan' && s.levelId === v.levelId && s.planKind === kind && (kind !== 'area' || s.areaPlanId === v.areaPlanId) && (kind !== 'floor' || s.planViewId === (v.planViewId ?? null));
     }
     case '3d':
-      editor.setView('3d');
-      return useUi.getState().view === '3d';
+      editor.setView('3d', v.viewId ?? null);
+      return useUi.getState().view === '3d' && (useUi.getState().view3dViewId ?? null) === (v.viewId ?? null);
     case 'section':
       editor.openSection(v.viewId);
       return useUi.getState().view === 'section' && useUi.getState().sectionId === v.viewId;
@@ -121,8 +126,9 @@ export function closeTab(target: OpenView): void {
 export function dropMissingViews(p: Project): void {
   const cur = useUi.getState();
   const missing = cur.openViews.filter((v) => tabOf(p, v) === null);
-  if (!missing.length) return;
+  const vista3dSumiu = cur.view === '3d' && !!cur.view3dViewId && !view3dViewOf(p, cur.view3dViewId);
+  if (!missing.length && !vista3dSumiu) return;
   let list = cur.openViews;
   for (const v of missing) list = removeView(list, v);
-  useUi.setState({ openViews: list });
+  useUi.setState({ openViews: list, ...(vista3dSumiu ? { view3dViewId: null, selection: [], hover: null } : {}) });
 }

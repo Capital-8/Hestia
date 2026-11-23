@@ -5,7 +5,7 @@ import { corposDoNivel, idDoProjetoDoPick, pegadaDoComponente, lerIdEsquadriaCor
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as RDragEvent, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { texturas3d } from '../editor/texturas3d.ts';
 import { DARK, LIGHT, CamadaFantasmas, GizmoComponente3D, ModelScene, PickGpu3d, PlanFrame, PlanScene, PreviaComponente3D, SectionFrame, aplicarCameraNaOrbita, criarControladorGpu, drawPlanOnCanvas, faceHighlightMesh, idsNaCaixaDaTela, pickDimension, pickElement, pickFace, pickModelPoint, planFrameUpdateOf, comEixosDaOrigem, reiniciarEstadoGpu, sameView, screenToWorld, sectionLiveOps, previewOverlay, sectionOpeningHandles, type AlcaGizmoComponente, type AlvoComponente3D, type ControladorGpu, type GpuContext, type HitGizmoComponente, type LabelOp, type PlanDrawList, type PreferenciaGpu, type SectionHandle, type Viewport, sectionLabelsAt } from '@hestia/render';
-import { findExactFacePaint, formatQuantity, isComponent, isFacePaintableElement, levelElevation, unitsOf, view3dOf, type Component, type Id, type Project } from '@hestia/model';
+import { findExactFacePaint, formatQuantity, isComponent, isFacePaintableElement, levelElevation, unitsOf, view3dOf, view3dViewOf, type Component, type Id, type Project } from '@hestia/model';
 import { useShallow } from 'zustand/react/shallow';
 import { editor } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
@@ -26,7 +26,7 @@ import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/rende
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { usePanes } from '../editor/paneStore.ts';
 import { estiloDoPainelAgora } from './paneEstilo.ts';
-import { projetoDoPainel } from '../editor/paneStyle.ts';
+import { projetoDoPainel, projetoDaVista3d } from '../editor/paneStyle.ts';
 import { ownViewport } from '../editor/paneCamera2d.ts';
 import { usePaneCameras, usePaneCanvas } from './usePaneCanvas.ts';
 import type { PaneId } from '../editor/panes.ts';
@@ -34,6 +34,8 @@ import type { PaneId } from '../editor/panes.ts';
 /** Tolerância (m) para escolher a linha de cortina sob o cursor na 3D (metade de um montante, com folga). */
 const TOLERANCIA_SUB_3D = 0.08;
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D, registrarPreparoCena3D } from '../editor/vista3dAoVivo.ts';
+import { cameraOrbitaDaSalva, cameraSalvaDaOrbita, vista3dSalvaDe } from '../editor/vista3dSalva.ts';
+import { gravarCameraDaVista3dAction } from '../editor/vista3dSalvaAcoes.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { planViewIdDe } from '../editor/viewIdentity.ts';
 import { buildSectionFrame } from './SectionCanvas.tsx';
@@ -236,6 +238,36 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     };
   }, [pane.isActive]);
   usePaneCameras(pane, model);
+  // Vista 3D salva: ao entrar, aplica a câmera guardada; ao sair (outra vista 3D ou outra aba), grava a câmera viva de
+  // volta na vista com `updateView3d`. Só o painel ativo grava: os demais são retratos da mesma vista.
+  const vista3dEmUso = useRef<{ ativa: boolean; id: Id | null }>({ ativa: false, id: null });
+  // Câmera do 3D padrão enquanto outra vista 3D está aberta (a órbita é uma só e é trocada ao entrar numa salva).
+  const camera3dPadrao = useRef<CameraDaPrevia | null>(null);
+  useEffect(() => {
+    const orbit = model.current.orbit;
+    const campos = pane.fields;
+    const agora = campos.view === '3d';
+    const idAgora = agora ? (campos.view3dViewId ?? null) : null;
+    const antes = vista3dEmUso.current;
+    const entrando = !antes.ativa || antes.id !== idAgora;
+    if (antes.ativa && entrando && isActiveRef.current) {
+      if (antes.id) gravarCameraDaVista3dAction(editor.store, antes.id, cameraSalvaDaOrbita(guardarCamera(orbit)));
+      else camera3dPadrao.current = guardarCamera(orbit);
+    }
+    if (agora && entrando) {
+      if (idAgora) {
+        const salva = view3dViewOf(editor.project, idAgora);
+        if (salva) {
+          restaurarCamera(orbit, cameraOrbitaDaSalva(salva.camera));
+          // A câmera da vista salva substitui o enquadramento automático da primeira abertura do 3D.
+          if (isActiveRef.current && !useUi.getState().seen3d) useUi.setState({ seen3d: true });
+        }
+      } else if (camera3dPadrao.current) {
+        restaurarCamera(orbit, camera3dPadrao.current);
+      }
+    }
+    vista3dEmUso.current = { ativa: agora, id: idAgora };
+  }, [pane.fields, isActiveRef]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Rótulos da planta e a vista deles: o estado só troca quando o conteúdo ou a vista muda (`publish`).
   const [labels, setLabels] = useState<LabelOp[]>(NO_LABELS);
@@ -370,7 +402,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const iniciarMontagem3d = useCallback((darkAgora: boolean, st: ReturnType<typeof useUi.getState>): boolean => {
-    const p = projetoDoPainel(editor.project, estiloDoPainelAgora(paneId), { kind: '3d' });
+    const base = projetoDaVista3d(editor.project, vista3dSalvaDe(editor.project, st));
+    const p = projetoDoPainel(base, estiloDoPainelAgora(paneId), { kind: '3d' });
     const vis = visibilityOf(p, st);
     // Sombras e arestas são da vista 3D no projeto (decisão 0015 §1): a chave inclui a versão do projeto.
     const v3 = view3dOf(p);
@@ -484,9 +517,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     dprRef.current = dpr;
     const g = gpuRef.current;
     const p = editor.project;
-    // Estilo visual do PRÓPRIO painel (`pane.style`) sobre o do projeto; painel sem estilo usa o projeto como sempre.
+    // Estilo visual do PRÓPRIO painel (`pane.style`) sobre o da vista (3D salva ou projeto); painel sem estilo usa a vista como está.
     const estilo = estiloDoPainelAgora(paneId);
-    const pEstilo = projetoDoPainel(p, estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) });
+    const pEstilo = projetoDoPainel(projetoDaVista3d(p, vista3dSalvaDe(p, st)), estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) });
     const vis = visibilityOf(p, st);
     const theme = dark ? DARK : LIGHT;
     if (st.view === '3d') {

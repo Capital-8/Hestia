@@ -1,4 +1,4 @@
-import { areaPlansOf, planViewsOfLevel, projectSheets, type Project } from '@hestia/model';
+import { areaPlansOf, planViewsOfLevel, projectSheets, view3dViewsOf, type Project } from '@hestia/model';
 import { t, type Lang } from './i18n.ts';
 import { sameView, viewKey, type OpenView } from './openViews.ts';
 import { MAX_PANES } from './panes.ts';
@@ -37,7 +37,7 @@ export function listPaneViews(p: Project, lang: Lang): PaneViewGroup[] {
     { id: 'floor', label: t(lang, 'pane_group_floor'), options: plantasDePiso },
     { id: 'roof', label: t(lang, 'pane_group_roof'), options: p.levels.flatMap((l) => opcao(p, { kind: 'plan', levelId: l.id, planKind: 'roof' })) },
     { id: 'area', label: t(lang, 'pane_group_area'), options: areaPlansOf(p).flatMap((a) => opcao(p, { kind: 'plan', levelId: a.levelId, planKind: 'area', areaPlanId: a.id })) },
-    { id: '3d', label: t(lang, 'pane_group_3d'), options: opcao(p, { kind: '3d' }) },
+    { id: '3d', label: t(lang, 'pane_group_3d'), options: [opcao(p, { kind: '3d' }), ...view3dViewsOf(p).flatMap((v) => opcao(p, { kind: '3d', viewId: v.id }))].flat() },
     { id: 'section', label: t(lang, 'pane_group_section'), options: p.views.filter((v) => v.kind === 'section').flatMap((v) => opcao(p, { kind: 'section', viewId: v.id })) },
     { id: 'elevation', label: t(lang, 'pane_group_elevation'), options: p.views.filter((v) => v.kind === 'elevation').flatMap((v) => opcao(p, { kind: 'section', viewId: v.id })) },
     { id: 'sheet', label: t(lang, 'pane_group_sheet'), options: projectSheets(p).flatMap((s) => opcao(p, { kind: 'sheet', sheetId: s.id })) },

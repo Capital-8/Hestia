@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type TomOuApresentacao, type Tone, type View3DSettings } from '@hestia/model';
+import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, mergeView3D, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, view3dViewOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type TomOuApresentacao, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
@@ -63,6 +63,22 @@ export function editView3D(store: ProjectStore, patch: View3DPatch, label = 'eds
   try {
     if (alreadyApplied(patch, view3dOf(store.project))) return OK;
     store.exec({ type: 'setView3D', patch }, label, useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/**
+ * Aplica os gráficos de UMA vista 3D salva (`Project.view3dViews`): a aba `3d:<id>` edita a própria cópia, não a vista
+ * 3D padrão. O comando `updateView3d` valida o resultado.
+ */
+export function editView3dSaved(store: ProjectStore, id: Id, patch: View3DPatch, label = 'eds_undo_change_3d_graphics'): GraphicsEdit {
+  try {
+    const view = view3dViewOf(store.project, id);
+    if (!view) return OK;
+    if (alreadyApplied(patch, view.settings)) return OK;
+    store.exec({ type: 'updateView3d', id, patch: { settings: mergeView3D(view.settings, patch) } }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);

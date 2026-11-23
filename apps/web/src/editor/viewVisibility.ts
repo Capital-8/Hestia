@@ -3,9 +3,10 @@ import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, 
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
+import { vista3dSalvaDe } from './vista3dSalva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
-type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId'>>;
+type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId' | 'view3dViewId'>>;
 
 /** Estado temporário de visibilidade de uma vista (não vai para o arquivo do projeto). */
 export interface TempViewVisibility {
@@ -25,7 +26,7 @@ export function visibilityKeyOf(st: ViewState): string | null {
 /** Vista alvo de ocultação permanente para o estado atual; null na prancha ou sem vista. */
 export function viewHiddenTargetOf(st: ViewState): ViewHiddenTarget | null {
   if (st.view === 'sheet' || st.view === 'face') return null;
-  if (st.view === '3d') return { kind: '3d' };
+  if (st.view === '3d') return st.view3dViewId ? { kind: 'view3d', viewId: st.view3dViewId } : { kind: '3d' };
   if (st.view === 'section') return st.sectionId ? { kind: 'section', viewId: st.sectionId } : null;
   if (st.planKind === 'area') return st.areaPlanId ? { kind: 'area', planId: st.areaPlanId } : null;
   if (st.planKind === 'roof') return { kind: 'roof', levelId: st.levelId };
@@ -44,6 +45,7 @@ export function permanentHiddenOf(p: Project, target: ViewHiddenTarget | null): 
     case 'area': return p.areaPlans?.find((a) => a.id === target.planId)?.hidden ?? {};
     case 'planView': return p.planViews?.find((x) => x.id === target.planId)?.hidden ?? {};
     case 'section': return p.views.find((v) => v.id === target.viewId)?.hidden ?? {};
+    case 'view3d': return p.view3dViews?.find((v) => v.id === target.viewId)?.settings.hidden ?? {};
     case '3d': return p.view3d?.hidden ?? {};
   }
 }
@@ -269,9 +271,11 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   const reveal = temp.reveal === true;
   const allIds = [...Object.keys(p.elements), ...annotationIdsOfActiveView(p, st)];
   const isolateSet = new Set(isolateIds);
-  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (3D, planta de disciplina ou padrão). Na 3D ausente =
-  // todas as disciplinas (nenhuma vira referência); no corte, a padrão.
-  const disciplinaDaVista3d = st.view === '3d' ? view3dOf(p).discipline : undefined;
+  // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (vista 3D salva, 3D padrão, planta de disciplina ou
+  // padrão). Na 3D ausente = todas as disciplinas (nenhuma vira referência); no corte, a padrão.
+  const vista3d = st.view === '3d' ? vista3dSalvaDe(p, st) : undefined;
+  const servicos3d = st.view === '3d' ? view3dOf(p) : undefined;
+  const disciplinaDaVista3d = vista3d?.discipline ?? vista3d?.settings.discipline ?? servicos3d?.discipline;
   const trabalho: Discipline | 'todas' =
     st.minhaDisciplina ??
     (st.view === '3d'
@@ -279,9 +283,11 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
       : st.view === 'plan'
         ? planOf(p, st.levelId, planta).discipline
         : DEFAULT_DISCIPLINE);
+  // Os tons da vista 3D salva são exceções por disciplina, como os da planta de disciplina.
+  const planoTons3d = vista3d && trabalho !== 'todas' ? { discipline: trabalho, ...(vista3d.tones ? { tones: vista3d.tones } : {}) } : undefined;
   const apresentacoes =
     st.view === '3d' || st.view === 'section'
-      ? apresentacoesPorCategoria(p, trabalho)
+      ? apresentacoesPorCategoria(p, trabalho, planoTons3d)
       : {};
   // O tom por elemento continua valendo só na planta (regra da ficha F4); o mapa por categoria vale nas três vistas.
   const tons = st.view === 'plan' ? tonsDaPlanta(p, st.levelId, planta, st.minhaDisciplina ?? null) : null;

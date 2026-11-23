@@ -16,6 +16,8 @@ export interface PaneViewFields {
   areaPlanId: Id | null;
   /** Planta de disciplina (só com `planKind` 'floor'); ausente = planta padrão. Só aparece quando definida. */
   planViewId?: Id | null;
+  /** Vista 3D salva; ausente/nulo = 3D padrão. */
+  view3dViewId?: Id | null;
   faceView?: { elementId: Id; face: FaceSlot; layer: FaceLayerTarget } | null;
 }
 
@@ -35,7 +37,7 @@ export function fieldsOfView(v: PaneView, fallbackLevelId: Id): PaneViewFields {
     case 'plan':
       return { view: 'plan', levelId: v.levelId, sectionId: null, sheetId: null, planKind: planKindOf(v), areaPlanId: planKindOf(v) === 'area' ? (v.areaPlanId ?? null) : null, faceView: null, ...(planKindOf(v) === 'floor' && v.planViewId ? { planViewId: v.planViewId } : {}) };
     case '3d':
-      return { view: '3d', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null };
+      return { view: '3d', levelId: fallbackLevelId, sectionId: null, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null, ...(v.viewId ? { view3dViewId: v.viewId } : {}) };
     case 'section':
       return { view: 'section', levelId: fallbackLevelId, sectionId: v.viewId, sheetId: null, planKind: 'floor', areaPlanId: null, faceView: null };
     case 'sheet':
@@ -47,12 +49,14 @@ export function fieldsOfView(v: PaneView, fallbackLevelId: Id): PaneViewFields {
 
 /** Os campos de vista de um estado da interface (descarta o resto). */
 export function pickViewFields(s: PaneViewFields): PaneViewFields {
-  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId, faceView: s.faceView ?? null, ...(s.planKind === 'floor' && s.planViewId ? { planViewId: s.planViewId } : {}) };
+  return { view: s.view, levelId: s.levelId, sectionId: s.sectionId, sheetId: s.sheetId, planKind: s.planKind, areaPlanId: s.areaPlanId, faceView: s.faceView ?? null, ...(s.planKind === 'floor' && s.planViewId ? { planViewId: s.planViewId } : {}), ...(s.view === '3d' && s.view3dViewId ? { view3dViewId: s.view3dViewId } : {}) };
 }
 
 /** Estado da interface com a vista sobreposta pela do painel (leituras do canvas de um painel inativo). */
 export function withViewFields<T extends PaneViewFields>(ui: T, f: PaneViewFields): T {
-  return { ...ui, ...f };
+  const out = { ...ui, ...f };
+  // Painel 3D padrão (ou vista que não é 3D): o id de uma vista salva do app não pode vazar para o painel.
+  return (f.view === '3d' && f.view3dViewId ? out : { ...out, view3dViewId: undefined }) as T;
 }
 
 /**

@@ -1179,7 +1179,7 @@ export class Editor {
     } else if (o.view === 'plan') {
       useUi.setState({ view: 'plan', planKind: o.planKind, areaPlanId: o.areaPlanId, planViewId: normalizaPlanViewId(this.project, o.levelId, o.planKind, o.planViewId), sectionId: null, levelId: o.levelId });
     } else {
-      useUi.setState({ view: '3d' });
+      useUi.setState({ view: '3d', view3dViewId: null });
     }
   }
 
@@ -1425,12 +1425,12 @@ export class Editor {
     this.setTool('select');
   }
 
-  setView(v: 'plan' | '3d'): void {
+  setView(v: 'plan' | '3d', viewId: Id | null = null): void {
     if (this.perimetro.bloqueiaNavegacao()) return;
     // Mudar de vista encerra o arraste de rótulo: o gesto pertence à planta em que começou.
     this.limparArrasteRotulo();
     this.limparVisibilidadeBuffer();
-    useUi.setState((s) => ({ view: v, hover: null, typed: '', previewTick: s.previewTick + 1 }));
+    useUi.setState((s) => ({ view: v, ...(v === '3d' ? { view3dViewId: viewId, ...(viewId ? { seen3d: true } : {}) } : {}), hover: null, typed: '', previewTick: s.previewTick + 1 }));
   }
 
   // ---------- arquivo ----------
@@ -1466,7 +1466,7 @@ export class Editor {
     this.viewports.clear();
     this.sectionCache.clear(); this.sectionPending.clear(); this.sectionToFrame.clear(); this.sectionClient?.cancelarTodos();
     // Abas de vista são da sessão: projeto novo começa só com o nível ativo, sem herdar abas do anterior.
-    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, planViewId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
+    useUi.setState({ selection: [], levelId: p.levels[0]?.id ?? 'lv_0', view: 'plan', planKind: 'floor', areaPlanId: null, planViewId: null, view3dViewId: null, sectionId: null, openViews: defaultOpenViews(p.levels.map((l) => l.id)), options: { ...useUi.getState().options, wallTypeId: p.defaults.wallTypeId, doorTypeId: p.defaults.doorTypeId, windowTypeId: p.defaults.windowTypeId, floorTypeId: keptFloorType(p, useUi.getState().options.floorTypeId), slabTypeId: keptSlabType(p, useUi.getState().options.slabTypeId) } });
     this.setTool('select');
     this.aquecerCorteSeInclinada(true);
   }
