@@ -1,7 +1,6 @@
 import { applyTransform, type Transform } from '@hestia/geom';
 import { validarFamilia } from './familia/validar.ts';
 import type { Familia } from './familia/tipos.ts';
-import { conexoesIssue } from './sistemasMep.ts';
 import type { Component, Id, Project } from './types.ts';
 
 /*
@@ -79,7 +78,7 @@ export function familiaDoComponente(p: Pick<Project, 'componentFamilies'>, c: Pi
 }
 
 /** Motivo (em português) pelo qual a instância não pode entrar no projeto, ou `null`. */
-export function componentIssue(p: Project, c: Pick<Component, 'familyId' | 'typeId' | 'levelId' | 'x' | 'y' | 'z' | 'rotation' | 'groupId' | 'inclinacao'> & Partial<Pick<Component, 'id' | 'ligacoes'>>): string | null {
+export function componentIssue(p: Project, c: Pick<Component, 'familyId' | 'typeId' | 'levelId' | 'x' | 'y' | 'z' | 'rotation' | 'groupId' | 'inclinacao'>): string | null {
   const fam = p.componentFamilies?.[c.familyId];
   if (!fam) return 'Família do componente não existe no projeto.';
   if (c.typeId !== null && !fam.tipos.some((t) => t.id === c.typeId)) return 'Tipo do componente não existe na família.';
@@ -90,10 +89,6 @@ export function componentIssue(p: Project, c: Pick<Component, 'familyId' | 'type
     const [inc, giro] = c.inclinacao;
     if (!Number.isFinite(inc) || !Number.isFinite(giro)) return 'Inclinação do componente inválida.';
     if (inc < 0 || inc > Math.PI) return 'A inclinação do componente deve estar entre 0 e π.';
-  }
-  if (c.ligacoes !== undefined && c.id !== undefined) {
-    const conexoes = conexoesIssue(p, { id: c.id, familyId: c.familyId, ligacoes: c.ligacoes });
-    if (conexoes) return conexoes;
   }
   return null;
 }

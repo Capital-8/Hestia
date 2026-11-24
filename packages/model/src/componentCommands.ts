@@ -1,6 +1,7 @@
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import { componentIssue, componentesDaFamilia, componentesDoGrupo, familyIssue, transformComponent } from './componentes.ts';
 import type { Familia } from './familia/tipos.ts';
+import { conexoesIssue } from './sistemasMep.ts';
 import { applyMepCommand, desconectarExcluidas, mepCommandLabel, type MepCommand } from './mepCommands.ts';
 import type { Component, ComponentGroup, Id, Project } from './types.ts';
 
@@ -119,6 +120,9 @@ export function applyComponentCommand(p: Project, c: ComponentCommand): void {
       const next: Component = { ...e, ...c.patch };
       const issue = componentIssue(p, next);
       if (issue) throw new Error(issue);
+      // Trocar `ligacoes` por aqui só vale se continuar recíproco (a conexão normal é `connectComponents`).
+      const conexoes = c.patch.ligacoes !== undefined ? conexoesIssue(p, next) : null;
+      if (conexoes) throw new Error(conexoes);
       p.elements[c.id] = next;
       break;
     }
