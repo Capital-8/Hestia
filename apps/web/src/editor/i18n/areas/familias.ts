@@ -2,6 +2,7 @@ import { PT_CORPO, EN_CORPO, ES_CORPO, DE_CORPO } from './familiasCorpo.ts';
 import { FR_CORPO, IT_CORPO, PL_CORPO } from './familiasCorpoOutros.ts';
 import { PT_LIGACAO, EN_LIGACAO, ES_LIGACAO, DE_LIGACAO, FR_LIGACAO, IT_LIGACAO, PL_LIGACAO } from './familiasLigacao.ts';
 import { PT_DETALHE, EN_DETALHE, ES_DETALHE, DE_DETALHE, FR_DETALHE, IT_DETALHE, PL_DETALHE } from './familiasDetalhe.ts';
+import { PT_SIMBOLO, EN_SIMBOLO, ES_SIMBOLO, DE_SIMBOLO, FR_SIMBOLO, IT_SIMBOLO, PL_SIMBOLO } from './familiasSimbolo.ts';
 import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
 import { PT_MODELOS, EN_MODELOS, ES_MODELOS, DE_MODELOS, FR_MODELOS, IT_MODELOS, PL_MODELOS } from './familiasModelos.ts';
 import { PT_INSTANCIA, EN_INSTANCIA, ES_INSTANCIA, DE_INSTANCIA, FR_INSTANCIA, IT_INSTANCIA, PL_INSTANCIA } from './familiasInstancia.ts';
@@ -38,6 +39,7 @@ export const PT_FAMILIAS = {
   ...PT_CORPO,
   ...PT_LIGACAO,
   ...PT_DETALHE,
+  ...PT_SIMBOLO,
   ...PT_REDE,
   ...PT_MODELOS,
   ...PT_INSTANCIA,
@@ -71,6 +73,7 @@ export const EN_FAMILIAS: D = {
   ...EN_CORPO,
   ...EN_LIGACAO,
   ...EN_DETALHE,
+  ...EN_SIMBOLO,
   ...EN_REDE,
   ...EN_MODELOS,
   ...EN_INSTANCIA,
@@ -102,6 +105,7 @@ export const ES_FAMILIAS: D = {
   ...ES_CORPO,
   ...ES_LIGACAO,
   ...ES_DETALHE,
+  ...ES_SIMBOLO,
   ...ES_REDE,
   ...ES_MODELOS,
   ...ES_INSTANCIA,
@@ -133,6 +137,7 @@ export const DE_FAMILIAS: D = {
   ...DE_CORPO,
   ...DE_LIGACAO,
   ...DE_DETALHE,
+  ...DE_SIMBOLO,
   ...DE_REDE,
   ...DE_MODELOS,
   ...DE_INSTANCIA,
@@ -164,6 +169,7 @@ export const FR_FAMILIAS: D = {
   ...FR_CORPO,
   ...FR_LIGACAO,
   ...FR_DETALHE,
+  ...FR_SIMBOLO,
   ...FR_REDE,
   ...FR_MODELOS,
   ...FR_INSTANCIA,
@@ -195,6 +201,7 @@ export const IT_FAMILIAS: D = {
   ...IT_CORPO,
   ...IT_LIGACAO,
   ...IT_DETALHE,
+  ...IT_SIMBOLO,
   ...IT_REDE,
   ...IT_MODELOS,
   ...IT_INSTANCIA,
@@ -226,6 +233,7 @@ export const PL_FAMILIAS: D = {
   ...PL_CORPO,
   ...PL_LIGACAO,
   ...PL_DETALHE,
+  ...PL_SIMBOLO,
   ...PL_REDE,
   ...PL_MODELOS,
   ...PL_INSTANCIA,
