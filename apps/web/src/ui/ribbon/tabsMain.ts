@@ -177,7 +177,7 @@ export const TAB_INSERIR: RibbonTab = {
       soon(t('Importar PDF', 'Import PDF'), 'sheet'),
       soon(t('Imagem', 'Image'), 'sheet'),
     ),
-    panel('ins-tubulacao', t('Tubulação', 'Piping'), tool('tubo', 'large', { label: t('Tubo', 'Pipe'), icon: 'component' })),
+    panel('ins-tubulacao', t('Tubulação', 'Piping'), tool('tubo', 'large', { label: t('Tubo', 'Pipe'), icon: 'component' }), act('verificarRede', 'large', t('Verificar rede', 'Check network'))),
     panel('ins-moveis', t('Móveis', 'Furniture'), act('importFurniture', 'large'), act('myBlocks', 'large'), tool('furniture', 'large', { label: t('Colocar móvel', 'Place furniture'), icon: 'component' })),
     panel(
       'ins-biblioteca',

@@ -90,6 +90,7 @@ import { LoteScheduleDialog } from './ui/dialogs/LoteScheduleDialog.tsx';
 import { LoteRumosDialog } from './ui/dialogs/LoteRumosDialog.tsx';
 import { ImportFurnitureDialog } from './ui/dialogs/ImportFurnitureDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
+import { RedeDiagnosticoDialog } from './ui/dialogs/RedeDiagnosticoDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
@@ -247,6 +248,8 @@ function Dialogs(): ReactElement | null {
       return <ImportFurnitureDialog />;
     case 'manageCad':
       return <ManageCadDialog />;
+    case 'redeDiagnostico':
+      return <RedeDiagnosticoDialog />;
     case 'experimentos':
       return <ExperimentosDialog />;
     case 'about':

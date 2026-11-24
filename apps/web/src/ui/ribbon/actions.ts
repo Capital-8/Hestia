@@ -496,6 +496,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   },
   importFurniture: { label: t('Importar móvel', 'Import furniture'), icon: 'open', hint: t('Traz um móvel 3D de um arquivo (.skp, .glb, .obj...) para o projeto.', 'Brings a 3D piece of furniture from a file (.skp, .glb, .obj...) into the project.'), run: openDialog('importFurniture') },
   myBlocks: { label: t('Meus blocos', 'My blocks'), icon: 'layers', hint: t('Lista os blocos do projeto para colocar mais cópias.', 'Lists the project blocks so you can place more copies.'), run: openDialog('importFurniture', 'blocks') },
+  verificarRede: { label: t('Verificar rede', 'Check network'), icon: 'detail', hint: t('Procura ligações abertas, conexões desfeitas ou incompatíveis, trechos fora da declividade e redes sem saída.', 'Finds open connections, broken or incompatible joints, slopes out of range and networks without an outlet.'), run: openDialog('redeDiagnostico') },
   manageCad: {
     label: t('Gerenciar CAD', 'Manage CAD'),
     icon: 'layers',
