@@ -1,4 +1,4 @@
-import type { CorpoResolvido, PecaResolvida } from '@hestia/engine';
+import type { CorpoResolvido, LigacaoResolvida, PecaResolvida } from '@hestia/engine';
 import {
   definirTampoCaixaria,
   definirTamponamentosCaixaria,
@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { Familia3DControles } from './Familia3DControles.tsx';
 import { indiceDaPeca, limitesDaFamilia, limitarPosicao, type Vista3D } from './familia3d.ts';
 import { executarPeca } from './familiaPecaAviso.ts';
+import { useLigacaoSel } from './FamiliaLigacoesPainel.tsx';
 import { useFamilia, type Corte, type DetalheFamilia } from './familiaStore.ts';
 import './familia3d.css';
 import './familiaCaixaria.css';
@@ -157,6 +158,8 @@ function tratarCliqueFace(clique: CliqueFace3D): void {
 
 /** Sem corpos: lista fixa, para o efeito de corpos não rodar a cada render. */
 const SEM_CORPOS: readonly CorpoResolvido[] = [];
+/** Sem ligações: lista fixa, para o efeito das ligações não rodar a cada render. */
+const SEM_LIGACOES: readonly LigacaoResolvida[] = [];
 
 export interface Familia3DProps {
   familia: Familia;
@@ -164,6 +167,8 @@ export interface Familia3DProps {
   pecas: readonly PecaResolvida[];
   /** Corpos resolvidos (`res.corpos`); ausente = nenhum corpo. */
   corpos?: readonly CorpoResolvido[];
+  /** Ligações resolvidas (`res.ligacoes`, ficha C2b); ausente = nenhuma. */
+  ligacoes?: readonly LigacaoResolvida[];
   sel: string | null;
   onSel: (id: string | null) => void;
   /** 0..1: quanto a caixaria aparece explodida. */
@@ -180,6 +185,7 @@ export function Familia3D({
   env,
   pecas,
   corpos = SEM_CORPOS,
+  ligacoes = SEM_LIGACOES,
   sel,
   onSel,
   explodir,
@@ -196,6 +202,7 @@ export function Familia3D({
   const [indisponivel, setIndisponivel] = useState(false);
 
   const modo3d = useFamilia((s) => s.modo3d);
+  const ligacaoSel = useLigacaoSel((s) => s.id);
   const alvoPorta = useFamilia((s) => s.alvoPorta);
   const vaoSel = useFamilia((s) => s.vaoSel);
   const hoverVao = useFamilia((s) => s.hoverVao);
@@ -272,6 +279,10 @@ export function Familia3D({
   }, [corpos]);
 
   useEffect(() => {
+    visualizadorRef.current?.definirLigacoes(ligacoes, ligacaoSel);
+  }, [ligacoes, ligacaoSel]);
+
+  useEffect(() => {
     visualizadorRef.current?.definirVaos(vaos);
   }, [vaos]);
 
@@ -312,7 +323,7 @@ export function Familia3D({
   };
 
   return (
-    <div ref={containerRef} className="fam3d-root">
+    <div ref={containerRef} className="fam3d-root" data-ligacoes={ligacoes.length}>
       {indisponivel ? (
         <p className="fam3d-aviso" role="alert">3D indisponível neste navegador (WebGL)</p>
       ) : (

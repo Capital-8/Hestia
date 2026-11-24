@@ -1,4 +1,4 @@
-import { malhaDasPecas, type CorpoResolvido, type PecaResolvida } from '@hestia/engine';
+import { malhaDasPecas, type CorpoResolvido, type LigacaoResolvida, type PecaResolvida } from '@hestia/engine';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -10,6 +10,7 @@ import {
   type NivelDetalhe3d,
 } from './logica.ts';
 import { CorposNaCena } from './visualizadorCorpos.ts';
+import { LigacoesNaCena } from './visualizadorLigacoes.ts';
 import { marcadoresVisiveis } from './usinagensMarcadores.ts';
 import type {
   CliqueFace3D,
@@ -67,6 +68,7 @@ export class VisualizadorFamilia {
   private readonly indiceDoObjeto = new WeakMap<THREE.Object3D, number>();
   private readonly vaosOverlay = new VaosOverlay();
   private readonly corposCena = new CorposNaCena();
+  private readonly ligacoesCena = new LigacoesNaCena();
   private visuais: PecaNaCena[] = [];
   private pecas: readonly PecaResolvida[] = [];
   private esfera: { centro: [number, number, number]; raio: number } = { centro: [0, 0, 0], raio: 1 };
@@ -99,7 +101,7 @@ export class VisualizadorFamilia {
     const hemisferica = new THREE.HemisphereLight(0xffffff, 0x5a5a5a, 2.2);
     const direcional = new THREE.DirectionalLight(0xffffff, 2.4);
     direcional.position.set(3, -4, 6);
-    this.raiz.add(this.vaosOverlay.grupo, this.corposCena.grupo);
+    this.raiz.add(this.vaosOverlay.grupo, this.corposCena.grupo, this.ligacoesCena.grupo);
     this.cena.add(hemisferica, direcional, this.raiz);
 
     canvas.addEventListener('pointerdown', this.aoPointerDown);
@@ -158,6 +160,9 @@ export class VisualizadorFamilia {
     }
     this.agendarDesenho();
   }
+
+  /** Marcadores das ligações (ficha C2b): disco na seção e seta na direção, na cor do domínio; a selecionada fica realçada. Lista vazia limpa. */
+  definirLigacoes(ligacoes: readonly LigacaoResolvida[], selecionada: string | null): void { this.ligacoesCena.definir(ligacoes, selecionada); this.agendarDesenho(); }
 
   /** Esfera de enquadramento: das peças quando há peças; sem peças, dos corpos (se houver). */
   private esferaAtual(): { centro: [number, number, number]; raio: number } {
@@ -331,6 +336,7 @@ export class VisualizadorFamilia {
     this.controles.dispose();
     this.limparPecas();
     this.corposCena.destruir();
+    this.ligacoesCena.destruir();
     this.vaosOverlay.destruir();
     this.raiz.remove(this.vaosOverlay.grupo);
     this.geoDisco.dispose();

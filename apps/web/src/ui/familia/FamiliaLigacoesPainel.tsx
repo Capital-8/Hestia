@@ -1,5 +1,6 @@
 import { adicionarLigacao, criarLigacaoPadrao, type DominioLigacao, type SecaoLigacao } from '@hestia/model';
 import { useState, type ReactElement } from 'react';
+import { create } from 'zustand';
 import { useT } from '../../editor/i18n.ts';
 import {
   DOMINIOS_LIGACAO_UI,
@@ -13,9 +14,19 @@ import './familiaCorpo.css';
 
 /*
  * Seção "Ligações" do painel (ficha C2): lista das ligações da família, criação de uma nova (domínio e seção) e o
- * formulário da selecionada. A seleção é local a este painel. Ainda NÃO está montada no editor: falta o ponto de
- * montagem em `FamiliaPaineis.tsx`, que está fora da lista de arquivos desta ficha.
+ * formulário da selecionada. A seleção fica em `useLigacaoSel` (ficha C2b) para o 3D realçar a mesma ligação.
  */
+
+interface EstadoLigacaoSel {
+  id: string | null;
+  selecionar: (id: string | null) => void;
+}
+
+/** Ligação selecionada no painel de ligações; o marcador 3D correspondente fica realçado. */
+export const useLigacaoSel = create<EstadoLigacaoSel>((set) => ({
+  id: null,
+  selecionar: (id) => set({ id }),
+}));
 
 /** Próximo id `ligN` livre entre as ligações existentes. */
 function proximoIdLigacao(ids: readonly string[]): string {
@@ -28,7 +39,8 @@ export function FamiliaLigacoesPainel(): ReactElement {
   const { t } = useT();
   const familia = useFamilia((s) => s.historico.atual);
   const ligacoes = familia.ligacoes ?? [];
-  const [selecionada, setSelecionada] = useState<string | null>(null);
+  const selecionada = useLigacaoSel((s) => s.id);
+  const selecionar = useLigacaoSel((s) => s.selecionar);
   const [dominio, setDominio] = useState<DominioLigacao>('agua_fria');
   const [secao, setSecao] = useState<SecaoLigacao>('redonda');
   const [erro, setErro] = useState<string | null>(null);
@@ -39,7 +51,7 @@ export function FamiliaLigacoesPainel(): ReactElement {
     const id = proximoIdLigacao(ligacoes.map((l) => l.id));
     const motivo = useFamilia.getState().executar('Nova ligação', (f) => adicionarLigacao(f, criarLigacaoPadrao(dominio, secao, id)));
     setErro(motivo);
-    if (motivo === null) setSelecionada(id);
+    if (motivo === null) selecionar(id);
   };
 
   return (
@@ -55,7 +67,7 @@ export function FamiliaLigacoesPainel(): ReactElement {
                 className={`fam-bt${l.id === selecionada ? ' on' : ''}`}
                 aria-pressed={l.id === selecionada}
                 onClick={() => {
-                  setSelecionada(l.id);
+                  selecionar(l.id);
                   setErro(null);
                 }}
               >
@@ -92,7 +104,7 @@ export function FamiliaLigacoesPainel(): ReactElement {
           ligacao={atual}
           aoErro={setErro}
           aoExcluir={() => {
-            setSelecionada(null);
+            selecionar(null);
             setErro(null);
           }}
         />
