@@ -5,6 +5,7 @@ import { validarEncaixe } from './validarEncaixe.ts';
 import { validarFormulas } from './validarFormulas.ts';
 import { validarParametros } from './validarParametros.ts';
 import { validarReferencias } from './validarReferencias.ts';
+import { validarCorpos } from './validarCorpos.ts';
 import { criarProblema, ehObjeto } from './validarComum.ts';
 
 /*
@@ -74,6 +75,7 @@ export function validarFamilia(f: Familia): Problema[] {
     ...validarParametros(f),
     ...validarFormulas(f),
     ...validarReferencias(f),
+    ...validarCorpos(f),
     ...validarCiclo(f),
     ...validarEncaixe(f),
     ...validarDisciplina(f),
