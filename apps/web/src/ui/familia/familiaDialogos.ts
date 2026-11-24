@@ -6,7 +6,7 @@ import type { Escopo, Familia, OpcaoParametro, Parametro, Tipo, TipoParametro, V
  */
 
 export const TIPOS_PARAMETRO: readonly TipoParametro[] = [
-  'comprimento', 'numero', 'inteiro', 'booleano', 'texto', 'enum', 'chapa', 'material',
+  'comprimento', 'numero', 'inteiro', 'angulo', 'booleano', 'texto', 'enum', 'chapa', 'material',
 ];
 
 export const ROTULO_TIPO: Readonly<Record<TipoParametro, string>> = {

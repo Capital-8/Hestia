@@ -67,7 +67,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 8 | [D6b](fichas/D6b.md) | Detalhe da família como viewport da prancha | Sonnet | D6 | pendente | |
 | 8 | [I1](fichas/I1.md) | Verificar rede: botão e painel montados | Haiku | C7 | pendente | |
 | 8 | [I2](fichas/I2.md) | Aba "Quantitativos" MEP no orçamento do projeto | Haiku | E3 | pendente | |
-| 8 | [I3](fichas/I3.md) | Pendências de modelo: angulo na interface, caixaria no arquivo, material do corpo | Haiku | A1, A2b, A9 | pendente | |
+| 8 | [I3](fichas/I3.md) | Pendências de modelo: angulo na interface, caixaria no arquivo, material do corpo | Haiku | A1, A2b, A9 | integrada (itens 2 e 3 pela ficha; item 1 pelo orquestrador) | 9a7b89ef |
 | 8 | [F-CSG](fichas/F-CSG.md) | (Opcional) Subtração real de vazios nos corpos | Sonnet | A6; só se a caixa de inspeção precisar | pendente | |
 | 8 | [H3](fichas/H3.md) | (Opcional) Espelho Rust das malhas dos corpos | Sonnet | A6 e testes cegos verdes | pendente | |
 
@@ -126,4 +126,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · G3: `ComponentePropriedadesMep.tsx` (inclinação em graus, conexões com "Ver vizinho"/"Desconectar", sistema, verificações, tabelas) montado em `ComponentProperties.tsx` (402 linhas); roteiro de scratch passou (tubo conectado, inclinar 30° = 0,5236 rad, desconectar/desfazer); o bloqueio "erro impede inserir" NÃO está no painel (só exibe); painel precisa de rolagem para ver as conexões.
 - 2026-11-24 · D3: `edicaoSimbolos.ts` (operações puras), painel de símbolos com tela SVG fixa (−500…1500 mm; sem zoom/pan/seleção múltipla; pontos com fórmula sem alça), símbolo novo nasce com uma linha de exemplo, roteiro `familias-simbolos.mjs` 6/6; NÃO verificado: o símbolo aparecer na planta do PROJETO. Suíte ampla antes do D3: 1.373 arquivos / 17.442 testes verdes.
 - 2026-11-24 · D6 (parcial): `quadroDeDetalhe(detalhe, escala, origem?)` (engine) converte o `DetalheResolvido` em linhas/textos em mm de papel; a prancha NÃO foi integrada: `SheetViewSource` (model/sheet.ts) é união fechada (plan, areaPlan, areaTable, section, 3d) usada em ~56 checagens de `view.kind`, `render/sheet/build.ts` não conhece instância de família e o projeto não guarda referência instância+detalhe para viewport → ficha D6b (Sonnet).
+- 2026-11-24 · I3: `caixaria` na lista branca de `arquivo.ts` (ida e volta testada); renomear/excluir parâmetro enxergam `Corpo.material` (`corpo:<id>.material`); orquestrador: `angulo` entrou em `TIPOS_PARAMETRO` (após `inteiro`) e os dois testes de enumeração de `familiaDialogos.test.ts` foram ampliados (rótulos e faixa/fórmula) — alteração de teste autorizada por ser enumeração do próprio seletor.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)

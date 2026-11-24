@@ -21,13 +21,13 @@ const param = (f: Familia, id: string): Parametro => f.parametros.find((p) => p.
 describe('rótulos e capacidades por tipo', () => {
   it('tem rótulo para todos os tipos', () => {
     expect(TIPOS_PARAMETRO.map((t) => ROTULO_TIPO[t])).toEqual([
-      'Comprimento', 'Número', 'Inteiro', 'Sim/Não', 'Texto', 'Enumeração', 'Chapa', 'Material',
+      'Comprimento', 'Número', 'Inteiro', 'Ângulo', 'Sim/Não', 'Texto', 'Enumeração', 'Chapa', 'Material',
     ]);
   });
 
   it('faixa, fórmula e opções valem para os tipos certos', () => {
-    expect(TIPOS_PARAMETRO.filter(temFaixa)).toEqual(['comprimento', 'numero', 'inteiro']);
-    expect(TIPOS_PARAMETRO.filter(aceitaFormula)).toEqual(['comprimento', 'numero', 'inteiro', 'booleano']);
+    expect(TIPOS_PARAMETRO.filter(temFaixa)).toEqual(['comprimento', 'numero', 'inteiro', 'angulo']);
+    expect(TIPOS_PARAMETRO.filter(aceitaFormula)).toEqual(['comprimento', 'numero', 'inteiro', 'angulo', 'booleano']);
     expect(TIPOS_PARAMETRO.filter(temOpcoes)).toEqual(['enum', 'chapa']);
   });
 });
