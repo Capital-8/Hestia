@@ -6,7 +6,7 @@ import { derivado, inteiro } from './novosApoio.ts';
 import { dimensao } from './tuboEsgotoApoio.ts';
 
 /*
- * Apoio das fossas, filtro, sumidouro e vala (ficha F4, ADR 0061). Dimensões em mm; volumes em litros (mm³ / 10^6).
+ * Apoio das fossas, filtro, sumidouro e vala (ficha F4, ADR 0061). Dimensões em mm; volumes em litros (mm3 / 10^6).
  * AVISO: a fórmula do volume útil e todos os valores abaixo são DE MEMÓRIA e RAZOÁVEIS. Nenhuma família afirma atender à norma:
  * tudo é parâmetro editável. Cada valor de norma leva o comentário `CONFERIR: NBR 7229 (norma vigente)`.
  * Eixos: X largura (L), Y profundidade (P), Z altura (A), fundo em z = 0.
@@ -28,7 +28,7 @@ export const PADRAO_LODO_FRESCO = 1;
 // CONFERIR: NBR 13969 (norma vigente): tempo de detenção do filtro anaeróbio (dias) e fator do volume útil.
 export const PADRAO_DETENCAO_FILTRO = 0.5;
 export const FATOR_FILTRO = 1.6;
-// CONFERIR: taxa de infiltração do solo (L/m²·dia): só o ensaio de percolação do terreno define.
+// CONFERIR: taxa de infiltração do solo (L/m2·dia): só o ensaio de percolação do terreno define.
 export const PADRAO_TAXA_INFILTRACAO = 60;
 
 /** Volume exigido (L) = 1000 + N · (C · T + K · Lf). CONFERIR: NBR 7229 (norma vigente). */
@@ -39,7 +39,7 @@ export const FORMULA_VOLUME_FILTRO = 'fatorFiltro * nContrib * contribDia * temp
 /** Volume exigido (L) em TypeScript, com a mesma fórmula, para dimensionar os tipos. */
 export const volumeExigido = (n: number): number => 1000 + n * (PADRAO_CONTRIBUICAO * PADRAO_DETENCAO + PADRAO_TAXA_LODO * PADRAO_LODO_FRESCO);
 export const volumeExigidoFiltro = (n: number): number => FATOR_FILTRO * n * PADRAO_CONTRIBUICAO * PADRAO_DETENCAO_FILTRO;
-/** Área de infiltração exigida (m²) = vazão diária / taxa de infiltração. */
+/** Área de infiltração exigida (m2) = vazão diária / taxa de infiltração. */
 export const areaExigida = (n: number): number => (n * PADRAO_CONTRIBUICAO) / PADRAO_TAXA_INFILTRACAO;
 
 /** Arredonda para cima ao múltiplo de `passo` (mm). */
@@ -59,7 +59,9 @@ export function parametrosNorma(exigido: 'fossa' | 'filtro' | 'infiltracao'): Pa
     return [
       ...base,
       c('contribDia', 'Contribuição diária (L/pessoa·dia)', PADRAO_CONTRIBUICAO, 20, 600),
+      // units-ok: rótulo de unidade do texto da família, não formatação
       c('taxaInfiltracao', 'Taxa de infiltração do solo (L/m²·dia)', PADRAO_TAXA_INFILTRACAO, 5, 500),
+      // units-ok: rótulo de unidade do texto da família, não formatação
       derivado('areaExigida', 'Área de infiltração exigida (m²)', 'nContrib * contribDia / taxaInfiltracao'),
     ];
   }

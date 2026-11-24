@@ -26,13 +26,14 @@ import { comprimento } from './novosApoio.ts';
 const E = 100;
 const ET = 80;
 const HA = 500;
+// units-ok: rótulo de unidade do texto da família, não formatação
 const verificacaoArea = { id: 'areaInsuficiente', severidade: 'aviso', condicao: 'areaInfiltracao < areaExigida', mensagem: 'Área de infiltração de {areaInfiltracao} m² menor que a exigida de {areaExigida} m² para {nContrib} contribuintes (CONFERIR)' } as const;
 
 function familiaInfiltracao(d: DadosCaixa, detalhe: DetalheFamilia): Familia {
   return { ...familiaCaixa(d), detalhes: [detalhe] };
 }
 
-/** Área de infiltração (m²) do sumidouro: parede dos anéis, π · Di · (nAneis · ha). O fundo não conta (CONFERIR). */
+/** Área de infiltração (m2) do sumidouro: parede dos anéis, π · Di · (nAneis · ha). O fundo não conta (CONFERIR). */
 export const AREA_SUMIDOURO = `${PI} * (L - 2 * e) * nAneis * ha / 1000000`;
 /** Volume do poço (litros), útil como referência: π/4 · Di² · (nAneis · ha). */
 export const VOLUME_SUMIDOURO = `${PI} / 4 * (L - 2 * e) * (L - 2 * e) * nAneis * ha / 1000000`;
@@ -49,6 +50,7 @@ export function tiposSumidouro(): Tipo[] {
 const parametrosPoco = [
   parametroNumero('ha', 'Altura de cada anel', HA, 200, 1000, 'tipo'),
   derivado('nAneis', 'Número de anéis', 'floor((A - et) / ha)'),
+  // units-ok: rótulo de unidade do texto da família, não formatação
   derivado('areaInfiltracao', 'Área de infiltração (m²)', AREA_SUMIDOURO),
   derivado('volumeUtil', 'Volume do poço (litros)', VOLUME_SUMIDOURO),
 ];
@@ -74,6 +76,7 @@ export const FAMILIA_SUMIDOURO: Familia = familiaInfiltracao(
     verificacaoArea,
     { id: 'semAneis', severidade: 'erro', condicao: 'nAneis < 1', mensagem: 'Altura de {A} mm não comporta nenhum anel de {ha} mm' },
   ],
+  // units-ok: rótulo de unidade do texto da família, não formatação
   tabelas: tabelaFossa({ titulo: 'Área de infiltração', valor: 'areaInfiltracao', unidade: 'm²' }),
   },
   detalheCorte({ saida: false, fundo: false }),
@@ -82,7 +85,7 @@ export const FAMILIA_SUMIDOURO: Familia = familiaInfiltracao(
 // Vala de infiltração: leito de brita (L × P × hBrita) com tubo perfurado ao longo de X; entrada na ponta −X.
 /** Altura do leito de brita (mm) = profundidade total − cobertura de terra. */
 const BRITA = 'A - cobertura';
-/** Área de infiltração da vala (m²): fundo e as duas laterais do leito, (P + 2 · hBrita) · L. */
+/** Área de infiltração da vala (m2): fundo e as duas laterais do leito, (P + 2 · hBrita) · L. */
 export const AREA_VALA = '(P + 2 * hBrita) * L / 1000000';
 const P_VALA = 600;
 const COBERTURA = 300;
@@ -139,6 +142,7 @@ export const FAMILIA_VALA_INFILTRACAO: Familia = {
       parametroNumero('cobertura', 'Cobertura de terra sobre a brita', COBERTURA, 100, 1000, 'tipo'),
       parametroNumero('cotaEntrada', 'Cota de fundo da entrada', A_VALA - COBERTURA - 150, 0, 3000, 'instancia', 'Tubulações'),
       derivado('hBrita', 'Altura do leito de brita', BRITA),
+      // units-ok: rótulo de unidade do texto da família, não formatação
       derivado('areaInfiltracao', 'Área de infiltração (m²)', AREA_VALA),
       derivado('volumeUtil', 'Volume do leito de brita (litros)', 'L * P * hBrita / 1000000'),
       ...parametrosNorma('infiltracao'),
@@ -156,6 +160,7 @@ export const FAMILIA_VALA_INFILTRACAO: Familia = {
       { id: 'tuboNaoCabe', severidade: 'erro', condicao: 'DN + 100 > hBrita', mensagem: 'Tubo DN {DN} não cabe no leito de {hBrita} mm' },
       { id: 'entradaForaDoLeito', severidade: 'erro', condicao: 'cotaEntrada + DN / 2 > A', mensagem: 'Entrada com cota de {cotaEntrada} mm fica acima da superfície' },
     ],
+    // units-ok: rótulo de unidade do texto da família, não formatação
     tabelas: tabelaFossa({ titulo: 'Área de infiltração', valor: 'areaInfiltracao', unidade: 'm²' }),
   }, detalheVala),
 };
