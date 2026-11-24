@@ -27,6 +27,12 @@ export { DISCIPLINAS_EXEMPLO };
 export { TUBULACAO_ESGOTO };
 export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS, ...DISCIPLINAS_EXEMPLO];
 
+/*
+ * Biblioteca MEP (ficha F1b): famílias de instalações (hoje, a tubulação de esgoto e as conexões). Separada de BIBLIOTECA_BASE,
+ * que é só de móveis: os testes de conectores e de snapshot da base não se aplicam a elas.
+ */
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO];
+
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
   cozinha: ['fam_base_gavetas', 'fam_base_pia', 'fam_base_cooktop', 'fam_aereo', 'fam_aereo_basculante', 'fam_torre_forno', 'fam_paneleiro', 'fam_canto_l'],
@@ -36,6 +42,7 @@ export const IDS_OBRIGATORIOS = {
   disciplinasExemplo: ['fam_vaso_sanitario', 'fam_lavatorio', 'fam_ralo', 'fam_tomada', 'fam_interruptor', 'fam_luminaria_teto', 'fam_quadro_distribuicao', 'fam_difusor_teto'],
 } as const;
 
+/** Família da biblioteca (base ou MEP) pelo id; `undefined` se não existe em nenhuma das duas. */
 export function familiaDaBiblioteca(id: string): Familia | undefined {
-  return BIBLIOTECA_BASE.find((f) => f.id === id);
+  return BIBLIOTECA_BASE.find((f) => f.id === id) ?? BIBLIOTECA_MEP.find((f) => f.id === id);
 }

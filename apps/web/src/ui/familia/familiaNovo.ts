@@ -1,4 +1,4 @@
-import { ROTULO_CATEGORIA, type CategoriaFamilia, type Familia } from '@hestia/model';
+import { BIBLIOTECA_BASE, BIBLIOTECA_MEP, DISCIPLINA_DA_CATEGORIA, ROTULO_CATEGORIA, type CategoriaFamilia, type Familia } from '@hestia/model';
 
 /*
  * Apoio puro do diálogo "Novo módulo": filtro da galeria, ids das cópias do usuário e o registro dos ids já abertos
@@ -33,6 +33,16 @@ export const CATEGORIAS: readonly OpcaoCategoria[] = [
   { id: 'chapa_estrutural', rotulo: ROTULO_CATEGORIA.chapa_estrutural },
   { id: 'meus', rotulo: 'Meus modelos' },
 ];
+
+/** Ordena por disciplina (ordem de primeira aparição em DISCIPLINA_DA_CATEGORIA); a ordem interna de cada disciplina é mantida. */
+export function agruparPorDisciplina(familias: readonly Familia[]): Familia[] {
+  const ordem = [...new Set(Object.values(DISCIPLINA_DA_CATEGORIA))];
+  const posicao = (f: Familia): number => ordem.indexOf(DISCIPLINA_DA_CATEGORIA[f.categoria]);
+  return [...familias].sort((a, b) => posicao(a) - posicao(b));
+}
+
+/** Galeria da biblioteca: os móveis (ordem de sempre) e, depois, as famílias MEP agrupadas por disciplina. */
+export const FAMILIAS_GALERIA: readonly Familia[] = [...BIBLIOTECA_BASE, ...agruparPorDisciplina(BIBLIOTECA_MEP)];
 
 /** Minúsculas e sem acento, para busca por nome ou descrição. */
 export function normalizarTexto(texto: string): string {
