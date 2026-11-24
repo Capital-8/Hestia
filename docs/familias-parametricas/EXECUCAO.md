@@ -16,7 +16,8 @@ Ferramenta `Agent` com `subagent_type: "general-purpose"`, `model: "haiku"` (ou 
 Você é o executor da ficha <ID> do projeto Hestia (criador de famílias paramétricas, ADR 0061).
 Leia, nesta ordem e só estes: docs/familias-parametricas/REGRAS.md, docs/familias-parametricas/fichas/<ID>.md,
 as seções do docs/familias-parametricas/CONTRATO.md que a ficha cita. Depois execute a ficha.
-Primeiro passo obrigatório: cp -a /home/user/Hestia/node_modules ./node_modules (veja REGRAS.md §3).
+PRIMEIRO: o worktree pode nascer numa base antiga; rode `git merge --ff-only claude/lucid-euler-ddb7j6` (branch local) e confirme que docs/familias-parametricas/fichas/<ID>.md existe.
+Passo obrigatório: cp -a /home/user/Hestia/node_modules ./node_modules (veja REGRAS.md §3).
 Trabalhe só neste worktree; commite o que fizer (a branch do worktree é a sua entrega); não faça push.
 Termine com o relatório de REGRAS.md §7. Mensagens de commit terminam com:
 Co-Authored-By: Claude <MODELO> <noreply@anthropic.com>
