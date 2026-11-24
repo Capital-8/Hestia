@@ -4,7 +4,9 @@ import { tentar, type Env } from '../expressao.ts';
 import type { Familia, Valor } from '../tipos.ts';
 import { validarFamilia } from '../validar.ts';
 import { KRONA_ESGOTO_FAMILIAS } from './kronaEsgoto.ts';
-import { ITEM_TUBO_PRIMARIO, itemKrona } from './kronaEsgotoApoio.ts';
+import { itemKrona } from './kronaEsgotoApoio.ts';
+
+const ITEM_TUBO_PRIMARIO = 'tubo_de_pvc_esgoto_primario_6m';
 
 /*
  * Famílias de esgoto montadas do catálogo da Krona: cada medida da família tem de ser IGUAL à do catálogo (a família lê o dado,
@@ -38,9 +40,9 @@ const f = (id: string): Familia => {
 const ponto = (p: readonly string[], env: Env): number[] => p.map((s) => n(s, env));
 
 describe('esgoto Krona: cadastro', () => {
-  it('são 6 famílias de hidrossanitário, todas válidas, com ids únicos', () => {
-    expect(KRONA_ESGOTO_FAMILIAS).toHaveLength(6);
-    expect(new Set(KRONA_ESGOTO_FAMILIAS.map((x) => x.id)).size).toBe(6);
+  it('são 25 famílias de hidrossanitário, todas válidas, com ids únicos', () => {
+    expect(KRONA_ESGOTO_FAMILIAS).toHaveLength(25);
+    expect(new Set(KRONA_ESGOTO_FAMILIAS.map((x) => x.id)).size).toBe(25);
     for (const x of KRONA_ESGOTO_FAMILIAS) {
       expect(x.disciplina).toBe('hidrossanitario');
       expect(validarFamilia(x).filter((p) => p.nivel === 'erro')).toEqual([]);
@@ -48,8 +50,25 @@ describe('esgoto Krona: cadastro', () => {
       expect(x.descricao).toMatch(/Não afirma conformidade/);
     }
   });
-  it('têm um tipo por bitola do catálogo (50, 75, 100, 150, 200)', () => {
-    for (const x of KRONA_ESGOTO_FAMILIAS) expect(x.tipos.map((t) => t.id)).toEqual(['dn50', 'dn75', 'dn100', 'dn150', 'dn200']);
+  it('têm um tipo por bitola do catálogo que traz todas as cotas (nada é inventado)', () => {
+    const ids = (id: string): string[] => f(id).tipos.map((t) => t.id).sort();
+    expect(ids('fam_krona_esgoto_tubo')).toEqual(['dn100', 'dn150', 'dn200', 'dn250', 'dn40', 'dn50', 'dn75']);
+    expect(ids('fam_krona_esgoto_joelho90')).toEqual(['dn100', 'dn150', 'dn200', 'dn40', 'dn50', 'dn75']);
+    expect(ids('fam_krona_esgoto_curva45_curta')).toEqual(['dn100']);
+    expect(ids('fam_krona_esgoto_curva90_longa')).toEqual(['dn100', 'dn150', 'dn50', 'dn75']);
+    for (const x of KRONA_ESGOTO_FAMILIAS) expect(x.tipos.length).toBeGreaterThan(0);
+  });
+  it('a redução excêntrica deixa de fora a linha 0657 (d = 15,0 no PDF, erro de impressão)', () => {
+    const cods = f('fam_krona_esgoto_reducao_excentrica').tipos.map((t) => t.valores.COD);
+    expect(cods).toEqual(expect.arrayContaining([654, 655, 656, 724]));
+    expect(cods).not.toContain(657);
+  });
+  it('bitola composta usa o código do produto como chave (tê de redução 100 x 75 = 0665)', () => {
+    const fam = f('fam_krona_esgoto_te_reducao');
+    const env = ambiente(fam, 'cod0665');
+    expect(n('Db', env)).toBe(101.6);
+    expect(n('Db2', env)).toBe(75.5);
+    expect(n('B2', env)).toBe(44);
   });
   it('nenhuma usa material de madeira (nada de carvalho em tubo)', () => {
     for (const x of KRONA_ESGOTO_FAMILIAS) for (const c of x.corpos ?? []) expect(c.material).toBe('mat_pvc');
@@ -107,7 +126,7 @@ describe('esgoto Krona: as medidas são as do catálogo', () => {
     expect(ponto(b?.posicao ?? [], env)).toEqual([0, 0, 79]);
     expect(n(a?.propriedades?.profundidadeBolsa ?? '', env)).toBe(45);
     expect(n(b?.propriedades?.profundidadeBolsa ?? '', env)).toBe(31);
-    expect(n('C - B1 - B2', env)).toBe(3);
+    expect(n('C - B - B2', env)).toBe(3);
   });
   it('tê: comprimento da corrida = C do catálogo (216) e ramal a Z2 + B (53 + 45)', () => {
     const fam = f('fam_krona_esgoto_te');

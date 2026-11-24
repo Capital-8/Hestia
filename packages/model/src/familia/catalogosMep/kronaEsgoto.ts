@@ -109,7 +109,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
   item('joelho_90_esgoto_com_visita', 'Joelho 90° Esgoto Com Visita', 'joelho90', 'Esgoto série normal', 14, { B1: 'bolsa 1', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D1: 'diâmetro 1', d: 'diâmetro externo da ponta', B2: 'bolsa 2', Z2: 'Z do ramal 2', C: 'comprimento total', D2: 'diâmetro 2' }, [
     ['0622', '100x50', { B1: 45, Z: 58, D1: 101.6, d: 101.6, B2: 39, Z2: 52.8, C: 200, D2: 50.7 }],
   ]),
-  item('joelho_90_branco_esgoto_com_anel', 'Joelho 90° Branco Esgoto Com Anel', 'joelho90', 'Esgoto série normal', 14, { B1: 'bolsa 1', Z1: 'Z do ramal 1', D1: 'diâmetro 1', B2: 'bolsa 2', Z2: 'Z do ramal 2', Z2_2: 'Z2_2', D2: 'diâmetro 2' }, [
+  item('joelho_90_branco_esgoto_com_anel_de_vedacao', 'Joelho 90° Branco Esgoto Com Anel de Vedação', 'joelho90', 'Esgoto série normal', 14, { B1: 'bolsa 1', Z1: 'Z do ramal 1', D1: 'diâmetro 1', B2: 'bolsa 2', Z2: 'Z do ramal 2', Z2_2: 'Z2_2', D2: 'diâmetro 2' }, [
     ['0623', '40x40', { B1: 26.1, Z1: 20.9, D1: 40, B2: 18, Z2: 20.5, Z2_2: 52.8, D2: 40 }],
   ]),
   item('joelho_90_azul_esgoto_com_anel_de_vedacao', 'Joelho 90° Azul Esgoto Com Anel de Vedação', 'joelho90', 'Esgoto série normal', 14, { B1: 'bolsa 1', Z1: 'Z do ramal 1', D1: 'diâmetro 1', B2: 'bolsa 2', Z2: 'Z do ramal 2', D2: 'diâmetro 2' }, [
@@ -129,7 +129,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['0704', '75x75', { B: 44, C: 211, Z1: 19.1, Z2: 93.6, D: 75.5, d: 75.5 }],
     ['0709', '100x100', { B: 45, C: 260, Z1: 26, Z2: 125.5, D: 101.6, d: 101.6 }],
   ]),
-  item('juncao_45_invertida_de_reducao_para', 'Junção 45° Invertida de Redução para', 'juncao', 'Esgoto série normal', 15, { B1: 'bolsa 1', C: 'comprimento total', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2', D1: 'diâmetro 1', d: 'diâmetro externo da ponta', B2: 'bolsa 2', D2: 'diâmetro 2' }, [
+  item('juncao_45_invertida_de_reducao_para_esgoto_primario', 'Junção 45° Invertida de Redução para Esgoto Primário', 'juncao', 'Esgoto série normal', 15, { B1: 'bolsa 1', C: 'comprimento total', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2', D1: 'diâmetro 1', d: 'diâmetro externo da ponta', B2: 'bolsa 2', D2: 'diâmetro 2' }, [
     ['0700', '70x50', { B1: 44, C: 178, Z1: 131.7, Z2: 81.3, D1: 75.5, d: 75.5, B2: 39, D2: 50.7 }],
     ['0701', '100x50', { B1: 45, C: 186, Z1: 148, Z2: 98.8, D1: 101.6, d: 101.6, B2: 39, D2: 50.7 }],
     ['0702', '100x75', { B1: 45, C: 223, Z1: 165.5, Z2: 112.1, D1: 101.6, d: 101.6, B2: 44, D2: 75.5 }],
@@ -184,7 +184,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['0665', '100x75', { B1: 45, C: 224, Z1: 41, Z2: 67.1, D1: 101.6, d: 101.6, B2: 44, D2: 75.5 }],
     ['0666', '150x100', { B1: 60, C: 243, Z1: 54, Z2: 93.2, D1: 150, d: 150, B2: 45, D2: 101.6 }],
   ]),
-  item('te_de_reducao_esgoto_2', 'Tê de Redução Esgoto', 'te', 'Esgoto série normal', 17, { D: 'diâmetro interno da bolsa (CONFERIR)', d: 'diâmetro externo da ponta' }, [
+  item('aneis_de_vedacao_esgoto_sn_e_sr', 'Anéis de Vedação Esgoto SN e SR', 'outro', 'Esgoto série normal', 17, { D: 'diâmetro interno da bolsa (CONFERIR)', d: 'diâmetro externo da ponta' }, [
     ['0670', '40', { D: 37.2, d: 5 }],
     ['0671', '50', { D: 49, d: 6.2 }],
     ['0672', '75', { D: 74, d: 6.2 }],
@@ -195,7 +195,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
   item('te_de_inspecao_esgoto', 'Tê de Inspeção Esgoto', 'te', 'Esgoto série normal', 17, { B: 'profundidade da bolsa', C1: 'comprimento 1', Z: 'distância do centro à entrada da bolsa (CONFERIR)', C2: 'comprimento 2', D: 'diâmetro interno da bolsa (CONFERIR)', d: 'diâmetro externo da ponta', T: 'T' }, [
     ['0728', '100x75', { B: 45, C1: 186, Z: 42.5, C2: 71.4, D: 101.6, d: 101.6, T: 82 }],
   ]),
-  item('item_sem_titulo_codigo_0668', 'Item sem título (código 0668)', 'outro', 'Esgoto série normal', 18, { B: 'profundidade da bolsa', C1: 'comprimento 1', C2: 'comprimento 2', C3: 'C3', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2', D1: 'diâmetro 1', T: 'T', D2: 'diâmetro 2' }, [
+  item('valvula_de_retencao_esgoto', 'Válvula de Retenção Esgoto', 'outro', 'Esgoto série normal', 18, { B: 'profundidade da bolsa', C1: 'comprimento 1', C2: 'comprimento 2', C3: 'C3', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2', D1: 'diâmetro 1', T: 'T', D2: 'diâmetro 2' }, [
     ['0668', '100', { B: 45, C1: 221, C2: 128.5, C3: 113.5, Z1: 67, Z2: 54, D1: 101.6, T: 167, D2: 150 }],
     ['0669', '150', { B: 60, C1: 299, C2: 160.7, C3: 145.7, Z1: 100, Z2: 79, D1: 150, T: 208, D2: 200 }],
   ]),
@@ -208,7 +208,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['1168', '100', { ØA: 101.6, ØB: 105.6, ØC: 150.6, D: 165.6, E: 28.5, F: 60, ØG: 60 }],
     ['1169', '150', { ØA: 150, ØB: 155.4, ØC: 198, D: 213, E: 31, F: 65, ØG: 65 }],
   ]),
-  item('sifao_50mm', 'Sifão 50mm', 'sifao', 'Esgoto série normal', 22, { A: 'altura (CONFERIR)', B: 'profundidade da bolsa', C: 'comprimento total', D: 'diâmetro interno da bolsa (CONFERIR)', E: 'E (CONFERIR)', F: 'F' }, [
+  item('bolsa_acoplavel_cx_sifonada_pvc', 'Bolsa Acoplável CX Sifonada PVC', 'outro', 'Esgoto série normal', 22, { A: 'altura (CONFERIR)', B: 'profundidade da bolsa', C: 'comprimento total', D: 'diâmetro interno da bolsa (CONFERIR)', E: 'E (CONFERIR)', F: 'F' }, [
     ['0089', '100', { A: 60, B: 55, C: 97, D: 30, E: 12, F: 12 }],
     ['0090', '150', { A: 60, B: 56, C: 142, D: 30, E: 11, F: 12 }],
   ]),
@@ -238,7 +238,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['1407', '50', { B: 39, Z: 52, C: 92, D: 50.7, d: 50.7 }],
     ['1425', '75', { B: 44.4, Z: 66.6, C: 112, D: 75.5, d: 75.5 }],
   ]),
-  item('curva_90_curta_pe_coluna_esgoto_serie_reforcada', 'Curva 90° Curta Pé Coluna Esgoto Série', 'curva90', 'Esgoto série reforçada', 31, { A1: 'A1', A2: 'A2', B1: 'bolsa 1', B2: 'bolsa 2', D1: 'diâmetro 1', D2: 'diâmetro 2' }, [
+  item('curva_90_curta_pe_coluna_esgoto_serie_reforcada', 'Curva 90° Curta Pé Coluna Esgoto Série Reforçada', 'curva90', 'Esgoto série reforçada', 31, { A1: 'A1', A2: 'A2', B1: 'bolsa 1', B2: 'bolsa 2', D1: 'diâmetro 1', D2: 'diâmetro 2' }, [
     ['1409', '75', { A1: 99.3, A2: 96.7, B1: 44, B2: 44, D1: 75.5, D2: 75.5 }],
     ['1410', '100', { A1: 125, A2: 120, B1: 45, B2: 45, D1: 101.6, D2: 101.6 }],
     ['1411', '150', { A1: 172.2, A2: 172.2, B1: 60, B2: 60, D1: 150, D2: 150 }],
@@ -248,7 +248,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['1416', '100', { B: 45, Z: 28, C: 62, D: 101.6, d: 101.6 }],
     ['1417', '150', { B: 60, Z: 37.8, C: 65.2, D: 150, d: 150 }],
   ]),
-  item('joelho_45_esgoto_serie_reforcada', 'Joelho 45° Esgoto Série Reforçada', 'joelho45', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
+  item('item_sem_titulo_codigo_1413_reforcada', 'Item sem título (código 1413)', 'outro', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1413', '40', { B: 18, Z: 9.5, D: 40 }],
   ]),
   item('joelho_90_esgoto_serie_reforcada_primario', 'Joelho 90° Esgoto Série Reforçada Primário', 'joelho90', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', d: 'diâmetro externo da ponta', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
@@ -257,37 +257,37 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['1422', '100', { B: 45, C: 104.2, Z: 58, d: 101.6, D: 101.6 }],
     ['1423', '150', { B: 60, C: 139, Z: 84.8, d: 150, D: 150 }],
   ]),
-  item('joelho_90_esgoto_serie_reforcada', 'Joelho 90° Esgoto Série Reforçada', 'joelho90', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
+  item('joelho_90_esgoto_serie_reforcada_secundario', 'Joelho 90° Esgoto Série Reforçada Secundário', 'joelho90', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1419', '40', { B: 18, Z: 21, D: 40 }],
   ]),
   item('juncao_dupla_esgoto_serie_reforcada', 'Junção Dupla Esgoto Série Reforçada', 'juncao', 'Esgoto série reforçada', 32, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', d: 'diâmetro externo da ponta', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1426', '100', { B: 45, C: 245, Z: 127, d: 101.6, D: 101.6 }],
   ]),
-  item('juncao_simples_esgoto_serie_reforcada', 'Junção Simples Esgoto Série Reforçada', 'juncao', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', d: 'diâmetro externo da ponta', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
+  item('juncao_simples_esgoto_serie_reforcada_primario', 'Junção Simples Esgoto Série Reforçada Primário', 'juncao', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', d: 'diâmetro externo da ponta', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1428', '50', { B: 39, C: 162, Z: 67.5, d: 50.7, D: 50.7 }],
     ['1429', '75', { B: 44, C: 200, Z: 95, d: 75.5, D: 75.5 }],
     ['1430', '100', { B: 45, C: 245, Z: 127, d: 101.6, D: 101.6 }],
     ['1431', '150', { B: 60, C: 340, Z: 186.5, d: 150, D: 150 }],
   ]),
-  item('juncao_simples_esgoto_serie_reforcada_2', 'Junção Simples Esgoto Série Reforçada', 'juncao', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
+  item('juncao_simples_esgoto_serie_reforcada_secundario', 'Junção Simples Esgoto Série Reforçada Secundário', 'juncao', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', C: 'comprimento total', Z: 'distância do centro à entrada da bolsa (CONFERIR)', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1427', '40', { B: 18, C: 101, Z: 53, D: 40 }],
   ]),
-  item('juncao_simples_reducao_esgoto_serie_reforcada', 'Junção Simples Redução Esgoto Série', 'juncao', 'Esgoto série reforçada', 33, { B1: 'bolsa 1', B2: 'bolsa 2', C: 'comprimento total', D1: 'diâmetro 1', D2: 'diâmetro 2', d: 'diâmetro externo da ponta', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2' }, [
+  item('juncao_simples_reducao_esgoto_serie_reforcada', 'Junção Simples Redução Esgoto Série Reforçada', 'juncao', 'Esgoto série reforçada', 33, { B1: 'bolsa 1', B2: 'bolsa 2', C: 'comprimento total', D1: 'diâmetro 1', D2: 'diâmetro 2', d: 'diâmetro externo da ponta', Z1: 'Z do ramal 1', Z2: 'Z do ramal 2' }, [
     ['1433', '75x50', { B1: 39, B2: 44, C: 166, D1: 75.5, D2: 50.7, d: 75.5, Z1: 77.2, Z2: 82.4 }],
     ['1434', '100x50', { B1: 45, B2: 39, C: 177, D1: 101.6, D2: 75.5, d: 101.6, Z1: 92.5, Z2: 103.3 }],
     ['1435', '100x75', { B1: 45, B2: 44, C: 208, D1: 101.6, D2: 75.5, d: 101.6, Z1: 92.5, Z2: 114 }],
     ['1436', '150x100', { B1: 60, B2: 45, C: 271, D1: 150, D2: 101.6, d: 150, Z1: 152.2, Z2: 162.3 }],
   ]),
-  item('luva_simples_esgoto_serie_reforcada', 'Luva Simples Esgoto Série Reforçada', 'luva', 'Esgoto série reforçada', 33, { B1: 'bolsa 1', B2: 'bolsa 2', D: 'diâmetro interno da bolsa (CONFERIR)', Z: 'distância do centro à entrada da bolsa (CONFERIR)' }, [
+  item('luva_simples_esgoto_serie_reforcada_primario', 'Luva Simples Esgoto Série Reforçada Primário', 'luva', 'Esgoto série reforçada', 33, { B1: 'bolsa 1', B2: 'bolsa 2', D: 'diâmetro interno da bolsa (CONFERIR)', Z: 'distância do centro à entrada da bolsa (CONFERIR)' }, [
     ['1439', '50', { B1: 39, B2: 21.4, D: 50.7, Z: 2.1 }],
     ['1440', '75', { B1: 44.4, B2: 26, D: 75.5, Z: 2.6 }],
     ['1440', '100', { B1: 45, B2: 31.5, D: 101.6, Z: 3 }],
     ['1442', '150', { B1: 60, B2: 49.5, D: 150, Z: 5.5 }],
   ]),
-  item('luva_simples_esgoto_serie_reforcada_2', 'Luva Simples Esgoto Série Reforçada', 'luva', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', D: 'diâmetro interno da bolsa (CONFERIR)', Z: 'distância do centro à entrada da bolsa (CONFERIR)' }, [
+  item('luva_simples_esgoto_serie_reforcada_secundario', 'Luva Simples Esgoto Série Reforçada Secundário', 'luva', 'Esgoto série reforçada', 33, { B: 'profundidade da bolsa', D: 'diâmetro interno da bolsa (CONFERIR)', Z: 'distância do centro à entrada da bolsa (CONFERIR)' }, [
     ['1438', '40', { B: 18, D: 40, Z: 3 }],
   ]),
-  item('luva_de_correr_para_tubo_esgoto_serie_reforcada', 'Luva de Correr para Tubo Esgoto Série', 'luva', 'Esgoto série reforçada', 34, { C: 'comprimento total', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
+  item('luva_de_correr_para_tubo_esgoto_serie_reforcada', 'Luva de Correr para Tubo Esgoto Série Reforçada', 'luva', 'Esgoto série reforçada', 34, { C: 'comprimento total', D: 'diâmetro interno da bolsa (CONFERIR)' }, [
     ['1444', '40', { C: 660, D: 40.4 }],
     ['1445', '50', { C: 78, D: 51.3 }],
     ['1446', '75', { C: 90, D: 75.9 }],

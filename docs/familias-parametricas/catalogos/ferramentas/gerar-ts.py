@@ -23,6 +23,7 @@ L = []
 for t in d['tabelas']:
     if not t['linhas']: continue
     titulo = re.sub(r'\s+', ' ', re.sub(r'^[\^A-Za-z0-9¹²]{1,2}(\s{2,}[\^A-Za-z0-9¹²]{1,2})*\s{2,}', '', t['titulo'])).strip().lstrip('^ ')
+    if len(titulo.split()) < 2: titulo = ''
     if not titulo: titulo = 'Item sem título (código ' + t['linhas'][0]['codigo'] + ')'
     base = slug(titulo) + ('_reforcada' if 'reforçada' in t['secao'] and 'reforcad' not in sem(titulo).lower() else '')
     n = usados.get(base, 0) + 1; usados[base] = n

@@ -97,6 +97,40 @@ export function buscaDaColuna(item: ItemCatalogo, coluna: string, chave: string)
   return `busca(${chave}, ${pares.map(([b, v]) => `${b}, ${v}`).join(', ')})`;
 }
 
+/** Linhas que têm TODAS as colunas pedidas (com `padroes`, uma coluna ausente copia outra: `{ d: 'D' }`). */
+export function linhasCom(item: ItemCatalogo, colunas: string[], padroes: Record<string, string> = {}): LinhaCatalogo[] {
+  return item.linhas
+    .map((l) => {
+      const valores = { ...l.valores };
+      for (const [alvo, de] of Object.entries(padroes)) if (valores[alvo] === undefined && valores[de] !== undefined) valores[alvo] = valores[de];
+      return { ...l, valores };
+    })
+    .filter((l) => colunas.every((c) => ehNumero(l.valores[c])));
+}
+
+/**
+ * Junta itens do catálogo (ex.: primário + secundário) num só, para uma família ler todas as bitolas. As colunas do resultado são
+ * as pedidas; linhas que não tenham todas ficam de fora (nunca se inventa valor). `padroes` copia coluna ausente de outra.
+ */
+export function juntarItens(id: string, nome: string, itens: ItemCatalogo[], colunas: string[], padroes: Record<string, string> = {}): ItemCatalogo {
+  const base = itens[0];
+  if (!base) throw new Error('Catálogo: juntarItens sem itens');
+  const significado: Record<string, string> = {};
+  for (const c of colunas) significado[c] = itens.map((i) => i.colunas[c]).find((x) => x !== undefined) ?? c;
+  const linhas = itens.flatMap((i) => linhasCom(i, colunas, padroes).map((l) => ({ ...l, valores: Object.fromEntries(colunas.map((c) => [c, l.valores[c] as number])) })));
+  const estado = itens.every((i) => i.estado === 'conferido') ? 'conferido' : 'CONFERIR';
+  return { id, nome, tipo: base.tipo, serie: base.serie, colunas: significado, linhas, pagina: base.pagina, estado };
+}
+
+/** Como `buscaDaColuna`, mas a chave é o CÓDIGO do produto (para bitolas compostas como "75 x 50"). */
+export function buscaPorCodigo(item: ItemCatalogo, coluna: string, chave: string): string | null {
+  const pares = item.linhas
+    .map((l) => [l.codigo === undefined ? NaN : Number(l.codigo), l.valores[coluna]] as const)
+    .filter((p): p is readonly [number, number] => Number.isFinite(p[0]) && ehNumero(p[1]));
+  if (pares.length === 0) return null;
+  return `busca(${chave}, ${pares.map(([b, v]) => `${b}, ${v}`).join(', ')})`;
+}
+
 /** Valor de uma coluna para uma bitola, ou erro claro (não devolve zero por omissão). */
 export function valorDoItem(item: ItemCatalogo, bitola: number, coluna: string): number {
   const v = linhaDaBitola(item, bitola)?.valores[coluna];
@@ -134,6 +168,7 @@ function consistenciaGeometrica(item: ItemCatalogo): ProblemaCatalogoMep[] {
     const o = `item ${item.id}, bitola ${l.bitola}`;
     const { B, C, D, d, e, Z } = l.valores;
     if (ehNumero(D) && ehNumero(d) && Math.abs(D - d) > 0.5) out.push(aviso(o, `D (${D}) difere de d (${d}) em mais de 0,5 mm: conferir qual é o diâmetro da bolsa e qual o da ponta`));
+    if (ehNumero(D) && ehNumero(d) && (d > D * 3 || d < D / 3)) out.push(aviso(o, `D (${D}) e d (${d}) muito diferentes: provável erro de impressão do catálogo`));
     if (ehNumero(e) && ehNumero(d) && e >= d / 2) out.push(erro(o, `espessura e (${e}) não cabe no diâmetro d (${d})`));
     if (ehNumero(B) && ehNumero(C) && B > C) out.push(erro(o, `profundidade da bolsa B (${B}) maior que o comprimento C (${C})`));
     if (item.tipo.startsWith('joelho') && ehNumero(B) && ehNumero(Z) && ehNumero(C) && Math.abs(B + Z - C) > 1) {
