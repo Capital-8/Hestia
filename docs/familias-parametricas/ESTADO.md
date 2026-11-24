@@ -9,14 +9,14 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 ## Fichas
 | Onda | Ficha | Título | Modelo | Depende de | Estado | Commit |
 |---|---|---|---|---|---|---|
-| 1 | [A1](fichas/A1.md) | Fórmulas: funções trigonométricas, `busca`, `PI` e parâmetro `angulo` | Haiku | — | pendente | |
+| 1 | [A1](fichas/A1.md) | Fórmulas: funções trigonométricas, `busca`, `PI` e parâmetro `angulo` | Haiku | — | integrada | f2453356 |
 | 1 | [A2](fichas/A2.md) | Validação dos corpos e dos perfis | Haiku | — | integrada | 83db3cce |
-| 1 | [A3](fichas/A3.md) | Resolução dos perfis em polígonos (`PerfilResolvido`) | Haiku | — | pendente | |
-| 1 | [A3-cego](fichas/A3-cego.md) | Teste cego dos perfis | Haiku | A3 não precisa estar pronta (rodar depois contra ela) | escrita (rodar contra A3) | b43b6c76 |
+| 1 | [A3](fichas/A3.md) | Resolução dos perfis em polígonos (`PerfilResolvido`) | Haiku | — | integrada | c8e3644c |
+| 1 | [A3-cego](fichas/A3-cego.md) | Teste cego dos perfis | Haiku | A3 não precisa estar pronta (rodar depois contra ela) | arbitrada (48 verdes; 7 ambiguidades abertas) | b43b6c76 |
 | 1 | [A4](fichas/A4.md) | Caminho 3D com curvas tangentes (cotovelo de tubo) | Sonnet | — | integrada | dabd70a4 |
 | 1 | [A4-cego](fichas/A4-cego.md) | Teste cego do caminho com curvas | Haiku | rodar contra A4 | arbitrada (19 verdes; 4 ambiguidades abertas) | c237f83c |
 | 1 | [A9](fichas/A9.md) | Arquivo `hestia-familia` versão 2 | Haiku | — | integrada | ad45f16a |
-| 1 | [E1](fichas/E1.md) | Categorias novas: IFC padrão e galeria | Haiku | — | pendente | |
+| 1 | [E1](fichas/E1.md) | Categorias novas: IFC padrão e galeria | Haiku | — | integrada | dcd5bc5b |
 | 2 | [A2b](fichas/A2b.md) | Renomear e excluir parâmetro enxergam as fórmulas dos corpos | Haiku | A2 | pendente | |
 | 2 | [A5](fichas/A5.md) | Malha dos corpos: extrusão e revolução | Haiku | A3 | pendente | |
 | 2 | [A5-cego](fichas/A5-cego.md) | Teste cego das malhas de extrusão e revolução | Haiku | rodar contra A5 | pendente | |
@@ -72,4 +72,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · A9: `FAMILIA_VERSAO` = 2. OBSERVAÇÃO (fora de escopo, tratar depois): `caixaria` existe em `Familia` mas NÃO está na lista branca de `arquivo.ts`, então é descartada ao salvar/abrir arquivo de família (possível perda de dados pré-existente). `tsc` do monorepo fica vermelho (import de `corposPerfil.ts`) até a A3 ser integrada — esperado, é o teste cego A3-cego.
 - 2026-11-24 · A2: códigos de diagnóstico de corpos: `obrigatorio`, `faixa`, `limite`, `tipo`, `formula`, `referencia`, `id_invalido`, `id_duplicado`. Faixas extras validadas: `segmentos` do perfil 8..128 e `segmentosPorCurva` 2..64. Renomear/excluir parâmetro ainda NÃO enxerga corpos: ficha nova A2b.
 - 2026-11-24 · Revolução: novo campo `afastamento?: Expr` em `FormaCorpo.revolucao`; perfis centrados encostam no eixo (u_min = afastamento), `poligono` usa u literal + afastamento; ver CONTRATO §2.3 e ficha A5 (teste do toro).
+- 2026-11-24 · A1: `busca` só aceita chaves numéricas (texto fica para depois); `PI` como id de parâmetro recusado em `validarParametros`; `angulo` ainda NÃO está no seletor de tipos da UI (`TIPOS_PARAMETRO` em `familiaDialogos.ts`, pendente para a ficha G2); `edicaoApoio.ts` (RESERVADOS) e `validarEstrutura.ts` ainda não reservam `PI` → coberto na ficha A2b. Integração: `acoes.ts` ganhou o caso `angulo` (2 linhas).
+- 2026-11-24 · A3/A3-cego: `segmentos` do círculo/anel fica entre 8 e 128 (CONTRATO §2.2), valores fora são limitados; `resolverPerfil` devolve `{ ok: true; perfil } | { ok: false; erro }`; vértices trigonométricos não são arredondados a 1 µm (só as medidas de entrada).
+- 2026-11-24 · E1: rótulos das categorias novas ficam em pt-BR fixo em `ROTULO_CATEGORIA` (sem i18n nas 7 línguas por ora); tarefa de i18n entra na ficha G1.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)

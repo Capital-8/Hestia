@@ -17,6 +17,7 @@ function controleDe(p: Parametro): TipoControle {
   switch (p.tipo) {
     case 'comprimento':
     case 'numero':
+    case 'angulo':
     case 'inteiro':
       return p.min !== undefined && p.max !== undefined && p.max > p.min ? 'slider' : 'numero';
     case 'enum':
@@ -81,6 +82,7 @@ function lerNumero(texto: string): number | null {
 export function lerEntrada(p: Parametro, texto: string): Valor | null {
   switch (p.tipo) {
     case 'comprimento':
+    case 'angulo':
     case 'numero': {
       const n = lerNumero(texto);
       if (n === null) return null;

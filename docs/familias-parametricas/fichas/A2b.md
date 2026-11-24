@@ -12,6 +12,8 @@ A ficha A2 não conseguiu cobrir esta parte porque `percorrerFamilia` em `packag
 2. Renomear parâmetro reescreve as referências dentro dessas fórmulas (mesma rotina que já reescreve as de peças); excluir parâmetro recusa quando alguma fórmula de corpo ainda o usa, com o motivo em português no estilo atual (cite o corpo).
 3. Testes acrescentados em `edicao.test.ts` ou novo `edicaoCorposParametros.test.ts` (NOVO): renomear `D` para `DN` atualiza perfil circular, caminho e `repetir`; excluir parâmetro usado em corpo é recusado; família sem corpos não muda; desfazer volta.
 
+4. Reserve o identificador `PI` (e os nomes das funções novas `sin cos tan asin acos atan atan2 pow busca`) em `RESERVADOS` de `edicaoApoio.ts` e na lista fixa de `validarEstrutura.ts`: renomear um parâmetro para esses nomes é recusado, com teste.
+
 ## Aceitação
 Os quatro testes acima verdes; suíte `packages/model/src/familia` sem regressão.
 
@@ -20,6 +22,7 @@ Os quatro testes acima verdes; suíte `packages/model/src/familia` sem regressã
 - `packages/model/src/familia/edicaoParametros.ts`
 - `packages/model/src/familia/grafo.ts` (só exportar a lista de campos, se preciso)
 - `packages/model/src/familia/validarCorpos.ts` (só exportar, se preciso)
+- `packages/model/src/familia/validarEstrutura.ts` (só a lista de nomes reservados)
 - `packages/model/src/familia/edicaoCorposParametros.test.ts` (NOVO)
 
 ## Proibido
