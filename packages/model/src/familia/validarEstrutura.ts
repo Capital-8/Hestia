@@ -10,7 +10,9 @@ import type { Problema } from './validar.ts';
  */
 
 const ID_VALIDO = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const RESERVADOS = new Set(['i', 'n', 'min', 'max', 'abs', 'floor', 'ceil', 'round', 'clamp', 'sqrt']);
+const RESERVADOS = new Set([
+  'i', 'n', 'min', 'max', 'abs', 'floor', 'ceil', 'round', 'clamp', 'sqrt', 'PI', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'pow', 'busca',
+]);
 
 // ───────────────────────── regra 1: obrigatorios ─────────────────────────
 

@@ -1,5 +1,7 @@
 import { FUNCOES, compilar, referencias } from './expressao.ts';
 import type { Aninhado, Familia, Ferragem, Parametro, Peca, PlanoReferencia, Tipo, Usinagem, Valor } from './tipos.ts';
+import type { Corpo } from './tiposCorpo.ts';
+import { camposDoCorpo } from './validarCorpos.ts';
 
 /*
  * Apoio das operações de edição (ficha E4-edicao): validação de ids, escolha de id livre e UM percurso único das
@@ -24,7 +26,10 @@ export function lista<T>(v: readonly T[] | undefined): readonly T[] {
   return Array.isArray(v) ? v : [];
 }
 
-const RESERVADOS: ReadonlySet<string> = new Set(['i', 'n', ...Object.keys(FUNCOES)]);
+/** Constante e funções que a linguagem de fórmulas já usa: nenhum parâmetro ou plano pode ter esses ids (ficha A2b). */
+const RESERVADOS: ReadonlySet<string> = new Set([
+  'i', 'n', 'PI', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'pow', 'busca', ...Object.keys(FUNCOES),
+]);
 
 export function idValido(id: unknown): id is string {
   return typeof id === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(id);
@@ -57,8 +62,34 @@ export function nomeBase(nome: string): string {
   return ponto < 0 ? nome : nome.slice(0, ponto);
 }
 
+/** Chave de um caminho de campo: nome de propriedade ou índice de lista. */
+type Chave = string | number;
+
+/** `quadro.origem[0]` → `['quadro', 'origem', 0]`. Caminho sem partes válidas vira lista vazia. */
+function caminhoDe(relativo: string): Chave[] {
+  const out: Chave[] = [];
+  for (const m of relativo.matchAll(/\[(\d+)\]|([^.[\]]+)/g)) {
+    out.push(m[1] !== undefined ? Number(m[1]) : (m[2] ?? ''));
+  }
+  return out;
+}
+
+/** Grava `novo` no campo `relativo` de `raiz`. Caminho que não existe é ignorado (nada lança). */
+function gravarEm(raiz: object, relativo: string, novo: string): void {
+  const chaves = caminhoDe(relativo);
+  const ultima = chaves.pop();
+  if (ultima === undefined) return;
+  let atual: unknown = raiz;
+  for (const k of chaves) {
+    if (typeof atual !== 'object' || atual === null) return;
+    atual = (atual as Record<Chave, unknown>)[k];
+  }
+  if (typeof atual !== 'object' || atual === null) return;
+  (atual as Record<Chave, unknown>)[ultima] = novo;
+}
+
 /**
- * Percorre todas as fórmulas da família (parâmetros, planos, peças — contorno e usinagens —, aninhados e ferragens),
+ * Percorre todas as fórmulas da família (parâmetros, planos, peças — contorno e usinagens —, aninhados, ferragens e corpos),
  * na ordem em que aparecem. Também entrega o material de cada peça e os valores de cada tipo, para os usos do nome.
  */
 export function percorrerFamilia(f: Familia, v: VisitaFamilia): void {
@@ -138,6 +169,16 @@ export function percorrerFamilia(f: Familia, v: VisitaFamilia): void {
     const base = `ferragem:${fe.id}`;
     add(`${base}.quantidade`, fe.quantidade, (novo) => { fe.quantidade = novo; });
     add(`${base}.quando`, fe.quando, (novo) => { fe.quando = novo; });
+  }
+
+  // Corpos (ficha A2b): quadro, repetir, quando e os campos de cada forma, pela mesma lista de `validarCorpos`.
+  for (const corpo of lista<Corpo>(f.corpos)) {
+    if (!corpo || typeof corpo !== 'object' || typeof corpo.id !== 'string') continue;
+    const base = `corpo:${corpo.id}`;
+    for (const campo of camposDoCorpo(corpo, base)) {
+      const relativo = campo.onde.slice(base.length + 1);
+      add(campo.onde, campo.valor, (novo) => { gravarEm(corpo, relativo, novo); });
+    }
   }
 
   for (const t of lista<Tipo>(f.tipos)) {
