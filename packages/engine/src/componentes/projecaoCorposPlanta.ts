@@ -68,15 +68,31 @@ function uniaoEmArvore(partes: MultiPolygon[]): MultiPolygon {
   return nivel[0] ?? [];
 }
 
+/** Vértices (x, y, z) pela matriz 4×4 da instância, em ordem de coluna (como `matrizDoComponente`). */
+function aplicarMatriz(positions: number[], m: readonly number[]): number[] {
+  const saida = new Array<number>(positions.length);
+  for (let i = 0; i + 2 < positions.length; i += 3) {
+    const x = positions[i] ?? 0;
+    const y = positions[i + 1] ?? 0;
+    const z = positions[i + 2] ?? 0;
+    saida[i] = (m[0] ?? 0) * x + (m[4] ?? 0) * y + (m[8] ?? 0) * z + (m[12] ?? 0);
+    saida[i + 1] = (m[1] ?? 0) * x + (m[5] ?? 0) * y + (m[9] ?? 0) * z + (m[13] ?? 0);
+    saida[i + 2] = (m[2] ?? 0) * x + (m[6] ?? 0) * y + (m[10] ?? 0) * z + (m[14] ?? 0);
+  }
+  return saida;
+}
+
 /**
- * Silhueta dos corpos na planta: um polígono por contorno externo, como pares x,y planos (m, anti-horário), no sistema da
- * família. `coarse` devolve `[]` (só a pegada, como hoje). Corpos vazios, fora de `vistas: planta` ou fora do `detalhe3d` não contam.
+ * Silhueta dos corpos na planta: um polígono por contorno externo, como pares x,y planos (m, anti-horário). Sem `matriz`, no sistema
+ * da família. Com `matriz` (a `matrizDoComponente` da instância, ficha B3b), os vértices passam por ela e os polígonos saem no MUNDO,
+ * com a inclinação 3D. `coarse` devolve `[]` (só a pegada, como hoje). Corpos vazios, fora de `vistas: planta` ou fora do `detalhe3d` não contam.
  */
-export function projetarCorposPlanta(corpos: CorpoResolvido[], detalhe: DetalhePlanta): number[][] {
+export function projetarCorposPlanta(corpos: CorpoResolvido[], detalhe: DetalhePlanta, matriz?: readonly number[]): number[][] {
   const visiveis = corpos.filter((c) => corpoNaPlanta(c, detalhe));
   if (visiveis.length === 0) return [];
   const { solidas } = malhaDosCorpos(visiveis);
-  const triangulos = triangulosProjetados(solidas.positions, solidas.indices);
+  const pontos = matriz ? aplicarMatriz(solidas.positions, matriz) : solidas.positions;
+  const triangulos = triangulosProjetados(pontos, solidas.indices);
   if (triangulos.length === 0) return [];
   const uniao = uniaoEmArvore(triangulos.map((t): MultiPolygon => [[t]]));
   const saida: number[][] = [];

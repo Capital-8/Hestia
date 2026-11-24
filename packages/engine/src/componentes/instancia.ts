@@ -69,29 +69,32 @@ function pontoNoPlano(t: Transformacao, x: number, y: number): [number, number] 
   return [t.x + lx * t.cos - y * t.sen, t.y + lx * t.sen + y * t.cos];
 }
 
-/** Normal local (nx, ny) → mundo; a componente Z não muda. */
-function normalNoPlano(t: Transformacao, nx: number, ny: number): [number, number] {
-  const ax = t.espelha ? -nx : nx;
-  return [ax * t.cos - ny * t.sen, ax * t.sen + ny * t.cos];
-}
-
-function transformarMalha(m: Malha, t: Transformacao, baseZ: number): Malha {
+/**
+ * Malha local → mundo pela matriz 4×4 da instância (CONTRATO §7; ficha B3b): a posição leva a translação, a normal só a parte linear
+ * (a matriz é ortogonal, então a normal segue a mesma rotação). Espelhada, troca dois índices de cada triângulo.
+ */
+function transformarMalha(m: Malha, mat: number[], espelha: boolean): Malha {
+  const g = (i: number): number => mat[i] ?? 0;
   const positions = new Array<number>(m.positions.length);
   for (let i = 0; i < m.positions.length; i += 3) {
-    const [x, y] = pontoNoPlano(t, m.positions[i]!, m.positions[i + 1]!);
-    positions[i] = x;
-    positions[i + 1] = y;
-    positions[i + 2] = baseZ + m.positions[i + 2]!;
+    const x = m.positions[i]!;
+    const y = m.positions[i + 1]!;
+    const z = m.positions[i + 2]!;
+    positions[i] = g(0) * x + g(4) * y + g(8) * z + g(12);
+    positions[i + 1] = g(1) * x + g(5) * y + g(9) * z + g(13);
+    positions[i + 2] = g(2) * x + g(6) * y + g(10) * z + g(14);
   }
   const normals = new Array<number>(m.normals.length);
   for (let i = 0; i < m.normals.length; i += 3) {
-    const [nx, ny] = normalNoPlano(t, m.normals[i]!, m.normals[i + 1]!);
-    normals[i] = nx;
-    normals[i + 1] = ny;
-    normals[i + 2] = m.normals[i + 2]!;
+    const x = m.normals[i]!;
+    const y = m.normals[i + 1]!;
+    const z = m.normals[i + 2]!;
+    normals[i] = g(0) * x + g(4) * y + g(8) * z;
+    normals[i + 1] = g(1) * x + g(5) * y + g(9) * z;
+    normals[i + 2] = g(2) * x + g(6) * y + g(10) * z;
   }
   const indices = m.indices.slice();
-  if (t.espelha) {
+  if (espelha) {
     for (let i = 0; i < indices.length; i += 3) {
       const troca = indices[i]!;
       indices[i] = indices[i + 1]!;
@@ -103,17 +106,17 @@ function transformarMalha(m: Malha, t: Transformacao, baseZ: number): Malha {
 
 /**
  * Malha triangular da instância no MUNDO (mesmas malhas de `malhaDasPecas`, `solidas` e `vazios`, com `pecaDoTriangulo` apontando para o índice
- * da peça em `res.pecas`). Cada vértice é transformado pela fórmula do cabeçalho; as normais giram junto (rotação e espelho: a normal de X
- * muda de sinal quando `mirrored`). Quando `mirrored`, a transformação inverte a orientação: troque dois índices de cada triângulo para as normais
- * continuarem saindo para FORA e o volume continuar positivo. `res` opcional (padrão: `resolverComponente(p, c)`).
+ * da peça em `res.pecas`). A transformação é a `matrizDoComponente` da instância (ficha B3b): rotação, espelho e inclinação 3D, com a altura do
+ * nível (`levelElevation + c.z`) como translação em Z; sem `inclinacao` é a mesma transformação de sempre. As normais giram junto. Quando
+ * `mirrored`, a transformação inverte a orientação: troque dois índices de cada triângulo para as normais continuarem saindo para FORA e o
+ * volume continuar positivo. `res` opcional (padrão: `resolverComponente(p, c)`).
  */
 export function malhaDoComponente(p: Project, c: Component, res: ResolucaoFamilia = resolverComponente(p, c)): MalhasDasPecas {
   const local = malhaDasPecas(res.pecas);
-  const t = transformacaoDe(c);
-  const baseZ = levelElevation(p, c.levelId) + c.z;
+  const mat = matrizDoComponente({ ...c, z: levelElevation(p, c.levelId) + c.z });
   return {
-    solidas: transformarMalha(local.solidas, t, baseZ),
-    vazios: transformarMalha(local.vazios, t, baseZ),
+    solidas: transformarMalha(local.solidas, mat, c.mirrored),
+    vazios: transformarMalha(local.vazios, mat, c.mirrored),
   };
 }
 
