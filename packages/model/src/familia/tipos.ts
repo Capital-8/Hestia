@@ -9,6 +9,9 @@
 
 import type { Discipline } from '../planView.ts';
 import type { Caixaria } from './tiposCaixaria.ts';
+import type { Corpo } from './tiposCorpo.ts';
+import type { Ligacao } from './tiposLigacao.ts';
+import type { ClasseIfc, DetalheFamilia, Simbolo2D, TabelaFamilia, Verificacao } from './tiposRepresentacao.ts';
 
 export const FAMILIA_FORMATO = 'hestia-familia';
 export const FAMILIA_VERSAO = 1;
@@ -30,7 +33,13 @@ export const LIMITES = {
 export type Valor = number | string | boolean;
 export type Expr = string;
 
-export type CategoriaFamilia = 'marcenaria' | 'mobiliario' | 'loucas' | 'equipamento' | 'generico';
+export type CategoriaFamilia =
+  | 'marcenaria' | 'mobiliario' | 'loucas' | 'equipamento' | 'generico'
+  // ADR 0061 (aditivo): tubulação, elétrica, HVAC, reservatórios e estrutura metálica.
+  | 'tubulacao' | 'conexao_tubo' | 'terminal_hidraulico' | 'reservatorio'
+  | 'eletroduto' | 'dispositivo_eletrico' | 'luminaria'
+  | 'duto' | 'terminal_ar'
+  | 'perfil_estrutural' | 'chapa_estrutural';
 export type Hospedagem = 'nivel' | 'parede';
 export type OrigemFamilia = 'canto' | 'centro';
 
@@ -225,6 +234,18 @@ export interface Familia {
   escolhas?: Escolha[];
   /** Árvore paramétrica de caixaria/vãos (opcional; sincronizada com `pecas` e `ferragens`). */
   caixaria?: Caixaria;
+  /** Sólidos paramétricos de forma curva ou seção livre (ADR 0061 §D2); ausente = só peças. */
+  corpos?: Corpo[];
+  /** Pontos de conexão tipados de MEP e estrutura (ADR 0061 §D3); ausente = nenhum. */
+  ligacoes?: Ligacao[];
+  /** Símbolos 2D desenhados por vista (ADR 0061 §D4); ausente = só a projeção automática. */
+  simbolos?: Simbolo2D[];
+  /** Vistas nomeadas da família com cotas ligadas a parâmetros (ADR 0061 §D5). */
+  detalhes?: DetalheFamilia[];
+  tabelas?: TabelaFamilia[];
+  verificacoes?: Verificacao[];
+  /** Classe IFC de exportação; ausente = a da categoria (CONTRATO.md §6). */
+  ifc?: { classe: ClasseIfc; tipoPredefinido?: string };
   tipos: Tipo[];
   tipoPadrao?: string;
 }

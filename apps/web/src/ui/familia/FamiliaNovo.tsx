@@ -11,17 +11,9 @@ import './familiaNovo.css';
 /** Diálogo "Novo módulo": árvore de categorias, busca e galeria da biblioteca base (mais "Meus modelos"). */
 
 function contarPorCategoria(familias: readonly Familia[]): Record<CategoriaGaleria, number> {
-  const contagem: Record<CategoriaGaleria, number> = {
-    todas: familias.length,
-    marcenaria: 0,
-    mobiliario: 0,
-    loucas: 0,
-    equipamento: 0,
-    generico: 0,
-    meus: 0,
-  };
-  for (const f of familias) contagem[f.categoria] += 1;
-  return contagem;
+  const contagem: Partial<Record<CategoriaGaleria, number>> = { todas: familias.length, meus: 0 };
+  for (const f of familias) contagem[f.categoria] = (contagem[f.categoria] ?? 0) + 1;
+  return contagem as Record<CategoriaGaleria, number>;
 }
 
 export function FamiliaNovo(): ReactElement {
@@ -138,7 +130,7 @@ export function FamiliaNovo(): ReactElement {
           </li>
           {CATEGORIAS.map((c) => (
             <li key={c.id} className={categoria === c.id ? 'sel' : ''}>
-              <button type="button" onClick={() => escolherCategoria(c.id)}>{c.rotulo} <span className="fam-novo-cont">{contagem[c.id]}</span></button>
+              <button type="button" onClick={() => escolherCategoria(c.id)}>{c.rotulo} <span className="fam-novo-cont">{contagem[c.id] ?? 0}</span></button>
             </li>
           ))}
         </ul>

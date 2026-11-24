@@ -23,6 +23,7 @@ import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts'
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
 import type { Familia } from './familia/tipos.ts';
+import type { ConexaoComponente, SistemaMep } from './sistemasMep.ts';
 import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
@@ -895,6 +896,13 @@ export interface Component {
   mark: string;
   /** Conjunto ou fila a que o componente pertence (`Project.componentGroups`); ausente = solto. Um componente está em no máximo um. */
   groupId?: Id;
+  /**
+   * Inclinação 3D (rad), ADR 0061 §D6: `mundo = Rz(rotation) · E · Ry(inclinacao[1]) · Rx(inclinacao[0]) · local + (x, y, z)`.
+   * Ausente = `[0, 0]` (comportamento de sempre). Tubo com caimento e peça inclinada usam este campo.
+   */
+  inclinacao?: [number, number];
+  /** Conexões desta instância por id de ligação da família (MEP); simétricas com a outra ponta. Ausente = nenhuma. */
+  ligacoes?: Record<string, ConexaoComponente>;
 }
 
 /** União entre módulos de um conjunto: o que o encaixe faz nas faces em contato. */
@@ -1081,6 +1089,8 @@ export interface Project {
   componentFamilies?: Record<Id, Familia>;
   /** Conjuntos e filas de componentes (modelagem fluida), por id; ausente = nenhum. */
   componentGroups?: Record<Id, ComponentGroup>;
+  /** Sistemas de MEP (redes) por id (ADR 0061 §D6); ausente = nenhum. */
+  sistemasMep?: Record<Id, SistemaMep>;
   /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
   catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */

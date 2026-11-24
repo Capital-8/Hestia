@@ -155,6 +155,7 @@ export * from './pluginChecks.ts';
 export * from './pluginSchedules.ts';
 export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unidades do projeto
 export * from './familia/index.ts';
+export * from './sistemasMep.ts';
 export * from './furniture/index.ts';
 export * from './facePaint.ts';
 export * from './collabTypes.ts';
