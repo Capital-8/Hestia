@@ -1,4 +1,4 @@
-import { malhaDasPecas, type PecaResolvida } from '@hestia/engine';
+import { malhaDasPecas, type CorpoResolvido, type PecaResolvida } from '@hestia/engine';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -9,6 +9,7 @@ import {
   pecaVisivel,
   type NivelDetalhe3d,
 } from './logica.ts';
+import { CorposNaCena } from './visualizadorCorpos.ts';
 import { marcadoresVisiveis } from './usinagensMarcadores.ts';
 import type {
   CliqueFace3D,
@@ -65,6 +66,7 @@ export class VisualizadorFamilia {
   private readonly ouvintesClicarFace = new Set<(clique: CliqueFace3D) => void>();
   private readonly indiceDoObjeto = new WeakMap<THREE.Object3D, number>();
   private readonly vaosOverlay = new VaosOverlay();
+  private readonly corposCena = new CorposNaCena();
   private visuais: PecaNaCena[] = [];
   private pecas: readonly PecaResolvida[] = [];
   private esfera: { centro: [number, number, number]; raio: number } = { centro: [0, 0, 0], raio: 1 };
@@ -97,7 +99,7 @@ export class VisualizadorFamilia {
     const hemisferica = new THREE.HemisphereLight(0xffffff, 0x5a5a5a, 2.2);
     const direcional = new THREE.DirectionalLight(0xffffff, 2.4);
     direcional.position.set(3, -4, 6);
-    this.raiz.add(this.vaosOverlay.grupo);
+    this.raiz.add(this.vaosOverlay.grupo, this.corposCena.grupo);
     this.cena.add(hemisferica, direcional, this.raiz);
 
     canvas.addEventListener('pointerdown', this.aoPointerDown);
@@ -116,7 +118,7 @@ export class VisualizadorFamilia {
     const selecionadaAnterior = this.selecionada;
     this.limparPecas();
     this.pecas = [...pecas];
-    this.esfera = esferaDeEnquadramento(this.pecas);
+    this.esfera = this.esferaAtual();
     const { solidas, vazios } = malhaDasPecas(this.pecas);
     this.pecas.forEach((peca, indice) => {
       const geometria = geometriaDaMalha(malhaDaPeca(peca.vazio ? vazios : solidas, indice));
@@ -143,6 +145,24 @@ export class VisualizadorFamilia {
       this.vista('iso');
     }
     this.agendarDesenho();
+  }
+
+  /** Malhas dos corpos (ficha B2): sólidos em cor do material, vazios em azul translúcido. Lista vazia limpa. Não mexe na câmera de peças. */
+  definirCorpos(corpos: readonly CorpoResolvido[]): void {
+    if (this.destruido) return;
+    this.corposCena.definir(corpos, this.materiais, this.opacidade, this.detalhe);
+    this.esfera = this.esferaAtual();
+    if (!this.enquadrou && (this.visuais.length > 0 || this.corposCena.temMalha())) {
+      this.enquadrou = true;
+      this.vista('iso');
+    }
+    this.agendarDesenho();
+  }
+
+  /** Esfera de enquadramento: das peças quando há peças; sem peças, dos corpos (se houver). */
+  private esferaAtual(): { centro: [number, number, number]; raio: number } {
+    if (this.pecas.length > 0) return esferaDeEnquadramento(this.pecas);
+    return this.corposCena.esfera() ?? esferaDeEnquadramento(this.pecas);
   }
 
   /** Realça a peça de índice `indice` da lista passada a `definirPecas` (arestas azuis e brilho); `null` limpa. */
@@ -242,6 +262,7 @@ export class VisualizadorFamilia {
       visual.material.depthWrite = this.opacidade >= 1;
       visual.material.needsUpdate = true;
     }
+    this.corposCena.definirOpacidade(this.opacidade);
     this.agendarDesenho();
   }
 
@@ -250,6 +271,7 @@ export class VisualizadorFamilia {
     this.detalhe = detalhe;
     this.portas = portas;
     for (const visual of this.visuais) visual.mesh.visible = pecaVisivel(visual.peca, detalhe, portas);
+    this.corposCena.definirDetalhe(detalhe);
     this.aplicarSelecao();
     this.agendarDesenho();
   }
@@ -308,6 +330,7 @@ export class VisualizadorFamilia {
     this.controles.removeEventListener('change', this.aoMudarControles);
     this.controles.dispose();
     this.limparPecas();
+    this.corposCena.destruir();
     this.vaosOverlay.destruir();
     this.raiz.remove(this.vaosOverlay.grupo);
     this.geoDisco.dispose();

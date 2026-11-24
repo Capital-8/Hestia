@@ -1,4 +1,4 @@
-import type { PecaResolvida } from '@hestia/engine';
+import type { CorpoResolvido, PecaResolvida } from '@hestia/engine';
 import {
   definirTampoCaixaria,
   definirTamponamentosCaixaria,
@@ -155,10 +155,15 @@ function tratarCliqueFace(clique: CliqueFace3D): void {
   }
 }
 
+/** Sem corpos: lista fixa, para o efeito de corpos não rodar a cada render. */
+const SEM_CORPOS: readonly CorpoResolvido[] = [];
+
 export interface Familia3DProps {
   familia: Familia;
   env: Record<string, unknown>;
   pecas: readonly PecaResolvida[];
+  /** Corpos resolvidos (`res.corpos`); ausente = nenhum corpo. */
+  corpos?: readonly CorpoResolvido[];
   sel: string | null;
   onSel: (id: string | null) => void;
   /** 0..1: quanto a caixaria aparece explodida. */
@@ -174,6 +179,7 @@ export function Familia3D({
   familia,
   env,
   pecas,
+  corpos = SEM_CORPOS,
   sel,
   onSel,
   explodir,
@@ -260,6 +266,10 @@ export function Familia3D({
   useEffect(() => {
     visualizadorRef.current?.definirPecas(pecas);
   }, [pecas]);
+
+  useEffect(() => {
+    visualizadorRef.current?.definirCorpos(corpos);
+  }, [corpos]);
 
   useEffect(() => {
     visualizadorRef.current?.definirVaos(vaos);

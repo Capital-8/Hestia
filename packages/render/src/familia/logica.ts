@@ -16,11 +16,11 @@ const CORES_POR_PAPEL: Readonly<Record<string, number>> = {
   fundo: 0xb9b2a6,
   rodape: 0xc9a97a,
 };
-const COR_VAZIO = 0x4a90d9;
-const COR_PADRAO = 0xd8b98b;
+export const COR_VAZIO = 0x4a90d9;
+export const COR_PADRAO = 0xd8b98b;
 
 /** Converte "#rrggbb" num inteiro; devolve null quando o texto não é um hexadecimal válido. */
-function corDoTexto(texto: string): number | null {
+export function corDoTexto(texto: string): number | null {
   const achado = /^#([0-9a-f]{6})$/i.exec(texto.trim());
   if (!achado) return null;
   const valor = Number.parseInt(achado[1]!, 16);
