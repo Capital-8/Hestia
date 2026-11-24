@@ -10,6 +10,7 @@ import {
   type SecaoLigacao,
 } from '@hestia/model';
 import type { Familia } from '@hestia/model';
+import { corCssDoDominio } from '@hestia/render';
 import type { ReactElement } from 'react';
 import { useT } from '../../editor/i18n.ts';
 import { CampoCorpo } from './FamiliaCorpoCampo.tsx';
@@ -127,6 +128,7 @@ export function FamiliaLigacoesForm({ ligacao, aoErro, aoExcluir }: Props): Reac
         <div className="fam-gh">{ligacao.nome}</div>
         <CampoCorpo key={`nome:${ligacao.nome}`} id={`fln-${id}-nome`} rotulo={t('fam_lig_nome')} valor={ligacao.nome} formula={false} gravar={(texto) => aplicar('Renomear ligação', { nome: texto })} />
         <div className="fam-row"><label htmlFor={`fln-${id}-dominio`}>{t('fam_lig_escolha_dominio')}</label>
+          <span className="fam-lig-amostra" aria-hidden="true" style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: corCssDoDominio(ligacao.dominio) }} />
           <select id={`fln-${id}-dominio`} className="fam-f" value={ligacao.dominio} onChange={(e) => aoErro(aplicar('Trocar domínio', { dominio: e.target.value as DominioLigacao }))}>
             {DOMINIOS_LIGACAO_UI.map((d) => <option key={d} value={d}>{t(ROTULO_DOMINIO[d])}</option>)}
           </select>

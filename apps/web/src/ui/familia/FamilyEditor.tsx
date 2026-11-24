@@ -116,7 +116,7 @@ export function FamilyEditor(): ReactElement | null {
           </div>
           <div className="fam-canvas">
             {vista === '3d'
-              ? <Familia3D key={familia.id} familia={familia} env={res.env} pecas={res.pecas} corpos={res.corpos ?? []} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} opacidade={opacidade} corte={corte} portas={portas} detalhe={detalhe} />
+              ? <Familia3D key={familia.id} familia={familia} env={res.env} pecas={res.pecas} corpos={res.corpos ?? []} ligacoes={res.ligacoes ?? []} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={explodir} opacidade={opacidade} corte={corte} portas={portas} detalhe={detalhe} />
               : <FamiliaVista pecas={res.pecas} vista={vista} sel={sel} onSel={(id) => useFamilia.getState().selecionarPeca(id)} explodir={0} portas={portas} detalhe={detalhe} />}
           </div>
           <div className="fam-vcb"><span>1:10</span><span>Detalhe: {detalhe}</span><span>Estilo: sombreado</span><span style={{ marginLeft: 'auto' }}>Tipo: {tipo?.nome}</span></div>
