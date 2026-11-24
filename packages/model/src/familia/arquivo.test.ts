@@ -142,3 +142,44 @@ describe('conectores e escolhas atravessam o arquivo (regressão da onda 0)', ()
     expect(lido.familias[0]?.escolhas).toEqual(f.escolhas);
   });
 });
+
+describe('versão 2 do arquivo (ficha A9, CONTRATO.md §9)', () => {
+  it('arquivo v1 antigo abre igual e não ganha chaves novas', () => {
+    const v1 = { formato: FAMILIA_FORMATO, versao: 1, familias: [clone(FAMILIA_ARMARIO)] };
+    const r = importarFamilias(v1);
+    expect(r.ignoradas).toEqual([]);
+    expect(r.familias).toEqual([FAMILIA_ARMARIO]);
+    for (const chave of ['corpos', 'ligacoes', 'simbolos', 'detalhes', 'tabelas', 'verificacoes', 'ifc']) {
+      expect(Object.keys(r.familias[0]!)).not.toContain(chave);
+    }
+  });
+
+  it('v2 com todas as chaves novas faz ida e volta idêntica', () => {
+    const f = clone(FAMILIA_ARMARIO);
+    f.corpos = [{ id: 'c1', nome: 'Tubo', papel: 'tubo', forma: { tipo: 'extrusao', perfil: { tipo: 'circulo', diametro: '50' }, comprimento: 'L' }, quadro: { origem: ['0', '0', '0'] } }];
+    f.ligacoes = [{ id: 'l1', nome: 'Entrada', dominio: 'agua_fria', secao: 'redonda', posicao: ['0', '0', '0'], direcao: ['0', '0', '1'], diametro: '15', fluxo: 'entrada' }];
+    f.simbolos = [{ id: 's1', nome: 'Símbolo', vistas: ['planta'], plano: 'xy', primitivos: [{ tipo: 'linha', de: ['0', '0'], ate: ['L', '0'] }] }];
+    f.detalhes = [{ id: 'd1', nome: 'Corte', vista: 'corte', escala: 50, cotas: [{ id: 'c1', de: { tipo: 'plano', id: 'p1' }, ate: { tipo: 'plano', id: 'p2' } }] }];
+    f.tabelas = [{ id: 't1', nome: 'Tabela', porTipo: true, colunas: [{ titulo: 'Largura', valor: 'L', unidade: 'mm' }] }];
+    f.verificacoes = [{ id: 'v1', severidade: 'aviso', condicao: 'L > 2000', mensagem: 'Vão longo' }];
+    f.ifc = { classe: 'IFCPIPESEGMENT', tipoPredefinido: 'RIGIDSEGMENT' };
+    const r = importarFamilias(JSON.parse(serializar(exportarFamilias([f]))));
+    expect(r.ignoradas).toEqual([]);
+    expect(r.familias).toEqual([f]);
+    expect(r.familias[0]!.versao).toBe(2);
+  });
+
+  it('v3 é recusado como arquivo mais novo', () => {
+    expect(() => importarFamilias({ formato: FAMILIA_FORMATO, versao: 3, familias: [] })).toThrow(/mais novo/);
+  });
+
+  it('chave proibida dentro de uma chave nova faz a família ser ignorada, com o motivo', () => {
+    const f = clone(FAMILIA_ARMARIO);
+    f.corpos = [{ id: 'c1', nome: 'Tubo', papel: 'tubo', forma: { tipo: 'extrusao', perfil: { tipo: 'circulo', diametro: '50' }, comprimento: 'L' }, quadro: { origem: ['0', '0', '0'] } }];
+    const texto = serializar(exportarFamilias([f])).replace('"papel": "tubo",', '"papel": "tubo", "__proto__": {"polui": true},');
+    const r = lerArquivo(texto);
+    expect(r.familias).toHaveLength(0);
+    expect(r.ignoradas[0]!.motivo).toContain('chave proibida');
+    expect(({} as Record<string, unknown>).polui).toBeUndefined();
+  });
+});
