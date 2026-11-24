@@ -11,7 +11,7 @@ import { fmtDate, t, useI18n, type Lang } from './i18n.ts';
 /** Passo da grade para procurar lugar livre (mm). */
 const SPOT_STEP = 10;
 /** Tamanho padrão de uma vista nova (mm de papel); encolhe se não couber na área de desenho. */
-const DEFAULT_SIZE: Record<SheetViewSource['kind'], { w: number; h: number }> = { plan: { w: 180, h: 130 }, areaPlan: { w: 180, h: 130 }, areaTable: { w: 120, h: 120 }, section: { w: 180, h: 100 }, '3d': { w: 180, h: 130 } };
+const DEFAULT_SIZE: Record<SheetViewSource['kind'], { w: number; h: number }> = { plan: { w: 180, h: 130 }, areaPlan: { w: 180, h: 130 }, areaTable: { w: 120, h: 120 }, section: { w: 180, h: 100 }, familyDetail: { w: 180, h: 130 }, '3d': { w: 180, h: 130 } };
 export const SCALE_OPTIONS = [20, 25, 50, 100, 200, 500] as const;
 
 /** Número seguinte da prancha: A-101, A-102, … a partir do que já existe. */

@@ -33,7 +33,7 @@ export const PT_DETALHE = {
   fam_det_ref_plano: 'Plano {nome}',
   fam_det_ref_ligacao: 'Ligação {nome}',
   fam_det_inserir: 'Inserir no projeto',
-  fam_det_inserir_dica: 'Disponível quando a inserção de detalhes no projeto estiver integrada',
+  fam_det_inserir_dica: 'Carregue a família no projeto e coloque uma instância para inserir o detalhe na prancha',
   fam_det_aviso: 'Aviso: {mensagem}',
 } as const;
 
@@ -69,7 +69,7 @@ export const EN_DETALHE: D = {
   fam_det_ref_plano: 'Plane {nome}',
   fam_det_ref_ligacao: 'Connection {nome}',
   fam_det_inserir: 'Insert into project',
-  fam_det_inserir_dica: 'Available once inserting details into the project is integrated',
+  fam_det_inserir_dica: 'Load the family into the project and place an instance to insert the detail on the sheet',
   fam_det_aviso: 'Warning: {mensagem}',
 };
 
@@ -103,7 +103,7 @@ export const ES_DETALHE: D = {
   fam_det_ref_plano: 'Plano {nome}',
   fam_det_ref_ligacao: 'Conexión {nome}',
   fam_det_inserir: 'Insertar en el proyecto',
-  fam_det_inserir_dica: 'Disponible cuando la inserción de detalles en el proyecto esté integrada',
+  fam_det_inserir_dica: 'Cargue la familia en el proyecto y coloque una instancia para insertar el detalle en la lámina',
   fam_det_aviso: 'Aviso: {mensagem}',
 };
 
@@ -137,7 +137,7 @@ export const DE_DETALHE: D = {
   fam_det_ref_plano: 'Ebene {nome}',
   fam_det_ref_ligacao: 'Anschluss {nome}',
   fam_det_inserir: 'In Projekt einfügen',
-  fam_det_inserir_dica: 'Verfügbar, sobald das Einfügen von Details ins Projekt integriert ist',
+  fam_det_inserir_dica: 'Laden Sie die Familie ins Projekt und platzieren Sie eine Instanz, um das Detail auf dem Plan einzufügen',
   fam_det_aviso: 'Hinweis: {mensagem}',
 };
 
@@ -171,7 +171,7 @@ export const FR_DETALHE: D = {
   fam_det_ref_plano: 'Plan {nome}',
   fam_det_ref_ligacao: 'Raccord {nome}',
   fam_det_inserir: 'Insérer dans le projet',
-  fam_det_inserir_dica: 'Disponible quand l\'insertion de détails dans le projet sera intégrée',
+  fam_det_inserir_dica: 'Chargez la famille dans le projet et placez une instance pour insérer le détail sur la planche',
   fam_det_aviso: 'Avertissement : {mensagem}',
 };
 
@@ -205,7 +205,7 @@ export const IT_DETALHE: D = {
   fam_det_ref_plano: 'Piano {nome}',
   fam_det_ref_ligacao: 'Connessione {nome}',
   fam_det_inserir: 'Inserisci nel progetto',
-  fam_det_inserir_dica: 'Disponibile quando l\'inserimento dei dettagli nel progetto sarà integrato',
+  fam_det_inserir_dica: 'Carica la famiglia nel progetto e posiziona un\'istanza per inserire il dettaglio nella tavola',
   fam_det_aviso: 'Avviso: {mensagem}',
 };
 
@@ -239,6 +239,6 @@ export const PL_DETALHE: D = {
   fam_det_ref_plano: 'Płaszczyzna {nome}',
   fam_det_ref_ligacao: 'Przyłącze {nome}',
   fam_det_inserir: 'Wstaw do projektu',
-  fam_det_inserir_dica: 'Dostępne po zintegrowaniu wstawiania detali do projektu',
+  fam_det_inserir_dica: 'Załaduj rodzinę do projektu i umieść instancję, aby wstawić detal na arkuszu',
   fam_det_aviso: 'Ostrzeżenie: {mensagem}',
 };

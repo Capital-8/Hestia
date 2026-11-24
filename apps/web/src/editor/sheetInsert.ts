@@ -15,9 +15,9 @@ import {
   type SheetViewport,
   type SheetViewSource,
 } from '@hestia/model';
-import { computeSectionCached, levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
+import { computeSectionCached, familyDetailContentMm, levelBox, sectionBox, STAMP_H, STAMP_W } from '@hestia/render';
 import { t, useI18n } from './i18n.ts';
-import { defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
+import { addSheetAction, defaultViewSize, freeSpot, newSheet, SCALE_OPTIONS } from './sheetActions.ts';
 
 /**
  * Inserção em lote de vistas nas pranchas (decisão 0022): escolhe a escala que cabe, calcula o tamanho do conteúdo e
@@ -77,6 +77,7 @@ export function contentSizeMm(p: Project, view: SheetViewSource, scale: number):
       h: (box.maxY - box.minY + SECTION_PADDING_M) * mmPerM,
     };
   }
+  if (view.kind === 'familyDetail') return familyDetailContentMm(p, view, scale) ?? fallbackSize(view);
   return view.kind === 'areaTable' ? { ...AREA_TABLE_SIZE } : { ...MODEL_3D_SIZE };
 }
 
@@ -201,6 +202,11 @@ export function naturalScaleOf(p: Project, view: SheetViewSource): number {
   if (view.kind === 'plan') return planGraphicsOf(p, view.levelId, view.planId).scale;
   if (view.kind === 'areaPlan') return areaPlanOf(p, view.planId)?.scale ?? 100;
   if (view.kind === 'section') return sectionGraphicsOf(p).scale;
+  if (view.kind === 'familyDetail') {
+    const c = p.elements[view.componentId];
+    const detalhe = c?.kind === 'component' ? p.componentFamilies?.[c.familyId]?.detalhes?.find((d) => d.id === view.detailId) : undefined;
+    return detalhe !== undefined && detalhe.escala > 0 ? detalhe.escala : 20;
+  }
   return 100;
 }
 
@@ -252,4 +258,22 @@ export function addViewportAtAction(store: ProjectStore, sheetId: Id, view: Shee
   if (invalid) throw new Error(invalid);
   store.exec({ type: 'addViewport', sheetId, viewport }, t(lang, 'cvs_undo_add_view'));
   return viewport.id;
+}
+
+/** Instância da família no projeto para o detalhe: prefere a do tipo pedido; sem instância, null. */
+export function instanciaParaDetalhe(p: Project, familiaId: Id, tipoId: Id | null): Id | null {
+  const daFamilia = Object.values(p.elements).filter((e) => e.kind === 'component' && e.familyId === familiaId);
+  const preferida = daFamilia.find((e) => e.kind === 'component' && e.typeId === tipoId) ?? daFamilia[0];
+  return preferida?.id ?? null;
+}
+
+/**
+ * Insere o detalhe de uma instância de família na prancha (D6b), na escala do detalhe. Sem `sheetId` válido usa a
+ * primeira prancha e, se não houver nenhuma, cria uma. Devolve o id do viewport; lança Error se não couber.
+ */
+export function inserirDetalheDeFamilia(store: ProjectStore, componentId: Id, detailId: string, sheetId?: Id | null): Id {
+  const view: SheetViewSource = { kind: 'familyDetail', componentId, detailId };
+  const alvo = sheetId && sheetOf(store.project, sheetId) ? sheetId : (store.project.sheets?.[0]?.id ?? addSheetAction(store));
+  const scale = naturalScaleOf(store.project, view);
+  return addViewsAction(store, alvo, [{ view, scale }])[0] ?? '';
 }

@@ -1,4 +1,4 @@
-import type { Project, Sheet, SheetViewport, SheetViewSource } from '@hestia/model';
+import type { Id, Project, Sheet, SheetViewport, SheetViewSource } from '@hestia/model';
 import { sectionTitleOf, sheetInnerBox, areaPlanOf, planViewFor, view3DPointOf, viewportFrameVisible, viewportLabel } from '@hestia/model';
 import { emptyParts, type ViewportParts } from './types.ts';
 import { t as translate, type Lang } from '../i18n.ts';
@@ -35,6 +35,13 @@ export function captionOf(p: Project, view: SheetViewSource, vp: SheetViewport, 
   return view.kind === '3d' ? `${base} · ${translate(lang, 'rn_sheet_no_scale')}` : `${base} · 1:${vp.scale}`;
 }
 
+/** Nome do detalhe da família da instância (ou null se a instância ou o detalhe não existem). */
+function familyDetailName(p: Project, view: { componentId: Id; detailId: string }): string | null {
+  const c = p.elements[view.componentId];
+  const familia = c?.kind === 'component' ? p.componentFamilies?.[c.familyId] : undefined;
+  return (familia?.detalhes ?? []).find((d) => d.id === view.detailId)?.nome ?? null;
+}
+
 function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
   const missing = translate(lang, 'rn_sheet_view_missing');
   // Planta de disciplina (decisão 0060 §6) leva o nome dela; `planId` que não resolve cai no nome do nível.
@@ -45,6 +52,7 @@ function sourceName(p: Project, view: SheetViewSource, lang: Lang): string {
     const found = p.views.find((v) => v.id === view.sectionId);
     return found ? sectionTitleOf(found) : missing;
   }
+  if (view.kind === 'familyDetail') return familyDetailName(p, view) ?? missing;
   return (view.pointId ? view3DPointOf(p, view.pointId)?.name : undefined) ?? '3D';
 }
 

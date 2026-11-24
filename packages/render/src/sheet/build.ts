@@ -3,6 +3,7 @@ import { furnitureParts } from './frame.ts';
 import { modelSig } from './cache.ts';
 import { cachedViewportParts } from './partsCache.ts';
 import { areaTablePartsOf, areaPlanPartsOf, planPartsOf, sectionPartsOf } from './viewports.ts';
+import { familyDetailPartsOf } from './familyDetail.ts';
 import { vista3dParts } from './vista3d.ts';
 import { type SheetDrawList, type SheetPoint, type SheetRect, type ViewportParts } from './types.ts';
 import type { Lang } from '../i18n.ts';
@@ -17,6 +18,8 @@ function partsOfViewport(p: Project, v: SheetViewport, lang: Lang): ViewportPart
       return areaTablePartsOf(p, v, lang);
     case 'section':
       return sectionPartsOf(p, v.view.sectionId, v);
+    case 'familyDetail':
+      return familyDetailPartsOf(p, v);
     case '3d':
       return vista3dParts(p, v);
   }
