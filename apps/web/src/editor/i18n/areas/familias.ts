@@ -3,6 +3,7 @@ import { FR_CORPO, IT_CORPO, PL_CORPO } from './familiasCorpoOutros.ts';
 import { PT_LIGACAO, EN_LIGACAO, ES_LIGACAO, DE_LIGACAO, FR_LIGACAO, IT_LIGACAO, PL_LIGACAO } from './familiasLigacao.ts';
 import { PT_DETALHE, EN_DETALHE, ES_DETALHE, DE_DETALHE, FR_DETALHE, IT_DETALHE, PL_DETALHE } from './familiasDetalhe.ts';
 import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
+import { PT_MODELOS, EN_MODELOS, ES_MODELOS, DE_MODELOS, FR_MODELOS, IT_MODELOS, PL_MODELOS } from './familiasModelos.ts';
 
 /**
  * Shard de dicionário: editor de famílias (reativado como EXPERIMENTAL) e "Meus modelos" (exportar/importar arquivo).
@@ -37,6 +38,7 @@ export const PT_FAMILIAS = {
   ...PT_LIGACAO,
   ...PT_DETALHE,
   ...PT_REDE,
+  ...PT_MODELOS,
 } as const;
 
 type D = Record<keyof typeof PT_FAMILIAS, string>;
@@ -68,6 +70,7 @@ export const EN_FAMILIAS: D = {
   ...EN_LIGACAO,
   ...EN_DETALHE,
   ...EN_REDE,
+  ...EN_MODELOS,
 };
 
 export const ES_FAMILIAS: D = {
@@ -97,6 +100,7 @@ export const ES_FAMILIAS: D = {
   ...ES_LIGACAO,
   ...ES_DETALHE,
   ...ES_REDE,
+  ...ES_MODELOS,
 };
 
 export const DE_FAMILIAS: D = {
@@ -126,6 +130,7 @@ export const DE_FAMILIAS: D = {
   ...DE_LIGACAO,
   ...DE_DETALHE,
   ...DE_REDE,
+  ...DE_MODELOS,
 };
 
 export const FR_FAMILIAS: D = {
@@ -155,6 +160,7 @@ export const FR_FAMILIAS: D = {
   ...FR_LIGACAO,
   ...FR_DETALHE,
   ...FR_REDE,
+  ...FR_MODELOS,
 };
 
 export const IT_FAMILIAS: D = {
@@ -184,6 +190,7 @@ export const IT_FAMILIAS: D = {
   ...IT_LIGACAO,
   ...IT_DETALHE,
   ...IT_REDE,
+  ...IT_MODELOS,
 };
 
 export const PL_FAMILIAS: D = {
@@ -213,4 +220,5 @@ export const PL_FAMILIAS: D = {
   ...PL_LIGACAO,
   ...PL_DETALHE,
   ...PL_REDE,
+  ...PL_MODELOS,
 };
