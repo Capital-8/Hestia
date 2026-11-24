@@ -1,3 +1,6 @@
+import { PT_CORPO, EN_CORPO, ES_CORPO, DE_CORPO } from './familiasCorpo.ts';
+import { FR_CORPO, IT_CORPO, PL_CORPO } from './familiasCorpoOutros.ts';
+
 /**
  * Shard de dicionário: editor de famílias (reativado como EXPERIMENTAL) e "Meus modelos" (exportar/importar arquivo).
  * Prefixo `fam_`. Só os textos NOVOS da reativação passam por aqui; o resto do editor segue em português fixo.
@@ -21,6 +24,7 @@ export const PT_FAMILIAS = {
   fam_meus_erro_importar: 'Não foi possível importar: {motivo}',
   fam_meus_nenhum: 'nenhum modelo válido no arquivo',
   fam_meus_sem_armazenamento: 'O navegador não permite guardar modelos.',
+  ...PT_CORPO,
 } as const;
 
 type D = Record<keyof typeof PT_FAMILIAS, string>;
@@ -42,6 +46,7 @@ export const EN_FAMILIAS: D = {
   fam_meus_erro_importar: 'Could not import: {motivo}',
   fam_meus_nenhum: 'no valid model in the file',
   fam_meus_sem_armazenamento: 'The browser does not allow saving models.',
+  ...EN_CORPO,
 };
 
 export const ES_FAMILIAS: D = {
@@ -61,6 +66,7 @@ export const ES_FAMILIAS: D = {
   fam_meus_erro_importar: 'No se pudo importar: {motivo}',
   fam_meus_nenhum: 'ningún modelo válido en el archivo',
   fam_meus_sem_armazenamento: 'El navegador no permite guardar modelos.',
+  ...ES_CORPO,
 };
 
 export const DE_FAMILIAS: D = {
@@ -80,6 +86,7 @@ export const DE_FAMILIAS: D = {
   fam_meus_erro_importar: 'Import nicht möglich: {motivo}',
   fam_meus_nenhum: 'kein gültiges Modell in der Datei',
   fam_meus_sem_armazenamento: 'Der Browser erlaubt das Speichern von Modellen nicht.',
+  ...DE_CORPO,
 };
 
 export const FR_FAMILIAS: D = {
@@ -99,6 +106,7 @@ export const FR_FAMILIAS: D = {
   fam_meus_erro_importar: 'Impossible d\'importer : {motivo}',
   fam_meus_nenhum: 'aucun modèle valide dans le fichier',
   fam_meus_sem_armazenamento: 'Le navigateur ne permet pas d\'enregistrer des modèles.',
+  ...FR_CORPO,
 };
 
 export const IT_FAMILIAS: D = {
@@ -118,6 +126,7 @@ export const IT_FAMILIAS: D = {
   fam_meus_erro_importar: 'Impossibile importare: {motivo}',
   fam_meus_nenhum: 'nessun modello valido nel file',
   fam_meus_sem_armazenamento: 'Il browser non consente di salvare i modelli.',
+  ...IT_CORPO,
 };
 
 export const PL_FAMILIAS: D = {
@@ -137,4 +146,5 @@ export const PL_FAMILIAS: D = {
   fam_meus_erro_importar: 'Nie udało się zaimportować: {motivo}',
   fam_meus_nenhum: 'brak poprawnych modeli w pliku',
   fam_meus_sem_armazenamento: 'Przeglądarka nie pozwala zapisywać modeli.',
+  ...PL_CORPO,
 };

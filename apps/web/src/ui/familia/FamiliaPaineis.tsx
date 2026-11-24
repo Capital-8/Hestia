@@ -15,6 +15,9 @@ import { useProject } from '../../editor/controller.ts';
 import { familiasParaAninhar, nomeDaFamilia } from './familiaAninhado.ts';
 import { FamiliaCaixariaPainel } from './FamiliaCaixariaPainel.tsx';
 import { FamiliaCaixariaPecaCtrl } from './FamiliaCaixariaPecaCtrl.tsx';
+import { FamiliaCorpoLista } from './FamiliaCorpoLista.tsx';
+import { FamiliaCorpoPainel } from './FamiliaCorpoPainel.tsx';
+import { useCorpoSel } from './familiaCorpo.ts';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
 import { FamiliaUsinagens } from './FamiliaUsinagens.tsx';
@@ -34,7 +37,7 @@ import './familiaPeca.css';
 const Li = ({ cls = '', id, children, onClick }: { cls?: string; id?: string; children: ReactNode; onClick?: () => void }): ReactElement => {
   const sel = useFamilia((s) => s.sel);
   return (
-    <li className={`${cls}${id !== undefined && id === sel ? ' sel' : ''}`} onClick={onClick ?? (id !== undefined ? () => useFamilia.getState().selecionarPeca(id) : undefined)}>{children}</li>
+    <li className={`${cls}${id !== undefined && id === sel ? ' sel' : ''}`} onClick={onClick ?? (id !== undefined ? () => { useCorpoSel.getState().selecionar(null); useFamilia.getState().selecionarPeca(id); } : undefined)}>{children}</li>
   );
 };
 
@@ -68,6 +71,7 @@ export function NavegadorFamilia(): ReactElement {
           </Li>
         );
       })}
+      <FamiliaCorpoLista />
       <Li cls="h">▾ Módulos aninhados ({aninhados.length})</Li>
       {aninhados.length === 0 && (
         <Li cls="l2"><span className="fam-mut">nenhum — use “Módulo aninhado” na faixa</span></Li>
@@ -146,8 +150,17 @@ export function PropriedadesFamilia(): ReactElement {
   const sel = useFamilia((s) => s.sel);
   const modo3d = useFamilia((s) => s.modo3d);
   const selecionarPeca = useFamilia((s) => s.selecionarPeca);
+  const corpoSel = useCorpoSel((s) => s.id);
   const res = useResolucao();
   const erro = useAvisoPeca((s) => s.erro);
+  if (corpoSel !== null && sel === null) {
+    return (
+      <>
+        {erro !== null && <div className="fam-aviso-erro" role="alert">{erro}</div>}
+        <FamiliaCorpoPainel corpoId={corpoSel} />
+      </>
+    );
+  }
   const p = sel === null ? undefined : familia.pecas.find((x) => x.id === sel);
   const repetidas = sel === null ? [] : res.pecas.filter((x) => x.id === sel);
   const r = repetidas[0];

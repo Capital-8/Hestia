@@ -1,11 +1,12 @@
 import { criarFamiliaCaixaria, type EstiloPorta } from '@hestia/model';
 import type { ModoInteracao3DFamilia } from '@hestia/render';
-import { useState, type ReactElement } from 'react';
+import { Fragment, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { editor } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { Icon } from '../Icon.tsx';
 import { carregarNoProjeto } from './carregarNoProjeto.ts';
+import { PainelCorpos } from './FamiliaCorpoCriar.tsx';
 import { useFamilia } from './familiaStore.ts';
 import type { DialogoFamilia } from './familiaStore.ts';
 
@@ -169,15 +170,18 @@ export function FamiliaFaixa(): ReactElement {
       </nav>
       {mensagem && <div className="fam-msg erro" role="alert">{mensagem}</div>}
       <div className="ribbon" role="toolbar" aria-label="Ferramentas da família">
-        {PAINEIS.map((p) => (
-          <div key={p.id} className="rb-panel" role="group" aria-label={p.titulo}>
-            <div className="rb-cols">
-              {p.itens.map((slot, i) => Array.isArray(slot)
-                ? <div key={i} className="rb-stack">{slot.map((it) => <PequenoComRotulo key={`${p.id}-${it.rotulo}`} it={it} />)}</div>
-                : <Botao key={`${p.id}-${slot.rotulo}`} it={slot} grande aoCarregar={carregar} />)}
+        {PAINEIS.map((p, indice) => (
+          <Fragment key={p.id}>
+            <div className="rb-panel" role="group" aria-label={p.titulo}>
+              <div className="rb-cols">
+                {p.itens.map((slot, i) => Array.isArray(slot)
+                  ? <div key={i} className="rb-stack">{slot.map((it) => <PequenoComRotulo key={`${p.id}-${it.rotulo}`} it={it} />)}</div>
+                  : <Botao key={`${p.id}-${slot.rotulo}`} it={slot} grande aoCarregar={carregar} />)}
+              </div>
+              <div className="rb-title">{p.titulo}</div>
             </div>
-            <div className="rb-title">{p.titulo}</div>
-          </div>
+            {indice === 0 && <PainelCorpos />}
+          </Fragment>
         ))}
       </div>
     </>
