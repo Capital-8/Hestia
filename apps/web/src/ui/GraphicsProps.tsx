@@ -1,11 +1,12 @@
 import { useState, type ReactElement } from 'react';
-import { PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, disciplinasDoProjeto, planGraphicsOf, sectionGraphicsOf, view3dOf, type DetailLevel, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
+import { PARTIAL_STRUCTURES, PLAN_VISUAL_STYLES, VISUAL_STYLES, disciplinasDoProjeto, planGraphicsOf, sectionGraphicsOf, type DetailLevel, type Discipline, type Id, type View3DSettings, type ViewGraphics } from '@hestia/model';
 import { editor, useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
-import { editPlanGraphics, editSectionGraphics, editView3D, restorePlanGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefault, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
-import { definirDisciplinaDo3d, rotuloDaDisciplina } from '../editor/planViewActions.ts';
+import { editPlanGraphics, editSectionGraphics, editView3dAtual, restorePlanGraphicsDefault, restoreSectionGraphicsDefault, restoreView3DDefaultAtual, type LevelGraphicsPatch, type SectionGraphicsPatch, type View3DPatch } from '../editor/graphicsActions.ts';
+import { rotuloDaDisciplina } from '../editor/planViewActions.ts';
 import { planDialogTarget } from '../editor/viewIdentity.ts';
 import { useUi } from '../editor/state.ts';
+import { view3dSettingsOf } from '../editor/vista3dSalva.ts';
 import { Check, Group, NumField, Row } from './fields.tsx';
 import { categoriesInGroups, categoryLabel, detailLabel, partialLabel, PLAN_SCALES, visualStyleLabel } from './graphicsLabels.ts';
 
@@ -129,23 +130,24 @@ function BackgroundField({ value, onCommit }: { value: string; onCommit: (v: str
   );
 }
 
-/** Gráficos do modelo 3D (decisão 0015 §3): estilo, parcial, sombras, arestas, sol e fundo. Sombras e arestas são do projeto. */
+/** Gráficos do modelo 3D (decisão 0015 §3): estilo, parcial, sombras, arestas, sol e fundo. Sombras e arestas são da vista. */
 export function View3DGroup(): ReactElement {
   const { t, lang } = useT();
   const p = useProject();
-  const v = view3dOf(p);
+  const view3dViewId = useUi((s) => (s.view === '3d' ? (s.view3dViewId ?? null) : null));
+  const v = view3dSettingsOf(p, view3dViewId);
   const [error, setError] = useState<string | null>(null);
-  const edit = (patch: View3DPatch): void => setError(editView3D(editor.store, patch).error);
+  const edit = (patch: View3DPatch): void => setError(editView3dAtual(editor.store, view3dViewId, patch).error);
   const hidden = categoriesInGroups().filter((c) => !v.overrides[c].visible);
   return (
     <Group title={t('prd_pgrp_3d_graphics')}>
       <Row label={t('prd_fld_discipline')} htmlFor="v3-discipline">
-        <select id="v3-discipline" className="select" value={v.discipline ?? ''} onChange={(e) => definirDisciplinaDo3d(editor.store, e.target.value || undefined)}>
+        <select id="v3-discipline" className="select" value={v.discipline ?? ''} onChange={(e) => edit({ discipline: e.target.value ? (e.target.value as Discipline) : undefined })}>
           <option value="">{t('prd_discipline_all')}</option>
           {disciplinasDoProjeto(p).map((d) => <option key={d.id} value={d.id}>{rotuloDaDisciplina(p, lang, d.id)}</option>)}
         </select>
       </Row>
-      <div className="prow"><span /><button className="chiplink" disabled={v.discipline === undefined} onClick={() => definirDisciplinaDo3d(editor.store, undefined)}>{t('prd_btn_restore_discipline')}</button></div>
+      <div className="prow"><span /><button className="chiplink" disabled={v.discipline === undefined} onClick={() => edit({ discipline: undefined })}>{t('prd_btn_restore_discipline')}</button></div>
       <Row label={t('prd_fld_visual_style')} htmlFor="v3-style">
         <select id="v3-style" className="select" value={v.style} onChange={(e) => edit({ style: e.target.value as View3DSettings['style'] })}>
           {VISUAL_STYLES.map((k) => <option key={k} value={k}>{visualStyleLabel(k, lang)}</option>)}
@@ -169,7 +171,7 @@ export function View3DGroup(): ReactElement {
       </Row>
       {error && <div className="vr-error" role="alert">{error}</div>}
       <div className="prow"><span /><button className="btn small" onClick={() => useUi.setState({ dialog: 'graphicsVisibility', dialogArg: '3d' })}>{t('prd_btn_visibility_graphics')}</button></div>
-      <div className="prow"><span /><button className="btn small" onClick={() => setError(restoreView3DDefault(editor.store).error)}>{t('prd_btn_restore_default')}</button></div>
+      <div className="prow"><span /><button className="btn small" onClick={() => setError(restoreView3DDefaultAtual(editor.store, view3dViewId).error)}>{t('prd_btn_restore_default')}</button></div>
       {hidden.length > 0 ? (
         <div className="hint">{t('prd_msg_hidden_in_3d', { list: hidden.map((c) => categoryLabel(c, lang).toLowerCase()).join(', ') })}</div>
       ) : null}

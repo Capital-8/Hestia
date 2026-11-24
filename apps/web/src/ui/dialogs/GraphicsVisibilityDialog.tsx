@@ -11,7 +11,6 @@ import {
   presetTone,
   sectionGraphicsOf,
   tDoModelo,
-  view3dOf,
   type CategoryOverride,
   type ChaveModelo,
   type Discipline,
@@ -19,9 +18,10 @@ import {
   type Tone,
 } from '@hestia/model';
 import { editor, useProject } from '../../editor/controller.ts';
-import { editPlanGraphics, editPlanTone, editSectionGraphics, editView3D, restorePlanTones, type GraphicsEdit } from '../../editor/graphicsActions.ts';
+import { editPlanGraphics, editPlanTone, editSectionGraphics, editView3dAtual, restorePlanTones, type GraphicsEdit } from '../../editor/graphicsActions.ts';
 import { dialogTargetWithoutTab, graphicsDialogTabOfTarget, planViewIdOfDialogTarget, type GraphicsDialogTab } from '../../editor/viewIdentity.ts';
 import { useUi } from '../../editor/state.ts';
+import { view3dSettingsOf } from '../../editor/vista3dSalva.ts';
 import { CATEGORY_GROUPS, categoryGroupLabel, categoryLabel, WEIGHTS } from '../graphicsLabels.ts';
 import { Check, NumField } from '../fields.tsx';
 import { Dialog } from './Dialog.tsx';
@@ -65,6 +65,7 @@ function ColorCell({ id, label, value, onCommit }: { id: string; label: string; 
 export function GraphicsVisibilityDialog({ target }: { target: string }): ReactElement | null {
   const { t, lang } = useT();
   const p = useProject();
+  const view3dViewId = useUi((s) => (s.view === '3d' ? (s.view3dViewId ?? null) : null));
   const is3d = target === '3d';
   const isSection = target === 'section';
   const tabOfTarget = graphicsDialogTabOfTarget(target);
@@ -79,11 +80,11 @@ export function GraphicsVisibilityDialog({ target }: { target: string }): ReactE
   const [toneError, setToneError] = useState<string | null>(null);
   if (!is3d && !isSection && !lvl) return null;
   const plan = !is3d && !isSection && lvl ? planOf(p, lvl.id, planId) : undefined;
-  const g = is3d ? view3dOf(p) : isSection ? sectionGraphicsOf(p) : planGraphicsOf(p, lvl!.id, planId);
+  const g = is3d ? view3dSettingsOf(p, view3dViewId) : isSection ? sectionGraphicsOf(p) : planGraphicsOf(p, lvl!.id, planId);
   const pg = graphicsOf(p);
   const close = (): void => useUi.setState({ dialog: null, dialogArg: null });
   const run = (c: GraphicsCategory, o: Override): void => {
-    const r: GraphicsEdit = is3d ? editView3D(editor.store, one(c, o)) : isSection ? editSectionGraphics(editor.store, one(c, o)) : editPlanGraphics(editor.store, { levelId: lvl!.id, planId }, one(c, o));
+    const r: GraphicsEdit = is3d ? editView3dAtual(editor.store, view3dViewId, one(c, o)) : isSection ? editSectionGraphics(editor.store, one(c, o)) : editPlanGraphics(editor.store, { levelId: lvl!.id, planId }, one(c, o));
     setErrors((prev) => ({ ...prev, [c]: r.error ?? undefined }));
   };
   const failed = GRAPHICS_CATEGORIES.filter((c) => errors[c]);

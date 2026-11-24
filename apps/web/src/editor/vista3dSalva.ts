@@ -1,4 +1,4 @@
-import { view3dViewOf, type Camera3D, type Id, type Project, type SheetView3DCamera, type View3DView } from '@hestia/model';
+import { view3dOf, view3dViewOf, type Camera3D, type Id, type Project, type SheetView3DCamera, type View3DSettings, type View3DView } from '@hestia/model';
 
 /**
  * Vistas 3D salvas (plano de UX de 2026-11-23): ponte pura entre a aba `3d:<id>` e a vista guardada no projeto.
@@ -15,6 +15,19 @@ export interface Vista3dFields {
 /** Vista 3D salva da aba ativa; undefined = 3D padrão (ou a aba não é 3D). */
 export function vista3dSalvaDe(p: Partial<Pick<Project, 'view3dViews'>>, st: Vista3dFields): View3DView | undefined {
   return st.view === '3d' && st.view3dViewId ? view3dViewOf(p, st.view3dViewId) : undefined;
+}
+
+/** Id da vista 3D salva ativa; null no 3D padrão (ou fora da aba 3D). */
+export function view3dViewIdAtivo(st: Vista3dFields): Id | null {
+  return st.view === '3d' && st.view3dViewId ? st.view3dViewId : null;
+}
+
+/** Settings efetivos da vista 3D ativa: os da vista salva, quando existe; senão os do 3D padrão. */
+export function view3dSettingsOf(p: Partial<Pick<Project, 'view3d' | 'view3dViews'>>, view3dViewId?: Id | null): View3DSettings {
+  const view = view3dViewId ? view3dViewOf(p, view3dViewId) : undefined;
+  if (!view) return view3dOf(p);
+  // A disciplina de trabalho da vista salva é o campo do topo (o mesmo que `projetoDaVista3d` aplica à cena).
+  return view.discipline ? { ...view.settings, discipline: view.discipline } : view.settings;
 }
 
 /** Câmera da órbita (radianos) para a vista salva (graus). */
