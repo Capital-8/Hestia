@@ -36,8 +36,8 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | pendente | |
 | 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | pendente | |
-| 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | pendente | |
-| 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | escrita (4 ambiguidades; rodar contra C4) | 1c29c347 |
+| 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | integrada | 97d321bb |
+| 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | arbitrada (28 verdes, 4 ambiguidades abertas) | 1c29c347 |
 | 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | pendente | |
 | 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | pendente | |
 | 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | pendente | |
@@ -85,4 +85,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · B6: `definirPerfil(f, id, perfil, lado?)` (lado 'A'|'B' na transição); `definirRaio(f, id, vertice, raio)` com vertice 1..pontos−2; com raios definidos o caminho mantém pontos−2 raios; `criarCorpoPadrao` (extrusão Ø50×500; revolução retângulo 20×40 afastamento 50; varredura Ø50 em L raio 100; transição Ø100→Ø50 L=200); duplicar cria `<id>_N`.
 - 2026-11-24 · A7: `resolverFamilia` devolve `corpos`, `ligacoes`, `caixaCorpos` (opcionais em `ResolucaoFamilia`); caixa dos corpos vem da malha dos corpos sólidos; revolução com segmentos padrão = max(1, round(32·ângulo/360)); snapshot de 365 resoluções da biblioteca idêntico; corpos de família aninhada NÃO sobem para o pai; `caixaDoComponente`/`pegadaDoComponente` (instancia.ts) ainda sem corpos → ficha A7b.
 - 2026-11-24 · Calibração: o executor do C4-cego tentou criar sessão (`create_session`) sem necessidade; negado pelo classificador, nada foi criado. Reforçar no prompt: nada de ferramentas fora da ficha.
+- 2026-11-24 · C4: `ligacoesCompativeis` (ordem das regras: domínio, seção, bitola, direção, fluxo; motivos fixos), `encaixarLigacoes(alvo, candidatas, tolerancia=0,05)` devolve `{ candidata, deslocamento }` (sem `rotacaoZ`/`inclinacao` por ora: TODO ligado à ferramenta Tubo C5), `ligacaoNoMundo(lig, componente)`. Tolerâncias inclusivas (≤): medidas 0,5 mm (+1 nm de folga numérica), encaixe 50 mm; empate = primeira candidata.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
