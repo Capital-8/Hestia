@@ -122,7 +122,7 @@ describe('elétrica: volumes contra a conta analítica (±1 %)', () => {
   for (const id of ['fam_caixa_4x2', 'fam_caixa_4x4']) {
     it(`${id}: parede retangular (L × A − (L − 2e) × (A − 2e)) × (P − e)`, () => {
       const f = porId(id);
-      const env = ambiente(f, f.tipoPadrao);
+      const env = ambiente(f, f.tipoPadrao ?? f.tipos[0]!.id);
       const L = numero('L', env);
       const A = numero('A', env);
       const P = numero('P', env);
