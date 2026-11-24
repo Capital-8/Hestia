@@ -37,3 +37,4 @@ export * from './simbolosResolvidos.ts';
 export * from './resolverCorpos.ts';
 export * from './cortarCorpos.ts';
 export * from './detalharFamilia.ts';
+export * from './diagnosticoRede.ts';
