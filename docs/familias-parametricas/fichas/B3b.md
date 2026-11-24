@@ -13,10 +13,14 @@ A silhueta dos corpos na planta (B3: `projetarCorposPlanta`, `planComponents*.ts
 3. Quando algum símbolo resolvido da família tem `substituiGeometria` e `vistas` com `planta`, NÃO desenhe a silhueta automática nem a pegada (só os símbolos; o desenho dos símbolos é a ficha D2).
 4. Testes acrescentados: tubo Ø50 × 1 m em pé inclinado 90° em torno de Y ⇒ retângulo 1 × 0,05; sem inclinação inalterado; símbolo substituindo geometria oculta a silhueta.
 
+5. `malhaDoComponente` em `packages/engine/src/componentes/instancia.ts` também usa a transformação 2D e ignora `inclinacao` nas PEÇAS; faça-a usar `matrizDoComponente` (sem `inclinacao` o resultado é idêntico; com `inclinacao`, peças e corpos ficam alinhados). Acrescente o teste (instância com `inclinacao` e uma peça).
+
 ## Aceitação
 Os três testes verdes; planta sem corpos e sem inclinação idêntica.
 
 ## Arquivos permitidos
+- `packages/engine/src/componentes/instancia.ts`
+- `packages/engine/src/componentes/instanciaInclinada.test.ts` (NOVO)
 - `packages/render/src/plan/planComponents.ts`
 - `packages/render/src/plan/planComponentsGeo.ts`
 - `packages/engine/src/componentes/projecaoCorposPlanta.ts`
