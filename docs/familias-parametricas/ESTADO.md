@@ -58,15 +58,15 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 6 | [F5](fichas/F5.md) | Referência: elétrica (eletroduto, caixas, tomada e interruptor) | Haiku | F1, D2 | integrada | 3165b221 |
 | 6 | [F6](fichas/F6.md) | Referência: luminárias | Haiku | F5 | integrada | f2bd109c |
 | 6 | [F7](fichas/F7.md) | Referência: estrutura metálica (perfis, chapa de base, parafuso) | Haiku | E3 | integrada | 3618badf |
-| 6 | [F8](fichas/F8.md) | Referência: HVAC e migração dos exemplos de disciplina | Haiku | F1, F5 | pendente | |
+| 6 | [F8](fichas/F8.md) | Referência: HVAC e migração dos exemplos de disciplina | Haiku | F1, F5 | integrada | 4d670641 |
 | 6 | [G1](fichas/G1.md) | Galeria e modelos-base por disciplina | Haiku | E1, B7, C2 | integrada | 15199d4d |
 | 6 | [G3](fichas/G3.md) | Painel de propriedades da instância (MEP) | Haiku | B1, C3, D5 | integrada | 8fa6b73c |
-| 7 | [G2](fichas/G2.md) | Editor: abas Inserir, Modificar, Vista e Gerenciar | Haiku | B7, C2, D3 | pendente | |
+| 7 | [G2](fichas/G2.md) | Editor: abas Inserir, Modificar, Vista e Gerenciar | Haiku | B7, C2, D3 | integrada | 486dcf93 |
 | 7 | [H1](fichas/H1.md) | Roteiros de navegador (E2E) das famílias de referência | Haiku | F1, F3, F7, C5, B7 | pendente | |
 | 7 | [H2](fichas/H2.md) | Manual curto e atualização de documentos | Haiku | H1 | pendente | |
 | 8 | [D6b](fichas/D6b.md) | Detalhe da família como viewport da prancha | Sonnet | D6 | pendente | |
-| 8 | [I1](fichas/I1.md) | Verificar rede: botão e painel montados | Haiku | C7 | pendente | |
-| 8 | [I2](fichas/I2.md) | Aba "Quantitativos" MEP no orçamento do projeto | Haiku | E3 | pendente | |
+| 8 | [I1](fichas/I1.md) | Verificar rede: botão e painel montados | Haiku | C7 | integrada | 6643adce + orquestrador |
+| 8 | [I2](fichas/I2.md) | Aba "Quantitativos" MEP no orçamento do projeto | Haiku | E3 | integrada | e6cb4a93 |
 | 8 | [I3](fichas/I3.md) | Pendências de modelo: angulo na interface, caixaria no arquivo, material do corpo | Haiku | A1, A2b, A9 | integrada (itens 2 e 3 pela ficha; item 1 pelo orquestrador) | 9a7b89ef |
 | 8 | [F-CSG](fichas/F-CSG.md) | (Opcional) Subtração real de vazios nos corpos | Sonnet | A6; só se a caixa de inspeção precisar | pendente | |
 | 8 | [H3](fichas/H3.md) | (Opcional) Espelho Rust das malhas dos corpos | Sonnet | A6 e testes cegos verdes | pendente | |
@@ -127,4 +127,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · D3: `edicaoSimbolos.ts` (operações puras), painel de símbolos com tela SVG fixa (−500…1500 mm; sem zoom/pan/seleção múltipla; pontos com fórmula sem alça), símbolo novo nasce com uma linha de exemplo, roteiro `familias-simbolos.mjs` 6/6; NÃO verificado: o símbolo aparecer na planta do PROJETO. Suíte ampla antes do D3: 1.373 arquivos / 17.442 testes verdes.
 - 2026-11-24 · D6 (parcial): `quadroDeDetalhe(detalhe, escala, origem?)` (engine) converte o `DetalheResolvido` em linhas/textos em mm de papel; a prancha NÃO foi integrada: `SheetViewSource` (model/sheet.ts) é união fechada (plan, areaPlan, areaTable, section, 3d) usada em ~56 checagens de `view.kind`, `render/sheet/build.ts` não conhece instância de família e o projeto não guarda referência instância+detalhe para viewport → ficha D6b (Sonnet).
 - 2026-11-24 · I3: `caixaria` na lista branca de `arquivo.ts` (ida e volta testada); renomear/excluir parâmetro enxergam `Corpo.material` (`corpo:<id>.material`); orquestrador: `angulo` entrou em `TIPOS_PARAMETRO` (após `inteiro`) e os dois testes de enumeração de `familiaDialogos.test.ts` foram ampliados (rótulos e faixa/fórmula) — alteração de teste autorizada por ser enumeração do próprio seletor.
+- 2026-11-24 · G2: as cinco abas do editor têm painéis; botões chamam funções existentes ou ficam desabilitados com motivo (mover/girar/alinhar com mouse, captura de pontos, usinagem, DXF, plano de referência, materiais, unidades, arame, isolar, planos, enquadrar); orquestrador atualizou a asserção do passo 12b de `familias-editor.mjs` (abas habilitadas); `familias-abas.mjs` 6/6; 14/14 do roteiro antigo.
+- 2026-11-24 · I1: botão "Verificar rede" na aba Inserir (painel Tubulação), ação `verificarRede` → diálogo `redeDiagnostico` (`RedeDiagnosticoDialog.tsx`), tudo ligado pelo orquestrador (model.ts, actions.ts, state.ts, tabsMain.ts, App.tsx); roteiro de navegador NÃO escrito. I2: quinta aba "Instalações e estrutura" no orçamento (perfis em kg, tubos em m, reservatórios em L), CSV próprio, shard `moveisMep.ts`; sem teste de interface/navegador.
+- 2026-11-24 · F8: `HVAC` (duto retangular/redondo, curvas, redução sólida, difusores, grelha, `fam_split_evaporadora` — o split NÃO existia em `disciplinasExemplo.ts`) em `BIBLIOTECA_MEP`; MIGRAÇÃO das famílias de exemplo mantém ids/nomes/categorias/dimensões (snapshot travado em `hvacMigracao.test.ts`) mas agora com `ligacoes`, símbolo e `ifc` EXPLÍCITO: vaso, lavatório e ralo → `IFCSANITARYTERMINAL`; tomada → `IFCOUTLET`; interruptor → `IFCSWITCHINGDEVICE`; luminária → `IFCLIGHTFIXTURE`; difusor → `IFCAIRTERMINAL`; quadro → `IFCBUILDINGELEMENTPROXY`. EFEITO: o IFC exportado de projetos que já usam essas famílias de exemplo muda de `IFCFURNITURE` para essas classes. Terminais de ar (difusores, grelha) têm 1 ligação (teste do motor ajustado).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)

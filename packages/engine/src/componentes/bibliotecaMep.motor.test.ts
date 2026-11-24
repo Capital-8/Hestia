@@ -45,8 +45,8 @@ describe('biblioteca MEP no motor', () => {
           if (l.secao === 'redonda') expect(l.diametro).toBeGreaterThan(0);
           else { expect(l.largura).toBeGreaterThan(0); expect(l.altura).toBeGreaterThan(0); }
         }
-        // Tampão e ralos têm uma única ligação (a ponta fechada / a saída; a entrada do ralo é a grelha); as demais têm ao menos duas.
-        expect((r.ligacoes ?? []).length).toBeGreaterThanOrEqual(f.id.endsWith('tampao') || f.id.startsWith('fam_ralo') ? 1 : 2);
+        // Tampão, ralos, difusores e grelha têm uma única ligação (ponta fechada, saída, ou a conexão ao duto); as demais têm ao menos duas.
+        expect((r.ligacoes ?? []).length).toBeGreaterThanOrEqual(f.id.endsWith('tampao') || f.id.startsWith('fam_ralo') || f.id.startsWith('fam_difusor') || f.id === 'fam_grelha' ? 1 : 2);
       });
     }
   }
