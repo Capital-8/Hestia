@@ -22,6 +22,22 @@ export { adicionarParametro, excluirParametro };
 export { adicionarPeca, arranjoLinear, duplicarPeca, espelharPecaEmX, excluirPeca, moverPecaNaLista } from './edicaoPecas.ts';
 export { adicionarTipo, definirValorDeTipo, duplicarTipo, excluirTipo } from './edicaoTipos.ts';
 export { adicionarConector, editarConector, excluirConector, adicionarEscolha, editarEscolha, excluirEscolha } from './edicaoEncaixe.ts';
+export {
+  adicionarPrimitivo,
+  adicionarSimbolo,
+  criarPrimitivoPadrao,
+  criarSimboloPadrao,
+  editarSimbolo,
+  excluirPrimitivo,
+  excluirSimbolo,
+  idNovoSimbolo,
+  moverPonto,
+  pontosDoPrimitivo,
+  PLANOS_SIMBOLO,
+  substituirPrimitivo,
+  tiposDePrimitivo,
+  VISTAS_SIMBOLO,
+} from './edicaoSimbolos.ts';
 
 /*
  * Operações de EDIÇÃO da família (ADR 0049 §4.2). FICHA E4-edicao: implementar todas as funções abaixo. Testes em
