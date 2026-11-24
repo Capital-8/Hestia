@@ -349,7 +349,7 @@ export function sheetAlignFeatures(q: SheetAlignQuery): SheetAlignFeature[] {
     const group = i < q.drawList.groups.length - 1 ? q.drawList.groups[i] : undefined;
     out.push(...frameFeatures(vp, q.at, tol, lang));
     out.push(...modelFeatures(q.project, vp, q.at, q.zoom, prefer, lang));
-    if (vp.view.kind === 'section' || vp.view.kind === 'areaTable' || vp.view.kind === '3d') {
+    if (vp.view.kind === 'section' || vp.view.kind === 'areaTable' || vp.view.kind === 'familyDetail' || vp.view.kind === '3d') {
       out.push(...drawingFeatures(vp, group, q.at, tol, lang));
     }
   });

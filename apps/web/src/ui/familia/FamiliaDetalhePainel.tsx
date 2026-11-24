@@ -1,7 +1,10 @@
 import { detalharFamilia } from '@hestia/engine';
 import { adicionarDetalhe, criarDetalhePadrao, editarDetalhe, excluirDetalhe, type Eixo, type Familia, type VistaSimbolo } from '@hestia/model';
 import { useMemo, useState, type ReactElement } from 'react';
+import { editor, useProject } from '../../editor/controller.ts';
 import { useT } from '../../editor/i18n.ts';
+import { instanciaParaDetalhe, inserirDetalheDeFamilia } from '../../editor/sheetInsert.ts';
+import { useUi } from '../../editor/state.ts';
 import { FamiliaDetalheCotas } from './FamiliaDetalheCotas.tsx';
 import { FamiliaDetalheMiniatura } from './FamiliaDetalheMiniatura.tsx';
 import { CampoCorpo } from './FamiliaCorpoCampo.tsx';
@@ -11,7 +14,7 @@ import './familiaCorpo.css';
 
 /*
  * Aba "Detalhes" do editor (ficha D4): lista de detalhes, formulário do selecionado (nome, vista, escala e plano de corte),
- * miniatura da vista, tabela de cotas e o botão "inserir no projeto" (desligado até a inserção de detalhes, ficha D6, entrar).
+ * miniatura da vista, tabela de cotas e o botão "inserir no projeto" (ficha D6b: põe o detalhe da instância da família numa prancha).
  * Ainda NÃO está montada no editor: falta o ponto de montagem em `FamiliaPaineis.tsx`, que está fora da lista de arquivos desta
  * ficha. A seleção é local a este painel; toda gravação passa pelo modelo dentro de `useFamilia.executar` (histórico e desfazer).
  */
@@ -30,6 +33,20 @@ export function FamiliaDetalhePainel(): ReactElement {
     () => (atual === undefined ? null : detalharFamilia(familia, tipoId ?? undefined, valores, atual.id)),
     [familia, tipoId, valores, atual],
   );
+
+  // Instância da família no projeto (a que o detalhe da prancha vai acompanhar); sem ela o botão fica desligado.
+  const projeto = useProject();
+  const instancia = instanciaParaDetalhe(projeto, familia.id, tipoId);
+
+  const inserir = (detalheId: string): void => {
+    if (instancia === null) return;
+    try {
+      inserirDetalheDeFamilia(editor.store, instancia, detalheId, useUi.getState().sheetId);
+      setErro(null);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const executar = (rotulo: string, receita: (f: Familia) => string | null): string | null => {
     const motivo = useFamilia.getState().executar(rotulo, receita);
@@ -114,7 +131,7 @@ export function FamiliaDetalhePainel(): ReactElement {
 
           <FamiliaDetalheCotas familia={familia} detalhe={atual} resolvidas={resolvido?.cotas ?? []} aoErro={setErro} />
 
-          <button type="button" className="fam-bt" disabled title={t('fam_det_inserir_dica')}>{t('fam_det_inserir')}</button>
+          <button type="button" className="fam-bt" disabled={instancia === null} title={instancia === null ? t('fam_det_inserir_dica') : undefined} onClick={() => inserir(atual.id)}>{t('fam_det_inserir')}</button>
         </>
       )}
     </div>

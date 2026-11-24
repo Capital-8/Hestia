@@ -60,6 +60,8 @@ export type SheetViewSource =
   | { kind: 'areaPlan'; planId: Id }
   | { kind: 'areaTable' }
   | { kind: 'section'; sectionId: Id }
+  /** Detalhe de uma instância de família (D6b): `detailId` é o id do detalhe do tipo da instância. A escala vem do viewport. */
+  | { kind: 'familyDetail'; componentId: Id; detailId: string }
   | { kind: '3d'; pointId?: Id; camera?: SheetView3DCamera };
 
 /** Motivo de recusa de uma câmera 3D, ou null. */
