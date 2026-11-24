@@ -1,14 +1,18 @@
-import { malhaDoComponente, resolverComponente, type Malha } from '@hestia/engine';
+import { malhaDoComponente, malhaDosCorpos, resolverComponente, type Malha, type ResolucaoFamilia } from '@hestia/engine';
 import {
   ACABAMENTOS_MOVEIS,
   categoriaDoElemento,
   isComponent,
+  levelElevation,
+  type Component,
+  matrizDoComponente,
   materialDoAcabamento,
   resolverMaterialVisualPeca,
   type Id,
   type Material,
   type Project,
 } from '@hestia/model';
+import { corpoVisivel3d, malhaDoCorpoNoMundo } from '../familia/corposVisual.ts';
 import { batchOf, ofElement, type SolidBatch } from './solids.ts';
 
 /*
@@ -25,6 +29,24 @@ export const MATERIAIS_DE_COMPONENTE: Readonly<Record<Id, Material>> = {
   comp_fundo: { id: 'comp_fundo', name: 'Componente · fundo', color: '#c2b59f', hatch: 'solid', gloss: 0.15, opacity: 1, cost: 0, unit: 'm2' },
   comp_rodape: { id: 'comp_rodape', name: 'Componente · rodapé', color: '#3c4046', hatch: 'solid', gloss: 0.3, opacity: 1, cost: 0, unit: 'm2' },
 };
+
+/** Material dos corpos no projeto: fixo (o corpo ainda não traz o acabamento do projeto; ver relatório da ficha B2). */
+const MATERIAL_DO_CORPO: Id = 'comp_corpo';
+
+/** Malha local dos corpos sólidos por resolução (família, tipo e valores): `res` muda quando algum deles muda, então o cache se invalida sozinho. */
+const MALHA_LOCAL_CORPOS = new WeakMap<ResolucaoFamilia, Malha>();
+
+/** Malha dos corpos da instância no mundo (`matrizDoComponente` + elevação do nível), ou `null` sem corpos sólidos. */
+function malhaDeCorposNoMundo(p: Project, c: Component, res: ResolucaoFamilia): Malha | null {
+  const corpos = res.corpos ?? [];
+  if (corpos.length === 0) return null;
+  let local = MALHA_LOCAL_CORPOS.get(res);
+  if (!local) {
+    local = malhaDosCorpos(corpos).solidas;
+    MALHA_LOCAL_CORPOS.set(res, local);
+  }
+  return malhaDoCorpoNoMundo(local, matrizDoComponente(c), levelElevation(p, c.levelId));
+}
 
 /**
  * Sólidos dos componentes do nível `levelId`, em lotes por categoria e material (`SolidBatch`). A categoria vem de
@@ -46,22 +68,33 @@ export function buildComponentSolids(p: Project, levelId: Id): SolidBatch[] {
     if (!cat) continue;
     const res = resolverComponente(p, c);
     const malha = malhaDoComponente(p, c, res).solidas;
-    const porMaterial = new Map<Id, number[]>();
-    for (let t = 0; t < malha.pecaDoTriangulo.length; t++) {
-      const peca = res.pecas[malha.pecaDoTriangulo[t]!];
-      if (!peca || peca.vazio) continue;
-      const materialId = resolverMaterialVisualPeca(c, peca.papel, peca.material ?? undefined);
+    const porMaterial = new Map<Id, Array<{ malha: Malha; t: number }>>();
+    const adicionar = (materialId: Id, malhaDoTriangulo: Malha, t: number): void => {
       let triangulos = porMaterial.get(materialId);
       if (!triangulos) {
         triangulos = [];
         porMaterial.set(materialId, triangulos);
       }
-      triangulos.push(t);
+      triangulos.push({ malha: malhaDoTriangulo, t });
+    };
+    for (let t = 0; t < malha.pecaDoTriangulo.length; t++) {
+      const peca = res.pecas[malha.pecaDoTriangulo[t]!];
+      if (!peca || peca.vazio) continue;
+      adicionar(resolverMaterialVisualPeca(c, peca.papel, peca.material ?? undefined), malha, t);
+    }
+    // Corpos (ficha B2): sólidos no mundo pela matriz da instância e a elevação do nível; vazios ficam de fora, como as peças vazias.
+    const mundo = malhaDeCorposNoMundo(p, c, res);
+    if (mundo !== null) {
+      for (let t = 0; t < mundo.pecaDoTriangulo.length; t++) {
+        const corpo = res.corpos?.[mundo.pecaDoTriangulo[t]!];
+        if (!corpo || !corpoVisivel3d(corpo, 'fino')) continue;
+        adicionar(MATERIAL_DO_CORPO, mundo, t);
+      }
     }
     for (const [materialId, triangulos] of porMaterial) {
       const batch = batchOf(batches, materialId, cat);
       ofElement(batch, c.id, () => {
-        for (const t of triangulos) pushTriangulo(batch, malha, t);
+        for (const { malha: m, t } of triangulos) pushTriangulo(batch, m, t);
       });
     }
   }
