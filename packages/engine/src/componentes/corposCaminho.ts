@@ -12,6 +12,8 @@ export type ResultadoCaminho = { ok: true; caminho: CaminhoResolvido } | { ok: f
 
 const EPS_RETO = 1e-6;
 const EPS_COMPRIMENTO = 1e-9;
+/** Pontos consecutivos mais próximos que isto (m) são um só (1e-7 m = 0,1 µm; abaixo da resolução de 1 µm da família). */
+export const LIMIAR_TRECHO = 1e-7;
 const TOL_TRECHO = 1e-6;
 const SEGMENTOS_PADRAO = 12;
 
@@ -74,20 +76,15 @@ export function filetarCaminho(pontos: V3[], raios: number[], segmentosPorCurva:
       return { ok: false, erro: `curvas se sobrepõem no trecho ${j + 1}` };
     }
   }
-  const saida: number[] = [];
-  const vertices: number[] = [];
-  const empurra = (p: V3): void => {
-    const k = saida.length;
-    if (k >= 3 && Math.hypot(p[0] - (saida[k - 3] ?? 0), p[1] - (saida[k - 2] ?? 0), p[2] - (saida[k - 1] ?? 0)) < EPS_COMPRIMENTO) return;
-    saida.push(p[0], p[1], p[2]);
-  };
+  const brutos: V3[] = [];
+  const verticesBrutos: number[] = [];
   for (let i = 0; i < n; i++) {
     const p = pontos[i];
     const c = curvas[i - 1];
     if (!p) return { ok: false, erro: 'caminho inconsistente' };
     if (!c || c.raio === 0) {
-      vertices.push(saida.length / 3);
-      empurra(p);
+      verticesBrutos.push(brutos.length);
+      brutos.push(p);
       continue;
     }
     const a = sub(p, mul(c.d1, c.t));
@@ -97,8 +94,49 @@ export function filetarCaminho(pontos: V3[], raios: number[], segmentosPorCurva:
     const centro = soma(a, mul(nrm, c.raio));
     for (let s = 0; s <= segs; s++) {
       const th = (c.phi * s) / segs;
-      empurra(soma(centro, soma(mul(nrm, -c.raio * Math.cos(th)), mul(c.d1, c.raio * Math.sin(th)))));
+      brutos.push(soma(centro, soma(mul(nrm, -c.raio * Math.cos(th)), mul(c.d1, c.raio * Math.sin(th)))));
     }
+  }
+  return limparTrechos(brutos, verticesBrutos);
+}
+
+/** Distância entre dois pontos (m). */
+const distancia = (a: V3, b: V3): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/**
+ * Remove pontos consecutivos a menos de `LIMIAR_TRECHO` (m), para não sobrar segmento ~0 com direção invertida (defeito
+ * do arco que começa exatamente num vértice). O primeiro e o último ponto são mantidos: um intermediário quase
+ * coincidente com o anterior é descartado; o último substitui o anterior quando está a menos de um limiar dele.
+ * `vertices` é reapontado para o ponto que sobrou. Caminho inteiro ~0 é erro, sem lançar.
+ */
+function limparTrechos(brutos: V3[], verticesBrutos: number[]): ResultadoCaminho {
+  const saida: number[] = [];
+  const mapa: number[] = [];
+  const pontoEm = (k: number): V3 => [saida[k * 3] ?? 0, saida[k * 3 + 1] ?? 0, saida[k * 3 + 2] ?? 0];
+  const ultimo = brutos.length - 1;
+  for (let j = 0; j <= ultimo; j++) {
+    const p = brutos[j];
+    if (!p) return { ok: false, erro: 'caminho inconsistente' };
+    const k = saida.length / 3 - 1;
+    if (k < 0 || distancia(p, pontoEm(k)) >= LIMIAR_TRECHO) {
+      saida.push(p[0], p[1], p[2]);
+      mapa.push(k + 1);
+      continue;
+    }
+    if (j < ultimo) {
+      mapa.push(k);
+      continue;
+    }
+    if (k === 0) return { ok: false, erro: 'caminho com comprimento ~0' };
+    saida[k * 3] = p[0];
+    saida[k * 3 + 1] = p[1];
+    saida[k * 3 + 2] = p[2];
+    mapa.push(k);
+  }
+  const vertices: number[] = [];
+  for (const j of verticesBrutos) {
+    const idx = mapa[j];
+    if (idx !== undefined && vertices[vertices.length - 1] !== idx) vertices.push(idx);
   }
   return { ok: true, caminho: { pontos: saida, vertices } };
 }

@@ -6,8 +6,10 @@
  * o normal é transportado pela rotação mínima (equivalente à reflexão dupla) que leva uma direção na outra. Em cada ponto
  * interior, T é a direção BISSETORA (normal do plano de esquadro da junta); o chamador alarga a seção por
  * `1/cos(φ/2)` ao longo de `e` (ver `alargamentoDaJunta`). Nas pontas, T é a direção do segmento vizinho.
- * Nunca lança: segmentos de comprimento ~0 herdam a direção anterior.
+ * Nunca lança: segmentos mais curtos que 1e-7 m não definem direção e herdam a do vizinho.
  */
+
+import { LIMIAR_TRECHO } from './corposCaminho.ts';
 
 export type V3 = [number, number, number];
 export interface QuadroMovel {
@@ -51,15 +53,22 @@ function transportar(n: V3, de: V3, para: V3): V3 {
   return girar(n, [eixo[0] / sen, eixo[1] / sen, eixo[2] / sen], Math.atan2(sen, cos));
 }
 
-/** Direções unitárias dos segmentos (um segmento degenerado herda a direção anterior). */
+/**
+ * Direções unitárias dos segmentos. Trecho mais curto que `LIMIAR_TRECHO` (m) não tem direção confiável: herda a direção
+ * do segmento vizinho anterior, e o início sem anterior herda do primeiro segmento válido.
+ */
 export function direcoesDoCaminho(pontos: number[]): V3[] {
   const n = Math.floor(pontos.length / 3);
-  const dirs: V3[] = [];
+  const brutas: Array<V3 | null> = [];
   for (let i = 0; i + 1 < n; i++) {
     const d: V3 = [pontos[i * 3 + 3]! - pontos[i * 3]!, pontos[i * 3 + 4]! - pontos[i * 3 + 1]!, pontos[i * 3 + 5]! - pontos[i * 3 + 2]!];
-    dirs.push(normV(d) < EPS ? (dirs[dirs.length - 1] ?? [0, 0, 1]) : unitV(d));
+    brutas.push(normV(d) < LIMIAR_TRECHO ? null : unitV(d));
   }
-  return dirs;
+  let anterior: V3 = brutas.find((d): d is V3 => d !== null) ?? [0, 0, 1];
+  return brutas.map((d) => {
+    anterior = d ?? anterior;
+    return anterior;
+  });
 }
 
 export function quadrosDoCaminho(pontos: number[]): QuadroMovel[] {
