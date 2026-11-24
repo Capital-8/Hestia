@@ -806,6 +806,9 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'deleteComponentGroup':
     case 'moveComponentGroup':
     case 'rotateComponentGroup':
+    case 'connectComponents':
+    case 'disconnectComponents':
+    case 'renameMepSystem':
       applyComponentCommand(p, c);
       break;
     case 'addGrid':

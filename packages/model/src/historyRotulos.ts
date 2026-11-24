@@ -482,6 +482,9 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
     case 'deleteComponentGroup':
     case 'moveComponentGroup':
     case 'rotateComponentGroup':
+    case 'connectComponents':
+    case 'disconnectComponents':
+    case 'renameMepSystem':
       return componentCommandLabel(c);
     case 'setFacePaint':
       return 'Pintar face';

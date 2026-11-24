@@ -1,6 +1,8 @@
 import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import { componentIssue, componentesDaFamilia, componentesDoGrupo, familyIssue, transformComponent } from './componentes.ts';
 import type { Familia } from './familia/tipos.ts';
+import { conexoesIssue } from './sistemasMep.ts';
+import { applyMepCommand, desconectarExcluidas, mepCommandLabel, type MepCommand } from './mepCommands.ts';
 import type { Component, ComponentGroup, Id, Project } from './types.ts';
 
 /*
@@ -24,7 +26,9 @@ export type ComponentCommand =
   /** Move os membros e a linha do conjunto. */
   | { type: 'moveComponentGroup'; id: Id; dx: number; dy: number }
   /** Gira os membros em torno de `centro`, soma o ângulo à rotação e gira a linha junto. */
-  | { type: 'rotateComponentGroup'; id: Id; centro: Vec2; angulo: number };
+  | { type: 'rotateComponentGroup'; id: Id; centro: Vec2; angulo: number }
+  /** Redes de MEP: conectar, desconectar e renomear sistema (ver `mepCommands.ts`). */
+  | MepCommand;
 
 /** Motivo pelo qual o conjunto não pode entrar no projeto, ou `null`. */
 function groupIssue(p: Project, g: ComponentGroup): string | null {
@@ -49,6 +53,7 @@ function groupIssue(p: Project, g: ComponentGroup): string | null {
 
 /** Tira dos conjuntos os componentes que saíram do projeto e apaga o conjunto que ficou sem membros. */
 export function removerMembrosExcluidos(p: Project, excluidos: ReadonlySet<Id>): void {
+  desconectarExcluidas(p, excluidos);
   const grupos = p.componentGroups;
   if (!grupos) return;
   for (const [id, grupo] of Object.entries(grupos)) {
@@ -115,6 +120,9 @@ export function applyComponentCommand(p: Project, c: ComponentCommand): void {
       const next: Component = { ...e, ...c.patch };
       const issue = componentIssue(p, next);
       if (issue) throw new Error(issue);
+      // Trocar `ligacoes` por aqui só vale se continuar recíproco (a conexão normal é `connectComponents`).
+      const conexoes = c.patch.ligacoes !== undefined ? conexoesIssue(p, next) : null;
+      if (conexoes) throw new Error(conexoes);
       p.elements[c.id] = next;
       break;
     }
@@ -178,6 +186,11 @@ export function applyComponentCommand(p: Project, c: ComponentCommand): void {
     case 'rotateComponentGroup':
       girarGrupo(p, c.id, c.centro, c.angulo);
       break;
+    case 'connectComponents':
+    case 'disconnectComponents':
+    case 'renameMepSystem':
+      applyMepCommand(p, c);
+      break;
   }
 }
 
@@ -192,5 +205,8 @@ export function componentCommandLabel(c: ComponentCommand): string {
     case 'deleteComponentGroup': return 'Desfazer conjunto';
     case 'moveComponentGroup': return 'Mover conjunto';
     case 'rotateComponentGroup': return 'Girar conjunto';
+    case 'connectComponents':
+    case 'disconnectComponents':
+    case 'renameMepSystem': return mepCommandLabel(c);
   }
 }
