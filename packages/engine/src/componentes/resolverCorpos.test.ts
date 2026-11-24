@@ -50,7 +50,7 @@ describe('corpos na resolução (ficha A7)', () => {
     const r = resolverFamilia(familiaCom([tubo()]));
     expect(r.erros).toEqual([]);
     expect(r.corpos).toHaveLength(1);
-    expect(r.corpos[0]).toMatchObject({ id: 'tubo', nome: 'Tubo', indice: 1, vazio: false, forma: { tipo: 'extrusao', comprimento: 1 } });
+    expect(r.corpos![0]).toMatchObject({ id: 'tubo', nome: 'Tubo', indice: 1, vazio: false, forma: { tipo: 'extrusao', comprimento: 1 } });
     // Polígono de 32 lados inscrito com vértices em 0°, 90°, 180° e 270°: a caixa é exatamente ±50 mm em X e Y, 0 a 1 m em Z.
     const c = r.caixaCorpos!;
     expect(c.min[0]).toBeCloseTo(-0.05, 6);
@@ -66,9 +66,9 @@ describe('corpos na resolução (ficha A7)', () => {
   it('repetir 3 com i na origem: três corpos espaçados de 200 mm, com nomes numerados', () => {
     const r = resolverFamilia(familiaCom([tubo({ repetir: '3', quadro: { origem: ['i*200', '0', '0'] } })]));
     expect(r.erros).toEqual([]);
-    expect(r.corpos.map((c) => c.nome)).toEqual(['Tubo 1', 'Tubo 2', 'Tubo 3']);
-    expect(r.corpos.map((c) => c.indice)).toEqual([1, 2, 3]);
-    expect(r.corpos.map((c) => c.origem[0])).toEqual([expect.closeTo(0.2, 6), expect.closeTo(0.4, 6), expect.closeTo(0.6, 6)]);
+    expect(r.corpos!.map((c) => c.nome)).toEqual(['Tubo 1', 'Tubo 2', 'Tubo 3']);
+    expect(r.corpos!.map((c) => c.indice)).toEqual([1, 2, 3]);
+    expect(r.corpos!.map((c) => c.origem[0])).toEqual([expect.closeTo(0.2, 6), expect.closeTo(0.4, 6), expect.closeTo(0.6, 6)]);
     expect(r.caixaCorpos!.min[0]).toBeCloseTo(0.15, 6);
     expect(r.caixaCorpos!.max[0]).toBeCloseTo(0.65, 6);
   });
