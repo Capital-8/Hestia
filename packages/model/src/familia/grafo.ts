@@ -1,5 +1,7 @@
 import { compilar, referencias } from './expressao.ts';
 import type { Familia } from './tipos.ts';
+import { comoArray, ehObjeto } from './validarComum.ts';
+import { camposDoCorpo } from './validarCorpos.ts';
 
 /*
  * Ordem de avaliação dos parâmetros e dos planos de referência (ADR 0049 §3.2: sem solver, ordem topológica).
@@ -167,6 +169,15 @@ export function dependenciasDaFamilia(f: Familia): Dependencia[] {
   const itens: Dependencia[] = [];
   for (const p of f.parametros) itens.push({ id: p.id, deps: depsDe(p.formula) });
   for (const p of f.planos) itens.push({ id: p.id, deps: depsDe(p.posicao) });
+  // Corpos (ficha A2): ninguém depende deles. O prefixo `corpo:` evita colidir com parâmetro ou plano de mesmo id.
+  for (const corpo of comoArray<unknown>(f.corpos)) {
+    if (!ehObjeto(corpo) || typeof corpo.id !== 'string') continue;
+    const deps = new Set<string>();
+    for (const campo of camposDoCorpo(corpo, `corpo:${corpo.id}`)) {
+      for (const dep of depsDe(typeof campo.valor === 'string' ? campo.valor : undefined)) deps.add(dep);
+    }
+    itens.push({ id: `corpo:${corpo.id}`, deps: [...deps] });
+  }
   return itens;
 }
 
