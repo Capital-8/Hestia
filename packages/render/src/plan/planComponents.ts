@@ -4,7 +4,8 @@ import { levelElevation, type Component, type Project } from '@hestia/model';
 import { mix } from './color.ts';
 import { aneisDosCorpos, anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoMundo } from './planComponentsGeo.ts';
 import { aneisDasPecas, desenharPecasEmPlanta } from './planComponentsPecas.ts';
-import type { FillOp, PlanTheme, StrokeOp } from './types.ts';
+import { simbolosDePlanta } from './planComponentsSimbolos.ts';
+import type { FillOp, LabelOp, PlanTheme, StrokeOp } from './types.ts';
 
 /** Cota mínima (m) relativa ao pavimento a partir da qual o móvel é considerado aéreo (projeção tracejada). */
 const COTA_AEREO_M = 1.1;
@@ -121,21 +122,21 @@ function desenharSilhuetaDosCorpos(aneis: Ring[], theme: PlanTheme, fills: FillO
 }
 
 /**
- * Desenha um componente paramétrico (marcenaria/mobiliário) na planta 2D de forma fiel às peças 3D:
+ * Geometria automática do componente na planta (projeção das peças e silhueta dos corpos), sem os símbolos.
  * - Aéreo elevado (`zMin >= 1,1 m`): contornos tracejados (`dash: [4, 3]`), sem fill opaco sobre os balcões abaixo.
  * - Piso/torre: contorno sólido + fill sutil, destaque de tampo (`papel === 'tampo'`), recortes/cubas/cooktops e
  *   marcação frontal de portas/gavetas (`papel === 'porta' | 'frente_gaveta'`).
  */
-export function desenharComponenteEmPlanta(
+function desenharGeometriaDoComponente(
   p: Project,
   c: Component,
   theme: PlanTheme,
   fills: FillOp[],
   strokes: StrokeOp[],
-  sombreado = false,
-  fillsAereos: FillOp[] = fills,
-  detalhe: DetalhePlanta = 'medium',
-  aramado = false,
+  sombreado: boolean,
+  fillsAereos: FillOp[],
+  detalhe: DetalhePlanta,
+  aramado: boolean,
 ): void {
   const res = resolverComponente(p, c);
   const silhuetas = aneisDosCorpos(c, res, detalhe);
@@ -181,7 +182,30 @@ export function desenharComponenteEmPlanta(
   desenharTamposERecortes(c, res.pecas, theme, fills, strokes, sombreado);
 }
 
-/** Gera fills e strokes de todos os componentes visíveis do nível para `build.ts`. */
+/**
+ * Desenha um componente na planta: a geometria automática (ver `desenharGeometriaDoComponente`) e os símbolos 2D da família
+ * (ficha D2). Um símbolo com `substituiGeometria` que vale na planta tira a geometria automática; os símbolos entram por
+ * cima. Os textos dos símbolos vão para `labels`.
+ */
+export function desenharComponenteEmPlanta(
+  p: Project,
+  c: Component,
+  theme: PlanTheme,
+  fills: FillOp[],
+  strokes: StrokeOp[],
+  sombreado = false,
+  fillsAereos: FillOp[] = fills,
+  detalhe: DetalhePlanta = 'medium',
+  aramado = false,
+  labels: LabelOp[] = [],
+): void {
+  const simb = simbolosDePlanta(p, c, theme.inkSoft, detalhe);
+  labels.push(...simb.labels);
+  if (!simb.substituiGeometria) desenharGeometriaDoComponente(p, c, theme, fills, strokes, sombreado, fillsAereos, detalhe, aramado);
+  strokes.push(...simb.strokes);
+}
+
+/** Gera fills, strokes e textos (símbolos) de todos os componentes visíveis do nível para `build.ts`. */
 export function componentsPlanOps(
   p: Project,
   levelId: string,
@@ -190,14 +214,15 @@ export function componentsPlanOps(
   sombreado = false,
   detalhe: DetalhePlanta = 'medium',
   aramado = false,
-): { fills: FillOp[]; strokes: StrokeOp[] } {
+): { fills: FillOp[]; strokes: StrokeOp[]; labels: LabelOp[] } {
   const fills: FillOp[] = [];
   const aereos: FillOp[] = [];
   const strokes: StrokeOp[] = [];
+  const labels: LabelOp[] = [];
   for (const e of Object.values(p.elements)) {
     if (e.kind === 'component' && e.levelId === levelId && !hidden?.has(e.id)) {
-      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado);
+      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado, labels);
     }
   }
-  return { fills: [...aereos, ...fills], strokes };
+  return { fills: [...aereos, ...fills], strokes, labels };
 }
