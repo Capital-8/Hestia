@@ -29,7 +29,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [B3b](fichas/B3b.md) | Planta aplica a inclinação 3D e o símbolo que substitui a geometria | Haiku | B3, D2 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | integrada | 635fcc15 |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | integrada | bdb19666 |
-| 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | pendente | |
+| 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | integrada | 00144198 |
 | 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | integrada | c25bb58d |
 | 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
@@ -92,4 +92,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · C3: comandos `connectComponents` (campo opcional `sistemaId`; sem ele o id é `sis_N`), `disconnectComponents`, `renameMepSystem` em `mepCommands.ts`; fusão: o sistema de `a` é fundido no de `b` (domínios diferentes = erro); propagação de bitola nos dois sentidos (diâmetro em mm, inteiro) só para `propagaParametro` de instância sem fórmula; excluir instância desconecta vizinhas e limpa sistemas vazios; mover não desconecta; `conexoesIssue` (existência, reciprocidade, sistema igual) roda em `validateProject` (código `mep-conexao`). DIVERGÊNCIA: a reciprocidade NÃO é exigida em `componentIssue`/`addComponent` (quebraria o teste B1 'cópia não copia ligações'); só em `updateComponent` com `patch.ligacoes`, em connect e em validateProject.
 - 2026-11-24 · A7b: `caixaDoComponente` une caixa das peças com a dos corpos (8 cantos via `matrizDoComponente`); `pegadaDoComponente` inclui o fecho convexo XY dos corpos; `resolverFamilia` devolve `simbolos`. Peças continuam sem inclinação em caixa/pegada (→ B3b item 5).
 - 2026-11-24 · Calibração: o executor da A7b (Haiku) voltou a chamar `create_session` apesar de proibido na ficha; negado pelo classificador. Anotar: Haiku pode ignorar proibições de ferramenta; manter o aviso curto e no início do prompt.
+- 2026-11-24 · B4: `cortarCorpos(corpos, plano, matriz?)`, `projetarCorposElevacao(corpos, eixo de visada)`, `corposNoCorte(project, line)` ligado em `section/build.ts` (reaproveita hachura, Hide in View, categoria `component`); laços do corte = trios x,y,z planos; limitações: corpos não são selecionáveis no corte (→ B5, `pick.ts`), silhueta além do plano sem oclusão do motor, símbolos não tratados; `build.ts` com 507 linhas brutas (lint conta menos).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
