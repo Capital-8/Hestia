@@ -8,6 +8,7 @@ import { FAMILIA_GAVETA } from './gaveta.ts';
 import { ALTO_PADRAO } from './altoPadrao.ts';
 import { NOVAS } from './novas.ts';
 import { DISCIPLINAS_EXEMPLO } from './disciplinasExemplo.ts';
+import { TUBULACAO_ESGOTO } from './tuboEsgoto.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -18,6 +19,12 @@ import { DISCIPLINAS_EXEMPLO } from './disciplinasExemplo.ts';
 export { FAMILIA_GAVETA };
 export { NOVAS as FAMILIAS_NOVAS };
 export { DISCIPLINAS_EXEMPLO };
+/*
+ * Tubulação de esgoto (ficha F1): exportada aqui, mas FORA de BIBLIOTECA_BASE de propósito. O teste de conectores da biblioteca
+ * exige cada família da base na tabela de etiquetas com conectores laterais de móvel, e a de snapshot exige uma entrada nova
+ * por família; a decisão de registrar fica com o orquestrador (ver relatório da ficha F1).
+ */
+export { TUBULACAO_ESGOTO };
 export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS, ...DISCIPLINAS_EXEMPLO];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
