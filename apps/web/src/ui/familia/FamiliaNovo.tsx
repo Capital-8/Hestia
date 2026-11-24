@@ -1,8 +1,8 @@
-import { BIBLIOTECA_BASE, criarFamiliaCaixaria, exportarFamilias, lerArquivo, serializar, type Familia, type ResultadoImportacao } from '@hestia/model';
+import { criarFamiliaCaixaria, exportarFamilias, lerArquivo, serializar, type Familia, type ResultadoImportacao } from '@hestia/model';
 import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
 import { useT } from '../../editor/i18n.ts';
 import { FamiliaNovoCartao } from './FamiliaNovoCartao.tsx';
-import { CATEGORIAS, criarCopiaDeFamilia, filtrarFamilias, type CategoriaGaleria } from './familiaNovo.ts';
+import { CATEGORIAS, criarCopiaDeFamilia, FAMILIAS_GALERIA, filtrarFamilias, type CategoriaGaleria } from './familiaNovo.ts';
 import { useFamilia } from './familiaStore.ts';
 import { Janela } from './FamiliaJanela.tsx';
 import { armazenamentoDoNavegador, baixarTexto, lerMeusModelos, lerMeusModelosDoNavegador, mesclarMeusModelos, removerModeloDoNavegador } from './meusModelos.ts';
@@ -25,8 +25,8 @@ export function FamiliaNovo(): ReactElement {
   const [aviso, setAviso] = useState<{ texto: string; erro: boolean } | null>(null);
   const { t } = useT();
 
-  const contagem = useMemo(() => ({ ...contarPorCategoria(BIBLIOTECA_BASE), meus: meus.length }), [meus.length]);
-  const fonte = categoria === 'meus' ? meus : BIBLIOTECA_BASE;
+  const contagem = useMemo(() => ({ ...contarPorCategoria(FAMILIAS_GALERIA), meus: meus.length }), [meus.length]);
+  const fonte = categoria === 'meus' ? meus : FAMILIAS_GALERIA;
   const lista = useMemo(() => filtrarFamilias(fonte, categoria, busca), [fonte, categoria, busca]);
   const selecionada = lista.find((f) => f.id === sel) ?? null;
 

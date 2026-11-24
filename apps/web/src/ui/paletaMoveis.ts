@@ -1,5 +1,5 @@
-import { BIBLIOTECA_BASE, type Familia, type Project } from '@hestia/model';
-import { CATEGORIAS, filtrarFamilias, type CategoriaGaleria } from './familia/familiaNovo.ts';
+import { type Familia, type Project } from '@hestia/model';
+import { CATEGORIAS, FAMILIAS_GALERIA, filtrarFamilias, type CategoriaGaleria } from './familia/familiaNovo.ts';
 
 /*
  * Apoio puro da paleta de móveis (F3-biblioteca): monta a lista da biblioteca base + famílias do projeto (marcadas) e
@@ -20,13 +20,13 @@ export interface ItemPaleta {
   doProjeto: boolean;
 }
 
-/** Biblioteca base mais as famílias do projeto, sem repetir id; as do projeto vêm primeiro e marcadas. */
+/** Galeria da biblioteca (móveis, depois MEP por disciplina) mais as famílias do projeto, sem repetir id; as do projeto vêm primeiro e marcadas. */
 export function montarItensDaPaleta(p: Project): ItemPaleta[] {
   const doProjeto = Object.values(p.componentFamilies ?? {});
   const idsDoProjeto = new Set(doProjeto.map((f) => f.id));
   return [
     ...doProjeto.map((familia): ItemPaleta => ({ familia, doProjeto: true })),
-    ...BIBLIOTECA_BASE.filter((f) => !idsDoProjeto.has(f.id)).map((familia): ItemPaleta => ({ familia, doProjeto: false })),
+    ...FAMILIAS_GALERIA.filter((f) => !idsDoProjeto.has(f.id)).map((familia): ItemPaleta => ({ familia, doProjeto: false })),
   ];
 }
 
