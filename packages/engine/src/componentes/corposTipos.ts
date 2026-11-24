@@ -67,6 +67,8 @@ export interface LigacaoResolvida {
   aceita: DominioLigacao[];
   propriedades: Record<string, number>;
   propagaParametro: string | null;
+  /** Encaixe físico (P1): profundidade da bolsa em metros; ausente = ligação sem regra de encaixe. */
+  encaixe?: { tipo: 'bolsa' | 'ponta'; profundidade: number; aceitaMesmoTipo: boolean };
 }
 
 /** Primitivo 2D resolvido (CONTRATO §4): coordenadas em METROS no plano do símbolo; ângulos em RADIANOS. */

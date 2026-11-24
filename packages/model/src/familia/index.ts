@@ -21,3 +21,4 @@ export { clonarSeguro, dependenciasDaFamilia } from './dependencias.ts';
 export * from './catalogoMep.ts';
 export * from './catalogoMepCsv.ts';
 export { KRONA_ESGOTO } from './catalogosMep/kronaEsgoto.ts';
+export { KRONA_SOLDAVEL } from './catalogosMep/kronaSoldavel.ts';

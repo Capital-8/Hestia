@@ -96,8 +96,9 @@ describe('esgoto Krona: as medidas são as do catálogo', () => {
     expect(ponto(a?.posicao ?? [], env)).toEqual([0, 0, 0]);
     expect(ponto(b?.posicao ?? [], env)).toEqual([0, 0, 3000]);
     expect(n(a?.diametro ?? '', env)).toBe(101.6);
-    expect(n(a?.propriedades?.profundidadeBolsa ?? '', env)).toBe(50);
-    expect(b?.propriedades).toBeUndefined();
+    expect(n(a?.encaixe?.profundidade ?? '', env)).toBe(50);
+    expect(a?.encaixe?.tipo).toBe('bolsa');
+    expect(b?.encaixe).toEqual({ tipo: 'ponta' });
   });
   it('joelho 90°: bolsas a B + Z do centro (DN 100: 45 + 58 = 103)', () => {
     const fam = f('fam_krona_esgoto_joelho90');
@@ -124,8 +125,8 @@ describe('esgoto Krona: as medidas são as do catálogo', () => {
     const env = ambiente(fam, 'dn100');
     const [a, b] = fam.ligacoes ?? [];
     expect(ponto(b?.posicao ?? [], env)).toEqual([0, 0, 79]);
-    expect(n(a?.propriedades?.profundidadeBolsa ?? '', env)).toBe(45);
-    expect(n(b?.propriedades?.profundidadeBolsa ?? '', env)).toBe(31);
+    expect(n(a?.encaixe?.profundidade ?? '', env)).toBe(45);
+    expect(n(b?.encaixe?.profundidade ?? '', env)).toBe(31);
     expect(n('C - B - B2', env)).toBe(3);
   });
   it('tê: comprimento da corrida = C do catálogo (216) e ramal a Z2 + B (53 + 45)', () => {

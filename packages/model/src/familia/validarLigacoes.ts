@@ -89,6 +89,7 @@ function validarUmaLigacao(l: Record<string, unknown>, onde: string, escopo: Esc
   validarAceita(l, onde, out);
   validarPropriedades(l, onde, escopo, out);
   validarPropagacao(l, onde, escopo, out);
+  validarEncaixe(l, onde, escopo, out);
 
   if (l.quando !== undefined) validarFormula(l.quando, `${onde}.quando`, escopo, out);
 }
@@ -175,6 +176,27 @@ function validarPropriedades(l: Record<string, unknown>, onde: string, escopo: E
   for (const chave of chaves.slice(0, LIMITES_LIGACAO.propriedades)) {
     validarFormula(l.propriedades[chave], `${onde}.propriedades.${chave}`, escopo, out);
   }
+}
+
+/** `encaixe`: tipo conhecido; a bolsa traz profundidade positiva (fórmula válida) e a ponta não traz. */
+function validarEncaixe(l: Record<string, unknown>, onde: string, escopo: Escopo, out: Problema[]): void {
+  if (l.encaixe === undefined) return;
+  const campo = `${onde}.encaixe`;
+  if (!ehObjeto(l.encaixe)) {
+    out.push(criarProblema('tipo', 'encaixe precisa ser um objeto', campo));
+    return;
+  }
+  const e = l.encaixe;
+  if (e.tipo !== 'bolsa' && e.tipo !== 'ponta') {
+    out.push(criarProblema('tipo', `tipo de encaixe desconhecido “${texto(e.tipo)}”`, `${campo}.tipo`));
+    return;
+  }
+  if (e.aceitaMesmoTipo !== undefined && typeof e.aceitaMesmoTipo !== 'boolean') out.push(criarProblema('tipo', 'aceitaMesmoTipo precisa ser verdadeiro ou falso', `${campo}.aceitaMesmoTipo`));
+  if (e.tipo === 'ponta') {
+    if (e.profundidade !== undefined) out.push(criarProblema('tipo', 'ponta não tem profundidade de bolsa', `${campo}.profundidade`));
+    return;
+  }
+  exigirMedida(e.profundidade, `${campo}.profundidade`, escopo, out);
 }
 
 /** `propagaParametro` aponta para parâmetro de escopo `instancia` e tipo `comprimento` ou `numero`. */

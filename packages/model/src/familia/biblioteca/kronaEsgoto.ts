@@ -1,6 +1,6 @@
 import type { Familia } from '../tipos.ts';
-import { familiaKrona, itemDaFamilia, type PedidoItem } from './kronaEsgotoApoio.ts';
-import { bucha, cap, curva, joelho, luva, luvaDeCorrer, reducaoExcentrica, te, tubo, type Receita } from './kronaReceitas.ts';
+import { montarKrona, type SpecKrona } from './kronaEsgotoApoio.ts';
+import { bucha, cap, curva, joelho, luva, luvaDeCorrer, reducaoExcentrica, te, tubo } from './kronaReceitas.ts';
 
 /*
  * Esgoto da Krona montado DIRETO do catálogo (ficha P4): série normal (DN 40 a 250 onde o catálogo traz as cotas) e série reforçada.
@@ -8,16 +8,6 @@ import { bucha, cap, curva, joelho, luva, luvaDeCorrer, reducaoExcentrica, te, t
  * Pendentes (catálogo transcrito, geometria não): junção dupla e invertida, joelho com visita, tê de inspeção, curva de pé de coluna,
  * válvula de retenção, terminal, luva com fixador, anéis, sifão e caixas sifonadas, e o tubo reforçado (bitola repetida no PDF).
  */
-
-interface Spec {
-  id: string;
-  nome: string;
-  categoria: 'tubulacao' | 'conexao_tubo';
-  descricao: string;
-  pedido: PedidoItem;
-  receita: Receita;
-  ifc: NonNullable<Familia['ifc']>;
-}
 
 const BEND = { classe: 'IFCPIPEFITTING', tipoPredefinido: 'BEND' } as const;
 const JUNCTION = { classe: 'IFCPIPEFITTING', tipoPredefinido: 'JUNCTION' } as const;
@@ -31,7 +21,7 @@ const TE = { B: 'B', C: 'C', Z1: 'Z', Z2: 'Z2', D: 'Db', d: 'De' };
 const TE_RED = { B1: 'B', C: 'C', Z1: 'Z', Z2: 'Z2', D1: 'Db', d: 'De', B2: 'B2', D2: 'Db2' };
 const TE_RED_R = { B1: 'B', B2: 'B2', C: 'C', Z1: 'Z', Z2: 'Z2', D1: 'Db', D2: 'Db2', d: 'De' };
 
-const SPECS: Spec[] = [
+const SPECS: SpecKrona[] = [
   { id: 'fam_krona_esgoto_tubo', nome: 'Tubo de esgoto PVC Krona (bolsa e ponta)', categoria: 'tubulacao', descricao: 'Tubo reto de PVC de esgoto, bolsa na ponta A e ponta lisa na B; comprimento L livre (comercial 3 m ou 6 m).', pedido: { itens: ['tubo_de_pvc_esgoto_primario_6m', 'tubos_de_pvc_esgoto_secundario_6m', 'tubos_de_pvc_esgoto_secundario_6m_3'], mapa: { B: 'B', D: 'Db', d: 'De' }, serie: N }, receita: tubo(), ifc: { classe: 'IFCPIPESEGMENT' } },
   { id: 'fam_krona_esgoto_joelho90', nome: 'Joelho 90° de esgoto Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 90° com bolsa nas duas pontas: braço vertical (−Z) e horizontal (+X).', pedido: { itens: ['joelho_90_esgoto_primario', 'joelho_90_esgoto_secundario'], mapa: SIMPLES, serie: N }, receita: joelho(90), ifc: BEND },
   { id: 'fam_krona_esgoto_joelho45', nome: 'Joelho 45° de esgoto Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 45° com bolsa nas duas pontas: braço A (−Z) e braço B desviado 45°.', pedido: { itens: ['joelho_45_esgoto_primario', 'joelho_45_esgoto_secundario'], mapa: SIMPLES, serie: N }, receita: joelho(45), ifc: BEND },
@@ -60,13 +50,8 @@ const SPECS: Spec[] = [
   { id: 'fam_krona_esgoto_reforcado_reducao_excentrica', nome: 'Redução excêntrica de esgoto Krona (série reforçada)', categoria: 'conexao_tubo', descricao: 'Redução excêntrica da série reforçada.', pedido: { itens: ['reducao_excentrica_esgoto_serie_reforcada'], mapa: { B: 'B', C1: 'C', C2: 'C2', d: 'De', D: 'Db' }, serie: R }, receita: reducaoExcentrica(), ifc: TRANSITION },
 ];
 
-function montar(s: Spec): Familia {
-  const item = itemDaFamilia(s.id, s.nome, s.pedido);
-  return familiaKrona({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, item, corpos: s.receita.corpos, ligacoes: s.receita.ligacoes, ifc: s.ifc, caixa: s.receita.caixa });
-}
-
 /** Famílias de esgoto da Krona montadas do catálogo (série normal e reforçada). */
-export const KRONA_ESGOTO_FAMILIAS: Familia[] = SPECS.map(montar);
+export const KRONA_ESGOTO_FAMILIAS: Familia[] = SPECS.map(montarKrona);
 
 const porId = (id: string): Familia => {
   const f = KRONA_ESGOTO_FAMILIAS.find((x) => x.id === id);

@@ -30,7 +30,7 @@ def titulo_acima(linhas, i):
     return ' '.join(partes)
 
 tabelas = []
-secao = 'Esgoto série normal'
+secao = sys.argv[5] if len(sys.argv) > 5 else 'Esgoto série normal'
 for pi, pg in enumerate(paginas, 1):
     linhas = pg.split('\n'); titulo = ''; colunas = None; atual = None
     for i, ln in enumerate(linhas):

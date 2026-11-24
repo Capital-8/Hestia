@@ -3,6 +3,7 @@
 Uso: gerar-ts.py <entrada.json> <saida.ts> <idCatalogo> <nomeConstante> <documento> <edicao>"""
 import json, re, sys, unicodedata
 ent, saida, cid, const, doc, edicao = sys.argv[1:7]
+dominio = sys.argv[7] if len(sys.argv) > 7 else 'esgoto'
 d = json.load(open(ent, encoding='utf-8'))
 SIG = {'B': 'profundidade da bolsa', 'C': 'comprimento total', 'D': 'diâmetro interno da bolsa (CONFERIR)', 'd': 'diâmetro externo da ponta',
        'e': 'espessura da parede', 'Z': 'distância do centro à entrada da bolsa (CONFERIR)', 'A': 'altura (CONFERIR)', 'B1': 'bolsa 1', 'B2': 'bolsa 2',
@@ -55,7 +56,7 @@ export const {const}: CatalogoMep = {{
   versao: CATALOGO_MEP_VERSAO,
   id: {q(cid)},
   nome: {q(doc)},
-  dominio: 'esgoto',
+  dominio: {q(dominio)},
   fonte: {{ fabricante: {q('Krona')}, documento: {q(doc)}, edicao: {q(edicao)}, url: {q(f['url'])}, sha256: {q(f['sha256'])} }},
   itens: [
 {chr(10).join(L)}

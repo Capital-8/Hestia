@@ -1,8 +1,9 @@
 import { bitolaNumerica, buscaDaColuna, buscaPorCodigo, juntarItens, linhasCom, type ItemCatalogo } from '../catalogoMep.ts';
 import { KRONA_ESGOTO } from '../catalogosMep/kronaEsgoto.ts';
+import { KRONA_SOLDAVEL } from '../catalogosMep/kronaSoldavel.ts';
 import type { Familia, Parametro, Tipo, Valor } from '../tipos.ts';
 import type { Corpo, Ponto3 } from '../tiposCorpo.ts';
-import type { Ligacao } from '../tiposLigacao.ts';
+import type { DominioLigacao, Ligacao } from '../tiposLigacao.ts';
 import { comprimento, derivado, nova } from './novosApoio.ts';
 import { SISTEMA_ESGOTO } from './tuboEsgotoApoio.ts';
 
@@ -20,7 +21,7 @@ import { SISTEMA_ESGOTO } from './tuboEsgotoApoio.ts';
 export const MATERIAL_KRONA_ESGOTO = 'mat_pvc';
 
 export function itemKrona(id: string): ItemCatalogo {
-  const it = KRONA_ESGOTO.itens.find((i) => i.id === id);
+  const it = [...KRONA_ESGOTO.itens, ...KRONA_SOLDAVEL.itens].find((i) => i.id === id);
   if (!it) throw new Error(`Catálogo da Krona: item “${id}” não existe`);
   return it;
 }
@@ -29,10 +30,21 @@ export function itemKrona(id: string): ItemCatalogo {
 export const ITENS_TUBO_NORMAL = ['tubo_de_pvc_esgoto_primario_6m', 'tubos_de_pvc_esgoto_secundario_6m', 'tubos_de_pvc_esgoto_secundario_6m_3'] as const;
 /** Tubo da série reforçada (as linhas 0136 a 0139; a 0135 tem a bitola repetida no PDF e fica de fora). */
 export const ITEM_TUBO_REFORCADO = 'tubo_de_pvc_esgoto_serie_reforcada_6m';
+export const ITEM_TUBO_SOLDAVEL = 'tubo_de_pvc_soldavel_6m';
+
+/** Domínio, sistema e material das ligações e corpos de uma linha de produtos. */
+export interface Contexto {
+  dominio: DominioLigacao;
+  sistema: string;
+}
+export const ESGOTO: Contexto = { dominio: 'esgoto', sistema: SISTEMA_ESGOTO };
+export const AGUA_FRIA: Contexto = { dominio: 'agua_fria', sistema: 'Água fria' };
+
+export type SerieKrona = 'normal' | 'reforcada' | 'soldavel';
 
 /** Espessura da parede por bitola numérica, juntando os tubos da série (nunca inventa: bitola sem tubo fica sem espessura). */
-export function espessurasDoTubo(serie: 'normal' | 'reforcada'): Map<number, number> {
-  const itens = serie === 'normal' ? ITENS_TUBO_NORMAL.map(itemKrona) : [itemKrona(ITEM_TUBO_REFORCADO)];
+export function espessurasDoTubo(serie: SerieKrona): Map<number, number> {
+  const itens = serie === 'normal' ? ITENS_TUBO_NORMAL.map(itemKrona) : serie === 'soldavel' ? [itemKrona(ITEM_TUBO_SOLDAVEL)] : [itemKrona(ITEM_TUBO_REFORCADO)];
   const mapa = new Map<number, number>();
   for (const it of itens) {
     for (const l of it.linhas) {
@@ -61,7 +73,9 @@ export interface PedidoItem {
   copias?: Record<string, string>;
   /** Códigos de produto a deixar de fora (erro de impressão conhecido no PDF; documentar no README dos catálogos). */
   excluir?: string[];
-  serie: 'normal' | 'reforcada';
+  serie: SerieKrona;
+  /** A conexão traz o diâmetro externo A: a espessura é (A − D) / 2 (soldável), em vez da do tubo. A coluna A vai para o id `Aext`. */
+  espessuraDoA?: boolean;
 }
 
 /** Junta os itens, renomeia as colunas para ids de parâmetro e acrescenta `e` (espessura). Linhas incompletas saem. */
@@ -73,14 +87,16 @@ export function itemDaFamilia(id: string, nome: string, p: PedidoItem): ItemCata
   const linhas = junto.linhas
     .filter((l) => !(p.excluir ?? []).includes(l.codigo ?? ''))
     .map((l) => {
-      const e = esp.get(bitolaMaior(l.bitola));
+      const eProprio = Object.values(p.mapa).includes('e');
+      const e = p.espessuraDoA || eProprio ? 0 : esp.get(bitolaMaior(l.bitola));
       const valores: Record<string, number> = {};
       for (const [col, alvo] of Object.entries(p.mapa)) valores[alvo] = l.valores[col] as number;
       for (const [novo, de] of Object.entries(p.copias ?? {})) valores[novo] = valores[de] as number;
-      return e === undefined ? null : { ...l, valores: { ...valores, e } };
+      if (e === undefined) return null;
+      return { ...l, valores: p.espessuraDoA || eProprio ? valores : { ...valores, e } };
     })
     .filter((l): l is NonNullable<typeof l> => l !== null);
-  const significado: Record<string, string> = { e: 'espessura da parede (do tubo; CONFERIR)' };
+  const significado: Record<string, string> = p.espessuraDoA || Object.values(p.mapa).includes('e') ? {} : { e: 'espessura da parede (do tubo; CONFERIR)' };
   for (const [col, alvo] of Object.entries(p.mapa)) significado[alvo] = junto.colunas[col] ?? col;
   for (const novo of Object.keys(p.copias ?? {})) significado[novo] = significado[p.copias?.[novo] ?? ''] ?? novo;
   return { ...junto, colunas: significado, linhas };
@@ -88,7 +104,7 @@ export function itemDaFamilia(id: string, nome: string, p: PedidoItem): ItemCata
 
 const NOMES: Record<string, string> = {
   B: 'Profundidade da bolsa', B2: 'Profundidade da bolsa do ramal', C: 'Comprimento total (catálogo)', Z: 'Centro até a bolsa', Z2: 'Eixo da corrida até a bolsa (ramal)',
-  Db: 'Diâmetro interno da bolsa', Db2: 'Diâmetro interno da bolsa do ramal', De: 'Diâmetro externo da ponta', C2: 'Comprimento menor (catálogo)', e: 'Espessura da parede (do tubo; CONFERIR)',
+  Aext: 'Diâmetro externo da bolsa (A)', C1: 'Comprimento do ramal (catálogo)', Db: 'Diâmetro interno da bolsa', Db2: 'Diâmetro interno da bolsa do ramal', De: 'Diâmetro externo da ponta', C2: 'Comprimento menor (catálogo)', e: 'Espessura da parede (do tubo; CONFERIR)',
 };
 
 /** Chave da família: DN numérico quando toda bitola é número, senão o CÓDIGO do produto (bitola composta, ex.: 75 x 50). */
@@ -105,11 +121,13 @@ export function parametroChave(item: ItemCatalogo): Parametro {
 export function parametrosDoItem(item: ItemCatalogo): Parametro[] {
   const chave = chaveDoItem(item);
   const ler = chave === 'DN' ? buscaDaColuna : buscaPorCodigo;
-  return Object.keys(item.colunas).map((c) => {
+  const params = Object.keys(item.colunas).map((c) => {
     const expr = ler(item, c, chave);
     if (!expr) throw new Error(`Catálogo da Krona: coluna ${c} sem valores em “${item.id}”`);
     return derivado(c, NOMES[c] ?? c, expr);
   });
+  if (item.colunas.Aext !== undefined && item.colunas.e === undefined) params.push(derivado('e', 'Espessura da parede ((A − D) / 2; CONFERIR)', '(Aext - Db) / 2'));
+  return params;
 }
 
 export const dimensaoKrona = (id: 'L' | 'A' | 'P', nome: string): Parametro => comprimento(id, nome, 100, 1, 6000, 1);
@@ -127,11 +145,11 @@ export function disco(id: string, nome: string, diametro: string, comp: string, 
   return { id, nome, papel: 'conexao', forma: { tipo: 'extrusao', perfil: { tipo: 'circulo', diametro }, comprimento: comp }, quadro: { origem }, material: MATERIAL_KRONA_ESGOTO };
 }
 
-/** Ligação de esgoto; `bolsa` é a expressão da profundidade da bolsa (ponta lisa não passa nada). A bolsa vai em `propriedades`. */
-export function ligacaoKrona(id: string, nome: string, posicao: Ponto3, direcao: Ponto3, diametro: string, bolsa?: string): Ligacao {
+/** Ligação de esgoto; `bolsa` é a expressão da profundidade da bolsa (sem ela, a ligação é ponta lisa). Vai em `encaixe` (ficha P1). */
+export function ligacaoKrona(ctx: Contexto, id: string, nome: string, posicao: Ponto3, direcao: Ponto3, diametro: string, bolsa?: string): Ligacao {
   return {
-    id, nome, dominio: 'esgoto', sistema: SISTEMA_ESGOTO, secao: 'redonda', posicao, direcao, diametro, fluxo: 'ambos',
-    ...(bolsa ? { propriedades: { profundidadeBolsa: bolsa } } : {}),
+    id, nome, dominio: ctx.dominio, sistema: ctx.sistema, secao: 'redonda', posicao, direcao, diametro, fluxo: 'ambos',
+    encaixe: bolsa ? { tipo: 'bolsa', profundidade: bolsa } : { tipo: 'ponta' },
   };
 }
 
@@ -163,7 +181,7 @@ export interface DadosKrona {
   caixa: Caixa;
 }
 
-/** Família de esgoto montada do catálogo: parâmetros derivados, tipos por bitola e fonte citada na descrição. */
+/** Família de tubulação montada do catálogo: parâmetros derivados, tipos por bitola e fonte citada na descrição. */
 export function familiaKrona(d: DadosKrona): Familia {
   const chave = parametroChave(d.item);
   const tipos = tiposDoItem(d.item, d.caixa);
@@ -181,4 +199,20 @@ export function familiaKrona(d: DadosKrona): Familia {
     tipoPadrao: padraoTipo,
   });
   return { ...base, corpos: d.corpos, ligacoes: d.ligacoes, ifc: d.ifc };
+}
+
+/** Especificação de uma família do catálogo: itens a juntar, geometria (receita) e classe IFC. */
+export interface SpecKrona {
+  id: string;
+  nome: string;
+  categoria: 'tubulacao' | 'conexao_tubo';
+  descricao: string;
+  pedido: PedidoItem;
+  receita: { corpos: Corpo[]; ligacoes: Ligacao[]; caixa: Caixa };
+  ifc: NonNullable<Familia['ifc']>;
+}
+
+export function montarKrona(s: SpecKrona): Familia {
+  const item = itemDaFamilia(s.id, s.nome, s.pedido);
+  return familiaKrona({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, item, corpos: s.receita.corpos, ligacoes: s.receita.ligacoes, ifc: s.ifc, caixa: s.receita.caixa });
 }

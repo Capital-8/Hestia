@@ -89,6 +89,7 @@ function resolverUma(bruto: unknown, k: number, ambiente: Ambiente): ResultadoUm
   const direcao = resolverDirecao(bruto.direcao, onde, ambiente, diag);
   const aceita = resolverAceita(bruto.aceita, dominio, `${onde}.aceita`, diag);
   const propriedades = resolverPropriedades(bruto.propriedades, onde, ambiente, diag);
+  const encaixe = resolverEncaixe(bruto.encaixe, onde, ambiente, diag);
 
   if (diag.length > 0 || secao === undefined || posicao === undefined || direcao === undefined || aceita === undefined || propriedades === undefined) {
     return { ligacao: null, diagnosticos: diag };
@@ -111,6 +112,7 @@ function resolverUma(bruto: unknown, k: number, ambiente: Ambiente): ResultadoUm
     aceita,
     propriedades,
     propagaParametro: propaga,
+    ...(encaixe ? { encaixe } : {}),
   };
   return { ligacao, diagnosticos: [] };
 }
@@ -210,6 +212,19 @@ function resolverAceita(valor: unknown, dominio: string | undefined, onde: strin
 }
 
 /** Propriedades viram número (sem conversão de unidade: vazão, pressão, potência...). */
+/** Encaixe: bolsa traz a profundidade (mm → m); ponta, 0. Ausente = sem encaixe. Erro de fórmula entra nos diagnósticos. */
+function resolverEncaixe(valor: unknown, onde: string, ambiente: Ambiente, diag: DiagnosticoLigacao[]): LigacaoResolvida['encaixe'] | undefined {
+  if (valor === undefined || !ehObjeto(valor)) return undefined;
+  const aceitaMesmoTipo = valor.aceitaMesmoTipo === true;
+  if (valor.tipo === 'ponta') return { tipo: 'ponta', profundidade: 0, aceitaMesmoTipo };
+  if (valor.tipo !== 'bolsa') return undefined;
+  const campo = `${onde}.encaixe.profundidade`;
+  const r = avaliarBruto(valor.profundidade, campo, ambiente, diag);
+  if (r === undefined) return undefined;
+  const mm = numeroDe(r.valor, campo, diag);
+  return mm === undefined ? undefined : { tipo: 'bolsa', profundidade: mm / 1000, aceitaMesmoTipo };
+}
+
 function resolverPropriedades(valor: unknown, onde: string, ambiente: Ambiente, diag: DiagnosticoLigacao[]): Record<string, number> | undefined {
   const out: Record<string, number> = {};
   if (valor === undefined) return out;

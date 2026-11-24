@@ -52,7 +52,17 @@ function fluxosCasam(a: LigacaoNoMundo, b: LigacaoNoMundo): boolean {
 }
 
 /**
- * Compatibilidade de duas ligações (CONTRATO §3, regras 1 a 5), na ordem: domínio, seção, bitola, direção e fluxo.
+ * Regra 6 (fase 2, P1): se as duas ligações declaram encaixe, têm de ser bolsa × ponta, salvo se uma delas aceitar o mesmo tipo
+ * (luva dupla, manga de correr). Sem encaixe em alguma das duas, a regra não se aplica (ligações antigas continuam casando).
+ */
+function encaixesCasam(a: LigacaoNoMundo, b: LigacaoNoMundo): boolean {
+  if (!a.encaixe || !b.encaixe) return true;
+  if (a.encaixe.tipo !== b.encaixe.tipo) return true;
+  return a.encaixe.aceitaMesmoTipo || b.encaixe.aceitaMesmoTipo;
+}
+
+/**
+ * Compatibilidade de duas ligações (CONTRATO §3, regras 1 a 5, mais a regra 6 de encaixe), na ordem: domínio, seção, bitola, direção e fluxo.
  * Devolve o motivo da primeira regra que recusa. Pura: não olha posição, só domínio, seção, medidas, direção e fluxo.
  */
 export function ligacoesCompativeis(a: LigacaoNoMundo, b: LigacaoNoMundo): ResultadoCompatibilidade {
@@ -61,6 +71,7 @@ export function ligacoesCompativeis(a: LigacaoNoMundo, b: LigacaoNoMundo): Resul
   if (!mesmasBitolas(a, b)) return { ok: false, motivo: 'bitolas diferentes' };
   if (!(produtoDirecoes(a, b) <= OPOSTO_MINIMO)) return { ok: false, motivo: 'ligações precisam apontar uma para a outra' };
   if (!fluxosCasam(a, b)) return { ok: false, motivo: 'fluxos incompatíveis' };
+  if (!encaixesCasam(a, b)) return { ok: false, motivo: a.encaixe?.tipo === 'bolsa' ? 'bolsa não encaixa em bolsa' : 'ponta não encaixa em ponta' };
   return { ok: true };
 }
 
