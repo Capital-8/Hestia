@@ -65,6 +65,10 @@ O modo dev é ~2,5–3× mais lento que o build de produção. O build já reduz
 4. **React:** seletores estreitos/memo nos painéis que consomem o projeto inteiro; testar/medir o **build de produção** (sem `jsxDEV`).
 5. **Rust:** não é a peça que falta para esta interação. O kernel geométrico já é Rust/WASM; mover React/Three.js para Rust não resolveria o custo de UI. Se depois de 1–4 ainda houver custo de geometria, aí sim vale medir o kernel.
 
+## Ajuste final (2026-11-24)
+
+O predefinido de **Arquitetura vista de outra disciplina** passa a ser `halftone`, clareamento 20% e **opacidade 12%** (antes 50%). A parede tem várias camadas e a opacidade por camada empilha no 3D; se ainda ficar forte, o slider do configurador permite baixar mais (ou “Restaurar predefinido” volta a 12%). Com isso o pacote de UX das disciplinas está **concluído**.
+
 ## Reprodução
 
 ```bash

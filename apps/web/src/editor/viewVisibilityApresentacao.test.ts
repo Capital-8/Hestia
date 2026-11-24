@@ -11,7 +11,7 @@ import { visibilityOf } from './viewVisibility.ts';
 
 afterEach(() => useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', areaPlanId: null, planViewId: null, sectionId: null, viewTemp: {}, selection: [], subElemento: null, minhaDisciplina: null }));
 
-const REFERENCIA = { tone: 'halftone', clareamento: 0.2, opacidade: 0.5 };
+const REFERENCIA = { tone: 'halftone', clareamento: 0.2, opacidade: 0.12 };
 const NORMAL = { tone: 'normal', clareamento: 0, opacidade: 1 };
 
 const comEstrutura = (p: Project): Project => {
@@ -20,7 +20,7 @@ const comEstrutura = (p: Project): Project => {
 };
 
 describe('visibilityOf: apresentações da disciplina na planta', () => {
-  it('planta de Estrutura: parede (Arquitetura) com clareamento 0,2/opacidade 0,5 e pilar normal', () => {
+  it('planta de Estrutura: parede (Arquitetura) com clareamento 0,2/opacidade 0,12 e pilar normal', () => {
     const p = comEstrutura(structuredClone(buildTemplate('house2')));
     useUi.setState({ view: 'plan', planKind: 'floor', levelId: 'lv_0', planViewId: 'pv_est' });
     const vis = visibilityOf(p, useUi.getState());

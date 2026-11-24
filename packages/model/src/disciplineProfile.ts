@@ -97,13 +97,14 @@ export function perfilDaDisciplina(p: Pick<Project, 'disciplineProfiles'>, d: Di
 const NORMAL: Apresentacao = { tone: 'normal', clareamento: 0, opacidade: 1 };
 
 /**
- * Apresentação predefinida de uma disciplina de elemento na planta de `trabalho` (tabela §4.2 convertida). O par
- * `estrutura | arquitetura` ganha o clareamento leve e a opacidade de referência da decisão 3 do plano de UX; o resto
- * dos `halftone` mantém o visual de hoje (clareamento 0,5, opaco). `geral` nunca recebe tom: normal opaco.
+ * Apresentação predefinida de uma disciplina de elemento na planta de `trabalho` (tabela §4.2 convertida). Toda
+ * Arquitetura vista de outra disciplina é referência bem translúcida (12%): paredes têm várias camadas, e a opacidade
+ * por camada empilha no 3D. O resto dos `halftone` mantém o visual de hoje (clareamento 0,5, opaco). `geral` nunca
+ * recebe tom: normal opaco.
  */
 export function presetApresentacao(trabalho: Discipline, elemento: ElementDiscipline): Apresentacao {
   if (elemento === 'geral') return { ...NORMAL };
-  if (trabalho === 'estrutura' && elemento === 'arquitetura') return { tone: 'halftone', clareamento: 0.2, opacidade: 0.5 };
+  if (trabalho !== 'arquitetura' && elemento === 'arquitetura') return { tone: 'halftone', clareamento: 0.2, opacidade: 0.12 };
   if (trabalho === 'arquitetura' && elemento === 'estrutura') return { ...NORMAL };
   const tone = presetTone(trabalho, elemento);
   return tone === 'halftone' ? { tone, clareamento: 0.5, opacidade: 1 } : { tone, clareamento: 0, opacidade: 1 };

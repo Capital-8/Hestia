@@ -133,3 +133,5 @@ Estado documental das fases do Adendo 3 (decisão 0060, `docs/decisoes/0060-plan
 
 **Fora desta rodada:** cadeado visual dentro de `Properties` (a mensagem de status e a barra já cobrem); prancha das vistas 3D salvas; validação global de `view3dViews` em `validate.ts` (os comandos validam); e as pendências anteriores de MEP/DXF/IFC de exportação.
 
+**Status em 2026-11-24: pacote de UX concluído.** Inclui as medições e a primeira otimização de desempenho (`docs/disciplinas/07-desempenho.md`) e o ajuste final da referência de Arquitetura para **12% de opacidade** nas demais disciplinas. Próximas frentes (fora deste pacote): otimizações estruturais de cache/React descritas no relatório de desempenho.
+

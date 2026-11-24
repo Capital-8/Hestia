@@ -27,8 +27,8 @@ describe('linhasDaMatriz', () => {
     expect(porCategoria.get('wall')).toEqual({
       categoria: 'wall',
       origem: 'arquitetura',
-      apresentacao: { tone: 'halftone', clareamento: 0.2, opacidade: 0.5 },
-      predefinida: { tone: 'halftone', clareamento: 0.2, opacidade: 0.5 },
+      apresentacao: { tone: 'halftone', clareamento: 0.2, opacidade: 0.12 },
+      predefinida: { tone: 'halftone', clareamento: 0.2, opacidade: 0.12 },
     });
     expect(porCategoria.get('column')).toEqual({ categoria: 'column', origem: 'estrutura', apresentacao: normal, predefinida: normal });
     expect(porCategoria.get('plumbingFixture')).toEqual({
@@ -41,10 +41,10 @@ describe('linhasDaMatriz', () => {
 });
 
 describe('linhasSimples', () => {
-  it('resume as outras disciplinas de Estrutura: Arquitetura referência 20/50, Hidro/Elétrico/HVAC ocultos', () => {
+  it('resume as outras disciplinas de Estrutura: Arquitetura referência 20/12, Hidro/Elétrico/HVAC ocultos', () => {
     const s = projeto();
     expect(linhasSimples(s.project, 'estrutura')).toEqual([
-      { disciplina: 'arquitetura', estado: 'halftone', clareamento: 0.2, opacidade: 0.5 },
+      { disciplina: 'arquitetura', estado: 'halftone', clareamento: 0.2, opacidade: 0.12 },
       { disciplina: 'hidrossanitario', estado: 'hidden', clareamento: 0, opacidade: 1 },
       { disciplina: 'eletrico', estado: 'hidden', clareamento: 0, opacidade: 1 },
       { disciplina: 'hvac', estado: 'hidden', clareamento: 0, opacidade: 1 },
