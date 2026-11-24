@@ -1,8 +1,8 @@
-import type { MultiPolygon } from '@hestia/geom';
+import type { MultiPolygon, Ring } from '@hestia/geom';
 import { caixaDoComponente, pecaNaPlanta, pegadaDoComponente, resolverComponente, type DetalhePlanta, type PecaResolvida } from '@hestia/engine';
 import { levelElevation, type Component, type Project } from '@hestia/model';
 import { mix } from './color.ts';
-import { anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoMundo } from './planComponentsGeo.ts';
+import { aneisDosCorpos, anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoMundo } from './planComponentsGeo.ts';
 import { aneisDasPecas, desenharPecasEmPlanta } from './planComponentsPecas.ts';
 import type { FillOp, PlanTheme, StrokeOp } from './types.ts';
 
@@ -112,6 +112,14 @@ function desenharFrentes(c: Component, pecas: readonly PecaResolvida[], color: s
   }
 }
 
+/** Silhueta dos corpos (ficha B3): fill no estilo das peças + contorno; as peças da família, se houver, são desenhadas por cima. */
+function desenharSilhuetaDosCorpos(aneis: Ring[], theme: PlanTheme, fills: FillOp[], strokes: StrokeOp[], sombreado: boolean, c: Component): void {
+  if (aneis.length === 0) return;
+  const cor = sombreado ? corDoPapel(c, 'lateral') : undefined;
+  fills.push({ polygons: aneis.map((r) => [r]), color: cor ?? mix(theme.bg, theme.inkSoft, 0.07), alpha: cor ? 1 : 0.85 });
+  for (const ring of aneis) strokes.push({ pts: ring, closed: true, widthPx: 1, color: theme.inkSoft, alpha: 1 });
+}
+
 /**
  * Desenha um componente paramétrico (marcenaria/mobiliário) na planta 2D de forma fiel às peças 3D:
  * - Aéreo elevado (`zMin >= 1,1 m`): contornos tracejados (`dash: [4, 3]`), sem fill opaco sobre os balcões abaixo.
@@ -130,8 +138,11 @@ export function desenharComponenteEmPlanta(
   aramado = false,
 ): void {
   const res = resolverComponente(p, c);
+  const silhuetas = aneisDosCorpos(c, res, detalhe);
+  desenharSilhuetaDosCorpos(silhuetas, theme, fills, strokes, sombreado, c);
+  if (res.pecas.length === 0) return;
   const caixa = caixaDoComponente(p, c, res);
-  if (!caixa || res.pecas.length === 0) return;
+  if (!caixa) return;
   const pegada = pegadaDoComponente(p, c, res);
   if (pegada.length === 0) return;
 

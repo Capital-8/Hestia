@@ -1,5 +1,5 @@
 import { ringArea, type Ring, type Vec2 } from '@hestia/geom';
-import type { PecaResolvida } from '@hestia/engine';
+import { projetarCorposPlanta, type DetalhePlanta, type PecaResolvida, type ResolucaoFamilia } from '@hestia/engine';
 import { MAPA_ACABAMENTOS, materialDoAcabamento, resolverMaterialVisualPeca, type Component, type PapelPeca } from '@hestia/model';
 import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 
@@ -40,4 +40,19 @@ export function anelDaPecaEmPlanta(c: Component, peca: PecaResolvida): Ring {
   }
   const [ex, ey] = peca.extensao;
   return anelRetangulo(c, ox, oy, ox + ex, oy + ey);
+}
+
+/** Silhueta (mundo) dos corpos da família na planta, um anel anti-horário por contorno; `[]` sem corpos ou no nível grosseiro (B3). */
+export function aneisDosCorpos(c: Component, res: Pick<ResolucaoFamilia, 'corpos'>, detalhe: DetalhePlanta): Ring[] {
+  const corpos = res.corpos ?? [];
+  if (corpos.length === 0) return [];
+  const aneis: Ring[] = [];
+  for (const poly of projetarCorposPlanta(corpos, detalhe)) {
+    const ring: Ring = [];
+    for (let i = 0; i + 1 < poly.length; i += 2) ring.push(pontoNoMundo(c, poly[i]!, poly[i + 1]!));
+    if (ring.length < 3) continue;
+    if (ringArea(ring) < 0) ring.reverse();
+    aneis.push(ring);
+  }
+  return aneis;
 }
