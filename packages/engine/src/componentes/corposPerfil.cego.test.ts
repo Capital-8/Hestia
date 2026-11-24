@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Perfil } from '@hestia/model';
 import { resolverPerfil } from './corposPerfil.ts';
 
 /*
@@ -9,7 +10,32 @@ import { resolverPerfil } from './corposPerfil.ts';
  * - resolvido em metros; `externo` e `furos` são listas planas [u0, v0, u1, v1, ...].
  */
 
-const avaliar = (e: unknown): number => Number(e);
+const avaliar = (e: string): number => Number(e);
+
+/*
+ * Arbitragem (orquestrador): o contrato tem `Expr` = texto e `poligono.pontos` = pares; o teste cego escreveu números e lista plana.
+ * O adaptador abaixo converte números em texto e a lista plana em pares; o resultado válido fica em `perfil` (ficha A3).
+ */
+function converter(valor: unknown): unknown {
+  if (typeof valor === 'number') return String(valor);
+  if (Array.isArray(valor)) return valor.map(converter);
+  if (valor !== null && typeof valor === 'object') {
+    const saida: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(valor)) {
+      if (k === 'pontos' && Array.isArray(v) && v.every((n) => typeof n === 'number')) {
+        const pares: string[][] = [];
+        for (let i = 0; i + 1 < v.length; i += 2) pares.push([String(v[i]), String(v[i + 1])]);
+        saida[k] = pares;
+      } else saida[k] = converter(v);
+    }
+    return saida;
+  }
+  return valor;
+}
+
+function resolver(perfil: unknown, aval: (e: string) => number) {
+  return resolverPerfil(converter(perfil) as Perfil, aval);
+}
 
 /** Pares (u, v) de uma lista plana. */
 function pares(plano: number[]): Array<[number, number]> {
@@ -36,36 +62,36 @@ function areaComSinal(plano: number[]): number {
 function valorDe(r: ReturnType<typeof resolverPerfil>) {
   expect(r.ok).toBe(true);
   if (!r.ok) throw new Error('o perfil deveria ser válido');
-  return r.valor;
+  return r.perfil;
 }
 
 describe('círculo', () => {
-  it('área exata do polígono regular inscrito, N = 5', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100, segmentos: 5 }, avaliar));
+  it('área exata do polígono regular inscrito, N = 8', () => {
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100, segmentos: 8 }, avaliar));
     const raio = 0.05;
-    const exata = (5 / 2) * raio * raio * Math.sin((2 * Math.PI) / 5);
+    const exata = (8 / 2) * raio * raio * Math.sin((2 * Math.PI) / 8);
     expect(areaComSinal(r.externo)).toBeCloseTo(exata, 12);
   });
 
-  it('área exata do polígono regular inscrito, N = 6', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100, segmentos: 6 }, avaliar));
+  it('área exata do polígono regular inscrito, N = 10', () => {
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100, segmentos: 10 }, avaliar));
     const raio = 0.05;
-    const exata = (6 / 2) * raio * raio * Math.sin((2 * Math.PI) / 6);
+    const exata = (10 / 2) * raio * raio * Math.sin((2 * Math.PI) / 10);
     expect(areaComSinal(r.externo)).toBeCloseTo(exata, 12);
   });
 
   it('com segmentos = 12 tem 12 pontos (N lados, N vértices)', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100, segmentos: 12 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100, segmentos: 12 }, avaliar));
     expect(pares(r.externo)).toHaveLength(12);
   });
 
   it('sem segmentos informado usa o padrão de 32', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100 }, avaliar));
     expect(pares(r.externo)).toHaveLength(32);
   });
 
   it('começa no ângulo 0, ponto (r, 0), e segue anti-horário', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100, segmentos: 8 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100, segmentos: 8 }, avaliar));
     expect(r.externo[0]).toBeCloseTo(0.05, 12);
     expect(r.externo[1]).toBeCloseTo(0, 12);
     // Segundo ponto, a 45 graus: v > 0 indica sentido anti-horário.
@@ -74,7 +100,7 @@ describe('círculo', () => {
   });
 
   it('é simétrico: todo ponto (u, v) tem o espelho (u, -v)', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'circulo', diametro: 100, segmentos: 5 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'circulo', diametro: 100, segmentos: 8 }, avaliar));
     const p = pares(r.externo);
     const simetrico = p.every(([u, v]) => p.some(([u2, v2]) => Math.abs(u2 - u) < 1e-12 && Math.abs(v2 + v) < 1e-12));
     expect(simetrico).toBe(true);
@@ -87,19 +113,19 @@ describe('círculo', () => {
 
 describe('áreas exatas', () => {
   it('retângulo centrado: área = largura × altura', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'retangulo', largura: 100, altura: 50 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'retangulo', largura: 100, altura: 50 }, avaliar));
     expect(areaComSinal(r.externo)).toBeCloseTo(0.005, 12);
   });
 
   it('L: área = abaA·esp + (abaB − esp)·esp', () => {
     // abaA = 100 (vertical), abaB = 60 (horizontal), esp = 10 -> 1000 + 500 = 1500 mm².
-    const r = valorDe(resolverPerfil({ tipo: 'perfilL', abaA: 100, abaB: 60, esp: 10 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'perfilL', abaA: 100, abaB: 60, esp: 10 }, avaliar));
     expect(Math.abs(areaComSinal(r.externo))).toBeCloseTo(0.0015, 12);
   });
 
   it('T: área = largura·mesaEsp + (altura − mesaEsp)·almaEsp', () => {
     // 100·10 + (200 − 10)·8 = 1000 + 1520 = 2520 mm².
-    const r = valorDe(resolverPerfil({ tipo: 'perfilT', largura: 100, altura: 200, mesaEsp: 10, almaEsp: 8 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'perfilT', largura: 100, altura: 200, mesaEsp: 10, almaEsp: 8 }, avaliar));
     expect(Math.abs(areaComSinal(r.externo))).toBeCloseTo(0.00252, 12);
   });
 
@@ -118,33 +144,33 @@ describe('áreas exatas', () => {
 
 describe('orientação', () => {
   it('externo é anti-horário para retângulo', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'retangulo', largura: 100, altura: 50 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'retangulo', largura: 100, altura: 50 }, avaliar));
     expect(areaComSinal(r.externo)).toBeGreaterThan(0);
   });
 
   it('poligono em sentido horário é invertido: externo sai anti-horário', () => {
     // Quadrado de 100 mm dado em sentido horário.
     const horario = { tipo: 'poligono', pontos: [0, 0, 0, 100, 100, 100, 100, 0] };
-    const r = valorDe(resolverPerfil(horario, avaliar));
+    const r = valorDe(resolver(horario, avaliar));
     expect(areaComSinal(r.externo)).toBeGreaterThan(0);
     expect(Math.abs(areaComSinal(r.externo))).toBeCloseTo(0.01, 12);
   });
 
   it('furo do anel é horário', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'anel', diametroExterno: 100, diametroInterno: 60, segmentos: 16 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'anel', diametroExterno: 100, diametroInterno: 60, segmentos: 16 }, avaliar));
     expect(r.furos).toHaveLength(1);
     expect(areaComSinal(r.furos[0] ?? [])).toBeLessThan(0);
   });
 
   it('furo do retângulo oco é horário', () => {
-    const r = valorDe(resolverPerfil({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 10 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 10 }, avaliar));
     expect(r.furos).toHaveLength(1);
     expect(areaComSinal(r.furos[0] ?? [])).toBeLessThan(0);
   });
 
   it('retângulo oco: área = l·a − (l − 2e)·(a − 2e)', () => {
     // 100·50 − 80·30 = 2600 mm² (área do externo menos o furo).
-    const r = valorDe(resolverPerfil({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 10 }, avaliar));
+    const r = valorDe(resolver({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 10 }, avaliar));
     const area = areaComSinal(r.externo) + areaComSinal(r.furos[0] ?? []);
     expect(area).toBeCloseTo(0.0026, 12);
   });
@@ -152,32 +178,32 @@ describe('orientação', () => {
 
 describe('perfil inválido devolve ok: false', () => {
   it('medida zero (diâmetro 0)', () => {
-    expect(resolverPerfil({ tipo: 'circulo', diametro: 0, segmentos: 8 }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'circulo', diametro: 0, segmentos: 8 }, avaliar).ok).toBe(false);
   });
 
   it('anel com diâmetro interno não menor que o externo', () => {
-    expect(resolverPerfil({ tipo: 'anel', diametroExterno: 100, diametroInterno: 120 }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'anel', diametroExterno: 100, diametroInterno: 120 }, avaliar).ok).toBe(false);
   });
 
   it('retângulo oco com 2·espessura não menor que o menor lado', () => {
     // 2·30 = 60 > 50 (menor lado).
-    expect(resolverPerfil({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 30 }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'retanguloOco', largura: 100, altura: 50, espessura: 30 }, avaliar).ok).toBe(false);
   });
 
   it('poligono com menos de 3 pontos', () => {
-    expect(resolverPerfil({ tipo: 'poligono', pontos: [0, 0, 100, 0] }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'poligono', pontos: [0, 0, 100, 0] }, avaliar).ok).toBe(false);
   });
 
   it('poligono com auto-interseção (laço de gravata)', () => {
-    expect(resolverPerfil({ tipo: 'poligono', pontos: [0, 0, 100, 100, 100, 0, 0, 100] }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'poligono', pontos: [0, 0, 100, 100, 100, 0, 0, 100] }, avaliar).ok).toBe(false);
   });
 
   it('T com 2·mesaEsp não menor que a altura', () => {
-    expect(resolverPerfil({ tipo: 'perfilT', largura: 100, altura: 150, mesaEsp: 100, almaEsp: 8 }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'perfilT', largura: 100, altura: 150, mesaEsp: 100, almaEsp: 8 }, avaliar).ok).toBe(false);
   });
 
   it('I com almaEsp não menor que a largura', () => {
-    expect(resolverPerfil({ tipo: 'perfilI', largura: 100, altura: 200, mesaEsp: 10, almaEsp: 100 }, avaliar).ok).toBe(false);
+    expect(resolver({ tipo: 'perfilI', largura: 100, altura: 200, mesaEsp: 10, almaEsp: 100 }, avaliar).ok).toBe(false);
   });
 
   it.skip('AMBIGUIDADE: segmentos fora de [8, 128] — o contrato não diz se limita (clamp) ou se devolve erro', () => {
