@@ -88,7 +88,7 @@ Na aba *Arquitetura*, clique em *Orçamento* e abra a aba *Instalações e estru
 
 - Cada categoria vira uma classe IFC: tubos (`IFCPIPESEGMENT`), conexões (`IFCPIPEFITTING`), reservatórios (`IFCTANK`), perfis (`IFCMEMBER`), entre outras. As ligações viram portas (`IfcDistributionPort`).
 - Arquivo de exemplo: `evidencias/Projeto-sem-titulo.ifc` (gerado pelo roteiro de referência; `IFCMEMBER` confirmado).
-- **Não conferi** onde está o botão de exportação na interface. O texto *Exportar IFC* existe nos dicionários, mas não encontrei o botão que o chama.
+- Para exportar: menu **Arquivo** → cartão **IFC** (`FileMenu.tsx` chama `exportIfc`); o roteiro `tests/e2e/familias-perfil.mjs` exportou o arquivo por esse caminho.
 
 ## O que ainda não existe
 
