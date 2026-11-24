@@ -20,7 +20,16 @@ export interface CaminhoResolvido {
 
 export type FormaCorpoResolvida =
   | { tipo: 'extrusao'; perfil: PerfilResolvido; comprimento: number }
-  | { tipo: 'revolucao'; perfil: PerfilResolvido; angulo: number; segmentos: number }
+  | {
+      tipo: 'revolucao';
+      perfil: PerfilResolvido;
+      angulo: number;
+      segmentos: number;
+      /** Afastamento do eixo (m, 0 por padrão); ver `posicionarPerfilRevolucao`. */
+      afastamento: number;
+      /** true nos perfis centrados (todos menos `poligono`): o menor u passa a ser o afastamento. */
+      centradoNoEixo: boolean;
+    }
   | { tipo: 'varredura'; perfil: PerfilResolvido; caminho: CaminhoResolvido }
   | { tipo: 'transicao'; perfilA: PerfilResolvido; perfilB: PerfilResolvido; comprimento: number; desvio: [number, number] };
 
