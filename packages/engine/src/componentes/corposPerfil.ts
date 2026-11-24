@@ -21,7 +21,7 @@ const SEGMENTOS_MINIMO = 8;
 const SEGMENTOS_MAXIMO = LIMITES_CORPO.segmentosCirculo;
 /** Segmentos de cada canto arredondado do retângulo (CONTRATO §2.2). */
 const SEGMENTOS_CANTO = 6;
-/** Área (m²; 1 mm² = 1e-6 m²) abaixo disto conta como polígono sem área. */
+/** Área abaixo disto (em metros quadrados; 1 mm quadrado vale 1e-6) conta como polígono sem área. */
 const AREA_MINIMA = 1e-9;
 
 const ERRO = {
