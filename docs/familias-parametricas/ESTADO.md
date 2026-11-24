@@ -33,7 +33,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | integrada | c25bb58d |
 | 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
-| 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | pendente | |
+| 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | integrada | f2b869bd |
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | pendente | |
 | 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | integrada | fd3dddb8 |
@@ -93,4 +93,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · A7b: `caixaDoComponente` une caixa das peças com a dos corpos (8 cantos via `matrizDoComponente`); `pegadaDoComponente` inclui o fecho convexo XY dos corpos; `resolverFamilia` devolve `simbolos`. Peças continuam sem inclinação em caixa/pegada (→ B3b item 5).
 - 2026-11-24 · Calibração: o executor da A7b (Haiku) voltou a chamar `create_session` apesar de proibido na ficha; negado pelo classificador. Anotar: Haiku pode ignorar proibições de ferramenta; manter o aviso curto e no início do prompt.
 - 2026-11-24 · B4: `cortarCorpos(corpos, plano, matriz?)`, `projetarCorposElevacao(corpos, eixo de visada)`, `corposNoCorte(project, line)` ligado em `section/build.ts` (reaproveita hachura, Hide in View, categoria `component`); laços do corte = trios x,y,z planos; limitações: corpos não são selecionáveis no corte (→ B5, `pick.ts`), silhueta além do plano sem oclusão do motor, símbolos não tratados; `build.ts` com 507 linhas brutas (lint conta menos).
+- 2026-11-24 · B5: pick no 3D e no corte já devolvia a instância (só testes novos); na planta `componentAt`/`componentIdsInBox` usam `pegadaParaClique` = peças + silhueta de B3 (detalhe 'medium' fixo; pode divergir se a vista desenhar em outro nível); id do corpo clicado NÃO existe (SectionPick/ElementHit só levam a instância).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
