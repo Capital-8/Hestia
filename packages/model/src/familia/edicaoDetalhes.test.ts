@@ -103,7 +103,8 @@ describe('validarDetalhes', () => {
     expect(codigos).toContain('tipo@detalhe:a.plano.eixo');
     expect(codigos).toContain('formula@detalhe:a.plano.posicao');
     expect(codigos).toContain('referencia@detalhe:c.cota:k.de.ponto[0]');
-    expect(codigos).toContain('referencia@detalhe:c.cota:k.ate');
+    expect(codigos).toContain('referencia@detalhe:c.cota:k.ate'); // ligação solta: aviso
+    expect(validarDetalhes(f).find((p) => p.onde === 'detalhe:c.cota:k.ate')?.nivel).toBe('aviso');
     expect(codigos).toContain('formula@detalhe:c.cota:k.texto');
   });
 

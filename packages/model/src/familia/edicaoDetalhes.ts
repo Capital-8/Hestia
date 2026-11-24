@@ -16,8 +16,11 @@ const SEM_LISTA = 'a família não tem lista de detalhes';
 /** Resultado da conversão valor da cota → valor do parâmetro. */
 export type ValorDeCota = { ok: true; parametro: string; valor: number } | { ok: false; motivo: string };
 
+/** Primeiro problema (erro OU aviso) que a lista nova traz e a atual não tinha: defeito antigo não bloqueia edição nova. */
 function primeiroErro(f: Familia, nova: DetalheFamilia[]): string | null {
-  const erro = validarDetalhes({ ...f, detalhes: nova }).find((p) => p.nivel === 'erro');
+  const chave = (p: { mensagem: string; onde: string }): string => `${p.onde}|${p.mensagem}`;
+  const antes = new Set(validarDetalhes(f).map(chave));
+  const erro = validarDetalhes({ ...f, detalhes: nova }).find((p) => !antes.has(chave(p)));
   return erro === undefined ? null : `${erro.mensagem} (${erro.onde})`;
 }
 

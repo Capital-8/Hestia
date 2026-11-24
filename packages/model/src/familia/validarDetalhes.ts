@@ -7,7 +7,7 @@ import type { Problema } from './validar.ts';
 /*
  * Validação dos DETALHES da família (CONTRATO §5, ADR 0061 §D4): vista, escala, plano de corte, símbolos mostrados e cotas.
  * Só confere o que dá para ver sem resolver: ids e limites, tipos dos campos, fórmulas e referências (planos, ligações,
- * símbolos e parâmetros existem). A cota dirigida (`parametro`) precisa apontar para parâmetro numérico SEM fórmula, senão
+ * símbolos e parâmetros existem; plano ou ligação solto numa cota é só aviso). A cota dirigida (`parametro`) precisa apontar para parâmetro numérico SEM fórmula, senão
  * editar a cota não teria o que editar. Nunca lança: entrada estranha vira `Problema`.
  */
 
@@ -125,15 +125,20 @@ function validarCotas(cotas: unknown, onde: string, ctx: Contexto, out: Problema
   });
 }
 
+/** Referência solta de cota é AVISO (a cota some do desenho com diagnóstico), não erro: a família ainda abre e se corrige. */
+function avisar(mensagem: string, onde: string): Problema {
+  return { nivel: 'aviso', codigo: 'referencia', mensagem, onde };
+}
+
 function validarReferenciaCota(r: unknown, campo: string, ctx: Contexto, out: Problema[]): void {
   if (!ehObjeto(r)) {
     out.push(criarProblema('obrigatorio', 'referência da cota ausente', campo));
     return;
   }
   if (r.tipo === 'plano') {
-    if (typeof r.id !== 'string' || !ctx.planos.has(r.id)) out.push(criarProblema('referencia', `o plano “${texto(r.id)}” não existe`, campo));
+    if (typeof r.id !== 'string' || !ctx.planos.has(r.id)) out.push(avisar(`o plano “${texto(r.id)}” não existe`, campo));
   } else if (r.tipo === 'ligacao') {
-    if (typeof r.id !== 'string' || !ctx.ligacoes.has(r.id)) out.push(criarProblema('referencia', `a ligação “${texto(r.id)}” não existe`, campo));
+    if (typeof r.id !== 'string' || !ctx.ligacoes.has(r.id)) out.push(avisar(`a ligação “${texto(r.id)}” não existe`, campo));
   } else if (r.tipo === 'ponto') {
     if (!Array.isArray(r.ponto) || r.ponto.length !== 3) out.push(criarProblema('tipo', 'ponto precisa de 3 coordenadas', `${campo}.ponto`));
     else comoArray<unknown>(r.ponto).forEach((e, j) => validarFormula(e, `${campo}.ponto[${j}]`, ctx, out));
