@@ -4,6 +4,7 @@ export * from './tiposCaixaria.ts';
 export * from './tiposCorpo.ts';
 export * from './tiposLigacao.ts';
 export * from './tiposRepresentacao.ts';
+export * from './categorias.ts';
 export * from './caixaria.ts';
 export * from './caixariaCompilar.ts';
 export * from './caixariaResolver.ts';

@@ -1,6 +1,7 @@
 import { BIBLIOTECA_BASE, FAMILIA_ARMARIO } from '@hestia/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  CATEGORIAS,
   criarCopiaDeFamilia,
   filtrarFamilias,
   normalizarTexto,
@@ -9,6 +10,39 @@ import {
 } from './familiaNovo.ts';
 
 beforeEach(() => reiniciarIdsAbertos());
+
+describe('categorias novas da galeria (ADR 0061)', () => {
+  const NOVAS = [
+    'tubulacao', 'conexao_tubo', 'terminal_hidraulico', 'reservatorio', 'eletroduto',
+    'dispositivo_eletrico', 'luminaria', 'duto', 'terminal_ar', 'perfil_estrutural', 'chapa_estrutural',
+  ];
+
+  it('aparecem na árvore, antes de "Meus modelos", e as antigas seguem na frente', () => {
+    const ids = CATEGORIAS.map((c) => c.id);
+    for (const id of NOVAS) expect(ids).toContain(id);
+    expect(ids.slice(0, 5)).toEqual(['marcenaria', 'mobiliario', 'loucas', 'equipamento', 'generico']);
+    expect(ids[ids.length - 1]).toBe('meus');
+  });
+
+  it('cada categoria nova tem rótulo pt-BR não vazio', () => {
+    for (const c of CATEGORIAS.filter((o) => NOVAS.includes(o.id))) {
+      expect(c.rotulo.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('filtra pela categoria nova e não mostra as antigas', () => {
+    const luminaria = { ...structuredClone(FAMILIA_ARMARIO), id: 'fam_teste_luz', categoria: 'luminaria' as const };
+    const lista = [FAMILIA_ARMARIO, luminaria];
+    expect(filtrarFamilias(lista, 'luminaria', '').map((f) => f.id)).toEqual(['fam_teste_luz']);
+    expect(filtrarFamilias(lista, 'marcenaria', '').map((f) => f.id)).toEqual([FAMILIA_ARMARIO.id]);
+  });
+
+  it('a biblioteca base continua sem categorias novas (galeria atual intacta)', () => {
+    const todas = filtrarFamilias(BIBLIOTECA_BASE, 'todas', '');
+    expect(todas).toHaveLength(BIBLIOTECA_BASE.length);
+    expect(todas.every((f) => !NOVAS.includes(f.categoria))).toBe(true);
+  });
+});
 
 describe('normalizarTexto e filtrarFamilias', () => {
   it('tira acento e caixa', () => {
