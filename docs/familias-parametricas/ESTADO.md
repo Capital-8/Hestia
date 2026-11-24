@@ -34,13 +34,13 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | integrada | f2b869bd |
-| 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | pendente | |
+| 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | integrada | 5bd55a88 |
 | 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | integrada | fd3dddb8 |
 | 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | integrada | 97d321bb |
 | 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | arbitrada (28 verdes, 4 ambiguidades abertas) | 1c29c347 |
-| 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | pendente | |
-| 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | pendente | |
+| 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | integrada | e69d9e35 |
+| 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | integrada | 2d139b13 |
 | 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | pendente | |
 | 5 | [C7](fichas/C7.md) | Diagnóstico da rede MEP | Haiku | C3, C4 | pendente | |
 | 5 | [D3](fichas/D3.md) | Visibilidade por vista e editor de símbolos | Haiku | D1, D2, B7 | pendente | |
@@ -94,4 +94,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · Calibração: o executor da A7b (Haiku) voltou a chamar `create_session` apesar de proibido na ficha; negado pelo classificador. Anotar: Haiku pode ignorar proibições de ferramenta; manter o aviso curto e no início do prompt.
 - 2026-11-24 · B4: `cortarCorpos(corpos, plano, matriz?)`, `projetarCorposElevacao(corpos, eixo de visada)`, `corposNoCorte(project, line)` ligado em `section/build.ts` (reaproveita hachura, Hide in View, categoria `component`); laços do corte = trios x,y,z planos; limitações: corpos não são selecionáveis no corte (→ B5, `pick.ts`), silhueta além do plano sem oclusão do motor, símbolos não tratados; `build.ts` com 507 linhas brutas (lint conta menos).
 - 2026-11-24 · B5: pick no 3D e no corte já devolvia a instância (só testes novos); na planta `componentAt`/`componentIdsInBox` usam `pegadaParaClique` = peças + silhueta de B3 (detalhe 'medium' fixo; pode divergir se a vista desenhar em outro nível); id do corpo clicado NÃO existe (SectionPick/ElementHit só levam a instância).
+- 2026-11-24 · D2: símbolos desenhados na planta (`planComponentsSimbolos.ts`) e no corte (`sectionComponentsSimbolos.ts`, `xz`/`yz` nos planos y=0/x=0 da família); `substituiGeometria` funciona na planta, NÃO no corte; tracejado e estilo da categoria não implementados; etiquetas (`labels`) agora entram na planta (linha em `plan/build.ts`, orquestrador). Orquestrador: `pegadaDoComponente` só inclui corpos com `vistas` nulas ou contendo `planta` (corrigiu teste B3 quebrado pela A7b).
+- 2026-11-24 · C5: `orientarSegmento`, `trechoDeTubo` (engine), `TuboTool` + `opcoesTubo` + `FAMILIA_TUBO_PADRAO = 'tubo-padrao'` (tools), painel `TuboProperties.tsx`, botão na aba Inserir, roteiro `tests/e2e/tubo.mjs` rodou no Chromium (3 trechos em L, conexões recíprocas, Esc, desfazer). Encaixe valida domínio/seção/DN/fluxo mas NÃO a direção (curvas = C6). Sem atalho de teclado e sem aba "Sistemas"; mensagens da ferramenta em português fixo; a família real de tubo (F1) ainda não existe (sem `tubo-padrao` a ferramenta só avisa). Orquestrador acrescentou `TuboProperties.tsx` ao guarda `contratoPaineisFamilia.test.ts` (SEM_FAMILIA).
+- 2026-11-24 · B7: painel "Corpos" na aba Criar, lista no navegador, painel do corpo (forma, perfil, caminho com tabela de pontos e raio, transição, quadro, vistas, detalhe 3D), `familiaCorpo.ts` com store próprio de seleção; textos em `familiasCorpo.ts` e `familiasCorpoOutros.ts` (shards novos; traduções ES/DE/FR/IT/PL escritas sem revisão nativa); roteiro `tests/e2e/familias-corpos.mjs` 7/7 no Chromium. Seleção 3D↔lista: ainda só pela lista (B5 deu pick no 3D mas a lista não liga ao 3D do editor). `vazio`/`grupo` do corpo não expostos.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
