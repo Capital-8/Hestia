@@ -40,8 +40,8 @@ describe('biblioteca MEP no motor', () => {
           expect(Math.hypot(...l.direcao)).toBeCloseTo(1, 9);
           expect(l.diametro).toBeGreaterThan(0);
         }
-        // Tampão fecha a ponta: uma única ligação; as demais têm ao menos duas.
-        expect((r.ligacoes ?? []).length).toBeGreaterThanOrEqual(f.id.endsWith('tampao') ? 1 : 2);
+        // Tampão e ralos têm uma única ligação (a ponta fechada / a saída; a entrada do ralo é a grelha); as demais têm ao menos duas.
+        expect((r.ligacoes ?? []).length).toBeGreaterThanOrEqual(f.id.endsWith('tampao') || f.id.startsWith('fam_ralo') ? 1 : 2);
       });
     }
   }

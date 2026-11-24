@@ -33,8 +33,7 @@ export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAV
  * Biblioteca MEP (ficha F1b): famílias de instalações (hoje, a tubulação de esgoto e as conexões). Separada de BIBLIOTECA_BASE,
  * que é só de móveis: os testes de conectores e de snapshot da base não se aplicam a elas.
  */
-export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA];
-export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...CAIXAS_HIDRO];
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
