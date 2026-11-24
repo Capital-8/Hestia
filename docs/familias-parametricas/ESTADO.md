@@ -24,7 +24,8 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 2 | [A6-cego](fichas/A6-cego.md) | Teste cego da varredura e da transição | Haiku | rodar contra A6 | arbitrada (passou sem ajuste) | 1a18ee2b |
 | 2 | [B1](fichas/B1.md) | Instância 3D (`inclinacao`), esquema 34 e matriz do componente | Sonnet | — | integrada | 3ca0bdfb |
 | 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
-| 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | pendente | |
+| 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | integrada | e7b82d97 |
+| 3 | [A7b](fichas/A7b.md) | Caixa e pegada do componente incluem corpos; símbolos no resolvedor | Haiku | A7, D1 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | pendente | |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | pendente | |
 | 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | pendente | |
@@ -36,7 +37,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | pendente | |
 | 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | pendente | |
-| 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | pendente | |
+| 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | escrita (4 ambiguidades; rodar contra C4) | 1c29c347 |
 | 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | pendente | |
 | 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | pendente | |
 | 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | pendente | |
@@ -82,4 +83,6 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · D5: motor (`avaliarVerificacoes`, `tabelaDaFamilia`, `temErro`) e `validarRepresentacao` prontos; a interface (aviso no painel `ComponentProperties.tsx`, aba do editor) NÃO entrou: passa para as fichas G3 e G2. Condição que não avalia = diagnóstico `erro`. Números saem com 0 casas nas mensagens. Exports dos módulos novos do engine acrescentados em `componentes/index.ts` pelo orquestrador.
 - 2026-11-24 · D1: `texto` de primitivo = texto entre aspas OU fórmula numérica (número formatado: inteiro sem casas, fração até 3 casas). Concatenação (`"DN" + DN`) NÃO é suportada (a gramática não soma texto; decisão: não estender a gramática por ora; se a biblioteca precisar de rótulo composto, abrir ficha para a função `texto(...)`). Limites 64 símbolos e 256 primitivos valem para a família inteira. Resolvedor de símbolos ainda não é chamado por `resolverFamilia` (entra na A7b/D2).
 - 2026-11-24 · B6: `definirPerfil(f, id, perfil, lado?)` (lado 'A'|'B' na transição); `definirRaio(f, id, vertice, raio)` com vertice 1..pontos−2; com raios definidos o caminho mantém pontos−2 raios; `criarCorpoPadrao` (extrusão Ø50×500; revolução retângulo 20×40 afastamento 50; varredura Ø50 em L raio 100; transição Ø100→Ø50 L=200); duplicar cria `<id>_N`.
+- 2026-11-24 · A7: `resolverFamilia` devolve `corpos`, `ligacoes`, `caixaCorpos` (opcionais em `ResolucaoFamilia`); caixa dos corpos vem da malha dos corpos sólidos; revolução com segmentos padrão = max(1, round(32·ângulo/360)); snapshot de 365 resoluções da biblioteca idêntico; corpos de família aninhada NÃO sobem para o pai; `caixaDoComponente`/`pegadaDoComponente` (instancia.ts) ainda sem corpos → ficha A7b.
+- 2026-11-24 · Calibração: o executor do C4-cego tentou criar sessão (`create_session`) sem necessidade; negado pelo classificador, nada foi criado. Reforçar no prompt: nada de ferramentas fora da ficha.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
