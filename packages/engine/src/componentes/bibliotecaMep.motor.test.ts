@@ -30,15 +30,20 @@ describe('biblioteca MEP no motor', () => {
         const r = resolverFamilia(f, { tipoId: t.id });
         expect(r.erros).toEqual([]);
         const corpos = r.corpos ?? [];
-        expect(corpos.filter((c) => !c.vazio).length).toBeGreaterThan(0);
+        // Família de corpos (tubos, caixas) ou só de peças (chapa de base): precisa ter ALGUM sólido.
+        const solidos = corpos.filter((c) => !c.vazio).length + r.pecas.filter((q) => !q.vazio).length;
+        expect(solidos).toBeGreaterThan(0);
         const m = malhaDosCorpos(corpos);
         expect(m.erros).toEqual([]);
-        expect(m.solidas.indices.length).toBeGreaterThan(0);
-        expect(Math.abs(volume(m.solidas.positions, m.solidas.indices))).toBeGreaterThan(1e-9);
+        if (corpos.some((c) => !c.vazio)) {
+          expect(m.solidas.indices.length).toBeGreaterThan(0);
+          expect(Math.abs(volume(m.solidas.positions, m.solidas.indices))).toBeGreaterThan(1e-9);
+        }
         for (const l of r.ligacoes ?? []) {
           expect(l.dominio).toBeTruthy();
           expect(Math.hypot(...l.direcao)).toBeCloseTo(1, 9);
-          expect(l.diametro).toBeGreaterThan(0);
+          if (l.secao === 'redonda') expect(l.diametro).toBeGreaterThan(0);
+          else { expect(l.largura).toBeGreaterThan(0); expect(l.altura).toBeGreaterThan(0); }
         }
         // Tampão e ralos têm uma única ligação (a ponta fechada / a saída; a entrada do ralo é a grelha); as demais têm ao menos duas.
         expect((r.ligacoes ?? []).length).toBeGreaterThanOrEqual(f.id.endsWith('tampao') || f.id.startsWith('fam_ralo') ? 1 : 2);
