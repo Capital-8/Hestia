@@ -897,8 +897,10 @@ export interface Component {
   /** Conjunto ou fila a que o componente pertence (`Project.componentGroups`); ausente = solto. Um componente está em no máximo um. */
   groupId?: Id;
   /**
-   * Inclinação 3D (rad), ADR 0061 §D6: `mundo = Rz(rotation) · E · Ry(inclinacao[1]) · Rx(inclinacao[0]) · local + (x, y, z)`.
-   * Ausente = `[0, 0]` (comportamento de sempre). Tubo com caimento e peça inclinada usam este campo.
+   * Inclinação 3D (rad), ADR 0061 §D6: `inclinacao = [inclinação, giro]` e
+   * `mundo = Rz(rotation) · E · Ry(inclinação) · Rz(giro) · local + (x, y, z)`: o `giro` roda a peça em torno do PRÓPRIO eixo Z
+   * local (duto retangular), a `inclinação` a inclina para +X local (0 = vertical, π/2 = deitada). Ausente = `[0, 0]`
+   * (comportamento de sempre). Tubo com caimento e peça inclinada usam este campo.
    */
   inclinacao?: [number, number];
   /** Conexões desta instância por id de ligação da família (MEP); simétricas com a outra ponta. Ausente = nenhuma. */
