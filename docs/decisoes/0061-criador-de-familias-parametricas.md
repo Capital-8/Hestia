@@ -1,6 +1,6 @@
 # 0061 · Criador de famílias paramétricas (corpos, ligações, representações e redes MEP)
 
-Data: 2026-11-24. Estado: **proposta aceita para execução** (o dono pediu o plano e o contrato). Estende a ADR 0049 (componentes e editor de famílias) e usa a disciplina da 0060.
+Data: 2026-11-24. Estado: **implementada, com as lacunas listadas no ESTADO** (`docs/familias-parametricas/ESTADO.md`). Estende a ADR 0049 (componentes e editor de famílias) e usa a disciplina da 0060.
 Contrato completo: `docs/familias-parametricas/CONTRATO.md`. Plano: `docs/familias-parametricas/PLANO.md`. Execução: `docs/familias-parametricas/EXECUCAO.md`.
 
 ## Contexto
