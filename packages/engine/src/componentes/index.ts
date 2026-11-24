@@ -29,3 +29,4 @@ export * from './corposMalha.ts';
 export * from './corposMalhaRevolucao.ts';
 export * from './corposLigacoes.ts';
 export * from './verificacoesDaFamilia.ts';
+export * from './simbolosResolvidos.ts';

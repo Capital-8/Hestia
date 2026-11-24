@@ -29,7 +29,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | pendente | |
 | 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | pendente | |
 | 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | pendente | |
-| 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | pendente | |
+| 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | pendente | |
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | pendente | |
@@ -80,4 +80,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · A6: `malhaDosCorpos` devolve `MalhasDasPecas` + `erros: string[]` (corpo inválido é omitido com mensagem); `FormaCorpoResolvida.revolucao` ganhou `afastamento` (m) e `centradoNoEixo`; ponto de referência da transição = raio de ângulo 0 (+u) a partir do centro da caixa do perfil; limitação: tampa de transição retangular não é estanque por índice (junção em T, volume correto); N4 a 64 segmentos fica em ±0,5 %, com 32 fica ~0,6 % abaixo.
 - 2026-11-24 · BACKLOG (fichas pequenas a abrir): A2c — `Corpo.material` precisa entrar em renomear/excluir parâmetro (`edicao.ts` só reescreve `peca.material`); `caixaria` fora da lista branca de `arquivo.ts`; `angulo` no seletor de tipos da UI (G2).
 - 2026-11-24 · D5: motor (`avaliarVerificacoes`, `tabelaDaFamilia`, `temErro`) e `validarRepresentacao` prontos; a interface (aviso no painel `ComponentProperties.tsx`, aba do editor) NÃO entrou: passa para as fichas G3 e G2. Condição que não avalia = diagnóstico `erro`. Números saem com 0 casas nas mensagens. Exports dos módulos novos do engine acrescentados em `componentes/index.ts` pelo orquestrador.
+- 2026-11-24 · D1: `texto` de primitivo = texto entre aspas OU fórmula numérica (número formatado: inteiro sem casas, fração até 3 casas). Concatenação (`"DN" + DN`) NÃO é suportada (a gramática não soma texto; decisão: não estender a gramática por ora; se a biblioteca precisar de rótulo composto, abrir ficha para a função `texto(...)`). Limites 64 símbolos e 256 primitivos valem para a família inteira. Resolvedor de símbolos ainda não é chamado por `resolverFamilia` (entra na A7b/D2).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)

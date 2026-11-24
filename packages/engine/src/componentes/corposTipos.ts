@@ -1,4 +1,4 @@
-import type { DominioLigacao, FluxoLigacao, NivelDetalhe, PapelCorpo, SecaoLigacao, VistaFamilia } from '@hestia/model';
+import type { DominioLigacao, FluxoLigacao, NivelDetalhe, PapelCorpo, PlanoSimbolo, SecaoLigacao, VistaFamilia, VistaSimbolo } from '@hestia/model';
 
 /*
  * CONTRATO dos corpos e ligações RESOLVIDOS (ADR 0061 §D2/§D3, CONTRATO.md §2.3). É a FRONTEIRA com o Rust, como
@@ -67,4 +67,22 @@ export interface LigacaoResolvida {
   aceita: DominioLigacao[];
   propriedades: Record<string, number>;
   propagaParametro: string | null;
+}
+
+/** Primitivo 2D resolvido (CONTRATO §4): coordenadas em METROS no plano do símbolo; ângulos em RADIANOS. */
+export type PrimitivoResolvido =
+  | { tipo: 'linha'; de: [number, number]; ate: [number, number] }
+  | { tipo: 'circulo'; centro: [number, number]; raio: number }
+  | { tipo: 'arco'; centro: [number, number]; raio: number; inicioRad: number; fimRad: number }
+  | { tipo: 'polilinha'; pontos: [number, number][]; fechada: boolean }
+  | { tipo: 'texto'; posicao: [number, number]; texto: string; altura: number };
+
+/** Símbolo 2D resolvido: só existe quando `quando` é verdadeiro e nenhum primitivo teve erro. */
+export interface SimboloResolvido {
+  id: string;
+  nome: string;
+  vistas: VistaSimbolo[];
+  plano: PlanoSimbolo;
+  substituiGeometria: boolean;
+  primitivos: PrimitivoResolvido[];
 }

@@ -86,7 +86,7 @@ Resultado: `{ ok: true }` ou `{ ok: false, motivo }` com motivo em português e 
 - `substituiGeometria: true`: as vistas listadas **não** desenham a projeção automática de peças e corpos; só o símbolo (útil para registro, tomada, luminária na planta).
 - Sem símbolo, a projeção automática vale (peças: `projecaoPlanta.ts`; corpos: contorno da silhueta, ficha B3).
 - **Visibilidade por corpo:** `Corpo.vistas`. `Peca` fica como está (por nível de detalhe).
-- Primitivo `texto`: `texto` é fórmula de texto (aspas) ou número formatado com o valor de um parâmetro; altura em mm de papel × escala? **Decisão:** altura em mm de **modelo** (constante); o desenho da prancha escala junto.
+- Primitivo `texto` (decisão D1): `texto` é texto entre aspas ou fórmula numérica (sem concatenação na v1); antes: fórmula de texto (aspas) ou número formatado com o valor de um parâmetro; altura em mm de papel × escala? **Decisão:** altura em mm de **modelo** (constante); o desenho da prancha escala junto.
 
 ## 5. Detalhamento
 
