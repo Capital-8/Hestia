@@ -55,6 +55,7 @@ const CAMPOS_FAMILIA = [
   'escolhas',
   'tipos',
   'tipoPadrao',
+  'caixaria',
   // Versão 2 (ADR 0061, CONTRATO.md §9): representações e corpos novos.
   'corpos',
   'ligacoes',

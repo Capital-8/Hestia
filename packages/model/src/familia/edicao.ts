@@ -17,6 +17,7 @@ import {
   type Peca,
   type Tipo,
 } from './tipos.ts';
+import type { Corpo } from './tiposCorpo.ts';
 
 export { adicionarParametro, excluirParametro };
 export { adicionarPeca, arranjoLinear, duplicarPeca, espelharPecaEmX, excluirPeca, moverPecaNaLista } from './edicaoPecas.ts';
@@ -153,6 +154,9 @@ export function renomearParametro(f: Familia, velho: string, novo: string): stri
 
   for (const p of lista<Peca>(f.pecas)) {
     if (p?.material === velho) p.material = novo;
+  }
+  for (const c of lista<Corpo>(f.corpos)) {
+    if (c?.material === velho) c.material = novo;
   }
 
   return null;

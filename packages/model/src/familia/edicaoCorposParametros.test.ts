@@ -95,3 +95,40 @@ describe('renomear e excluir parâmetro enxergam as fórmulas dos corpos (ficha 
     expect(f.parametros.some((p) => p.id === 'D')).toBe(true);
   });
 });
+
+describe('Corpo.material enxerga renomear e excluir parâmetro (ficha I3)', () => {
+  const comMaterialDeCorpo = (): Familia => {
+    const f = nova();
+    f.parametros.push({ id: 'MAT', nome: 'Material', tipo: 'material', escopo: 'tipo', padrao: 'inox' });
+    f.corpos = [{
+      id: 'tubo',
+      nome: 'Tubo',
+      papel: 'tubo',
+      forma: { tipo: 'extrusao', comprimento: 'L', perfil: { tipo: 'circulo', diametro: '50' } },
+      quadro: { origem: ['0', '0', '0'] },
+      material: 'MAT',
+    }];
+    return f;
+  };
+
+  it('renomear o parâmetro reescreve Corpo.material', () => {
+    const f = comMaterialDeCorpo();
+    expect(renomearParametro(f, 'MAT', 'AÇO')).toMatch(/id inválido/);
+    expect(renomearParametro(f, 'MAT', 'MATERIAL_CORPO')).toBeNull();
+    expect(f.corpos![0]!.material).toBe('MATERIAL_CORPO');
+    expect(usosDoNome(f, 'MATERIAL_CORPO')).toContain('corpo:tubo.material');
+  });
+
+  it('excluir parâmetro usado em Corpo.material é recusado e cita o corpo', () => {
+    const f = comMaterialDeCorpo();
+    const motivo = intacta(f, (g) => excluirParametro(g, 'MAT'));
+    expect(motivo).toContain('corpo:tubo.material');
+    expect(f.corpos![0]!.material).toBe('MAT');
+  });
+
+  it('corpo sem material não bloqueia a exclusão', () => {
+    const f = comMaterialDeCorpo();
+    delete f.corpos![0]!.material;
+    expect(excluirParametro(f, 'MAT')).toBeNull();
+  });
+});
