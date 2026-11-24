@@ -28,7 +28,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | pendente | |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | pendente | |
 | 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | pendente | |
-| 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | pendente | |
+| 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | integrada | c25bb58d |
 | 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | pendente | |
@@ -81,4 +81,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · BACKLOG (fichas pequenas a abrir): A2c — `Corpo.material` precisa entrar em renomear/excluir parâmetro (`edicao.ts` só reescreve `peca.material`); `caixaria` fora da lista branca de `arquivo.ts`; `angulo` no seletor de tipos da UI (G2).
 - 2026-11-24 · D5: motor (`avaliarVerificacoes`, `tabelaDaFamilia`, `temErro`) e `validarRepresentacao` prontos; a interface (aviso no painel `ComponentProperties.tsx`, aba do editor) NÃO entrou: passa para as fichas G3 e G2. Condição que não avalia = diagnóstico `erro`. Números saem com 0 casas nas mensagens. Exports dos módulos novos do engine acrescentados em `componentes/index.ts` pelo orquestrador.
 - 2026-11-24 · D1: `texto` de primitivo = texto entre aspas OU fórmula numérica (número formatado: inteiro sem casas, fração até 3 casas). Concatenação (`"DN" + DN`) NÃO é suportada (a gramática não soma texto; decisão: não estender a gramática por ora; se a biblioteca precisar de rótulo composto, abrir ficha para a função `texto(...)`). Limites 64 símbolos e 256 primitivos valem para a família inteira. Resolvedor de símbolos ainda não é chamado por `resolverFamilia` (entra na A7b/D2).
+- 2026-11-24 · B6: `definirPerfil(f, id, perfil, lado?)` (lado 'A'|'B' na transição); `definirRaio(f, id, vertice, raio)` com vertice 1..pontos−2; com raios definidos o caminho mantém pontos−2 raios; `criarCorpoPadrao` (extrusão Ø50×500; revolução retângulo 20×40 afastamento 50; varredura Ø50 em L raio 100; transição Ø100→Ø50 L=200); duplicar cria `<id>_N`.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
