@@ -45,8 +45,8 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...CAIXAS_HIDRO,
   ...PERFIS_METALICOS,
   ...ELETRICA,
+  ...FOSSAS_SEPTICAS,
 ];
-export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO, ...FOSSAS_SEPTICAS];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
