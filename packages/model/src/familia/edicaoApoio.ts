@@ -18,6 +18,7 @@ export interface ExpressaoEditavel {
 export interface VisitaFamilia {
   formula: (onde: string, texto: string, gravar: (novo: string) => void) => void;
   material?: (pecaId: string, material: string | undefined) => void;
+  materialCorpo?: (corpoId: string, material: string | undefined) => void;
   valoresDeTipo?: (tipoId: string, valores: Record<string, Valor> | undefined) => void;
 }
 
@@ -179,6 +180,7 @@ export function percorrerFamilia(f: Familia, v: VisitaFamilia): void {
       const relativo = campo.onde.slice(base.length + 1);
       add(campo.onde, campo.valor, (novo) => { gravarEm(corpo, relativo, novo); });
     }
+    v.materialCorpo?.(corpo.id, corpo.material);
   }
 
   for (const t of lista<Tipo>(f.tipos)) {
@@ -220,6 +222,9 @@ export function usosDoNomeEm(f: Familia, nome: string): string[] {
     },
     material: (pecaId, material) => {
       if (material === nome) push(`peca:${pecaId}.material`);
+    },
+    materialCorpo: (corpoId, material) => {
+      if (material === nome) push(`corpo:${corpoId}.material`);
     },
     valoresDeTipo: (tipoId, valores) => {
       if (valores !== undefined && Object.prototype.hasOwnProperty.call(valores, nome)) {
