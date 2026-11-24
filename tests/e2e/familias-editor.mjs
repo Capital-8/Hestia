@@ -234,7 +234,8 @@ try {
     rep.check('botão da Biblioteca abre o editor', (await store()).aberta === true);
     const abas = await page.locator('.fam-root .rtab').evaluateAll((els) => els.map((e) => ({ nome: e.textContent, off: e.disabled })));
     const placeholders = abas.filter((a) => a.nome !== 'Criar');
-    rep.check('LIMITAÇÃO medida: abas Inserir/Modificar/Vista/Gerenciar desabilitadas (placeholder)', placeholders.length === 4 && placeholders.every((a) => a.off), placeholders.map((a) => a.nome).join(','));
+    // G2 (ADR 0061): as quatro abas deixaram de ser placeholder e passaram a ter painéis habilitados.
+    rep.check('abas Inserir/Modificar/Vista/Gerenciar habilitadas (G2)', placeholders.length === 4 && placeholders.every((a) => !a.off), placeholders.map((a) => a.nome).join(','));
     const soon = await page.locator('.fam-root .rb-btn.soon').count();
     const desabilitados = await page.locator('.fam-root .rb-btn:disabled').count();
     rep.check('LIMITAÇÃO medida: botões da faixa marcados em breve (soon)', true, `${soon} soon, ${desabilitados} desabilitados`);
