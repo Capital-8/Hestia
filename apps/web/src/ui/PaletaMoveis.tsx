@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import type { Familia } from '@hestia/model';
 import { create } from 'zustand';
 import { useProject } from '../editor/controller.ts';
@@ -24,6 +24,10 @@ import './paletaMoveis.css';
 
 interface PaletaState {
   aberta: boolean;
+  /** Aba a mostrar ao abrir pela faixa (ex.: o grupo Hidráulica); `null` mantém a que a pessoa deixou. */
+  abaPedida: { aba: CategoriaPaleta; n: number } | null;
+  /** Abre a paleta já na aba pedida (botões das abas Sistemas, Aço e Estrutura). */
+  abrirEm: (aba: CategoriaPaleta) => void;
   abrir: () => void;
   fechar: () => void;
   alternar: () => void;
@@ -31,6 +35,8 @@ interface PaletaState {
 
 export const usePaletaMoveis = create<PaletaState>((set) => ({
   aberta: false,
+  abaPedida: null,
+  abrirEm: (aba) => set((s) => ({ aberta: true, abaPedida: { aba, n: (s.abaPedida?.n ?? 0) + 1 } })),
   abrir: () => set({ aberta: true }),
   fechar: () => set({ aberta: false }),
   alternar: () => set((s) => ({ aberta: !s.aberta })),
@@ -143,7 +149,12 @@ export function PaletaMoveis(): ReactElement | null {
   const fechar = usePaletaMoveis((s) => s.fechar);
   const ativoId = useInsercaoBloco((s) => s.ativo?.familiaId ?? null);
   const p = useProject();
-  const [categoria, setCategoria] = useState<CategoriaPaleta>('todas');
+  const abaPedida = usePaletaMoveis((s) => s.abaPedida);
+  const [categoria, setCategoria] = useState<CategoriaPaleta>(abaPedida?.aba ?? 'todas');
+  // Cada pedido da faixa (mesmo repetido) leva a paleta à aba pedida; escolher uma aba à mão volta a mandar.
+  useEffect(() => {
+    if (abaPedida !== null) setCategoria(abaPedida.aba);
+  }, [abaPedida]);
   const [busca, setBusca] = useState('');
   const [posicao, setPosicao] = useState(POSICAO_INICIAL);
   const arrasteJanela = useRef<{ dx: number; dy: number } | null>(null);

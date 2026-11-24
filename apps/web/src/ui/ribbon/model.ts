@@ -21,6 +21,7 @@ export type ActionId =
   | 'cotasAuto' | 'dimensionFamilies' | 'typeProps' | 'properties' | 'browser' | 'sameType' | 'sameName' | 'moveLevel' | 'delete'
   | 'zoomFit' | 'thinLines' | 'grid' | 'underlay' | 'roofProjection' | 'graphicsVisibility' | 'view3d' | 'genElevations' | 'newSheet'
   | 'materials' | 'levels' | 'levelTool' | 'lineWeights' | 'units' | 'shortcutsConfig' | 'shortcuts' | 'importCad' | 'manageCad' | 'verificarRede'
+  | 'familiasHidro' | 'familiasEletrico' | 'familiasHvac' | 'familiasEstrutura' | 'catalogoMep'
   | 'schedWalls' | 'schedFloors' | 'schedSlabs' | 'schedCeilings' | 'schedRoofs' | 'schedStairs' | 'schedRooms' | 'schedOpenings'
   | 'schedColumns' | 'schedBeams' | 'schedFootings' | 'column' | 'beam' | 'footing' | 'structuralEditType' | 'structuralRotate90' | 'footingAtColumns'
   | 'stairSketch' | 'stairTypes' | 'rampTypes' | 'schedRamps' | 'propsSide' | 'browserSide' | 'resetDock' | 'tagAll' | 'wallTags' | 'editPerimeter'

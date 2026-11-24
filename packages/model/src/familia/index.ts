@@ -25,3 +25,4 @@ export { KRONA_ESGOTO } from './catalogosMep/kronaEsgoto.ts';
 export { KRONA_SOLDAVEL } from './catalogosMep/kronaSoldavel.ts';
 export { itemKrona as itemKronaPublico } from './biblioteca/kronaEsgotoApoio.ts';
 export * from './materiaisInstalacoes.ts';
+export * from './destinosCategoria.ts';

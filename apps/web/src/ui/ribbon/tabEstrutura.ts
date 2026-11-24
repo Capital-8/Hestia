@@ -40,7 +40,7 @@ export const TAB_ESTRUTURA: RibbonTab = {
     panel(
       'est-modelo',
       t('Modelo', 'Model'),
-      soon(t('Componente', 'Component'), 'component'),
+      act('familiasEstrutura', 'large', t('Perfis e chapas', 'Profiles & plates')),
       stack(
         soonS(t('Texto do modelo', 'Model Text'), 'text'),
         soonS(t('Linha do modelo', 'Model Line'), 'detailLine'),
