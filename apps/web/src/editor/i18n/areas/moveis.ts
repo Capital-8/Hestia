@@ -1,3 +1,4 @@
+import { PT_MOVEIS_MEP, EN_MOVEIS_MEP, ES_MOVEIS_MEP, DE_MOVEIS_MEP, FR_MOVEIS_MEP, IT_MOVEIS_MEP, PL_MOVEIS_MEP } from './moveisMep.ts';
 /* eslint-disable max-lines -- shard de dicionário da frente de móveis (7 idiomas); a paridade é garantida pelo tipo. */
 /**
  * Shard de dicionário: móveis (componentes), biblioteca, montar fila, orçamento e acabamentos 3D.
@@ -237,6 +238,7 @@ export const PT_MOVEIS = {
   mov_undo_girar_varios: 'Girar componentes',
   mov_undo_espelhar_varios: 'Espelhar componentes',
   mov_undo_duplicar: 'Duplicar componente',
+  ...PT_MOVEIS_MEP,
 } as const;
 
 type D = Record<keyof typeof PT_MOVEIS, string>;
@@ -456,6 +458,7 @@ export const EN_MOVEIS: D = {
   mov_undo_girar_varios: 'Rotate components',
   mov_undo_espelhar_varios: 'Mirror components',
   mov_undo_duplicar: 'Duplicate component',
+  ...EN_MOVEIS_MEP,
 };
 
 export const ES_MOVEIS: D = {
@@ -673,6 +676,7 @@ export const ES_MOVEIS: D = {
   mov_undo_girar_varios: 'Girar componentes',
   mov_undo_espelhar_varios: 'Reflejar componentes',
   mov_undo_duplicar: 'Duplicar componente',
+  ...ES_MOVEIS_MEP,
 };
 
 export const DE_MOVEIS: D = {
@@ -890,6 +894,7 @@ export const DE_MOVEIS: D = {
   mov_undo_girar_varios: 'Bauteile drehen',
   mov_undo_espelhar_varios: 'Bauteile spiegeln',
   mov_undo_duplicar: 'Bauteil duplizieren',
+  ...DE_MOVEIS_MEP,
 };
 
 export const FR_MOVEIS: D = {
@@ -1107,6 +1112,7 @@ export const FR_MOVEIS: D = {
   mov_undo_girar_varios: 'Pivoter les composants',
   mov_undo_espelhar_varios: 'Mettre les composants en miroir',
   mov_undo_duplicar: 'Dupliquer le composant',
+  ...FR_MOVEIS_MEP,
 };
 
 export const IT_MOVEIS: D = {
@@ -1324,6 +1330,7 @@ export const IT_MOVEIS: D = {
   mov_undo_girar_varios: 'Ruota componenti',
   mov_undo_espelhar_varios: 'Specchia componenti',
   mov_undo_duplicar: 'Duplica componente',
+  ...IT_MOVEIS_MEP,
 };
 
 export const PL_MOVEIS: D = {
@@ -1541,4 +1548,5 @@ export const PL_MOVEIS: D = {
   mov_undo_girar_varios: 'Obróć komponenty',
   mov_undo_espelhar_varios: 'Odbij komponenty',
   mov_undo_duplicar: 'Duplikuj komponent',
+  ...PL_MOVEIS_MEP,
 };
