@@ -162,11 +162,7 @@ export class VisualizadorFamilia {
   }
 
   /** Marcadores das ligações (ficha C2b): disco na seção e seta na direção, na cor do domínio; a selecionada fica realçada. Lista vazia limpa. */
-  definirLigacoes(ligacoes: readonly LigacaoResolvida[], selecionada: string | null): void {
-    if (this.destruido) return;
-    this.ligacoesCena.definir(ligacoes, selecionada);
-    this.agendarDesenho();
-  }
+  definirLigacoes(ligacoes: readonly LigacaoResolvida[], selecionada: string | null): void { this.ligacoesCena.definir(ligacoes, selecionada); this.agendarDesenho(); }
 
   /** Esfera de enquadramento: das peças quando há peças; sem peças, dos corpos (se houver). */
   private esferaAtual(): { centro: [number, number, number]; raio: number } {
