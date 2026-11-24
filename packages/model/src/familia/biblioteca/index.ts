@@ -14,6 +14,7 @@ import { CAIXAS_HIDRO } from './caixasHidro.ts';
 import { PERFIS_METALICOS } from './perfisMetalicos.ts';
 import { ELETRICA } from './eletrica.ts';
 import { FOSSAS_SEPTICAS } from './fossasSeptica.ts';
+import { LUMINARIAS } from './luminarias.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -46,6 +47,7 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...PERFIS_METALICOS,
   ...ELETRICA,
   ...FOSSAS_SEPTICAS,
+  ...LUMINARIAS,
 ];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
