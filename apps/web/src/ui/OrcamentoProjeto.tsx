@@ -7,8 +7,9 @@ import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { FamiliaListaCorte } from './familia/FamiliaListaCorte.tsx';
 import { FamiliaListaTabela } from './familia/FamiliaListaTabela.tsx';
-import { textoArea, textoMoeda } from './familia/familiaLista.ts';
+import { nomeDoArquivo, textoArea, textoMoeda } from './familia/familiaLista.ts';
 import { ferragensParaTabela, mostraSemComponentes, nivelOptions, nomeArquivoOrcamento, rotuloNivel } from './orcamentoProjeto.ts';
+import { csvInstalacoes, linhasInstalacoes, textoMedidaInstalacao, type LinhaInstalacao, type RotulosInstalacao } from './orcamentoMep.ts';
 import './familia/familia.css';
 import './familia/familiaLista.css';
 import './OrcamentoProjeto.css';
@@ -30,13 +31,14 @@ export const useOrcamento = create<OrcamentoState>((set) => ({
   fechar: () => set({ aberta: false }),
 }));
 
-type AbaOrcamento = 'resumo' | 'pecas' | 'corte' | 'ferragens';
+type AbaOrcamento = 'resumo' | 'pecas' | 'corte' | 'ferragens' | 'instalacoes';
 
 const ABAS: ReadonlyArray<{ id: AbaOrcamento; rotulo: keyof Dict }> = [
   { id: 'resumo', rotulo: 'mov_orc_resumo' },
   { id: 'pecas', rotulo: 'mov_pecas' },
   { id: 'corte', rotulo: 'mov_orc_corte' },
   { id: 'ferragens', rotulo: 'mov_orc_ferragens' },
+  { id: 'instalacoes', rotulo: 'mov_orc_instalacoes' },
 ];
 
 function baixarArquivo(nome: string, conteudo: string, tipo: string): void {
@@ -138,6 +140,34 @@ function AbaFerragens({ orcamento }: { orcamento: ReturnType<typeof orcamentoDoP
   );
 }
 
+/** Seção "Instalações e estrutura" (ficha I2): tubulação, conexões, reservatórios, perfis e eletrodutos do projeto. */
+function AbaInstalacoes({ linhas, rotulos }: { linhas: readonly LinhaInstalacao[]; rotulos: RotulosInstalacao }): ReactElement {
+  const { t } = useT();
+  if (linhas.length === 0) return <p className="fam-hint">{t('mov_mep_sem_itens')}</p>;
+  return (
+    <div className="fam-lista-aba-conteudo">
+      <div className="fam-tabela fam-lista-rolagem">
+        <table className="fam-lista-tabela">
+          <thead>
+            <tr><th>{t('mov_mep_col_grupo')}</th><th>{t('mov_mep_col_item')}</th><th className="n">{t('mov_mep_col_quantidade')}</th><th className="n">{t('mov_mep_col_medida')}</th></tr>
+          </thead>
+          <tbody>
+            {linhas.map((l, i) => (
+              <tr key={`${l.grupo}-${i}`}>
+                <td>{rotulos.grupos[l.grupo]}</td>
+                <td>{l.item ?? rotulos.semIdentificacao}</td>
+                <td className="n">{l.quantidade}</td>
+                <td className="n">{textoMedidaInstalacao(l) || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="fam-hint">{t('mov_mep_nota')}</p>
+    </div>
+  );
+}
+
 export function OrcamentoProjeto(): ReactElement | null {
   const { t } = useT();
   const aberta = useOrcamento((s) => s.aberta);
@@ -149,7 +179,20 @@ export function OrcamentoProjeto(): ReactElement | null {
   const nivelAtual = nivelOptions(p).some((o) => o.id === nivelId) ? nivelId : null;
   const orcamento = useMemo(() => orcamentoDoProjeto(p, { nivel: nivelAtual ?? undefined }), [p, nivelAtual]);
   const catalogo = p.catalog ?? CATALOGO_PADRAO;
-  const semComponentes = mostraSemComponentes(orcamento);
+  const linhasMep = useMemo(() => linhasInstalacoes(orcamento.mep), [orcamento]);
+  const rotulosMep: RotulosInstalacao = {
+    grupos: {
+      tubulacao: t('mov_mep_grp_tubulacao'),
+      conexoes: t('mov_mep_grp_conexoes'),
+      reservatorios: t('mov_mep_grp_reservatorios'),
+      perfis: t('mov_mep_grp_perfis'),
+      eletrodutos: t('mov_mep_grp_eletrodutos'),
+    },
+    semIdentificacao: t('mov_mep_sem_identificacao'),
+    cabecalho: [t('mov_mep_col_grupo'), t('mov_mep_col_item'), t('mov_mep_col_quantidade'), t('mov_mep_col_medida'), t('mov_mep_col_unidade')],
+  };
+  /* Projeto só com instalações (sem móveis) também mostra as abas: a seção MEP não depende de marcenaria. */
+  const semComponentes = mostraSemComponentes(orcamento) && linhasMep.length === 0;
 
   if (!aberta) return null;
 
@@ -164,6 +207,10 @@ export function OrcamentoProjeto(): ReactElement | null {
 
   const baixarCsv = (): void => {
     baixarArquivo(nomeArquivoOrcamento(p), listaPecasCsv(orcamento.linhas), 'text/csv;charset=utf-8');
+  };
+
+  const baixarCsvMep = (): void => {
+    baixarArquivo(nomeDoArquivo('instalacoes', p.name || 'projeto', 'csv'), csvInstalacoes(linhasMep, rotulosMep), 'text/csv;charset=utf-8');
   };
 
   return (
@@ -206,6 +253,9 @@ export function OrcamentoProjeto(): ReactElement | null {
               <span className="fam-lista-espaco" />
               <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={() => { void copiarCsv(); }}>{t('mov_orc_copiar_csv')}</button>
               <button type="button" className="fam-bt" disabled={orcamento.linhas.length === 0} onClick={baixarCsv}>{t('mov_orc_baixar_csv')}</button>
+              {aba === 'instalacoes' && (
+                <button type="button" className="fam-bt" disabled={linhasMep.length === 0} onClick={baixarCsvMep}>{t('mov_mep_baixar_csv')}</button>
+              )}
             </div>
 
             <div className="fam-lista-painel" role="tabpanel" id={`orc-painel-${aba}`} aria-labelledby={`orc-aba-${aba}`}>
@@ -224,6 +274,7 @@ export function OrcamentoProjeto(): ReactElement | null {
                   )}
                   {aba === 'corte' && <FamiliaListaCorte linhas={orcamento.linhas} catalogo={catalogo} />}
                   {aba === 'ferragens' && <AbaFerragens orcamento={orcamento} />}
+                  {aba === 'instalacoes' && <AbaInstalacoes linhas={linhasMep} rotulos={rotulosMep} />}
                 </>
               )}
             </div>
