@@ -35,14 +35,14 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | integrada | f2b869bd |
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | integrada | 5bd55a88 |
-| 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | parcial (operações, cores, textos, painel não montado → C2b) | 232ce6ec |
+| 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | integrada (C2 + C2b) | 232ce6ec, 61385e08 |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | integrada | fd3dddb8 |
 | 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | integrada | 97d321bb |
 | 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | arbitrada (28 verdes, 4 ambiguidades abertas) | 1c29c347 |
 | 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | integrada | e69d9e35 |
 | 5 | [A4b](fichas/A4b.md) | Caminho: segmento quase nulo e vértice coincidente com a tangência | Haiku | A4, A6 | integrada | 39e6d9f5 |
 | 6 | [F1b](fichas/F1b.md) | Famílias MEP disponíveis no app (biblioteca, paleta e ferramenta Tubo) | Haiku | F1, C5, C6 | integrada | fe1c1414 + orquestrador |
-| 6 | [C2b](fichas/C2b.md) | Ligações no editor: montar o painel e os marcadores 3D | Haiku | C2, B7 | pendente | |
+| 6 | [C2b](fichas/C2b.md) | Ligações no editor: montar o painel e os marcadores 3D | Haiku | C2, B7 | integrada | 61385e08 |
 | 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | integrada | 2d139b13 |
 | 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | integrada | 78ee6300 |
 | 5 | [C7](fichas/C7.md) | Diagnóstico da rede MEP | Haiku | C3, C4 | pendente | |
@@ -106,4 +106,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · C2 (parcial): faltou montar a seção Ligações em `FamiliaPaineis.tsx`, marcadores 3D e export de `corDoDominio` → C2b.
 - 2026-11-24 · A4b: `corposCaminho.ts` descarta pontos consecutivos a < 1e-7 m (`LIMIAR_TRECHO`), reaponta `vertices`, caminho ~0 = erro; `corposQuadro.ts` herda a direção do vizinho em trecho curto; volume do caso 45° + 1 µm voltou ao analítico.
 - 2026-11-24 · F1b: `BIBLIOTECA_MEP` (= `TUBULACAO_ESGOTO`) separada de `BIBLIOTECA_BASE`; `familiaDaBiblioteca` procura nas duas; galeria/paleta com `FAMILIAS_GALERIA` (móveis + MEP por disciplina). Orquestrador concluiu o item da ferramenta Tubo: `FAMILIA_TUBO_BIBLIOTECA = 'fam_tubo_esgoto'`; `FAMILIA_TUBO_PADRAO` continua `'tubo-padrao'` (fixture); sem família no projeto o primeiro trecho carrega o tubo e as conexões do domínio na MESMA transação; projeto que já tem o tubo não ganha conexões por trás; teste obsoleto 'sem a família não cria nada' trocado por 'família inexistente não cria nada' + teste do auto-carregamento e do desfazer. Conferir: tê/junção da F1 não declaram `DN2` (ramal usa o mesmo DN do principal); ok com C6.
+- 2026-11-24 · C2b: painel de ligações montado no navegador do editor (`FamiliaPaineis.tsx`), seleção em `useLigacaoSel`, marcadores 3D `LigacoesNaCena` (disco/placa + seta, cor do domínio), roteiro `familias-ligacoes.mjs` 7/7; limitações: sem seleção por clique no 3D; roteiro confere `data-ligacoes`, geometria só em teste unitário; `visualizador.ts` no limite de 420 linhas.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
