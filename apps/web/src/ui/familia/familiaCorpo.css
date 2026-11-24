@@ -1,0 +1,19 @@
+/* Corpos paramétricos no editor de famílias (ficha B7): tabela de pontos, marcas de vista/detalhe e lista de corpos. */
+
+.fam-corpo-painel { display: flex; flex-direction: column; gap: 2px; }
+.fam-corpo-campo { flex: 1; min-width: 0; }
+.fam-corpo-acoes { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+.fam-corpo-marcas { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 2px 0; font-size: 12px; }
+.fam-corpo-marcas label { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.fam-corpo-caminho { margin-top: 4px; }
+.fam-corpo-tabela { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+.fam-corpo-tabela th { text-align: left; font-weight: 600; padding: 2px; }
+.fam-corpo-tabela td { padding: 1px 2px; vertical-align: middle; }
+.fam-corpo-tabela td .fam-f { width: 100%; min-width: 0; padding: 1px 3px; font-size: 11px; }
+.fam-corpo-tabela td:first-child { width: 14px; text-align: center; }
+.fam-corpo-tabela th:last-child { width: 66px; }
+.fam-corpo-linha-acoes { white-space: nowrap; }
+.fam-corpo-linha-acoes .fam-bt { width: 20px; min-width: 0; padding: 0; margin-left: 1px; }
+.fam-corpo-li { display: flex; align-items: center; gap: 4px; }
+.fam-corpo-li .fam-mut { margin-left: auto; font-size: 11px; }
+.fam-corpo-erro-faixa { margin: 4px 6px; max-width: 260px; }
