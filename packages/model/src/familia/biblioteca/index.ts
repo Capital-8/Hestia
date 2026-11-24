@@ -11,6 +11,7 @@ import { DISCIPLINAS_EXEMPLO } from './disciplinasExemplo.ts';
 import { TUBULACAO_ESGOTO } from './tuboEsgoto.ts';
 import { TUBULACAO_AGUA_FRIA } from './tuboAguaFria.ts';
 import { CAIXAS_HIDRO } from './caixasHidro.ts';
+import { PERFIS_METALICOS } from './perfisMetalicos.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -27,13 +28,15 @@ export { DISCIPLINAS_EXEMPLO };
  * por família; a decisão de registrar fica com o orquestrador (ver relatório da ficha F1).
  */
 export { TUBULACAO_ESGOTO };
+/* Estrutura metálica (ficha F7): perfis, tubos, chapa de base e parafuso. Fora de BIBLIOTECA_BASE, pela mesma razão. */
+export { PERFIS_METALICOS };
 export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS, ...DISCIPLINAS_EXEMPLO];
 
 /*
  * Biblioteca MEP (ficha F1b): famílias de instalações (hoje, a tubulação de esgoto e as conexões). Separada de BIBLIOTECA_BASE,
  * que é só de móveis: os testes de conectores e de snapshot da base não se aplicam a elas.
  */
-export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO];
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO, ...PERFIS_METALICOS];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
