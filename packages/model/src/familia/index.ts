@@ -18,3 +18,6 @@ export * from './edicao.ts';
 export * from './catalogo.ts';
 export * from './biblioteca/index.ts';
 export { clonarSeguro, dependenciasDaFamilia } from './dependencias.ts';
+export * from './catalogoMep.ts';
+export * from './catalogoMepCsv.ts';
+export { KRONA_ESGOTO } from './catalogosMep/kronaEsgoto.ts';
