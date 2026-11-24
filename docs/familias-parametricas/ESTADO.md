@@ -15,7 +15,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 1 | [A3-cego](fichas/A3-cego.md) | Teste cego dos perfis | Haiku | A3 não precisa estar pronta (rodar depois contra ela) | escrita (rodar contra A3) | b43b6c76 |
 | 1 | [A4](fichas/A4.md) | Caminho 3D com curvas tangentes (cotovelo de tubo) | Sonnet | — | integrada | dabd70a4 |
 | 1 | [A4-cego](fichas/A4-cego.md) | Teste cego do caminho com curvas | Haiku | rodar contra A4 | arbitrada (19 verdes; 4 ambiguidades abertas) | c237f83c |
-| 1 | [A9](fichas/A9.md) | Arquivo `hestia-familia` versão 2 | Haiku | — | pendente | |
+| 1 | [A9](fichas/A9.md) | Arquivo `hestia-familia` versão 2 | Haiku | — | integrada | ad45f16a |
 | 1 | [E1](fichas/E1.md) | Categorias novas: IFC padrão e galeria | Haiku | — | pendente | |
 | 2 | [A5](fichas/A5.md) | Malha dos corpos: extrusão e revolução | Haiku | A3 | pendente | |
 | 2 | [A5-cego](fichas/A5-cego.md) | Teste cego das malhas de extrusão e revolução | Haiku | rodar contra A5 | pendente | |
@@ -68,4 +68,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 ## Decisões tomadas durante a execução
 - 2026-11-24 · A4/A4-cego: `filetarCaminho` devolve `{ ok: true; caminho } | { ok: false; erro }` (nunca lança); `raios` tem `pontos.length − 2` valores (raios[i] = vértice i+1); erros por diagnóstico (`ok: false`), N de "curvas se sobrepõem no trecho N" conta a partir de 1; `vertices` = índices de ponto de início, fim e cantos vivos (cantos arredondados não entram). N2 a ±0,05 mm exige 64 passos por curva; com 12 passos (padrão) a tolerância é 0,5 mm.
 - 2026-11-24 · REGRAS: worktree às vezes nasce em base antiga; avançar com `git merge --ff-only claude/lucid-euler-ddb7j6` antes de começar.
+- 2026-11-24 · A9: `FAMILIA_VERSAO` = 2. OBSERVAÇÃO (fora de escopo, tratar depois): `caixaria` existe em `Familia` mas NÃO está na lista branca de `arquivo.ts`, então é descartada ao salvar/abrir arquivo de família (possível perda de dados pré-existente). `tsc` do monorepo fica vermelho (import de `corposPerfil.ts`) até a A3 ser integrada — esperado, é o teste cego A3-cego.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
