@@ -90,7 +90,7 @@ export function FamiliaCorpoPainel({ corpoId }: { corpoId: string }): ReactEleme
 
       <div className="fam-grp">
         <div className="fam-gh">{t('fam_corpo_identidade')}</div>
-        <CampoCorpo key={corpo.nome} id={`fcn-${corpo.id}-nome`} rotulo={t('fam_corpo_nome')} valor={corpo.nome} formula={false} gravar={(texto) => aplicar('Renomear corpo', { nome: texto })} />
+        <CampoCorpo key={`nome:${corpo.nome}`} id={`fcn-${corpo.id}-nome`} rotulo={t('fam_corpo_nome')} valor={corpo.nome} formula={false} gravar={(texto) => aplicar('Renomear corpo', { nome: texto })} />
         <div className="fam-row"><label htmlFor={`fcn-${corpo.id}-papel`}>{t('fam_corpo_papel')}</label>
           <select id={`fcn-${corpo.id}-papel`} className="fam-f" value={corpo.papel} onChange={(e) => setErro(aplicar('Alterar papel', { papel: e.target.value as PapelCorpo }))}>
             {PAPEIS_CORPO.map((p) => <option key={p} value={p}>{t(ROTULO_PAPEL[p])}</option>)}
@@ -109,7 +109,7 @@ export function FamiliaCorpoPainel({ corpoId }: { corpoId: string }): ReactEleme
         <div className="fam-gh">{t('fam_corpo_quadro')}</div>
         {ORDEM_EIXOS.map((i) => (
           <CampoCorpo
-            key={corpo.quadro.origem[i]}
+            key={`${i}:${corpo.quadro.origem[i]}`}
             id={`fcq-${corpo.id}-origem-${i}`}
             rotulo={`${t('fam_corpo_origem')} ${EIXO_ROTULO[i]}`}
             valor={corpo.quadro.origem[i]}
@@ -118,7 +118,7 @@ export function FamiliaCorpoPainel({ corpoId }: { corpoId: string }): ReactEleme
         ))}
         {ORDEM_EIXOS.map((i) => (
           <CampoCorpo
-            key={corpo.quadro.rotacao?.[i] ?? '0'}
+            key={`${i}:${corpo.quadro.rotacao?.[i] ?? '0'}`}
             id={`fcq-${corpo.id}-rotacao-${i}`}
             rotulo={`${t('fam_corpo_rotacao')} ${['rx', 'ry', 'rz'][i] ?? ''}`}
             valor={corpo.quadro.rotacao?.[i] ?? '0'}
@@ -129,9 +129,9 @@ export function FamiliaCorpoPainel({ corpoId }: { corpoId: string }): ReactEleme
 
       <div className="fam-grp">
         <div className="fam-gh">{t('fam_corpo_repeticao')}</div>
-        <CampoCorpo key={corpo.repetir ?? ''} id={`fcn-${corpo.id}-repetir`} rotulo={t('fam_corpo_repetir')} valor={corpo.repetir ?? ''} opcional gravar={(texto) => aplicar('Editar repetir', { repetir: texto.trim() === '' ? undefined : texto })} />
-        <CampoCorpo key={corpo.quando ?? ''} id={`fcn-${corpo.id}-quando`} rotulo={t('fam_corpo_quando')} valor={corpo.quando ?? ''} opcional gravar={(texto) => aplicar('Editar condição', { quando: texto.trim() === '' ? undefined : texto })} />
-        <CampoCorpo key={corpo.material ?? ''} id={`fcn-${corpo.id}-material`} rotulo={t('fam_corpo_material')} valor={corpo.material ?? ''} opcional formula={false} gravar={(texto) => aplicar('Editar material', { material: texto.trim() === '' ? undefined : texto })} />
+        <CampoCorpo key={`repetir:${corpo.repetir ?? ''}`} id={`fcn-${corpo.id}-repetir`} rotulo={t('fam_corpo_repetir')} valor={corpo.repetir ?? ''} opcional gravar={(texto) => aplicar('Editar repetir', { repetir: texto.trim() === '' ? undefined : texto })} />
+        <CampoCorpo key={`quando:${corpo.quando ?? ''}`} id={`fcn-${corpo.id}-quando`} rotulo={t('fam_corpo_quando')} valor={corpo.quando ?? ''} opcional gravar={(texto) => aplicar('Editar condição', { quando: texto.trim() === '' ? undefined : texto })} />
+        <CampoCorpo key={`material:${corpo.material ?? ''}`} id={`fcn-${corpo.id}-material`} rotulo={t('fam_corpo_material')} valor={corpo.material ?? ''} opcional formula={false} gravar={(texto) => aplicar('Editar material', { material: texto.trim() === '' ? undefined : texto })} />
       </div>
 
       <div className="fam-grp">

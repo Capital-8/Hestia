@@ -35,7 +35,7 @@ export function FamiliaCorpoForma({ corpo }: Props): ReactElement {
 
   const campo = (nome: string, rotulo: string, opcional = false): ReactElement => (
     <CampoCorpo
-      key={lerCampo(forma, nome)}
+      key={`${nome}:${lerCampo(forma, nome)}`}
       id={`fcf-${id}-${nome}`}
       rotulo={rotulo}
       valor={lerCampo(forma, nome)}
@@ -72,7 +72,7 @@ export function FamiliaCorpoForma({ corpo }: Props): ReactElement {
           <div className="fam-grp">
             <FamiliaCorpoCaminho corpoId={id} caminho={forma.caminho} />
             <CampoCorpo
-              key={forma.caminho.segmentosPorCurva ?? ''}
+              key={`segmentosPorCurva:${forma.caminho.segmentosPorCurva ?? ''}`}
               id={`fcf-${id}-segmentosPorCurva`}
               rotulo="segmentosPorCurva"
               valor={forma.caminho.segmentosPorCurva ?? ''}
@@ -112,9 +112,9 @@ function TransicaoEditor({ corpoId, forma }: { corpoId: string; forma: Extract<F
       <PerfilEditor corpoId={corpoId} lado="A" titulo={t('fam_corpo_perfil_a')} perfil={forma.perfilA} />
       <PerfilEditor corpoId={corpoId} lado="B" titulo={t('fam_corpo_perfil_b')} perfil={forma.perfilB} />
       <div className="fam-grp"><div className="fam-gh">{t('fam_corpo_medidas')}</div>
-        <CampoCorpo key={forma.comprimento} id={`fcf-${corpoId}-comprimento`} rotulo={t('fam_corpo_comprimento')} valor={forma.comprimento} gravar={(texto) => executarCorpo('Editar medida', (f) => editarCorpo(f, corpoId, { forma: comCampo(forma, 'comprimento', texto) }))} />
-        <CampoCorpo key={desvio?.[0] ?? ''} id={`fcf-${corpoId}-desvioX`} rotulo={`${t('fam_corpo_desvio')} x`} valor={desvio?.[0] ?? ''} opcional gravar={(texto) => gravarDesvio(0, texto)} />
-        <CampoCorpo key={desvio?.[1] ?? ''} id={`fcf-${corpoId}-desvioY`} rotulo={`${t('fam_corpo_desvio')} y`} valor={desvio?.[1] ?? ''} opcional gravar={(texto) => gravarDesvio(1, texto)} />
+        <CampoCorpo key={`comprimento:${forma.comprimento}`} id={`fcf-${corpoId}-comprimento`} rotulo={t('fam_corpo_comprimento')} valor={forma.comprimento} gravar={(texto) => executarCorpo('Editar medida', (f) => editarCorpo(f, corpoId, { forma: comCampo(forma, 'comprimento', texto) }))} />
+        <CampoCorpo key={`desvioX:${desvio?.[0] ?? ''}`} id={`fcf-${corpoId}-desvioX`} rotulo={`${t('fam_corpo_desvio')} x`} valor={desvio?.[0] ?? ''} opcional gravar={(texto) => gravarDesvio(0, texto)} />
+        <CampoCorpo key={`desvioY:${desvio?.[1] ?? ''}`} id={`fcf-${corpoId}-desvioY`} rotulo={`${t('fam_corpo_desvio')} y`} valor={desvio?.[1] ?? ''} opcional gravar={(texto) => gravarDesvio(1, texto)} />
       </div>
     </>
   );
