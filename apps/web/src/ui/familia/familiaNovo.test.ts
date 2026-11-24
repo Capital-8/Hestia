@@ -1,13 +1,18 @@
-import { BIBLIOTECA_BASE, FAMILIA_ARMARIO } from '@hestia/model';
+import { BIBLIOTECA_BASE, BIBLIOTECA_MEP, FAMILIA_ARMARIO } from '@hestia/model';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  agruparPorDisciplina,
   CATEGORIAS,
   criarCopiaDeFamilia,
+  DISCIPLINAS_GALERIA,
+  disciplinaDaFamilia,
   filtrarFamilias,
   normalizarTexto,
   proximoIdDeUsuario,
   reiniciarIdsAbertos,
 } from './familiaNovo.ts';
+import { PT_MODELOS } from '../../editor/i18n/areas/familiasModelos.ts';
+import { modelosBase } from './modelosBase.ts';
 
 beforeEach(() => reiniciarIdsAbertos());
 
@@ -95,5 +100,40 @@ describe('criarCopiaDeFamilia', () => {
     expect(original).toBeDefined();
     const copia = criarCopiaDeFamilia(original!);
     expect(copia.aninhados.map((a) => a.familiaId)).toEqual(original!.aninhados.map((a) => a.familiaId));
+  });
+});
+
+describe('filtro por disciplina e agrupamento da galeria (ficha G1)', () => {
+  const galeria = agruparPorDisciplina([...modelosBase((c) => PT_MODELOS[c]), ...BIBLIOTECA_BASE, ...BIBLIOTECA_MEP]);
+
+  it('as disciplinas vêm de DISCIPLINA_DA_CATEGORIA, sem repetição', () => {
+    expect(DISCIPLINAS_GALERIA).toEqual(['arquitetura', 'hidrossanitario', 'eletrico', 'hvac', 'estrutura']);
+  });
+
+  it('disciplina ausente na família cai na padrão da categoria', () => {
+    expect(disciplinaDaFamilia(FAMILIA_ARMARIO)).toBe('arquitetura');
+    const semDisciplina = { ...structuredClone(FAMILIA_ARMARIO), categoria: 'luminaria' as const, disciplina: undefined };
+    expect(disciplinaDaFamilia(semDisciplina)).toBe('eletrico');
+  });
+
+  it('filtra pela disciplina, e o padrão "todas" não filtra', () => {
+    const hidro = filtrarFamilias(galeria, 'todas', '', 'hidrossanitario');
+    expect(hidro.length).toBeGreaterThan(0);
+    expect(hidro.every((f) => disciplinaDaFamilia(f) === 'hidrossanitario')).toBe(true);
+    expect(filtrarFamilias(galeria, 'todas', '')).toHaveLength(galeria.length);
+    expect(filtrarFamilias(galeria, 'todas', '', 'todas')).toHaveLength(galeria.length);
+  });
+
+  it('a disciplina combina com a categoria e com a busca', () => {
+    const tubos = filtrarFamilias(galeria, 'tubulacao', '', 'hidrossanitario');
+    expect(tubos.map((f) => f.id)).toContain('fam_modelo_tubo');
+    expect(filtrarFamilias(galeria, 'tubulacao', '', 'eletrico')).toEqual([]);
+    expect(filtrarFamilias(galeria, 'todas', 'tubo reto', 'hidrossanitario').map((f) => f.id)).toContain('fam_modelo_tubo');
+  });
+
+  it('agrupa: as disciplinas aparecem em blocos contínuos, na ordem da galeria', () => {
+    const posicoes = galeria.map((f) => DISCIPLINAS_GALERIA.indexOf(disciplinaDaFamilia(f)));
+    expect(posicoes.every((p) => p >= 0)).toBe(true);
+    expect([...posicoes].sort((a, b) => a - b)).toEqual(posicoes);
   });
 });

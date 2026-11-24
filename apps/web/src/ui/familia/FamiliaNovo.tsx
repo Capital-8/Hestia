@@ -2,7 +2,8 @@ import { criarFamiliaCaixaria, exportarFamilias, lerArquivo, serializar, type Fa
 import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
 import { useT } from '../../editor/i18n.ts';
 import { FamiliaNovoCartao } from './FamiliaNovoCartao.tsx';
-import { CATEGORIAS, criarCopiaDeFamilia, FAMILIAS_GALERIA, filtrarFamilias, type CategoriaGaleria } from './familiaNovo.ts';
+import { agruparPorDisciplina, CATEGORIAS, criarCopiaDeFamilia, DISCIPLINAS_GALERIA, disciplinaDaFamilia, FAMILIAS_GALERIA, filtrarFamilias, type CategoriaGaleria, type DisciplinaGaleria } from './familiaNovo.ts';
+import { modelosBase, type ChaveModelo } from './modelosBase.ts';
 import { useFamilia } from './familiaStore.ts';
 import { Janela } from './FamiliaJanela.tsx';
 import { armazenamentoDoNavegador, baixarTexto, lerMeusModelos, lerMeusModelosDoNavegador, mesclarMeusModelos, removerModeloDoNavegador } from './meusModelos.ts';
@@ -16,8 +17,24 @@ function contarPorCategoria(familias: readonly Familia[]): Record<CategoriaGaler
   return contagem as Record<CategoriaGaleria, number>;
 }
 
+/** Chave de rótulo de cada disciplina do filtro (o `t` precisa de uma chave literal). */
+const ROTULO_DISCIPLINA: Record<string, ChaveModelo> = {
+  arquitetura: 'galeria_disc_arquitetura',
+  hidrossanitario: 'galeria_disc_hidrossanitario',
+  eletrico: 'galeria_disc_eletrico',
+  hvac: 'galeria_disc_hvac',
+  estrutura: 'galeria_disc_estrutura',
+};
+
+function contarPorDisciplina(familias: readonly Familia[]): Record<string, number> {
+  const contagem: Record<string, number> = {};
+  for (const f of familias) contagem[disciplinaDaFamilia(f)] = (contagem[disciplinaDaFamilia(f)] ?? 0) + 1;
+  return contagem;
+}
+
 export function FamiliaNovo(): ReactElement {
   const [categoria, setCategoria] = useState<CategoriaGaleria>('todas');
+  const [disciplina, setDisciplina] = useState<DisciplinaGaleria>('todas');
   const [busca, setBusca] = useState('');
   const [meus, setMeus] = useState<Familia[]>(() => lerMeusModelosDoNavegador());
   const [sel, setSel] = useState<string | null>(null);
@@ -25,9 +42,12 @@ export function FamiliaNovo(): ReactElement {
   const [aviso, setAviso] = useState<{ texto: string; erro: boolean } | null>(null);
   const { t } = useT();
 
-  const contagem = useMemo(() => ({ ...contarPorCategoria(FAMILIAS_GALERIA), meus: meus.length }), [meus.length]);
-  const fonte = categoria === 'meus' ? meus : FAMILIAS_GALERIA;
-  const lista = useMemo(() => filtrarFamilias(fonte, categoria, busca), [fonte, categoria, busca]);
+  /** Modelos-base primeiro, depois a biblioteca; a ordem final agrupa por disciplina. */
+  const galeria = useMemo(() => agruparPorDisciplina([...modelosBase(t), ...FAMILIAS_GALERIA]), [t]);
+  const contagem = useMemo(() => ({ ...contarPorCategoria(galeria), meus: meus.length }), [galeria, meus.length]);
+  const contagemDisciplina = useMemo(() => contarPorDisciplina(galeria), [galeria]);
+  const fonte = categoria === 'meus' ? meus : galeria;
+  const lista = useMemo(() => filtrarFamilias(fonte, categoria, busca, disciplina), [fonte, categoria, busca, disciplina]);
   const selecionada = lista.find((f) => f.id === sel) ?? null;
 
   const escolherCategoria = (id: CategoriaGaleria): void => {
@@ -135,6 +155,16 @@ export function FamiliaNovo(): ReactElement {
           ))}
         </ul>
         <div className="fam-novo-main">
+          <div className="fam-novo-busca" role="group" aria-label={t('galeria_disc_titulo')}>
+            <button type="button" className={`fam-bt${disciplina === 'todas' ? ' pri' : ''}`} aria-pressed={disciplina === 'todas'} onClick={() => setDisciplina('todas')}>
+              {t('galeria_disc_todas')} <span className="fam-novo-cont">{galeria.length}</span>
+            </button>
+            {DISCIPLINAS_GALERIA.map((d) => (
+              <button key={d} type="button" className={`fam-bt${disciplina === d ? ' pri' : ''}`} aria-pressed={disciplina === d} onClick={() => setDisciplina(d)}>
+                {t(ROTULO_DISCIPLINA[d] ?? 'galeria_disc_todas')} <span className="fam-novo-cont">{contagemDisciplina[d] ?? 0}</span>
+              </button>
+            ))}
+          </div>
           <div className="fam-novo-busca">
             <input
               className="fam-f"

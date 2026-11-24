@@ -34,10 +34,20 @@ export const CATEGORIAS: readonly OpcaoCategoria[] = [
   { id: 'meus', rotulo: 'Meus modelos' },
 ];
 
-/** Ordena por disciplina (ordem de primeira aparição em DISCIPLINA_DA_CATEGORIA); a ordem interna de cada disciplina é mantida. */
+/** Disciplinas da galeria, na ordem em que aparecem em DISCIPLINA_DA_CATEGORIA. */
+export const DISCIPLINAS_GALERIA: readonly string[] = [...new Set(Object.values(DISCIPLINA_DA_CATEGORIA))];
+
+/** Filtro de disciplina da galeria: "todas" ou uma das disciplinas de `DISCIPLINAS_GALERIA`. */
+export type DisciplinaGaleria = 'todas' | string;
+
+/** Disciplina de uma família: a dela, ou a padrão da categoria quando ela não tem (`arquitetura` nos móveis antigos). */
+export function disciplinaDaFamilia(f: Familia): string {
+  return f.disciplina ?? DISCIPLINA_DA_CATEGORIA[f.categoria];
+}
+
+/** Ordena por disciplina (ordem de `DISCIPLINAS_GALERIA`); a ordem interna de cada disciplina é mantida. */
 export function agruparPorDisciplina(familias: readonly Familia[]): Familia[] {
-  const ordem = [...new Set(Object.values(DISCIPLINA_DA_CATEGORIA))];
-  const posicao = (f: Familia): number => ordem.indexOf(DISCIPLINA_DA_CATEGORIA[f.categoria]);
+  const posicao = (f: Familia): number => DISCIPLINAS_GALERIA.indexOf(disciplinaDaFamilia(f));
   return [...familias].sort((a, b) => posicao(a) - posicao(b));
 }
 
@@ -49,11 +59,12 @@ export function normalizarTexto(texto: string): string {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
-/** Filtra por categoria (ou todas/meus) e por busca em nome e descrição, sem acento e sem diferenciar maiúscula. */
-export function filtrarFamilias(lista: readonly Familia[], categoria: CategoriaGaleria, busca: string): Familia[] {
+/** Filtra por categoria (ou todas/meus), por disciplina (ou todas) e por busca em nome e descrição, sem acento e sem diferenciar maiúscula. */
+export function filtrarFamilias(lista: readonly Familia[], categoria: CategoriaGaleria, busca: string, disciplina: DisciplinaGaleria = 'todas'): Familia[] {
   const termo = normalizarTexto(busca);
   return lista.filter((f) => {
     if (categoria !== 'todas' && categoria !== 'meus' && f.categoria !== categoria) return false;
+    if (disciplina !== 'todas' && disciplinaDaFamilia(f) !== disciplina) return false;
     if (termo === '') return true;
     return normalizarTexto(f.nome).includes(termo) || normalizarTexto(f.descricao ?? '').includes(termo);
   });
