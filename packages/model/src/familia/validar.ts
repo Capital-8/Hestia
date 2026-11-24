@@ -7,11 +7,8 @@ import { validarParametros } from './validarParametros.ts';
 import { validarReferencias } from './validarReferencias.ts';
 import { validarCorpos } from './validarCorpos.ts';
 import { validarLigacoes } from './validarLigacoes.ts';
-<<<<<<< HEAD
 import { validarRepresentacao } from './validarRepresentacao.ts';
-=======
 import { validarSimbolos } from './validarSimbolos.ts';
->>>>>>> worktree-agent-aedd2054aa2d51455
 import { criarProblema, ehObjeto } from './validarComum.ts';
 
 /*
@@ -83,11 +80,8 @@ export function validarFamilia(f: Familia): Problema[] {
     ...validarReferencias(f),
     ...validarCorpos(f),
     ...validarLigacoes(f),
-<<<<<<< HEAD
     ...validarRepresentacao(f),
-=======
     ...validarSimbolos(f),
->>>>>>> worktree-agent-aedd2054aa2d51455
     ...validarCiclo(f),
     ...validarEncaixe(f),
     ...validarDisciplina(f),
