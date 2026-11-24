@@ -129,3 +129,31 @@ describe('conversão de ângulos', () => {
     expect(radianosDeGraus(180)).toBeCloseTo(Math.PI, 12);
   });
 });
+
+import { anguloDaHorizontalGraus, declividadePercentual, inclinacaoDeAngulo, inclinacaoDeDeclividade } from './componentPropMep.ts';
+
+/* Ficha M1: o campo interno segue medido a partir da vertical; o painel mostra ângulo da horizontal e declividade em %. */
+describe('declividade e ângulo da horizontal (M1)', () => {
+  it('tubo deitado (90° da vertical) = horizontal: 0° e 0 %', () => {
+    expect(anguloDaHorizontalGraus(radianosDeGraus(90))).toBeCloseTo(0, 12);
+    expect(declividadePercentual(radianosDeGraus(90))).toBeCloseTo(0, 12);
+  });
+  it('1 % de declividade: ida e volta pelo campo interno', () => {
+    const interno = inclinacaoDeDeclividade(1);
+    expect(interno).toBeCloseTo(90 - Math.atan(0.01) * (180 / Math.PI), 12);
+    expect(declividadePercentual(radianosDeGraus(interno))).toBeCloseTo(1, 10);
+    expect(anguloDaHorizontalGraus(radianosDeGraus(interno))).toBeCloseTo(0.5729, 3);
+  });
+  it('ângulo da horizontal: ida e volta, com sinal (negativo = a ponta B mais baixa)', () => {
+    for (const beta of [-30, -2.5, 0, 0.5, 45]) expect(anguloDaHorizontalGraus(radianosDeGraus(inclinacaoDeAngulo(beta)))).toBeCloseTo(beta, 10);
+    expect(declividadePercentual(radianosDeGraus(inclinacaoDeAngulo(-2.5)))).toBeLessThan(0);
+  });
+  it('em pé (0° da vertical) não tem declividade: devolve null em vez de um número enorme', () => {
+    expect(declividadePercentual(0)).toBeNull();
+    expect(anguloDaHorizontalGraus(0)).toBe(90);
+  });
+  it('100 % = 45°', () => {
+    expect(grausDeRadianos(Math.atan(1))).toBeCloseTo(45, 12);
+    expect(anguloDaHorizontalGraus(radianosDeGraus(inclinacaoDeDeclividade(100)))).toBeCloseTo(45, 10);
+  });
+});

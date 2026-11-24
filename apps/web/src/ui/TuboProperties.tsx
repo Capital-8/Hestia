@@ -50,6 +50,9 @@ export function TuboProperties(): ReactElement {
           {dns.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </Row>
+      <Row label={t('mi_declividade')} htmlFor="place-tubo-decl">
+        <NumField id="place-tubo-decl" value={opcoesTubo.declividade} suffix="%" decimals={2} onCommit={(v) => { opcoesTubo.declividade = v; redesenhar((n) => n + 1); }} />
+      </Row>
       <Row label={t('tubo_altura')} htmlFor="place-tubo-z">
         <NumField id="place-tubo-z" quantity="length" value={opcoesTubo.z} onCommit={(v) => { opcoesTubo.z = v; redesenhar((n) => n + 1); }} />
       </Row>

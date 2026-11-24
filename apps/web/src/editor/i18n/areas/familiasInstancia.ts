@@ -7,6 +7,8 @@
 export const PT_INSTANCIA = {
   mi_grp_inclinacao: 'Inclinação',
   mi_inclinacao: 'Inclinação (°)',
+  mi_angulo_horizontal: "Ângulo em relação à horizontal (°)",
+  mi_declividade: 'Declividade (%)',
   mi_giro: 'Giro da inclinação (°)',
   mi_grp_conexoes: 'Conexões',
   mi_sem_ligacoes: 'Esta família não tem ligações.',
@@ -33,6 +35,8 @@ type D = Record<keyof typeof PT_INSTANCIA, string>;
 export const EN_INSTANCIA: D = {
   mi_grp_inclinacao: 'Inclination',
   mi_inclinacao: 'Inclination (°)',
+  mi_angulo_horizontal: "Angle from horizontal (°)",
+  mi_declividade: 'Slope (%)',
   mi_giro: 'Inclination turn (°)',
   mi_grp_conexoes: 'Connections',
   mi_sem_ligacoes: 'This family has no connections.',
@@ -57,6 +61,8 @@ export const EN_INSTANCIA: D = {
 export const ES_INSTANCIA: D = {
   mi_grp_inclinacao: 'Inclinación',
   mi_inclinacao: 'Inclinación (°)',
+  mi_angulo_horizontal: "Ángulo respecto a la horizontal (°)",
+  mi_declividade: 'Pendiente (%)',
   mi_giro: 'Giro de la inclinación (°)',
   mi_grp_conexoes: 'Conexiones',
   mi_sem_ligacoes: 'Esta familia no tiene conexiones.',
@@ -81,6 +87,8 @@ export const ES_INSTANCIA: D = {
 export const DE_INSTANCIA: D = {
   mi_grp_inclinacao: 'Neigung',
   mi_inclinacao: 'Neigung (°)',
+  mi_angulo_horizontal: "Winkel zur Horizontalen (°)",
+  mi_declividade: 'Gefälle (%)',
   mi_giro: 'Drehung der Neigung (°)',
   mi_grp_conexoes: 'Anschlüsse',
   mi_sem_ligacoes: 'Diese Familie hat keine Anschlüsse.',
@@ -105,6 +113,8 @@ export const DE_INSTANCIA: D = {
 export const FR_INSTANCIA: D = {
   mi_grp_inclinacao: 'Inclinaison',
   mi_inclinacao: 'Inclinaison (°)',
+  mi_angulo_horizontal: "Angle par rapport à l'horizontale (°)",
+  mi_declividade: 'Pente (%)',
   mi_giro: 'Rotation de l’inclinaison (°)',
   mi_grp_conexoes: 'Raccordements',
   mi_sem_ligacoes: 'Cette famille n’a pas de raccordement.',
@@ -129,6 +139,8 @@ export const FR_INSTANCIA: D = {
 export const IT_INSTANCIA: D = {
   mi_grp_inclinacao: 'Inclinazione',
   mi_inclinacao: 'Inclinazione (°)',
+  mi_angulo_horizontal: "Angolo rispetto all'orizzontale (°)",
+  mi_declividade: 'Pendenza (%)',
   mi_giro: 'Rotazione dell’inclinazione (°)',
   mi_grp_conexoes: 'Collegamenti',
   mi_sem_ligacoes: 'Questa famiglia non ha collegamenti.',
@@ -153,6 +165,8 @@ export const IT_INSTANCIA: D = {
 export const PL_INSTANCIA: D = {
   mi_grp_inclinacao: 'Pochylenie',
   mi_inclinacao: 'Pochylenie (°)',
+  mi_angulo_horizontal: "Kąt względem poziomu (°)",
+  mi_declividade: 'Spadek (%)',
   mi_giro: 'Obrót pochylenia (°)',
   mi_grp_conexoes: 'Połączenia',
   mi_sem_ligacoes: 'Ta rodzina nie ma połączeń.',

@@ -19,6 +19,7 @@ const problemas = (ctx: ReturnType<typeof makeEnv>) => diagnosticarRede(ctx.stor
 beforeEach(() => {
   opcoesTubo.dn = 100;
   opcoesTubo.z = 0.5;
+  opcoesTubo.declividade = 0;
 });
 
 describe('tipos de tubulação', () => {
@@ -135,5 +136,39 @@ describe('ferramenta Tubo com a Krona', () => {
     clickAt(t, 1, 1);
     clickAt(t, 1.5, 0);
     expect(porFamilia(ctx, 'fam_krona_soldavel_te')).toHaveLength(0);
+  });
+});
+
+describe('declividade ao desenhar (ficha M2)', () => {
+  it('−1 % em 2 m: o ponto final desce 20 mm e o trecho sai com declividade de −1 % no modelo', () => {
+    const ctx = makeEnv();
+    ctx.env.options().componentFamilyId = ESGOTO;
+    opcoesTubo.declividade = -1;
+    const t = tool('tubo', ctx.env);
+    clickAt(t, 0, 0);
+    clickAt(t, 2, 0);
+    const c = porFamilia(ctx, ESGOTO)[0];
+    expect(c?.z).toBeCloseTo(0.5, 9);
+    // Comprimento do eixo = √(2² + 0,02²); inclinação interna medida a partir da vertical: 90° + atan(0,01).
+    expect(Number(c?.values?.L)).toBeCloseTo(Math.hypot(2, 0.02) * 1000, 3);
+    const incl = c?.inclinacao?.[0] ?? NaN;
+    expect(Math.tan(Math.PI / 2 - incl) * 100).toBeCloseTo(-1, 6);
+  });
+  it('declividade 0 mantém o trecho em nível (comportamento de sempre)', () => {
+    const ctx = makeEnv();
+    ctx.env.options().componentFamilyId = ESGOTO;
+    const t = tool('tubo', ctx.env);
+    clickAt(t, 0, 0);
+    clickAt(t, 2, 0);
+    expect(Number(porFamilia(ctx, ESGOTO)[0]?.values?.L)).toBeCloseTo(2000, 6);
+  });
+  it('comprimento digitado também aplica a declividade (3 m a +2 %: sobe 60 mm)', () => {
+    const ctx = makeEnv();
+    ctx.env.options().componentFamilyId = ESGOTO;
+    opcoesTubo.declividade = 2;
+    const t = tool('tubo', ctx.env);
+    clickAt(t, 0, 0);
+    t.type?.('3');
+    expect(Number(porFamilia(ctx, ESGOTO)[0]?.values?.L)).toBeCloseTo(Math.hypot(3, 0.06) * 1000, 3);
   });
 });

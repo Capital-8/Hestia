@@ -11,8 +11,11 @@ export const FAMILIA_TUBO_PADRAO = 'tubo-padrao';
 /** Tubo real do domínio esgoto (ficha F1/F1b): carregado da biblioteca MEP quando o projeto não tem nenhum tubo. */
 export const FAMILIA_TUBO_BIBLIOTECA = 'fam_tubo_esgoto';
 
-/** Ajustes da ferramenta que o painel `TuboProperties` edita: DN em mm e altura (z) dos pontos clicados em m. */
-export const opcoesTubo: { dn: number; z: number } = { dn: 50, z: 0 };
+/**
+ * Ajustes da ferramenta que o painel `TuboProperties` edita: DN em mm, altura (z) dos pontos clicados em m e declividade (ficha M2) em %:
+ * com valor, o ponto final fica a `declividade` % da distância em planta acima (positiva) ou abaixo (negativa) do inicial. 0 = nível.
+ */
+export const opcoesTubo: { dn: number; z: number; declividade: number } = { dn: 50, z: 0, declividade: 0 };
 
 /** Tolerância mínima (m) da captura de ligação aberta; cresce com o zoom (8 px). */
 const TOLERANCIA_MINIMA = 0.05;
@@ -205,7 +208,9 @@ export class TuboTool extends ToolBase {
     // No meio de um tubo existente: derivação (tê ou junção 45°), quando o projeto tem as conexões do domínio.
     const sob = regras && temConexoes(projeto, regras) ? tuboSob(projeto, ctx.familia.id, [at.x, at.y, opcoesTubo.z], tol, tol) : null;
     if (sob) return { xyz: sob.xyz, alvo: null, derivacao: true };
-    return { xyz: [at.x, at.y, opcoesTubo.z], alvo: null };
+    // Declividade (M2): o ponto FINAL livre sobe ou desce em % da distância em planta; ponto encaixado ou derivação mantém a cota do alvo.
+    const z = ehFim && this.inicio && opcoesTubo.declividade !== 0 ? this.inicio.xyz[2] + (opcoesTubo.declividade / 100) * Math.hypot(at.x - this.inicio.xyz[0], at.y - this.inicio.xyz[1]) : opcoesTubo.z;
+    return { xyz: [at.x, at.y, z], alvo: null };
   }
 
   override move(p: PointerInfo): void {
@@ -403,7 +408,7 @@ export class TuboTool extends ToolBase {
     const h = Math.hypot(ref.x - a[0], ref.y - a[1]);
     const ux = h < 1e-9 ? 1 : (ref.x - a[0]) / h;
     const uy = h < 1e-9 ? 0 : (ref.y - a[1]) / h;
-    this.criar(ctx, this.inicio, { xyz: [a[0] + ux * v, a[1] + uy * v, a[2]], alvo: null });
+    this.criar(ctx, this.inicio, { xyz: [a[0] + ux * v, a[1] + uy * v, a[2] + (opcoesTubo.declividade / 100) * v], alvo: null });
     return true;
   }
 }

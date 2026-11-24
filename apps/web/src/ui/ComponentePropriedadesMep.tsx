@@ -8,6 +8,10 @@ import { Group, NumField, Row, TextField } from './fields.tsx';
 import { comumDe } from './componentPropAcoes.ts';
 import {
   aplicarInclinacao,
+  anguloDaHorizontalGraus,
+  declividadePercentual,
+  inclinacaoDeAngulo,
+  inclinacaoDeDeclividade,
   desconectarLigacao,
   grausDeRadianos,
   inclinacaoDe,
@@ -65,6 +69,26 @@ export function ComponentePropriedadesMep({ familia, components }: PropsMep): Re
               suffix="°"
               decimals={2}
               onCommit={(v) => executar(() => aplicarInclinacao(editor.store, ids, 0, v, 'mi_undo_inclinar'))}
+            />
+          </Row>
+          <Row label={t('mi_angulo_horizontal')} htmlFor="p-comp-ang-h">
+            <NumField
+              id="p-comp-ang-h"
+              value={incl.misto ? null : anguloDaHorizontalGraus(incl.valor)}
+              mixed={incl.misto}
+              suffix="°"
+              decimals={2}
+              onCommit={(v) => executar(() => aplicarInclinacao(editor.store, ids, 0, inclinacaoDeAngulo(v), 'mi_undo_inclinar'))}
+            />
+          </Row>
+          <Row label={t('mi_declividade')} htmlFor="p-comp-decl">
+            <NumField
+              id="p-comp-decl"
+              value={incl.misto ? null : declividadePercentual(incl.valor)}
+              mixed={incl.misto}
+              suffix="%"
+              decimals={2}
+              onCommit={(v) => executar(() => aplicarInclinacao(editor.store, ids, 0, inclinacaoDeDeclividade(v), 'mi_undo_inclinar'))}
             />
           </Row>
           <Row label={t('mi_giro')} htmlFor="p-comp-giro">

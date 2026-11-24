@@ -49,6 +49,31 @@ export function radianosDeGraus(graus: number): number {
   return (graus * Math.PI) / 180;
 }
 
+/**
+ * Inclinação do trecho como o projetista pensa (fase 2, ficha M1). O campo interno `inclinacao[0]` continua medido a partir da
+ * VERTICAL (0 = em pé, 90° = deitado) porque o eixo do tubo é o Z da família; aqui ele vira o ângulo em relação à HORIZONTAL
+ * (0° = horizontal, positivo = a ponta B mais alta que a A) e a declividade em % (tangente do ângulo).
+ */
+export function anguloDaHorizontalGraus(inclinacaoRad: number): number {
+  return 90 - grausDeRadianos(inclinacaoRad);
+}
+
+/** Declividade (%) = tg(ângulo da horizontal) × 100; `null` quando o trecho é quase vertical (a tangente explode). */
+export function declividadePercentual(inclinacaoRad: number): number | null {
+  const beta = anguloDaHorizontalGraus(inclinacaoRad);
+  return Math.abs(beta) >= 89.5 ? null : Math.tan(radianosDeGraus(beta)) * 100;
+}
+
+/** Inclinação interna (graus a partir da vertical) para um ângulo em relação à horizontal. */
+export function inclinacaoDeAngulo(anguloDaHorizontal: number): number {
+  return 90 - anguloDaHorizontal;
+}
+
+/** Inclinação interna (graus a partir da vertical) para uma declividade em %. */
+export function inclinacaoDeDeclividade(percentual: number): number {
+  return 90 - grausDeRadianos(Math.atan(percentual / 100));
+}
+
 /** Grava um dos dois ângulos (0 = inclinação, 1 = giro) em todas as instâncias, numa só transação. */
 export function aplicarInclinacao(store: ProjectStore, ids: readonly Id[], indice: 0 | 1, graus: number, rotulo: string): void {
   const valor = radianosDeGraus(graus);
