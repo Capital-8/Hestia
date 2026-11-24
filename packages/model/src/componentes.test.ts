@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand as aplicarNoLugar, type Command } from './commands.ts';
-import { componentIssue, familiaDoComponente, normalizarAngulo, transformComponent } from './componentes.ts';
+import { componentIssue, familiaDoComponente, matrizDoComponente, normalizarAngulo, pontoNoMundo, transformComponent } from './componentes.ts';
 import { FAMILIA_ARMARIO } from './familia/exemplos.ts';
 import { ProjectStore } from './history.ts';
 import { migrateProject } from './migrate.ts';
@@ -25,10 +25,10 @@ const mundo = (c: Component, local: [number, number]): [number, number] => {
 
 describe('esquema e migração', () => {
   it('o esquema subiu para 24 e arquivo da versão 23 abre igual', () => {
-    expect(SCHEMA_VERSION).toBe(33);
+    expect(SCHEMA_VERSION).toBe(34);
     const antigo = JSON.parse(JSON.stringify({ ...createEmptyProject('antigo'), schemaVersion: 23 }));
     const p = migrateProject(antigo);
-    expect(p.schemaVersion).toBe(33);
+    expect(p.schemaVersion).toBe(34);
     expect(p.name).toBe('antigo');
     expect(p.componentFamilies).toBeUndefined();
   });
@@ -175,5 +175,93 @@ describe('salvar zera o aviso de alterações não salvas (regressão do QA)', (
     expect(store.dirty).toBe(false);
     store.exec({ type: 'deleteFamily', id: FAMILIA_ARMARIO.id });
     expect(store.dirty).toBe(true);
+  });
+});
+
+/** Gerador determinístico (semente fixa) para os casos "aleatórios". */
+function gerador(semente: number): () => number {
+  let a = semente >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe('inclinação 3D da instância (ADR 0061, B1)', () => {
+  const nova = (c: Partial<Component> = {}): Component => ({ ...(comp(createEmptyProject('t')) as Component), order: 0, ...c });
+
+  it('sem inclinação a matriz é idêntica ao comportamento antigo (20 casos, semente fixa)', () => {
+    const r = gerador(34);
+    for (let i = 0; i < 20; i++) {
+      const c = nova({ x: r() * 20 - 10, y: r() * 20 - 10, z: r() * 3, rotation: (r() - 0.5) * 2 * Math.PI, mirrored: r() > 0.5 });
+      const local: [number, number] = [r() * 2, r() * 2];
+      const lz = r();
+      const [ex, ey] = mundo(c, local);
+      const p = pontoNoMundo(c, { x: local[0], y: local[1], z: lz });
+      expect(p.x).toBeCloseTo(ex, 12);
+      expect(p.y).toBeCloseTo(ey, 12);
+      expect(p.z).toBeCloseTo(c.z + lz, 12);
+      expect(pontoNoMundo({ ...c, inclinacao: [0, 0] }, { x: local[0], y: local[1], z: lz })).toEqual(p);
+    }
+  });
+  it('N9: tubo deitado (inclinação π/2) leva o ponto local (0,0,L) a +X', () => {
+    const p = pontoNoMundo(nova({ x: 0, y: 0, z: 0, inclinacao: [Math.PI / 2, 0] }), { x: 0, y: 0, z: 2 });
+    expect(p.x).toBeCloseTo(2, 12);
+    expect(p.y).toBeCloseTo(0, 12);
+    expect(p.z).toBeCloseTo(0, 12);
+    expect(matrizDoComponente(nova()).length).toBe(16);
+  });
+  it('mover, girar e espelhar preservam a inclinação; o ponto do mundo acompanha a transformação', () => {
+    const c = nova({ x: 1, y: 2, z: 0.5, rotation: 0.3, inclinacao: [Math.PI / 2, 0.4] });
+    const local = { x: 0.1, y: 0.2, z: 1.5 };
+    const antes = pontoNoMundo(c, local);
+    const girado = transformComponent(c, { kind: 'rotate', about: { x: 0, y: 0 }, angle: Math.PI / 2 });
+    expect(girado.inclinacao).toEqual([Math.PI / 2, 0.4]);
+    const pg = pontoNoMundo(girado, local);
+    expect(pg.x).toBeCloseTo(-antes.y, 10);
+    expect(pg.y).toBeCloseTo(antes.x, 10);
+    expect(pg.z).toBeCloseTo(antes.z, 10);
+    const espelhado = transformComponent(girado, { kind: 'mirror', a: { x: 0, y: 0 }, b: { x: 1, y: 0 } });
+    expect(espelhado.inclinacao).toEqual([Math.PI / 2, 0.4]);
+    expect(espelhado.mirrored).toBe(true);
+    const pe = pontoNoMundo(espelhado, local);
+    expect(pe.x).toBeCloseTo(pg.x, 10);
+    expect(pe.y).toBeCloseTo(-pg.y, 10);
+    expect(pe.z).toBeCloseTo(pg.z, 10);
+    expect(transformComponent(c, { kind: 'translate', d: { x: 1, y: 1 } }).inclinacao).toEqual([Math.PI / 2, 0.4]);
+  });
+  it('componentIssue valida números finitos e a inclinação em [0, π]', () => {
+    const p = base();
+    expect(componentIssue(p, comp(p, { inclinacao: [Math.PI, -3] }))).toBeNull();
+    expect(componentIssue(p, comp(p, { inclinacao: [Number.NaN, 0] }))).toMatch(/Inclinação/);
+    expect(componentIssue(p, comp(p, { inclinacao: [0, Number.POSITIVE_INFINITY] }))).toMatch(/Inclinação/);
+    expect(componentIssue(p, comp(p, { inclinacao: [-0.1, 0] }))).toMatch(/entre 0 e π/);
+    expect(componentIssue(p, comp(p, { inclinacao: [3.2, 0] }))).toMatch(/entre 0 e π/);
+  });
+  it('setComponentInclination aplica, valida, desfaz e refaz', () => {
+    const s = new ProjectStore(createEmptyProject('t'));
+    s.exec({ type: 'upsertFamily', family: structuredClone(FAMILIA_ARMARIO) });
+    s.exec({ type: 'addComponent', component: comp(s.project) });
+    s.exec({ type: 'setComponentInclination', id: 'c1', inclinacao: [1, 0.5] });
+    expect(s.undoLabel).toBe('Inclinar componente');
+    expect((s.project.elements.c1 as Component).inclinacao).toEqual([1, 0.5]);
+    expect(() => s.exec({ type: 'setComponentInclination', id: 'c1', inclinacao: [4, 0] })).toThrow(/entre 0 e π/);
+    expect(() => s.exec({ type: 'setComponentInclination', id: 'nao', inclinacao: [1, 0] })).toThrow(/inexistente/);
+    s.undo();
+    expect((s.project.elements.c1 as Component).inclinacao).toBeUndefined();
+    s.redo();
+    expect((s.project.elements.c1 as Component).inclinacao).toEqual([1, 0.5]);
+  });
+  it('a cópia preserva a inclinação e não copia as ligações', () => {
+    let p = base();
+    p = applyCommand(p, { type: 'addComponent', component: comp(p, { inclinacao: [1, 0.2], ligacoes: { l1: { componenteId: 'outro', ligacaoId: 'l2' } } }) });
+    const q = applyCommand(p, { type: 'transform', ids: ['c1'], transform: { kind: 'translate', d: { x: 2, y: 0 } }, copy: { idMap: { c1: 'c1b' } } } as Command);
+    const copia = q.elements.c1b as Component;
+    expect(copia.inclinacao).toEqual([1, 0.2]);
+    expect(copia.ligacoes).toBeUndefined();
+    expect((q.elements.c1 as Component).ligacoes).toBeDefined();
   });
 });

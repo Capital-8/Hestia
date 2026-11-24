@@ -259,6 +259,7 @@ export function pasteComponentsCommand(
         rotation: c.rotation,
         mirrored: c.mirrored,
         values: c.values ? structuredClone(c.values) : undefined,
+        ...(c.inclinacao ? { inclinacao: [c.inclinacao[0], c.inclinacao[1]] as [number, number] } : {}),
         mark: '',
       },
     });

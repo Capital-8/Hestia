@@ -11,6 +11,8 @@ import type { Component, ComponentGroup, Id, Project } from './types.ts';
 export type ComponentCommand =
   | { type: 'addComponent'; component: Omit<Component, 'order'> }
   | { type: 'updateComponent'; id: Id; patch: Partial<Omit<Component, 'id' | 'kind' | 'order'>> }
+  /** Define a inclinação 3D `[inclinação, giro]` (rad) da instância (ADR 0061). */
+  | { type: 'setComponentInclination'; id: Id; inclinacao: [number, number] }
   /** Grava (ou troca) a família no projeto; as instâncias existentes passam a usar a versão nova. */
   | { type: 'upsertFamily'; family: Familia }
   /** Remove a família; recusa se alguma instância ainda a usa. */
@@ -116,6 +118,15 @@ export function applyComponentCommand(p: Project, c: ComponentCommand): void {
       p.elements[c.id] = next;
       break;
     }
+    case 'setComponentInclination': {
+      const e = p.elements[c.id];
+      if (e?.kind !== 'component') throw new Error('Componente inexistente: ' + c.id);
+      const next: Component = { ...e, inclinacao: [c.inclinacao[0], c.inclinacao[1]] };
+      const issue = componentIssue(p, next);
+      if (issue) throw new Error(issue);
+      p.elements[c.id] = next;
+      break;
+    }
     case 'upsertFamily': {
       const issue = familyIssue(c.family);
       if (issue) throw new Error(issue);
@@ -174,6 +185,7 @@ export function componentCommandLabel(c: ComponentCommand): string {
   switch (c.type) {
     case 'addComponent': return 'Inserir componente';
     case 'updateComponent': return 'Alterar componente';
+    case 'setComponentInclination': return 'Inclinar componente';
     case 'upsertFamily': return 'Carregar família';
     case 'deleteFamily': return 'Excluir família';
     case 'upsertComponentGroup': return 'Criar conjunto';

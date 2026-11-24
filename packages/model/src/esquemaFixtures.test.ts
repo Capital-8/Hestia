@@ -5,7 +5,7 @@ import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, SchemaError, SCHEMA_VERSION,
  * Fixtures de esquema (decisão 0060, fase 1B): um projeto com os campos que a fase 2 vai mexer (`Level.graphics`,
  * `Level.hidden`, pranchas com vista, anotações do nível e da planta de área) e os da fase 1B (`disciplines`,
  * `disciplineProfiles`, `categoryDiscipline`). A ida e volta serializar → abrir → serializar tem de ser idêntica no
- * esquema atual (33). Hoje o programa recusa arquivo de versão mais nova (34).
+ * esquema atual (34). Hoje o programa recusa arquivo de versão mais nova (35).
  */
 
 const sheet: Sheet = {
@@ -65,7 +65,7 @@ describe('esquema: fixtures de ida e volta (esquema 33)', () => {
   it('projeto com graphics, hidden, prancha, anotações e perfis: serializar → abrir → serializar é idêntico', () => {
     const texto = JSON.stringify(projetoComCampos());
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(33);
+    expect(volta.schemaVersion).toBe(34);
     expect(JSON.stringify(volta)).toBe(texto);
     // Segunda volta: a estabilidade vale para mais de uma ida e volta.
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
@@ -95,16 +95,16 @@ describe('esquema: fixtures de ida e volta (esquema 33)', () => {
   });
 
   it('a versão atual é 33 e um arquivo de versão 33 abre e permanece na 33', () => {
-    expect(SCHEMA_VERSION).toBe(33);
+    expect(SCHEMA_VERSION).toBe(34);
     const raw = JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>;
-    expect(raw.schemaVersion).toBe(33);
-    expect(migrateProject(raw).schemaVersion).toBe(33);
+    expect(raw.schemaVersion).toBe(34);
+    expect(migrateProject(raw).schemaVersion).toBe(34);
   });
 
-  it('versão futura (34 = atual + 1) é recusada com SchemaError citando 34 e 33 (migrate.ts:319)', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 34 };
+  it('versão futura (35 = atual + 1) é recusada com SchemaError citando 35 e 34 (migrate.ts:319)', () => {
+    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 35 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 34');
-    expect(() => migrateProject(raw)).toThrow('(33)');
+    expect(() => migrateProject(raw)).toThrow('versão 35');
+    expect(() => migrateProject(raw)).toThrow('(34)');
   });
 });

@@ -406,7 +406,7 @@ function applyTransformCmd(p: Project, c: Extract<Command, { type: 'transform' }
   transformEach(p, c, isCad, (cad, t) => transformCad(cad, t, !!c.copy?.idMap));
   // A cópia de um componente nasce solta: o conjunto do original não a conhece (`membros`), então o `groupId` não pode ir junto.
   transformEach(p, c, isFurniture, transformFurniture);
-  transformEach(p, c, isComponent, transformComponent, ({ groupId: _grupo, ...solto }) => solto);
+  transformEach(p, c, isComponent, transformComponent, ({ groupId: _grupo, ligacoes: _ligacoes, ...solto }) => solto);
   transformEach(p, c, isFloor, (f, t) => transformFloor(f, t, !!c.copy?.idMap));
   transformEach(p, c, isCeiling, (f, t) => transformCeiling(f, t, !!c.copy?.idMap));
   transformEach(p, c, isColumn, transformColumn);
@@ -799,6 +799,7 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       break;
     case 'addComponent':
     case 'updateComponent':
+    case 'setComponentInclination':
     case 'upsertFamily':
     case 'deleteFamily':
     case 'upsertComponentGroup':

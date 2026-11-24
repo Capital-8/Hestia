@@ -298,7 +298,7 @@ describe('round-trip JSON e validação do projeto', () => {
     expect(volta.elements.w_ct).toEqual(p.elements.w_ct);
     expect(volta.mullionTypes).toEqual(p.mullionTypes);
     expect(volta.curtainPanelTypes).toBeUndefined();
-    expect(volta.schemaVersion).toBe(33);
+    expect(volta.schemaVersion).toBe(34);
   });
 
   it('um projeto de cortina limpo não tem problema de validação', () => {

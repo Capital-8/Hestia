@@ -475,6 +475,7 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Definir família de seta norte padrão';
     case 'addComponent':
     case 'updateComponent':
+    case 'setComponentInclination':
     case 'upsertFamily':
     case 'deleteFamily':
     case 'upsertComponentGroup':

@@ -79,14 +79,14 @@ function arquivoV29(): Record<string, unknown> {
 
 describe('esquema 30 (campos aditivos da versão 30)', () => {
   it('a versão atual é 33 e o projeto novo sai na 33', () => {
-    expect(SCHEMA_VERSION).toBe(33);
-    expect(createEmptyProject().schemaVersion).toBe(33);
+    expect(SCHEMA_VERSION).toBe(34);
+    expect(createEmptyProject().schemaVersion).toBe(34);
   });
 
   it('arquivo 29 com terreno, componente, móvel e família abre, vira 33 e preserva esses campos byte a byte', () => {
     const raw = arquivoV29();
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(33);
+    expect(p.schemaVersion).toBe(34);
     const elements = raw.elements as Record<string, unknown>;
     expect(JSON.stringify(p.elements.tn1)).toBe(JSON.stringify(elements.tn1));
     expect(JSON.stringify(p.elements.c1)).toBe(JSON.stringify(elements.c1));
@@ -100,15 +100,15 @@ describe('esquema 30 (campos aditivos da versão 30)', () => {
     const p = migrateProject(arquivoV29());
     const texto = JSON.stringify(p);
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(33);
+    expect(volta.schemaVersion).toBe(34);
     expect(JSON.stringify(volta)).toBe(texto);
   });
 
-  it('arquivo de versão 34 é recusado, com a mensagem citando 34 e 33', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 34 };
+  it('arquivo de versão 35 é recusado, com a mensagem citando 35 e 34', () => {
+    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 35 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 34');
-    expect(() => migrateProject(raw)).toThrow('(33)');
+    expect(() => migrateProject(raw)).toThrow('versão 35');
+    expect(() => migrateProject(raw)).toThrow('(34)');
   });
 
   it('arquivo de versão 25 percorre a cadeia 25 → 32 sem erro', () => {
@@ -118,10 +118,10 @@ describe('esquema 30 (campos aditivos da versão 30)', () => {
     delete raw.beamTypes;
     delete raw.footingTypes;
     let p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(33);
+    expect(p.schemaVersion).toBe(34);
     expect(Object.keys(p.columnTypes ?? {}).length).toBeGreaterThan(0);
     expect(Object.keys(p.beamTypes ?? {}).length).toBeGreaterThan(0);
     p = migrateProject(JSON.parse(JSON.stringify(p)));
-    expect(p.schemaVersion).toBe(33);
+    expect(p.schemaVersion).toBe(34);
   });
 });

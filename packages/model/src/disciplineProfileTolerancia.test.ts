@@ -13,7 +13,7 @@ import {
 /** Projeto cru da versão 33 com dado inválido de disciplina em todos os campos (como um arquivo editado à mão). */
 function projetoComDadoInvalido(): Record<string, unknown> {
   const p = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
-  p.schemaVersion = 33;
+  p.schemaVersion = 34;
   p.disciplineProfiles = { estrutura: { wall: 'x', inexistente: 'hidden' } };
   p.disciplines = [
     { id: '', name: 'x' },
@@ -54,7 +54,7 @@ describe('tolerância a dado inválido de disciplina (leitura ignora, escrita pr
   it('o arquivo com esses dados inválidos salva e reabre com os MESMOS bytes', () => {
     const texto = JSON.stringify(projetoComDadoInvalido());
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(33);
+    expect(volta.schemaVersion).toBe(34);
     expect(JSON.stringify(volta)).toBe(texto);
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
   });
