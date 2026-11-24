@@ -25,7 +25,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 2 | [B1](fichas/B1.md) | Instância 3D (`inclinacao`), esquema 34 e matriz do componente | Sonnet | — | integrada | 3ca0bdfb |
 | 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
 | 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | integrada | e7b82d97 |
-| 3 | [A7b](fichas/A7b.md) | Caixa e pegada do componente incluem corpos; símbolos no resolvedor | Haiku | A7, D1 | pendente | |
+| 3 | [A7b](fichas/A7b.md) | Caixa e pegada do componente incluem corpos; símbolos no resolvedor | Haiku | A7, D1 | integrada | e9025985 |
 | 3 | [B3b](fichas/B3b.md) | Planta aplica a inclinação 3D e o símbolo que substitui a geometria | Haiku | B3, D2 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | integrada | 635fcc15 |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | integrada | bdb19666 |
@@ -36,7 +36,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | pendente | |
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | pendente | |
 | 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
-| 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | pendente | |
+| 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | integrada | fd3dddb8 |
 | 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | integrada | 97d321bb |
 | 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | arbitrada (28 verdes, 4 ambiguidades abertas) | 1c29c347 |
 | 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | pendente | |
@@ -89,4 +89,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · C4: `ligacoesCompativeis` (ordem das regras: domínio, seção, bitola, direção, fluxo; motivos fixos), `encaixarLigacoes(alvo, candidatas, tolerancia=0,05)` devolve `{ candidata, deslocamento }` (sem `rotacaoZ`/`inclinacao` por ora: TODO ligado à ferramenta Tubo C5), `ligacaoNoMundo(lig, componente)`. Tolerâncias inclusivas (≤): medidas 0,5 mm (+1 nm de folga numérica), encaixe 50 mm; empate = primeira candidata.
 - 2026-11-24 · B3: silhueta por união (`union` de `@hestia/geom`) dos triângulos projetados em XY, grade 1e-7 m; só contornos externos (tubo oco vertical sai como disco cheio); `projetarCorposPlanta(corpos, detalhe)`; família só de corpos agora desenha na planta; LACUNAS → ficha B3b: `inclinacao` 3D ignorada na planta (tubo inclinado sairia com silhueta errada) e `substituiGeometria` não ligado.
 - 2026-11-24 · B2: 3D dos corpos no projeto (`componentSolids.ts`, material fixo `comp_corpo`, filtro 'fino', corpo vazio fora) e no editor (`CorposNaCena`, vazio = fantasma azul; `FamilyEditor.tsx` passa `corpos={res.corpos ?? []}`, ajuste do orquestrador); corpos não selecionáveis nem explodem (→ B5). `visualizador.ts` está com 489 linhas (>420; já tinha 466): dividir em ficha de refatoração. LACUNA: `malhaDoComponente` (instancia.ts) usa transformação 2D e ignora `inclinacao` nas PEÇAS (corpos usam a matriz completa) → incluir na ficha B3b.
+- 2026-11-24 · C3: comandos `connectComponents` (campo opcional `sistemaId`; sem ele o id é `sis_N`), `disconnectComponents`, `renameMepSystem` em `mepCommands.ts`; fusão: o sistema de `a` é fundido no de `b` (domínios diferentes = erro); propagação de bitola nos dois sentidos (diâmetro em mm, inteiro) só para `propagaParametro` de instância sem fórmula; excluir instância desconecta vizinhas e limpa sistemas vazios; mover não desconecta; `conexoesIssue` (existência, reciprocidade, sistema igual) roda em `validateProject` (código `mep-conexao`). DIVERGÊNCIA: a reciprocidade NÃO é exigida em `componentIssue`/`addComponent` (quebraria o teste B1 'cópia não copia ligações'); só em `updateComponent` com `patch.ligacoes`, em connect e em validateProject.
+- 2026-11-24 · A7b: `caixaDoComponente` une caixa das peças com a dos corpos (8 cantos via `matrizDoComponente`); `pegadaDoComponente` inclui o fecho convexo XY dos corpos; `resolverFamilia` devolve `simbolos`. Peças continuam sem inclinação em caixa/pegada (→ B3b item 5).
+- 2026-11-24 · Calibração: o executor da A7b (Haiku) voltou a chamar `create_session` apesar de proibido na ficha; negado pelo classificador. Anotar: Haiku pode ignorar proibições de ferramenta; manter o aviso curto e no início do prompt.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
