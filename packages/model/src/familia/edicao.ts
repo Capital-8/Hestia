@@ -191,3 +191,4 @@ export {
   removerPontoCaminho,
   reordenarCorpo,
 } from './edicaoCorpos.ts';
+export { adicionarLigacao, criarLigacaoPadrao, duplicarLigacao, editarLigacao, espelharLigacaoEmX, excluirLigacao } from './edicaoLigacoes.ts';
