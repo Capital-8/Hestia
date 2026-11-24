@@ -50,7 +50,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 5 | [D4](fichas/D4.md) | Detalhes da família: vistas nomeadas, cotas e cadeado | Sonnet | B4, D1, D2 | integrada (painel montado pelo orquestrador; sem e2e) | 41582f6e |
 | 5 | [E2](fichas/E2.md) | Exportação IFC por categoria e portas de ligação | Haiku | A7, E1, C1 | integrada | 4bf90873 + orquestrador |
 | 5 | [E3](fichas/E3.md) | Quantitativos por categoria | Haiku | A7, E1 | integrada | 18c088ee (motor; interface pendente) |
-| 6 | [D6](fichas/D6.md) | Inserir o detalhe da família numa prancha | Haiku | D4 | pendente | |
+| 6 | [D6](fichas/D6.md) | Inserir o detalhe da família numa prancha | Haiku | D4 | parcial (função pura `quadroDeDetalhe`; prancha → D6b) | 87aef18f |
 | 6 | [F1](fichas/F1.md) | Referência: tubo e conexões de esgoto (PVC) | Haiku | A7, C1, E1, B2 | integrada | d9b58b7f |
 | 6 | [F2](fichas/F2.md) | Referência: tubo e conexões de água fria (PVC soldável) | Haiku | F1 | integrada | 37399948 |
 | 6 | [F3](fichas/F3.md) | Referência: caixas de inspeção, de gordura e sifonada | Haiku | F1 | integrada | 483f598e |
@@ -64,6 +64,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 7 | [G2](fichas/G2.md) | Editor: abas Inserir, Modificar, Vista e Gerenciar | Haiku | B7, C2, D3 | pendente | |
 | 7 | [H1](fichas/H1.md) | Roteiros de navegador (E2E) das famílias de referência | Haiku | F1, F3, F7, C5, B7 | pendente | |
 | 7 | [H2](fichas/H2.md) | Manual curto e atualização de documentos | Haiku | H1 | pendente | |
+| 8 | [D6b](fichas/D6b.md) | Detalhe da família como viewport da prancha | Sonnet | D6 | pendente | |
 | 8 | [I1](fichas/I1.md) | Verificar rede: botão e painel montados | Haiku | C7 | pendente | |
 | 8 | [I2](fichas/I2.md) | Aba "Quantitativos" MEP no orçamento do projeto | Haiku | E3 | pendente | |
 | 8 | [I3](fichas/I3.md) | Pendências de modelo: angulo na interface, caixaria no arquivo, material do corpo | Haiku | A1, A2b, A9 | pendente | |
@@ -124,4 +125,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · F6: `LUMINARIAS` (7: plafon redondo, painel LED quadrado/retangular, spot, pendente, arandela, linear), `familiaLuminaria` própria (a `familiaEletrica` da F5 não aceita categoria `luminaria`), hospedagem teto = `nivel` + `hInst` (contrato não tem teto), difusor em `mat_vidro` (sem material emissivo), símbolo de teto com `substituiGeometria`; valores CONFERIR.
 - 2026-11-24 · G3: `ComponentePropriedadesMep.tsx` (inclinação em graus, conexões com "Ver vizinho"/"Desconectar", sistema, verificações, tabelas) montado em `ComponentProperties.tsx` (402 linhas); roteiro de scratch passou (tubo conectado, inclinar 30° = 0,5236 rad, desconectar/desfazer); o bloqueio "erro impede inserir" NÃO está no painel (só exibe); painel precisa de rolagem para ver as conexões.
 - 2026-11-24 · D3: `edicaoSimbolos.ts` (operações puras), painel de símbolos com tela SVG fixa (−500…1500 mm; sem zoom/pan/seleção múltipla; pontos com fórmula sem alça), símbolo novo nasce com uma linha de exemplo, roteiro `familias-simbolos.mjs` 6/6; NÃO verificado: o símbolo aparecer na planta do PROJETO. Suíte ampla antes do D3: 1.373 arquivos / 17.442 testes verdes.
+- 2026-11-24 · D6 (parcial): `quadroDeDetalhe(detalhe, escala, origem?)` (engine) converte o `DetalheResolvido` em linhas/textos em mm de papel; a prancha NÃO foi integrada: `SheetViewSource` (model/sheet.ts) é união fechada (plan, areaPlan, areaTable, section, 3d) usada em ~56 checagens de `view.kind`, `render/sheet/build.ts` não conhece instância de família e o projeto não guarda referência instância+detalhe para viewport → ficha D6b (Sonnet).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
