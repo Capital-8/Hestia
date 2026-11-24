@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
@@ -9,7 +10,8 @@ import { Check, Row } from './fields.tsx';
 export function UnderlayRow(): ReactElement {
   const { t } = useT();
   const p = useProject();
-  const s = useUi();
+  // Só o que esta linha lê: mudanças de `previewTick` na órbita não re-renderizam o seletor (WP-A1).
+  const s = useUi(useShallow((u) => ({ levelId: u.levelId, showUnderlay: u.showUnderlay, underlayLevel: u.underlayLevel })));
   const idx = p.levels.findIndex((l) => l.id === s.levelId);
   const abaixo = idx > 0 ? p.levels.slice(0, idx) : [];
   return (

@@ -775,6 +775,12 @@ export interface Roof {
 }
 
 /**
+ * Linha do rótulo de ambiente, na ordem em que aparece no bloco. Compartilhada pela planta de piso, pela planta de
+ * área e pelos cortes; a etiqueta da planta de área (`RoomTag`) pode sobrescrever os campos da vista.
+ */
+export type TagField = 'name' | 'number' | 'area' | 'category' | 'level' | 'perimeter' | 'volume' | 'custom';
+
+/**
  * Ambiente (Revit: Room; ArchiCAD: Zone). Guardado por nível (como os pisos): `levelId` + um `point` interior em
  * planta. O contorno, a área e o volume são DERIVADOS pelo motor a partir do circuito de paredes que contém o ponto
  * (nunca gravados). Os acabamentos são textos livres por instância; `ceilingHeight` é o pé-direito (padrão de leitura:
@@ -803,6 +809,8 @@ export interface Room {
   labelRotation?: number;
   /** Chamada do rótulo: automática (liga ao sair do ambiente), nenhuma, reta, cotovelo ou cruzada. Ausente = automática. */
   labelLeader?: 'auto' | 'none' | 'straight' | 'kinked' | 'crossed';
+  /** Campos do rótulo compartilhado por todas as vistas. Ausente = ['name']. A planta de área pode sobrescrever via RoomTag. */
+  labelFields?: TagField[];
   /** Categoria do ambiente (Sala, Banho, Circulação…). Ausente = sem categoria. */
   categoryId?: Id;
   /** Deslocamento da base em relação ao nível (m). Ausente = 0. */

@@ -1,5 +1,5 @@
 import type { Vec2 } from '@hestia/geom';
-import { areaPlanIssue, areaPlanOf, copyPlanAnnotations, DEFAULT_AREA_GRAPHICS, DEFAULT_ROOM_CATEGORIES, planAnnotationsOf, roomTagIssue, type AreaPlan, type RoomCategory, type RoomTag } from './areaPlan.ts';
+import { areaPlanIssue, areaPlanOf, copyPlanAnnotations, DEFAULT_AREA_GRAPHICS, DEFAULT_ROOM_CATEGORIES, planAnnotationsOf, roomTagIssue, TAG_FIELDS, type AreaPlan, type RoomCategory, type RoomTag } from './areaPlan.ts';
 import type { Command } from './commands.ts';
 import { dropOrphanViewports } from './sheetCommands.ts';
 import { isRoom, type Id, type Project } from './types.ts';
@@ -96,6 +96,15 @@ export function applyAreaPlanCommand(p: Project, c: Command, lang: Lang = 'pt'):
         room.labelRotation = c.rotation;
       }
       if (c.leader !== undefined) room.labelLeader = c.leader;
+      if (c.fields === null) delete room.labelFields;
+      else if (c.fields !== undefined) {
+        const fields = c.fields;
+        if (fields.length === 0 || new Set(fields).size !== fields.length || !fields.every((f) => TAG_FIELDS.includes(f))) {
+          throw new Error(translate(lang, 'md_cmd_label_fields'));
+        }
+        // Cópia: o comando pode ser reaplicado no desfazer/refazer e o array não deve ser compartilhado.
+        room.labelFields = [...fields];
+      }
       return true;
     }
     case 'upsertRoomCategory': {

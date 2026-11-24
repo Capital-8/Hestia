@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProjectStore, createEmptyProject, makeRoom } from './index.ts';
+import { ProjectStore, createEmptyProject, makeRoom, migrateProject, type Room } from './index.ts';
 import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, type AreaPlan, type RoomTag } from './areaPlan.ts';
 import { roomIssues } from './validateRooms.ts';
 
@@ -110,5 +110,71 @@ describe('planta de área · modelo e comandos', () => {
     const round = JSON.parse(JSON.stringify(s.project));
     expect(round.areaPlans[0].tags[0].roomId).toBe('r1');
     expect(round.elements.r1.referencePoint).toEqual({ x: 3, y: 2 });
+  });
+});
+
+describe('rótulo do ambiente · campos compartilhados', () => {
+  const roomOf = (s: ProjectStore): Room => s.project.elements.r1 as Room;
+
+  it('grava os campos na ordem pedida e persiste no JSON', () => {
+    const s = withRoom();
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: ['name', 'area', 'custom'] });
+    expect(roomOf(s).labelFields).toEqual(['name', 'area', 'custom']);
+    const round = JSON.parse(JSON.stringify(s.project));
+    expect(round.elements.r1.labelFields).toEqual(['name', 'area', 'custom']);
+  });
+
+  it('undefined não mexe nos campos; a posição e a chamada continuam independentes', () => {
+    const s = withRoom();
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: { x: 1, y: 2 }, fields: ['name', 'number'] });
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: { x: 3, y: 4 }, leader: 'kinked' });
+    expect(roomOf(s).labelFields).toEqual(['name', 'number']);
+    expect(roomOf(s).labelPosition).toEqual({ x: 3, y: 4 });
+    expect(roomOf(s).labelLeader).toBe('kinked');
+  });
+
+  it('desfaz e refaz a troca de campos', () => {
+    const s = withRoom();
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: ['name', 'level'] });
+    s.undo();
+    expect(roomOf(s).labelFields).toBeUndefined();
+    s.redo();
+    expect(roomOf(s).labelFields).toEqual(['name', 'level']);
+  });
+
+  it('limpa com null sem apagar rotação nem chamada', () => {
+    const s = withRoom();
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: { x: 1, y: 1 }, rotation: 30, leader: 'kinked', fields: ['name', 'volume'] });
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: null });
+    expect(roomOf(s).labelFields).toBeUndefined();
+    expect(roomOf(s).labelPosition).toBeUndefined();
+    expect(roomOf(s).labelRotation).toBe(30);
+    expect(roomOf(s).labelLeader).toBe('kinked');
+  });
+
+  it('recusa lista vazia, campo repetido e valor desconhecido', () => {
+    const s = withRoom();
+    const bad = (fields: unknown) => () => s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: fields as never });
+    expect(bad([])).toThrow('ao menos um valor válido');
+    expect(bad(['name', 'name'])).toThrow('ao menos um valor válido');
+    expect(bad(['name', 'bogus'])).toThrow('ao menos um valor válido');
+    expect(roomOf(s).labelFields).toBeUndefined();
+  });
+
+  it('mensagem de erro segue o idioma pedido', () => {
+    const s = withRoom();
+    expect(() => s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: [] }, undefined, 'en')).toThrow('at least one valid value');
+  });
+
+  it('projeto antigo sem labelFields continua válido e pode receber campos', () => {
+    // Sem `labelFields` o arquivo abre como sempre: o campo é opcional e a leitura assume ['name'].
+    const p = createEmptyProject();
+    p.elements.r1 = { ...makeRoom({ id: 'r1', levelId: 'lv_0', name: 'Sala', number: '101', point: { x: 2, y: 1.5 } }), order: 1 };
+    const antigo = migrateProject(JSON.parse(JSON.stringify(p)));
+    expect((antigo.elements.r1 as Room).labelFields).toBeUndefined();
+    expect(roomIssues(antigo).some((i) => i.code === 'room-level-missing')).toBe(false);
+    const s = new ProjectStore(antigo);
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: ['name'] });
+    expect(roomOf(s).labelFields).toEqual(['name']);
   });
 });

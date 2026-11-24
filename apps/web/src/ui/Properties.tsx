@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import { useDeferredValue, useMemo, useState, type ReactElement } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { contextoDaVista } from '@hestia/render';
 import { joinStatus, levelFrames, quantifyLevel, viewRangeWarnings } from '@hestia/engine';
 import {
@@ -413,7 +414,20 @@ function ViewRangeGroup({ levelId }: { levelId: Id }): ReactElement {
 function ViewProps(): ReactElement {
   const { t, lang } = useT();
   const fmt = useFormat(); const p = useProject();
-  const s = useUi();
+  // Só os campos que esta vista de propriedades lê: o `previewTick` da órbita não re-renderiza o painel (WP-A1).
+  const s = useUi(useShallow((u) => ({
+    view: u.view,
+    levelId: u.levelId,
+    sectionId: u.sectionId,
+    planKind: u.planKind,
+    areaPlanId: u.areaPlanId,
+    planViewId: u.planViewId,
+    showGrid: u.showGrid,
+    gridStep: u.gridStep,
+    showUnderlay: u.showUnderlay,
+    showRoofProjection: u.showRoofProjection,
+    wallHeight: u.options.wallHeight,
+  })));
   const lvl = p.levels.find((l) => l.id === s.levelId);
   const section = s.view === 'section' ? p.views.find((v) => v.id === s.sectionId) : undefined;
   // A planta de cobertura mostra as mesmas propriedades da de piso do nível; só o nome do tipo muda.
@@ -490,7 +504,7 @@ function ViewProps(): ReactElement {
       {s.view === 'section' && section ? <SectionViewProps view={section} /> : null}
       <Group title={t('prc_pgrp_project_defaults')} stateKey="project-defaults" open={false}>
         <Row label={t('prc_fld_join_tolerance')} htmlFor="v-jt"><NumField id="v-jt" value={p.settings.joinTolerance} quantity="smallLength" min={0.1} onCommit={(v) => editor.store.exec({ type: 'setSettings', patch: { joinTolerance: v } })} /></Row>
-        <Row label={t('prc_fld_wall_height')} htmlFor="v-wh"><NumField id="v-wh" value={s.options.wallHeight} quantity="length" onCommit={(v) => useUi.setState({ options: { ...s.options, wallHeight: v } })} /></Row>
+        <Row label={t('prc_fld_wall_height')} htmlFor="v-wh"><NumField id="v-wh" value={s.wallHeight} quantity="length" onCommit={(v) => useUi.setState({ options: { ...useUi.getState().options, wallHeight: v } })} /></Row>
         <div className="prow"><span /><button className="chiplink" onClick={() => useUi.setState({ dialog: 'units' })}>{t('prc_btn_units')}</button><button className="chiplink" onClick={() => useUi.setState({ dialog: 'dimensions' })}>{t('prc_btn_dimensions')}</button></div>
       </Group>
       <div className="hint">{t('prc_hint_select_a')}<em>{t('prc_hint_type')}</em>{t('prc_hint_b')}<em>{t('prc_hint_instance')}</em>{t('prc_hint_c')}</div>

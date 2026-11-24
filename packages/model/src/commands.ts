@@ -30,6 +30,7 @@ import {
   type SlabType,
   type Id,
   type Room,
+  type TagField,
   type Stair,
   type StairLanding,
   type StairRun,
@@ -332,7 +333,7 @@ export type Command =
   | { type: 'updateRoomTag'; planId: Id; id: Id; patch: Partial<Omit<RoomTag, 'id' | 'planId' | 'roomId'>> }
   | { type: 'removeRoomTag'; planId: Id; id: Id }
   | { type: 'setRoomReference'; id: Id; point: Vec2 | null }
-  | { type: 'setRoomLabel'; id: Id; position: Vec2 | null; rotation?: number; leader?: 'auto' | 'none' | 'straight' | 'kinked' | 'crossed' }
+  | { type: 'setRoomLabel'; id: Id; position: Vec2 | null; rotation?: number; leader?: 'auto' | 'none' | 'straight' | 'kinked' | 'crossed'; fields?: TagField[] | null }
   | { type: 'upsertRoomCategory'; category: RoomCategory }
   | { type: 'removeRoomCategory'; id: Id }
   | { type: 'upsertColorScheme'; scheme: ColorScheme }

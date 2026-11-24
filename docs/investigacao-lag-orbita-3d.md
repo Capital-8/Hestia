@@ -52,3 +52,36 @@ Pré-requisito: abrir o app com `?perf=1` (e `&debug=1` se quiser `__hestia3dMod
 5. **Contagem de commits React (H2):** React DevTools Profiler com "record why each component rendered", ou `useContarCommitPerf` (`ViewportCanvas.tsx:49`) com `?perf=1`. Meta: 0-1 commits por quadro; com o mouse a 500 Hz, mais de 1 por quadro confirma H2.
 6. **Painéis (H4):** repetir o item 1 com 1 e 2 painéis visíveis.
 7. **Critério de aceite após correções:** `fps` >= 55 e `cpuMs` <= 8 ms na órbita; `drawCalls`/`triangles` iguais antes e depois; commits React <= 1 por quadro.
+
+---
+
+## (e) Medição de 20/11/2026 — causa confirmada e corrigida
+
+> Branch `fix/0.2.7-3d-e-areas` (base `frente/disciplinas`). As hipóteses H1 (fill-rate), H2 (React) e H3 (trabalho por quadro) foram medidas; H2/H3 eram a causa. H1 foi descartada.
+
+**Ambiente:** RX 580 (Mesa 26.0.8), WebKitGTK 2.52.6, Chrome 157, X11, tela 1600×900, DPR 1. Cena `house2`: **27 draw calls, 5.894 triângulos**. Bench `?bench=orbit` (300 quadros de órbita), resultado lido no título da janela (`xprop`), sem automação de mouse.
+
+| Cenário (mesma build) | fps | cpuMs | gpuMs | draw calls |
+|---|---|---|---|---|
+| WebKitGTK antes (MiniBrowser) | **37,0** | 3,0 | n/a | 27 |
+| WebKitGTK depois (WP-A1) | **60,0** | 4,0 | n/a | 27 |
+| Chrome antes | 60,0 | 2,5 | 1,05 | 27 |
+| Chrome depois | 60,3 | 3,3 | 1,05 | 27 |
+| WebGL puro no WebKitGTK (27 calls, 5.886 tri) | **60,1** | — | — | 27 |
+
+**O que foi descartado com medição:**
+- **Não é fill-rate/GPU:** DPR 0,75 e 0,5 mantiveram 37 fps (25% dos pixels, mesmo resultado); antialias desligado deu ~35,7 fps.
+- **Não é o caminho de apresentação do WebKit:** WebGL puro com a mesma carga fez 60 fps no WebKitGTK. `WEBKIT_DISABLE_DMABUF_RENDERER=1` piorou (29–31), `WEBKIT_DMABUF_RENDERER_FORCE_SHM=1` ficou no ruído (~36,5), `WEBKIT_DISABLE_COMPOSITING_MODE=1` não mudou (~31).
+- **Não é o `renderQuadro`:** cpuMs 3,0 ms não fecha os 27 ms de quadro; draw calls e triângulos idênticos ao Chrome.
+
+**Causa real:** o trabalho por quadro **fora** do canvas. Cada `pointermove` chamava `orbit()` e um `setState`, e cada `previewTick` re-renderizava `ViewTabs`, `ViewCube`, `ViewOptionRows` e `Properties` (todos assinavam `useUi` inteiro). No WebKitGTK, atualizar o `transform` de quatro `<text>` SVG da bússola custava **~20 ms por quadro**; no Chromium, ~2 ms. O cubo em CSS 3D (54 botões) era barato.
+
+**Correção (WP-A1):**
+- deltas de órbita/pan coalescidos em **um `orbit()`/`pan()` e um `previewTick` por rAF** (`ui/quadroRaf.ts`);
+- `ViewTabs`/`ViewOptionRows`/`Properties` com `useUi(useShallow(...))` só nos campos usados;
+- `ViewCube` não re-renderiza por `previewTick`: matriz do cubo e geometria dos anéis escritas direto no DOM; letras da bússola em `<div>` (mesma aparência, conferida por screenshot);
+- `setSize` da GPU só quando `w`/`h`/`dpr` mudam; `visibilityOf` memoizado por projeto + campos da vista + `viewTemp`.
+
+**Limites honestos:** no WebKitGTK o `gpuMs` é `n/a` (sem `EXT_disjoint_timer_query`); a comparação usa o WebGL puro e o teste de resolução como provas indiretas. A medição foi no MiniBrowser (mesmo motor do Tauri), não na janela do app empacotado; a janela do app é maior (1400×900), mas o resultado não depende de pixels.
+
+**Como reproduzir:** com o app em `?bench=orbit&perf=1` (dev ou `vite preview`), o título vira `HESTIA-BENCH fps=.. cpuMs=.. gpuMs=.. calls=.. tris=..` após 300 quadros; no app desktop, `Ctrl+Shift+P` liga o overlay equivalente.

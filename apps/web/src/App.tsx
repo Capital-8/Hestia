@@ -99,6 +99,8 @@ import { PluginDialog } from './plugins/pluginUi.tsx';
 import { PluginPanels } from './ui/PluginPanel.tsx'; // SUPLEMENTOS (fase H)
 import { SupplementsDialog } from './ui/dialogs/SupplementsDialog.tsx';
 import { isManagerShortcut } from './plugins/supShortcut.ts'; // SUPLEMENTOS: fase J
+import { alternarPerf, isPerfShortcut } from './debug/perf/index.ts'; // WP-A0: diagnóstico 3D (Ctrl+Shift+P)
+import { autoPrepararBenchOrbita } from './debug/perf/benchPreparo.ts'; // WP-A0: autopreparo do `?bench=orbit`
 import { PluginResultDialog } from './ui/dialogs/PluginResultDialog.tsx';
 import { PluginSchedule } from './ui/PluginSchedule.tsx';
 import { startSupplements } from './plugins/supApp.ts';
@@ -351,6 +353,9 @@ export function App(): ReactElement {
 
   // Plugins que o usuário deixou habilitados reconectam ao abrir o app (nada é iniciado: só se conecta a porta local).
   useEffect(() => { pluginHost().start(); }, []);
+  // WP-A0: `?bench=orbit` sem projeto aberto cria a casa e entra na vista 3D sozinho (medir WebKitGTK ×
+  // Chrome sem automação). O efeito vive na raiz porque na tela de projetos o `ViewportCanvas` nem monta.
+  useEffect(() => { autoPrepararBenchOrbita(); }, []);
   // SUPLEMENTOS: carrega os suplementos habilitados depois da primeira pintura (cada um com try/catch; falha não impede abrir o app).
   useEffect(() => { startSupplements(); }, []);
   useCollabIntegration(vista, nivelAtivo, sectionId);
@@ -413,6 +418,13 @@ export function App(): ReactElement {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
+      // WP-A0: Ctrl+Shift+P liga/desliga o overlay de desempenho. Vale em qualquer tela e até com
+      // foco em campo — é a única porta do diagnóstico no desktop, onde não há barra de endereço.
+      if (isPerfShortcut(e)) {
+        e.preventDefault();
+        alternarPerf();
+        return;
+      }
       // SUPLEMENTOS (fase J): Alt+Shift+P abre o gerenciador (vale até com o foco num campo, mas não sobre outro diálogo).
       if (isManagerShortcut(e) && useUi.getState().tela !== 'home' && !dialog) {
         e.preventDefault();
