@@ -1,6 +1,7 @@
 import type { Familia, Parametro } from '../tipos.ts';
 import type { Corpo } from '../tiposCorpo.ts';
 import { dimensao } from './eletricaApoio.ts';
+import { comprimento } from './novosApoio.ts';
 import {
   circuloPerfil,
   corpoDifusor,
@@ -109,7 +110,7 @@ export const FAMILIA_PENDENTE: Familia = familiaLuminaria({
   nome: 'Pendente',
   descricao: 'Pendente de cúpula cônica (diâmetro L embaixo, L / 2 em cima) com difusor, e cabo de suspensão de 3 mm de comprimento HC. Ponto de força no topo do cabo. CONFERIR dimensões, cabo e fotometria.',
   hospedagem: 'nivel',
-  parametros: [...parametrosComuns(), dimensao('L', 'Diâmetro da base', 300, 1000), dimensao('A', 'Altura da cúpula', 150, 500), dimensao('P', 'Profundidade (igual ao diâmetro)', 300, 1000), dimensao('HC', 'Comprimento do cabo', 600, 3000), parametroHInst(1800), parametroEspessura(), ...parametrosFotometria(12, 1100, 3000)],
+  parametros: [...parametrosComuns(), dimensao('L', 'Diâmetro da base', 300, 1000), dimensao('A', 'Altura da cúpula', 150, 500), dimensao('P', 'Profundidade (igual ao diâmetro)', 300, 1000), comprimento('HC', 'Comprimento do cabo', 600, 1, 3000, 1), parametroHInst(1800), parametroEspessura(), ...parametrosFotometria(12, 1100, 3000)],
   corpos: [
     corpoLuminaria('cupula', 'Cúpula', { tipo: 'transicao', perfilA: circuloPerfil('L'), perfilB: circuloPerfil('L / 2'), comprimento: 'A - E' }, { origem: ['L / 2', 'P / 2', 'hInst + E'] }),
     corpoDifusor('difusor', 'Difusor do pendente', { tipo: 'extrusao', perfil: circuloPerfil('L - 10'), comprimento: 'E' }, { origem: ['L / 2', 'P / 2', 'hInst'] }),

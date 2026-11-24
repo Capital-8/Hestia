@@ -34,12 +34,6 @@ function numero(src: string, env: Env): number {
   return r.valor;
 }
 
-const porId = (id: string): Familia => {
-  const f = LUMINARIAS.find((x) => x.id === id);
-  if (!f) throw new Error(`família ausente: ${id}`);
-  return f;
-};
-
 const corpoPrincipal = (f: Familia): Corpo => {
   const c = f.corpos?.[0];
   if (!c) throw new Error(`sem corpo: ${f.id}`);
