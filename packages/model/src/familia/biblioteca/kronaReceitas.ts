@@ -21,6 +21,11 @@ const EXT = 'Db + 2 * e';
 const INT = 'Db - 2 * min(e, Db / 8)';
 const S45 = 'sin(45)';
 const C45 = 'cos(45)';
+/**
+ * Raio do arco da varredura: a tangente é Z (raio = Z no 90°; Z / tan(22,5°) no 45°), mas nunca menor que 0,55 do diâmetro externo,
+ * senão o anel se cruza na curva interna (joelhos curtos de bitola grande).
+ */
+const raioDoArco = (ang: 90 | 45): string => `max(${ang === 90 ? 'Z' : 'Z / tan(22.5)'}, 0.55 * (${EXT}))`;
 const z = (s: string): Ponto3 => ['0', '0', s];
 const n = (v: Record<string, number>, k: string): number => v[k] ?? 0;
 
@@ -33,25 +38,12 @@ export function tubo(ctx: Contexto = ESGOTO): Receita {
   };
 }
 
-/** Joelho com duas bolsas: braço A sai para −Z e braço B desvia `ang` graus (90 = +X). */
+/**
+ * Joelho com duas bolsas: braço A sai para −Z e braço B desvia `ang` graus (90 = +X). É UMA varredura contínua (fechada, sem a
+ * fresta que dois cilindros retos deixavam no canto): ver `curvaBolsas`.
+ */
 export function joelho(ang: 90 | 45, ctx: Contexto = ESGOTO): Receita {
-  const dir: [string, string, string] = ang === 90 ? ['1', '0', '0'] : [S45, '0', C45];
-  const mult = (k: string): Ponto3 => (ang === 90 ? [k, '0', '0'] : [`(${k}) * ${S45}`, '0', `(${k}) * ${C45}`]);
-  const rot: Ponto3 = ['0', String(ang), '0'];
-  return {
-    usa: ['B', 'Z', 'Db', 'e'],
-    corpos: [
-      oco('a_corpo', 'Braço A (corpo)', 'conexao', EXT, INT, 'Z', z('-Z')),
-      oco('a_bolsa', 'Braço A (bolsa)', 'conexao', EXT, 'Db', 'B', z('-(Z + B)')),
-      oco('b_corpo', 'Braço B (corpo)', 'conexao', EXT, INT, 'Z', z('0'), rot),
-      oco('b_bolsa', 'Braço B (bolsa)', 'conexao', EXT, 'Db', 'B', mult('Z'), rot),
-    ],
-    ligacoes: [ligacaoKrona(ctx, 'a', 'Bolsa A', z('-(Z + B)'), ['0', '0', '-1'], 'Db', 'B'), ligacaoKrona(ctx, 'b', 'Bolsa B', mult('Z + B'), dir, 'Db', 'B')],
-    caixa: (v) => {
-      const r = n(v, 'Z') + n(v, 'B');
-      return { L: (ang === 90 ? r : r * Math.SQRT1_2) + externo(v) / 2, A: ang === 90 ? r + externo(v) / 2 : r * 2, P: externo(v) };
-    },
-  };
+  return curvaBolsas(ang, ctx);
 }
 
 /**
@@ -60,7 +52,7 @@ export function joelho(ang: 90 | 45, ctx: Contexto = ESGOTO): Receita {
  */
 export function curva(ang: 90 | 45, ctx: Contexto = ESGOTO): Receita {
   const fim: Ponto3 = ang === 90 ? ['Z + B', '0', '0'] : [`(Z + B) * ${S45}`, '0', `(Z + B) * ${C45}`];
-  const raio = ang === 90 ? 'Z' : 'Z / tan(22.5)';
+  const raio = raioDoArco(ang);
   return {
     usa: ['B', 'Z', 'C', 'Db', 'De', 'e'],
     corpos: [{ id: 'curva', nome: `Curva ${ang}°`, papel: 'conexao', forma: { tipo: 'varredura', perfil: { tipo: 'anel', diametroExterno: EXT, diametroInterno: 'Db' }, caminho: { pontos: [z('-C'), z('0'), fim], raios: [raio] } }, quadro: { origem: z('0') }, material: 'mat_pvc' }],
@@ -168,7 +160,7 @@ export function bucha(ctx: Contexto = ESGOTO): Receita {
  */
 export function curvaBolsas(ang: 90 | 45, ctx: Contexto = ESGOTO): Receita {
   const fim: Ponto3 = ang === 90 ? ['Z + B', '0', '0'] : [`(Z + B) * ${S45}`, '0', `(Z + B) * ${C45}`];
-  const raio = ang === 90 ? 'Z' : 'Z / tan(22.5)';
+  const raio = raioDoArco(ang);
   return {
     usa: ['B', 'Z', 'Db', 'e'],
     corpos: [{ id: 'curva', nome: `Curva ${ang}°`, papel: 'conexao', forma: { tipo: 'varredura', perfil: { tipo: 'anel', diametroExterno: EXT, diametroInterno: 'Db' }, caminho: { pontos: [z('-(Z + B)'), z('0'), fim], raios: [raio] } }, quadro: { origem: z('0') }, material: 'mat_pvc' }],
