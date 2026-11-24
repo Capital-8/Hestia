@@ -1,5 +1,5 @@
 import type { Eixo, Familia, NivelDetalhe, PapelPeca, Valor } from '@hestia/model';
-import type { CorpoResolvido, LigacaoResolvida } from './corposTipos.ts';
+import type { CorpoResolvido, LigacaoResolvida, SimboloResolvido } from './corposTipos.ts';
 
 /*
  * CONTRATO das peças resolvidas (ADR 0049 §5.1). É a FRONTEIRA com o Rust: só números (metros, arredondados a 1 µm),
@@ -107,6 +107,11 @@ export interface ResolucaoFamilia {
   ligacoes?: LigacaoResolvida[];
   /** Caixa envolvente dos corpos sólidos, em m; `null` sem corpos. Mesma nota de `corpos`. */
   caixaCorpos?: { min: [number, number, number]; max: [number, number, number] } | null;
+  /**
+   * Símbolos 2D resolvidos (ficha A7b, D1): primitivos em m e ângulos em rad; lista vazia quando a família não tem símbolos. Os erros
+   * de símbolo vão para `erros` com `onde` `simbolos[id]...`.
+   */
+  simbolos?: SimboloResolvido[];
 }
 
 /** Aninhamento máximo (família dentro de família dentro de…); acima disso é erro, nunca recursão infinita. */

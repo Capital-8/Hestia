@@ -1,6 +1,8 @@
 import { LIMITES, ordemDeAvaliacao, tentar, type Env, type Familia, type Parametro, type Peca, type Valor } from '@hestia/model';
 import { resolverAninhados } from './aninhados.ts';
 import { resolverCorposDaFamilia, type ResultadoCorposDaFamilia } from './resolverCorpos.ts';
+import { resolverSimbolos } from './simbolosResolvidos.ts';
+import type { SimboloResolvido } from './corposTipos.ts';
 import { orientarAntiHorario, validarContorno } from './contorno.ts';
 import type { EntradaResolucao, ErroResolucao, FerragemResolvida, PecaResolvida, ResolucaoFamilia, UsinagemResolvida } from './pecas.ts';
 
@@ -221,21 +223,31 @@ function resolverFerragens(f: Familia, env: Env, erros: Erros): FerragemResolvid
   return saida;
 }
 
+/** `simbolo:<id>.<campo>` (D1) vira `simbolos[<id>].<campo>` (ficha A7b); outros `onde` (ex.: `simbolos[k]`) ficam como estão. */
+function ondeDoSimbolo(onde: string): string {
+  const m = /^simbolo:([^.]+)\.(.*)$/.exec(onde);
+  return m ? `simbolos[${m[1]}].${m[2]}` : onde;
+}
+
 export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): ResolucaoFamilia {
   const erros: Erros = [];
   let env: Record<string, Valor> = {};
   const pecas: PecaResolvida[] = [];
   let ferragens: FerragemResolvida[] = [];
   let corposR: ResultadoCorposDaFamilia = { corpos: [], ligacoes: [], caixaCorpos: null, erros: [] };
+  let simbolos: SimboloResolvido[] = [];
   try {
     env = prepararEnv(f, entrada, erros);
-    if (!avaliarOrdem(f, env, erros)) return { pecas: [], ferragens: [], erros, env, corpos: [], ligacoes: [], caixaCorpos: null };
+    if (!avaliarOrdem(f, env, erros)) return { pecas: [], ferragens: [], erros, env, corpos: [], ligacoes: [], caixaCorpos: null, simbolos: [] };
     const chapas = new Set(f.parametros.filter((q) => q.tipo === 'chapa').map((q) => q.id));
     for (const p of f.pecas) {
       try { pecas.push(...resolverPeca(p, env, chapas, erros)); } catch (e) { erros.push({ onde: `peca:${String((p as { id?: unknown }).id)}`, mensagem: `peça malformada: ${(e as Error).message}` }); }
     }
     corposR = resolverCorposDaFamilia(f, env);
     erros.push(...corposR.erros);
+    const simb = resolverSimbolos(f, env);
+    for (const d of simb.diagnosticos) erros.push({ onde: ondeDoSimbolo(d.onde), mensagem: d.mensagem });
+    simbolos = simb.simbolos;
     ferragens = resolverFerragens(f, env, erros);
     if (f.aninhados.length > 0) {
       const r = resolverAninhados({ familia: f, env, entrada, resolver: resolverFamilia });
@@ -245,5 +257,5 @@ export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): Res
   } catch (e) {
     erros.push({ onde: 'familia', mensagem: `família malformada: ${(e as Error).message}` });
   }
-  return { pecas, ferragens, erros, env, corpos: corposR.corpos, ligacoes: corposR.ligacoes, caixaCorpos: corposR.caixaCorpos };
+  return { pecas, ferragens, erros, env, corpos: corposR.corpos, ligacoes: corposR.ligacoes, caixaCorpos: corposR.caixaCorpos, simbolos };
 }
