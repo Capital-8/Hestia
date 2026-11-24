@@ -1,11 +1,11 @@
-import { makeView3DView, newId, view3dOf, view3dViewOf, type Camera3D, type Id, type ProjectStore } from '@hestia/model';
+import { makeView3DView, newId, view3dViewOf, type Camera3D, type Id, type ProjectStore } from '@hestia/model';
 import { editor } from './controller.ts';
 import { t, useI18n, type Dict } from './i18n.ts';
 import { removeView, type OpenView } from './openViews.ts';
 import { useUi } from './state.ts';
 import { activateView } from './viewTabActions.ts';
 import { camera3DAtual } from './vista3dAoVivo.ts';
-import { cameraSalvaDaOrbita, mesmaCamera3d } from './vista3dSalva.ts';
+import { cameraSalvaDaOrbita, mesmaCamera3d, view3dSettingsOf } from './vista3dSalva.ts';
 
 /**
  * Ações das vistas 3D salvas no navegador e nas abas (plano de UX de 2026-11-23). Cada escrita é um comando com
@@ -28,11 +28,12 @@ export function abrirVista3dAction(id: Id): Recusa {
   return st.view === '3d' && st.view3dViewId === id ? null : msg('cvn_br_status_3d_missing');
 }
 
-/** Nome, disciplina e gráficos da vista 3D ativa, para "Nova vista 3D". */
+/** Nome, disciplina e gráficos efetivos da vista 3D ativa, para "Nova vista 3D". */
 export function novaVista3dAction(store: ProjectStore): { id: Id } | { erro: string } {
   const camera = camera3DAtual();
   if (!camera) return { erro: msg('edc_3d_view_closed') };
-  const settings = view3dOf(store.project);
+  const st = useUi.getState();
+  const settings = view3dSettingsOf(store.project, st.view === '3d' ? st.view3dViewId : null);
   try {
     const view = makeView3DView(store.project, {
       camera: cameraSalvaDaOrbita(camera),

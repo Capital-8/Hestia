@@ -1,5 +1,6 @@
 import { DEFAULT_CATEGORY_STYLES, DEFAULT_LINE_WEIGHTS, DEFAULT_PROJECT_GRAPHICS, graphicsOf, mergeView3D, planGraphicsOf, planViewById, presetTone, sectionGraphicsOf, view3dOf, view3dViewOf, type Command, type Discipline, type Id, type Project, type ProjectStore, type TomOuApresentacao, type Tone, type View3DSettings } from '@hestia/model';
 import { t, useI18n } from './i18n.ts';
+import { view3dSettingsOf } from './vista3dSalva.ts';
 
 /** Resultado de uma edição de gráficos: `error` traz a mensagem pt-BR de quem recusou (nada é gravado). */
 export interface GraphicsEdit {
@@ -79,6 +80,29 @@ export function editView3dSaved(store: ProjectStore, id: Id, patch: View3DPatch,
     if (!view) return OK;
     if (alreadyApplied(patch, view.settings)) return OK;
     store.exec({ type: 'updateView3d', id, patch: { settings: mergeView3D(view.settings, patch) } }, label, useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/**
+ * Aplica os gráficos da vista 3D ativa: sem id grava no 3D padrão (`setView3D`); com id, na vista salva
+ * (`updateView3d`). A disciplina da vista salva é gravada no campo do topo (o mesmo que a cena lê).
+ */
+export function editView3dAtual(store: ProjectStore, view3dViewId: Id | null | undefined, patch: View3DPatch, label = 'eds_undo_change_3d_graphics'): GraphicsEdit {
+  if (!view3dViewId) return editView3D(store, patch, label);
+  try {
+    const view = view3dViewOf(store.project, view3dViewId);
+    if (!view) return OK;
+    const atual = view3dSettingsOf(store.project, view3dViewId);
+    if (alreadyApplied(patch, atual)) return OK;
+    const settings = mergeView3D(atual, patch);
+    const comDisciplina = Object.prototype.hasOwnProperty.call(patch, 'discipline');
+    if (comDisciplina && patch.discipline === undefined) delete settings.discipline;
+    const viewPatch: { settings: View3DSettings; discipline?: Discipline } = { settings };
+    if (comDisciplina) viewPatch.discipline = patch.discipline;
+    store.exec({ type: 'updateView3d', id: view3dViewId, patch: viewPatch }, label, useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);
@@ -198,6 +222,23 @@ export function restoreView3DDefault(store: ProjectStore): GraphicsEdit {
   try {
     if (!store.project.view3d) return OK;
     store.exec({ type: 'resetView3D' }, 'eds_undo_restore_3d_graphics', useI18n.getState().lang);
+    return OK;
+  } catch (e) {
+    return failed(e);
+  }
+}
+
+/** Volta a vista 3D ativa ao padrão: a padrão apaga `Project.view3d`; a salva grava `view3dOf({})` nela. */
+export function restoreView3DDefaultAtual(store: ProjectStore, view3dViewId: Id | null | undefined): GraphicsEdit {
+  if (!view3dViewId) return restoreView3DDefault(store);
+  try {
+    const view = view3dViewOf(store.project, view3dViewId);
+    if (!view) return OK;
+    const padrao = view3dOf({});
+    const atual = view3dSettingsOf(store.project, view3dViewId);
+    const temExtra = Object.keys(view.settings).some((k) => !(k in padrao));
+    if (view.discipline === undefined && !temExtra && alreadyApplied(padrao, atual)) return OK;
+    store.exec({ type: 'updateView3d', id: view3dViewId, patch: { settings: padrao, discipline: undefined } }, 'eds_undo_restore_3d_graphics', useI18n.getState().lang);
     return OK;
   } catch (e) {
     return failed(e);

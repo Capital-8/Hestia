@@ -1,9 +1,9 @@
 /* eslint-disable max-lines -- visibilidade, tons, apresentação, bloqueio de edição, Hide/Reveal e temporários no mesmo dono. */
-import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, podeEditar, tomDaCategoria, view3dOf, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
+import { apresentacaoDaCategoria, categoriaDoElemento, categoriasPorDisciplina, DEFAULT_DISCIPLINE, disciplineOfElement, planHiddenOf, planOf, podeEditar, tomDaCategoria, type Apresentacao, type Discipline, type GraphicsCategory, type Id, type PlanView, type Project, type Tone, type ViewGraphics, type ViewHiddenTarget, type ViewHidden } from '@hestia/model';
 import { editor } from './controller.ts';
 import { useUi } from './state.ts';
 import { planViewIdDe, visibilityKeyOfFields } from './viewIdentity.ts';
-import { vista3dSalvaDe } from './vista3dSalva.ts';
+import { vista3dSalvaDe, view3dSettingsOf } from './vista3dSalva.ts';
 import { annotationIdsOfActiveView, selectedAnnotations } from './viewAnnotations.ts';
 
 type ViewState = Pick<ReturnType<typeof useUi.getState>, 'view' | 'planKind' | 'levelId' | 'areaPlanId' | 'sectionId'> & Partial<Pick<ReturnType<typeof useUi.getState>, 'planViewId' | 'view3dViewId'>>;
@@ -274,8 +274,8 @@ export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>):
   // Disciplina de trabalho: a pessoal vence; sem ela, a da vista (vista 3D salva, 3D padrão, planta de disciplina ou
   // padrão). Na 3D ausente = todas as disciplinas (nenhuma vira referência); no corte, a padrão.
   const vista3d = st.view === '3d' ? vista3dSalvaDe(p, st) : undefined;
-  const servicos3d = st.view === '3d' ? view3dOf(p) : undefined;
-  const disciplinaDaVista3d = vista3d?.discipline ?? vista3d?.settings.discipline ?? servicos3d?.discipline;
+  const settings3d = st.view === '3d' ? view3dSettingsOf(p, st.view3dViewId) : undefined;
+  const disciplinaDaVista3d = vista3d?.discipline ?? settings3d?.discipline;
   const trabalho: Discipline | 'todas' =
     st.minhaDisciplina ??
     (st.view === '3d'

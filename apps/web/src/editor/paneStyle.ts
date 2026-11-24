@@ -1,7 +1,8 @@
-import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, type Id, type Project, type View3DSettings, type View3DView, type ViewGraphics, type VisualStyle } from '@hestia/model';
+import { PLAN_VISUAL_STYLES, planGraphicsOf, sectionGraphicsOf, view3dOf, view3dViewOf, type Id, type Project, type View3DSettings, type View3DView, type ViewGraphics, type VisualStyle } from '@hestia/model';
 import { findPane, type PaneId, type PaneStyle } from './panes.ts';
 import { usePanes } from './paneStore.ts';
 import { editor } from './controller.ts';
+import { view3dSettingsOf } from './vista3dSalva.ts';
 
 /**
  * Estilo visual por painel (multitelas, onda 3F). Funções puras: mesclam o `PaneStyle` do painel sobre o que o projeto
@@ -75,12 +76,15 @@ export function comGraficosDaPlanta(p: Project, levelId: Id, planId: Id | undefi
  * desenho (nunca é gravado). Memorizado por (projeto, estilo, vista) para a identidade ser estável entre quadros: os
  * caches da cena (por projeto) continuam valendo. Estilo que não muda nada devolve o próprio projeto.
  */
-export function projetoDoPainel(p: Project, s: PaneStyle, alvo: { kind: '3d' } | { kind: 'plan'; levelId: Id; planId?: Id } | { kind: 'section' }): Project {
+export function projetoDoPainel(p: Project, s: PaneStyle, alvo: { kind: '3d'; viewId?: Id } | { kind: 'plan'; levelId: Id; planId?: Id } | { kind: 'section' }): Project {
   let base: Project = p;
   if (alvo.kind === '3d') {
-    const v = view3dOf(p);
+    // Vista 3D salva ativa: os gráficos da vista entram no projeto antes do estilo do painel (que ainda vence).
+    const vista = alvo.viewId ? view3dViewOf(p, alvo.viewId) : undefined;
+    const baseVista = projetoDaVista3d(p, vista);
+    const v = view3dOf(baseVista);
     const e = effectiveView3d(v, s);
-    if (e !== v) base = { ...p, view3d: e };
+    base = e !== v ? { ...baseVista, view3d: e } : baseVista;
   } else if (alvo.kind === 'plan') {
     const g = planGraphicsOf(p, alvo.levelId, alvo.planId);
     const e = effectivePlanGraphics(g, s);
@@ -91,7 +95,7 @@ export function projetoDoPainel(p: Project, s: PaneStyle, alvo: { kind: '3d' } |
     if (e !== g) base = { ...p, sectionGraphics: e };
   }
   if (base === p) return p;
-  const key = `${alvo.kind}|${alvo.kind === 'plan' ? `${alvo.levelId}|${alvo.planId ?? ''}` : ''}|${s.style ?? ''}|${s.shadows ?? ''}|${s.edges ?? ''}|${s.background ?? ''}|${s.thinLines ?? ''}`;
+  const key = `${alvo.kind}|${alvo.kind === 'plan' ? `${alvo.levelId}|${alvo.planId ?? ''}` : alvo.kind === '3d' ? (alvo.viewId ?? '') : ''}|${s.style ?? ''}|${s.shadows ?? ''}|${s.edges ?? ''}|${s.background ?? ''}|${s.thinLines ?? ''}`;
   let m = derivados.get(p);
   if (!m) derivados.set(p, (m = new Map()));
   const guardado = m.get(key);
@@ -110,7 +114,7 @@ export function descreverEstiloAplicado(paneId: PaneId): EstiloAplicado | null {
   const p = editor.project;
   const v = pane.view;
   if (v.kind === '3d') {
-    const e = effectiveView3d(view3dOf(p), pane.style);
+    const e = effectiveView3d(view3dSettingsOf(p, v.viewId), pane.style);
     return { style: e.style, shadows: e.shadows, edges: e.edges, background: e.background };
   }
   if (v.kind === 'plan' || v.kind === 'section') {

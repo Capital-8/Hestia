@@ -26,7 +26,7 @@ import { sectionDimensionPoints, type SectionDimensionGrip } from '@hestia/rende
 import { clickSelect3d, useUi } from '../editor/state.ts';
 import { usePanes } from '../editor/paneStore.ts';
 import { estiloDoPainelAgora } from './paneEstilo.ts';
-import { projetoDoPainel, projetoDaVista3d } from '../editor/paneStyle.ts';
+import { projetoDoPainel } from '../editor/paneStyle.ts';
 import { ownViewport } from '../editor/paneCamera2d.ts';
 import { usePaneCameras, usePaneCanvas } from './usePaneCanvas.ts';
 import type { PaneId } from '../editor/panes.ts';
@@ -34,7 +34,7 @@ import type { PaneId } from '../editor/panes.ts';
 /** Tolerância (m) para escolher a linha de cortina sob o cursor na 3D (metade de um montante, com folga). */
 const TOLERANCIA_SUB_3D = 0.08;
 import { consumirCameraPendente, registrarCena3D, registrarOrbita3D, registrarPreparoCena3D } from '../editor/vista3dAoVivo.ts';
-import { cameraOrbitaDaSalva, cameraSalvaDaOrbita, vista3dSalvaDe } from '../editor/vista3dSalva.ts';
+import { cameraOrbitaDaSalva, cameraSalvaDaOrbita, view3dViewIdAtivo } from '../editor/vista3dSalva.ts';
 import { gravarCameraDaVista3dAction } from '../editor/vista3dSalvaAcoes.ts';
 import { thinLinesOn } from '../editor/graphicsActions.ts';
 import { planViewIdDe } from '../editor/viewIdentity.ts';
@@ -402,10 +402,9 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const iniciarMontagem3d = useCallback((darkAgora: boolean, st: ReturnType<typeof useUi.getState>): boolean => {
-    const base = projetoDaVista3d(editor.project, vista3dSalvaDe(editor.project, st));
-    const p = projetoDoPainel(base, estiloDoPainelAgora(paneId), { kind: '3d' });
+    const p = projetoDoPainel(editor.project, estiloDoPainelAgora(paneId), { kind: '3d', viewId: view3dViewIdAtivo(st) ?? undefined });
     const vis = visibilityOf(p, st);
-    // Sombras e arestas são da vista 3D no projeto (decisão 0015 §1): a chave inclui a versão do projeto.
+    // Sombras e arestas são da vista 3D ativa (padrão ou salva; decisão 0015 §1): a chave inclui a versão do projeto.
     const v3 = view3dOf(p);
     // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
     // receber `hidden`/`revealed` (sem isto HH/RH mudavam o estado, mas o modelo continuava na tela).
@@ -413,7 +412,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const tonsKey = Object.entries(vis.toneCategories).sort(([a], [b]) => a.localeCompare(b)).map(([c, tom]) => `${c}:${tom}`).join(',');
     const apsKey = JSON.stringify(vis.apresentacoes);
     const visKey = `${[...vis.hidden].sort().join(',')}|${[...vis.revealed].sort().join(',')}|${tonsKey}|${apsKey}`;
-    const key = `${editor.store.version}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}|${texturas3d.versao}`;
+    const key = `${editor.store.version}|${view3dViewIdAtivo(st) ?? ''}|${darkAgora}|${v3.shadows}|${v3.edges}|${v3.style}|${v3.background ?? ''}|${v3.openOpenings === true}|${v3.showLevels !== false}|${visKey}|${texturas3d.versao}`;
     if (key === modelKey.current) return false;
     modelKey.current = key;
     const m = model.current;
@@ -519,8 +518,16 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const p = editor.project;
     // Estilo visual do PRÓPRIO painel (`pane.style`) sobre o da vista (3D salva ou projeto); painel sem estilo usa a vista como está.
     const estilo = estiloDoPainelAgora(paneId);
-    const pEstilo = projetoDoPainel(projetoDaVista3d(p, vista3dSalvaDe(p, st)), estilo, st.view === '3d' ? { kind: '3d' } : st.view === 'section' ? { kind: 'section' } : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) });
-    const vis = visibilityOf(p, st);
+    const pEstilo = projetoDoPainel(
+      p,
+      estilo,
+      st.view === '3d'
+        ? { kind: '3d', viewId: view3dViewIdAtivo(st) ?? undefined }
+        : st.view === 'section'
+          ? { kind: 'section' }
+          : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) },
+    );
+    const vis = visibilityOf(pEstilo, st);
     const theme = dark ? DARK : LIGHT;
     if (st.view === '3d') {
       secDl.current = null;
