@@ -192,3 +192,15 @@ export {
   reordenarCorpo,
 } from './edicaoCorpos.ts';
 export { adicionarLigacao, criarLigacaoPadrao, duplicarLigacao, editarLigacao, espelharLigacaoEmX, excluirLigacao } from './edicaoLigacoes.ts';
+export {
+  adicionarCota,
+  adicionarDetalhe,
+  criarDetalhePadrao,
+  editarCota,
+  editarCotaDirigida,
+  editarDetalhe,
+  excluirCota,
+  excluirDetalhe,
+  valorDaCotaParaParametro,
+  type ValorDeCota,
+} from './edicaoDetalhes.ts';
