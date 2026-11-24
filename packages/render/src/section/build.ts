@@ -2,7 +2,7 @@ import { union, type MultiPolygon, type Ring, type Vec2 } from '@hestia/geom';
 import { guardaCorpoCorteOps } from './guardaCorpo.ts';
 import { terrenoCorteOps, terrenoCorteRealce } from './terreno.ts';
 import { massaCorteOps } from './massa.ts';
-import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
+import { CLOSED, corposNoCorte, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRing, type SectionBeyond, type SectionOpening, type SectionOrigin, type SectionResult } from '@hestia/engine';
 import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type Apresentacao, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits, type Tone } from '@hestia/model';
 import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
@@ -85,7 +85,17 @@ const materialComponente = (id: Id): Material | undefined =>
  * opacos. A ordem de pintura é do mais longe ao mais perto, com o corte por último.
  */
 export function buildSectionDrawList(input: SectionInput): PlanDrawList {
-  const { project: p, section: s, theme, viewport: v } = input;
+  const { project: p, theme, viewport: v } = input;
+  // Corpos das famílias (ficha B4): corte com furos e silhueta além do plano entram como mais um componente. Sem corpos, `s` é a seção de sempre.
+  const corpos = input.section.plano ? corposNoCorte(p, input.section.plano) : null;
+  const comCorpos = corpos !== null && (corpos.cut.length > 0 || corpos.beyond.length > 0);
+  const s: SectionResult = comCorpos
+    ? {
+        ...input.section,
+        cut: [...input.section.cut, ...corpos.cut.map((c) => ({ materialId: c.materialId, polygons: c.polygons, sources: [{ componentId: c.componentId }] }))],
+        beyond: [...input.section.beyond, ...corpos.beyond.map((b) => ({ ...b, layerIndex: 0 }))],
+      }
+    : input.section;
   const fills: FillOp[] = [];
   const strokes: StrokeOp[] = [];
   const labels: LabelOp[] = [];
@@ -428,7 +438,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // Contorno externo: a união das regiões visíveis (o que está atrás de um sólido não entra). Com categoria oculta (ou
   // elemento oculto nesta vista), a silhueta do motor (que une tudo) é refeita só com os itens que ficaram.
   const hiddenAny = GRAPHICS_CATEGORIES.some((c) => !paint[c].visible);
-  const silhouette = hiddenAny || hasHidden || roofItems.length > 0 ? (silhouetteParts.length > 0 ? semFrestas(union(...silhouetteParts)) : []) : s.silhouette;
+  const silhouette = hiddenAny || hasHidden || comCorpos || roofItems.length > 0 ? (silhouetteParts.length > 0 ? semFrestas(union(...silhouetteParts)) : []) : s.silhouette;
   for (const ring of ringsOf(silhouette)) strokes.push({ pts: ring, closed: true, widthPx: 2.2, color: theme.ink, alpha: 1 });
 
   // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A
