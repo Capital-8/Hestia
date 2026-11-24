@@ -9,6 +9,7 @@ import { validarCorpos } from './validarCorpos.ts';
 import { validarLigacoes } from './validarLigacoes.ts';
 import { validarRepresentacao } from './validarRepresentacao.ts';
 import { validarSimbolos } from './validarSimbolos.ts';
+import { validarDetalhes } from './validarDetalhes.ts';
 import { criarProblema, ehObjeto } from './validarComum.ts';
 
 /*
@@ -82,6 +83,7 @@ export function validarFamilia(f: Familia): Problema[] {
     ...validarLigacoes(f),
     ...validarRepresentacao(f),
     ...validarSimbolos(f),
+    ...validarDetalhes(f),
     ...validarCiclo(f),
     ...validarEncaixe(f),
     ...validarDisciplina(f),
