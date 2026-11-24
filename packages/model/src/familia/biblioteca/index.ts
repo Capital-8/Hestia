@@ -13,6 +13,7 @@ import { TUBULACAO_AGUA_FRIA } from './tuboAguaFria.ts';
 import { CAIXAS_HIDRO } from './caixasHidro.ts';
 import { PERFIS_METALICOS } from './perfisMetalicos.ts';
 import { ELETRICA } from './eletrica.ts';
+import { FOSSAS_SEPTICAS } from './fossasSeptica.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -45,6 +46,8 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...PERFIS_METALICOS,
   ...ELETRICA,
 ];
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO, ...FOSSAS_SEPTICAS];
+
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
   cozinha: ['fam_base_gavetas', 'fam_base_pia', 'fam_base_cooktop', 'fam_aereo', 'fam_aereo_basculante', 'fam_torre_forno', 'fam_paneleiro', 'fam_canto_l'],
