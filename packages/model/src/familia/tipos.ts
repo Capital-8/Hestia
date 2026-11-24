@@ -14,7 +14,7 @@ import type { Ligacao } from './tiposLigacao.ts';
 import type { ClasseIfc, DetalheFamilia, Simbolo2D, TabelaFamilia, Verificacao } from './tiposRepresentacao.ts';
 
 export const FAMILIA_FORMATO = 'hestia-familia';
-export const FAMILIA_VERSAO = 1;
+export const FAMILIA_VERSAO = 2;
 
 /** Limites duros (defesa e determinismo). Estourar é erro de validação, nunca laço infinito. */
 export const LIMITES = {

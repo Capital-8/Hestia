@@ -55,6 +55,14 @@ const CAMPOS_FAMILIA = [
   'escolhas',
   'tipos',
   'tipoPadrao',
+  // Versão 2 (ADR 0061, CONTRATO.md §9): representações e corpos novos.
+  'corpos',
+  'ligacoes',
+  'simbolos',
+  'detalhes',
+  'tabelas',
+  'verificacoes',
+  'ifc',
 ] as const;
 
 function ehObjetoSimples(v: unknown): v is Record<string, unknown> {
