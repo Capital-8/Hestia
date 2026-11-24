@@ -10,6 +10,7 @@ import { SeletorEstavel } from './SeletorEstavel.tsx';
 import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
+import { ComponentePropriedadesMep } from './ComponentePropriedadesMep.tsx';
 import { tm } from './moveisTextos.ts';
 import {
   aplicarAcabamentoComponentes,
@@ -308,6 +309,7 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
         </Group>
       )}
       {familia && <ComponentPropEscolhas familia={familia} components={components} />}
+      {familia && <ComponentePropriedadesMep familia={familia} components={components} />}
       <Group title={t('mov_grp_acabamentos')}>
         <Row label={t('mov_alinhamento')}>
           <button
