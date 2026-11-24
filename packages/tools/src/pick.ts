@@ -1,7 +1,7 @@
-import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, type Vec2 } from '@hestia/geom';
+import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, union, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
-import { isComponent, isFurniture, isGeneric, wallsOfPlan, type Id, type Project } from '@hestia/model';
-import { pegadaDoComponente, toLocal, wallEndCorners } from '@hestia/engine';
+import { isComponent, isFurniture, isGeneric, wallsOfPlan, type Component, type Id, type Project } from '@hestia/model';
+import { pegadaDoComponente, projetarCorposPlanta, resolverComponente, toLocal, wallEndCorners } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
 import { furnitureOutline } from './furnitureFootprint.ts';
@@ -170,6 +170,33 @@ export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: 
 }
 
 /**
+ * Pegada usada no clique e na caixa (ficha B5). Família sem corpos: exatamente a pegada de sempre. Com corpos, a caixa
+ * dos corpos sai e entra a silhueta de B3 (projeção em XY, detalhe médio, como a planta desenha por padrão), para o
+ * clique dentro da caixa mas fora do corpo não selecionar a instância.
+ */
+function pegadaParaClique(p: Project, c: Component): MultiPolygon {
+  const res = resolverComponente(p, c);
+  const corpos = res.corpos ?? [];
+  if (corpos.length === 0) return pegadaDoComponente(p, c, res);
+  const pecas = pegadaDoComponente(p, c, { ...res, caixaCorpos: null });
+  const partes: MultiPolygon[] = pecas.length > 0 ? [pecas] : [];
+  for (const poly of projetarCorposPlanta(corpos, 'medium')) {
+    const anel: Vec2[] = [];
+    for (let i = 0; i + 1 < poly.length; i += 2) anel.push(pontoDoComponente(c, poly[i]!, poly[i + 1]!));
+    if (anel.length >= 3) partes.push([[anel]]);
+  }
+  return partes.length === 0 ? [] : union(...partes);
+}
+
+/** Ponto local da família no mundo: a mesma transformação de `pontoNoMundo` do render (espelho antes da rotação). */
+function pontoDoComponente(c: Component, lx: number, ly: number): Vec2 {
+  const cos = Math.cos(c.rotation);
+  const sen = Math.sin(c.rotation);
+  const sx = c.mirrored ? -lx : lx;
+  return { x: c.x + sx * cos - ly * sen, y: c.y + sx * sen + ly * cos };
+}
+
+/**
  * Componente sob o ponto: qualquer anel externo da pegada em planta o contém (com a mesma tolerância de borda da
  * seleção). Entre sobrepostos vence o de menor área, como no objeto genérico. Componentes de outros níveis ficam fora.
  */
@@ -180,7 +207,7 @@ export function componentAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?
     if (!isComponent(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'clique')) continue;
     let area = 0;
     let hit = false;
-    for (const poly of pegadaDoComponente(p, e)) {
+    for (const poly of pegadaParaClique(p, e)) {
       const ring = poly[0];
       if (!ring) continue;
       area += Math.abs(ringArea(ring));
@@ -198,7 +225,7 @@ export function componentIdsInBox(p: Project, levelId: Id, a: Vec2, b: Vec2, env
   const ids: Id[] = [];
   for (const e of Object.values(p.elements)) {
     if (!isComponent(e) || e.levelId !== levelId || !selecionavel(env, e.id, 'caixa')) continue;
-    const pegada = pegadaDoComponente(p, e);
+    const pegada = pegadaParaClique(p, e);
     if (pegada.length === 0) continue;
     const dentro = pegada.every((poly) => {
       const ring = poly[0];
