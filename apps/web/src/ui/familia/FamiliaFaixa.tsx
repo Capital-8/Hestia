@@ -3,9 +3,14 @@ import type { ModoInteracao3DFamilia } from '@hestia/render';
 import { Fragment, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { editor } from '../../editor/controller.ts';
+import { useT } from '../../editor/i18n.ts';
 import { useUi } from '../../editor/state.ts';
 import { Icon } from '../Icon.tsx';
 import { carregarNoProjeto } from './carregarNoProjeto.ts';
+import type { Chave, PainelAba } from './familiaAbaAcoes.ts';
+import { FamiliaAbaRibbon } from './FamiliaAbaRibbon.tsx';
+import { PAINEIS_GERENCIAR, PAINEIS_VISTA } from './familiaAbaPaineisVista.ts';
+import { PAINEIS_INSERIR, PAINEIS_MODIFICAR } from './familiaAbaPaineis.ts';
 import { PainelCorpos } from './FamiliaCorpoCriar.tsx';
 import { useFamilia } from './familiaStore.ts';
 import type { DialogoFamilia } from './familiaStore.ts';
@@ -143,9 +148,25 @@ function Botao({ it, grande, aoCarregar }: { it: Item; grande: boolean; aoCarreg
   );
 }
 
-const ABAS = ['Criar', 'Inserir', 'Modificar', 'Vista', 'Gerenciar'];
+/** Abas da faixa: Criar mostra os painéis de criação deste arquivo; as outras usam `familiaAbaPaineis*.ts`. */
+type AbaFaixa = 'criar' | 'inserir' | 'modificar' | 'vista' | 'gerenciar';
+const ABAS: { id: AbaFaixa; rotulo: Chave }[] = [
+  { id: 'criar', rotulo: 'fa_aba_criar' },
+  { id: 'inserir', rotulo: 'fa_aba_inserir' },
+  { id: 'modificar', rotulo: 'fa_aba_modificar' },
+  { id: 'vista', rotulo: 'fa_aba_vista' },
+  { id: 'gerenciar', rotulo: 'fa_aba_gerenciar' },
+];
+const PAINEIS_DA_ABA: Record<Exclude<AbaFaixa, 'criar'>, { titulo: Chave; paineis: PainelAba[] }> = {
+  inserir: { titulo: 'fa_aba_inserir', paineis: PAINEIS_INSERIR },
+  modificar: { titulo: 'fa_aba_modificar', paineis: PAINEIS_MODIFICAR },
+  vista: { titulo: 'fa_aba_vista', paineis: PAINEIS_VISTA },
+  gerenciar: { titulo: 'fa_aba_gerenciar', paineis: PAINEIS_GERENCIAR },
+};
 
 export function FamiliaFaixa(): ReactElement {
+  const { t } = useT();
+  const [aba, setAba] = useState<AbaFaixa>('criar');
   const [mensagem, setMensagem] = useState<string | null>(null);
   const carregar = (): void => {
     const familia = useFamilia.getState().familia();
@@ -166,9 +187,10 @@ export function FamiliaFaixa(): ReactElement {
   return (
     <>
       <nav className="ribbon-tabs" aria-label="Abas do editor de família">
-        {ABAS.map((a, i) => <button key={a} className={`rtab${i === 0 ? ' on' : ''}`} disabled={i !== 0} title={i === 0 ? undefined : 'Aba ainda sem painéis'}>{a}</button>)}
+        {ABAS.map((a) => <button key={a.id} className={`rtab${aba === a.id ? ' on' : ''}`} aria-pressed={aba === a.id} onClick={() => setAba(a.id)}>{t(a.rotulo)}</button>)}
       </nav>
-      {mensagem && <div className="fam-msg erro" role="alert">{mensagem}</div>}
+      {aba !== 'criar' && <FamiliaAbaRibbon titulo={PAINEIS_DA_ABA[aba].titulo} paineis={PAINEIS_DA_ABA[aba].paineis} />}
+      {aba === 'criar' && <>{mensagem && <div className="fam-msg erro" role="alert">{mensagem}</div>}
       <div className="ribbon" role="toolbar" aria-label="Ferramentas da família">
         {PAINEIS.map((p, indice) => (
           <Fragment key={p.id}>
@@ -183,7 +205,7 @@ export function FamiliaFaixa(): ReactElement {
             {indice === 0 && <PainelCorpos />}
           </Fragment>
         ))}
-      </div>
+      </div></>}
     </>
   );
 }

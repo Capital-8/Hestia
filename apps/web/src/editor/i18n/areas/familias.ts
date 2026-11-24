@@ -6,6 +6,8 @@ import { PT_SIMBOLO, EN_SIMBOLO, ES_SIMBOLO, DE_SIMBOLO, FR_SIMBOLO, IT_SIMBOLO,
 import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
 import { PT_MODELOS, EN_MODELOS, ES_MODELOS, DE_MODELOS, FR_MODELOS, IT_MODELOS, PL_MODELOS } from './familiasModelos.ts';
 import { PT_INSTANCIA, EN_INSTANCIA, ES_INSTANCIA, DE_INSTANCIA, FR_INSTANCIA, IT_INSTANCIA, PL_INSTANCIA } from './familiasInstancia.ts';
+import { PT_ABAS, EN_ABAS, ES_ABAS, DE_ABAS, FR_ABAS, IT_ABAS, PL_ABAS } from './familiasAbas.ts';
+import { PT_ABAS_DICAS, EN_ABAS_DICAS, ES_ABAS_DICAS, DE_ABAS_DICAS, FR_ABAS_DICAS, IT_ABAS_DICAS, PL_ABAS_DICAS } from './familiasAbasDicas.ts';
 
 /**
  * Shard de dicionário: editor de famílias (reativado como EXPERIMENTAL) e "Meus modelos" (exportar/importar arquivo).
@@ -43,6 +45,8 @@ export const PT_FAMILIAS = {
   ...PT_REDE,
   ...PT_MODELOS,
   ...PT_INSTANCIA,
+  ...PT_ABAS,
+  ...PT_ABAS_DICAS,
 } as const;
 
 type D = Record<keyof typeof PT_FAMILIAS, string>;
@@ -77,6 +81,8 @@ export const EN_FAMILIAS: D = {
   ...EN_REDE,
   ...EN_MODELOS,
   ...EN_INSTANCIA,
+  ...EN_ABAS,
+  ...EN_ABAS_DICAS,
 };
 
 export const ES_FAMILIAS: D = {
@@ -109,6 +115,8 @@ export const ES_FAMILIAS: D = {
   ...ES_REDE,
   ...ES_MODELOS,
   ...ES_INSTANCIA,
+  ...ES_ABAS,
+  ...ES_ABAS_DICAS,
 };
 
 export const DE_FAMILIAS: D = {
@@ -141,6 +149,8 @@ export const DE_FAMILIAS: D = {
   ...DE_REDE,
   ...DE_MODELOS,
   ...DE_INSTANCIA,
+  ...DE_ABAS,
+  ...DE_ABAS_DICAS,
 };
 
 export const FR_FAMILIAS: D = {
@@ -173,6 +183,8 @@ export const FR_FAMILIAS: D = {
   ...FR_REDE,
   ...FR_MODELOS,
   ...FR_INSTANCIA,
+  ...FR_ABAS,
+  ...FR_ABAS_DICAS,
 };
 
 export const IT_FAMILIAS: D = {
@@ -205,6 +217,8 @@ export const IT_FAMILIAS: D = {
   ...IT_REDE,
   ...IT_MODELOS,
   ...IT_INSTANCIA,
+  ...IT_ABAS,
+  ...IT_ABAS_DICAS,
 };
 
 export const PL_FAMILIAS: D = {
@@ -237,4 +251,6 @@ export const PL_FAMILIAS: D = {
   ...PL_REDE,
   ...PL_MODELOS,
   ...PL_INSTANCIA,
+  ...PL_ABAS,
+  ...PL_ABAS_DICAS,
 };
