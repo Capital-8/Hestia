@@ -1,4 +1,4 @@
-import type { CategoriaFamilia, Familia } from '@hestia/model';
+import { ROTULO_CATEGORIA, type CategoriaFamilia, type Familia } from '@hestia/model';
 
 /*
  * Apoio puro do diálogo "Novo módulo": filtro da galeria, ids das cópias do usuário e o registro dos ids já abertos
@@ -19,6 +19,18 @@ export const CATEGORIAS: readonly OpcaoCategoria[] = [
   { id: 'loucas', rotulo: 'Louças e metais' },
   { id: 'equipamento', rotulo: 'Equipamentos' },
   { id: 'generico', rotulo: 'Genéricos' },
+  // ADR 0061: categorias novas, agrupadas por disciplina (hidrossanitário, elétrico, HVAC, estrutura).
+  { id: 'tubulacao', rotulo: ROTULO_CATEGORIA.tubulacao },
+  { id: 'conexao_tubo', rotulo: ROTULO_CATEGORIA.conexao_tubo },
+  { id: 'terminal_hidraulico', rotulo: ROTULO_CATEGORIA.terminal_hidraulico },
+  { id: 'reservatorio', rotulo: ROTULO_CATEGORIA.reservatorio },
+  { id: 'eletroduto', rotulo: ROTULO_CATEGORIA.eletroduto },
+  { id: 'dispositivo_eletrico', rotulo: ROTULO_CATEGORIA.dispositivo_eletrico },
+  { id: 'luminaria', rotulo: ROTULO_CATEGORIA.luminaria },
+  { id: 'duto', rotulo: ROTULO_CATEGORIA.duto },
+  { id: 'terminal_ar', rotulo: ROTULO_CATEGORIA.terminal_ar },
+  { id: 'perfil_estrutural', rotulo: ROTULO_CATEGORIA.perfil_estrutural },
+  { id: 'chapa_estrutural', rotulo: ROTULO_CATEGORIA.chapa_estrutural },
   { id: 'meus', rotulo: 'Meus modelos' },
 ];
 
