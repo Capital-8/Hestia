@@ -11,6 +11,13 @@ import type { CaminhoResolvido } from './corposTipos';
 
 type Trio = [number, number, number];
 
+/* Arbitragem (orquestrador): o retorno é `{ ok: true; caminho } | { ok: false; erro }` (ficha A4); o helper desembrulha o sucesso. */
+function filetar(...args: Parameters<typeof filetarCaminho>): CaminhoResolvido {
+  const r = filetarCaminho(...args);
+  if (!r.ok) throw new Error(`erro inesperado: ${r.erro}`);
+  return r.caminho;
+}
+
 const TOL_REL = 0.005;
 const EPS = 1e-9;
 const SEGMENTOS = 12;
@@ -99,7 +106,7 @@ function verificaArco(p: Trio[], raio: number): void {
   const n = unit(sub(d2, escala(d1, dot(d2, d1))));
   const C = soma(A, escala(n, raio));
 
-  const r = filetarCaminho(p, [raio], SEGMENTOS);
+  const r = filetar(p, [raio], SEGMENTOS);
 
   // Extremos do arco: primeiro ponto é A, último é B (segmentos + 1 pontos no arco).
   expect(ponto(r.pontos, 1)[0]).toBeCloseTo(A[0], 9);
@@ -122,12 +129,12 @@ function verificaArco(p: Trio[], raio: number): void {
 
 describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
   it('L-shape 0,5 m + 0,5 m com R = 0,1 m: comprimento do eixo 0,95708 m (±0,5 %)', () => {
-    const r = filetarCaminho(LSHAPE, [0.1], SEGMENTOS);
+    const r = filetar(LSHAPE, [0.1], SEGMENTOS);
     expectRelativo(comprimentoEixo(r), 0.9570796);
   });
 
   it('L-shape: o arco gera segmentos + 1 pontos (13) entre os dois vértices de extremidade', () => {
-    const r = filetarCaminho(LSHAPE, [0.1], SEGMENTOS);
+    const r = filetar(LSHAPE, [0.1], SEGMENTOS);
     // P0 + 13 pontos do arco (A..B incluídos) + P2.
     expect(numPontos(r)).toBe(2 + SEGMENTOS + 1);
   });
@@ -139,7 +146,7 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
   it('desvio de 45° com R = 0,1 m: comprimento 2 − 2R·tan(22,5°) + R·π/4 (±0,5 %)', () => {
     const phi = Math.PI / 4;
     const esperado = 2 - 2 * 0.1 * Math.tan(phi / 2) + 0.1 * phi;
-    const r = filetarCaminho(caminhoComDesvio(45), [0.1], SEGMENTOS);
+    const r = filetar(caminhoComDesvio(45), [0.1], SEGMENTOS);
     expectRelativo(comprimentoEixo(r), esperado);
   });
 
@@ -150,7 +157,7 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
   it('desvio de 120° com R = 0,1 m: comprimento 2 − 2R·tan(60°) + R·2π/3 (±0,5 %)', () => {
     const phi = (2 * Math.PI) / 3;
     const esperado = 2 - 2 * 0.1 * Math.tan(phi / 2) + 0.1 * phi;
-    const r = filetarCaminho(caminhoComDesvio(120), [0.1], SEGMENTOS);
+    const r = filetar(caminhoComDesvio(120), [0.1], SEGMENTOS);
     expectRelativo(comprimentoEixo(r), esperado);
   });
 
@@ -164,22 +171,22 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
       [1, 0, 0],
       [2, 0, 0],
     ];
-    const r = filetarCaminho(reta, [0.1], SEGMENTOS);
+    const r = filetar(reta, [0.1], SEGMENTOS);
     expect(r.pontos).toEqual([0, 0, 0, 1, 0, 0, 2, 0, 0]);
-    const r0 = filetarCaminho(LSHAPE, [0], SEGMENTOS);
+    const r0 = filetar(LSHAPE, [0], SEGMENTOS);
     expect(numPontos(r0)).toBe(3);
   });
 
   it('determinístico: duas chamadas com a mesma entrada dão o mesmo resultado', () => {
-    const a = filetarCaminho(caminhoComDesvio(120), [0.1], SEGMENTOS);
-    const b = filetarCaminho(caminhoComDesvio(120), [0.1], SEGMENTOS);
+    const a = filetar(caminhoComDesvio(120), [0.1], SEGMENTOS);
+    const b = filetar(caminhoComDesvio(120), [0.1], SEGMENTOS);
     expect(b).toEqual(a);
   });
 
   // AMBIGUIDADE: o contrato não diz se `vertices` mantém o índice do vértice de curva (P1), que deixa de
   // existir como ponto, nem qual é o índice do último vértice (esperado 14 pela contagem de pontos).
   it.skip('AMBIGUIDADE: vertices lista P0 e P2 (índices 0 e 14); P1 de curva fica fora ou não', () => {
-    const r = filetarCaminho(LSHAPE, [0.1], SEGMENTOS);
+    const r = filetar(LSHAPE, [0.1], SEGMENTOS);
     expect(r.vertices).toEqual([0, 14]);
   });
 
@@ -191,7 +198,7 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
       [0, 0, 1],
       [0, 0, 0],
     ];
-    expect(() => filetarCaminho(volta, [0.1], SEGMENTOS)).toThrow('retorno de 180° não pode ter curva');
+    expect(() => filetar(volta, [0.1], SEGMENTOS)).toThrow('retorno de 180° não pode ter curva');
   });
 
   // AMBIGUIDADE: o contrato cita "curvas se sobrepõem no trecho N" sem dizer o índice N do trecho (0 ou 1)
@@ -202,7 +209,7 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
       [0, 0, 0.1],
       [0.1, 0, 0.1],
     ];
-    expect(() => filetarCaminho(curto, [0.5], SEGMENTOS)).toThrow('curvas se sobrepõem');
+    expect(() => filetar(curto, [0.5], SEGMENTOS)).toThrow('curvas se sobrepõem');
   });
 
   // AMBIGUIDADE: o contrato não define erro para segmento nulo (dois vértices iguais) nem a sua mensagem.
@@ -212,6 +219,6 @@ describe('filetarCaminho — teste cego (A4, CONTRATO §2.3)', () => {
       [0, 0, 0],
       [1, 0, 0],
     ];
-    expect(() => filetarCaminho(nulo, [0.1], SEGMENTOS)).toThrow();
+    expect(() => filetar(nulo, [0.1], SEGMENTOS)).toThrow();
   });
 });
