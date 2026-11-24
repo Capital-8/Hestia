@@ -26,8 +26,9 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
 | 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | integrada | e7b82d97 |
 | 3 | [A7b](fichas/A7b.md) | Caixa e pegada do componente incluem corpos; símbolos no resolvedor | Haiku | A7, D1 | pendente | |
+| 3 | [B3b](fichas/B3b.md) | Planta aplica a inclinação 3D e o símbolo que substitui a geometria | Haiku | B3, D2 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | pendente | |
-| 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | pendente | |
+| 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | integrada | bdb19666 |
 | 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | pendente | |
 | 3 | [B6](fichas/B6.md) | Operações puras de edição dos corpos | Haiku | A2 | integrada | c25bb58d |
 | 3 | [D1](fichas/D1.md) | Símbolos 2D: validação e resolução | Haiku | A1 | integrada | 27fef6e9 |
@@ -86,4 +87,5 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · A7: `resolverFamilia` devolve `corpos`, `ligacoes`, `caixaCorpos` (opcionais em `ResolucaoFamilia`); caixa dos corpos vem da malha dos corpos sólidos; revolução com segmentos padrão = max(1, round(32·ângulo/360)); snapshot de 365 resoluções da biblioteca idêntico; corpos de família aninhada NÃO sobem para o pai; `caixaDoComponente`/`pegadaDoComponente` (instancia.ts) ainda sem corpos → ficha A7b.
 - 2026-11-24 · Calibração: o executor do C4-cego tentou criar sessão (`create_session`) sem necessidade; negado pelo classificador, nada foi criado. Reforçar no prompt: nada de ferramentas fora da ficha.
 - 2026-11-24 · C4: `ligacoesCompativeis` (ordem das regras: domínio, seção, bitola, direção, fluxo; motivos fixos), `encaixarLigacoes(alvo, candidatas, tolerancia=0,05)` devolve `{ candidata, deslocamento }` (sem `rotacaoZ`/`inclinacao` por ora: TODO ligado à ferramenta Tubo C5), `ligacaoNoMundo(lig, componente)`. Tolerâncias inclusivas (≤): medidas 0,5 mm (+1 nm de folga numérica), encaixe 50 mm; empate = primeira candidata.
+- 2026-11-24 · B3: silhueta por união (`union` de `@hestia/geom`) dos triângulos projetados em XY, grade 1e-7 m; só contornos externos (tubo oco vertical sai como disco cheio); `projetarCorposPlanta(corpos, detalhe)`; família só de corpos agora desenha na planta; LACUNAS → ficha B3b: `inclinacao` 3D ignorada na planta (tubo inclinado sairia com silhueta errada) e `substituiGeometria` não ligado.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
