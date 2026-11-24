@@ -4,6 +4,7 @@ import { custoEstimado, listaDePecas, resumirLista } from './listaPecas.ts';
 import { areaFace } from './medidas.ts';
 import { resolverComponente } from './instancia.ts';
 import { lateraisCompartilhadas } from './orcamentoLaterais.ts';
+import { quantitativosMepDoProjeto, type QuantitativosMep } from './quantitativosMep.ts';
 import type { FerragemResolvida, PecaResolvida } from './pecas.ts';
 
 /*
@@ -60,10 +61,12 @@ export interface OrcamentoProjeto {
    * Opcional no tipo para não quebrar quem monta um orçamento à mão; `orcamentoDoProjeto` SEMPRE devolve o campo.
    */
   economia?: EconomiaLaterais;
+  /** Quantitativos MEP e estruturais (ficha E3); ausente em quem monta o orçamento à mão. */
+  mep?: QuantitativosMep;
 }
 
-/** Resultado de `orcamentoDoProjeto`: o orçamento sempre traz a economia de laterais. */
-export type OrcamentoCalculado = OrcamentoProjeto & { economia: EconomiaLaterais };
+/** Resultado de `orcamentoDoProjeto`: o orçamento sempre traz a economia de laterais e os quantitativos MEP. */
+export type OrcamentoCalculado = OrcamentoProjeto & { economia: EconomiaLaterais; mep: QuantitativosMep };
 
 /** Peça resolvida com o componente de onde veio, para casar os descontos de lateral. */
 interface PecaDoComponente {
@@ -216,5 +219,6 @@ export function orcamentoDoProjeto(p: Project, opcoes: OpcoesOrcamento = {}): Or
     ferragens: [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome) || cmpTexto(a.id, b.id)),
     avisos,
     economia: { laterais: removidas.size, areaChapaM2: areaDescontada },
+    mep: quantitativosMepDoProjeto(p, { nivel: opcoes.nivel }),
   };
 }
