@@ -21,6 +21,12 @@ export const PT_FAMILIAS = {
   fam_meus_erro_importar: 'Não foi possível importar: {motivo}',
   fam_meus_nenhum: 'nenhum modelo válido no arquivo',
   fam_meus_sem_armazenamento: 'O navegador não permite guardar modelos.',
+  tool_tubo: 'Tubo',
+  tubo_grupo: 'Tubo',
+  tubo_familia: 'Família',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Altura (z)',
+  tubo_sem_familia: 'Nenhuma família de tubo no projeto: carregue uma família com duas ligações.',
 } as const;
 
 type D = Record<keyof typeof PT_FAMILIAS, string>;
@@ -42,6 +48,12 @@ export const EN_FAMILIAS: D = {
   fam_meus_erro_importar: 'Could not import: {motivo}',
   fam_meus_nenhum: 'no valid model in the file',
   fam_meus_sem_armazenamento: 'The browser does not allow saving models.',
+  tool_tubo: 'Pipe',
+  tubo_grupo: 'Pipe',
+  tubo_familia: 'Family',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Height (z)',
+  tubo_sem_familia: 'No pipe family in the project: load a family with two connections.',
 };
 
 export const ES_FAMILIAS: D = {
@@ -61,6 +73,12 @@ export const ES_FAMILIAS: D = {
   fam_meus_erro_importar: 'No se pudo importar: {motivo}',
   fam_meus_nenhum: 'ningún modelo válido en el archivo',
   fam_meus_sem_armazenamento: 'El navegador no permite guardar modelos.',
+  tool_tubo: 'Tubería',
+  tubo_grupo: 'Tubería',
+  tubo_familia: 'Familia',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Altura (z)',
+  tubo_sem_familia: 'No hay familia de tubería en el proyecto: cargue una familia con dos conexiones.',
 };
 
 export const DE_FAMILIAS: D = {
@@ -80,6 +98,12 @@ export const DE_FAMILIAS: D = {
   fam_meus_erro_importar: 'Import nicht möglich: {motivo}',
   fam_meus_nenhum: 'kein gültiges Modell in der Datei',
   fam_meus_sem_armazenamento: 'Der Browser erlaubt das Speichern von Modellen nicht.',
+  tool_tubo: 'Rohr',
+  tubo_grupo: 'Rohr',
+  tubo_familia: 'Familie',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Höhe (z)',
+  tubo_sem_familia: 'Keine Rohrfamilie im Projekt: Laden Sie eine Familie mit zwei Anschlüssen.',
 };
 
 export const FR_FAMILIAS: D = {
@@ -99,6 +123,12 @@ export const FR_FAMILIAS: D = {
   fam_meus_erro_importar: 'Impossible d\'importer : {motivo}',
   fam_meus_nenhum: 'aucun modèle valide dans le fichier',
   fam_meus_sem_armazenamento: 'Le navigateur ne permet pas d\'enregistrer des modèles.',
+  tool_tubo: 'Tuyau',
+  tubo_grupo: 'Tuyau',
+  tubo_familia: 'Famille',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Hauteur (z)',
+  tubo_sem_familia: 'Aucune famille de tuyau dans le projet : chargez une famille à deux raccords.',
 };
 
 export const IT_FAMILIAS: D = {
@@ -118,6 +148,12 @@ export const IT_FAMILIAS: D = {
   fam_meus_erro_importar: 'Impossibile importare: {motivo}',
   fam_meus_nenhum: 'nessun modello valido nel file',
   fam_meus_sem_armazenamento: 'Il browser non consente di salvare i modelli.',
+  tool_tubo: 'Tubo',
+  tubo_grupo: 'Tubo',
+  tubo_familia: 'Famiglia',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Altezza (z)',
+  tubo_sem_familia: 'Nessuna famiglia di tubo nel progetto: carica una famiglia con due connessioni.',
 };
 
 export const PL_FAMILIAS: D = {
@@ -137,4 +173,10 @@ export const PL_FAMILIAS: D = {
   fam_meus_erro_importar: 'Nie udało się zaimportować: {motivo}',
   fam_meus_nenhum: 'brak poprawnych modeli w pliku',
   fam_meus_sem_armazenamento: 'Przeglądarka nie pozwala zapisywać modeli.',
+  tool_tubo: 'Rura',
+  tubo_grupo: 'Rura',
+  tubo_familia: 'Rodzina',
+  tubo_dn: 'DN (mm)',
+  tubo_altura: 'Wysokość (z)',
+  tubo_sem_familia: 'Brak rodziny rur w projekcie: wczytaj rodzinę z dwoma przyłączami.',
 };
