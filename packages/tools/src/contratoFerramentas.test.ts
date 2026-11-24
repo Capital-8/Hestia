@@ -47,6 +47,8 @@ const LINEARES: Record<string, string> = {
   // Linhas de propriedade (lote): o polígono é desenhado pelo núcleo comum (Enter ou C fecha).
   lot: 'lotTool.ts',
   beam: 'beamTool.ts',
+  // Tubo (ficha C5): trecho reto entre dois pontos; o comprimento digitado vem do núcleo comum.
+  tubo: 'tuboTool.ts',
   // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
   plugin: 'pluginTool.ts',
 };

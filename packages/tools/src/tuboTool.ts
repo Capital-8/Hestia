@@ -34,7 +34,7 @@ interface LigacaoAberta {
 
 /** Pontas da família para o DN pedido (resolve com `L` de 1 m só para achar as posições); null se não tem duas ligações. */
 export function pontasDoTubo(familia: Familia, dn: number): PontasDoTubo | null {
-  const ligs = [...resolverFamilia(familia, { valores: { DN: dn, L: 1000 } }).ligacoes].sort((a, b) => a.posicao[2] - b.posicao[2]);
+  const ligs = [...resolverFamilia(familia, { valores: { DN: dn, L: 1000 } }).ligacoes ?? []].sort((a, b) => a.posicao[2] - b.posicao[2]);
   const inicio = ligs[0];
   const fim = ligs[ligs.length - 1];
   return ligs.length >= 2 && inicio && fim ? { inicio, fim } : null;
@@ -45,7 +45,7 @@ function ligacoesAbertas(p: Project): LigacaoAberta[] {
   const saida: LigacaoAberta[] = [];
   for (const e of Object.values(p.elements)) {
     if (!isComponent(e) || !p.componentFamilies?.[e.familyId]?.ligacoes?.length) continue;
-    for (const lig of resolverComponente(p, e).ligacoes) {
+    for (const lig of resolverComponente(p, e).ligacoes ?? []) {
       if (e.ligacoes?.[lig.id] === undefined) saida.push({ componentId: e.id, lig: ligacaoNoMundo(lig, e) });
     }
   }
@@ -82,7 +82,7 @@ export class TuboTool extends ToolBase {
   readonly id = 'tubo';
   readonly label = 'Tubo';
   readonly hint = 'Tubo: clique o ponto inicial e o final (Shift trava no eixo; digite o comprimento e Enter). Esc encerra a cadeia.';
-  override readonly pick3d = true;
+  readonly pick3d = true;
   private inicio: PontoTubo | null = null;
 
   protected reset(): void {

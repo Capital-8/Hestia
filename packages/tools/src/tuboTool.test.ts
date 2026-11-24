@@ -28,7 +28,7 @@ const FAMILIA_TUBO: Familia = {
   tipoPadrao: undefined,
   // `L`, `A` e `P` são obrigatórios em toda família: aqui `L` é o comprimento do tubo e `A`/`P` ficam como vêm do armário.
   parametros: [
-    ...FAMILIA_ARMARIO.parametros.filter((q) => ['L', 'A', 'P'].includes(q.id)).map((q) => (q.id === 'L' ? { ...q, padrao: 1000 } : q)),
+    ...FAMILIA_ARMARIO.parametros.filter((q) => ['L', 'A', 'P'].includes(q.id)).map((q) => (q.id === 'L' ? ({ id: 'L', nome: 'Comprimento', tipo: 'comprimento', escopo: 'instancia', padrao: 1000 } as const) : q)),
     { id: 'DN', nome: 'Diâmetro nominal', tipo: 'comprimento', escopo: 'instancia', padrao: 50 },
   ],
   corpos: [
