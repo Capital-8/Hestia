@@ -4,6 +4,7 @@ import { resolverComponente } from '@hestia/engine';
 import { exportIfc } from './ifcExport.ts';
 import { ifcGuid } from './ifcGuid.ts';
 import type { IfcGeometry } from './ifcTypes.ts';
+import { BIBLIOTECA_MEP, type Familia } from '@hestia/model';
 
 const TS = '2026-01-01T00:00:00';
 const EMPTY: IfcGeometry = { walls: [], openings: [], floors: [], slabs: [], roofs: [], stairs: [] };
@@ -113,5 +114,95 @@ describe('exportIfc: projeto sem componente', () => {
     expect(count(before, 'IFCFURNITURE')).toBe(0);
     expect(entityCount(restored)).toBe(entityCount(before));
     expect(entityCount(withOne)).toBeGreaterThan(entityCount(before));
+  });
+});
+
+/*
+ * Ficha E2: classe por categoria, portas de ligação e malha dos corpos. Famílias antigas (sem corpos nem ligações, categoria de
+ * marcenaria) seguem idênticas; a comparação byte a byte com o texto anterior foi feita sobre a biblioteca inteira.
+ */
+
+/** Família da biblioteca MEP (tubulação e conexões de esgoto) pelo id. */
+function familiaMep(id: string): Familia {
+  const f = BIBLIOTECA_MEP.find((x) => x.id === id);
+  if (!f) throw new Error(`Família ${id} não está na biblioteca MEP.`);
+  return structuredClone(f);
+}
+
+/** Projeto com as famílias dadas (biblioteca do projeto) e as instâncias. */
+function projetoComFamilias(familias: Familia[], ...components: Component[]): Project {
+  const p = createEmptyProject('Portas');
+  p.componentFamilies = Object.fromEntries(familias.map((f) => [f.id, f]));
+  for (const comp of components) p.elements[comp.id] = comp;
+  return p;
+}
+
+/** Instância de família MEP no nível `lv_0`, com o tipo padrão da família. */
+function instanciaMep(id: string, familyId: string, extra: Partial<Component> = {}): Component {
+  return { id, kind: 'component', familyId, typeId: null, levelId: 'lv_0', order: 1, x: 0, y: 0, z: 0, rotation: 0, mirrored: false, mark: id, ...extra };
+}
+
+describe('exportIfc: classe por categoria, portas e corpos (ficha E2)', () => {
+  it('tubo de esgoto sai como IFCPIPESEGMENT com duas portas, cada uma ligada ao produto', () => {
+    const text = exportIfc(projetoComFamilias([familiaMep('fam_tubo_esgoto')], instanciaMep('t1', 'fam_tubo_esgoto')), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCPIPESEGMENT')).toBe(1);
+    expect(count(text, 'IFCFURNITURE')).toBe(0);
+    expect(count(text, 'IFCDISTRIBUTIONPORT')).toBe(2);
+    expect(count(text, 'IFCRELCONNECTSPORTTOELEMENT')).toBe(2);
+    expect(count(text, 'IFCRELCONNECTSPORTS')).toBe(0);
+    expect(text).toContain('.SOURCEANDSINK.');
+    expect(text).toContain('.SEWAGE.');
+    expect(text).toContain("IFCPROPERTYSINGLEVALUE('Dominio',$,IFCLABEL('esgoto'),$)");
+    expect(danglingRefs(text)).toEqual([]);
+  });
+
+  it('curva de 90° sai como IFCPIPEFITTING com PredefinedType BEND', () => {
+    const text = exportIfc(projetoComFamilias([familiaMep('fam_esgoto_curva90')], instanciaMep('k1', 'fam_esgoto_curva90')), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCPIPEFITTING')).toBe(1);
+    expect(text).toMatch(/=IFCPIPEFITTING\(.*,\.BEND\.\);/);
+    expect(count(text, 'IFCDISTRIBUTIONPORT')).toBe(2);
+    expect(danglingRefs(text)).toEqual([]);
+  });
+
+  it('par conectado gera uma única IFCRELCONNECTSPORTS, mesmo com a conexão escrita nos dois lados', () => {
+    const t1 = instanciaMep('t1', 'fam_tubo_esgoto', { ligacoes: { b: { componenteId: 'k1', ligacaoId: 'a' } } });
+    const k1 = instanciaMep('k1', 'fam_esgoto_curva90', { ligacoes: { a: { componenteId: 't1', ligacaoId: 'b' } } });
+    const familias = [familiaMep('fam_tubo_esgoto'), familiaMep('fam_esgoto_curva90')];
+    const text = exportIfc(projetoComFamilias(familias, t1, k1), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCRELCONNECTSPORTS')).toBe(1);
+    expect(count(text, 'IFCDISTRIBUTIONPORT')).toBe(4);
+    expect(danglingRefs(text)).toEqual([]);
+  });
+
+  it('conexão com instância sem pavimento não gera relação', () => {
+    const t1 = instanciaMep('t1', 'fam_tubo_esgoto', { ligacoes: { b: { componenteId: 'k1', ligacaoId: 'a' } } });
+    const k1 = instanciaMep('k1', 'fam_esgoto_curva90', { levelId: 'lv_fora', ligacoes: { a: { componenteId: 't1', ligacaoId: 'b' } } });
+    const text = exportIfc(projetoComFamilias([familiaMep('fam_tubo_esgoto'), familiaMep('fam_esgoto_curva90')], t1, k1), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCRELCONNECTSPORTS')).toBe(0);
+    expect(count(text, 'IFCPIPEFITTING')).toBe(0);
+    expect(danglingRefs(text)).toEqual([]);
+  });
+
+  it('categoria decide a classe: louça sai como IFCSANITARYTERMINAL, marcenaria segue IFCFURNITURE', () => {
+    const louca: Familia = { ...structuredClone(FAMILIA_ARMARIO), categoria: 'loucas' };
+    const text = exportIfc(projetoComFamilias([louca], component('c1', 'lv_0', { familyId: louca.id })), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCSANITARYTERMINAL')).toBe(1);
+    expect(count(text, 'IFCFURNITURE')).toBe(0);
+    const armario = exportIfc(projetoComFamilias([FAMILIA_ARMARIO], component('c1', 'lv_0')), EMPTY, { timestamp: TS });
+    expect(count(armario, 'IFCFURNITURE')).toBe(1);
+    expect(armario).not.toContain('Pset_HestiaFamilia');
+  });
+
+  it('PredefinedType vem de Familia.ifc só quando é um enum IFC; texto livre sai omitido', () => {
+    const armario: Familia = { ...structuredClone(FAMILIA_ARMARIO), ifc: { classe: 'IFCFURNITURE', tipoPredefinido: 'livre com espaço' } };
+    const text = exportIfc(projetoComFamilias([armario], component('c1', 'lv_0')), EMPTY, { timestamp: TS });
+    expect(text).not.toMatch(/IFCFURNITURE\(.*\.\);/);
+    expect(danglingRefs(text)).toEqual([]);
+  });
+
+  it('a malha dos corpos entra no IFCTRIANGULATEDFACESET do produto', () => {
+    const text = exportIfc(projetoComFamilias([familiaMep('fam_tubo_esgoto')], instanciaMep('t1', 'fam_tubo_esgoto')), EMPTY, { timestamp: TS });
+    expect(count(text, 'IFCTRIANGULATEDFACESET')).toBe(1);
+    expect(text).toMatch(/IFCPIPESEGMENT\(.*#\d+,#\d+,.*\);/);
   });
 });
