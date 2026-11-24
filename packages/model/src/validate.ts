@@ -26,6 +26,7 @@ import { isOpening, isWall, type Element, type Id, type Level, type Opening, typ
 import { openingTypeById } from './openingNominal.ts';
 import { formatQuantity } from './unitsFormat.ts';
 import { unitsOf } from './units.ts';
+import { problemasDeConexoes } from './sistemasMep.ts';
 
 /** `info`: aviso informativo (não é problema; ex.: parede anexada só em parte ao piso). */
 export type ValidationSeverity = 'error' | 'warning' | 'info';
@@ -362,5 +363,6 @@ export function validateProject(p: Project): ValidationIssue[] {
     ...curtainOpeningIssues(p),
     ...curtainHostIssues(p),
     ...structuralIssues(p),
+    ...problemasDeConexoes(p).map((x) => ({ severity: 'error' as const, code: 'mep-conexao', message: x.mensagem, elementId: x.elementId })),
   ];
 }
