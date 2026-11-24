@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { matrizDoComponente } from '@hestia/model';
 import type { CorpoResolvido, FormaCorpoResolvida, PerfilResolvido } from './corposTipos.ts';
 import { projetarCorposPlanta } from './projecaoCorposPlanta.ts';
 
@@ -93,5 +94,24 @@ describe('projetarCorposPlanta (B3)', () => {
     const c = corpo(forma, { detalhe3d: ['fino'] });
     expect(projetarCorposPlanta([c], 'medium')).toEqual([]);
     expect(projetarCorposPlanta([c], 'fine')).toHaveLength(1);
+  });
+
+  it('tubo em pé inclinado 90° em Y, com a matriz da instância, dá o retângulo 1 × 0,05 no mundo (B3b)', () => {
+    const tuboEmPe = corpo({ tipo: 'extrusao', perfil: circulo(0.025), comprimento: 1 });
+    const m = matrizDoComponente({ x: 0, y: 0, z: 0, rotation: 0, mirrored: false, inclinacao: [Math.PI / 2, 0] });
+    const r = projetarCorposPlanta([tuboEmPe], 'medium', m);
+    expect(r).toHaveLength(1);
+    const [x0, y0, x1, y1] = caixa(r[0]!);
+    expect(x0).toBeCloseTo(0, 3);
+    expect(x1 - x0).toBeCloseTo(1, 3);
+    expect(y1 - y0).toBeCloseTo(0.05, 3);
+    expect(area(r[0]!)).toBeCloseTo(0.05, 3);
+  });
+
+  it('sem matriz o tubo em pé segue no sistema da família: caixa 0,05 × 0,05', () => {
+    const tuboEmPe = corpo({ tipo: 'extrusao', perfil: circulo(0.025), comprimento: 1 });
+    const [x0, y0, x1, y1] = caixa(projetarCorposPlanta([tuboEmPe], 'medium')[0]!);
+    expect(x1 - x0).toBeCloseTo(0.05, 3);
+    expect(y1 - y0).toBeCloseTo(0.05, 3);
   });
 });
