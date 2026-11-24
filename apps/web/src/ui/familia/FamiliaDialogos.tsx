@@ -3,6 +3,7 @@ import { useFamilia } from './familiaStore.ts';
 import { FamiliaAninhado } from './FamiliaAninhado.tsx';
 import { FamiliaArquivo } from './FamiliaArquivo.tsx';
 import { FamiliaCatalogo } from './FamiliaCatalogo.tsx';
+import { FamiliaCatalogoMep } from './FamiliaCatalogoMep.tsx';
 import { FamiliaLista } from './FamiliaLista.tsx';
 import { FamiliaNovo } from './FamiliaNovo.tsx';
 import { DialogoEncaixe } from './FamiliaEncaixe.tsx';
@@ -19,6 +20,7 @@ export function FamiliaDialogos(): ReactElement | null {
   if (d === 'aninhado') return <FamiliaAninhado key={aninhadoSel ?? 'novo'} />;
   if (d === 'pecas') return <FamiliaLista />;
   if (d === 'catalogo') return <FamiliaCatalogo />;
+  if (d === 'catalogoMep') return <FamiliaCatalogoMep />;
   if (d === 'novo') return <FamiliaNovo />;
   if (d === 'arquivo') return <FamiliaArquivo />;
   return null;

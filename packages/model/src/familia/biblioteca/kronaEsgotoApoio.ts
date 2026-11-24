@@ -179,6 +179,10 @@ export interface DadosKrona {
   ligacoes: Ligacao[];
   ifc: NonNullable<Familia['ifc']>;
   caixa: Caixa;
+  /** Texto da origem das medidas na descrição; padrão: o catálogo da Krona. */
+  fonte?: string;
+  /** Disciplina da família; padrão `hidrossanitario`. */
+  disciplina?: Familia['disciplina'];
 }
 
 /** Família de tubulação montada do catálogo: parâmetros derivados, tipos por bitola e fonte citada na descrição. */
@@ -190,8 +194,8 @@ export function familiaKrona(d: DadosKrona): Familia {
     id: d.id,
     nome: d.nome,
     categoria: d.categoria,
-    disciplina: 'hidrossanitario',
-    descricao: `${d.descricao} Medidas lidas do catálogo da Krona (${d.item.serie}, página ${d.item.pagina ?? '?'}); estado: ${d.item.estado}. Geometria simplificada. Não afirma conformidade com norma.`,
+    disciplina: d.disciplina ?? 'hidrossanitario',
+    descricao: `${d.descricao} Medidas lidas de ${d.fonte ?? `catálogo da Krona (${d.item.serie}, página ${d.item.pagina ?? '?'})`}; estado: ${d.item.estado}. Geometria simplificada. Não afirma conformidade com norma.`,
     parametros: [chave, ...parametrosDoItem(d.item), dimensaoKrona('L', 'Comprimento'), dimensaoKrona('A', 'Altura'), dimensaoKrona('P', 'Profundidade')],
     pecas: [],
     conectores: [],

@@ -20,5 +20,7 @@ export * from './biblioteca/index.ts';
 export { clonarSeguro, dependenciasDaFamilia } from './dependencias.ts';
 export * from './catalogoMep.ts';
 export * from './catalogoMepCsv.ts';
+export * from './catalogoMepFamilia.ts';
 export { KRONA_ESGOTO } from './catalogosMep/kronaEsgoto.ts';
 export { KRONA_SOLDAVEL } from './catalogosMep/kronaSoldavel.ts';
+export { itemKrona as itemKronaPublico } from './biblioteca/kronaEsgotoApoio.ts';

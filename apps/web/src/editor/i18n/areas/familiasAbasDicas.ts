@@ -4,6 +4,7 @@
  */
 
 export const PT_ABAS_DICAS = {
+  fa_b_catalogo_mep: 'Catálogo MEP',
   fa_b_sombreado: 'Sombreado',
   fa_b_transparente: 'Transparente',
   fa_b_arame: 'Arame',
@@ -40,6 +41,7 @@ export const PT_ABAS_DICAS = {
 type D = Record<keyof typeof PT_ABAS_DICAS, string>;
 
 export const EN_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'MEP catalog',
   fa_b_sombreado: 'Shaded',
   fa_b_transparente: 'Transparent',
   fa_b_arame: 'Wireframe',
@@ -74,6 +76,7 @@ export const EN_ABAS_DICAS: D = {
 };
 
 export const ES_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'Catálogo MEP',
   fa_b_sombreado: 'Sombreado',
   fa_b_transparente: 'Transparente',
   fa_b_arame: 'Alambre',
@@ -108,6 +111,7 @@ export const ES_ABAS_DICAS: D = {
 };
 
 export const DE_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'MEP-Katalog',
   fa_b_sombreado: 'Schattiert',
   fa_b_transparente: 'Transparent',
   fa_b_arame: 'Drahtmodell',
@@ -142,6 +146,7 @@ export const DE_ABAS_DICAS: D = {
 };
 
 export const FR_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'Catalogue MEP',
   fa_b_sombreado: 'Ombré',
   fa_b_transparente: 'Transparent',
   fa_b_arame: 'Fil de fer',
@@ -176,6 +181,7 @@ export const FR_ABAS_DICAS: D = {
 };
 
 export const IT_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'Catalogo MEP',
   fa_b_sombreado: 'Ombreggiato',
   fa_b_transparente: 'Trasparente',
   fa_b_arame: 'Struttura metallica',
@@ -210,6 +216,7 @@ export const IT_ABAS_DICAS: D = {
 };
 
 export const PL_ABAS_DICAS: D = {
+  fa_b_catalogo_mep: 'Katalog MEP',
   fa_b_sombreado: 'Cieniowany',
   fa_b_transparente: 'Przezroczysty',
   fa_b_arame: 'Szkielet',

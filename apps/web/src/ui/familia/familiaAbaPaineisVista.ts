@@ -46,6 +46,7 @@ export const PAINEIS_GERENCIAR: PainelAba[] = [
       B('fa_b_tipos', 'layers', { abre: 'tipos' }),
       B('fa_b_encaixe', 'joins', { abre: 'encaixe' }),
       B('fa_b_catalogo', 'style', { abre: 'catalogo' }),
+      B('fa_b_catalogo_mep', 'style', { abre: 'catalogoMep' }),
       B('fa_b_lista_pecas', 'schedule', { abre: 'pecas' }),
       B('fa_b_validar', 'sheet', { indisponivel: 'fa_m_validar' }),
     ],
