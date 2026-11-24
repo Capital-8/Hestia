@@ -1,5 +1,5 @@
-import { levelElevation, type Component, type Familia, type Project } from '@hestia/model';
-import { ringArea, union, v2, type MultiPolygon } from '@hestia/geom';
+import { levelElevation, matrizDoComponente, type Component, type Familia, type Project } from '@hestia/model';
+import { convexHull, ringArea, union, v2, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import type { Malha, MalhasDasPecas } from './malha.ts';
 import { malhaDasPecas } from './malha.ts';
 import { resolverFamilia } from './resolver.ts';
@@ -140,19 +140,94 @@ function limparAneis(m: MultiPolygon): MultiPolygon {
   return saida;
 }
 
+/** Caixa (m) no mundo: `min`/`max` de três eixos. */
+type Caixa = { min: [number, number, number]; max: [number, number, number] };
+
+/**
+ * Matriz do componente para os corpos (CONTRATO §7: `Rz(rotation) · E · Ry · Rz · local + (x, y, z)`), SEM a altura do nível: `z` vai
+ * a zero e a altura (`levelElevation + c.z`) é somada à parte. Sem `inclinacao` coincide com `transformacaoDe`.
+ */
+function matrizDosCorpos(c: Component): number[] {
+  return matrizDoComponente({ ...c, z: 0 });
+}
+
+/**
+ * Caixa dos corpos (`caixaCorpos`, no sistema da família) levada ao mundo pelos 8 cantos. Para giros múltiplos de 90° é exata; para
+ * outros ângulos é a caixa envolvente do cubo girado (um pouco maior que o sólido, nunca menor). `null` sem corpos sólidos.
+ */
+function caixaDosCorposNoMundo(p: Project, c: Component, res: ResolucaoFamilia): Caixa | null {
+  const cc = res.caixaCorpos;
+  if (!cc) return null;
+  const m = matrizDosCorpos(c);
+  const baseZ = levelElevation(p, c.levelId) + c.z;
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+  for (const x of [cc.min[0], cc.max[0]]) {
+    for (const y of [cc.min[1], cc.max[1]]) {
+      for (const z of [cc.min[2], cc.max[2]]) {
+        const w: [number, number, number] = [
+          m[0]! * x + m[4]! * y + m[8]! * z + m[12]!,
+          m[1]! * x + m[5]! * y + m[9]! * z + m[13]!,
+          baseZ + m[2]! * x + m[6]! * y + m[10]! * z,
+        ];
+        for (let k = 0; k < 3; k++) {
+          min[k] = Math.min(min[k]!, w[k]!);
+          max[k] = Math.max(max[k]!, w[k]!);
+        }
+      }
+    }
+  }
+  return { min, max };
+}
+
+/**
+ * Projeção em planta da caixa dos corpos: fecho convexo das projeções XY dos 8 cantos, pela matriz do componente (com `z`, para que um
+ * tubo inclinado não vire uma linha). Sem inclinação dá o retângulo girado; com giro de 90° de inclinação, o retângulo certo.
+ */
+function retanguloDosCorpos(c: Component, cc: Caixa): MultiPolygon {
+  const m = matrizDosCorpos(c);
+  const pts: Vec2[] = [];
+  for (const x of [cc.min[0], cc.max[0]]) {
+    for (const y of [cc.min[1], cc.max[1]]) {
+      for (const z of [cc.min[2], cc.max[2]]) {
+        pts.push(v2(m[0]! * x + m[4]! * y + m[8]! * z + c.x, m[1]! * x + m[5]! * y + m[9]! * z + c.y));
+      }
+    }
+  }
+  const casco = convexHull(pts);
+  return casco.length >= 3 ? [[casco]] : [];
+}
+
 /**
  * Pegada em planta (vista de cima): união, via `union` de `@hestia/geom`, dos retângulos (no mundo) de todas as peças NÃO vazias (caixa local
- * `origem` a `origem + extensao` em X e Y, ignorando o contorno). Devolve o `MultiPolygon` da união, sem anel degenerado. Sem peças: `[]`.
+ * `origem` a `origem + extensao` em X e Y, ignorando o contorno) e do retângulo XY da caixa dos corpos (ficha A7b). Devolve o `MultiPolygon`
+ * da união, sem anel degenerado. Sem peças nem corpos: `[]`.
  */
 export function pegadaDoComponente(p: Project, c: Component, res: ResolucaoFamilia = resolverComponente(p, c)): MultiPolygon {
   const t = transformacaoDe(c);
   const retangulos = res.pecas.filter((q) => !q.vazio).map((q) => retanguloDaPeca(q, t));
+  if (res.caixaCorpos) { const casco = retanguloDosCorpos(c, res.caixaCorpos); if (casco.length > 0) retangulos.push(casco); }
   if (retangulos.length === 0) return [];
   return limparAneis(union(...retangulos));
 }
 
+/**
+ * Caixa envolvente (m) no mundo das peças não vazias e dos corpos sólidos (ficha A7b), ou `null` sem nenhum dos dois. As peças vêm dos
+ * vértices da malha, não de uma estimativa; os corpos vêm de `res.caixaCorpos`. Família sem corpos: igual à caixa só das peças.
+ */
+export function caixaDoComponente(p: Project, c: Component, res: ResolucaoFamilia = resolverComponente(p, c)): Caixa | null {
+  const daPeca = caixaDasPecas(p, c, res);
+  const dosCorpos = caixaDosCorposNoMundo(p, c, res);
+  if (!dosCorpos) return daPeca;
+  if (!daPeca) return dosCorpos;
+  return {
+    min: [Math.min(daPeca.min[0], dosCorpos.min[0]), Math.min(daPeca.min[1], dosCorpos.min[1]), Math.min(daPeca.min[2], dosCorpos.min[2])],
+    max: [Math.max(daPeca.max[0], dosCorpos.max[0]), Math.max(daPeca.max[1], dosCorpos.max[1]), Math.max(daPeca.max[2], dosCorpos.max[2])],
+  };
+}
+
 /** Caixa envolvente (m) das peças não vazias no mundo, ou `null` sem peças. Vem dos vértices da malha, não de uma estimativa. */
-export function caixaDoComponente(p: Project, c: Component, res: ResolucaoFamilia = resolverComponente(p, c)): { min: [number, number, number]; max: [number, number, number] } | null {
+function caixaDasPecas(p: Project, c: Component, res: ResolucaoFamilia): Caixa | null {
   const m = malhaDoComponente(p, c, res).solidas;
   const positions = m.positions;
   if (positions.length === 0) return null;
