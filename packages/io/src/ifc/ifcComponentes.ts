@@ -1,4 +1,4 @@
-import { classeIfcDaFamilia, isComponent, levelElevation, matrizDoComponente, type Component, type Project } from '@hestia/model';
+import { classeIfcDaFamilia, isComponent, levelElevation, matrizDoComponente, type Component, type Familia, type Project } from '@hestia/model';
 import { caixaDoComponente, malhaDoComponente, malhaDosCorpos, resolverComponente, type Malha, type ResolucaoFamilia } from '@hestia/engine';
 import { gid, optStr, storeyOf, type IfcCtx } from './ifcCtx.ts';
 import { faceSetOf, tessellatedShape } from './ifcGeneric.ts';
@@ -91,6 +91,18 @@ function malhaDoComponenteParaIfc(p: Project, comp: Component, res: ResolucaoFam
   };
 }
 
+/** Categorias que existiam antes da ADR 0061: a exportação delas continua `IFCFURNITURE` (decisão do orquestrador, 2026-11-24). */
+const CATEGORIAS_ANTIGAS = new Set(['marcenaria', 'mobiliario', 'loucas', 'equipamento', 'generico']);
+
+/**
+ * Classe do produto: família antiga (categoria antiga, sem `ifc`, sem corpos e sem ligações) mantém `IFCFURNITURE` — o arquivo IFC dos
+ * projetos existentes não muda. Com `ifc` explícito, corpos, ligações ou categoria nova vale `classeIfcDaFamilia` (CONTRATO §6).
+ */
+function classeDoProduto(f: Familia): string {
+  const antiga = CATEGORIAS_ANTIGAS.has(f.categoria) && f.ifc === undefined && (f.corpos ?? []).length === 0 && (f.ligacoes ?? []).length === 0;
+  return antiga ? 'IFCFURNITURE' : classeIfcDaFamilia(f);
+}
+
 /**
  * Componente colocado vira o produto IFC da classe da família (`classeIfcDaFamilia`; sem família no projeto, `IFCFURNITURE`):
  * `ObjectType` = id da família, `Name` = nome da família com a marca, `PredefinedType` = `Familia.ifc.tipoPredefinido` quando
@@ -107,7 +119,7 @@ function addComponente(c: IfcCtx, comp: Component, portas: Map<string, number>):
   const shape = faceSet === null ? OMIT : ref(tessellatedShape(c.w, c.ctx, faceSet));
   const place = localPlacement(c.w, st.place, [0, 0, 0]);
   const tipo = familia?.ifc?.tipoPredefinido;
-  const produto = c.w.add(familia ? classeIfcDaFamilia(familia) : 'IFCFURNITURE', [
+  const produto = c.w.add(familia ? classeDoProduto(familia) : 'IFCFURNITURE', [
     gid(`component:${comp.id}`),
     OMIT,
     stepString(nomeDoComponente(c.p, comp)),

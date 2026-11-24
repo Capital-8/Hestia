@@ -183,11 +183,18 @@ describe('exportIfc: classe por categoria, portas e corpos (ficha E2)', () => {
     expect(danglingRefs(text)).toEqual([]);
   });
 
-  it('categoria decide a classe: louça sai como IFCSANITARYTERMINAL, marcenaria segue IFCFURNITURE', () => {
+  it('família antiga mantém IFCFURNITURE (louça incluída); `ifc` explícito e categoria nova mudam a classe', () => {
     const louca: Familia = { ...structuredClone(FAMILIA_ARMARIO), categoria: 'loucas' };
-    const text = exportIfc(projetoComFamilias([louca], component('c1', 'lv_0', { familyId: louca.id })), EMPTY, { timestamp: TS });
+    const antiga = exportIfc(projetoComFamilias([louca], component('c1', 'lv_0', { familyId: louca.id })), EMPTY, { timestamp: TS });
+    expect(count(antiga, 'IFCFURNITURE')).toBe(1);
+    expect(count(antiga, 'IFCSANITARYTERMINAL')).toBe(0);
+    const explicita: Familia = { ...structuredClone(louca), ifc: { classe: 'IFCSANITARYTERMINAL' } };
+    const text = exportIfc(projetoComFamilias([explicita], component('c1', 'lv_0', { familyId: explicita.id })), EMPTY, { timestamp: TS });
     expect(count(text, 'IFCSANITARYTERMINAL')).toBe(1);
     expect(count(text, 'IFCFURNITURE')).toBe(0);
+    const nova: Familia = { ...structuredClone(FAMILIA_ARMARIO), categoria: 'luminaria' };
+    const luz = exportIfc(projetoComFamilias([nova], component('c1', 'lv_0', { familyId: nova.id })), EMPTY, { timestamp: TS });
+    expect(count(luz, 'IFCLIGHTFIXTURE')).toBe(1);
     const armario = exportIfc(projetoComFamilias([FAMILIA_ARMARIO], component('c1', 'lv_0')), EMPTY, { timestamp: TS });
     expect(count(armario, 'IFCFURNITURE')).toBe(1);
     expect(armario).not.toContain('Pset_HestiaFamilia');
