@@ -90,11 +90,24 @@ Na aba *Arquitetura*, clique em *Orçamento* e abra a aba *Instalações e estru
 - Arquivo de exemplo: `evidencias/Projeto-sem-titulo.ifc` (gerado pelo roteiro de referência; `IFCMEMBER` confirmado).
 - Para exportar: menu **Arquivo** → cartão **IFC** (`FileMenu.tsx` chama `exportIfc`); o roteiro `tests/e2e/familias-perfil.mjs` exportou o arquivo por esse caminho.
 
+## Catálogos de fabricante e seus próprios modelos
+
+No editor de famílias, faixa *Propriedades* (ou aba *Gerenciar*), clique em **Catálogo MEP**.
+
+1. **Krona — esgoto** e **Krona — água fria soldável**: tabelas do catálogo do fabricante (De, bolsa, comprimento, espessura, cotas das conexões). São só leitura. Todo item aparece como **CONFERIR**: é transcrição automática do PDF e precisa ser comparada com ele.
+2. **Meus catálogos**: *Importar CSV…* (colunas `bitola`, `codigo` e os nomes B, Db, De, e, Z, C, C1, C2, Z2, B2, Db2), editar células, *Copiar para Meus catálogos* (copia um item do fabricante trocando D, d e A por Db, De e Aext), *Marcar como conferido* (nome e data; editar qualquer número volta para CONFERIR) e *Exportar CSV*.
+3. **Criar família deste item**: escolha a peça (tubo, joelho 90° ou 45°, curva, luva, tê, junção, tampão, redução excêntrica), o sistema (esgoto ou água fria) e clique em *Criar família*. Se faltar uma coluna, a janela diz qual. A família sai em *Meus modelos* e abre no editor, com tipos por bitola, ligações com encaixe bolsa × ponta e as fórmulas embutidas.
+
+As famílias da Krona já prontas estão em *Novo módulo* (Tubulação e Conexões): 25 de esgoto (série normal e reforçada) e 12 de água fria soldável. A geometria é simplificada (sem anel de vedação nem nervuras) e nenhuma afirma conformidade com norma. Captura: `evidencias/catalogo-mep-krona.png`.
+
+**Encaixe.** A ligação de uma bolsa recebe a ponta de outra peça. Só bolsa × ponta se conecta; o diagnóstico da rede considera a ponta *dentro* da bolsa (na profundidade do catálogo) e acusa afastamento se ela parar na abertura. A ferramenta Tubo ainda usa as famílias antigas e não calcula o comprimento de corte com a parte que entra.
+
 ## O que ainda não existe
 
 Esta seção segue o `ESTADO.md`, com o que foi conferido nesta revisão.
 
 - **Valores de norma e de catálogo.** Espessuras, Lf, raios, volume mínimo de caixa, declividade de esgoto, parâmetros de fossa (NBR 7229 e 13969), taxa de infiltração e séries de perfis estão marcados **CONFERIR**. Nenhuma família afirma atender à norma. Quem usa precisa conferir antes.
+- **Famílias da Krona na ferramenta Tubo.** A ferramenta e as conexões automáticas só usam as famílias antigas de esgoto (De = DN, sem bolsa). As da Krona entram arrastando a peça; o encaixe é conferido pelo diagnóstico.
 - **Conexões automáticas.** Só existem para o tubo de esgoto da biblioteca. Uma família criada do zero não ganha curva nem tê sozinha.
 - **Tê.** Não foi desenhado no roteiro de navegador.
 - **Vazios.** Não há subtração real. Um tê ou junção não fura o tubo principal. Uma caixa vazada não é selecionada ao clicar no centro dela. O recurso opcional de subtração (F-CSG) está pendente.

@@ -1,6 +1,6 @@
 import { conexoesIssue, type Component, type DominioLigacao, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
-import { ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
+import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
 
 /*
  * Diagnóstico da REDE MEP (ficha C7, CONTRATO §3 e §7). Função pura: lê o projeto e devolve a lista de problemas com CÓDIGOS e
@@ -56,14 +56,6 @@ function tampaoDeclarado(lig: LigacaoNoMundo): boolean {
   return (lig.propriedades[CHAVE_TAMPAO] ?? 0) !== 0;
 }
 
-/** Distância (m) entre as posições no mundo de duas ligações. */
-function distanciaEntre(a: LigacaoNoMundo, b: LigacaoNoMundo): number {
-  const dx = b.posicaoMundo[0] - a.posicaoMundo[0];
-  const dy = b.posicaoMundo[1] - a.posicaoMundo[1];
-  const dz = b.posicaoMundo[2] - a.posicaoMundo[2];
-  return Math.sqrt(dx * dx + dy * dy + dz * dz);
-}
-
 /**
  * Verdadeiro se esta ponta é a que confere a conexão. Cada conexão é checada uma vez, pela ponta de chave menor
  * (`id` da instância + quebra + `id` da ligação), para não repetir o mesmo diagnóstico nos dois lados.
@@ -93,7 +85,7 @@ function diagnosticarConexoes(p: Project, c: Component, noMundo: Map<Id, Ligacao
     if (outro?.kind !== 'component' || !ehPontaCanonica(c.id, lig.id, outro.id, cx.ligacaoId)) continue;
     const alvo = noMundo.get(outro.id)?.find((l) => l.id === cx.ligacaoId);
     if (!alvo) continue;
-    const afastamento = distanciaEntre(lig, alvo);
+    const afastamento = afastamentoDoPar(lig, alvo);
     if (afastamento > AFASTAMENTO_MAXIMO_CONEXAO) {
       out.push({ codigo: 'conexao_afastada', elementId: c.id, ligacaoId: lig.id, outroId: outro.id, valor: afastamento * 1000 });
     }

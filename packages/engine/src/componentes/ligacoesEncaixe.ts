@@ -84,6 +84,42 @@ function distancia(a: LigacaoNoMundo, b: LigacaoNoMundo): number {
 }
 
 /**
+ * Posição (m) onde a PONTA de `ponta` deve estar quando entra na BOLSA de `bolsa`: a abertura da bolsa recuada, para dentro,
+ * pela profundidade (a direção da ligação aponta para fora do corpo, então "para dentro" é o sentido contrário).
+ */
+export function posicaoDaPontaNaBolsa(bolsa: LigacaoNoMundo): [number, number, number] {
+  const p = bolsa.encaixe?.profundidade ?? 0;
+  return [bolsa.posicaoMundo[0] - bolsa.direcaoMundo[0] * p, bolsa.posicaoMundo[1] - bolsa.direcaoMundo[1] * p, bolsa.posicaoMundo[2] - bolsa.direcaoMundo[2] * p];
+}
+
+/** O par é bolsa × ponta (nesta ordem ou na outra)? Devolve qual é a bolsa e qual é a ponta, ou `null`. */
+function parBolsaPonta(a: LigacaoNoMundo, b: LigacaoNoMundo): { bolsa: LigacaoNoMundo; ponta: LigacaoNoMundo } | null {
+  if (a.encaixe?.tipo === 'bolsa' && b.encaixe?.tipo === 'ponta') return { bolsa: a, ponta: b };
+  if (b.encaixe?.tipo === 'bolsa' && a.encaixe?.tipo === 'ponta') return { bolsa: b, ponta: a };
+  return null;
+}
+
+/**
+ * Afastamento (m) de uma conexão (ficha P2). Em bolsa × ponta com profundidade, a ponta tem de estar DENTRO da bolsa: o afastamento
+ * é a distância da ponta até `posicaoDaPontaNaBolsa` (0 = encaixada na profundidade certa; a ponta parada na abertura dá a
+ * profundidade inteira). Sem encaixe declarado nas duas, é a distância simples entre as ligações (comportamento de sempre).
+ */
+export function afastamentoDoPar(a: LigacaoNoMundo, b: LigacaoNoMundo): number {
+  const par = parBolsaPonta(a, b);
+  if (!par || (par.bolsa.encaixe?.profundidade ?? 0) <= 0) return distancia(a, b);
+  const alvo = posicaoDaPontaNaBolsa(par.bolsa);
+  return Math.hypot(par.ponta.posicaoMundo[0] - alvo[0], par.ponta.posicaoMundo[1] - alvo[1], par.ponta.posicaoMundo[2] - alvo[2]);
+}
+
+/**
+ * Comprimento de corte (m) de um tubo entre duas peças: a distância entre as ligações das peças (aberturas de bolsa ou pontas)
+ * mais o que entra em cada bolsa (profundidade; 0 onde a outra ponta é lisa). O tubo vendido tem de cobrir a parte que entra.
+ */
+export function comprimentoDeCorte(distanciaEntreAberturas: number, profundidadeBolsaA = 0, profundidadeBolsaB = 0): number {
+  return distanciaEntreAberturas + Math.max(0, profundidadeBolsaA) + Math.max(0, profundidadeBolsaB);
+}
+
+/**
  * Melhor encaixe da ligação `alvo` entre as `candidatas`: a compatível mais próxima (posição no mundo), dentro de `tolerancia`
  * (m; 50 mm por padrão). Empate fica com a primeira na ordem da lista. `deslocamento` é o vetor de `alvo.posicaoMundo` até
  * `candidata.posicaoMundo`, o quanto a instância arrastada deve andar para casar as ligações.
@@ -101,17 +137,21 @@ export function encaixarLigacoes(
   let melhorDistancia = Infinity;
   for (const candidata of candidatas) {
     if (!ligacoesCompativeis(alvo, candidata).ok) continue;
-    const d = distancia(alvo, candidata);
+    const d = afastamentoDoPar(alvo, candidata);
     if (d > tolerancia || d >= melhorDistancia) continue;
     melhor = candidata;
     melhorDistancia = d;
   }
   if (melhor === null) return null;
-  const deslocamento: [number, number, number] = [
-    melhor.posicaoMundo[0] - alvo.posicaoMundo[0],
-    melhor.posicaoMundo[1] - alvo.posicaoMundo[1],
-    melhor.posicaoMundo[2] - alvo.posicaoMundo[2],
-  ];
+  const par = parBolsaPonta(alvo, melhor);
+  const profundidade = par?.bolsa.encaixe?.profundidade ?? 0;
+  // Bolsa × ponta com profundidade: o alvo vai até onde a ponta fica dentro da bolsa (ver `afastamentoDoPar`).
+  const destino: [number, number, number] = par && profundidade > 0
+    ? par.bolsa === alvo
+      ? [melhor.posicaoMundo[0] + alvo.direcaoMundo[0] * profundidade, melhor.posicaoMundo[1] + alvo.direcaoMundo[1] * profundidade, melhor.posicaoMundo[2] + alvo.direcaoMundo[2] * profundidade]
+      : posicaoDaPontaNaBolsa(melhor)
+    : melhor.posicaoMundo;
+  const deslocamento: [number, number, number] = [destino[0] - alvo.posicaoMundo[0], destino[1] - alvo.posicaoMundo[1], destino[2] - alvo.posicaoMundo[2]];
   return { candidata: melhor, deslocamento };
 }
 

@@ -1,4 +1,4 @@
-import { createEmptyProject, FAMILIA_ARMARIO, type Component, type Familia, type Ligacao, type Project } from '@hestia/model';
+import { BIBLIOTECA_MEP, createEmptyProject, FAMILIA_ARMARIO, type Component, type Familia, type Ligacao, type Project } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
 import { diagnosticarRede, type CodigoDiagnostico, type Diagnostico } from './diagnosticoRede.ts';
 
@@ -115,5 +115,39 @@ describe('diagnosticarRede', () => {
     const a = inst('a', 0, 0, 'fa', { fim: { componenteId: 'b', ligacaoId: 'ini' } });
     const b = inst('b', 1, -0.03, 'fb', { ini: { componenteId: 'a', ligacaoId: 'fim' } });
     expect(diagnosticarRede(projeto([a, b], [familiaA, familiaB]))).toEqual([]);
+  });
+});
+
+describe('diagnosticarRede: ponta dentro da bolsa (ficha P2, famílias da Krona)', () => {
+  // Tubo DN 100 (bolsa A em z = 0 saindo para −Z; ponta B em z = L) e joelho 90° DN 100 (bolsa A em z = −(Z + B), saindo para −Z).
+  // Instâncias sem rotação: o eixo do tubo e o do braço A do joelho são ambos Z. Montagem: a ponta B do tubo entra na bolsa A
+  // do joelho, 45 mm (profundidade B do joelho DN 100) para dentro da abertura.
+  const tubo = BIBLIOTECA_MEP.find((f) => f.id === 'fam_krona_esgoto_tubo');
+  const joelho = BIBLIOTECA_MEP.find((f) => f.id === 'fam_krona_esgoto_joelho90');
+  if (!tubo || !joelho) throw new Error('famílias da Krona ausentes');
+  const comTipo = (c: Component, tipoId: string): Component => ({ ...c, typeId: tipoId });
+  // A ligação B do tubo mede L mm do tubo (L padrão do tipo: 1000). Posicionamos o tubo em z = zt (m) com bolsa em zt.
+  const montar = (zJoelho: number): Project => {
+    const t = comTipo(inst('t', 0, 0, tubo.id, { b: { componenteId: 'j', ligacaoId: 'a' } }), 'dn100');
+    const j = comTipo(inst('j', 0, 0, joelho.id, { a: { componenteId: 't', ligacaoId: 'b' } }), 'dn100');
+    return projeto([t, { ...j, z: zJoelho }], [tubo, joelho]);
+  };
+  // Ligação A do joelho está em z = −(Z + B) = −0,103 m no sistema dele; a B do tubo em z = +1,0 m. A ponta do tubo (1,0) deve ficar
+  // 0,045 m DENTRO da bolsa (abertura em zJoelho − 0,103; direção −Z; para dentro = +Z): ponta = abertura + 0,045.
+  const ZJ_CERTO = 1.0 - 0.045 + 0.103;
+
+  it('encaixada na profundidade certa: sem conexão afastada', () => {
+    const lista = diagnosticarRede(montar(ZJ_CERTO));
+    expect(porCodigo(lista, 'conexao_afastada')).toEqual([]);
+    expect(porCodigo(lista, 'incompativel')).toEqual([]);
+  });
+  it('ponta parada na abertura: afastada pela profundidade inteira (45 mm)', () => {
+    const lista = porCodigo(diagnosticarRede(montar(1.0 + 0.103)), 'conexao_afastada');
+    expect(lista).toHaveLength(1);
+    expect(lista[0]?.valor).toBeCloseTo(45, 6);
+  });
+  it('entrou 10 mm a mais que a profundidade: afastada 10 mm', () => {
+    const lista = porCodigo(diagnosticarRede(montar(ZJ_CERTO - 0.01)), 'conexao_afastada');
+    expect(lista[0]?.valor).toBeCloseTo(10, 6);
   });
 });
