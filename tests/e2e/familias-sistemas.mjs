@@ -14,7 +14,7 @@ const erros = [];
 page.on('console', (m) => { if (m.type() === 'error') erros.push(m.text()); });
 page.on('pageerror', (e) => erros.push(`[pageerror] ${e.message}`));
 const rep = makeReporter();
-const abaAtiva = async (nome) => page.getByRole('tab', { name: nome, exact: true }).first().click();
+const abaAtiva = async (nome) => page.locator('.ribbon-tabs .rtab:visible', { hasText: new RegExp(`^${nome}$`) }).first().click();
 
 try {
   await rep.step('1. abre o app', async () => {
