@@ -313,6 +313,10 @@ const migrations: Record<number, Migration> = {
   // e ausente preserva o comportamento anterior; a disciplina de terreno/lote é derivada e não está gravada no arquivo.
   // O bump existe porque um programa antigo ignoraria clareamento/opacidade e os apagaria ao salvar.
   32: (raw) => ({ ...raw }),
+  // v33 → v34: instância 3D e redes (ADR 0061, ficha B1): `Component.inclinacao`, `Component.ligacoes` e `Project.sistemasMep`.
+  // Tudo opcional e aditivo: ausente = `[0, 0]` / nenhuma conexão / nenhum sistema. A migração só avança a versão; o bump existe
+  // porque um programa antigo ignoraria esses campos e os apagaria ao salvar.
+  33: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';
