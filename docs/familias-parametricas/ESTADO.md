@@ -71,6 +71,16 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 8 | [F-CSG](fichas/F-CSG.md) | (Opcional) Subtração real de vazios nos corpos | Sonnet | A6; só se a caixa de inspeção precisar | pendente | |
 | 8 | [H3](fichas/H3.md) | (Opcional) Espelho Rust das malhas dos corpos | Sonnet | A6 e testes cegos verdes | pendente | |
 
+## Fase 2 (registrada em 2026-11-24; ver `PLANO-FASE-2.md`)
+Aprovado pelo dono: tabela única categoria → aba/painel da faixa; galeria por painel (não um botão por tipo); estrutura pelo caminho barato primeiro. Itens de materiais (K1–K4), roteamento de tubulação por tipo (L1–L6) e inclinação/declividade na interface (M1–M2) estão propostos, aguardando aprovação. Nenhuma ficha da fase 2 foi escrita nem executada.
+
+| Grupo | Fichas | Estado |
+|---|---|---|
+| Menus | J1, J2, J3, J4, J5, J5b | planejada (aprovada) |
+| Materiais | K1, K2, K3, K4 | proposta |
+| Roteamento | L1, L2, L3, L4, L5, L6 | proposta |
+| Inclinação | M1, M2 | proposta |
+
 ## Registro de calibração (preencher a cada ficha)
 | Ficha | Modelo | 1ª (portão aprovou de primeira) | Devoluções | Correções minhas | Nota |
 |---|---|---|---|---|---|
