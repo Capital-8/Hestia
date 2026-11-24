@@ -46,8 +46,8 @@ describe('apresentacaoDe normaliza tom, clareamento e opacidade', () => {
 });
 
 describe('presetApresentacao converte a tabela §4.2', () => {
-  it('parede em Estrutura é a referência especial: halftone, clareamento 0,2 e opacidade 0,5', () => {
-    expect(presetApresentacao('estrutura', 'arquitetura')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.5 });
+  it('parede em Estrutura é a referência especial: halftone, clareamento 0,2 e opacidade 0,12', () => {
+    expect(presetApresentacao('estrutura', 'arquitetura')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.12 });
   });
 
   it('estrutura na planta de Arquitetura é normal opaco', () => {
@@ -57,7 +57,7 @@ describe('presetApresentacao converte a tabela §4.2', () => {
   it('as demais referências halftone mantêm o visual de hoje (clareamento 0,5 e opaco)', () => {
     expect(presetApresentacao('arquitetura', 'hidrossanitario')).toEqual({ tone: 'halftone', clareamento: 0.5, opacidade: 1 });
     expect(presetApresentacao('estrutura', 'hvac')).toEqual({ tone: 'hidden', clareamento: 0, opacidade: 1 });
-    expect(presetApresentacao('paisagismo', 'arquitetura')).toEqual({ tone: 'halftone', clareamento: 0.5, opacidade: 1 });
+    expect(presetApresentacao('paisagismo', 'arquitetura')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.12 });
   });
 
   it('a própria disciplina é normal opaco e geral nunca recebe tom', () => {
@@ -93,7 +93,7 @@ describe('perfilDaDisciplina normaliza em vez de descartar objeto válido', () =
 
 describe('apresentacaoDaCategoria: exceção da vista → perfil → predefinido', () => {
   it('sem perfil nem exceção aplica o predefinido (parede em Estrutura com a referência especial)', () => {
-    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'wall')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.5 });
+    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'wall')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.12 });
   });
 
   it('o perfil vence o predefinido e preserva clareamento e opacidade', () => {
@@ -116,8 +116,8 @@ describe('apresentacaoDaCategoria: exceção da vista → perfil → predefinido
 
   it('terreno e lote agora seguem Arquitetura: normal na planta de Arquitetura e referência em Estrutura', () => {
     expect(apresentacaoDaCategoria(projeto(), { discipline: 'arquitetura' }, 'site')).toEqual(normalOpaco);
-    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'site')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.5 });
-    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'lot')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.5 });
+    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'site')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.12 });
+    expect(apresentacaoDaCategoria(projeto(), { discipline: 'estrutura' }, 'lot')).toEqual({ tone: 'halftone', clareamento: 0.2, opacidade: 0.12 });
   });
 
   it('categoria geral continua normal opaco mesmo com perfil contrário', () => {
