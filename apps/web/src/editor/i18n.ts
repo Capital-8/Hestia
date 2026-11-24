@@ -35,10 +35,26 @@ interface I18nState {
   setLang: (lang: Lang) => void;
 }
 
-/** Idioma salvo no navegador; qualquer valor fora da lista válida cai em `pt`. */
+/**
+ * Escolhe o idioma inicial: o salvo válido vence; senão, o primeiro idioma preferido cuja parte
+ * principal da tag (antes do hífen) seja suportada; sem nenhum, cai em inglês.
+ */
+export function detectLang(preferidos: readonly string[], salvo: string | null): Lang {
+  if (typeof salvo === 'string' && (VALID_LANGS as readonly string[]).includes(salvo)) return salvo as Lang;
+  const lista = Array.isArray(preferidos) ? preferidos : [];
+  for (const tag of lista) {
+    if (typeof tag !== 'string') continue;
+    const principal = tag.split('-')[0]?.toLowerCase() ?? '';
+    if ((VALID_LANGS as readonly string[]).includes(principal)) return principal as Lang;
+  }
+  return 'en';
+}
+
+/** Idioma salvo no navegador ou, sem escolha explícita, o do usuário (fora do navegador, inglês). */
 function readLang(): Lang {
   const saved = safeGet(LANG_KEY);
-  return (VALID_LANGS as readonly string[]).includes(saved ?? '') ? (saved as Lang) : 'pt';
+  const preferidos = typeof navigator === 'undefined' ? [] : (navigator.languages ?? [navigator.language]);
+  return detectLang(preferidos, saved);
 }
 
 /** Mantém `<html lang>` igual ao idioma ativo (fora do navegador não faz nada). */
