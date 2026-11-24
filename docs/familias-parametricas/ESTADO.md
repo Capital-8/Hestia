@@ -26,7 +26,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
 | 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | integrada | e7b82d97 |
 | 3 | [A7b](fichas/A7b.md) | Caixa e pegada do componente incluem corpos; símbolos no resolvedor | Haiku | A7, D1 | integrada | e9025985 |
-| 3 | [B3b](fichas/B3b.md) | Planta aplica a inclinação 3D e o símbolo que substitui a geometria | Haiku | B3, D2 | pendente | |
+| 3 | [B3b](fichas/B3b.md) | Planta aplica a inclinação 3D e o símbolo que substitui a geometria | Haiku | B3, D2 | integrada | 2 commits sobre e35d49a3 |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | integrada | 635fcc15 |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | integrada | bdb19666 |
 | 3 | [B4](fichas/B4.md) | Corte e elevação dos corpos | Sonnet | A7, B1 | integrada | 00144198 |
@@ -35,20 +35,23 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 3 | [D5](fichas/D5.md) | Verificações e tabelas de dimensões | Haiku | A1 | integrada (motor e validação; interface pendente → G3) | 437e90e5 |
 | 4 | [B5](fichas/B5.md) | Seleção (pick) por corpo no 3D, planta e corte | Haiku | B2, B3, B4 | integrada | f2b869bd |
 | 4 | [B7](fichas/B7.md) | Editor: criar e editar corpos (interface) | Haiku | B2, B6 | integrada | 5bd55a88 |
-| 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | pendente | |
+| 4 | [C2](fichas/C2.md) | Editar ligações: operações e interface | Haiku | C1, B7 | parcial (operações, cores, textos, painel não montado → C2b) | 232ce6ec |
 | 4 | [C3](fichas/C3.md) | Conexões entre instâncias e sistemas MEP no projeto | Sonnet | B1, C1 | integrada | fd3dddb8 |
 | 4 | [C4](fichas/C4.md) | Compatibilidade e encaixe de ligações (funções puras) | Haiku | C1, B1 | integrada | 97d321bb |
 | 4 | [C4-cego](fichas/C4-cego.md) | Teste cego da compatibilidade e do encaixe | Haiku | rodar contra C4 | arbitrada (28 verdes, 4 ambiguidades abertas) | 1c29c347 |
 | 4 | [D2](fichas/D2.md) | Desenho dos símbolos 2D em planta, corte e elevação | Haiku | D1, A7, B3 | integrada | e69d9e35 |
+| 5 | [A4b](fichas/A4b.md) | Caminho: segmento quase nulo e vértice coincidente com a tangência | Haiku | A4, A6 | pendente | |
+| 6 | [F1b](fichas/F1b.md) | Famílias MEP disponíveis no app (biblioteca, paleta e ferramenta Tubo) | Haiku | F1, C5, C6 | pendente | |
+| 6 | [C2b](fichas/C2b.md) | Ligações no editor: montar o painel e os marcadores 3D | Haiku | C2, B7 | pendente | |
 | 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | integrada | 2d139b13 |
-| 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | pendente | |
+| 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | integrada | 78ee6300 |
 | 5 | [C7](fichas/C7.md) | Diagnóstico da rede MEP | Haiku | C3, C4 | pendente | |
 | 5 | [D3](fichas/D3.md) | Visibilidade por vista e editor de símbolos | Haiku | D1, D2, B7 | pendente | |
 | 5 | [D4](fichas/D4.md) | Detalhes da família: vistas nomeadas, cotas e cadeado | Sonnet | B4, D1, D2 | pendente | |
 | 5 | [E2](fichas/E2.md) | Exportação IFC por categoria e portas de ligação | Haiku | A7, E1, C1 | pendente | |
 | 5 | [E3](fichas/E3.md) | Quantitativos por categoria | Haiku | A7, E1 | pendente | |
 | 6 | [D6](fichas/D6.md) | Inserir o detalhe da família numa prancha | Haiku | D4 | pendente | |
-| 6 | [F1](fichas/F1.md) | Referência: tubo e conexões de esgoto (PVC) | Haiku | A7, C1, E1, B2 | pendente | |
+| 6 | [F1](fichas/F1.md) | Referência: tubo e conexões de esgoto (PVC) | Haiku | A7, C1, E1, B2 | integrada | d9b58b7f |
 | 6 | [F2](fichas/F2.md) | Referência: tubo e conexões de água fria (PVC soldável) | Haiku | F1 | pendente | |
 | 6 | [F3](fichas/F3.md) | Referência: caixas de inspeção, de gordura e sifonada | Haiku | F1 | pendente | |
 | 6 | [F4](fichas/F4.md) | Referência: fossa séptica, filtro anaeróbio e sumidouro | Sonnet | F3, D5 | pendente | |
@@ -97,4 +100,8 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · D2: símbolos desenhados na planta (`planComponentsSimbolos.ts`) e no corte (`sectionComponentsSimbolos.ts`, `xz`/`yz` nos planos y=0/x=0 da família); `substituiGeometria` funciona na planta, NÃO no corte; tracejado e estilo da categoria não implementados; etiquetas (`labels`) agora entram na planta (linha em `plan/build.ts`, orquestrador). Orquestrador: `pegadaDoComponente` só inclui corpos com `vistas` nulas ou contendo `planta` (corrigiu teste B3 quebrado pela A7b).
 - 2026-11-24 · C5: `orientarSegmento`, `trechoDeTubo` (engine), `TuboTool` + `opcoesTubo` + `FAMILIA_TUBO_PADRAO = 'tubo-padrao'` (tools), painel `TuboProperties.tsx`, botão na aba Inserir, roteiro `tests/e2e/tubo.mjs` rodou no Chromium (3 trechos em L, conexões recíprocas, Esc, desfazer). Encaixe valida domínio/seção/DN/fluxo mas NÃO a direção (curvas = C6). Sem atalho de teclado e sem aba "Sistemas"; mensagens da ferramenta em português fixo; a família real de tubo (F1) ainda não existe (sem `tubo-padrao` a ferramenta só avisa). Orquestrador acrescentou `TuboProperties.tsx` ao guarda `contratoPaineisFamilia.test.ts` (SEM_FAMILIA).
 - 2026-11-24 · B7: painel "Corpos" na aba Criar, lista no navegador, painel do corpo (forma, perfil, caminho com tabela de pontos e raio, transição, quadro, vistas, detalhe 3D), `familiaCorpo.ts` com store próprio de seleção; textos em `familiasCorpo.ts` e `familiasCorpoOutros.ts` (shards novos; traduções ES/DE/FR/IT/PL escritas sem revisão nativa); roteiro `tests/e2e/familias-corpos.mjs` 7/7 no Chromium. Seleção 3D↔lista: ainda só pela lista (B5 deu pick no 3D mas a lista não liga ao 3D do editor). `vazio`/`grupo` do corpo não expostos.
+- 2026-11-24 · B3b: `malhaDoComponente` aplica `matrizDoComponente` (inclinação 3D também nas PEÇAS no 3D/IFC); `projetarCorposPlanta(corpos, detalhe, matriz?)` devolve no mundo quando recebe a matriz; planta usa a matriz; PEÇAS na planta continuam 2D (desalinham dos corpos se houver inclinação: ficha futura B3c); orquestrador ajustou `pick.ts` (pegadaParaClique) para a matriz.
+- 2026-11-24 · F1: oito famílias de esgoto em `biblioteca/tuboEsgoto*.ts` exportadas como `TUBULACAO_ESGOTO`, FORA de `BIBLIOTECA_BASE` (testes de conectores de móvel e snapshot A7 exigiriam alterar testes) → F1b cria `BIBLIOTECA_MEP` e a disponibiliza; curva de 45° ganhou trecho reto `Lf` em cada ponta por causa de defeito do motor (segmento quase nulo) → ficha A4b; valores a CONFERIR: espessuras por DN, `Lf`, raios curto/longo, códigos IFC (`tipoPredefinido`); tê/junção sem furo no tubo principal (depende de F-CSG); redução sólida; sem símbolo 2D.
+- 2026-11-24 · C6: `CONEXOES_POR_DOMINIO` só com `esgoto`; ângulos (tolerância 2,5°) 180° = liga direto (sem luva), 90° = curva90, 135° (desvio 45°) = curva45, DN diferente = redução; derivação vira tê (90°) ou junção 45° (45°) dividindo o tubo; conexões casadas por permutação das ligações; famílias de conexão devem declarar `DN` e `DN2` (redução: maior/menor; tê/junção: principal/ramal) — conferir no F1b; sem conexões do domínio no projeto a ferramenta liga tubo a tubo e avisa; e2e `tubo.mjs` passo 5 (curva 90° e tê) passou.
+- 2026-11-24 · C2 (parcial): faltou montar a seção Ligações em `FamiliaPaineis.tsx`, marcadores 3D e export de `corDoDominio` → C2b.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
