@@ -8,9 +8,9 @@ import type { Problema } from './validar.ts';
  * `tipo` para tipo/escopo/opções e `faixa` para min/max/passo/padrão fora da faixa.
  */
 
-const TIPOS: readonly string[] = ['comprimento', 'numero', 'inteiro', 'booleano', 'texto', 'enum', 'chapa', 'material'];
+const TIPOS: readonly string[] = ['comprimento', 'numero', 'inteiro', 'booleano', 'texto', 'enum', 'chapa', 'material', 'angulo'];
 const ESCOPOS: readonly string[] = ['tipo', 'instancia'];
-const COM_FORMULA: readonly string[] = ['comprimento', 'numero', 'inteiro', 'booleano'];
+const COM_FORMULA: readonly string[] = ['comprimento', 'numero', 'inteiro', 'booleano', 'angulo'];
 const EIXOS: readonly string[] = ['x', 'y', 'z'];
 const PAPEIS: readonly string[] = [
   'lateral', 'base', 'topo', 'travessa', 'prateleira', 'divisoria', 'fundo', 'porta', 'frente_gaveta',
@@ -50,6 +50,9 @@ function conferirParametro(p: Record<string, unknown>, base: string, out: Proble
   const escopo = typeof p.escopo === 'string' ? p.escopo : undefined;
   const opcoes = Array.isArray(p.opcoes) ? (p.opcoes as OpcaoParametro[]) : undefined;
 
+  if (p.id === 'PI') {
+    out.push(criarProblema('id_invalido', 'id reservado para a linguagem de fórmulas: “PI”', base));
+  }
   if (tipo === undefined || !TIPOS.includes(tipo)) {
     out.push(criarProblema('tipo', `tipo de parâmetro desconhecido: “${texto(p.tipo)}”`, base));
   }

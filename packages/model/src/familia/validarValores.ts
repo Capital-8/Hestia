@@ -13,6 +13,7 @@ export function valorCompativel(
   switch (tipo) {
     case 'comprimento':
     case 'numero':
+    case 'angulo':
       return typeof valor === 'number' && Number.isFinite(valor);
     case 'inteiro':
       return typeof valor === 'number' && Number.isInteger(valor);

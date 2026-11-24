@@ -45,7 +45,7 @@ export type OrigemFamilia = 'canto' | 'centro';
 
 // ───────────────────────── parâmetros ─────────────────────────
 
-export type TipoParametro = 'comprimento' | 'numero' | 'inteiro' | 'booleano' | 'texto' | 'enum' | 'chapa' | 'material';
+export type TipoParametro = 'comprimento' | 'numero' | 'inteiro' | 'booleano' | 'texto' | 'enum' | 'chapa' | 'material' | 'angulo';
 /** `tipo`: vale para todas as instâncias do tipo; `instancia`: cada móvel colocado pode mudar. */
 export type Escopo = 'tipo' | 'instancia';
 
