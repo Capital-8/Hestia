@@ -50,8 +50,12 @@ export interface Caminho {
 
 export type FormaCorpo =
   | { tipo: 'extrusao'; perfil: Perfil; comprimento: Expr }
-  /** O perfil fica no plano (u = distância ao eixo ≥ 0, v = altura ao longo do eixo Z). `angulo` em graus (360 = volta inteira). */
-  | { tipo: 'revolucao'; perfil: Perfil; angulo: Expr; segmentos?: Expr }
+  /**
+   * O perfil fica no plano (u = distância ao eixo, v = altura ao longo do eixo Z). Perfis centrados (todos menos `poligono`) são
+   * deslocados para que o menor u seja `afastamento` (mm, padrão 0: encosta no eixo; um círculo com afastamento > 0 vira toro);
+   * em `poligono` os u são literais, somados ao `afastamento`. Todo u final ≥ 0. `angulo` em graus (360 = volta inteira).
+   */
+  | { tipo: 'revolucao'; perfil: Perfil; angulo: Expr; segmentos?: Expr; afastamento?: Expr }
   | { tipo: 'varredura'; perfil: Perfil; caminho: Caminho }
   /** Mesclagem entre dois perfis ao longo de +Z (redução, cone, transição redondo → retangular). */
   | { tipo: 'transicao'; perfilA: Perfil; perfilB: Perfil; comprimento: Expr; desvio?: Ponto2 };
