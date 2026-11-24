@@ -17,12 +17,12 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 1 | [A4-cego](fichas/A4-cego.md) | Teste cego do caminho com curvas | Haiku | rodar contra A4 | arbitrada (19 verdes; 4 ambiguidades abertas) | c237f83c |
 | 1 | [A9](fichas/A9.md) | Arquivo `hestia-familia` versão 2 | Haiku | — | integrada | ad45f16a |
 | 1 | [E1](fichas/E1.md) | Categorias novas: IFC padrão e galeria | Haiku | — | integrada | dcd5bc5b |
-| 2 | [A2b](fichas/A2b.md) | Renomear e excluir parâmetro enxergam as fórmulas dos corpos | Haiku | A2 | pendente | |
+| 2 | [A2b](fichas/A2b.md) | Renomear e excluir parâmetro enxergam as fórmulas dos corpos | Haiku | A2 | integrada | bc387b6d |
 | 2 | [A5](fichas/A5.md) | Malha dos corpos: extrusão e revolução | Haiku | A3 | integrada | 28a6ecab |
 | 2 | [A5-cego](fichas/A5-cego.md) | Teste cego das malhas de extrusão e revolução | Haiku | rodar contra A5 | arbitrada (31 verdes, 1 ambiguidade: toro a 32 lados) | 6ee056c7 |
-| 2 | [A6](fichas/A6.md) | Malha dos corpos: varredura e transição + agregador | Sonnet | A3, A4, A5 | pendente | |
-| 2 | [A6-cego](fichas/A6-cego.md) | Teste cego da varredura e da transição | Haiku | rodar contra A6 | pendente | |
-| 2 | [B1](fichas/B1.md) | Instância 3D (`inclinacao`), esquema 34 e matriz do componente | Sonnet | — | pendente | |
+| 2 | [A6](fichas/A6.md) | Malha dos corpos: varredura e transição + agregador | Sonnet | A3, A4, A5 | integrada | 81554080 |
+| 2 | [A6-cego](fichas/A6-cego.md) | Teste cego da varredura e da transição | Haiku | rodar contra A6 | arbitrada (passou sem ajuste) | 1a18ee2b |
+| 2 | [B1](fichas/B1.md) | Instância 3D (`inclinacao`), esquema 34 e matriz do componente | Sonnet | — | integrada | 3ca0bdfb |
 | 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
 | 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | pendente | |
@@ -76,4 +76,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · A3/A3-cego: `segmentos` do círculo/anel fica entre 8 e 128 (CONTRATO §2.2), valores fora são limitados; `resolverPerfil` devolve `{ ok: true; perfil } | { ok: false; erro }`; vértices trigonométricos não são arredondados a 1 µm (só as medidas de entrada).
 - 2026-11-24 · E1: rótulos das categorias novas ficam em pt-BR fixo em `ROTULO_CATEGORIA` (sem i18n nas 7 línguas por ora); tarefa de i18n entra na ficha G1.
 - 2026-11-24 · A5: `malhaRevolucao(perfil, anguloRad, segmentos)` recebe o NÚMERO DE PASSOS do ângulo dado (o padrão de 32 por volta é convertido por quem chama); `posicionarPerfilRevolucao(perfil, afastamento_m, centrado)` aplica a regra do afastamento; `pecaDoTriangulo` sai 0 e `malhaDosCorpos` (A6) reatribui o índice do corpo; `triangulate` de `@hestia/geom` aceita furos (sem ponte de corte); normais suaves com limiar de 60° entre arestas.
+- 2026-11-24 · B1: `SCHEMA_VERSION` = 34 (migração só avança); `matrizDoComponente(c)` devolve 16 números em ordem de coluna (translação em 12, 13, 14); comando `setComponentInclination`; cópia por transform descarta `ligacoes`; `clipboard.ts` (tools) copia `inclinacao` ao colar; testes de esquema e o hash do IFC sem plantas de disciplina acompanharam o 34.
+- 2026-11-24 · A6: `malhaDosCorpos` devolve `MalhasDasPecas` + `erros: string[]` (corpo inválido é omitido com mensagem); `FormaCorpoResolvida.revolucao` ganhou `afastamento` (m) e `centradoNoEixo`; ponto de referência da transição = raio de ângulo 0 (+u) a partir do centro da caixa do perfil; limitação: tampa de transição retangular não é estanque por índice (junção em T, volume correto); N4 a 64 segmentos fica em ±0,5 %, com 32 fica ~0,6 % abaixo.
+- 2026-11-24 · BACKLOG (fichas pequenas a abrir): A2c — `Corpo.material` precisa entrar em renomear/excluir parâmetro (`edicao.ts` só reescreve `peca.material`); `caixaria` fora da lista branca de `arquivo.ts`; `angulo` no seletor de tipos da UI (G2).
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
