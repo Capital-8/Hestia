@@ -1,5 +1,6 @@
 import { LIMITES, ordemDeAvaliacao, tentar, type Env, type Familia, type Parametro, type Peca, type Valor } from '@hestia/model';
 import { resolverAninhados } from './aninhados.ts';
+import { resolverCorposDaFamilia, type ResultadoCorposDaFamilia } from './resolverCorpos.ts';
 import { orientarAntiHorario, validarContorno } from './contorno.ts';
 import type { EntradaResolucao, ErroResolucao, FerragemResolvida, PecaResolvida, ResolucaoFamilia, UsinagemResolvida } from './pecas.ts';
 
@@ -225,13 +226,16 @@ export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): Res
   let env: Record<string, Valor> = {};
   const pecas: PecaResolvida[] = [];
   let ferragens: FerragemResolvida[] = [];
+  let corposR: ResultadoCorposDaFamilia = { corpos: [], ligacoes: [], caixaCorpos: null, erros: [] };
   try {
     env = prepararEnv(f, entrada, erros);
-    if (!avaliarOrdem(f, env, erros)) return { pecas: [], ferragens: [], erros, env };
+    if (!avaliarOrdem(f, env, erros)) return { pecas: [], ferragens: [], erros, env, corpos: [], ligacoes: [], caixaCorpos: null };
     const chapas = new Set(f.parametros.filter((q) => q.tipo === 'chapa').map((q) => q.id));
     for (const p of f.pecas) {
       try { pecas.push(...resolverPeca(p, env, chapas, erros)); } catch (e) { erros.push({ onde: `peca:${String((p as { id?: unknown }).id)}`, mensagem: `peça malformada: ${(e as Error).message}` }); }
     }
+    corposR = resolverCorposDaFamilia(f, env);
+    erros.push(...corposR.erros);
     ferragens = resolverFerragens(f, env, erros);
     if (f.aninhados.length > 0) {
       const r = resolverAninhados({ familia: f, env, entrada, resolver: resolverFamilia });
@@ -241,5 +245,5 @@ export function resolverFamilia(f: Familia, entrada: EntradaResolucao = {}): Res
   } catch (e) {
     erros.push({ onde: 'familia', mensagem: `família malformada: ${(e as Error).message}` });
   }
-  return { pecas, ferragens, erros, env };
+  return { pecas, ferragens, erros, env, corpos: corposR.corpos, ligacoes: corposR.ligacoes, caixaCorpos: corposR.caixaCorpos };
 }

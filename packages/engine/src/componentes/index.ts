@@ -30,3 +30,4 @@ export * from './corposMalhaRevolucao.ts';
 export * from './corposLigacoes.ts';
 export * from './verificacoesDaFamilia.ts';
 export * from './simbolosResolvidos.ts';
+export * from './resolverCorpos.ts';
