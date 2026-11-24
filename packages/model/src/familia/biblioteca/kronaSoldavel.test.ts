@@ -35,9 +35,9 @@ const f = (id: string): Familia => {
 const pos = (fam: Familia, i: number, env: Env): number[] => (fam.ligacoes?.[i]?.posicao ?? []).map((s) => n(s, env));
 
 describe('soldável Krona: cadastro', () => {
-  it('12 famílias válidas de hidrossanitário com ligações de água fria e encaixe', () => {
-    expect(KRONA_SOLDAVEL_FAMILIAS).toHaveLength(12);
-    expect(new Set(KRONA_SOLDAVEL_FAMILIAS.map((x) => x.id)).size).toBe(12);
+  it('13 famílias válidas de hidrossanitário com ligações de água fria e encaixe', () => {
+    expect(KRONA_SOLDAVEL_FAMILIAS).toHaveLength(13);
+    expect(new Set(KRONA_SOLDAVEL_FAMILIAS.map((x) => x.id)).size).toBe(13);
     for (const x of KRONA_SOLDAVEL_FAMILIAS) {
       expect(x.disciplina).toBe('hidrossanitario');
       expect(validarFamilia(x).filter((p) => p.nivel === 'erro')).toEqual([]);

@@ -1,4 +1,5 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
+import { bitolasDoTubo, TIPOS_TUBULACAO, tipoDaFamiliaDeTubo } from '@hestia/engine';
 import { FAMILIA_TUBO_PADRAO, opcoesTubo } from '@hestia/tools';
 import { useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
@@ -15,14 +16,31 @@ export function TuboProperties(): ReactElement {
   const escolhida = useUi((s) => s.options.componentFamilyId);
   // `opcoesTubo` é um objeto simples (a ferramenta não é React): o estado local só força o redesenho depois de cada edição.
   const [, redesenhar] = useState(0);
-  const familias = Object.values(p.componentFamilies ?? {}).filter((f) => (f.ligacoes?.length ?? 0) >= 2);
+  const doProjeto = Object.values(p.componentFamilies ?? {}).filter((f) => (f.ligacoes?.length ?? 0) >= 2);
+  // Tipos de tubulação da biblioteca (Krona): aparecem mesmo antes de a família entrar no projeto (ela entra com o primeiro trecho).
+  const daBiblioteca = TIPOS_TUBULACAO.filter((tp) => !doProjeto.some((f) => f.id === tp.regras.tubo)).map((tp) => ({ id: tp.regras.tubo, nome: tp.rotulo }));
+  const familias = [...doProjeto.map((f) => ({ id: f.id, nome: tipoDaFamiliaDeTubo(f.id)?.rotulo ?? f.nome })), ...daBiblioteca];
   const atual = escolhida ?? FAMILIA_TUBO_PADRAO;
-  const dns = DN_COMUNS.includes(opcoesTubo.dn) ? DN_COMUNS : [...DN_COMUNS, opcoesTubo.dn].sort((a, b) => a - b);
+  const bitolas = bitolasDoTubo(atual);
+  const base = bitolas ?? DN_COMUNS;
+  const dns = base.includes(opcoesTubo.dn) ? base : [...base, opcoesTubo.dn].sort((a, b) => a - b);
+  // Projeto sem nenhum tubo e sem escolha: o tipo padrão passa a ser o esgoto da Krona (o genérico segue na lista).
+  useEffect(() => {
+    if (escolhida === undefined && doProjeto.length === 0) useUi.setState((s) => ({ options: { ...s.options, componentFamilyId: 'fam_krona_esgoto_tubo_corte', componentTypeId: null } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const trocarTipo = (id: string): void => {
+    const lista = bitolasDoTubo(id);
+    // A bitola atual pode não existir no tipo novo (ex.: DN 63 na Krona): vai para 100 ou para a primeira da lista.
+    if (lista && !lista.includes(opcoesTubo.dn)) opcoesTubo.dn = lista.includes(100) ? 100 : (lista[0] ?? opcoesTubo.dn);
+    useUi.setState((s) => ({ options: { ...s.options, componentFamilyId: id, componentTypeId: null } }));
+    redesenhar((n) => n + 1);
+  };
   return (
     <Group title={t('tubo_grupo')}>
       {familias.length === 0 ? <p className="hint">{t('tubo_sem_familia')}</p> : null}
       <Row label={t('tubo_familia')} htmlFor="place-tubo-familia">
-        <select id="place-tubo-familia" className="select" value={atual} onChange={(e) => useUi.setState((s) => ({ options: { ...s.options, componentFamilyId: e.target.value, componentTypeId: null } }))}>
+        <select id="place-tubo-familia" className="select" value={atual} onChange={(e) => trocarTipo(e.target.value)}>
           {familias.some((f) => f.id === atual) ? null : <option value={atual}>{atual}</option>}
           {familias.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
         </select>

@@ -146,10 +146,10 @@ export function disco(id: string, nome: string, diametro: string, comp: string, 
 }
 
 /** Ligação de esgoto; `bolsa` é a expressão da profundidade da bolsa (sem ela, a ligação é ponta lisa). Vai em `encaixe` (ficha P1). */
-export function ligacaoKrona(ctx: Contexto, id: string, nome: string, posicao: Ponto3, direcao: Ponto3, diametro: string, bolsa?: string): Ligacao {
+export function ligacaoKrona(ctx: Contexto, id: string, nome: string, posicao: Ponto3, direcao: Ponto3, diametro: string, bolsa?: string, aceitaMesmoTipo = false): Ligacao {
   return {
     id, nome, dominio: ctx.dominio, sistema: ctx.sistema, secao: 'redonda', posicao, direcao, diametro, fluxo: 'ambos',
-    encaixe: bolsa ? { tipo: 'bolsa', profundidade: bolsa } : { tipo: 'ponta' },
+    encaixe: bolsa ? { tipo: 'bolsa', profundidade: bolsa } : { tipo: 'ponta', ...(aceitaMesmoTipo ? { aceitaMesmoTipo: true } : {}) },
   };
 }
 

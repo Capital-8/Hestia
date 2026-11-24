@@ -113,12 +113,19 @@ export function avaliarEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', trec
   const angulo = anguloGraus(ua, ub);
   const diametros = [trechoA.dn, trechoB.dn];
   const mesmoDn = iguais(trechoA.dn, trechoB.dn);
-  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => ({ conexao: { tipo, familiaId, direcoes: [ua, ub], diametros }, aviso: null });
+  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => (familiaId === '' ? semPeca(tipo) : { conexao: { tipo, familiaId, direcoes: [ua, ub], diametros }, aviso: null });
   if (angulo >= 180 - TOLERANCIA_ANGULO) return mesmoDn ? faz('luva', regras.luva) : faz('reducao', regras.reducao);
   if (!mesmoDn) return { conexao: null, aviso: 'Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.' };
   if (Math.abs(angulo - 90) <= TOLERANCIA_ANGULO) return faz('curva90', regras.curva90);
   if (Math.abs(angulo - 135) <= TOLERANCIA_ANGULO) return faz('curva45', regras.curva45);
   return { conexao: null, aviso: `Ângulo de ${Math.round(180 - angulo)}° sem conexão automática (só 0°, 45° e 90°).` };
+}
+
+const NOME_DO_TIPO: Record<TipoConexao, string> = { luva: 'luva', curva90: 'joelho ou curva de 90°', curva45: 'joelho ou curva de 45°', reducao: 'redução', te: 'tê', juncao45: 'junção de 45°' };
+
+/** Tipo de tubulação sem esta peça (id vazio nas regras): nada a inserir, e o aviso diz o que falta. */
+function semPeca(tipo: TipoConexao): ResultadoConexao {
+  return { conexao: null, aviso: `Este tipo de tubulação não tem ${NOME_DO_TIPO[tipo]}: o trecho fica sem essa conexão.` };
 }
 
 /** Conexão do encontro (ou `null`); o motivo da ausência sai de `avaliarEncontro`. */
@@ -136,7 +143,7 @@ export function avaliarDerivacao(principal: TrechoEncontro, ponto: PontoSegmento
   const ur = saindoDaPonta(ramal, pontaRamal);
   if (!ua || !ub || !ur) return { conexao: null, aviso: 'Derivação sobre a ponta do trecho ou trecho nulo: nada a dividir.' };
   const angulo = Math.min(anguloGraus(ur, ua), anguloGraus(ur, ub));
-  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => ({ conexao: { tipo, familiaId, direcoes: [ua, ub, ur], diametros: [principal.dn, principal.dn, ramal.dn] }, aviso: null });
+  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => (familiaId === '' ? semPeca(tipo) : { conexao: { tipo, familiaId, direcoes: [ua, ub, ur], diametros: [principal.dn, principal.dn, ramal.dn] }, aviso: null });
   const ortogonal = Math.abs(anguloGraus(ur, ua) - 90) <= TOLERANCIA_ANGULO;
   if (ortogonal) return faz('te', regras.te);
   if (Math.abs(angulo - 45) <= TOLERANCIA_ANGULO) return faz('juncao45', regras.juncao45);
@@ -158,6 +165,12 @@ export interface PosicaoConexao {
   values: Record<string, number>;
   /** Para cada direção de `ConexaoEncontro.direcoes`, o id da ligação da família de conexão que a atende. */
   ligacoes: string[];
+  /**
+   * Quanto cada trecho recua (m) do ponto de encontro para a ponta dele ficar DENTRO da bolsa na profundidade do catálogo: a distância
+   * do centro até a ligação menos a profundidade da bolsa (ponta lisa: a própria distância). 0 quando a ligação não declara encaixe
+   * (famílias antigas): o trecho vai até o ponto, como sempre foi.
+   */
+  recuos: number[];
 }
 
 type M3 = [V3, V3, V3];
@@ -276,7 +289,8 @@ export function posicionarConexao(familia: Familia, ponto: PontoSegmento, conexa
       const r = rotacaoQueAlinha(locais, conexao.direcoes);
       if (!r) continue;
       const o = decompor(r);
-      return { x: ponto[0], y: ponto[1], z: ponto[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id) };
+      const recuos = lista.map((l) => (l.encaixe === undefined ? 0 : Math.max(0, Math.hypot(l.posicao[0], l.posicao[1], l.posicao[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0))));
+      return { x: ponto[0], y: ponto[1], z: ponto[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos };
     }
   }
   return null;

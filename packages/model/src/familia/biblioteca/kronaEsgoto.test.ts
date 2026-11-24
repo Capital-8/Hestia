@@ -40,9 +40,9 @@ const f = (id: string): Familia => {
 const ponto = (p: readonly string[], env: Env): number[] => p.map((s) => n(s, env));
 
 describe('esgoto Krona: cadastro', () => {
-  it('são 25 famílias de hidrossanitário, todas válidas, com ids únicos', () => {
-    expect(KRONA_ESGOTO_FAMILIAS).toHaveLength(25);
-    expect(new Set(KRONA_ESGOTO_FAMILIAS.map((x) => x.id)).size).toBe(25);
+  it('são 26 famílias de hidrossanitário, todas válidas, com ids únicos', () => {
+    expect(KRONA_ESGOTO_FAMILIAS).toHaveLength(26);
+    expect(new Set(KRONA_ESGOTO_FAMILIAS.map((x) => x.id)).size).toBe(26);
     for (const x of KRONA_ESGOTO_FAMILIAS) {
       expect(x.disciplina).toBe('hidrossanitario');
       expect(validarFamilia(x).filter((p) => p.nivel === 'erro')).toEqual([]);
@@ -70,8 +70,9 @@ describe('esgoto Krona: cadastro', () => {
     expect(n('Db2', env)).toBe(75.5);
     expect(n('B2', env)).toBe(44);
   });
-  it('nenhuma usa material de madeira (nada de carvalho em tubo)', () => {
-    for (const x of KRONA_ESGOTO_FAMILIAS) for (const c of x.corpos ?? []) expect(c.material).toBe('mat_pvc');
+  // Decisão da ficha K (materiais): cada série tem a cor do PVC (branco no normal, bege no reforçado), em vez do mat_pvc genérico.
+  it('nenhuma usa material de madeira: PVC branco na série normal e bege na reforçada', () => {
+    for (const x of KRONA_ESGOTO_FAMILIAS) for (const c of x.corpos ?? []) expect(c.material).toBe(x.id.includes('_reforcado_') ? 'mat_pvc_bege' : 'mat_pvc_branco');
   });
 });
 

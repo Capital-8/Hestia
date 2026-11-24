@@ -1,6 +1,6 @@
 import type { Familia } from '../tipos.ts';
 import { montarKrona, type SpecKrona } from './kronaEsgotoApoio.ts';
-import { bucha, cap, curva, joelho, luva, luvaDeCorrer, reducaoExcentrica, te, tubo } from './kronaReceitas.ts';
+import { bucha, cap, curva, joelho, luva, luvaDeCorrer, reducaoExcentrica, te, tubo, tuboCortado } from './kronaReceitas.ts';
 
 /*
  * Esgoto da Krona montado DIRETO do catálogo (ficha P4): série normal (DN 40 a 250 onde o catálogo traz as cotas) e série reforçada.
@@ -23,6 +23,7 @@ const TE_RED_R = { B1: 'B', B2: 'B2', C: 'C', Z1: 'Z', Z2: 'Z2', D1: 'Db', D2: '
 
 const SPECS: SpecKrona[] = [
   { id: 'fam_krona_esgoto_tubo', nome: 'Tubo de esgoto PVC Krona (bolsa e ponta)', categoria: 'tubulacao', descricao: 'Tubo reto de PVC de esgoto, bolsa na ponta A e ponta lisa na B; comprimento L livre (comercial 3 m ou 6 m).', pedido: { itens: ['tubo_de_pvc_esgoto_primario_6m', 'tubos_de_pvc_esgoto_secundario_6m', 'tubos_de_pvc_esgoto_secundario_6m_3'], mapa: { B: 'B', D: 'Db', d: 'De' }, serie: N }, receita: tubo(), ifc: { classe: 'IFCPIPESEGMENT' } },
+  { id: 'fam_krona_esgoto_tubo_corte', nome: 'Tubo de esgoto PVC Krona (trecho cortado)', categoria: 'tubulacao', descricao: 'Trecho de tubo de PVC de esgoto cortado, ponta lisa nas duas pontas, comprimento L livre: é o que a ferramenta Tubo desenha entre as conexões.', pedido: { itens: ['tubo_de_pvc_esgoto_primario_6m', 'tubos_de_pvc_esgoto_secundario_6m', 'tubos_de_pvc_esgoto_secundario_6m_3'], mapa: { B: 'B', D: 'Db', d: 'De' }, serie: N }, receita: tuboCortado(), ifc: { classe: 'IFCPIPESEGMENT' } },
   { id: 'fam_krona_esgoto_joelho90', nome: 'Joelho 90° de esgoto Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 90° com bolsa nas duas pontas: braço vertical (−Z) e horizontal (+X).', pedido: { itens: ['joelho_90_esgoto_primario', 'joelho_90_esgoto_secundario'], mapa: SIMPLES, serie: N }, receita: joelho(90), ifc: BEND },
   { id: 'fam_krona_esgoto_joelho45', nome: 'Joelho 45° de esgoto Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 45° com bolsa nas duas pontas: braço A (−Z) e braço B desviado 45°.', pedido: { itens: ['joelho_45_esgoto_primario', 'joelho_45_esgoto_secundario'], mapa: SIMPLES, serie: N }, receita: joelho(45), ifc: BEND },
   { id: 'fam_krona_esgoto_curva90_curta', nome: 'Curva 90° curta de esgoto Krona', categoria: 'conexao_tubo', descricao: 'Curva de 90° curta: ponta lisa em baixo e bolsa para +X, varredura com arco de tangente Z.', pedido: { itens: ['curva_90_curta_esgoto_secundario_2'], mapa: { B: 'B', Z: 'Z', C: 'C', D: 'Db', d: 'De' }, serie: N }, receita: curva(90), ifc: BEND },

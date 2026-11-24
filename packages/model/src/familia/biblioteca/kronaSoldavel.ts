@@ -1,6 +1,6 @@
 import type { Familia } from '../tipos.ts';
 import { AGUA_FRIA, montarKrona, type SpecKrona } from './kronaEsgotoApoio.ts';
-import { cap, curvaBolsas, joelho, luva, luvaDeCorrer, luvaReducao, teBolsas, tubo } from './kronaReceitas.ts';
+import { cap, curvaBolsas, joelho, luva, luvaDeCorrer, luvaReducao, teBolsas, tubo, tuboCortado } from './kronaReceitas.ts';
 
 /*
  * Água fria soldável da Krona (PVC marrom) montada DIRETO do catálogo (ficha P4). A conexão traz o diâmetro externo A, então a
@@ -16,6 +16,7 @@ const A = 'Aext';
 
 const SPECS: SpecKrona[] = [
   { id: 'fam_krona_soldavel_tubo', nome: 'Tubo de PVC soldável Krona (bolsa e ponta)', categoria: 'tubulacao', descricao: 'Tubo reto de PVC soldável para água fria, bolsa na ponta A e ponta lisa na B; comprimento L livre (3 m ou 6 m).', pedido: { itens: ['tubo_de_pvc_soldavel_6m'], mapa: { B: 'B', D: 'Db', d: 'De', e: 'e' }, serie: 'soldavel' }, receita: tubo(C), ifc: { classe: 'IFCPIPESEGMENT' } },
+  { id: 'fam_krona_soldavel_tubo_corte', nome: 'Tubo de PVC soldável Krona (trecho cortado)', categoria: 'tubulacao', descricao: 'Trecho de tubo de PVC soldável cortado, ponta lisa nas duas pontas, comprimento L livre: é o que a ferramenta Tubo desenha entre as conexões.', pedido: { itens: ['tubo_de_pvc_soldavel_6m'], mapa: { B: 'B', D: 'Db', d: 'De', e: 'e' }, serie: 'soldavel' }, receita: tuboCortado(C), ifc: { classe: 'IFCPIPESEGMENT' } },
   { id: 'fam_krona_soldavel_joelho90', nome: 'Joelho 90° soldável Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 90° soldável com bolsa nas duas pontas.', pedido: { itens: ['joelho_90_soldavel'], mapa: { A, B: 'B', Z: 'Z', D: 'Db' }, espessuraDoA: true, serie: 'soldavel' }, receita: joelho(90, C), ifc: BEND },
   { id: 'fam_krona_soldavel_joelho45', nome: 'Joelho 45° soldável Krona', categoria: 'conexao_tubo', descricao: 'Joelho de 45° soldável com bolsa nas duas pontas.', pedido: { itens: ['joelho_45_soldavel'], mapa: { A, B: 'B', Z: 'Z', D: 'Db' }, espessuraDoA: true, serie: 'soldavel' }, receita: joelho(45, C), ifc: BEND },
   { id: 'fam_krona_soldavel_curva90', nome: 'Curva 90° soldável Krona', categoria: 'conexao_tubo', descricao: 'Curva de 90° soldável (varredura, bolsa nas duas pontas).', pedido: { itens: ['curva_90_soldavel'], mapa: { A, B: 'B', Z: 'Z', D: 'Db' }, espessuraDoA: true, serie: 'soldavel' }, receita: curvaBolsas(90, C), ifc: BEND },

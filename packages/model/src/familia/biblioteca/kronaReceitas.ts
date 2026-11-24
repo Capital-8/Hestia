@@ -39,6 +39,20 @@ export function tubo(ctx: Contexto = ESGOTO): Receita {
 }
 
 /**
+ * Tubo CORTADO (o trecho que a ferramenta Tubo desenha): ponta lisa nas duas pontas, De × (De − 2e) de comprimento L. As duas
+ * pontas aceitam qualquer encaixe: na obra o instalador usa luva, bolsa ou o spigot da conexão, e o diagnóstico não acusa ponta
+ * com ponta nesse trecho (CONFERIR com a prática do projetista).
+ */
+export function tuboCortado(ctx: Contexto = ESGOTO): Receita {
+  return {
+    usa: ['De', 'e'],
+    corpos: [oco('tubo', 'Tubo', 'tubo', 'De', 'De - 2 * e', 'L', z('0'))],
+    ligacoes: [ligacaoKrona(ctx, 'a', 'Ponta A', z('0'), ['0', '0', '-1'], 'De', undefined, true), ligacaoKrona(ctx, 'b', 'Ponta B', z('L'), ['0', '0', '1'], 'De', undefined, true)],
+    caixa: (v) => ({ L: 1000, A: n(v, 'De'), P: n(v, 'De') }),
+  };
+}
+
+/**
  * Joelho com duas bolsas: braço A sai para −Z e braço B desvia `ang` graus (90 = +X). É UMA varredura contínua (fechada, sem a
  * fresta que dois cilindros retos deixavam no canto): ver `curvaBolsas`.
  */
