@@ -1,5 +1,5 @@
 import type { ItemCatalogo } from './catalogoMep.ts';
-import { AGUA_FRIA, ESGOTO, familiaKrona, type Contexto } from './biblioteca/kronaEsgotoApoio.ts';
+import { AGUA_FRIA, comMaterial, ESGOTO, familiaKrona, type Contexto } from './biblioteca/kronaEsgotoApoio.ts';
 import { cap, curva, curvaBolsas, joelho, luva, reducaoExcentrica, te, teBolsas, tubo, type Receita } from './biblioteca/kronaReceitas.ts';
 import type { Familia } from './tipos.ts';
 
@@ -48,6 +48,8 @@ export interface OpcoesFamiliaDoItem {
   id: string;
   nome: string;
   dominio: DominioMep;
+  /** Apelido de material do corpo (`mat_pvc_branco`, `mat_cobre`...); padrão: PVC branco no esgoto e PVC marrom na água fria. */
+  material?: string;
 }
 
 export type ResultadoFamiliaDoItem = { ok: true; familia: Familia } | { ok: false; erros: string[] };
@@ -73,7 +75,7 @@ export function familiaDoItem(itemBruto: ItemCatalogo, o: OpcoesFamiliaDoItem): 
   if (linhasOk.length === 0) return { ok: false, erros: ['Nenhuma linha traz todas as colunas pedidas'] };
   const completo = { ...item, linhas: linhasOk, colunas: Object.fromEntries(r.usa.map((c) => [c, item.colunas[c] ?? c])) };
   try {
-    const familia = familiaKrona({ id: o.id, nome: o.nome, categoria: def.categoria, descricao: `${def.rotulo}.`, item: completo, corpos: r.corpos, ligacoes: r.ligacoes, ifc: def.ifc, caixa: r.caixa, fonte: `catálogo próprio “${item.nome}”`, disciplina: 'hidrossanitario' });
+    const familia = familiaKrona({ id: o.id, nome: o.nome, categoria: def.categoria, descricao: `${def.rotulo}.`, item: completo, corpos: comMaterial(r.corpos, o.material ?? (o.dominio === 'esgoto' ? 'mat_pvc_branco' : 'mat_pvc_marrom')), ligacoes: r.ligacoes, ifc: def.ifc, caixa: r.caixa, fonte: `catálogo próprio “${item.nome}”`, disciplina: 'hidrossanitario' });
     return { ok: true, familia };
   } catch (e) {
     return { ok: false, erros: [e instanceof Error ? e.message : String(e)] };

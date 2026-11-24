@@ -6,6 +6,7 @@ import {
   itemDeCsv,
   KRONA_ESGOTO,
   KRONA_SOLDAVEL,
+  OPCOES_MATERIAL_CORPO,
   paraIdsDeParametro,
   RECEITAS_MEP,
   validarItemCatalogo,
@@ -50,6 +51,7 @@ export function FamiliaCatalogoMep(): ReactElement {
   const [receita, setReceita] = useState(RECEITAS_MEP[0]?.id ?? 'tubo');
   const [dominio, setDominio] = useState<DominioMep>('esgoto');
   const [nomeFamilia, setNomeFamilia] = useState('');
+  const [material, setMaterial] = useState('');
 
   const itens = fonte === 'esgoto' ? KRONA_ESGOTO.itens : fonte === 'soldavel' ? KRONA_SOLDAVEL.itens : meus;
   const item = itens.find((i) => i.id === itemId) ?? itens[0];
@@ -119,7 +121,7 @@ export function FamiliaCatalogoMep(): ReactElement {
     if (!item) return;
     const id = proximoIdDeUsuario(idsAbertosNestaSessao());
     const nome = nomeFamilia.trim() === '' ? `${def?.rotulo ?? 'Peça'} — ${item.nome}` : nomeFamilia.trim();
-    const r = familiaDoItem(item, { receita, id, nome, dominio });
+    const r = familiaDoItem(item, { receita, id, nome, dominio, ...(material === '' ? {} : { material }) });
     if (!r.ok) return dizer(r.erros.join(' '), true);
     registrarIdAberto(id);
     const storage = armazenamentoDoNavegador();
@@ -221,6 +223,12 @@ export function FamiliaCatalogoMep(): ReactElement {
                   <select value={dominio} onChange={(e) => setDominio(e.target.value as DominioMep)} aria-label="Domínio">
                     <option value="esgoto">Esgoto</option>
                     <option value="agua_fria">Água fria</option>
+                  </select>
+                </label>
+                <label>Material
+                  <select value={material} onChange={(e) => setMaterial(e.target.value)} aria-label="Material da família">
+                    <option value="">Padrão do sistema</option>
+                    {OPCOES_MATERIAL_CORPO.map((o) => <option key={o.apelido} value={o.apelido}>{o.nome}</option>)}
                   </select>
                 </label>
                 <label>Nome <input value={nomeFamilia} onChange={(e) => setNomeFamilia(e.target.value)} placeholder="opcional" /></label>

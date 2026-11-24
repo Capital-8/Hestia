@@ -47,6 +47,13 @@ const SPECS: Readonly<Record<string, SpecAcabamento>> = {
   comp_marmore_escuro: { kind: 'marmore', base: hexRgb('#2b2d31'), veio: hexRgb('#c9c6bd'), ouro: hexRgb('#b89a6a'), intensidadeVeio: 0.8, roughness: 0.2, seed: 704 },
   comp_preto_sg: { kind: 'granito', base: hexRgb('#25272b'), escuro: hexRgb('#17181b'), claro: hexRgb('#4c515a'), brilho: hexRgb('#8d94a0'), roughness: 0.2, metalness: 0.06, seed: 703 },
 
+  comp_pvc_branco: { kind: 'laca', base: hexRgb('#f1f1ec'), roughness: 0.42, metalness: 0, seed: 911 },
+  comp_pvc_bege: { kind: 'laca', base: hexRgb('#d9cdb1'), roughness: 0.44, metalness: 0, seed: 912 },
+  comp_pvc_marrom: { kind: 'laca', base: hexRgb('#a8592e'), roughness: 0.44, metalness: 0, seed: 913 },
+  comp_pvc_azul: { kind: 'laca', base: hexRgb('#2f6db0'), roughness: 0.42, metalness: 0, seed: 914 },
+  comp_pvc_cinza: { kind: 'laca', base: hexRgb('#8d9399'), roughness: 0.46, metalness: 0, seed: 915 },
+  comp_aco_galv: { kind: 'metal', base: hexRgb('#aeb5bc'), escuro: hexRgb('#949ba3'), claro: hexRgb('#c8ced4'), roughness: 0.34, metalness: 0.7, seed: 921 },
+  comp_aco: { kind: 'metal', base: hexRgb('#8a9098'), escuro: hexRgb('#6f757d'), claro: hexRgb('#a6acb3'), roughness: 0.38, metalness: 0.72, seed: 922 },
   comp_aluminio: { kind: 'metal', base: hexRgb('#b9bec4'), escuro: hexRgb('#9ea5ad'), claro: hexRgb('#d3d8de'), roughness: 0.28, metalness: 0.72, seed: 801 },
   comp_cobre: { kind: 'metal', base: hexRgb('#b47a4c'), escuro: hexRgb('#8f5b32'), claro: hexRgb('#cf9668'), roughness: 0.28, metalness: 0.72, seed: 802 },
 

@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react';
 import { useT } from '../../editor/i18n.ts';
 import { FamiliaCorpoForma } from './FamiliaCorpoForma.tsx';
 import { CampoCorpo } from './FamiliaCorpoCampo.tsx';
+import { FamiliaCorpoMaterial } from './FamiliaCorpoMaterial.tsx';
 import {
   NIVEIS_CORPO,
   PAPEIS_CORPO,
@@ -131,6 +132,7 @@ export function FamiliaCorpoPainel({ corpoId }: { corpoId: string }): ReactEleme
         <div className="fam-gh">{t('fam_corpo_repeticao')}</div>
         <CampoCorpo key={`repetir:${corpo.repetir ?? ''}`} id={`fcn-${corpo.id}-repetir`} rotulo={t('fam_corpo_repetir')} valor={corpo.repetir ?? ''} opcional gravar={(texto) => aplicar('Editar repetir', { repetir: texto.trim() === '' ? undefined : texto })} />
         <CampoCorpo key={`quando:${corpo.quando ?? ''}`} id={`fcn-${corpo.id}-quando`} rotulo={t('fam_corpo_quando')} valor={corpo.quando ?? ''} opcional gravar={(texto) => aplicar('Editar condição', { quando: texto.trim() === '' ? undefined : texto })} />
+        <FamiliaCorpoMaterial key={`sel-material:${corpo.material ?? ''}`} corpo={corpo} aplicar={(material) => aplicar('Editar material', { material })} />
         <CampoCorpo key={`material:${corpo.material ?? ''}`} id={`fcn-${corpo.id}-material`} rotulo={t('fam_corpo_material')} valor={corpo.material ?? ''} opcional formula={false} gravar={(texto) => aplicar('Editar material', { material: texto.trim() === '' ? undefined : texto })} />
       </div>
 

@@ -5,8 +5,12 @@ import {
   isComponent,
   levelElevation,
   type Component,
+  MAPA_ACABAMENTOS,
+  MATERIAIS_INSTALACOES,
   matrizDoComponente,
+  materialDaInstalacao,
   materialDoAcabamento,
+  resolverMaterialVisualCorpo,
   resolverMaterialVisualPeca,
   type Id,
   type Material,
@@ -23,6 +27,7 @@ import { batchOf, ofElement, type SolidBatch } from './solids.ts';
 /** Ids dos materiais de tela dos componentes (5 bases por papel + catálogo de acabamentos de marcenaria/pedra/metal/vidro). */
 export const MATERIAIS_DE_COMPONENTE: Readonly<Record<Id, Material>> = {
   ...Object.fromEntries(ACABAMENTOS_MOVEIS.map((a) => [a.id, materialDoAcabamento(a)])),
+  ...Object.fromEntries(MATERIAIS_INSTALACOES.map((m) => [m.id, materialDaInstalacao(m)])),
   comp_corpo: { id: 'comp_corpo', name: 'Componente · corpo', color: '#c9a176', hatch: 'solid', gloss: 0.25, opacity: 1, cost: 0, unit: 'm2' },
   comp_porta: { id: 'comp_porta', name: 'Componente · porta', color: '#ede7dc', hatch: 'solid', gloss: 0.4, opacity: 1, cost: 0, unit: 'm2' },
   comp_tampo: { id: 'comp_tampo', name: 'Componente · tampo', color: '#e9e5dc', hatch: 'solid', gloss: 0.6, opacity: 1, cost: 0, unit: 'm2' },
@@ -30,8 +35,8 @@ export const MATERIAIS_DE_COMPONENTE: Readonly<Record<Id, Material>> = {
   comp_rodape: { id: 'comp_rodape', name: 'Componente · rodapé', color: '#3c4046', hatch: 'solid', gloss: 0.3, opacity: 1, cost: 0, unit: 'm2' },
 };
 
-/** Material dos corpos no projeto: fixo (o corpo ainda não traz o acabamento do projeto; ver relatório da ficha B2). */
-const MATERIAL_DO_CORPO: Id = 'comp_corpo';
+/** Material do corpo no projeto (fichas K1 e K2): material do projeto, id do catálogo, apelido `mat_*` ou cinza neutro; nunca mais a madeira fixa. */
+const materialDoCorpo = (p: Project, material: string | null): Id => resolverMaterialVisualCorpo(material, p.materials, (id) => MAPA_ACABAMENTOS[id] !== undefined);
 
 /** Malha local dos corpos sólidos por resolução (família, tipo e valores): `res` muda quando algum deles muda, então o cache se invalida sozinho. */
 const MALHA_LOCAL_CORPOS = new WeakMap<ResolucaoFamilia, Malha>();
@@ -88,7 +93,7 @@ export function buildComponentSolids(p: Project, levelId: Id): SolidBatch[] {
       for (let t = 0; t < mundo.pecaDoTriangulo.length; t++) {
         const corpo = res.corpos?.[mundo.pecaDoTriangulo[t]!];
         if (!corpo || !corpoVisivel3d(corpo, 'fino')) continue;
-        adicionar(MATERIAL_DO_CORPO, mundo, t);
+        adicionar(materialDoCorpo(p, corpo.material), mundo, t);
       }
     }
     for (const [materialId, triangulos] of porMaterial) {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
   ACABAMENTOS_MOVEIS,
+  MATERIAIS_INSTALACOES,
   applyCommand as aplicar,
   createEmptyProject,
   FAMILIA_ARMARIO,
@@ -29,8 +30,9 @@ function volumeDoLote(b: { positions: number[]; indices: number[] }): number {
 }
 
 describe('materiais de componente', () => {
-  it('inclui as 5 chaves base e todo o catálogo ACABAMENTOS_MOVEIS com cores hex válidas', () => {
-    const esperados = ['comp_corpo', 'comp_fundo', 'comp_porta', 'comp_rodape', 'comp_tampo', ...ACABAMENTOS_MOVEIS.map((a) => a.id)].sort();
+  // Decisão da fase 2 (K2): o mesmo mapa passa a trazer também o catálogo de materiais de instalações (PVC, aço, concreto, neutro).
+  it('inclui as 5 chaves base, todo o catálogo ACABAMENTOS_MOVEIS e os materiais de instalações, com cores hex válidas', () => {
+    const esperados = ['comp_corpo', 'comp_fundo', 'comp_porta', 'comp_rodape', 'comp_tampo', ...ACABAMENTOS_MOVEIS.map((a) => a.id), ...MATERIAIS_INSTALACOES.map((m) => m.id)].sort();
     expect(Object.keys(MATERIAIS_DE_COMPONENTE).sort()).toEqual(esperados);
     for (const [id, m] of Object.entries(MATERIAIS_DE_COMPONENTE)) {
       expect(m.id).toBe(id);

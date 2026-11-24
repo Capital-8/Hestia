@@ -48,7 +48,8 @@ export function ligacaoRetangular(id: string, nome: string, posicao: Ponto3, dir
 /** Corpo estrutural com quadro na origem dada. */
 export function corpoEstrutural(id: string, nome: string, papel: PapelCorpo, forma: FormaCorpo, origem: Ponto3 = ['0', '0', '0']): Corpo {
   const quadro: QuadroCorpo = { origem };
-  return { id, nome, papel, forma, quadro };
+  // Aço (ficha K1): perfis, chapas e parafusos saem cinza-aço no 3D, não em cinza neutro nem madeira.
+  return { id, nome, papel, forma, quadro, material: 'mat_aco' };
 }
 
 export interface DadosEstrutural {

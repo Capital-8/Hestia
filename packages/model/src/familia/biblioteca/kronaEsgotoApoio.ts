@@ -216,7 +216,13 @@ export interface SpecKrona {
   ifc: NonNullable<Familia['ifc']>;
 }
 
+/** Material visual de cada linha de produto (cor do PVC da Krona: esgoto branco, reforçado bege, soldável marrom). */
+export const MATERIAL_POR_SERIE: Readonly<Record<SerieKrona, string>> = { normal: 'mat_pvc_branco', reforcada: 'mat_pvc_bege', soldavel: 'mat_pvc_marrom' };
+
+/** Corpos com o material trocado (a receita traz o apelido genérico `mat_pvc`). */
+export const comMaterial = (corpos: Corpo[], material: string): Corpo[] => corpos.map((c) => ({ ...c, material }));
+
 export function montarKrona(s: SpecKrona): Familia {
   const item = itemDaFamilia(s.id, s.nome, s.pedido);
-  return familiaKrona({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, item, corpos: s.receita.corpos, ligacoes: s.receita.ligacoes, ifc: s.ifc, caixa: s.receita.caixa });
+  return familiaKrona({ id: s.id, nome: s.nome, categoria: s.categoria, descricao: s.descricao, item, corpos: comMaterial(s.receita.corpos, MATERIAL_POR_SERIE[s.pedido.serie]), ligacoes: s.receita.ligacoes, ifc: s.ifc, caixa: s.receita.caixa });
 }

@@ -1,4 +1,5 @@
 import type { CorpoResolvido, Malha } from '@hestia/engine';
+import { APELIDOS_MATERIAL_CORPO, corDoMaterialInstalacao, MAPA_ACABAMENTOS } from '@hestia/model';
 import { COR_PADRAO, COR_VAZIO, corDoTexto, type NivelDetalhe3d } from './logica.ts';
 
 /*
@@ -27,6 +28,11 @@ export function corDoCorpo(c: CorpoResolvido, materiais: Readonly<Record<string,
       const cor = corDoTexto(texto);
       if (cor !== null) return cor;
     }
+    // Material de instalações (apelido `mat_*` ou id `comp_*`): a cor do catálogo, a mesma do projeto (fichas K1 e K2).
+    const id = APELIDOS_MATERIAL_CORPO[c.material] ?? c.material;
+    const hex = corDoMaterialInstalacao(id) ?? MAPA_ACABAMENTOS[id]?.cor;
+    const cor = hex === undefined ? null : corDoTexto(hex);
+    if (cor !== null) return cor;
   }
   return COR_PADRAO;
 }
