@@ -1,0 +1,731 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo (tipo A40) 1`] = `"b28e7093882e8b085db9b5e1df63ce138adb23a3d5f5b32b069126ed9728c13e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo (tipo A60) 1`] = `"5f2c5925c1033f0dae9fd13fd3b2e9c001e87eabc13e22b8ded2ec55183cd579"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo (tipo A80) 1`] = `"9819c762f405a02e1fc80654c0b37947233672d8a47d5ac9fd5a72794203a4e8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo (tipo padrão) 1`] = `"5f2c5925c1033f0dae9fd13fd3b2e9c001e87eabc13e22b8ded2ec55183cd579"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_basculante (tipo B60) 1`] = `"67c2ff75e71fe59047e62828906ff479461c65a1237ec197b017de26d754065a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_basculante (tipo B80) 1`] = `"8e02ef466ffcbba00827672f7501389ef6f64b3c24d9e022d9a27e6a741936af"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_basculante (tipo B100) 1`] = `"9999bee0dd3e70c8eb6e31ca07438686ab14ede9e37c62e8d9be4a2c1717fee1"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_basculante (tipo padrão) 1`] = `"8e02ef466ffcbba00827672f7501389ef6f64b3c24d9e022d9a27e6a741936af"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_vidro (tipo av80) 1`] = `"80473d76089be4a2f52e8ed392266d9ca5396eb7ee8970807608f4820093a241"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_vidro (tipo av90) 1`] = `"37dffcab61ae4ae4e6167add7862d3389229ca3603ac2ce5b87ba8b205594cc4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_vidro (tipo av120) 1`] = `"34edf6db4664e07cb431e502a7b6d488397311e536af51123dc50cc327dbe5e6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aereo_vidro (tipo padrão) 1`] = `"37dffcab61ae4ae4e6167add7862d3389229ca3603ac2ce5b87ba8b205594cc4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aparador (tipo aparador120) 1`] = `"4c46648bbf29571da673867fc63f3af1d8776d1a57a2b0ddc73a0629a308f02a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aparador (tipo aparador160) 1`] = `"44533278555d1819a68346cfbe78d0ec51f57e1eb84d94eeefbdaffff26e072b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aparador (tipo aparador200) 1`] = `"5dc9dc83d40b6ad80239220d4adcd7dcdf561297bd4e94ec019917b968c877b8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_aparador (tipo padrão) 1`] = `"44533278555d1819a68346cfbe78d0ec51f57e1eb84d94eeefbdaffff26e072b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ar_split (tipo padrão) 1`] = `"0b9f22a25971a74fbf1390305794e77246dfe40d3f42cb6b1041ef80d5eba4b4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ar_split (tipo split9) 1`] = `"f6e3ae4741a0273cc4909fdad2cf475c884f761434bddc0ce8f3834313863a76"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ar_split (tipo split12) 1`] = `"0b9f22a25971a74fbf1390305794e77246dfe40d3f42cb6b1041ef80d5eba4b4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ar_split (tipo split24) 1`] = `"7387a74eb4f546c6fa58c7bf7c4e7a8ae1ddfde00a8d2c70d8fc44a310467b40"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_baixo (tipo A60) 1`] = `"9a259d8ad4777b82a567a5733a7d0c78ba738c9df128a1375316b249e6e46dbe"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_baixo (tipo A80) 1`] = `"20c876c045c1c1ae5af60b1aa9801a70ce1b49b77057c147ae9ee4714331e44b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_baixo (tipo A100) 1`] = `"85c9d82ec5608804664820bba621473fc5520b455c62617d2646127fc5d8f985"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_baixo (tipo A120) 1`] = `"58bb51198bc971c9a34427b06f9d9a2682c43b6bafec67263d3541c6f867da83"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_baixo (tipo padrão) 1`] = `"20c876c045c1c1ae5af60b1aa9801a70ce1b49b77057c147ae9ee4714331e44b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_lavanderia (tipo lav60) 1`] = `"09559b2971f770fe33e2138b0fa22b9dd05d311dd6172a398c17b238c6e1abc4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_lavanderia (tipo lav80) 1`] = `"14e1478ed113104d642d33014c26335bf8e6d31de45e7086934acf5248a25f02"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_armario_lavanderia (tipo padrão) 1`] = `"14e1478ed113104d642d33014c26335bf8e6d31de45e7086934acf5248a25f02"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_balcao_cava (tipo cava80) 1`] = `"d9aa622cbd65b8d48a5a0d070959820d187dada6af30a85791f14d06b1ac32cf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_balcao_cava (tipo cava90) 1`] = `"3964825e3b5a6b960a4aa462b18317b6b1e3a1c2bf88dd15e59599817c8f8052"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_balcao_cava (tipo cava120) 1`] = `"acb3ded03a11215b5fa9abed74225bf5803464b456c871a114b166c1c7d047b8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_balcao_cava (tipo padrão) 1`] = `"3964825e3b5a6b960a4aa462b18317b6b1e3a1c2bf88dd15e59599817c8f8052"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_alta (tipo bancada_bar) 1`] = `"2ef01385d614e914747d440ea9b36c8acd8103d9785a0cd2554d7a6d84b72b4d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_alta (tipo bancada120) 1`] = `"6537e0407fe3352329ec2001e11701542e20be1d60d8ebabe953dd97df5e3589"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_alta (tipo bancada160) 1`] = `"340591aa0c5af1ca74b53ba151c60b4da999358cc659e39afbc0b49cc2299ab1"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_alta (tipo padrão) 1`] = `"340591aa0c5af1ca74b53ba151c60b4da999358cc659e39afbc0b49cc2299ab1"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_banheiro (tipo banc60_gavetas) 1`] = `"faf0b6cf084c380eeaac8b91cb114992d5fc262732613d682958af8c54426781"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_banheiro (tipo banc80) 1`] = `"e5f1ad2cb71368ddfb2509a6c02f77bb09bcca51fe23aae4a69819ba01530d7d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_banheiro (tipo banc120) 1`] = `"c7fe21155469581fabd7d5049b7c5b4bd7df38cb65b0e4cf52a7ad278f59394b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_banheiro (tipo padrão) 1`] = `"e5f1ad2cb71368ddfb2509a6c02f77bb09bcca51fe23aae4a69819ba01530d7d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_cuba (tipo banho80) 1`] = `"9c6b8aca10ad41e3d05c7781b5162183692ed6bd9957d3e5518ddf1748555a19"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_cuba (tipo banho100) 1`] = `"57149159f3ebb6f28dbf701d3189dae0f48ec6a26d38ac8f6bb455808bb14a1c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_cuba (tipo banho120) 1`] = `"93fabf4531c1836d6902d9ca63d435cc67643dd193fa1fd47eb2284303d52227"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_cuba (tipo padrão) 1`] = `"57149159f3ebb6f28dbf701d3189dae0f48ec6a26d38ac8f6bb455808bb14a1c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_recorte_cuba (tipo bancada80) 1`] = `"9eeb495586478f34ad2021ab8d02bb059d970ea35d90efe776fba6e3889c91e5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_recorte_cuba (tipo bancada120) 1`] = `"8c8ef87b08f16c8d054dc073cf80118bffc135fbc2888f437ffcf81dad556ff6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_recorte_cuba (tipo bancada180) 1`] = `"ba6d2bbfda398302d98f0a236d4c68adbf60e15ea6d9e44b98a48eb9b7008a3f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bancada_recorte_cuba (tipo padrão) 1`] = `"8c8ef87b08f16c8d054dc073cf80118bffc135fbc2888f437ffcf81dad556ff6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco (tipo alto) 1`] = `"71acc40167c3f5e51689514c55d208ef22296361f8a02d31f2c6030824050c92"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco (tipo baixo) 1`] = `"ba215c01b060c72b0fddbc5c69b03faad615e960b7c22c679dc79b3f0f67803f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco (tipo padrão) 1`] = `"ba215c01b060c72b0fddbc5c69b03faad615e960b7c22c679dc79b3f0f67803f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco_corrido (tipo banco_encosto) 1`] = `"7015ede636f2c9232a96e5c6420c248893df714b0b2b73168124902b7ff6f9fa"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco_corrido (tipo banco100) 1`] = `"0ad287d7878302aba9502841ef7684994d0215b5079da76b9683f4982dbf5e63"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco_corrido (tipo banco150) 1`] = `"c0170c2163c9030dedbfc8e0ead5abef82e654790cd4c44e40ee7bd4e79d3e53"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banco_corrido (tipo padrão) 1`] = `"c0170c2163c9030dedbfc8e0ead5abef82e654790cd4c44e40ee7bd4e79d3e53"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banqueta (tipo balcao) 1`] = `"08f529608b408a48a6412657b1abcc200bb774265a13a5af913ac317d2132a98"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banqueta (tipo bancada_alta) 1`] = `"dc2d48b7188544d1f6cec56cbee8fd5676528a764855e8e41df4b4c14590caf9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banqueta (tipo padrão) 1`] = `"08f529608b408a48a6412657b1abcc200bb774265a13a5af913ac317d2132a98"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_banqueta (tipo redonda) 1`] = `"ff977decb7cf27934eb606a7f6b830e7b62e887c3003e4a72819f69370d60d52"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_cooktop (tipo C60) 1`] = `"0b64cad01048740d09dee507be270ba647f778f4c4cb05e5c208138e0c2afa4f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_cooktop (tipo C80) 1`] = `"92eba7ef972a5f51beebd6ba472c9480b4b3ebd0148b82c93f35ca3c1d285197"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_cooktop (tipo padrão) 1`] = `"0b64cad01048740d09dee507be270ba647f778f4c4cb05e5c208138e0c2afa4f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_gavetas (tipo G60) 1`] = `"91acb9f89eeee6d5a4de999467031bd17bc7c5ab096a7acacd5b3f9269e306fe"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_gavetas (tipo G80) 1`] = `"291e053618ec733627808ff28218a61df0b13dcdced27ecbca2e0ca18afc6e6b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_gavetas (tipo G100) 1`] = `"d3b66187bc28df8482d2bda9b20eea9b4386255659cd42eb6b44bb9f11fd6771"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_gavetas (tipo padrão) 1`] = `"291e053618ec733627808ff28218a61df0b13dcdced27ecbca2e0ca18afc6e6b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_pia (tipo P80) 1`] = `"8b4222a130362810fe31be3460fdc25b5ee906f09a3213c4809d7df5b3d158be"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_pia (tipo P100) 1`] = `"24916cbbc8ac857f67af6334ae1d8b653996b709d631182ec9cc222309882ef2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_pia (tipo P120) 1`] = `"d96f7c6a70acf9f6bc64440961e5cf59ec63a36747eca1183101390738def5fd"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_base_pia (tipo padrão) 1`] = `"24916cbbc8ac857f67af6334ae1d8b653996b709d631182ec9cc222309882ef2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_beliche (tipo beliche_alto) 1`] = `"732d58db6753a2fef5e72cfcb0069436b53ffa5c86b4696ec1eab7f5139bd460"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_beliche (tipo beliche_solteiro) 1`] = `"d34c78e3daea6ab6119708c3fda9efef5fb7d1bf55ab60eabf2f8bbc74dfabfc"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_beliche (tipo padrão) 1`] = `"d34c78e3daea6ab6119708c3fda9efef5fb7d1bf55ab60eabf2f8bbc74dfabfc"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_caixa (tipo caixa_oca) 1`] = `"e31a40b8f58022b310419051b6b3b25201c6d2497d4098b449a9a08072a572e3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_caixa (tipo cubo60) 1`] = `"8fadb1ded5645fedda9135ae84a9fd5168e97a7f0116f9017f0ddf6afd2a775c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_caixa (tipo laje) 1`] = `"6b18dd08486b1eeb28cfd7b92d6b7402ac372b1f6d62d635070f7cdce6df8367"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_caixa (tipo padrão) 1`] = `"8fadb1ded5645fedda9135ae84a9fd5168e97a7f0116f9017f0ddf6afd2a775c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_livre (tipo banquinho) 1`] = `"63f489d99679a6c1e3431f52e0f90fd420daff3de1bc5961a273bda06f88ce3b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_livre (tipo bloco500) 1`] = `"48ea09e777ee1d182bbc703d201c7ffc696dfc5f592e442d02a604630c4068c4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_livre (tipo bloco800) 1`] = `"3f4cc87b392f5b691f7130bba7b51e036b84bd9c7e15c646141a1d932883488a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_bloco_livre (tipo padrão) 1`] = `"48ea09e777ee1d182bbc703d201c7ffc696dfc5f592e442d02a604630c4068c4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_canto (tipo canto80) 1`] = `"6995ef151e386f4da65917c9813201e995b31c4bfd30e87dfb564be4b268e5de"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_canto (tipo canto90) 1`] = `"e6fe7306f55fbe64f6f5bf4f066e248c031caf094bf9577dba9ffd0282b91ed6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_canto (tipo canto120) 1`] = `"fde72ea8c6a6d01a2afccab0914607488a8e4aecfbca83f9696e9e45da685e18"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_canto (tipo padrão) 1`] = `"e6fe7306f55fbe64f6f5bf4f066e248c031caf094bf9577dba9ffd0282b91ed6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_reto (tipo box100) 1`] = `"216100c42529c81da178ab7e4bbfa70146ba9dd1ebd94e33f8c83577d308850b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_reto (tipo box120) 1`] = `"679ddf04c209f218bdb90c9d977f793ff995492cd553306b69a5dfea120bb016"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_reto (tipo box160) 1`] = `"ad9b59761ace185ccd26530191b53cd5b87dd2b5ea59ad4bc5c6bd557ba57244"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_box_reto (tipo padrão) 1`] = `"679ddf04c209f218bdb90c9d977f793ff995492cd553306b69a5dfea120bb016"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira (tipo compacta) 1`] = `"171d719f2f90e5a40dac0225afd37742ff1a581d73c0d31b0e8e8334f1fa11d5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira (tipo estofada) 1`] = `"d7be6b56ea7e32a13facc8803d535b71a5a04b2de5bc94367300ce5ac86eae2a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira (tipo jantar) 1`] = `"1847b6d32b5e32467ba319e087b99a09d554ffb0be0636822de2a1fb01383f58"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira (tipo padrão) 1`] = `"1847b6d32b5e32467ba319e087b99a09d554ffb0be0636822de2a1fb01383f58"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira_bracos (tipo bracos) 1`] = `"7e5cc71d4889c46b97e3f1f1e2ca6aa00a04d3cadc4970c32dbd3d50b005258d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira_bracos (tipo bracos_estofada) 1`] = `"eed6b62697fdc451bbb51de86757cd7d36cb0714ddfd1ecd247acf38a7cfbf22"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cadeira_bracos (tipo padrão) 1`] = `"7e5cc71d4889c46b97e3f1f1e2ca6aa00a04d3cadc4970c32dbd3d50b005258d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama (tipo casal) 1`] = `"717065c236572787e65b1344651683156b1f65ce4ebdd9f46db54f4ec548d5dd"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama (tipo king) 1`] = `"d8d6cf326107689eaadbeba321dc1ac73196f614fd345c3b51b9b579a11bc84f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama (tipo padrão) 1`] = `"717065c236572787e65b1344651683156b1f65ce4ebdd9f46db54f4ec548d5dd"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama (tipo queen) 1`] = `"c5878957cedd6d238b32c22c3e495fd2765d696e81b4391a4f52239b25d948f1"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama (tipo solteiro) 1`] = `"e7fd0ab7b44d2deb3f4ab81ee7b7848bd40bc200a28d67aa081a8f0b29de1db8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama_bau (tipo casal) 1`] = `"41eaf85467fdf21bc1720d5cc5f1cef94211bc3cd9eabf80dbe978a946f9b34e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama_bau (tipo padrão) 1`] = `"41eaf85467fdf21bc1720d5cc5f1cef94211bc3cd9eabf80dbe978a946f9b34e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama_bau (tipo queen) 1`] = `"c66f1015331d1b0df725e632777f74c510d59fd86f4a78e158b7363142488596"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cama_bau (tipo solteiro) 1`] = `"9f6e4e65a6d7a85d8fb2efe1a1979aab492c39d92200cb3012bb570be017c753"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_canto_l (tipo L60) 1`] = `"2cf8d5a13c52ed8c99ad8f5b4dd410e4cf1d28503ad67b8c6b67f82c4f1ba0ff"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_canto_l (tipo L90) 1`] = `"11440050822207e40a9879890eb4fb52428ffa2207deb66ae7e4677c80f7a71b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_canto_l (tipo L120) 1`] = `"f6592dc17baefa6803a8558e3dcd2271793cf871155b10c1c11098872b9cfe6c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_canto_l (tipo padrão) 1`] = `"11440050822207e40a9879890eb4fb52428ffa2207deb66ae7e4677c80f7a71b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_closet_aberto (tipo closet120) 1`] = `"81aae36d0655f4fe05d9a390635802190e20d2c057015f81d96e1f7ef5caeb6a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_closet_aberto (tipo closet180) 1`] = `"9c63c2fe20f081440243642df9bdc55ec1965c829fc8dc6e7a8965c0d8909e81"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_closet_aberto (tipo closet240) 1`] = `"e81a0c074844ba31467793f4dfed159ad9e8a7427d1fcb2f2bb047cdf3a1e4e9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_closet_aberto (tipo padrão) 1`] = `"e81a0c074844ba31467793f4dfed159ad9e8a7427d1fcb2f2bb047cdf3a1e4e9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_coifa (tipo coifa60) 1`] = `"5b523fd8d5e1b2fc544467417fbd97a3e29f005ecea189a97a451041f96de7e7"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_coifa (tipo coifa90) 1`] = `"74f88d9e2d7c408ffc134fdbb6c823974b3e9ccbc99e1cd414d814e7f0f89a89"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_coifa (tipo coifa120) 1`] = `"d1348066da3e8f3139db0bf698abee42257d5d35a5394d6f52b59e81e326498b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_coifa (tipo padrão) 1`] = `"74f88d9e2d7c408ffc134fdbb6c823974b3e9ccbc99e1cd414d814e7f0f89a89"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_comoda (tipo c900) 1`] = `"82efcb2f4db0094756dc318bd4ada3934bc6a3592f85c8e95bef6c28b7e7f4ca"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_comoda (tipo c1000) 1`] = `"d5b2a05a1478a41222ecf3fec4c6dfcf7e33b4efb530a122f496836629afaba0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_comoda (tipo c1200) 1`] = `"335550c71ed30fb751c123c214cf64c8e9e3ac628b3f5109252ab9e4f84a174f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_comoda (tipo padrão) 1`] = `"d5b2a05a1478a41222ecf3fec4c6dfcf7e33b4efb530a122f496836629afaba0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_conjunto_centro (tipo duas) 1`] = `"720b99292adb44a915a5570de34ed5cfe8d398081976dee22d4a2494d7ae5158"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_conjunto_centro (tipo padrão) 1`] = `"720b99292adb44a915a5570de34ed5cfe8d398081976dee22d4a2494d7ae5158"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_conjunto_centro (tipo tres) 1`] = `"d1d8b31fc8356065f975bdc5c6ccd254789859de172c125166e3fc73bb4b71ef"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_conjunto_centro (tipo tres_compacto) 1`] = `"b46fa7ff223db0f3d259a7cffbd4fa915f623362a1c0c5eb128cbe88944c5181"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cooktop (tipo cooktop2) 1`] = `"441390768ce099ad8585b9f488858fc0cf2023ff59a7fa1c62b71ffc4f517839"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cooktop (tipo cooktop4) 1`] = `"a6f380491073a06aa1e0ecf12495d3ea8acf28be7e8611b4933e67b4bb15973d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cooktop (tipo cooktop5) 1`] = `"a7ffb1a321923a3dcf6d67cbd0d92b4e2efdb0e72649c2315e955b567d9a8e82"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cooktop (tipo padrão) 1`] = `"a6f380491073a06aa1e0ecf12495d3ea8acf28be7e8611b4933e67b4bb15973d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_criado_mudo (tipo cm450) 1`] = `"4d9443d176a2278962327ba2476ea92e812c6a3bbd4f5cb072cc596e1e58dba7"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_criado_mudo (tipo cm500) 1`] = `"a15f4d80e48146108edd8f4ba371e39147a19b98fcf297503c9735303cc3025e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_criado_mudo (tipo cm600) 1`] = `"4147714c674a7de925037995a6cd1bc7bd6282ae9b5690e1748d40ea8e5ac837"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_criado_mudo (tipo padrão) 1`] = `"a15f4d80e48146108edd8f4ba371e39147a19b98fcf297503c9735303cc3025e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cristaleira_vidro (tipo cris80) 1`] = `"ba84737c427e7fcc8810ac6b6c5308f4bdcaffd40af2766442a9d6547cdd973d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cristaleira_vidro (tipo cris90) 1`] = `"f5f9cbe2839bd7639089ebc514283de820b047ca822b12ea825d8a18058fc082"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cristaleira_vidro (tipo cris120) 1`] = `"1c69150a93edc9bc90bfd84abbf0dffacefbf53d9e4ffe60231e902a757af575"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cristaleira_vidro (tipo padrão) 1`] = `"f5f9cbe2839bd7639089ebc514283de820b047ca822b12ea825d8a18058fc082"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_embutir (tipo embutir_dupla) 1`] = `"cef39b07b2334738a508a412ee66f93fc6cb4e85356045960a0ed3e29d94b439"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_embutir (tipo embutir50) 1`] = `"877fd1297ae1c7c2383635eb5c90fc556089cdbc6fe94e1612bacebc24996c7e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_embutir (tipo embutir60) 1`] = `"7b51434cd8f5475486e8510ad1befccc23422d6b692813f696bdb7ec714b6777"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_embutir (tipo padrão) 1`] = `"877fd1297ae1c7c2383635eb5c90fc556089cdbc6fe94e1612bacebc24996c7e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_inox (tipo cuba34) 1`] = `"5c227e9c8e6690da5282963bbf72b771e5e2ceba88aa0d63f92c75751c2784e5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_inox (tipo cuba40) 1`] = `"86f5ce0a606526e3209e40e8049469b3178bd9790f1b8f017de59fa07202f520"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_inox (tipo cuba50) 1`] = `"c5e2538bb26d335b871efccf18ef483f0b6918ffb4ad963846983091217d7847"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_cuba_inox (tipo padrão) 1`] = `"86f5ce0a606526e3209e40e8049469b3178bd9790f1b8f017de59fa07202f520"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_difusor_teto (tipo difusor300) 1`] = `"ee15807ec06addf7f8b5356dd90f342ad78fbc9a79950541eab9225c4e1ffaed"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_difusor_teto (tipo difusor450) 1`] = `"56dc811a410f8629d33f4c534ba6b7dd627a52bcc2576014e25c475c461adb49"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_difusor_teto (tipo difusor600) 1`] = `"bc73a98c2b920415ca458681676a27f7141e1c47f78848f3ed07c73a8a557707"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_difusor_teto (tipo padrão) 1`] = `"bc73a98c2b920415ca458681676a27f7141e1c47f78848f3ed07c73a8a557707"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_escrivaninha (tipo esc1000) 1`] = `"097a20694d2ca8407c0170a728b9de9aa66e810a3bfdf1d814c492f2ebc4876f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_escrivaninha (tipo esc1200) 1`] = `"53694731d306b670b3ddca18359758e48bdcc3c738ce6bbfd3936f7236808111"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_escrivaninha (tipo esc1500) 1`] = `"d42bb2ef66bfe7d407ec4940351840cebe23937a5041a576a2b87445a2121dba"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_escrivaninha (tipo padrão) 1`] = `"53694731d306b670b3ddca18359758e48bdcc3c738ce6bbfd3936f7236808111"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_espelho_moldura (tipo espelho_corpo) 1`] = `"2fb06ed81338012d54c00fb12c135b95f1fb1c7820de65c2d209e5f92702ba2c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_espelho_moldura (tipo espelho40x60) 1`] = `"34c9d4a6a912c91c628069b87b977235f69dd6a23514c3218b6f72966eb2736e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_espelho_moldura (tipo espelho60x90) 1`] = `"10bc1c1ff2a3b53ee94d56415e90190aca0d61a027e4ee03fab84def6f29d12e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_espelho_moldura (tipo padrão) 1`] = `"10bc1c1ff2a3b53ee94d56415e90190aca0d61a027e4ee03fab84def6f29d12e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_estante (tipo estante_600) 1`] = `"2535758b92826b5551efcb29f85bdcb6de10153b078eed1400c83055d9e83b06"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_estante (tipo estante_800) 1`] = `"00bb68e23cfae880aa6d500195d39dd16e1e4219210bd860a080c7eb5c55454c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_estante (tipo estante_1000) 1`] = `"cd3de5be9a5908b920436300bc84a74860822622acc420ef3c7a5fe6abbed5bf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_estante (tipo padrão) 1`] = `"00bb68e23cfae880aa6d500195d39dd16e1e4219210bd860a080c7eb5c55454c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_fogao (tipo fogao50) 1`] = `"fb2fcf04d0750a4bee3ecd149e7fbd09707d0395d79cc5bfc8261876f1cbebd8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_fogao (tipo fogao60) 1`] = `"9e2eef36dc8989af0d447a1d907c100079a897360486d246431e91de586103a5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_fogao (tipo fogao76) 1`] = `"ff53b85c762b25f6099949776c41392e3ff85f5b1390931c0c8db7ff9d1dc023"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_fogao (tipo padrão) 1`] = `"fb2fcf04d0750a4bee3ecd149e7fbd09707d0395d79cc5bfc8261876f1cbebd8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_forno_embutido (tipo forno45) 1`] = `"51594eb186c59c29b42d762696d15ddf865dc68b9ff0589c1fe73dee9f0a9a62"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_forno_embutido (tipo forno60) 1`] = `"02b6ea893581eb4508a37323b4ad43858b2bf598fc84b670d3834c7e1aa8c577"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_forno_embutido (tipo padrão) 1`] = `"02b6ea893581eb4508a37323b4ad43858b2bf598fc84b670d3834c7e1aa8c577"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gabinete_banheiro (tipo gab60) 1`] = `"401f1e1f4a6f8b21d831091788c08ed4e52d5d4c1f085ec5ae6e632186ec44f5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gabinete_banheiro (tipo gab80) 1`] = `"bd3ec54c3149aa488287d7389704abaf7e21743a175a3e92bf6bcbe2c7ac9f26"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gabinete_banheiro (tipo gab100) 1`] = `"86dd0cef5b86a38be9ec6f8ed01d6bf634c35e10eb656a5faf2cc9304a3957a2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gabinete_banheiro (tipo padrão) 1`] = `"bd3ec54c3149aa488287d7389704abaf7e21743a175a3e92bf6bcbe2c7ac9f26"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gaveta (tipo alta) 1`] = `"06983c9b1db2f9b1bc9e9a052d9d460f20658186bfdab2ee4344e6d68c98680c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gaveta (tipo baixa) 1`] = `"c611bdb48006e514e3cea3578f4df682fd91b34aa0b1eeb75f2ff295fc16c38f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_gaveta (tipo padrão) 1`] = `"c611bdb48006e514e3cea3578f4df682fd91b34aa0b1eeb75f2ff295fc16c38f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_geladeira (tipo duplex) 1`] = `"d333ca2691cc22cf4221106a86ee12ab35741c063f2a3ae38ee060dd6fb800af"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_geladeira (tipo duplex_grande) 1`] = `"7b46b8ba852987ffbea514300ba2d90ef66d4bb9b9d1495844c75dab60368508"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_geladeira (tipo padrão) 1`] = `"d333ca2691cc22cf4221106a86ee12ab35741c063f2a3ae38ee060dd6fb800af"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_geladeira (tipo uma_porta) 1`] = `"a21fa545cd80ed2b7eb28ec9ff65ceaf49a13a8582c73c0012eff5c261621666"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_conjunto (tipo gc2) 1`] = `"e0cf95f76863dc00b271a12ec5b7e38ad790863333ce369cabcec76370dff6da"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_conjunto (tipo gc3) 1`] = `"ff003e36f4ccc10f3d278ec8784b76286c3fa3abae9fbb9ceec7efbaf08ebf00"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_conjunto (tipo gc4) 1`] = `"e94db70cfd0c63344fd4ccdddf743f48a545febb92aee1b2d17872fd4a2e324a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_conjunto (tipo padrão) 1`] = `"e0cf95f76863dc00b271a12ec5b7e38ad790863333ce369cabcec76370dff6da"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_modulo (tipo gr450) 1`] = `"c8a709795471721cb529384367fb2b05b922e7c84c515d283ca02893468906d6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_modulo (tipo gr600) 1`] = `"14f44bc2db0e5152222a192c32e87bbd1e2555d0ca005c21b17f3a77f5a428d4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_modulo (tipo gr900) 1`] = `"6cf8b4fe3313a1c4339bb7ea9b334afa9038b7ce2beec3ffd1b180126456420a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_modulo (tipo gr1200) 1`] = `"298ee84630e0adba0001a04779ec9eea90598ffebe8abfc41b556a0310751fda"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_guarda_roupa_modulo (tipo padrão) 1`] = `"6cf8b4fe3313a1c4339bb7ea9b334afa9038b7ce2beec3ffd1b180126456420a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_home_office (tipo home150) 1`] = `"85d55f8859f69d97af3ccf92c9b3a76d416cb63087afce4bce44dfd3502c63c4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_home_office (tipo home180) 1`] = `"26b3c14460fe4b8e78be0d6eb09fe254fbec0811c97252d7d01ed14f0334ff9e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_home_office (tipo home240) 1`] = `"49938ed4c503837e2a2a7f985542e77cecbd554fefa66584b2298c437b635e20"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_home_office (tipo padrão) 1`] = `"26b3c14460fe4b8e78be0d6eb09fe254fbec0811c97252d7d01ed14f0334ff9e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ilha_gourmet (tipo ilha1800) 1`] = `"57882ef99490ae3194d500e73e69cd73fee6adc11de4f1c83c1a13247b51269d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ilha_gourmet (tipo ilha2400) 1`] = `"499427b34f9dac54f525f7c1cc0953a361dd3669a3d24456e95fd3667d76ef65"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ilha_gourmet (tipo ilha3000) 1`] = `"a47f620365a6e176a4c975967f68a12c37afb6fc69a44cf48a25802081ad8b5a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ilha_gourmet (tipo padrão) 1`] = `"57882ef99490ae3194d500e73e69cd73fee6adc11de4f1c83c1a13247b51269d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_interruptor (tipo duplo) 1`] = `"5c0915a5eead7a2498055f085d845a41d2ef47c8268303ae57082f57ed8e6f55"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_interruptor (tipo padrao) 1`] = `"8424cc3156c2a87a67d6db91928ea096cd97869cdc915ccc2922f6aeb5a3106b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_interruptor (tipo padrão) 1`] = `"8424cc3156c2a87a67d6db91928ea096cd97869cdc915ccc2922f6aeb5a3106b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_interruptor (tipo rebaixado) 1`] = `"4bb185d9d2533c55a75cec3473da565a8968c3369c5be384d2b709c2455cdcd7"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lava_loucas (tipo lava45) 1`] = `"d61ed4f4397e6a226912e6d8d36c5ca3767f3b1331057bb67268f56c1506ef91"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lava_loucas (tipo lava60) 1`] = `"8f494f45223b4a6f917b83069a1add6c302e86e54a780a8ffe8daf59e7072655"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lava_loucas (tipo padrão) 1`] = `"8f494f45223b4a6f917b83069a1add6c302e86e54a780a8ffe8daf59e7072655"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lavatorio (tipo lav45) 1`] = `"145b12c33dda93e686f716d24fcf6df20c029e453a31cc845d275fa373c753ca"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lavatorio (tipo lav50) 1`] = `"8f51df838766afa2f19c86316a092fc049243bbd62ad22e463ce477923946faa"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lavatorio (tipo lav60) 1`] = `"dc830d0bba8a9f00c732a8b111235ace4d1f5926d613f2298a55ec7259d6cc0d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_lavatorio (tipo padrão) 1`] = `"8f51df838766afa2f19c86316a092fc049243bbd62ad22e463ce477923946faa"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_luminaria_teto (tipo linear120) 1`] = `"664115dce12e5907be63f332ab8eeac94bf6ea8caffba9bd60a25f4940293408"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_luminaria_teto (tipo padrão) 1`] = `"711da75d64416bd1e8569ba3339303ab0e1bb84796170f9c5840b35c0d9af5fe"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_luminaria_teto (tipo plafon30) 1`] = `"711da75d64416bd1e8569ba3339303ab0e1bb84796170f9c5840b35c0d9af5fe"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_luminaria_teto (tipo plafon60) 1`] = `"ada9f4e7b1956ee79cdaa2004de547b3e7f0bf756782603540e2446893d6ce8e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_maquina_lavar (tipo lavar8) 1`] = `"32e4e7419f0d9daaf0916eeabcc0d021ab3008abad51bcebe6ce687d79147a40"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_maquina_lavar (tipo lavar11) 1`] = `"7e43d9ac79d6be9ad0efa86485498c0a76b540dd2521b38a50e1f71e0cedc21d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_maquina_lavar (tipo padrão) 1`] = `"32e4e7419f0d9daaf0916eeabcc0d021ab3008abad51bcebe6ce687d79147a40"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa (tipo escritorio) 1`] = `"286fe6a32ee9aab5538e2e141d1743856e59cae77cfe78815a797139d69a1fc3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa (tipo jantar) 1`] = `"f6b68d1a1d8e1de85e46a4d118eaac048bb1f57261ac8c2aff7ba63b4b2f5f87"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa (tipo padrão) 1`] = `"f6b68d1a1d8e1de85e46a4d118eaac048bb1f57261ac8c2aff7ba63b4b2f5f87"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_cadeiras (tipo mesa4) 1`] = `"14c720ebd573f162931d58639deecfc5a9cca72567d6fdb348cc57a2256ef1ff"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_cadeiras (tipo mesa6) 1`] = `"d020e29c6ebc3e2ab95db50bc3dad13d21adb8cea7ba8e074333fb666d38c7f9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_cadeiras (tipo mesa8) 1`] = `"dfdef2a57b65c51585f66d8c521c17d2a05210840e91379ec5376c199fc19bd2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_cadeiras (tipo padrão) 1`] = `"14c720ebd573f162931d58639deecfc5a9cca72567d6fdb348cc57a2256ef1ff"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_centro (tipo centro_redonda) 1`] = `"da47360e02ff5a94a8310197842a666a65e4a4c8c53608795ff7ad5506d2ebaf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_centro (tipo centro100) 1`] = `"1731ff13bd9875e11d6a8e0b8c71766ef700126d9354e7453aae2d7f2170eb39"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_centro (tipo cubo) 1`] = `"154bd73df381b13b8fa11235b64228ab501aff922b4339df9bbb20dc4885d598"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_centro (tipo padrão) 1`] = `"1731ff13bd9875e11d6a8e0b8c71766ef700126d9354e7453aae2d7f2170eb39"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio (tipo esc120) 1`] = `"64cbed8e672ff7c5f14bdfb3d437b3cbfc3f9ce32843e5572539220fc0683cf0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio (tipo esc140) 1`] = `"8f729b55d869aa79801eeaa394e5a13e429c8f12cae0f3488f6ab31164bb0ad5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio (tipo esc180) 1`] = `"1b417c793dc56e7f454779fc5c82f718ced544ee4592d2b78ac118f970812d50"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio (tipo padrão) 1`] = `"8f729b55d869aa79801eeaa394e5a13e429c8f12cae0f3488f6ab31164bb0ad5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_gavetas (tipo g120) 1`] = `"a6d68501b2920bb314076dc7674a25bec93689e86464cc08e9d8eba109b95a8d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_gavetas (tipo g140) 1`] = `"ac6514de765214b79b752dcb14abf9a16151c315badc7ed03262fb304ce3bde9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_gavetas (tipo g160) 1`] = `"8f12ac3e0b4e0112cbbf383978d9d5562f1b48e4771b6434db4c18c8729f1ee6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_gavetas (tipo padrão) 1`] = `"ac6514de765214b79b752dcb14abf9a16151c315badc7ed03262fb304ce3bde9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_l (tipo l140) 1`] = `"65ce8eb0cf5a5397b14c694fab9167b8925208e6eb6d1be5a086f79b8e64928b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_l (tipo l160) 1`] = `"2c2d72dc8e70d98b7051fb44f3cb0c91a45c74120ffb6d107ea4ff2d48d4c323"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_l (tipo l180) 1`] = `"25ada6777bf915eb77d8fec3214d4b590e39b4b487389c9ef27ba48746c490c0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_escritorio_l (tipo padrão) 1`] = `"2c2d72dc8e70d98b7051fb44f3cb0c91a45c74120ffb6d107ea4ff2d48d4c323"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_gaveteiro (tipo mesa1200) 1`] = `"601bafb04486868b89fd57a91ab22e4c0d56442780008274b92abbab78cd08b2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_gaveteiro (tipo mesa1400) 1`] = `"998275e98a1012dbcc401fe13a6951721689a816ac9cde2e619c491b00ffbff4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_gaveteiro (tipo mesa1600) 1`] = `"5461c932526cdf55a878d815068e7ec4994be532847b31eaf11c2961cf01b854"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_gaveteiro (tipo padrão) 1`] = `"998275e98a1012dbcc401fe13a6951721689a816ac9cde2e619c491b00ffbff4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar (tipo mesa120) 1`] = `"1daa366069a7707c5328c390e942b9078391e2d28bafb09f854ee06adc2c90b2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar (tipo mesa160) 1`] = `"a8f535f3537a3d9c5431628f66ade6d145636ad37e573c3f20454b51952896d5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar (tipo mesa200) 1`] = `"51e269e6e92c03b8689eb4aac3939f57e4bdd1d83d6b06faf5eb48c18d347ac7"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar (tipo padrão) 1`] = `"a8f535f3537a3d9c5431628f66ade6d145636ad37e573c3f20454b51952896d5"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_extensivel (tipo aberta) 1`] = `"74ad093182a592f4d02e49b714aa76baa01d9fc063a48d306b2f18adac0fd8e6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_extensivel (tipo aberta_grande) 1`] = `"5a9280eef531e7208c1681a6193dd3ecf1e5ab35868281b9c8448bbd4d78d467"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_extensivel (tipo fechada) 1`] = `"be04846b1af6fa97e9de0168e491165d3ee2f5b8fdc4c850b2bf5a1f36ec2de2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_extensivel (tipo padrão) 1`] = `"be04846b1af6fa97e9de0168e491165d3ee2f5b8fdc4c850b2bf5a1f36ec2de2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_oval (tipo oval160) 1`] = `"566fb53bb9f0c233f25dce5a16fb128cb3025b718fb55d18565ff6031f7b6b28"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_oval (tipo oval180) 1`] = `"5a7a08070769970568c3e923348a1f8c589d0a4bfe5ba323eb36c8d96a26b2d4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_oval (tipo oval220) 1`] = `"e7f56867da1626a08c60fbb93742da8fa7f069ce90eee89aa5ea8eca1a5c5c37"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_oval (tipo padrão) 1`] = `"5a7a08070769970568c3e923348a1f8c589d0a4bfe5ba323eb36c8d96a26b2d4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_redonda (tipo d100) 1`] = `"b07f6c74530160579fa153185521594b70ecfd08bc5f670456de0cb3cd91026f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_redonda (tipo d120) 1`] = `"b66e1ab410bcb4491a28c03862eb04764ba2a434c80fe67acf78f4d69fe1f9ef"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_redonda (tipo d140) 1`] = `"77695dc5234d4f1414ce8b41bf9eae899328ac920d93aa3b9ba7fad056aab263"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_jantar_redonda (tipo padrão) 1`] = `"b66e1ab410bcb4491a28c03862eb04764ba2a434c80fe67acf78f4d69fe1f9ef"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_lateral (tipo lateral_alta) 1`] = `"6196efc9529e449ff507a2c91c3e5ce8fdc2af38ea26bffc9103fd54df52e45f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_lateral (tipo lateral_redonda) 1`] = `"f02e2740ba0a167d338f8793527211194a91af6430e437eb2f6d8e6f9cb5ab25"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_lateral (tipo lateral45) 1`] = `"fb5afaef726918ac5c02c56f806ee74f6ac2a959a7c8d70d357af8719133168e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_mesa_lateral (tipo padrão) 1`] = `"fb5afaef726918ac5c02c56f806ee74f6ac2a959a7c8d70d357af8719133168e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_microondas (tipo micro_embutir) 1`] = `"707b75d324d95706f91bf8c04a96bb5a711e07b630a32d21dabfb08f1e4d493c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_microondas (tipo micro20) 1`] = `"0d22f8ac892b6c3ab3efb25bd81d8a06b35675146263c44606e18223d862cd9a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_microondas (tipo micro30) 1`] = `"57c5b1f0ec235a06e7435b86dc2e1a7a5e95d77d421a3656ced18d4cfa1c48ca"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_microondas (tipo padrão) 1`] = `"57c5b1f0ec235a06e7435b86dc2e1a7a5e95d77d421a3656ced18d4cfa1c48ca"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_modulo_branco (tipo M600) 1`] = `"41995ddfd54ecdb3b6395a699e2004cd4ea3e7091f2c9eef20e4d4b44a41e6e3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_modulo_branco (tipo M800) 1`] = `"d8846bc90a1e702470d52646d781f745978839e605420e1241156151618c83c2"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_modulo_branco (tipo M1200) 1`] = `"6c108792a6f7e9e686281cac49618ac6a43f6ef9a37fe20c17bdc6481d3adbc3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_modulo_branco (tipo padrão) 1`] = `"41995ddfd54ecdb3b6395a699e2004cd4ea3e7091f2c9eef20e4d4b44a41e6e3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_nicho_embutido (tipo nicho_divisorias) 1`] = `"9c955461df216ae1af32bd32aa98c67a3e71cf3768e1079d59d22bd1c0d2c8f3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_nicho_embutido (tipo nicho_prateleiras) 1`] = `"46e6eded99287e5117a4f1ccf155e205f21adbac8cbec4547b03bfc6df7b42d3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_nicho_embutido (tipo nicho60) 1`] = `"548f3d3ef4c4b8b396b9169b996154809499a24912586a6a22a11cc5e4f8f1b0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_nicho_embutido (tipo padrão) 1`] = `"548f3d3ef4c4b8b396b9169b996154809499a24912586a6a22a11cc5e4f8f1b0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_plano (tipo divisoria) 1`] = `"c71393a3b869b3f0582926bd2a4fad203392cdad7810ddec25834155049d7c7c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_plano (tipo padrão) 1`] = `"50cf568a7a9437f614d9e93bb9e2359c6c6045063bc6fcb022bb02e75c9b5728"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_plano (tipo painel12x24) 1`] = `"50cf568a7a9437f614d9e93bb9e2359c6c6045063bc6fcb022bb02e75c9b5728"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_plano (tipo placa) 1`] = `"12de2023aaba7add3e90a8d6191d20fac172dfa2dba3c6c46f4c5485daba76a6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado (tipo padrão) 1`] = `"0b1317bdb60f880e4ec31d9bb6657268094b3de9c33a1b356768bdb6de3abc7a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado (tipo ripado1200) 1`] = `"0b1317bdb60f880e4ec31d9bb6657268094b3de9c33a1b356768bdb6de3abc7a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado (tipo ripado1800) 1`] = `"a9ecf2de8a64921a96da0da0dd62f4fa8669d2e225c4b2fa4746209aea2f1e3a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado (tipo ripado2400) 1`] = `"30fc5dd47c502ca383b2d5b90168072e68db7eab37fa75230a8b1b98b5353709"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_fundo (tipo padrão) 1`] = `"75041f2ed98839966ab809f6d63aac1011b92cfbad7957843a2a2fdaa44139cf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_fundo (tipo ripado120) 1`] = `"68ed137e8fc4cea95001309f4c6dc61f922bdb1e9c5e8815d50e5f1752bac2d0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_fundo (tipo ripado180) 1`] = `"75041f2ed98839966ab809f6d63aac1011b92cfbad7957843a2a2fdaa44139cf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_fundo (tipo ripado240) 1`] = `"a8f15f8ece2111e9036013faa0a09302d2582fce4cb15cf8bbce28852918f96a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_horizontal (tipo padrão) 1`] = `"28733cb4ba678ccf7921710b305536edaee2fd5e8a0328cbc6a25ef46d90826d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_horizontal (tipo ripado120) 1`] = `"8282abd0ca7b4adba9172c05bbd6f1833293144224d8ec750482f419efa45f3f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_horizontal (tipo ripado180) 1`] = `"28733cb4ba678ccf7921710b305536edaee2fd5e8a0328cbc6a25ef46d90826d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_horizontal (tipo ripado240) 1`] = `"a8eb5e4bfe4bf4add537582781fe058d57d1bc08e8ddb0c8fe5a09c4c0056581"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_rack (tipo padrão) 1`] = `"1d513990d01b2a809d05f2bd692827765150cd963ff2a1fc1adad6e4a807b894"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_rack (tipo pr180) 1`] = `"752f109d6406d30a8c8cecbb093c99bf0251b3390c3a8a26258ee30aaa76b6f0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_rack (tipo pr220) 1`] = `"1d513990d01b2a809d05f2bd692827765150cd963ff2a1fc1adad6e4a807b894"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_ripado_rack (tipo pr280) 1`] = `"cdae639f58da87ef9bc4aa17287dd47b16ae6a72371ad47c196fc72a9cdb4c5e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_tv (tipo padrão) 1`] = `"ea220d5b981a902e880f7f119d0748f5d19462f18b8447672ceb6cca775b9ebf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_tv (tipo tv1800) 1`] = `"ea220d5b981a902e880f7f119d0748f5d19462f18b8447672ceb6cca775b9ebf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_tv (tipo tv2000) 1`] = `"9eeb2acfb99ef950d4f9b31b804989de247ed18e4728553945dea487a7992352"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_painel_tv (tipo tv2400) 1`] = `"86869aafe0780c914a5be8dc3518163a938d7dfe7fa2632ed9d0b73c2cf163aa"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_paneleiro (tipo PL40) 1`] = `"5819ffc151450a49fb4f12cd5e08191c73327219ba6c4e9acd0a987fd8d81680"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_paneleiro (tipo PL50) 1`] = `"1cc50a02c1c3b172cccebac58bc0257658457bafcdc528573b4f1204b487e77e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_paneleiro (tipo padrão) 1`] = `"5819ffc151450a49fb4f12cd5e08191c73327219ba6c4e9acd0a987fd8d81680"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_perfil_linear (tipo barra40) 1`] = `"f47792105dec738312f0f24f6ef7a6fca92e405c74d8fe7a8b6c8fa8484e0780"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_perfil_linear (tipo cantoneira) 1`] = `"25b99ddc8746fa7335b57b6ba174c1a90ef5b51d5c55ec1ab59e5f857018528a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_perfil_linear (tipo padrão) 1`] = `"f47792105dec738312f0f24f6ef7a6fca92e405c74d8fe7a8b6c8fa8484e0780"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_perfil_linear (tipo tubo50x30) 1`] = `"49e99c0a8ab646a22707c82cd71277c18e078b649d37f388ccc7e4098a6113e6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_poltrona (tipo padrão) 1`] = `"014f0cc6464c685c8791443b80a47a84ff720c15c74c35691076973d82edb730"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_poltrona (tipo poltrona70) 1`] = `"561bad616cb3ea8055802bb974c896d69f700f6f878020b741fe209d4a1c709b"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_poltrona (tipo poltrona80) 1`] = `"014f0cc6464c685c8791443b80a47a84ff720c15c74c35691076973d82edb730"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_poltrona (tipo poltrona95) 1`] = `"8e614e137db29de9dc162bc11d57631dcb0cc5b8effb2b51a08faa7b9db83faf"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira (tipo padrão) 1`] = `"ed2d53e2754e5b0d3a5c78c68bee74bb7e36e1a2f48594b77aa0528f0661f0f9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira (tipo prat600) 1`] = `"dcc60c0852d9ad9741d9f98c54ef0dc9c3f8df61889e069af779fb9a0f9a9c32"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira (tipo prat800) 1`] = `"ed2d53e2754e5b0d3a5c78c68bee74bb7e36e1a2f48594b77aa0528f0661f0f9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira (tipo prat1000) 1`] = `"d26ce18961a0d71e82168b441d76b95006c537c4bfa7a01c5438ad5719fc11da"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira_banheiro (tipo conjunto80) 1`] = `"9be703f57bf8dc495818a09faec25773c39d6d1a2273b0e79a96cb544b1f46d3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira_banheiro (tipo padrão) 1`] = `"0ce118728d94e49853b666399cd17778f73dc4a36e3bae592686f4a2064bbaea"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira_banheiro (tipo prateleira60) 1`] = `"0ce118728d94e49853b666399cd17778f73dc4a36e3bae592686f4a2064bbaea"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_prateleira_banheiro (tipo toalheiro60) 1`] = `"03bb91f18623d33f0a798f04692ba7e983c9115769929da9bc704aa806946564"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_puff (tipo padrão) 1`] = `"d0114ce8de7530c4b8d75049abfbcf1cd87d0d2cf14f6c0375f346f75860a326"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_puff (tipo puff_retangular) 1`] = `"74bf50b59ae7c0f8162be16021211e53e7be44372fd0161d707aa189dae7ebfe"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_puff (tipo puff45) 1`] = `"d0114ce8de7530c4b8d75049abfbcf1cd87d0d2cf14f6c0375f346f75860a326"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_puff (tipo puff60) 1`] = `"7437f855db49a6b51b357220e432e1ba464a34cfc3d960097e748e929ab959af"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_quadro_distribuicao (tipo padrão) 1`] = `"e6ecf68801add086354ebb42698f325826b3314af4930bcaff67dddf36f31868"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_quadro_distribuicao (tipo quadro8) 1`] = `"8eb5e1aa2a635df982a0bba41eedb76ae573933edfdd46dbef7475f9b4f0bdb6"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_quadro_distribuicao (tipo quadro12) 1`] = `"e6ecf68801add086354ebb42698f325826b3314af4930bcaff67dddf36f31868"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_quadro_distribuicao (tipo quadro24) 1`] = `"eaba81090b15689ea92fe67238b7288a49e879d0ad051b84ed06019fbc1b9a7a"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_rack (tipo padrão) 1`] = `"2e3a5cc64abca59c07a95c6b2c67ec5756fe8f3c557e9b22411973de2f3a57e9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_rack (tipo rack140) 1`] = `"4d524255d6e1dc930b7fd104d6764d54b2089e9c155c14f4a04d413b9ed981a0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_rack (tipo rack180) 1`] = `"2e3a5cc64abca59c07a95c6b2c67ec5756fe8f3c557e9b22411973de2f3a57e9"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_rack (tipo rack200) 1`] = `"fb24cbc1e571865eb5f73e2e818d684619a22b3551ac12def109b340602dbcde"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ralo (tipo padrão) 1`] = `"85de345506a42e8cba8699895f89a7e2342f3ba3fe83fdf73c0583f3965b311e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ralo (tipo ralo100) 1`] = `"85de345506a42e8cba8699895f89a7e2342f3ba3fe83fdf73c0583f3965b311e"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ralo (tipo ralo100baixo) 1`] = `"3231d69c04bee8598cb33fe674d44c7001a60f072024caa6c5f83f0b723fbd7f"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_ralo (tipo ralo150) 1`] = `"df680b2706aa34508cd637672f69cae64c3ef70712fa4a117fa6022ae09a03d3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_roupeiro_correr (tipo padrão) 1`] = `"85ec3bcfbc3b4f808e3545d953dee33b481009e7be7fc6231a105d6b2272ee58"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_roupeiro_correr (tipo rc200) 1`] = `"f7e3bfd56cc394142cfd3a73678b832ece2bb93db8a979abba56a8438dbca0d0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_roupeiro_correr (tipo rc220) 1`] = `"85ec3bcfbc3b4f808e3545d953dee33b481009e7be7fc6231a105d6b2272ee58"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_roupeiro_correr (tipo rc280) 1`] = `"ce25169dcea63b333a06441f6f661c9645ecf5c095bf5e24704b3de265ea6014"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa (tipo dois) 1`] = `"a959df572d7658c4579c948ee4aada52994afa90fc802ed6ac8100d008894865"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa (tipo padrão) 1`] = `"b85022ac2242a153de7f44b9bdf5eef707f9e6a1a5450e3afab22f8412696f44"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa (tipo quatro) 1`] = `"a33e7b6ce9f186b40d693505a84fef1d4731e5af25d2b6246d9293db33d57378"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa (tipo tres) 1`] = `"b85022ac2242a153de7f44b9bdf5eef707f9e6a1a5450e3afab22f8412696f44"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa_l (tipo l220) 1`] = `"ff8aafff87efbe8a9f8189459245f8f8bf3fc38a2b653e3f94b631e7e4b7a2ea"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa_l (tipo l240) 1`] = `"7d5f274eccb87110b7ce769435ea05b02d9116ffc18f638974934a869ae9c1db"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa_l (tipo l280) 1`] = `"bb6ee8755d2b6904649b9a1522d8f6c18145f9ebc361ff716ec78b1c1a83a9db"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_sofa_l (tipo padrão) 1`] = `"7d5f274eccb87110b7ce769435ea05b02d9116ffc18f638974934a869ae9c1db"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tomada (tipo baixa300) 1`] = `"8a2ddf131b29594eee4c10020c94ecebfaf670e43466b73b0aaf9551247958d8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tomada (tipo dupla) 1`] = `"2dddcd2343248f0caefcf6e7b9537e8ba3d5fd3a62c0c4467e88d1d691267706"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tomada (tipo media1200) 1`] = `"667927218d538261b01b046a5ab2155aa49259bb0a007241c7d3d111e5c08910"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tomada (tipo padrão) 1`] = `"8a2ddf131b29594eee4c10020c94ecebfaf670e43466b73b0aaf9551247958d8"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_torre_forno (tipo T60) 1`] = `"76542b38c51bcfe1125782fcaaaddcade2c7ff974e310cca60a6e65a6ae916c0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_torre_forno (tipo T70) 1`] = `"3a6ffd15526872bec3ae09b0fc816b2a0b7614fe8461bcb103a0c5e7a460f037"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_torre_forno (tipo padrão) 1`] = `"76542b38c51bcfe1125782fcaaaddcade2c7ff974e310cca60a6e65a6ae916c0"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo padrão) 1`] = `"90c915a8fb9c87d53185d7942b9df8cf592799a32bb423e2f802a591f3c11f2d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo tv43) 1`] = `"2f352ad620cd781dee8c71f69e2f7e1af9c3524c4deb0eff8eb9962badfaceeb"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo tv50) 1`] = `"3d55c4245fc133f1231ac20cfbc6f7bcc94b9eb61e904d182748af37cea7a413"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo tv55) 1`] = `"90c915a8fb9c87d53185d7942b9df8cf592799a32bb423e2f802a591f3c11f2d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo tv65) 1`] = `"4920dca05d87030791a7004423b45dbcf3ea13c11e7e6b54cce4722e2268de42"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv (tipo tv75) 1`] = `"49bfe96a7cfbc23af60194e301fcf949eb3c15aa37ce31478291f5da4d47443c"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv_painel (tipo padrão) 1`] = `"f626ceff26650f7810f4a292eafe26ecd1d108318f8bdb5f76a5ec4c96dbf0bb"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv_painel (tipo painel43) 1`] = `"4860b89cd67cd83fe930d555dea1ce0847b0a69fe214a3f530b8d7c871e8a7d1"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv_painel (tipo painel55) 1`] = `"f626ceff26650f7810f4a292eafe26ecd1d108318f8bdb5f76a5ec4c96dbf0bb"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_tv_painel (tipo painel65) 1`] = `"38b1ebdddcaf69fd4683f8e7707644dfed4f1e2436e5306837a830db5db8647d"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_vaso_sanitario (tipo compacto) 1`] = `"c855cf338874efc53ff24dbf396ca36b2f3e19ede3adfe22f245bea594e1f588"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_vaso_sanitario (tipo conforto) 1`] = `"3793a7570d59aaef487a30c9313fbf6ca6d40a1ea05a1cb8129352301305d0c4"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_vaso_sanitario (tipo padrão) 1`] = `"045157b5f850caab8cfa0a02130e6f37caa43acc09c11a2ba564c44a14702cc3"`;
+
+exports[`regressão A7: biblioteca base resolve igual ao de antes > fam_vaso_sanitario (tipo vaso360) 1`] = `"045157b5f850caab8cfa0a02130e6f37caa43acc09c11a2ba564c44a14702cc3"`;
