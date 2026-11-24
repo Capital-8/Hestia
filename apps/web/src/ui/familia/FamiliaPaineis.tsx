@@ -18,6 +18,7 @@ import { FamiliaCaixariaPecaCtrl } from './FamiliaCaixariaPecaCtrl.tsx';
 import { FamiliaCorpoLista } from './FamiliaCorpoLista.tsx';
 import { FamiliaCorpoPainel } from './FamiliaCorpoPainel.tsx';
 import { FamiliaLigacoesPainel } from './FamiliaLigacoesPainel.tsx';
+import { FamiliaDetalhePainel } from './FamiliaDetalhePainel.tsx';
 import { useCorpoSel } from './familiaCorpo.ts';
 import { mm } from './familiaDesenho.ts';
 import { FamiliaFabricacao } from './FamiliaFabricacao.tsx';
@@ -74,6 +75,7 @@ export function NavegadorFamilia(): ReactElement {
       })}
       <FamiliaCorpoLista />
       <li className="l2 fam-lig-li"><FamiliaLigacoesPainel /></li>
+      <li className="l2 fam-lig-li"><FamiliaDetalhePainel /></li>
       <Li cls="h">▾ Módulos aninhados ({aninhados.length})</Li>
       {aninhados.length === 0 && (
         <Li cls="l2"><span className="fam-mut">nenhum — use “Módulo aninhado” na faixa</span></Li>
