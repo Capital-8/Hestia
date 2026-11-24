@@ -178,3 +178,16 @@ export function promoverParaParametro(f: Familia, pecaId: string, campo: CampoPe
   return null;
 }
 export { adicionarAninhado, editarAninhado, excluirAninhado } from './edicaoAninhados.ts';
+export {
+  adicionarCorpo,
+  adicionarPontoCaminho,
+  criarCorpoPadrao,
+  definirPerfil,
+  definirRaio,
+  duplicarCorpo,
+  editarCorpo,
+  excluirCorpo,
+  moverPontoCaminho,
+  removerPontoCaminho,
+  reordenarCorpo,
+} from './edicaoCorpos.ts';
