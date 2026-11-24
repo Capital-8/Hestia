@@ -12,6 +12,7 @@ import { TUBULACAO_ESGOTO } from './tuboEsgoto.ts';
 import { TUBULACAO_AGUA_FRIA } from './tuboAguaFria.ts';
 import { CAIXAS_HIDRO } from './caixasHidro.ts';
 import { PERFIS_METALICOS } from './perfisMetalicos.ts';
+import { ELETRICA } from './eletrica.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -37,6 +38,7 @@ export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAV
  * que é só de móveis: os testes de conectores e de snapshot da base não se aplicam a elas.
  */
 export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO, ...PERFIS_METALICOS];
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...TUBULACAO_AGUA_FRIA, ...CAIXAS_HIDRO, ...ELETRICA];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
