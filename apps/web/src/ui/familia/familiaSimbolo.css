@@ -1,0 +1,24 @@
+/* Seção "Símbolos 2D" do editor de famílias (ficha D3). Cores pelo texto atual, para valer no tema claro e no escuro. */
+.fam-sim-tela {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  color: currentColor;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  touch-action: none;
+  user-select: none;
+}
+.fam-sim-fundo { fill: transparent; cursor: crosshair; }
+.fam-sim-eixo { stroke: currentColor; stroke-opacity: 0.25; stroke-width: 2; stroke-dasharray: 8 6; }
+.fam-sim-geo, .fam-sim-geo * { fill: none; stroke: currentColor; stroke-width: 3; vector-effect: non-scaling-stroke; }
+.fam-sim-geo text, .fam-sim-outro text { fill: currentColor; stroke: none; font-family: inherit; }
+.fam-sim-outro { fill: none; stroke: currentColor; stroke-opacity: 0.25; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fam-sim-alca { fill: #2f80ed; fill-opacity: 0.35; stroke: #2f80ed; stroke-width: 2; cursor: grab; vector-effect: non-scaling-stroke; }
+.fam-sim-alca.ativa { fill-opacity: 0.9; cursor: grabbing; }
+.fam-sim-ferramentas, .fam-sim-checks { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.fam-sim-checks label { display: inline-flex; align-items: center; gap: 4px; }
+.fam-sim-vertice { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; }
+.fam-sim-prim { margin-top: 6px; }
