@@ -206,7 +206,9 @@ function retanguloDosCorpos(c: Component, cc: Caixa): MultiPolygon {
 export function pegadaDoComponente(p: Project, c: Component, res: ResolucaoFamilia = resolverComponente(p, c)): MultiPolygon {
   const t = transformacaoDe(c);
   const retangulos = res.pecas.filter((q) => !q.vazio).map((q) => retanguloDaPeca(q, t));
-  if (res.caixaCorpos) { const casco = retanguloDosCorpos(c, res.caixaCorpos); if (casco.length > 0) retangulos.push(casco); }
+  // Só entram os corpos sólidos que aparecem na planta (`vistas` ausente = todas).
+  const corposNaPlanta = (res.corpos ?? []).some((k) => !k.vazio && (k.vistas === null || k.vistas.includes('planta')));
+  if (res.caixaCorpos && corposNaPlanta) { const casco = retanguloDosCorpos(c, res.caixaCorpos); if (casco.length > 0) retangulos.push(casco); }
   if (retangulos.length === 0) return [];
   return limparAneis(union(...retangulos));
 }
