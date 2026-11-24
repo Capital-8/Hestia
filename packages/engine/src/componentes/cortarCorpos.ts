@@ -1,6 +1,9 @@
-import { union, type MultiPolygon, type Ring } from '@hestia/geom';
+import { difference, intersection, ringArea, union, type MultiPolygon, type Ring } from '@hestia/geom';
+import { isComponent, levelElevation, matrizDoComponente, resolverMaterialVisualPeca, type Component, type Id, type Project } from '@hestia/model';
 import type { CorpoResolvido } from './corposTipos.ts';
 import { malhaDosCorpos } from './corposMalha.ts';
+import { resolverComponente } from './instancia.ts';
+import { rect, sectionFrame, type SectionLine } from '../sectionGeom.ts';
 
 /*
  * Corte e elevação dos corpos (ficha B4, CONTRATO §4). MÉTODO do corte: cada triângulo da malha sólida é cortado pelo plano
@@ -180,7 +183,7 @@ export function lacosDoCorte(corpos: CorpoResolvido[], plano: PlanoDeCorte, matr
   const normal: P3 = [plano.normal[0] / modulo, plano.normal[1] / modulo, plano.normal[2] / modulo];
   for (const [indice, triangulos] of triangulosPorCorpo(filtrarPorVista(corpos, ['corte']), matriz)) {
     if (corpos[indice] === undefined) continue;
-    saida[indice] = encadear(segmentosDoCorte(triangulos, plano.origem, normal)).map(semColineares).filter((l) => l.length >= 3).map((laco) => laco.map((p) => [p[0], p[1], p[2]]));
+    saida[indice] = encadear(segmentosDoCorte(triangulos, plano.origem, normal)).map(semColineares).filter((l) => l.length >= 3).map((laco) => laco.flatMap((p) => [p[0], p[1], p[2]]));
   }
   return saida;
 }
@@ -269,14 +272,78 @@ export function projetarCorposElevacao(corpos: CorpoResolvido[], eixo: 'x' | 'y'
  * nessa faixa, projetados em (t, z) com t = `normal.y, −normal.x` (a direção da linha de corte). Vale `corte` ou `elevacao`.
  */
 export function projetarCorposAlemDoPlano(corpos: CorpoResolvido[], plano: PlanoDeCorte, profundidade: number, matriz?: MatrizColuna): number[][] {
+  return alemDoPlano(corpos, plano, profundidade, matriz).contornos;
+}
+
+function alemDoPlano(corpos: CorpoResolvido[], plano: PlanoDeCorte, profundidade: number, matriz?: MatrizColuna): { contornos: number[][]; distMin: number } {
   const modulo = Math.hypot(...plano.normal);
   const mapa = mapaDoPlano(plano.normal);
-  if (modulo < 1e-12 || !mapa) return [];
+  if (modulo < 1e-12 || !mapa) return { contornos: [], distMin: 0 };
   const n = plano.normal.map((v) => v / modulo);
+  let distMin = Infinity;
   const faixa = triangulosDaVista(corpos, ['corte', 'elevacao'], matriz).filter((tri) => {
     const c = [0, 1, 2].map((k) => (tri[0][k]! + tri[1][k]! + tri[2][k]!) / 3 - plano.origem[k]!);
     const dist = c[0]! * n[0]! + c[1]! * n[1]! + c[2]! * n[2]!;
-    return dist >= -EPS_PLANO && dist <= profundidade;
+    const dentro = dist >= -EPS_PLANO && dist <= profundidade;
+    if (dentro) distMin = Math.min(distMin, Math.max(0, dist));
+    return dentro;
   });
-  return silhueta(faixa, mapa);
+  return { contornos: silhueta(faixa, mapa), distMin: Number.isFinite(distMin) ? distMin : 0 };
+}
+
+/** Corpos de um componente no corte (t, z): `cut` por corpo (já com furos) e `beyond` (silhueta atrás do plano). */
+export interface CorposNoCorte {
+  cut: Array<{ componentId: Id; materialId: Id; polygons: MultiPolygon }>;
+  beyond: Array<{ componentId: Id; materialId: Id; depth: number; polygons: MultiPolygon }>;
+}
+
+/** Laços 3D → polígono (t, z): ordena por área, externo (horário em tela, ver o método) soma e furo subtrai. */
+function poligonoDosLacos(lacos: number[][], line: SectionLine, d: { x: number; y: number }, length: number): MultiPolygon {
+  const aneis = lacos
+    .map((l): Ring => {
+      const r: Ring = [];
+      for (let k = 0; k + 2 < l.length; k += 3) r.push({ x: (l[k]! - line.a.x) * d.x + (l[k + 1]! - line.a.y) * d.y, y: l[k + 2]! });
+      return r;
+    })
+    .map((r) => ({ r, a: ringArea(r) }))
+    .filter((x) => Math.abs(x.a) > AREA_MINIMA)
+    .sort((x, y) => Math.abs(y.a) - Math.abs(x.a));
+  let res: MultiPolygon = [];
+  for (const { r, a } of aneis) {
+    const anel: Ring = a < 0 ? [...r].reverse() : r;
+    res = a < 0 ? union(res, [[anel]]) : difference(res, [[anel]]);
+  }
+  return res.length === 0 ? res : intersection(res, [[rect(0, length, -1e4, 1e4)]]);
+}
+
+/**
+ * Corte e projeção dos corpos de todas as instâncias do projeto pela linha de corte (ficha B4), em (t, z) como o resto do
+ * corte. Componente sem corpos (famílias antigas) não gera nada. Sem oclusão entre si e com o resto (a pintura por profundidade resolve).
+ */
+export function corposNoCorte(p: Project, line: SectionLine): CorposNoCorte {
+  const saida: CorposNoCorte = { cut: [], beyond: [] };
+  const { length, d, n } = sectionFrame(line);
+  if (length < 1e-6) return saida;
+  const plano: PlanoDeCorte = { origem: [line.a.x, line.a.y, 0], normal: [n.x, n.y, 0] };
+  const componentes = Object.values(p.elements).filter((e): e is Component => isComponent(e)).sort((a, b) => a.order - b.order);
+  for (const c of componentes) {
+    const corpos = resolverComponente(p, c).corpos ?? [];
+    if (corpos.length === 0) continue;
+    const matriz = matrizDoComponente(c);
+    matriz[14] = (matriz[14] ?? 0) + levelElevation(p, c.levelId);
+    const material = (corpo: CorpoResolvido): Id => resolverMaterialVisualPeca(c, 'generica', corpo.material ?? undefined);
+    lacosDoCorte(corpos, plano, matriz).forEach((lacos, i) => {
+      const polygons = lacos.length > 0 ? poligonoDosLacos(lacos, line, d, length) : [];
+      if (polygons.length > 0) saida.cut.push({ componentId: c.id, materialId: material(corpos[i]!), polygons });
+    });
+    const alem = alemDoPlano(corpos, plano, line.depth, matriz);
+    const materialAlem = material(corpos.find((x) => !x.vazio) ?? corpos[0]!);
+    const polygons: MultiPolygon = alem.contornos.map((flat) => {
+      const anel: Ring = [];
+      for (let k = 0; k + 1 < flat.length; k += 2) anel.push({ x: flat[k]!, y: flat[k + 1]! });
+      return [anel];
+    });
+    if (polygons.length > 0) saida.beyond.push({ componentId: c.id, materialId: materialAlem, depth: alem.distMin, polygons });
+  }
+  return saida;
 }

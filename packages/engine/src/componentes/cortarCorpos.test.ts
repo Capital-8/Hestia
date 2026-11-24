@@ -18,11 +18,12 @@ function corpo(forma: FormaCorpoResolvida, extra: Partial<CorpoResolvido> = {}):
 }
 
 /** Área assinada de um laço 3D projetada na normal (positiva = anti-horário visto de +normal). */
-function areaAssinada(laco: number[][], n: [number, number, number]): number {
+function areaAssinada(laco: number[], n: [number, number, number]): number {
   let sx = 0, sy = 0, sz = 0;
-  for (let i = 0; i < laco.length; i++) {
-    const a = laco[i]!;
-    const b = laco[(i + 1) % laco.length]!;
+  const q = laco.length / 3;
+  for (let i = 0; i < q; i++) {
+    const a = laco.slice(i * 3, i * 3 + 3);
+    const b = laco.slice(((i + 1) % q) * 3, ((i + 1) % q) * 3 + 3);
     sx += a[1]! * b[2]! - a[2]! * b[1]!;
     sy += a[2]! * b[0]! - a[0]! * b[2]!;
     sz += a[0]! * b[1]! - a[1]! * b[0]!;
@@ -58,7 +59,7 @@ describe('cortarCorpos (B4)', () => {
     const plano: PlanoDeCorte = { origem: [0, 0, 0.3], normal: [0, 0, 1] };
     const r = cortarCorpos([cilindro], plano);
     expect(r.cortado[0]).toHaveLength(1);
-    expect(r.cortado[0]![0]!.length).toBe(32);
+    expect(r.cortado[0]![0]!.length / 3).toBe(32);
     perto(areaAssinada(r.cortado[0]![0]!, plano.normal), area32(0.05));
   });
 
@@ -114,7 +115,7 @@ describe('cortarCorpos (B4)', () => {
     const espelhada = [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 0, 0, 1];
     const lacos = cortarCorpos([cilindro], plano, espelhada).cortado[0]!;
     expect(lacos).toHaveLength(1);
-    expect(lacos[0]![0]![0]).toBeGreaterThan(1.9);
+    expect(lacos[0]![0]!).toBeGreaterThan(1.9);
     perto(areaAssinada(lacos[0]!, plano.normal), area32(0.05));
   });
 
