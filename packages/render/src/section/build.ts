@@ -15,6 +15,7 @@ import type { Viewport } from '../viewport.ts';
 import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
 import { pontaDaPeca, vistaInclinada } from './referencialInclinadoVista.ts';
+import { simbolosDoCorte } from './sectionComponentsSimbolos.ts';
 import { ownerOf, sectionItems, type SectionItem } from './pick.ts';
 import { sectionStyleOf } from './style.ts';
 
@@ -445,6 +446,16 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     fills.push(...notes.fills);
     strokes.push(...notes.strokes);
     labels.push(...notes.labels);
+  }
+
+  // Símbolos 2D dos componentes (ficha D2): o plano da linha escolhe os símbolos xz/yz; traço e cor seguem a categoria de componentes.
+  if (s.plano && paint.component.visible) {
+    for (const e of Object.values(p.elements)) {
+      if (e.kind !== 'component' || isHidden(e.id)) continue;
+      const sb = simbolosDoCorte(p, e, s.plano, theme.inkSoft, symbolWidth('component'), detail);
+      strokes.push(...sb.strokes);
+      labels.push(...sb.labels);
+    }
   }
 
   if (input.thinLines) thinStrokes(strokes);
