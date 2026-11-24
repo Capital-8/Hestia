@@ -58,12 +58,27 @@ beforeEach(() => {
 });
 
 describe('ferramenta Tubo', () => {
-  it('sem a família no projeto não cria nada', () => {
+  it('com uma família escolhida que não existe em lugar nenhum não cria nada', () => {
     const ctx = makeEnv();
+    ctx.env.options().componentFamilyId = 'familia_que_nao_existe';
     const t = tool('tubo', ctx.env);
     clickAt(t, 0, 0);
     clickAt(t, 2, 0);
     expect(tubos(ctx)).toHaveLength(0);
+  });
+
+  it('sem nenhuma família no projeto, o tubo real de esgoto vem da biblioteca junto com o primeiro trecho (um passo de desfazer)', () => {
+    const ctx = makeEnv();
+    const t = tool('tubo', ctx.env);
+    clickAt(t, 0, 0);
+    clickAt(t, 2, 0);
+    expect(tubos(ctx)).toHaveLength(1);
+    expect(tubos(ctx)[0]!.familyId).toBe('fam_tubo_esgoto');
+    expect(ctx.store.project.componentFamilies?.['fam_tubo_esgoto']).toBeDefined();
+    expect(ctx.store.project.componentFamilies?.['fam_esgoto_curva90']).toBeDefined();
+    ctx.store.undo();
+    expect(tubos(ctx)).toHaveLength(0);
+    expect(ctx.store.project.componentFamilies?.['fam_tubo_esgoto']).toBeUndefined();
   });
 
   it('dois cliques criam UMA instância com L em mm, DN e a inclinação do segmento', () => {

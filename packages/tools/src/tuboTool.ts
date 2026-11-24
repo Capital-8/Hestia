@@ -1,12 +1,15 @@
 import type { Vec2 } from '@hestia/geom';
 import { avaliarDerivacao, avaliarEncontro, comprimentoDoSegmento, CONEXOES_POR_DOMINIO, encaixarLigacoes, idTuboDoProjeto, ligacaoNoMundo, posicionarConexao, resolverComponente, resolverFamilia, trechoDeTubo, type ConexaoEncontro, type LigacaoNoMundo, type LigacaoResolvida, type PontoSegmento, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
-import { formatQuantity, isComponent, newId, unitsOf, type Component, type Familia, type Id, type Project } from '@hestia/model';
+import { familiaDaBiblioteca, formatQuantity, isComponent, newId, unitsOf, type Component, type Familia, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
 /** Família de tubo de reserva: usada quando o projeto não tem o tubo real de nenhum domínio (`CONEXOES_POR_DOMINIO`, ficha F1). */
 export const FAMILIA_TUBO_PADRAO = 'tubo-padrao';
+
+/** Tubo real do domínio esgoto (ficha F1/F1b): carregado da biblioteca MEP quando o projeto não tem nenhum tubo. */
+export const FAMILIA_TUBO_BIBLIOTECA = 'fam_tubo_esgoto';
 
 /** Ajustes da ferramenta que o painel `TuboProperties` edita: DN em mm e altura (z) dos pontos clicados em m. */
 export const opcoesTubo: { dn: number; z: number } = { dn: 50, z: 0 };
@@ -160,8 +163,10 @@ export class TuboTool extends ToolBase {
 
   /** Família escolhida (opções) ou a padrão do domínio, e as pontas dela; avisa e devolve null se faltar algo. */
   private contexto(): Contexto | null {
-    const id = this.env.options().componentFamilyId ?? idTuboDoProjeto(this.env.project().componentFamilies) ?? FAMILIA_TUBO_PADRAO;
-    const familia = this.env.project().componentFamilies?.[id];
+    const fams = this.env.project().componentFamilies;
+    const id = this.env.options().componentFamilyId ?? idTuboDoProjeto(fams) ?? (fams?.[FAMILIA_TUBO_PADRAO] ? FAMILIA_TUBO_PADRAO : FAMILIA_TUBO_BIBLIOTECA);
+    // Sem a família no projeto, usa a da biblioteca MEP (ela entra no projeto junto com o primeiro trecho, em `criar`).
+    const familia = fams?.[id] ?? familiaDaBiblioteca(id);
     if (!familia) {
       this.env.say('Tubo: escolha uma família de tubo no painel (a família de tubo padrão ainda não está no projeto).');
       return null;
@@ -303,6 +308,21 @@ export class TuboTool extends ToolBase {
     this.inserirConexao(r.conexao, pt.xyz, [{ componentId: t.id, ligacaoId: ext.idB }, { componentId: idT2, ligacaoId: ext.idA }, { componentId: id, ligacaoId: minha }], avisos);
   }
 
+  /**
+   * Grava no projeto (dentro da transação do trecho) a família de tubo vinda da biblioteca MEP e, só então, as famílias de conexão do
+   * domínio. Projeto que já tem o tubo (inclusive fixtures) não ganha conexões novas por trás.
+   */
+  private garantirFamilias(ctx: Contexto): void {
+    if (this.env.project().componentFamilies?.[ctx.familia.id] !== undefined) return;
+    const regras = regrasDoDominio(ctx);
+    const ids = new Set<string>([ctx.familia.id, ...(regras ? Object.values(regras) : [])]);
+    for (const id of ids) {
+      if (this.env.project().componentFamilies?.[id] !== undefined) continue;
+      const f = familiaDaBiblioteca(id);
+      if (f) this.env.exec({ type: 'upsertFamily', family: structuredClone(f) });
+    }
+  }
+
   /** Cria o trecho `a`→`b`, divide tubos onde há derivação, instala as conexões e liga as pontas: tudo num único passo de desfazer. A cadeia continua do fim (a menos que o fim tenha encaixado numa rede). */
   private criar(ctx: Contexto, a: PontoTubo, b: PontoTubo): void {
     const id = newId('cm');
@@ -315,6 +335,7 @@ export class TuboTool extends ToolBase {
     const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn: opcoesTubo.dn };
     try {
       this.env.transaction('Desenhar tubo', () => {
+        this.garantirFamilias(ctx);
         this.env.exec({ type: 'addComponent', component: c });
         this.ligarPonta(ctx, id, 'a', a, novo, avisos);
         this.ligarPonta(ctx, id, 'b', b, novo, avisos);
