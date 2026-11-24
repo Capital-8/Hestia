@@ -23,7 +23,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 2 | [A6](fichas/A6.md) | Malha dos corpos: varredura e transição + agregador | Sonnet | A3, A4, A5 | pendente | |
 | 2 | [A6-cego](fichas/A6-cego.md) | Teste cego da varredura e da transição | Haiku | rodar contra A6 | pendente | |
 | 2 | [B1](fichas/B1.md) | Instância 3D (`inclinacao`), esquema 34 e matriz do componente | Sonnet | — | pendente | |
-| 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | pendente | |
+| 2 | [C1](fichas/C1.md) | Ligações: validação e resolução | Haiku | A1 (fórmulas) recomendado | integrada | 2a51cc81 |
 | 3 | [A7](fichas/A7.md) | Integrar corpos e ligações em `resolverFamilia` | Haiku | A2, A3, A4, A5, A6, C1 | pendente | |
 | 3 | [B2](fichas/B2.md) | Render 3D dos corpos (projeto e editor) | Haiku | A7, B1 | pendente | |
 | 3 | [B3](fichas/B3.md) | Planta: silhueta dos corpos | Sonnet | A7, B1 | pendente | |
