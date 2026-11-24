@@ -1,6 +1,7 @@
 import { PT_CORPO, EN_CORPO, ES_CORPO, DE_CORPO } from './familiasCorpo.ts';
 import { FR_CORPO, IT_CORPO, PL_CORPO } from './familiasCorpoOutros.ts';
 import { PT_LIGACAO, EN_LIGACAO, ES_LIGACAO, DE_LIGACAO, FR_LIGACAO, IT_LIGACAO, PL_LIGACAO } from './familiasLigacao.ts';
+import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
 
 /**
  * Shard de dicionário: editor de famílias (reativado como EXPERIMENTAL) e "Meus modelos" (exportar/importar arquivo).
@@ -33,6 +34,7 @@ export const PT_FAMILIAS = {
   tubo_sem_familia: 'Nenhuma família de tubo no projeto: carregue uma família com duas ligações.',
   ...PT_CORPO,
   ...PT_LIGACAO,
+  ...PT_REDE,
 } as const;
 
 type D = Record<keyof typeof PT_FAMILIAS, string>;
@@ -62,6 +64,7 @@ export const EN_FAMILIAS: D = {
   tubo_sem_familia: 'No pipe family in the project: load a family with two connections.',
   ...EN_CORPO,
   ...EN_LIGACAO,
+  ...EN_REDE,
 };
 
 export const ES_FAMILIAS: D = {
@@ -89,6 +92,7 @@ export const ES_FAMILIAS: D = {
   tubo_sem_familia: 'No hay familia de tubería en el proyecto: cargue una familia con dos conexiones.',
   ...ES_CORPO,
   ...ES_LIGACAO,
+  ...ES_REDE,
 };
 
 export const DE_FAMILIAS: D = {
@@ -116,6 +120,7 @@ export const DE_FAMILIAS: D = {
   tubo_sem_familia: 'Keine Rohrfamilie im Projekt: Laden Sie eine Familie mit zwei Anschlüssen.',
   ...DE_CORPO,
   ...DE_LIGACAO,
+  ...DE_REDE,
 };
 
 export const FR_FAMILIAS: D = {
@@ -143,6 +148,7 @@ export const FR_FAMILIAS: D = {
   tubo_sem_familia: 'Aucune famille de tuyau dans le projet : chargez une famille à deux raccords.',
   ...FR_CORPO,
   ...FR_LIGACAO,
+  ...FR_REDE,
 };
 
 export const IT_FAMILIAS: D = {
@@ -170,6 +176,7 @@ export const IT_FAMILIAS: D = {
   tubo_sem_familia: 'Nessuna famiglia di tubo nel progetto: carica una famiglia con due connessioni.',
   ...IT_CORPO,
   ...IT_LIGACAO,
+  ...IT_REDE,
 };
 
 export const PL_FAMILIAS: D = {
@@ -197,4 +204,5 @@ export const PL_FAMILIAS: D = {
   tubo_sem_familia: 'Brak rodziny rur w projekcie: wczytaj rodzinę z dwoma przyłączami.',
   ...PL_CORPO,
   ...PL_LIGACAO,
+  ...PL_REDE,
 };
