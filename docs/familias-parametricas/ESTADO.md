@@ -46,7 +46,7 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 5 | [C5](fichas/C5.md) | Ferramenta Tubo: desenhar trecho entre pontos | Sonnet | B1, C3, C4, B2 | integrada | 2d139b13 |
 | 5 | [C6](fichas/C6.md) | Conexões automáticas (curva, tê, redução) | Sonnet | C5 | integrada | 78ee6300 |
 | 5 | [C7](fichas/C7.md) | Diagnóstico da rede MEP | Haiku | C3, C4 | integrada | ea02cb66 |
-| 5 | [D3](fichas/D3.md) | Visibilidade por vista e editor de símbolos | Haiku | D1, D2, B7 | pendente | |
+| 5 | [D3](fichas/D3.md) | Visibilidade por vista e editor de símbolos | Haiku | D1, D2, B7 | integrada | 79efa99a |
 | 5 | [D4](fichas/D4.md) | Detalhes da família: vistas nomeadas, cotas e cadeado | Sonnet | B4, D1, D2 | integrada (painel montado pelo orquestrador; sem e2e) | 41582f6e |
 | 5 | [E2](fichas/E2.md) | Exportação IFC por categoria e portas de ligação | Haiku | A7, E1, C1 | integrada | 4bf90873 + orquestrador |
 | 5 | [E3](fichas/E3.md) | Quantitativos por categoria | Haiku | A7, E1 | integrada | 18c088ee (motor; interface pendente) |
@@ -56,11 +56,11 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 6 | [F3](fichas/F3.md) | Referência: caixas de inspeção, de gordura e sifonada | Haiku | F1 | integrada | 483f598e |
 | 6 | [F4](fichas/F4.md) | Referência: fossa séptica, filtro anaeróbio e sumidouro | Sonnet | F3, D5 | integrada | aad9273a |
 | 6 | [F5](fichas/F5.md) | Referência: elétrica (eletroduto, caixas, tomada e interruptor) | Haiku | F1, D2 | integrada | 3165b221 |
-| 6 | [F6](fichas/F6.md) | Referência: luminárias | Haiku | F5 | pendente | |
+| 6 | [F6](fichas/F6.md) | Referência: luminárias | Haiku | F5 | integrada | f2bd109c |
 | 6 | [F7](fichas/F7.md) | Referência: estrutura metálica (perfis, chapa de base, parafuso) | Haiku | E3 | integrada | 3618badf |
 | 6 | [F8](fichas/F8.md) | Referência: HVAC e migração dos exemplos de disciplina | Haiku | F1, F5 | pendente | |
-| 6 | [G1](fichas/G1.md) | Galeria e modelos-base por disciplina | Haiku | E1, B7, C2 | pendente | |
-| 6 | [G3](fichas/G3.md) | Painel de propriedades da instância (MEP) | Haiku | B1, C3, D5 | pendente | |
+| 6 | [G1](fichas/G1.md) | Galeria e modelos-base por disciplina | Haiku | E1, B7, C2 | integrada | 15199d4d |
+| 6 | [G3](fichas/G3.md) | Painel de propriedades da instância (MEP) | Haiku | B1, C3, D5 | integrada | 8fa6b73c |
 | 7 | [G2](fichas/G2.md) | Editor: abas Inserir, Modificar, Vista e Gerenciar | Haiku | B7, C2, D3 | pendente | |
 | 7 | [H1](fichas/H1.md) | Roteiros de navegador (E2E) das famílias de referência | Haiku | F1, F3, F7, C5, B7 | pendente | |
 | 7 | [H2](fichas/H2.md) | Manual curto e atualização de documentos | Haiku | H1 | pendente | |
@@ -117,4 +117,8 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 - 2026-11-24 · F5: `ELETRICA` (12 famílias: eletroduto rígido/curva/luva, eletrocalha reta/curva/tê, caixas 4x2/4x4/octogonal/passagem, tomada 2P+T, interruptor simples); sem eletroduto flexível e sem quadro de distribuição (não estavam na lista de ids); caixa octogonal modelada circular; eletrocalha como perfil fechado; IFC: caixas e luvas `IFCCABLECARRIERFITTING`/OTHER (CONFERIR); tomada `IFCOUTLET` e interruptor `IFCSWITCHINGDEVICE` por `ifc` explícito; símbolo de planta com `substituiGeometria`; NÃO verificado que os símbolos aparecem na planta elétrica da interface.
 - 2026-11-24 · F4: `FOSSAS_SEPTICAS` (fossa cilíndrica, fossa retangular, filtro anaeróbio, sumidouro, vala de infiltração) com `DetalheFamilia` de corte 1:25, cotas dirigidas, tabelas por contribuintes (5/10/20/40); TODOS os valores de norma (NBR 7229 / 13969, C=130, T=1, K=65, Lf=1, taxa de infiltração) são parâmetros editáveis marcados CONFERIR e `volumeInsuficiente`/`areaInsuficiente` são AVISO (não erro) por serem de memória; ligações extras inventadas para passar no teste do motor (sumidouro `respiro`, vala `ponta`) — CONFERIR. NENHUMA família afirma atender à norma.
 - 2026-11-24 · Orquestração: `BIBLIOTECA_MEP` agora é uma lista com UMA entrada por linha (`biblioteca/index.ts`); o merge automático por junção duplicava a constante quando duas fichas editavam a mesma linha; ao integrar uma nova lista, adicionar uma linha `...NOVA,`.
+- 2026-11-24 · G1: 7 modelos-base (`modelosBase.ts`: tubo reto, conexão em curva, caixa com tampa, luminária, perfil I, equipamento genérico, móvel) com L/A/P de instância; filtro por disciplina na galeria (`DISCIPLINAS_GALERIA`); a galeria passou a AGRUPAR por disciplina (ordem dos móveis/louças mudou: vaso e lavatório caem em hidrossanitário); sem ícones por disciplina; roteiro antigo `tests/e2e/familias-editor.mjs` (porta 4700) segue 13/13 + 12b.
+- 2026-11-24 · F6: `LUMINARIAS` (7: plafon redondo, painel LED quadrado/retangular, spot, pendente, arandela, linear), `familiaLuminaria` própria (a `familiaEletrica` da F5 não aceita categoria `luminaria`), hospedagem teto = `nivel` + `hInst` (contrato não tem teto), difusor em `mat_vidro` (sem material emissivo), símbolo de teto com `substituiGeometria`; valores CONFERIR.
+- 2026-11-24 · G3: `ComponentePropriedadesMep.tsx` (inclinação em graus, conexões com "Ver vizinho"/"Desconectar", sistema, verificações, tabelas) montado em `ComponentProperties.tsx` (402 linhas); roteiro de scratch passou (tubo conectado, inclinar 30° = 0,5236 rad, desconectar/desfazer); o bloqueio "erro impede inserir" NÃO está no painel (só exibe); painel precisa de rolagem para ver as conexões.
+- 2026-11-24 · D3: `edicaoSimbolos.ts` (operações puras), painel de símbolos com tela SVG fixa (−500…1500 mm; sem zoom/pan/seleção múltipla; pontos com fórmula sem alça), símbolo novo nasce com uma linha de exemplo, roteiro `familias-simbolos.mjs` 6/6; NÃO verificado: o símbolo aparecer na planta do PROJETO. Suíte ampla antes do D3: 1.373 arquivos / 17.442 testes verdes.
 - (Registre abaixo as próximas; registre aqui toda decisão que mude o CONTRATO, com a data, e atualize o CONTRATO no mesmo commit)
