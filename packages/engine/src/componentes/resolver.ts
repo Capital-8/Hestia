@@ -19,7 +19,7 @@ type Erros = ErroResolucao[];
 function valorInicial(p: Parametro, tipo: Familia['tipos'][number] | undefined, entrada: EntradaResolucao, erros: Erros): Valor {
   const bruto = entrada.valores?.[p.id] ?? tipo?.valores[p.id] ?? p.padrao;
   switch (p.tipo) {
-    case 'comprimento': case 'numero': case 'inteiro': {
+    case 'comprimento': case 'numero': case 'angulo': case 'inteiro': {
       const n = typeof bruto === 'number' ? bruto : Number(bruto);
       if (!Number.isFinite(n)) { erros.push({ onde: `parametro:${p.id}`, mensagem: 'valor não numérico; usado o padrão' }); return Number(p.padrao) || 0; }
       const v = p.tipo === 'inteiro' ? Math.round(n) : mm3(n);

@@ -1,5 +1,6 @@
 import type { Valor } from './tipos.ts';
 import { LIMITES } from './tipos.ts';
+import { ErroFuncao, FUNCOES_EXTRAS } from './expressaoFuncoes.ts';
 
 /*
  * Linguagem de fórmulas das famílias (ADR 0049 §3.2). Gramática FECHADA, sem eval, sem laços, sem funções do usuário:
@@ -13,7 +14,8 @@ import { LIMITES } from './tipos.ts';
  *   unario   := ("-" | "!") unario | primario
  *   primario := número | "texto" | nome | nome "(" args ")" | "(" expr ")"
  *
- * `nome` aceita ponto (`corpo.esp`). Funções: min max abs floor ceil round(x[, passo]) clamp(x, a, b) sqrt.
+ * `nome` aceita ponto (`corpo.esp`). Funções: min max abs floor ceil round(x[, passo]) clamp(x, a, b) sqrt, e as de
+ * `expressaoFuncoes.ts` (sin cos tan asin acos atan atan2 pow busca). Constante: `PI`.
  * Medidas em milímetros (unidade da família). Nunca lança por entrada do usuário no caminho `tentar`: devolve o erro.
  */
 
@@ -80,6 +82,7 @@ function lexer(src: string): Tok[] {
 // ───────────────────────── análise sintática ─────────────────────────
 
 export const FUNCOES: Readonly<Record<string, { min: number; max: number; f: (...a: number[]) => number }>> = {
+  ...FUNCOES_EXTRAS,
   min: { min: 1, max: 8, f: Math.min },
   max: { min: 1, max: 8, f: Math.max },
   abs: { min: 1, max: 1, f: Math.abs },
@@ -189,6 +192,7 @@ export function avaliar(no: No, env: Env): Valor {
     case 'num': return no.v;
     case 'txt': return no.v;
     case 'ref': {
+      if (no.nome === 'PI') return Math.PI;
       const v = env[no.nome];
       if (v === undefined) throw new ErroExpressao(`“${no.nome}” não existe`);
       return v;
@@ -200,7 +204,13 @@ export function avaliar(no: No, env: Env): Valor {
     case 'cond': return verdade(avaliar(no.c, env)) ? avaliar(no.a, env) : avaliar(no.b, env);
     case 'chamada': {
       const def = FUNCOES[no.f]!;
-      return finito(def.f(...no.args.map((a) => num(avaliar(a, env), no.f))));
+      const args = no.args.map((a) => num(avaliar(a, env), no.f));
+      try {
+        return finito(def.f(...args));
+      } catch (e) {
+        if (e instanceof ErroFuncao) throw new ErroExpressao(e.message);
+        throw e;
+      }
     }
     case 'bin': {
       if (no.op === '&&') return verdade(avaliar(no.a, env)) && verdade(avaliar(no.b, env));
@@ -234,7 +244,7 @@ export function referencias(no: No): string[] {
   const out = new Set<string>();
   const anda = (n: No): void => {
     switch (n.k) {
-      case 'ref': out.add(n.nome); break;
+      case 'ref': if (n.nome !== 'PI') out.add(n.nome); break;
       case 'un': anda(n.a); break;
       case 'bin': anda(n.a); anda(n.b); break;
       case 'cond': anda(n.c); anda(n.a); anda(n.b); break;

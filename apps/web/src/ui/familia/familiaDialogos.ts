@@ -12,6 +12,7 @@ export const TIPOS_PARAMETRO: readonly TipoParametro[] = [
 export const ROTULO_TIPO: Readonly<Record<TipoParametro, string>> = {
   comprimento: 'Comprimento',
   numero: 'Número',
+  angulo: 'Ângulo',
   inteiro: 'Inteiro',
   booleano: 'Sim/Não',
   texto: 'Texto',
@@ -27,12 +28,12 @@ export const ROTULO_ESCOPO: Readonly<Record<Escopo, string>> = {
 
 /** Mín, máx e passo só fazem sentido para medidas e contagens. */
 export function temFaixa(tipo: TipoParametro): boolean {
-  return tipo === 'comprimento' || tipo === 'numero' || tipo === 'inteiro';
+  return tipo === 'comprimento' || tipo === 'numero' || tipo === 'inteiro' || tipo === 'angulo';
 }
 
 /** A validação da família só aceita fórmula nestes tipos. */
 export function aceitaFormula(tipo: TipoParametro): boolean {
-  return tipo === 'comprimento' || tipo === 'numero' || tipo === 'inteiro' || tipo === 'booleano';
+  return tipo === 'comprimento' || tipo === 'numero' || tipo === 'inteiro' || tipo === 'booleano' || tipo === 'angulo';
 }
 
 export function temOpcoes(tipo: TipoParametro): boolean {
@@ -44,6 +45,7 @@ export function padraoInicial(tipo: TipoParametro, opcoes?: readonly OpcaoParame
   switch (tipo) {
     case 'comprimento':
     case 'numero':
+    case 'angulo':
     case 'inteiro':
       return 0;
     case 'booleano':
