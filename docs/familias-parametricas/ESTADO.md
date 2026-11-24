@@ -64,6 +64,9 @@ Estados: `pendente` → `em curso` → `integrada` (portão aprovado e commit na
 | 7 | [G2](fichas/G2.md) | Editor: abas Inserir, Modificar, Vista e Gerenciar | Haiku | B7, C2, D3 | pendente | |
 | 7 | [H1](fichas/H1.md) | Roteiros de navegador (E2E) das famílias de referência | Haiku | F1, F3, F7, C5, B7 | pendente | |
 | 7 | [H2](fichas/H2.md) | Manual curto e atualização de documentos | Haiku | H1 | pendente | |
+| 8 | [I1](fichas/I1.md) | Verificar rede: botão e painel montados | Haiku | C7 | pendente | |
+| 8 | [I2](fichas/I2.md) | Aba "Quantitativos" MEP no orçamento do projeto | Haiku | E3 | pendente | |
+| 8 | [I3](fichas/I3.md) | Pendências de modelo: angulo na interface, caixaria no arquivo, material do corpo | Haiku | A1, A2b, A9 | pendente | |
 | 8 | [F-CSG](fichas/F-CSG.md) | (Opcional) Subtração real de vazios nos corpos | Sonnet | A6; só se a caixa de inspeção precisar | pendente | |
 | 8 | [H3](fichas/H3.md) | (Opcional) Espelho Rust das malhas dos corpos | Sonnet | A6 e testes cegos verdes | pendente | |
 
