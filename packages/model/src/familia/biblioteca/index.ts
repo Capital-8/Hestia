@@ -9,6 +9,7 @@ import { ALTO_PADRAO } from './altoPadrao.ts';
 import { NOVAS } from './novas.ts';
 import { DISCIPLINAS_EXEMPLO } from './disciplinasExemplo.ts';
 import { TUBULACAO_ESGOTO } from './tuboEsgoto.ts';
+import { CAIXAS_HIDRO } from './caixasHidro.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -31,7 +32,7 @@ export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAV
  * Biblioteca MEP (ficha F1b): famílias de instalações (hoje, a tubulação de esgoto e as conexões). Separada de BIBLIOTECA_BASE,
  * que é só de móveis: os testes de conectores e de snapshot da base não se aplicam a elas.
  */
-export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO];
+export const BIBLIOTECA_MEP: readonly Familia[] = [...TUBULACAO_ESGOTO, ...CAIXAS_HIDRO];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */
 export const IDS_OBRIGATORIOS = {
