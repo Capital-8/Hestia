@@ -31,6 +31,7 @@ import { useUi } from '../../editor/state.ts';
 import { useT, type Lang } from '../../editor/i18n.ts';
 import { categoryLabel } from '../graphicsLabels.ts';
 import { Dialog } from './Dialog.tsx';
+import { NumField } from '../fields.tsx';
 
 /** Ordem dos tons na lista (do normal ao oculto, como na tabela do ADR 0060 §4.2). */
 const TONE_ORDER: readonly Tone[] = ['normal', 'halftone', 'hidden'];
@@ -257,11 +258,11 @@ export function DisciplineConfigDialog(): ReactElement {
                   value={opacidade}
                   style={{ flex: 1 }}
                   aria-label={t('dsc_ref_opacity')}
-                  onChange={(e) => {
-                    const valor = Number(e.target.value);
-                    setOpacidadeManual(valor);
-                    run(() => definirOpacidadeDasReferencias(editor.store, selecionada.id, valor / 100));
-                  }}
+                  // Slider: o valor local acompanha o arraste; o comando só sai ao soltar (um passo de desfazer por arraste).
+                  onChange={(e) => setOpacidadeManual(Number(e.target.value))}
+                  onPointerUp={(e) => run(() => definirOpacidadeDasReferencias(editor.store, selecionada.id, Number((e.target as HTMLInputElement).value) / 100))}
+                  onKeyUp={(e) => run(() => definirOpacidadeDasReferencias(editor.store, selecionada.id, Number((e.target as HTMLInputElement).value) / 100))}
+                  onBlur={(e) => run(() => definirOpacidadeDasReferencias(editor.store, selecionada.id, Number(e.target.value) / 100))}
                 />
                 <span>{opacidade}%</span>
               </div>
@@ -322,37 +323,29 @@ export function DisciplineConfigDialog(): ReactElement {
                             </td>
                             <td>
                               {referencia ? (
-                                <input
-                                  className="input"
-                                  type="number"
+                                <NumField
+                                  id={`dsc-clarear-${linha.categoria}`}
+                                  value={Math.round((linha.apresentacao.clareamento ?? 0) * 100)}
                                   min={0}
                                   max={100}
-                                  step={1}
-                                  style={{ width: 72 }}
-                                  aria-label={`${t('dsc_lighten')}: ${categoryLabel(linha.categoria, lang)}`}
-                                  value={Math.round((linha.apresentacao.clareamento ?? 0) * 100)}
-                                  onChange={(e) => {
-                                    if (e.target.value === '') return;
-                                    definirNaCategoria(linha.categoria, { ...linha.apresentacao, clareamento: Number(e.target.value) / 100 });
-                                  }}
+                                  decimals={0}
+                                  suffix="%"
+                                  width={72}
+                                  onCommit={(v) => definirNaCategoria(linha.categoria, { ...linha.apresentacao, clareamento: v / 100 })}
                                 />
                               ) : '—'}
                             </td>
                             <td>
                               {referencia ? (
-                                <input
-                                  className="input"
-                                  type="number"
+                                <NumField
+                                  id={`dsc-opacidade-${linha.categoria}`}
+                                  value={Math.round((linha.apresentacao.opacidade ?? 1) * 100)}
                                   min={0}
                                   max={100}
-                                  step={1}
-                                  style={{ width: 72 }}
-                                  aria-label={`${t('dsc_opacity')}: ${categoryLabel(linha.categoria, lang)}`}
-                                  value={Math.round((linha.apresentacao.opacidade ?? 1) * 100)}
-                                  onChange={(e) => {
-                                    if (e.target.value === '') return;
-                                    definirNaCategoria(linha.categoria, { ...linha.apresentacao, opacidade: Number(e.target.value) / 100 });
-                                  }}
+                                  decimals={0}
+                                  suffix="%"
+                                  width={72}
+                                  onCommit={(v) => definirNaCategoria(linha.categoria, { ...linha.apresentacao, opacidade: v / 100 })}
                                 />
                               ) : '—'}
                             </td>
