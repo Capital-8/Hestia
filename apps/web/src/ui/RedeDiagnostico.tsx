@@ -27,7 +27,7 @@ const CHAVE_MOTIVO: Record<string, 'rede_motivo_dominio' | 'rede_motivo_secao' |
 const numero = (v: number | undefined, lang: Lang): string => new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(v ?? 0);
 
 /** Texto de um diagnóstico no idioma atual. */
-function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang): string {
+export function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang): string {
   const ligacao = d.ligacaoId ?? '';
   switch (d.codigo) {
     case 'ligacao_aberta':
@@ -46,10 +46,10 @@ function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang): string {
 }
 
 /** Gravidade do diagnóstico: conexão quebrada ou incompatível é erro; o resto é aviso. */
-const gravidade = (d: Diagnostico): ValidationIssue['severity'] => (d.codigo === 'conexao_invalida' || d.codigo === 'incompativel' ? 'error' : 'warning');
+export const gravidade = (d: Diagnostico): ValidationIssue['severity'] => (d.codigo === 'conexao_invalida' || d.codigo === 'incompativel' ? 'error' : 'warning');
 
 /** Diagnóstico como aviso, para o `goToIssue` selecionar e enquadrar a instância. */
-const comoAviso = (d: Diagnostico, texto: string): ValidationIssue => ({ severity: gravidade(d), code: `rede-${d.codigo}`, message: texto, elementId: d.elementId });
+export const comoAviso = (d: Diagnostico, texto: string): ValidationIssue => ({ severity: gravidade(d), code: `rede-${d.codigo}`, message: texto, elementId: d.elementId });
 
 export function RedeDiagnostico(): ReactElement {
   const { t, lang } = useT();
