@@ -37,7 +37,7 @@ function colocar(ctx: Ctx, familia: string, id: string, x: number, y: number, ti
 /** Ligação de eletroduto da instância no mundo. */
 function ligacoes(ctx: Ctx, id: string) {
   const c = ctx.store.project.elements[id] as Component;
-  return resolverComponente(ctx.store.project, c).ligacoes.filter((l) => l.dominio === 'eletroduto').map((l) => ({ id: l.id, diametro: l.diametro, m: ligacaoNoMundo(l, c) }));
+  return (resolverComponente(ctx.store.project, c).ligacoes ?? []).filter((l) => l.dominio === 'eletroduto').map((l) => ({ id: l.id, diametro: l.diametro, m: ligacaoNoMundo(l, c) }));
 }
 const entrada = (ctx: Ctx, id: string, lig: string) => {
   const e = ligacoes(ctx, id).find((l) => l.id === lig);

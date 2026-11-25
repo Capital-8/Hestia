@@ -1,5 +1,6 @@
 import {
   ehPontoEletrico,
+  ehQuadro,
   proximaCorCircuito,
   proximoIdCircuito,
   proximoNomeCircuito,

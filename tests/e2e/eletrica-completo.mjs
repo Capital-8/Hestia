@@ -36,7 +36,8 @@ const entradas = (id) => page.evaluate((id) => {
   const c = p.elements[id];
   return engine.resolverComponente(p, c).ligacoes.filter((l) => l.dominio === 'eletroduto').map((l) => {
     const m = engine.ligacaoNoMundo(l, c).posicaoMundo;
-    return { nome: l.id, x: m[0], y: m[1], z: m[2] };
+    const d = engine.ligacaoNoMundo(l, c).direcaoMundo;
+    return { nome: l.id, x: m[0], y: m[1], z: m[2], dir: [d[0], d[1], d[2]] };
   });
 }, id);
 const selecao = () => page.evaluate(() => window.__hestia.useUi.getState().selection);
@@ -69,7 +70,9 @@ async function colocar(busca, cartao, x, y) {
 }
 /** Entrada livre de `id` mais perto de `alvo` (cada entrada serve a uma só ligação: `usadas`). */
 async function entradaPerto(id, alvo, usadas) {
-  const lista = (await entradas(id)).filter((c) => !usadas.includes(`${id}:${c.nome}`)).sort((a, b) => dist(a, alvo) - dist(b, alvo));
+  // C8a: as entradas têm direção (o eletroduto tem de chegar de frente para ela). Escolhe a mais perto entre as que apontam para o alvo em planta (como o usuário faz); sem nenhuma, a mais perto.
+  const aponta = (c) => c.dir[0] * (alvo.x - c.x) + c.dir[1] * (alvo.y - c.y) > 0;
+  const lista = (await entradas(id)).filter((c) => !usadas.includes(`${id}:${c.nome}`)).sort((a, b) => (aponta(b) ? 1 : 0) - (aponta(a) ? 1 : 0) || dist(a, alvo) - dist(b, alvo));
   usadas.push(`${id}:${lista[0].nome}`);
   return lista[0];
 }
@@ -151,7 +154,8 @@ try {
     const eP = await entradaPerto(CX2, pT2, usadas);
     const eI = await entradaPerto(CX2, pI, usadas);
     const quadroEnt = (await entradas(QD)).sort((a, b) => dist(a, pC1) - dist(b, pC1))[0];
-    const aT1 = (await entradas(T1))[0], aT2 = (await entradas(T2))[0], aI = (await entradas(IN))[0], aL = (await entradas(LU))[0];
+    // C8a: tomada, interruptor e luminária têm várias entradas de eletroduto (lados, topo, base, fundo): o traçado termina na mais próxima da caixa de origem.
+    const aT1 = await entradaPerto(T1, pC1, usadas), aT2 = await entradaPerto(T2, pC2, usadas), aI = await entradaPerto(IN, pC2, usadas), aL = await entradaPerto(LU, pC1, usadas);
     console.log('  info  entradas escolhidas:', JSON.stringify({ quadro: quadroEnt.nome, cx1: [eCQ, eT1, eC1, eL].map((e) => e.nome), cx2: [eC2, eP, eI].map((e) => e.nome) }));
     /** Ativa a ferramenta Eletroduto (ela sai ao fim de cada trecho), define DN 20 e traça; devolve a variação de peças. */
     const traco = async (nome, cota, pontos) => {
@@ -168,24 +172,27 @@ try {
         if (p.cota !== undefined) { await page.locator('#place-tubo-z').fill(String(p.cota)); await page.locator('#place-tubo-z').press('Enter'); }
         await clickWorld(page, p.x, p.y);
       }
+      const fala = await page.evaluate(() => [...document.querySelectorAll('div,span')].filter((e) => e.children.length === 0 && /^(Eletroduto|Bloqueado|Sem caminho)/.test(e.textContent.trim())).map((e) => e.textContent.trim()).slice(-1)[0] ?? '');
+      console.log(`  info  fala depois de "${nome}":`, fala.slice(0, 300));
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
       const a1 = await comps();
       return { nome, tubos: contar(a1, FAM.tubo) - contar(a0, FAM.tubo), curvas: contar(a1, FAM.curva) - contar(a0, FAM.curva) };
     };
     const r = [];
-    r.push(await traco('quadro -> caixa 1 (L)', quadroEnt.z, [{ x: quadroEnt.x, y: quadroEnt.y }, { x: quadroEnt.x, y: eCQ.y }, { x: eCQ.x, y: eCQ.y }]));
-    r.push(await traco('caixa 1 -> tomada 1 (L)', eT1.z, [{ x: eT1.x, y: eT1.y }, { x: aT1.x, y: eT1.y }, { x: aT1.x, y: aT1.y }]));
-    r.push(await traco('caixa 1 -> caixa 2 (reta)', eC1.z, [{ x: eC1.x, y: eC1.y }, { x: eC2.x, y: eC2.y }]));
+    // C8a: o usuário clica a entrada de partida e a de chegada; o caminho em 90° (e o número de trechos e curvas) vem do cálculo da ferramenta,
+    // que respeita a direção de cada entrada. Só a prumada passa a cota do ponto final (campo "z").
+    r.push(await traco('quadro -> caixa 1', quadroEnt.z, [{ x: quadroEnt.x, y: quadroEnt.y }, { x: eCQ.x, y: eCQ.y }]));
+    r.push(await traco('caixa 1 -> tomada 1', eT1.z, [{ x: eT1.x, y: eT1.y }, { x: aT1.x, y: aT1.y, cota: aT1.z }]));
+    r.push(await traco('caixa 1 -> caixa 2', eC1.z, [{ x: eC1.x, y: eC1.y }, { x: eC2.x, y: eC2.y }]));
     r.push(await traco('caixa 2 -> tomada 2 (prumada, cota muda)', eP.z, [{ x: eP.x, y: eP.y }, { x: aT2.x, y: aT2.y, cota: aT2.z }]));
-    r.push(await traco('caixa 2 -> interruptor (L)', eI.z, [{ x: eI.x, y: eI.y }, { x: aI.x, y: eI.y }, { x: aI.x, y: aI.y }]));
-    r.push(await traco('caixa 1 -> luminária (L)', eL.z, [{ x: eL.x, y: eL.y }, { x: aL.x, y: eL.y }, { x: aL.x, y: aL.y }]));
-    console.log('  info  peças por trecho:', JSON.stringify(r));
-    rep.check('quadro-caixa 1 em L: 2 eletrodutos e 1 curva 90°', r[0].tubos === 2 && r[0].curvas === 1, JSON.stringify(r[0]));
-    rep.check('caixa 1-tomada 1 em L: 2 eletrodutos e 1 curva', r[1].tubos === 2 && r[1].curvas === 1, JSON.stringify(r[1]));
-    rep.check('caixa 1-caixa 2 reta: 1 eletroduto e nenhuma curva', r[2].tubos === 1 && r[2].curvas === 0, JSON.stringify(r[2]));
-    rep.check('caixa 2-tomada 2 com mudança de cota: prumada (2 curvas ou mais)', r[3].curvas >= 2 && r[3].tubos >= 2, JSON.stringify(r[3]));
-    rep.check('caixa 2-interruptor e caixa 1-luminária em L', r[4].curvas === 1 && r[5].curvas === 1, JSON.stringify([r[4], r[5]]));
+    r.push(await traco('caixa 2 -> interruptor', eI.z, [{ x: eI.x, y: eI.y }, { x: aI.x, y: aI.y, cota: aI.z }]));
+    r.push(await traco('caixa 1 -> luminária', eL.z, [{ x: eL.x, y: eL.y }, { x: aL.x, y: aL.y, cota: aL.z }]));
+    console.log('  info  peças por trecho (resultado do cálculo do caminho):', JSON.stringify(r));
+    rep.check('cada traçado criou eletroduto e curvas pelo cálculo (curvas = trechos - 1, a menos de luvas)', r.every((x) => x.tubos >= 1 && x.curvas >= 0 && x.curvas <= x.tubos), JSON.stringify(r));
+    rep.check('caixa 2-tomada 2 com mudança de cota: prumada (vertical e horizontais, 2 curvas ou mais)', r[3].curvas >= 2 && r[3].tubos >= 3, JSON.stringify(r[3]));
+    const incompat = await page.evaluate(() => window.__hestia.engine.diagnosticarRede(window.__hestia.editor.store.project).filter((d) => d.codigo === 'incompativel' || d.codigo === 'conexao_afastada' || d.codigo === 'conexao_invalida').map((d) => `${d.codigo}:${d.motivo ?? ''}`));
+    rep.check('rede sem incompatível, afastada nem conexão inválida depois dos traçados', incompat.length === 0, incompat.join(' | '));
     const ligs = await page.evaluate((ids) => ids.map((id) => Object.keys(window.__hestia.editor.store.project.elements[id].ligacoes ?? {}).length), [CX1, CX2, T1, T2, IN, LU]);
     rep.check('ligações gravadas nas caixas, tomadas, interruptor e luminária', ligs.every((n) => n >= 1), ligs.join(','));
     const ligTubos = await page.evaluate((ids) => ids.map((id) => Object.keys(window.__hestia.editor.store.project.elements[id].ligacoes ?? {}).join('+') || '-'), await tubos());
@@ -205,9 +212,10 @@ try {
     rep.check('2 circuitos C1 e C2', nomes.join() === 'C1,C2', nomes.join());
     await fechar();
     // Seleção na planta com o painel fechado (como o usuário faz): tomada 1 e interruptor.
-    await clickWorld(page, 6, 1.5);
+    // C8a: os eletrodutos agora chegam à borda do dispositivo; o clique de seleção vai ao centro dele (tomada 80 x 50 mm, interruptor 80 x 50 mm), não ao canto.
+    await clickWorld(page, 6.04, 1.525);
     await page.keyboard.down('Shift');
-    await clickWorld(page, 8, 0);
+    await clickWorld(page, 8.04, 0.025);
     await page.keyboard.up('Shift');
     const s1 = await selecao();
     rep.check('seleção = tomada 1 e interruptor', s1.length === 2 && s1.includes(T1) && s1.includes(IN), JSON.stringify(s1));

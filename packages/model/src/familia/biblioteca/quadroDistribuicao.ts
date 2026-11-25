@@ -19,7 +19,7 @@ const DNS_QUADRO = [20, 25, 32] as const;
 const FACE: Ponto3 = ['-90', '0', '0'];
 
 const PARAM_POSICOES: Parametro = { id: 'posicoes', nome: 'Posições de disjuntor, CONFERIR', tipo: 'inteiro', escopo: 'instancia', padrao: POSICOES_PADRAO, min: 1, max: 96, passo: 1, grupo: 'Elétrica' };
-const PARAM_DN: Parametro = { id: 'DN', nome: 'Diâmetro nominal da entrada de eletroduto (DN)', tipo: 'enum', escopo: 'tipo', padrao: 25, grupo: 'Bitola', opcoes: DNS_QUADRO.map((dn) => ({ valor: dn, rotulo: `DN ${dn}` })) };
+const PARAM_DN: Parametro = { id: 'DN', nome: 'Diâmetro nominal da entrada de eletroduto (DN)', tipo: 'enum', escopo: 'tipo', padrao: 20, grupo: 'Bitola', opcoes: DNS_QUADRO.map((dn) => ({ valor: dn, rotulo: `DN ${dn}` })) };
 
 const entrada = (id: string, nome: string, posicao: Ponto3, direcao: Ponto3): Ligacao => ({
   id, nome, dominio: 'eletroduto', sistema: 'Eletroduto', secao: 'redonda', posicao, direcao, diametro: 'DN', fluxo: 'ambos',
@@ -48,7 +48,8 @@ export const FAMILIA_QUADRO_ELETRICO: Familia = familiaEletrica({
   ],
   ifc: { classe: 'IFCBUILDINGELEMENTPROXY' }, // não há classe de quadro em ClasseIfc; igual ao quadro de exemplo
   tipos: DNS_QUADRO.map((dn) => ({ id: `dn${dn}`, nome: `DN ${dn} (${POSICOES_PADRAO} posições)`, valores: { DN: dn, L: 400, A: 500, P: 120, posicoes: POSICOES_PADRAO } })),
-  tipoPadrao: 'dn25',
+  // DN 20: o mesmo da ferramenta Eletroduto e das entradas das caixas de luz da Krona (ficha C8a); com o DN 25 o eletroduto padrão não ligava no quadro.
+  tipoPadrao: 'dn20',
 });
 
 /** Famílias de quadro do ramo elétrico. UMA lista própria: a lista `ELETRICA` da F5 tem teste de ids exatos. */

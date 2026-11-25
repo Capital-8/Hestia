@@ -28,7 +28,7 @@ const CATEGORIAS_DE_REDE: readonly string[] = ['eletroduto', 'conexao_tubo', 'tu
  */
 export function ehPontoEletrico(p: Project, e: unknown): e is Component {
   const c = e as Component | undefined;
-  if (c?.kind !== 'component' || ehQuadro(c)) return false;
+  if (c?.kind !== 'component' || FAMILIAS_QUADRO.includes(c.familyId)) return false;
   const f = p.componentFamilies?.[c.familyId];
   if (!f || CATEGORIAS_DE_REDE.includes(f.categoria)) return false;
   if (f.disciplina !== 'eletrico' && f.categoria !== 'dispositivo_eletrico' && f.categoria !== 'luminaria') return false;
