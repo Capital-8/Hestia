@@ -65,6 +65,9 @@ export const mudarQuadro = (alvo: AlvoDeComandos, id: Id, quadroId: Id | undefin
 export const mudarTipo = (alvo: AlvoDeComandos, id: Id, tipo: TipoCircuito): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { tipo } });
 export const mudarTensao = (alvo: AlvoDeComandos, id: Id, tensao: number): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { tensao } });
 export const mudarCor = (alvo: AlvoDeComandos, id: Id, cor: string): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { cor } });
+export const mudarFp = (alvo: AlvoDeComandos, id: Id, fp: number | null): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { fp } });
+export const mudarSecao = (alvo: AlvoDeComandos, id: Id, secaoMm2: number | null): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { secaoMm2 } });
+export const mudarDisjuntor = (alvo: AlvoDeComandos, id: Id, disjuntorA: number | null): void => alvo.exec({ type: 'updateCircuitoEletrico', id, patch: { disjuntorA } });
 export const renomearQuadro = (alvo: AlvoDeComandos, id: Id, nome: string): void => alvo.exec({ type: 'renameQuadroEletrico', id, nome });
 
 /** Roda a ação e devolve a mensagem de erro do modelo (português) em vez de lançar, para o painel mostrar. */

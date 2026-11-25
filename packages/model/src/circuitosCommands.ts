@@ -8,6 +8,7 @@ import {
   removerPonto,
   renomearCircuito,
   type CircuitoEletrico,
+  type PatchCircuito,
   type PontoCircuito,
 } from './circuitosEletricos.ts';
 import { ehQuadro } from './circuitosEletricosConsulta.ts';
@@ -22,7 +23,7 @@ import type { Id, Project } from './types.ts';
 export type CircuitoCommand =
   | { type: 'addCircuitoEletrico'; circuito: CircuitoEletrico }
   | { type: 'renameCircuitoEletrico'; id: Id; nome: string }
-  | { type: 'updateCircuitoEletrico'; id: Id; patch: Partial<Pick<CircuitoEletrico, 'tipo' | 'tensao' | 'cor' | 'notas'>> }
+  | { type: 'updateCircuitoEletrico'; id: Id; patch: PatchCircuito }
   | { type: 'removeCircuitoEletrico'; id: Id }
   /** Põe o componente no circuito com a potência; se estava em outro circuito, sai de lá. Repetir no mesmo circuito atualiza a potência. */
   | { type: 'assignPontoCircuito'; circuitoId: Id; ponto: PontoCircuito }

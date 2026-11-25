@@ -1,6 +1,8 @@
 import { conexoesIssue, type Component, type DominioLigacao, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
 import { trechosAcimaDoLimite } from './curvasEntreCaixas.ts';
+import { diagnosticarEletrica } from '../eletrica/diagnosticoEletrico.ts';
+import type { TabelasEletricas } from '../eletrica/tabelasEletricas.ts';
 import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
 
 /*
@@ -34,7 +36,15 @@ export type CodigoDiagnostico =
   | 'incompativel'
   | 'inclinacao_fora_limite'
   | 'rede_sem_saida'
-  | 'curvas_entre_caixas';
+  | 'curvas_entre_caixas'
+  // Elétrica (ficha C5). Os cinco últimos dependem das tabelas provisórias (CONFERIR).
+  | 'circuito_sem_quadro'
+  | 'ponto_sem_eletroduto'
+  | 'dispositivo_sem_eletroduto'
+  | 'quadro_sem_posicao'
+  | 'circuito_sobrecarregado'
+  | 'queda_tensao_excedida'
+  | 'ponto_potencia_zero';
 
 /** Um problema da rede. `ligacaoId`/`outroId` aparecem quando o problema é de uma ligação ou de uma conexão. */
 export interface Diagnostico {
@@ -46,6 +56,10 @@ export interface Diagnostico {
   outroId?: Id;
   /** Número do diagnóstico: mm (`conexao_afastada`), % (`inclinacao_fora_limite`) ou nº de instâncias (`rede_sem_saida`). */
   valor?: number;
+  /** Circuito do problema (códigos elétricos). */
+  circuitoId?: Id;
+  /** Limite que `valor` ultrapassou (queda em %, corrente em A, posições do quadro). */
+  limite?: number;
   /** Motivo fixo do engine, quando o código é `incompativel` ou `conexao_invalida` (texto do motor, em português). */
   motivo?: string;
 }
@@ -160,7 +174,7 @@ function diagnosticarRedes(p: Project, instancias: Component[], noMundo: Map<Id,
  * (> 5 mm), incompatibilidade de domínio, seção, bitola, direção ou fluxo, trecho de esgoto com declividade fora da faixa e
  * rede sem saída e trecho de eletroduto com curvas demais entre caixas. Lista vazia = rede sem avisos.
  */
-export function diagnosticarRede(p: Project): Diagnostico[] {
+export function diagnosticarRede(p: Project, opcoes: { tabelas?: TabelasEletricas } = {}): Diagnostico[] {
   const instancias = Object.values(p.elements).filter((e): e is Component => e.kind === 'component');
   const noMundo = ligacoesDoProjeto(p, instancias);
   const out: Diagnostico[] = [];
@@ -176,5 +190,7 @@ export function diagnosticarRede(p: Project): Diagnostico[] {
     const primeiro = t.componentes[0];
     if (primeiro !== undefined) out.push({ codigo: 'curvas_entre_caixas', elementId: primeiro, valor: t.curvas });
   }
+  // Elétrica: circuitos, pontos, quadros e dimensionamento (tabelas provisórias, CONFERIR, salvo se `tabelas` vier no argumento).
+  out.push(...diagnosticarEletrica(p, opcoes.tabelas));
   return out;
 }

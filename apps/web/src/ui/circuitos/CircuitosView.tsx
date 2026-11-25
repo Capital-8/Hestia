@@ -1,7 +1,9 @@
 import { ROTULO_TIPO_CIRCUITO, TIPOS_CIRCUITO, type CircuitoConsultado, type ConsultaCircuitos, type Id, type TipoCircuito } from '@hestia/model';
+import type { ProjetoDimensionado } from '@hestia/engine';
 import type { ReactElement } from 'react';
 import { NumField, TextField } from '../fields.tsx';
 import { textoVA } from './circuitosAcoes.ts';
+import { CircuitoResultado, num, SeloConferir, type AcoesDimensionamento } from './CircuitoResultado.tsx';
 import './circuitos.css';
 
 /*
@@ -9,7 +11,9 @@ import './circuitos.css';
  * liga os callbacks aos comandos. Texto fixo em português, como os demais painéis MEP.
  */
 
-export interface AcoesCircuitos {
+export interface AcoesCircuitos extends AcoesDimensionamento {
+  /** Abre o diálogo das tabelas elétricas (ficha C5). */
+  onTabelas?: () => void;
   onNovo: () => void;
   onRenomear: (id: Id, nome: string) => void;
   onTipo: (id: Id, tipo: TipoCircuito) => void;
@@ -32,6 +36,8 @@ export interface PropsCircuitosView {
   /** Mensagem do último resultado (ex.: "2 pontos atribuídos"), ou `null`. */
   aviso?: string | null;
   acoes: AcoesCircuitos;
+  /** Dimensionamento dos circuitos (ficha C5); ausente = só potência, como antes. */
+  dimensionamento?: ProjetoDimensionado;
 }
 
 function LinhaPonto({ c, p, acoes }: { c: CircuitoConsultado; p: CircuitoConsultado['pontos'][number]; acoes: AcoesCircuitos }): ReactElement {
@@ -44,7 +50,7 @@ function LinhaPonto({ c, p, acoes }: { c: CircuitoConsultado; p: CircuitoConsult
   );
 }
 
-function CartaoCircuito({ c, quadros, selecionados, acoes }: { c: CircuitoConsultado; quadros: ConsultaCircuitos['quadros']; selecionados: number; acoes: AcoesCircuitos }): ReactElement {
+function CartaoCircuito({ c, quadros, selecionados, acoes, dim }: { c: CircuitoConsultado; quadros: ConsultaCircuitos['quadros']; selecionados: number; acoes: AcoesCircuitos; dim?: ProjetoDimensionado['circuitos'][string] }): ReactElement {
   return (
     <section className="circ-cartao" data-circuito={c.id} aria-label={`Circuito ${c.nome}`}>
       <header className="circ-cab">
@@ -70,6 +76,7 @@ function CartaoCircuito({ c, quadros, selecionados, acoes }: { c: CircuitoConsul
       </div>
       {c.quadroId === undefined || !quadros.some((q) => q.id === c.quadroId) ? <p className="circ-alerta" role="status">Circuito sem quadro: escolha o quadro que o alimenta.</p> : null}
       {c.removidos > 0 ? <p className="circ-alerta" role="status">{c.removidos} ponto(s) apontavam para componentes que não existem mais e foram ignorados.</p> : null}
+      {dim ? <CircuitoResultado c={c} r={dim.resultado} acoes={acoes} /> : null}
       <ul className="circ-pontos">
         {c.pontos.map((p) => <LinhaPonto key={p.componenteId} c={c} p={p} acoes={acoes} />)}
         {c.pontos.length === 0 ? <li className="circ-vazio">Sem pontos. Selecione tomadas, interruptores ou luminárias no desenho e use Atribuir selecionados.</li> : null}
@@ -82,7 +89,7 @@ function CartaoCircuito({ c, quadros, selecionados, acoes }: { c: CircuitoConsul
   );
 }
 
-export function CircuitosView({ consulta, selecionados, erro, aviso, acoes }: PropsCircuitosView): ReactElement {
+export function CircuitosView({ consulta, selecionados, erro, aviso, acoes, dimensionamento }: PropsCircuitosView): ReactElement {
   const { circuitos, quadros, semQuadroVA } = consulta;
   return (
     <div className="circ-painel">
@@ -90,6 +97,8 @@ export function CircuitosView({ consulta, selecionados, erro, aviso, acoes }: Pr
       {aviso && !erro ? <p className="circ-aviso" role="status">{aviso}</p> : null}
       <div className="circ-linha">
         <button type="button" className="btn primary" onClick={acoes.onNovo}>Novo circuito</button>
+        {acoes.onTabelas ? <button type="button" className="btn" onClick={acoes.onTabelas}>Tabelas</button> : null}
+        {dimensionamento ? <SeloConferir tabelas={dimensionamento.tabelas} /> : null}
         <span className="circ-dica">{selecionados} componente(s) selecionado(s)</span>
       </div>
       <h3>Quadros</h3>
@@ -100,13 +109,16 @@ export function CircuitosView({ consulta, selecionados, erro, aviso, acoes }: Pr
               <TextField value={q.nome} onCommit={(v) => acoes.onRenomearQuadro(q.id, v)} />
               <span>{q.circuitos.length} circuito(s){q.posicoes !== undefined ? ` de ${q.posicoes} posições` : ''}</span>
               <strong data-total-quadro={q.id}>{textoVA(q.totalVA)}</strong>
+              {dimensionamento?.quadros.find((x) => x.id === q.id) ? (
+                <span className="circ-dica" data-calculo-quadro={q.id}>aplicada {num(dimensionamento.quadros.find((x) => x.id === q.id)?.potenciaAplicadaVA, 0)} VA, soma das correntes {num(dimensionamento.quadros.find((x) => x.id === q.id)?.correnteTotalA, 2)} A</span>
+              ) : null}
             </li>
           ))}
         </ul>
       )}
       {semQuadroVA > 0 ? <p className="circ-alerta" data-total-sem-quadro>Sem quadro: {textoVA(semQuadroVA)}</p> : null}
       <h3>Circuitos</h3>
-      {circuitos.length === 0 ? <p className="circ-vazio">Nenhum circuito. Use Novo circuito.</p> : circuitos.map((c) => <CartaoCircuito key={c.id} c={c} quadros={quadros} selecionados={selecionados} acoes={acoes} />)}
+      {circuitos.length === 0 ? <p className="circ-vazio">Nenhum circuito. Use Novo circuito.</p> : circuitos.map((c) => <CartaoCircuito key={c.id} c={c} quadros={quadros} selecionados={selecionados} acoes={acoes} dim={dimensionamento?.circuitos[c.id]} />)}
     </div>
   );
 }
