@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { formatQuantity, coreRange, slabTypeThickness, type Material, type SlabType } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
+import { PREVIA } from './materials/previaHachura.ts';
 
 function mixHex(a: string, b: string, t: number): string {
   const pa = parseInt(a.slice(1), 16);
@@ -49,6 +50,7 @@ export function SlabSectionPreview({ type, materials }: { type: SlabType; materi
       <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_bottom_face')}</text>
       {bands.map((b) => {
         const m = materials[b.layer.materialId];
+        const previa = m ? PREVIA[m.hatch] : undefined;
         const fill = mixHex(m?.color ?? '#999999', '#ffffff', 0.55);
         const w = 260;
         const x = 22;
@@ -56,8 +58,8 @@ export function SlabSectionPreview({ type, materials }: { type: SlabType; materi
         return (
           <g key={b.i}>
             <rect x={x} y={b.y} width={w} height={b.h} fill={fill} stroke="var(--fg)" strokeWidth="0.6" />
-            {m && (m.hatch === 'diagonal' || m.hatch === 'cross' || m.hatch === 'dots') && (
-              <rect x={x} y={b.y} width={w} height={b.h} fill={`url(#lh-${m.hatch})`} style={{ color: 'var(--fg-soft)' }} />
+            {m && previa && (
+              <rect x={x} y={b.y} width={w} height={b.h} fill={`url(#lh-${previa})`} style={{ color: 'var(--fg-soft)' }} />
             )}
             {inCore && <rect x={x} y={b.y} width={w} height={b.h} fill="none" stroke="var(--accent)" strokeWidth={1.4} />}
             {b.h > 11 && (

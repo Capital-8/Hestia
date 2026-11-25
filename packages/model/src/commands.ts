@@ -87,8 +87,10 @@ import type { SectionAnnotations } from './sectionAnnotations.ts';
 import { applySectionLevelExtent, type SectionLevelExtent } from './sectionLevelExtents.ts';
 import {
   applyLevelDiscipline,
+  applyDeletePenSet,
   applyLevelGraphics,
   applyProjectGraphics,
+  applySavePenSet,
   applySectionGraphics,
   applyView3D,
   applyView3dDiscipline,
@@ -96,6 +98,7 @@ import {
   resetSectionGraphics,
   resetView3D,
 } from './graphicsCommands.ts';
+import type { UserPenSet } from './penSets.ts';
 
 import { newId } from './ids.ts';
 import { applyAnnotationCommand, type AnnotationCommand } from './annotations.ts';
@@ -263,6 +266,8 @@ export type Command =
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
+  | { type: 'savePenSet'; penSet: UserPenSet }
+  | { type: 'deletePenSet'; id: Id }
   | { type: 'setLevelGraphics'; levelId: Id; patch: DeepPartial<ViewGraphics> }
   | { type: 'resetLevelGraphics'; levelId: Id }
   /** Disciplina da planta PADRÃO do nível (decisão 0060, adendo 3); `undefined` remove o campo. */
@@ -841,6 +846,12 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
       break;
     case 'setProjectGraphics':
       applyProjectGraphics(p, c.patch, lang);
+      break;
+    case 'savePenSet':
+      applySavePenSet(p, c.penSet, lang);
+      break;
+    case 'deletePenSet':
+      applyDeletePenSet(p, c.id, lang);
       break;
     case 'setLevelGraphics':
       applyLevelGraphics(p, c.levelId, c.patch, lang);

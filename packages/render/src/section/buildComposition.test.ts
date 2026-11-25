@@ -12,7 +12,6 @@ import {
   type SplitNode,
 } from '@hestia/model';
 import { LIGHT } from '../plan/types.ts';
-import { mix } from '../plan/color.ts';
 import { buildSectionDrawList, type SectionInput } from './build.ts';
 
 /* Elevação e corte de uma composição (porta + bandeira de vidro): vidro com a cor de vidro, travessa com a profundidade
@@ -90,10 +89,10 @@ function transversal(): SectionInput {
 describe('elevação · composição com bandeira', () => {
   const draw = buildSectionDrawList(elevacao());
 
-  it('a bandeira de vidro sai com a cor de vidro, entre z 2,15 e 2,55', () => {
-    const vidro = draw.fills.filter((f) => f.color === GLASS_T);
-    const bandeira = vidro.find((f) => perto(faixa(f.polygons, 'y')[0], 2.15) && perto(faixa(f.polygons, 'y')[1], 2.55));
-    expect(bandeira, 'vidro da bandeira').toBeDefined();
+  it('a bandeira de vidro aparece entre z 2,15 e 2,55 (papel na linha oculta)', () => {
+    const bandeira = draw.fills.filter((f) => perto(faixa(f.polygons, 'y')[0], 2.15) && perto(faixa(f.polygons, 'y')[1], 2.55));
+    expect(bandeira, 'vidro da bandeira').toHaveLength(1);
+    expect(bandeira[0]!.color).toBe('#ffffff');
   });
 
   it('a travessa interna aparece como peça de quadro entre z 2,10 e 2,15 (não é vidro)', () => {
@@ -150,18 +149,19 @@ describe('folha com material próprio (leafMaterialId) na seção', () => {
     const base = s.project.openingTypes.ot_comp!;
     return { ...s.project, openingTypes: { ...s.project.openingTypes, ot_comp: { ...base, leafMaterialId } } };
   };
-  const hachuras = (p: Project): string[] => buildSectionDrawList(corte(p)).fills.flatMap((f) => (f.hatch ? [f.hatch.color] : []));
+  const hachuras = (p: Project): Array<{ kind: string; color: string }> =>
+    buildSectionDrawList(corte(p)).fills.flatMap((f) => (f.hatch ? [{ kind: f.hatch.kind, color: f.hatch.color }] : []));
 
   it('corte: a folha de alumínio leva a hachura do alumínio, e o batente segue com a de madeira', () => {
-    const p = comFolha('mat_aluminio');
-    const cores = hachuras(p);
-    expect(cores).toContain(mix(p.materials['mat_aluminio']!.color, '#000000', 0.45));
-    expect(cores).toContain(mix(p.materials['mat_madeira']!.color, '#000000', 0.45));
+    const h = hachuras(comFolha('mat_aluminio'));
+    // Linha oculta de prancha: a hachura é o cinza neutro; o material aparece no tipo do padrão.
+    expect(h).toContainEqual({ kind: 'solid', color: '#454649' });
+    expect(h).toContainEqual({ kind: 'diagonal', color: '#454649' });
   });
 
   it('sem leafMaterialId, a folha segue o batente: nenhuma hachura de alumínio (regressão)', () => {
     const semCampo = hachuras(comFolha(undefined));
-    expect(semCampo).not.toContain(mix(comFolha(undefined).materials['mat_aluminio']!.color, '#000000', 0.45));
+    expect(semCampo.some((x) => x.kind === 'solid')).toBe(false);
     expect(semCampo).toEqual(hachuras(comFolha('mat_madeira')));
   });
 
@@ -171,6 +171,8 @@ describe('folha com material próprio (leafMaterialId) na seção', () => {
       const base = s.project.openingTypes.ot_j150!;
       s.exec({ type: 'upsertOpeningType', openingType: { ...base, id: 'ot_wl', leafMaterialId } });
       s.exec({ type: 'addOpening', opening: { id: 'jan', kind: 'window', typeId: 'ot_wl', hostId: 'frente', offset: 5, flipHand: false, flipFacing: false, sillOverride: null, mark: '' } });
+      // A cor do material só aparece no sombreado (na linha oculta a superfície é o papel).
+      s.exec({ type: 'setSectionGraphics', patch: { style: 'shaded' } });
       const p = s.project;
       const draw = buildSectionDrawList({ ...corte(p), section: computeSection(p, { a: v(0, -2), b: v(6, -2), depth: 8 }) });
       return [...new Set(draw.fills.map((f) => f.color))].sort();

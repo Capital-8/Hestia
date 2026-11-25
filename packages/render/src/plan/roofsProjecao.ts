@@ -36,17 +36,17 @@ export function projecaoDoTelhado(
   esp: EspessurasDoTelhado,
   sunAzimuth: number,
   scale: number,
-  opts: { rica: boolean; coarse: boolean },
+  opts: { rica: boolean; coarse: boolean; prancha?: boolean },
 ): FloorOps {
   const out: FloorOps = { fills: [], strokes: [], labels: [] };
   // Beiral: o contorno tracejado de sempre, na tinta do tema (o teste de contorno continua valendo).
   out.strokes.push(...foot.flat().map((ring): StrokeOp => ({ pts: ring, closed: true, ...esp.projecao, color: theme.ink, alpha: 0.9, dash: TRACO_PROJECAO })));
   if (!opts.rica) return out;
   // Uma face por água, com o tom do telhado cortado (mesma luz do sol do 3D); sem hachura.
-  for (const pl of r.planes) out.fills.push({ polygons: pl.polygon, color: tomDaAgua(base, pl.up, pl.percent, sunAzimuth), alpha: PREENCHIMENTO_PROJECAO });
+  for (const pl of r.planes) out.fills.push({ polygons: pl.polygon, color: opts.prancha ? base : tomDaAgua(base, pl.up, pl.percent, sunAzimuth), alpha: PREENCHIMENTO_PROJECAO });
   if (opts.coarse) return out;
   // Linhas internas na cor da aresta do próprio telhado, como no cortado. Arestas de um arco amostrado saem (não são divisa).
-  const aresta = corDaAresta(base);
+  const aresta = opts.prancha ? theme.ink : corDaAresta(base);
   const arco = arcoDoTelhado(p, r);
   for (const ln of r.lines) {
     if (ln.kind === 'eave' || arco.deArco(ln)) continue;

@@ -41,6 +41,35 @@ describe('dicionário PT/EN', () => {
       expect(I18N.en[k as keyof typeof I18N.en], `en ${k}`).toBeTruthy();
     }
   });
+
+  it('os dezesseis padrões novos de hachura têm rótulo nos sete idiomas', () => {
+    const chaves = [
+      'dlt_hatch_brick', 'dlt_hatch_concrete', 'dlt_hatch_timber', 'dlt_hatch_insulation', 'dlt_hatch_earth',
+      'dlt_hatch_cmu', 'dlt_hatch_exposedBrick', 'dlt_hatch_rcConcrete', 'dlt_hatch_stone', 'dlt_hatch_gravel',
+      'dlt_hatch_sand', 'dlt_hatch_eps', 'dlt_hatch_woolZigzag', 'dlt_hatch_gypsum', 'dlt_hatch_timberEnd', 'dlt_hatch_steel',
+    ] as const;
+    const idiomas = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
+    for (const k of chaves) {
+      for (const lang of idiomas) {
+        expect(I18N[lang][k], `${lang} ${k}`).toBeTruthy();
+      }
+    }
+    expect(I18N.pt.dlt_hatch_brick).toBe('Alvenaria');
+    expect(I18N.en.dlt_hatch_earth).toBe('Earth');
+    expect(I18N.pt.dlt_hatch_cmu).toBe('Bloco de concreto');
+    expect(I18N.pt.dlt_hatch_steel).toBe('Aço');
+  });
+
+  it('as chaves do conjunto de prancha técnica e da caixa saíram dos sete idiomas', () => {
+    const idiomas = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
+    for (const lang of idiomas) {
+      const dict = I18N[lang] as unknown as Record<string, string | undefined>;
+      expect(dict.pens_set_sheet_name, `${lang} pens_set_sheet_name`).toBeUndefined();
+      expect(dict.pens_set_sheet_desc, `${lang} pens_set_sheet_desc`).toBeUndefined();
+      expect(dict.prd_fld_estilo_prancha, `${lang} prd_fld_estilo_prancha`).toBeUndefined();
+      expect(dict.prd_hint_estilo_prancha, `${lang} prd_hint_estilo_prancha`).toBeUndefined();
+    }
+  });
 });
 
 describe('nome de comando de atalho (diálogos de atalhos)', () => {
@@ -127,5 +156,29 @@ describe('t() e helpers de idioma', () => {
     const en = Object.keys(I18N.en) as Array<keyof Dict>;
     expect([...en].sort()).toEqual([...pt].sort());
     for (const k of pt) expect(typeof I18N.en[k]).toBe('string');
+  });
+});
+
+describe('conjuntos de penas do usuário', () => {
+  it('as chaves novas existem nos sete idiomas', () => {
+    const chaves = [
+      'pens_dlg_mine',
+      'pens_dlg_mine_empty',
+      'pens_dlg_rename',
+      'pens_dlg_rename_ok',
+      'pens_dlg_cancel',
+      'pens_dlg_delete',
+      'pens_dlg_delete_confirm',
+      'pens_dlg_name_placeholder',
+      'pens_dlg_save_current',
+    ] as const;
+    const idiomas = ['pt', 'en', 'es', 'de', 'fr', 'it', 'pl'] as const;
+    for (const k of chaves) {
+      for (const lang of idiomas) {
+        expect(I18N[lang][k], `${lang} ${k}`).toBeTruthy();
+      }
+    }
+    expect(I18N.pt.pens_dlg_mine).toBe('Meus conjuntos');
+    expect(I18N.pt.pens_dlg_save_current).toBe('Salvar ajuste atual como conjunto');
   });
 });

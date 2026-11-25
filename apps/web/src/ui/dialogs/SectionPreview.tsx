@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { formatQuantity, coreRange, layerSpans, wallThicknessOf, type Material, type WallType } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
+import { PREVIA } from './materials/previaHachura.ts';
 
 const HATCH_BG: Record<string, string> = {};
 void HATCH_BG;
@@ -41,14 +42,15 @@ export function SectionPreview({ type, materials }: { type: WallType; materials:
       <text x={W - pad} y={14} fontSize="10" textAnchor="end" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_interior')}</text>
       {spans.map((sp) => {
         const m = materials[sp.layer.materialId];
+        const previa = m ? PREVIA[m.hatch] : undefined;
         const x = pad + sp.from * k;
         const w = Math.max(1.5, sp.layer.thickness * k);
         const fill = mixHex(m?.color ?? '#999999', '#ffffff', 0.55);
         return (
           <g key={sp.index}>
             <rect x={x} y={top} width={w} height={bot - top} fill={fill} stroke="var(--fg)" strokeWidth="0.6" />
-            {m && (m.hatch === 'diagonal' || m.hatch === 'cross' || m.hatch === 'dots') && w > 4 && (
-              <rect x={x} y={top} width={w} height={bot - top} fill={`url(#h-${m.hatch})`} style={{ color: 'var(--fg-soft)' }} />
+            {m && previa && w > 4 && (
+              <rect x={x} y={top} width={w} height={bot - top} fill={`url(#h-${previa})`} style={{ color: 'var(--fg-soft)' }} />
             )}
             {w > 14 && (
               <text x={x + w / 2} y={bot + 12} fontSize="9" textAnchor="middle" fill="var(--fg-soft)" fontFamily="var(--font-mono)">

@@ -26,8 +26,14 @@ export const TRACO_PERFIL_EXISTENTE: [number, number] = [6, 4];
 /** Como a vista pinta (vêm do desenho do corte: arame e detalhe grosso sem preenchimento, hachura com o zoom mínimo, meio-tom da categoria). */
 export interface OpcoesTerrenoCorte {
   noFill: boolean;
-  hatchFor: (kind: HatchKind | undefined, color: string) => FillOp['hatch'];
+  hatchFor: (kind: HatchKind | undefined, color: string, paint?: PlanPaint) => FillOp['hatch'];
   halftone: (color: string, paint: PlanPaint) => string;
+  /** Cor do preenchimento do solo cortado; padrão `halftone` (estilo de prancha devolve o papel). */
+  fillColor?: (color: string, paint: PlanPaint) => string;
+  /** Cor da hachura do solo cortado; padrão `halftone` (estilo de prancha devolve o cinza neutro). */
+  hatchColor?: (color: string, paint: PlanPaint) => string;
+  /** Cor do contorno do solo cortado; padrão `halftone` (estilo de prancha devolve a tinta cheia). */
+  cutLineColor?: (color: string, paint: PlanPaint) => string;
 }
 
 export interface OpsTerrenoCorte {
@@ -72,6 +78,9 @@ export function terrenoCorteOps(
   if (!paint.visible) return out;
   const papel = dark ? theme.bg : '#ffffff';
   const { noFill, hatchFor, halftone } = opcoes;
+  const fillColor = opcoes.fillColor ?? halftone;
+  const hatchColor = opcoes.hatchColor ?? halftone;
+  const cutLineColor = opcoes.cutLineColor ?? halftone;
   const linhas = linhasDoTerrenoNoCorte(p, s, hidden);
   for (const l of linhas) {
     const pts = emPlano(l);
@@ -85,10 +94,10 @@ export function terrenoCorteOps(
     if (l.papel === 'cortado') {
       if (!noFill && pts.length >= 3) {
         const cor = paint.visual === 'shaded' ? base : mix(base, papel, dark ? 0.5 : 0.58);
-        const hatch = hatchFor(material?.hatch, halftone(mix(base, dark ? '#ffffff' : '#000000', 0.45), paint));
-        out.fills.push({ polygons: [[pts]], color: halftone(cor, paint), alpha: paint.alpha, hatch });
+        const hatch = hatchFor(material?.hatch, hatchColor(mix(base, dark ? '#ffffff' : '#000000', 0.45), paint), paint);
+        out.fills.push({ polygons: [[pts]], color: fillColor(cor, paint), alpha: paint.alpha, hatch });
       }
-      out.strokes.push({ pts, closed: true, ...paint.cut, color: halftone(paint.color ?? mix(theme.ink, papel, 0.35), paint), alpha: 1 });
+      out.strokes.push({ pts, closed: true, ...paint.cut, color: cutLineColor(paint.color ?? mix(theme.ink, papel, 0.35), paint), alpha: 1 });
     } else if (l.papel === 'perfilExistente' || l.papel === 'silhuetaExistente') {
       out.strokes.push({ pts, closed: false, ...paint.proj, color: halftone(mix(paint.color ?? theme.ink, papel, 0.45), paint), alpha: 1, dash: TRACO_PERFIL_EXISTENTE });
     } else {

@@ -157,6 +157,8 @@ const R: Record<string, string> = {
   sheet: p('s1', 'M6 3H26V29H6Z') + p('bl', 'M9 7H23V19H9Z') + p('ln', 'M9 23H23M9 26H18'),
   link: p('s1', 'M3 10H17V22H3Z') + p('s3', 'M15 10H29V22H15Z'),
   detail: p('ln2', 'M5 6H27M5 12H27M5 18H21M5 24H15'),
+  // Pena/caneta técnica em diagonal (Conjuntos de penas, no menu Gerenciar).
+  pen: p('s1', 'M22 4L28 10L12 26L5 27L6 20Z') + p('ln', 'M19 7L25 13') + p('ac', 'M6 20L12 26L5 27Z'),
   tl: '<text class="ic-tx" x="16" y="21" text-anchor="middle" style="font-size:15px">TL</text>',
   scale: '<text class="ic-tx" x="16" y="21" text-anchor="middle" style="font-size:12px">1:n</text>',
   style: p('s1', 'M16 3L28 10L16 17L4 10Z') + p('s2', 'M4 10L16 17V30L4 23Z') + p('s3', 'M16 17L28 10V23L16 30Z'),

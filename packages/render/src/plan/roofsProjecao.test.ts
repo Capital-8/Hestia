@@ -55,7 +55,6 @@ describe('projeção da cobertura: forma completa do telhado oculto', () => {
   it('contorno tracejado, linhas internas tracejadas finas e preenchimento leve por água, sem seta nem rótulo', () => {
     const p = casaHip();
     const [r] = resolveRoofs(p, 'lv_0') as ResolvedRoof[];
-    const base = roofFillBase(p, r!, LIGHT, false, defaultPaint('roof', 100));
     const o = projecao(p);
     // Uma face por água, com o tom do telhado cortado (mesma luz do 3D).
     const cortado = roofOps([r!], p, LIGHT, false, 'medium', VIEW).fills.filter((f) => f.alpha === 0.98).map((f) => f.color);
@@ -75,7 +74,7 @@ describe('projeção da cobertura: forma completa do telhado oculto', () => {
       const s = o.strokes.find((st) => mesmaLinha(st, ln.a, ln.b));
       expect(s, `${ln.kind} sem traço`).toBeDefined();
       expect(s!.dash).toEqual(TRACO_PROJECAO);
-      expect(s!.color).toBe(corDaAresta(base));
+      expect(s!.color).toBe(LIGHT.ink);
       expect(s!.alpha).toBe(ALPHA_LINHA_PROJECAO);
       expect(s!.widthPx).toBe(esp.projecao.widthPx);
     }

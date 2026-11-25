@@ -14,8 +14,11 @@ export type Caminho = readonly [string, ...string[]];
 /** Grava um campo do material. `valor` vazio (undefined, '', lista vazia) remove o campo; bloco vazio some. */
 export type Editar = (bloco: BlocoMaterial, caminho: Caminho, valor: unknown, agora?: boolean) => void;
 
-/** Os 5 padrões de hachura que o editor oferece (o `gesso` é do tipo de forro, não do material). */
-export const PADROES: readonly HatchKind[] = ['none', 'diagonal', 'cross', 'dots', 'solid'];
+/** Os 21 padrões de hachura que o editor oferece (o `gesso` é do tipo de forro, não do material). */
+export const PADROES: readonly HatchKind[] = [
+  'none', 'diagonal', 'cross', 'dots', 'solid', 'brick', 'concrete', 'timber', 'insulation', 'earth',
+  'cmu', 'exposedBrick', 'rcConcrete', 'stone', 'gravel', 'sand', 'eps', 'woolZigzag', 'gypsum', 'timberEnd', 'steel',
+];
 
 /** Cor padrão quando o usuário escolhe "personalizada" e ainda não há cor gravada. */
 export const COR_PADRAO_PERSONALIZADA = '#808080';

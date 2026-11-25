@@ -165,7 +165,7 @@ describe('golden da planta padrão (caracterização do código de 2026-11-20)',
       labels: 2,
       textos: ['4,00 m', 'NOTA DO NIVEL'], // a cota de 4 m é a da planta (0,0)-(4,0)
       caixa: { minX: -0.902, minY: -0.184, maxX: 4.184, maxY: 5.184 },
-      cores: ['#16181c', '#68696b', '#7a828c', '#b4b4b5', '#cacbca', '#e5c0ae', '#e9e9ea', '#efece7', '#faf9f6'],
+      cores: ['#16181c', '#68696b', '#7a828c', '#b4b4b5', '#f5f4f0', '#ffffff'],
       limiares: [0.9, 20, 100],
     });
   });
@@ -180,7 +180,7 @@ describe('golden da planta padrão (caracterização do código de 2026-11-20)',
       labels: 0,
       textos: [],
       caixa: { minX: -0.184, minY: -0.184, maxX: 4.184, maxY: 5.184 },
-      cores: ['#16181c', '#68696b', '#d2d3d5', '#e5c0ae', '#efece7', '#faf9f6'],
+      cores: ['#16181c', '#68696b', '#ffffff'],
       limiares: [],
     });
   });

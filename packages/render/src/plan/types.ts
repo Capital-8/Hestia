@@ -1,15 +1,32 @@
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
 import type { AreaPlan, AreaPlanGraphics, HatchKind } from '@hestia/model';
 
+/**
+ * Hachura em mm de papel (estilo de prancha): o passo e a espessura valem no papel, na escala 1:`escala`, então a hachura
+ * tem a mesma densidade em qualquer zoom e na impressão. A tela converte com o zoom corrente (piso de 1 px). Ausente = o
+ * passo fixo de 0,05 m e a linha de 1 px de sempre.
+ */
+export interface HachuraPapel {
+  /** Passo base entre linhas, em mm de papel. */
+  pitchMm: number;
+  /** Espessura das linhas, em mm de papel. */
+  lineMm: number;
+  /** Espessura dos pontos, em mm de papel. */
+  dotMm: number;
+  /** Denominador da escala (100 = 1:100). */
+  escala: number;
+}
+
 export interface FillOp {
   polygons: MultiPolygon;
   color: string;
   alpha: number;
   /**
    * Hachura por cima do preenchimento; `alpha` (0..1) é a transparência da categoria (decisão 0015 §2.4). `zoomMin`: só
-   * aparece a partir deste zoom (px/m): o shader a esconde abaixo dele, e a geometria não muda com o zoom.
+   * aparece a partir deste zoom (px/m): o shader a esconde abaixo dele, e a geometria não muda com o zoom. `fina`: a opção
+   * "Linhas finas (tela)" está ligada: a espessura da hachura de papel fica limitada a um fio (ver `medidasDaHachura`).
    */
-  hatch?: { kind: HatchKind; color: string; alpha?: number; zoomMin?: number };
+  hatch?: { kind: HatchKind; color: string; alpha?: number; zoomMin?: number; papel?: HachuraPapel; fina?: boolean };
   /** Faixa de contorno do elemento (não é superfície): fica no estilo arame e não sofre a transparência da categoria. */
   contour?: boolean;
   /**

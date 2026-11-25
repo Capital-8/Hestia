@@ -153,19 +153,21 @@ describe('pesos por categoria e substituição por vista (decisão 0015 §2.4)',
     expect(silhouetteAt(draw(s.project), 0, 1.8)[0]!.widthPx).toBeCloseTo(1.8, 9);
   });
 
-  it('cor da vista substitui a do material nas superfícies da categoria (mistura com o papel como antes)', () => {
+  it('cor da vista substitui a do material nas superfícies da categoria (no sombreado)', () => {
     const s = new ProjectStore(scene());
-    s.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { overrides: { wall: { color: '#ff0000' } } } });
+    // Em linha oculta a superfície é o papel; no sombreado a substituição da vista continua valendo.
+    s.exec({ type: 'setLevelGraphics', levelId: 'lv_0', patch: { style: 'shaded', overrides: { wall: { color: '#ff0000' } } } });
     const f = surfaceAt(draw(s.project), 0.5, 0)!;
-    expect(f.color).toBe(mix('#ff0000', '#ffffff', 0.58));
+    expect(f.color).toBe('#ff0000');
   });
 });
 
 describe('estilo visual da planta (decisão 0015 §2.3)', () => {
-  it('hiddenLine (padrão): superfícies da parede com a cor do material misturada com o papel', () => {
+  it('hiddenLine (padrão): superfícies da parede no papel, sem a cor do material', () => {
     const p = scene();
     const m = p.materials[wallMaterialOf(p)]!;
-    expect(draw(p).fills.some((f) => f.color === mix(m.color, '#ffffff', 0.58))).toBe(true);
+    expect(surfaceAt(draw(p), 0.5, 0)!.color).toBe('#ffffff');
+    expect(draw(p).fills.some((f) => f.color === mix(m.color, '#ffffff', 0.58))).toBe(false);
   });
 
   it('shaded: superfície opaca na cor do material, sem mistura com o papel', () => {
@@ -306,7 +308,6 @@ describe('detalhe (decisão 0015 §2.2)', () => {
 });
 
 describe('hachura sólida (decisão 0015 §2.8)', () => {
-  const p0 = scene;
   /** Projeto com a parede em material de hachura `solid` (alumínio e telha metálica usam esse tipo). */
   const solidProject = (): Project => {
     const p = scene();
@@ -314,12 +315,11 @@ describe('hachura sólida (decisão 0015 §2.8)', () => {
     return { ...p, materials: { ...p.materials, [mid]: { ...p.materials[mid]!, hatch: 'solid' } } };
   };
 
-  it('o desenho leva a hachura sólida na superfície da parede, na cor da hachura', () => {
+  it('o desenho leva a hachura sólida na superfície da parede, em cinza de prancha', () => {
     const dl = draw(solidProject());
     const f = dl.fills.find((x) => x.hatch?.kind === 'solid');
     expect(f).toBeDefined();
-    expect(f!.hatch!.color).toMatch(/^#[0-9a-f]{6}$/);
-    expect(f!.hatch!.color).toBe(mix(p0().materials[wallMaterialOf(p0())]!.color, '#000000', 0.45));
+    expect(f!.hatch!.color).toBe('#454649');
   });
 
   it('CPU: o padrão sólido é um preenchimento na cor da hachura, sem padrão rasterizado', () => {

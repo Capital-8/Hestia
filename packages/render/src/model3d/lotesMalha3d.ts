@@ -117,6 +117,15 @@ export function genericosAcimaDoOrcamento(elements: Project['elements']): boolea
 }
 
 /**
+ * Ângulo mínimo entre duas faces para o telhado desenhar a aresta (graus). Bem abaixo do das outras peças: em um telhado de
+ * inclinação baixa, o espigão e o rincão (águas furtadas) formam entre as águas um ângulo MENOR que o da cumeeira (que soma
+ * o dobro da inclinação): a 30% o espigão de um telhado retangular dá 23°, e a 10% dá 14°, e com o limite de 28° das outras
+ * peças ele sumia, deixando só o sombreado da junção. A discretização de um telhado em arco dá facetas de até 7,5°
+ * (`ROOF_ARC_STEP_DEG`), então 8° não desenha linhas nas curvas.
+ */
+export const ANGULO_ARESTA_TELHADO = 8;
+
+/**
  * Arestas dos lotes dados, numa geometria só. Cada lote gera as arestas da sua própria geometria (com o mesmo ângulo de
  * antes), para que as juntas entre peças continuem desenhadas. Sem triângulos, devolve null.
  *
@@ -131,7 +140,8 @@ export function arestasDosLotes(lotes: readonly LoteSolido[], angulo: number, se
     if (!comTriangulos(b)) continue;
     if (pularGenericos && b.category === 'generic') continue;
     // Mesmo critério e mesma saída do `THREE.EdgesGeometry`, sem o texto por vértice (ver `arestasRapidas3d.ts`).
-    for (const x of arestasPorAngulo(b.positions, b.indices, angulo)) pos.push(x);
+    const limiar = b.category === 'roof' ? Math.min(angulo, ANGULO_ARESTA_TELHADO) : angulo;
+    for (const x of arestasPorAngulo(b.positions, b.indices, limiar)) pos.push(x);
   }
   if (!pos.length) return null;
   const out = new THREE.BufferGeometry();

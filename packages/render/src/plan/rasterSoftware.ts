@@ -1,4 +1,5 @@
 import type * as THREE from 'three';
+import { primsOfCode } from './hatchDefs.ts';
 import type { Viewport } from '../viewport.ts';
 import type { PlanScene } from './gpuPlan.ts';
 
@@ -101,29 +102,77 @@ export function malhasNaOrdem(scene: PlanScene): THREE.Mesh[] {
   return grupos.flatMap((g) => g.children as THREE.Mesh[]).sort((a, b) => a.renderOrder - b.renderOrder);
 }
 
-/** A hachura cobre este ponto do mundo? Mesma conta do fragment shader (`FRAGMENT_HACHURA`). */
-export function hachuraCobre(kind: number, x: number, y: number, zoom: number, zoomMin: number, espaco: number, linhaPx: number, pontoPx: number, pontoM: number): boolean {
-  if (zoom < zoomMin) return false;
-  if (kind === 0) return true;
+/**
+ * Cobertura (0 a 1) da hachura no pixel centrado neste ponto do mundo: a mesma conta analítica do fragment shader
+ * (`FRAGMENT_HACHURA`), que suaviza as linhas, os pontos e as bordas dos tracejados em vez de pintar pixels inteiros.
+ */
+export function hachuraCobertura(kind: number, x: number, y: number, zoom: number, zoomMin: number, espaco: number, linhaPx: number, pontoPx: number, pontoM: number): number {
+  if (zoom < zoomMin) return 0;
+  if (kind === 0) return 1;
   const COS45 = 0.7071067811865476;
-  const perto = (s: number, meia: number): boolean => {
-    const k = Math.floor(s / espaco + 0.5);
-    return Math.abs(s - k * espaco) * zoom <= meia;
+  const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+  const mod = (a: number, b: number): number => a - b * Math.floor(a / b);
+  const cobLinha = (s: number, p: number, w: number): number => {
+    // Passo menor que um pixel: as linhas não se resolvem (moiré); vale a densidade média, um tom uniforme.
+    const passoPx = p * zoom;
+    if (passoPx < 1) return Math.min(1, w / passoPx);
+    const k = Math.floor(s / p + 0.5);
+    const d = Math.abs(s - k * p) * zoom;
+    return Math.min(w, clamp01(0.5 * w + 0.5 - d));
   };
-  const meiaLinha = 0.5 * linhaPx;
+  const cobTraco = (u: number, per: number, on: number, fase: number): number => {
+    const f = mod(u - fase, per);
+    const sd = f <= on ? Math.min(f, on - f) : -Math.min(f - on, per - f);
+    return clamp01(0.5 + sd * zoom);
+  };
+  const diag1 = (-x + y) * COS45;
+  const diag2 = (x + y) * COS45;
   let c = 0;
   if (kind === 1 || kind === 2) {
-    if (perto((-x + y) * COS45, meiaLinha)) c = 1;
-    if (kind === 2 && perto((x + y) * COS45, meiaLinha)) c = 1;
+    c = cobLinha(diag1, espaco, linhaPx);
+    if (kind === 2) c = Math.max(c, cobLinha(diag2, espaco, linhaPx));
   } else if (kind === 3) {
-    const f = x / espaco - Math.floor(x / espaco);
-    c = perto(y, meiaLinha) && f <= 10 / 16 ? 1 : 0;
+    c = cobLinha(y, espaco, linhaPx) * cobTraco(x, espaco, (espaco * 10) / 16, 0);
   } else if (kind === 4) {
-    const f = x / espaco - Math.floor(x / espaco);
-    const dx = (f - 0.5) * espaco;
-    c = perto(y, 0.5 * pontoPx) && dx >= 0 && dx <= pontoM ? 1 : 0;
+    c = cobLinha(y, espaco, pontoPx) * cobTraco(x, espaco, pontoM, 0.5 * espaco);
+  } else if (kind === 5) {
+    c = Math.max(cobLinha(diag1, espaco, linhaPx), cobLinha(diag2, 3 * espaco, linhaPx));
+  } else if (kind === 6) {
+    const passo = 1.3 * espaco;
+    const linha = Math.floor(y / passo + 0.5);
+    const desl = Math.abs(linha) % 2 > 0.5 ? 0.5 * passo : 0;
+    c = Math.max(cobLinha(diag1, 3 * espaco, linhaPx), cobLinha(y, passo, pontoPx) * cobTraco(x, passo, pontoM, desl));
+  } else if (kind === 7) {
+    c = cobLinha(y, 0.8 * espaco, linhaPx);
+  } else if (kind === 8) {
+    c = cobLinha(diag1, espaco, linhaPx) * cobTraco(diag2, 2.25 * espaco, 1.5 * espaco, 0);
+  } else if (kind === 9) {
+    c = cobLinha(diag2, 2 * espaco, linhaPx) * cobTraco((x - y) * COS45, 2 * espaco, espaco, 0);
   }
-  return c === 1;
+  if (kind >= 10) {
+    for (const pr of primsOfCode(kind)) {
+      let cp = 0;
+      if (pr.t === 'line') {
+        const a = (pr.ang * Math.PI) / 180;
+        const sn = -Math.sin(a) * x + Math.cos(a) * y;
+        const un = Math.cos(a) * x + Math.sin(a) * y;
+        cp = cobLinha(sn, pr.pitch * espaco, linhaPx);
+        if (pr.on !== undefined && pr.off !== undefined) cp *= cobTraco(un, (pr.on + pr.off) * espaco, pr.on * espaco, (pr.phase ?? 0) * espaco);
+      } else {
+        const passo = pr.pitch * espaco;
+        const linha = Math.floor(y / passo + 0.5);
+        const desl = Math.abs(linha) % 2 > 0.5 ? 0.5 * passo : 0;
+        cp = cobLinha(y, passo, pontoPx) * cobTraco(x, passo, pontoM, desl);
+      }
+      c = Math.max(c, cp);
+    }
+  }
+  return c < 0.02 ? 0 : c;
+}
+
+/** A hachura cobre este ponto do mundo? Verdadeiro quando a cobertura passa de 50 % (o centro da linha, na espessura cheia). */
+export function hachuraCobre(kind: number, x: number, y: number, zoom: number, zoomMin: number, espaco: number, linhaPx: number, pontoPx: number, pontoM: number): boolean {
+  return hachuraCobertura(kind, x, y, zoom, zoomMin, espaco, linhaPx, pontoPx, pontoM) >= 0.5;
 }
 
 /**
@@ -187,20 +236,25 @@ export function rasterizarMalhas(malhas: readonly THREE.Mesh[], cam: THREE.Ortho
           if (w0 < 0 || w1 < 0 || w2 < 0) continue;
           if (tipo === 5 && w0 * v0.lado + w1 * v1.lado + w2 * v2.lado < 0) continue;
           if (traco && tipo !== 5 && descartado(w0 * v0.dist + w1 * v1.dist + w2 * v2.dist, v0.padrao, w0 * v0.meia + w1 * v1.meia + w2 * v2.meia)) continue;
+          let cob = 1;
           if (tipo === 2) {
             const u = mat.uniforms!;
             const wx = w0 * v0.wx + w1 * v1.wx + w2 * v2.wx;
             const wy = w0 * v0.wy + w1 * v1.wy + w2 * v2.wy;
-            const ok = hachuraCobre(
+            cob = hachuraCobertura(
               u.uKind!.value as number, wx, wy, zoom, w0 * v0.zoomMin + w1 * v1.zoomMin + w2 * v2.zoomMin,
-              u.uEspaco!.value as number, u.uLinhaPx!.value as number, u.uPontoPx!.value as number, u.uPontoM!.value as number,
+              u.uEspaco!.value as number,
+              Math.min((u.uLinhaTeto?.value as number | undefined) ?? 1e9, Math.max(u.uLinhaPx!.value as number, ((u.uLinhaM?.value as number | undefined) ?? 0) * zoom)),
+              Math.min((u.uPontoTeto?.value as number | undefined) ?? 1e9, Math.max(u.uPontoPx!.value as number, ((u.uPontoE?.value as number | undefined) ?? 0) * zoom)),
+              u.uPontoM!.value as number,
             );
-            if (!ok) continue;
+            if (cob <= 0) continue;
           }
           const k = (y * W + x) * 3;
-          buf[k] = r * a + buf[k]! * (1 - a);
-          buf[k + 1] = g * a + buf[k + 1]! * (1 - a);
-          buf[k + 2] = b * a + buf[k + 2]! * (1 - a);
+          const af = a * cob;
+          buf[k] = r * af + buf[k]! * (1 - af);
+          buf[k + 1] = g * af + buf[k + 1]! * (1 - af);
+          buf[k + 2] = b * af + buf[k + 2]! * (1 - af);
         }
       }
     }

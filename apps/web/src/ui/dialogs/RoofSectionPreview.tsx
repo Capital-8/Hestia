@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { formatQuantity, roofTypeThickness, type Material, type RoofType } from '@hestia/model';
 import { useT } from '../../editor/i18n.ts';
 import { useUnits } from '../useUnits.ts';
+import { PREVIA } from './materials/previaHachura.ts';
 
 function mixHex(a: string, b: string, t: number): string {
   const pa = parseInt(a.slice(1), 16);
@@ -46,14 +47,15 @@ export function RoofSectionPreview({ type, materials }: { type: RoofType; materi
       <text x={22} y={H - 8} fontSize="10" fill="var(--fg-faint)" fontFamily="var(--font-ui)">{t('dls_svg_bottom_face')}</text>
       {bands.map((b) => {
         const m = materials[b.layer.materialId];
+        const previa = m ? PREVIA[m.hatch] : undefined;
         const fill = mixHex(m?.color ?? '#999999', '#ffffff', 0.55);
         const w = 260;
         const x = 22;
         return (
           <g key={b.i}>
             <rect x={x} y={b.y} width={w} height={b.h} fill={fill} stroke="var(--fg)" strokeWidth="0.6" />
-            {m && (m.hatch === 'diagonal' || m.hatch === 'cross' || m.hatch === 'dots') && (
-              <rect x={x} y={b.y} width={w} height={b.h} fill={`url(#rh-${m.hatch})`} style={{ color: 'var(--fg-soft)' }} />
+            {m && previa && (
+              <rect x={x} y={b.y} width={w} height={b.h} fill={`url(#rh-${previa})`} style={{ color: 'var(--fg-soft)' }} />
             )}
             {b.h > 11 && (
               <text x={x + 6} y={b.y + b.h / 2 + 3} fontSize="9" fill="var(--fg)" fontFamily="var(--font-ui)">

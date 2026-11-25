@@ -194,6 +194,10 @@ export const PT_EDITOR_STATUS = {
   eds_undo_change_section_graphics: 'Alterar gráficos do corte',
   eds_undo_toggle_plan_thin_lines: 'Alternar linhas finas da planta',
   eds_undo_toggle_section_thin_lines: 'Alternar linhas finas do corte',
+  eds_undo_apply_pen_set: 'Aplicar conjunto de penas',
+  eds_undo_save_pen_set: 'Salvar conjunto de penas',
+  eds_undo_delete_pen_set: 'Excluir conjunto de penas',
+  eds_undo_rename_pen_set: 'Renomear conjunto de penas',
 
   // Tipos
   eds_msg_no_instances_of_type: 'Nenhuma instância de «{type}» no projeto.',
@@ -424,6 +428,10 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Change Section Graphics',
   eds_undo_toggle_plan_thin_lines: 'Toggle Plan Thin Lines',
   eds_undo_toggle_section_thin_lines: 'Toggle Section Thin Lines',
+  eds_undo_apply_pen_set: 'Apply Pen Set',
+  eds_undo_save_pen_set: 'Save Pen Set',
+  eds_undo_delete_pen_set: 'Delete Pen Set',
+  eds_undo_rename_pen_set: 'Rename Pen Set',
 
   // Tipos
   eds_msg_no_instances_of_type: 'No instance of «{type}» in the project.',
@@ -641,6 +649,10 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Cambiar gráficos de la sección',
   eds_undo_toggle_plan_thin_lines: 'Alternar líneas finas de la planta',
   eds_undo_toggle_section_thin_lines: 'Alternar líneas finas de la sección',
+  eds_undo_apply_pen_set: 'Aplicar conjunto de plumas',
+  eds_undo_save_pen_set: 'Guardar conjunto de plumas',
+  eds_undo_delete_pen_set: 'Eliminar conjunto de plumas',
+  eds_undo_rename_pen_set: 'Renombrar conjunto de plumas',
 
   eds_msg_no_instances_of_type: 'Ninguna instancia de «{type}» en el proyecto.',
   eds_msg_no_instances_here_one: 'Ninguna instancia en este nivel; 1 en otro nivel.',
@@ -857,6 +869,10 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Schnittgrafik ändern',
   eds_undo_toggle_plan_thin_lines: 'Dünne Linien des Grundrisses umschalten',
   eds_undo_toggle_section_thin_lines: 'Dünne Linien des Schnitts umschalten',
+  eds_undo_apply_pen_set: 'Stiftsatz anwenden',
+  eds_undo_save_pen_set: 'Stiftsatz speichern',
+  eds_undo_delete_pen_set: 'Stiftsatz löschen',
+  eds_undo_rename_pen_set: 'Stiftsatz umbenennen',
 
   eds_msg_no_instances_of_type: 'Kein Exemplar von «{type}» im Projekt.',
   eds_msg_no_instances_here_one: 'Kein Exemplar in dieser Ebene; 1 in einer anderen Ebene.',
@@ -1073,6 +1089,10 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Modifier les graphismes de la coupe',
   eds_undo_toggle_plan_thin_lines: 'Basculer les lignes fines du plan',
   eds_undo_toggle_section_thin_lines: 'Basculer les lignes fines de la coupe',
+  eds_undo_apply_pen_set: 'Appliquer le jeu de plumes',
+  eds_undo_save_pen_set: 'Enregistrer le jeu de plumes',
+  eds_undo_delete_pen_set: 'Supprimer le jeu de plumes',
+  eds_undo_rename_pen_set: 'Renommer le jeu de plumes',
 
   eds_msg_no_instances_of_type: 'Aucune occurrence de « {type} » dans le projet.',
   eds_msg_no_instances_here_one: 'Aucune occurrence sur ce niveau ; 1 sur un autre niveau.',
@@ -1289,6 +1309,10 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Modifica grafica della sezione',
   eds_undo_toggle_plan_thin_lines: 'Attiva/disattiva linee sottili della pianta',
   eds_undo_toggle_section_thin_lines: 'Attiva/disattiva linee sottili della sezione',
+  eds_undo_apply_pen_set: 'Applica set di penne',
+  eds_undo_save_pen_set: 'Salva set di penne',
+  eds_undo_delete_pen_set: 'Elimina set di penne',
+  eds_undo_rename_pen_set: 'Rinomina set di penne',
 
   eds_msg_no_instances_of_type: 'Nessuna istanza di «{type}» nel progetto.',
   eds_msg_no_instances_here_one: 'Nessuna istanza su questo livello; 1 su un altro livello.',
@@ -1505,6 +1529,10 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_undo_change_section_graphics: 'Zmień grafikę przekroju',
   eds_undo_toggle_plan_thin_lines: 'Przełącz cienkie linie rzutu',
   eds_undo_toggle_section_thin_lines: 'Przełącz cienkie linie przekroju',
+  eds_undo_apply_pen_set: 'Zastosuj zestaw pisaków',
+  eds_undo_save_pen_set: 'Zapisz zestaw pisaków',
+  eds_undo_delete_pen_set: 'Usuń zestaw pisaków',
+  eds_undo_rename_pen_set: 'Zmień nazwę zestawu pisaków',
 
   eds_msg_no_instances_of_type: 'Brak egzemplarza «{type}» w projekcie.',
   eds_msg_no_instances_here_one: 'Brak egzemplarza na tym poziomie; 1 na innym poziomie.',

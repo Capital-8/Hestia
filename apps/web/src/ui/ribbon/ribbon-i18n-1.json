@@ -678,5 +678,21 @@
     "fr": "Unités du projet",
     "it": "Unità del progetto",
     "pl": "Jednostki projektu"
+  },
+  {
+    "pt": "Conjuntos de penas",
+    "es": "Conjuntos de plumas",
+    "de": "Stiftsätze",
+    "fr": "Jeux de plumes",
+    "it": "Set di penne",
+    "pl": "Zestawy piór"
+  },
+  {
+    "pt": "Escolha um conjunto pronto de penas e hachuras (padrão, prancha técnica, leve, forte).",
+    "es": "Elija un conjunto listo de plumas y tramas (predeterminado, lámina técnica, ligero, fuerte).",
+    "de": "Wählen Sie einen fertigen Stiftsatz mit Schraffuren (Standard, technischer Plan, dünn, kräftig).",
+    "fr": "Choisissez un jeu de plumes et de hachures prêt (standard, planche technique, fin, fort).",
+    "it": "Scegli un set pronto di penne e tratteggi (predefinito, tavola tecnica, leggero, forte).",
+    "pl": "Wybierz gotowy zestaw piór i kreskowań (domyślny, arkusz techniczny, lekki, mocny)."
   }
 ]

@@ -17,6 +17,7 @@ import {
 import { disciplinaExiste } from './disciplineProfile.ts';
 import { isDisciplineId, type Discipline } from './planView.ts';
 import type { Id, Project } from './types.ts';
+import { userPenSetIssues, type UserPenSet } from './penSets.ts';
 import { t, type Lang } from './i18n.ts';
 
 /**
@@ -148,4 +149,22 @@ export function applySectionGraphics(p: Project, patch: DeepPartial<ViewGraphics
 
 export function resetSectionGraphics(p: Project): void {
   delete p.sectionGraphics;
+}
+
+/** Grava (cria ou substitui pelo id) um conjunto de penas do usuário, sempre como cópia sem referências externas. */
+export function applySavePenSet(p: Project, penSet: UserPenSet, lang: Lang = 'pt'): void {
+  const next = copy(penSet);
+  refuse(userPenSetIssues(next, lang));
+  p.penSets = { ...(p.penSets ?? {}), [next.id]: next };
+}
+
+/** Remove um conjunto do usuário; id inexistente recusa com mensagem e não altera o projeto. */
+export function applyDeletePenSet(p: Project, id: Id, lang: Lang = 'pt'): void {
+  if (!p.penSets || !Object.prototype.hasOwnProperty.call(p.penSets, id)) {
+    throw new Error(t(lang, 'md_penset_missing'));
+  }
+  const next = { ...p.penSets };
+  delete next[id];
+  if (Object.keys(next).length === 0) delete p.penSets;
+  else p.penSets = next;
 }

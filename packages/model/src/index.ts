@@ -75,6 +75,7 @@ export * from './validateGuardaCorpo.ts';
 export * from './viewRange.ts';
 export * from './graphics.ts';
 export * from './graphicsCommands.ts';
+export * from './penSets.ts';
 export * from './level.ts';
 export * from './elementLevel.ts';
 export * from './opening.ts';

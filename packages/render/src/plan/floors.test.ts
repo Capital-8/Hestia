@@ -5,7 +5,7 @@ import { resolveFloors, resolveLevel } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeFloor, makeWall, type DetailLevel, type Project } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { belowFloorOps, floorFills, floorSelectionOps, labelPoint } from './floors.ts';
-import { mix } from './color.ts';
+import { defaultPaint } from './style.ts';
 import { DARK, LIGHT } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -52,13 +52,14 @@ describe('piso na planta (D1)', () => {
     expect(dl.fills.length).toBeGreaterThan(1);
   });
 
-  it('cor da camada de topo, misturada com o papel e mais clara que a da parede', () => {
+  it('linha oculta: o piso fica no papel; a cor do material da camada de topo só no sombreado', () => {
     const p = floorProject('ft_ceram');
     const fill = floorFill(p, 'medium').fills[0]!;
-    expect(fill.color).toBe(mix('#e9e4da', '#ffffff', 0.74));
+    expect(fill.color).toBe('#ffffff');
     expect(fill.hatch).toBeUndefined();
-    const wallT = mix('#e9e4da', '#ffffff', 0.58);
-    expect(fill.color).not.toBe(wallT);
+    const shadedPaint = { ...defaultPaint('floor', 100), visual: 'shaded' as const };
+    const shaded = resolverZoom(floorFills(p, 'lv_0', LIGHT, false, 'medium', VIEW(100), undefined, shadedPaint), 100);
+    expect(shaded.fills[0]!.color).toBe('#e9e4da');
   });
 
   it('grosseiro: só o preenchimento chapado, sem contorno nem hachura', () => {

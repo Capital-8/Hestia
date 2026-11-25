@@ -8,8 +8,8 @@ import { aberturasDaParede, escadasDoNivel, juncaoDoNivel, paredesDoNivel, rampa
 import type { Inference, PreviewItem } from '@hestia/tools';
 import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
-import { corPadraoCorte } from './materialPlan.ts';
-import { thinStrokes } from './thin.ts';
+import { corDaHachuraPrancha, corPadraoCorte, papelDaHachura } from './materialPlan.ts';
+import { thinHatches, thinStrokes } from './thin.ts';
 import { gridStrokes } from './grid.ts';
 import { gridOps } from './grids.ts';
 import { sectionMarksOf } from './sectionMarks.ts';
@@ -160,13 +160,16 @@ const zoomDaEspessura = (emMetros: number, px: number): number => (emMetros > 0 
  * espessura equivalente. Com a hachura procedural, o zoom mínimo vai para o shader (`zoomMin`) e a geometria não muda com
  * o zoom: o fragmento some abaixo dele, e o `resolverZoom` faz o mesmo no caminho CPU.
  */
-function hachuraDaRegiao(padrao: { kind: HatchKind; color: string } | undefined, espessura: number, fine: boolean): FillOp['hatch'] {
+function hachuraDaRegiao(padrao: { kind: HatchKind; color: string } | undefined, espessura: number, fine: boolean, pt: Pick<PlanPaint, 'visual' | 'prancha' | 'escala'>, ink: string, paper: string): FillOp['hatch'] {
   if (!padrao) return undefined;
-  const { kind, color } = padrao;
-  if (fine) return { kind, color };
+  const kind = padrao.kind;
+  const color = corDaHachuraPrancha(padrao.color, pt, ink, paper);
+  const papel = papelDaHachura(pt);
+  const extra = papel ? { papel } : {};
+  if (fine) return { kind, color, ...extra };
   const zoomMin = Math.max(40, zoomDaEspessura(espessura, 5));
   if (!(zoomMin <= ZOOM_MAXIMO)) return undefined;
-  return { kind, color, zoomMin };
+  return { kind, color, zoomMin, ...extra };
 }
 
 /**
@@ -454,7 +457,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
           const cp = corPadraoCorte(m, { dark: input.dark, detail, paint: paint.wall });
           const polys = r.polygons;
           const thick = Math.max(0, ...polys.map((poly) => espessuraEquivalente(poly)));
-          wallOps.fills.push({ polygons: polys, color: surfaceColor(cp.fundo, fillBase, fillT, paint.wall), alpha: 1, hatch: hachuraDaRegiao(cp.padrao, thick, fine) });
+          wallOps.fills.push({ polygons: polys, color: surfaceColor(cp.fundo, fillBase, fillT, paint.wall), alpha: 1, hatch: hachuraDaRegiao(cp.padrao, thick, fine, paint.wall, theme.ink, fillBase) });
           // Linhas de interface entre materiais: só onde cabem sem virar mancha (fino: sempre). Linhas finas: peso de projeção.
           // O traço leva o zoom a partir do qual cabe (`zoomMin`) e o shader o esconde abaixo dele: a geometria não muda com o zoom.
           for (const poly of polys) {
@@ -616,7 +619,10 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
 
   // Linhas finas (só na tela): os traços do modelo ficam com 1 px; o que vem depois (seleção, cursor, cotas temporárias,
   // pré-visualização e guias) mantém a largura própria.
-  if (input.thinLines) thinStrokes(strokes);
+  if (input.thinLines) {
+    thinStrokes(strokes);
+    thinHatches(fills);
+  }
   return { fills, strokes, labels, limiares: limiares.lista() };
 }
 

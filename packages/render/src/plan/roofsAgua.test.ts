@@ -5,6 +5,7 @@ import type { Viewport } from '../viewport.ts';
 import { mix } from './color.ts';
 import { roofOps } from './roofs.ts';
 import { corDaAresta, DEFAULT_SUN_AZIMUTH, direcaoDoSol, TONE_45, tomDaAgua } from './roofsAgua.ts';
+import { defaultPaint } from './style.ts';
 import { DARK, LIGHT, type PlanTheme } from './types.ts';
 
 const P = (x: number, y: number) => ({ x, y });
@@ -26,9 +27,13 @@ function agua(up: { x: number; y: number }, percent: number): ResolvedRoof {
   };
 }
 
-/** Cor da água desenhada na planta para o `up` e a inclinação dados, no tema pedido. */
-function corDaAgua(theme: PlanTheme, dark: boolean, up: { x: number; y: number }, percent: number, p: Project = createEmptyProject()): string {
-  return roofOps([agua(up, percent)], p, theme, dark, 'medium', VIEW).fills[0]!.color;
+/** Linha oculta (o padrão) e sombreado: o segundo é onde a cor do material aparece. */
+const PRANCHA = defaultPaint('roof', 100);
+const SHADED = { ...PRANCHA, visual: 'shaded' as const };
+
+/** Cor da água desenhada na planta para o `up` e a inclinação dados, no tema e no estilo pedidos. */
+function corDaAgua(theme: PlanTheme, dark: boolean, up: { x: number; y: number }, percent: number, p: Project = createEmptyProject(), paint = PRANCHA): string {
+  return roofOps([agua(up, percent)], p, theme, dark, 'medium', VIEW, { paint }).fills[0]!.color;
 }
 
 /** Projeto com o material da telha sem cor (mas com a hachura). */
@@ -92,23 +97,27 @@ describe('tomDaAgua: sol do 3D e inclinação', () => {
 });
 
 describe('cor e hachura do material do tipo de telhado', () => {
-  it('usa a cor do material quando existe', () => {
+  it('em linha oculta a água fica no papel; no sombreado, usa a cor do material', () => {
     const p = createEmptyProject();
     expect(p.materials.mat_telha_ceramica!.color).toBe(BASE);
-    expect(corDaAgua(LIGHT, false, P(0, 1), 30)).toBe(tomDaAgua(mix(BASE, '#ffffff', 0.25), P(0, 1), 30));
+    expect(corDaAgua(LIGHT, false, P(0, 1), 30)).toBe('#ffffff');
+    expect(corDaAgua(DARK, true, P(0, 1), 30)).toBe(DARK.bg);
+    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p, SHADED)).toBe(tomDaAgua(BASE, P(0, 1), 30));
   });
 
   it('sem cor no material, cai no token roofTile nos dois temas', () => {
     const p = semCorDeTelha();
-    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p)).toBe(tomDaAgua(mix(LIGHT.roofTile, '#ffffff', 0.25), P(0, 1), 30));
-    expect(corDaAgua(DARK, true, P(0, 1), 30, p)).toBe(tomDaAgua(mix(DARK.roofTile, DARK.bg, 0.2), P(0, 1), 30));
+    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p)).toBe('#ffffff');
+    expect(corDaAgua(DARK, true, P(0, 1), 30, p)).toBe(DARK.bg);
+    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p, SHADED)).toBe(tomDaAgua(LIGHT.roofTile, P(0, 1), 30));
+    expect(corDaAgua(DARK, true, P(0, 1), 30, p, SHADED)).toBe(tomDaAgua(DARK.roofTile, P(0, 1), 30));
     expect(LIGHT.roofTile).toBe('#c9795a');
     expect(DARK.roofTile).toBe('#8a4f3b');
   });
 
   it('sem material, cai no roofTile e não há hachura', () => {
     const p = semMaterialDeTelha();
-    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p)).toBe(tomDaAgua(mix(LIGHT.roofTile, '#ffffff', 0.25), P(0, 1), 30));
+    expect(corDaAgua(LIGHT, false, P(0, 1), 30, p, SHADED)).toBe(tomDaAgua(LIGHT.roofTile, P(0, 1), 30));
     expect(roofOps([agua(P(0, 1), 30)], p, LIGHT, false, 'medium', VIEW).fills[0]!.hatch).toBeUndefined();
   });
 
@@ -118,7 +127,7 @@ describe('cor e hachura do material do tipo de telhado', () => {
 });
 
 describe('telhado real: tom por água e rincão tracejado', () => {
-  it('duas águas reais leem com tons diferentes e o rincão fica tracejado na cor da aresta', () => {
+  it('linha oculta: as duas águas no papel e o rincão tracejado na tinta; no sombreado, tons por água', () => {
     const s = new ProjectStore(createEmptyProject());
     s.exec({
       type: 'addRoof',
@@ -126,14 +135,16 @@ describe('telhado real: tom por água e rincão tracejado', () => {
     });
     const p = s.project;
     const [r] = resolveRoofs(p, 'lv_0');
-    const base = mix(BASE, '#ffffff', 0.25);
     const ops = roofOps([r!], p, LIGHT, false, 'medium', VIEW);
-    expect(ops.fills.some((f) => f.color === tomDaAgua(base, r!.planes[0]!.up, 30) && f.alpha === 0.98)).toBe(true);
-    expect(ops.fills.some((f) => f.color === tomDaAgua(base, r!.planes[1]!.up, 30) && f.alpha === 0.98)).toBe(true);
+    expect(ops.fills.filter((f) => f.alpha === 0.98).map((f) => f.color)).toEqual(['#ffffff', '#ffffff']);
     // O telhado de duas águas não tem rincão: acrescenta-se um para conferir o tracejado da aresta.
     const comRincao: ResolvedRoof = { ...r!, lines: [...r!.lines, { kind: 'valley', a: P(0, 0), b: P(1, 1) }] };
     const valley = roofOps([comRincao], p, LIGHT, false, 'medium', VIEW).strokes.find((st) => st.dash && st.pts[0]!.x === 0 && st.pts[0]!.y === 0);
     expect(valley?.dash).toEqual([6, 3]);
-    expect(valley?.color).toBe(corDaAresta(base));
+    expect(valley?.color).toBe(LIGHT.ink);
+    // No sombreado as águas continuam com o tom da orientação (a base é a cor do material).
+    const shaded = roofOps([r!], p, LIGHT, false, 'medium', VIEW, { paint: SHADED });
+    expect(shaded.fills.some((f) => f.color === tomDaAgua(BASE, r!.planes[0]!.up, 30) && f.alpha === 0.98)).toBe(true);
+    expect(shaded.fills.some((f) => f.color === tomDaAgua(BASE, r!.planes[1]!.up, 30) && f.alpha === 0.98)).toBe(true);
   });
 });

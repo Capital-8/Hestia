@@ -148,6 +148,11 @@ export interface ViewGraphics {
    * A plotagem (prancha, PDF e DXF) nunca usa este modo. Ausente = ligado (sem migração; o usuário desliga na vista).
    */
   thinLines?: boolean;
+  /**
+   * Campo antigo, IGNORADO: a linha oculta é sempre o visual de prancha de CAD (superfícies em papel, hachura cinza, contorno
+   * de corte em tinta cheia). Fica no tipo só para os arquivos que o gravaram abrirem sem erro.
+   */
+  estiloPrancha?: boolean;
 }
 
 /** Gráficos do modelo 3D (o app tem uma vista 3D). */
@@ -269,6 +274,8 @@ export const DEFAULT_VIEW_GRAPHICS: ViewGraphics = {
   style: 'hiddenLine',
   partialStructure: 'entire',
   overrides: defaultOverrides(),
+  // Linhas finas (tela) ligadas por padrão em todas as vistas: contornos e hachuras ficam em fio de 1 px na tela. A
+  // plotagem (prancha, PDF e DXF) nunca usa este modo. O usuário pode desligá-las para ver os pesos de pena na tela.
   thinLines: true,
 };
 

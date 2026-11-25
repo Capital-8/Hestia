@@ -21,8 +21,12 @@ const fnv = (s: string): string => {
   return h.toString(16).padStart(8, '0');
 };
 
-/** Referência da prancha antiga (sem `planId`), lida do código de antes da etapa 2.4. */
-const PRANCHA_ANTIGA = { hash: '0e3b8ea4', len: 18633 };
+/**
+ * Referência da prancha antiga (sem `planId`): igual ao código de antes da etapa 2.4 em tudo menos no visual. O hash foi
+ * atualizado quando a linha oculta passou a ser o visual de prancha de CAD (superfícies em papel, hachura cinza em mm de papel):
+ * só mudam cores e espessuras de traço, e o comprimento do JSON continua o mesmo.
+ */
+const PRANCHA_ANTIGA = { hash: 'a105b633', len: 18633 };
 
 function projeto(): ProjectStore {
   const s = new ProjectStore(createEmptyProject());

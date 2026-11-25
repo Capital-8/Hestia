@@ -161,6 +161,10 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
       return 'Alterar intervalo de vista';
     case 'setProjectGraphics':
       return 'Alterar gráficos do projeto';
+    case 'savePenSet':
+      return 'Salvar conjunto de penas';
+    case 'deletePenSet':
+      return 'Excluir conjunto de penas';
     case 'setLevelGraphics':
       return 'Alterar gráficos da vista';
     case 'resetLevelGraphics':

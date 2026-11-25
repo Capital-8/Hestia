@@ -26,7 +26,7 @@ export interface SectionStyle extends PlanStyle {
 
 const isPlanVisual = (v: VisualStyle): v is PlanVisual => (PLAN_VISUAL_STYLES as readonly VisualStyle[]).includes(v);
 
-function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual): PlanPaint {
+function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual, prancha: boolean): PlanPaint {
   const base = gp.categories[c];
   const espessura = (weight: number): Espessura => espessuraDePapel(lineWeightMm(gp.lineWeights, weight, scale), zoom, scale);
   const cut = espessura(ov.cutWeight ?? base.cutWeight);
@@ -34,6 +34,8 @@ function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride,
   return {
     visible: ov.visible,
     visual,
+    prancha,
+    escala: scale,
     color: ov.color ?? null,
     halftone: ov.halftone,
     clareamento: ov.halftone ? 0.5 : 0,
@@ -60,11 +62,13 @@ export function sectionStyleOf(p: Project, zoom: number, toneCategories?: Partia
   const g = sectionGraphicsOf(p);
   const gp = graphicsOf(p);
   const visual: PlanVisual = isPlanVisual(g.style) ? g.style : 'hiddenLine';
+  // Linha oculta é o visual de prancha de CAD; o campo antigo `estiloPrancha` das vistas é ignorado.
+  const prancha = true;
   const saved = p.sectionGraphics !== undefined;
   const detail = saved ? detailOf(g, gp) : (p.settings.detail ?? 'medium');
   const paint = {} as Record<GraphicsCategory, PlanPaint>;
   for (const c of GRAPHICS_CATEGORIES) {
-    const base = paintOf(gp, c, g.overrides[c], zoom, g.scale, visual);
+    const base = paintOf(gp, c, g.overrides[c], zoom, g.scale, visual, prancha);
     const ap = apresentacoes?.[c] ? apresentacaoDe(apresentacoes[c]) : undefined;
     if (ap) {
       const halftone = ap.tone === 'halftone' || base.halftone;
@@ -80,5 +84,6 @@ export function sectionStyleOf(p: Project, zoom: number, toneCategories?: Partia
     const tom = toneCategories?.[c];
     paint[c] = tom === 'hidden' ? { ...base, visible: false } : tom === 'halftone' ? { ...base, halftone: true, clareamento: 0.5 } : base;
   }
-  return { saved, scale: g.scale, detail, visual, partial: g.partialStructure, paint };
+  // `saved: true` sempre: o corte desenha com os pesos de pena da escala também quando a vista nunca foi ajustada.
+  return { saved: true, scale: g.scale, detail, visual, partial: g.partialStructure, paint };
 }

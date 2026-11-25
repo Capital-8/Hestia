@@ -81,6 +81,7 @@ import { OpeningScheduleDialog } from './ui/dialogs/OpeningScheduleDialog.tsx';
 import { GraphicsVisibilityDialog } from './ui/dialogs/GraphicsVisibilityDialog.tsx';
 import { DisciplineConfigDialog } from './ui/dialogs/DisciplineConfigDialog.tsx';
 import { LineWeightsDialog } from './ui/dialogs/LineWeightsDialog.tsx';
+import { PenSetsDialog } from './ui/dialogs/PenSetsDialog.tsx';
 import { DxfExportDialog } from './ui/dialogs/DxfExportDialog.tsx';
 import { ImportCadDialog } from './ui/dialogs/ImportCadDialog.tsx';
 import { ImportTerrenoDialog } from './ui/dialogs/ImportTerrenoDialog.tsx';
@@ -241,6 +242,8 @@ function Dialogs(): ReactElement | null {
       return <DisciplineConfigDialog />;
     case 'lineWeights':
       return <LineWeightsDialog />;
+    case 'penSets':
+      return <PenSetsDialog />;
     case 'dxfLayers':
       return <DxfExportDialog />;
     case 'importCad':

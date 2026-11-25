@@ -19,6 +19,7 @@ import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
 import type { GraphicsCategory, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { UserPenSet } from './penSets.ts';
 import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
@@ -66,8 +67,13 @@ export type * from './openingTypes.ts';
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
 export type LayerFunction = 'structure' | 'substrate' | 'thermal' | 'membrane' | 'finish1' | 'finish2';
 
-/** Hachura de superfície. `gesso` é a do forro (tracejado leve), definida no tipo de forro (decisão 0021, D3). */
-export type HatchKind = 'solid' | 'diagonal' | 'cross' | 'dots' | 'gesso' | 'none';
+/**
+ * Hachura de superfície. `gesso` é a do forro (tracejado leve), definida no tipo de forro (decisão 0021, D3).
+ * Os novos padrões (`brick`, `concrete`, `timber`, `insulation`, `earth` e os por primitivas `cmu`, `exposedBrick`,
+ * `rcConcrete`, `stone`, `gravel`, `sand`, `eps`, `woolZigzag`, `gypsum`, `timberEnd`, `steel`) são aditivos: arquivos antigos
+ * continuam válidos.
+ */
+export type HatchKind = 'solid' | 'diagonal' | 'cross' | 'dots' | 'gesso' | 'none' | 'brick' | 'concrete' | 'timber' | 'insulation' | 'earth' | 'cmu' | 'exposedBrick' | 'rcConcrete' | 'stone' | 'gravel' | 'sand' | 'eps' | 'woolZigzag' | 'gypsum' | 'timberEnd' | 'steel';
 
 export interface Material {
   id: Id;
@@ -1120,6 +1126,10 @@ export interface Project {
   views: SectionView[];
   /** Pesos de linha, estilo por categoria e detalhe por escala (decisão 0015); ausente = padrão. */
   graphics?: ProjectGraphics;
+  /**
+   * Conjuntos de penas do usuário (EP-10). Opcional: ausente = nenhum. Não muda SCHEMA_VERSION.
+   */
+  penSets?: Record<Id, UserPenSet>;
   /** Gráficos do modelo 3D (decisão 0015); ausente = padrão. */
   view3d?: View3DSettings;
   /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */

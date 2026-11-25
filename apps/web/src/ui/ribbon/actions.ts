@@ -505,6 +505,7 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
   levels: { label: t('Gerenciar níveis', 'Manage Levels'), icon: 'level', hint: t('Cria e edita os níveis do projeto.', 'Create and edit project levels.'), run: openDialog('levels') },
   levelTool: { label: t('Nível (LL)', 'Level (LL)'), icon: 'level', hint: t('Cria um nível no corte ou elevação: clique no início e no fim da linha horizontal.', 'Creates a level in a section or elevation.'), run: () => editor.setTool('level') },
   lineWeights: { label: t('Espessuras de linha', 'Line Weights'), icon: 'detail', hint: t('Pesos de linha por escala, por categoria e limites de detalhe.', 'Line weights by scale and category.'), run: openDialog('lineWeights') },
+  penSets: { label: t('Conjuntos de penas', 'Pen Sets'), icon: 'pen', hint: t('Escolha um conjunto pronto de penas e hachuras (padrão, prancha técnica, leve, forte).', 'Choose a ready-made set of pens and hatches (standard, technical sheet, light, heavy).'), run: openDialog('penSets') },
   units: { label: t('Unidades do projeto', 'Project Units'), icon: 'type', hint: t('Unidades de comprimento, área, volume, ângulo e inclinação do projeto.', 'Project units for length, area, volume, angle and slope.'), shortcut: 'unidades', run: openDialog('units') },
   shortcutsConfig: { label: t('Atalhos de teclado…', 'Keyboard Shortcuts…'), icon: 'help', run: openDialog('shortcutsConfig') },
   shortcuts: { label: t('Lista de atalhos', 'Shortcut List'), icon: 'help', run: openDialog('shortcuts') },

@@ -6,11 +6,11 @@ import { CLOSED, openingLinePaths, roofDrawingsOf, semFrestas, type ProjectedRin
 import { cotaExibida, dimensionStyleOf, formatQuantity, GRAPHICS_CATEGORIES, MAPA_ACABAMENTOS, materialDoAcabamento, SECTION_TEXT_MM, unitsOf, type Apresentacao, type GraphicsCategory, type HatchKind, type Id, type Material, type Project, type ResolvedUnits, type Tone } from '@hestia/model';
 import { MATERIAIS_DE_COMPONENTE } from '../model3d/componentSolids.ts';
 import { mix } from '../plan/color.ts';
-import { corPadraoCorte, corPadraoSuperficie } from '../plan/materialPlan.ts';
-import { thinStrokes } from '../plan/thin.ts';
+import { corDaHachuraPrancha, corPadraoCorte, corPadraoSuperficie, papelDaHachura } from '../plan/materialPlan.ts';
+import { thinHatches, thinStrokes } from '../plan/thin.ts';
 import { AVISO, AVISO_ALPHA } from '../aviso.ts';
 import type { PlanPaint } from '../plan/style.ts';
-import type { Espessura, FillOp, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
+import type { Espessura, FillOp, HachuraPapel, LabelOp, PlanDrawList, PlanTheme, StrokeOp } from '../plan/types.ts';
 import type { Viewport } from '../viewport.ts';
 import { hasSectionAnnotations, sectionAnnotationOps } from './annotations.ts';
 import { projetarComPerfis } from './perfis.ts';
@@ -117,11 +117,20 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   };
   /** Hachura do corte/elevação: a decisão do zoom virou `zoomMin` (o shader esconde abaixo dele, sem refazer a lista). */
   const hatchZoomMin = detail === 'fine' ? 0 : SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS;
-  const hatchFor = (kind: HatchKind | undefined, color: string): { kind: HatchKind; color: string; zoomMin?: number } | undefined =>
-    !wire && kind && kind !== 'none' ? { kind, color, ...(hatchZoomMin > 0 ? { zoomMin: hatchZoomMin } : {}) } : undefined;
+  const hatchFor = (kind: HatchKind | undefined, color: string, pt?: PlanPaint): { kind: HatchKind; color: string; zoomMin?: number; papel?: HachuraPapel } | undefined => {
+    if (wire || !kind || kind === 'none') return undefined;
+    const papel = papelDaHachura(pt);
+    return { kind, color, ...(hatchZoomMin > 0 ? { zoomMin: hatchZoomMin } : {}), ...(papel ? { papel } : {}) };
+  };
   const halftone = (color: string, pt: PlanPaint): string => ((pt.clareamento ?? 0) > 0 ? mix(color, paper, pt.clareamento!) : color);
   /** Fator de opacidade das linhas: nunca abaixo de 0,3 para o traço não sumir. */
   const linhaOpacidade = (pt: PlanPaint): number => Math.max(0.3, Math.min(1, Math.max(0, pt.opacidade ?? 1)));
+  /** Cor de preenchimento: em linha oculta (visual de prancha) é sempre o papel; nos demais casos, o clareamento da disciplina. */
+  const fillColor = (color: string, pt: PlanPaint): string => (pt.visual === 'hiddenLine' && pt.prancha ? paper : halftone(color, pt));
+  /** Cor do contorno de peça cortada: em linha oculta, tinta cheia; nos demais casos, a cor dada. Sempre com o clareamento da disciplina. */
+  const cutLineColor = (color: string, pt: PlanPaint): string => halftone(pt.visual === 'hiddenLine' && pt.prancha ? theme.ink : color, pt);
+  /** Cor da hachura: em linha oculta, o cinza neutro de `corDaHachuraPrancha`; senão, a cor dada. Sempre com o clareamento da disciplina. */
+  const hatchColor = (color: string, pt: PlanPaint): string => halftone(corDaHachuraPrancha(color, pt, theme.ink, paper), pt);
   // Para o contorno externo de uma vista com categoria oculta: a silhueta do motor une tudo, então ela é refeita dos itens visíveis.
   const silhouetteParts: MultiPolygon[] = [];
   // Hide in View/Reveal: o input já traz os conjuntos efetivos da vista. `hidden` não é desenhado; `revealed` só ganha
@@ -141,7 +150,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   };
 
   // Terreno (ficha V3): do kernel, ANTES do edifício (fica atrás); a categoria `site` desligada ou o terreno oculto não saem.
-  const terreno = terrenoCorteOps(p, s, theme, input.dark, hidden, paint.site, { noFill, hatchFor, halftone }, revealed);
+  const terreno = terrenoCorteOps(p, s, theme, input.dark, hidden, paint.site, { noFill, hatchFor, halftone, fillColor, hatchColor, cutLineColor }, revealed);
   fills.push(...terreno.fills); strokes.push(...terreno.strokes); revealStrokes.push(...terreno.reveal);
 
   // Solo e níveis: linhas finas tracejadas ao longo de todo o comprimento. O nome/cota do nível sai como texto de papel
@@ -154,7 +163,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       { x: x0, y: l.z },
       { x: x1, y: l.z },
     ];
-    strokes.push({ pts: edge, closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9, dash: [10, 5] });
+    strokes.push({ pts: edge, closed: false, ...strokeWidth(projWidth('annotation')), color: theme.inkSoft, alpha: 0.9, dash: [10, 5] });
     // Símbolo NBR/Revit de nível no corte: triângulo invertido meio-preenchido (P&B) na extremidade direita da linha.
     const mPerMm = style.scale / 1000;
     const triH = 3.2 * mPerMm;
@@ -165,10 +174,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     const topR = { x: tip.x + triW, y: tip.y + triH };
     // Contorno aberto (fecha na ponta) e metade esquerda "preenchida" por traços horizontais: só traços, sem `fills` nem contorno
     // fechado, para o símbolo não contar como elemento do modelo (nada visível = nenhum preenchimento).
-    strokes.push({ pts: [tip, topL, topR, tip], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    strokes.push({ pts: [tip, topL, topR, tip], closed: false, ...strokeWidth(projWidth('annotation')), color: theme.inkSoft, alpha: 0.9 });
     // Uma só linha em serpentina: sobe pelo eixo e vai e volta até a aresta esquerda (hachura da metade), sem traços soltos de 2 pontos.
     const em = (f: number, fx: number): Vec2 => ({ x: tip.x - triW * fx, y: tip.y + triH * f });
-    strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, widthPx: 1, color: theme.inkSoft, alpha: 0.9 });
+    strokes.push({ pts: [tip, em(0.25, 0), em(0.25, 0.25), em(0.5, 0.5), em(0.5, 0), em(0.75, 0), em(0.75, 0.75), em(0.75, 0), topM], closed: false, ...strokeWidth(projWidth('annotation')), color: theme.inkSoft, alpha: 0.9 });
     labels.push({
       at: edge[1]!,
       text: `${l.name} ${fmt(unitsOf(input.project), cotaExibida(input.project, l.z))}`,
@@ -200,8 +209,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     if (!noFill) {
       const fade = 0.55 + 0.35 * (b.depth / maxDepth);
       const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-      const hatch = cpB.padrao ? hatchFor(cpB.padrao.kind, halftone(cpB.padrao.color, pt)) : undefined;
-      fills.push({ polygons: b.polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
+      const hatch = cpB.padrao ? hatchFor(cpB.padrao.kind, hatchColor(cpB.padrao.color, pt), pt) : undefined;
+      fills.push({ polygons: b.polygons, color: fillColor(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
     }
     const line = mix(theme.ink, paper, 0.5 * (b.depth / maxDepth));
     for (const ring of ringsOf(b.polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(byProximity(projWidth(cat), b.depth)), color: halftone(line, pt), alpha: linhaOpacidade(pt) });
@@ -230,7 +239,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       strokes.push({ pts, closed: false, ...strokeWidth(symbolWidth(kind)), color: halftone(theme.inkSoft, pt), alpha: linhaOpacidade(pt), ...(dashed ? { dash: [4, 3] as [number, number] } : {}) });
     };
     if (!model) {
-      if (!noFill) fills.push({ polygons, color: halftone(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha * pt.opacidade });
+      if (!noFill) fills.push({ polygons, color: fillColor(pt.color ?? (kind === 'window' ? GLASS_FILL : DOOR_FILL), pt), alpha: pt.alpha * pt.opacidade });
       outline();
       return;
     }
@@ -268,7 +277,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const id = materialIdOf(part);
       const mat = id ? p.materials[id] : undefined;
       if (!mat || mat.hatch === 'none') return undefined;
-      return { kind: mat.hatch, color: mix(mat.color, input.dark ? '#ffffff' : '#000000', 0.45), ...(SECTION_HATCH_ZOOM_MIN > 0 ? { zoomMin: SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS } : {}) };
+      const papel = papelDaHachura(pt);
+      return { kind: mat.hatch, color: hatchColor(mix(mat.color, input.dark ? '#ffffff' : '#000000', 0.45), pt), ...(SECTION_HATCH_ZOOM_MIN > 0 ? { zoomMin: SECTION_HATCH_ZOOM_MIN - HATCH_ZOOM_EPS } : {}), ...(papel ? { papel } : {}) };
     };
     // Parede inclinada (P1): as peças seguem o referencial inclinado do 3D (h·cosθ e deslocamento) ou o prumo ancorado na face.
     const projetadas = projetarComPerfis(model, faceOn ? 's' : 't', CLOSED);
@@ -315,7 +325,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
       const primeira = item.itens[0]!.part;
       const cortada = item.itens.find((x) => isCut(x.part))?.part;
       const hatch = cortada ? hatchOf(cortada) : undefined;
-      if (!noFill) fills.push({ polygons, color: halftone(colorOf(primeira), pt), alpha: pt.alpha * pt.opacidade, ...(hatch ? { hatch } : {}) });
+      if (!noFill) fills.push({ polygons, color: fillColor(colorOf(primeira), pt), alpha: pt.alpha * pt.opacidade, ...(hatch ? { hatch } : {}) });
       const dash = primeira.dashed ? { dash: [6, 3] as [number, number] } : {};
       for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(edge), color: halftone(theme.ink, pt), alpha: linhaOpacidade(pt), ...dash });
     }
@@ -375,10 +385,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
           const cp = corPadraoCorte(m, { dark: input.dark, detail: 'medium', paint: pt, hachuraTipo: r.hatch });
           const base = pt.color ?? cp.fundo;
           const color = pt.visual === 'shaded' ? base : mix(base, paper, input.dark ? 0.5 : 0.58);
-          const hatch = cp.padrao ? hatchFor(cp.padrao.kind, halftone(cp.padrao.color, pt)) : undefined;
-          fills.push({ polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
+          const hatch = cp.padrao ? hatchFor(cp.padrao.kind, hatchColor(cp.padrao.color, pt), pt) : undefined;
+          fills.push({ polygons, color: fillColor(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
         }
-        const line = halftone(mix(theme.ink, paper, 0.35), pt);
+        const line = cutLineColor(mix(theme.ink, paper, 0.35), pt);
         for (const ring of ringsOf(polygons)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cutWidth(cat)), color: line, alpha: linhaOpacidade(pt) });
         // Reveal do corte unido: contorna só as peças reveladas (sem `parts`, a região inteira, se alguma origem foi revelada).
         const revealParts = parts?.filter((part) => isRevealed(ownerOf(part.origin)?.id));
@@ -406,8 +416,8 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
         const base = pt.color ?? cpF.fundo;
         const fade = 0.55 + 0.35 * (f.sample.depth / maxDepth);
         const color = pt.visual === 'shaded' ? base : mix(mix(base, paper, 0.55), paper, fade * 0.35);
-        const hatch = cpF.padrao ? hatchFor(cpF.padrao.kind, halftone(cpF.padrao.color, pt)) : undefined;
-        fills.push({ polygons: f.polygons, color: halftone(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
+        const hatch = cpF.padrao ? hatchFor(cpF.padrao.kind, hatchColor(cpF.padrao.color, pt), pt) : undefined;
+        fills.push({ polygons: f.polygons, color: fillColor(color, pt), alpha: pt.alpha * pt.opacidade, hatch });
       }
     }
     if (rd.silhouette.length > 0) silhouetteParts.push(rd.silhouette);
@@ -429,7 +439,7 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
   // elemento oculto nesta vista), a silhueta do motor (que une tudo) é refeita só com os itens que ficaram.
   const hiddenAny = GRAPHICS_CATEGORIES.some((c) => !paint[c].visible);
   const silhouette = hiddenAny || hasHidden || roofItems.length > 0 ? (silhouetteParts.length > 0 ? semFrestas(union(...silhouetteParts)) : []) : s.silhouette;
-  for (const ring of ringsOf(silhouette)) strokes.push({ pts: ring, closed: true, widthPx: 2.2, color: theme.ink, alpha: 1 });
+  for (const ring of ringsOf(silhouette)) strokes.push({ pts: ring, closed: true, ...strokeWidth(cutWidth('wall')), color: theme.ink, alpha: 1 });
 
   // Anotações da vista de corte/elevação (cotas, textos, detalhes e etiquetas), por cima do desenho do modelo. A
   // geometria delas é `(t,z)`: distância ao longo do corte e cota. Sem `annotations`, nada muda no desenho.
@@ -447,7 +457,10 @@ export function buildSectionDrawList(input: SectionInput): PlanDrawList {
     labels.push(...notes.labels);
   }
 
-  if (input.thinLines) thinStrokes(strokes);
+  if (input.thinLines) {
+    thinStrokes(strokes);
+    thinHatches(fills);
+  }
   // Borda azul do Reveal por cima do desenho normal e com a largura própria (não passa pelo `thinStrokes`).
   if (revealStrokes.length > 0) strokes.push(...revealStrokes);
   // Guarda-corpo revelado: a borda azul sai depois do desenho dele (como as outras reveladas, sem o `thinStrokes`).

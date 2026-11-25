@@ -33,6 +33,10 @@ export type PlanVisual = Extract<VisualStyle, 'wireframe' | 'hiddenLine' | 'shad
 export interface PlanPaint {
   visible: boolean;
   visual: PlanVisual;
+  /** Estilo de prancha técnica ligado nesta vista (`ViewGraphics.estiloPrancha`): só vale em linha oculta. */
+  prancha: boolean;
+  /** Denominador da escala da vista (100 = 1:100): a hachura de prancha mede passo e linha no papel com ele. */
+  escala?: number;
   /** Cor de base das superfícies desta categoria nesta vista; null = a do material. */
   color: string | null;
   halftone: boolean;
@@ -63,7 +67,7 @@ export interface PlanStyle {
 
 const isPlanVisual = (v: VisualStyle): v is PlanVisual => (PLAN_VISUAL_STYLES as readonly VisualStyle[]).includes(v);
 
-function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual, apresentacao?: Apresentacao): PlanPaint {
+function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride, zoom: number, scale: number, visual: PlanVisual, prancha: boolean, apresentacao?: Apresentacao): PlanPaint {
   const base = gp.categories[c];
   const espessura = (weight: number): Espessura => espessuraDePapel(lineWeightMm(gp.lineWeights, weight, scale), zoom, scale);
   const cut = espessura(ov.cutWeight ?? base.cutWeight);
@@ -74,6 +78,8 @@ function paintOf(gp: ProjectGraphics, c: GraphicsCategory, ov: CategoryOverride,
   return {
     visible: ov.visible && (ap ? ap.tone !== 'hidden' : true),
     visual,
+    prancha,
+    escala: scale,
     color: ov.color ?? null,
     halftone,
     clareamento,
@@ -99,11 +105,14 @@ export function planStyleOf(p: Project, levelId: Id, zoom: number, scaleOverride
   const g = planGraphicsOf(p, levelId, planId);
   const gp = graphicsOf(p);
   const visual: PlanVisual = isPlanVisual(g.style) ? g.style : 'hiddenLine';
+  // Linha oculta é o visual de prancha de CAD (superfícies em papel, hachura cinza, pesos pela escala); a cor de material
+  // só aparece no Sombreado. O campo antigo `estiloPrancha` das vistas é ignorado.
+  const prancha = true;
   const saved = planGraphicsSaved(p, levelId, planId);
   const detail: DetailLevel = saved ? detailOf(g, gp) : (p.settings.detail ?? 'medium');
   const escala = scaleOverride && scaleOverride > 0 ? scaleOverride : g.scale;
   const paint = {} as Record<GraphicsCategory, PlanPaint>;
-  for (const c of GRAPHICS_CATEGORIES) paint[c] = paintOf(gp, c, g.overrides[c], zoom, escala, visual, apresentacoes?.[c]);
+  for (const c of GRAPHICS_CATEGORIES) paint[c] = paintOf(gp, c, g.overrides[c], zoom, escala, visual, prancha, apresentacoes?.[c]);
   return { scale: escala, detail, visual, partial: g.partialStructure, paint };
 }
 
@@ -117,14 +126,15 @@ export const espessuraDeProjecao = (pt: Pick<PlanPaint, 'projPx' | 'proj'>): Esp
 
 /** Estilo de uma categoria sem substituição nenhuma (padrão do Hestia) no `zoom` dado. */
 export function defaultPaint(c: GraphicsCategory, zoom: number): PlanPaint {
-  return paintOf(graphicsOf({}), c, defaultOverride(), zoom, DEFAULT_VIEW_GRAPHICS.scale, 'hiddenLine');
+  return paintOf(graphicsOf({}), c, defaultOverride(), zoom, DEFAULT_VIEW_GRAPHICS.scale, 'hiddenLine', true);
 }
 
 /**
  * Cor de uma superfície da categoria: a do material (ou a substituída na vista) misturada com o papel por `t`. No
- * sombreado (`shaded`) vai sem mistura, na cor do material.
+ * sombreado (`shaded`) vai sem mistura, na cor do material. Em linha oculta com o estilo de prancha, é sempre o papel.
  */
 export function surfaceColor(materialColor: string, paper: string, t: number, pt: PlanPaint): string {
+  if (pt.visual === 'hiddenLine' && pt.prancha) return paper;
   const base = pt.color ?? materialColor;
   return pt.visual === 'shaded' ? base : mix(base, paper, t);
 }

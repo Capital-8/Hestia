@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Material } from '@hestia/model';
-import { agruparPorClasse, atualizarCampo, filtrarMateriais, formatPalavrasChave, limpaVazios, padraoEfetivoPrimeiro, parsePalavrasChave } from './materialsLogic.ts';
+import { agruparPorClasse, atualizarCampo, filtrarMateriais, formatPalavrasChave, limpaVazios, PADROES, padraoEfetivoPrimeiro, parsePalavrasChave } from './materialsLogic.ts';
 
 const cmp = (a: string, b: string): number => a.localeCompare(b, 'pt-BR', { numeric: true });
 
@@ -152,9 +152,32 @@ describe('filtrarMateriais', () => {
     expect(filtrarMateriais(lista, 'temperádo').map((m) => m.id)).toEqual(['b']);  });
 });
 
+describe('PADROES', () => {
+  it('tem os 21 padrões do material na ordem do seletor', () => {
+    expect(PADROES).toEqual([
+      'none', 'diagonal', 'cross', 'dots', 'solid', 'brick', 'concrete', 'timber', 'insulation', 'earth',
+      'cmu', 'exposedBrick', 'rcConcrete', 'stone', 'gravel', 'sand', 'eps', 'woolZigzag', 'gypsum', 'timberEnd', 'steel',
+    ]);
+  });
+});
+
 describe('padraoEfetivoPrimeiro', () => {
-  it('usa a hachura do material quando é um dos 5 padrões do editor', () => {
+  it('usa a hachura do material quando é um dos padrões do editor', () => {
     expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'diagonal' }))).toBe('diagonal');
+  });
+
+  it('devolve os padrões novos como estão', () => {
+    expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'brick' }))).toBe('brick');
+    expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'concrete' }))).toBe('concrete');
+    expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'timber' }))).toBe('timber');
+    expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'insulation' }))).toBe('insulation');
+    expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch: 'earth' }))).toBe('earth');
+  });
+
+  it('devolve os onze padrões acrescentados na EP-13 como estão', () => {
+    for (const hatch of ['cmu', 'exposedBrick', 'rcConcrete', 'stone', 'gravel', 'sand', 'eps', 'woolZigzag', 'gypsum', 'timberEnd', 'steel'] as const) {
+      expect(padraoEfetivoPrimeiro(base({ id: 'x', name: 'x', hatch }))).toBe(hatch);
+    }
   });
 
   it('gesso (hachura do forro) não é oferecido no material: cai em none', () => {

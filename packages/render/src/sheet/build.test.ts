@@ -87,7 +87,8 @@ describe('composição da prancha', () => {
     const list: PlanDrawList = {
       background: '#fff',
       fills: [],
-      strokes: [{ pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }], closed: false, widthPx: 500, color: '#000000', alpha: 1 }],
+      // traço com espessura de papel (0,5 mm em 1:100): na vista da folha o widthPx vale mm × 1000
+      strokes: [{ pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }], closed: false, widthPx: 500, papel: { mm: 0.5, escala: 100 }, color: '#000000', alpha: 1 }],
       labels: [],
     };
     const parts = partsOf(list, toPaper({ at: { x: 0, y: 0 }, size: { w: 100, h: 100 } }, viewMappingOf({ size: { w: 100, h: 100 }, scale: 100 }, { x: 0, y: 0 })), LIGHT);
