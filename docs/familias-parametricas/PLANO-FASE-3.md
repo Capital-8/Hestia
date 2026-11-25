@@ -20,8 +20,8 @@ Modelos: **H** = Haiku (mecânico, especificação fechada, verificação por te
 | A1 | H | Auditar todo botão e ferramenta de MEP e listar o ícone atual, o arquivo e o que a ferramenta faz (tabela em `docs/familias-parametricas/icones/AUDITORIA.md`) | — | integrada (63 botões auditados, 45 de 48 com ícone compartilhado; `AUDITORIA.md`) |
 | A2 | S | Ler `apps/web/src/ui/Icon.tsx`, escrever o guia de estilo (`icones/GUIA.md`: grade, traço, cores, convenções) e desenhar 4 ícones de referência: Tubo, Joelho, Verificar rede, Esgoto | — (roda junto com A1) | integrada (guia + 4 ícones; mepEsgoto precisa de glifo próprio: fica na A3c) |
 | A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | integrada (4 de 5 bons; mepTubosConexoes lê como estante: refeito na A3b) |
-| A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada; e REFAZER mepTubosConexoes | A3a | em curso (orquestrador, 2026-11-25) |
-| A3c | H | Ícones de sistema: esgoto, água fria, elétrico, HVAC, estrutura (abas da Biblioteca, painéis, domínios) | A2 | pendente |
+| A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada; e REFAZER mepTubosConexoes | A3a | integrada (bons: redução, prumada, tubos e conexões; razoáveis: tê, luva; fracos: junção e tampão, corrigidos na A3c) |
+| A3c | H | Ícones de sistema: esgoto (glifo refeito: sifão), água fria, elétrico, HVAC, estrutura; e corrigir mepJuncao e mepTampao | A3b | em curso (orquestrador, 2026-11-25) |
 | A3d | H | Ícones da elétrica: eletroduto, eletrocalha, caixa, circuito, quadro, tomada, interruptor, luminária; e dos "em breve": aparelho sanitário, bandeja, tubo flexível, equipamento | A2 | pendente |
 | A4 | H | Registrar todos em `Icon.tsx`, trocar nas faixas e na Biblioteca, teste que reprova ícone MEP repetido ou ausente, captura de cada um em claro e escuro | A3a–A3d | pendente |
 | A5 | S | Revisão visual de consistência (olhar as capturas, pedir correções) | A4 | pendente |
@@ -31,7 +31,7 @@ Contrato: um resolvedor PURO de nó recebe o encontro (trechos, bitolas, direç�
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
 | B1 | S | Resolvedor de nó (`engine/componentes/resolvedorNo.ts`) + testes; a ferramenta Tubo passa a usá-lo | — | integrada (`resolvedorNo.ts`, 22 casos; contrato `SolucaoNo` com `ok`/`direto`/`ajustada`/`sem_solucao`; `ajustada` reservado à B3; import circular com `conexoesAutomaticas.ts` a resolver na B2) |
-| B2 | S | (inclui separar `posicionarConexao` e os helpers geométricos num arquivo próprio para desfazer o import circular com `resolvedorNo.ts`) Viabilidade geométrica: comprimento mínimo do trecho depois dos recuos, distância mínima entre conexões vizinhas, folga da bolsa, declividade; bloqueia e devolve o motivo | B1 | em curso (orquestrador, 2026-11-25) |
+| B2 | S | (EM CURSO desde 2026-11-25) (inclui separar `posicionarConexao` e os helpers geométricos num arquivo próprio para desfazer o import circular com `resolvedorNo.ts`) Viabilidade geométrica: comprimento mínimo do trecho depois dos recuos, distância mínima entre conexões vizinhas, folga da bolsa, declividade; bloqueia e devolve o motivo | B1 | em curso (orquestrador, 2026-11-25) |
 | B3 | S | Troca de bitola de tubo já traçado: troca a peça se existe na nova bitola; senão procura redução; senão remove a conexão incompatível, deixa a ponta aberta e alerta; tudo num passo de desfazer | B1, B2 | pendente |
 | B4 | S | Prumada: pontos de cotas diferentes viram trecho horizontal + vertical com joelhos (opções: subir primeiro, andar primeiro, diagonal só se o tipo permite o ângulo) | B1, B2 | pendente |
 | B5 | H | Alertas visíveis: trecho bloqueado em vermelho com o motivo, ponta aberta marcada, mensagem que não some sozinha, "mudar a cota para permitir 45° ou 90°" calculando a menor mudança | B2 | pendente |
