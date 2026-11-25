@@ -20,7 +20,7 @@ export type RibbonTabId =
 export type ActionId =
   | 'cotasAuto' | 'dimensionFamilies' | 'typeProps' | 'properties' | 'browser' | 'sameType' | 'sameName' | 'moveLevel' | 'delete'
   | 'zoomFit' | 'thinLines' | 'grid' | 'underlay' | 'roofProjection' | 'graphicsVisibility' | 'view3d' | 'genElevations' | 'newSheet'
-  | 'materials' | 'levels' | 'levelTool' | 'lineWeights' | 'units' | 'shortcutsConfig' | 'shortcuts' | 'importCad' | 'manageCad' | 'verificarRede' | 'circuitos'
+  | 'materials' | 'levels' | 'levelTool' | 'lineWeights' | 'units' | 'shortcutsConfig' | 'shortcuts' | 'importCad' | 'manageCad' | 'verificarRede' | 'circuitos' | 'quantitativosEletricos'
   | 'familiasHidro' | 'familiasEletrico' | 'familiasHvac' | 'familiasEstrutura' | 'catalogoMep'
   | 'schedWalls' | 'schedFloors' | 'schedSlabs' | 'schedCeilings' | 'schedRoofs' | 'schedStairs' | 'schedRooms' | 'schedOpenings'
   | 'schedColumns' | 'schedBeams' | 'schedFootings' | 'column' | 'beam' | 'footing' | 'structuralEditType' | 'structuralRotate90' | 'footingAtColumns'

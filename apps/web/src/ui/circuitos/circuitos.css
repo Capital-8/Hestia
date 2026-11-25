@@ -18,3 +18,8 @@
 .circ-alerta { color: var(--warn, #b45309); font-size: 12px; margin: 0; }
 .circ-erro { color: var(--danger, #b42318); font-size: 12px; margin: 0; }
 .circ-aviso { color: var(--fg-soft); font-size: 12px; margin: 0; }
+.circ-quant-wrap { overflow-x: auto; max-width: 100%; }
+.circ-quant { border-collapse: collapse; width: 100%; font-size: 12px; }
+.circ-quant th, .circ-quant td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
+.circ-quant th { color: var(--fg-soft); font-weight: 600; }
+.circ-quant .num { text-align: right; font-variant-numeric: tabular-nums; }

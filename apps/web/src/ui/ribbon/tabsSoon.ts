@@ -57,7 +57,7 @@ export const TABS_SOON: RibbonTab[] = [
       act('verificarRede', 'large', t('Verificar rede', 'Check network')),
       act('catalogoMep', 'large'),
       soon(t('Aparelho sanitário', 'Fixture'), 'mepAparelhoSanitario')),
-    panel('sis-eletrico', t('Elétrico', 'Electrical'), tool('eletroduto', 'large', { label: t('Eletroduto', 'Conduit'), icon: 'mepEletroduto' }), act('familiasEletrico', 'large'), act('circuitos', 'large'), soon(t('Bandeja', 'Cable Tray'), 'mepBandeja')),
+    panel('sis-eletrico', t('Elétrico', 'Electrical'), tool('eletroduto', 'large', { label: t('Eletroduto', 'Conduit'), icon: 'mepEletroduto' }), act('familiasEletrico', 'large'), act('circuitos', 'large'), act('verificarRede', 'large'), act('quantitativosEletricos', 'large'), soon(t('Bandeja', 'Cable Tray'), 'mepBandeja')),
     panel('sis-hvac', t('HVAC', 'HVAC'), act('familiasHvac', 'large'), soon(t('Tubo flexível', 'Flex Duct'), 'mepTuboFlexivel')),
     panel('sis-mecanico', t('Mecânico', 'Mechanical'), soon(t('Equipamento', 'Equipment'), 'mepEquipamento'), tool('component', 'large', { label: t('Componente', 'Component'), icon: 'component' })),
   ),

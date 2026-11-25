@@ -92,6 +92,7 @@ import { ImportFurnitureDialog } from './ui/dialogs/ImportFurnitureDialog.tsx';
 import { ManageCadDialog } from './ui/dialogs/ManageCadDialog.tsx';
 import { RedeDiagnosticoDialog } from './ui/dialogs/RedeDiagnosticoDialog.tsx';
 import { CircuitosDialog } from './ui/dialogs/CircuitosDialog.tsx';
+import { QuantitativosEletricosDialog } from './ui/dialogs/QuantitativosEletricosDialog.tsx';
 import { ExperimentosDialog } from './ui/dialogs/ExperimentosDialog.tsx';
 import { SobreDialog } from './ui/dialogs/SobreDialog.tsx';
 import { pluginHost } from './plugins/appPorts.ts';
@@ -253,6 +254,8 @@ function Dialogs(): ReactElement | null {
       return <RedeDiagnosticoDialog />;
     case 'circuitos':
       return <CircuitosDialog />;
+    case 'quantitativosEletricos':
+      return <QuantitativosEletricosDialog />;
     case 'experimentos':
       return <ExperimentosDialog />;
     case 'about':

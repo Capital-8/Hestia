@@ -46,9 +46,10 @@ function vizinhos(p: Project): Map<Id, Set<Id>> {
   return mapa;
 }
 
-/** Distâncias mínimas (m) a partir do quadro (Dijkstra; o custo é o comprimento da peça em que se entra). */
-function distancias(p: Project, origem: Id): Map<Id, number> {
+/** Distâncias mínimas (m) a partir do quadro e o nó anterior de cada um no caminho (Dijkstra; o custo é o comprimento da peça em que se entra). */
+function caminhos(p: Project, origem: Id): { dist: Map<Id, number>; anterior: Map<Id, Id> } {
   const viz = vizinhos(p);
+  const anterior = new Map<Id, Id>();
   const dist = new Map<Id, number>([[origem, 0]]);
   const abertos = new Set<Id>([origem]);
   while (abertos.size > 0) {
@@ -62,17 +63,39 @@ function distancias(p: Project, origem: Id): Map<Id, number> {
       const d = (dist.get(atual) ?? 0) + comprimentoDaPeca(p, e);
       if (d < (dist.get(v) ?? Infinity) - 1e-12) {
         dist.set(v, d);
+        anterior.set(v, atual);
         abertos.add(v);
       }
     }
   }
-  return dist;
+  return { dist, anterior };
+}
+
+/**
+ * Peças do caminho entre o quadro e cada ponto do circuito, SEM repetição (união dos caminhos mais curtos; o quadro fica de fora).
+ * Usado pelos quantitativos elétricos (ficha C6): cada eletroduto entra uma vez, com o comprimento da própria peça.
+ * Ponto que a rede não alcança vai para `semCaminho`. Nunca lança.
+ */
+export function pecasDoCircuito(p: Project, circuito: { quadroId?: Id; pontos: { componenteId: Id }[] }): { pecas: Id[]; semCaminho: Id[] } {
+  const quadro = circuito.quadroId !== undefined ? p.elements[circuito.quadroId] : undefined;
+  if (!isComponent(quadro)) return { pecas: [], semCaminho: circuito.pontos.map((x) => x.componenteId) };
+  const { dist, anterior } = caminhos(p, quadro.id);
+  const pecas = new Set<Id>();
+  const semCaminho: Id[] = [];
+  for (const pt of circuito.pontos) {
+    if (!dist.has(pt.componenteId)) {
+      semCaminho.push(pt.componenteId);
+      continue;
+    }
+    for (let no: Id | undefined = pt.componenteId; no !== undefined && no !== quadro.id; no = anterior.get(no)) pecas.add(no);
+  }
+  return { pecas: [...pecas].sort(), semCaminho };
 }
 
 /** Comprimento do circuito (`quadroId` e `pontos` do circuito) pela rede de eletrodutos do projeto. Nunca lança. */
 export function comprimentoDoCircuito(p: Project, circuito: { quadroId?: Id; pontos: { componenteId: Id }[] }): ComprimentoDoCircuito {
   const quadro = circuito.quadroId !== undefined ? p.elements[circuito.quadroId] : undefined;
-  const dist = isComponent(quadro) ? distancias(p, quadro.id) : new Map<Id, number>();
+  const dist = isComponent(quadro) ? caminhos(p, quadro.id).dist : new Map<Id, number>();
   const porPonto: Record<Id, number | null> = {};
   for (const pt of circuito.pontos) porPonto[pt.componenteId] = dist.get(pt.componenteId) ?? null;
   const alcancados = Object.values(porPonto).filter((v): v is number => v !== null);

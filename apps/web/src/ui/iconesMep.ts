@@ -177,6 +177,12 @@ export const ICONES_MEP: Record<string, string> = {
     p('s3', 'M5.5 15.5L8 13H23.5L21 15.5Z') +
     '<circle class="ic-ln" cx="11" cy="14.3" r="1"/>' +
     '<circle class="ic-ln" cx="17" cy="14.3" r="1"/>',
+  // Quantitativos elétricos (Elétrica): planilha com cabeçalho, grade de linhas e a faixa laranja de total na base.
+  mepQuantitativosEletricos:
+    p('s1', 'M6 4H26V28H6Z') +
+    p('s2', 'M6 4H26V10H6Z') +
+    p('ln2', 'M6 16H26M6 22H26M14 10V28') +
+    p('fa', 'M6 24H26V28H6Z'),
   // Circuito (Elétrica): quadro à esquerda, tomada (quadrado) e luminária (círculo) à direita, ligados por uma linha em ramo azul.
   mepCircuito:
     p('s1', 'M3 10L5 8H12L10 10Z') +
