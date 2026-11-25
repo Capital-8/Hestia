@@ -17,7 +17,7 @@ Modelos: **H** = Haiku (mecânico, especificação fechada, verificação por te
 ## A. Ícones do MEP (decisão do dono: um ícone próprio e coerente por ferramenta)
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
-| A1 | H | Auditar todo botão e ferramenta de MEP e listar o ícone atual, o arquivo e o que a ferramenta faz (tabela em `docs/familias-parametricas/icones/AUDITORIA.md`) | — | em curso (orquestrador, 2026-11-25) |
+| A1 | H | Auditar todo botão e ferramenta de MEP e listar o ícone atual, o arquivo e o que a ferramenta faz (tabela em `docs/familias-parametricas/icones/AUDITORIA.md`) | — | integrada (63 botões auditados, 45 de 48 com ícone compartilhado; `AUDITORIA.md`) |
 | A2 | S | Ler `apps/web/src/ui/Icon.tsx`, escrever o guia de estilo (`icones/GUIA.md`: grade, traço, cores, convenções) e desenhar 4 ícones de referência: Tubo, Joelho, Verificar rede, Esgoto | — (roda junto com A1) | integrada (guia + 4 ícones; mepEsgoto precisa de glifo próprio: fica na A3c) |
 | A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | pendente |
 | A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada | A2 | pendente |
@@ -43,7 +43,7 @@ Contrato: um resolvedor PURO de nó recebe o encontro (trechos, bitolas, direç�
 Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnico Linha Elétrica 2026, `https://www.krona.com.br/wp-content/uploads/2026/02/CATALOGO-TENICO-LINHA-ELETRICA-2026.pdf`; o domínio já está liberado na rede do ambiente).
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
-| C1 | H | Baixar o PDF, transcrever as tabelas dimensionais (eletroduto, curvas, luvas, caixas) para `catalogosMep/kronaEletrica.ts` com fonte, hash e `CONFERIR`; README com anomalias | — | pendente |
+| C1 | H | Baixar o PDF, transcrever as tabelas dimensionais (eletroduto, curvas, luvas, caixas) para `catalogosMep/kronaEletrica.ts` com fonte, hash e `CONFERIR`; README com anomalias | — | em curso (orquestrador, 2026-11-25) |
 | C2 | H | Famílias elétricas Krona montadas do catálogo (eletroduto cortado, curva, luva, caixa) reaproveitando as receitas | C1 | pendente |
 | C3 | S | Tipos de eletroduto e a ferramenta Eletroduto (traço, curvas e luvas pelo resolvedor B1, caixas como nós, limite de curvas entre caixas) | B1, C2 | pendente |
 | C4 | S | Circuitos, quadro e cargas: modelo (circuito, pontos, quadro), quadro de distribuição como família, cor por circuito | C3 | pendente |
