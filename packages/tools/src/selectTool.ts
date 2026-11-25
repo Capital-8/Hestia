@@ -158,7 +158,7 @@ export class SelectTool extends ToolBase {
     const key = `${ly?.walls ?? ''}|${ly?.openings ?? ''}|${ly?.floors ?? ''}`;
     // Ficha N3: com ocultos, meio-tom ou bloqueados (tubos e conexões de outra disciplina) a cópia filtrada também é guardada, enquanto o
     // projeto, as camadas e os TRÊS conjuntos da vista forem os mesmos objetos (a visibilidade é memoizada por projeto e vista).
-    const conjuntos: readonly unknown[] = [vista.hiddenInView?.() ?? null, vista.halftoneInView?.() ?? null, vista.bloqueados?.() ?? null];
+    const conjuntos: readonly unknown[] = [ocultosNaVista(vista), meioTomNaVista(vista), bloqueadosNaVista(vista)];
     const c = this.viewCache;
     if (c && c.pr === pr && c.key === key && c.sets.length === conjuntos.length && c.sets.every((x, i) => x === conjuntos[i])) return c.view;
     const elements: Project['elements'] = {};

@@ -17,14 +17,18 @@ describe('Suplementos › Ferramentas externas', () => {
     ACTIONS.externalTools.run();
     expect(useUi.getState().dialog).toBe('externalTools');
   });
-  it('as demais abas "em breve" continuam desabilitadas e Colaborar expõe ações de sessão', () => {
-    const soon = TABS.filter((t) => t.id === 'sistemas' || t.id === 'analisar')
+  // Decisão da fase 2 (J3): Sistemas e Aço deixaram de ser placeholder (abrem a Biblioteca por sistema); só Analisar segue "em breve".
+  it('Analisar segue "em breve", Sistemas e Aço têm ações reais e Colaborar expõe ações de sessão', () => {
+    const soon = TABS.filter((t) => t.id === 'analisar')
       .flatMap((t) => t.panels.flatMap((p) => p.items));
     expect(soon.every((i) => i.kind === 'soon')).toBe(true);
 
-    const aco = TABS.find((t) => t.id === 'aco')!.panels.flatMap((p) => p.items)
-      .flatMap((i) => (i.kind === 'stack' ? i.items : [i]));
-    expect(aco.every((i) => i.kind === 'soon')).toBe(true);
+    const acoes = (id: string): string[] => TABS.find((t) => t.id === id)!.panels.flatMap((p) => p.items)
+      .flatMap((i) => (i.kind === 'stack' ? i.items : [i]))
+      .filter((i) => i.kind === 'action')
+      .map((i) => (i.kind === 'action' ? i.action : ''));
+    expect(acoes('sistemas')).toEqual(expect.arrayContaining(['familiasHidro', 'verificarRede', 'catalogoMep', 'familiasEletrico', 'familiasHvac']));
+    expect(acoes('aco')).toContain('familiasEstrutura');
 
     const colab = TABS.find((t) => t.id === 'colaborar')!;
     const colabActions = colab.panels.flatMap((p) => p.items)
