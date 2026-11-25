@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { bitolaNumerica } from '../catalogoMep.ts';
+import { KRONA_ELETRICA } from '../catalogosMep/kronaEletrica.ts';
 import { tentar, type Env } from '../expressao.ts';
 import type { Familia, Valor } from '../tipos.ts';
 import type { Corpo } from '../tiposCorpo.ts';
@@ -8,9 +10,10 @@ import { LUMINARIAS } from './luminarias.ts';
 
 /*
  * Ficha F6: luminárias (plafon redondo, painéis LED, spot, pendente, arandela e fita linear). Este teste fica no modelo (sem o
- * motor): confere a validação, o id e a ordem de cada família, categoria, disciplina e IFC, as duas ligações (força e eletroduto)
- * com o diâmetro De do DN e direção unitária, o símbolo de planta de teto ou de parede, e o volume do corpo principal contra a
- * conta analítica (±1 %). A discretização do círculo (32 lados) dá 0,64 % a menos, dentro da tolerância.
+ * motor): confere a validação, o id e a ordem de cada família, categoria, disciplina e IFC, a ligação de força e as entradas de
+ * eletroduto (a original e as laterais, ficha C8a), com o diâmetro (entradas: catálogo Krona do DN; força: De) e direção unitária,
+ * o símbolo de planta de teto ou de parede, e o volume do corpo principal contra a conta analítica (±1 %). A discretização do círculo
+ * (32 lados) dá 0,64 % a menos, dentro da tolerância.
  */
 
 /** Ambiente de um tipo: valores do tipo (ou padrão), `extra` por cima, e as fórmulas calculadas até estabilizar. */
@@ -33,6 +36,25 @@ function numero(src: string, env: Env): number {
   if (!r.ok || typeof r.valor !== 'number') throw new Error(`fórmula não numérica: ${src}`);
   return r.valor;
 }
+
+/** Diâmetro (mm) das entradas de eletroduto do DN, lido do catálogo Krona (eletroduto rígido soldável, coluna D). */
+function diametroKrona(dn: number): number {
+  const linha = KRONA_ELETRICA.itens.find((i) => i.id === 'tubo_eletroduto_de_pvc_rigido_soldavel_3m')?.linhas.find((l) => bitolaNumerica(l.bitola) === dn);
+  const d = linha?.valores['D'];
+  if (d === undefined) throw new Error(`DN ${dn} sem diâmetro D no catálogo Krona`);
+  return d;
+}
+
+/** Ids das ligações de eletroduto de cada família: a original (fundo) e as entradas laterais, como a ficha C8a as deixou. */
+const ELETRODUTOS_ESPERADOS: Record<string, string[]> = {
+  fam_luminaria_plafon_redondo: ['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_frente'],
+  fam_luminaria_painel_led_quadrado: ['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_frente'],
+  fam_luminaria_painel_led_retangular: ['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_frente'],
+  fam_luminaria_spot_embutido: ['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_frente'],
+  fam_luminaria_pendente: ['eletroduto'],
+  fam_luminaria_arandela: ['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_topo', 'eletroduto_base'],
+  fam_luminaria_linear: ['eletroduto', 'eletroduto_esq', 'eletroduto_frente'],
+};
 
 const corpoPrincipal = (f: Familia): Corpo => {
   const c = f.corpos?.[0];
@@ -119,9 +141,10 @@ describe('luminárias: cadastro (ficha F6)', () => {
       expect(simbolo?.primitivos.length).toBeGreaterThan(0);
     });
 
-    it(`${f.id}: duas ligações, uma de força e uma de eletroduto, com potência e tensão no ponto de força`, () => {
-      const dominios = (f.ligacoes ?? []).map((l) => l.dominio).sort();
-      expect(dominios).toEqual(['eletrica_forca', 'eletroduto']);
+    it(`${f.id}: ligação de força com potência e tensão, e eletrodutos: a original mais as entradas laterais`, () => {
+      expect(new Set((f.ligacoes ?? []).map((l) => l.dominio))).toEqual(new Set(['eletrica_forca', 'eletroduto']));
+      const eletrodutos = (f.ligacoes ?? []).filter((l) => l.dominio === 'eletroduto').map((l) => l.id);
+      expect(eletrodutos).toEqual(ELETRODUTOS_ESPERADOS[f.id]);
       const forca = f.ligacoes?.find((l) => l.dominio === 'eletrica_forca');
       expect(Object.keys(forca?.propriedades ?? {}).sort()).toEqual(['potencia', 'tensao']);
     });
@@ -131,11 +154,11 @@ describe('luminárias: cadastro (ficha F6)', () => {
 describe('luminárias: ligações por tipo', () => {
   for (const f of LUMINARIAS) {
     for (const tipo of f.tipos) {
-      it(`${f.id} tipo ${tipo.id}: diâmetro De do DN do tipo e direções unitárias`, () => {
+      it(`${f.id} tipo ${tipo.id}: diâmetro do DN do tipo (entradas de eletroduto: catálogo Krona; força: De) e direções unitárias`, () => {
         const env = ambiente(f, tipo.id);
         const dn = Number(tipo.valores['DN']);
         for (const l of f.ligacoes ?? []) {
-          expect(numero(l.diametro ?? '0', env)).toBeCloseTo(deDn(dn), 9);
+          expect(numero(l.diametro ?? '0', env)).toBeCloseTo(l.dominio === 'eletroduto' ? diametroKrona(dn) : deDn(dn), 9);
           expect(Math.hypot(...l.direcao.map((s) => numero(s, env)))).toBeCloseTo(1, 9);
         }
       });

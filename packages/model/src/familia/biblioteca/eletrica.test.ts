@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { bitolaNumerica } from '../catalogoMep.ts';
+import { KRONA_ELETRICA } from '../catalogosMep/kronaEletrica.ts';
 import { tentar, type Env } from '../expressao.ts';
 import type { Familia, Valor } from '../tipos.ts';
 import type { Corpo } from '../tiposCorpo.ts';
@@ -31,6 +33,14 @@ function numero(src: string, env: Env): number {
   const r = tentar(src, env);
   if (!r.ok || typeof r.valor !== 'number') throw new Error(`fórmula não numérica: ${src}`);
   return r.valor;
+}
+
+/** Diâmetro (mm) das entradas de eletroduto do DN, lido do catálogo Krona (eletroduto rígido soldável, coluna D). */
+function diametroKrona(dn: number): number {
+  const linha = KRONA_ELETRICA.itens.find((i) => i.id === 'tubo_eletroduto_de_pvc_rigido_soldavel_3m')?.linhas.find((l) => bitolaNumerica(l.bitola) === dn);
+  const d = linha?.valores['D'];
+  if (d === undefined) throw new Error(`DN ${dn} sem diâmetro D no catálogo Krona`);
+  return d;
 }
 
 const porId = (id: string): Familia => {
@@ -143,9 +153,14 @@ describe('elétrica: tomada e interruptor (força, eletroduto e planta)', () => 
   for (const id of ['fam_tomada_2p_t', 'fam_interruptor_simples']) {
     const f = porId(id);
 
-    it(`${id}: duas ligações, uma de força e uma de eletroduto, com potência e tensão`, () => {
-      const dominios = (f.ligacoes ?? []).map((l) => l.dominio).sort();
-      expect(dominios).toEqual(['eletrica_forca', 'eletroduto']);
+    it(`${id}: ligações de eletroduto nas quatro faces + a original, com o diâmetro Krona do DN, e ligação de força com potência e tensão`, () => {
+      expect(new Set((f.ligacoes ?? []).map((l) => l.dominio))).toEqual(new Set(['eletrica_forca', 'eletroduto']));
+      const eletrodutos = (f.ligacoes ?? []).filter((l) => l.dominio === 'eletroduto');
+      expect(eletrodutos.map((l) => l.id)).toEqual(['eletroduto', 'eletroduto_esq', 'eletroduto_dir', 'eletroduto_topo', 'eletroduto_base']);
+      for (const tipo of f.tipos) {
+        const env = ambiente(f, tipo.id);
+        for (const l of eletrodutos) expect(numero(l.diametro ?? '0', env)).toBeCloseTo(diametroKrona(Number(tipo.valores['DN'])), 9);
+      }
       const forca = f.ligacoes?.find((l) => l.dominio === 'eletrica_forca');
       expect(Object.keys(forca?.propriedades ?? {}).sort()).toEqual(['potencia', 'tensao']);
     });
