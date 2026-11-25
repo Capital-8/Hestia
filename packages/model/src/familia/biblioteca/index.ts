@@ -18,6 +18,7 @@ import { LUMINARIAS } from './luminarias.ts';
 import { HVAC } from './hvac.ts';
 import { KRONA_ESGOTO_FAMILIAS } from './kronaEsgoto.ts';
 import { KRONA_SOLDAVEL_FAMILIAS } from './kronaSoldavel.ts';
+import { KRONA_ELETRICA_FAMILIAS } from './kronaEletrica.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -54,6 +55,7 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...HVAC,
   ...KRONA_ESGOTO_FAMILIAS,
   ...KRONA_SOLDAVEL_FAMILIAS,
+  ...KRONA_ELETRICA_FAMILIAS,
 ];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */

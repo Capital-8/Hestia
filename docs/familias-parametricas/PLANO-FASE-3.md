@@ -22,8 +22,8 @@ Modelos: **H** = Haiku (mecânico, especificação fechada, verificação por te
 | A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | integrada (4 de 5 bons; mepTubosConexoes lê como estante: refeito na A3b) |
 | A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada; e REFAZER mepTubosConexoes | A3a | integrada (bons: redução, prumada, tubos e conexões; razoáveis: tê, luva; fracos: junção e tampão, corrigidos na A3c) |
 | A3c | H | Ícones de sistema: esgoto (glifo refeito: sifão), água fria, elétrico, HVAC, estrutura; e corrigir mepJuncao e mepTampao | A3b | integrada (5 emblemas de sistema; esgoto = sifão em U com seta; junção e tampão corrigidos; fracos: mepEstrutura no tema escuro, mepLuva lembra haltere, leitura a 20 px não conferida) |
-| A3d | H | (EM CURSO desde 2026-11-25) Ícones da elétrica: eletroduto, eletrocalha, caixa, circuito, quadro, tomada, interruptor, luminária; e dos "em breve": aparelho sanitário, bandeja, tubo flexível, equipamento | A2 | pendente |
-| A4 | H | Registrar todos em `Icon.tsx`, trocar nas faixas e na Biblioteca, teste que reprova ícone MEP repetido ou ausente, captura de cada um em claro e escuro | A3a–A3d | pendente |
+| A3d | H | (INTEGRADA 2026-11-25; fracos: tomada x interruptor parecidos a 32 px, eletrocalha com fios que somem, tecla do interruptor) Ícones da elétrica: eletroduto, eletrocalha, caixa, circuito, quadro, tomada, interruptor, luminária; e dos "em breve": aparelho sanitário, bandeja, tubo flexível, equipamento | A2 | pendente |
+| A4 | H | (EM CURSO desde 2026-11-25) Registrar todos em `Icon.tsx`, trocar nas faixas e na Biblioteca, teste que reprova ícone MEP repetido ou ausente, captura de cada um em claro e escuro | A3a–A3d | pendente |
 | A5 | S | Revisão visual de consistência (olhar as capturas, pedir correções) | A4 | pendente |
 
 ## B. Motor de rede inteligente (as cinco situações do dono)

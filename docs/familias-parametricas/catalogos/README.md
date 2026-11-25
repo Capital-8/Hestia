@@ -43,5 +43,12 @@ PDF: 47 páginas, SHA-256 `53e4a8f9…d3a5e`. Transcrito só o trecho de eletrod
 - **Rótulos das colunas** (`kronaEletrica.ts`): o gerador usa o dicionário de tubos de esgoto, que não vale para caixas. Os rótulos foram trocados à mão por "letra do desenho (CONFERIR)"; o significado de B, C, D, d, A, E, R, Cm e Ccm precisa vir do desenho do fabricante.
 - **Tipo "outro"**: curvas de 135° e 180°, eletroduto corrugado e prolongador ficam como `outro`, porque o gerador só reconhece palavras de tubo e conexão.
 
+### Famílias elétricas montadas (ficha C2, `biblioteca/kronaEletrica.ts`)
+- Nove famílias: eletroduto soldável com bolsa e cortado, curva 90° soldável, luva soldável, luva de pressão para corrugado flexível (DN 20 a 32; a luva soldável tem DN 20 e 25) e caixas 4×2, 4×4 (códigos 1266 e 2369) e octogonal (1255), todas com geometria retangular.
+- **Espessura da parede NÃO consta do catálogo.** Não se deriva de D e d (o significado dessas letras não está confirmado). Usa-se o parâmetro `e` de TIPO com valor fixo **provisório de 2 mm** em todos os tipos (`ESPESSURA_ELETRICA`), nome e descrição marcados "CONFERIR (não consta do catálogo)". Não é valor de norma.
+- D é lido como diâmetro externo do tubo e da bolsa (CONFERIR). Caixas: L é a maior face, A a menor, P é a letra C (CONFERIR). Entradas: quatro de 20 mm, uma por face, suposição (o catálogo não diz quantas nem onde).
+- IFC das caixas: `IFCJUNCTIONBOX` não existe em `ClasseIfc`; usa-se `IFCCABLECARRIERFITTING`/`OTHER`, como em `eletricaCaixas.ts`.
+- Fora desta rodada: roscáveis (bitola em polegada, sem bolsa), curvas 135° e 180° (roscáveis, sem receita de geometria), curva 90° longa roscável, corrugados de parede e flexíveis em rolo (sem receita de tubo sem bolsa), caixas para laje e prolongadores.
+
 ## Como criar o seu próprio (editor de famílias)
 Faixa Propriedades > **Catálogo MEP** (ou Gerenciar > Catálogo MEP). Em "Meus catálogos": importar CSV (colunas `bitola`, `codigo` opcional e os ids de parâmetro B, Db, De, e, Z, C, C1, C2, Z2, B2, Db2), editar células, copiar um item do fabricante (as letras D, d, A viram Db, De, Aext), marcar como conferido (nome e data) e **Criar família** (escolha a peça e o sistema). A família sai com as fórmulas embutidas, em "Meus modelos" e aberta no editor. Os catálogos próprios ficam no navegador (como "Meus modelos").

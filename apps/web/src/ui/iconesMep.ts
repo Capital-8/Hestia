@@ -153,4 +153,92 @@ export const ICONES_MEP: Record<string, string> = {
     p('s2', 'M7 5H19V8H14.5V19H19V22H7V19H11.5V8H7Z') +
     p('s2', 'M23 15.5H28V22H23Z') +
     '<circle class="ic-s1" cx="25.5" cy="15.5" r="2.5"/>',
+  // Eletroduto (Elétrica): tubo fino e reto com bolsa na ponta esquerda e uma curva suave de 90° que desce num trecho vertical. Sem caixa.
+  mepEletroduto:
+    p('s2', 'M3 7.5H6V13.5H3Z') +
+    p('s1', 'M6 9H20.5V10.5H6Z') +
+    p('s3', 'M6 10.5H20.5V12H6Z') +
+    p('s1', 'M20.5 9A8.5 8.5 0 0 1 29 17.5L26 17.5A5.5 5.5 0 0 0 20.5 12Z') +
+    p('s2', 'M26 17.5H27.5V28H26Z') +
+    p('s3', 'M27.5 17.5H29V28H27.5Z'),
+  // Eletrocalha (Elétrica): calha em U aberta em perspectiva (borda superior em trapézio, piso escuro) com dois fios (cilindros claros) dentro.
+  mepEletrocalha:
+    p('s1', 'M8 6H24L29 16H3Z') +
+    p('s3', 'M10 8H22L26 14H6Z') +
+    p('s2', 'M3 16H29V24H3Z') +
+    '<circle class="ic-s2" cx="12" cy="11" r="2"/>' +
+    '<circle class="ic-s2" cx="20" cy="11" r="2"/>',
+  // Caixa de luz 4x2 (Elétrica): caixa embutida em perspectiva, com a tampa aberta para cima (placa atrás) e dois furos de entrada na cavidade.
+  mepCaixaLuz:
+    p('s1', 'M7 12L9 4H27L25 12Z') +
+    p('s2', 'M3 16H21V27H3Z') +
+    p('s1', 'M3 16L7 12H25L21 16Z') +
+    p('s3', 'M21 16L25 12V23L21 27Z') +
+    p('s3', 'M5.5 15.5L8 13H23.5L21 15.5Z') +
+    '<circle class="ic-ln" cx="11" cy="14.3" r="1"/>' +
+    '<circle class="ic-ln" cx="17" cy="14.3" r="1"/>',
+  // Circuito (Elétrica): quadro à esquerda, tomada (quadrado) e luminária (círculo) à direita, ligados por uma linha em ramo azul.
+  mepCircuito:
+    p('s1', 'M3 10L5 8H12L10 10Z') +
+    p('s2', 'M3 10H10V22H3Z') +
+    p('bl', 'M10 15H16V17H10Z') +
+    p('bl', 'M15 8H17V24H15Z') +
+    p('bl', 'M17 7H22V9H17Z') +
+    p('bl', 'M17 22H21.5V24H17Z') +
+    p('s2', 'M22 4H29V12H22Z') +
+    '<circle class="ic-gl" cx="25" cy="23" r="3.5"/>',
+  // Quadro de distribuição (Elétrica): caixa com porta aberta à direita e, na cavidade, uma fileira de 4 disjuntores (barras verticais).
+  mepQuadro:
+    p('s1', 'M3 5L6 2H24L21 5Z') +
+    p('s2', 'M3 5H21V27H3Z') +
+    p('s3', 'M6 8H18V24H6Z') +
+    p('s1', 'M6.5 10H8.5V21H6.5ZM9.5 10H11.5V21H9.5ZM12.5 10H14.5V21H12.5ZM15.5 10H17.5V21H15.5Z') +
+    p('s1', 'M21 5L27 7V25L21 27Z') +
+    '<path class="ic-ln" d="M23.5 14V18"/>',
+  // Espelho de tomada (Elétrica): placa com bisel (direita e base escuras), dois furos redondos e o furo de terra com pino.
+  mepTomada:
+    p('s1', 'M5 5H25V25H5Z') +
+    p('s3', 'M25 5H27V27H25ZM5 25H27V27H5Z') +
+    '<circle class="ic-s3" cx="11" cy="12" r="2.2"/>' +
+    '<circle class="ic-s3" cx="19" cy="12" r="2.2"/>' +
+    '<circle class="ic-s3" cx="15" cy="20" r="2.6"/>' +
+    '<circle class="ic-s2" cx="15" cy="20" r="1"/>',
+  // Espelho de interruptor (Elétrica): placa com bisel e tecla basculante no centro (metade clara e escura), com o ponto de clique laranja.
+  mepInterruptor:
+    p('s1', 'M5 5H25V25H5Z') +
+    p('s3', 'M25 5H27V27H25ZM5 25H27V27H5Z') +
+    p('s1', 'M11 9H19V15H11Z') +
+    p('s3', 'M11 15H19V21H11Z') +
+    '<circle class="ic-fa" cx="15" cy="12" r="1.4"/>',
+  // Plafon (Elétrica): cúpula redonda sobre um disco de base, com três raios de luz curtos saindo para baixo.
+  mepLuminaria:
+    p('s1', 'M7 16C7 10 10.5 7 16 7C21.5 7 25 10 25 16Z') +
+    p('s2', 'M4 16H28V18.5C28 19.9 22.6 21 16 21C9.4 21 4 19.9 4 18.5Z') +
+    p('ln2', 'M9 24L7.5 28M16 24V29M23 24L24.5 28'),
+  // Aparelho sanitário (Hidráulica): vaso em 3D, caixa acoplada atrás (frente, topo e lateral) e bacia com assento e abertura escura.
+  mepAparelhoSanitario:
+    p('s2', 'M7 6H23V13H7Z') +
+    p('s1', 'M7 6L9.5 3.5H25.5L23 6Z') +
+    p('s3', 'M23 6L25.5 3.5V10.5L23 13Z') +
+    p('s2', 'M4.5 14H26.5V18C26.5 23.5 22 27 15.5 27C9 27 4.5 23.5 4.5 18Z') +
+    p('s1', 'M5.5 14A10.5 3.5 0 1 0 26.5 14A10.5 3.5 0 1 0 5.5 14Z') +
+    p('s3', 'M8.5 14A7.5 2.2 0 1 0 23.5 14A7.5 2.2 0 1 0 8.5 14Z'),
+  // Bandeja de cabos tipo escada (Elétrica): duas longarinas (a de trás mais fina) e quatro degraus verticais entre elas, com vãos abertos.
+  mepBandeja:
+    p('s1', 'M3 8H29V10H3Z') +
+    p('s3', 'M5 10H7V22H5ZM11 10H13V22H11ZM17 10H19V22H17ZM23 10H25V22H23Z') +
+    p('s2', 'M3 22H29V25H3Z'),
+  // Duto flexível (Dutos): tubo ondulado levemente curvo, em 10 anéis alternando luz e sombra (espiral corrugada).
+  mepTuboFlexivel:
+    p('s1', 'M10.37 24.26L11.51 21.57L5.01 18.47L3.63 21.74ZM12.7 19.38L13.91 17.68L8.37 13.08L6.58 15.58ZM15.1 16.45L16.25 15.65L12.75 9.35L10.42 10.99ZM17.37 15.18L18.55 14.97L18.13 7.79L15.35 8.26ZM19.91 15.04L21.52 15.44L23.8 8.6L20.97 7.92Z') +
+    p('s3', 'M11.51 21.57L12.7 19.38L6.58 15.58L5.01 18.47ZM13.91 17.68L15.1 16.45L10.42 10.99L8.37 13.08ZM16.25 15.65L17.37 15.18L15.35 8.26L12.75 9.35ZM18.55 14.97L19.91 15.04L20.97 7.92L18.13 7.79ZM21.52 15.44L23.39 16.22L26.61 9.78L23.8 8.6Z'),
+  // Equipamento genérico (Mecânica): caixa em 3D com rotor de quatro pás no painel frontal e um LED azul de status.
+  mepEquipamento:
+    p('s2', 'M4 9H22V27H4Z') +
+    p('s1', 'M4 9L8 5H26L22 9Z') +
+    p('s3', 'M22 9L26 5V23L22 27Z') +
+    p('s3', 'M6.5 18A6.5 6.5 0 1 0 19.5 18A6.5 6.5 0 1 0 6.5 18Z') +
+    p('s1', 'M12.44 17.08L12.5 12.91L15.83 13.36L14.16 17.88ZM13.92 17.44L18.09 17.5L17.64 20.83L13.12 19.16ZM13.56 18.92L13.5 23.09L10.17 22.64L11.84 18.12ZM12.08 18.56L7.91 18.5L8.36 15.17L12.88 16.84Z') +
+    p('s2', 'M11.6 18A1.4 1.4 0 1 0 14.4 18A1.4 1.4 0 1 0 11.6 18Z') +
+    '<circle class="ic-bl" cx="19" cy="12" r="1.2"/>',
 };
