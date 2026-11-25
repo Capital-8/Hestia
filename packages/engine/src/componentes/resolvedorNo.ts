@@ -116,6 +116,10 @@ function fecha(entrada: EntradaNo, tipo: TipoConexao, familiaId: string, direcoe
   const familia = entrada.familias?.[familiaId];
   const ponto = [0, 0, 0] as [number, number, number];
   const posicao = familia ? posicionarConexao(familia, ponto, conexao) : null;
+  // Família de bitola composta (COD, sem DN) sem tipo para o par: não há peça dessa bitola no catálogo, então não se inventa nada.
+  if (familia && posicao === null && !familia.parametros.some((p) => p.id === 'DN') && familia.parametros.some((p) => p.id === 'COD')) {
+    return semSolucao('bitola_fora_da_lista', `Não há ${NOME_DO_TIPO[tipo]} DN ${Math.max(...diametros)} x ${Math.min(...diametros)} na linha ${entrada.tipo.linha ?? 'deste tipo'}: o trecho fica sem essa conexão.`);
+  }
   return { status: 'ok', conexao, recuos: posicao ? posicao.recuos : direcoes.map(() => 0) };
 }
 

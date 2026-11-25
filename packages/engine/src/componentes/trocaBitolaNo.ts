@@ -49,7 +49,7 @@ function idNovo(ctx: Ctx, base: string): Id {
 function adicionarPeca(ctx: Ctx, fam: Familia, base: string, pos: PosicaoConexao): Id {
   if (!ctx.p.componentFamilies?.[fam.id]) ctx.upserts.set(fam.id, structuredClone(fam));
   const id = idNovo(ctx, base);
-  ctx.adicionar.push({ id, kind: 'component', familyId: fam.id, typeId: null, levelId: ctx.tubo.comp.levelId, x: pos.x, y: pos.y, z: pos.z, rotation: pos.rotation, inclinacao: pos.inclinacao, mirrored: false, values: pos.values, mark: '' });
+  ctx.adicionar.push({ id, kind: 'component', familyId: fam.id, typeId: pos.typeId ?? null, levelId: ctx.tubo.comp.levelId, x: pos.x, y: pos.y, z: pos.z, rotation: pos.rotation, inclinacao: pos.inclinacao, mirrored: false, values: pos.values, mark: '' });
   return id;
 }
 

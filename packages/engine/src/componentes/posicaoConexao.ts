@@ -70,6 +70,8 @@ export interface PosicaoConexao {
    * (famílias antigas): o trecho vai até o ponto, como sempre foi.
    */
   recuos: number[];
+  /** Tipo da família escolhido para o par de bitolas (só nas famílias de bitola composta, sem `DN`). */
+  typeId?: string;
 }
 
 type M3 = [V3, V3, V3];
@@ -168,28 +170,73 @@ function valoresDaConexao(familia: Familia, c: ConexaoEncontro): Record<string, 
   return valores;
 }
 
+/** Família de bitola composta: tem `COD` (código do produto) e não tem `DN`; a bitola é o par (maior, menor). */
+const ehBitolaComposta = (familia: Familia): boolean => !familia.parametros.some((p) => p.id === 'DN') && familia.parametros.some((p) => p.id === 'COD');
+
+/** Par (maior, menor) do nome de um tipo, tipo `DN 100 x 75` ou `100x75`; `null` se o nome não tem o par. */
+function paresDoNome(nome: string): [number, number] | null {
+  const m = /(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i.exec(nome);
+  return m?.[1] !== undefined && m[2] !== undefined ? [Number(m[1].replace(',', '.')), Number(m[2].replace(',', '.'))] : null;
+}
+
+/** Tipo de bitola composta cujo par é o da conexão (maior e menor dos DN), com o código; `null` se o catálogo não tem o par. */
+function tipoDoPar(familia: Familia, c: ConexaoEncontro): { typeId: string; codigo: number } | null {
+  const maior = Math.max(...c.diametros);
+  const menor = Math.min(...c.diametros);
+  for (const t of familia.tipos) {
+    const cod = t.valores.COD;
+    const par = paresDoNome(t.nome);
+    if (typeof cod === 'number' && par && iguais(par[0], maior) && iguais(par[1], menor)) return { typeId: t.id, codigo: cod };
+  }
+  return null;
+}
+
+/**
+ * Nas ligações de bitola composta, a ponta de maior diâmetro vai no trecho de maior DN (e a de menor, no de menor). Com trechos
+ * colineares as duas permutações geométricas servem; esta ordem escolhe a certa. DN iguais não impõem ordem.
+ */
+function ordemConsistente(lista: LigacaoResolvida[], dns: number[]): boolean {
+  for (let i = 0; i < lista.length; i++) {
+    for (let j = i + 1; j < lista.length; j++) {
+      const di = dns[i] ?? 0;
+      const dj = dns[j] ?? 0;
+      if (iguais(di, dj)) continue;
+      const li = lista[i]?.diametro ?? 0;
+      const lj = lista[j]?.diametro ?? 0;
+      if (Math.sign(li - lj) !== Math.sign(di - dj)) return false;
+    }
+  }
+  return true;
+}
+
 /**
  * Posiciona a instância de `familia` no `ponto` (m) de modo que cada ligação dela aponte na direção do trecho que chega.
  * Casa as ligações da família com as direções por permutação (primeiro exigindo o DN igual, depois sem exigir); devolve `null`
  * se a família não tem as ligações necessárias ou a geometria não casa. A origem da conexão fica no ponto de encontro.
+ * Família de bitola composta (sem `DN`, com `COD`): o tipo é o do par de bitolas da conexão; sem tipo para o par, `null`.
  */
 export function posicionarConexao(familia: Familia, ponto: PontoSegmento, conexao: ConexaoEncontro): PosicaoConexao | null {
-  const values = valoresDaConexao(familia, conexao);
-  const ligs: LigacaoResolvida[] = resolverFamilia(familia, { valores: { ...values, L: 1000 } }).ligacoes ?? [];
+  const composta = ehBitolaComposta(familia);
+  const tipo = composta ? tipoDoPar(familia, conexao) : null;
+  if (composta && tipo === null) return null;
+  const values = { ...valoresDaConexao(familia, conexao), ...(tipo ? { COD: tipo.codigo } : {}) };
+  const ligs: LigacaoResolvida[] = resolverFamilia(familia, { ...(tipo ? { tipoId: tipo.typeId } : {}), valores: { ...values, L: 1000 } }).ligacoes ?? [];
   const n = conexao.direcoes.length;
   if (ligs.length !== n) return null;
-  for (const exigirDn of [true, false]) {
+  const criterios: Array<'dn' | 'ordem' | 'livre'> = composta ? ['ordem', 'livre'] : ['dn', 'livre'];
+  for (const criterio of criterios) {
     for (const perm of permutacoes(n)) {
       const escolhidas = perm.map((i) => ligs[i]);
       if (escolhidas.some((l) => l === undefined)) continue;
       const lista = escolhidas as LigacaoResolvida[];
-      if (exigirDn && lista.some((l, k) => !iguais(l.diametro * 1000, conexao.diametros[k] ?? 0))) continue;
+      if (criterio === 'dn' && lista.some((l, k) => !iguais(l.diametro * 1000, conexao.diametros[k] ?? 0))) continue;
+      if (criterio === 'ordem' && !ordemConsistente(lista, conexao.diametros)) continue;
       const locais = lista.map((l) => l.direcao as V3);
       const r = rotacaoQueAlinha(locais, conexao.direcoes);
       if (!r) continue;
       const o = decompor(r);
       const recuos = lista.map((l) => (l.encaixe === undefined ? 0 : Math.max(0, Math.hypot(l.posicao[0], l.posicao[1], l.posicao[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0))));
-      return { x: ponto[0], y: ponto[1], z: ponto[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos };
+      return { x: ponto[0], y: ponto[1], z: ponto[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos, ...(tipo ? { typeId: tipo.typeId } : {}) };
     }
   }
   return null;

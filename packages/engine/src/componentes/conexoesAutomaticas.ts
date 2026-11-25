@@ -1,3 +1,4 @@
+import type { Familia } from '@hestia/model';
 import type { PontoSegmento } from './orientarSegmento.ts';
 import { posicionarConexao, TOLERANCIA_ANGULO, type ConexaoEncontro, type PosicaoConexao, type RegrasConexao, type TipoConexao } from './posicaoConexao.ts';
 import { resolverNo, type SolucaoNo } from './resolvedorNo.ts';
@@ -65,9 +66,9 @@ const NOME_DO_TIPO: Record<TipoConexao, string> = { luva: 'luva', curva90: 'joel
  * Conexão para o encontro das pontas `pontaA` de `trechoA` e `pontaB` de `trechoB` (as duas no mesmo ponto), com o aviso do motivo
  * quando não há conexão. Camada fina sobre `resolverNo`: ver as regras lá (180° luva ou redução, 90°, 135°, avisos).
  */
-export function avaliarEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', trechoB: TrechoEncontro, pontaB: 'a' | 'b', regras: RegrasConexao): ResultadoConexao {
+export function avaliarEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', trechoB: TrechoEncontro, pontaB: 'a' | 'b', regras: RegrasConexao, familias?: Readonly<Record<string, Familia>>): ResultadoConexao {
   const sai = (t: TrechoEncontro, p: 'a' | 'b'): V3 => (p === 'a' ? vetor(t.a, t.b) : vetor(t.b, t.a));
-  return emResultado(resolverNo({ tipo: { regras }, no: { tipo: 'encontro', trechos: [{ direcao: sai(trechoA, pontaA), dn: trechoA.dn }, { direcao: sai(trechoB, pontaB), dn: trechoB.dn }] } }));
+  return emResultado(resolverNo({ tipo: { regras }, familias, no: { tipo: 'encontro', trechos: [{ direcao: sai(trechoA, pontaA), dn: trechoA.dn }, { direcao: sai(trechoB, pontaB), dn: trechoB.dn }] } }));
 }
 
 /** Conexão do encontro (ou `null`); o motivo da ausência sai de `avaliarEncontro`. */

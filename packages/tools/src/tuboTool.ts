@@ -1,9 +1,10 @@
 import type { Vec2 } from '@hestia/geom';
 import { avaliarDerivacao, avaliarEncontro, bitolaPermitida, comprimentoDoSegmento, encaixarLigacoes, idTuboDoProjeto, ligacaoNoMundo, posicionarConexao, regrasDoTubo, resolverComponente, resolverFamilia, trechoDeTubo, type ConexaoEncontro, type LigacaoNoMundo, type LigacaoResolvida, type PontoSegmento, type PosicaoConexao, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
-import { familiaDaBiblioteca, formatQuantity, isComponent, newId, unitsOf, type Familia, type Id, type Project } from '@hestia/model';
+import { familiaDaBiblioteca, formatQuantity, isComponent, newId, unitsOf, type Component, type Familia, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
+import { planejarPrumada, recuosDoJoelho, type ModoCota } from './tuboPrumada.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -16,8 +17,9 @@ export const FAMILIA_TUBO_BIBLIOTECA = 'fam_tubo_esgoto';
 /**
  * Ajustes da ferramenta que o painel `TuboProperties` edita: DN em mm, altura (z) dos pontos clicados em m e declividade (ficha M2) em %:
  * com valor, o ponto final fica a `declividade` % da distância em planta acima (positiva) ou abaixo (negativa) do inicial. 0 = nível.
+ * `modoCota` (ficha B4): como desenhar um trecho entre cotas diferentes com declividade 0 (ver `tuboPrumada.ts`).
  */
-export const opcoesTubo: { dn: number; z: number; declividade: number } = { dn: 50, z: 0, declividade: 0 };
+export const opcoesTubo: { dn: number; z: number; declividade: number; modoCota: ModoCota } = { dn: 50, z: 0, declividade: 0, modoCota: 'subir_primeiro' };
 
 /** Tolerância mínima (m) da captura de ligação aberta; cresce com o zoom (8 px). */
 const TOLERANCIA_MINIMA = 0.05;
@@ -231,7 +233,7 @@ export class TuboTool extends ToolBase {
       return null;
     }
     const cid = newId('cm');
-    this.env.exec({ type: 'addComponent', component: { id: cid, kind: 'component', familyId: fam.id, typeId: null, levelId: this.env.levelId(), x: pos.x, y: pos.y, z: pos.z, rotation: pos.rotation, inclinacao: pos.inclinacao, mirrored: false, values: pos.values, mark: '' } });
+    this.env.exec({ type: 'addComponent', component: { id: cid, kind: 'component', familyId: fam.id, typeId: pos.typeId ?? null, levelId: this.env.levelId(), x: pos.x, y: pos.y, z: pos.z, rotation: pos.rotation, inclinacao: pos.inclinacao, mirrored: false, values: pos.values, mark: '' } });
     alvos.forEach((al, k) => this.env.exec({ type: 'connectComponents', a: cid, ligacaoA: pos.ligacoes[k] ?? '', b: al.componentId, ligacaoB: al.ligacaoId }));
     return pos;
   }
@@ -250,7 +252,7 @@ export class TuboTool extends ToolBase {
     const outro = projeto.elements[pt.alvo.componentId];
     const ext = isComponent(outro) && outro.familyId === ctx.familia.id ? extremosDoTubo(projeto, outro) : null;
     if (!ext || !regras) return direto();
-    const r = avaliarEncontro({ a: ext.a, b: ext.b, dn: ext.dn }, pt.alvo.ligacaoId === ext.idA ? 'a' : 'b', novo, ponta, regras);
+    const r = avaliarEncontro({ a: ext.a, b: ext.b, dn: ext.dn }, pt.alvo.ligacaoId === ext.idA ? 'a' : 'b', novo, ponta, regras, projeto.componentFamilies);
     if (r.aviso) avisos.push(r.aviso);
     // Sem nenhuma conexão do domínio no projeto o tubo liga direto (como antes); com elas, ângulo sem regra fica sem ligação.
     if (!r.conexao) return temConexoes(projeto, regras) ? undefined : direto();
@@ -326,29 +328,52 @@ export class TuboTool extends ToolBase {
     this.env.exec({ type: 'updateComponent', id, patch: { x: t.x, y: t.y, z: t.z, rotation: t.rotation, inclinacao: t.inclinacao, values: { ...c.values, L: (total - recuo) * 1000 } } });
   }
 
-  /** Cria o trecho `a`→`b`, divide tubos onde há derivação, instala as conexões e liga as pontas: tudo num único passo de desfazer. A cadeia continua do fim (a menos que o fim tenha encaixado numa rede). */
+  /**
+   * Cria o trecho `a`→`b`, divide tubos onde há derivação, instala as conexões e liga as pontas: tudo num único passo de desfazer. Com
+   * mudança de cota (ficha B4, `planejarPrumada`) o trecho vira uma cadeia de tubos ligados por joelhos. A cadeia continua do fim
+   * (a menos que o fim tenha encaixado numa rede).
+   */
   private criar(ctx: Contexto, a: PontoTubo, b: PontoTubo): void {
-    const id = newId('cm');
-    const c = trechoDeTubo(a.xyz, b.xyz, ctx.familia, opcoesTubo.dn, { id, levelId: this.env.levelId() });
-    if (!c) {
+    const plano = planejarPrumada(a.xyz, b.xyz, opcoesTubo.modoCota, opcoesTubo.declividade, ctx.familia.id);
+    if (plano.bloqueio !== null) {
+      this.env.say('Bloqueado: ' + plano.bloqueio);
+      return;
+    }
+    const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
+    const base = { levelId: this.env.levelId() };
+    const trechos = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, opcoesTubo.dn, { id: newId('cm'), ...base }));
+    if (trechos.some((c) => !c)) {
       this.env.say('Tubo: os dois pontos coincidem; escolha um ponto final diferente.');
       return;
     }
-    // Viabilidade (ficha B2), com os recuos reais, ANTES de gravar: bloqueio não cria nada e o início da cadeia fica como estava.
-    const viab = viabilidadeDoTrecho(this.env.project(), ctx.familia, ctx.pontas.inicio.dominio, regrasDoDominio(ctx), opcoesTubo.dn, a, b);
-    if (viab.bloqueio) {
-      this.env.say('Bloqueado: ' + viab.bloqueio);
-      return;
+    const cadeia = trechos as Component[];
+    // Viabilidade (ficha B2), com os recuos reais de cada nó (inclusive os joelhos internos), ANTES de gravar: bloqueio não cria nada.
+    const regras = regrasDoDominio(ctx);
+    const projeto = this.env.project();
+    const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, opcoesTubo.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
+    const avisos: string[] = [];
+    for (let k = 0; k < cadeia.length; k++) {
+      const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] });
+      if (viab.bloqueio) {
+        this.env.say('Bloqueado: ' + viab.bloqueio);
+        return;
+      }
+      avisos.push(...viab.avisos);
     }
-    const avisos: string[] = [...viab.avisos];
-    const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn: opcoesTubo.dn };
     try {
       this.env.transaction('Desenhar tubo', () => {
         this.garantirFamilias(ctx);
-        this.env.exec({ type: 'addComponent', component: c });
         this.aparos = [];
-        this.ligarPonta(ctx, id, 'a', a, novo, avisos);
-        this.ligarPonta(ctx, id, 'b', b, novo, avisos);
+        cadeia.forEach((c, k) => {
+          const de = pts[k] as PontoTubo;
+          const para = pts[k + 1] as PontoTubo;
+          const novo: TrechoEncontro = { a: de.xyz, b: para.xyz, dn: opcoesTubo.dn };
+          this.env.exec({ type: 'addComponent', component: c });
+          // O início de cada trecho liga ao fim do anterior pelo mesmo caminho dos cantos em L (`ligarPonta`).
+          const anterior = cadeia[k - 1];
+          this.ligarPonta(ctx, c.id, 'a', anterior ? { xyz: de.xyz, alvo: { componentId: anterior.id, ligacaoId: ctx.pontas.fim.id } } : de, novo, avisos);
+          if (k === cadeia.length - 1) this.ligarPonta(ctx, c.id, 'b', para, novo, avisos);
+        });
         for (const ap of this.aparos) this.aparar(ap.id, ap.ponta, ap.recuo, avisos);
       });
     } catch (e) {
@@ -358,6 +383,7 @@ export class TuboTool extends ToolBase {
     }
     this.items = [];
     const extra = avisos.length ? ' ' + avisos.join(' ') : '';
+    const id = (cadeia[cadeia.length - 1] as Component).id;
     if (b.alvo || b.derivacao) {
       this.inicio = null;
       this.env.say('Tubo ligado à rede. Clique para iniciar outro trecho; Esc sai.' + extra);

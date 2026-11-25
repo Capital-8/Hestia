@@ -42,6 +42,7 @@ export * from './clipboard.ts';
 export * from './pasteTool.ts';
 export * from './furnitureTool.ts';
 export * from './tuboTool.ts';
+export type { ModoCota } from './tuboPrumada.ts';
 export * from './trocaBitolaAplicar.ts';
 export * from './furnitureFootprint.ts';
 export * from './pasteLevels/types.ts';

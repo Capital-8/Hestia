@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { bitolasDoTubo, TIPOS_TUBULACAO, tipoDaFamiliaDeTubo } from '@hestia/engine';
-import { FAMILIA_TUBO_PADRAO, opcoesTubo } from '@hestia/tools';
+import { FAMILIA_TUBO_PADRAO, opcoesTubo, type ModoCota } from '@hestia/tools';
 import { useProject } from '../editor/controller.ts';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
@@ -8,6 +8,9 @@ import { Group, NumField, Row } from './fields.tsx';
 
 /** Diâmetros nominais (mm) oferecidos no painel; o DN fica em `opcoesTubo`, lido pela ferramenta a cada clique. */
 const DN_COMUNS = [32, 40, 50, 75, 100, 150, 200];
+
+/** Modos de mudança de cota (ficha B4); rótulos fixos em português, como o painel de material do corpo. */
+const MODOS_COTA: ReadonlyArray<{ id: ModoCota; nome: string }> = [{ id: 'subir_primeiro', nome: 'Subir primeiro' }, { id: 'andar_primeiro', nome: 'Andar primeiro' }, { id: 'diagonal', nome: 'Diagonal' }];
 
 /** Painel de colocação da ferramenta Tubo (ficha C5): família de tubo, DN e altura (z) dos pontos clicados. */
 export function TuboProperties(): ReactElement {
@@ -55,6 +58,11 @@ export function TuboProperties(): ReactElement {
       </Row>
       <Row label={t('tubo_altura')} htmlFor="place-tubo-z">
         <NumField id="place-tubo-z" quantity="length" value={opcoesTubo.z} onCommit={(v) => { opcoesTubo.z = v; redesenhar((n) => n + 1); }} />
+      </Row>
+      <Row label="Mudança de cota" htmlFor="place-tubo-modocota">
+        <select id="place-tubo-modocota" className="select" value={opcoesTubo.modoCota} onChange={(e) => { opcoesTubo.modoCota = e.target.value as ModoCota; redesenhar((n) => n + 1); }}>
+          {MODOS_COTA.map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+        </select>
       </Row>
     </Group>
   );
