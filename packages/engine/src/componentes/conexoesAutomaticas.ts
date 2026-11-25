@@ -54,6 +54,8 @@ const vetor = (de: PontoSegmento, para: PontoSegmento): V3 => [para[0] - de[0], 
 function emResultado(s: SolucaoNo): ResultadoConexao {
   if (s.status === 'ok') return { conexao: s.conexao, aviso: null };
   if (s.status === 'direto') return { conexao: null, aviso: `Este tipo de tubulação não tem ${NOME_DO_TIPO.luva}: o trecho fica sem essa conexão.` };
+  // `ajustada` (curva entre DN diferentes, com redução no tipo) é da troca de bitola; o desenho de trecho novo não insere a redução e mantém o aviso de sempre.
+  if (s.status === 'ajustada') return { conexao: null, aviso: 'Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.' };
   return { conexao: null, aviso: s.motivo };
 }
 

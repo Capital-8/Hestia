@@ -124,7 +124,7 @@ function ajustar(entrada: EntradaNo, curva: 'curva90' | 'curva45', dns: [number,
   const regras = entrada.tipo.regras;
   const [a, b] = dns;
   const nome = NOME_DO_TIPO[curva];
-  return { status: 'ajustada', pecas: [{ tipo: curva, familiaId: regras[curva], diametros: [a, a] }, { tipo: 'reducao', familiaId: regras.reducao, diametros: [a, b] }], motivo: `${nome} entre DN ${a} e DN ${b}: a curva fica em DN ${a} e entra uma redução de DN ${a} para DN ${b} no trecho reto junto a ela.` };
+  return { status: 'ajustada', pecas: [{ tipo: curva, familiaId: regras[curva], diametros: [a, a] }, { tipo: 'reducao', familiaId: regras.reducao, diametros: [a, b] }], motivo: `Curva entre bitolas diferentes (DN ${a} e DN ${b}): ${nome} fica em DN ${a} e entra uma redução de DN ${a} para DN ${b} no trecho reto junto a ela.` };
 }
 
 function resolverEncontro(entrada: EntradaNo, no: EncontroNo): SolucaoNo {
