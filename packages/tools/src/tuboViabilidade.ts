@@ -57,9 +57,10 @@ function paraEntradas(partes: ParteDoTubo[], de: number, trechos: TrechoViabilid
  * Confere o trecho `a`→`b` de `familia` (DN em mm) antes de ser gravado. `regras` null (domínio sem conexão automática) = nada a
  * conferir além da declividade. Não grava nada e não lança.
  */
-export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio: string, regras: RegrasConexao | null, dn: number, a: PontoTubo, b: PontoTubo): ViabilidadeDoTrecho {
+export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio: string, regras: RegrasConexao | null, dn: number, a: PontoTubo, b: PontoTubo, internos: { a: number; b: number } = { a: 0, b: 0 }): ViabilidadeDoTrecho {
   const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn };
-  const recuoNovo = { a: 0, b: 0 };
+  // `internos`: recuos (m) já impostos às pontas do trecho por joelhos da própria prumada (ficha B4), que ainda não estão no projeto.
+  const recuoNovo = { ...internos };
   const partes: ParteDoTubo[] = [];
   const noNo = (pt: PontoTubo, ponta: 'a' | 'b'): void => {
     if (!regras) return;
