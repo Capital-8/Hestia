@@ -56,11 +56,11 @@ export interface EntradaNo {
   familias?: Readonly<Record<string, Familia>>;
 }
 
-/** Peça de uma solução ajustada (reservado, ficha B3). */
+/** Peça de uma solução ajustada (ficha B3). */
 export interface PecaAjuste {
   tipo: TipoConexao;
   familiaId: string;
-  /** DN (mm) das bocas, na ordem das direções do nó. */
+  /** DN (mm) das bocas, na ordem das direções do nó (curva: as duas bocas; redução: a do lado da curva e a do trecho reduzido). */
   diametros: number[];
 }
 
@@ -71,8 +71,9 @@ export type CodigoSemSolucao = 'angulo_sem_peca' | 'bitola_fora_da_lista' | 'tip
  * Solução do nó:
  * - `ok`: uma peça resolve; `conexao` é a decisão e `recuos` (m) quanto cada trecho recua do nó, na ordem das direções da conexão;
  * - `direto`: trechos colineares do mesmo DN num tipo sem luva: os trechos se emendam sem peça;
- * - `ajustada`: RESERVADO para a ficha B3 (troca de bitola): conjunto de `pecas` que substitui a peça pedida (por exemplo uma redução
- *   a mais) com o `motivo` do ajuste. O resolvedor atual NÃO produz este status;
+ * - `ajustada` (ficha B3): curva entre bitolas diferentes num tipo que TEM redução. `pecas` = [curva na bitola do PRIMEIRO trecho do
+ *   encontro, redução (bitola do primeiro trecho → bitola do segundo) a colocar no trecho reto do SEGUNDO, junto à curva], com o
+ *   `motivo` do ajuste. Só o encontro de dois trechos produz este status;
  * - `sem_solucao`: nenhuma peça serve; `codigo` fixo e `motivo` em português, com o texto dos avisos da ferramenta Tubo.
  */
 export type SolucaoNo =
@@ -118,6 +119,14 @@ function fecha(entrada: EntradaNo, tipo: TipoConexao, familiaId: string, direcoe
   return { status: 'ok', conexao, recuos: posicao ? posicao.recuos : direcoes.map(() => 0) };
 }
 
+/** Curva entre DN diferentes com redução disponível: curva na bitola do trecho A e redução no trecho B (ver `SolucaoNo.ajustada`). */
+function ajustar(entrada: EntradaNo, curva: 'curva90' | 'curva45', dns: [number, number]): SolucaoNo {
+  const regras = entrada.tipo.regras;
+  const [a, b] = dns;
+  const nome = NOME_DO_TIPO[curva];
+  return { status: 'ajustada', pecas: [{ tipo: curva, familiaId: regras[curva], diametros: [a, a] }, { tipo: 'reducao', familiaId: regras.reducao, diametros: [a, b] }], motivo: `${nome} entre DN ${a} e DN ${b}: a curva fica em DN ${a} e entra uma redução de DN ${a} para DN ${b} no trecho reto junto a ela.` };
+}
+
 function resolverEncontro(entrada: EntradaNo, no: EncontroNo): SolucaoNo {
   const [ta, tb] = no.trechos;
   const ua = unitario(ta.direcao);
@@ -134,9 +143,9 @@ function resolverEncontro(entrada: EntradaNo, no: EncontroNo): SolucaoNo {
     if (!mesmoDn) return faz('reducao', regras.reducao);
     return regras.luva === '' ? { status: 'direto' } : faz('luva', regras.luva);
   }
-  if (!mesmoDn) return semSolucao('bitolas_diferentes_em_curva', 'Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.');
-  if (Math.abs(angulo - 90) <= TOLERANCIA_ANGULO) return faz('curva90', regras.curva90);
-  if (Math.abs(angulo - 135) <= TOLERANCIA_ANGULO) return faz('curva45', regras.curva45);
+  const curva: TipoConexao | null = Math.abs(angulo - 90) <= TOLERANCIA_ANGULO ? 'curva90' : Math.abs(angulo - 135) <= TOLERANCIA_ANGULO ? 'curva45' : null;
+  if (!mesmoDn) return curva !== null && regras[curva] !== '' && regras.reducao !== '' ? ajustar(entrada, curva, [ta.dn, tb.dn]) : semSolucao('bitolas_diferentes_em_curva', 'Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.');
+  if (curva !== null) return faz(curva, regras[curva]);
   return semSolucao('angulo_sem_peca', `Ângulo de ${Math.round(180 - angulo)}° sem conexão automática (só 0°, 45° e 90°).`);
 }
 
