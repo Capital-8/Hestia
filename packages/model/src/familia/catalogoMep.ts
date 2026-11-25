@@ -23,6 +23,12 @@ export interface FonteCatalogo {
   sha256?: string;
 }
 
+/** Quem conferiu uma linha com o documento de origem, e quando (AAAA-MM-DD). */
+export interface ConferenciaDeLinha {
+  por: string;
+  em: string;
+}
+
 export interface LinhaCatalogo {
   /** Código do produto no catálogo (texto, pode ter zeros à esquerda). */
   codigo?: string;
@@ -31,6 +37,8 @@ export interface LinhaCatalogo {
   /** Uma entrada por coluna do item (mm). */
   valores: Record<string, number>;
   nota?: string;
+  /** Conferência desta linha (ficha P3, fase 2). Ausente = ainda não conferida. Editar a linha apaga esta marca. */
+  conferida?: ConferenciaDeLinha;
 }
 
 export interface ItemCatalogo {
@@ -193,16 +201,75 @@ export function validarCatalogoMep(c: CatalogoMep): ProblemaCatalogoMep[] {
   return out;
 }
 
-/** Marca o item como conferido. Exige nome e data: sem isso a conferência não tem dono. */
-export function conferirItem(item: ItemCatalogo, quem: string, quando: string): ItemCatalogo {
+/** Exige nome e data: sem isso a conferência não tem dono. Devolve o registro já limpo. */
+function registroDeConferencia(quem: string, quando: string): ConferenciaDeLinha {
   if (!quem.trim() || !quando.trim()) throw new Error('Catálogo: informe quem conferiu e quando');
-  return { ...item, estado: 'conferido', conferidoPor: quem.trim(), conferidoEm: quando.trim() };
+  return { por: quem.trim(), em: quando.trim() };
 }
 
-/** Edição de qualquer número volta o item para `CONFERIR`: um dado alterado não herda a conferência anterior. */
+function linhaDaBitolaOuErro(item: ItemCatalogo, bitola: string): void {
+  if (!item.linhas.some((l) => l.bitola === bitola)) throw new Error(`Catálogo: “${item.id}” não tem a bitola ${bitola}`);
+}
+
+/**
+ * Fecha o estado do item a partir das linhas: `conferido` (com quem e quando da última conferência) só quando TODAS as linhas
+ * estão conferidas; em qualquer outro caso, `CONFERIR`.
+ */
+function fecharItem(item: ItemCatalogo, linhas: LinhaCatalogo[], ultima?: ConferenciaDeLinha): ItemCatalogo {
+  const { conferidoPor: _p, conferidoEm: _e, ...resto } = item;
+  const todas = linhas.length > 0 && linhas.every((l) => l.conferida !== undefined);
+  if (todas && ultima) return { ...resto, linhas, estado: 'conferido', conferidoPor: ultima.por, conferidoEm: ultima.em };
+  return { ...resto, linhas, estado: 'CONFERIR' };
+}
+
+/** Marca o item como conferido por inteiro (todas as linhas). Exige nome e data. */
+export function conferirItem(item: ItemCatalogo, quem: string, quando: string): ItemCatalogo {
+  const registro = registroDeConferencia(quem, quando);
+  return { ...item, linhas: item.linhas.map((l) => ({ ...l, conferida: registro })), estado: 'conferido', conferidoPor: registro.por, conferidoEm: registro.em };
+}
+
+/**
+ * Marca UMA linha como conferida com o documento de origem. Se for a última que faltava, o item vira `conferido` com quem e quando
+ * desta conferência. Não altera o item recebido.
+ */
+export function conferirLinha(item: ItemCatalogo, bitola: string, quem: string, quando: string): ItemCatalogo {
+  const registro = registroDeConferencia(quem, quando);
+  linhaDaBitolaOuErro(item, bitola);
+  const linhas = item.linhas.map((l) => (l.bitola === bitola ? { ...l, conferida: registro } : l));
+  return fecharItem(item, linhas, registro);
+}
+
+/** Tira a conferência de uma linha; o item volta para `CONFERIR` (ele não está mais inteiro conferido). */
+export function desconferirLinha(item: ItemCatalogo, bitola: string): ItemCatalogo {
+  linhaDaBitolaOuErro(item, bitola);
+  const linhas = item.linhas.map((l) => {
+    if (l.bitola !== bitola) return l;
+    const { conferida: _c, ...resto } = l;
+    return resto;
+  });
+  return fecharItem(item, linhas);
+}
+
+/** Quantas linhas do item estão conferidas. Item já `conferido` conta todas (mesmo que uma linha antiga não traga a marca). */
+export function progressoDeConferencia(item: ItemCatalogo): { conferidas: number; total: number } {
+  const total = item.linhas.length;
+  if (item.estado === 'conferido') return { conferidas: total, total };
+  return { conferidas: item.linhas.filter((l) => l.conferida !== undefined).length, total };
+}
+
+/**
+ * Edição de qualquer número volta o item para `CONFERIR` e apaga a conferência da linha editada: um dado alterado não herda a
+ * conferência anterior. As outras linhas mantêm a sua.
+ */
 export function editarLinha(item: ItemCatalogo, bitola: string, valores: Record<string, number>): ItemCatalogo {
   const existe = item.linhas.some((l) => l.bitola === bitola);
-  const linhas = existe ? item.linhas.map((l) => (l.bitola === bitola ? { ...l, valores: { ...l.valores, ...valores } } : l)) : [...item.linhas, { bitola, valores }];
+  const linhas = existe
+    ? item.linhas.map((l) => {
+        if (l.bitola !== bitola) return l;
+        const { conferida: _c, ...resto } = l;
+        return { ...resto, valores: { ...l.valores, ...valores } };
+      })
+    : [...item.linhas, { bitola, valores }];
   const { conferidoPor: _p, conferidoEm: _e, ...resto } = item;
   return { ...resto, linhas, estado: 'CONFERIR' };
 }

@@ -93,7 +93,8 @@ export function paraIdsDeParametro(item: ItemCatalogo, novoId: string, novoNome:
   const linhas = item.linhas.map((l) => {
     const valores: Record<string, number> = {};
     for (const [c, v] of Object.entries(l.valores)) if (valores[mapa(c)] === undefined) valores[mapa(c)] = v;
-    return { ...l, valores };
+    const { conferida: _c, ...resto } = l; // a cópia nasce sem conferência
+    return { ...resto, valores };
   });
   return { ...item, id: novoId, nome: novoNome, colunas, linhas, estado: 'CONFERIR', conferidoPor: undefined, conferidoEm: undefined };
 }
