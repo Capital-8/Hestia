@@ -19,8 +19,8 @@ Modelos: **H** = Haiku (mecânico, especificação fechada, verificação por te
 |---|---|---|---|---|
 | A1 | H | Auditar todo botão e ferramenta de MEP e listar o ícone atual, o arquivo e o que a ferramenta faz (tabela em `docs/familias-parametricas/icones/AUDITORIA.md`) | — | integrada (63 botões auditados, 45 de 48 com ícone compartilhado; `AUDITORIA.md`) |
 | A2 | S | Ler `apps/web/src/ui/Icon.tsx`, escrever o guia de estilo (`icones/GUIA.md`: grade, traço, cores, convenções) e desenhar 4 ícones de referência: Tubo, Joelho, Verificar rede, Esgoto | — (roda junto com A1) | integrada (guia + 4 ícones; mepEsgoto precisa de glifo próprio: fica na A3c) |
-| A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | pendente |
-| A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada | A2 | pendente |
+| A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | integrada (4 de 5 bons; mepTubosConexoes lê como estante: refeito na A3b) |
+| A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada; e REFAZER mepTubosConexoes | A3a | em curso (orquestrador, 2026-11-25) |
 | A3c | H | Ícones de sistema: esgoto, água fria, elétrico, HVAC, estrutura (abas da Biblioteca, painéis, domínios) | A2 | pendente |
 | A3d | H | Ícones da elétrica: eletroduto, eletrocalha, caixa, circuito, quadro, tomada, interruptor, luminária; e dos "em breve": aparelho sanitário, bandeja, tubo flexível, equipamento | A2 | pendente |
 | A4 | H | Registrar todos em `Icon.tsx`, trocar nas faixas e na Biblioteca, teste que reprova ícone MEP repetido ou ausente, captura de cada um em claro e escuro | A3a–A3d | pendente |
