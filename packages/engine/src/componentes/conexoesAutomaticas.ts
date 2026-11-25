@@ -2,6 +2,7 @@ import type { Familia } from '@hestia/model';
 import type { LigacaoResolvida } from './corposTipos.ts';
 import type { PontoSegmento } from './orientarSegmento.ts';
 import { resolverFamilia } from './resolver.ts';
+import { resolverNo, type SolucaoNo } from './resolvedorNo.ts';
 
 /*
  * Conexões automáticas de tubos (ficha C6, CONTRATO §7): dado o encontro de trechos, decide qual conexão da família do domínio
@@ -71,7 +72,6 @@ export interface ResultadoConexao {
 export const TOLERANCIA_ANGULO = 2.5;
 /** Tolerância (mm) para considerar dois DN iguais. */
 const TOLERANCIA_DN = 0.5;
-const RAD = Math.PI / 180;
 
 type V3 = [number, number, number];
 
@@ -84,48 +84,27 @@ function unitario(u: V3): V3 | null {
   return n < 1e-12 ? null : [u[0] / n, u[1] / n, u[2] / n];
 }
 
-/** Direção unitária que sai de `de` rumo a `para`; null se coincidem. */
-function direcaoEntre(de: PontoSegmento, para: PontoSegmento): V3 | null {
-  return unitario([para[0] - de[0], para[1] - de[1], para[2] - de[2]]);
-}
-
-/** Direção do trecho saindo da ponta que encontra o outro: ponta `a` sai rumo a `b` e vice-versa. */
-function saindoDaPonta(t: TrechoEncontro, ponta: 'a' | 'b'): V3 | null {
-  return ponta === 'a' ? direcaoEntre(t.a, t.b) : direcaoEntre(t.b, t.a);
-}
-
-/** Ângulo (graus) entre dois vetores unitários. */
-function anguloGraus(u: V3, v: V3): number {
-  return Math.acos(Math.max(-1, Math.min(1, dot(u, v)))) / RAD;
-}
-
 const iguais = (x: number, y: number): boolean => Math.abs(x - y) <= TOLERANCIA_DN;
 
-/**
- * Conexão para o encontro das pontas `pontaA` de `trechoA` e `pontaB` de `trechoB` (as duas no mesmo ponto), com o aviso do motivo
- * quando não há conexão. Ângulo interno entre os trechos: 180° (colinear) luva, ou redução se o DN muda; 90° curva 90°;
- * 135° (desvio de 45°) curva 45°; qualquer outro, ou curva com DN diferente, sem conexão e com aviso.
- */
-export function avaliarEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', trechoB: TrechoEncontro, pontaB: 'a' | 'b', regras: RegrasConexao): ResultadoConexao {
-  const ua = saindoDaPonta(trechoA, pontaA);
-  const ub = saindoDaPonta(trechoB, pontaB);
-  if (!ua || !ub) return { conexao: null, aviso: 'Trecho de comprimento nulo: nada a conectar.' };
-  const angulo = anguloGraus(ua, ub);
-  const diametros = [trechoA.dn, trechoB.dn];
-  const mesmoDn = iguais(trechoA.dn, trechoB.dn);
-  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => (familiaId === '' ? semPeca(tipo) : { conexao: { tipo, familiaId, direcoes: [ua, ub], diametros }, aviso: null });
-  if (angulo >= 180 - TOLERANCIA_ANGULO) return mesmoDn ? faz('luva', regras.luva) : faz('reducao', regras.reducao);
-  if (!mesmoDn) return { conexao: null, aviso: 'Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.' };
-  if (Math.abs(angulo - 90) <= TOLERANCIA_ANGULO) return faz('curva90', regras.curva90);
-  if (Math.abs(angulo - 135) <= TOLERANCIA_ANGULO) return faz('curva45', regras.curva45);
-  return { conexao: null, aviso: `Ângulo de ${Math.round(180 - angulo)}° sem conexão automática (só 0°, 45° e 90°).` };
+/** Direção (não normalizada) de `de` rumo a `para`; o resolvedor normaliza e trata o vetor nulo como trecho nulo. */
+const vetor = (de: PontoSegmento, para: PontoSegmento): V3 => [para[0] - de[0], para[1] - de[1], para[2] - de[2]];
+
+/** Traduz a solução do resolvedor para o resultado histórico `{ conexao, aviso }`. `direto` (tipo sem luva) mantém o aviso de peça ausente. */
+function emResultado(s: SolucaoNo): ResultadoConexao {
+  if (s.status === 'ok') return { conexao: s.conexao, aviso: null };
+  if (s.status === 'direto') return { conexao: null, aviso: `Este tipo de tubulação não tem ${NOME_DO_TIPO.luva}: o trecho fica sem essa conexão.` };
+  return { conexao: null, aviso: s.motivo };
 }
 
 const NOME_DO_TIPO: Record<TipoConexao, string> = { luva: 'luva', curva90: 'joelho ou curva de 90°', curva45: 'joelho ou curva de 45°', reducao: 'redução', te: 'tê', juncao45: 'junção de 45°' };
 
-/** Tipo de tubulação sem esta peça (id vazio nas regras): nada a inserir, e o aviso diz o que falta. */
-function semPeca(tipo: TipoConexao): ResultadoConexao {
-  return { conexao: null, aviso: `Este tipo de tubulação não tem ${NOME_DO_TIPO[tipo]}: o trecho fica sem essa conexão.` };
+/**
+ * Conexão para o encontro das pontas `pontaA` de `trechoA` e `pontaB` de `trechoB` (as duas no mesmo ponto), com o aviso do motivo
+ * quando não há conexão. Camada fina sobre `resolverNo`: ver as regras lá (180° luva ou redução, 90°, 135°, avisos).
+ */
+export function avaliarEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', trechoB: TrechoEncontro, pontaB: 'a' | 'b', regras: RegrasConexao): ResultadoConexao {
+  const sai = (t: TrechoEncontro, p: 'a' | 'b'): V3 => (p === 'a' ? vetor(t.a, t.b) : vetor(t.b, t.a));
+  return emResultado(resolverNo({ tipo: { regras }, no: { tipo: 'encontro', trechos: [{ direcao: sai(trechoA, pontaA), dn: trechoA.dn }, { direcao: sai(trechoB, pontaB), dn: trechoB.dn }] } }));
 }
 
 /** Conexão do encontro (ou `null`); o motivo da ausência sai de `avaliarEncontro`. */
@@ -135,19 +114,11 @@ export function conexaoParaEncontro(trechoA: TrechoEncontro, pontaA: 'a' | 'b', 
 
 /**
  * Derivação: a ponta `pontaRamal` do ramal toca o MEIO do trecho principal em `ponto` (o principal será dividido em dois).
- * Ramal a 90° do principal: tê; a 45° de um dos sentidos: junção 45°; outro ângulo: sem conexão e com aviso.
+ * Camada fina sobre `resolverNo`: ramal a 90° do principal tê; a 45° junção 45°; outro ângulo sem conexão e com aviso.
  */
 export function avaliarDerivacao(principal: TrechoEncontro, ponto: PontoSegmento, ramal: TrechoEncontro, pontaRamal: 'a' | 'b', regras: RegrasConexao): ResultadoConexao {
-  const ua = direcaoEntre(ponto, principal.a);
-  const ub = direcaoEntre(ponto, principal.b);
-  const ur = saindoDaPonta(ramal, pontaRamal);
-  if (!ua || !ub || !ur) return { conexao: null, aviso: 'Derivação sobre a ponta do trecho ou trecho nulo: nada a dividir.' };
-  const angulo = Math.min(anguloGraus(ur, ua), anguloGraus(ur, ub));
-  const faz = (tipo: TipoConexao, familiaId: string): ResultadoConexao => (familiaId === '' ? semPeca(tipo) : { conexao: { tipo, familiaId, direcoes: [ua, ub, ur], diametros: [principal.dn, principal.dn, ramal.dn] }, aviso: null });
-  const ortogonal = Math.abs(anguloGraus(ur, ua) - 90) <= TOLERANCIA_ANGULO;
-  if (ortogonal) return faz('te', regras.te);
-  if (Math.abs(angulo - 45) <= TOLERANCIA_ANGULO) return faz('juncao45', regras.juncao45);
-  return { conexao: null, aviso: 'Derivação só a 90° (tê) ou 45° (junção): outro ângulo fica sem conexão.' };
+  const dirRamal = pontaRamal === 'a' ? vetor(ramal.a, ramal.b) : vetor(ramal.b, ramal.a);
+  return emResultado(resolverNo({ tipo: { regras }, no: { tipo: 'derivacao', principal: { rumoA: vetor(ponto, principal.a), rumoB: vetor(ponto, principal.b), dn: principal.dn }, ramal: { direcao: dirRamal, dn: ramal.dn } } }));
 }
 
 /** Conexão da derivação (ou `null`). */
