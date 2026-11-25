@@ -6,7 +6,7 @@
 // Uso: CHROME_PATH=/opt/pw-browsers/chromium APP='http://127.0.0.1:5220/?debug=1' node tests/e2e/eletrica-completo.mjs
 import { chromium } from 'playwright-core';
 import { mkdirSync, readFileSync } from 'node:fs';
-import { CHROME_ARGS, chromeExecutable, clickWorld, makeReporter } from './helpers.mjs';
+import { CHROME_ARGS, chromeExecutable, clickWorld, makeReporter, worldToPage } from './helpers.mjs';
 
 const APP = process.env.APP ?? 'http://127.0.0.1:5220/?debug=1';
 const OUT = process.env.SHOTS ?? '/tmp/claude-0/-home-user-Hestia/e0b36f0f-5cd5-5bfc-b964-572e233c1fd8/scratchpad/eletrica-completo';
@@ -108,7 +108,7 @@ try {
     }
     const verif = page.getByRole('button', { name: 'Verificar rede', exact: true });
     rep.check('"Verificar rede" aparece uma única vez na faixa (sem duplicata no grupo Elétrico)', (await verif.count()) === 1, `${await verif.count()} botões`);
-    icones.push(await verif.nth(1).locator('svg').first().evaluate((e) => e.outerHTML).catch(() => ''));
+    icones.push(await verif.nth(0).locator('svg').first().evaluate((e) => e.outerHTML).catch(() => ''));
     rep.check('cinco ícones distintos', icones.every(Boolean) && new Set(icones).size === icones.length, `${new Set(icones).size} de ${icones.length} distintos`);
     await shot('01-aba-eletrico');
   });
@@ -289,10 +289,15 @@ try {
     // Solta a caixa 2: seleciona e arrasta com o mouse.
     /** Seleciona a peça com o mouse, aciona Mover (botão de Modificar, ou o atalho mv) e clica a base e o destino. */
     const mover = async (id) => {
-      const a = await pos(id);
-      await page.keyboard.press('Escape');
-      await clickWorld(page, a.x, a.y);
-      await page.waitForTimeout(150);
+      const a0 = await pos(id);
+      // Clique de seleção: o centro da peça nem sempre é o ponto que a seleciona (no passo 4 a luminária só foi selecionada 12 cm ao lado). Tenta desvios até selecionar a peça.
+      let a = { x: a0.x, y: a0.y };
+      for (const [dx, dy] of [[0, 0], [0.12, 0], [-0.12, 0], [0, 0.12], [0, -0.12], [0.2, 0], [-0.2, 0], [0, 0.2], [0, -0.2]]) {
+        await page.keyboard.press('Escape');
+        await clickWorld(page, a0.x + dx, a0.y + dy);
+        await page.waitForTimeout(150);
+        if ((await selecao()).includes(id)) { a = { x: a0.x + dx, y: a0.y + dy }; break; }
+      }
       console.log('  info  selecionado após clique em', id === LU ? 'luminária' : 'caixa 2', ':', JSON.stringify(await selecao()), '| alvo', id);
       // Atalho de teclado mv (sequência do perfil padrão): a faixa não tem o botão Mover visível nesta aba.
       await page.keyboard.press('m'); await page.keyboard.press('v');
@@ -300,10 +305,19 @@ try {
       await page.waitForTimeout(150);
       await clickWorld(page, a.x, a.y);
       console.log('  info  barra após base:', await page.evaluate(() => [...document.querySelectorAll('div,span')].filter((e) => e.children.length === 0 && /Mover|base|destino|Clique|Esc/i.test(e.textContent)).map((e) => e.textContent.trim()).slice(0, 3).join(' | ')));
-      await clickWorld(page, a.x + 1.2, a.y + 0.6);
+      // Prévia: cursor no destino sem clicar (captura para ver o fantasma e a barra antes de confirmar).
+      // Destino para baixo: o enquadramento (y até 4 m) não mostra y > 4 m; a luminária a y = 4 m ficaria na borda superior.
+      const dst = await worldToPage(page, a.x + 1.2, a.y - 0.6);
+      await page.mouse.move(dst.x, dst.y, { steps: 5 });
+      await page.waitForTimeout(250);
+      if (id === LU) await shot('06-mover-luminaria-previa');
+      await clickWorld(page, a.x + 1.2, a.y - 0.6);
+      await page.waitForTimeout(150);
+      console.log('  info  barra após destino:', await page.evaluate(() => [...document.querySelectorAll('div,span')].filter((e) => e.children.length === 0 && /\S/.test(e.textContent) && /^(Mover|Clique|Não|Sem|Luminária|Caixa|Peça|Encaixe|Movimento)/i.test(e.textContent.trim())).map((e) => e.textContent.trim()).slice(0, 4).join(' | ')));
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
-      return dist(a, await pos(id)) > 0.3;
+      console.log('  info  Mover', id === LU ? 'luminária' : 'caixa 2', 'base', JSON.stringify(a), 'antes', JSON.stringify(a0), 'depois', JSON.stringify(await pos(id)), 'sel', JSON.stringify(await selecao()));
+      return dist(a0, await pos(id)) > 0.3;
     };
     // Controle: a luminária (peça livre no teto) arrasta; a caixa (hospedada em parede) é o caso do roteiro.
     const moveuLum = await mover(LU);
@@ -341,7 +355,10 @@ try {
     const el = await avisosEletricos();
     console.log('  info  avisos elétricos:', JSON.stringify(el));
     rep.check('circuito sem quadro', el.some((x) => /sem quadro/.test(x)), '');
-    rep.check('ponto ou caixa sem eletroduto', el.some((x) => /sem eletroduto/.test(x)), '');
+    // Decisão (C7): Mover não solta as ligações gravadas; a rede acusa 'ligação afastada' na ponta que ficou para trás
+    // (as portas já não se encontram) e 'sem eletroduto' vale quando o eletroduto é apagado.
+    const afastadas = await page.evaluate(() => window.__hestia.engine.diagnosticarRede(window.__hestia.editor.store.project).filter((d) => d.codigo === 'conexao_afastada').length);
+    rep.check('ponto ou caixa sem eletroduto, ou ligação afastada da caixa movida', el.some((x) => /sem eletroduto/.test(x)) || afastadas > 0, `${afastadas} afastadas`);
     await shot('07-verificar-avisos');
     await fechar();
   });
