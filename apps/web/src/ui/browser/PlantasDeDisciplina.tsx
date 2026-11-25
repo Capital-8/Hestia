@@ -47,9 +47,9 @@ export function plantaDeDisciplinaAtiva(v: CamposDaVistaAtiva, plan: PlanView): 
 const ICONE_DA_DISCIPLINA: Record<Discipline, string> = {
   arquitetura: 'plan',
   estrutura: 'column',
-  hidrossanitario: 'componentRun',
-  eletrico: 'connection',
-  hvac: 'shaft',
+  hidrossanitario: 'mepAguaFria',
+  eletrico: 'mepEletrico',
+  hvac: 'mepHvac',
 };
 
 /**

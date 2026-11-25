@@ -33,7 +33,7 @@ const f = (id: string): Familia => {
   return x;
 };
 const pos = (fam: Familia, i: number, env: Env): number[] => (fam.ligacoes?.[i]?.posicao ?? []).map((s) => n(s, env));
-const bitolas = (fam: Familia): Valor[] => fam.tipos.map((t) => t.valores.DN ?? t.valores.COD ?? null);
+const bitolas = (fam: Familia): Array<Valor | null> => fam.tipos.map((t) => t.valores.DN ?? t.valores.COD ?? null);
 
 describe('elétrica Krona: cadastro', () => {
   it('9 famílias válidas, disciplina elétrica, IFC e descrição com CONFERIR e sem afirmar norma', () => {

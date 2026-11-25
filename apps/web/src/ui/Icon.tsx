@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { ICONES_MASSA_TERRENO } from './iconesMassaTerreno.ts';
+import { ICONES_MEP } from './iconesMep.ts';
 
 /**
  * Ícones de ferramenta no estilo da faixa do Revit: sólidos cinza sombreados em 3D (luz de cima-esquerda),
@@ -13,6 +14,7 @@ const ESFERA_XADREZ = 'M16 29L16 29L16 28.9L15.2 28.9L14.3 28.8L13.5 28.7L12.8 2
 
 const R: Record<string, string> = {
   ...ICONES_MASSA_TERRENO,
+  ...ICONES_MEP,
   spotElevation:
     '<circle class="ic-s1" cx="16" cy="18" r="8"/>' +
     p('s3', 'M16 10A8 8 0 0 1 24 18H16Z') +

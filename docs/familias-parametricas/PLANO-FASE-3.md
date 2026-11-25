@@ -44,7 +44,7 @@ Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnic
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
 | C1 | H | Baixar o PDF, transcrever as tabelas dimensionais (eletroduto, curvas, luvas, caixas) para `catalogosMep/kronaEletrica.ts` com fonte, hash e `CONFERIR`; README com anomalias | — | integrada (22 tabelas, 71 linhas da Krona elétrica, p. 6 a 11; fora: quadros, caixas de passagem e proteção; 9 anomalias no README; extrator próprio) |
-| C2 | H | Famílias elétricas Krona montadas do catálogo (eletroduto cortado, curva, luva, caixa) reaproveitando as receitas | C1 | em curso (orquestrador, 2026-11-25) |
+| C2 | H | Famílias elétricas Krona montadas do catálogo (eletroduto cortado, curva, luva, caixa) reaproveitando as receitas | C1 | integrada (9 famílias `fam_krona_eletrica_*`; ATENÇÃO: espessura 2 mm provisória CONFERIR porque o catálogo não traz; caixas com 4 entradas de 20 mm por suposição; IFCJUNCTIONBOX não existe no exportador; roscáveis, corrugado e curvas 135/180 ficaram de fora) |
 | C3 | S | Tipos de eletroduto e a ferramenta Eletroduto (traço, curvas e luvas pelo resolvedor B1, caixas como nós, limite de curvas entre caixas) | B1, C2 | pendente |
 | C4 | S | Circuitos, quadro e cargas: modelo (circuito, pontos, quadro), quadro de distribuição como família, cor por circuito | C3 | pendente |
 | C5 | S | Cálculos editáveis (potência, corrente, seção, disjuntor, queda de tensão) com valores de norma como dado `CONFERIR`; Verificar rede elétrica (circuito sem quadro, caixa sem eletroduto, sobrecarga) | C4 | pendente |
@@ -57,7 +57,7 @@ Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnic
 | D1 | S | Planta pela geometria (Q1–Q3): tubo em duas linhas, curvas com contorno certo | — | pendente |
 | D2 | S | Subtração real do ramal no tê e na junção (F-CSG) | — | pendente |
 | D3 | H | Transcrever as peças que faltam nos catálogos da Krona (tê de inspeção, junção dupla e invertida, joelho com visita, curva de pé de coluna, anéis, válvula, terminal) e, onde a receita já serve, montar a família | — | pendente |
-| D4 | H | Interface de conferência dos catálogos contra o PDF (lado a lado, marcar linha conferida) | — | pendente |
+| D4 | H | Interface de conferência dos catálogos contra o PDF (lado a lado, marcar linha conferida) | — | em curso (orquestrador, 2026-11-25) |
 
 ## Ordem
 1. A1, A2 e B1 em paralelo. 2. A3a–A3d (4 Haiku) e B2. 3. B3, B4, A4. 4. B5, B6, B7, A5, B8. 5. C1 desde o começo em paralelo com qualquer etapa; C2 a C7 depois de B1/A4. 6. D.

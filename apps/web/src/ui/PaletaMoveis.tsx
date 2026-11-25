@@ -6,6 +6,7 @@ import { useUi } from '../editor/state.ts';
 import { useT, type Dict } from '../editor/i18n.ts';
 import { useFamilia } from './familia/familiaStore.ts';
 import { tm } from './moveisTextos.ts';
+import { Icon } from './Icon.tsx';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
 import { ABAS_PALETA, filtrarItensDaPaleta, montarItensDaPaleta, type CategoriaPaleta, type ItemPaleta } from './paletaMoveis.ts';
 import {
@@ -15,6 +16,14 @@ import {
   useInsercaoBloco,
 } from './viewport/inserirBloco.ts';
 import './paletaMoveis.css';
+
+/** Emblema de cada grupo de sistema na aba da paleta (16 px, à esquerda do rótulo). */
+const ICONE_GRUPO_ABA: Partial<Record<string, string>> = {
+  'grupo:hidraulica': 'mepAguaFria',
+  'grupo:eletrico': 'mepEletrico',
+  'grupo:hvac': 'mepHvac',
+  'grupo:estrutura': 'mepEstrutura',
+};
 
 /*
  * Paleta de móveis (F3-biblioteca): janela flutuante aberta pelo botão "Biblioteca" da faixa.
@@ -213,6 +222,11 @@ export function PaletaMoveis(): ReactElement | null {
               className={categoria === aba.id ? 'sel' : ''}
               onClick={() => setCategoria(aba.id)}
             >
+              {ICONE_GRUPO_ABA[aba.id] && (
+                <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 4 }} aria-hidden="true">
+                  <Icon name={ICONE_GRUPO_ABA[aba.id] ?? ''} size={16} />
+                </span>
+              )}
               {aba.id === 'meus' ? tm('mov_no_projeto') : rotuloDaAba(aba.id, aba.rotulo)}
             </button>
           ))}

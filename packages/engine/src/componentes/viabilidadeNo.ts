@@ -73,7 +73,11 @@ export type ResultadoViabilidade =
 
 type Problema = Extract<ResultadoViabilidade, { ok: false }>;
 
-const mm = (v: number): string => `${(Math.round(v * 10) / 10).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mm`;
+/** Número com vírgula decimal e até `casas` casas (sem zeros à direita). */
+// units-ok: mensagem de motivo em mm por contrato do engine (a ferramenta converte de metros); não é exibição de quantidade do projeto
+const num = (v: number, casas: number): string => String(Math.round(v * 10 ** casas) / 10 ** casas).replace('.', ',');
+
+const mm = (v: number): string => `${num(v, 1)} mm`;
 
 function conferirTrecho(t: TrechoViabilidade, i: number): Problema | null {
   const indice = t.indice ?? i;
@@ -105,7 +109,7 @@ function conferirDeclividade(d: DeclividadeViabilidade, i: number): Problema | n
   if (!limite || d.dn > limite.dnMaxMm) return null;
   const pct = Math.abs(d.percentual);
   if (pct >= limite.minPercentual - FOLGA && pct <= limite.maxPercentual + FOLGA) return null;
-  const pct1 = (Math.round(pct * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  const pct1 = num(pct, 2);
   return { ok: false, severidade: 'aviso', codigo: 'declividade_fora_do_limite', trechoAfetado: d.indice ?? i, motivo: `Declividade de ${pct1} % fora da faixa de ${limite.minPercentual} % a ${limite.maxPercentual} % para esgoto até DN ${limite.dnMaxMm} (faixa a CONFERIR com a norma).` };
 }
 
