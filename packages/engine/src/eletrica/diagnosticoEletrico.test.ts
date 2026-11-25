@@ -2,10 +2,9 @@ import { createEmptyProject, FAMILIA_ARMARIO, type CircuitoEletrico, type Compon
 import { describe, expect, it } from 'vitest';
 import { diagnosticarRede, type CodigoDiagnostico, type Diagnostico } from '../componentes/diagnosticoRede.ts';
 import { comprimentoDoCircuito } from './comprimentoCircuito.ts';
-import { mesclarTabelas, TABELAS_PROVISORIAS } from './tabelasEletricas.ts';
 
 /*
- * Diagnóstico elétrico (ficha C5) sobre uma cena sintética: quadro qd -(t1, 3 m)- cx -(t2, 2 m)- tom1 e cx -(t3, 1 m)- tom2.
+ * Diagnóstico elétrico de traçado (ficha C5) sobre uma cena sintética: quadro qd -(t1, 3 m)- cx -(t2, 2 m)- tom1 e cx -(t3, 1 m)- tom2.
  * Só as conexões gravadas importam para o caminho; a geometria das pontas não é conferida aqui (é assunto dos outros códigos).
  */
 const eletroduto = (id: string, nome: string, z: string): Ligacao => ({ id, nome, dominio: 'eletroduto', secao: 'redonda', diametro: '20', posicao: ['0', '0', z], direcao: ['0', '0', z === '0' ? '-1' : '1'], fluxo: 'ambos' });
@@ -22,9 +21,8 @@ const FAMS = (posicoes = 12): Familia[] => [
 ];
 const comp = (id: string, familyId: string, extra: Partial<Component> = {}): Component => ({ id, kind: 'component', familyId, typeId: null, levelId: 'lv_0', order: 0, x: 0, y: 0, z: 0, rotation: 0, mirrored: false, mark: id, ...extra });
 const tubo = (id: string, L: number, lig: Component['ligacoes']): Component => comp(id, 'tubo', { values: { L }, ligacoes: lig });
-const cx = (a: string, b: string): Component['ligacoes'] => ({ a: { componenteId: a, ligacaoId: 'b' }, b: { componenteId: b, ligacaoId: 'a' } });
 
-interface Opcoes { posicoes?: number; ligados?: boolean; circuito?: Partial<CircuitoEletrico>; potencias?: [number, number]; tabelas?: Parameters<typeof diagnosticarRede>[1] }
+interface Opcoes { posicoes?: number; ligados?: boolean; circuito?: Partial<CircuitoEletrico>; potencias?: [number, number] }
 function cena(o: Opcoes = {}): Project {
   const ligados = o.ligados ?? true;
   const elementos: Component[] = [
@@ -41,8 +39,8 @@ function cena(o: Opcoes = {}): Project {
   const base = createEmptyProject('t');
   return { ...base, componentFamilies: Object.fromEntries(FAMS(o.posicoes).map((f) => [f.id, f])), elements: Object.fromEntries(elementos.map((e) => [e.id, e])), circuitosEletricos: { cir_1: circuito } };
 }
-const codigos = (p: Project, t?: Opcoes['tabelas']): CodigoDiagnostico[] => diagnosticarRede(p, t).map((d) => d.codigo);
-const so = (p: Project, c: CodigoDiagnostico, t?: Opcoes['tabelas']): Diagnostico[] => diagnosticarRede(p, t).filter((d) => d.codigo === c);
+const codigos = (p: Project): CodigoDiagnostico[] => diagnosticarRede(p).map((d) => d.codigo);
+const so = (p: Project, c: CodigoDiagnostico): Diagnostico[] => diagnosticarRede(p).filter((d) => d.codigo === c);
 
 describe('comprimento do circuito pela rede', () => {
   it('soma os eletrodutos do quadro ao ponto mais distante: 3 + 2 = 5 m (o outro ponto, 4 m)', () => {
@@ -66,7 +64,7 @@ describe('comprimento do circuito pela rede', () => {
 describe('diagnóstico elétrico', () => {
   it('cena íntegra: nenhum código elétrico', () => {
     // A geometria sintética não encosta as pontas: só os códigos ELÉTRICOS interessam aqui.
-    const elet = codigos(cena()).filter((c) => ['circuito_sem_quadro', 'ponto_sem_eletroduto', 'dispositivo_sem_eletroduto', 'quadro_sem_posicao', 'circuito_sobrecarregado', 'queda_tensao_excedida', 'ponto_potencia_zero'].includes(c));
+    const elet = codigos(cena()).filter((c) => ['circuito_sem_quadro', 'ponto_sem_eletroduto', 'dispositivo_sem_eletroduto', 'quadro_sem_posicao', 'ponto_potencia_zero'].includes(c));
     expect(elet).toEqual([]);
   });
   it('circuito_sem_quadro: aponta o circuito e seu primeiro ponto; com quadro não aparece', () => {
@@ -96,40 +94,14 @@ describe('diagnóstico elétrico', () => {
     q.circuitosEletricos = p.circuitosEletricos;
     expect(so(q, 'quadro_sem_posicao')).toEqual([]);
   });
-  it('circuito_sobrecarregado: 40 kVA a 127 V não cabe em nenhuma seção; 1 kVA cabe', () => {
-    const d = so(cena({ potencias: [20000, 20000] }), 'circuito_sobrecarregado');
-    expect(d).toHaveLength(1);
-    expect(d[0]?.valor).toBeCloseTo(40000 / 127, 6);
-    expect(d[0]?.limite).toBe(125);
-    expect(so(cena(), 'circuito_sobrecarregado')).toEqual([]);
-  });
-  it('circuito_sobrecarregado: seção adotada pequena demais acusa e disjuntor adotado abaixo da corrente também', () => {
-    const p = cena({ potencias: [1500, 1500], circuito: { secaoMm2: 1.5 } });
-    expect(so(p, 'circuito_sobrecarregado')).toHaveLength(1);
-    expect(so(cena({ potencias: [1500, 1500], circuito: { disjuntorA: 16 } }), 'circuito_sobrecarregado')).toHaveLength(1);
-    expect(so(cena({ potencias: [1500, 1500] }), 'circuito_sobrecarregado')).toEqual([]);
-  });
-  it('queda_tensao_excedida: seção adotada 2,5 mm2, 23 m e 23,6 A: 7,7 % passa de 4 %; sem adoção a seção sobe e não acusa', () => {
-    // 3000 VA / 127 V = 23,6 A; caminho 3 + 20 = 23 m; 2 x 0,0225 x 23 x 23,6 / (2,5 x 127) x 100 = 7,7 %.
-    const longa = cena({ potencias: [1500, 1500], circuito: { secaoMm2: 2.5 } });
-    longa.elements.t2 = { ...longa.elements.t2!, values: { L: 20000 } } as Component;
-    const d = so(longa, 'queda_tensao_excedida');
-    expect(d).toHaveLength(1);
-    expect(d[0]?.limite).toBe(4);
-    expect(d[0]?.valor).toBeGreaterThan(4);
-    const auto = cena({ potencias: [1500, 1500] });
-    auto.elements.t2 = { ...auto.elements.t2!, values: { L: 20000 } } as Component;
-    expect(so(auto, 'queda_tensao_excedida')).toEqual([]);
-  });
   it('ponto_potencia_zero: ponto com 0 VA acusa o ponto; potência positiva não', () => {
     const d = so(cena({ potencias: [0, 500] }), 'ponto_potencia_zero');
     expect(d.map((x) => x.elementId)).toEqual(['tom1']);
     expect(so(cena(), 'ponto_potencia_zero')).toEqual([]);
   });
-  it('as tabelas editadas valem: queda máxima de 0,1 % passa a acusar o que antes passava', () => {
-    expect(so(cena(), 'queda_tensao_excedida')).toEqual([]);
-    const t = mesclarTabelas(TABELAS_PROVISORIAS, { quedaMaximaPct: 0.1, secoes: [1.5], capacidadeA: { '1.5': 17.5 } });
-    expect(so(cena(), 'queda_tensao_excedida', { tabelas: t }).length).toBe(1);
+  it('nunca emite códigos de dimensionamento: 40 kVA e rede longa não geram aviso de carga', () => {
+    const cods = codigos(cena({ potencias: [20000, 20000] })).join();
+    expect(cods).not.toMatch(/sobrecarg|queda/);
   });
   it('sem projeto elétrico (sem circuitos) não há código novo', () => {
     const p = createEmptyProject('t');

@@ -36,12 +36,6 @@ export interface CircuitoEletrico {
   /** Tensão do circuito (V). */
   tensao: number;
   pontos: PontoCircuito[];
-  /** Fator de potência do circuito (0 a 1); ausente = o padrão das tabelas elétricas (CONFERIR). Ficha C5. */
-  fp?: number;
-  /** Seção do condutor (mm²) ADOTADA pelo projetista; ausente = a calculada pelas tabelas. Ficha C5. */
-  secaoMm2?: number;
-  /** Disjuntor (A) ADOTADO pelo projetista; ausente = o calculado pelas tabelas. Ficha C5. */
-  disjuntorA?: number;
   /** Cor de destaque (#rrggbb) dos componentes do circuito. */
   cor: string;
   notas?: string;
@@ -103,10 +97,7 @@ function validarPonto(p: PontoCircuito): void {
   if (p.fator !== undefined && (!Number.isFinite(p.fator) || p.fator < 0)) throw new Error('O fator do ponto precisa ser um número maior ou igual a zero.');
 }
 
-function validarDados(c: Pick<CircuitoEletrico, 'nome' | 'tipo' | 'tensao' | 'cor' | 'fp' | 'secaoMm2' | 'disjuntorA'>): void {
-  if (c.fp !== undefined && (!Number.isFinite(c.fp) || c.fp <= 0 || c.fp > 1)) throw new Error('O fator de potência precisa estar entre 0 (exclusive) e 1.');
-  if (c.secaoMm2 !== undefined && (!Number.isFinite(c.secaoMm2) || c.secaoMm2 <= 0)) throw new Error('A seção adotada precisa ser maior que zero (mm²).');
-  if (c.disjuntorA !== undefined && (!Number.isFinite(c.disjuntorA) || c.disjuntorA <= 0)) throw new Error('O disjuntor adotado precisa ser maior que zero (A).');
+function validarDados(c: Pick<CircuitoEletrico, 'nome' | 'tipo' | 'tensao' | 'cor'>): void {
   if (!c.nome.trim()) throw new Error('O circuito precisa de um nome.');
   if (!TIPOS_CIRCUITO.includes(c.tipo)) throw new Error('Tipo de circuito inválido: ' + String(c.tipo));
   if (!Number.isFinite(c.tensao) || c.tensao <= 0) throw new Error('A tensão do circuito precisa ser maior que zero (V).');
@@ -148,18 +139,10 @@ export function renomearCircuito(cs: MapaCircuitos, id: Id, nome: string): MapaC
   return { ...cs, [id]: { ...c, nome: nome.trim() } };
 }
 
-/** Alterações aceitas por `atualizarCircuito`: `fp`, `secaoMm2` e `disjuntorA` aceitam `null` para voltar ao calculado. */
-export type PatchCircuito = Partial<Pick<CircuitoEletrico, 'tipo' | 'tensao' | 'cor' | 'notas'>> & { fp?: number | null; secaoMm2?: number | null; disjuntorA?: number | null };
-
-/** Altera tipo, tensão, cor, notas (`notas: ''` apaga), fator de potência, seção e disjuntor adotados (`null` apaga). */
-export function atualizarCircuito(cs: MapaCircuitos, id: Id, patch: PatchCircuito): MapaCircuitos {
+/** Altera tipo, tensão, cor e notas (`notas: ''` apaga). */
+export function atualizarCircuito(cs: MapaCircuitos, id: Id, patch: Partial<Pick<CircuitoEletrico, 'tipo' | 'tensao' | 'cor' | 'notas'>>): MapaCircuitos {
   const c = existente(cs, id);
   const novo: CircuitoEletrico = { ...c, ...(patch.tipo !== undefined ? { tipo: patch.tipo } : {}), ...(patch.tensao !== undefined ? { tensao: patch.tensao } : {}), ...(patch.cor !== undefined ? { cor: patch.cor } : {}) };
-  for (const k of ['fp', 'secaoMm2', 'disjuntorA'] as const) {
-    const v = patch[k];
-    if (v === null) delete novo[k];
-    else if (v !== undefined) novo[k] = v;
-  }
   validarDados(novo);
   if (patch.notas !== undefined) {
     if (patch.notas.trim()) novo.notas = patch.notas;

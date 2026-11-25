@@ -4,7 +4,6 @@ import type { ValidationIssue } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
 import { goToIssue } from '../editor/goToIssue.ts';
 import { useT, type Lang } from '../editor/i18n.ts';
-import { useTabelasEletricas } from './circuitos/tabelasNavegador.ts';
 
 /*
  * Painel "Verificar rede" (ficha C7): lista os diagnósticos de `diagnosticarRede` com um "Ir para" em cada um, que seleciona e
@@ -54,10 +53,6 @@ export function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang, nome
       return t('rede_el_dispositivo_sem_eletroduto');
     case 'quadro_sem_posicao':
       return t('rede_el_quadro_posicoes', { n: d.valor ?? 0, limite: d.limite ?? 0 });
-    case 'circuito_sobrecarregado':
-      return t('rede_el_sobrecarga', { circuito, i: numero(d.valor, lang), limite: numero(d.limite, lang) });
-    case 'queda_tensao_excedida':
-      return t('rede_el_queda', { circuito, pct: numero(d.valor, lang), limite: numero(d.limite, lang) });
     case 'ponto_potencia_zero':
       return t('rede_el_potencia_zero', { circuito });
   }
@@ -72,11 +67,10 @@ export const comoAviso = (d: Diagnostico, texto: string): ValidationIssue => ({ 
 export function RedeDiagnostico(): ReactElement {
   const { t, lang } = useT();
   const project = useProject();
-  const tabelas = useTabelasEletricas();
   const itens = useMemo(() => {
     const nomes = Object.fromEntries(Object.values(project.circuitosEletricos ?? {}).map((c) => [c.id, c.nome]));
-    return diagnosticarRede(project, { tabelas }).map((d) => ({ d, texto: textoDoDiagnostico(d, t, lang, nomes) }));
-  }, [project, t, lang, tabelas]);
+    return diagnosticarRede(project).map((d) => ({ d, texto: textoDoDiagnostico(d, t, lang, nomes) }));
+  }, [project, t, lang]);
 
   if (itens.length === 0) return <p className="issues-ok">{t('rede_vazio')}</p>;
   return (

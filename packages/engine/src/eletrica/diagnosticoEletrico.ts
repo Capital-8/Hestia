@@ -1,13 +1,11 @@
 import { consultarCircuitos, isComponent, validarCircuitos, type Component, type Id, type Project } from '@hestia/model';
 import type { Diagnostico } from '../componentes/diagnosticoRede.ts';
-import { dimensionarProjeto } from './dimensionarProjeto.ts';
-import { TABELAS_PROVISORIAS, type TabelasEletricas } from './tabelasEletricas.ts';
+import { comprimentoDoCircuito } from './comprimentoCircuito.ts';
 
 /*
  * Diagnóstico ELÉTRICO (ficha C5), parte de `diagnosticarRede`: circuito sem quadro, ponto sem caminho de eletroduto até o quadro,
- * caixa/dispositivo sem eletroduto, quadro com mais circuitos que posições, circuito sobrecarregado, queda de tensão acima do limite
- * e ponto com potência zero. Só números e códigos (sem texto); a interface traduz. Os códigos de sobrecarga e de queda dependem
- * das tabelas recebidas (provisórias, CONFERIR, por padrão) e NÃO afirmam conformidade com norma.
+ * caixa/dispositivo sem eletroduto, quadro com mais circuitos que posições e ponto com potência zero. Só TRAÇADO: o programa não
+ * dimensiona (sem corrente, seção, disjuntor nem queda de tensão). Só códigos e números (sem texto); a interface traduz.
  */
 
 /** Dispositivo/caixa elétrica que declara entrada de eletroduto (caixas, tomadas, interruptores, luminárias, quadros). */
@@ -17,7 +15,7 @@ function temEntradaDeEletroduto(p: Project, c: Component): string[] {
   return (f.ligacoes ?? []).filter((l) => l.dominio === 'eletroduto').map((l) => l.id);
 }
 
-export function diagnosticarEletrica(p: Project, tabelas: TabelasEletricas = TABELAS_PROVISORIAS): Diagnostico[] {
+export function diagnosticarEletrica(p: Project): Diagnostico[] {
   const out: Diagnostico[] = [];
   const circuitos = p.circuitosEletricos ?? {};
   // Fora do circuito: caixa ou dispositivo sem NENHUM eletroduto ligado.
@@ -35,23 +33,13 @@ export function diagnosticarEletrica(p: Project, tabelas: TabelasEletricas = TAB
       out.push({ codigo: 'quadro_sem_posicao', elementId: q.quadroId, valor: quadro?.circuitos.length ?? 0, limite: quadro?.posicoes ?? 0 });
     }
   }
-  // Dimensionamento com as tabelas: caminho, potência, sobrecarga e queda.
-  const dim = dimensionarProjeto(p, tabelas);
-  for (const d of Object.values(dim.circuitos)) {
-    const c = d.circuito;
-    const r = d.resultado;
-    const aqui = (extra: Partial<Diagnostico> & Pick<Diagnostico, 'codigo'>, elementId: Id): void => void out.push({ elementId, circuitoId: c.id, ...extra });
-    const ref = c.quadroId ?? c.pontos[0]?.componenteId ?? c.id;
+  // Caminho de eletrodutos e caixas até o quadro, e pontos com VA 0. Nenhum cálculo elétrico: só o traçado.
+  for (const c of consultarCircuitos(p).circuitos) {
+    const aqui = (codigo: Diagnostico['codigo'], elementId: Id): void => void out.push({ codigo, elementId, circuitoId: c.id });
     if (c.quadroId !== undefined && isComponent(p.elements[c.quadroId])) {
-      for (const id of d.comprimento.semCaminho) aqui({ codigo: 'ponto_sem_eletroduto' }, id);
+      for (const id of comprimentoDoCircuito(p, c).semCaminho) aqui('ponto_sem_eletroduto', id);
     }
-    for (const id of d.pontosSemPotencia) aqui({ codigo: 'ponto_potencia_zero' }, id);
-    if (r.sobrecarregado) {
-      const teto = Math.min(r.disjuntorA ?? Infinity, r.capacidadeA ?? Infinity);
-      const maior = Math.max(0, ...Object.values(tabelas.capacidadeA));
-      aqui({ codigo: 'circuito_sobrecarregado', valor: r.correnteA, limite: Number.isFinite(teto) ? teto : maior }, ref);
-    }
-    if (r.quedaExcedida && r.quedaPct !== null) aqui({ codigo: 'queda_tensao_excedida', valor: r.quedaPct, limite: r.quedaMaximaPct }, ref);
+    for (const pt of c.pontos) if (pt.va === 0) aqui('ponto_potencia_zero', pt.componenteId);
   }
   return out;
 }

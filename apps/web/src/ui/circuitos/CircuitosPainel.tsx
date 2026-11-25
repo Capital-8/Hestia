@@ -1,12 +1,10 @@
-import { dimensionarProjeto } from '@hestia/engine';
+import { comprimentoDoCircuito } from '@hestia/engine';
 import { consultarCircuitos, ehQuadro } from '@hestia/model';
 import { useMemo, useState, type ReactElement } from 'react';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
 import { CircuitosView, type AcoesCircuitos } from './CircuitosView.tsx';
 import * as acao from './circuitosAcoes.ts';
-import { TabelasEletricasDialog } from './TabelasEletricasDialog.tsx';
-import { useTabelasEletricas } from './tabelasNavegador.ts';
 
 /** Painel Circuitos (ficha C4): liga a vista aos comandos do projeto. Seleção do desenho = componentes a atribuir. */
 export function CircuitosPainel(): ReactElement {
@@ -14,10 +12,8 @@ export function CircuitosPainel(): ReactElement {
   const selecao = useUi((s) => s.selection);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [tabelasAbertas, setTabelasAbertas] = useState(false);
-  const tabelas = useTabelasEletricas();
   const consulta = useMemo(() => consultarCircuitos(project), [project]);
-  const dimensionamento = useMemo(() => dimensionarProjeto(project, tabelas), [project, tabelas]);
+  const comprimentos = useMemo(() => Object.fromEntries(consulta.circuitos.map((c) => [c.id, comprimentoDoCircuito(project, c).comprimentoM])), [project, consulta]);
   const selecionados = selecao.filter((id) => project.elements[id]?.kind === 'component' && !ehQuadro(project.elements[id])).length;
   const alvo = editor.store;
 
@@ -40,16 +36,7 @@ export function CircuitosPainel(): ReactElement {
     onApagar: (id) => rodar(() => acao.apagarCircuitoPorId(alvo, id)),
     onPotencia: (circuitoId, componenteId, potenciaVA, fator) => rodar(() => acao.definirPotencia(alvo, circuitoId, { componenteId, potenciaVA, ...(fator !== undefined ? { fator } : {}) })),
     onTirar: (componenteId) => rodar(() => acao.tirarPonto(alvo, componenteId)),
-    onTabelas: () => setTabelasAbertas(true),
-    onFp: (id, fp) => rodar(() => acao.mudarFp(alvo, id, fp)),
-    onSecao: (id, secao) => rodar(() => acao.mudarSecao(alvo, id, secao)),
-    onDisjuntor: (id, d) => rodar(() => acao.mudarDisjuntor(alvo, id, d)),
     onRenomearQuadro: (id, nome) => rodar(() => acao.renomearQuadro(alvo, id, nome)),
   };
-  return (
-    <>
-      <CircuitosView consulta={consulta} selecionados={selecionados} erro={erro} aviso={aviso} acoes={acoes} dimensionamento={dimensionamento} />
-      {tabelasAbertas ? <TabelasEletricasDialog onClose={() => setTabelasAbertas(false)} /> : null}
-    </>
-  );
+  return <CircuitosView consulta={consulta} selecionados={selecionados} erro={erro} aviso={aviso} acoes={acoes} comprimentos={comprimentos} />;
 }
