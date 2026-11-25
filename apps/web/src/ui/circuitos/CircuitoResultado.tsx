@@ -42,7 +42,7 @@ export function CircuitoResultado({ c, r, acoes }: { c: CircuitoConsultado; r: R
         <label>Seção adotada
           <select className="input" aria-label={`Seção adotada do circuito ${c.nome}`} value={c.secaoMm2 ?? ''} onChange={(e) => acoes.onSecao?.(c.id, e.target.value ? Number(e.target.value) : null)}>
             <option value="">(calculada)</option>
-            {t.secoes.map((s) => <option key={s} value={s}>{s} mm2</option>)}
+            {t.secoes.map((s) => <option key={s} value={s}>{num(s)} mm2</option>)}
           </select>
         </label>
         <label>Disjuntor adotado
