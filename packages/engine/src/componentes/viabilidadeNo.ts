@@ -69,7 +69,7 @@ export interface EntradaViabilidade {
 /** Resultado: `{ ok: true }` ou o primeiro problema, com bloqueio antes de aviso. */
 export type ResultadoViabilidade =
   | { ok: true }
-  | { ok: false; severidade: 'bloqueio' | 'aviso'; codigo: CodigoViabilidade; motivo: string; trechoAfetado?: number };
+  | { ok: false; severidade: 'bloqueio' | 'aviso'; codigo: CodigoViabilidade; motivo: string; trechoAfetado?: number; faltam?: number };
 
 type Problema = Extract<ResultadoViabilidade, { ok: false }>;
 
@@ -101,7 +101,7 @@ function conferirPrumada(p: PrumadaViabilidade, i: number): Problema | null {
   if (desvio >= preciso - FOLGA) return null;
   const porDiametro = desvio < p.diametroExterno - FOLGA;
   const causa = porDiametro ? `menor que o diâmetro externo da peça de mudança de direção (${mm(p.diametroExterno)}): o joelho de cima e o de baixo se sobreporiam` : `o trecho vertical, depois dos recuos das duas peças (${mm(recuos)}), ficaria menor que o mínimo de ${mm(COMPRIMENTO_MINIMO_TRECHO)}`;
-  return { ok: false, severidade: 'bloqueio', codigo: 'cota_insuficiente', trechoAfetado: indice, motivo: `Mudança de cota de ${mm(desvio)} insuficiente para a prumada: ${causa}. Precisa de pelo menos ${mm(preciso)} (faltam ${mm(preciso - desvio)}).` };
+  return { ok: false, severidade: 'bloqueio', codigo: 'cota_insuficiente', trechoAfetado: indice, faltam: preciso - desvio, motivo: `Mudança de cota de ${mm(desvio)} insuficiente para a prumada: ${causa}. Precisa de pelo menos ${mm(preciso)} (faltam ${mm(preciso - desvio)}).` };
 }
 
 function conferirDeclividade(d: DeclividadeViabilidade, i: number): Problema | null {

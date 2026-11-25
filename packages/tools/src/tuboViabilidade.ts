@@ -12,6 +12,10 @@ import { extremosDoTubo, tuboSob, type ExtremosTubo, type PontoTubo } from './tu
 export interface ViabilidadeDoTrecho {
   bloqueio: string | null;
   avisos: string[];
+  /** Código do bloqueio (ficha B5: o alerta calcula a sugestão por ele); null se não há bloqueio. */
+  codigo: 'trecho_curto' | 'conexoes_se_tocam' | 'cota_insuficiente' | null;
+  /** Só em `cota_insuficiente`: quanto (mm) falta de desvio vertical para a prumada. */
+  faltam?: number;
 }
 
 /** Horizontal menor que isto (m) = trecho vertical (prumada). */
@@ -105,5 +109,6 @@ export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio:
 
   const problemas = listarProblemasDeViabilidade({ trechos, prumadas, declividades });
   const bloqueio = problemas.find((p) => p.severidade === 'bloqueio');
-  return { bloqueio: bloqueio ? bloqueio.motivo : null, avisos: problemas.filter((p) => p.severidade === 'aviso').map((p) => p.motivo) };
+  const bloqueioCodigo = bloqueio && bloqueio.severidade === 'bloqueio' && bloqueio.codigo !== 'declividade_fora_do_limite' ? bloqueio.codigo : null;
+  return { bloqueio: bloqueio ? bloqueio.motivo : null, avisos: problemas.filter((p) => p.severidade === 'aviso').map((p) => p.motivo), codigo: bloqueioCodigo, faltam: bloqueio?.codigo === 'cota_insuficiente' ? bloqueio.faltam : undefined };
 }

@@ -5,6 +5,7 @@ import { ToolBase } from './base.ts';
 import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
 import { planejarPrumada, recuosDoJoelho, type ModoCota } from './tuboPrumada.ts';
+import { itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
 
@@ -112,11 +113,14 @@ export class TuboTool extends ToolBase {
   private inicio: PontoTubo | null = null;
   /** Recuos (m) a aplicar nas pontas dos trechos do passo atual, depois das conexões (tubo entra na bolsa). */
   private aparos: Array<{ id: Id; ponta: 'a' | 'b'; recuo: number }> = [];
+  /** Último trecho bloqueado (ficha B5): prévia vermelha e sugestão até o próximo clique válido ou Esc. */
+  private bloqueio: BloqueioTubo | null = null;
 
   protected reset(): void {
     this.items = [];
     this.inf = null;
     this.inicio = null;
+    this.bloqueio = null;
   }
 
   protected busy(): boolean {
@@ -187,6 +191,7 @@ export class TuboTool extends ToolBase {
     const pt = this.ponto(p, ctx, this.inicio !== null);
     this.items.push({ kind: 'point', at: { x: pt.xyz[0], y: pt.xyz[1] } });
     if (this.inicio) this.items.push(...this.fantasma(this.inicio.xyz, pt.xyz));
+    if (this.bloqueio) this.items.push(...itensDoBloqueio(this.bloqueio));
   }
 
   /** Fantasma do trecho: faixa de largura DN, eixo tracejado e o comprimento. */
@@ -328,6 +333,13 @@ export class TuboTool extends ToolBase {
     this.env.exec({ type: 'updateComponent', id, patch: { x: t.x, y: t.y, z: t.z, rotation: t.rotation, inclinacao: t.inclinacao, values: { ...c.values, L: (total - recuo) * 1000 } } });
   }
 
+  /** Guarda o bloqueio (prévia vermelha; a fala leva a sugestão só quando `naFala`, senão o motivo do ângulo fica como sempre). */
+  private bloquear(a: PontoTubo, b: PontoTubo, motivo: string, sugestao: string | null, naFala: boolean): void {
+    this.env.say('Bloqueado: ' + motivo + (naFala && sugestao ? ' ' + sugestao : ''));
+    this.bloqueio = { a: { x: a.xyz[0], y: a.xyz[1] }, b: { x: b.xyz[0], y: b.xyz[1] }, motivo, sugestao };
+    this.items = itensDoBloqueio(this.bloqueio);
+  }
+
   /**
    * Cria o trecho `a`→`b`, divide tubos onde há derivação, instala as conexões e liga as pontas: tudo num único passo de desfazer. Com
    * mudança de cota (ficha B4, `planejarPrumada`) o trecho vira uma cadeia de tubos ligados por joelhos. A cadeia continua do fim
@@ -336,7 +348,7 @@ export class TuboTool extends ToolBase {
   private criar(ctx: Contexto, a: PontoTubo, b: PontoTubo): void {
     const plano = planejarPrumada(a.xyz, b.xyz, opcoesTubo.modoCota, opcoesTubo.declividade, ctx.familia.id);
     if (plano.bloqueio !== null) {
-      this.env.say('Bloqueado: ' + plano.bloqueio);
+      this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
       return;
     }
     const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
@@ -355,7 +367,8 @@ export class TuboTool extends ToolBase {
     for (let k = 0; k < cadeia.length; k++) {
       const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] });
       if (viab.bloqueio) {
-        this.env.say('Bloqueado: ' + viab.bloqueio);
+        const sugestao = sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, a, c).bloqueio === null);
+        this.bloquear(a, b, viab.bloqueio, sugestao, true);
         return;
       }
       avisos.push(...viab.avisos);
@@ -382,6 +395,7 @@ export class TuboTool extends ToolBase {
       return;
     }
     this.items = [];
+    this.bloqueio = null;
     const extra = avisos.length ? ' ' + avisos.join(' ') : '';
     const id = (cadeia[cadeia.length - 1] as Component).id;
     if (b.alvo || b.derivacao) {
