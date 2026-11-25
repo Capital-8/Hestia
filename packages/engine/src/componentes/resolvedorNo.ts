@@ -1,5 +1,5 @@
 import type { Familia } from '@hestia/model';
-import { posicionarConexao, TOLERANCIA_ANGULO, type ConexaoEncontro, type RegrasConexao, type TipoConexao } from './conexoesAutomaticas.ts';
+import { posicionarConexao, TOLERANCIA_ANGULO, type ConexaoEncontro, type RegrasConexao, type TipoConexao } from './posicaoConexao.ts';
 
 /*
  * Resolvedor de nó (fase 3, ficha B1): dado um nó da rede de tubulação (encontro de dois trechos ou derivação), decide qual peça entra.
