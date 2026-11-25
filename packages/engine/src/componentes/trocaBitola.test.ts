@@ -157,26 +157,31 @@ describe('planejarTrocaDeBitola: recusas e casos sem mudança', () => {
   });
 });
 
-describe('planejarTrocaDeBitola: remoção da conexão incompatível', () => {
-  it('Krona, joelho 100 entre dois tubos: troca um para 75, o joelho sai, as pontas ficam abertas e há alerta', () => {
+describe('planejarTrocaDeBitola: conexão incompatível vira redução na Krona', () => {
+  it('Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica e entra a redução, sem remover nem alertar', () => {
     const { store, tubos, pecas } = cadeia(KRONA, L, 100);
     const plano = planejarTrocaDeBitola(store.project, tubos[0]!, 75);
     expect(plano.ok).toBe(true);
-    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'disconnectComponents', 'deleteElements', 'updateComponent']);
-    expect(plano.conexoesRemovidas.map((r) => [r.elementId, r.ligacaoId]).sort()).toEqual([['t0', 'b'], ['t1', 'a']]);
-    expect(plano.alertas).toHaveLength(1);
-    expect(plano.alertas[0]).toMatchObject({ codigo: 'conexao_removida', elementId: 't0' });
-    expect(plano.alertas[0]?.motivo).toBe('Joelho 90° DN 100 removido: os trechos ligados ficam com DN 100 e DN 75 e este tipo de tubulação não tem redução.');
-    const cmd = plano.comandos.find((c) => c.type === 'deleteElements');
-    expect(cmd).toEqual({ type: 'deleteElements', ids: [pecas[0]] });
+    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'addComponent', 'updateComponent', 'connectComponents', 'connectComponents']);
+    expect(plano.conexoesRemovidas).toEqual([]);
+    expect(plano.alertas).toEqual([]);
+    expect(plano.reducoesInseridas).toEqual([{ elementId: 't0_red_b', familiaId: 'fam_krona_esgoto_reducao_excentrica', dnMaior: 100, dnMenor: 75 }]);
+    expect(plano.comandos.find((c) => c.type === 'deleteElements')).toBeUndefined();
+    const prox = new ProjectStore(store.project);
+    for (const c of plano.comandos) prox.exec(c);
+    expect(porId(prox.project, pecas[0]!).values?.DN).toBe(100);
+    expect(porId(prox.project, 't0').ligacoes?.b?.componenteId).toBe('t0_red_b');
+    expect(diagnosticarRede(prox.project).filter((d) => d.codigo === 'incompativel' || d.codigo === 'conexao_invalida')).toEqual([]);
   });
-  it('Krona: tubos ligados direto com DN diferente: ligação desfeita e alerta bitolas_diferentes', () => {
+  it('Krona: tubos ligados direto com DN diferente: entra a redução entre eles, sem alerta', () => {
     const { store, tubos } = cadeia(KRONA, [[0, 0, 0.5], [1, 0, 0.5], [2, 0, 0.5]], 100, true);
     expect(porId(store.project, tubos[0]!).ligacoes).toBeDefined();
     const plano = planejarTrocaDeBitola(store.project, tubos[0]!, 50);
-    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'updateComponent']);
-    expect(plano.alertas[0]).toMatchObject({ codigo: 'bitolas_diferentes', elementId: 't0' });
-    expect(plano.alertas[0]?.motivo).toContain('DN 100 e DN 50');
+    expect(plano.reducoesInseridas).toEqual([{ elementId: 't0_red_b', familiaId: 'fam_krona_esgoto_reducao_excentrica', dnMaior: 100, dnMenor: 50 }]);
+    expect(plano.alertas).toEqual([]);
+    const prox = new ProjectStore(store.project);
+    for (const c of plano.comandos) prox.exec(c);
+    expect(porId(prox.project, 't1').ligacoes?.a?.componenteId).toBe('t0_red_b');
   });
 });
 

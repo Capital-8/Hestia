@@ -37,20 +37,22 @@ beforeEach(() => {
 });
 
 describe('troca de bitola na Krona esgoto', () => {
-  it('troca o primeiro trecho de DN 100 para DN 75: o joelho some, as pontas ficam abertas e há alerta', () => {
+  it('troca o primeiro trecho de DN 100 para DN 75: o joelho fica, entra a redução e não há alerta', () => {
     const { ctx, t0, t1 } = desenhar(KRONA);
     expect(porFamilia(ctx, 'fam_krona_esgoto_joelho90')).toHaveLength(1);
     const r = trocarBitolaDoTubo(ctx.env, t0.id, 75);
     expect(r.ok).toBe(true);
-    expect(porFamilia(ctx, 'fam_krona_esgoto_joelho90')).toHaveLength(0);
+    expect(porFamilia(ctx, 'fam_krona_esgoto_joelho90')).toHaveLength(1);
+    const reducoes = porFamilia(ctx, 'fam_krona_esgoto_reducao_excentrica');
+    expect(reducoes).toHaveLength(1);
+    expect(reducoes[0]?.values?.COD).toBeDefined();
     expect(atual(ctx, t0).values?.DN).toBe(75);
     expect(atual(ctx, t1).values?.DN).toBe(100);
-    expect(atual(ctx, t0).ligacoes).toBeUndefined();
-    expect(atual(ctx, t1).ligacoes).toBeUndefined();
-    expect(r.mensagens).toHaveLength(1);
-    expect(r.mensagens[0]).toContain('Joelho 90° DN 100 removido');
-    expect(textoDaTroca(r)).toBe(r.mensagens[0]);
-    expect(diagnosticarRede(ctx.store.project).filter((d) => d.codigo === 'ligacao_aberta')).toHaveLength(4);
+    expect(atual(ctx, t0).ligacoes?.b?.componenteId).toBe(reducoes[0]?.id);
+    expect(atual(ctx, t1).ligacoes).toBeDefined();
+    expect(r.mensagens).toEqual([]);
+    expect(textoDaTroca(r)).toBe('');
+    expect(diagnosticarRede(ctx.store.project).filter((d) => d.codigo === 'ligacao_aberta')).toHaveLength(2);
   });
   it('DN 63 é recusado com o motivo e as bitolas; nada muda e não há passo de desfazer novo', () => {
     const { ctx, t0 } = desenhar(KRONA);
@@ -85,14 +87,17 @@ describe('troca de bitola na Krona esgoto', () => {
     const { ctx, t0 } = desenhar(KRONA);
     trocarBitolaDoTubo(ctx.env, t0.id, 75);
     expect(validateProject(ctx.store.project)).toEqual([]);
-    expect(Object.keys(ctx.store.project.sistemasMep ?? {})).toEqual([]);
+    const usados = new Set(comps(ctx).flatMap((c) => Object.values(c.ligacoes ?? {}).map((l) => l.sistemaId)));
+    expect(Object.keys(ctx.store.project.sistemasMep ?? {}).every((id) => usados.has(id))).toBe(true);
   });
-  it('trocar o segundo trecho também funciona: o alerta aponta o tubo trocado', () => {
+  it('trocar o segundo trecho também funciona: a redução liga-se ao tubo trocado, sem alerta', () => {
     const { ctx, t1 } = desenhar(KRONA);
     const plano = planejarTrocaDeBitola(ctx.store.project, t1.id, 50);
-    expect(plano.alertas[0]?.elementId).toBe(t1.id);
+    expect(plano.alertas).toEqual([]);
+    expect(plano.reducoesInseridas).toHaveLength(1);
     expect(aplicarTrocaDeBitola(ctx.env, plano).ok).toBe(true);
     expect(atual(ctx, t1).values?.DN).toBe(50);
+    expect(atual(ctx, t1).ligacoes?.a?.componenteId).toBe(plano.reducoesInseridas[0]?.elementId);
   });
 });
 

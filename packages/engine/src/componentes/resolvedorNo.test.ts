@@ -52,8 +52,13 @@ describe('resolverNo: encontro de dois trechos', () => {
     expect(falha(resolverNo(encontro(esgoto, 120))).motivo).toContain('60°');
     expect(falha(resolverNo(encontro(soldavel, 150, 25))).codigo).toBe('angulo_sem_peca');
   });
-  it('redução: tipos da Krona não têm, então tipo_sem_peca', () => {
-    const s = falha(resolverNo(encontro(esgoto, 180, 100, 50)));
+  it('redução: a Krona tem redução excêntrica, então colinear de DN diferente vira redução', () => {
+    const s = ok(resolverNo(encontro(esgoto, 180, 100, 50)));
+    expect(s.conexao).toMatchObject({ tipo: 'reducao', familiaId: esgoto.regras.reducao, diametros: [100, 50] });
+  });
+  it('redução: tipo sem redução continua tipo_sem_peca', () => {
+    const tipo = { regras: { ...esgoto.regras, reducao: '' } };
+    const s = falha(resolverNo(encontro(tipo, 180, 100, 50)));
     expect(s.codigo).toBe('tipo_sem_peca');
     expect(s.motivo).toBe('Este tipo de tubulação não tem redução: o trecho fica sem essa conexão.');
   });
@@ -61,8 +66,18 @@ describe('resolverNo: encontro de dois trechos', () => {
     const tipo = { regras: { ...esgoto.regras, reducao: 'fam_red' } };
     expect(ok(resolverNo(encontro(tipo, 180, 100, 50))).conexao).toMatchObject({ tipo: 'reducao', familiaId: 'fam_red', diametros: [100, 50] });
   });
-  it('DN diferente em curva: bitolas_diferentes_em_curva', () => {
-    const s = falha(resolverNo(encontro(esgoto, 90, 100, 50)));
+  it('DN diferente em curva: ajustada com curva e redução', () => {
+    const s = resolverNo(encontro(esgoto, 90, 100, 50));
+    expect(s.status).toBe('ajustada');
+    if (s.status !== 'ajustada') return;
+    expect(s.pecas.map((p) => p.tipo)).toEqual(['curva90', 'reducao']);
+    expect(s.pecas[0]).toMatchObject({ familiaId: esgoto.regras.curva90, diametros: [100, 100] });
+    expect(s.pecas[1]).toMatchObject({ familiaId: esgoto.regras.reducao, diametros: [100, 50] });
+    expect(s.motivo).toContain('DN 100 e DN 50');
+  });
+  it('DN diferente em curva sem redução no tipo: bitolas_diferentes_em_curva', () => {
+    const tipo = { regras: { ...esgoto.regras, reducao: '' } };
+    const s = falha(resolverNo(encontro(tipo, 90, 100, 50)));
     expect(s.codigo).toBe('bitolas_diferentes_em_curva');
     expect(s.motivo).toBe('Curva entre bitolas diferentes: coloque uma redução num trecho reto antes da curva.');
   });
