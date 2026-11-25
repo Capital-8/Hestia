@@ -28,6 +28,53 @@ export const ICONES_MEP: Record<string, string> = {
     p('s2', 'M13 3H27V7H13Z') +
     p('ac ic-ds', 'M8 18H18V8') +
     '<circle class="ic-fa" cx="18" cy="18" r="2"/>',
+  // Te: tubo reto com ramal a 90° para cima (bolsa na ponta do ramal e na ponta direita; ponta esquerda lisa).
+  mepTe:
+    p('s1', 'M3 14H23V18H3Z') +
+    p('s3', 'M3 18H23V22H3Z') +
+    p('s1', 'M12 8H16V14H12Z') +
+    p('s3', 'M16 8H20V14H16Z') +
+    p('s2', 'M10 3H22V8H10Z') +
+    p('s2', 'M23 11H28V25H23Z'),
+  // Junção: tubo reto com ramal a 45° para cima e à direita; a bolsa do ramal fica na ponta diagonal.
+  mepJuncao:
+    p('s1', 'M10 20L15.66 14.34L12.83 11.51L7.17 17.17Z') +
+    p('s3', 'M10 20L15.66 14.34L18.49 17.17L12.83 22.83Z') +
+    p('s2', 'M11.42 10.1L19.9 18.58L22.02 16.46L13.54 7.98Z') +
+    p('s1', 'M3 16H24V20H3Z') +
+    p('s3', 'M3 20H24V24H3Z') +
+    p('s2', 'M24 13H29V27H24Z'),
+  // Redução: bolsa grande à esquerda, cone curto e tubo mais estreito saindo para a direita.
+  mepReducao:
+    p('s1', 'M9 9L15 13V16H9Z') +
+    p('s3', 'M9 16H15V19L9 23Z') +
+    p('s1', 'M15 13H29V16H15Z') +
+    p('s3', 'M15 16H29V19H15Z') +
+    p('s2', 'M3 6H9V26H3Z'),
+  // Luva: manguito curto (corpo e duas bolsas) atravessado pelo tubo, que entra pelos dois lados.
+  mepLuva:
+    p('s1', 'M3 13H12V16H3ZM20 13H29V16H20Z') +
+    p('s3', 'M3 16H12V19H3ZM20 16H29V19H20Z') +
+    p('s1', 'M12 11H20V16H12Z') +
+    p('s3', 'M12 16H20V21H12Z') +
+    p('s2', 'M8 8H12V24H8Z') +
+    p('s2', 'M20 8H24V24H20Z'),
+  // Tampão: tubo com bolsa à direita e a ponta esquerda fechada por um fundo (placa com aba).
+  mepTampao:
+    p('s1', 'M9 13H22V16H9Z') +
+    p('s3', 'M9 16H22V19H9Z') +
+    p('s2', 'M22 10H28V22H22Z') +
+    p('s2', 'M4 10H9V22H4Z') +
+    p('s1', 'M2 11H4V21H2Z'),
+  // Prumada: tubo horizontal que sobe em L (joelho) para um tubo vertical; seta laranja para cima (subir).
+  mepPrumada:
+    p('s1', 'M3 19H20V22H3Z') +
+    p('s3', 'M3 22H20V25H3Z') +
+    p('s1', 'M20 8H23V25H20Z') +
+    p('s3', 'M23 8H26V25H23Z') +
+    p('s2', 'M18 4H28V8H18Z') +
+    p('ac', 'M12 17V10') +
+    p('fa', 'M8.5 11L12 6L15.5 11Z'),
   // Verificar rede: rede (tronco e ramais com nós) e o selo azul com a marca de conferência laranja.
   mepVerificarRede:
     p('ln2', 'M5 8H27M11 8V20M21 8V12') +
@@ -41,17 +88,18 @@ export const ICONES_MEP: Record<string, string> = {
   mepEsgoto:
     pc('#8a5a2b', 'M16 3A13 13 0 1 0 16 29A13 13 0 1 0 16 3Z') +
     pc('#ffffff', 'M5.5 10H21V26H14V17H5.5Z'),
-  // Tubos e conexões (Biblioteca): estante de duas prateleiras com um tubo reto em cima e um joelho pequeno embaixo.
+  // Tubos e conexões (Biblioteca): duas peças soltas numa vitrine, um joelho atrás (alto à direita) e um tubo reto na frente, com selo azul de biblioteca.
   mepTubosConexoes:
-    p('s3', 'M3 3H6V29H3Z') +
-    p('s3', 'M26 3H29V29H26Z') +
-    p('s2', 'M6 15H26V17H6Z') +
-    p('s2', 'M6 27H26V29H6Z') +
-    p('s1', 'M8 9H19V12H8Z') +
-    p('s3', 'M8 12H19V15H8Z') +
-    p('s2', 'M19 8H22V16H19Z') +
-    p('s1', 'M8 18H20V26H16V22H8Z') +
-    p('s3', 'M18 22H20V26H18Z'),
+    p('s1', 'M16 6H19V14H16Z') +
+    p('s3', 'M19 6H22V14H19Z') +
+    p('s2', 'M14 2H24V6H14Z') +
+    p('s1', 'M16 8H28V11H16Z') +
+    p('s3', 'M16 11H28V14H16Z') +
+    p('s1', 'M2 18H16V22H2Z') +
+    p('s3', 'M2 22H16V26H2Z') +
+    p('s2', 'M16 15H22V29H16Z') +
+    p('bl', 'M23 22H30V30H23Z') +
+    p('ln', 'M25 25H28M25 27.5H28'),
   // Catálogo de tubos (tabelas do fabricante): planilha com cabeçalho e coluna de bitolas, e o anel (perfil do tubo) ao lado.
   mepCatalogoTubos:
     p('s1', 'M3 6H17V26H3Z') +
