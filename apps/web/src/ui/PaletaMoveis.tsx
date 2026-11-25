@@ -8,6 +8,7 @@ import { useFamilia } from './familia/familiaStore.ts';
 import { tm } from './moveisTextos.ts';
 import { Icon } from './Icon.tsx';
 import { miniaturaDaFamilia, type RetanguloMiniatura } from './familia/familiaMiniatura.ts';
+import { ehFamiliaMep, silhuetaMep } from './miniaturaMep.ts';
 import { ABAS_PALETA, filtrarItensDaPaleta, montarItensDaPaleta, type CategoriaPaleta, type ItemPaleta } from './paletaMoveis.ts';
 import {
   cancelarInsercaoBloco,
@@ -78,6 +79,17 @@ function corDoRetangulo(r: RetanguloMiniatura): string {
 }
 
 function Miniatura({ familia }: { familia: Familia }): ReactElement {
+  // Famílias MEP guardam a geometria em corpos: a silhueta real (ficha B7) substitui o retângulo de peças.
+  const silhueta = ehFamiliaMep(familia) ? silhuetaMep(familia, 120, 64) : null;
+  if (silhueta !== null) {
+    return (
+      <svg viewBox={`0 0 ${silhueta.largura} ${silhueta.altura}`} role="img" aria-label={tm('mov_miniatura_de', { nome: familia.nome })}>
+        {silhueta.triangulos.map((t, i) => (
+          <path key={i} d={t.d} fill={t.cor} stroke={t.cor} strokeWidth={0.35} strokeLinejoin="round" />
+        ))}
+      </svg>
+    );
+  }
   const miniatura = miniaturaDaFamilia(familia, 120, 64);
   return (
     <svg viewBox={`0 0 ${miniatura.largura} ${miniatura.altura}`} role="img" aria-label={tm('mov_miniatura_de', { nome: familia.nome })}>
