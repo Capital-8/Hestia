@@ -129,7 +129,7 @@ export class SelectTool extends ToolBase {
   private tagGrip: Id | null = null;
   private tagAt: Vec2 | null = null;
   /** Cache do projeto sem os elementos que o perfil da vista oculta (planta de área). */
-  private viewCache: { pr: Project; key: string; view: Project } | null = null;
+  private viewCache: { pr: Project; key: string; sets: readonly unknown[]; view: Project } | null = null;
   /** Arrasto de componentes da seleção, com o encaixe na parede/vizinho (criado no início do arrasto). */
   private compArrasto: ArrastoComponentes | null = null;
   /** Última prévia do arrasto de componentes: é ela que o `up` aplica. */
@@ -156,7 +156,11 @@ export class SelectTool extends ToolBase {
     const temFiltro = temNaoSelecionavel(vista);
     if (!temFiltro && (!ly || (ly.walls !== 'hidden' && ly.openings && ly.floors))) return pr;
     const key = `${ly?.walls ?? ''}|${ly?.openings ?? ''}|${ly?.floors ?? ''}`;
-    if (!temFiltro && this.viewCache && this.viewCache.pr === pr && this.viewCache.key === key) return this.viewCache.view;
+    // Ficha N3: com ocultos, meio-tom ou bloqueados (tubos e conexões de outra disciplina) a cópia filtrada também é guardada, enquanto o
+    // projeto, as camadas e os TRÊS conjuntos da vista forem os mesmos objetos (a visibilidade é memoizada por projeto e vista).
+    const conjuntos: readonly unknown[] = [vista.hiddenInView?.() ?? null, vista.halftoneInView?.() ?? null, vista.bloqueados?.() ?? null];
+    const c = this.viewCache;
+    if (c && c.pr === pr && c.key === key && c.sets.length === conjuntos.length && c.sets.every((x, i) => x === conjuntos[i])) return c.view;
     const elements: Project['elements'] = {};
     for (const [id, e] of Object.entries(pr.elements)) {
       if (!podeSelecionar(vista, id, 'clique')) continue;
@@ -166,7 +170,7 @@ export class SelectTool extends ToolBase {
       elements[id] = e;
     }
     const view = { ...pr, elements };
-    if (!temFiltro) this.viewCache = { pr, key, view };
+    this.viewCache = { pr, key, sets: conjuntos, view };
     return view;
   }
 

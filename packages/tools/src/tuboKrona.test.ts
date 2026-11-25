@@ -172,3 +172,25 @@ describe('declividade ao desenhar (ficha M2)', () => {
     expect(Number(porFamilia(ctx, ESGOTO)[0]?.values?.L)).toBeCloseTo(Math.hypot(3, 0.06) * 1000, 3);
   });
 });
+
+import { componentAt } from './pick.ts';
+import { clickAt as clicar } from './testEnv.ts';
+
+describe('cache da pegada no clique (ficha N2)', () => {
+  it('o cache não devolve pegada velha: mover o componente move onde ele é encontrado', () => {
+    const ctx = makeEnv();
+    ctx.env.options().componentFamilyId = ESGOTO;
+    const t = tool('tubo', ctx.env);
+    clicar(t, 0, 0);
+    clicar(t, 2, 0);
+    const c = porFamilia(ctx, ESGOTO)[0];
+    expect(c).toBeDefined();
+    const nivel = c?.levelId ?? '';
+    const antes = (): string | null => componentAt(ctx.store.project, nivel, { x: 1, y: 0 }, 0.01);
+    expect(antes()).toBe(c?.id);
+    expect(antes()).toBe(c?.id);
+    ctx.store.exec({ type: 'updateComponent', id: c?.id ?? '', patch: { y: 5 } });
+    expect(componentAt(ctx.store.project, nivel, { x: 1, y: 0 }, 0.01)).toBeNull();
+    expect(componentAt(ctx.store.project, nivel, { x: 1, y: 5 }, 0.01)).toBe(c?.id);
+  });
+});

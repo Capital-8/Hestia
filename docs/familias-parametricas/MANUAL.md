@@ -102,6 +102,17 @@ As famílias da Krona já prontas estão em *Novo módulo* (Tubulação e Conex�
 
 **Encaixe.** A ligação de uma bolsa recebe a ponta de outra peça. Só bolsa × ponta se conecta; o diagnóstico da rede considera a ponta *dentro* da bolsa (na profundidade do catálogo) e acusa afastamento se ela parar na abertura. A ferramenta Tubo ainda usa as famílias antigas e não calcula o comprimento de corte com a parte que entra.
 
+## Desenhar tubulação com a Krona (aba Sistemas)
+
+1. Aba **Sistemas** → **Tubo**. No painel de propriedades, **Família** escolhe o tipo de tubulação (Esgoto PVC — Krona ou Água fria soldável — Krona) e **DN** só oferece as bitolas da linha (DN 63 no esgoto da Krona é recusado, com o motivo). **Declividade (%)**: negativa desce no sentido do desenho (−1 % em 2 m desce 20 mm).
+2. Clique os pontos. Nos cantos entra o joelho da Krona (90° ou 45°); no meio de um tubo, o tê. Cada trecho é **encurtado** para a ponta ficar dentro da bolsa do joelho na profundidade do catálogo (DN 100: 58 mm de cada lado).
+3. **Verificar rede** mostra só as pontas abertas das extremidades; conexão afastada ou incompatível não aparece.
+4. Para posicionar uma peça avulsa, **Tubos e conexões** abre a Biblioteca na aba Hidráulica (as famílias da Krona e as antigas). Elétrico, HVAC e Aço/Estrutura têm botões equivalentes.
+5. No painel de uma peça selecionada, **Declividade (%)** e **Ângulo em relação à horizontal (°)** substituem a leitura a partir da vertical (o campo antigo continua lá).
+6. Materiais: esgoto branco, série reforçada bege, soldável marrom, perfis em aço. O seletor **Material do corpo** (editor de famílias) e o do diálogo do catálogo trocam a cor; nenhuma peça de instalação sai mais em madeira.
+
+Limites: o tê e a junção não abrem o furo do ramal na corrida (falta a subtração real); a redução entre bitolas e o tampão não entram sozinhos; soldável não tem junção de 45°.
+
 ## O que ainda não existe
 
 Esta seção segue o `ESTADO.md`, com o que foi conferido nesta revisão.

@@ -100,8 +100,13 @@ export function pontasDoTubo(familia: Familia, dn: number): PontasDoTubo | null 
   return ligs.length >= 2 && inicio && fim ? { inicio, fim } : null;
 }
 
+/** Ligações abertas por projeto (N4): o mouse pedia a lista a cada movimento; o projeto novo a cada comando invalida sozinho. */
+const ABERTAS = new WeakMap<Project, LigacaoAberta[]>();
+
 /** Ligações abertas (sem conexão) de todas as instâncias do projeto, no mundo. */
 function ligacoesAbertas(p: Project): LigacaoAberta[] {
+  const guardada = ABERTAS.get(p);
+  if (guardada) return guardada;
   const saida: LigacaoAberta[] = [];
   for (const e of Object.values(p.elements)) {
     if (!isComponent(e) || !p.componentFamilies?.[e.familyId]?.ligacoes?.length) continue;
@@ -109,6 +114,7 @@ function ligacoesAbertas(p: Project): LigacaoAberta[] {
       if (e.ligacoes?.[lig.id] === undefined) saida.push({ componentId: e.id, lig: ligacaoNoMundo(lig, e) });
     }
   }
+  ABERTAS.set(p, saida);
   return saida;
 }
 

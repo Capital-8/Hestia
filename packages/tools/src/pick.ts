@@ -1,7 +1,7 @@
 import { arcFromSagitta, arcSample, dist, boxesOverlap, boxOf, intersectSegments, union, type MultiPolygon, type Vec2 } from '@hestia/geom';
 import { wallMid } from './wallGeom.ts';
 import { isComponent, matrizDoComponente, isFurniture, isGeneric, wallsOfPlan, type Component, type Id, type Project } from '@hestia/model';
-import { pegadaDoComponente, projetarCorposPlanta, resolverComponente, toLocal, wallEndCorners } from '@hestia/engine';
+import { pegadaDoComponente, projetarCorposPlanta, resolverComponente, toLocal, wallEndCorners, type ResolucaoFamilia } from '@hestia/engine';
 import { cadDrawingIdsInBox as cadBoxIds, cadNear, cadSnapIndexes } from './snapCad.ts';
 import { candidatesAt, wallIndexOf } from './pickIndex.ts';
 import { furnitureOutline } from './furnitureFootprint.ts';
@@ -174,8 +174,29 @@ export function genericAt(p: Project, levelId: Id, at: Vec2, mpp: number, env?: 
  * dos corpos sai e entra a silhueta de B3 (projeção em XY, detalhe médio, como a planta desenha por padrão), para o
  * clique dentro da caixa mas fora do corpo não selecionar a instância.
  */
+/**
+ * Pegadas já calculadas (ficha N2): a silhueta dos corpos é uma união de triângulos e saía recalculada por componente a CADA movimento do
+ * mouse. A pegada só depende da resolução da família (memoizada por `resolverComponente`, mesma referência enquanto família, tipo e
+ * valores não mudam) e da posição e orientação da instância; mudar qualquer um dá outra chave, então o cache nunca devolve pegada velha.
+ */
+const PEGADAS = new WeakMap<ResolucaoFamilia, Map<string, MultiPolygon>>();
+
 function pegadaParaClique(p: Project, c: Component): MultiPolygon {
   const res = resolverComponente(p, c);
+  const chave = `${c.x},${c.y},${c.z},${c.rotation},${c.mirrored ? 1 : 0},${c.inclinacao?.join(',') ?? ''}`;
+  let porChave = PEGADAS.get(res);
+  if (!porChave) {
+    porChave = new Map();
+    PEGADAS.set(res, porChave);
+  }
+  const guardada = porChave.get(chave);
+  if (guardada) return guardada;
+  const pegada = calcularPegadaParaClique(p, c, res);
+  porChave.set(chave, pegada);
+  return pegada;
+}
+
+function calcularPegadaParaClique(p: Project, c: Component, res: ResolucaoFamilia): MultiPolygon {
   const corpos = res.corpos ?? [];
   if (corpos.length === 0) return pegadaDoComponente(p, c, res);
   const pecas = pegadaDoComponente(p, c, { ...res, caixaCorpos: null });

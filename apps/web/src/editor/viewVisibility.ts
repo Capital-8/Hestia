@@ -256,7 +256,28 @@ function bloqueadosDaDisciplina(p: Project, trabalho: Discipline | 'todas', libe
  * (1) oculto vence (Hide in View, categoria, temporário ou tom `hidden`); (2) senão, tom `halftone`; (3) normal.
  * Os bloqueados de edição (plano de UX de 2026-11-23) são o que sobra visível e que `podeEditar` recusa.
  */
-export function visibilityOf(p: Project, st: ReturnType<typeof useUi.getState>): ViewVisibilitySets {
+type EstadoDaVista = ReturnType<typeof useUi.getState>;
+
+/**
+ * Último resultado de `visibilityOf` (ficha N2). A função é pura em (projeto, campos da vista abaixo) e era refeita a CADA consulta, e a
+ * seleção e o mouse consultam várias vezes por movimento: com muitos tubos e conexões (que entram em meio-tom na disciplina de trabalho
+ * padrão) isso era a maior fatia do tempo do mouse. O projeto novo a cada comando e qualquer troca de vista, disciplina ou ocultação
+ * temporária mudam a chave; os conjuntos devolvidos são somente leitura.
+ */
+let ultimaVisibilidade: { p: Project; chave: readonly unknown[]; resultado: ViewVisibilitySets } | null = null;
+
+const chaveDaVista = (st: EstadoDaVista): readonly unknown[] => [st.view, st.planKind, st.levelId, st.areaPlanId, st.sectionId, st.planViewId, st.view3dViewId, st.viewTemp, st.minhaDisciplina, st.liberarEdicao];
+
+export function visibilityOf(p: Project, st: EstadoDaVista): ViewVisibilitySets {
+  const chave = chaveDaVista(st);
+  const u = ultimaVisibilidade;
+  if (u && u.p === p && u.chave.length === chave.length && u.chave.every((v, i) => v === chave[i])) return u.resultado;
+  const resultado = calcularVisibilidade(p, st);
+  ultimaVisibilidade = { p, chave, resultado };
+  return resultado;
+}
+
+function calcularVisibilidade(p: Project, st: EstadoDaVista): ViewVisibilitySets {
   const target = viewHiddenTargetOf(st);
   const key = visibilityKeyOf(st);
   if (!target || !key) return VAZIO;
