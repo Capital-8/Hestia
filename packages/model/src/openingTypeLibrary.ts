@@ -36,7 +36,7 @@ type CamposMaterial = Partial<Record<keyof Material, unknown>>;
 
 const LEAVES: readonly number[] = [0, 1, 2, 3, 4];
 const FECHAMENTOS: readonly string[] = ['inherit', 'none', 'interior', 'exterior', 'both'];
-const HACHURAS: readonly string[] = ['solid', 'diagonal', 'cross', 'dots', 'gesso', 'none'];
+const HACHURAS: readonly string[] = ['solid', 'diagonal', 'cross', 'dots', 'gesso', 'none', 'brick', 'concrete', 'timber', 'insulation', 'earth', 'cmu', 'exposedBrick', 'rcConcrete', 'stone', 'gravel', 'sand', 'eps', 'woolZigzag', 'gypsum', 'timberEnd', 'steel'];
 const UNIDADES: readonly string[] = ['m2', 'm3', 'm'];
 
 const medida = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);

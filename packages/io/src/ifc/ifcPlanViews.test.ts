@@ -58,8 +58,10 @@ describe('IFC: PlanViewsJSON (plantas de disciplina)', () => {
     const p = new ProjectStore(buildTemplate('house2')).project;
     const texto = exportIfc(p, VAZIA, { timestamp: TS });
     expect(texto).not.toContain('PlanViewsJSON');
-    // O único byte que muda é o SchemaVersion da Hestia: 32 → 33 (o resto do arquivo é o de antes).
-    expect([texto.length, fnv(texto)]).toEqual([95531, 'f059b474']);
+    // O arquivo é o de antes (SchemaVersion 33) mais o que os projetos NOVOS passaram a trazer por padrão: 10 materiais
+    // (+ a hachura nova de lã mineral, gesso e aço). Conferido: sem esses materiais e hachuras o resultado volta exatamente
+    // a [95531, 'f059b474'].
+    expect([texto.length, fnv(texto)]).toEqual([96981, '2cee9bda']);
   });
 
   it('importar IFC sem PlanViewsJSON continua igual: abre só com as plantas padrão', () => {

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { multiArea, pointInPolygon, type Vec2 } from '@hestia/geom';
-import { resolveLevel, resolveSlabs } from '@hestia/engine';
+import { resolveFloors, resolveLevel, resolveSlabs } from '@hestia/engine';
 import { ProjectStore, createEmptyProject, makeFloor, makeSlab, type DetailLevel, type Project, type Slab } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
-import { mix } from './color.ts';
 import { slabFills, slabSelectionOps, structuralLayer } from './slabs.ts';
 import { defaultPaint } from './style.ts';
 import { DARK, LIGHT } from './types.ts';
@@ -44,22 +43,24 @@ function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
 }
 
 describe('laje na planta (D1)', () => {
-  it('cor da camada estrutural misturada com o papel a 0,6 (um tom mais escura que a do piso)', () => {
+  it('linha oculta: a laje fica no papel (a cor do material só no sombreado)', () => {
     const fill = slabOps(slabProject()).fills[0]!;
-    expect(fill.color).toBe(mix(CONCRETE, '#ffffff', 0.6));
-    expect(fill.color).not.toBe(mix(CONCRETE, '#ffffff', 0.74));
+    expect(fill.color).toBe('#ffffff');
+    const shaded = resolverZoom(slabFills(slabProject(), 'lv_0', LIGHT, false, 'medium', VIEW(100), undefined, { ...defaultPaint('slab', 100), visual: 'shaded' }), 100);
+    expect(shaded.fills[0]!.color).toBe(CONCRETE);
   });
 
-  it('escuro: mistura com o fundo a 0,38', () => {
+  it('escuro: a laje fica no papel do tema escuro (DARK.bg)', () => {
     const fill = slabOps(slabProject(), 'medium', 100, true).fills[0]!;
-    expect(fill.color).toBe(mix(CONCRETE, DARK.bg, 0.38));
+    expect(fill.color).toBe(DARK.bg);
   });
 
   it('a camada estrutural manda na cor, mesmo quando não é a de topo (cobertura: argamassa em cima)', () => {
     const p = slabProject({}, {}, 'ls_cobertura');
     const [s] = resolveSlabs(p, 'lv_0');
     expect(structuralLayer(p, s!)?.materialId).toBe('mat_concreto');
-    expect(slabOps(p).fills[0]!.color).toBe(mix(CONCRETE, '#ffffff', 0.6));
+    const shaded = resolverZoom(slabFills(p, 'lv_0', LIGHT, false, 'medium', VIEW(100), undefined, { ...defaultPaint('slab', 100), visual: 'shaded' }), 100);
+    expect(shaded.fills[0]!.color).toBe(CONCRETE);
   });
 
   it('hachura do material estrutural só com zoom a partir de 40 px/m (médio); no fino, sempre; no grosseiro, nunca', () => {
@@ -120,8 +121,10 @@ describe('laje na planta (D1)', () => {
     s.exec({ type: 'addFloor', floor: makeFloor({ id: 'f', typeId: 'ft_ceram', levelId: 'lv_0', boundary: [{ x: 1, y: 1 }, { x: 5, y: 1 }, { x: 5, y: 3 }, { x: 1, y: 3 }] }) });
     const dl = buildPlanDrawList(input(s.project));
     expect(dl.fills[0]!.polygons).toEqual(resolveSlabs(p, 'lv_0')[0]!.polygon);
-    expect(dl.fills[0]!.color).toBe(mix(CONCRETE, '#ffffff', 0.6));
-    const floorIdx = dl.fills.findIndex((f) => f.color === mix('#e9e4da', '#ffffff', 0.74));
+    expect(dl.fills[0]!.color).toBe('#ffffff');
+    // Em linha oculta piso e laje ficam no papel: o piso é achado pela geometria, não pela cor.
+    const floor = resolveFloors(s.project, 'lv_0')[0]!;
+    const floorIdx = dl.fills.findIndex((f) => !f.contour && JSON.stringify(f.polygons) === JSON.stringify(floor.polygon));
     expect(floorIdx).toBeGreaterThan(0);
   });
 });

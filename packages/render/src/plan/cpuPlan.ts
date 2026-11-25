@@ -1,7 +1,7 @@
 import type { Ring } from '@hestia/geom';
 import { worldToScreen, type Viewport } from '../viewport.ts';
 import { larguraEmPx } from './espessura.ts';
-import { DOT_PX, HATCH_PX, hatchSegments } from './hatch.ts';
+import { hatchSegments, medidasDaHachura } from './hatch.ts';
 import type { FillOp, PlanDrawList } from './types.ts';
 
 function pathRings(ctx: CanvasRenderingContext2D, rings: Ring[], v: Viewport): void {
@@ -34,11 +34,12 @@ function drawHatch(ctx: CanvasRenderingContext2D, f: FillOp, v: Viewport): void 
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = hatch.color;
   ctx.lineCap = 'butt';
+  const med = medidasDaHachura(hatch.papel, v.zoom, hatch.fina === true);
   for (const kind of ['line', 'dot'] as const) {
-    ctx.lineWidth = kind === 'line' ? HATCH_PX : DOT_PX;
+    ctx.lineWidth = kind === 'line' ? med.linhaPx : med.pontoPx;
     ctx.beginPath();
     for (const poly of f.polygons) {
-      for (const s of hatchSegments(poly, hatch.kind)) {
+      for (const s of hatchSegments(poly, hatch.kind, med.espaco)) {
         if ((s.dot === true) !== (kind === 'dot')) continue;
         const a = worldToScreen(v, s.a);
         const b = worldToScreen(v, s.b);

@@ -57,7 +57,8 @@ describe('desenho do corte com escada', () => {
     const hatched = draw.fills.filter((f) => f.hatch);
     expect(hatched.length).toBeGreaterThan(0);
     expect(hatched.some((f) => f.hatch?.kind === 'cross')).toBe(true);
-    expect(draw.strokes.some((s) => s.closed && s.widthPx === 2.2)).toBe(true);
+    // Corte da escada: peso 4 em 1:100 = 0,35 mm de papel (2,1 px no zoom 60), em tinta cheia.
+    expect(draw.strokes.some((s) => s.closed && s.widthPx === 2.1 && s.papel?.mm === 0.35 && s.color === LIGHT.ink)).toBe(true);
   });
 
   it('a elevação mostra a estrutura da escada como um contorno único além do plano, sem hachura e sem linha entre degraus', () => {
@@ -94,11 +95,11 @@ function boxInput(): SectionInput {
 }
 
 describe('desenho do corte com linha oculta', () => {
-  const GLASS = '#bfe3f5';
   it('a janela de trás e a da parede interna não são pintadas: só o vidro da face voltada ao observador', () => {
     const draw = buildSectionDrawList(boxInput());
-    // A janela da frente é de correr com duas folhas: dois panos de vidro, e nada das janelas de trás/interna.
-    expect(draw.fills.filter((f) => f.color === GLASS)).toHaveLength(2);
+    // A janela da frente é de correr com duas folhas: dois panos de vidro do modelo (0,515 × 1,032 m), e nada das janelas de trás/interna.
+    const vidros = draw.fills.filter((f) => Math.abs(altura(f.polygons) - 1.032) < 1e-6 && Math.abs(largura(f.polygons) - 0.515) < 1e-6);
+    expect(vidros).toHaveLength(2);
   });
 
   it('o corte é pintado por último, sobre o que está além', () => {
@@ -148,8 +149,6 @@ function cross(openings: Opening[], type?: OpeningType): SectionInput {
   return { project, section: computeSection(project, { a: v(3, -1), b: v(3, 1), depth: 3 }), viewport: { cx: 0, cy: 1.5, zoom: 60, width: 800, height: 600 }, theme: LIGHT, dark: false, showGrid: false };
 }
 
-const GLASS_T = '#bfe3f5';
-const DOOR_T = '#e6d2ae';
 const largura = (polys: MultiPolygon): number => {
   const x = polys.flat(2).map((q) => q.x);
   return Math.max(...x) - Math.min(...x);
@@ -206,7 +205,8 @@ describe('esquadria no corte e na elevação (tipo e família)', () => {
 
   it('C2: no corte face, o vidro ocupa a região interna do caixilho', () => {
     const d = buildSectionDrawList(facade([op('j', 'window', 'ot_jfixa60', 'frente')]));
-    const vidro = d.fills.filter((f) => f.color === GLASS_T);
+    // Vidro = preenchimento de 0,50 × 0,50 m (0,60 − 2 × 0,05), o único com essa área no vão.
+    const vidro = d.fills.filter((f) => Math.abs(largura(f.polygons) - 0.5) < 1e-6 && Math.abs(altura(f.polygons) - 0.5) < 1e-6);
     expect(vidro).toHaveLength(1);
     expect(largura(vidro[0]!.polygons)).toBeCloseTo(0.5, 6); // 0,60 − 2 × 0,05
     expect(altura(vidro[0]!.polygons)).toBeCloseTo(0.5, 6);
@@ -215,7 +215,7 @@ describe('esquadria no corte e na elevação (tipo e família)', () => {
   it('C2: no corte transversal, o vidro tem a espessura do tipo (glassThickness)', () => {
     const tipo = comTipo(createEmptyProject().openingTypes.ot_jfixa60!, { id: 'ot_jg', glassThickness: 0.03 });
     const d = buildSectionDrawList(cross([op('j', 'window', 'ot_jg', 'w')], tipo));
-    const vidro = d.fills.filter((f) => f.color === GLASS_T);
+    const vidro = d.fills.filter((f) => Math.abs(largura(f.polygons) - 0.03) < 1e-6 && Math.abs(altura(f.polygons) - 0.5) < 1e-6);
     expect(vidro).toHaveLength(1);
     expect(largura(vidro[0]!.polygons)).toBeCloseTo(0.03, 6);
   });
@@ -224,10 +224,11 @@ describe('esquadria no corte e na elevação (tipo e família)', () => {
     const tipo = comTipo(createEmptyProject().openingTypes.ot_jfixa60!, { id: 'ot_esp', width: 0.9, frameWidth: 0.07, frameDepthMode: 'fixed', frameDepth: 0.1, glassThickness: 0.02 });
     const face = buildSectionDrawList(facade([op('j', 'window', 'ot_esp', 'frente')], tipo));
     expect(face.fills.map((f) => largura(f.polygons)).filter((w) => Math.abs(w - 0.07) < 1e-6)).toHaveLength(2); // ombreiras
-    expect(largura(face.fills.find((f) => f.color === GLASS_T)!.polygons)).toBeCloseTo(0.9 - 2 * 0.07, 6);
+    // Vidro da face: largura 0,90 − 2 × 0,07 (altura 0,60 − 2 × 0,07).
+    expect(largura(face.fills.find((f) => Math.abs(largura(f.polygons) - (0.9 - 2 * 0.07)) < 1e-6 && Math.abs(altura(f.polygons) - (0.6 - 2 * 0.07)) < 1e-6)!.polygons)).toBeCloseTo(0.9 - 2 * 0.07, 6);
     const corte = buildSectionDrawList(cross([op('j', 'window', 'ot_esp', 'w')], tipo));
     expect(corte.fills.some((f) => Math.abs(largura(f.polygons) - 0.1) < 1e-6)).toBe(true); // verga/soleira
-    expect(largura(corte.fills.find((f) => f.color === GLASS_T)!.polygons)).toBeCloseTo(0.02, 6); // vidro
+    expect(largura(corte.fills.find((f) => Math.abs(largura(f.polygons) - 0.02) < 1e-6)!.polygons)).toBeCloseTo(0.02, 6); // vidro
   });
 
   it('C6: a linha central do vidro só aparece na janela de correr (2+ folhas)', () => {
@@ -238,8 +239,11 @@ describe('esquadria no corte e na elevação (tipo e família)', () => {
   });
 
   it('C5: o vão livre de porta não tem preenchimento; a porta com folha tem', () => {
-    expect(buildSectionDrawList(facade([op('v', 'door', 'ot_vao90', 'frente')])).fills.filter((f) => f.color === DOOR_T)).toHaveLength(0);
-    expect(buildSectionDrawList(facade([op('p', 'door', 'ot_p80', 'frente')])).fills.filter((f) => f.color === DOOR_T)).toHaveLength(1);
+    // Folha do modelo da P-02: 0,722 de largura por 2,054 de altura.
+    const folha = (d: ReturnType<typeof buildSectionDrawList>): number =>
+      d.fills.filter((f) => Math.abs(largura(f.polygons) - 0.722) < 1e-6 && Math.abs(altura(f.polygons) - 2.054) < 1e-6).length;
+    expect(folha(buildSectionDrawList(facade([op('v', 'door', 'ot_vao90', 'frente')])))).toBe(0);
+    expect(folha(buildSectionDrawList(facade([op('p', 'door', 'ot_p80', 'frente')])))).toBe(1);
   });
 
   // Diagonal solta: traço reto de dois pontos que não é horizontal nem vertical (o X do vão saiu, decisão 0024 §3).
@@ -444,11 +448,14 @@ describe('gráficos do corte/elevação (decisão 0015)', () => {
     const base = styledBox({ scale: 100 }, () => cross([]));
     const meio = { ...base, toneCategories: { wall: 'halftone' as const } };
     const d = buildSectionDrawList(meio);
-    // O corte da parede continua com o peso 5 (não sumiu) e o traço vai 50 % para o papel: #16181c +35 % papel +50 % papel.
+    // O corte da parede continua com o peso 5 (não sumiu). Em linha oculta o contorno do corte é a tinta cheia (#16181c) e o
+    // tom de meio-tom da disciplina o leva 50 % para o papel: (0x16 + 0xff) / 2 = 0x8b, (0x18 + 0xff) / 2 = 0x8c, (0x1c + 0xff) / 2 = 0x8e.
     expect(closedWidths(d)).toContain(weightPx(5, 100));
-    expect(d.strokes.some((s) => s.closed && s.widthPx === weightPx(5, 100) && s.color === '#b4b4b5')).toBe(true);
-    // Sem o tom, o mesmo traço sai na cor de antes (não misturada).
-    expect(buildSectionDrawList(base).strokes.some((s) => s.color === '#b4b4b5')).toBe(false);
+    expect(d.strokes.some((s) => s.closed && s.widthPx === weightPx(5, 100) && s.color === '#8b8c8e')).toBe(true);
+    // Sem o tom, o mesmo contorno sai em tinta cheia (não clareada).
+    const sem = buildSectionDrawList(base).strokes.filter((s) => s.closed && s.widthPx === weightPx(5, 100));
+    expect(sem.length).toBeGreaterThan(0);
+    expect(sem.every((s) => s.color === '#16181c')).toBe(true);
   });
 
   it('parede oculta por tom de categoria não sai', () => {
@@ -466,15 +473,15 @@ describe('gráficos do corte/elevação (decisão 0015)', () => {
     expect(grosso.fills).toHaveLength(0);
   });
 
-  it('sem gráficos salvos o hiddenLine continua com os traços fixos de antes (silhueta 2,2 e além 1)', () => {
+  it('sem gráficos salvos o hiddenLine já usa os pesos de pena (silhueta externa com o papel do corte da parede)', () => {
     const d = buildSectionDrawList(boxInput());
-    expect(d.strokes.filter((s) => s.closed).some((s) => s.widthPx === 2.2)).toBe(true);
-    // O que está além pesa por proximidade (0,55 a 1,6 vezes o traço de projeção de 1 px): sempre abaixo da silhueta.
-    const beyond = d.strokes.filter((s) => s.closed && s.widthPx < 2.2);
-    expect(beyond.length).toBeGreaterThan(0);
-    expect(beyond.every((s) => s.widthPx >= 0.55 - 1e-9 && s.widthPx <= 1.6 + 1e-9)).toBe(true);
-    // E há gradação: mais de um peso entre os traços de projeção (perto pesa mais que longe).
-    expect(new Set(beyond.map((s) => s.widthPx.toFixed(3))).size).toBeGreaterThan(1);
+    // Parede cortada (peso 5 em 1:100): 0,5 mm de papel, 3 px no zoom 60, em tinta cheia. A silhueta externa usa o mesmo papel.
+    const silhueta = d.strokes.filter((s) => s.closed && s.color === LIGHT.ink && s.papel?.mm === 0.5 && s.papel?.escala === 100 && s.widthPx === 3);
+    expect(silhueta.length).toBeGreaterThan(0);
+    // Todos os contornos fechados já levam o peso de papel (não sobram larguras fixas de antes).
+    const fechados = d.strokes.filter((s) => s.closed);
+    expect(fechados.length).toBeGreaterThan(0);
+    expect(fechados.every((s) => s.papel !== undefined)).toBe(true);
   });
 });
 
@@ -536,8 +543,10 @@ describe('elevação e corte a partir do modelo único', () => {
     const o = input.section.openings[0]!;
     const vidro = o.model.parts.find((x) => x.role === 'glass')!;
     const d = buildSectionDrawList(input);
-    const f = d.fills.find((x) => x.color === GLASS_T);
+    // Na linha oculta o vidro é papel; acha-se pela geometria do modelo (largura × altura do pano).
+    const f = d.fills.find((x) => Math.abs(largura(x.polygons) - (vidro.box.t1 - vidro.box.t0)) < 1e-6 && Math.abs(altura(x.polygons) - (vidro.box.z1 - vidro.box.z0)) < 1e-6);
     expect(f).toBeDefined();
+    expect(f!.color).toBe('#ffffff');
     expect(largura(f!.polygons)).toBeCloseTo(vidro.box.t1 - vidro.box.t0, 6);
     expect(altura(f!.polygons)).toBeCloseTo(vidro.box.z1 - vidro.box.z0, 6);
   });
@@ -569,8 +578,10 @@ describe('elevação e corte a partir do modelo único', () => {
     const centro = (o.model.core.s0 + o.model.core.s1) / 2;
     expect(d.fills.some((f) => Math.abs(largura(f.polygons) - larg) < 1e-6 && Math.abs(centroX(f.polygons) - (cx + o.sSign * centro)) < 1e-6)).toBe(true);
     const vidro = o.model.parts.find((x) => x.role === 'glass')!;
-    const f = d.fills.find((x) => x.color === GLASS_T)!;
-    expect(largura(f.polygons)).toBeCloseTo(vidro.box.s1 - vidro.box.s0, 6);
+    const f = d.fills.find((x) => Math.abs(largura(x.polygons) - (vidro.box.s1 - vidro.box.s0)) < 1e-6 && Math.abs(altura(x.polygons) - (vidro.box.z1 - vidro.box.z0)) < 1e-6)!;
+    expect(f).toBeDefined();
+    expect(f.color).toBe('#ffffff');
+    expect(largura(f.polygons)).toBeCloseTo(0.012, 6);
     // Peitoril saliente projetado além das duas faces no corte.
     expect(d.fills.some((x) => Math.abs(largura(x.polygons) - (o.model.thickness + 0.06)) < 1e-6)).toBe(true);
   });

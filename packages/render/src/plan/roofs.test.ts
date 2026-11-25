@@ -7,7 +7,7 @@ import { buildPlanDrawList, type PlanInput } from './build.ts';
 import { mix } from './color.ts';
 import { labelPoint } from './floors.ts';
 import { roofFills, roofFootprint, roofOps, roofRealArea, roofSelectionOps, highestRidge } from './roofs.ts';
-import { corDaAresta, DEFAULT_SUN_AZIMUTH, direcaoDoSol, TONE_45, tomDaAgua } from './roofsAgua.ts';
+import { DEFAULT_SUN_AZIMUTH, direcaoDoSol, TONE_45, tomDaAgua } from './roofsAgua.ts';
 import { caixaDoRotulo, caixasSobrepostas } from './roofsRotulos.ts';
 import { espessurasDoTelhado } from './roofsTracos.ts';
 import { defaultPaint } from './style.ts';
@@ -78,13 +78,11 @@ function input(p: Project, over: Partial<PlanInput> = {}): PlanInput {
 }
 
 describe('telhado na planta (D1)', () => {
-  it('cada água: cor da camada de topo misturada com o papel a 0,25 e tom por orientação e inclinação', () => {
+  it('linha oculta: todas as águas ficam no papel, sem tom por orientação', () => {
     const r = gable();
     const fills = ops([r]).fills.filter((f) => f.alpha === 0.98);
-    const base = mix(TILE, '#ffffff', 0.25);
     expect(fills).toHaveLength(2);
-    expect(fills[0]!.color).toBe(tomDaAgua(base, P(0, 1), 30));
-    expect(fills[1]!.color).toBe(tomDaAgua(base, P(0, -1), 30));
+    expect(fills.map((f) => f.color)).toEqual(['#ffffff', '#ffffff']);
   });
 
   it('o sol padrão do 3D deixa mais clara a água que desce na direção dele e a oposta mais escura', () => {
@@ -96,18 +94,19 @@ describe('telhado na planta (D1)', () => {
     expect(tomDaAgua(base, P(0, 1), 30)).not.toBe(tomDaAgua(base, P(0, -1), 30));
   });
 
-  it('o azimute do sol pode vir da vista 3D do projeto (contexto da planta)', () => {
+  it('o azimute do sol pode vir da vista 3D do projeto (no sombreado, onde o tom aparece)', () => {
     const r = gable();
     const p = { ...createEmptyProject(), view3d: { ...DEFAULT_VIEW_3D, sunAzimuth: 0 } };
-    const base = mix(TILE, '#ffffff', 0.25);
-    const fills = ops([r], 'medium', 100, false, p).fills.filter((f) => f.alpha === 0.98);
-    expect(fills[0]!.color).toBe(tomDaAgua(base, P(0, 1), 30, 0));
-    expect(fills[0]!.color).not.toBe(tomDaAgua(base, P(0, 1), 30));
+    // No sombreado a base é a cor do material, sem mistura com o papel.
+    const shaded = { ...defaultPaint('roof', 100), visual: 'shaded' as const };
+    const fills = roofOps([r], p, LIGHT, false, 'medium', VIEW(100), { paint: shaded }).fills.filter((f) => f.alpha === 0.98);
+    expect(fills[0]!.color).toBe(tomDaAgua(TILE, P(0, 1), 30, 0));
+    expect(fills[0]!.color).not.toBe(tomDaAgua(TILE, P(0, 1), 30));
   });
 
-  it('escuro: mistura com o fundo a 0,2', () => {
+  it('escuro: a água fica no papel do tema escuro (DARK.bg)', () => {
     const fills = ops([gable()], 'medium', 100, true).fills.filter((f) => f.alpha === 0.98);
-    expect(fills[0]!.color).toBe(tomDaAgua(mix(TILE, DARK.bg, 0.2), P(0, 1), 30));
+    expect(fills.map((f) => f.color)).toEqual([DARK.bg, DARK.bg]);
   });
 
   it('quase opaco: 0,98 no médio e no fino, para a grade não aparecer através da água', () => {
@@ -137,15 +136,14 @@ describe('telhado na planta (D1)', () => {
     expect(multiArea(band.polygons)).toBeLessThan(multiArea(roofFootprint(gable())) * 0.2);
   });
 
-  it('linhas notáveis: cumeeira, espigão e rincão como arestas finas na cor um pouco mais escura que o preenchimento; rincão tracejado', () => {
+  it('linhas notáveis: cumeeira, espigão e rincão como arestas finas na tinta cheia; rincão tracejado', () => {
     // Linhas do telhado têm alpha 1; as setas de caimento têm 0,9 (ver o teste das setas).
     const PROJ = defaultPaint('roof', 100).projPx;
-    const base = mix(TILE, '#ffffff', 0.25);
     const strokes = ops([gable()]).strokes.filter((s) => s.alpha === 1 && !s.closed);
     expect(strokes).toHaveLength(3);
     const ridge = strokes.find((s) => s.pts.length === 2 && s.pts[0]!.y === 3 && s.pts[1]!.y === 3)!;
     expect(ridge.widthPx).toBeCloseTo(PROJ, 9);
-    expect(ridge.color).toBe(corDaAresta(base));
+    expect(ridge.color).toBe(LIGHT.ink);
     expect(ridge.pts).toEqual([P(0, 3), P(8, 3)]);
     const hip = strokes.find((s) => !s.dash && s.pts[0]!.x === 0 && s.pts[0]!.y === 0)!;
     expect(hip.pts).toEqual([P(0, 0), P(2, 2)]);
@@ -355,8 +353,8 @@ describe('beiral e pegada pelo intervalo de vista', () => {
     const p = s.project;
     return { p, r: resolveRoofs(p, 'lv_0')[0]! };
   }
-  const base = mix(TILE, '#ffffff', 0.25);
-  const aresta = corDaAresta(base);
+  // Em linha oculta de prancha as arestas do telhado saem na tinta cheia do tema.
+  const aresta = LIGHT.ink;
 
   it('totalmente acima do corte: beiral tracejado na cor da aresta e nenhuma pegada rosa', () => {
     const { p, r } = comBalanco();
@@ -460,7 +458,7 @@ describe('telhado com trecho em arco (pegada amostrada)', () => {
     const p = s.project;
     const [r] = resolveRoofs(p, 'lv_0');
     const raw = r!.lines.filter((l) => l.kind === 'hip' || l.kind === 'ridge' || l.kind === 'valley');
-    const aresta = corDaAresta(mix(TILE, '#ffffff', 0.25));
+    const aresta = LIGHT.ink;
     const drawn = ops([r!], 'medium', 100, false, p).strokes.filter((s) => s.alpha === 1 && !s.closed && s.color === aresta);
     // O motor gera uma divisa por faceta do arco; o desenho guarda só as que não são amostragem do arco.
     expect(raw.length).toBeGreaterThan(24);
@@ -477,7 +475,7 @@ describe('telhado com trecho em arco (pegada amostrada)', () => {
     const o = roofFills(s.project, 'lv_0', LIGHT, false, 'medium', VIEW(100));
     const beiral = o.fills.filter((f) => f.contour);
     expect(beiral).toHaveLength(1);
-    const aresta = corDaAresta(mix(TILE, '#ffffff', 0.25));
+    const aresta = LIGHT.ink;
     expect(o.strokes.filter((st) => st.alpha === 1 && !st.closed && st.color === aresta).length).toBeLessThan(12);
   });
 

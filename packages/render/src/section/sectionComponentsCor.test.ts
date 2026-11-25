@@ -29,11 +29,14 @@ describe('cor dos móveis no corte', () => {
     expect(fills.some((f) => f.color === '#3c4046')).toBe(true);
   });
 
-  it('hiddenLine: o corte leva a cor do acabamento esmaecida em direção ao papel (vermelho 125 -> 200)', () => {
-    const porta = lista('hiddenLine').fills.filter((f) => box(f).join() === '0.982,0.102,1,0.693');
+  it('hiddenLine: o corte inteiro sai no papel, inclusive a porta; a cor do acabamento só aparece no shaded', () => {
+    const d = lista('hiddenLine');
+    const porta = d.fills.filter((f) => box(f).join() === '0.982,0.102,1,0.693');
     expect(porta).toHaveLength(1);
-    expect(porta[0]!.color).not.toBe('#7d8f82');
-    expect(parseInt(porta[0]!.color.slice(1, 3), 16)).toBe(200);
+    expect(porta[0]!.color).toBe('#ffffff');
+    expect(d.fills.every((f) => f.color === '#ffffff')).toBe(true);
+    // A hachura, quando existe, é o cinza neutro da prancha (mix da tinta com o papel).
+    for (const f of d.fills.filter((f) => f.hatch)) expect(f.hatch!.color).toBe('#454649');
   });
 
   it('wireframe: sem preenchimento do móvel, só contornos', () => {

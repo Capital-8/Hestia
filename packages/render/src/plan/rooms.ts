@@ -1,19 +1,28 @@
 import type { Vec2 } from '@hestia/geom';
 import { pointInPolygon } from '@hestia/geom';
 import type { ResolvedRoom } from '@hestia/engine';
-import type { DetailLevel, Id, Project } from '@hestia/model';
-import type { ResolvedUnits } from '@hestia/model';
+import type { DetailLevel, Id, Project, ResolvedUnits, TagField } from '@hestia/model';
 import { belowFloorOps, fmtArea, labelPoint, type FloorOps } from './floors.ts';
+import { roomTagLines } from './areaPlan.ts';
 import { ambientesDoNivel } from './resolucao.ts';
 import { surfaceColor, type PlanPaint } from './style.ts';
 import type { PlanTheme } from './types.ts';
-import { t, type Lang } from '../i18n.ts';
+import { fmtNumLang, t, type Lang } from '../i18n.ts';
 
 /** Cor padrão do ambiente (sem cor própria): cinza-azulado claro, mais escuro no tema escuro. */
 const ROOM_DEFAULT = '#b8c4d4';
 
 /** Altura do texto do ambiente na planta, em mm de papel (mesmo padrão das demais anotações). */
 const ROOM_TEXT_MM = 1.6;
+
+/** Fonte da segunda linha do rótulo (número, área, nível, perímetro, volume), menor que a do nome. */
+const ROOM_SUBTEXT_MM = 1.3;
+
+/** Folga entre as duas linhas do rótulo, em mm de papel (papel do `TAG_GAP_MM` da planta de área). */
+const ROOM_LINE_GAP_MM = 0.4;
+
+/** Campos do rótulo quando o ambiente não configura nada: só o nome (decisão 0037). */
+const DEFAULT_LABEL_FIELDS: TagField[] = ['name'];
 
 const empty = (): FloorOps => ({ fills: [], strokes: [], labels: [] });
 
@@ -26,21 +35,41 @@ export function roomNameText(r: ResolvedRoom, lang: Lang = 'pt'): string {
 }
 
 /**
- * Rótulo completo para o DXF da planta de piso: `Sala (101) · 12,34 m2` (nome, número entre parênteses quando há e
- * área com 2 casas). Na tela a planta de piso mostra só o nome (decisão 0037); o desenho técnico leva tudo.
+ * Rótulo completo para o DXF da planta de piso, numa linha só (o DXF não tem segunda linha). Sem `fields` (ambiente
+ * antigo) mantém o texto clássico `Sala (101) · 12,34 m2` (decisão 0037); com `fields` (o `labelFields` do modelo)
+ * segue os mesmos campos da tela: `Sala · 101 · 12,34 m2`. Categoria, nível e personalizado exigem o `Project`
+ * da planta de área e aqui não têm valor: saem de cena, como sairiam com `custom: ''` na tela.
  */
-export function roomFullText(r: ResolvedRoom, u: ResolvedUnits, lang: Lang = 'pt'): string {
-  const num = r.number ? ` (${r.number})` : '';
-  return `${roomNameText(r, lang)}${num} · ${fmtArea(u, r.area, 2)}`;
+export function roomFullText(r: ResolvedRoom, u: ResolvedUnits, fields?: readonly TagField[], lang: Lang = 'pt'): string {
+  if (!fields) {
+    const num = r.number ? ` (${r.number})` : '';
+    return `${roomNameText(r, lang)}${num} · ${fmtArea(u, r.area, 2)}`;
+  }
+  const parts: string[] = [];
+  for (const f of fields) {
+    if (f === 'name') parts.push(r.name);
+    else if (f === 'number') parts.push(r.number);
+    else if (f === 'area') parts.push(fmtArea(u, r.area, 2));
+    else if (f === 'perimeter') parts.push(`${fmtNumLang(r.perimeter, 2, u.decimalSymbol)} m`);
+    else if (f === 'volume') parts.push(`${fmtNumLang(r.volume, 3, u.decimalSymbol)} m³`); // units-ok: rótulo do DXF, o separador vem das unidades do projeto
+  }
+  // Só o nome e o ambiente não tem nome: o padrão "Ambiente N" da planta de piso, como na tela.
+  if (fields.length === 1 && fields[0] === 'name') return roomNameText(r, lang);
+  return parts.filter(Boolean).join(' · ');
 }
 
-/** Ponto da etiqueta: o centro do maior trecho interno do polígono (vale também para contornos em L). */
+/**
+ * Ponto da etiqueta: o centro do maior trecho interno do polígono (vale também para contornos em L).
+ */
 export const roomLabelAt = (r: ResolvedRoom): Vec2 | null => (r.polygon ? labelPoint([r.polygon]) : null);
 
 /**
- * Ambientes do nível na planta (D1, E3): preenchimento leve com a cor do ambiente (ou o padrão do tema) e etiqueta
- * com o **nome** no centro (decisão 0037). Ambiente sem circuito (`polygon` nulo) não é desenhado; a validação aponta
- * o problema. Os ambientes ficam sobre os pisos e sob as paredes.
+ * Ambientes do nível na planta (D1, E3): preenchimento leve com a cor do ambiente (ou o padrão do tema) e rótulo no
+ * centro com os campos configurados do ambiente (`Room.labelFields`, decisão 0037 ampliada: ausente = só o nome).
+ * Até duas linhas, com a mesma técnica da planta de área: a primeira (nome/categoria/personalizado) acima do ponto
+ * com `ROOM_TEXT_MM`, a segunda (número/área/nível/perímetro/volume) abaixo com fonte menor e `papel.desvio`.
+ * Ambiente sem circuito (`polygon` nulo) não é desenhado; a validação aponta o problema. Os ambientes ficam sobre
+ * os pisos e sob as paredes.
  */
 export function roomOps(
   p: Project,
@@ -63,14 +92,27 @@ export function roomOps(
     if (r.roomId === hideLabelRoomId) continue;
     const room = p.elements[r.roomId];
     const at = room?.kind === 'room' && room.labelPosition ? room.labelPosition : roomLabelAt(r);
-    if (at) out.labels.push({ at, text: roomNameText(r, lang), ...(room?.kind === 'room' && room.labelRotation ? { rotation: room.labelRotation } : {}), papel: { escala: scale, fontMm: ROOM_TEXT_MM }, tone: 'info' });
+    if (at) {
+      const fields = room?.kind === 'room' ? room.labelFields ?? DEFAULT_LABEL_FIELDS : DEFAULT_LABEL_FIELDS;
+      const lines = room?.kind === 'room' ? roomTagLines(p, room, r, { fields, custom: '' }) : [];
+      // Sem nome e só o campo nome: o padrão "Ambiente N" da planta de piso (sem `labelFields`, a saída é a de hoje).
+      if (fields.length === 1 && fields[0] === 'name' && lines.length === 0) lines.push(roomNameText(r, lang));
+      if (lines.length > 0) {
+        const rotation = room?.kind === 'room' && room.labelRotation ? { rotation: room.labelRotation } : {};
+        const duas = lines.length > 1;
+        const firstDy = duas ? -((ROOM_TEXT_MM + ROOM_LINE_GAP_MM) / 2) : 0;
+        const secondDy = duas ? (ROOM_SUBTEXT_MM + ROOM_LINE_GAP_MM) / 2 : 0;
+        out.labels.push({ at, text: lines[0]!, ...rotation, papel: { escala: scale, fontMm: ROOM_TEXT_MM, ...(duas ? { desvio: { mm: Math.abs(firstDy), uy: Math.sign(firstDy) || -1 } } : {}) }, tone: 'info' });
+        if (lines[1]) out.labels.push({ at, text: lines[1], ...rotation, papel: { escala: scale, fontMm: ROOM_SUBTEXT_MM, desvio: { mm: secondDy, uy: 1 } }, tone: 'info' });
+      }
+    }
     // Rótulo fora do ambiente: chamada reta até o ponto de referência (o rótulo é compartilhado por todas as vistas).
     if (room?.kind === 'room' && room.labelPosition && r.polygon && !pointInPolygon(room.labelPosition, r.polygon)) {
       const anchor = room.referencePoint ?? roomLabelAt(r);
       if (anchor) out.strokes.push({ pts: [room.labelPosition, anchor], closed: false, widthPx: 1, papel: { mm: 0.13, escala: scale }, color: theme.ink, alpha: 0.95 });
     }
   }
-  // O detalhe não muda mais o texto: a planta de piso mostra só o nome (decisão 0037).
+  // O detalhe não muda mais o texto: o que entra no rótulo são os campos do ambiente (decisão 0037).
   void detail;
   return out;
 }

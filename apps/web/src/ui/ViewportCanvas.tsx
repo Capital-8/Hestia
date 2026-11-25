@@ -50,11 +50,14 @@ import { encerrarGesto, iniciarGesto, interacaoAtiva, marcarInteracao, msAteLibe
 import { criarMontagemVista3d, type Montagem3dProgressiva } from './montagem3dProgressiva.ts';
 import { QuadroPlanta } from './quadroPlanta.ts';
 import { medirQuadro, useContarCommitPerf, usePerfDaUrl } from '../debug/perf/index.ts';
+import { iniciarBenchOrbita, type ControleBenchOrbita } from '../debug/perf/bench.ts';
+import { lerModoBench, type ModoBench } from '../debug/perf/opcoes.ts';
 import { eventosDeSolta, gestosComShift, passouDoLimiar } from './planGestos.ts';
 import { Progresso3D } from './Progresso3D.tsx';
 import { ProgressoAbertura } from './ProgressoAbertura.tsx';
 import { registrarPreparo3d } from './preparo3d.ts';
 import { cliqueAdiadoInicial, decidirCliqueAdiado, type EstadoCliqueAdiado } from './cliqueAdiado.ts';
+import { criarCoalescedorDeDeltas, criarPedidoDeQuadro, memoizarVisibilidade, resumoDeVisibilidade, type AgendadorDeQuadro, type CoalescedorDeDeltas, type MemoDeVisibilidade, type PedidoDeQuadro } from './quadroRaf.ts';
 import { armarArrastoNoPonto, cancelarArrasto3d, cancelarArrastoComEsc, girarArrasto3d, girarComponentesSelecionados, moverArrastoNoPonto, ndcDoPonto, type ArrastoComponente3D } from './viewport/arrastoComponente3d.ts';
 import { chaveDicaGizmo, sincronizarModoGizmo, useModoGizmo } from '../editor/modoGizmo.ts';
 import { alvoComponente3D, calcularNovaMedidaGizmoMm, calcularRotacaoGizmo, centroComponenteMundo, compensarPosicaoAoAlterarMedida, deslocamentoGizmoNoEixoM, eixoDoGizmo, limitesParametroComponente, snapProfundidadeNoVizinho } from './viewport/gizmoComponenteOps.ts';
@@ -93,6 +96,12 @@ interface DownAdiado {
 
 /** Rótulos vazios com referência fixa: a planta compara por identidade para não atualizar o estado à toa. */
 const NO_LABELS: LabelOp[] = [];
+
+/** Agendador dos gestos da vista: o mesmo `requestAnimationFrame` do desenho (WP-A1, ver `quadroRaf.ts`). */
+const AGENDADOR_RAF: AgendadorDeQuadro = {
+  agendar: (fn) => requestAnimationFrame(fn),
+  cancelar: (id) => cancelAnimationFrame(id),
+};
 
 /**
  * Rótulos do desenho do corte no zoom corrente (mm de papel → px), com cache por lista e zoom. É o equivalente do
@@ -213,6 +222,10 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   /** Redesenho agendado para refazer a sombra depois do gesto de câmera (ver `renderQuadro`). */
   const sombraAdiada = useRef<ReturnType<typeof setTimeout> | null>(null);
   const montagem = useRef<Montagem3dProgressiva | null>(null);
+  // WP-A0: bench de órbita (`?bench=orbit`, ver debug/perf/bench.ts). O modo é lido uma vez; sem o
+  // parâmetro nada aqui roda — `benchModo` fica null e o caminho de desenho é exatamente o de antes.
+  const benchModo = useRef<ModoBench>(lerModoBench(new URLSearchParams(typeof location === 'undefined' ? '' : location.search)));
+  const bench = useRef<ControleBenchOrbita | null>(null);
   // A prancha lê a câmera da MESMA vista 3D (decisão 0040) por `vista3dAoVivo`.
   useEffect(() => {
     const m = model.current;
@@ -303,6 +316,30 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const quadroRef = useRef<QuadroPlanta | null>(null); // provisório na hora, exato depois da pintura (quadroPlanta.ts)
   const shownLabels = useRef<LabelOp[]>(NO_LABELS);
   const shownView = useRef<Viewport | null>(null);
+  /** Último tamanho entregue à GPU: `setSize` só quando w, h ou dpr mudam (WP-A1). */
+  const ultimoTamanho = useRef({ w: 0, h: 0, dpr: 0 });
+  /** Visibilidade da vista memoizada (projeto + campos + `viewTemp`): fora isso não há o que recalcular (WP-A1). */
+  const visMemo = useRef<MemoDeVisibilidade<ReturnType<typeof visibilityOf>> | null>(null);
+
+  /** `visibilityOf` com memo: identidade do projeto, chave/campos da vista e identidade do `viewTemp` da vista. */
+  const visibilidadeDaVista = useCallback((p: Project, st: ReturnType<typeof useUi.getState>): ReturnType<typeof visibilityOf> => {
+    const key = visibilityKeyOf(st);
+    const memo = memoizarVisibilidade(
+      visMemo.current,
+      { projeto: p, campos: `${key ?? ''}|${resumoDeVisibilidade(st)}`, temp: key ? st.viewTemp[key] : undefined },
+      () => visibilityOf(p, st),
+    );
+    visMemo.current = memo;
+    return memo.valor;
+  }, []);
+
+  /** Entrega w/h/dpr à GPU só quando algum mudou: `setSize` do three.js realoca buffers e não é trabalho de quadro. */
+  const ajustarTamanhoGpu = useCallback((g: { gpu: GpuContext }, w: number, h: number, dpr: number): void => {
+    const u = ultimoTamanho.current;
+    if (u.w === w && u.h === h && u.dpr === dpr) return;
+    g.gpu.setSize(w, h, dpr);
+    ultimoTamanho.current = { w, h, dpr };
+  }, []);
 
   // Instrumentação de desempenho (Fase 0.2): só liga com `?perf=1`; sem o parâmetro não há medição nem overlay.
   // Os hooks rodam antes do boot para que o contexto criado em seguida já saia instrumentado.
@@ -329,6 +366,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       quadroRef.current?.invalidar();
       secDl.current = null;
       secLive.current = false;
+      // Contexto novo: o próximo quadro precisa mandar o tamanho de novo (WP-A1).
+      ultimoTamanho.current = { w: 0, h: 0, dpr: 0 };
     };
     const c = criarControladorGpu({
       host: el,
@@ -403,7 +442,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   darkRef.current = dark;
   const iniciarMontagem3d = useCallback((darkAgora: boolean, st: ReturnType<typeof useUi.getState>): boolean => {
     const p = projetoDoPainel(editor.project, estiloDoPainelAgora(paneId), { kind: '3d', viewId: view3dViewIdAtivo(st) ?? undefined });
-    const vis = visibilityOf(p, st);
+    const vis = visibilidadeDaVista(p, st);
     // Sombras e arestas são da vista 3D ativa (padrão ou salva; decisão 0015 §1): a chave inclui a versão do projeto.
     const v3 = view3dOf(p);
     // A visibilidade temporária/Reveal não muda a versão do projeto: ela precisa entrar na chave para a cena
@@ -424,11 +463,12 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Os níveis entram em fatias (ver montagem3dProgressiva.ts): a tela não espera o projeto inteiro. Depois da
     // primeira montagem, `atualizar` só re-resolve os níveis que a edição alcançou — e nada no tema/visibilidade.
     montagem.current ??= criarMontagemVista3d(m, (id) => editor.resolved(id), (id) => editor.resolucaoPronta(id));
-    // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis.
-    if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug')) Object.assign(window, { __hestia3dMontagem: montagem.current });
+    // Gancho de depuração (`?debug=1`): o e2e de perf espera `montados` chegar ao total de níveis. O autopreparo do
+    // bench (`?bench=orbit`, WP-A0) observa o mesmo gancho para saber a hora de soltar os 300 quadros.
+    if (typeof location !== 'undefined' && (new URLSearchParams(location.search).has('debug') || benchModo.current === 'orbit')) Object.assign(window, { __hestia3dMontagem: montagem.current });
     montagem.current.atualizar(p, { edges: v3.edges, shadows: v3.shadows, dark: darkAgora, hidden: vis.hidden, revealed: vis.revealed, toneCategories: vis.toneCategories, apresentacoes: vis.apresentacoes }, st.levelId);
     return true;
-  }, [paneId]);
+  }, [paneId, visibilidadeDaVista]);
   // Kernel Rust carregado depois da primeira montagem: o que foi desenhado sem os guarda-corpos (3D, planta, corte) é invalidado e refeito
   // (mesmo padrão do "calculando…" das paredes). A chave do nível na cena 3D também muda (marca `gc0` -> `gc1`).
   useEffect(
@@ -527,7 +567,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
           ? { kind: 'section' }
           : { kind: 'plan', levelId: st.levelId, planId: planViewIdDe(st) },
     );
-    const vis = visibilityOf(pEstilo, st);
+    const vis = visibilidadeDaVista(pEstilo, st);
     const theme = dark ? DARK : LIGHT;
     if (st.view === '3d') {
       secDl.current = null;
@@ -562,6 +602,12 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         m.fit();
         useUi.setState({ seen3d: true });
       }
+      // WP-A0: cena 3D montada — é aqui (e só com `?bench=orbit`) que o bench começa. Cada passo gira a
+      // câmera com o `orbit.orbit` do arrasto e pede o próximo quadro; o resumo vai para o título da janela.
+      if (benchModo.current === 'orbit' && !bench.current && montagem.current && montagem.current.total > 0 && montagem.current.montados >= montagem.current.total) {
+        bench.current = iniciarBenchOrbita(m.orbit, (titulo) => { document.title = titulo; });
+      }
+      if (bench.current?.passo(performance.now())) useUi.setState((x) => ({ previewTick: x.previewTick + 1 }));
       // O nível selecionado no datum (clique no 3D) é aplicado à cena a cada quadro; sem mudança, não refaz nada.
       m.selecionarNivel(p, st.selectedLevel);
         // Realce da seleção, do elemento sob o cursor e do aviso de conflito (decisão 0044, amarelo).
@@ -606,7 +652,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
           }
         }
       g.gpu.renderer.shadowMap.enabled = view3dOf(pEstilo).shadows;
-      g.gpu.setSize(w, h, dpr);
+      ajustarTamanhoGpu(g, w, h, dpr);
       // Animação da câmera (ViewCube, Início): avança a cada quadro e pede o próximo enquanto anima.
       if (m.orbit.step(performance.now())) {
         marcarInteracao();
@@ -740,7 +786,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       const labels = liveLabels.length > 0 ? [...baseLabels, ...liveLabels] : baseLabels;
       const hasLive = liveFills.length > 0 || liveStrokes.length > 0;
       if (g) {
-        g.gpu.setSize(w, h, dpr);
+        ajustarTamanhoGpu(g, w, h, dpr);
         plan.current.setViewport(v);
         if (baseDl !== secDl.current) {
           // A lista base mudou: `setDrawList` limpa TODAS as camadas (inclusive as vivas), que são reaplicadas no mesmo quadro.
@@ -784,7 +830,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       : '';
     const extra = quadro.desenhar({ quadro: pf, cena: g ? plan.current : null, v, tema: theme, nivel: st.levelId, versao: editor.store.version, contexto: [dark, !!g, v.zoom, st.showOrigemEixos, st.showUnderlay, st.underlayLevel, st.showRoofProjection, st.mapaCorteAterro, gridOn, st.gridStep, st.planKind, planViewIdDe(st) ?? '', areaPlan ? JSON.stringify(areaPlan) : '', st.tagDrag ? st.tagDrag.roomId : '', visKey, JSON.stringify(estilo), blocoPlanKey].join('|'), atualizar: () => { const estado = { project: pEstilo, version: editor.store.version, levelId: st.levelId, v, theme, dark, gpu: !!g, showGrid: gridOn, showUnderlay: st.showUnderlay, underlayLevel: st.underlayLevel, showRoofProjection: st.showRoofProjection, roofPlanMode: st.planKind === 'roof', areaPlan, planId: planViewIdDe(st), tagGhost: st.tagDrag ? { roomId: st.tagDrag.roomId, at: st.tagDrag.at } : undefined, thinLines: thinLinesOn(pEstilo, { levelId: st.levelId, planId: planViewIdDe(st) }), selection: st.selection, hover: st.hover, aviso: st.avisoParede, preview: previasBloco.length ? [...(ativo ? editor.activeTool.preview() : []), ...previasBloco] : ativo ? editor.activeTool.preview() : [], inference: ativo ? editor.activeTool.inference() : null, resolve: quadro.resolver, sketch, hidden: vis.hidden, halftone: vis.halftone, revealed: vis.revealed, apresentacoes: vis.apresentacoes, lang, subelemento: st.subElemento }; return comEixosDaOrigem(comEdicaoDoTerreno(planFrameUpdateOf(estado), { project: pEstilo, levelId: st.levelId, v, theme, dark, hidden: vis.hidden }, ativo ? edicaoParaAVista(st, editor.activeTool, v) : null), st.showOrigemEixos, v); } });
     if (g) {
-      g.gpu.setSize(w, h, dpr);
+      ajustarTamanhoGpu(g, w, h, dpr);
       plan.current.setViewport(v);
       safeRender(g, plan.current.scene, plan.current.camera);
     } else if (cpuRef.current) drawPlanOnCanvas(cpuRef.current, QuadroPlanta.comProvisorio(pf.drawList(theme), extra), v, dpr);
@@ -792,7 +838,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     // Alinha a camada HTML de texto no mesmo requestAnimationFrame do canvas da planta.
     // Isso evita o atraso de um render React entre a câmera e o texto da cota durante pan/zoom.
     labelLayer.current?.syncView(v);
-  }, [size, ready, dark, sketch, paneId, rascunhoDaPrevia, iniciarMontagem3d, t, lang, paneState, isActiveRef, ownCamera, saved2d, clearFaceHighlight]);
+  }, [size, ready, dark, sketch, paneId, rascunhoDaPrevia, iniciarMontagem3d, ajustarTamanhoGpu, visibilidadeDaVista, t, lang, paneState, isActiveRef, ownCamera, saved2d, clearFaceHighlight]);
 
   // Um quadro do rAF: o trabalho de CPU é medido do começo ao fim do desenho; com `?perf=1`, os contadores agrupam
   // draw calls/upload/rebuilds entre estes dois pontos. Sem perf, os métodos são no-op.
@@ -817,6 +863,25 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   /** `pick`: o ponteiro foi o botão esquerdo sem Espaço, então um clique sem arrasto na vista 3D escolhe um elemento (Shift pode ser pan). */
   /** `shiftPending`: Shift com ferramenta de desenho na planta; sem arrasto é clique com shift (trava ortogonal), com arrasto vira pan. */
   const drag = useRef<{ mode: 'tool' | 'pan' | 'orbit' | 'marquee' | 'componente' | 'gizmo' | 'none'; start: Pt; last: Pt; moved: boolean; pick: boolean; shiftPending?: boolean }>({ mode: 'none', start: { x: 0, y: 0 }, last: { x: 0, y: 0 }, moved: false, pick: false });
+  // ---- gesto coalescido (WP-A1): os deltas do ponteiro viram UM orbit/pan e UM `previewTick` por quadro ----
+  /** Órbita: acumula os deslocamentos e aplica a soma no quadro (nunca um `orbit()` por evento). */
+  const orbitaRaf = useRef<CoalescedorDeDeltas | null>(null);
+  /** Pan da 3D: idem, com o `pan()` da órbita. */
+  const pan3dRaf = useRef<CoalescedorDeDeltas | null>(null);
+  /** Pedido de redesenho adiado: arrasto de componente/gizmo e pinça já aplicam a geometria por evento. */
+  const pedidoDoGesto = useRef<PedidoDeQuadro | null>(null);
+  const redesenharGesto = (): void => { useUi.setState((x) => ({ previewTick: x.previewTick + 1 })); };
+  const coalescedorDaOrbita = (): CoalescedorDeDeltas =>
+    (orbitaRaf.current ??= criarCoalescedorDeDeltas((dx, dy) => model.current.orbit.orbit(dx, dy), AGENDADOR_RAF, redesenharGesto));
+  const coalescedorDoPan3d = (): CoalescedorDeDeltas =>
+    (pan3dRaf.current ??= criarCoalescedorDeDeltas((dx, dy) => model.current.orbit.pan(dx, dy), AGENDADOR_RAF, redesenharGesto));
+  const pedirQuadroDoGesto = (): void => { (pedidoDoGesto.current ??= criarPedidoDeQuadro(AGENDADOR_RAF, redesenharGesto)).pedir(); };
+  /** Fim (ou cancelamento) do gesto: aplica o que faltava e cancela pedidos que ainda não rodaram. */
+  const soltarGestoCoalescido = (): void => {
+    orbitaRaf.current?.soltar();
+    pan3dRaf.current?.soltar();
+    pedidoDoGesto.current?.soltar();
+  };
   /** Arrasto de componente armado no `down` da vista 3D (F3-arrasto3d). */
   const arrastoComp = useRef<ArrastoComponente3D | null>(null);
   /** Arrasto de alça do gizmo 3D do componente selecionado. */
@@ -846,7 +911,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     const wa = screenToWorld(v, a);
     const wb = screenToWorld(v, b);
     const view = st.sectionId ? editor.project.views.find((x) => x.id === st.sectionId) : undefined;
-    const vis = visibilityOf(editor.project, st);
+    const vis = visibilidadeDaVista(editor.project, st);
     const hidden = vis.hidden;
     const ids = [
       ...idsNaCaixaDoCorte(result, wa, wb, hidden, editor.project),
@@ -1359,7 +1424,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         marcarInteracao();
         model.current.orbit.zoom(-(d - gesture.current.dist) * 3);
         model.current.orbit.pan(mid.x - gesture.current.mid.x, mid.y - gesture.current.mid.y);
-        useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        pedirQuadroDoGesto();
       }
       gesture.current = { dist: d, mid };
       return;
@@ -1492,7 +1557,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
             }
           }
           d.last = s;
-          useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+          pedirQuadroDoGesto();
         }
         return;
       }
@@ -1500,7 +1565,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         if (d.moved) moverArrastoNoPonto(arrastoComp.current, model.current.orbit.camera, s, host.current!.getBoundingClientRect(), e.altKey, paredeSobCursor3d(s));
         d.last = s;
-        useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
+        pedirQuadroDoGesto();
         return;
       }
       if (d.mode === 'marquee') {
@@ -1509,12 +1574,12 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
         d.last = s;
         return;
       }
-      if (d.mode === 'orbit') { marcarInteracao(); model.current.orbit.orbit(s.x - d.last.x, s.y - d.last.y); }
-      else if (d.mode === 'pan') { marcarInteracao(); model.current.orbit.pan(s.x - d.last.x, s.y - d.last.y); }
+      // Órbita e pan: os deltas só viram um `orbit()`/`pan()` + um `previewTick` no próximo quadro (WP-A1).
+      if (d.mode === 'orbit') { marcarInteracao(); coalescedorDaOrbita().acumular(s.x - d.last.x, s.y - d.last.y); }
+      else if (d.mode === 'pan') { marcarInteracao(); coalescedorDoPan3d().acumular(s.x - d.last.x, s.y - d.last.y); }
       if (d.mode !== 'none') {
         if (!d.moved && passouDoLimiar(Math.hypot(s.x - d.start.x, s.y - d.start.y))) d.moved = true;
         d.last = s;
-        useUi.setState((st) => ({ previewTick: st.previewTick + 1 }));
       } else if (!paneState().pastePreview) pickHover3d(s);
       return;
     }
@@ -1615,6 +1680,8 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
     if (ponteiroEmControle(e.target)) return;
     if (!isActiveRef.current) return;
     encerrarGesto();
+    // Aplica os últimos pixels do gesto e cancela o quadro que ainda não rodou (o fim do `up` já pede o desenho).
+    soltarGestoCoalescido();
     const s = local(e);
     pointers.current.delete(e.pointerId);
     if (sectionDimDrag.current) {
@@ -1817,6 +1884,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
   const onCancel = (e: RPointerEvent): void => {
     if (!isActiveRef.current) return;
     encerrarGesto();
+    soltarGestoCoalescido();
     const fim = pointers.current.get(e.pointerId) ?? drag.current.last;
     pointers.current.delete(e.pointerId);
     gesture.current = null;

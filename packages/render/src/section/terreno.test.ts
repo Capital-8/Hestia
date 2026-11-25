@@ -107,11 +107,12 @@ describe('terreno no corte: operações de desenho', () => {
   it('o corpo cortado usa a cor do SOLO do tipo (não a da superfície); sem solo no tipo, a da superfície', () => {
     falso(T2);
     const tipo = { id: 'tt_s', name: 'S', intervaloCurvas: 1, mestraCada: 5, curvaPeso: 1, mestraPeso: 1.6, rotularCurvas: false, rotularCada: 1 };
+    // Em linha oculta o preenchimento é o papel; a cor do solo só aparece no sombreado (o material não muda no shaded).
     const cor = (t: object, patch: object): string => {
       const st = new ProjectStore(projetoTerreno('T2'));
       st.exec({ type: 'upsertTerrainType', tipo: { ...tipo, ...t } } as never);
       st.exec({ type: 'updateTerrain', id: 'tn_t2', patch: { tipoId: 'tt_s', ...patch } });
-      return buildSectionDrawList(entrada(st.project, secao())).fills[0]!.color;
+      return buildSectionDrawList(entrada(comOverride(st.project, { style: 'shaded' }), secao())).fills[0]!.color;
     };
     const base = cor({ superficieColor: '#00aa00', soloColor: '#663300' }, {});
     expect(cor({ superficieColor: '#ff00ff', soloColor: '#663300' }, {})).toBe(base);
@@ -128,8 +129,10 @@ describe('terreno no corte: operações de desenho', () => {
     expect(r.fills.length).toBeGreaterThan(1);
     expect(r.fills[0]!.polygons[0]![0]).toHaveLength(4);
     const iTerreno = r.strokes.findIndex((x) => x.pts.length === 4 && x.pts.some((q) => q.y === 12.25));
-    const iParede = r.strokes.findIndex((x) => x.closed && x.widthPx === 2.2);
+    // Parede cortada: peso 5 da tabela padrão em 1:100 = 0,5 mm de papel (tinta cheia), sem depender da silhueta de 2,2 px de antes.
+    const iParede = r.strokes.findIndex((x) => x.closed && x.papel?.mm === 0.5 && x.color === LIGHT.ink);
     expect(iTerreno).toBeGreaterThanOrEqual(0);
+    expect(iParede).toBeGreaterThanOrEqual(0);
     expect(iTerreno).toBeLessThan(iParede);
   });
 

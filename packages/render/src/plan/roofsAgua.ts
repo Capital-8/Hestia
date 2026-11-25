@@ -43,3 +43,9 @@ export function tomDaAgua(color: string, up: Vec2, percent: number, azimuth = DE
  * escuro a mistura com preto continua legível porque a base já vem misturada com o fundo (`surfaceColor`).
  */
 export const corDaAresta = (fill: string): string => mix(fill, '#000000', 0.38);
+
+/**
+ * Visual de prancha de CAD (linha oculta): as águas ficam em papel, sem o tom por orientação, e as arestas (cumeeira,
+ * espigão, rincão) na tinta cheia: derivar a aresta de um preenchimento branco a deixaria num cinza lavado.
+ */
+export const emPrancha = (pt: { visual: string; prancha?: boolean } | undefined): boolean => pt?.visual === 'hiddenLine' && pt.prancha === true;

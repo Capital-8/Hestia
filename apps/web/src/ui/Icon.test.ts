@@ -29,3 +29,24 @@ describe('ícone de esfera quadriculada (Materiais)', () => {
     expect(ACTIONS.materials.icon).toBe('materialSphere');
   });
 });
+
+describe('ícone de pena (Conjuntos de penas)', () => {
+  it('está registrado com viewBox 32 e o desenho da pena', () => {
+    const html = renderToStaticMarkup(createElement(Icon, { name: 'pen' }));
+    expect(html).toContain('viewBox="0 0 32 32"');
+    expect(html).toContain('class="ic-s1"');
+    expect(html).toContain('class="ic-ln"');
+    expect(html).toContain('class="ic-ac"');
+  });
+
+  it('a ação Conjuntos de penas usa o ícone de pena e aparece na aba Gerenciar', () => {
+    expect(ACTIONS.penSets).toBeDefined();
+    expect(ACTIONS.penSets.icon).toBe('pen');
+    expect(txt(ACTIONS.penSets.label, 'pt')).toBe('Conjuntos de penas');
+    const gerenciar = TABS.find((tb) => tb.id === 'gerenciar');
+    const itens = leaves(gerenciar!.panels.flatMap((p) => p.items));
+    const penSets = itens.find((it) => it.kind === 'action' && it.action === 'penSets');
+    expect(penSets).toBeDefined();
+  });
+});
+

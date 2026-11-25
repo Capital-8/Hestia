@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { MultiPolygon, Vec2 } from '@hestia/geom';
 import { computeSection } from '@hestia/engine';
 import { createEmptyProject, makeWall, ProjectStore, type Opening } from '@hestia/model';
-import { LIGHT } from '../plan/types.ts';
+import { LIGHT, type FillOp } from '../plan/types.ts';
 import { buildSectionDrawList, type SectionInput } from './build.ts';
 
 const v = (x: number, y: number): Vec2 => ({ x, y });
-const GLASS_T = '#bfe3f5';
 
 function opening(id: string, typeId: string): Opening {
   return { id, kind: 'window', typeId, hostId: 'w', offset: 3, flipHand: false, flipFacing: false, sillOverride: null, mark: '' };
@@ -39,17 +38,30 @@ const altura = (polys: MultiPolygon): number => {
   return Math.max(...y) - Math.min(...y);
 };
 
+/**
+ * Preenchimentos que correspondem aos vidros do modelo (a cor já não distingue o vidro: na linha oculta tudo é papel).
+ * `eixo` é o da largura na vista: 't' na elevação e 's' no corte transversal, como em `drawOpening`.
+ */
+const vidros = (input: SectionInput, eixo: 't' | 's'): FillOp[] => {
+  const medidas = input.section.openings.flatMap((o) =>
+    o.model.parts
+      .filter((x) => x.role === 'glass')
+      .map((x) => ({ w: eixo === 't' ? x.box.t1 - x.box.t0 : x.box.s1 - x.box.s0, h: x.box.z1 - x.box.z0 })),
+  );
+  return buildSectionDrawList(input).fills.filter((f) =>
+    medidas.some((m) => Math.abs(largura(f.polygons) - m.w) < 1e-6 && Math.abs(altura(f.polygons) - m.h) < 1e-6),
+  );
+};
+
 describe('elevação das janelas novas', () => {
   it('janela de abrir: dois vidros (uma folha cada) e batente', () => {
-    const d = buildSectionDrawList(facade('ot_ja120'));
-    expect(d.fills.filter((f) => f.color === GLASS_T)).toHaveLength(2);
+    expect(vidros(facade('ot_ja120'), 't')).toHaveLength(2);
   });
 
   it('guilhotina: dois vidros em alturas diferentes (pistas)', () => {
-    const d = buildSectionDrawList(facade('ot_jg90'));
-    const vidros = d.fills.filter((f) => f.color === GLASS_T);
-    expect(vidros).toHaveLength(2);
-    const centros = vidros.map((f) => {
+    const v = vidros(facade('ot_jg90'), 't');
+    expect(v).toHaveLength(2);
+    const centros = v.map((f) => {
       const y = f.polygons.flat(2).map((q) => q.y);
       return (Math.min(...y) + Math.max(...y)) / 2;
     });
@@ -57,13 +69,12 @@ describe('elevação das janelas novas', () => {
   });
 
   it('pivotante: um vidro e a moldura da folha', () => {
-    const d = buildSectionDrawList(facade('ot_jp80'));
-    expect(d.fills.filter((f) => f.color === GLASS_T)).toHaveLength(1);
+    expect(vidros(facade('ot_jp80'), 't')).toHaveLength(1);
   });
 
   it('veneziana: as aletas aparecem como faixas horizontais, sem vidro', () => {
     const d = buildSectionDrawList(facade('ot_jv80'));
-    expect(d.fills.filter((f) => f.color === GLASS_T)).toHaveLength(0);
+    expect(vidros(facade('ot_jv80'), 't')).toHaveLength(0);
     expect(d.fills.filter((f) => Math.abs(altura(f.polygons) - 0.04) < 1e-6).length).toBeGreaterThan(5);
   });
 });
@@ -78,10 +89,9 @@ describe('corte transversal das janelas novas', () => {
   });
 
   it('guilhotina: as duas folhas ficam em pistas distintas na profundidade', () => {
-    const d = buildSectionDrawList(cross('ot_jg90'));
-    const vidros = d.fills.filter((f) => f.color === GLASS_T);
-    expect(vidros).toHaveLength(2);
-    const centros = vidros.map((f) => {
+    const v = vidros(cross('ot_jg90'), 's');
+    expect(v).toHaveLength(2);
+    const centros = v.map((f) => {
       const x = f.polygons.flat(2).map((q) => q.x);
       return (Math.min(...x) + Math.max(...x)) / 2;
     });

@@ -38,4 +38,14 @@ describe('ambientes no DXF da planta (decisão 0018/0037, camadas AMBIENTES e AM
     expect(onLayer(dxf, 'AMBIENTES')).toBe(false);
     expect(onLayer(dxf, 'AMBIENTES_TEXTO')).toBe(false);
   });
+
+  it('labelFields manda no texto do DXF, igual à tela (sem campos, o rótulo clássico)', () => {
+    const classico = planDxf(sala(), 'lv_0');
+    expect(classico).toContain('Sala (101)');
+    const s = new ProjectStore(sala());
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields: ['name', 'number'] });
+    const dxf = planDxf(s.project, 'lv_0');
+    expect(dxf).not.toContain('Sala (101)');
+    expect(dxf).toMatch(/Sala \\U\+00B7 101/);
+  });
 });

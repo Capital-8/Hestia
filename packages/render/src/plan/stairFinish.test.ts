@@ -101,7 +101,17 @@ describe('acabamentos da escada na planta', () => {
     const on = draw(project({ ...ON, riserFinishEnabled: false }));
     expect(on.fills.length).toBeGreaterThan(off.fills.length);
     expect(on.strokes.length).toBe(off.strokes.length);
-    const corCeramica = on.fills.map((f) => f.color).filter((c, i, l) => l.indexOf(c) === i);
-    expect(corCeramica.length).toBeGreaterThan(new Set(off.fills.map((f) => f.color)).size);
+  });
+
+  it('no estilo sombreado o acabamento aparece com a cor do material próprio (em linha oculta tudo é papel)', () => {
+    const sombreado = (p: Project): Project => {
+      const q = structuredClone(p);
+      q.levels.find((l) => l.id === 'lv_0')!.graphics = { scale: 100, detail: 'byScale', style: 'shaded', partialStructure: 'entire' } as never;
+      return q;
+    };
+    const off = draw(sombreado(project()));
+    const on = draw(sombreado(project({ ...ON, riserFinishEnabled: false })));
+    const cores = (l: typeof on): Set<string> => new Set(l.fills.map((f) => f.color));
+    expect(cores(on).size).toBeGreaterThan(cores(off).size);
   });
 });

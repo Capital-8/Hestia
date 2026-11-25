@@ -1,6 +1,17 @@
 import { afterEach } from 'vitest';
 
 /**
+ * Fixa o idioma do ambiente de teste em PT-BR: sem `hestia.lang` salvo, o app detecta o idioma do
+ * navegador. Sem isto, os testes rodariam em inglês em máquinas com locale diferente de português.
+ */
+if (typeof navigator === 'undefined') {
+  Object.defineProperty(globalThis, 'navigator', { value: { language: 'pt-BR', languages: ['pt-BR', 'pt'] }, configurable: true });
+} else {
+  Object.defineProperty(navigator, 'language', { value: 'pt-BR', configurable: true });
+  Object.defineProperty(navigator, 'languages', { value: ['pt-BR', 'pt'], configurable: true });
+}
+
+/**
  * Cede o event loop depois de cada teste, em todos os arquivos (I-1b).
  *
  * Os testes de geometria são síncronos e levam de 1 a dezenas de segundos. Entre eles o runner só passa

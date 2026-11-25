@@ -1,7 +1,9 @@
 import type { Vec2 } from '@hestia/geom';
 import { t, type Lang } from './i18n.ts';
-import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project, RevisionCloud, SpotAnnotation, SymbolAnnotation } from './types.ts';
+import type { DetailLine, DetailRegion, Dimension, ElementTag, TextNote, Id, Project, RevisionCloud, SpotAnnotation, SymbolAnnotation, TagField } from './types.ts';
 import type { ViewHidden } from './graphics.ts';
+
+export type { TagField };
 
 /** Anotações de uma planta de área (mesmas estruturas da planta de piso, guardadas por vista). */
 export interface AreaPlanAnnotations {
@@ -14,9 +16,6 @@ export interface AreaPlanAnnotations {
   revisionClouds?: RevisionCloud[];
   symbols?: SymbolAnnotation[];
 }
-
-/** Linha da etiqueta de ambiente (a ordem é a ordem no bloco). */
-export type TagField = 'name' | 'number' | 'area' | 'category' | 'level' | 'perimeter' | 'volume' | 'custom';
 
 /** Chamada da etiqueta: nenhuma, reta, com ombro (Revit: Leader com cotovelo) ou duas linhas cruzadas. */
 export type TagLeader = 'none' | 'straight' | 'kinked' | 'crossed';
@@ -134,6 +133,9 @@ export interface AreaPlan {
 }
 
 export const DEFAULT_TAG_FIELDS: TagField[] = ['name', 'number', 'area'];
+
+/** Valores válidos de `TagField`, na ordem do seletor (usado pela validação do comando `setRoomLabel`). */
+export const TAG_FIELDS: readonly TagField[] = ['name', 'number', 'area', 'category', 'level', 'perimeter', 'volume', 'custom'];
 
 export const DEFAULT_AREA_GRAPHICS: AreaPlanGraphics = {
   referenceLines: 'always',

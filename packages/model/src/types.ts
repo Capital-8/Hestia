@@ -19,6 +19,7 @@ import type { Sheet } from './sheet.ts';
 import type { View3DPoint } from './view3dPoints.ts';
 import type { Grid, GridType } from './grid.ts';
 import type { GraphicsCategory, ProjectGraphics, View3DSettings, ViewGraphics, ViewHidden } from './graphics.ts';
+import type { UserPenSet } from './penSets.ts';
 import type { SectionAnnotations, SectionDimRef } from './sectionAnnotations.ts';
 import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes.ts';
 import type { ProfilePreset } from './openingComposition.ts';
@@ -66,8 +67,13 @@ export type * from './openingTypes.ts';
 /** Funções de camada, no modelo do Revit (docs/05 §1). */
 export type LayerFunction = 'structure' | 'substrate' | 'thermal' | 'membrane' | 'finish1' | 'finish2';
 
-/** Hachura de superfície. `gesso` é a do forro (tracejado leve), definida no tipo de forro (decisão 0021, D3). */
-export type HatchKind = 'solid' | 'diagonal' | 'cross' | 'dots' | 'gesso' | 'none';
+/**
+ * Hachura de superfície. `gesso` é a do forro (tracejado leve), definida no tipo de forro (decisão 0021, D3).
+ * Os novos padrões (`brick`, `concrete`, `timber`, `insulation`, `earth` e os por primitivas `cmu`, `exposedBrick`,
+ * `rcConcrete`, `stone`, `gravel`, `sand`, `eps`, `woolZigzag`, `gypsum`, `timberEnd`, `steel`) são aditivos: arquivos antigos
+ * continuam válidos.
+ */
+export type HatchKind = 'solid' | 'diagonal' | 'cross' | 'dots' | 'gesso' | 'none' | 'brick' | 'concrete' | 'timber' | 'insulation' | 'earth' | 'cmu' | 'exposedBrick' | 'rcConcrete' | 'stone' | 'gravel' | 'sand' | 'eps' | 'woolZigzag' | 'gypsum' | 'timberEnd' | 'steel';
 
 export interface Material {
   id: Id;
@@ -775,6 +781,12 @@ export interface Roof {
 }
 
 /**
+ * Linha do rótulo de ambiente, na ordem em que aparece no bloco. Compartilhada pela planta de piso, pela planta de
+ * área e pelos cortes; a etiqueta da planta de área (`RoomTag`) pode sobrescrever os campos da vista.
+ */
+export type TagField = 'name' | 'number' | 'area' | 'category' | 'level' | 'perimeter' | 'volume' | 'custom';
+
+/**
  * Ambiente (Revit: Room; ArchiCAD: Zone). Guardado por nível (como os pisos): `levelId` + um `point` interior em
  * planta. O contorno, a área e o volume são DERIVADOS pelo motor a partir do circuito de paredes que contém o ponto
  * (nunca gravados). Os acabamentos são textos livres por instância; `ceilingHeight` é o pé-direito (padrão de leitura:
@@ -803,6 +815,8 @@ export interface Room {
   labelRotation?: number;
   /** Chamada do rótulo: automática (liga ao sair do ambiente), nenhuma, reta, cotovelo ou cruzada. Ausente = automática. */
   labelLeader?: 'auto' | 'none' | 'straight' | 'kinked' | 'crossed';
+  /** Campos do rótulo compartilhado por todas as vistas. Ausente = ['name']. A planta de área pode sobrescrever via RoomTag. */
+  labelFields?: TagField[];
   /** Categoria do ambiente (Sala, Banho, Circulação…). Ausente = sem categoria. */
   categoryId?: Id;
   /** Deslocamento da base em relação ao nível (m). Ausente = 0. */
@@ -1112,6 +1126,10 @@ export interface Project {
   views: SectionView[];
   /** Pesos de linha, estilo por categoria e detalhe por escala (decisão 0015); ausente = padrão. */
   graphics?: ProjectGraphics;
+  /**
+   * Conjuntos de penas do usuário (EP-10). Opcional: ausente = nenhum. Não muda SCHEMA_VERSION.
+   */
+  penSets?: Record<Id, UserPenSet>;
   /** Gráficos do modelo 3D (decisão 0015); ausente = padrão. */
   view3d?: View3DSettings;
   /** ID estável do projeto e substituições de visualização de plugins (pluginData.ts); ausente = nenhum. */

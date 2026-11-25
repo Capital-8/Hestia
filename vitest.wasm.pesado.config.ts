@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     include: ['tests/kernel-a2-retas.pesado.test.ts'],
     environment: 'node',
-    setupFiles: ['tests/kernel-wasm.setup.ts'],
+    setupFiles: ['tests/vitestSetup.ts', 'tests/kernel-wasm.setup.ts'],
     testTimeout: 30_000,
     pool: 'forks',
     poolOptions: {

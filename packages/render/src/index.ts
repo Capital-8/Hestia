@@ -66,6 +66,7 @@ export { roofFootprint } from './plan/roofs.ts';
 export { openingTagLabels } from './plan/openingTags.ts';
 // Pranchas (decisão 0022): lista de desenho da folha em mm de papel, para a tela e o PDF.
 export * from './sheet/types.ts';
+export { hatchPartsOf, HATCH_PITCH_MM } from './sheet/hatch.ts';
 export * from './sheet/build.ts';
 export { sheetCacheStats, computeSectionCached, viewportPartsKey } from './sheet/partsCache.ts';
 export * from './sheet/vista3d.ts';

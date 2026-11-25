@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import type { Viewport } from '../viewport.ts';
 import type { FillOp, PlanDrawList, StrokeOp } from './types.ts';
 import { CamadaGpu } from './camadaGpu.ts';
+import { FINA_LINHA_PX, FINA_PONTO_PX, PISO_LINHA_PX, PISO_PONTO_PX } from './hatch.ts';
+import { MAX_PRIMS, primsOfCode } from './hatchDefs.ts';
 import { CODIGO_HACHURA, HACHURA_GPU, montarLotesCamada, SEM_TETO, type LoteGpu } from './lotesGpu.ts';
 
 export { PlanFrame, planFrameUpdateOf, sameView } from './planFrame.ts';
@@ -173,35 +175,103 @@ uniform float uEspaco;
 uniform float uLinhaPx;
 uniform float uPontoPx;
 uniform float uPontoM;
+uniform float uLinhaM;
+uniform float uPontoE;
+uniform float uLinhaTeto;
+uniform float uPontoTeto;
+// Padrões por primitivas (hatchDefs.ts): A = (tipo 0 reta | 1 pontos, ângulo em rad, passo, 0); B = (trecho, vazio, fase, tracejada).
+uniform int uNPrim;
+uniform vec4 uPrimA[4];
+uniform vec4 uPrimB[4];
 varying vec2 vMundo;
 varying float vZoomMin;
 const float COS45 = 0.7071067811865476;
-/** 1 quando a coordenada s está a menos de meia px de uma linha da grade de espaçamento uEspaco. */
-float perto(float s, float meia) {
-  float k = floor(s / uEspaco + 0.5);
-  return step(abs(s - k * uEspaco) * uZoom, meia);
+/**
+ * Cobertura analítica (antialiasing): a opacidade do pixel é a fração dele que a linha cobre. Linha de largura w px, a
+ * distância d (px) do centro dela ao centro do pixel: cobertura = clamp(w/2 + 1/2 - d), limitada a w (uma linha de 0,4 px
+ * sai como um fio de 40 % de opacidade, não como um pixel inteiro). s é a coordenada normal à família, p o passo (m).
+ */
+float cobLinha(float s, float p, float w) {
+  // Passo menor que um pixel: as linhas não se resolvem (moiré). Vale a densidade média, um tom uniforme.
+  float passoPx = p * uZoom;
+  if (passoPx < 1.0) return min(1.0, w / passoPx);
+  float k = floor(s / p + 0.5);
+  float d = abs(s - k * p) * uZoom;
+  return min(w, clamp(0.5 * w + 0.5 - d, 0.0, 1.0));
+}
+/**
+ * Cobertura de um tracejado ao longo da coordenada u (m): período per, trecho pintado de comprimento on, a partir de
+ * fase (m). A borda do trecho também é suavizada (meio pixel de cada lado).
+ */
+float cobTraco(float u, float per, float on, float fase) {
+  float f = mod(u - fase, per);
+  float sd = f <= on ? min(f, on - f) : -min(f - on, per - f);
+  return clamp(0.5 + sd * uZoom, 0.0, 1.0);
 }
 void main() {
   if (uZoom < vZoomMin) discard;
-  float meiaLinha = 0.5 * uLinhaPx;
+  // Em prancha a espessura vem do papel (uLinhaM, uPontoE em metros de mundo) com um piso em px (uLinhaPx, uPontoPx);
+  // sem papel esses dois são 0 e valem os pixels fixos de sempre.
+  // O teto (uLinhaTeto, uPontoTeto) é o das "Linhas finas (tela)": um fio. Sem a opção ele não limita nada.
+  float linhaPx = min(uLinhaTeto, max(uLinhaPx, uLinhaM * uZoom));
+  float pontoPx = min(uPontoTeto, max(uPontoPx, uPontoE * uZoom));
   float c = 0.0;
+  float diag1 = (-vMundo.x + vMundo.y) * COS45;
+  float diag2 = (vMundo.x + vMundo.y) * COS45;
   if (uKind == 0) {
     // Sólido: a cor de preenchimento inteira (o zoom mínimo continua valendo).
     c = 1.0;
   } else if (uKind == 1 || uKind == 2) {
-    c = max(c, perto((-vMundo.x + vMundo.y) * COS45, meiaLinha));
-    if (uKind == 2) c = max(c, perto((vMundo.x + vMundo.y) * COS45, meiaLinha));
+    c = cobLinha(diag1, uEspaco, linhaPx);
+    if (uKind == 2) c = max(c, cobLinha(diag2, uEspaco, linhaPx));
   } else if (uKind == 3) {
     // Gesso: linha horizontal contínua, pintada em 10/16 do passo ao longo de x.
-    float f = fract(vMundo.x / uEspaco);
-    c = perto(vMundo.y, meiaLinha) * step(f, 10.0 / 16.0);
+    c = cobLinha(vMundo.y, uEspaco, linhaPx) * cobTraco(vMundo.x, uEspaco, uEspaco * 10.0 / 16.0, 0.0);
   } else if (uKind == 4) {
-    // Pontos: um traço de uPontoM m a partir do meio do passo, na linha horizontal, com uPontoPx de espessura.
-    float dx = (fract(vMundo.x / uEspaco) - 0.5) * uEspaco;
-    c = perto(vMundo.y, 0.5 * uPontoPx) * step(0.0, dx) * step(dx, uPontoM);
+    // Pontos: um traço de uPontoM m a partir do meio do passo, na linha horizontal, com pontoPx de espessura.
+    c = cobLinha(vMundo.y, uEspaco, pontoPx) * cobTraco(vMundo.x, uEspaco, uPontoM, 0.5 * uEspaco);
+  } else if (uKind == 5) {
+    // Alvenaria: retas a 45° no passo base e a −45° em 3 passos.
+    c = max(cobLinha(diag1, uEspaco, linhaPx), cobLinha(diag2, 3.0 * uEspaco, linhaPx));
+  } else if (uKind == 6) {
+    // Concreto: retas a 45° em 3 passos e pontos em malha de 1,3 passo, linhas ímpares deslocadas meio passo.
+    c = cobLinha(diag1, 3.0 * uEspaco, linhaPx);
+    float passo = 1.3 * uEspaco;
+    float linha = floor(vMundo.y / passo + 0.5);
+    float desl = mod(abs(linha), 2.0) > 0.5 ? 0.5 * passo : 0.0;
+    c = max(c, cobLinha(vMundo.y, passo, pontoPx) * cobTraco(vMundo.x, passo, uPontoM, desl));
+  } else if (uKind == 7) {
+    // Madeira: retas horizontais em 0,8 passo.
+    c = cobLinha(vMundo.y, 0.8 * uEspaco, linhaPx);
+  } else if (uKind == 8) {
+    // Isolante: retas a 45° no passo base, tracejadas (pintado 1,5 e vazio 0,75 do passo, fase 0 na origem).
+    c = cobLinha(diag1, uEspaco, linhaPx) * cobTraco(diag2, 2.25 * uEspaco, 1.5 * uEspaco, 0.0);
+  } else if (uKind == 9) {
+    // Terra: retas a −45° em 2 passos, tracejadas (pintado 1 e vazio 1 passo).
+    c = cobLinha(diag2, 2.0 * uEspaco, linhaPx) * cobTraco((vMundo.x - vMundo.y) * COS45, 2.0 * uEspaco, uEspaco, 0.0);
   }
-  if (c < 0.5) discard;
-  gl_FragColor = vec4(uCor, uAlfa);
+  if (uKind >= 10) {
+    for (int i = 0; i < 4; i++) {
+      if (i >= uNPrim) break;
+      vec4 A = uPrimA[i];
+      vec4 B = uPrimB[i];
+      float cp = 0.0;
+      if (A.x < 0.5) {
+        float sn = -sin(A.y) * vMundo.x + cos(A.y) * vMundo.y;
+        float un = cos(A.y) * vMundo.x + sin(A.y) * vMundo.y;
+        cp = cobLinha(sn, A.z * uEspaco, linhaPx);
+        if (B.w > 0.5) cp *= cobTraco(un, (B.x + B.y) * uEspaco, B.x * uEspaco, B.z * uEspaco);
+      } else {
+        float passo = A.z * uEspaco;
+        float linha = floor(vMundo.y / passo + 0.5);
+        float desl = mod(abs(linha), 2.0) > 0.5 ? 0.5 * passo : 0.0;
+        cp = cobLinha(vMundo.y, passo, pontoPx) * cobTraco(vMundo.x, passo, uPontoM, desl);
+      }
+      c = max(c, cp);
+    }
+  }
+  if (c < 0.02) discard;
+  gl_FragColor = vec4(uCor, uAlfa * c);
   #include <colorspace_fragment>
 }
 `;
@@ -306,16 +376,33 @@ export class PlanScene {
 
   private materialHachura(lote: LoteGpu): THREE.ShaderMaterial {
     const h = lote.hatch!;
+    const papel = h.papel;
+    const prims = primsOfCode(CODIGO_HACHURA[h.kind]);
+    const primasA = Array.from({ length: MAX_PRIMS }, (_, i) => {
+      const p = prims[i];
+      return p ? new THREE.Vector4(p.t === 'line' ? 0 : 1, p.t === 'line' ? (p.ang * Math.PI) / 180 : 0, p.pitch, 0) : new THREE.Vector4();
+    });
+    const primasB = Array.from({ length: MAX_PRIMS }, (_, i) => {
+      const p = prims[i];
+      return p && p.t === 'line' && p.on !== undefined && p.off !== undefined ? new THREE.Vector4(p.on, p.off, p.phase ?? 0, 1) : new THREE.Vector4();
+    });
     return new THREE.ShaderMaterial({
       uniforms: {
         uZoom: this.uZoom,
         uCor: { value: new THREE.Color(lote.color) },
         uAlfa: { value: lote.alpha },
         uKind: { value: CODIGO_HACHURA[h.kind] },
-        uEspaco: { value: HACHURA_GPU.espaco },
-        uLinhaPx: { value: HACHURA_GPU.linhaPx },
-        uPontoPx: { value: HACHURA_GPU.pontoPx },
-        uPontoM: { value: HACHURA_GPU.pontoM },
+        uEspaco: { value: papel ? papel.pitchMm * (papel.escala / 1000) : HACHURA_GPU.espaco },
+        uLinhaPx: { value: papel ? PISO_LINHA_PX : HACHURA_GPU.linhaPx },
+        uPontoPx: { value: papel ? PISO_PONTO_PX : HACHURA_GPU.pontoPx },
+        uPontoM: { value: papel ? (papel.pitchMm * (papel.escala / 1000)) / 4 : HACHURA_GPU.pontoM },
+        uLinhaM: { value: papel ? papel.lineMm * (papel.escala / 1000) : 0 },
+        uPontoE: { value: papel ? papel.dotMm * (papel.escala / 1000) : 0 },
+        uNPrim: { value: prims.length },
+        uPrimA: { value: primasA },
+        uPrimB: { value: primasB },
+        uLinhaTeto: { value: papel && h.fina ? FINA_LINHA_PX : SEM_TETO },
+        uPontoTeto: { value: papel && h.fina ? FINA_PONTO_PX : SEM_TETO },
         uTipo: { value: 2 },
       },
       vertexShader: VERTEX_HACHURA,

@@ -4,6 +4,7 @@ import { corPadraoCorte, corPadraoSuperficie } from './materialPlan.ts';
 import { floorFills } from './floors.ts';
 import { slabFills } from './slabs.ts';
 import { mix } from './color.ts';
+import { defaultPaint } from './style.ts';
 import { LIGHT } from './types.ts';
 import type { Viewport } from '../viewport.ts';
 
@@ -64,18 +65,20 @@ function projeto(tipo: 'piso' | 'laje', graficos?: Graficos): Project {
 }
 
 describe('planta fim a fim com graficos', () => {
+  // Em linha oculta a superfície é o papel; as cores dos blocos aparecem no sombreado, onde a decisão de material é a mesma.
+  const sombreado = (categoria: 'floor' | 'slab') => ({ ...defaultPaint(categoria, 100), visual: 'shaded' as const });
   it('piso usa graficos.superficie (fundo e padrão); graficos.corte não interfere', () => {
-    const antes = floorFills(projeto('piso'), 'lv_0', LIGHT, false, 'medium', VIEW).fills[0]!;
+    const antes = floorFills(projeto('piso'), 'lv_0', LIGHT, false, 'medium', VIEW, undefined, sombreado('floor')).fills[0]!;
     const p = projeto('piso', { superficie: { planoDeFundo: { cor: '#102030' }, primeiroPlano: { padrao: 'cross', cor: '#405060' } }, corte: { planoDeFundo: { cor: '#ff00ff' } } });
-    const dep = floorFills(p, 'lv_0', LIGHT, false, 'medium', VIEW).fills[0]!;
+    const dep = floorFills(p, 'lv_0', LIGHT, false, 'medium', VIEW, undefined, sombreado('floor')).fills[0]!;
     expect(dep.color).not.toBe(antes.color);
-    expect(dep.color).toBe(mix('#102030', '#ffffff', 0.74));
+    expect(dep.color).toBe('#102030');
     expect(dep.hatch).toMatchObject({ kind: 'cross', color: '#405060' });
   });
   it('laje cortada usa graficos.corte', () => {
     const p = projeto('laje', { corte: { planoDeFundo: { cor: '#102030' }, primeiroPlano: { padrao: 'dots', cor: '#405060' } } });
-    const f = slabFills(p, 'lv_0', LIGHT, false, 'medium', VIEW).fills[0]!;
-    expect(f.color).toBe(mix('#102030', '#ffffff', 0.6));
+    const f = slabFills(p, 'lv_0', LIGHT, false, 'medium', VIEW, undefined, sombreado('slab')).fills[0]!;
+    expect(f.color).toBe('#102030');
     expect(f.hatch).toMatchObject({ kind: 'dots', color: '#405060' });
   });
 });

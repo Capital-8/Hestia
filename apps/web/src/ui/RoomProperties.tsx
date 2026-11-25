@@ -1,6 +1,6 @@
 import { useMemo, type ReactElement } from 'react';
 import { resolveRooms, type ResolvedRoom } from '@hestia/engine';
-import { areaPlanOf, DEFAULT_ROOM_CATEGORIES, roomCeilingHeight, type AreaPlan, type Id, type Project, type Room, type RoomTag, type TagField } from '@hestia/model';
+import { areaPlanOf, DEFAULT_ROOM_CATEGORIES, roomCeilingHeight, roomsOnLevel, type AreaPlan, type Id, type Project, type Room, type RoomTag, type TagField } from '@hestia/model';
 import { ensureRoomTagAction, removeRoomTagAction, updateRoomTagAction, type RoomTagPatch } from '../editor/areaPlanActions.ts';
 import { editor, useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
@@ -51,6 +51,30 @@ export function roomWarning(r: ResolvedRoom, lang: Lang = 'pt'): string | null {
   if (r.problem === 'aberto') return translate(lang, 'pra_msg_room_open_loop');
   if (r.duplicateOf !== undefined) return translate(lang, 'pra_msg_room_duplicate', { name: r.duplicateOf });
   return null;
+}
+
+/**
+ * Comando que alterna um campo do rótulo compartilhado. `position: labelPosition ?? null` repassa a posição gravada
+ * (ou a ausência dela) para o `setRoomLabel` não recentralizar o rótulo ao mexer só nos campos.
+ */
+export function toggleRoomLabelFieldsCommand(room: Room, field: TagField) {
+  return {
+    type: 'setRoomLabel' as const,
+    id: room.id,
+    position: room.labelPosition ?? null,
+    fields: toggleTagField(room.labelFields ?? ['name'], field),
+  };
+}
+
+/** Ambientes com circuito fechado no nível, na ordem em que foram desenhados. */
+export function roomsWithCircuitOnLevel(p: Project, levelId: Id): Room[] {
+  const resolved = new Map(resolveRooms(p, levelId).map((r) => [r.roomId, r] as const));
+  return roomsOnLevel(p, levelId).filter((r) => !!resolved.get(r.id)?.polygon);
+}
+
+/** Comando que aplica os campos do ambiente selecionado a todos os ambientes com circuito do mesmo nível. */
+export function applyLabelFieldsToLevelCommand(p: Project, levelId: Id, fields: TagField[]) {
+  return { type: 'updateElements' as const, ids: roomsWithCircuitOnLevel(p, levelId).map((r) => r.id), patch: { labelFields: fields } };
 }
 
 /**
@@ -160,6 +184,13 @@ export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
   const geo = single ? resolved.get(single.id) : undefined;
   const sum = (f: (r: ResolvedRoom) => number): number => rooms.reduce((s, r) => s + (resolved.get(r.id) ? f(resolved.get(r.id)!) : 0), 0);
   const warning = single && geo ? roomWarning(geo, lang) : null;
+  const labelFields = single?.labelFields ?? ['name'];
+  const toggleLabelField = (field: TagField): void => {
+    if (single) editor.store.exec(toggleRoomLabelFieldsCommand(single, field), t('pra_undo_change_label_fields'));
+  };
+  const applyLabelFieldsToLevel = (): void => {
+    if (single) editor.store.exec(applyLabelFieldsToLevelCommand(p, single.levelId, labelFields), t('pra_undo_change_label_fields'));
+  };
 
   return (
     <>
@@ -224,6 +255,21 @@ export function RoomProperties({ rooms }: { rooms: Room[] }): ReactElement {
             <button type="button" className="btn small" onClick={() => editor.store.exec({ type: 'setRoomLabel', id: single.id, position: null, leader: 'auto' }, t('pra_undo_recenter_label'))}>{t('pra_btn_recenter_label')}</button>
           </div>
           <div className="hint">{t('pra_msg_label_position_scope')}</div>
+          <Row label={t('pra_fld_fields')}>
+            <span style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', padding: '2px 4px' }}>
+              {/* "Personalizado" é campo da etiqueta da planta de área (RoomTag.custom); o rótulo compartilhado
+                  não guarda texto próprio, então a opção não aparece aqui para não ficar sem efeito. */}
+              {TAG_FIELD_OPTIONS.filter((o) => o.field !== 'custom').map((o) => (
+                <Check key={o.field} id={`p-labelfield-${o.field}`} checked={labelFields.includes(o.field)} disabled={labelFields.length === 1 && labelFields.includes(o.field)} onChange={() => toggleLabelField(o.field)}>
+                  {t(o.labelKey)}
+                </Check>
+              ))}
+            </span>
+          </Row>
+          <div className="btn-row">
+            <button type="button" className="btn small" onClick={applyLabelFieldsToLevel}>{t('pra_btn_apply_fields_level')}</button>
+          </div>
+          <div className="hint">{t('pra_msg_fields_scope')}</div>
         </Group>
       )}
       {single && areaPlan && areaPlan.levelId === single.levelId && (

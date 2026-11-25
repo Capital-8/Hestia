@@ -14,7 +14,7 @@ import { defaultPaint, surfaceColor, type PlanPaint } from './style.ts';
 import { arcoDoTelhado, ladosComSimbolo } from './roofsArco.ts';
 import { aplicarCorte, telhadoOriginal } from './roofsCorte.ts';
 import { gripsDoTelhado } from './roofsArcoEdge.ts';
-import { corDaAresta, tomDaAgua } from './roofsAgua.ts';
+import { corDaAresta, emPrancha, tomDaAgua } from './roofsAgua.ts';
 import { gableSymbolOps } from './roofsEmpena.ts';
 import { evitarSobreposicao } from './roofsRotulos.ts';
 import { projecaoDoTelhado } from './roofsProjecao.ts';
@@ -84,7 +84,7 @@ export function roofFillBase(p: Project, r: ResolvedRoof, theme: PlanTheme, dark
 
 /** Cor da aresta de um telhado: um pouco mais escura que o preenchimento das águas. */
 export function roofEdgeColor(p: Project, r: ResolvedRoof, theme: PlanTheme, dark: boolean, paint: PlanPaint): string {
-  return corDaAresta(roofFillBase(p, r, theme, dark, paint));
+  return emPrancha(paint) ? theme.ink : corDaAresta(roofFillBase(p, r, theme, dark, paint));
 }
 
 /**
@@ -304,8 +304,8 @@ export function roofOps(roofs: ResolvedRoof[], p: Project, theme: PlanTheme, dar
     // para o shader (`zoomMin`) e a geometria não muda com o zoom (o `resolverZoom` faz o mesmo no caminho CPU).
     const cp = corPadraoSuperficie(m, { dark, detail, baseMisturaPadrao: base, misturaPadrao: 0.35 });
     const hatch = cp.padrao ? { ...cp.padrao, alpha: 0.26, ...(fine ? {} : { zoomMin: 40 }) } : undefined;
-    const aresta = corDaAresta(base);
-    for (const pl of r.planes) out.fills.push({ polygons: pl.polygon, color: tomDaAgua(base, pl.up, pl.percent, sunAzimuth), alpha, hatch });
+    const aresta = emPrancha(paint) ? theme.ink : corDaAresta(base);
+    for (const pl of r.planes) out.fills.push({ polygons: pl.polygon, color: emPrancha(paint) ? base : tomDaAgua(base, pl.up, pl.percent, sunAzimuth), alpha, hatch });
     const model = p.elements[r.roofId];
     const cls = opts.classes?.get(r.roofId);
     const foot = roofFootprint(r);
@@ -389,7 +389,7 @@ export function roofFills(p: Project, levelId: Id, theme: PlanTheme, dark: boole
     for (const r of all) {
       if (off?.has(r.roofId)) continue;
       const rica = opts.planMode !== true;
-      const pr = projecaoDoTelhado(r, p, roofFootprint(r), roofFillBase(p, r, theme, dark, paint), theme, esp, sunAzimuth, scale, { rica, coarse: detail === 'coarse' });
+      const pr = projecaoDoTelhado(r, p, roofFootprint(r), roofFillBase(p, r, theme, dark, paint), theme, esp, sunAzimuth, scale, { rica, coarse: detail === 'coarse', prancha: emPrancha(paint) });
       out.fills.push(...pr.fills);
       out.strokes.push(...pr.strokes);
     }
@@ -400,7 +400,7 @@ export function roofFills(p: Project, levelId: Id, theme: PlanTheme, dark: boole
   for (const r of all) {
     if (!hidden?.has(r.roofId) || off?.has(r.roofId) || opts.showProjection !== true) continue;
     const rica = opts.planMode !== true;
-    const pr = projecaoDoTelhado(r, p, roofFootprint(r), roofFillBase(p, r, theme, dark, paint), theme, esp, sunAzimuth, scale, { rica, coarse: detail === 'coarse' });
+    const pr = projecaoDoTelhado(r, p, roofFootprint(r), roofFillBase(p, r, theme, dark, paint), theme, esp, sunAzimuth, scale, { rica, coarse: detail === 'coarse', prancha: emPrancha(paint) });
     out.fills.push(...pr.fills);
     out.strokes.push(...pr.strokes);
   }

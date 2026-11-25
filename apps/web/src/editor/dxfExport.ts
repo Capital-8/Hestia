@@ -1,6 +1,6 @@
 import { openingSymbolPaths, union, type MultiPolygon } from '@hestia/geom';
 import { buildOpeningModel, computeSection, roofDrawingsOf, semFrestas, junctionLevel, resolveCeilings, levelFrames, openingGeometry, resolveFloors, resolveRoofs, resolveRooms, resolveRampsOnLevel, resolveSlabs, resolveStairsOnLevel, servicoCortina, temCortina, ESTILO_PLANTA_CORTINA, PAPEL_PLANTA_CORTINA, type JunctionLevel, type SectionOrigin, type ViewClass } from '@hestia/engine';
-import { openingPlanWorldPaths, ownerOf, planStyleOf, planViewOf, planViewVisivel, revisionCloudOps, roofFootprint, roomFullText, roomLabelAt, spotAnnotationOps, type PlanView, type StrokeOp, type LabelOp } from '@hestia/render';
+import { openingPlanWorldPaths, ownerOf, planStyleOf, planViewOf, planViewVisivel, revisionCloudOps, roofFootprint, roomFullText, roomLabelAt, roomTagLines, spotAnnotationOps, type PlanView, type StrokeOp, type LabelOp } from '@hestia/render';
 import {
   dxfDocOf,
   dxfComponentEntities,
@@ -231,7 +231,14 @@ export function dxfGeometryOf(p: Project, levelId: Id, showRoofProjection = true
     rooms: rooms.map((r) => ({ outline: r.polygon![0] ?? [], holes: r.polygon!.slice(1) })),
     roomTexts: rooms.flatMap((r) => {
       const at = roomLabelAt(r);
-      return at ? [{ at, text: roomFullText(r, unitsOf(p)), height: ROOM_TEXT_HEIGHT_M, rotation: 0, layer: DXF_LAYER_ROOM_TEXT }] : [];
+      if (!at) return [];
+      // Os campos configurados do rótulo (labelFields) valem também no DXF, para não divergir da tela. A planta de piso
+      // desenha o rótulo com `roomTagLines` (que resolve categoria e nível pelo projeto); o DXF usa o mesmo caminho.
+      const room = p.elements[r.roomId];
+      const text = room?.kind === 'room' && room.labelFields
+        ? roomTagLines(p, room, r, { fields: room.labelFields, custom: '' }).join(' · ')
+        : roomFullText(r, unitsOf(p));
+      return text ? [{ at, text, height: ROOM_TEXT_HEIGHT_M, rotation: 0, layer: DXF_LAYER_ROOM_TEXT }] : [];
     }),
     clusters: shown('wall') ? view.geo.clusters.filter((c) => !(c.wallIds.length > 0 && c.wallIds.every((w) => ocultosPlanta.has(w)))) : [],
     openings,

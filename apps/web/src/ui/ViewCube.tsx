@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent, type ReactElement } from 'react';
 import { HOME_VIEW, type ModelScene } from '@hestia/render';
 import { useT } from '../editor/i18n.ts';
 import { useUi } from '../editor/state.ts';
@@ -14,7 +14,7 @@ import {
   zoneById,
   type CubeZone,
 } from './viewcube.ts';
-import { compassName, ringHit, type CompassLetter } from './viewcube-ring.ts';
+import { COMPASS, compassLetter, compassName, ringGeometry, ringHit, type CompassKey, type CompassLetter } from './viewcube-ring.ts';
 import { ViewCubeRing } from './ViewCubeRing.tsx';
 
 /** Distância (px) a partir da qual um toque no cubo vira arrasto (órbita) e não clique. */
@@ -24,6 +24,9 @@ const DRAG_PX = 4;
 const conterSeEsquerdo = (e: RPointerEvent<HTMLElement>): void => {
   if (e.button === 0) e.stopPropagation();
 };
+
+/** Contorno das letras da bússola (o mesmo halo de `.vc-letter` no SVG, agora em texto HTML). */
+const HALO_LETRA = '2.4px color-mix(in srgb, var(--sheet) 85%, transparent)';
 
 interface ViewCubeProps {
   model: ModelScene;
@@ -35,17 +38,87 @@ interface ViewCubeProps {
  * (`zoneAtPoint` para o cubo, `ringHit` para o anel), e não pelo teste de acerto do navegador, que falha em costuras de
  * faces giradas. Arrastar sobre o cubo orbita; sobre o anel, gira só o azimute. Clicar numa zona anima até a vista dela;
  * clicar numa letra leva ao azimute dela. As células são botões para o teclado (Tab e Enter). Não cria renderizador WebGL.
+ *
+ * A rotação NÃO passa por re-render: `previewTick` é lido numa assinatura (`useUi.subscribe`) que escreve a matriz do
+ * cubo e a geometria dos anéis direto no DOM — a órbita de 60 fps não reconcilia os 54 botões (WP-A1). As letras da
+ * bússola são `<div>`s posicionadas por CSS, e não `<text>` do SVG: no WebKitGTK, reescrever o `transform` de quatro
+ * `<text>` a cada quadro custava ~20 ms (medido), enquanto o cubo em CSS 3D — os mesmos 54 botões — é barato.
  */
 export function ViewCube({ model }: ViewCubeProps): ReactElement {
   const { t, lang } = useT();
   const orbit = model.orbit;
   /** Células de cada face no idioma ativo (as 54 entradas são triviais de recalcular na troca). */
   const faces = useMemo(() => CUBE_FACES.map((face) => ({ face, cells: faceCells(face, lang) })), [lang]);
-  // Lê a câmera a cada redesenho (arrasto, animação e Início mudam o contador de desenho).
-  useUi((s) => s.previewTick);
+  // Hover, idioma e Ortho ainda são React; a câmera, não. O contador local força o redesenho desses controles.
   const [hover, setHover] = useState<CubeZone | null>(null);
   const [ringHover, setRingHover] = useState<CompassLetter | null>(null);
-  const redraw = (): void => useUi.setState((s) => ({ previewTick: s.previewTick + 1 }));
+  const [, forcar] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const cubeRef = useRef<HTMLDivElement>(null);
+  /** Letras da bússola (HTML): posição e transparência escritas direto no estilo, sem re-render. */
+  const letrasRef = useRef<Array<HTMLDivElement | null>>([]);
+  /** Nós do anel para a escrita imperativa; refeitos se o React substituir os elementos (`isConnected`). */
+  const anelRef = useRef<{ shadow: SVGPathElement | null; back: SVGPathElement | null; front: SVGPathElement | null }>({ shadow: null, back: null, front: null });
+  /** Última orientação escrita, para não refazer a geometria do anel em `previewTick` de outro motivo. */
+  const ultima = useRef<{ az: number; el: number } | null>(null);
+
+  /**
+   * Escreve a rotação do cubo, a geometria dos anéis e a posição das letras no DOM (sem React). As letras do SVG ficam
+   * ocultas (o HTML as desenha): a ordem de `COMPASS` (N, L, S, O) é a mesma de `g.letters`, então o casamento é por índice.
+   */
+  const sincronizar = (): void => {
+    const az = orbit.azimuth;
+    const el = orbit.elevation;
+    const cube = cubeRef.current;
+    if (cube) cube.style.transform = cubeMatrix(az, el);
+    const stage = stageRef.current;
+    if (!stage) return;
+    const a = anelRef.current;
+    if (!a.shadow?.isConnected || !a.back?.isConnected || !a.front?.isConnected) {
+      anelRef.current = {
+        shadow: stage.querySelector<SVGPathElement>('.vc-ring--back .vc-shadow'),
+        back: stage.querySelector<SVGPathElement>('.vc-ring--back .vc-band'),
+        front: stage.querySelector<SVGPathElement>('.vc-ring--front .vc-band--front'),
+      };
+      // O SVG continua dono da estrutura do anel, mas as letras de texto ficam a cargo do HTML (ver o topo).
+      for (const n of stage.querySelectorAll<SVGTextElement>('.vc-ring--front .vc-letter')) n.style.display = 'none';
+    }
+    const u = ultima.current;
+    if (u && Math.abs(u.az - az) < 1e-6 && Math.abs(u.el - el) < 1e-6) return;
+    ultima.current = { az, el };
+    const g = ringGeometry(az, el);
+    const r = anelRef.current;
+    r.shadow?.setAttribute('d', g.shadow);
+    r.back?.setAttribute('d', g.back);
+    r.front?.setAttribute('d', g.front);
+    g.letters.forEach((l, i) => {
+      const node = letrasRef.current[i];
+      if (!node) return;
+      // `matrix(a b c d e f)` do SVG → `matrix(a,b,c,d,e,f)` do CSS; o translate centra o glifo no ponto do anel.
+      node.style.transform = `${l.transform.replace(/ /g, ',')} translate(-50%, -50%)`;
+      node.style.opacity = l.front ? '1' : '0.6';
+    });
+  };
+  const sincronizarRef = useRef(sincronizar);
+  sincronizarRef.current = sincronizar;
+  // Um `previewTick` por quadro da órbita chega aqui como escrita de DOM, sem passar pela reconciliação do React.
+  useLayoutEffect(() => {
+    sincronizarRef.current();
+    const off = useUi.subscribe((s, antes) => {
+      if (s.previewTick !== antes.previewTick) sincronizarRef.current();
+    });
+    return off;
+  }, []);
+  // Qualquer render do React (hover, idioma, Ortho) pode reescrever o anel: reaplica a câmera de agora antes da pintura.
+  useLayoutEffect(() => { sincronizar(); });
+
+  /** Pede um quadro da vista (o WebGL redesenha); não re-renderiza este componente. */
+  const pedirDesenho = (): void => { useUi.setState((s) => ({ previewTick: s.previewTick + 1 })); };
+  const redraw = (): void => {
+    // Comando (Início, giro de 90°, Ortho): pede o quadro da vista e redesenha os controles locais.
+    pedirDesenho();
+    forcar((x) => x + 1);
+  };
   const go = (v: { azimuth: number; elevation: number }): void => {
     orbit.animateTo(v);
     redraw();
@@ -83,7 +156,7 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
       moved = true;
       orbit.orbit(ev.clientX - last.x, onRing ? 0 : ev.clientY - last.y);
       last = { x: ev.clientX, y: ev.clientY };
-      redraw();
+      pedirDesenho();
     };
     const finish = (): void => {
       window.removeEventListener('pointermove', move);
@@ -125,7 +198,27 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
     redraw();
   };
 
+  /** Cor da letra: a do norte em destaque, a sob o ponteiro em seleção, as demais no texto suave. */
+  const corDaLetra = (key: CompassKey): string =>
+    ringHover?.key === key ? 'var(--select)' : key === 'N' ? 'var(--accent)' : 'var(--fg-soft)';
+
   const cubeStyle = { transform: cubeMatrix(orbit.azimuth, orbit.elevation), '--vc-half': `${CUBE_HALF_PX}px` } as CSSProperties;
+  const letraStyle = (key: CompassKey): CSSProperties => ({
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    transformOrigin: '0 0',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1,
+    color: corDaLetra(key),
+    WebkitTextStroke: HALO_LETRA,
+    paintOrder: 'stroke',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+  });
   const stageTitle = hover
     ? zoneById(hover.id, lang).name
     : ringHover
@@ -138,6 +231,7 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
     <div className="viewcube" role="group" aria-label={t('cvn_vc_group')}>
       <div
         className="vc-stage"
+        ref={stageRef}
         title={stageTitle}
         onPointerDown={onStagePointerDown}
         onPointerMove={onStagePointerMove}
@@ -147,7 +241,7 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
         }}
       >
         <ViewCubeRing azimuth={orbit.azimuth} elevation={orbit.elevation} hover={ringHover?.key ?? null} layer="back" />
-        <div className="vc-cube" style={cubeStyle}>
+        <div className="vc-cube" ref={cubeRef} style={cubeStyle}>
           {faces.map(({ face, cells }) => (
             <div key={face} className={`vc-face vc-face--${face}`} style={{ transform: FACE_TRANSFORM[face] }}>
               {cells.map(({ row, col, zone }) => (
@@ -169,6 +263,18 @@ export function ViewCube({ model }: ViewCubeProps): ReactElement {
           ))}
         </div>
         <ViewCubeRing azimuth={orbit.azimuth} elevation={orbit.elevation} hover={ringHover?.key ?? null} layer="front" />
+        {/* Letras da bússola em HTML (posicionadas no `sincronizar`): ver o comentário do componente. */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
+          {COMPASS.map((c, i) => (
+            <div
+              key={c.key}
+              ref={(el) => { letrasRef.current[i] = el; }}
+              style={letraStyle(c.key)}
+            >
+              {compassLetter(c.key, lang)}
+            </div>
+          ))}
+        </div>
       </div>
       <div className="vc-tools" onPointerDown={conterSeEsquerdo}>
         <button type="button" className="vc-btn" aria-label={t('cvn_vc_rotate_left')} title={t('cvn_vc_rotate_left_title')} onClick={turn(1)}>

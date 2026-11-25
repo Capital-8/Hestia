@@ -1,10 +1,12 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 import { useT } from '../../editor/i18n.ts';
 import { notasDaVersao } from '../../editor/atualizacao/auto.ts';
 import { carregarPreferencias, salvarAvisarAoAbrir } from '../../editor/atualizacao/preferencias.ts';
 import { emTauri, instalarAtualizacao, verificarAtualizacao, type AtualizacaoDisponivel } from '../../editor/atualizacao/ponte.ts';
 import { versaoDoApp } from '../../editor/atualizacao/versao.ts';
 import { useUi } from '../../editor/state.ts';
+import { infoRender, type InfoRender } from '../../debug/perf/gpuInfo.ts';
+import { alternarPerf } from '../../debug/perf/index.ts';
 import { Dialog } from './Dialog.tsx';
 
 const fechar = (): void => useUi.setState({ dialog: null, dialogArg: null });
@@ -17,16 +19,25 @@ function mensagem(erro: unknown): string {
  * Diálogo "Sobre o Hestia": nome, versão em execução (injetada do package.json), notas
  * desta versão e, só no desktop, verificação manual de atualizações. No navegador os
  * controles de atualização ficam escondidos; restam versão e notas.
+ *
+ * Bloco de renderização (WP-A0): backend de GPU, renderer WebGL e versão do WebKit — o
+ * caminho para diagnosticar o 3D no desktop sem barra de endereço — com botão que liga o
+ * overlay de desempenho (o mesmo do atalho Ctrl+Shift+P; medição persiste em localStorage).
  */
 export function SobreDialog(): ReactElement {
   const { t, lang } = useT();
   const desktop = emTauri();
+  const gpuEstado = useUi((s) => s.gpu);
   const versao = versaoDoApp();
   const [avisar, setAvisar] = useState(() => carregarPreferencias().avisarAoAbrir);
   const [verificando, setVerificando] = useState(false);
   const [instalando, setInstalando] = useState(false);
   const [resultado, setResultado] = useState<AtualizacaoDisponivel | null | undefined>(undefined);
   const [erro, setErro] = useState('');
+  // WP-A0: diagnóstico de renderização lido uma vez na abertura (backend, WebGL, WebKit) + estado do overlay.
+  const [info, setInfo] = useState<InfoRender | null>(null);
+  const [perfLigado, setPerfLigado] = useState<boolean | null>(null);
+  useEffect(() => { setInfo(infoRender()); }, []);
   const notas = notasDaVersao(versao, lang);
 
   const verificar = async (): Promise<void> => {
@@ -69,6 +80,18 @@ export function SobreDialog(): ReactElement {
       <div className="hint">
         <strong>{t('dlm_about_notes')}</strong>
         <p style={{ whiteSpace: 'pre-wrap' }}>{notas || t('dlm_about_no_notes')}</p>
+      </div>
+      {/* WP-A0: estado da renderização (serve no navegador e no desktop, onde não há barra de endereço). */}
+      <div className="hint">
+        <strong>{t('dlm_about_gpu_title')}</strong>
+        <div>{t('dlm_about_gpu_backend')}: {info?.backend ?? (gpuEstado !== 'pending' ? gpuEstado : null) ?? t('dlm_about_gpu_none')}</div>
+        <div>{t('dlm_about_gpu_renderer')}: {info?.renderer ?? t('dlm_about_gpu_none')}</div>
+        <div>{t('dlm_about_gpu_webkit')}: {info?.webkit ?? t('dlm_about_gpu_none')}</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+          <button className="btn" onClick={() => setPerfLigado(alternarPerf())}>{t('dlm_about_diag_btn')}</button>
+          <span>{t('dlm_about_diag_hint')}</span>
+        </div>
+        {perfLigado !== null ? <p role="status">{perfLigado ? t('dlm_about_diag_on') : t('dlm_about_diag_off')}</p> : null}
       </div>
       {desktop ? (
         <>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useProject } from '../editor/controller.ts';
 import { useUi } from '../editor/state.ts';
 import { activeViewOf, sameView, viewKey } from '../editor/openViews.ts';
@@ -10,7 +11,19 @@ import { PaneLayoutMenu } from './PaneLayoutMenu.tsx';
 
 export function ViewTabs(): ReactElement {
   const p = useProject();
-  const s = useUi();
+  // Só os campos que as abas leem: sem isto cada `previewTick` da órbita re-renderizava a barra inteira (WP-A1).
+  const s = useUi(useShallow((u) => ({
+    openViews: u.openViews,
+    view: u.view,
+    planKind: u.planKind,
+    levelId: u.levelId,
+    areaPlanId: u.areaPlanId,
+    sectionId: u.sectionId,
+    sheetId: u.sheetId,
+    faceView: u.faceView,
+    propsOpen: u.propsOpen,
+    browserOpen: u.browserOpen,
+  })));
   const { t } = useT();
   const active = activeViewOf(s);
   const narrow = useNarrow();

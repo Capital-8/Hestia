@@ -1,8 +1,9 @@
 import { ringArea, triangulate, type Mesh2D, type Polygon, type Vec2 } from '@hestia/geom';
 import type { HatchKind } from '@hestia/model';
 import { DOT_LEN, DOT_PX, HATCH_PX, HATCH_SPACING } from './hatch.ts';
+import { primCode } from './hatchDefs.ts';
 import { kPapel } from './espessura.ts';
-import type { FillOp, PesoPapel, StrokeOp } from './types.ts';
+import type { FillOp, HachuraPapel, PesoPapel, StrokeOp } from './types.ts';
 
 /**
  * Atributos por vértice de um lote de traço (linhas, marcadores e faixas). A espessura e o tracejado saem do shader, então
@@ -36,6 +37,10 @@ export const SEM_TETO = 1e9;
  * `position.z` (o 2D não usa z), então uma cor/padrão é um lote só, como antes. */
 export interface HachuraLote {
   kind: HatchKind;
+  /** Hachura em mm de papel (estilo de prancha): o passo e as espessuras vêm da escala, não das constantes de tela. */
+  papel?: HachuraPapel;
+  /** "Linhas finas (tela)": a espessura de papel da hachura fica limitada a um fio. */
+  fina?: boolean;
 }
 
 /**
@@ -62,8 +67,35 @@ export interface LoteGpu {
   hatch?: HachuraLote;
 }
 
-/** Código do padrão de hachura no shader (0 = nenhum; o sólido é só um preenchimento). */
-export const CODIGO_HACHURA: Record<HatchKind, number> = { none: 0, solid: 0, diagonal: 1, cross: 2, gesso: 3, dots: 4 };
+/**
+ * Código do padrão de hachura no shader (0 = nenhum; o sólido é só um preenchimento). 5 a 9 são os padrões de prancha:
+ * o fragment shader os desenha com as mesmas contas do gerador de CPU (`hatch.ts`).
+ */
+export const CODIGO_HACHURA: Record<HatchKind, number> = {
+  none: 0,
+  solid: 0,
+  diagonal: 1,
+  cross: 2,
+  gesso: 3,
+  dots: 4,
+  brick: 5,
+  concrete: 6,
+  timber: 7,
+  insulation: 8,
+  earth: 9,
+  // Padrões por primitivas (`hatchDefs.ts`): o código é o índice na tabela somado a PRIM_CODE_BASE.
+  cmu: primCode('cmu')!,
+  exposedBrick: primCode('exposedBrick')!,
+  rcConcrete: primCode('rcConcrete')!,
+  stone: primCode('stone')!,
+  gravel: primCode('gravel')!,
+  sand: primCode('sand')!,
+  eps: primCode('eps')!,
+  woolZigzag: primCode('woolZigzag')!,
+  gypsum: primCode('gypsum')!,
+  timberEnd: primCode('timberEnd')!,
+  steel: primCode('steel')!,
+};
 
 /** Parâmetros da hachura procedural (uniformes do material; os mesmos números do padrão vetorial antigo). */
 export const HACHURA_GPU = { espaco: HATCH_SPACING, linhaPx: HATCH_PX, pontoPx: DOT_PX, pontoM: DOT_LEN } as const;
@@ -116,8 +148,11 @@ function acrescentarPreenchimento(para: ParaLote, f: FillOp): void {
   for (const poly of f.polygons) {
     const m = tri(poly);
     if (m.indices.length === 0) continue;
-    const b = para(`h|${codigo}|${color}|${alpha}`, color, alpha, false);
-    b.hatch = { kind };
+    const papel = f.hatch.papel;
+    const fina = f.hatch.fina === true;
+    const chavePapel = papel ? `|p${papel.pitchMm}_${papel.lineMm}_${papel.dotMm}_${papel.escala}${fina ? '_fina' : ''}` : '';
+    const b = para(`h|${codigo}|${color}|${alpha}${chavePapel}`, color, alpha, false);
+    b.hatch = papel ? { kind, papel, ...(fina ? { fina } : {}) } : { kind };
     acrescentarMalha(b, m, zoomMin);
   }
 }

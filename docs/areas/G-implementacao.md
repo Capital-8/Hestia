@@ -95,3 +95,24 @@ Estado da entrega da planta de área. Para o desenho e as decisões, ver
 - Testes: `annotationPlanPick.test.ts` (tools), `notes.text.test.ts`/`frameBox.test.ts` (render),
   `AnnotationProps.test.ts`/`TextDialog.test.ts`/`PlanLabels.test.ts` (app). A suíte completa passa com as 72
   falhas de hash pré-existentes de `ouroZoom.test.ts`.
+
+## Rótulo do ambiente na planta de piso (20/11/2026, 0.2.7)
+
+- **Campos configuráveis por ambiente**: `Room.labelFields?: TagField[]` (ausente = `['name']`) é compartilhado
+  por todas as vistas, como `labelPosition`/`labelRotation`. Sem o campo, a planta de piso continua mostrando
+  **só o nome** (decisão 0037 preservada).
+- **Render**: `roomOps` usa `roomTagLines` (o mesmo helper da planta de área) e desenha até **duas linhas** —
+  nome/categoria/personalizado em cima, número/área/nível/perímetro/volume embaixo, com a mesma técnica de
+  `desvio` da planta de área. A chamada e a posição/rotação compartilhadas continuam valendo.
+- **UI**: no grupo **Rótulo (todas as vistas)** do painel do ambiente, a linha **Campos** liga/desliga cada
+  campo (sem "Personalizado", que é da etiqueta da planta de área) e o botão **Aplicar aos ambientes deste
+  nível** replica a escolha para todos os ambientes com circuito do nível, com desfazer.
+- **Planta de área**: sem mudança de comportamento; `RoomTag.fields` (por vista) continua mandando naquela
+  planta.
+- **DXF**: o texto do ambiente usa os mesmos campos da tela (inclusive categoria e nível); sem `labelFields`,
+  mantém o texto clássico `Sala (101) · 12,34 m2`.
+- **Comando**: `setRoomLabel` aceita `fields?: TagField[] | null` (`null` limpa), com validação de lista vazia,
+  repetição e valor inválido. Sem migração: projeto antigo abre com o campo ausente.
+- **Testes**: `packages/model/src/areaPlan.test.ts` (comando/undo/validação), `packages/render/src/plan/rooms.test.ts`
+  (duas linhas, fallback, chamada), `apps/web/src/editor/dxfRooms.test.ts` e `apps/web/src/ui/RoomProperties.test.ts`
+  (toggles e aplicar ao nível).

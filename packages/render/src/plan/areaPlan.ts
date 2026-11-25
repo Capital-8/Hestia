@@ -44,11 +44,11 @@ export function referenceSegments(room: Room, resolved: ResolvedRoom): Array<{ a
 }
 
 /** Linhas de texto da etiqueta: nome na primeira, o resto na segunda (ou o que os campos pedirem). */
-export function roomTagLines(p: Project, room: Room, r: ResolvedRoom, tag: RoomTag): string[] {
+export function roomTagLines(p: Project, room: Room, r: ResolvedRoom, campos: Pick<RoomTag, 'fields' | 'custom'>): string[] {
   const head: string[] = [];
   const tail: string[] = [];
   const dec = unitsOf(p).decimalSymbol;
-  for (const f of tag.fields) {
+  for (const f of campos.fields) {
     switch (f) {
       case 'name':
         if (room.name) head.push(room.name);
@@ -74,7 +74,7 @@ export function roomTagLines(p: Project, room: Room, r: ResolvedRoom, tag: RoomT
         tail.push(`${fmt(r.volume, 3, dec)} m³`);
         break;
       case 'custom':
-        if (tag.custom) head.push(tag.custom);
+        if (campos.custom) head.push(campos.custom);
         break;
     }
   }

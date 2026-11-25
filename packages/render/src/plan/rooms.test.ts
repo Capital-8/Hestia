@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { resolverZoom } from './zoomOps.ts';
 import { resolveLevel, resolveRooms, type ResolvedRoom } from '@hestia/engine';
-import { ProjectStore, createEmptyProject, makeRoom, makeWall, type Project } from '@hestia/model';
+import { ProjectStore, createEmptyProject, makeRoom, makeWall, unitsOf, type Project, type TagField } from '@hestia/model';
 import { buildPlanDrawList, type PlanInput } from './build.ts';
-import { belowRoomOps, roomNameText, roomOps, roomSelectionOps } from './rooms.ts';
+import { fmtArea } from './floors.ts';
+import { belowRoomOps, roomFullText, roomNameText, roomOps, roomSelectionOps } from './rooms.ts';
 import { DARK, LIGHT } from './types.ts';
 import { defaultPaint } from './style.ts';
 import type { Viewport } from '../viewport.ts';
@@ -94,6 +95,74 @@ describe('ambiente na planta (D1, E3)', () => {
     expect(dl.labels.some((l) => l.text === 'Sala')).toBe(true);
     expect(dl.labels.some((l) => l.text.includes('101'))).toBe(false);
     expect(resolveRooms(p, 'lv_0')).toHaveLength(1);
+  });
+});
+
+/** Projeto `p` com os campos do rótulo configurados via `setRoomLabel` (posição limpa, só campos). */
+function comCampos(p: Project, fields: TagField[]): Project {
+  const s = new ProjectStore(p);
+  s.exec({ type: 'setRoomLabel', id: 'r1', position: null, fields });
+  return s.project;
+}
+
+const opsCampos = (p: Project) => roomOps(p, 'lv_0', LIGHT, false, 'fine', 100, undefined, defaultPaint('room', 100));
+
+describe('campos do rótulo na planta de piso (B2)', () => {
+  it('sem labelFields: um único rótulo com o nome, papel exatamente como antes', () => {
+    const labels = opsCampos(sala()).labels;
+    expect(labels).toHaveLength(1);
+    expect(labels[0]!.text).toBe('Sala');
+    expect(labels[0]!.papel).toEqual({ escala: 100, fontMm: 1.6 });
+  });
+
+  it('sem labelFields e sem nome: cai em "Ambiente N", como hoje', () => {
+    const labels = opsCampos(sala('')).labels;
+    expect(labels).toHaveLength(1);
+    expect(labels[0]!.text).toBe('Ambiente 101');
+  });
+
+  it("['name','area','perimeter'] dá duas linhas: nome em cima (1,6) e área+perímetro embaixo (1,3)", () => {
+    const p = comCampos(sala(), ['name', 'area', 'perimeter']);
+    const labels = opsCampos(p).labels;
+    expect(labels).toHaveLength(2);
+    expect(labels[0]!.text).toBe('Sala');
+    expect(labels[0]!.papel?.desvio).toEqual({ mm: 1.0, uy: -1 });
+    expect(labels[1]!.text).toMatch(/^[\d,]+ m² · [\d,]+ m$/);
+    expect(labels[1]!.papel?.fontMm).toBe(1.3);
+    expect(labels[1]!.papel?.desvio?.uy).toBe(1);
+    expect(labels[1]!.papel?.desvio?.mm).toBeCloseTo(0.85, 10);
+    // A segunda linha sai abaixo do ponto, a primeira acima (o desvio vira `dy` no quadro).
+    const res = resolverZoom(opsCampos(p), 50);
+    expect(res.labels[0]!.dy!).toBeLessThan(0);
+    expect(res.labels[1]!.dy!).toBeGreaterThan(0);
+  });
+
+  it('área e perímetro da planta de piso são os mesmos da planta de área (roomTagLines)', () => {
+    const p = comCampos(sala(), ['name', 'area', 'perimeter']);
+    const r = resolveRooms(p, 'lv_0')[0]!;
+    const u = unitsOf(p);
+    expect(opsCampos(p).labels[1]!.text).toBe(`${fmtArea(u, r.area, 2)} · ${r.perimeter.toFixed(2).replace('.', ',')} m`);
+  });
+
+  it('labelPosition fora do polígono: continua desenhando a chamada reta, com as duas linhas no ponto', () => {
+    const s = new ProjectStore(comCampos(sala(), ['name', 'area']));
+    s.exec({ type: 'setRoomLabel', id: 'r1', position: { x: 9, y: 9 }, fields: null });
+    const out = opsCampos(s.project);
+    expect(out.labels).toHaveLength(1); // fields null limpou: só o nome, como antes
+    expect(out.labels[0]!.at).toEqual({ x: 9, y: 9 });
+    expect(out.strokes.some((st) => st.pts.some((q) => q.x === 9 && q.y === 9))).toBe(true);
+  });
+
+  it('roomFullText segue os campos; sem campos, o texto clássico do DXF', () => {
+    const p = sala();
+    const r = resolveRooms(p, 'lv_0')[0]!;
+    const u = unitsOf(p);
+    expect(roomFullText(r, u)).toBe(`Sala (101) · ${fmtArea(u, r.area, 2)}`);
+    expect(roomFullText(r, u, ['name', 'area'])).toBe(`Sala · ${fmtArea(u, r.area, 2)}`);
+    expect(roomFullText(r, u, ['number'])).toBe('101');
+    expect(roomFullText(r, u, ['volume'])).toMatch(/^[\d,]+ m³$/);
+    expect(roomFullText({ ...r, name: '' }, u, ['name'])).toBe('Ambiente 101');
+    expect(roomFullText(r, u, ['category', 'level', 'custom'])).toBe('');
   });
 });
 

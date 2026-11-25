@@ -70,16 +70,19 @@ export function partsOf(list: PlanDrawList, to: (q: Vec2) => SheetPoint, theme: 
     const polygons = f.polygons.map((poly) => poly.map((ring) => ring.map(to)));
     const base = { polygons, color: inkOf(f.color, f.alpha) };
     if (!f.hatch) return { fills: [base], paths: [] };
-    const hatch = hatchPartsOf(polygons, f.hatch.kind, inkOf(f.hatch.color, f.hatch.alpha ?? 1));
+    const hatch = hatchPartsOf(polygons, f.hatch.kind, inkOf(f.hatch.color, f.hatch.alpha ?? 1), f.hatch.papel);
     return { fills: [base, ...hatch.fills], paths: hatch.paths };
   });
   const fills = filled.flatMap((f) => f.fills);
   const paths = [...filled.flatMap((f) => f.paths), ...list.strokes.map((s) => ({
     pts: s.pts.map(to),
     closed: s.closed,
-    widthMm: s.widthPx / SHEET_PX_PER_MM,
+    // Traço com espessura de papel (`papel`): o `widthPx` da vista da folha já é mm × 1000. Traço sem ela (e todo tracejado)
+    // é medido em pixels de tela: vale 96 dpi, como os deslocamentos de rótulo, e não px / 1000 (um fio de 0,001 mm e um
+    // tracejado de 0,01 mm, que saía contínuo no PDF).
+    widthMm: s.papel ? s.widthPx / SHEET_PX_PER_MM : s.widthPx * SCREEN_PX_MM,
     color: inkOf(s.color, s.alpha),
-    ...(s.dash ? { dashMm: [s.dash[0] / SHEET_PX_PER_MM, s.dash[1] / SHEET_PX_PER_MM] as [number, number] } : {}),
+    ...(s.dash ? { dashMm: [s.dash[0] * SCREEN_PX_MM, s.dash[1] * SCREEN_PX_MM] as [number, number] } : {}),
   }))];
   const texts = list.labels.map((l) => {
     const base = to(l.at);

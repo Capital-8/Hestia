@@ -179,6 +179,28 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 LIBGL_ALWAYS_
 
 Comprovado no teste da 0.2.2 em VM VirtualBox com Xubuntu 24.04.
 
+## Diagnóstico de desempenho do 3D (0.2.7)
+
+Três caminhos, do mais simples ao mais completo:
+
+- **`Ctrl+Shift+P`** liga/desliga o overlay de desempenho em qualquer tela (a escolha fica no
+  `localStorage['hestia.perf']`). Ele mostra fps, `frameMs` (p50/p95), `gpuMs`, draw calls,
+  triângulos, uploads e commits React.
+- **Arquivo ▸ Sobre o Hestia** mostra o backend de GPU, o nome do renderer WebGL
+  (`WEBGL_debug_renderer_info`, quando exposto) e a versão do WebKit — é o primeiro dado a pedir
+  num relato de lentidão no Linux.
+- **`?bench=orbit`** roda uma órbita de 300 quadros, cria o projeto de exemplo se não houver nada
+  aberto e escreve o resumo em `HESTIA-BENCH fps=.. cpuMs=.. gpuMs=.. calls=.. tris=..` no título da
+  janela. Serve para comparar motores/máquinas sem automação de mouse (usado com o `MiniBrowser`
+  do WebKitGTK e com o Chrome headed).
+
+Medição de 20/11/2026 no app Linux (mesma build): **37 fps → 60 fps** depois de tirar o React do
+caminho do quadro. Detalhes, o que foi descartado e como reproduzir estão em
+[`investigacao-lag-orbita-3d.md`](investigacao-lag-orbita-3d.md), seção (e).
+
+As variáveis `WEBKIT_*` continuam valendo para o caso de **VM/software** descrito abaixo; não são
+recomendadas para máquina física com GPU, onde a medição mostrou que não ajudam (e às vezes pioram).
+
 ## Política de conteúdo (CSP)
 
 Definida em `desktop/src-tauri/tauri.conf.json` (`app.security`). Além do mínimo pedido

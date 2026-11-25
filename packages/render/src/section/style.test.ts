@@ -3,10 +3,10 @@ import { ProjectStore, createEmptyProject, paperMmToPx, graphicsOf, lineWeightMm
 import { sectionStyleOf } from './style.ts';
 
 describe('sectionStyleOf (gráficos do corte/elevação)', () => {
-  it('sem gráficos salvos: saved é falso e o detalhe é o do projeto', () => {
+  it('sem gráficos salvos: saved é sempre verdadeiro e o detalhe continua sendo o do projeto', () => {
     const p = createEmptyProject();
     const s = sectionStyleOf(p, 60);
-    expect(s.saved).toBe(false);
+    expect(s.saved).toBe(true);
     expect(s.visual).toBe('hiddenLine');
     expect(s.detail).toBe(p.settings.detail ?? 'medium');
   });

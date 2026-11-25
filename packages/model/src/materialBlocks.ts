@@ -130,7 +130,7 @@ export function materialEfetivo(m: Material): MaterialEfetivo {
   };
 }
 
-const HATCHES: ReadonlySet<string> = new Set(['solid', 'diagonal', 'cross', 'dots', 'gesso', 'none']);
+const HATCHES: ReadonlySet<string> = new Set(['solid', 'diagonal', 'cross', 'dots', 'gesso', 'none', 'brick', 'concrete', 'timber', 'insulation', 'earth', 'cmu', 'exposedBrick', 'rcConcrete', 'stone', 'gravel', 'sand', 'eps', 'woolZigzag', 'gypsum', 'timberEnd', 'steel']);
 
 function limpaCamada(c: unknown): PadraoCor | undefined {
   if (!c || typeof c !== 'object') return undefined;
