@@ -18,6 +18,24 @@ export const FAMILIAS_QUADRO: readonly string[] = ['fam_quadro_distribuicao_elet
 
 export const ehQuadro = (e: unknown): e is Component => (e as Component | undefined)?.kind === 'component' && FAMILIAS_QUADRO.includes((e as Component).familyId);
 
+/** Categorias de peça de rede (eletroduto, curva, luva...): nunca são ponto de circuito. */
+const CATEGORIAS_DE_REDE: readonly string[] = ['eletroduto', 'conexao_tubo', 'tubulacao', 'terminal_hidraulico'];
+
+/**
+ * Ponto de circuito (ficha C8a): componente elétrico que consome ou comanda, ou seja, tomada, interruptor, luminária ou outro
+ * dispositivo. NÃO são pontos: o quadro, o eletroduto, a curva, a luva e a caixa de luz (dispositivo elétrico que só tem entradas de
+ * eletroduto, sem ponto de força). Decide pelos dados da família no projeto (disciplina, categoria e ligações), não pelo id.
+ */
+export function ehPontoEletrico(p: Project, e: unknown): e is Component {
+  const c = e as Component | undefined;
+  if (c?.kind !== 'component' || ehQuadro(c)) return false;
+  const f = p.componentFamilies?.[c.familyId];
+  if (!f || CATEGORIAS_DE_REDE.includes(f.categoria)) return false;
+  if (f.disciplina !== 'eletrico' && f.categoria !== 'dispositivo_eletrico' && f.categoria !== 'luminaria') return false;
+  const caixa = f.categoria === 'dispositivo_eletrico' && !(f.ligacoes ?? []).some((l) => l.dominio === 'eletrica_forca');
+  return !caixa;
+}
+
 export interface QuadroConsultado {
   id: Id;
   nome: string;

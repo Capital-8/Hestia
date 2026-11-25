@@ -42,6 +42,7 @@ export const CONFIG_ELETRODUTO: ConfigTraco = {
   opcoes: opcoesEletroduto,
   familiaInicial: () => opcoesEletroduto.familiaId ?? FAMILIA_ELETRODUTO,
   luvaEmLinha: true,
+  respeitaEntradas: true,
   avisosDepois: avisosDoEletroduto,
 };
 

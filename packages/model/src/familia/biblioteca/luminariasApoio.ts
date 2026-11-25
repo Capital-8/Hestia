@@ -3,6 +3,7 @@ import type { Corpo, Perfil, Ponto3 } from '../tiposCorpo.ts';
 import type { Ligacao } from '../tiposLigacao.ts';
 import type { Primitivo2D, Simbolo2D } from '../tiposRepresentacao.ts';
 import { corpoEletrico, deEletrico, ligacaoEletrica, parametroDnEletrico, parametroPotencia, parametroTensao } from './eletricaApoio.ts';
+import { diametroEntradaKrona, entradasDeEletroduto, type LadoEntrada } from './eletricaEntradas.ts';
 import { comprimento, nova } from './novosApoio.ts';
 
 /*
@@ -49,11 +50,16 @@ export function parametrosComuns(): Parametro[] {
   return [parametroDnEletrico([20, 25], 20), deEletrico(), parametroTensao()];
 }
 
-/** Ponto de força e eletroduto, com as propriedades elétricas do ponto (potência e tensão). */
-export function ligacoesLuminaria(forca: { posicao: Ponto3; direcao: Ponto3 }, eletroduto: { posicao: Ponto3; direcao: Ponto3 }): Ligacao[] {
+/**
+ * Ponto de força e eletroduto, com as propriedades elétricas do ponto (potência e tensão). O eletroduto tem o diâmetro do eletroduto
+ * Krona do DN (catálogo, ficha C8a); `lados` acrescenta entradas de eletroduto laterais na altura `hInst + A / 2` (planta: o eletroduto
+ * chega de lado, não só pelo fundo).
+ */
+export function ligacoesLuminaria(forca: { posicao: Ponto3; direcao: Ponto3 }, eletroduto: { posicao: Ponto3; direcao: Ponto3 }, lados: readonly LadoEntrada[] = []): Ligacao[] {
   return [
     ligacaoEletrica('forca', 'Ponto de força', 'eletrica_forca', forca.posicao, forca.direcao, { propriedades: { potencia: 'potencia', tensao: 'tensao' } }),
-    ligacaoEletrica('eletroduto', 'Eletroduto de alimentação', 'eletroduto', eletroduto.posicao, eletroduto.direcao),
+    ligacaoEletrica('eletroduto', 'Eletroduto de alimentação', 'eletroduto', eletroduto.posicao, eletroduto.direcao, { diametro: diametroEntradaKrona() }),
+    ...entradasDeEletroduto(lados, 'hInst + A / 2', 'hInst', 'hInst + A'),
   ];
 }
 

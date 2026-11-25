@@ -1,5 +1,5 @@
 import { comprimentoDoCircuito } from '@hestia/engine';
-import { consultarCircuitos, ehQuadro } from '@hestia/model';
+import { consultarCircuitos, ehPontoEletrico } from '@hestia/model';
 import { useMemo, useState, type ReactElement } from 'react';
 import { editor, useProject } from '../../editor/controller.ts';
 import { useUi } from '../../editor/state.ts';
@@ -14,7 +14,8 @@ export function CircuitosPainel(): ReactElement {
   const [aviso, setAviso] = useState<string | null>(null);
   const consulta = useMemo(() => consultarCircuitos(project), [project]);
   const comprimentos = useMemo(() => Object.fromEntries(consulta.circuitos.map((c) => [c.id, comprimentoDoCircuito(project, c).comprimentoM])), [project, consulta]);
-  const selecionados = selecao.filter((id) => project.elements[id]?.kind === 'component' && !ehQuadro(project.elements[id])).length;
+  const selecionados = selecao.filter((id) => ehPontoEletrico(project, project.elements[id])).length;
+  const ignorados = selecao.filter((id) => project.elements[id] !== undefined && !ehPontoEletrico(project, project.elements[id])).length;
   const alvo = editor.store;
 
   const rodar = (fn: () => void): void => {
@@ -31,12 +32,12 @@ export function CircuitosPainel(): ReactElement {
     onAtribuir: (id) =>
       rodar(() => {
         const r = acao.atribuirSelecionados(alvo, id, selecao, acao.POTENCIA_INICIAL_VA);
-        setAviso(r.atribuidos > 0 ? `${r.atribuidos} ponto(s) atribuído(s)${r.ignorados > 0 ? `, ${r.ignorados} ignorado(s)` : ''}.` : 'Nenhum componente elétrico selecionado.');
+        setAviso(acao.mensagemDeAtribuicao(r));
       }),
     onApagar: (id) => rodar(() => acao.apagarCircuitoPorId(alvo, id)),
     onPotencia: (circuitoId, componenteId, potenciaVA, fator) => rodar(() => acao.definirPotencia(alvo, circuitoId, { componenteId, potenciaVA, ...(fator !== undefined ? { fator } : {}) })),
     onTirar: (componenteId) => rodar(() => acao.tirarPonto(alvo, componenteId)),
     onRenomearQuadro: (id, nome) => rodar(() => acao.renomearQuadro(alvo, id, nome)),
   };
-  return <CircuitosView consulta={consulta} selecionados={selecionados} erro={erro} aviso={aviso} acoes={acoes} comprimentos={comprimentos} />;
+  return <CircuitosView consulta={consulta} selecionados={selecionados} ignorados={ignorados} erro={erro} aviso={aviso} acoes={acoes} comprimentos={comprimentos} />;
 }

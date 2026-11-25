@@ -8,6 +8,8 @@ export interface PontoTubo {
   xyz: [number, number, number];
   alvo: { componentId: Id; ligacaoId: string } | null;
   derivacao?: boolean;
+  /** Direção (unitária, para fora) da entrada de caixa ou dispositivo em que o ponto encaixou (ficha C8a): o trecho tem de chegar de frente para ela. */
+  direcao?: [number, number, number];
 }
 
 /** Extremos de um tubo do projeto no mundo (m), o DN (mm) e os ids das ligações do início (`idA`) e do fim (`idB`). */

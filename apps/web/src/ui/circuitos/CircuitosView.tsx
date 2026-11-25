@@ -27,6 +27,8 @@ export interface PropsCircuitosView {
   consulta: ConsultaCircuitos;
   /** Quantos componentes (que não são quadro) estão selecionados no projeto: habilita "Atribuir selecionados". */
   selecionados: number;
+  /** Itens selecionados que NÃO são ponto elétrico (eletroduto, curva, luva, caixa...): ficam de fora e o painel avisa (ficha C8a). */
+  ignorados?: number;
   /** Mensagem do último erro de comando, ou `null`. */
   erro?: string | null;
   /** Mensagem do último resultado (ex.: "2 pontos atribuídos"), ou `null`. */
@@ -88,7 +90,7 @@ function CartaoCircuito({ c, quadros, selecionados, acoes, comprimento }: { c: C
   );
 }
 
-export function CircuitosView({ consulta, selecionados, erro, aviso, acoes, comprimentos }: PropsCircuitosView): ReactElement {
+export function CircuitosView({ consulta, selecionados, ignorados = 0, erro, aviso, acoes, comprimentos }: PropsCircuitosView): ReactElement {
   const { circuitos, quadros, semQuadroVA } = consulta;
   return (
     <div className="circ-painel">
@@ -97,6 +99,7 @@ export function CircuitosView({ consulta, selecionados, erro, aviso, acoes, comp
       <div className="circ-linha">
         <button type="button" className="btn primary" onClick={acoes.onNovo}>Novo circuito</button>
         <span className="circ-dica">{selecionados} componente(s) selecionado(s)</span>
+        {ignorados > 0 ? <span className="circ-dica" data-ignorados>{ignorados} {ignorados === 1 ? 'item ignorado' : 'itens ignorados'} (não {ignorados === 1 ? 'é ponto elétrico' : 'são ponto elétrico'})</span> : null}
       </div>
       <h3>Quadros</h3>
       {quadros.length === 0 ? <p className="circ-vazio">Nenhum quadro no projeto. Insira o Quadro de distribuição pela aba Sistemas, Elétrico.</p> : (

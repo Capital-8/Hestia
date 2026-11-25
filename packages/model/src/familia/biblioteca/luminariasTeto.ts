@@ -25,6 +25,9 @@ import {
  * Hospedagem `nivel`: o contrato ainda não tem `teto`, então a altura de instalação é o `hInst` (lacuna registrada na ficha).
  */
 
+/** Entradas de eletroduto acrescentadas nas luminárias de teto (o fundo +Y já existe): esquerda, direita e frente. */
+const LADOS_TETO = ['esq', 'dir', 'frente'] as const;
+
 /** Plafon redondo: revolução do corpo (cilindro de raio L / 2) de `hInst + E` até o topo, com difusor circular embaixo. */
 export const FAMILIA_PLAFON_REDONDO: Familia = familiaLuminaria({
   id: 'fam_luminaria_plafon_redondo',
@@ -36,7 +39,7 @@ export const FAMILIA_PLAFON_REDONDO: Familia = familiaLuminaria({
     corpoLuminaria('corpo', 'Corpo do plafon', { tipo: 'revolucao', perfil: retanguloPerfil('L / 2', 'A - E'), angulo: '360' }, { origem: ['L / 2', 'P / 2', 'hInst + E / 2 + A / 2'] }),
     corpoDifusor('difusor', 'Difusor', { tipo: 'extrusao', perfil: circuloPerfil('L - 10'), comprimento: 'E' }, { origem: ['L / 2', 'P / 2', 'hInst'] }),
   ],
-  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }),
+  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }, LADOS_TETO),
   tipos: tiposLuminaria({ L: 300, A: 100, P: 300, hInst: 2500, E: 3, potencia: 18, fluxoLuminoso: 1600, temperaturaCor: 4000 }),
   simbolos: [simboloTeto()],
 });
@@ -51,7 +54,7 @@ function corposPainel(): Corpo[] {
 
 /** Ligações do painel de embutir: força no topo e eletroduto lateral (em y = P). */
 function ligacoesPainel() {
-  return ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] });
+  return ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }, LADOS_TETO);
 }
 
 /** Parâmetros de um painel (dimensões nominais, altura de instalação e espessura do difusor, fotometria). */
@@ -96,7 +99,7 @@ export const FAMILIA_SPOT_EMBUTIDO: Familia = familiaLuminaria({
     corpoLuminaria('corpo', 'Corpo do spot', { tipo: 'extrusao', perfil: circuloPerfil('L'), comprimento: 'A - E' }, { origem: ['L / 2', 'P / 2', 'hInst + E'] }),
     corpoDifusor('difusor', 'Difusor do spot', { tipo: 'extrusao', perfil: circuloPerfil('L - 6'), comprimento: 'E' }, { origem: ['L / 2', 'P / 2', 'hInst'] }),
   ],
-  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }),
+  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P / 2', 'hInst + A'], direcao: ['0', '0', '1'] }, { posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }, LADOS_TETO),
   tipos: tiposLuminaria({ L: 90, A: 110, P: 90, hInst: 2500, E: 3, potencia: 7, fluxoLuminoso: 600, temperaturaCor: 3000 }),
   simbolos: [simboloTeto()],
 });

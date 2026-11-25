@@ -1,5 +1,5 @@
 import {
-  ehQuadro,
+  ehPontoEletrico,
   proximaCorCircuito,
   proximoIdCircuito,
   proximoNomeCircuito,
@@ -25,7 +25,7 @@ export interface AlvoDeComandos {
 /** Potência (VA) sugerida para pontos novos no painel: só um ponto de partida, o projetista edita ponto a ponto. */
 export const POTENCIA_INICIAL_VA = 100;
 
-/** Resultado de atribuir a seleção: quantos entraram e quantos foram ignorados (não são componentes, ou são o próprio quadro). */
+/** Resultado de atribuir a seleção: quantos entraram e quantos foram ignorados (não são ponto elétrico: quadro, eletroduto, curva, luva, caixa, outras peças). */
 export interface ResultadoAtribuicao {
   atribuidos: number;
   ignorados: number;
@@ -42,10 +42,10 @@ export function novoCircuito(alvo: AlvoDeComandos, quadroId?: Id): Id {
   return circuito.id;
 }
 
-/** Atribui os componentes selecionados (menos quadros) ao circuito, todos com a mesma potência inicial. Num só passo de desfazer. */
+/** Atribui os pontos elétricos selecionados (tomada, interruptor, luminária, dispositivo; ficha C8a) ao circuito, todos com a mesma potência inicial. Num só passo de desfazer. */
 export function atribuirSelecionados(alvo: AlvoDeComandos, circuitoId: Id, selecao: readonly Id[], potenciaVA: number): ResultadoAtribuicao {
   const p = alvo.project;
-  const validos = selecao.filter((id) => p.elements[id]?.kind === 'component' && !ehQuadro(p.elements[id]));
+  const validos = selecao.filter((id) => ehPontoEletrico(p, p.elements[id]));
   if (validos.length === 0) return { atribuidos: 0, ignorados: selecao.length };
   alvo.transaction('Atribuir pontos ao circuito', () => {
     for (const id of validos) alvo.exec({ type: 'assignPontoCircuito', circuitoId, ponto: { componenteId: id, potenciaVA } });
@@ -75,6 +75,13 @@ export function tentarAcao(fn: () => void): string | null {
   } catch (e) {
     return e instanceof Error ? e.message : String(e);
   }
+}
+
+/** Mensagem do painel depois de atribuir: quantos entraram e, se houve, 'N itens ignorados' (peças que não são ponto elétrico). */
+export function mensagemDeAtribuicao(r: ResultadoAtribuicao): string {
+  const ignorados = r.ignorados > 0 ? `${r.ignorados} ${r.ignorados === 1 ? 'item ignorado' : 'itens ignorados'}` : '';
+  if (r.atribuidos === 0) return `Nenhum ponto elétrico selecionado${ignorados ? ` (${ignorados}: só tomada, interruptor, luminária e dispositivo valem como ponto)` : ''}.`;
+  return `${r.atribuidos} ponto(s) atribuído(s)${ignorados ? `, ${ignorados}` : ''}.`;
 }
 
 /** Formata VA: inteiro sem casas, senão uma casa (vírgula decimal do português). */

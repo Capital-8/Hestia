@@ -4,7 +4,8 @@ import { familiaDaBiblioteca, isComponent, newId, type Component, type Id, type 
 import { ToolBase } from './base.ts';
 import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
-import { planejarPrumada, recuosDoJoelho, type ModoCota } from './tuboPrumada.ts';
+import { planejarPrumada, recuosDoJoelho, type ModoCota, type PlanoPrumada } from './tuboPrumada.ts';
+import { eixoDaDirecao, eixoOposto, planejarCaminhoOrtogonal } from './tuboCaminho.ts';
 import { itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, temConexoes, type ContextoTraco } from './tuboApoio.ts';
@@ -39,6 +40,8 @@ export interface ConfigTraco {
   opcoes: OpcoesTraco;
   familiaInicial: (fams: Project['componentFamilies'], escolhida: string | undefined) => string;
   luvaEmLinha: boolean;
+  /** Ficha C8a: o trecho sai e chega de frente para a direção das entradas de caixa/dispositivo (`tuboCaminho.ts`). */
+  respeitaEntradas?: boolean;
   avisosDepois?: (p: Project, ids: Id[]) => string[];
 }
 
@@ -50,6 +53,10 @@ export const CONFIG_TUBO: ConfigTraco = {
   familiaInicial: (fams, escolhida) => escolhida ?? idTuboDoProjeto(fams) ?? (fams?.[FAMILIA_TUBO_PADRAO] ? FAMILIA_TUBO_PADRAO : FAMILIA_TUBO_BIBLIOTECA),
   luvaEmLinha: false,
 };
+
+/** Margem (m) somada ao dobro do recuo da curva para o menor trecho entre dois joelhos, e desvio (m) de U/Z sem curva no catálogo. PROVISÓRIOS, não vêm de catálogo nem de norma: CONFERIR. */
+const MARGEM_ENTRE_JOELHOS = 0.02;
+const DESVIO_SEM_CURVA = 0.1;
 
 /** Tolerância mínima (m) da captura de ligação aberta; cresce com o zoom (8 px). */
 const TOLERANCIA_MINIMA = 0.05;
@@ -137,10 +144,11 @@ export class TuboTool extends ToolBase {
     const projeto = this.env.project();
     const regras = regrasDoDominio(ctx);
     const bitolaLivre = regras !== null && projeto.componentFamilies?.[regras.reducao] !== undefined;
-    const achada = ligacaoProxima(at.x, at.y, ehFim ? ctx.pontas.fim : ctx.pontas.inicio, ligacoesAbertas(projeto), tol, bitolaLivre);
+    const achada = ligacaoProxima(at.x, at.y, ehFim ? ctx.pontas.fim : ctx.pontas.inicio, ligacoesAbertas(projeto), tol, bitolaLivre, this.opc.z);
     if (achada) {
       const [x, y, z] = achada.lig.posicaoMundo;
-      return { xyz: [x, y, z], alvo: { componentId: achada.componentId, ligacaoId: achada.lig.id } };
+      const comEntrada = this.cfg.respeitaEntradas && projeto.componentFamilies?.[(projeto.elements[achada.componentId] as Component).familyId]?.categoria === 'dispositivo_eletrico';
+      return { xyz: [x, y, z], alvo: { componentId: achada.componentId, ligacaoId: achada.lig.id }, ...(comEntrada ? { direcao: achada.lig.direcaoMundo } : {}) };
     }
     // No meio de um tubo existente: derivação (tê ou junção 45°), quando o projeto tem as conexões do domínio.
     const sob = regras && temConexoes(projeto, regras) ? tuboSob(projeto, ctx.familia.id, [at.x, at.y, this.opc.z], tol, tol) : null;
@@ -293,8 +301,26 @@ export class TuboTool extends ToolBase {
    * mudança de cota (ficha B4, `planejarPrumada`) o trecho vira uma cadeia de tubos ligados por joelhos. A cadeia continua do fim
    * (a menos que o fim tenha encaixado numa rede).
    */
+  /**
+   * Plano do trecho. Com entrada de caixa ou dispositivo numa ponta (ficha C8a) o caminho é calculado em 90° respeitando a direção
+   * dela; sem caminho (peça girada fora dos eixos, mais de 4 joelhos) cai no plano de sempre e o aviso entra na fala.
+   */
+  private planejar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): PlanoPrumada {
+    const saida = a.direcao ? eixoDaDirecao(a.direcao) : null;
+    const dirB = b.direcao ? eixoDaDirecao(b.direcao) : null;
+    if ((saida || dirB) && this.cfg.respeitaEntradas && this.opc.declividade === 0 && this.opc.modoCota !== 'diagonal') {
+      const [r0, r1] = recuosDoJoelho(this.env.project(), regrasDoDominio(ctx), this.opc.dn, [0, 0, 0], [1, 0, 0], [1, 1, 0]);
+      const recuo = Math.max(r0, r1);
+      const caminho = planejarCaminhoOrtogonal(a.xyz, b.xyz, saida, dirB ? eixoOposto(dirB) : null, this.opc.modoCota, recuo > 0 ? 2 * recuo + MARGEM_ENTRE_JOELHOS : 0.05, recuo > 0 ? 3 * recuo : DESVIO_SEM_CURVA);
+      if (caminho) return { bloqueio: null, intermediarios: caminho.intermediarios };
+      avisos.push('Sem caminho em 90° que respeite a direção das entradas: o trecho foi ligado direto e a rede pode acusar ligação incompatível.');
+    }
+    return planejarPrumada(a.xyz, b.xyz, this.opc.modoCota, this.opc.declividade, ctx.familia.id);
+  }
+
   private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): void {
-    const plano = planejarPrumada(a.xyz, b.xyz, this.opc.modoCota, this.opc.declividade, ctx.familia.id);
+    const avisos: string[] = [];
+    const plano = this.planejar(ctx, a, b, avisos);
     if (plano.bloqueio !== null) return this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
     const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
     const base = { levelId: this.env.levelId() };
@@ -308,7 +334,6 @@ export class TuboTool extends ToolBase {
     const regras = regrasDoDominio(ctx);
     const projeto = this.env.project();
     const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, this.opc.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
-    const avisos: string[] = [];
     for (let k = 0; k < cadeia.length; k++) {
       const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] }, this.cfg.luvaEmLinha);
       if (viab.bloqueio) return this.bloquear(a, b, viab.bloqueio, sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, a, c, undefined, this.cfg.luvaEmLinha).bloqueio === null), true);

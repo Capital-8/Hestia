@@ -3,6 +3,7 @@ import type { Corpo } from '../tiposCorpo.ts';
 import type { Ligacao } from '../tiposLigacao.ts';
 import type { Simbolo2D } from '../tiposRepresentacao.ts';
 import { corpoEletrico, deEletrico, dimensao, familiaEletrica, ligacaoEletrica, parametroDnEletrico, parametroPotencia, parametroTensao, tiposDn } from './eletricaApoio.ts';
+import { diametroEntradaKrona, entradasDeEletroduto } from './eletricaEntradas.ts';
 import { comprimento } from './novosApoio.ts';
 
 /*
@@ -19,11 +20,15 @@ function corpoDispositivo(nome: string): Corpo {
   return corpoEletrico('corpo', nome, 'corpo', { tipo: 'extrusao', perfil: { tipo: 'retangulo', largura: 'L', altura: 'A' }, comprimento: 'P' }, { origem: ['L / 2', '0', 'hInst + A / 2'], rotacao: ['-90', '0', '0'] });
 }
 
-/** Ligações do fundo do dispositivo: ponto de força (a meia altura) e eletroduto (na base), ambos saindo para +Y. */
+/**
+ * Ligações do dispositivo: ponto de força (a meia altura) e eletroduto do fundo (na base), ambos saindo para +Y, mais as entradas
+ * laterais, de topo e de base (ficha C8a). O diâmetro das entradas de eletroduto é o do eletroduto Krona do DN (catálogo).
+ */
 function ligacoesDispositivo(): Ligacao[] {
   return [
     ligacaoEletrica('forca', 'Ponto de força', 'eletrica_forca', ['L / 2', 'P', 'hInst + A / 2'], ['0', '1', '0'], { propriedades: { potencia: 'potencia', tensao: 'tensao' } }),
-    ligacaoEletrica('eletroduto', 'Eletroduto de alimentação', 'eletroduto', ['L / 2', 'P', 'hInst'], ['0', '1', '0']),
+    ligacaoEletrica('eletroduto', 'Eletroduto de alimentação', 'eletroduto', ['L / 2', 'P', 'hInst'], ['0', '1', '0'], { diametro: diametroEntradaKrona() }),
+    ...entradasDeEletroduto(['esq', 'dir', 'topo', 'base'], 'hInst + A / 2', 'hInst', 'hInst + A'),
   ];
 }
 

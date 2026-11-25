@@ -34,7 +34,7 @@ export const FAMILIA_ARANDELA: Familia = familiaLuminaria({
     corpoLuminaria('corpo', 'Caixa da arandela', { tipo: 'extrusao', perfil: retanguloPerfil('L', 'A'), comprimento: 'P - E' }, { origem: ['L / 2', 'E', 'hInst + A / 2'], rotacao: ['-90', '0', '0'] }),
     corpoDifusor('difusor', 'Difusor da arandela', { tipo: 'extrusao', perfil: retanguloPerfil('L - 10', 'A - 10'), comprimento: 'E' }, { origem: ['L / 2', '0', 'hInst + A / 2'], rotacao: ['-90', '0', '0'] }),
   ],
-  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }, { posicao: ['L / 2', 'P', 'hInst'], direcao: ['0', '1', '0'] }),
+  ligacoes: ligacoesLuminaria({ posicao: ['L / 2', 'P', 'hInst + A / 2'], direcao: ['0', '1', '0'] }, { posicao: ['L / 2', 'P', 'hInst'], direcao: ['0', '1', '0'] }, ['esq', 'dir', 'topo', 'base']),
   tipos: tiposLuminaria({ L: 120, A: 180, P: 100, hInst: 1900, E: 3, potencia: 6, fluxoLuminoso: 300, temperaturaCor: 3000 }),
   simbolos: [simboloParede()],
 });
@@ -53,7 +53,7 @@ export const FAMILIA_LINEAR: Familia = familiaLuminaria({
     corpoLuminaria('corpo', 'Perfil linear', { tipo: 'extrusao', perfil: retanguloPerfil('A - E', 'P'), comprimento: 'L' }, { origem: ['0', 'P / 2', 'hInst + E / 2 + A / 2'], rotacao: ['0', '90', '0'] }),
     corpoDifusor('difusor', 'Difusor linear', { tipo: 'extrusao', perfil: retanguloPerfil('E', 'P - 4'), comprimento: 'L - 10' }, { origem: ['5', 'P / 2', 'hInst + E / 2'], rotacao: ['0', '90', '0'] }),
   ],
-  ligacoes: ligacoesLuminaria({ posicao: ['0', 'P / 2', 'hInst + A / 2'], direcao: ['-1', '0', '0'] }, { posicao: ['L', 'P / 2', 'hInst + A / 2'], direcao: ['1', '0', '0'] }),
+  ligacoes: ligacoesLuminaria({ posicao: ['0', 'P / 2', 'hInst + A / 2'], direcao: ['-1', '0', '0'] }, { posicao: ['L', 'P / 2', 'hInst + A / 2'], direcao: ['1', '0', '0'] }, ['esq', 'frente']),
   tipos: tiposLuminaria({ L: 1200, A: 40, P: 60, hInst: 2500, E: 3, potencia: 36, fluxoLuminoso: 3600, temperaturaCor: 4000 }),
   simbolos: [simboloLinear()],
 });

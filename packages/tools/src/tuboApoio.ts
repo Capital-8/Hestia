@@ -59,15 +59,17 @@ export function ligacoesAbertas(p: Project): LigacaoAberta[] {
  * Em planta o z do cursor é desconhecido: a distância usa o z da própria candidata. A direção do tubo ainda não existe (depende
  * do outro ponto), então a ponta é posta de frente para a candidata; `bitolaLivre` (há redução no projeto) ignora o DN.
  */
-export function ligacaoProxima(x: number, y: number, ponta: LigacaoResolvida, abertas: LigacaoAberta[], tolerancia: number, bitolaLivre = false): LigacaoAberta | null {
+export function ligacaoProxima(x: number, y: number, ponta: LigacaoResolvida, abertas: LigacaoAberta[], tolerancia: number, bitolaLivre = false, zRef?: number): LigacaoAberta | null {
   let melhor: LigacaoAberta | null = null;
   let melhorD = Infinity;
+  // Empate em planta (topo e base de um dispositivo ficam no mesmo ponto): vale a de cota mais perto de `zRef` (a altura do ponto na ferramenta).
+  const dz = (c: LigacaoAberta): number => (zRef === undefined ? 0 : Math.abs(c.lig.posicaoMundo[2] - zRef));
   for (const c of abertas) {
     const alvo: LigacaoNoMundo = { ...ponta, ...(bitolaLivre ? { diametro: c.lig.diametro } : {}), posicaoMundo: [x, y, c.lig.posicaoMundo[2]], direcaoMundo: [-c.lig.direcaoMundo[0], -c.lig.direcaoMundo[1], -c.lig.direcaoMundo[2]] };
     const r = encaixarLigacoes(alvo, [c.lig], tolerancia);
     if (r === null) continue;
     const d = Math.hypot(r.deslocamento[0], r.deslocamento[1], r.deslocamento[2]);
-    if (d < melhorD) {
+    if (d < melhorD - 1e-9 || (Math.abs(d - melhorD) <= 1e-9 && melhor !== null && dz(c) < dz(melhor))) {
       melhor = c;
       melhorD = d;
     }
