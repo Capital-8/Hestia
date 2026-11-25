@@ -21,6 +21,7 @@ const TOLERANCIA_DIAGONAL = 2.5;
 export type PlanoPrumada = { bloqueio: string; intermediarios?: undefined } | { bloqueio: null; intermediarios: PontoSegmento[] };
 
 /** Número com vírgula decimal e uma casa no máximo. */
+// units-ok: ângulo em graus na mensagem de bloqueio, não é quantidade do projeto
 const graus = (v: number): string => String(Math.round(v * 10) / 10).replace('.', ',');
 
 /**
