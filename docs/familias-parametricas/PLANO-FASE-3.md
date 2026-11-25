@@ -58,6 +58,7 @@ Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnic
 | D2 | S | Subtração real do ramal no tê e na junção (F-CSG) | — | pendente |
 | D3 | H | Transcrever as peças que faltam nos catálogos da Krona (tê de inspeção, junção dupla e invertida, joelho com visita, curva de pé de coluna, anéis, válvula, terminal) e, onde a receita já serve, montar a família | — | pendente |
 | D4 | H | Interface de conferência dos catálogos contra o PDF (lado a lado, marcar linha conferida) | — | integrada (conferência por linha, persistida e ligada ao SHA-256; link do PDF na página; Krona elétrica no diálogo; roteiro de navegador 8/8; NÃO verificado: botão Confirmar de 'Marcar todas', JSON exportado, celular; a conferência contra o PDF continua sendo trabalho humano) |
+| D5 | H | Transcrever a Tigre como catálogo `CONFERIR` (esgoto série normal e reforçada, soldável, roscável, Tigreflex amarelo e reforçado, caixa de passagem elétrica): tabelas de cotas B, D, e, L já em texto nas fichas técnicas baixadas (rastreio de 2026-11-25: 415 produtos, 78 PDFs; as fichas ficam fora do repositório, são baixadas de `tigresite.s3.amazonaws.com/.../FT_*.pdf`); só a lista de peças por bitola vem do catálogo enviado pelo dono | — | pendente |
 
 ## Ordem
 1. A1, A2 e B1 em paralelo. 2. A3a–A3d (4 Haiku) e B2. 3. B3, B4, A4. 4. B5, B6, B7, A5, B8. 5. C1 desde o começo em paralelo com qualquer etapa; C2 a C7 depois de B1/A4. 6. D.
