@@ -11,6 +11,7 @@ import { ACTIONS } from './ribbon/actions.ts';
 import { useFormat } from './useUnits.ts';
 import { ComponentPropEscolhas } from './ComponentPropEscolhas.tsx';
 import { ComponentePropriedadesMep } from './ComponentePropriedadesMep.tsx';
+import { trocarDnPeloPainel, trocarTipoPeloPainel } from './componentPropBitola.ts';
 import { tm } from './moveisTextos.ts';
 import {
   aplicarAcabamentoComponentes,
@@ -96,6 +97,9 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
   const parametros = familia ? parametrosDeInstancia(familia) : [];
 
   const alterar = (patch: PatchComponente, rotulo: string): void => {
+    // Tubo com tipo de tubulação: escolher outro tipo (outro DN) troca a bitola pelo motor de rede (conexões, redução, alerta).
+    const troca = familia && patch.typeId !== undefined ? trocarTipoPeloPainel(editor.store, components, familia, patch.typeId) : null;
+    if (troca?.tratado) { useUi.setState({ status: troca.mensagem }); return; }
     try {
       aplicarPatchDeComponente(editor.store, components.map((c) => c.id), patch, rotulo);
     } catch (e) {
@@ -104,6 +108,8 @@ export function ComponentProperties({ ids }: { ids: Id[] }): ReactElement | null
   };
 
   const gravarParametro = (param: Parametro, valor: Valor | null): void => {
+    const troca = param.id === 'DN' && typeof valor === 'number' ? trocarDnPeloPainel(editor.store, components, valor) : null;
+    if (troca?.tratado) { definirMensagem(param.id, troca.recusa ?? null); useUi.setState({ status: troca.mensagem }); return; }
     const r = aplicarValorDeParametro(editor.store, components.map((c) => c.id), param.id, valor);
     setMensagens((atuais) => {
       const proximas = { ...atuais };

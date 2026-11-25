@@ -43,3 +43,4 @@ export * from './cortarCorpos.ts';
 export * from './detalharFamilia.ts';
 export * from './quadroDeDetalhe.ts';
 export * from './diagnosticoRede.ts';
+export { planejarTrocaDeBitola, type AlertaTroca, type CodigoAlertaTroca, type Comando, type ConexaoRemovida, type ConexaoTrocada, type PlanoTrocaBitola, type RecusaTroca, type ReducaoInserida } from './trocaBitola.ts';

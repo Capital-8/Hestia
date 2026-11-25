@@ -95,7 +95,7 @@ function tipoDaPeca(ctx: Ctx, peca: Component, pernas: Perna[]): TipoPeca {
   const b = pernas[1];
   if (!a || !b) return 'curva90';
   const ang = angulo(a.dir, b.dir);
-  return ang >= 180 - TOLERANCIA_ANGULO ? 'luva' : Math.abs(ang - 90) <= 45 / 2 ? 'curva90' : 'curva45';
+  return ang >= 180 - TOLERANCIA_ANGULO ? 'luva' : ang < 112.5 ? 'curva90' : 'curva45';
 }
 
 /** Remove a peça: solta todas as ligações, apaga e alerta. `causa` completa "<peça> DN x removido: ...". */
