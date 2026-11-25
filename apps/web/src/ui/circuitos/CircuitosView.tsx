@@ -44,7 +44,8 @@ const textoMetros = (m: number): string => `${new Intl.NumberFormat('pt-BR', { m
 function LinhaPonto({ c, p, acoes }: { c: CircuitoConsultado; p: CircuitoConsultado['pontos'][number]; acoes: AcoesCircuitos }): ReactElement {
   return (
     <li className="circ-ponto" data-ponto={p.componenteId}>
-      <span className="circ-ponto-nome" style={{ borderLeft: `4px solid ${c.cor}` }}>{p.rotulo} <small>({p.componenteId})</small></span>
+      {/* Ficha C8b: o nome da família aparece; o id técnico (cm_...) só no tooltip. */}
+      <span className="circ-ponto-nome" title={`${p.rotulo} (${p.componenteId})`} style={{ borderLeft: `4px solid ${c.cor}` }}>{p.rotulo}</span>
       <NumField value={p.potenciaVA} decimals={0} min={0} suffix="VA" width={84} onCommit={(v) => acoes.onPotencia(c.id, p.componenteId, v, p.fator)} />
       <button type="button" className="btn" aria-label={`Tirar ${p.componenteId} do circuito ${c.nome}`} onClick={() => acoes.onTirar(p.componenteId)}>Tirar</button>
     </li>

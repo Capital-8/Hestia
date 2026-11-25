@@ -29,6 +29,11 @@ export const MATERIAIS_INSTALACOES: readonly MaterialInstalacao[] = [
   { id: 'comp_aco_galv', nome: 'Aço galvanizado', grupo: 'metal', cor: '#aeb5bc', gloss: 0.7, opacity: 1, hachura: 'diagonal' },
   { id: 'comp_aco', nome: 'Aço', grupo: 'metal', cor: '#8a9098', gloss: 0.65, opacity: 1, hachura: 'diagonal' },
   { id: 'comp_concreto', nome: 'Concreto', grupo: 'mineral', cor: '#a8a59e', gloss: 0.12, opacity: 1, hachura: 'cross' },
+  // Apelidos `mat_*` de luminárias, quadros e caixas que apontavam para ids inexistentes (saíam cinza neutro): aluminio, vidro, cobre, cerâmica.
+  { id: 'comp_aluminio', nome: 'Alumínio', grupo: 'metal', cor: '#c9ced4', gloss: 0.75, opacity: 1, hachura: 'diagonal' },
+  { id: 'comp_vidro_incolor', nome: 'Vidro incolor (difusor)', grupo: 'mineral', cor: '#c4e4ea', gloss: 0.8, opacity: 1, hachura: 'solid' },
+  { id: 'comp_cobre', nome: 'Cobre', grupo: 'metal', cor: '#b87333', gloss: 0.7, opacity: 1, hachura: 'diagonal' },
+  { id: 'comp_branco', nome: 'Branco (cerâmica)', grupo: 'mineral', cor: '#f4f4f1', gloss: 0.5, opacity: 1, hachura: 'solid' },
   { id: MATERIAL_NEUTRO, nome: 'Neutro (sem material)', grupo: 'neutro', cor: '#a9adb2', gloss: 0.3, opacity: 1, hachura: 'solid' },
 ];
 

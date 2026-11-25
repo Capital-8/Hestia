@@ -18,6 +18,7 @@ import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './c
 import { moveComponentEdge } from './componentOps.ts';
 import { moveEdge as moveComponentEdgeCommand } from './componentEdit.ts';
 import { COMPONENT_MOVE_MSG, componentUnderCursor } from './componentTarget.ts';
+import { MovimentoComponentes } from './moverComponentes.ts';
 import { cotaDoDeslocamento, deslocamentoDigitado, fmtDisplacement, fmtM, SessaoDeCopias } from './gestoDeslocamento.ts';
 import type { DimRef, TempDim } from './dims/types.ts';
 
@@ -86,7 +87,7 @@ export class MoveTool extends SelectionTool {
   }
 
   protected override hasSelection(): boolean {
-    return super.hasSelection() || movableSeparatorIds(this.env, this.copy).length > 0;
+    return super.hasSelection() || movableSeparatorIds(this.env, this.copy).length > 0 || this.componentesSel().length > 0;
   }
 
   /** Sem seleção a ferramenta continua ativa, à espera de um clique em aresta. */
@@ -116,8 +117,17 @@ export class MoveTool extends SelectionTool {
     this.edgePick = null;
     this.compPick = null;
     this.compBase = null;
+    this.movComp = null;
     this.items = [];
     this.inf = null;
+  }
+  /** Componentes de família da seleção (Mover; a cópia deles fica para depois) e o movimento deles neste gesto. */
+  private componentesSel(): Id[] {
+    return this.copy ? [] : MovimentoComponentes.selecionados(this.env.project(), this.env.selection());
+  }
+  private movComp: MovimentoComponentes | null = null;
+  private compMov(): MovimentoComponentes {
+    return (this.movComp ??= new MovimentoComponentes(this.env, this.componentesSel()));
   }
   protected busy(): boolean {
     return this.base !== null || this.compBase !== null;
@@ -254,6 +264,7 @@ export class MoveTool extends SelectionTool {
     const t = { kind: 'translate' as const, d };
     this.items.push(...ghostBands(this.env.project(), els, t), ...ghostOpenings(this.env.project(), els, t), ...ghostViews(this.env.project(), this.env.selection(), t), ...gridGhosts(this.env.project(), selectedGrids(this.env.project(), this.env.selection()), d));
     if (!this.copy) this.items.push(...separatorGhostItems(this.env.project(), this.env.levelId(), movableSeparatorIds(this.env, this.copy), d));
+    if (this.componentesSel().length) this.items.push(...this.compMov().previa(d, p.alt));
     this.items.push({ kind: 'label', at: inf.point, text: fmtDisplacement(unitsOf(this.env.project()), d) });
   }
 
@@ -279,6 +290,8 @@ export class MoveTool extends SelectionTool {
     const disjoin = (this.env.options().moveDisjoin ?? DEFAULT_DISJOIN.move) !== this.alt;
     // Copiar: a sessão junta as cópias num só passo de desfazer; Mover segue num passo próprio.
     this.env.transaction(this.copy ? 'Copiar' : 'Mover', () => {
+      // Componentes de família primeiro: o encaixe é lido da planta antes de as paredes se moverem (mesma ordem do Selecionar).
+      if (this.componentesSel().length) this.compMov().aplicar(this.env, d, this.alt);
       if (this.copy) {
         if (els.length) copyWalls(this.env, els, t);
         if (views.length) transformViews(this.env, views, t, true);

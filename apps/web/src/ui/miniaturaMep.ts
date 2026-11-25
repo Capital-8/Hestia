@@ -20,6 +20,11 @@ export interface SilhuetaMep {
   altura: number;
   /** Do fundo para a frente: pintar nesta ordem produz o desenho certo. */
   triangulos: TrianguloSilhueta[];
+  /**
+   * Contorno do sólido: só as arestas de silhueta e de quina (faces de tons diferentes), num caminho SVG. As diagonais das faces
+   * (a malha é de triângulos) ficam de fora. Sem ele, uma caixa sai como um retângulo chapado.
+   */
+  arestas: string;
 }
 
 /** Painéis de sistema (ficha J1): as famílias desses painéis são as MEP que usam esta miniatura. */
@@ -115,12 +120,12 @@ function coletar(fontes: readonly Fonte[]): TrianguloProjetado[] {
       // Face de trás (normal para longe do observador): fica escondida pelo sólido, não entra.
       if ((n[0] ?? 0) + (n[1] ?? 0) + (n[2] ?? 0) <= 0) continue;
       const iluminacao = (n[0] ?? 0) * LUZ[0]! + (n[1] ?? 0) * LUZ[1]! + (n[2] ?? 0) * LUZ[2]!;
-      const k = 0.6 + 0.4 * Math.max(0, iluminacao);
+      // Sombreado por face mais contrastado (0,5 na face oposta à luz, 1,0 na voltada para ela): a face de cima e as laterais separam-se.
+      const k = 0.5 + 0.5 * Math.max(0, iluminacao);
       const xyz = [ia, ib, ic].map((v) => [0, 1, 2].map((c) => malha.positions[v * 3 + c] ?? 0));
       const pontos = xyz.map(([x, y, z]): [number, number] => [(x! - y!) * COS30, (x! + y!) * SEN30 - z!]);
       const prof = xyz.reduce((acc, [x, y, z]) => acc + (x! + y! + z!), 0) / (3 * RAIZ3);
-      const cor = sombrear(corDe(malha.pecaDoTriangulo[t / 3] ?? -1), k);
-      saida.push({ pontos, prof, cor });
+      saida.push({ pontos, prof, cor: sombrear(corDe(malha.pecaDoTriangulo[t / 3] ?? -1), k) });
     }
   }
   return saida.sort((a, b) => a.prof - b.prof);
@@ -146,5 +151,32 @@ function projetar(fontes: readonly Fonte[], largura: number, altura: number): Si
     const [a, b, c] = t.pontos.map(([x, y]) => `${f(x * escala + dx)} ${f(y * escala + dy)}`);
     return { d: `M${a} L${b} L${c} Z`, cor: t.cor };
   });
-  return { largura, altura, triangulos };
+  const arestas = contornoDasFaces(tris.map((t) => ({ cor: t.cor, pontos: t.pontos.map(([x, y]): [number, number] => [x * escala + dx, y * escala + dy]) })), f);
+  return { largura, altura, triangulos, arestas };
+}
+
+/**
+ * Arestas do contorno: a aresta de um só triângulo (borda do sólido visto) ou entre dois triângulos de tons diferentes (quina).
+ * A aresta entre dois triângulos do mesmo tom é a diagonal de uma face plana e não entra. Os vértices são comparados já arredondados.
+ */
+function contornoDasFaces(tris: readonly { cor: string; pontos: [number, number][] }[], f: (v: number) => string): string {
+  const chave = (p: [number, number]): string => `${f(p[0])},${f(p[1])}`;
+  const mapa = new Map<string, { a: [number, number]; b: [number, number]; cores: string[] }>();
+  for (const t of tris) {
+    for (let i = 0; i < 3; i++) {
+      const p = t.pontos[i]!;
+      const q = t.pontos[(i + 1) % 3]!;
+      const ka = chave(p);
+      const kb = chave(q);
+      const k = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      const e = mapa.get(k) ?? { a: p, b: q, cores: [] };
+      e.cores.push(t.cor);
+      mapa.set(k, e);
+    }
+  }
+  let d = '';
+  for (const e of mapa.values()) {
+    if (e.cores.length === 1 || new Set(e.cores).size > 1) d += `M${f(e.a[0])} ${f(e.a[1])} L${f(e.b[0])} ${f(e.b[1])} `;
+  }
+  return d.trim();
 }

@@ -1,4 +1,5 @@
 import {
+  TIPO_PADRAO_CIRCUITO,
   apagarCircuito,
   atribuirPonto,
   atualizarCircuito,
@@ -7,6 +8,7 @@ import {
   moverCircuito,
   removerPonto,
   renomearCircuito,
+  tipoSugeridoDaFamilia,
   type CircuitoEletrico,
   type PontoCircuito,
 } from './circuitosEletricos.ts';
@@ -48,10 +50,19 @@ export function applyCircuitoCommand(p: Project, c: CircuitoCommand): void {
     case 'removeCircuitoEletrico':
       p.circuitosEletricos = apagarCircuito(cs, c.id);
       break;
-    case 'assignPontoCircuito':
-      if (p.elements[c.ponto.componenteId]?.kind !== 'component') throw new Error('Componente inexistente: ' + c.ponto.componenteId);
+    case 'assignPontoCircuito': {
+      const comp = p.elements[c.ponto.componenteId];
+      if (comp?.kind !== 'component') throw new Error('Componente inexistente: ' + c.ponto.componenteId);
+      const antes = cs[c.circuitoId];
       p.circuitosEletricos = atribuirPonto(cs, c.circuitoId, c.ponto);
+      // Ficha C8b: o primeiro ponto de um circuito ainda no tipo padrão e sem escolha manual sugere o tipo (tomada -> uso geral).
+      const sugerido = tipoSugeridoDaFamilia(comp.familyId);
+      if (antes !== undefined && antes.pontos.length === 0 && antes.tipo === TIPO_PADRAO_CIRCUITO && antes.tipoManual !== true && sugerido !== undefined) {
+        const novos = p.circuitosEletricos ?? {};
+        p.circuitosEletricos = { ...novos, [c.circuitoId]: { ...novos[c.circuitoId]!, tipo: sugerido } };
+      }
       break;
+    }
     case 'removePontoCircuito':
       p.circuitosEletricos = removerPonto(cs, c.componenteId);
       break;

@@ -23,3 +23,9 @@
 .circ-quant th, .circ-quant td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; white-space: nowrap; }
 .circ-quant th { color: var(--fg-soft); font-weight: 600; }
 .circ-quant .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Janela flutuante do painel Circuitos (ficha C8b, defeito J): não modal, ancorada à direita; a planta segue clicável. */
+.circ-janela { position: fixed; z-index: 65; display: flex; flex-direction: column; max-height: calc(100vh - 170px); border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel); color: var(--fg); box-shadow: var(--shadow); overflow: hidden; font: inherit; }
+.circ-janela.recolhida { max-height: none; }
+.circ-janela-titulo { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); cursor: move; user-select: none; touch-action: none; }
+.circ-janela-corpo { display: flex; flex-direction: column; gap: 8px; padding: 8px; overflow: auto; min-height: 0; }

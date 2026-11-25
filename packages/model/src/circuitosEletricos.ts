@@ -17,6 +17,19 @@ export const ROTULO_TIPO_CIRCUITO: Readonly<Record<TipoCircuito, string>> = {
   tomadas_uso_especifico: 'Tomadas de uso específico',
 };
 
+/** Tipo que todo circuito novo recebe (ficha C8b: o tipo só é sugerido pelo ponto enquanto ele ficar neste padrão). */
+export const TIPO_PADRAO_CIRCUITO: TipoCircuito = 'iluminacao';
+
+/**
+ * Tipo sugerido pelo PRIMEIRO ponto atribuído (ficha C8b): tomadas (família `fam_tomada…`) puxam "Tomadas de uso geral"; luminárias
+ * (`fam_luminaria…`) ficam em Iluminação. Interruptor e as demais famílias não sugerem nada (`undefined`).
+ */
+export function tipoSugeridoDaFamilia(familyId: string): TipoCircuito | undefined {
+  if (familyId.startsWith('fam_tomada')) return 'tomadas_uso_geral';
+  if (familyId.startsWith('fam_luminaria')) return 'iluminacao';
+  return undefined;
+}
+
 /** Ponto de um circuito: instância de componente (tomada, interruptor, luminária...) com a potência aparente atribuída. */
 export interface PontoCircuito {
   componenteId: Id;
@@ -39,6 +52,8 @@ export interface CircuitoEletrico {
   /** Cor de destaque (#rrggbb) dos componentes do circuito. */
   cor: string;
   notas?: string;
+  /** Verdadeiro quando a pessoa escolheu o tipo à mão: a sugestão pelo ponto nunca o sobrescreve (ficha C8b). */
+  tipoManual?: boolean;
 }
 
 /** Quadro registrado: o `id` é o do COMPONENTE (instância da família do quadro); guarda só o nome dado pelo projetista. */
@@ -142,7 +157,12 @@ export function renomearCircuito(cs: MapaCircuitos, id: Id, nome: string): MapaC
 /** Altera tipo, tensão, cor e notas (`notas: ''` apaga). */
 export function atualizarCircuito(cs: MapaCircuitos, id: Id, patch: Partial<Pick<CircuitoEletrico, 'tipo' | 'tensao' | 'cor' | 'notas'>>): MapaCircuitos {
   const c = existente(cs, id);
-  const novo: CircuitoEletrico = { ...c, ...(patch.tipo !== undefined ? { tipo: patch.tipo } : {}), ...(patch.tensao !== undefined ? { tensao: patch.tensao } : {}), ...(patch.cor !== undefined ? { cor: patch.cor } : {}) };
+  const novo: CircuitoEletrico = {
+    ...c,
+    ...(patch.tipo !== undefined ? { tipo: patch.tipo, tipoManual: true } : {}),
+    ...(patch.tensao !== undefined ? { tensao: patch.tensao } : {}),
+    ...(patch.cor !== undefined ? { cor: patch.cor } : {}),
+  };
   validarDados(novo);
   if (patch.notas !== undefined) {
     if (patch.notas.trim()) novo.notas = patch.notas;

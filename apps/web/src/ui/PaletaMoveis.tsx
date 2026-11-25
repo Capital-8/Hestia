@@ -87,6 +87,7 @@ function Miniatura({ familia }: { familia: Familia }): ReactElement {
         {silhueta.triangulos.map((t, i) => (
           <path key={i} d={t.d} fill={t.cor} stroke={t.cor} strokeWidth={0.35} strokeLinejoin="round" />
         ))}
+        <path d={silhueta.arestas} fill="none" stroke="var(--line-strong)" strokeWidth={0.6} strokeLinecap="round" />
       </svg>
     );
   }
