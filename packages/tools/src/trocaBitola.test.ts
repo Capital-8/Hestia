@@ -7,7 +7,7 @@ import { aplicarTrocaDeBitola, textoDaTroca, trocarBitolaDoTubo } from './trocaB
 
 /*
  * Troca de bitola de tubo já traçado (ficha B3), no ambiente da ferramenta Tubo: desenha dois trechos a 90° com a ferramenta e troca
- * o DN do primeiro. Krona esgoto (sem redução): a conexão sai e avisa; esgoto genérico da F1 (com redução): a redução entra.
+ * o DN do primeiro. Krona esgoto (com redução desde a B6): a conexão sai e avisa; esgoto genérico da F1 (com redução): a redução entra.
  */
 
 const KRONA = 'fam_krona_esgoto_tubo_corte';
