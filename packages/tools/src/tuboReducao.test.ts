@@ -108,7 +108,7 @@ describe('redução automática entre bitolas (Krona)', () => {
     const { ctx } = ambiente(ESG);
     desenhar(ctx, [[100, [0, 0], [1, 0]], [75, [1, 0], [2, 0]]]);
     const codigos = problemas(ctx).map((d) => d.codigo).sort();
-    expect(codigos).toEqual(['conexao_afastada', 'inclinacao_fora_limite']);
+    expect(codigos).toEqual(['conexao_afastada']);
     const afastada = problemas(ctx).find((d) => d.codigo === 'conexao_afastada');
     expect(afastada?.valor).toBeGreaterThan(13);
     expect(afastada?.valor).toBeLessThan(13.2);

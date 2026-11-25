@@ -191,3 +191,22 @@ A ficha C8a deu às famílias de dispositivos elétricos entradas de eletroduto 
 5. Mesmo arquivo: "<id> tipo dn20|dn25: diâmetro De do DN do tipo e direções unitárias" → "<id> tipo dn20|dn25: diâmetro do DN do tipo (entradas de eletroduto: catálogo Krona; força: De) e direções unitárias", para `fam_luminaria_plafon_redondo`, `fam_luminaria_painel_led_quadrado`, `fam_luminaria_painel_led_retangular`, `fam_luminaria_spot_embutido`, `fam_luminaria_pendente`, `fam_luminaria_arandela` e `fam_luminaria_linear` (14 testes, 7 famílias × 2 tipos). Asserção: entradas de eletroduto = D do catálogo Krona do DN (`diametroKrona`); ponto de força = `deDn`, sem mudança. Motivo: as entradas agora vêm do catálogo Krona.
 
 Pendência: o ponto de força (`forca`) das famílias de dispositivos e luminárias segue com `De` da tabela F5 (DN 20 → 25 mm), que não bate com o catálogo Krona. Decisão a tomar: se o ponto de força também deve usar o catálogo.
+
+## Testes atualizados por decisão (B9)
+
+A ficha B9 corrigiu `diagnosticarInclinacao` (`packages/engine/src/componentes/diagnosticoRede.ts`): trechos horizontais de DN 100 do esgoto Krona sem declividade passam a ser acusados como `inclinacao_fora_limite` (0% fora da faixa 1% a 5%; limites a CONFERIR). Os 10 testes abaixo afirmavam "rede sem avisos" em geometria de conexões, sem interesse em declividade. Foram ajustados só no filtro `problemas` (que passa a ignorar `inclinacao_fora_limite`), com o comentário "declividade é verificada em diagnosticoRedeDn.test.ts; aqui só a geometria das conexões". Nenhum teste foi apagado.
+
+Exceção: em `tuboReducao.test.ts` o teste "documenta a pendência da excêntrica…" também teve a expectativa `['conexao_afastada', 'inclinacao_fora_limite']` trocada por `['conexao_afastada']`, pois o filtro passou a excluir o código.
+
+| Arquivo | Teste | Motivo |
+|---|---|---|
+| `packages/tools/src/tuboKrona.test.ts` | 'com o recuo, a rede não acusa…' | Geometria de conexões; declividade 0% agora acusada (B9) |
+| `packages/tools/src/tuboKrona.test.ts` | 'três trechos em L…' | Idem |
+| `packages/tools/src/tuboKrona.test.ts` | 'desvio de 45°…' | Idem |
+| `packages/tools/src/tuboKrona.test.ts` | 'tê numa derivação a 90°…' | Idem |
+| `packages/tools/src/tuboPrumada.test.ts` | 'andar primeiro > horizontal na cota de baixo…' | Idem |
+| `packages/tools/src/tuboPrumada.test.ts` | 'diagonal > a 45° gera UM tubo…' | Idem |
+| `packages/tools/src/tuboPrumada.test.ts` | 'subir primeiro > a cadeia continua…' | Idem |
+| `packages/tools/src/tuboPrumada.test.ts` | 'subir primeiro > z de 0 a 2 m…' | Idem |
+| `packages/tools/src/tuboReducao.test.ts` | 'DN igual em linha reta…' | Idem (trecho DN 100 sem declividade) |
+| `packages/tools/src/tuboReducao.test.ts` | 'documenta a pendência da excêntrica…' | Idem; expectativa de `inclinacao_fora_limite` removida |
