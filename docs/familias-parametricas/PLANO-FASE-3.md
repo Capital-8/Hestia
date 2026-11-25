@@ -43,8 +43,8 @@ Contrato: um resolvedor PURO de nó recebe o encontro (trechos, bitolas, direç�
 Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnico Linha Elétrica 2026, `https://www.krona.com.br/wp-content/uploads/2026/02/CATALOGO-TENICO-LINHA-ELETRICA-2026.pdf`; o domínio já está liberado na rede do ambiente).
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
-| C1 | H | Baixar o PDF, transcrever as tabelas dimensionais (eletroduto, curvas, luvas, caixas) para `catalogosMep/kronaEletrica.ts` com fonte, hash e `CONFERIR`; README com anomalias | — | em curso (orquestrador, 2026-11-25) |
-| C2 | H | Famílias elétricas Krona montadas do catálogo (eletroduto cortado, curva, luva, caixa) reaproveitando as receitas | C1 | pendente |
+| C1 | H | Baixar o PDF, transcrever as tabelas dimensionais (eletroduto, curvas, luvas, caixas) para `catalogosMep/kronaEletrica.ts` com fonte, hash e `CONFERIR`; README com anomalias | — | integrada (22 tabelas, 71 linhas da Krona elétrica, p. 6 a 11; fora: quadros, caixas de passagem e proteção; 9 anomalias no README; extrator próprio) |
+| C2 | H | Famílias elétricas Krona montadas do catálogo (eletroduto cortado, curva, luva, caixa) reaproveitando as receitas | C1 | em curso (orquestrador, 2026-11-25) |
 | C3 | S | Tipos de eletroduto e a ferramenta Eletroduto (traço, curvas e luvas pelo resolvedor B1, caixas como nós, limite de curvas entre caixas) | B1, C2 | pendente |
 | C4 | S | Circuitos, quadro e cargas: modelo (circuito, pontos, quadro), quadro de distribuição como família, cor por circuito | C3 | pendente |
 | C5 | S | Cálculos editáveis (potência, corrente, seção, disjuntor, queda de tensão) com valores de norma como dado `CONFERIR`; Verificar rede elétrica (circuito sem quadro, caixa sem eletroduto, sobrecarga) | C4 | pendente |
