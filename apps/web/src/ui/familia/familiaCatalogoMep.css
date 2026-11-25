@@ -75,3 +75,43 @@
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
+
+/* Conferência por linha (ficha P3, fase 2): progresso, selo do item, bloco de confirmação de "Marcar todas as linhas". */
+.fam-cmep-conferencia {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.fam-cmep-progresso {
+  font-weight: 600;
+}
+
+.fam-cmep-selo {
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.fam-cmep-selo.ok {
+  border-color: var(--ok, #2e7d32);
+  color: var(--ok, #2e7d32);
+}
+
+.fam-cmep-quem {
+  font-size: 12px;
+  color: var(--fg-soft);
+}
+
+.fam-cmep-confirma {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}

@@ -1,6 +1,8 @@
 import {
   conferirItem,
+  conferirLinha,
   csvDoItem,
+  desconferirLinha,
   editarLinha,
   familiaDoItem,
   itemDeCsv,
@@ -10,12 +12,30 @@ import {
   paraIdsDeParametro,
   RECEITAS_MEP,
   validarItemCatalogo,
+  type CatalogoMep,
   type DominioMep,
   type ItemCatalogo,
 } from '@hestia/model';
 import { useMemo, useState, type ReactElement } from 'react';
+import { PainelConferencia } from './FamiliaCatalogoMepConferencia.tsx';
 import { Janela } from './FamiliaJanela.tsx';
-import { dataDeHoje, guardarItemNoNavegador, lerMeusItensDoNavegador, proximoIdDeItem, removerItemDoNavegador } from './familiaCatalogoMep.ts';
+import {
+  aplicarConferencias,
+  conferenciasDoItem,
+  conferenciasDoNavegador,
+  conferenteDaSessao,
+  dataDeHoje,
+  desmarcarLinhaConferida,
+  exportarConferencias,
+  guardarConferenteNaSessao,
+  guardarItemNoNavegador,
+  itensComConferenciaIgnorada,
+  lerMeusItensDoNavegador,
+  marcarLinhasConferidas,
+  proximoIdDeItem,
+  removerItemDoNavegador,
+  type MapaConferencias,
+} from './familiaCatalogoMep.ts';
 import { idsAbertosNestaSessao, proximoIdDeUsuario, registrarIdAberto } from './familiaNovo.ts';
 import { useFamilia } from './familiaStore.ts';
 import { armazenamentoDoNavegador, baixarTexto, mesclarMeusModelos } from './meusModelos.ts';
@@ -35,25 +55,36 @@ const FONTES: ReadonlyArray<{ id: Fonte; rotulo: string }> = [
   { id: 'soldavel', rotulo: 'Krona — água fria soldável' },
   { id: 'meus', rotulo: 'Meus catálogos' },
 ];
+/** Catálogo do fabricante (somente leitura; a conferência vive no navegador). `null` para "Meus catálogos". */
+const catalogoDe = (f: Fonte): CatalogoMep | null => (f === 'esgoto' ? KRONA_ESGOTO : f === 'soldavel' ? KRONA_SOLDAVEL : null);
 
 const num = (v: number | undefined): string => (v === undefined ? '' : String(v));
 
 export function FamiliaCatalogoMep(): ReactElement {
   const [fonte, setFonte] = useState<Fonte>('esgoto');
   const [meus, setMeus] = useState<ItemCatalogo[]>(() => lerMeusItensDoNavegador());
+  const [conferencias, setConferencias] = useState<MapaConferencias>(() => conferenciasDoNavegador());
   const [itemId, setItemId] = useState<string>(KRONA_ESGOTO.itens[0]?.id ?? '');
   const [aviso, setAviso] = useState<{ texto: string; erro: boolean } | null>(null);
   const [csvAberto, setCsvAberto] = useState(false);
   const [csv, setCsv] = useState('bitola;codigo;B;Db;De;e\n');
   const [meta, setMeta] = useState({ nome: 'Meu item', tipo: 'tubo', serie: 'Minha série' });
-  const [conferente, setConferente] = useState('');
+  const [conferente, setConferente] = useState(() => conferenteDaSessao());
+  const [confirmando, setConfirmando] = useState(false);
   const [novaBitola, setNovaBitola] = useState('');
   const [receita, setReceita] = useState(RECEITAS_MEP[0]?.id ?? 'tubo');
   const [dominio, setDominio] = useState<DominioMep>('esgoto');
   const [nomeFamilia, setNomeFamilia] = useState('');
   const [material, setMaterial] = useState('');
 
-  const itens = fonte === 'esgoto' ? KRONA_ESGOTO.itens : fonte === 'soldavel' ? KRONA_SOLDAVEL.itens : meus;
+  const catalogo = catalogoDe(fonte);
+  const sha = catalogo?.fonte.sha256 ?? '';
+  // Do fabricante, as linhas conferidas (guardadas no navegador) entram aqui; "Meus catálogos" já traz a conferência no item.
+  const itens = useMemo(
+    () => (catalogo ? catalogo.itens.map((i) => aplicarConferencias(i, conferenciasDoItem(conferencias, catalogo.id, sha, i.id).linhas)) : meus),
+    [catalogo, sha, conferencias, meus],
+  );
+  const ignoradas = catalogo ? itensComConferenciaIgnorada(conferencias, catalogo.id, sha, catalogo.itens) : 0;
   const item = itens.find((i) => i.id === itemId) ?? itens[0];
   const editavel = fonte === 'meus';
   const problemas = useMemo(() => (item ? validarItemCatalogo(item) : []), [item]);
@@ -63,11 +94,65 @@ export function FamiliaCatalogoMep(): ReactElement {
   const dizer = (texto: string, erro = false): void => setAviso({ texto, erro });
   const escolherFonte = (f: Fonte): void => {
     setFonte(f);
-    const lista = f === 'esgoto' ? KRONA_ESGOTO.itens : f === 'soldavel' ? KRONA_SOLDAVEL.itens : meus;
+    const lista = catalogoDe(f)?.itens ?? meus;
     setItemId(lista[0]?.id ?? '');
     setAviso(null);
+    setConfirmando(false);
   };
   const salvar = (novo: ItemCatalogo): void => setMeus(guardarItemNoNavegador(novo));
+  const trocarConferente = (nome: string): void => {
+    setConferente(nome);
+    guardarConferenteNaSessao(nome);
+  };
+  const exigeNome = (): boolean => {
+    if (conferente.trim() !== '') return true;
+    dizer('Informe seu nome em "Conferido por" antes de conferir.', true);
+    return false;
+  };
+
+  /** Conferir uma linha: em "Meus catálogos" vai para o item; no fabricante, para o mapa guardado no navegador. */
+  const marcarLinha = (bitola: string, marcar: boolean): void => {
+    if (!item || !exigeNome()) return;
+    try {
+      if (editavel) {
+        salvar(marcar ? conferirLinha(item, bitola, conferente, dataDeHoje()) : desconferirLinha(item, bitola));
+        return;
+      }
+      const s = armazenamentoDoNavegador();
+      if (catalogo === null || s === null) return dizer('Sem armazenamento no navegador: a conferência não pode ser guardada.', true);
+      setConferencias(marcar
+        ? marcarLinhasConferidas(s, catalogo.id, sha, item.id, [bitola], conferente, dataDeHoje())
+        : desmarcarLinhaConferida(s, catalogo.id, sha, item.id, bitola));
+    } catch (e) {
+      dizer(e instanceof Error ? e.message : String(e), true);
+    }
+  };
+
+  const pedirTodas = (): void => {
+    if (exigeNome()) setConfirmando(true);
+  };
+  const confirmarTodas = (): void => {
+    if (!item) return;
+    setConfirmando(false);
+    const hoje = dataDeHoje();
+    try {
+      if (editavel) {
+        salvar(conferirItem(item, conferente, hoje));
+      } else {
+        const s = armazenamentoDoNavegador();
+        if (catalogo === null || s === null) return dizer('Sem armazenamento no navegador: a conferência não pode ser guardada.', true);
+        setConferencias(marcarLinhasConferidas(s, catalogo.id, sha, item.id, item.linhas.map((l) => l.bitola), conferente, hoje));
+      }
+      dizer(`Todas as linhas de ${item.nome} conferidas por ${conferente.trim()} em ${hoje}.`);
+    } catch (e) {
+      dizer(e instanceof Error ? e.message : String(e), true);
+    }
+  };
+
+  const exportar = (): void => {
+    const id = catalogo?.id ?? 'meus';
+    baixarTexto(`conferencias-${id}.json`, exportarConferencias({ id, ...(catalogo ? { fonte: catalogo.fonte } : {}) }, itens, new Date().toISOString()));
+  };
 
   const importar = (): void => {
     const id = proximoIdDeItem(meus.map((i) => i.id));
@@ -86,7 +171,8 @@ export function FamiliaCatalogoMep(): ReactElement {
     salvar(paraIdsDeParametro(item, id, `${item.nome} (cópia)`));
     setFonte('meus');
     setItemId(id);
-    dizer('Copiado para Meus catálogos, com as letras do desenho trocadas pelos nomes de parâmetro (D→Db, d→De, A→Aext). Complete a espessura (e) se faltar.');
+    setConfirmando(false);
+    dizer('Copiado para Meus catálogos, com as letras do desenho trocadas pelos nomes de parâmetro (D→Db, d→De, A→Aext). A cópia nasce CONFERIR. Complete a espessura (e) se faltar.');
   };
 
   const editarCelula = (bitola: string, coluna: string, texto: string): void => {
@@ -105,16 +191,6 @@ export function FamiliaCatalogoMep(): ReactElement {
 
   const removerLinha = (bitola: string): void => {
     if (item) salvar({ ...item, linhas: item.linhas.filter((l) => l.bitola !== bitola), estado: 'CONFERIR' });
-  };
-
-  const conferir = (): void => {
-    if (!item) return;
-    try {
-      salvar(conferirItem(item, conferente, dataDeHoje()));
-      dizer(`Conferido por ${conferente.trim()} em ${dataDeHoje()}.`);
-    } catch (e) {
-      dizer(e instanceof Error ? e.message : String(e), true);
-    }
   };
 
   const criarFamilia = (): void => {
@@ -144,7 +220,7 @@ export function FamiliaCatalogoMep(): ReactElement {
 
       <div className="fam-cmep-linha">
         <label>Item
-          <select value={item?.id ?? ''} onChange={(e) => setItemId(e.target.value)} aria-label="Item do catálogo">
+          <select value={item?.id ?? ''} onChange={(e) => { setItemId(e.target.value); setConfirmando(false); }} aria-label="Item do catálogo">
             {itens.map((i) => <option key={i.id} value={i.id}>{i.nome} — {i.estado === 'conferido' ? 'conferido' : 'CONFERIR'}{i.pagina ? ` (p. ${i.pagina})` : ''}</option>)}
           </select>
         </label>
@@ -174,13 +250,14 @@ export function FamiliaCatalogoMep(): ReactElement {
           <div className="fam-cmep-tabela" role="region" aria-label="Tabela do item">
             <table>
               <thead>
-                <tr><th>Bitola</th><th>Código</th>{letras.map((c) => <th key={c} title={item.colunas[c]}>{c}</th>)}{editavel && <th />}</tr>
+                <tr><th>Bitola</th><th>Código</th><th>Conferida</th>{letras.map((c) => <th key={c} title={item.colunas[c]}>{c}</th>)}{editavel && <th />}</tr>
               </thead>
               <tbody>
                 {item.linhas.map((l) => (
                   <tr key={l.bitola}>
                     <td>{l.bitola}</td>
                     <td>{l.codigo ?? ''}</td>
+                    <td><input type="checkbox" aria-label={`Conferida ${l.bitola}`} checked={l.conferida !== undefined || item.estado === 'conferido'} onChange={(e) => marcarLinha(l.bitola, e.target.checked)} /></td>
                     {letras.map((c) => (
                       <td key={c}>
                         {editavel
@@ -195,15 +272,25 @@ export function FamiliaCatalogoMep(): ReactElement {
             </table>
           </div>
           <div className="fam-cmep-legenda">{letras.map((c) => <span key={c}><b>{c}</b> = {item.colunas[c]}</span>)}</div>
+          <PainelConferencia
+            item={item}
+            {...(catalogo ? { fonte: catalogo.fonte } : {})}
+            ignoradas={ignoradas}
+            conferente={conferente}
+            confirmando={confirmando}
+            onConferente={trocarConferente}
+            onPedirTodas={pedirTodas}
+            onConfirmarTodas={confirmarTodas}
+            onCancelarTodas={() => setConfirmando(false)}
+            onExportar={exportar}
+          />
           {editavel && (
             <div className="fam-cmep-linha">
               <label>Nova bitola <input value={novaBitola} onChange={(e) => setNovaBitola(e.target.value)} size={8} /></label>
               <button className="fam-bt" onClick={adicionarLinha}>Adicionar linha</button>
-              <label>Conferido por <input value={conferente} onChange={(e) => setConferente(e.target.value)} size={14} placeholder="seu nome" /></label>
-              <button className="fam-bt" onClick={conferir}>Marcar como conferido</button>
+              <span className="fam-cat-aviso">Editar um número apaga a conferência da linha. Use a coluna Conferida para conferir.</span>
             </div>
           )}
-          {item.estado === 'conferido' && <div className="fam-cat-aviso">Conferido por {item.conferidoPor} em {item.conferidoEm}. Editar qualquer número volta para CONFERIR.</div>}
           {problemas.length > 0 && (
             <div className="fam-cat-erro" role="alert">
               <div>{problemas.length} ponto(s) a conferir:</div>
