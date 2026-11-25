@@ -3,6 +3,7 @@
 // fim faz um comando novo sem rótulo não compilar.
 import type { Command } from './commands.ts';
 import { componentCommandLabel } from './componentCommands.ts';
+import { circuitoCommandLabel } from './circuitosCommands.ts';
 import type { Lang } from './i18n.ts';
 import { furnitureLabel, isFurnitureCommand } from './furniture/commands.ts';
 
@@ -486,6 +487,15 @@ export function labelOf(c: Command, lang: Lang = 'pt'): string {
     case 'disconnectComponents':
     case 'renameMepSystem':
       return componentCommandLabel(c);
+    case 'addCircuitoEletrico':
+    case 'renameCircuitoEletrico':
+    case 'updateCircuitoEletrico':
+    case 'removeCircuitoEletrico':
+    case 'assignPontoCircuito':
+    case 'removePontoCircuito':
+    case 'moveCircuitoEletrico':
+    case 'renameQuadroEletrico':
+      return circuitoCommandLabel(c);
     case 'setFacePaint':
       return 'Pintar face';
     case 'removeFacePaint':

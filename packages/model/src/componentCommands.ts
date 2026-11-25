@@ -2,6 +2,7 @@ import { applyTransform, type Transform, type Vec2 } from '@hestia/geom';
 import { componentIssue, componentesDaFamilia, componentesDoGrupo, familyIssue, transformComponent } from './componentes.ts';
 import type { Familia } from './familia/tipos.ts';
 import { conexoesIssue } from './sistemasMep.ts';
+import { limparCircuitosExcluidos } from './circuitosCommands.ts';
 import { applyMepCommand, desconectarExcluidas, mepCommandLabel, type MepCommand } from './mepCommands.ts';
 import type { Component, ComponentGroup, Id, Project } from './types.ts';
 
@@ -54,6 +55,7 @@ function groupIssue(p: Project, g: ComponentGroup): string | null {
 /** Tira dos conjuntos os componentes que saíram do projeto e apaga o conjunto que ficou sem membros. */
 export function removerMembrosExcluidos(p: Project, excluidos: ReadonlySet<Id>): void {
   desconectarExcluidas(p, excluidos);
+  limparCircuitosExcluidos(p, excluidos);
   const grupos = p.componentGroups;
   if (!grupos) return;
   for (const [id, grupo] of Object.entries(grupos)) {

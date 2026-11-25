@@ -19,6 +19,7 @@ import { HVAC } from './hvac.ts';
 import { KRONA_ESGOTO_FAMILIAS } from './kronaEsgoto.ts';
 import { KRONA_SOLDAVEL_FAMILIAS } from './kronaSoldavel.ts';
 import { KRONA_ELETRICA_FAMILIAS } from './kronaEletrica.ts';
+import { QUADROS_ELETRICOS } from './quadroDistribuicao.ts';
 
 /*
  * Biblioteca base de famílias AUTORAIS do Hestia (ADR 0049 §3.3: nenhum ativo de terceiros). Cada grupo vive em seu arquivo; este
@@ -37,6 +38,7 @@ export { DISCIPLINAS_EXEMPLO };
 export { TUBULACAO_ESGOTO };
 /* Estrutura metálica (ficha F7): perfis, tubos, chapa de base e parafuso. Fora de BIBLIOTECA_BASE, pela mesma razão. */
 export { PERFIS_METALICOS };
+export { FAMILIA_QUADRO_ELETRICO, ID_QUADRO_ELETRICO } from './quadroDistribuicao.ts';
 export const BIBLIOTECA_BASE: readonly Familia[] = [FAMILIA_ARMARIO, FAMILIA_GAVETA, ...COZINHA, ...DORMITORIO, ...SALA_AREAS, ...GERAL, ...ALTO_PADRAO, ...NOVAS, ...DISCIPLINAS_EXEMPLO];
 
 /*
@@ -56,6 +58,7 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...KRONA_ESGOTO_FAMILIAS,
   ...KRONA_SOLDAVEL_FAMILIAS,
   ...KRONA_ELETRICA_FAMILIAS,
+  ...QUADROS_ELETRICOS,
 ];
 
 /** Ids que cada grupo TEM de conter (o teste confere). */

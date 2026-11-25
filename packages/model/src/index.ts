@@ -157,6 +157,9 @@ export * from './pluginScheduleUnits.ts'; // SUPLEMENTOS: quantitativos nas unid
 export * from './familia/index.ts';
 export * from './sistemasMep.ts';
 export * from './mepCommands.ts';
+export * from './circuitosEletricos.ts';
+export * from './circuitosEletricosConsulta.ts';
+export * from './circuitosCommands.ts';
 export * from './furniture/index.ts';
 export * from './facePaint.ts';
 export * from './collabTypes.ts';

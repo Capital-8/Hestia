@@ -103,6 +103,7 @@ import { applyPluginDataCommand, type PluginDataCommand } from './pluginData.ts'
 import { applyView3DPointCommand, type View3DPointCommand } from './view3dPoints.ts';
 import { applyGridCommand, type GridCommand } from './grid.ts';
 import { applyStructuralCommand, syncLinkedFootingsOnColumnPatch, syncLinkedFootingsOnTransform, transformBeam, transformColumn, transformFooting, unlinkFootingsOfDeletedColumns, type StructuralCommand } from './structuralCommands.ts';
+import { applyCircuitoCommand, type CircuitoCommand } from './circuitosCommands.ts';
 import { ajustarLinhasDeGrupos, applyComponentCommand, removerMembrosExcluidos, type ComponentCommand } from './componentCommands.ts';
 import { transformComponent } from './componentes.ts';
 import { applyViewCommand } from './viewCommands.ts';
@@ -259,6 +260,7 @@ export type Command =
   | FurnitureCommand
   | GridCommand
   | ComponentCommand
+  | CircuitoCommand
   | { type: 'deleteLevel'; id: Id }
   | { type: 'setLevelViewRange'; levelId: Id; patch: Partial<ViewRange> }
   | { type: 'setProjectGraphics'; patch: DeepPartial<ProjectGraphics> }
@@ -810,6 +812,16 @@ function applyCommandBase(p: Project, c: Command, lang: Lang): void {
     case 'disconnectComponents':
     case 'renameMepSystem':
       applyComponentCommand(p, c);
+      break;
+    case 'addCircuitoEletrico':
+    case 'renameCircuitoEletrico':
+    case 'updateCircuitoEletrico':
+    case 'removeCircuitoEletrico':
+    case 'assignPontoCircuito':
+    case 'removePontoCircuito':
+    case 'moveCircuitoEletrico':
+    case 'renameQuadroEletrico':
+      applyCircuitoCommand(p, c);
       break;
     case 'addGrid':
     case 'updateGrid':

@@ -1,0 +1,20 @@
+/* Painel Circuitos (ficha C4): cartões por circuito, linhas de controles e totais. */
+.circ-painel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.circ-painel h3 { margin: 8px 0 0; font-size: 13px; }
+.circ-linha { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.circ-linha label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--fg-soft); }
+.circ-cartao { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.circ-cab { display: flex; align-items: center; gap: 8px; }
+.circ-cab .input { flex: 1; min-width: 0; }
+.circ-cor { width: 32px; height: 28px; padding: 0; border: 1px solid var(--line); background: none; flex-shrink: 0; }
+.circ-total { white-space: nowrap; }
+.circ-pontos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.circ-ponto { display: flex; align-items: center; gap: 8px; }
+.circ-ponto-nome { flex: 1; min-width: 0; padding-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.circ-quadros { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.circ-quadro { display: flex; align-items: center; gap: 8px; }
+.circ-quadro .input { max-width: 160px; }
+.circ-vazio, .circ-dica { color: var(--fg-soft); font-size: 12px; margin: 0; }
+.circ-alerta { color: var(--warn, #b45309); font-size: 12px; margin: 0; }
+.circ-erro { color: var(--danger, #b42318); font-size: 12px; margin: 0; }
+.circ-aviso { color: var(--fg-soft); font-size: 12px; margin: 0; }

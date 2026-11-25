@@ -24,6 +24,7 @@ import type { Opening, OpeningLineConvention, OpeningType } from './openingTypes
 import type { ProfilePreset } from './openingComposition.ts';
 import type { Familia } from './familia/tipos.ts';
 import type { ConexaoComponente, SistemaMep } from './sistemasMep.ts';
+import type { CircuitoEletrico, QuadroEletrico } from './circuitosEletricos.ts';
 import type { Catalogo } from './familia/catalogo.ts';
 import type { DimensionSettings } from './dimensionSettings.ts';
 import type { UnitsSettings } from './units.ts';
@@ -1094,6 +1095,10 @@ export interface Project {
   componentGroups?: Record<Id, ComponentGroup>;
   /** Sistemas de MEP (redes) por id (ADR 0061 §D6); ausente = nenhum. */
   sistemasMep?: Record<Id, SistemaMep>;
+  /** Circuitos elétricos por id (ficha C4); ausente = nenhum. Aditivo e opcional: `SCHEMA_VERSION` não mudou (ver ESTADO). */
+  circuitosEletricos?: Record<Id, CircuitoEletrico>;
+  /** Nomes dos quadros de distribuição, pelo id do componente (ficha C4); ausente = nomes automáticos. */
+  quadrosEletricos?: Record<Id, QuadroEletrico>;
   /** Catálogo de marcenaria (chapas, fitas, ferragens) do projeto; ausente = o catálogo padrão. */
   catalog?: Catalogo;
   /** Presets de perfil das esquadrias (editáveis); a migração 19 → 20 semeia os iniciais. Ausente = os iniciais por leitura. */

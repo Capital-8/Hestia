@@ -4,6 +4,7 @@ import { levelElevation, type Component, type Project } from '@hestia/model';
 import { mix } from './color.ts';
 import { aneisDosCorpos, anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoMundo } from './planComponentsGeo.ts';
 import { aneisDasPecas, desenharPecasEmPlanta } from './planComponentsPecas.ts';
+import { destaquesDeCircuitos } from './planCircuitos.ts';
 import { simbolosDePlanta } from './planComponentsSimbolos.ts';
 import type { FillOp, LabelOp, PlanTheme, StrokeOp } from './types.ts';
 
@@ -224,5 +225,6 @@ export function componentsPlanOps(
       desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado, labels);
     }
   }
-  return { fills: [...aereos, ...fills], strokes, labels };
+  const circuitos = destaquesDeCircuitos(p, levelId, hidden);
+  return { fills: [...aereos, ...fills, ...circuitos.fills], strokes: [...strokes, ...circuitos.strokes], labels };
 }
