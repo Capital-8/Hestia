@@ -18,7 +18,7 @@ Modelos: **H** = Haiku (mecânico, especificação fechada, verificação por te
 | Id | Modelo | Ficha | Depende | Estado |
 |---|---|---|---|---|
 | A1 | H | Auditar todo botão e ferramenta de MEP e listar o ícone atual, o arquivo e o que a ferramenta faz (tabela em `docs/familias-parametricas/icones/AUDITORIA.md`) | — | em curso (orquestrador, 2026-11-25) |
-| A2 | S | Ler `apps/web/src/ui/Icon.tsx`, escrever o guia de estilo (`icones/GUIA.md`: grade, traço, cores, convenções) e desenhar 4 ícones de referência: Tubo, Joelho, Verificar rede, Esgoto | — (roda junto com A1) | em curso (orquestrador, 2026-11-25) |
+| A2 | S | Ler `apps/web/src/ui/Icon.tsx`, escrever o guia de estilo (`icones/GUIA.md`: grade, traço, cores, convenções) e desenhar 4 ícones de referência: Tubo, Joelho, Verificar rede, Esgoto | — (roda junto com A1) | integrada (guia + 4 ícones; mepEsgoto precisa de glifo próprio: fica na A3c) |
 | A3a | H | Ícones das ferramentas existentes: Tubos e conexões, Catálogo de tubos, Eletrodutos e dispositivos, Dutos e difusores, Perfis e chapas, Parafuso e chapa | A2 | pendente |
 | A3b | H | Ícones de peças: tê, junção, redução, luva, tampão, prumada | A2 | pendente |
 | A3c | H | Ícones de sistema: esgoto, água fria, elétrico, HVAC, estrutura (abas da Biblioteca, painéis, domínios) | A2 | pendente |
