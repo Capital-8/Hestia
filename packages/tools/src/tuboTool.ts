@@ -6,7 +6,7 @@ import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
 import { planejarPrumada, recuosDoJoelho, type ModoCota, type PlanoPrumada } from './tuboPrumada.ts';
 import { eixoDaDirecao, eixoOposto, planejarCaminhoOrtogonal } from './tuboCaminho.ts';
-import { itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
+import { alertaDeAngulo, avisoComSugestao, itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, temConexoes, type ContextoTraco } from './tuboApoio.ts';
 import type { PointerInfo, ToolEnv } from './types.ts';
@@ -165,8 +165,15 @@ export class TuboTool extends ToolBase {
     if (!ctx) return;
     const pt = this.ponto(p, ctx, this.inicio !== null);
     this.items.push({ kind: 'point', at: { x: pt.xyz[0], y: pt.xyz[1] } });
-    if (this.inicio) this.items.push(...fantasmaDoTrecho(this.env.project(), this.opc.dn, this.inicio.xyz, pt.xyz));
-    if (this.bloqueio) this.items.push(...itensDoBloqueio(this.bloqueio));
+    // Prévia: o trecho que seria bloqueado fica VERMELHO com o motivo (mesma conta do clique, sem gravar); senão o fantasma, com o alerta de ângulo sem peça.
+    const hover = this.inicio ? this.verificar(ctx, this.inicio, pt, []).bloqueio : null;
+    if (this.inicio && hover) this.items.push(...itensDoBloqueio({ a: { x: this.inicio.xyz[0], y: this.inicio.xyz[1] }, b: { x: pt.xyz[0], y: pt.xyz[1] }, motivo: hover.motivo, sugestao: hover.sugestao }, true));
+    else if (this.inicio) {
+      this.items.push(...fantasmaDoTrecho(this.env.project(), this.opc.dn, this.inicio.xyz, pt.xyz));
+      const angulo = alertaDeAngulo(this.env.project(), ctx.familia.id, this.opc.dn, regrasDoDominio(ctx), this.inicio, pt);
+      if (angulo) this.items.push({ kind: 'label', at: { x: this.inicio.xyz[0], y: this.inicio.xyz[1] }, text: angulo });
+    }
+    if (this.bloqueio && !hover) this.items.push(...itensDoBloqueio(this.bloqueio));
   }
 
   override click(p: PointerInfo): void {
@@ -214,7 +221,7 @@ export class TuboTool extends ToolBase {
     const ext = isComponent(outro) && outro.familyId === ctx.familia.id ? extremosDoTubo(projeto, outro) : null;
     if (!ext || !regras) return direto();
     const r = avaliarEncontro({ a: ext.a, b: ext.b, dn: ext.dn }, pt.alvo.ligacaoId === ext.idA ? 'a' : 'b', novo, ponta, regras, projeto.componentFamilies);
-    if (r.aviso) avisos.push(r.aviso);
+    if (r.aviso) avisos.push(r.codigo === 'angulo_sem_peca' && ponta === 'a' ? avisoComSugestao(r.aviso, regras, { xyz: [...novo.a], alvo: null }, { xyz: [...novo.b], alvo: null }) : r.aviso);
     // Sem nenhuma conexão do domínio no projeto o tubo liga direto (como antes); com elas, ângulo sem regra fica sem ligação.
     if (!r.conexao) return temConexoes(projeto, regras) ? undefined : direto();
     // Luva: trechos em linha reta e do mesmo DN se ligam direto (o tubo é contínuo, não precisa de peça).
@@ -318,27 +325,39 @@ export class TuboTool extends ToolBase {
     return planejarPrumada(a.xyz, b.xyz, this.opc.modoCota, this.opc.declividade, ctx.familia.id);
   }
 
-  private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): void {
-    const avisos: string[] = [];
+  /**
+   * Plano e viabilidade do trecho `a`→`b` SEM gravar (o clique e a prévia usam a mesma conta): a cadeia de pontos e de instâncias, ou o
+   * bloqueio com motivo e sugestão (`naFala`: a sugestão entra na fala). Viabilidade (ficha B2) com os recuos reais de cada nó, inclusive os joelhos internos.
+   */
+  private verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): { bloqueio: { motivo: string; sugestao: string | null; naFala: boolean } | null; pts: PontoTubo[]; cadeia: Array<Component | null> } {
+    const regras = regrasDoDominio(ctx);
     const plano = this.planejar(ctx, a, b, avisos);
-    if (plano.bloqueio !== null) return this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
+    if (plano.bloqueio !== null) return { bloqueio: { motivo: plano.bloqueio, sugestao: sugestaoDeBloqueio(regras, 'angulo', a, b, undefined, () => true), naFala: false }, pts: [], cadeia: [] };
     const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
     const base = { levelId: this.env.levelId() };
-    const trechos = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, this.opc.dn, { id: newId('cm'), ...base }));
-    if (trechos.some((c) => !c)) {
+    const cadeia = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, this.opc.dn, { id: newId('cm'), ...base }));
+    if (cadeia.some((c) => !c)) return { bloqueio: null, pts, cadeia };
+    const projeto = this.env.project();
+    const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, this.opc.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
+    const viabilidade = (de: PontoTubo, para: PontoTubo, recuos?: { a: number; b: number }) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, de, para, recuos, this.cfg.luvaEmLinha);
+    for (let k = 0; k < cadeia.length; k++) {
+      const viab = viabilidade(pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] });
+      if (viab.bloqueio) return { bloqueio: { motivo: viab.bloqueio, sugestao: sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidade(a, c).bloqueio === null), naFala: true }, pts, cadeia };
+      avisos.push(...viab.avisos);
+    }
+    return { bloqueio: null, pts, cadeia };
+  }
+
+  private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): void {
+    const avisos: string[] = [];
+    const v = this.verificar(ctx, a, b, avisos);
+    if (v.bloqueio) return this.bloquear(a, b, v.bloqueio.motivo, v.bloqueio.sugestao, v.bloqueio.naFala);
+    if (v.cadeia.some((c) => !c)) {
       this.env.say(`${this.cfg.nome}: os dois pontos coincidem; escolha um ponto final diferente.`);
       return;
     }
-    const cadeia = trechos as Component[];
-    // Viabilidade (ficha B2), com os recuos reais de cada nó (inclusive os joelhos internos), ANTES de gravar: bloqueio não cria nada.
-    const regras = regrasDoDominio(ctx);
-    const projeto = this.env.project();
-    const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, this.opc.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
-    for (let k = 0; k < cadeia.length; k++) {
-      const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] }, this.cfg.luvaEmLinha);
-      if (viab.bloqueio) return this.bloquear(a, b, viab.bloqueio, sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, a, c, undefined, this.cfg.luvaEmLinha).bloqueio === null), true);
-      avisos.push(...viab.avisos);
-    }
+    const { pts } = v;
+    const cadeia = v.cadeia as Component[];
     try {
       this.env.transaction(`Desenhar ${this.cfg.nome.toLowerCase()}`, () => {
         this.garantirFamilias(ctx);

@@ -47,7 +47,8 @@ function desenhar(ctx: ReturnType<typeof makeEnv>, trechos: Trecho[]): void {
 
 const comps = (ctx: ReturnType<typeof makeEnv>): Component[] => Object.values(ctx.store.project.elements).filter(isComponent);
 const porFamilia = (ctx: ReturnType<typeof makeEnv>, id: string): Component[] => comps(ctx).filter((c) => c.familyId === id);
-const problemas = (ctx: ReturnType<typeof makeEnv>) => diagnosticarRede(ctx.store.project).filter((d) => d.codigo !== 'ligacao_aberta' && d.codigo !== 'rede_sem_saida');
+// declividade é verificada em diagnosticoRedeDn.test.ts; aqui só a geometria das conexões
+const problemas = (ctx: ReturnType<typeof makeEnv>) => diagnosticarRede(ctx.store.project).filter((d) => d.codigo !== 'ligacao_aberta' && d.codigo !== 'rede_sem_saida' && d.codigo !== 'inclinacao_fora_limite');
 const ligacoesDe = (c: Component): number => Object.keys(c.ligacoes ?? {}).length;
 
 beforeEach(() => {

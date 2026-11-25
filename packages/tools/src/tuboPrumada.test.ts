@@ -17,7 +17,8 @@ const SOLDAVEL = 'fam_krona_soldavel_tubo_corte';
 type Ctx = ReturnType<typeof makeEnv>;
 const comps = (ctx: Ctx): Component[] => Object.values(ctx.store.project.elements).filter(isComponent);
 const porFamilia = (ctx: Ctx, id: string): Component[] => comps(ctx).filter((c) => c.familyId === id);
-const problemas = (ctx: Ctx) => diagnosticarRede(ctx.store.project).filter((d) => d.codigo !== 'ligacao_aberta' && d.codigo !== 'rede_sem_saida');
+// declividade é verificada em diagnosticoRedeDn.test.ts; aqui só a geometria das conexões
+const problemas = (ctx: Ctx) => diagnosticarRede(ctx.store.project).filter((d) => d.codigo !== 'ligacao_aberta' && d.codigo !== 'rede_sem_saida' && d.codigo !== 'inclinacao_fora_limite');
 const Ls = (ctx: Ctx, id: string): number[] => porFamilia(ctx, id).map((c) => Number(c.values?.L ?? 0)).sort((a, b) => a - b);
 const vertical = (c: Component): boolean => Math.abs((c.inclinacao?.[0] ?? 0)) < 1e-9;
 

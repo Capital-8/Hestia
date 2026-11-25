@@ -331,7 +331,13 @@ try {
     const pp = await worldToPage(page, x, y);
     await page.mouse.move(pp.x, pp.y);
     await page.waitForTimeout(400);
+    await page.mouse.move(pp.x + 1, pp.y);
+    await page.mouse.move(pp.x, pp.y);
+    await page.waitForTimeout(800);
     await shot('05-previa-60');
+    const rotulosPrevia = await page.evaluate(() => window.__hestia.editor.tool.preview().filter((i) => i.kind === 'label').map((i) => i.text));
+    info(`rótulos da prévia a 60°: ${JSON.stringify(rotulosPrevia)}`);
+    rep.check('prévia do 60° traz o aviso do ângulo com a sugestão de cota (B9)', rotulosPrevia.some((r) => /Ângulo de 60°.*Sugestão: mudar a cota em \d+ mm para permitir 45°/.test(r)), rotulosPrevia.join(' | '));
     const tuboAntes5 = TUBOS_DN(await comps()).length;
     await clickWorld(page, x, y);
     await page.waitForTimeout(300);
@@ -363,10 +369,15 @@ try {
     await page.mouse.move((await worldToPage(page, 3, 63)).x, (await worldToPage(page, 3, 63)).y);
     await page.waitForTimeout(400);
     await shot('06-previa-vermelha');
+    const previa6 = await page.evaluate(() => window.__hestia.editor.tool.preview().map((i) => ({ k: i.kind, tone: i.tone ?? '', text: i.text ?? '' })));
+    rep.check('hover do trecho bloqueado: segmento vermelho (tom invalid) com rótulo "Bloqueado" (B9)', previa6.some((i) => i.k === 'line' && i.tone === 'invalid') && previa6.some((i) => i.k === 'label' && /^Bloqueado/.test(i.text)), JSON.stringify(previa6).slice(0, 200));
     await clickWorld(page, 3, 63);
     await page.waitForTimeout(300);
     const msg = (await status()) + ' | ' + (await textoPagina()).replace(/\s+/g, ' ');
     info(`bloqueio: ${msg.slice(0, 300)}`);
+    await shot('06-bloqueado-antes-do-esc');
+    const previa6b = await page.evaluate(() => window.__hestia.editor.tool.preview().filter((i) => i.kind === 'line').map((i) => i.tone ?? ''));
+    rep.check('depois do clique bloqueado o segmento tentado segue vermelho (B9)', previa6b.includes('invalid'), JSON.stringify(previa6b));
     rep.check('mensagem "Bloqueado: …" com sugestão de cota em mm', /Bloqueado:/.test(msg) && /Sugest[aã]o:.*mm/.test(msg), msg.match(/Bloqueado[^|]*/)?.[0]?.slice(0, 160) ?? msg.slice(0, 120));
     await page.keyboard.press('Escape');
     await page.waitForTimeout(250);
@@ -389,6 +400,10 @@ try {
 
   // ---------- 7 ----------
   await rep.step('7. declividade: 2% sem "inclinação fora do limite"; 0,5% acusa', async () => {
+    // Desde a B9 os trechos horizontais (0 %) de DN 100 dos passos anteriores também são acusados: conta-se a DIFERENÇA de avisos de declividade.
+    const declividades = (lista) => lista.filter((x) => /declividade|fora da faixa/i.test(x)).length;
+    const base7 = declividades(await verificar());
+    await fecharDialogo();
     await vista(1.5, 80);
     await ferramentaTubo(ESG, 100);
     await cota(0);
@@ -404,7 +419,7 @@ try {
     let itens = await verificar();
     await shot('07-rede-2');
     info(`Verificar rede com 2%: ${itens.join(' | ').slice(0, 300)}`);
-    rep.check('2%: sem "inclinação fora do limite"', !itens.some((x) => /declividade|fora da faixa/i.test(x)), itens.filter((x) => /declividade|fora da faixa/i.test(x)).join(' | ').slice(0, 160) || 'nenhum');
+    rep.check('2%: sem aviso novo de "inclinação fora do limite"', declividades(itens) === base7, `${base7} -> ${declividades(itens)}`);
     await fecharDialogo();
     await vista(1.5, 84);
     await ferramentaTubo(ESG, 100);
@@ -421,7 +436,7 @@ try {
     itens = await verificar();
     await shot('07-rede-0-5');
     info(`Verificar rede com 0,5%: ${itens.join(' | ').slice(0, 300)}`);
-    rep.check('0,5%: acusa "inclinação fora do limite"', itens.some((x) => /declividade|fora da faixa/i.test(x)), itens.filter((x) => /declividade|fora da faixa/i.test(x)).join(' | ').slice(0, 160) || 'nenhum');
+    rep.check('0,5% em DN 100: acusa 1 aviso novo de "inclinação fora do limite"', declividades(itens) === base7 + 1, `${base7} -> ${declividades(itens)}`);
     await fecharDialogo();
   });
 

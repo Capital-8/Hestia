@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { disciplinaParaTracar } from './disciplinaDoTraco.ts';
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
 import { cotasAutomaticas, LevelResolveCache, resolveRooms, servicoTerreno, subelementosDaCortina, temTerreno, type AutoCotaOptions, type ResolvedLevel, type SectionResult } from '@hestia/engine';
@@ -753,6 +754,8 @@ export class Editor {
       return;
     }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
+    const rede = disciplinaParaTracar(id, st, this.store.project);
+    if (rede) useUi.setState((s) => ({ minhaDisciplina: rede, previewTick: s.previewTick + 1 }));
     this.activate(id);
   }
 

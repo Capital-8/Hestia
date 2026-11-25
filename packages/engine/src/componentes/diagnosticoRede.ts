@@ -1,5 +1,6 @@
 import { conexoesIssue, type Component, type DominioLigacao, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
+import { dnDaInstancia } from './trocaBitolaGeometria.ts';
 import { trechosAcimaDoLimite } from './curvasEntreCaixas.ts';
 import { diagnosticarEletrica } from '../eletrica/diagnosticoEletrico.ts';
 import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
@@ -114,14 +115,27 @@ function declividadePercentual(a: LigacaoNoMundo, b: LigacaoNoMundo): number | n
   return (Math.abs(b.posicaoMundo[2] - a.posicaoMundo[2]) / dh) * 100;
 }
 
+/** Folga (mm) ao comparar o diâmetro da ligação com `dnMaxMm` quando a instância não tem o parâmetro `DN` (CONFERIR). */
+const FOLGA_DN_MM = 2;
+
+/**
+ * Verdadeiro se o trecho passa do DN máximo da faixa. Compara o DN NOMINAL da instância (parâmetro `DN`); o diâmetro da
+ * ligação é o externo (DN 100 da Krona = 101,6 mm), que estouraria `dnMaxMm: 100` e tiraria o trecho da conferência.
+ * Sem `DN` na família, cai no diâmetro da ligação com folga de `FOLGA_DN_MM`.
+ */
+function dnAcimaDoLimite(p: Project, c: Component, lig: LigacaoNoMundo, limite: LimiteDeclividade): boolean {
+  const dn = dnDaInstancia(p, c);
+  return dn !== null ? dn > limite.dnMaxMm : lig.diametro * 1000 > limite.dnMaxMm + FOLGA_DN_MM;
+}
+
 /** Trecho com duas pontas do mesmo domínio que tem limite de declividade: confere a faixa. */
-function diagnosticarInclinacao(c: Component, noMundo: Map<Id, LigacaoNoMundo[]>, out: Diagnostico[]): void {
+function diagnosticarInclinacao(p: Project, c: Component, noMundo: Map<Id, LigacaoNoMundo[]>, out: Diagnostico[]): void {
   const ligs = noMundo.get(c.id) ?? [];
   if (ligs.length !== 2) return;
   const [a, b] = ligs;
   if (!a || !b || a.dominio !== b.dominio || a.secao !== 'redonda') return;
   const limite = LIMITES_DECLIVIDADE[a.dominio];
-  if (!limite || a.diametro * 1000 > limite.dnMaxMm) return;
+  if (!limite || dnAcimaDoLimite(p, c, a, limite)) return;
   const pct = declividadePercentual(a, b);
   if (pct === null) return;
   if (pct < limite.minPercentual || pct > limite.maxPercentual) out.push({ codigo: 'inclinacao_fora_limite', elementId: c.id, valor: pct });
@@ -179,7 +193,7 @@ export function diagnosticarRede(p: Project): Diagnostico[] {
     const invalida = conexoesIssue(p, c);
     if (invalida) out.push({ codigo: 'conexao_invalida', elementId: c.id, motivo: invalida });
     diagnosticarConexoes(p, c, noMundo, invalida === null, out);
-    diagnosticarInclinacao(c, noMundo, out);
+    diagnosticarInclinacao(p, c, noMundo, out);
   }
   diagnosticarRedes(p, instancias, noMundo, out);
   // Eletroduto: trecho entre caixas com mais curvas que o limite (provisório, CONFERIR em `curvasEntreCaixas.ts`).

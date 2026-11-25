@@ -1,7 +1,8 @@
 import type { Vec2 } from '@hestia/geom';
-import { sugerirMudancaDeCota, type RegrasConexao } from '@hestia/engine';
+import { avaliarEncontro, sugerirMudancaDeCota, type RegrasConexao } from '@hestia/engine';
+import { isComponent, type Project } from '@hestia/model';
 import type { PreviewItem } from './types.ts';
-import type { PontoTubo } from './tuboGeometria.ts';
+import { extremosDoTubo, type PontoTubo } from './tuboGeometria.ts';
 
 /*
  * Alertas da ferramenta Tubo (ficha B5). Um trecho bloqueado fica guardado (`BloqueioTubo`) até o próximo clique válido ou Esc: a
@@ -47,11 +48,32 @@ export function sugestaoDeBloqueio(regras: Pick<RegrasConexao, 'curva45' | 'curv
   return textoSugestao(45, mudanca);
 }
 
-/** Prévia do bloqueio: o segmento tentado em vermelho e um rótulo com a sugestão (ou só "Bloqueado"). */
-export function itensDoBloqueio(bloqueio: BloqueioTubo): PreviewItem[] {
+/** Aviso de ângulo sem peça com a sugestão de cota (ficha B9): o de `avaliarEncontro` mais "Sugestão: mudar a cota em N mm para permitir 45°." quando cabe. */
+export function avisoComSugestao(aviso: string, regras: Pick<RegrasConexao, 'curva45' | 'curva90'> | null, a: PontoTubo, b: PontoTubo): string {
+  const sugestao = sugestaoDeBloqueio(regras, 'angulo', a, b, undefined, () => true);
+  return sugestao ? `${aviso} ${sugestao}` : aviso;
+}
+
+/**
+ * Alerta do canto em `inicio` (fim do trecho anterior da cadeia) para o trecho `inicio`→`fim`: o aviso de ângulo sem peça (ex. 60°)
+ * com a sugestão de cota, ou null se o canto tem peça ou não há tubo anterior da mesma família. Mesma conta de `TuboTool.ligarPonta`.
+ */
+export function alertaDeAngulo(p: Project, familiaId: string, dn: number, regras: RegrasConexao | null, inicio: PontoTubo, fim: PontoTubo): string | null {
+  const alvo = inicio.alvo;
+  const outro = alvo ? p.elements[alvo.componentId] : undefined;
+  const ext = alvo && regras && isComponent(outro) && outro.familyId === familiaId ? extremosDoTubo(p, outro) : null;
+  if (!alvo || !regras || !ext) return null;
+  const r = avaliarEncontro({ a: ext.a, b: ext.b, dn: ext.dn }, alvo.ligacaoId === ext.idA ? 'a' : 'b', { a: inicio.xyz, b: fim.xyz, dn }, 'a', regras, p.componentFamilies);
+  return r.codigo === 'angulo_sem_peca' && r.aviso ? avisoComSugestao(r.aviso, regras, inicio, fim) : null;
+}
+
+/** Prévia do bloqueio: o segmento tentado em vermelho e um rótulo com a sugestão (ou só "Bloqueado"); `comMotivo` (hover) põe o motivo no rótulo. */
+export function itensDoBloqueio(bloqueio: BloqueioTubo, comMotivo = false): PreviewItem[] {
   const meio: Vec2 = { x: (bloqueio.a.x + bloqueio.b.x) / 2, y: (bloqueio.a.y + bloqueio.b.y) / 2 };
+  // No hover só o começo do motivo (até os dois-pontos) cabe na tela; o motivo inteiro vai na fala do clique.
+  const texto = ['Bloqueado' + (comMotivo ? `: ${bloqueio.motivo.split(':')[0]}` : ''), bloqueio.sugestao].filter((t) => t).join(' · ');
   return [
     { kind: 'line', a: bloqueio.a, b: bloqueio.b, tone: 'invalid', halo: true },
-    { kind: 'label', at: meio, text: bloqueio.sugestao ? `Bloqueado · ${bloqueio.sugestao}` : 'Bloqueado' },
+    { kind: 'label', at: meio, text: texto },
   ];
 }
