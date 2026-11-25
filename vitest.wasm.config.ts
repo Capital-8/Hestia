@@ -13,7 +13,7 @@ export default defineConfig({
   test: {
     include: ['packages/geom/src/kernel/**/*.test.ts', 'tests/kernel-a*.wasm.test.ts', 'tests/kernel-b*.wasm.test.ts', 'tests/kernel-invariantes-*.wasm.test.ts', 'tests/kernel-v1-*.wasm.test.ts', 'tests/kernel-gc*.wasm.test.ts', 'tests/kernel-cortina*.wasm.test.ts', 'tests/kernel-massa*.wasm.test.ts', 'tests/kernel-terreno*.wasm.test.ts'],
     environment: 'node',
-    setupFiles: ['tests/kernel-wasm.setup.ts'],
+    setupFiles: ['tests/vitestSetup.ts', 'tests/kernel-wasm.setup.ts'],
     testTimeout: 30_000,
     pool: 'forks',
     poolOptions: {
