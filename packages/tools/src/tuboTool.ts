@@ -2,7 +2,7 @@ import type { Vec2 } from '@hestia/geom';
 import { avaliarDerivacao, avaliarEncontro, bitolaPermitida, comprimentoDoSegmento, encaixarLigacoes, idTuboDoProjeto, ligacaoNoMundo, posicionarConexao, regrasDoTubo, resolverComponente, resolverFamilia, trechoDeTubo, type ConexaoEncontro, type LigacaoNoMundo, type LigacaoResolvida, type PontoSegmento, type PosicaoConexao, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
 import { familiaDaBiblioteca, formatQuantity, isComponent, newId, unitsOf, type Component, type Familia, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
-import { extremosDoTubo, tuboSob, type ExtremosTubo, type PontoTubo } from './tuboGeometria.ts';
+import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import type { PointerInfo, PreviewItem } from './types.ts';
@@ -334,7 +334,13 @@ export class TuboTool extends ToolBase {
       this.env.say('Tubo: os dois pontos coincidem; escolha um ponto final diferente.');
       return;
     }
-    const avisos: string[] = [];
+    // Viabilidade (ficha B2), com os recuos reais, ANTES de gravar: bloqueio não cria nada e o início da cadeia fica como estava.
+    const viab = viabilidadeDoTrecho(this.env.project(), ctx.familia, ctx.pontas.inicio.dominio, regrasDoDominio(ctx), opcoesTubo.dn, a, b);
+    if (viab.bloqueio) {
+      this.env.say('Bloqueado: ' + viab.bloqueio);
+      return;
+    }
+    const avisos: string[] = [...viab.avisos];
     const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn: opcoesTubo.dn };
     try {
       this.env.transaction('Desenhar tubo', () => {

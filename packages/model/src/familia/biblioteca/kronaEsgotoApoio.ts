@@ -39,6 +39,7 @@ export interface Contexto {
 }
 export const ESGOTO: Contexto = { dominio: 'esgoto', sistema: SISTEMA_ESGOTO };
 export const AGUA_FRIA: Contexto = { dominio: 'agua_fria', sistema: 'Água fria' };
+export const ELETRICA: Contexto = { dominio: 'eletroduto', sistema: 'Eletroduto' };
 
 export type SerieKrona = 'normal' | 'reforcada' | 'soldavel';
 

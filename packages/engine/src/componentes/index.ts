@@ -34,6 +34,7 @@ export * from './ligacoesEncaixe.ts';
 export * from './orientarSegmento.ts';
 export * from './conexoesAutomaticas.ts';
 export * from './resolvedorNo.ts';
+export * from './viabilidadeNo.ts';
 export * from './tiposTubulacao.ts';
 export * from './verificacoesDaFamilia.ts';
 export * from './simbolosResolvidos.ts';
