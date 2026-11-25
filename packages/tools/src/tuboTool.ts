@@ -113,7 +113,6 @@ export class TuboTool extends ToolBase {
   private inicio: PontoTubo | null = null;
   /** Recuos (m) a aplicar nas pontas dos trechos do passo atual, depois das conexões (tubo entra na bolsa). */
   private aparos: Array<{ id: Id; ponta: 'a' | 'b'; recuo: number }> = [];
-  /** Último trecho bloqueado (ficha B5): prévia vermelha e sugestão até o próximo clique válido ou Esc. */
   private bloqueio: BloqueioTubo | null = null;
 
   protected reset(): void {
@@ -347,10 +346,7 @@ export class TuboTool extends ToolBase {
    */
   private criar(ctx: Contexto, a: PontoTubo, b: PontoTubo): void {
     const plano = planejarPrumada(a.xyz, b.xyz, opcoesTubo.modoCota, opcoesTubo.declividade, ctx.familia.id);
-    if (plano.bloqueio !== null) {
-      this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
-      return;
-    }
+    if (plano.bloqueio !== null) return this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
     const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
     const base = { levelId: this.env.levelId() };
     const trechos = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, opcoesTubo.dn, { id: newId('cm'), ...base }));
@@ -366,11 +362,7 @@ export class TuboTool extends ToolBase {
     const avisos: string[] = [];
     for (let k = 0; k < cadeia.length; k++) {
       const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] });
-      if (viab.bloqueio) {
-        const sugestao = sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, a, c).bloqueio === null);
-        this.bloquear(a, b, viab.bloqueio, sugestao, true);
-        return;
-      }
+      if (viab.bloqueio) return this.bloquear(a, b, viab.bloqueio, sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, a, c).bloqueio === null), true);
       avisos.push(...viab.avisos);
     }
     try {
