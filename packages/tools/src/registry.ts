@@ -56,11 +56,12 @@ import { MassTool } from './massTool.ts';
 import { ComponentTool } from './componentTool.ts';
 import { FurnitureTool } from './furnitureTool.ts';
 import { TuboTool } from './tuboTool.ts';
+import { EletrodutoTool } from './eletrodutoTool.ts';
 
-export type ToolId = 'select' | 'wall' | 'component' | 'tubo' | 'furniture' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot' | 'terrainRegion' | 'lot';
+export type ToolId = 'select' | 'wall' | 'component' | 'tubo' | 'eletroduto' | 'furniture' | 'floor' | 'slab' | 'ceiling' | 'slope' | 'door' | 'window' | 'curtainDoor' | 'curtainWindow' | 'curtainGridLine' | 'move' | 'copy' | 'rotate' | 'mirror' | 'array' | 'offset' | 'parallel' | 'trim' | 'align' | 'joins' | 'split' | 'measure' | 'level' | 'section' | 'rehost' | 'roof' | 'roofarrow' | 'roofextrusion' | 'attachroof' | 'detachroof' | 'stair' | 'stairrun' | 'ramp' | 'railing' | 'dimension' | 'angularDimension' | 'spotElevation' | 'spotCoordinate' | 'northArrow' | 'revisionCloud' | 'grid' | 'text' | 'room' | 'roomsep' | 'detailLine' | 'filledRegion' | 'tag' | 'perimeter' | 'paste' | 'column' | 'beam' | 'footing' | 'mass' | 'plugin' | 'terrain' | 'terrainEdit' | 'terrainLabel' | 'terrainSpot' | 'terrainRegion' | 'lot';
 
 export const TOOL_GROUPS: Array<{ title: string; tools: ToolId[] }> = [
-  { title: 'Construir', tools: ['wall', 'component', 'tubo', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
+  { title: 'Construir', tools: ['wall', 'component', 'tubo', 'eletroduto', 'column', 'beam', 'footing', 'door', 'window', 'curtainDoor', 'curtainWindow', 'curtainGridLine', 'floor', 'slab', 'ceiling', 'roof', 'stair', 'stairrun', 'ramp', 'railing', 'room'] },
   { title: 'Modificar', tools: ['move', 'copy', 'rotate', 'mirror', 'array', 'offset', 'parallel', 'trim', 'align', 'joins', 'split', 'rehost', 'slope', 'attachroof', 'detachroof'] },
   { title: 'Anotar', tools: ['level', 'dimension', 'angularDimension', 'spotElevation', 'spotCoordinate', 'text', 'detailLine', 'filledRegion', 'revisionCloud', 'tag', 'northArrow'] },
   { title: 'Medir', tools: ['measure'] },
@@ -89,6 +90,8 @@ export function createTool(id: ToolId, env: ToolEnv, perimeterTarget: SketchTarg
       return new FurnitureTool(env);
     case 'tubo':
       return new TuboTool(env);
+    case 'eletroduto':
+      return new EletrodutoTool(env);
     case 'paste':
       return new PasteTool(env);
     case 'terrain':
@@ -222,6 +225,7 @@ export const TOOL_LABEL: Record<ToolId, string> = {
   wall: 'Parede',
   component: 'Componente',
   tubo: 'Tubo',
+  eletroduto: 'Eletroduto',
   floor: 'Piso',
   slab: 'Laje',
   ceiling: 'Forro',

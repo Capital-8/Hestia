@@ -61,7 +61,7 @@ function paraEntradas(partes: ParteDoTubo[], de: number, trechos: TrechoViabilid
  * Confere o trecho `a`→`b` de `familia` (DN em mm) antes de ser gravado. `regras` null (domínio sem conexão automática) = nada a
  * conferir além da declividade. Não grava nada e não lança.
  */
-export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio: string, regras: RegrasConexao | null, dn: number, a: PontoTubo, b: PontoTubo, internos: { a: number; b: number } = { a: 0, b: 0 }): ViabilidadeDoTrecho {
+export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio: string, regras: RegrasConexao | null, dn: number, a: PontoTubo, b: PontoTubo, internos: { a: number; b: number } = { a: 0, b: 0 }, luvaEmLinha = false): ViabilidadeDoTrecho {
   const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn };
   // `internos`: recuos (m) já impostos às pontas do trecho por joelhos da própria prumada (ficha B4), que ainda não estão no projeto.
   const recuoNovo = { ...internos };
@@ -85,8 +85,8 @@ export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio:
     if (!ext) return;
     const lado = pt.alvo.ligacaoId === ext.idA ? 'a' : 'b';
     const r = avaliarEncontro({ a: ext.a, b: ext.b, dn: ext.dn }, lado, novo, ponta, regras);
-    // Luva ou sem conexão: o tubo liga direto, sem recuo.
-    if (!r.conexao || r.conexao.tipo === 'luva') return;
+    // Sem conexão (ou luva que a ferramenta não insere): o tubo liga direto, sem recuo.
+    if (!r.conexao || (r.conexao.tipo === 'luva' && !luvaEmLinha)) return;
     const fam = familiaDaConexao(projeto, r.conexao.familiaId);
     const pos = fam ? posicionarConexao(fam, pt.xyz, r.conexao) : null;
     if (!pos) return;

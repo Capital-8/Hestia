@@ -10,7 +10,7 @@ import { CONEXOES_POR_DOMINIO, type RegrasConexao } from './conexoesAutomaticas.
 export interface TipoTubulacao {
   id: string;
   rotulo: string;
-  dominio: 'esgoto' | 'agua_fria';
+  dominio: 'esgoto' | 'agua_fria' | 'eletroduto';
   regras: RegrasConexao;
   /** DN (mm) permitidos para o trecho; `null` = qualquer. */
   bitolas: readonly number[] | null;
@@ -51,6 +51,26 @@ export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
       luva: 'fam_krona_soldavel_luva',
       reducao: 'fam_krona_soldavel_luva_reducao',
       tampao: 'fam_krona_soldavel_tampao',
+    },
+  },
+  {
+    // Eletroduto rígido soldável da Krona (ficha C3). SÓ as peças que o catálogo transcrito tem: curva 90° (DN 20, 25, 32) e luva
+    // (DN 20 e 25; DN 32 não tem luva no catálogo). Curva 45°, tê, junção, redução e tampão NÃO existem: a regra fica vazia e o
+    // encontro vira aviso, sem peça inventada. Bitolas = as do tubo do catálogo (CONFERIR).
+    id: 'krona_eletroduto_pvc',
+    rotulo: 'Eletroduto PVC rígido soldável — Krona',
+    dominio: 'eletroduto',
+    linha: 'eletroduto rígido soldável da Krona',
+    bitolas: [20, 25, 32],
+    regras: {
+      tubo: 'fam_krona_eletrica_tubo_corte',
+      curva90: 'fam_krona_eletrica_curva90',
+      curva45: '',
+      te: '',
+      juncao45: '',
+      luva: 'fam_krona_eletrica_luva',
+      reducao: '',
+      tampao: '',
     },
   },
 ];

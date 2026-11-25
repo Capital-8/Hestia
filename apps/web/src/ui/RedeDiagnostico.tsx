@@ -1,5 +1,5 @@
 import { useMemo, type ReactElement } from 'react';
-import { diagnosticarRede, type Diagnostico } from '@hestia/engine';
+import { diagnosticarRede, LIMITE_CURVAS_ENTRE_CAIXAS, type Diagnostico } from '@hestia/engine';
 import type { ValidationIssue } from '@hestia/model';
 import { useProject } from '../editor/controller.ts';
 import { goToIssue } from '../editor/goToIssue.ts';
@@ -42,6 +42,8 @@ export function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang): str
       return t('rede_inclinacao', { pct: numero(d.valor, lang) });
     case 'rede_sem_saida':
       return t('rede_sem_saida', { n: d.valor ?? 0 });
+    case 'curvas_entre_caixas':
+      return t('rede_curvas', { n: numero(d.valor, lang), limite: LIMITE_CURVAS_ENTRE_CAIXAS });
   }
 }
 

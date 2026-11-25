@@ -1,5 +1,6 @@
 import { conexoesIssue, type Component, type DominioLigacao, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
+import { trechosAcimaDoLimite } from './curvasEntreCaixas.ts';
 import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
 
 /*
@@ -32,7 +33,8 @@ export type CodigoDiagnostico =
   | 'conexao_afastada'
   | 'incompativel'
   | 'inclinacao_fora_limite'
-  | 'rede_sem_saida';
+  | 'rede_sem_saida'
+  | 'curvas_entre_caixas';
 
 /** Um problema da rede. `ligacaoId`/`outroId` aparecem quando o problema é de uma ligação ou de uma conexão. */
 export interface Diagnostico {
@@ -156,7 +158,7 @@ function diagnosticarRedes(p: Project, instancias: Component[], noMundo: Map<Id,
 /**
  * Diagnóstico da rede MEP do projeto (ficha C7): ligações abertas sem tampão, conexões invalidas, conexões que se afastaram
  * (> 5 mm), incompatibilidade de domínio, seção, bitola, direção ou fluxo, trecho de esgoto com declividade fora da faixa e
- * rede sem saída. Lista vazia = rede sem avisos.
+ * rede sem saída e trecho de eletroduto com curvas demais entre caixas. Lista vazia = rede sem avisos.
  */
 export function diagnosticarRede(p: Project): Diagnostico[] {
   const instancias = Object.values(p.elements).filter((e): e is Component => e.kind === 'component');
@@ -169,5 +171,10 @@ export function diagnosticarRede(p: Project): Diagnostico[] {
     diagnosticarInclinacao(c, noMundo, out);
   }
   diagnosticarRedes(p, instancias, noMundo, out);
+  // Eletroduto: trecho entre caixas com mais curvas que o limite (provisório, CONFERIR em `curvasEntreCaixas.ts`).
+  for (const t of trechosAcimaDoLimite(p)) {
+    const primeiro = t.componentes[0];
+    if (primeiro !== undefined) out.push({ codigo: 'curvas_entre_caixas', elementId: primeiro, valor: t.curvas });
+  }
   return out;
 }

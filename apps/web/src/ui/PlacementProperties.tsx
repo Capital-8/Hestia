@@ -15,7 +15,7 @@ import { stairRunFields, stairShapeOptions } from './stairRunFields.ts';
 import { TuboProperties } from './TuboProperties.tsx';
 import { avisoLimiteInclinacao, grauDeRad, radDeGrau, TILT_MAX_RAD } from '../editor/wallTiltActions.ts';
 
-const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section', 'column', 'beam', 'footing', 'tubo']);
+const PLACE_TOOLS = new Set<ToolId>(['wall', 'door', 'window', 'floor', 'slab', 'slope', 'ceiling', 'roof', 'roofextrusion', 'stair', 'stairrun', 'ramp', 'room', 'roomsep', 'dimension', 'text', 'spotElevation', 'spotCoordinate', 'revisionCloud', 'northArrow', 'tag', 'detailLine', 'section', 'column', 'beam', 'footing', 'tubo', 'eletroduto']);
 
 /** Linha de localização da parede: mesma lista de `LOCATION_LABEL`, traduzida pelo dicionário. */
 const LOCATION_KEY: Record<LocationLine, keyof Dict> = {
@@ -56,6 +56,7 @@ export function PlacementProperties({ tool }: { tool: ToolId }): ReactElement {
   return (
     <>
       {tool === 'tubo' && <TuboProperties />}
+      {tool === 'eletroduto' && <TuboProperties eletrico />}
       {tool === 'wall' && (
         <Group title={t('pra_pgrp_placement_wall')}>
           <Row label={t('pra_fld_form')} htmlFor="place-wall-shape"><select id="place-wall-shape" className="select" value={wallModeOf(o)} onChange={(e) => set(wallModePatch(e.target.value as WallMode))}><option value="line">{t('pra_opt_line')}</option><option value="arc">{t('pra_opt_arc_3_points')}</option><option value="arcCenter">{t('pro_pm_shape_arc_center')}</option><option value="arcTangent">{t('pro_pm_shape_arc_tangent')}</option><option value="rect">{t('pra_opt_rectangle')}</option><option value="polygonIn">{t('pro_shape_poly_in')}</option><option value="polygonOut">{t('pro_shape_poly_out')}</option><option value="circle">{t('pro_shape_circle')}</option><option value="ellipse">{t('pro_shape_ellipse')}</option><option value="spline">{t('pro_shape_spline')}</option></select></Row>

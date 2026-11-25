@@ -37,6 +37,7 @@ export * from './resolvedorNo.ts';
 export * from './viabilidadeNo.ts';
 export * from './sugestaoCota.ts';
 export * from './tiposTubulacao.ts';
+export * from './curvasEntreCaixas.ts';
 export * from './verificacoesDaFamilia.ts';
 export * from './simbolosResolvidos.ts';
 export * from './resolverCorpos.ts';

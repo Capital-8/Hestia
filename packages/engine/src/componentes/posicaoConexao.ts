@@ -212,7 +212,7 @@ function ordemConsistente(lista: LigacaoResolvida[], dns: number[]): boolean {
 /**
  * Posiciona a instância de `familia` no `ponto` (m) de modo que cada ligação dela aponte na direção do trecho que chega.
  * Casa as ligações da família com as direções por permutação (primeiro exigindo o DN igual, depois sem exigir); devolve `null`
- * se a família não tem as ligações necessárias ou a geometria não casa. A origem da conexão fica no ponto de encontro.
+ * se a família não tem as ligações necessárias ou a geometria não casa. A origem da conexão fica no ponto de encontro (luva de duas bocas: o centro entre elas).
  * Família de bitola composta (sem `DN`, com `COD`): o tipo é o do par de bitolas da conexão; sem tipo para o par, `null`.
  */
 export function posicionarConexao(familia: Familia, ponto: PontoSegmento, conexao: ConexaoEncontro): PosicaoConexao | null {
@@ -235,8 +235,11 @@ export function posicionarConexao(familia: Familia, ponto: PontoSegmento, conexa
       const r = rotacaoQueAlinha(locais, conexao.direcoes);
       if (!r) continue;
       const o = decompor(r);
-      const recuos = lista.map((l) => (l.encaixe === undefined ? 0 : Math.max(0, Math.hypot(l.posicao[0], l.posicao[1], l.posicao[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0))));
-      return { x: ponto[0], y: ponto[1], z: ponto[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos, ...(tipo ? { typeId: tipo.typeId } : {}) };
+      // Luva de duas ligações (ficha C3): a origem da família fica numa boca, então o CENTRO entre as bocas é que vai ao ponto de encontro.
+      const centro: V3 = lista.length === 2 && conexao.tipo === 'luva' ? [0, 1, 2].map((k) => ((lista[0]?.posicao[k] ?? 0) + (lista[1]?.posicao[k] ?? 0)) / 2) as V3 : [0, 0, 0];
+      const deslocado = aplica(r, centro);
+      const recuos = lista.map((l) => (l.encaixe === undefined ? 0 : Math.max(0, Math.hypot(l.posicao[0] - centro[0], l.posicao[1] - centro[1], l.posicao[2] - centro[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0))));
+      return { x: ponto[0] - deslocado[0], y: ponto[1] - deslocado[1], z: ponto[2] - deslocado[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos, ...(tipo ? { typeId: tipo.typeId } : {}) };
     }
   }
   return null;

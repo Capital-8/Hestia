@@ -1,13 +1,16 @@
 import type { Vec2 } from '@hestia/geom';
-import { avaliarDerivacao, avaliarEncontro, bitolaPermitida, comprimentoDoSegmento, encaixarLigacoes, idTuboDoProjeto, ligacaoNoMundo, posicionarConexao, regrasDoTubo, resolverComponente, resolverFamilia, trechoDeTubo, type ConexaoEncontro, type LigacaoNoMundo, type LigacaoResolvida, type PontoSegmento, type PosicaoConexao, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
-import { familiaDaBiblioteca, formatQuantity, isComponent, newId, unitsOf, type Component, type Familia, type Id, type Project } from '@hestia/model';
+import { avaliarDerivacao, avaliarEncontro, bitolaPermitida, comprimentoDoSegmento, idTuboDoProjeto, posicionarConexao, regrasDoTubo, trechoDeTubo, type ConexaoEncontro, type PontoSegmento, type PosicaoConexao, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
+import { familiaDaBiblioteca, isComponent, newId, type Component, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
 import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
 import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
 import { planejarPrumada, recuosDoJoelho, type ModoCota } from './tuboPrumada.ts';
 import { itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
-import type { PointerInfo, PreviewItem } from './types.ts';
+import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, temConexoes, type ContextoTraco } from './tuboApoio.ts';
+import type { PointerInfo, ToolEnv } from './types.ts';
+
+export { pontasDoTubo };
 
 /** Família de tubo de reserva: usada quando o projeto não tem o tubo real de nenhum domínio (`CONEXOES_POR_DOMINIO`, ficha F1). */
 export const FAMILIA_TUBO_PADRAO = 'tubo-padrao';
@@ -20,84 +23,40 @@ export const FAMILIA_TUBO_BIBLIOTECA = 'fam_tubo_esgoto';
  * com valor, o ponto final fica a `declividade` % da distância em planta acima (positiva) ou abaixo (negativa) do inicial. 0 = nível.
  * `modoCota` (ficha B4): como desenhar um trecho entre cotas diferentes com declividade 0 (ver `tuboPrumada.ts`).
  */
-export const opcoesTubo: { dn: number; z: number; declividade: number; modoCota: ModoCota } = { dn: 50, z: 0, declividade: 0, modoCota: 'subir_primeiro' };
+export const opcoesTubo: OpcoesTraco = { dn: 50, z: 0, declividade: 0, modoCota: 'subir_primeiro' };
+
+/** Ajustes do traçado (o painel edita): `familiaId` só vale para ferramentas com família própria (Eletroduto). */
+export interface OpcoesTraco { dn: number; z: number; declividade: number; modoCota: ModoCota; familiaId?: string }
+
+/**
+ * O que muda de uma ferramenta de traçado para outra (ficha C3): Tubo e Eletroduto usam o MESMO motor (`TuboTool`). `luvaEmLinha`:
+ * trechos em linha reta ganham a luva do tipo (eletroduto vem em varas); `avisosDepois` devolve avisos do projeto já gravado.
+ */
+export interface ConfigTraco {
+  id: string;
+  nome: string;
+  hint: string;
+  opcoes: OpcoesTraco;
+  familiaInicial: (fams: Project['componentFamilies'], escolhida: string | undefined) => string;
+  luvaEmLinha: boolean;
+  avisosDepois?: (p: Project, ids: Id[]) => string[];
+}
+
+export const CONFIG_TUBO: ConfigTraco = {
+  id: 'tubo',
+  nome: 'Tubo',
+  hint: 'Tubo: clique o ponto inicial e o final (Shift trava no eixo; digite o comprimento e Enter). Esc encerra a cadeia.',
+  opcoes: opcoesTubo,
+  familiaInicial: (fams, escolhida) => escolhida ?? idTuboDoProjeto(fams) ?? (fams?.[FAMILIA_TUBO_PADRAO] ? FAMILIA_TUBO_PADRAO : FAMILIA_TUBO_BIBLIOTECA),
+  luvaEmLinha: false,
+};
 
 /** Tolerância mínima (m) da captura de ligação aberta; cresce com o zoom (8 px). */
 const TOLERANCIA_MINIMA = 0.05;
 
-/** As duas pontas do tubo: a ligação do início (menor z local) e a do fim (maior z local). */
-interface PontasDoTubo {
-  inicio: LigacaoResolvida;
-  fim: LigacaoResolvida;
-}
-
-/** Contexto da ferramenta: a família do tubo e as pontas dela. */
-interface Contexto {
-  familia: Familia;
-  pontas: PontasDoTubo;
-}
-
 /** Regras de conexão do trecho: as do tipo de tubulação da família (Krona etc.) ou as fixas do domínio; null se não há. */
-function regrasDoDominio(ctx: Contexto): RegrasConexao | null {
+function regrasDoDominio(ctx: ContextoTraco): RegrasConexao | null {
   return regrasDoTubo(ctx.familia.id, ctx.pontas.inicio.dominio);
-}
-
-/** Verdadeiro se o projeto tem alguma família de conexão (não o tubo) das regras. */
-function temConexoes(p: Project, r: RegrasConexao): boolean {
-  return Object.entries(r).some(([k, id]) => k !== 'tubo' && id !== '' && p.componentFamilies?.[id] !== undefined);
-}
-
-/** Ligação aberta de uma instância do projeto, já no mundo. */
-interface LigacaoAberta {
-  componentId: Id;
-  lig: LigacaoNoMundo;
-}
-
-/** Pontas da família para o DN pedido (resolve com `L` de 1 m só para achar as posições); null se não tem duas ligações. */
-export function pontasDoTubo(familia: Familia, dn: number): PontasDoTubo | null {
-  const ligs = [...resolverFamilia(familia, { valores: { DN: dn, L: 1000 } }).ligacoes ?? []].sort((a, b) => a.posicao[2] - b.posicao[2]);
-  const inicio = ligs[0];
-  const fim = ligs[ligs.length - 1];
-  return ligs.length >= 2 && inicio && fim ? { inicio, fim } : null;
-}
-
-/** Ligações abertas por projeto (N4): o mouse pedia a lista a cada movimento; o projeto novo a cada comando invalida sozinho. */
-const ABERTAS = new WeakMap<Project, LigacaoAberta[]>();
-
-/** Ligações abertas (sem conexão) de todas as instâncias do projeto, no mundo. */
-function ligacoesAbertas(p: Project): LigacaoAberta[] {
-  const guardada = ABERTAS.get(p);
-  if (guardada) return guardada;
-  const saida: LigacaoAberta[] = [];
-  for (const e of Object.values(p.elements)) {
-    if (!isComponent(e) || !p.componentFamilies?.[e.familyId]?.ligacoes?.length) continue;
-    for (const lig of resolverComponente(p, e).ligacoes ?? []) {
-      if (e.ligacoes?.[lig.id] === undefined) saida.push({ componentId: e.id, lig: ligacaoNoMundo(lig, e) });
-    }
-  }
-  ABERTAS.set(p, saida);
-  return saida;
-}
-
-/**
- * Ligação aberta mais próxima de `(x, y)` que casa com a ponta do tubo (domínio, seção, DN e fluxo, por `encaixarLigacoes`).
- * Em planta o z do cursor é desconhecido: a distância usa o z da própria candidata. A direção do tubo ainda não existe (depende
- * do outro ponto), então a ponta é posta de frente para a candidata; `bitolaLivre` (há redução no projeto) ignora o DN.
- */
-function ligacaoProxima(x: number, y: number, ponta: LigacaoResolvida, abertas: LigacaoAberta[], tolerancia: number, bitolaLivre = false): LigacaoAberta | null {
-  let melhor: LigacaoAberta | null = null;
-  let melhorD = Infinity;
-  for (const c of abertas) {
-    const alvo: LigacaoNoMundo = { ...ponta, ...(bitolaLivre ? { diametro: c.lig.diametro } : {}), posicaoMundo: [x, y, c.lig.posicaoMundo[2]], direcaoMundo: [-c.lig.direcaoMundo[0], -c.lig.direcaoMundo[1], -c.lig.direcaoMundo[2]] };
-    const r = encaixarLigacoes(alvo, [c.lig], tolerancia);
-    if (r === null) continue;
-    const d = Math.hypot(r.deslocamento[0], r.deslocamento[1], r.deslocamento[2]);
-    if (d < melhorD) {
-      melhor = c;
-      melhorD = d;
-    }
-  }
-  return melhor;
 }
 
 /**
@@ -106,14 +65,23 @@ function ligacaoProxima(x: number, y: number, ponta: LigacaoResolvida, abertas: 
  * eixo; um número digitado + Enter fixa o comprimento na direção do cursor.
  */
 export class TuboTool extends ToolBase {
-  readonly id = 'tubo';
-  readonly label = 'Tubo';
-  readonly hint = 'Tubo: clique o ponto inicial e o final (Shift trava no eixo; digite o comprimento e Enter). Esc encerra a cadeia.';
+  readonly id: string;
+  readonly label: string;
+  readonly hint: string;
   readonly pick3d = true;
   private inicio: PontoTubo | null = null;
   /** Recuos (m) a aplicar nas pontas dos trechos do passo atual, depois das conexões (tubo entra na bolsa). */
   private aparos: Array<{ id: Id; ponta: 'a' | 'b'; recuo: number }> = [];
   private bloqueio: BloqueioTubo | null = null;
+  protected readonly opc: OpcoesTraco;
+
+  constructor(env: ToolEnv, protected readonly cfg: ConfigTraco = CONFIG_TUBO) {
+    super(env);
+    this.id = cfg.id;
+    this.label = cfg.nome;
+    this.hint = cfg.hint;
+    this.opc = cfg.opcoes;
+  }
 
   protected reset(): void {
     this.items = [];
@@ -136,30 +104,30 @@ export class TuboTool extends ToolBase {
   }
 
   /** Família escolhida (opções) ou a padrão do domínio, e as pontas dela; avisa e devolve null se faltar algo. */
-  private contexto(): Contexto | null {
+  private contexto(): ContextoTraco | null {
     const fams = this.env.project().componentFamilies;
-    const id = this.env.options().componentFamilyId ?? idTuboDoProjeto(fams) ?? (fams?.[FAMILIA_TUBO_PADRAO] ? FAMILIA_TUBO_PADRAO : FAMILIA_TUBO_BIBLIOTECA);
+    const id = this.cfg.familiaInicial(fams, this.env.options().componentFamilyId);
     // Sem a família no projeto, usa a da biblioteca MEP (ela entra no projeto junto com o primeiro trecho, em `criar`).
     const familia = fams?.[id] ?? familiaDaBiblioteca(id);
     if (!familia) {
-      this.env.say('Tubo: escolha uma família de tubo no painel (a família de tubo padrão ainda não está no projeto).');
+      this.env.say(`${this.cfg.nome}: escolha uma família de tubo no painel (a família de tubo padrão ainda não está no projeto).`);
       return null;
     }
-    const bitola = bitolaPermitida(familia.id, opcoesTubo.dn);
+    const bitola = bitolaPermitida(familia.id, this.opc.dn);
     if (!bitola.ok) {
-      this.env.say(`Tubo: ${bitola.motivo}`);
+      this.env.say(`${this.cfg.nome}: ${bitola.motivo}`);
       return null;
     }
-    const pontas = pontasDoTubo(familia, opcoesTubo.dn);
+    const pontas = pontasDoTubo(familia, this.opc.dn);
     if (!pontas) {
-      this.env.say('Tubo: a família escolhida precisa de duas ligações (início e fim).');
+      this.env.say(`${this.cfg.nome}: a família escolhida precisa de duas ligações (início e fim).`);
       return null;
     }
     return { familia, pontas };
   }
 
   /** Ponto do cursor: captura geral, trava de eixo (Shift ou Orto) e encaixe numa ligação aberta compatível. */
-  private ponto(p: PointerInfo, ctx: Contexto, ehFim: boolean): PontoTubo {
+  private ponto(p: PointerInfo, ctx: ContextoTraco, ehFim: boolean): PontoTubo {
     const de = this.inicio ? { x: this.inicio.xyz[0], y: this.inicio.xyz[1] } : undefined;
     let at: Vec2 = this.snap(p, de ? { from: de } : {}).point;
     if (de && (p.shift || this.env.options().orthoLock)) {
@@ -175,10 +143,10 @@ export class TuboTool extends ToolBase {
       return { xyz: [x, y, z], alvo: { componentId: achada.componentId, ligacaoId: achada.lig.id } };
     }
     // No meio de um tubo existente: derivação (tê ou junção 45°), quando o projeto tem as conexões do domínio.
-    const sob = regras && temConexoes(projeto, regras) ? tuboSob(projeto, ctx.familia.id, [at.x, at.y, opcoesTubo.z], tol, tol) : null;
+    const sob = regras && temConexoes(projeto, regras) ? tuboSob(projeto, ctx.familia.id, [at.x, at.y, this.opc.z], tol, tol) : null;
     if (sob) return { xyz: sob.xyz, alvo: null, derivacao: true };
     // Declividade (M2): o ponto FINAL livre sobe ou desce em % da distância em planta; ponto encaixado ou derivação mantém a cota do alvo.
-    const z = ehFim && this.inicio && opcoesTubo.declividade !== 0 ? this.inicio.xyz[2] + (opcoesTubo.declividade / 100) * Math.hypot(at.x - this.inicio.xyz[0], at.y - this.inicio.xyz[1]) : opcoesTubo.z;
+    const z = ehFim && this.inicio && this.opc.declividade !== 0 ? this.inicio.xyz[2] + (this.opc.declividade / 100) * Math.hypot(at.x - this.inicio.xyz[0], at.y - this.inicio.xyz[1]) : this.opc.z;
     return { xyz: [at.x, at.y, z], alvo: null };
   }
 
@@ -189,27 +157,8 @@ export class TuboTool extends ToolBase {
     if (!ctx) return;
     const pt = this.ponto(p, ctx, this.inicio !== null);
     this.items.push({ kind: 'point', at: { x: pt.xyz[0], y: pt.xyz[1] } });
-    if (this.inicio) this.items.push(...this.fantasma(this.inicio.xyz, pt.xyz));
+    if (this.inicio) this.items.push(...fantasmaDoTrecho(this.env.project(), this.opc.dn, this.inicio.xyz, pt.xyz));
     if (this.bloqueio) this.items.push(...itensDoBloqueio(this.bloqueio));
-  }
-
-  /** Fantasma do trecho: faixa de largura DN, eixo tracejado e o comprimento. */
-  private fantasma(a: PontoSegmento, b: PontoSegmento): PreviewItem[] {
-    const dx = b[0] - a[0];
-    const dy = b[1] - a[1];
-    const h = Math.hypot(dx, dy);
-    const A: Vec2 = { x: a[0], y: a[1] };
-    const B: Vec2 = { x: b[0], y: b[1] };
-    const itens: PreviewItem[] = [{ kind: 'line', a: A, b: B, dashed: true }];
-    if (h > 1e-9) {
-      const m = opcoesTubo.dn / 2000;
-      const nx = (-dy / h) * m;
-      const ny = (dx / h) * m;
-      itens.push({ kind: 'polygon', ring: [{ x: A.x + nx, y: A.y + ny }, { x: B.x + nx, y: B.y + ny }, { x: B.x - nx, y: B.y - ny }, { x: A.x - nx, y: A.y - ny }], dashed: true });
-    }
-    const L = comprimentoDoSegmento(a, b);
-    itens.push({ kind: 'label', at: { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 }, text: formatQuantity(unitsOf(this.env.project()), 'length', L) });
-    return itens;
   }
 
   override click(p: PointerInfo): void {
@@ -218,7 +167,7 @@ export class TuboTool extends ToolBase {
     const pt = this.ponto(p, ctx, this.inicio !== null);
     if (!this.inicio) {
       this.inicio = pt;
-      this.env.say('Tubo: clique o ponto final.');
+      this.env.say(`${this.cfg.nome}: clique o ponto final.`);
       return;
     }
     this.criar(ctx, this.inicio, pt);
@@ -243,7 +192,7 @@ export class TuboTool extends ToolBase {
   }
 
   /** Liga a ponta `ponta` ('a' início, 'b' fim) do trecho novo `id` ao que há no ponto `pt`: tubo aberto (curva, redução, luva) ou meio de tubo (tê). */
-  private ligarPonta(ctx: Contexto, id: Id, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, avisos: string[]): void {
+  private ligarPonta(ctx: ContextoTraco, id: Id, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, avisos: string[]): void {
     const minha = ponta === 'a' ? ctx.pontas.inicio.id : ctx.pontas.fim.id;
     const projeto = this.env.project();
     const regras = regrasDoDominio(ctx);
@@ -261,7 +210,7 @@ export class TuboTool extends ToolBase {
     // Sem nenhuma conexão do domínio no projeto o tubo liga direto (como antes); com elas, ângulo sem regra fica sem ligação.
     if (!r.conexao) return temConexoes(projeto, regras) ? undefined : direto();
     // Luva: trechos em linha reta e do mesmo DN se ligam direto (o tubo é contínuo, não precisa de peça).
-    if (r.conexao.tipo === 'luva') return direto();
+    if (r.conexao.tipo === 'luva' && !this.cfg.luvaEmLinha) return direto();
     const alvos = [{ componentId: pt.alvo.componentId, ligacaoId: pt.alvo.ligacaoId }, { componentId: id, ligacaoId: minha }];
     const pos = this.inserirConexao(r.conexao, pt.xyz, alvos, avisos);
     if (!pos) return direto();
@@ -270,7 +219,7 @@ export class TuboTool extends ToolBase {
   }
 
   /** Derivação: divide o tubo sob `pt` em dois (o primeiro mantém o id) e instala o tê ou a junção ligando principal, principal e ramal. */
-  private derivar(ctx: Contexto, id: Id, minha: string, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, regras: RegrasConexao, avisos: string[]): void {
+  private derivar(ctx: ContextoTraco, id: Id, minha: string, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, regras: RegrasConexao, avisos: string[]): void {
     const alvo = tuboSob(this.env.project(), ctx.familia.id, pt.xyz, 1e-6, 1e-6, id);
     if (!alvo) return;
     const { c: t, ext } = alvo;
@@ -298,7 +247,7 @@ export class TuboTool extends ToolBase {
    * Grava no projeto (dentro da transação do trecho) a família de tubo vinda da biblioteca MEP e, só então, as famílias de conexão do
    * domínio. Projeto que já tem o tubo (inclusive fixtures) não ganha conexões novas por trás.
    */
-  private garantirFamilias(ctx: Contexto): void {
+  private garantirFamilias(ctx: ContextoTraco): void {
     if (this.env.project().componentFamilies?.[ctx.familia.id] !== undefined) return;
     const regras = regrasDoDominio(ctx);
     const ids = new Set<string>([ctx.familia.id, ...(regras ? Object.values(regras) : [])]);
@@ -344,35 +293,35 @@ export class TuboTool extends ToolBase {
    * mudança de cota (ficha B4, `planejarPrumada`) o trecho vira uma cadeia de tubos ligados por joelhos. A cadeia continua do fim
    * (a menos que o fim tenha encaixado numa rede).
    */
-  private criar(ctx: Contexto, a: PontoTubo, b: PontoTubo): void {
-    const plano = planejarPrumada(a.xyz, b.xyz, opcoesTubo.modoCota, opcoesTubo.declividade, ctx.familia.id);
+  private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): void {
+    const plano = planejarPrumada(a.xyz, b.xyz, this.opc.modoCota, this.opc.declividade, ctx.familia.id);
     if (plano.bloqueio !== null) return this.bloquear(a, b, plano.bloqueio, sugestaoDeBloqueio(regrasDoDominio(ctx), 'angulo', a, b, undefined, () => true), false);
     const pts: PontoTubo[] = [a, ...plano.intermediarios.map((q): PontoTubo => ({ xyz: [q[0], q[1], q[2]], alvo: null })), b];
     const base = { levelId: this.env.levelId() };
-    const trechos = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, opcoesTubo.dn, { id: newId('cm'), ...base }));
+    const trechos = pts.slice(1).map((q, k) => trechoDeTubo((pts[k] as PontoTubo).xyz, q.xyz, ctx.familia, this.opc.dn, { id: newId('cm'), ...base }));
     if (trechos.some((c) => !c)) {
-      this.env.say('Tubo: os dois pontos coincidem; escolha um ponto final diferente.');
+      this.env.say(`${this.cfg.nome}: os dois pontos coincidem; escolha um ponto final diferente.`);
       return;
     }
     const cadeia = trechos as Component[];
     // Viabilidade (ficha B2), com os recuos reais de cada nó (inclusive os joelhos internos), ANTES de gravar: bloqueio não cria nada.
     const regras = regrasDoDominio(ctx);
     const projeto = this.env.project();
-    const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, opcoesTubo.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
+    const joelhos = pts.map((q, k) => (k > 0 && k < pts.length - 1 ? recuosDoJoelho(projeto, regras, this.opc.dn, (pts[k - 1] as PontoTubo).xyz, q.xyz, (pts[k + 1] as PontoTubo).xyz) : ([0, 0] as [number, number])));
     const avisos: string[] = [];
     for (let k = 0; k < cadeia.length; k++) {
-      const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] });
-      if (viab.bloqueio) return this.bloquear(a, b, viab.bloqueio, sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, opcoesTubo.dn, a, c).bloqueio === null), true);
+      const viab = viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, pts[k] as PontoTubo, pts[k + 1] as PontoTubo, { a: (joelhos[k] as [number, number])[1], b: (joelhos[k + 1] as [number, number])[0] }, this.cfg.luvaEmLinha);
+      if (viab.bloqueio) return this.bloquear(a, b, viab.bloqueio, sugestaoDeBloqueio(regras, viab.codigo, a, b, viab.faltam, (c) => viabilidadeDoTrecho(projeto, ctx.familia, ctx.pontas.inicio.dominio, regras, this.opc.dn, a, c, undefined, this.cfg.luvaEmLinha).bloqueio === null), true);
       avisos.push(...viab.avisos);
     }
     try {
-      this.env.transaction('Desenhar tubo', () => {
+      this.env.transaction(`Desenhar ${this.cfg.nome.toLowerCase()}`, () => {
         this.garantirFamilias(ctx);
         this.aparos = [];
         cadeia.forEach((c, k) => {
           const de = pts[k] as PontoTubo;
           const para = pts[k + 1] as PontoTubo;
-          const novo: TrechoEncontro = { a: de.xyz, b: para.xyz, dn: opcoesTubo.dn };
+          const novo: TrechoEncontro = { a: de.xyz, b: para.xyz, dn: this.opc.dn };
           this.env.exec({ type: 'addComponent', component: c });
           // O início de cada trecho liga ao fim do anterior pelo mesmo caminho dos cantos em L (`ligarPonta`).
           const anterior = cadeia[k - 1];
@@ -388,14 +337,15 @@ export class TuboTool extends ToolBase {
     }
     this.items = [];
     this.bloqueio = null;
+    avisos.push(...(this.cfg.avisosDepois?.(this.env.project(), cadeia.map((c) => c.id)) ?? []));
     const extra = avisos.length ? ' ' + avisos.join(' ') : '';
     const id = (cadeia[cadeia.length - 1] as Component).id;
     if (b.alvo || b.derivacao) {
       this.inicio = null;
-      this.env.say('Tubo ligado à rede. Clique para iniciar outro trecho; Esc sai.' + extra);
+      this.env.say(`${this.cfg.nome} ligado à rede. Clique para iniciar outro trecho; Esc sai.` + extra);
     } else {
       this.inicio = { xyz: b.xyz, alvo: { componentId: id, ligacaoId: ctx.pontas.fim.id } };
-      this.env.say('Tubo criado. Clique o próximo ponto para continuar; Esc encerra a cadeia.' + extra);
+      this.env.say(`${this.cfg.nome} criado. Clique o próximo ponto para continuar; Esc encerra a cadeia.` + extra);
     }
   }
 
@@ -410,7 +360,7 @@ export class TuboTool extends ToolBase {
     const h = Math.hypot(ref.x - a[0], ref.y - a[1]);
     const ux = h < 1e-9 ? 1 : (ref.x - a[0]) / h;
     const uy = h < 1e-9 ? 0 : (ref.y - a[1]) / h;
-    this.criar(ctx, this.inicio, { xyz: [a[0] + ux * v, a[1] + uy * v, a[2] + (opcoesTubo.declividade / 100) * v], alvo: null });
+    this.criar(ctx, this.inicio, { xyz: [a[0] + ux * v, a[1] + uy * v, a[2] + (this.opc.declividade / 100) * v], alvo: null });
     return true;
   }
 }

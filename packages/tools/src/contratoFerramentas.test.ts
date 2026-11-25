@@ -49,6 +49,8 @@ const LINEARES: Record<string, string> = {
   beam: 'beamTool.ts',
   // Tubo (ficha C5): trecho reto entre dois pontos; o comprimento digitado vem do núcleo comum.
   tubo: 'tuboTool.ts',
+  // Eletroduto (ficha C3): mesmo motor de traço do Tubo, configurado para o contexto elétrico.
+  eletroduto: 'tuboTool.ts',
   // SUPLEMENTOS (fase H): a ferramenta de suplemento recebe os pontos já com os snaps do núcleo comum.
   plugin: 'pluginTool.ts',
 };
