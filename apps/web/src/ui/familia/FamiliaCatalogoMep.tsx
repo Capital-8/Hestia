@@ -6,6 +6,7 @@ import {
   editarLinha,
   familiaDoItem,
   itemDeCsv,
+  KRONA_ELETRICA,
   KRONA_ESGOTO,
   KRONA_SOLDAVEL,
   OPCOES_MATERIAL_CORPO,
@@ -49,14 +50,15 @@ import './familiaDialogos.css';
  * sai uma família: escolha a receita de geometria e o domínio e ela entra no editor e em "Meus modelos".
  */
 
-type Fonte = 'esgoto' | 'soldavel' | 'meus';
+type Fonte = 'esgoto' | 'soldavel' | 'eletrica' | 'meus';
 const FONTES: ReadonlyArray<{ id: Fonte; rotulo: string }> = [
   { id: 'esgoto', rotulo: 'Krona — esgoto' },
   { id: 'soldavel', rotulo: 'Krona — água fria soldável' },
+  { id: 'eletrica', rotulo: 'Krona — elétrica' },
   { id: 'meus', rotulo: 'Meus catálogos' },
 ];
 /** Catálogo do fabricante (somente leitura; a conferência vive no navegador). `null` para "Meus catálogos". */
-const catalogoDe = (f: Fonte): CatalogoMep | null => (f === 'esgoto' ? KRONA_ESGOTO : f === 'soldavel' ? KRONA_SOLDAVEL : null);
+const catalogoDe = (f: Fonte): CatalogoMep | null => (f === 'esgoto' ? KRONA_ESGOTO : f === 'soldavel' ? KRONA_SOLDAVEL : f === 'eletrica' ? KRONA_ELETRICA : null);
 
 const num = (v: number | undefined): string => (v === undefined ? '' : String(v));
 

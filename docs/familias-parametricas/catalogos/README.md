@@ -14,7 +14,7 @@ Dimensões de tubos e conexões como **dado**, não como número escrito dentro 
 Os PDFs **não** entram no repositório (material do fabricante): só os dados transcritos, a URL, a página e o hash. Para refazer: baixe o PDF, `pdftotext -layout`, rode `ferramentas/extrair-krona.py` e `ferramentas/gerar-ts.py`. A elétrica usa `ferramentas/extrair-krona-eletrica.py` (layout de cabeçalho diferente; títulos num mapa `TITULOS` por código) e `gerar-ts.py ... eletroduto`; depois os rótulos das colunas foram trocados à mão (ver abaixo).
 
 ## Fidelidade
-- Todo item nasce `CONFERIR`. Vira `conferido` só com `conferirItem(item, quem, quando)`; editar qualquer número volta para `CONFERIR`.
+- Todo item nasce `CONFERIR`. A conferência é por LINHA (`conferirLinha`, caixa 'Conferida' na tabela, também nos catálogos do fabricante; a do fabricante fica no navegador e é ignorada se o SHA-256 do catálogo mudar). O item vira `conferido` quando todas as linhas estão conferidas (`conferirItem` marca todas de uma vez); editar qualquer número volta a linha e o item para `CONFERIR`. O diálogo traz o link para o PDF na página do item e 'Exportar conferências'.
 - A transcrição é automática (texto do PDF). O significado das letras vem do desenho do fabricante; **D, Z, A e E são leitura nossa** e estão marcados.
 - `validarCatalogoMep` pega erro de digitação (espessura que não cabe, bolsa maior que o comprimento, bitola repetida, B + Z ≠ C no joelho). Não pega valor errado porém plausível: isso é conferência humana.
 

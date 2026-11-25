@@ -57,7 +57,7 @@ Fabricante escolhido para os catálogos elétricos: **Krona** (Catálogo Técnic
 | D1 | S | Planta pela geometria (Q1–Q3): tubo em duas linhas, curvas com contorno certo | — | pendente |
 | D2 | S | Subtração real do ramal no tê e na junção (F-CSG) | — | pendente |
 | D3 | H | Transcrever as peças que faltam nos catálogos da Krona (tê de inspeção, junção dupla e invertida, joelho com visita, curva de pé de coluna, anéis, válvula, terminal) e, onde a receita já serve, montar a família | — | pendente |
-| D4 | H | Interface de conferência dos catálogos contra o PDF (lado a lado, marcar linha conferida) | — | em curso (orquestrador, 2026-11-25) |
+| D4 | H | Interface de conferência dos catálogos contra o PDF (lado a lado, marcar linha conferida) | — | integrada (conferência por linha, persistida e ligada ao SHA-256; link do PDF na página; Krona elétrica no diálogo; roteiro de navegador 8/8; NÃO verificado: botão Confirmar de 'Marcar todas', JSON exportado, celular; a conferência contra o PDF continua sendo trabalho humano) |
 
 ## Ordem
 1. A1, A2 e B1 em paralelo. 2. A3a–A3d (4 Haiku) e B2. 3. B3, B4, A4. 4. B5, B6, B7, A5, B8. 5. C1 desde o começo em paralelo com qualquer etapa; C2 a C7 depois de B1/A4. 6. D.
