@@ -184,7 +184,7 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['0665', '100x75', { B1: 45, C: 224, Z1: 41, Z2: 67.1, D1: 101.6, d: 101.6, B2: 44, D2: 75.5 }],
     ['0666', '150x100', { B1: 60, C: 243, Z1: 54, Z2: 93.2, D1: 150, d: 150, B2: 45, D2: 101.6 }],
   ]),
-  item('aneis_de_vedacao_esgoto_sn_e_sr', 'Anéis de Vedação Esgoto SN e SR', 'outro', 'Esgoto série normal', 17, { D: 'diâmetro interno da bolsa (CONFERIR)', d: 'diâmetro externo da ponta' }, [
+  item('aneis_de_vedacao_esgoto_sn_e_sr', 'Anéis de Vedação Esgoto SN e SR', 'outro', 'Esgoto série normal', 17, { D: 'diâmetro do anel (CONFERIR)', d: 'seção do anel (CONFERIR; o desenho marca e)' }, [
     ['0670', '40', { D: 37.2, d: 5 }],
     ['0671', '50', { D: 49, d: 6.2 }],
     ['0672', '75', { D: 74, d: 6.2 }],
@@ -199,12 +199,12 @@ export const KRONA_ESGOTO: CatalogoMep = {
     ['0668', '100', { B: 45, C1: 221, C2: 128.5, C3: 113.5, Z1: 67, Z2: 54, D1: 101.6, T: 167, D2: 150 }],
     ['0669', '150', { B: 60, C1: 299, C2: 160.7, C3: 145.7, Z1: 100, Z2: 79, D1: 150, T: 208, D2: 200 }],
   ]),
-  item('terminal_de_ventilacao_esgoto', 'Terminal de Ventilação Esgoto', 'outro', 'Esgoto série normal', 18, { ØA: 'ØA', ØB: 'ØB', ØC: 'ØC', D: 'diâmetro interno da bolsa (CONFERIR)', E: 'E (CONFERIR)' }, [
+  item('terminal_de_ventilacao_esgoto', 'Terminal de Ventilação Esgoto', 'outro', 'Esgoto série normal', 18, { ØA: 'ØA', ØB: 'ØB', ØC: 'ØC', D: 'letra D do desenho (CONFERIR)', E: 'letra E do desenho (CONFERIR)' }, [
     ['1165', '50', { ØA: 62.2, ØB: 50.7, ØC: 54.3, D: 22, E: 57 }],
     ['1166', '75', { ØA: 86.5, ØB: 75.5, ØC: 79.1, D: 26, E: 63.2 }],
     ['1167', '100', { ØA: 115, ØB: 101.6, ØC: 106, D: 31, E: 73.5 }],
   ]),
-  item('luva_de_esgoto_com_fixador', 'Luva de Esgoto Com Fixador', 'luva', 'Esgoto série normal', 18, { ØA: 'ØA', ØB: 'ØB', ØC: 'ØC', D: 'diâmetro interno da bolsa (CONFERIR)', E: 'E (CONFERIR)', F: 'F', ØG: 'ØG' }, [
+  item('luva_de_esgoto_com_fixador', 'Luva de Esgoto Com Fixador', 'luva', 'Esgoto série normal', 18, { ØA: 'ØA', ØB: 'ØB', ØC: 'ØC', D: 'letra D do desenho (CONFERIR)', E: 'letra E do desenho (CONFERIR)', F: 'F', ØG: 'ØG' }, [
     ['1168', '100', { ØA: 101.6, ØB: 105.6, ØC: 150.6, D: 165.6, E: 28.5, F: 60, ØG: 60 }],
     ['1169', '150', { ØA: 150, ØB: 155.4, ØC: 198, D: 213, E: 31, F: 65, ØG: 65 }],
   ]),

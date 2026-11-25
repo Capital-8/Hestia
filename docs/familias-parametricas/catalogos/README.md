@@ -50,5 +50,29 @@ PDF: 47 páginas, SHA-256 `53e4a8f9…d3a5e`. Transcrito só o trecho de eletrod
 - IFC das caixas: `IFCJUNCTIONBOX` não existe em `ClasseIfc`; usa-se `IFCCABLECARRIERFITTING`/`OTHER`, como em `eletricaCaixas.ts`.
 - Fora desta rodada: roscáveis (bitola em polegada, sem bolsa), curvas 135° e 180° (roscáveis, sem receita de geometria), curva 90° longa roscável, corrugados de parede e flexíveis em rolo (sem receita de tubo sem bolsa), caixas para laje e prolongadores.
 
+## Peças pendentes da Krona esgoto (ficha D3, 2026-11-25)
+PDF baixado de novo e conferido: SHA-256 `10c24aa8…adb33` (igual ao registrado). Todas as peças abaixo **já estavam transcritas** em `catalogosMep/kronaEsgoto.ts` antes desta rodada, com URL, SHA-256 e página; as cotas batem com o texto do PDF (173 de 174 linhas; a exceção é a anomalia do código 1440, abaixo). **Nenhuma tinha família**, e nenhuma receita de `kronaReceitas.ts` serve a elas. Por isso a D3 não criou família: só o dado (já existente) e esta nota.
+
+| Peça | Itens do catálogo (códigos) | Pág. | Família | Por que não há família |
+|---|---|---|---|---|
+| Tê de inspeção (normal) | `te_de_inspecao_esgoto` (0728) | 17 | não | o ramal termina em tampa (T); o catálogo não dá bolsa do ramal, e `te` exige essa bolsa |
+| Tê de inspeção (reforçada) | `te_de_inspecao_esgoto_serie_reforcada` (1467–1469) | 35 | não | igual ao de cima |
+| Junção 45° dupla | `juncao_45_esgoto_dupla_primario` (0708, 0710) | 15 | não | dois ramais a 45° para o mesmo lado da corrida; `te(45)` tem um ramal só |
+| Junção dupla reforçada | `juncao_dupla_esgoto_serie_reforcada` (1426) | 32 | não | mesma forma da dupla normal |
+| Junção 45° invertida | `juncao_45_esgoto_invertida_primario` (0704, 0709) | 15 | não | o desenho não deixa claro se Z1 ou Z2 vai à bolsa da corrida; `te(45)` tem Z como bolsa da corrida, o que não bate |
+| Joelho 90° com visita | `joelho_90_esgoto_com_visita` (0622); `joelho_90_visita_esgoto_serie_reforcada` (1472) | 14, 35 | não | três extremidades (ponta, bolsa de cada lado mais a visita de Ø102); `joelho` tem duas |
+| Curva 90° pé de coluna (reforçada) | `curva_90_curta_pe_coluna_esgoto_serie_reforcada` (1409–1411) | 31 | não | A1 ≠ A2 (99,3 / 96,7; 125 / 120); `curvaBolsas` usa a mesma perna nos dois lados |
+| Anéis de vedação SN e SR | `aneis_de_vedacao_esgoto_sn_e_sr` (0670–0674, 0678) | 17 | não | não é conexão: é um anel de vedação (seção d); a receita de anel não existe |
+| Válvula de retenção | `valvula_de_retencao_esgoto` (0668, 0669) | 18 | não | três ramais e tampa; nenhuma receita |
+| Terminal de ventilação | `terminal_de_ventilacao_esgoto` (1165–1167) | 18 | não | corpo cônico com ØA, ØB, ØC e alturas D e E; nenhuma receita |
+
+Se uma dessas peças ganhar receita (por exemplo, a dupla como duas `te(45)` sobre a mesma corrida), o teste `biblioteca/kronaEsgotoPendentes.test.ts` confere as cotas do PDF e continua valendo.
+
+**Anomalias desta rodada (D3):**
+- **Anel de vedação**: o desenho marca a seção como `e` e a tabela como `d`; tomamos `d` como seção (CONFERIR). O gerador tinha dado a `d` o nome "diâmetro externo da ponta" e a `D` o de "diâmetro interno da bolsa", sem base no desenho: os rótulos foram trocados à mão por "diâmetro do anel" e "seção do anel" (CONFERIR). Os números não mudaram.
+- **Terminal de ventilação e luva com fixador** (`ØA`, `ØB`, `ØC`, `F`, `ØG` no desenho): o gerador deu a `D` e `E` o nome de bolsa e altura. Os rótulos foram trocados para "letra D do desenho" e "letra E do desenho" (CONFERIR).
+- **Código 1440 repetido** na luva simples de esgoto reforçada primária (página 33): o PDF traz o mesmo código para a bitola 75 e para a 100 (linhas com B1 44,4 e 45). Provável erro de impressão (1441?). Transcrito como impresso (CONFERIR).
+- **Desenho não visto**: a junção dupla reforçada (1426, página 32) foi conferida só pela tabela; o desenho não foi lido.
+
 ## Como criar o seu próprio (editor de famílias)
 Faixa Propriedades > **Catálogo MEP** (ou Gerenciar > Catálogo MEP). Em "Meus catálogos": importar CSV (colunas `bitola`, `codigo` opcional e os ids de parâmetro B, Db, De, e, Z, C, C1, C2, Z2, B2, Db2), editar células, copiar um item do fabricante (as letras D, d, A viram Db, De, Aext), marcar como conferido (nome e data) e **Criar família** (escolha a peça e o sistema). A família sai com as fórmulas embutidas, em "Meus modelos" e aberta no editor. Os catálogos próprios ficam no navegador (como "Meus modelos").
