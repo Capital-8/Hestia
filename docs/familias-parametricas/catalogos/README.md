@@ -8,7 +8,8 @@ Dimensões de tubos e conexões como **dado**, não como número escrito dentro 
 | Krona | Catálogo Técnico Esgoto 2025 (53 páginas) | Transcrito: 64 tabelas, 327 linhas (`catalogosMep/kronaEsgoto.ts`). URL e SHA-256 do PDF na fonte do arquivo. Títulos tirados da mesma coluna do desenho (o pdftotext intercala os rótulos); uma tabela ficou sem título legível (código 1413). |
 | Krona | Catálogo Técnico Linha Soldável 2025 (12 páginas) | Transcrito: 17 itens, 200 linhas (`catalogosMep/kronaSoldavel.ts`); `A` é o diâmetro externo, então a parede sai de (A − D) / 2. |
 | Krona | Catálogo Técnico Linha Elétrica 2026 (47 páginas) | Transcrito: 22 tabelas, 71 linhas, páginas 6 a 11 (eletrodutos rígidos e corrugados, curvas, luvas, caixas de luz) (`catalogosMep/kronaEletrica.ts`). Fora desta rodada: quadros e DIN/NEMA (páginas 22 a 26), caixas de passagem e de piso (31 a 37), proteção (41 a 46), fita isolante (11) e o dimensionamento dos eletrodutos (3 a 5). Todas com cotas no PDF. |
-| Tigre | Catálogo Predial 2025 (75 páginas) | **Sem cotas**: só código, bitola e quantidade. As cotas estão em fichas técnicas por produto, ainda não localizadas. |
+| Tigre | Catálogo Predial 2025 (75 páginas) | Sem cotas (só código, bitola e quantidade). A transcrição veio das fichas técnicas por produto: ver a seção Tigre abaixo. |
+| Tigre | Fichas técnicas (7 PDFs) | Transcritas: 7 catálogos, 68 itens em `catalogosMep/tigre*.ts` (ficha D5). Ver a seção Tigre. |
 | Amanco / Wavin | — | O site não respondeu daqui (conexão recusada). Nada obtido. |
 
 Os PDFs **não** entram no repositório (material do fabricante): só os dados transcritos, a URL, a página e o hash. Para refazer: baixe o PDF, `pdftotext -layout`, rode `ferramentas/extrair-krona.py` e `ferramentas/gerar-ts.py`. A elétrica usa `ferramentas/extrair-krona-eletrica.py` (layout de cabeçalho diferente; títulos num mapa `TITULOS` por código) e `gerar-ts.py ... eletroduto`; depois os rótulos das colunas foram trocados à mão (ver abaixo).
@@ -76,3 +77,37 @@ Se uma dessas peças ganhar receita (por exemplo, a dupla como duas `te(45)` sob
 
 ## Como criar o seu próprio (editor de famílias)
 Faixa Propriedades > **Catálogo MEP** (ou Gerenciar > Catálogo MEP). Em "Meus catálogos": importar CSV (colunas `bitola`, `codigo` opcional e os ids de parâmetro B, Db, De, e, Z, C, C1, C2, Z2, B2, Db2), editar células, copiar um item do fabricante (as letras D, d, A viram Db, De, Aext), marcar como conferido (nome e data) e **Criar família** (escolha a peça e o sistema). A família sai com as fórmulas embutidas, em "Meus modelos" e aberta no editor. Os catálogos próprios ficam no navegador (como "Meus modelos").
+
+## Tigre (ficha D5)
+Arquivos: `catalogosMep/tigreComum.ts` (montagem: cada tabela impressa vira um item, uma lista de cotas por letra), `tigreEsgoto.ts` (séries normal e reforçada), `tigreSoldavel.ts`, `tigreRoscavel.ts`, `tigreEletrica.ts` (Tigreflex amarelo, Tigreflex reforçado, caixa de passagem de parede). Teste de amostra: `familia/catalogoMepTigre.test.ts`.
+
+| Catálogo | Documento (ficha) | Edição impressa | SHA-256 do PDF |
+|---|---|---|---|
+| Esgoto série normal | FT Esgoto Série Normal (URL de 2023) | 03/2015 | `c9bd25d62ec26433b4c956f07b182f92e8c1ce2c5d962e58a429ee2bab45d43e` |
+| Esgoto série reforçada | Esgoto Série Reforçada | 02/2015 | `15e0948b9a72b9d21e30df72805687336d148c3236adeee6d60884732e505c35` |
+| Linha soldável | FT Linha Soldável | 07/2025 | `028a01d642092744377d1405556058c164603ccfc460c95b2d11c84662388b0d` |
+| Linha roscável | Linha Roscável | 01/2014 | `fed95ca7b779392114eecb8c60a35fce248e32a06fe068e38e03ac06f3fcd665` |
+| Tigreflex amarelo | FT Tigreflex Amarelo | 09/2025 | `e122867d181bc4ce1641618c1d00b98420c0edda0c63470598af3a24b63ad660` |
+| Tigreflex reforçado | FT Tigreflex Reforçado | 10/2025 | `d883c5c14e4df79c45ad7cfe82500d6b33add58f562f661fe3d636a843a2372b` |
+| Caixa de passagem de parede | FT Caixa de Passagem Elétrica de Parede | sem data legível | `bce96a380f469792b486f8e839aae26161fcaf315bd934927a28af7e4d0ba7f6` |
+
+As páginas vêm da contagem de separadores de página do `pdftotext` (conferir no PDF). PDFs não entram no repositório.
+
+**Transcrito:** os tubos das duas séries de esgoto (6 m e 3 m); os tubos soldável (3 m e 6 m) e roscável (6 m e 3 m); 26 conexões soldáveis e 19 roscáveis com título legível (além dos tubos); eletrodutos Tigreflex (amarelo e reforçado), luvas de pressão, caixas de luz 4×2 e 4×4, 3×3, octogonais e prolongador; caixas de passagem CPT 15 a 40 (embutir e sobrepor).
+
+**Anomalias mantidas como impressas (marcadas com `nota` na linha):**
+- Esgoto normal, 3 m: cabeçalho "1200" (lido como DN 200).
+- Esgoto reforçado, DN 40: bolsa B = 40 (na normal, 26): é o que a ficha diz, não erro de leitura.
+- Soldável: bucha curta 110×85 com A = 31 (menor que a de 85×75); bucha longa 50×25 com A = 31; cap 60 com D2 = 38,6 fora da sequência; cruzeta 20 com D = 25; curva 90 com R caindo entre 75 e 85; joelho 90 com D = 87,2 e 97,7; união 40 com B = 49; tê de redução 110×75 com D = 100.
+- Roscável: pares da bucha de redução ilegíveis (ficou de fora); o "1.1/4" impresso lido como 1 1/4”.
+- Caixa de passagem CPT 30: B = 525 (na sobrepor, 350) e E = 468 (maior que D = 313); CPT 40 com A = B = 447. Conferir.
+
+**Ficou de fora (e por quê):**
+- Conexões de esgoto (séries normal e reforçada): o pdftotext não trouxe o título da maioria das tabelas, então não dá para dizer a qual peça cada bloco pertence. Inclui o "Adaptador para máquina de lavar louça" (título presente, mas os blocos D1–D4 são ambíguos).
+- Soldável: "curva de transposição" (rótulo "D A" ambíguo); adesivos, solução, fita veda-rosca (não são cotas).
+- Roscável: colunas D em polegada (rosca) e a linha d das conexões com rosca, que não são medidas em mm; bucha de redução (fora, acima).
+- Tigreflex: comprimento de rolo (50 m, 100 m), que não é cota; fitas isolantes (não são eletroduto).
+- Não usado: o catálogo enviado pelo dono (`tigre-up/tigre.txt`) não existe na pasta do scratchpad, então não há lista de peças por bitola registrada. Fichas Aquatherm e caixa de inspeção estão na pasta mas fora do escopo da ficha D5.
+
+**Conferência:** todo item nasce `CONFERIR`. A conferência com o PDF continua sendo humana: o teste de amostra prova só que 7 células batem com o texto extraído, não que o texto extraído bate com o PDF.
+

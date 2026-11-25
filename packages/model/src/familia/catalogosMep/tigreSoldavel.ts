@@ -106,7 +106,7 @@ const ITENS_ADAPTADOR = [
     colunas: cols('A', 'D'),
     bitolas: ['20 x ½”', '25 x ¾”', '32 x 1”', '40 x 1¼”', '40 x 1½”', '50 x 1¼”', '50 x 1½”', '60 x 2”', '75 x 2½”', '85 x 3”', '110 x 4”'],
     cotas: { A: [37.1, 40.3, 50.7, 56.7, 53.3, 66.1, 63, 72.7, 86.3, 94.3, 115.9], D: [20, 25, 32, 40, 40, 50, 50, 60, 75, 85, 110] },
-    notas: { '40 x 1¼”': 'Bitola impressa como "40x1.¼" (duas linhas com 40 mm).' },
+    notas: { '40 x 1¼”': 'Bitola impressa como "40x1.¼".' },
   }),
 ];
 
