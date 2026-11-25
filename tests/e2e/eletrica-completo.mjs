@@ -41,7 +41,13 @@ const entradas = (id) => page.evaluate((id) => {
   });
 }, id);
 const selecao = () => page.evaluate(() => window.__hestia.useUi.getState().selection);
-const fechar = async () => { await page.locator('[role="dialog"]').last().locator('button.btn', { hasText: /^Fechar$/ }).click(); await page.waitForTimeout(250); };
+const fechar = async () => {
+  // O painel Circuitos agora é uma janela flutuante (não modal) com o próprio botão de fechar.
+  const janela = page.locator('.circ-janela');
+  if (await janela.isVisible().catch(() => false)) await janela.getByRole('button', { name: 'Fechar painel Circuitos' }).click();
+  else await page.locator('[role="dialog"]').last().locator('button.btn', { hasText: /^Fechar$/ }).click();
+  await page.waitForTimeout(250);
+};
 const aba = async (nome) => { await page.locator('.ribbon-tabs .rtab:visible', { hasText: new RegExp(`^${nome}$`) }).first().click(); await page.waitForTimeout(150); };
 const botao = (nome, indice = 0) => page.getByRole('button', { name: nome, exact: true }).nth(indice);
 const fecharBiblioteca = async () => { if (await page.locator('.pal-janela').isVisible().catch(() => false)) await page.locator('.pal-fechar').click(); };
@@ -49,9 +55,9 @@ const fecharBiblioteca = async () => { if (await page.locator('.pal-janela').isV
 const abrirCircuitos = async () => { await fecharBiblioteca(); await aba('Sistemas'); await botao('Circuitos').click(); await page.waitForSelector('.circ-painel', { timeout: 15_000 }); };
 /** Avisos elétricos do "Verificar rede" (texto dos itens do painel). */
 const avisosEletricos = async () => {
-  if (await page.locator('.circ-painel').isVisible().catch(() => false)) await fechar().catch(() => page.keyboard.press('Escape'));
+  if (await page.locator('.circ-janela').isVisible().catch(() => false)) await fechar().catch(() => page.keyboard.press('Escape'));
   await aba('Sistemas');
-  await botao('Verificar rede', 1).click();
+  await botao('Verificar rede').click();
   await page.waitForTimeout(1200);
   return (await page.locator('[role="dialog"] li').allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').replace(/ Ir para$/, '')).filter((x) => ELET.test(x));
 };
@@ -101,7 +107,7 @@ try {
       icones.push(await b.locator('svg').first().evaluate((e) => e.outerHTML).catch(() => ''));
     }
     const verif = page.getByRole('button', { name: 'Verificar rede', exact: true });
-    rep.check('"Verificar rede" no grupo Elétrico (o botão de Hidráulica também existe)', (await verif.count()) === 2, `${await verif.count()} botões`);
+    rep.check('"Verificar rede" aparece uma única vez na faixa (sem duplicata no grupo Elétrico)', (await verif.count()) === 1, `${await verif.count()} botões`);
     icones.push(await verif.nth(1).locator('svg').first().evaluate((e) => e.outerHTML).catch(() => ''));
     rep.check('cinco ícones distintos', icones.every(Boolean) && new Set(icones).size === icones.length, `${new Set(icones).size} de ${icones.length} distintos`);
     await shot('01-aba-eletrico');
