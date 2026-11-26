@@ -35,3 +35,11 @@ Agendamento `trig_019xHuuhHaw6SbS3tZb891af` (reativado em 2026-11-26) com o prom
 
 ## Fase seguinte (decisão do dono, 2026-11-26)
 Traçar e editar em CORTES e ELEVAÇÕES (plano de trabalho vertical, snap e picking nessas vistas, unir vertical com horizontal como no Revit) fica para a fase seguinte, depois de verificar se o corte e a elevação já desenham os componentes MEP com a geometria dos corpos. Não entra nesta rodada.
+
+## Como retomar só pelo GitHub (limite semanal de uso quase no fim, 2026-11-26)
+Tudo está na branch `claude/lucid-euler-ddb7j6` (repositório `engdennylsonsantos-cloud/Hestia`). Quem pegar o trabalho:
+1. `git fetch origin claude/lucid-euler-ddb7j6 && git checkout claude/lucid-euler-ddb7j6`; ler este ledger, `PLANO-FASE-3.md` (regras gerais) e o fim de `ESTADO.md` (relatórios e testes atualizados por decisão).
+2. A primeira ficha `pendente` com dependências `integrada` é a próxima; commits com `wip(familias)` no título são trabalho parcial ainda sem portão (rodar tsc, `npx vitest run packages/engine packages/model packages/tools`, depois `npx vitest run apps/web/src/ui apps/web/src/editor packages/render`, e `node scripts/check-boundaries.mjs`, `check-units.mjs`, `check-parity.mjs`).
+3. Rodar o app: `cd apps/web && npx vite --port 5173`. Roteiros de navegador em `tests/e2e/*.mjs` (CHROME_PATH=/opt/pw-browsers/chromium).
+4. Pendências que dependem do dono: excêntrica 100→75 (qual geratriz alinha), troca automática de disciplina ao ativar Tubo/Eletroduto, bump de `SCHEMA_VERSION` (exige editar testes existentes), conferência dos catálogos contra os PDFs.
+5. Regra de trabalho: commit e push a cada passo; um agente por vez nas fichas de motor.

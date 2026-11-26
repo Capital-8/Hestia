@@ -15,6 +15,7 @@ import { componentEdgeAt, componentEdgeCurve, type ComponentEdgePick } from './c
 import { trimEdge as trimComponentEdgeCommand } from './componentEdit.ts';
 import { trimComponentEdge } from './componentOps.ts';
 import { ringOps } from './ringOps.ts';
+import { AparaTubo } from './tuboAparaTool.ts';
 import type { PointerInfo, TrimMode } from './types.ts';
 
 type Axis = { kind: 'line'; p: Vec2; d: Vec2 } | { kind: 'circle'; c: Vec2; r: number };
@@ -127,8 +128,11 @@ export class TrimTool extends ToolBase {
   private group: TrimPick[] = [];
   /** Guarda-corpo manual escolhido para aparar ou estender; o próximo clique é a referência (parede, aresta ou outro guarda-corpo). */
   private firstRail: { id: Id; at: Vec2 } | null = null;
+  /** Tubo e eletroduto (ficha F6a): `tuboAparaTool.ts`. */
+  private readonly tubos = new AparaTubo(this.env, () => this.mode());
 
   protected reset(): void {
+    this.tubos.reset();
     this.firstRail = null;
     this.first = null;
     this.firstEdge = null;
@@ -137,7 +141,7 @@ export class TrimTool extends ToolBase {
     this.items = [];
   }
   protected busy(): boolean {
-    return this.first !== null || this.firstEdge !== null || this.firstComp !== null || this.group.length > 0 || this.firstRail !== null;
+    return this.tubos.busy() || this.first !== null || this.firstEdge !== null || this.firstComp !== null || this.group.length > 0 || this.firstRail !== null;
   }
 
   override start(): void {
@@ -173,6 +177,12 @@ export class TrimTool extends ToolBase {
 
   /** Esc volta um passo: grupo, depois primeira parede/aresta; sem passo, sai da ferramenta. */
   override cancel(): void {
+    if (this.tubos.busy()) {
+      this.tubos.reset();
+      this.items = [];
+      this.env.say(this.prompt());
+      return;
+    }
     if (this.firstRail) {
       this.firstRail = null;
       this.items = [];
@@ -207,6 +217,11 @@ export class TrimTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const tubo = this.tubos.move(p);
+    if (tubo) {
+      this.items = tubo;
+      return;
+    }
     const railId = pickRailingAt(this.env.project(), this.env.levelId(), p.raw, this.env.metersPerPixel());
     if (railId || this.firstRail) {
       this.items = [{ kind: 'highlight', ids: [...(railId ? [railId] : []), ...(this.firstRail ? [this.firstRail.id] : [])] }];
@@ -514,6 +529,10 @@ export class TrimTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (this.tubos.trata(p.raw)) {
+      this.tubos.click(p);
+      return;
+    }
     const pr0 = this.env.project();
     const railId = pickRailingAt(pr0, this.env.levelId(), p.raw, this.env.metersPerPixel());
     if (railId) {
