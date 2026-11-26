@@ -3,7 +3,7 @@ import { centroDaPeca, classeDe } from '@hestia/engine';
 import { isComponent, type Id, type Project } from '@hestia/model';
 import { registrarAlcasDeElemento, type GripHold, type GripProvider } from './selectGrips.ts';
 import { planejarMeio } from './tuboPegadoresMeio.ts';
-import { aplicarPlanoTrecho, bloqueio, ensaiarPlano, itensDoPlanoTrecho, planejarPonta, textoDoPlanoTrecho, vizinhoDaPonta, type PlanoTrecho } from './tuboPegadoresPlano.ts';
+import { aplicarPlanoTrecho, bloqueio, ensaiarPlano, itensDoPlanoTrecho, planejarPonta, vizinhoDaPonta, type PlanoTrecho } from './tuboPegadoresPlano.ts';
 import { opcoesDoDominio, trechoDoProjeto, type TrechoAlvo } from './tuboTrecho.ts';
 import type { PreviewItem, ToolEnv } from './types.ts';
 
@@ -97,11 +97,12 @@ function pegadorHold(env: ToolEnv, t: TrechoAlvo, parte: Parte, partida: Vec2): 
         env.say(`Bloqueado: ${r.motivo}`);
         return;
       }
-      const texto = textoDoPlanoTrecho(plano);
-      if (texto !== '') {
-        if (env.alert) env.alert(texto, [t.id]);
-        else env.say(texto);
+      const alertas = plano.alertas.map((a) => a.motivo).join(' ');
+      if (alertas !== '') {
+        if (env.alert) env.alert(alertas, [t.id]);
+        else env.say(alertas);
       }
+      if (plano.nota) env.say(plano.nota);
     },
   };
 }

@@ -114,14 +114,14 @@ try {
     await vista(8, -3, 110);
     await traco([[6, -3], [10, -3]]);
     await ativar('Tubo', ESG, 100, 0.5);
-    await traco([[8, -6], [8, -4.2]]);
+    await traco([[8, -5], [8, -3.8]]);
     await aba('Modificar');
     await page.keyboard.press('Escape');
     await botao('Aparar/Estender').click();
     await page.locator('#opt-trimmode').selectOption('unico');
     await clickWorld(page, 7, -3);
     for (const c of await tubos(ESG)) console.log('  tubo', c.id, JSON.stringify(await extremos(c.id)));
-    await clickWorld(page, 8, -5.9);
+    await clickWorld(page, 8, -4.9);
     await page.waitForTimeout(300);
     console.log('  status:', await status());
     const te = (await comps()).filter((c) => /esgoto_te$/.test(c.f));
