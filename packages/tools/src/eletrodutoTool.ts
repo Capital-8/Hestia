@@ -4,6 +4,7 @@ import { planejarFlexivel } from './eletrodutoFlexivel.ts';
 import { ligacoesAbertas, type ContextoTraco } from './tuboApoio.ts';
 import type { PontoTubo } from './tuboGeometria.ts';
 import { TuboTool, type ConfigTraco, type OpcoesTraco } from './tuboTool.ts';
+import { bloqueioDeDerivacao, type Verificacao } from './tuboRota.ts';
 import type { ToolEnv } from './types.ts';
 
 /*
@@ -58,8 +59,11 @@ export class EletrodutoTool extends TuboTool {
     super(env, CONFIG_ELETRODUTO);
   }
 
-  protected override verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): ReturnType<TuboTool['verificar']> {
+  protected override verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): Verificacao {
     if (!tipoSemConexoes(ctx.familia.id)) return super.verificar(ctx, a, b, avisos);
+    // Corrugado não deriva (ficha F5): clicar no meio de outro trecho bloqueia com o motivo e a sugestão de caixa.
+    const sem = bloqueioDeDerivacao(ctx, null, a, b);
+    if (sem) return sem;
     return planejarFlexivel(this.env.project(), ctx.familia, this.opc.dn, this.env.levelId(), a, b);
   }
 
