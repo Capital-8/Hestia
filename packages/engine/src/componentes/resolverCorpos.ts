@@ -173,6 +173,7 @@ function corpoUnico(c: Corpo, nome: string, indice: number, env: Env, erros: Err
     origem: [metros(ox), metros(oy), metros(oz)],
     rotacao: matrizRotacao([rx, ry, rz]),
     vazio: c.vazio === true,
+    ...(c.furar !== undefined && c.furar.length > 0 ? { furar: [...c.furar] } : {}),
     material: materialDoCorpo(c, env),
     detalhe3d: c.detalhe3d !== undefined ? [...c.detalhe3d] : null,
     vistas: c.vistas !== undefined ? [...c.vistas] : null,

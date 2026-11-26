@@ -27,6 +27,8 @@ const C45 = 'cos(45)';
  */
 const raioDoArco = (ang: 90 | 45): string => `max(${ang === 90 ? 'Z' : 'Z / tan(22.5)'}, 0.55 * (${EXT}))`;
 const z = (s: string): Ponto3 => ['0', '0', s];
+/** D2: o corpo perde o que cai dentro do vão do corpo `outro` (o ramal abre a parede da corrida e a corrida liberta o vão do ramal). */
+const furando = (c: Corpo, outro: string): Corpo => ({ ...c, furar: [outro] });
 const n = (v: Record<string, number>, k: string): number => v[k] ?? 0;
 
 export function tubo(ctx: Contexto = ESGOTO): Receita {
@@ -113,9 +115,9 @@ export function te(ang: 90 | 45, reducao: boolean, ctx: Contexto = ESGOTO): Rece
   return {
     usa: ['B', 'C', 'Z', 'Z2', 'Db', 'De', 'e', ...(reducao ? ['B2', 'Db2'] : [])],
     corpos: [
-      oco('corrida', 'Corrida', 'conexao', EXT, INT, 'C - B', z('-(C - B - Z)')),
+      furando(oco('corrida', 'Corrida', 'conexao', EXT, INT, 'C - B', z('-(C - B - Z)')), 'ramal'),
       oco('bolsa', 'Bolsa da corrida', 'conexao', EXT, 'Db', 'B', z('Z')),
-      oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, 'Z2', z('0'), rot),
+      furando(oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, 'Z2', z('0'), rot), 'corrida'),
       oco('ramal_bolsa', 'Ramal (bolsa)', 'conexao', er, dr, br, ao('Z2'), rot),
     ],
     ligacoes: [
@@ -195,10 +197,10 @@ export function teBolsas(reducao: boolean, ctx: Contexto = ESGOTO): Receita {
   return {
     usa: ['B', 'C1', 'C2', 'Db', 'e', ...(reducao ? ['B2', 'Db2'] : [])],
     corpos: [
-      oco('corrida', 'Corrida', 'conexao', EXT, INT, 'C2 - 2 * B', z('-(C2 / 2 - B)')),
+      furando(oco('corrida', 'Corrida', 'conexao', EXT, INT, 'C2 - 2 * B', z('-(C2 / 2 - B)')), 'ramal'),
       oco('bolsa_a', 'Bolsa de baixo', 'conexao', EXT, 'Db', 'B', z('-(C2 / 2)')),
       oco('bolsa_b', 'Bolsa de cima', 'conexao', EXT, 'Db', 'B', z('C2 / 2 - B')),
-      oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, `C1 - ${br}`, z('0'), rot),
+      furando(oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, `C1 - ${br}`, z('0'), rot), 'corrida'),
       oco('ramal_bolsa', 'Ramal (bolsa)', 'conexao', er, dr, br, [`C1 - ${br}`, '0', '0'], rot),
     ],
     ligacoes: [

@@ -123,6 +123,7 @@ export function validarCorpos(f: Familia): Problema[] {
     }
 
     validarExpressoes(camposDoCorpo(corpo, onde), ids, chapas, out);
+    validarFurar(corpo, id, corpos, onde, out);
   });
 
   return out;
@@ -269,4 +270,18 @@ function referenciaValida(nome: string, ids: ReadonlySet<string>, chapas: Readon
     return base !== undefined && chapas.has(base);
   }
   return false;
+}
+
+/** `furar` (D2): lista de ids de OUTROS corpos de extrusão da família; id desconhecido, o próprio corpo ou forma sem vão são problemas. */
+function validarFurar(corpo: Record<string, unknown>, id: string | undefined, corpos: unknown[], onde: string, out: Problema[]): void {
+  if (corpo.furar === undefined) return;
+  if (!Array.isArray(corpo.furar) || corpo.furar.some((x) => typeof x !== 'string')) {
+    out.push(criarProblema('tipo', 'furar precisa ser uma lista de ids de corpos', `${onde}.furar`));
+    return;
+  }
+  for (const alvo of corpo.furar as string[]) {
+    const outro = corpos.find((c) => ehObjeto(c) && c.id === alvo);
+    if (alvo === id || !ehObjeto(outro)) out.push(criarProblema('referencia', `furar aponta para “${alvo}”, que não é outro corpo da família`, `${onde}.furar`));
+    else if (!ehObjeto(outro.forma) || outro.forma.tipo !== 'extrusao') out.push(criarProblema('tipo', `furar só aceita corpo de extrusão (“${alvo}” não é)`, `${onde}.furar`));
+  }
 }

@@ -44,6 +44,8 @@ export interface CorpoResolvido {
   origem: [number, number, number];
   rotacao: number[];
   vazio: boolean;
+  /** Ids de corpos de extrusão cujo vão é subtraído deste corpo (D2); ausente = sem subtração. */
+  furar?: string[];
   material: string | null;
   detalhe3d: NivelDetalhe[] | null;
   vistas: VistaFamilia[] | null;

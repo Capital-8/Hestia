@@ -77,6 +77,8 @@ export interface Corpo {
   quadro: QuadroCorpo;
   /** Vazio: subtrai dos sólidos (v1: fantasma e aviso; subtração real só na ficha F-CSG). */
   vazio?: boolean;
+  /** Ids de outros corpos de EXTRUSÃO com perfil oco cujo vão (furo do perfil) é subtraído deste corpo na malha (D2); aditivo, sem bump. */
+  furar?: string[];
   /** Id de parâmetro `material` ou id de material do projeto. */
   material?: string;
   repetir?: Expr;
