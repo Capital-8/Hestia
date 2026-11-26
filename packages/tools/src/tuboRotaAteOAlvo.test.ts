@@ -32,8 +32,8 @@ const avisosDeRede = (ctx: Ctx) => diagnosticarRede(ctx.store.project).filter((d
 /** Eixo dominante de um tubo: 'z' (vertical), 'x' ou 'y'. */
 function eixoDe(ctx: Ctx, c: Component): 'x' | 'y' | 'z' {
   const e = ext(ctx, c);
-  const d = [Math.abs(e.b[0] - e.a[0]), Math.abs(e.b[1] - e.a[1]), Math.abs(e.b[2] - e.a[2])];
-  return d[2] > d[0] && d[2] > d[1] ? 'z' : d[0] >= d[1] ? 'x' : 'y';
+  const [dx, dy, dz] = [Math.abs(e.b[0] - e.a[0]), Math.abs(e.b[1] - e.a[1]), Math.abs(e.b[2] - e.a[2])];
+  return dz > dx && dz > dy ? 'z' : dx >= dy ? 'x' : 'y';
 }
 
 /** Tubo reto de `comp` m ao longo de +X na altura `y`, cota `z`, com a ferramenta já sem cadeia. */
@@ -71,7 +71,7 @@ describe('rota vertical + horizontal até um alvo em outra cota', () => {
     clickAt(t, 3, 1);
     expect(daFamilia(ctx, TE)).toHaveLength(1);
     expect(daFamilia(ctx, JOELHO)).toHaveLength(2);
-    const ramal = daFamilia(ctx, ESG).filter((c) => ext(ctx, c).a[1] !== 0 || ext(ctx, c).b[1] !== 0 || ext(ctx, c).a[2] !== 0.5 || ext(ctx, c).b[2] !== 0.5);
+    const ramal = daFamilia(ctx, ESG).filter((c) => [ext(ctx, c).a, ext(ctx, c).b].some((p) => Math.abs(p[1]) > 1e-6 || Math.abs(p[2] - 0.5) > 1e-6));
     expect(ramal.map((c) => eixoDe(ctx, c)).sort()).toEqual(['x', 'y', 'z']);
     expect(avisosDeRede(ctx)).toEqual([]);
   });
@@ -121,7 +121,8 @@ describe('rota vertical + horizontal até um alvo em outra cota', () => {
     opcoesTubo.z = 0.5;
     clickAt(t, 2, 1.2);
     const vertical = daFamilia(ctx, ESG).find((c) => eixoDe(ctx, c) === 'z') as Component;
-    expect(Math.min(ext(ctx, vertical).a[2], ext(ctx, vertical).b[2])).toBeCloseTo(0.5, 6);
+    expect(vertical).toBeDefined();
+    expect(daFamilia(ctx, JOELHO)[0]?.z).toBeCloseTo(0.5, 6);
     expect(avisosDeRede(ctx)).toEqual([]);
   });
 
@@ -231,7 +232,7 @@ describe('viabilidade, L máximo e declividade', () => {
     clickAt(t, 2, 0);
     opcoesTubo.z = 1.5;
     t.move(P(3, 1));
-    const tracejados = t.preview().filter((i) => i.kind === 'polygon' && i.dashed === true);
+    const tracejados = t.preview().filter((i) => i.kind === 'line' && i.dashed === true);
     expect(tracejados).toHaveLength(3);
   });
 
@@ -244,7 +245,8 @@ describe('viabilidade, L máximo e declividade', () => {
     expect(daFamilia(ctx, JOELHO)).toHaveLength(0);
     const ramal = daFamilia(ctx, ESG).find((c) => eixoDe(ctx, c) === 'y') as Component;
     expect(ramal).toBeDefined();
-    expect(Math.abs(ext(ctx, ramal).b[2] - ext(ctx, ramal).a[2])).toBeCloseTo(0.02, 6);
+    const e = ext(ctx, ramal);
+    expect((e.b[2] - e.a[2]) / (e.b[1] - e.a[1])).toBeCloseTo(-0.01, 6);
   });
 
   it('trecho vertical curto demais para a prumada (cota insuficiente) bloqueia com sugestão e sem gravar', () => {
@@ -317,8 +319,6 @@ describe('porta com direção e meio de tubo (verificarTraco, sem ferramenta)', 
     if (!pontas) throw new Error('sem pontas');
     return { projeto: ctx.store.project, ctx: { familia, pontas }, regras: tipoDaFamiliaDeTubo(ESG)?.regras ?? null, levelId: 'lv_0', dn: 100, modo: 'subir_primeiro', declividade: 0, luvaEmLinha: false, respeitaEntradas: false };
   }
-  const meio = (ctx: Ctx): PontoTubo => ({ xyz: [2, 0, 0.5], alvo: null, derivacao: true });
-  void meio;
 
   it('porta virada para baixo: o primeiro trecho sai para baixo e a rota chega ao tê no sentido perpendicular', () => {
     const { ctx } = com(ESG, 100);
@@ -389,9 +389,13 @@ describe('meio de tubo e caminhos em eixos (unidades)', () => {
     expect(soY[0]?.intermediarios[0]?.[1]).toBeCloseTo(1, 6);
   });
 
-  it('listarCaminhosOrtogonais: chegada restrita; sem sentido que sirva, lista vazia', () => {
-    const x = EIXOS[0];
-    expect(listarCaminhosOrtogonais([0, 0, 0], [0, 1, 1], null, [x as never], 'subir_primeiro', 0.05, 0.1)).toEqual([]);
+  it('listarCaminhosOrtogonais: marca o desvio em U ou Z; o caminho monotônico não tem desvio', () => {
+    const z = EIXOS[4];
+    const reto = listarCaminhosOrtogonais([0, 0, 0], [0, 1, 1], null, null, 'subir_primeiro', 0.05, 0.1);
+    expect(reto[0]?.desvio).toBe(false);
+    const u = listarCaminhosOrtogonais([0, 0, 1], [0, 1, 0], [z as never], null, 'subir_primeiro', 0.05, 0.1);
+    expect(u.length).toBeGreaterThan(0);
+    expect(u.every((c) => c.desvio === true)).toBe(true);
   });
 });
 

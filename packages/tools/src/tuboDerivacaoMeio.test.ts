@@ -18,7 +18,6 @@ const J45 = 'fam_krona_esgoto_juncao45';
 const JOELHO = 'fam_krona_esgoto_joelho90';
 const RED = 'fam_krona_esgoto_reducao_excentrica';
 type Ctx = ReturnType<typeof makeEnv>;
-type V3 = [number, number, number];
 
 const comps = (ctx: Ctx): Component[] => Object.values(ctx.store.project.elements).filter(isComponent);
 const daFamilia = (ctx: Ctx, id: string): Component[] => comps(ctx).filter((c) => c.familyId === id);

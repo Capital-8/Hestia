@@ -36,6 +36,8 @@ export function eixoOposto(e: Eixo): Eixo {
 export interface CaminhoOrtogonal {
   intermediarios: PontoSegmento[];
   trechos: number;
+  /** Algum eixo é percorrido nos dois sentidos (U ou Z): só serve quando as direções fixadas pelas entradas o exigem (ficha F5). */
+  desvio?: boolean;
 }
 
 interface Candidato {
@@ -104,7 +106,8 @@ export function listarCaminhosOrtogonais(a: PontoSegmento, b: PontoSegmento, sai
     // 'subir primeiro' prefere trecho vertical cedo; 'andar primeiro', tarde.
     const verticais = seq.flatMap((e, i) => (eixoDe(e) === 2 ? [i] : []));
     const soma = verticais.reduce((s, i) => s + i, 0);
-    todos.push({ caminho: { intermediarios: pontos, trechos: seq.length }, comprimento: ls.reduce((s, l) => s + l, 0), verticalidade: modo === 'andar_primeiro' ? -soma : soma });
+    const temDesvio = [0, 1, 2].some((eixo) => seq.some((e) => eixoDe(e) === eixo && sinalDe(e) > 0) && seq.some((e) => eixoDe(e) === eixo && sinalDe(e) < 0));
+    todos.push({ caminho: { intermediarios: pontos, trechos: seq.length, desvio: temDesvio }, comprimento: ls.reduce((s, l) => s + l, 0), verticalidade: modo === 'andar_primeiro' ? -soma : soma });
   };
   const gerar = (seq: Eixo[]): void => {
     if (seq.length > 0) avaliar(seq);
@@ -127,7 +130,8 @@ export function listarCaminhosOrtogonais(a: PontoSegmento, b: PontoSegmento, sai
  * caminho de `listarCaminhosOrtogonais` ou null sem caminho. Empate de trechos: menor comprimento total, depois o `modo`.
  */
 export function planejarCaminhoOrtogonal(a: PontoSegmento, b: PontoSegmento, saida: Eixo | null, chegada: Eixo | null, modo: ModoCota, minimo: number, desvio: number): CaminhoOrtogonal | null {
-  return listarCaminhosOrtogonais(a, b, saida ? [saida] : null, chegada ? [chegada] : null, modo, minimo, desvio, 1)[0] ?? null;
+  const melhor = listarCaminhosOrtogonais(a, b, saida ? [saida] : null, chegada ? [chegada] : null, modo, minimo, desvio, 1)[0];
+  return melhor ? { intermediarios: melhor.intermediarios, trechos: melhor.trechos } : null;
 }
 
 /** Os seis sentidos do mundo (os mesmos objetos que a busca compara por identidade). */

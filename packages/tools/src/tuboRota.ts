@@ -2,7 +2,7 @@ import { avaliarDerivacao, avaliarEncontro, posicionarConexao, tipoDaFamiliaDeTu
 import { familiaDaBiblioteca, newId, type Component, type Familia, type Project } from '@hestia/model';
 import type { ContextoTraco } from './tuboApoio.ts';
 import { tuboSob, type PontoTubo } from './tuboGeometria.ts';
-import { eixoDaDirecao, eixoOposto, EIXOS, listarCaminhosOrtogonais, planejarCaminhoOrtogonal, type Eixo } from './tuboCaminho.ts';
+import { eixoDaDirecao, eixoOposto, EIXOS, listarCaminhosOrtogonais, planejarCaminhoOrtogonal, type CaminhoOrtogonal, type Eixo } from './tuboCaminho.ts';
 import { semDerivacao, type MeioDeTubo } from './tuboMeio.ts';
 import { planejarPrumada, recuosDoJoelho, type ModoCota, type PlanoPrumada } from './tuboPrumada.ts';
 import { sugestaoDeBloqueio } from './tuboBloqueio.ts';
@@ -204,8 +204,15 @@ function rotasEmEixos(e: EntradaRota, a: PontoTubo, b: PontoTubo, sobA: MeioDeTu
   const rTe = Math.max(sobA ? (recuoDaDerivacao(e.projeto, regras, sobA, a.xyz, lateral, e.dn) ?? 0) : 0, sobB ? (recuoDaDerivacao(e.projeto, regras, sobB, b.xyz, lateral, e.dn) ?? 0) : 0);
   const [r0, r1] = recuosDoJoelho(e.projeto, regras, e.dn, [0, 0, 0], [1, 0, 0], [1, 1, 0]);
   const recuo = Math.max(r0, r1, rTe);
-  const caminhos = listarCaminhosOrtogonais(paraQuadro(q, a.xyz), paraQuadro(q, b.xyz), saidas, chegadas, e.modo, recuo > 0 ? 2 * recuo + MARGEM_ENTRE_JOELHOS : 0.05, recuo > 0 ? 3 * recuo : DESVIO_SEM_CURVA);
-  return caminhos.map((c) => {
+  const minimo = recuo > 0 ? 2 * recuo + MARGEM_ENTRE_JOELHOS : 0.05;
+  const lista = (piso: number): CaminhoOrtogonal[] => listarCaminhosOrtogonais(paraQuadro(q, a.xyz), paraQuadro(q, b.xyz), saidas, chegadas, e.modo, piso, recuo > 0 ? 3 * recuo : DESVIO_SEM_CURVA);
+  let caminhos = lista(minimo);
+  // Desvio em U ou Z só quando as direções das portas o exigem: senão o trecho curto ou longo demais pediria ajuste do ponto, não um zigue-zague.
+  // Caminho reto que só falha no trecho mínimo fica na lista (a conferência explica); o desvio entra quando nenhum caminho reto existe.
+  let retos = caminhos.filter((c) => !c.desvio);
+  if (retos.length === 0) retos = lista(0.001).filter((c) => !c.desvio);
+  if (retos.length > 0) caminhos = retos;
+  return (retos.length > 0 ? retos : caminhos).map((c) => {
     const pts: PontoTubo[] = [a, ...c.intermediarios.map((p): PontoTubo => ({ xyz: doQuadro(q, p), alvo: null })), b];
     return { pts, dns: pts.slice(1).map(() => e.dn) };
   });
