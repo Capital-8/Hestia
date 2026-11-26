@@ -1,0 +1,32 @@
+# Fase 4 — conformidade entre conexões, corrugado, edição de trechos e fluxo estilo Revit
+
+Registrado em 2026-11-26 a pedido do dono. **LEDGER**: quem acordar (sessão, agendamento ou subagente) lê este arquivo, o `PLANO-FASE-3.md` (regras gerais valem aqui) e o `ESTADO.md`, pega a primeira ficha `pendente` cujas dependências estão `integrada` e continua. Branch: `claude/lucid-euler-ddb7j6`. Estados: `pendente` → `em curso` → `integrada` ou `bloqueada (motivo)`. H = Haiku, S = Sonnet. Um agente por vez nas fichas de motor/ferramenta; fichas H de áreas disjuntas podem rodar juntas (máx. 3).
+
+Escopo do dono: o programa só TRAÇA (nada de dimensionar). Valores de norma e de catálogo: sempre dado editável CONFERIR.
+
+## Pedidos do dono (literais, 2026-11-26)
+1. Ao trocar um tubo de DN 25 para 32 num trecho que sai de um joelho, o redutor foi emendado DIRETO no joelho; isso não pode: garantir conformidade vendo quais conexões emendam em quais e se precisa de um trecho de tubo entre elas.
+2. Eletroduto CORRUGADO além do rígido; TODOS os elementos elétricos com pontos de snap para sair com tubulação a partir deles, e poder mudar as cotas ainda durante o traçado (mudando cota e rota até chegar), igual à hidráulica.
+3. Desenhar a partir de uma tubulação também pelo MEIO dela, calculando a rota necessária para fechar (tubo para subir ou descer até o alvo).
+4. Pegar o EIXO dos tubos e alterar: aumentar/prolongar/mover etc.
+5. Fluxo parecido com o Revit: preferências de roteamento por tipo, Mover com as peças ligadas acompanhando, desenhar a partir de conexão (ponta aberta ou meio), editar trechos (dividir, aparar, estender, alinhar), navegador de sistemas, etiquetas (DN, cota, declividade, circuito, quadro), quadro de cargas (só listagem), correção guiada dos avisos.
+
+| Id | Modelo | Ficha | Depende | Estado |
+|---|---|---|---|---|
+| F1 | S | Conformidade entre conexões: dado editável por tipo de tubulação `trechoMinimoEntreConexoes` (mm, CONFERIR) e `paresDiretos` (quais pares de peça podem encostar sem tubo; padrão: nenhum); o resolvedor insere tubo curto entre duas conexões vizinhas ou bloqueia/avisa; troca de bitola e traçado respeitam; teste de regressão DN 25→32 saindo de um joelho; `Verificar rede` acusa conexões coladas | — | pendente |
+| F2 | S | Eletroduto CORRUGADO: tipo sem conexões (dados do Tigreflex da D5 e/ou Krona corrugado se houver no catálogo), raio mínimo de curvatura CONFERIR, família do trecho, traçado livre com mudança de direção e de cota sem curva/luva; alternância rígido/corrugado na ferramenta e no painel | F1 | pendente |
+| F3 | S | Pontos de snap em TODOS os elementos elétricos (levantamento, teste que reprova família elétrica sem pontos, marcadores visíveis no snap) e reprodução e correção da mudança de cota durante o traçado a partir de pontos de dispositivos | F2 | pendente |
+| F4 | S | Mover com as peças ligadas acompanhando (tubos esticam e conexões acompanham; falha com aviso se inviável) em um passo de desfazer | F1 | pendente |
+| F5 | S | Desenhar a partir de ponta aberta ou do MEIO de um tubo (derivação automática com tê/junção) calculando a rota até o alvo (subir/descer + horizontal) com viabilidade e bloqueio | F1, F4 | pendente |
+| F6 | S | Editar o eixo do trecho: pegadores nas pontas e no meio para prolongar/encurtar/mover, dividir, aparar, estender, alinhar; conexões vizinhas re-resolvidas | F4, F5 | pendente |
+| F7 | H | Navegador de sistemas: árvore de sistemas e circuitos, selecionar tudo de um sistema, filtro | F3 | pendente |
+| F8 | H | Etiquetas: DN, cota e declividade ligados por configuração; etiqueta de circuito e quadro | F6 | pendente |
+| F9 | H | Quadro de cargas (listagem por circuito, sem cálculo) com CSV | F7 | pendente |
+| F10 | S | Correção guiada dos avisos da Verificar rede (botão corrigir: inserir tubo curto, trocar peça, fechar ponta) | F1, F6 | pendente |
+| F11 | H | Roteiros de navegador de F1 a F10 (hidráulico e elétrico) e repetição dos roteiros da fase 3 | F10 | pendente |
+
+## Ordem
+F1 → F2 → F3 → F4 → F5 → F6 → (F7, F8 e F9 podem ir em paralelo) → F10 → F11 → suíte completa, relatório final no `ESTADO.md`, republicar o Artifact e desligar o agendamento.
+
+## Despertar
+Agendamento `trig_019xHuuhHaw6SbS3tZb891af` (reativado em 2026-11-26) com o prompt desta fase.
