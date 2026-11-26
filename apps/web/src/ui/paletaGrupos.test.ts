@@ -18,9 +18,9 @@ describe('grupos da paleta por sistema', () => {
     expect(categoriasDoGrupo('grupo:hidraulica')).toEqual(categoriasDoPainel('hidraulica'));
     expect(categoriasDoGrupo('grupo:estrutura')).toEqual(['perfil_estrutural', 'chapa_estrutural']);
   });
-  it('Hidráulica traz as 39 famílias da Krona e nenhum móvel', () => {
+  it('Hidráulica traz as 46 famílias da Krona (26 + 7 especiais do D3b esgoto, 13 soldável) e nenhum móvel', () => {
     const lista = ids('grupo:hidraulica');
-    expect(lista.filter((i) => i.startsWith('fam_krona_esgoto_'))).toHaveLength(26);
+    expect(lista.filter((i) => i.startsWith('fam_krona_esgoto_'))).toHaveLength(33);
     expect(lista.filter((i) => i.startsWith('fam_krona_soldavel_'))).toHaveLength(13);
     expect(lista).not.toContain('fam_comoda');
     for (const i of filtrarItensDaPaleta(itens, 'grupo:hidraulica', '')) expect(['tubulacao', 'conexao_tubo', 'terminal_hidraulico', 'reservatorio']).toContain(i.familia.categoria);

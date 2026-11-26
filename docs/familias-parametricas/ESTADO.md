@@ -210,3 +210,7 @@ Exceção: em `tuboReducao.test.ts` o teste "documenta a pendência da excêntri
 | `packages/tools/src/tuboPrumada.test.ts` | 'subir primeiro > z de 0 a 2 m…' | Idem |
 | `packages/tools/src/tuboReducao.test.ts` | 'DN igual em linha reta…' | Idem (trecho DN 100 sem declividade) |
 | `packages/tools/src/tuboReducao.test.ts` | 'documenta a pendência da excêntrica…' | Idem; expectativa de `inclinacao_fora_limite` removida |
+
+
+## Teste atualizado por decisão (D3b)
+- `apps/web/src/ui/paletaGrupos.test.ts`: o teste 'Hidráulica traz as 39 famílias da Krona' contava 26 famílias `fam_krona_esgoto_*`; a D3b acrescentou 7 famílias especiais (tê de inspeção, junção dupla, joelho com visita, pé de coluna), então agora são 33 (46 no total com 13 soldável). Só o número esperado e o título mudaram.
