@@ -190,14 +190,14 @@ describe('traço', () => {
     expect(msgs.at(-1)).toMatch(/não tem joelho ou curva de 45°/);
   });
 
-  it('peça ausente: tê não existe no catálogo; derivação no meio do eletroduto não divide nada e avisa', () => {
+  it('peça ausente: tê não existe no catálogo; derivação no meio do eletroduto BLOQUEIA com motivo e sugestão de caixa, nada gravado', () => {
     const { ctx, msgs, t } = ambiente();
     clickAt(t, 0, 0);
     clickAt(t, 2, 0);
     t.cancel();
     clickAt(t, 1, 1);
     clickAt(t, 1, 0);
-    expect(porFamilia(ctx, TUBO)).toHaveLength(2);
+    expect(porFamilia(ctx, TUBO)).toHaveLength(1);
     expect(Ls(ctx, TUBO)).toContain(2000);
     expect(comps(ctx).filter((c) => c.familyId !== TUBO)).toHaveLength(0);
     expect(msgs.at(-1)).toMatch(/não tem tê/);

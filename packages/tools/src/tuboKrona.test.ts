@@ -126,7 +126,7 @@ describe('ferramenta Tubo com a Krona', () => {
     expect(problemas(ctx)).toEqual([]);
   });
 
-  it('soldável não tem junção a 45°: o trecho fica sem essa conexão, com aviso, e nada é inventado', () => {
+  it('soldável sem junção a 45°: a rota em eixos fecha com TÊ (e joelho se necessário), rede sem problemas', () => {
     const ctx = makeEnv();
     ctx.env.options().componentFamilyId = SOLDAVEL;
     opcoesTubo.dn = 25;
@@ -136,7 +136,8 @@ describe('ferramenta Tubo com a Krona', () => {
     t.cancel();
     clickAt(t, 1, 1);
     clickAt(t, 1.5, 0);
-    expect(porFamilia(ctx, 'fam_krona_soldavel_te')).toHaveLength(0);
+    expect(porFamilia(ctx, 'fam_krona_soldavel_te')).toHaveLength(1);
+    expect(problemas(ctx)).toEqual([]);
   });
 });
 

@@ -318,7 +318,7 @@ describe('conexões automáticas', () => {
     expect(estado(ctx)).toEqual(antes);
   });
 
-  it('derivação a 60° não divide o tubo', () => {
+  it('derivação a 60°: a rota em eixos fecha com tê e joelho, o tubo principal é dividido', () => {
     const ctx = ctxEsgoto();
     const t = tool('tubo', ctx.env);
     clickAt(t, 0, 0);
@@ -326,7 +326,9 @@ describe('conexões automáticas', () => {
     t.cancel();
     clickAt(t, 2, 0);
     clickAt(t, 2.5, 0.866);
-    expect(daFamilia(ctx, R.tubo)).toHaveLength(2);
-    expect(tubos(ctx)).toHaveLength(2);
+    expect(daFamilia(ctx, R.te)).toHaveLength(1);
+    expect(daFamilia(ctx, R.tubo)).toHaveLength(4);
+    expect(daFamilia(ctx, R.curva90)).toHaveLength(1);
+    expect(tubos(ctx)).toHaveLength(6);
   });
 });

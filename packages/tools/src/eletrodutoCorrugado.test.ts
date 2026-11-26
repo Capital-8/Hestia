@@ -90,7 +90,7 @@ describe('Eletroduto corrugado: traçado livre', () => {
     // As únicas pontas abertas são as duas do começo e do fim da cadeia.
     expect(diagnosticarRede(ctx.store.project).filter((d) => d.codigo === 'ligacao_aberta')).toHaveLength(2);
   });
-  it('clicar no meio de um trecho corrugado não deriva (sem tê): nada além do trecho novo', () => {
+  it('clicar no meio de um trecho corrugado BLOQUEIA (sem tê): nada além do trecho novo, nada gravado', () => {
     const { ctx, t } = ambiente();
     clickAt(t, 0, 0);
     clickAt(t, 2, 0);
@@ -99,7 +99,7 @@ describe('Eletroduto corrugado: traçado livre', () => {
     clickAt(t2, 1, 0);
     clickAt(t2, 1, 1);
     expect(comps(ctx).filter((c) => c.familyId !== CORRUGADO)).toEqual([]);
-    expect(trechos(ctx)).toHaveLength(2);
+    expect(trechos(ctx)).toHaveLength(1);
   });
 });
 

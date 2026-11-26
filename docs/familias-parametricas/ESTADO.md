@@ -275,3 +275,26 @@ Teste de guarda: `pontosSaidaEletricos.test.ts` (toda família elétrica tem ≥
 2. Clicar de novo no mesmo ponto em planta com outra cota (prumada) capturava a ponta do trecho anterior e respondia "os dois pontos coincidem": `semOrigem` tira a porta de origem da captura.
 3. Trecho maior que o máximo do parâmetro `L` da família (6000 mm, rígido, corrugado e hidráulico) era gravado encurtado em silêncio e a ponta ficava afastada (`conexao_afastada`): agora é BLOQUEADO com o motivo (`motivoTrechoLongo`). Limitação: trecho acima de 6 m exige ponto intermediário (o corrugado em rolo real poderia ser maior; o catálogo não traz o comprimento do rolo, CONFERIR).
 4. Não havia marcador de snap em porta alguma: `tuboPortas.ts` desenha halo nas portas livres compatíveis ao alcance do cursor, halo forte + seta + nome na que o clique pega (Eletroduto e Tubo).
+
+## Testes atualizados por decisão (F5)
+
+Decisão do dono: clicar no meio de um tubo roteia até o alvo (tê/junção + joelhos + tubos curtos) ou BLOQUEIA com motivo e sugestão quando o tipo não tem a peça; nunca grava mais o ramal solto. Os quatro testes abaixo ficaram obsoletos; só títulos e asserções foram ajustados, sem apagar nem enfraquecer outras verificações.
+
+1. `packages/tools/src/eletrodutoTool.test.ts`
+   - Título antigo: "peça ausente: tê não existe no catálogo; derivação no meio do eletroduto não divide nada e avisa"
+   - Título novo: "peça ausente: tê não existe no catálogo; derivação no meio do eletroduto BLOQUEIA com motivo e sugestão de caixa, nada gravado"
+   - Motivo: agora a derivação é bloqueada; o tubo continua com 1 trecho (antes eram 2 pedaços gravados).
+2. `packages/tools/src/eletrodutoCorrugado.test.ts`
+   - Título antigo: "clicar no meio de um trecho corrugado não deriva (sem tê): nada além do trecho novo"
+   - Título novo: "clicar no meio de um trecho corrugado BLOQUEIA (sem tê): nada além do trecho novo, nada gravado"
+   - Motivo: bloqueio com motivo; a asserção de trechos passa de 2 para 1 (nada gravado).
+3. `packages/tools/src/tuboKrona.test.ts`
+   - Título antigo: "soldável não tem junção a 45°: o trecho fica sem essa conexão, com aviso, e nada é inventado"
+   - Título novo: "soldável sem junção a 45°: a rota em eixos fecha com TÊ (e joelho se necessário), rede sem problemas"
+   - Motivo: a rota em eixos agora fecha com tê (asserção de tê passa de 0 para 1) e a rede é verificada sem problemas.
+4. `packages/tools/src/tuboTool.test.ts`
+   - Título antigo: "derivação a 60° não divide o tubo"
+   - Título novo: "derivação a 60°: a rota em eixos fecha com tê e joelho, o tubo principal é dividido"
+   - Motivo: a rota fecha com 1 tê e 1 joelho (contagem de tubos = 4 trechos, mais tê e joelho = 6 componentes).
+
+Verificação: `npx vitest run packages/tools packages/engine` verde (680 arquivos, 10409 testes passando, 31 pulados, 3 todo); eslint nos 4 arquivos sem erros.
