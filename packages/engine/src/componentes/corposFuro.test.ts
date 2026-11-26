@@ -40,38 +40,42 @@ function cubo(x0: number, y0: number, z0: number, x1: number, y1: number, z1: nu
   return m;
 }
 
-/** Volume esperado do que muda: parede da corrida dentro do vão do ramal + parede do ramal dentro do vão da corrida (grade). */
+type Trecho = { z0: number; z1: number; ri: number; re: number };
+function trechos(cs: CorpoResolvido[], ids: string[]): Trecho[] {
+  return cs.filter((c) => ids.includes(c.id)).map((c) => {
+    if (c.forma.tipo !== 'extrusao') throw new Error('forma');
+    return { z0: c.origem[2], z1: c.origem[2] + c.forma.comprimento, ri: raio(c.forma.perfil.furos[0]!), re: raio(c.forma.perfil.externo) };
+  });
+}
+const doRamal = (cs: CorpoResolvido[]): { L: number; ri: number; re: number } => {
+  const t = cs.find((c) => c.id === 'ramal')!;
+  if (t.forma.tipo !== 'extrusao') throw new Error('forma');
+  return { L: t.forma.comprimento, ri: raio(t.forma.perfil.furos[0]!), re: raio(t.forma.perfil.externo) };
+};
+
+/** Volume esperado do que muda: parede da corrida (e bolsa) dentro do vão do ramal + parede do ramal dentro do vão delas (grade). */
 function volumeRetirado(cs: CorpoResolvido[], grausDoRamal: number): number {
-  const corrida = cs.find((c) => c.id === 'corrida')!;
-  const ramal = cs.find((c) => c.id === 'ramal')!;
-  if (corrida.forma.tipo !== 'extrusao' || ramal.forma.tipo !== 'extrusao') throw new Error('forma');
-  const Rc = raio(corrida.forma.perfil.externo);
-  const ric = raio(corrida.forma.perfil.furos[0]!);
-  const Rr = raio(ramal.forma.perfil.externo);
-  const rir = raio(ramal.forma.perfil.furos[0]!);
-  const z0 = corrida.origem[2];
-  const z1 = z0 + corrida.forma.comprimento;
+  const tr = trechos(cs, ['corrida', 'bolsa']);
+  const { L, ri: rir, re: Rr } = doRamal(cs);
+  const Rc = Math.max(...tr.map((t) => t.re));
   const a = (grausDoRamal * Math.PI) / 180;
   const d = [Math.sin(a), 0, Math.cos(a)];
-  const L = ramal.forma.comprimento;
   const N = 130;
-  const lado = 2 * Rr;
-  const xs = (Rc + Rr) * 1.0;
-  const h = lado / N;
+  const h = (2 * Rr) / N;
+  const dz = (Rr * 6.4) / N;
+  const nx = Math.round((2 * (Rc + Rr)) / h);
   let soma = 0;
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let k = 0; k < Math.round((2 * xs) / h); k++) {
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let k = 0; k < nx; k++) {
     const y = -Rr + (j + 0.5) * h;
-    const x = -xs + (k + 0.5) * h;
-    const z = -Rr * 3.2 + (i + 0.5) * (Rr * 6.4 / N);
+    const x = -(Rc + Rr) + (k + 0.5) * h;
+    const z = -Rr * 3.2 + (i + 0.5) * dz;
     const s = x * d[0]! + z * d[2]!;
     const lat = Math.hypot(x - s * d[0]!, y, z - s * d[2]!);
     const rc = Math.hypot(x, y);
     const noRamal = s >= 0 && s <= L;
-    const noCorrida = z >= z0 && z <= z1;
-    const paredeCorrida = noCorrida && rc > ric && rc < Rc;
-    const paredeRamal = noRamal && lat > rir && lat < Rr;
-    if (paredeCorrida && noRamal && lat < rir) soma += h * h * (Rr * 6.4 / N);
-    if (paredeRamal && noCorrida && rc < ric) soma += h * h * (Rr * 6.4 / N);
+    const dentro = tr.filter((t) => z >= t.z0 && z <= t.z1);
+    if (noRamal && lat < rir && dentro.some((t) => rc > t.ri && rc < t.re)) soma += h * h * dz;
+    if (noRamal && lat > rir && lat < Rr && dentro.some((t) => rc < t.ri)) soma += h * h * dz;
   }
   return soma;
 }
@@ -98,8 +102,9 @@ describe.each([
   it('a corrida e o ramal declaram a subtração um do outro', () => {
     const cs = corposDe(id);
     expect(cs.find((c) => c.id === 'corrida')!.furar).toEqual(['ramal']);
-    expect(cs.find((c) => c.id === 'ramal')!.furar).toEqual(['corrida']);
-    expect(cs.find((c) => c.id === 'bolsa')!.furar).toBeUndefined();
+    expect(cs.find((c) => c.id === 'ramal')!.furar).toEqual(['corrida', 'bolsa']);
+    expect(cs.find((c) => c.id === 'bolsa')!.furar).toEqual(['ramal']);
+    expect(cs.find((c) => c.id === 'ramal_bolsa')!.furar).toBeUndefined();
   });
   it('o volume com furo é menor que o sem furo e a diferença é o trecho do ramal dentro da corrida', () => {
     const cs = corposDe(id);
@@ -112,19 +117,21 @@ describe.each([
     const com = malhaDosCorpos(cs).solidas;
     const sem = malhaDosCorpos(semFuro(cs)).solidas;
     caixa(com).forEach((v, k) => expect(v).toBeCloseTo(caixa(sem)[k]!, 6));
-    const corrida = cs.find((c) => c.id === 'corrida')!;
-    const ramal = cs.find((c) => c.id === 'ramal')!;
-    if (corrida.forma.tipo !== 'extrusao' || ramal.forma.tipo !== 'extrusao') throw new Error('forma');
-    const ric = raio(corrida.forma.perfil.furos[0]!);
-    const rir = raio(ramal.forma.perfil.furos[0]!);
+    const tr = trechos(cs, ['corrida', 'bolsa']);
+    const { L, ri: rir, re: Rr } = doRamal(cs);
     const a = (graus * Math.PI) / 180;
     let dentro = 0;
     for (let i = 0; i < com.positions.length; i += 3) {
       const [x, y, z] = [com.positions[i]!, com.positions[i + 1]!, com.positions[i + 2]!];
       const s = x * Math.sin(a) + z * Math.cos(a);
       const lat = Math.hypot(x - s * Math.sin(a), y, z - s * Math.cos(a));
-      if (s > 1e-4 && s < ramal.forma.comprimento - 1e-4 && lat < rir - 1e-4 ) dentro += Math.hypot(x, y) > ric + 1e-4 ? 1 : 0;
-      if (z > corrida.origem[2] && z < corrida.origem[2] + corrida.forma.comprimento && Math.hypot(x, y) < ric - 1e-4 && s > 1e-4 && s < ramal.forma.comprimento - 1e-4 && lat > rir + 1e-4 && lat < raio(ramal.forma.perfil.externo) - 1e-4) dentro += 1;
+      const rc = Math.hypot(x, y);
+      if (s <= 1e-4 || s >= L - 1e-4) continue;
+      if (tr.some((t) => Math.abs(z - t.z0) < 1e-6 || Math.abs(z - t.z1) < 1e-6)) continue; // plano de emenda corrida/bolsa
+      const ao = tr.filter((t) => z > t.z0 && z < t.z1);
+      // margem de 2 a 4 %: o vão é um polígono inscrito, as arestas ficam um pouco para dentro do círculo
+      if (lat < rir * 0.98 && ao.some((t) => rc > t.ri * 1.02 && rc < t.re * 0.98)) dentro++;
+      if (lat > rir * 1.02 && lat < Rr * 0.98 && ao.some((t) => rc < t.ri * 0.96)) dentro++;
     }
     expect(dentro).toBe(0);
   });

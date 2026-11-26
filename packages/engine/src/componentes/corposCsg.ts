@@ -183,7 +183,7 @@ export function subtrairMalha(a: Malha, b: Malha): Malha {
   return paraMalha(na.todos());
 }
 
-/** Volume (m³) de uma malha fechada pela soma dos tetraedros com sinal; vale para a saída de `subtrairMalha`. */
+/** Volume (em metros cúbicos) de uma malha fechada pela soma dos tetraedros com sinal; vale para a saída de `subtrairMalha`. */
 export function volumeDaMalha(m: Malha): number {
   let v = 0;
   for (let t = 0; t + 2 < m.indices.length; t += 3) {

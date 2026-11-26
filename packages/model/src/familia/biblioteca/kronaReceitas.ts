@@ -28,7 +28,7 @@ const C45 = 'cos(45)';
 const raioDoArco = (ang: 90 | 45): string => `max(${ang === 90 ? 'Z' : 'Z / tan(22.5)'}, 0.55 * (${EXT}))`;
 const z = (s: string): Ponto3 => ['0', '0', s];
 /** D2: o corpo perde o que cai dentro do vão do corpo `outro` (o ramal abre a parede da corrida e a corrida liberta o vão do ramal). */
-const furando = (c: Corpo, outro: string): Corpo => ({ ...c, furar: [outro] });
+const furando = (c: Corpo, ...outros: string[]): Corpo => ({ ...c, furar: outros });
 const n = (v: Record<string, number>, k: string): number => v[k] ?? 0;
 
 export function tubo(ctx: Contexto = ESGOTO): Receita {
@@ -116,8 +116,8 @@ export function te(ang: 90 | 45, reducao: boolean, ctx: Contexto = ESGOTO): Rece
     usa: ['B', 'C', 'Z', 'Z2', 'Db', 'De', 'e', ...(reducao ? ['B2', 'Db2'] : [])],
     corpos: [
       furando(oco('corrida', 'Corrida', 'conexao', EXT, INT, 'C - B', z('-(C - B - Z)')), 'ramal'),
-      oco('bolsa', 'Bolsa da corrida', 'conexao', EXT, 'Db', 'B', z('Z')),
-      furando(oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, 'Z2', z('0'), rot), 'corrida'),
+      furando(oco('bolsa', 'Bolsa da corrida', 'conexao', EXT, 'Db', 'B', z('Z')), 'ramal'),
+      furando(oco('ramal', 'Ramal (corpo)', 'conexao', er, `${dr} - 2 * min(e, ${dr} / 8)`, 'Z2', z('0'), rot), 'corrida', 'bolsa'),
       oco('ramal_bolsa', 'Ramal (bolsa)', 'conexao', er, dr, br, ao('Z2'), rot),
     ],
     ligacoes: [
