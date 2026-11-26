@@ -202,3 +202,21 @@ Nenhuma das sugestões de chave abaixo existe hoje em `Icon.tsx` (conferido pelo
 - `componentLibrary` é usada pelas quatro Bibliotecas MEP e pela Biblioteca geral (`actions.ts:519`). Os quatro botões de sistema precisam de chaves distintas para se diferenciar.
 - Nenhum botão de sistema MEP (hidráulica, elétrica, HVAC) tem chave própria hoje. A única ferramenta MEP, Tubo, usa `component`. Viga, Pilar e Isolada (Estrutura) têm chave própria, mas são de concreto e estrutura geral, não de sistema.
 - A chave `soon` é o fallback de centenas de itens em breve em todo o app, então não serve como indicador de sistema.
+
+## A5. Revisão visual de consistência (2026-11-26)
+
+Capturas (regeneráveis com `CHROME=/opt/pw-browsers/chromium-1243/chrome-linux64/chrome node docs/familias-parametricas/icones/gerar-previa.mjs`): `previa.png` (todos os 31 ícones MEP, claro e escuro, 32 e 64 px, 2x), `faixa-claro.png` e `faixa-escuro.png` (20 px, 2x), `faixa-claro-20px-1x.png` e `faixa-escuro-20px-1x.png` (20 px reais, 1x).
+
+| Ícone | Antes | Depois | Mudança |
+|---|---|---|---|
+| mepLuva | fraco: dois flanges + manguito liam como haltere | bom | manguito largo e liso de bloco único, dois anéis finos, sem flanges |
+| mepTampao | razoável: parecia um "H" igual à luva | bom | bolsa fechada por tampa abaulada (cúpula) à esquerda, lado direito aberto |
+| mepInterruptor | fraco: mesma placa quadrada da tomada | bom | placa estreita e alta (silhueta de caixa 4x2) com tecla e ponto laranja |
+| mepTomada | razoável (3 furos, igual à placa do interruptor) | bom | sem mudança; a silhueta quadrada agora a distingue |
+| mepEletrocalha | fraco: fios sumiam | bom | sem mudança: dois fios claros e piso escuro leem a 32 px; a 20 px lê como calha |
+| mepEstrutura | fraco no escuro | bom | sem mudança: disco grafite com I branco tem contraste no fundo escuro |
+| demais (28) | bons | bons | sem mudança; mepQuantitativosEletricos (tabela + faixa laranja) distinto de mepCatalogoTubos |
+
+Ressalvas: mepTubosConexoes, mepPerfisChapas e mepCircuito ficam pequenos a 20 px (detalhe fino), mas distintos dos vizinhos. mepDutos e mepEletrodutos (ambos tubo + placa) se parecem a 20 px; a cor azul vs raio os separa.
+
+Rótulo: "Eletrodutos e dispositivos" virou "Dispositivos elétricos" (EN "Electrical devices") em `ribbon/actions.ts` (`familiasEletrico`); nenhum teste referencia o texto antigo.

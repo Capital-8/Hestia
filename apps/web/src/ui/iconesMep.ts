@@ -54,20 +54,19 @@ export const ICONES_MEP: Record<string, string> = {
     p('s1', 'M15 13H29V16H15Z') +
     p('s3', 'M15 16H29V19H15Z') +
     p('s2', 'M3 6H9V26H3Z'),
-  // Luva: manguito curto (corpo e duas bolsas) atravessado pelo tubo, que entra pelos dois lados.
+  // Luva: manguito largo e liso (bloco único, mais alto que o tubo) atravessado pelo tubo que entra dos dois lados, com dois anéis finos. Sem flanges (não lembra haltere).
   mepLuva:
-    p('s1', 'M3 13H12V16H3ZM20 13H29V16H20Z') +
-    p('s3', 'M3 16H12V19H3ZM20 16H29V19H20Z') +
-    p('s1', 'M12 11H20V16H12Z') +
-    p('s3', 'M12 16H20V21H12Z') +
-    p('s2', 'M8 8H12V24H8Z') +
-    p('s2', 'M20 8H24V24H20Z'),
-  // Tampão: tubo curto com bolsa à direita e, na ponta esquerda, uma tampa larga e escura (s3, 18 de altura) que fecha o tubo. Sem eixo.
+    p('s1', 'M3 13H29V16H3Z') +
+    p('s3', 'M3 16H29V19H3Z') +
+    p('s1', 'M10 8H22V16H10Z') +
+    p('s3', 'M10 16H22V24H10Z') +
+    '<path class="ic-ln" d="M13 8V24M19 8V24"/>',
+  // Tampão: tubo com bolsa à esquerda fechada por uma tampa abaulada (cúpula escura); lado direito aberto. Sem eixo.
   mepTampao:
-    p('s1', 'M8 13H22V16H8Z') +
-    p('s3', 'M8 16H22V19H8Z') +
-    p('s2', 'M22 10H28V22H22Z') +
-    p('s3', 'M3 7H8V25H3Z'),
+    p('s1', 'M15 13H29V16H15Z') +
+    p('s3', 'M15 16H29V19H15Z') +
+    p('s2', 'M9 9H15V23H9Z') +
+    p('s3', 'M9 9H7Q3 9 3 16Q3 23 7 23H9Z'),
   // Prumada: tubo horizontal que sobe em L (joelho) para um tubo vertical; seta laranja para cima (subir).
   mepPrumada:
     p('s1', 'M3 19H20V22H3Z') +
@@ -211,11 +210,11 @@ export const ICONES_MEP: Record<string, string> = {
     '<circle class="ic-s2" cx="15" cy="20" r="1"/>',
   // Espelho de interruptor (Elétrica): placa com bisel e tecla basculante no centro (metade clara e escura), com o ponto de clique laranja.
   mepInterruptor:
-    p('s1', 'M5 5H25V25H5Z') +
-    p('s3', 'M25 5H27V27H25ZM5 25H27V27H5Z') +
-    p('s1', 'M11 9H19V15H11Z') +
-    p('s3', 'M11 15H19V21H11Z') +
-    '<circle class="ic-fa" cx="15" cy="12" r="1.4"/>',
+    p('s1', 'M9 4H23V28H9Z') +
+    p('s3', 'M23 4H25V30H23ZM9 28H25V30H9Z') +
+    p('s1', 'M12 8H20V15H12Z') +
+    p('s3', 'M12 15H20V22H12Z') +
+    '<circle class="ic-fa" cx="16" cy="11.5" r="1.4"/>',
   // Plafon (Elétrica): cúpula redonda sobre um disco de base, com três raios de luz curtos saindo para baixo.
   mepLuminaria:
     p('s1', 'M7 16C7 10 10.5 7 16 7C21.5 7 25 10 25 16Z') +

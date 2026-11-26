@@ -17,6 +17,7 @@ import { FOSSAS_SEPTICAS } from './fossasSeptica.ts';
 import { LUMINARIAS } from './luminarias.ts';
 import { HVAC } from './hvac.ts';
 import { KRONA_ESGOTO_FAMILIAS } from './kronaEsgoto.ts';
+import { KRONA_ESGOTO_ESPECIAIS } from './kronaEsgotoEspeciais.ts';
 import { KRONA_SOLDAVEL_FAMILIAS } from './kronaSoldavel.ts';
 import { KRONA_ELETRICA_FAMILIAS } from './kronaEletrica.ts';
 import { QUADROS_ELETRICOS } from './quadroDistribuicao.ts';
@@ -56,6 +57,7 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...LUMINARIAS,
   ...HVAC,
   ...KRONA_ESGOTO_FAMILIAS,
+  ...KRONA_ESGOTO_ESPECIAIS,
   ...KRONA_SOLDAVEL_FAMILIAS,
   ...KRONA_ELETRICA_FAMILIAS,
   ...QUADROS_ELETRICOS,

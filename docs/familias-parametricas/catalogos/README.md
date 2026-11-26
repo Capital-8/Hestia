@@ -75,6 +75,22 @@ Se uma dessas peças ganhar receita (por exemplo, a dupla como duas `te(45)` sob
 - **Código 1440 repetido** na luva simples de esgoto reforçada primária (página 33): o PDF traz o mesmo código para a bitola 75 e para a 100 (linhas com B1 44,4 e 45). Provável erro de impressão (1441?). Transcrito como impresso (CONFERIR).
 - **Desenho não visto**: a junção dupla reforçada (1426, página 32) foi conferida só pela tabela; o desenho não foi lido.
 
+## Peças da Krona esgoto montadas na ficha D3b (2026-11-26)
+Receitas em `biblioteca/kronaReceitasEspeciais.ts`, famílias em `biblioteca/kronaEsgotoEspeciais.ts` (7, registradas em `BIBLIOTECA_MEP`; contexto esgoto, categoria `conexao_tubo` = Hidráulica > Conexões, PVC branco ou bege da série). Não entram no traçado automático (`tiposTubulacao.ts` intacto). **Todas com leitura de letras NÃO confirmada pelo fabricante (CONFERIR)**; nenhuma afirma conformidade.
+
+| Família | Itens (códigos) | Leitura adotada (CONFERIR) |
+|---|---|---|
+| `fam_krona_esgoto_te_inspecao`, `..._reforcado_te_inspecao` | 0728; 1467–1469 | corrida de comprimento C1 (bolsa B em cima, ponta embaixo); ramal de inspeção a 90° do eixo até C2, de diâmetro externo T, fechado por tampa de espessura e (parede do tubo; o catálogo não dá a espessura); sem ligação no ramal |
+| `fam_krona_esgoto_juncao45_dupla`, `..._reforcado_juncao45_dupla` | 0708, 0710; 1426 | corrida como a da junção simples e dois ramais a 45° saindo do MESMO cruzamento, um para cada lado (X+ e X−): o catálogo traz uma só Z e nenhuma distância entre ramais, então "mesmo lado" sobreporia os corpos |
+| `fam_krona_esgoto_joelho90_visita`, `..._reforcado_joelho90_visita` | 0622; 1472 | perna vertical de comprimento total C (bolsa B1 embaixo a Z+B1 do cruzamento; visita em cima fechada por tampa, sem ligação) e perna horizontal com bolsa B2, diâmetro D2, a Z2+B2. Na 1472 o diâmetro da bolsa vertical é d (não há D1) e Z1 faz o papel de Z |
+| `fam_krona_esgoto_reforcado_curva90_pe_coluna` | 1409–1411 | varredura única; A1 = cruzamento até a entrada da bolsa vertical e A2 = até a da horizontal (A1 ≠ A2); raio do arco = menor tangente (A − B), mínimo 0,55 do diâmetro externo; D2 (igual a D1 nas três linhas) não é lido |
+
+**Ficaram de fora:**
+- **Anéis de vedação (0670–0674, 0678):** não são conexão, e a receita de anel não existe.
+- **Junção 45° invertida (0704, 0709):** ambígua; não está claro qual Z (Z1 = 19,1 ou Z2 = 93,6) vai à bolsa da corrida.
+- **Válvula de retenção (0668, 0669):** C3, T e a relação entre C1/C2 e os três ramais não se leem sem o fabricante; um corpo simples não seria fiel às cotas.
+- **Terminal de ventilação (1165–1167):** ØA/ØB/ØC e as alturas D e E sem significado confirmado; um cone simples seria chute.
+
 ## Como criar o seu próprio (editor de famílias)
 Faixa Propriedades > **Catálogo MEP** (ou Gerenciar > Catálogo MEP). Em "Meus catálogos": importar CSV (colunas `bitola`, `codigo` opcional e os ids de parâmetro B, Db, De, e, Z, C, C1, C2, Z2, B2, Db2), editar células, copiar um item do fabricante (as letras D, d, A viram Db, De, Aext), marcar como conferido (nome e data) e **Criar família** (escolha a peça e o sistema). A família sai com as fórmulas embutidas, em "Meus modelos" e aberta no editor. Os catálogos próprios ficam no navegador (como "Meus modelos").
 

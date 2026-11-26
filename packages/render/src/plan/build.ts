@@ -592,7 +592,7 @@ export function buildPlanGeometry(input: PlanInput): PlanOps {
     }
     // Componentes têm categoria própria por disciplina da família (adendo 1 do ADR 0060): o estilo genérico não manda
     // neles; a ocultação da categoria deles já chega por `hidden`.
-    const comp = componentsPlanOps(p, input.levelId, theme, hidden, style.visual === 'shaded', detail, wire);
+    const comp = componentsPlanOps(p, input.levelId, theme, hidden, style.visual === 'shaded', detail, wire, { zoom: v.zoom, limiar: (z) => limiares.registrar(z) });
     fills.push(...surfaces(comp.fills)); strokes.push(...comp.strokes); labels.push(...comp.labels);
   }
 

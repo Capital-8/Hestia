@@ -6,6 +6,7 @@ import { aneisDosCorpos, anelDaPecaEmPlanta, anelRetangulo, corDoPapel, pontoNoM
 import { aneisDasPecas, desenharPecasEmPlanta } from './planComponentsPecas.ts';
 import { destaquesDeCircuitos } from './planCircuitos.ts';
 import { simbolosDePlanta } from './planComponentsSimbolos.ts';
+import { tuboNaPlanta, type OpcoesTubo } from './planTubo.ts';
 import type { FillOp, LabelOp, PlanTheme, StrokeOp } from './types.ts';
 
 /** Cota mínima (m) relativa ao pavimento a partir da qual o móvel é considerado aéreo (projeção tracejada). */
@@ -138,8 +139,18 @@ function desenharGeometriaDoComponente(
   fillsAereos: FillOp[],
   detalhe: DetalhePlanta,
   aramado: boolean,
+  labels: LabelOp[],
+  tubo: OpcoesTubo,
 ): void {
   const res = resolverComponente(p, c);
+  // Tubo e conexão MEP (ficha D1): contorno técnico pelos corpos; `null` = não é tubo, segue o desenho de antes.
+  const tec = tuboNaPlanta(c, res, theme, detalhe, sombreado, aramado, tubo);
+  if (tec) {
+    fills.push(...tec.fills);
+    strokes.push(...tec.strokes);
+    labels.push(...tec.labels);
+    return;
+  }
   const silhuetas = aneisDosCorpos(c, res, detalhe);
   desenharSilhuetaDosCorpos(silhuetas, theme, fills, strokes, sombreado, c);
   if (res.pecas.length === 0) return;
@@ -199,10 +210,11 @@ export function desenharComponenteEmPlanta(
   detalhe: DetalhePlanta = 'medium',
   aramado = false,
   labels: LabelOp[] = [],
+  tubo: OpcoesTubo = {},
 ): void {
   const simb = simbolosDePlanta(p, c, theme.inkSoft, detalhe);
   labels.push(...simb.labels);
-  if (!simb.substituiGeometria) desenharGeometriaDoComponente(p, c, theme, fills, strokes, sombreado, fillsAereos, detalhe, aramado);
+  if (!simb.substituiGeometria) desenharGeometriaDoComponente(p, c, theme, fills, strokes, sombreado, fillsAereos, detalhe, aramado, labels, tubo);
   strokes.push(...simb.strokes);
 }
 
@@ -215,6 +227,7 @@ export function componentsPlanOps(
   sombreado = false,
   detalhe: DetalhePlanta = 'medium',
   aramado = false,
+  tubo: OpcoesTubo = {},
 ): { fills: FillOp[]; strokes: StrokeOp[]; labels: LabelOp[] } {
   const fills: FillOp[] = [];
   const aereos: FillOp[] = [];
@@ -222,7 +235,7 @@ export function componentsPlanOps(
   const labels: LabelOp[] = [];
   for (const e of Object.values(p.elements)) {
     if (e.kind === 'component' && e.levelId === levelId && !hidden?.has(e.id)) {
-      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado, labels);
+      desenharComponenteEmPlanta(p, e, theme, fills, strokes, sombreado, aereos, detalhe, aramado, labels, tubo);
     }
   }
   const circuitos = destaquesDeCircuitos(p, levelId, hidden);
