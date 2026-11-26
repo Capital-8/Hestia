@@ -193,10 +193,8 @@ export function planejarAteReferencia(p: Project, alvoId: Id, at: Vec2, ref: Ref
   const mesmoDN = T.tubo.dn === R.tubo.dn;
   const corrugado = ehCorrugado(T.tubo) || ehCorrugado(R.tubo);
   const regras = regrasDoTrecho(T.tubo);
-  if (corrugado) {
-    const sem = semDerivacao(T.tubo.c.familyId, regras, T.tubo.a.dominio) ?? semDerivacao(R.tubo.c.familyId, null, R.tubo.a.dominio);
-    return bloqueio(sem?.motivo ?? 'o eletroduto corrugado não tem tê: não deriva no meio de outro tubo.', sem?.sugestao ?? 'Sugestão: derive de uma caixa (ela tem as entradas).', ponta, X);
-  }
+  const sem = corrugado ? (semDerivacao(T.tubo.c.familyId, regras, T.tubo.a.dominio) ?? semDerivacao(R.tubo.c.familyId, null, R.tubo.a.dominio)) : semDerivacao(T.tubo.c.familyId, regras, T.tubo.a.dominio);
+  if (corrugado || sem) return bloqueio(sem?.motivo ?? 'o eletroduto corrugado não tem tê: não deriva no meio de outro tubo.', sem?.sugestao ?? 'Sugestão: derive de uma caixa (ela tem as entradas).', ponta, X);
   if (dz <= TOL_COTA && mesmoDN) {
     return planoVazio({ passos: [passoDerivar(T, fim, a, b, [X[0], X[1], cotaEm(R, c.sR)])], fantasmas: [fantasma(T, a, b)] });
   }
