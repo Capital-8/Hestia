@@ -217,3 +217,19 @@ Exceção: em `tuboReducao.test.ts` o teste "documenta a pendência da excêntri
 
 ## Correção de duplicação de materiais (D1/C8b)
 - A C8b tinha acrescentado `comp_aluminio`, `comp_vidro_incolor`, `comp_cobre` e `comp_branco` em `materiaisInstalacoes.ts`, mas esses ids já existem em `acabamentos.ts` (outra cor para `comp_cobre`); a cópia reprovava `componentSolids.test.ts` e `planComponentsCor.test.ts`. As 4 cópias foram removidas; a miniatura já resolve a cor pelo catálogo de acabamentos. Teste novo da própria C8b (`miniaturaMepEletrica.test.ts`) ajustado para comparar com `MAPA_ACABAMENTOS`; nenhum teste antigo foi editado.
+
+## Relatório final da Fase 3 (2026-11-26)
+Suíte completa: `npx vitest run` = 1.682 arquivos, 21.210 testes passaram, 63 pulados, 3 todo, saída 0; `tsc` limpo (saída 0); check-boundaries, check-units e check-parity ok na última rodada de cada ficha. Artifact do app republicado (versão 3); o build servido localmente carrega `geom_wasm.wasm` (200, sem erro de console), mas NÃO se confirmou o carregamento dentro do visualizador do Artifact (link privado, não aberto daqui).
+
+Entregue (ver ledger em PLANO-FASE-3.md): ícones MEP próprios (31) e revisão visual; resolvedor de nó, viabilidade com bloqueio, troca de bitola, prumada (subir primeiro, andar primeiro, diagonal só com curva 45°), redução automática da Krona, alertas vermelhos com sugestão de cota, miniaturas MEP por silhueta; ferramenta Eletroduto, quadro de distribuição, circuitos com cor na planta, Verificar rede elétrica de traçado e quantitativos elétricos; planta pela geometria (D1), furo real do tê e da junção (D2), famílias especiais da Krona (D3b), catálogos da Tigre como dado CONFERIR (D5), traduções da faixa (E1); roteiros de navegador elétrico (12/12) e hidráulico (10/11).
+
+Decisões do dono: o programa só TRAÇA eletricidade (nenhum dimensionamento elétrico; hidráulico também não dimensiona).
+
+ABERTO (precisa de decisão ou de trabalho humano):
+1. Redução excêntrica 100→75 fica 13,1 mm fora do eixo e a rede acusa `conexao_afastada`; falta decidir qual geratriz alinha. Luva soldável 25→20 precisa de recuo negativo em `aparar`. (B6, bloqueada por decisão.)
+2. Troca automática da disciplina pessoal ao ativar Tubo/Eletroduto (B9): decisão de produto a confirmar.
+3. `SCHEMA_VERSION` não subiu para circuitos/quadros (campos opcionais aditivos): um programa antigo apaga circuitos ao salvar; o bump exige editar testes existentes e o hash do IFC, só com autorização.
+4. Conferência de TODOS os catálogos contra os PDFs (Krona e Tigre) é trabalho humano; valores e limites (curvas entre caixas, mínimo de trecho 10 mm, espessura elétrica 2 mm, posição das entradas dos dispositivos) são provisórios e marcados CONFERIR.
+5. Não verificado no navegador: 3D em detalhe, IFC com as peças novas e circuitos (IFC não exporta circuito), celular, eletroduto com troca automática de disciplina, cor do circuito no 3D e na prancha, tê com muitos componentes (cada tê leva 30 a 60 ms para resolver a malha), tomada e plafon em miniatura no navegador.
+6. Tigre: sem famílias nem tipos de tubulação; conexões do esgoto ficaram fora por falha de extração de texto das tabelas.
+7. Arquivos acima de 420 linhas já existentes e não divididos: `ribbon/actions.ts` (902), `transformTools.ts` (555).
