@@ -242,3 +242,36 @@ A F1 passou a exigir um tubo curto entre a peça (joelho) e a redução na troca
 |---|---|---|
 | `packages/engine/src/componentes/trocaBitola.test.ts` | 'Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica e entra a redução, sem remover nem alertar' → 'Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica, entra o tubo curto e a redução, sem remover nem alertar' | F1 exige tubo curto entre joelho e redução |
 | `packages/engine/src/componentes/trocaBitola.test.ts` | 'genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha uma redução 100 → 75, sem remover nada' → 'genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha um tubo curto e uma redução 100 → 75, sem remover nada' | F1 exige tubo curto entre joelho e redução |
+
+## Levantamento de pontos de saída elétricos (F3)
+
+Levantado por script sobre `BIBLIOTECA_MEP` e `BIBLIOTECA_BASE` (2026-11-26). "Portas" = ligações de domínio `eletroduto` (ou `eletrocalha`); todas aparecem como porta no snap (`ligacoesAbertas`, testado em `eletrodutoSaidas.test.ts`). Diâmetro vem do catálogo Krona pelo DN nas entradas aditivas (`eletricaEntradas.ts`); posições por modelagem são CONFERIR.
+
+| Família | Categoria | Portas de eletroduto | Posições / observação |
+|---|---|---|---|
+| `fam_eletroduto_rigido`, `_curva90`, `_luva` | eletroduto | 2 | pontas A e B |
+| `fam_eletrocalha_reta`, `_curva` | eletroduto | 2 (domínio `eletrocalha`) | pontas; sem ferramenta de traçado |
+| `fam_eletrocalha_te` | eletroduto | 3 (`eletrocalha`) | A, B e ramal C |
+| `fam_caixa_4x2`, `_4x4`, `_octogonal` | dispositivo_eletrico | 2 | esquerda e direita |
+| `fam_caixa_passagem` | dispositivo_eletrico | 4 | esquerda, direita, topo, base |
+| `fam_tomada_2p_t`, `fam_interruptor_simples` | dispositivo_eletrico | 5 | fundo (id antigo `eletroduto`), esquerda, direita, topo, base; + `forca` |
+| `fam_luminaria_plafon_redondo`, `_painel_led_quadrado`, `_painel_led_retangular`, `_spot_embutido` | luminaria | 4 | fundo, esquerda, direita, frente; + `forca` |
+| `fam_luminaria_arandela` | luminaria | 5 | fundo, esquerda, direita, topo, base |
+| `fam_luminaria_linear` | luminaria | 3 | fundo, esquerda, frente |
+| `fam_luminaria_pendente` | luminaria | 1 | saída no topo do cabo |
+| `fam_krona_eletrica_tubo`, `_tubo_corte`, `_curva90`, `_luva`, `_luva_pressao` | eletroduto | 2 | pontas |
+| `fam_krona_eletrica_caixa_4x2`, `_4x4`, `_4x4_flexivel`, `_octogonal` | dispositivo_eletrico | 4 | `a` topo, `b` base, `c` esquerda, `d` direita |
+| `fam_tigre_tigreflex_amarelo`, `_reforcado` | eletroduto | 2 (flexíveis) | pontas |
+| `fam_quadro_distribuicao_eletrico` | dispositivo_eletrico | 4 | duas em cima, duas embaixo |
+| `fam_tomada`, `fam_interruptor` (antigas) | equipamento | 1 | fundo; sem entradas laterais (não alterado) |
+| `fam_quadro_distribuicao` (antigo) | equipamento | 1 | fundo (DN 32) |
+| `fam_luminaria_teto` (antiga) | equipamento | era 0, agora 3 | ACRESCENTADO na F3: `eletroduto` (topo), `eletroduto_esq`, `eletroduto_dir`, diâmetro 20 mm; `forca` preservada; posições CONFERIR |
+| Perfilado | — | — | NÃO existe família (`perfisMetalicos` é estrutura); fora, sem medidas de catálogo |
+
+Teste de guarda: `pontosSaidaEletricos.test.ts` (toda família elétrica tem ≥ 1 porta; lista de exceções vazia).
+
+### Defeitos achados e corrigidos na F3
+1. Luminária (categoria `luminaria`) e peças `equipamento` não passavam a direção da porta ao traçado (só `dispositivo_eletrico`): o eletroduto chegava ou saía pelo lado errado e a rede acusava incompatível. Agora vale para qualquer dono que não seja eletroduto (`tuboTool.ts`).
+2. Clicar de novo no mesmo ponto em planta com outra cota (prumada) capturava a ponta do trecho anterior e respondia "os dois pontos coincidem": `semOrigem` tira a porta de origem da captura.
+3. Trecho maior que o máximo do parâmetro `L` da família (6000 mm, rígido, corrugado e hidráulico) era gravado encurtado em silêncio e a ponta ficava afastada (`conexao_afastada`): agora é BLOQUEADO com o motivo (`motivoTrechoLongo`). Limitação: trecho acima de 6 m exige ponto intermediário (o corrugado em rolo real poderia ser maior; o catálogo não traz o comprimento do rolo, CONFERIR).
+4. Não havia marcador de snap em porta alguma: `tuboPortas.ts` desenha halo nas portas livres compatíveis ao alcance do cursor, halo forte + seta + nome na que o clique pega (Eletroduto e Tubo).

@@ -36,6 +36,16 @@ export function pontasDoTubo(familia: Familia, dn: number): PontasDoTubo | null 
   return ligs.length >= 2 && inicio && fim ? { inicio, fim } : null;
 }
 
+/**
+ * Tira da lista a porta onde o trecho em curso começa (`origem`, xyz): ela ainda está sem ligação gravada, mas um trecho não termina
+ * no próprio início. Sem isso, clicar no mesmo ponto em planta com outra cota (a prumada) pegava a ponta do trecho anterior e dava
+ * "os dois pontos coincidem" (ficha F3).
+ */
+export function semOrigem(abertas: LigacaoAberta[], origem: readonly number[] | undefined): LigacaoAberta[] {
+  if (!origem) return abertas;
+  return abertas.filter((c) => Math.hypot(c.lig.posicaoMundo[0] - (origem[0] ?? 0), c.lig.posicaoMundo[1] - (origem[1] ?? 0), c.lig.posicaoMundo[2] - (origem[2] ?? 0)) > 1e-4);
+}
+
 /** Ligações abertas por projeto (N4): o mouse pedia a lista a cada movimento; o projeto novo a cada comando invalida sozinho. */
 const ABERTAS = new WeakMap<Project, LigacaoAberta[]>();
 

@@ -67,10 +67,24 @@ function paraEntradas(partes: ParteDoTubo[], de: number, trechos: TrechoViabilid
 }
 
 /**
+ * Motivo do bloqueio se o trecho `a`→`b` passa do máximo do parâmetro `L` da família (F3: o resolvedor recusa o valor e usa o limite,
+ * então o trecho gravado ficava mais curto que o clicado e a ponta, afastada do alvo; sem aviso). null se cabe.
+ */
+export function motivoTrechoLongo(familia: Pick<Familia, 'parametros'>, a: readonly number[], b: readonly number[]): string | null {
+  const max = familia.parametros.find((q) => q.id === 'L')?.max;
+  const mm = comprimento(a, b) * 1000;
+  if (max === undefined || mm <= max + 1e-6) return null;
+  // units-ok: mensagem em mm por contrato do motor (parâmetros da família em mm)
+  return `trecho de ${Math.round(mm)} mm passa do comprimento máximo da família (${Math.round(max)} mm). Clique um ponto intermediário para dividir o trecho.`;
+}
+
+/**
  * Confere o trecho `a`→`b` de `familia` (DN em mm) antes de ser gravado. `regras` null (domínio sem conexão automática) = nada a
  * conferir além da declividade. Não grava nada e não lança.
  */
 export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio: string, regras: RegrasConexao | null, dn: number, a: PontoTubo, b: PontoTubo, internos: { a: number; b: number } = { a: 0, b: 0 }, luvaEmLinha = false): ViabilidadeDoTrecho {
+  const longo = motivoTrechoLongo(familia, a.xyz, b.xyz);
+  if (longo) return { bloqueio: longo, avisos: [], codigo: null };
   const novo: TrechoEncontro = { a: a.xyz, b: b.xyz, dn };
   // `internos`: recuos (m) já impostos às pontas do trecho por joelhos da própria prumada (ficha B4), que ainda não estão no projeto.
   const recuoNovo = { ...internos };

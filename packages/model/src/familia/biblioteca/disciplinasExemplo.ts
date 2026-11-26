@@ -260,7 +260,13 @@ export const FAMILIA_LUMINARIA_TETO: Familia = comMep(
     tipoPadrao: 'plafon30',
   }),
   {
-    ligacoes: [ligacaoPonto('forca', 'Ponto de luz (alimentação pelo teto)', 'eletrica_forca', 'entrada', ['L / 2', 'P / 2', 'hInst + A'], ['0', '0', '1'], '20')],
+    // Ficha F3: ids novos e aditivos (a ligação `forca` não muda). Posições por modelagem, CONFERIR: o catálogo não diz onde entram os eletrodutos.
+    ligacoes: [
+      ligacaoPonto('forca', 'Ponto de luz (alimentação pelo teto)', 'eletrica_forca', 'entrada', ['L / 2', 'P / 2', 'hInst + A'], ['0', '0', '1'], '20'),
+      ligacaoPonto('eletroduto', 'Entrada de eletroduto: topo (CONFERIR)', 'eletroduto', 'ambos', ['L / 2', 'P / 2', 'hInst + A'], ['0', '0', '1'], '20'),
+      ligacaoPonto('eletroduto_esq', 'Entrada de eletroduto: esquerda (CONFERIR)', 'eletroduto', 'ambos', ['0', 'P / 2', 'hInst + A / 2'], ['-1', '0', '0'], '20'),
+      ligacaoPonto('eletroduto_dir', 'Entrada de eletroduto: direita (CONFERIR)', 'eletroduto', 'ambos', ['L', 'P / 2', 'hInst + A / 2'], ['1', '0', '0'], '20'),
+    ],
     simbolos: [simboloPlanta([retangulo('0', '0', 'L', 'P')])],
     ifc: 'IFCLIGHTFIXTURE',
   },

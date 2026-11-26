@@ -8,7 +8,8 @@ import { planejarPrumada, recuosDoJoelho, type ModoCota, type PlanoPrumada } fro
 import { eixoDaDirecao, eixoOposto, planejarCaminhoOrtogonal } from './tuboCaminho.ts';
 import { alertaDeAngulo, avisoComSugestao, itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
-import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, temConexoes, type ContextoTraco } from './tuboApoio.ts';
+import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, semOrigem, temConexoes, type ContextoTraco, type LigacaoAberta } from './tuboApoio.ts';
+import { itensDePortas } from './tuboPortas.ts';
 import type { PointerInfo, ToolEnv } from './types.ts';
 
 export { pontasDoTubo };
@@ -80,6 +81,8 @@ export class TuboTool extends ToolBase {
   /** Recuos (m) a aplicar nas pontas dos trechos do passo atual, depois das conexões (tubo entra na bolsa). */
   private aparos: Array<{ id: Id; ponta: 'a' | 'b'; recuo: number }> = [];
   private bloqueio: BloqueioTubo | null = null;
+  /** Porta livre que o cursor pega agora (a do último `ponto`), para o halo forte da prévia. */
+  private porta: LigacaoAberta | null = null;
   protected readonly opc: OpcoesTraco;
 
   constructor(env: ToolEnv, protected readonly cfg: ConfigTraco = CONFIG_TUBO) {
@@ -133,6 +136,12 @@ export class TuboTool extends ToolBase {
     return { familia, pontas };
   }
 
+  /** Há redução no projeto: a captura de porta ignora a bitola. */
+  private bitolaLivre(ctx: ContextoTraco): boolean {
+    const regras = regrasDoDominio(ctx);
+    return regras !== null && this.env.project().componentFamilies?.[regras.reducao] !== undefined;
+  }
+
   /** Ponto do cursor: captura geral, trava de eixo (Shift ou Orto) e encaixe numa ligação aberta compatível. */
   private ponto(p: PointerInfo, ctx: ContextoTraco, ehFim: boolean): PontoTubo {
     const de = this.inicio ? { x: this.inicio.xyz[0], y: this.inicio.xyz[1] } : undefined;
@@ -143,11 +152,12 @@ export class TuboTool extends ToolBase {
     const tol = Math.max(TOLERANCIA_MINIMA, 8 * this.env.metersPerPixel());
     const projeto = this.env.project();
     const regras = regrasDoDominio(ctx);
-    const bitolaLivre = regras !== null && projeto.componentFamilies?.[regras.reducao] !== undefined;
-    const achada = ligacaoProxima(at.x, at.y, ehFim ? ctx.pontas.fim : ctx.pontas.inicio, ligacoesAbertas(projeto), tol, bitolaLivre, this.opc.z);
+    const achada = ligacaoProxima(at.x, at.y, ehFim ? ctx.pontas.fim : ctx.pontas.inicio, semOrigem(ligacoesAbertas(projeto), this.inicio?.xyz), tol, this.bitolaLivre(ctx), this.opc.z);
+    this.porta = achada;
     if (achada) {
       const [x, y, z] = achada.lig.posicaoMundo;
-      const comEntrada = this.cfg.respeitaEntradas && projeto.componentFamilies?.[(projeto.elements[achada.componentId] as Component).familyId]?.categoria === 'dispositivo_eletrico';
+      // F3: ponto, luminária, caixa e quadro (qualquer dono que não seja eletroduto) exigem chegar de frente para a porta; antes só a categoria dispositivo_eletrico.
+      const comEntrada = this.cfg.respeitaEntradas && projeto.componentFamilies?.[(projeto.elements[achada.componentId] as Component).familyId]?.categoria !== 'eletroduto';
       return { xyz: [x, y, z], alvo: { componentId: achada.componentId, ligacaoId: achada.lig.id }, ...(comEntrada ? { direcao: achada.lig.direcaoMundo } : {}) };
     }
     // No meio de um tubo existente: derivação (tê ou junção 45°), quando o projeto tem as conexões do domínio.
@@ -164,7 +174,7 @@ export class TuboTool extends ToolBase {
     const ctx = this.contexto();
     if (!ctx) return;
     const pt = this.ponto(p, ctx, this.inicio !== null);
-    this.items.push({ kind: 'point', at: { x: pt.xyz[0], y: pt.xyz[1] } });
+    this.items.push(...itensDePortas(p.raw, this.inicio ? ctx.pontas.fim : ctx.pontas.inicio, semOrigem(ligacoesAbertas(this.env.project()), this.inicio?.xyz), this.porta, this.env.metersPerPixel(), this.bitolaLivre(ctx)), { kind: 'point', at: { x: pt.xyz[0], y: pt.xyz[1] } });
     // Prévia: o trecho que seria bloqueado fica VERMELHO com o motivo (mesma conta do clique, sem gravar); senão o fantasma, com o alerta de ângulo sem peça.
     const hover = this.inicio ? this.verificar(ctx, this.inicio, pt, []).bloqueio : null;
     if (this.inicio && hover) this.items.push(...itensDoBloqueio({ a: { x: this.inicio.xyz[0], y: this.inicio.xyz[1] }, b: { x: pt.xyz[0], y: pt.xyz[1] }, motivo: hover.motivo, sugestao: hover.sugestao }, true));

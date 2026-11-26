@@ -1,6 +1,7 @@
 import { COMPRIMENTO_MINIMO_TRECHO, desvioEntre, direcaoDaLigacao, raioMinimoMm, tangenteDoCanto, tangenteGravada, tipoSemConexoes, trechoFlexivel, trechoDeTubo, type PontoSegmento } from '@hestia/engine';
 import { isComponent, newId, type Component, type Familia, type Project } from '@hestia/model';
 import type { PontoTubo } from './tuboGeometria.ts';
+import { motivoTrechoLongo } from './tuboViabilidade.ts';
 
 /*
  * Traçado do eletroduto CORRUGADO (fase 4, ficha F2): cada clique cria UM trecho reto, ligado ao anterior (ou à caixa/dispositivo) por
@@ -37,6 +38,8 @@ export function planejarFlexivel(p: Project, familia: Familia, dn: number, level
   const u = direcaoDoTrecho(a.xyz, b.xyz) as [number, number, number];
   const L = Math.hypot(b.xyz[0] - a.xyz[0], b.xyz[1] - a.xyz[1], b.xyz[2] - a.xyz[2]) * 1000;
   const bloqueia = (motivo: string, sugestao: string | null): PlanoFlexivel => ({ bloqueio: { motivo, sugestao, naFala: true }, pts, cadeia: [trecho] });
+  const longo = motivoTrechoLongo(familia, a.xyz, b.xyz);
+  if (longo) return bloqueia(longo, null);
   if (L < COMPRIMENTO_MINIMO_TRECHO) return bloqueia(`trecho curto demais: ${mm(L)} mm; o mínimo é ${mm(COMPRIMENTO_MINIMO_TRECHO)} mm.`, `Sugestão: aumentar o trecho para ${mm(COMPRIMENTO_MINIMO_TRECHO)} mm.`);
   const tipo = tipoSemConexoes(familia.id);
   const raio = tipo ? raioMinimoMm(tipo, familia, dn) : null;
