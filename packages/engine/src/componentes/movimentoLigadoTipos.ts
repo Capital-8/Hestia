@@ -43,6 +43,14 @@ export interface PlanoMovimento {
   movidos: Id[];
 }
 
+/**
+ * Opções do planejamento (ficha F6a, pegadores do trecho): `pontaLivre` leva a ponta `fim` do tubo `tuboId`, que NÃO tem conexão, ao ponto
+ * `pt` (m) sem mover mais nada (esticar a ponta de um tubo). Com `pontaLivre` os pedidos podem ser vazios e `d` nulo.
+ */
+export interface OpcoesMovimento {
+  pontaLivre?: { tuboId: Id; fim: 'a' | 'b'; pt: V3 };
+}
+
 export type PatchComponente = Partial<Omit<Component, 'id' | 'kind' | 'order'>>;
 
 /** Uma ligação a desfazer porque não tem como acompanhar (a ponta `la` de `a`), com o motivo. */

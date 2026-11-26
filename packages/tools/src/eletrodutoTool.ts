@@ -55,8 +55,8 @@ export const CONFIG_ELETRODUTO: ConfigTraco = {
  * (`eletrodutoFlexivel.ts`); com o rígido tudo segue como antes.
  */
 export class EletrodutoTool extends TuboTool {
-  constructor(env: ToolEnv) {
-    super(env, CONFIG_ELETRODUTO);
+  constructor(env: ToolEnv, cfg: ConfigTraco = CONFIG_ELETRODUTO) {
+    super(env, cfg);
   }
 
   protected override verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): Verificacao {

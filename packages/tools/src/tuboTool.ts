@@ -271,13 +271,22 @@ export class TuboTool extends ToolBase {
     return verificarTraco(this.entrada(ctx), a, b, avisos);
   }
 
-  private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): void {
+  /** Ficha F6a: grava a rota `a`→`b` (prumada, joelhos, tubos curtos) pela MESMA conta do clique, dentro da transação do chamador; devolve se gravou. */
+  gravarRota(a: PontoTubo, b: PontoTubo): boolean {
+    const ctx = this.contexto();
+    return ctx !== null && this.criar(ctx, a, b);
+  }
+
+  private criar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo): boolean {
     const avisos: string[] = [];
     const v = this.verificar(ctx, a, b, avisos);
-    if (v.bloqueio) return this.bloquear(a, b, v.bloqueio.motivo, v.bloqueio.sugestao, v.bloqueio.naFala);
+    if (v.bloqueio) {
+      this.bloquear(a, b, v.bloqueio.motivo, v.bloqueio.sugestao, v.bloqueio.naFala);
+      return false;
+    }
     if (v.cadeia.some((c) => !c)) {
       this.env.say(`${this.cfg.nome}: os dois pontos coincidem; escolha um ponto final diferente.`);
-      return;
+      return false;
     }
     const { pts } = v;
     const dns = v.dns ?? pts.slice(1).map(() => this.opc.dn);
@@ -301,7 +310,7 @@ export class TuboTool extends ToolBase {
     } catch (e) {
       this.env.say(e instanceof Error ? e.message : String(e));
       this.reset();
-      return;
+      return false;
     }
     this.items = [];
     this.bloqueio = null;
@@ -315,6 +324,7 @@ export class TuboTool extends ToolBase {
       this.inicio = { xyz: b.xyz, alvo: { componentId: id, ligacaoId: ctx.pontas.fim.id } };
       this.env.say(`${this.cfg.nome} criado. Clique o próximo ponto para continuar; Esc encerra a cadeia.` + extra);
     }
+    return true;
   }
 
   /** Comprimento digitado: o fim fica a essa distância do início, na direção do cursor. */

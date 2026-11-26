@@ -16,6 +16,7 @@ import { pickRailingAt, railingPolylines } from './railingPick.ts';
 import { pickTerrenoAt, pickTerrenosInBox } from './terrainPick.ts';
 import { registrarAlcasDaRegiao, removerVerticeDaRegiao } from './terrainRegionHandles.ts';
 import { registrarAlcasDoLote, removerVerticeDoFocoDoLote } from './lotHandles.ts';
+import { registrarPegadoresDoTrecho } from './tuboPegadores.ts';
 import { lotIdsInBox, pickLoteAt } from './lotPick.ts';
 import { massIdsInBox, pickMassAt } from './massPick.ts';
 import { massHandlePreview } from './massHandles.ts';
@@ -54,6 +55,8 @@ import type { PointerInfo } from './types.ts';
 registrarAlcasDaRegiao();
 // As alças de vértice do lote (mover, inserir e remover vértice) entram na seleção do mesmo jeito.
 registrarAlcasDoLote();
+// Os pegadores do trecho de tubo ou eletroduto selecionado (pontas e meio) entram do mesmo jeito (`tuboPegadores.ts`).
+registrarPegadoresDoTrecho();
 
 type Mode = 'idle' | 'pending' | 'window' | 'grip' | 'dragwait' | 'moving' | 'opening' | 'dimgrip' | 'dimtext' | 'textmove' | 'tagmove' | 'eltagmove' | 'spotmove' | 'symbolmove';
 

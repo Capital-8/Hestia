@@ -2,9 +2,9 @@ import { isComponent, type Command, type Id, type Project } from '@hestia/model'
 import { chaveLigacao, vizinhanca, vizinhoDe, type V3 } from './movimentoLigadoRede.ts';
 import { rodada } from './movimentoLigadoRodada.ts';
 import { nomeDoComponente } from './movimentoLigadoValida.ts';
-import type { AlertaMovimento, LigacaoDesfeita, PlanoMovimento } from './movimentoLigadoTipos.ts';
+import type { AlertaMovimento, LigacaoDesfeita, OpcoesMovimento, PlanoMovimento } from './movimentoLigadoTipos.ts';
 
-export type { AlertaMovimento, LigacaoDesfeita, PlanoMovimento, TrechoEsticado } from './movimentoLigadoTipos.ts';
+export type { AlertaMovimento, LigacaoDesfeita, OpcoesMovimento, PlanoMovimento, TrechoEsticado } from './movimentoLigadoTipos.ts';
 
 /*
  * Mover com as peças ligadas acompanhando (fase 4, ficha F4; no Revit os tubos ligados esticam junto). `planejarMovimentoLigado` é PURO
@@ -29,14 +29,15 @@ const vazio = (extra: Partial<PlanoMovimento> = {}): PlanoMovimento => ({ comand
  * Plano de mover os componentes `ids` pelo vetor `d` (m: x, y, z). Componentes sem ligação só andam; os ligados arrastam as conexões e
  * esticam os tubos. Conjunto fechado (todo o ligado selecionado) anda sem esticar nada.
  */
-export function planejarMovimentoLigado(p: Project, ids: readonly Id[], d: V3): PlanoMovimento {
+export function planejarMovimentoLigado(p: Project, ids: readonly Id[], d: V3, opc: OpcoesMovimento = {}): PlanoMovimento {
   const pedidos = [...new Set(ids)].filter((id) => isComponent(p.elements[id]));
-  if (pedidos.length === 0 || Math.hypot(d[0], d[1], d[2]) < 1e-9) return vazio();
-  const rede = vizinhanca(p, pedidos, PROFUNDIDADE);
+  const livre = opc.pontaLivre;
+  if (livre ? !isComponent(p.elements[livre.tuboId]) : pedidos.length === 0 || Math.hypot(d[0], d[1], d[2]) < 1e-9) return vazio();
+  const rede = vizinhanca(p, livre ? [...pedidos, livre.tuboId] : pedidos, PROFUNDIDADE);
   const cortes = new Set<string>();
   const desfeitas: LigacaoDesfeita[] = [];
   for (let i = 0; i < MAX_RODADAS; i++) {
-    const r = rodada(p, pedidos, d, rede, cortes);
+    const r = rodada(p, pedidos, d, rede, cortes, livre);
     if (r.tipo === 'bloqueio') return vazio({ bloqueado: r.motivo, trechoBloqueado: { a: r.a, b: r.b } });
     if (r.tipo === 'ok') {
       const comandos: Command[] = [

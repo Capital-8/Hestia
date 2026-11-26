@@ -6,7 +6,7 @@ import { tipoDaFamiliaDeTubo } from './tiposTubulacao.ts';
 import { centroDaPeca, chaveLigacao, classeDe, dotV, lerTuboMov, normaV, portasNoMundo, somaV, subV, unitarioV, vizinhoDe, type TuboLido, type V3 } from './movimentoLigadoRede.ts';
 import { resolverPecaDoMovimento, type PernaDaPeca } from './movimentoLigadoPeca.ts';
 import { conferirResultado, nomeDoComponente } from './movimentoLigadoValida.ts';
-import type { AlertaMovimento, Bloqueio, Falha, PatchComponente, Rodada, TrechoEsticado } from './movimentoLigadoTipos.ts';
+import type { AlertaMovimento, Bloqueio, Falha, OpcoesMovimento, PatchComponente, Rodada, TrechoEsticado } from './movimentoLigadoTipos.ts';
 
 /*
  * Uma rodada do planejamento do movimento com as peças ligadas (ficha F4). Dado o vetor `d` (m) e o conjunto de ligações já cortadas,
@@ -48,7 +48,7 @@ interface GeoTubo {
 // units-ok: mensagem em mm por contrato do engine (a ferramenta converte de metros); não é exibição de quantidade do projeto
 const mmTexto = (m: number): string => String(Math.round(m * 10000) / 10).replace('.', ',');
 
-export function rodada(p: Project, ids: readonly Id[], d: V3, rede: ReadonlySet<Id>, cortes: ReadonlySet<string>): Rodada | Falha | Bloqueio {
+export function rodada(p: Project, ids: readonly Id[], d: V3, rede: ReadonlySet<Id>, cortes: ReadonlySet<string>, livre?: OpcoesMovimento['pontaLivre']): Rodada | Falha | Bloqueio {
   const comp = (id: Id): Component => p.elements[id] as Component;
   const viva = (c: Component, lig: string) => (cortes.has(chaveLigacao(c.id, lig)) ? undefined : vizinhoDe(p, c, lig));
   const mov = new Set<Id>(ids.filter((id) => isComponent(p.elements[id])));
@@ -88,6 +88,7 @@ export function rodada(p: Project, ids: readonly Id[], d: V3, rede: ReadonlySet<
     const lig = fim === 'a' ? t.a : t.b;
     const v = viva(t.c, lig.id);
     if (v && classeDe(p, v.comp) === 'peca') return { no: v.comp, pt: centroNovo(v.comp), deslocada: mov.has(v.comp.id) };
+    if (!v && livre && livre.tuboId === t.c.id && livre.fim === fim) return { no: null, pt: livre.pt, deslocada: true };
     const anda = mov.has(t.c.id) || (v !== undefined && mov.has(v.comp.id));
     return { no: null, pt: anda ? somaV(lig.posicaoMundo, d) : lig.posicaoMundo, deslocada: anda };
   };
