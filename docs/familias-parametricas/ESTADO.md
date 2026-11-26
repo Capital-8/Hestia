@@ -233,3 +233,12 @@ ABERTO (precisa de decisão ou de trabalho humano):
 5. Não verificado no navegador: 3D em detalhe, IFC com as peças novas e circuitos (IFC não exporta circuito), celular, eletroduto com troca automática de disciplina, cor do circuito no 3D e na prancha, tê com muitos componentes (cada tê leva 30 a 60 ms para resolver a malha), tomada e plafon em miniatura no navegador.
 6. Tigre: sem famílias nem tipos de tubulação; conexões do esgoto ficaram fora por falha de extração de texto das tabelas.
 7. Arquivos acima de 420 linhas já existentes e não divididos: `ribbon/actions.ts` (902), `transformTools.ts` (555).
+
+## Testes atualizados por decisão (F1)
+
+A F1 passou a exigir um tubo curto entre a peça (joelho) e a redução na troca de bitola (nunca conexão emendada direto em conexão; decisão do dono). Os dois testes abaixo esperavam a redução emendada direto no joelho. Só as asserções e os títulos mudaram; a lista de comandos ganha um `addComponent` do tubo curto e um `connectComponents` a mais, e `tubosInseridos` passa a ter 1 item (DN da peça, comprimento igual ao `lacunaMinima` do tipo). Nenhum teste foi apagado.
+
+| Arquivo | Título antigo → novo | Motivo |
+|---|---|---|
+| `packages/engine/src/componentes/trocaBitola.test.ts` | 'Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica e entra a redução, sem remover nem alertar' → 'Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica, entra o tubo curto e a redução, sem remover nem alertar' | F1 exige tubo curto entre joelho e redução |
+| `packages/engine/src/componentes/trocaBitola.test.ts` | 'genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha uma redução 100 → 75, sem remover nada' → 'genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha um tubo curto e uma redução 100 → 75, sem remover nada' | F1 exige tubo curto entre joelho e redução |

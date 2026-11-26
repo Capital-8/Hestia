@@ -2,9 +2,10 @@ import { createEmptyProject, familiaDaBiblioteca, isComponent, ProjectStore, typ
 import { describe, expect, it } from 'vitest';
 import { diagnosticarRede } from './diagnosticoRede.ts';
 import { avaliarEncontro, posicionarConexao, type ConexaoEncontro } from './conexoesAutomaticas.ts';
+import { lacunaMinima } from './conformidadeConexoes.ts';
 import { trechoDeTubo, type PontoSegmento } from './orientarSegmento.ts';
 import { resolverNo, type EntradaNo } from './resolvedorNo.ts';
-import { regrasDoTubo } from './tiposTubulacao.ts';
+import { regrasDoTubo, tipoDaFamiliaDeTubo } from './tiposTubulacao.ts';
 import { planejarTrocaDeBitola } from './trocaBitola.ts';
 
 /*
@@ -158,18 +159,21 @@ describe('planejarTrocaDeBitola: recusas e casos sem mudança', () => {
 });
 
 describe('planejarTrocaDeBitola: conexão incompatível vira redução na Krona', () => {
-  it('Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica e entra a redução, sem remover nem alertar', () => {
+  it('Krona, joelho 100 entre dois tubos: troca um para 75, o joelho fica, entra o tubo curto e a redução, sem remover nem alertar', () => {
     const { store, tubos, pecas } = cadeia(KRONA, L, 100);
     const plano = planejarTrocaDeBitola(store.project, tubos[0]!, 75);
     expect(plano.ok).toBe(true);
-    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'addComponent', 'updateComponent', 'connectComponents', 'connectComponents']);
+    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'addComponent', 'addComponent', 'updateComponent', 'connectComponents', 'connectComponents', 'connectComponents']);
     expect(plano.conexoesRemovidas).toEqual([]);
     expect(plano.alertas).toEqual([]);
     expect(plano.reducoesInseridas).toEqual([{ elementId: 't0_red_b', familiaId: 'fam_krona_esgoto_reducao_excentrica', dnMaior: 100, dnMenor: 75 }]);
+    expect(plano.tubosInseridos).toEqual([{ elementId: 't0_tubo_b', familiaId: KRONA, dn: 100, comprimento: lacunaMinima(tipoDaFamiliaDeTubo(KRONA), 'curva90', 'reducao'), entre: [pecas[0]!, 't0_red_b'] }]);
     expect(plano.comandos.find((c) => c.type === 'deleteElements')).toBeUndefined();
     const prox = new ProjectStore(store.project);
     for (const c of plano.comandos) prox.exec(c);
     expect(porId(prox.project, pecas[0]!).values?.DN).toBe(100);
+    expect(porId(prox.project, 't0_tubo_b').ligacoes?.a?.componenteId).toBe(pecas[0]);
+    expect(porId(prox.project, 't0_tubo_b').ligacoes?.b?.componenteId).toBe('t0_red_b');
     expect(porId(prox.project, 't0').ligacoes?.b?.componenteId).toBe('t0_red_b');
     expect(diagnosticarRede(prox.project).filter((d) => d.codigo === 'incompativel' || d.codigo === 'conexao_invalida')).toEqual([]);
   });
@@ -204,18 +208,21 @@ describe('planejarTrocaDeBitola: peça com tipo para o novo DN e redução', () 
     expect(porId(prox.project, 'cap').values?.DN).toBe(75);
     expect(porId(prox.project, 't0').values?.DN).toBe(75);
   });
-  it('genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha uma redução 100 → 75, sem remover nada', () => {
+  it('genérico F1 (tem redução): joelho 100 com tubo trocado para 75 ganha um tubo curto e uma redução 100 → 75, sem remover nada', () => {
     const { store, tubos, pecas } = cadeia(GENERICO, L, 100);
     const plano = planejarTrocaDeBitola(store.project, tubos[0]!, 75);
     expect(plano.ok).toBe(true);
     expect(plano.conexoesRemovidas).toEqual([]);
     expect(plano.alertas).toEqual([]);
     expect(plano.reducoesInseridas).toEqual([{ elementId: 't0_red_b', familiaId: 'fam_esgoto_reducao', dnMaior: 100, dnMenor: 75 }]);
-    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'addComponent', 'updateComponent', 'connectComponents', 'connectComponents']);
+    expect(plano.tubosInseridos).toEqual([{ elementId: 't0_tubo_b', familiaId: GENERICO, dn: 100, comprimento: lacunaMinima(tipoDaFamiliaDeTubo(GENERICO), 'curva90', 'reducao'), entre: [pecas[0]!, 't0_red_b'] }]);
+    expect(ids(plano.comandos)).toEqual(['disconnectComponents', 'addComponent', 'addComponent', 'updateComponent', 'connectComponents', 'connectComponents', 'connectComponents']);
     const prox = new ProjectStore(store.project);
     for (const c of plano.comandos) prox.exec(c);
     const red = porId(prox.project, 't0_red_b');
     expect(red.values).toMatchObject({ DN: 100, DN2: 75 });
+    expect(porId(prox.project, 't0_tubo_b').ligacoes?.a?.componenteId).toBe(pecas[0]);
+    expect(porId(prox.project, 't0_tubo_b').ligacoes?.b?.componenteId).toBe('t0_red_b');
     expect(porId(prox.project, 't0').ligacoes?.b?.componenteId).toBe('t0_red_b');
     expect(porId(prox.project, pecas[0]!).values?.DN).toBe(100);
     expect(diagnosticarRede(prox.project).filter((d) => d.codigo === 'incompativel' || d.codigo === 'conexao_invalida')).toEqual([]);
