@@ -180,6 +180,7 @@ function validarPropriedades(l: Record<string, unknown>, onde: string, escopo: E
 
 /** `encaixe`: tipo conhecido; a bolsa traz profundidade positiva (fórmula válida) e a ponta não traz. */
 function validarEncaixe(l: Record<string, unknown>, onde: string, escopo: Escopo, out: Problema[]): void {
+  if (l.flexivel !== undefined && typeof l.flexivel !== 'boolean') out.push(criarProblema('tipo', 'flexivel precisa ser verdadeiro ou falso', `${onde}.flexivel`));
   if (l.encaixe === undefined) return;
   const campo = `${onde}.encaixe`;
   if (!ehObjeto(l.encaixe)) {

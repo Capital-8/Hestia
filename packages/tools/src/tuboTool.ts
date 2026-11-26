@@ -207,7 +207,7 @@ export class TuboTool extends ToolBase {
   }
 
   /** Liga a ponta `ponta` ('a' início, 'b' fim) do trecho novo `id` ao que há no ponto `pt`: tubo aberto (curva, redução, luva) ou meio de tubo (tê). */
-  private ligarPonta(ctx: ContextoTraco, id: Id, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, avisos: string[]): void {
+  protected ligarPonta(ctx: ContextoTraco, id: Id, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, avisos: string[]): void {
     const minha = ponta === 'a' ? ctx.pontas.inicio.id : ctx.pontas.fim.id;
     const projeto = this.env.project();
     const regras = regrasDoDominio(ctx);
@@ -329,7 +329,7 @@ export class TuboTool extends ToolBase {
    * Plano e viabilidade do trecho `a`→`b` SEM gravar (o clique e a prévia usam a mesma conta): a cadeia de pontos e de instâncias, ou o
    * bloqueio com motivo e sugestão (`naFala`: a sugestão entra na fala). Viabilidade (ficha B2) com os recuos reais de cada nó, inclusive os joelhos internos.
    */
-  private verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): { bloqueio: { motivo: string; sugestao: string | null; naFala: boolean } | null; pts: PontoTubo[]; cadeia: Array<Component | null> } {
+  protected verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): { bloqueio: { motivo: string; sugestao: string | null; naFala: boolean } | null; pts: PontoTubo[]; cadeia: Array<Component | null> } {
     const regras = regrasDoDominio(ctx);
     const plano = this.planejar(ctx, a, b, avisos);
     if (plano.bloqueio !== null) return { bloqueio: { motivo: plano.bloqueio, sugestao: sugestaoDeBloqueio(regras, 'angulo', a, b, undefined, () => true), naFala: false }, pts: [], cadeia: [] };

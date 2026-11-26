@@ -47,6 +47,8 @@ export function textoDoDiagnostico(d: Diagnostico, t: Tradutor, lang: Lang, nome
       return t('rede_curvas', { n: numero(d.valor, lang), limite: LIMITE_CURVAS_ENTRE_CAIXAS });
     case 'conexoes_coladas':
       return t('rede_coladas', { mm: numero(d.valor, lang) });
+    case 'curvatura_fechada':
+      return t('rede_curvatura', { necessario: numero(d.valor, lang), disponivel: numero(d.limite, lang) });
     case 'circuito_sem_quadro':
       return t('rede_el_sem_quadro', { circuito });
     case 'ponto_sem_eletroduto':

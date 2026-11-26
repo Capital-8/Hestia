@@ -113,6 +113,7 @@ function resolverUma(bruto: unknown, k: number, ambiente: Ambiente): ResultadoUm
     propriedades,
     propagaParametro: propaga,
     ...(encaixe ? { encaixe } : {}),
+    ...(bruto.flexivel === true ? { flexivel: true } : {}),
   };
   return { ligacao, diagnosticos: [] };
 }

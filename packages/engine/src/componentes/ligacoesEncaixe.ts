@@ -69,7 +69,8 @@ export function ligacoesCompativeis(a: LigacaoNoMundo, b: LigacaoNoMundo): Resul
   if (!aceitaDominio(a, b) || !aceitaDominio(b, a)) return { ok: false, motivo: 'domínios incompatíveis' };
   if (a.secao !== b.secao) return { ok: false, motivo: 'seções diferentes' };
   if (!mesmasBitolas(a, b)) return { ok: false, motivo: 'bitolas diferentes' };
-  if (!(produtoDirecoes(a, b) <= OPOSTO_MINIMO)) return { ok: false, motivo: 'ligações precisam apontar uma para a outra' };
+  // Ponta flexível (F2): a direção de chegada é livre; o raio mínimo de curvatura é conferido à parte (`curvaturaFlexivel.ts`).
+  if (!a.flexivel && !b.flexivel && !(produtoDirecoes(a, b) <= OPOSTO_MINIMO)) return { ok: false, motivo: 'ligações precisam apontar uma para a outra' };
   if (!fluxosCasam(a, b)) return { ok: false, motivo: 'fluxos incompatíveis' };
   if (!encaixesCasam(a, b)) return { ok: false, motivo: a.encaixe?.tipo === 'bolsa' ? 'bolsa não encaixa em bolsa' : 'ponta não encaixa em ponta' };
   return { ok: true };

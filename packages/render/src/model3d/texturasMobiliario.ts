@@ -52,6 +52,8 @@ const SPECS: Readonly<Record<string, SpecAcabamento>> = {
   comp_pvc_marrom: { kind: 'laca', base: hexRgb('#a8592e'), roughness: 0.44, metalness: 0, seed: 913 },
   comp_pvc_azul: { kind: 'laca', base: hexRgb('#2f6db0'), roughness: 0.42, metalness: 0, seed: 914 },
   comp_pvc_cinza: { kind: 'laca', base: hexRgb('#8d9399'), roughness: 0.46, metalness: 0, seed: 915 },
+  comp_pvc_amarelo: { kind: 'laca', base: hexRgb('#e8c21c'), roughness: 0.44, metalness: 0, seed: 916 },
+  comp_pvc_laranja: { kind: 'laca', base: hexRgb('#e07a1f'), roughness: 0.44, metalness: 0, seed: 917 },
   comp_aco_galv: { kind: 'metal', base: hexRgb('#aeb5bc'), escuro: hexRgb('#949ba3'), claro: hexRgb('#c8ced4'), roughness: 0.34, metalness: 0.7, seed: 921 },
   comp_aco: { kind: 'metal', base: hexRgb('#8a9098'), escuro: hexRgb('#6f757d'), claro: hexRgb('#a6acb3'), roughness: 0.38, metalness: 0.72, seed: 922 },
   comp_aluminio: { kind: 'metal', base: hexRgb('#b9bec4'), escuro: hexRgb('#9ea5ad'), claro: hexRgb('#d3d8de'), roughness: 0.28, metalness: 0.72, seed: 801 },

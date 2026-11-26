@@ -5,6 +5,7 @@ import { PT_DETALHE, EN_DETALHE, ES_DETALHE, DE_DETALHE, FR_DETALHE, IT_DETALHE,
 import { PT_SIMBOLO, EN_SIMBOLO, ES_SIMBOLO, DE_SIMBOLO, FR_SIMBOLO, IT_SIMBOLO, PL_SIMBOLO } from './familiasSimbolo.ts';
 import { PT_ELREDE, EN_ELREDE, ES_ELREDE, DE_ELREDE, FR_ELREDE, IT_ELREDE, PL_ELREDE } from './eletricaRede.ts';
 import { PT_COLADAS, EN_COLADAS, ES_COLADAS, DE_COLADAS, FR_COLADAS, IT_COLADAS, PL_COLADAS } from './redeColadas.ts';
+import { PT_CURVATURA, EN_CURVATURA, ES_CURVATURA, DE_CURVATURA, FR_CURVATURA, IT_CURVATURA, PL_CURVATURA } from './redeCurvatura.ts';
 import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
 import { PT_MODELOS, EN_MODELOS, ES_MODELOS, DE_MODELOS, FR_MODELOS, IT_MODELOS, PL_MODELOS } from './familiasModelos.ts';
 import { PT_INSTANCIA, EN_INSTANCIA, ES_INSTANCIA, DE_INSTANCIA, FR_INSTANCIA, IT_INSTANCIA, PL_INSTANCIA } from './familiasInstancia.ts';
@@ -48,6 +49,7 @@ export const PT_FAMILIAS = {
   ...PT_REDE,
   ...PT_ELREDE,
   ...PT_COLADAS,
+  ...PT_CURVATURA,
   ...PT_MODELOS,
   ...PT_INSTANCIA,
   ...PT_ABAS,
@@ -87,6 +89,7 @@ export const EN_FAMILIAS: D = {
   ...EN_REDE,
   ...EN_ELREDE,
   ...EN_COLADAS,
+  ...EN_CURVATURA,
   ...EN_MODELOS,
   ...EN_INSTANCIA,
   ...EN_ABAS,
@@ -124,6 +127,7 @@ export const ES_FAMILIAS: D = {
   ...ES_REDE,
   ...ES_ELREDE,
   ...ES_COLADAS,
+  ...ES_CURVATURA,
   ...ES_MODELOS,
   ...ES_INSTANCIA,
   ...ES_ABAS,
@@ -161,6 +165,7 @@ export const DE_FAMILIAS: D = {
   ...DE_REDE,
   ...DE_ELREDE,
   ...DE_COLADAS,
+  ...DE_CURVATURA,
   ...DE_MODELOS,
   ...DE_INSTANCIA,
   ...DE_ABAS,
@@ -198,6 +203,7 @@ export const FR_FAMILIAS: D = {
   ...FR_REDE,
   ...FR_ELREDE,
   ...FR_COLADAS,
+  ...FR_CURVATURA,
   ...FR_MODELOS,
   ...FR_INSTANCIA,
   ...FR_ABAS,
@@ -235,6 +241,7 @@ export const IT_FAMILIAS: D = {
   ...IT_REDE,
   ...IT_ELREDE,
   ...IT_COLADAS,
+  ...IT_CURVATURA,
   ...IT_MODELOS,
   ...IT_INSTANCIA,
   ...IT_ABAS,
@@ -272,6 +279,7 @@ export const PL_FAMILIAS: D = {
   ...PL_REDE,
   ...PL_ELREDE,
   ...PL_COLADAS,
+  ...PL_CURVATURA,
   ...PL_MODELOS,
   ...PL_INSTANCIA,
   ...PL_ABAS,

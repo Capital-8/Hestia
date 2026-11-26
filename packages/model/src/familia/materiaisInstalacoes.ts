@@ -26,6 +26,9 @@ export const MATERIAIS_INSTALACOES: readonly MaterialInstalacao[] = [
   { id: 'comp_pvc_marrom', nome: 'PVC marrom (água fria soldável)', grupo: 'plastico', cor: '#a8592e', gloss: 0.4, opacity: 1, hachura: 'solid' },
   { id: 'comp_pvc_azul', nome: 'PVC azul (água fria)', grupo: 'plastico', cor: '#2f6db0', gloss: 0.4, opacity: 1, hachura: 'solid' },
   { id: 'comp_pvc_cinza', nome: 'PVC cinza (eletroduto, ventilação)', grupo: 'plastico', cor: '#8d9399', gloss: 0.35, opacity: 1, hachura: 'solid' },
+  // Corrugado Tigreflex (F2): cores PROVISÓRIAS de aparência, CONFERIR contra o catálogo (o catálogo transcrito não traz a cor).
+  { id: 'comp_pvc_amarelo', nome: 'PVC amarelo (eletroduto corrugado, CONFERIR)', grupo: 'plastico', cor: '#e8c21c', gloss: 0.38, opacity: 1, hachura: 'solid' },
+  { id: 'comp_pvc_laranja', nome: 'PVC laranja (eletroduto corrugado reforçado, CONFERIR)', grupo: 'plastico', cor: '#e07a1f', gloss: 0.38, opacity: 1, hachura: 'solid' },
   { id: 'comp_aco_galv', nome: 'Aço galvanizado', grupo: 'metal', cor: '#aeb5bc', gloss: 0.7, opacity: 1, hachura: 'diagonal' },
   { id: 'comp_aco', nome: 'Aço', grupo: 'metal', cor: '#8a9098', gloss: 0.65, opacity: 1, hachura: 'diagonal' },
   { id: 'comp_concreto', nome: 'Concreto', grupo: 'mineral', cor: '#a8a59e', gloss: 0.12, opacity: 1, hachura: 'cross' },
@@ -42,6 +45,8 @@ export const APELIDOS_MATERIAL_CORPO: Readonly<Record<string, string>> = {
   mat_pvc_marrom: 'comp_pvc_marrom',
   mat_pvc_azul: 'comp_pvc_azul',
   mat_pvc_cinza: 'comp_pvc_cinza',
+  mat_pvc_amarelo: 'comp_pvc_amarelo',
+  mat_pvc_laranja: 'comp_pvc_laranja',
   mat_aco_galvanizado: 'comp_aco_galv',
   mat_aco: 'comp_aco',
   mat_metal: 'comp_aco',

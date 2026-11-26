@@ -59,6 +59,11 @@ export interface Ligacao {
   altura?: Expr;
   fluxo: FluxoLigacao;
   encaixe?: EncaixeLigacao;
+  /**
+   * Ponta flexível (fase 4, ficha F2; eletroduto corrugado): a ligação aceita qualquer direção de chegada, desde que o canto respeite o
+   * raio mínimo de curvatura do tipo de tubulação. Opcional e aditivo (ausente = rígida, direção de frente como sempre).
+   */
+  flexivel?: boolean;
   /** Domínios com que pode se unir; ausente = só o próprio domínio. */
   aceita?: DominioLigacao[];
   /** Dados do ponto (vazão, pressão, potência, tensão...), fórmulas ou números. Só informação; alimenta tabelas e verificações. */

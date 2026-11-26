@@ -20,6 +20,7 @@ import { KRONA_ESGOTO_FAMILIAS } from './kronaEsgoto.ts';
 import { KRONA_ESGOTO_ESPECIAIS } from './kronaEsgotoEspeciais.ts';
 import { KRONA_SOLDAVEL_FAMILIAS } from './kronaSoldavel.ts';
 import { KRONA_ELETRICA_FAMILIAS } from './kronaEletrica.ts';
+import { TIGREFLEX_ELETRICA_FAMILIAS } from './tigreflexEletrica.ts';
 import { QUADROS_ELETRICOS } from './quadroDistribuicao.ts';
 
 /*
@@ -60,6 +61,7 @@ export const BIBLIOTECA_MEP: readonly Familia[] = [
   ...KRONA_ESGOTO_ESPECIAIS,
   ...KRONA_SOLDAVEL_FAMILIAS,
   ...KRONA_ELETRICA_FAMILIAS,
+  ...TIGREFLEX_ELETRICA_FAMILIAS,
   ...QUADROS_ELETRICOS,
 ];
 

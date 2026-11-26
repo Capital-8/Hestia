@@ -1,6 +1,8 @@
-import { LIMITE_CURVAS_ENTRE_CAIXAS, trechosAcimaDoLimite } from '@hestia/engine';
+import { LIMITE_CURVAS_ENTRE_CAIXAS, tipoSemConexoes, trechosAcimaDoLimite, type TrechoEncontro } from '@hestia/engine';
 import { isComponent, type Id, type Project } from '@hestia/model';
-import { ligacoesAbertas } from './tuboApoio.ts';
+import { planejarFlexivel } from './eletrodutoFlexivel.ts';
+import { ligacoesAbertas, type ContextoTraco } from './tuboApoio.ts';
+import type { PontoTubo } from './tuboGeometria.ts';
 import { TuboTool, type ConfigTraco, type OpcoesTraco } from './tuboTool.ts';
 import type { ToolEnv } from './types.ts';
 
@@ -46,9 +48,26 @@ export const CONFIG_ELETRODUTO: ConfigTraco = {
   avisosDepois: avisosDoEletroduto,
 };
 
-/** Ferramenta Eletroduto: `TuboTool` com a configuração elétrica. */
+/**
+ * Ferramenta Eletroduto: `TuboTool` com a configuração elétrica. Com o tipo CORRUGADO (sem conexões, ficha F2) cada clique cria um
+ * trecho reto ligado ao anterior por ligação flexível, sem peça no canto, com direção e cota livres e o raio mínimo conferido
+ * (`eletrodutoFlexivel.ts`); com o rígido tudo segue como antes.
+ */
 export class EletrodutoTool extends TuboTool {
   constructor(env: ToolEnv) {
     super(env, CONFIG_ELETRODUTO);
+  }
+
+  protected override verificar(ctx: ContextoTraco, a: PontoTubo, b: PontoTubo, avisos: string[]): ReturnType<TuboTool['verificar']> {
+    if (!tipoSemConexoes(ctx.familia.id)) return super.verificar(ctx, a, b, avisos);
+    return planejarFlexivel(this.env.project(), ctx.familia, this.opc.dn, this.env.levelId(), a, b);
+  }
+
+  /** Corrugado: a ponta liga DIRETO ao que há no ponto (trecho anterior, caixa ou dispositivo); sem peça, sem recuo. */
+  protected override ligarPonta(ctx: ContextoTraco, id: Id, ponta: 'a' | 'b', pt: PontoTubo, novo: TrechoEncontro, avisos: string[]): void {
+    if (!tipoSemConexoes(ctx.familia.id)) return super.ligarPonta(ctx, id, ponta, pt, novo, avisos);
+    if (!pt.alvo) return;
+    const minha = ponta === 'a' ? ctx.pontas.inicio.id : ctx.pontas.fim.id;
+    this.env.exec({ type: 'connectComponents', a: id, ligacaoA: minha, b: pt.alvo.componentId, ligacaoB: pt.alvo.ligacaoId });
   }
 }

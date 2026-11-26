@@ -40,6 +40,7 @@ export * from './tiposTubulacao.ts';
 export { conferirLinha, empacotarLinha, lacunaMinima, motivoColada, motivoColadas, parDiretoPermitido, rotuloDaCategoria, trechoMinimoDe, type CategoriaPeca, type Colada, type ParDireto, type PecaNaLinha, type RegraConformidade } from './conformidadeConexoes.ts';
 export { categoriaDaFamilia } from './categoriaPeca.ts';
 export * from './curvasEntreCaixas.ts';
+export * from './curvaturaFlexivel.ts';
 export * from './verificacoesDaFamilia.ts';
 export * from './simbolosResolvidos.ts';
 export * from './resolverCorpos.ts';

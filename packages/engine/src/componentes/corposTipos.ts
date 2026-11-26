@@ -71,6 +71,8 @@ export interface LigacaoResolvida {
   propagaParametro: string | null;
   /** Encaixe físico (P1): profundidade da bolsa em metros; ausente = ligação sem regra de encaixe. */
   encaixe?: { tipo: 'bolsa' | 'ponta'; profundidade: number; aceitaMesmoTipo: boolean };
+  /** Ponta flexível (F2): aceita qualquer direção de chegada, sujeita ao raio mínimo de curvatura do tipo de tubulação. */
+  flexivel?: boolean;
 }
 
 /** Primitivo 2D resolvido (CONTRATO §4): coordenadas em METROS no plano do símbolo; ângulos em RADIANOS. */

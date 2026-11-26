@@ -11,6 +11,16 @@ export { TRECHO_MINIMO_ENTRE_CONEXOES };
  * Conexão que o tipo não oferece fica com id vazio: o encontro vira aviso, nunca uma peça inventada.
  */
 
+/**
+ * Raio mínimo de curvatura (mm) do tipo SEM CONEXÕES (eletroduto corrugado, ficha F2), por bitola. DADO EDITÁVEL, CONFERIR: o catálogo
+ * transcrito não traz o raio. Regra provisória: `fatorDiametroExterno` × diâmetro externo da bitola (o `De` do catálogo); `porBitola`
+ * (DN em mm → raio em mm) tem prioridade quando o dado do fabricante for conferido.
+ */
+export interface RaioMinimoCurvatura {
+  fatorDiametroExterno: number;
+  porBitola?: Readonly<Record<number, number>>;
+}
+
 export interface TipoTubulacao {
   id: string;
   rotulo: string;
@@ -24,7 +34,17 @@ export interface TipoTubulacao {
   trechoMinimoEntreConexoes: number;
   /** Pares de categoria de peça que podem encostar sem tubo (ficha F1). Padrão vazio: toda emenda peça-peça exige tubo; nada é liberado por palpite. */
   paresDiretos: readonly ParDireto[];
+  /**
+   * Sem curva, luva nem tê (ficha F2: eletroduto corrugado, o 'conduit sem conexões' do Revit): o trecho muda de direção e de cota
+   * livremente, no limite de `raioMinimoCurvatura`. As regras de conexão ficam vazias e `regrasDoTubo` devolve `null`.
+   */
+  semConexoes?: boolean;
+  /** Raio mínimo de curvatura, só para tipo `semConexoes`. CONFERIR. */
+  raioMinimoCurvatura?: RaioMinimoCurvatura;
 }
+
+/** Regra provisória do raio mínimo (CONFERIR): vezes o diâmetro externo. NÃO é dado de catálogo nem de norma; é o valor editável de partida. */
+export const FATOR_RAIO_MINIMO_PROVISORIO = 6;
 
 export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
   {
@@ -87,6 +107,34 @@ export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
       tampao: '',
     },
   },
+  {
+    // Eletroduto CORRUGADO Tigreflex (ficha F2): sem curva, luva nem tê (regras vazias); a ferramenta Eletroduto muda de direção e de
+    // cota livremente, no limite do raio mínimo de curvatura (provisório, CONFERIR). Bitolas e medidas do catálogo da Tigre (CONFERIR).
+    id: 'tigreflex_corrugado',
+    rotulo: 'Eletroduto corrugado Tigreflex amarelo — Tigre',
+    dominio: 'eletroduto',
+    linha: 'eletroduto corrugado Tigreflex amarelo da Tigre',
+    bitolas: [20, 25, 32],
+    trechoMinimoEntreConexoes: TRECHO_MINIMO_ENTRE_CONEXOES,
+    paresDiretos: [],
+    semConexoes: true,
+    raioMinimoCurvatura: { fatorDiametroExterno: FATOR_RAIO_MINIMO_PROVISORIO },
+    regras: { tubo: 'fam_tigre_tigreflex_amarelo', curva90: '', curva45: '', te: '', juncao45: '', luva: '', reducao: '', tampao: '' },
+  },
+  {
+    // Eletroduto CORRUGADO Tigreflex (ficha F2): sem curva, luva nem tê (regras vazias); a ferramenta Eletroduto muda de direção e de
+    // cota livremente, no limite do raio mínimo de curvatura (provisório, CONFERIR). Bitolas e medidas do catálogo da Tigre (CONFERIR).
+    id: 'tigreflex_corrugado_reforcado',
+    rotulo: 'Eletroduto corrugado Tigreflex reforçado — Tigre',
+    dominio: 'eletroduto',
+    linha: 'eletroduto corrugado Tigreflex reforçado da Tigre',
+    bitolas: [20, 25, 32],
+    trechoMinimoEntreConexoes: TRECHO_MINIMO_ENTRE_CONEXOES,
+    paresDiretos: [],
+    semConexoes: true,
+    raioMinimoCurvatura: { fatorDiametroExterno: FATOR_RAIO_MINIMO_PROVISORIO },
+    regras: { tubo: 'fam_tigre_tigreflex_reforcado', curva90: '', curva45: '', te: '', juncao45: '', luva: '', reducao: '', tampao: '' },
+  },
 ];
 
 /** Tipo cujo trecho de tubo é a família `tuboId`. */
@@ -94,9 +142,11 @@ export function tipoDaFamiliaDeTubo(tuboId: string): TipoTubulacao | undefined {
   return TIPOS_TUBULACAO.find((t) => t.regras.tubo === tuboId);
 }
 
-/** Regras de conexão para o trecho de tubo `tuboId`: as do tipo, senão as fixas do domínio (esgoto genérico), senão `null`. */
+/** Regras de conexão para o trecho de tubo `tuboId`: as do tipo (`null` se o tipo é `semConexoes`), senão as fixas do domínio (esgoto genérico), senão `null`. */
 export function regrasDoTubo(tuboId: string, dominio: string): RegrasConexao | null {
-  return tipoDaFamiliaDeTubo(tuboId)?.regras ?? CONEXOES_POR_DOMINIO[dominio] ?? null;
+  const tipo = tipoDaFamiliaDeTubo(tuboId);
+  if (tipo?.semConexoes) return null; // corrugado: nenhuma peça (ficha F2)
+  return tipo?.regras ?? CONEXOES_POR_DOMINIO[dominio] ?? null;
 }
 
 export type ResultadoBitola = { ok: true } | { ok: false; motivo: string };

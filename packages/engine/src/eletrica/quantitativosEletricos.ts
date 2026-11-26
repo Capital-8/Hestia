@@ -12,6 +12,7 @@ import {
   type TipoCircuito,
 } from '@hestia/model';
 import { resolverComponente } from '../componentes/instancia.ts';
+import { tipoSemConexoes } from '../componentes/curvaturaFlexivel.ts';
 import { pecasDoCircuito } from './comprimentoCircuito.ts';
 
 /*
@@ -25,7 +26,7 @@ import { pecasDoCircuito } from './comprimentoCircuito.ts';
 const MM_PARA_M = 1e-3;
 
 /** Classe elétrica de uma peça; `null` = peça de outra disciplina (fica fora do quantitativo). */
-export type ClasseEletrica = 'eletroduto' | 'curva' | 'luva' | 'caixa' | 'quadro' | 'tomada' | 'interruptor' | 'luminaria' | 'outros';
+export type ClasseEletrica = 'eletroduto' | 'corrugado' | 'curva' | 'luva' | 'caixa' | 'quadro' | 'tomada' | 'interruptor' | 'luminaria' | 'outros';
 
 export interface LinhaEletrodutoBitola {
   /** Bitola (DN ou `bitola`) da peça; `null` quando a família não tem medida de bitola. */
@@ -34,6 +35,12 @@ export interface LinhaEletrodutoBitola {
   trechos: number;
   /** Soma do comprimento (m) das peças cortadas, pelo parâmetro `L` de cada uma. */
   comprimentoM: number;
+}
+
+/** Eletroduto corrugado (ficha F2): por família (amarelo, reforçado) e bitola, com o comprimento do trecho reto (`L`). Sem curvas nem luvas. */
+export interface LinhaCorrugado extends LinhaEletrodutoBitola {
+  familiaId: Id;
+  nome: string;
 }
 
 export interface LinhaPecaBitola {
@@ -80,11 +87,15 @@ export interface QuantitativosCircuito {
   curvas: LinhaPecaBitola[];
   luvas: LinhaPecaBitola[];
   caixas: LinhaTipo[];
+  /** Eletroduto corrugado do caminho (ficha F2); ausente = nenhum. */
+  corrugados?: LinhaCorrugado[];
 }
 
 export interface QuantitativosEletricos {
   /** Eletrodutos do projeto inteiro, por bitola. */
   eletrodutos: LinhaEletrodutoBitola[];
+  /** Eletroduto corrugado do projeto inteiro, por família e bitola (ficha F2); a chave só existe quando há corrugado (o resultado dos projetos sem ele não muda). */
+  corrugados?: LinhaCorrugado[];
   curvas: LinhaPecaBitola[];
   luvas: LinhaPecaBitola[];
   caixas: LinhaTipo[];
@@ -106,6 +117,7 @@ export function classeEletrica(p: Project, c: Component): ClasseEletrica | null 
   if (familia !== undefined && categoria !== 'eletroduto' && categoria !== 'dispositivo_eletrico' && categoria !== 'luminaria') return null;
   const id = c.familyId;
   if (categoria === 'eletroduto') {
+    if (tipoSemConexoes(id) !== undefined) return 'corrugado';
     if (/curva/.test(id)) return 'curva';
     if (/luva/.test(id)) return 'luva';
     if (/eletroduto|tubo/.test(id) && !/calha/.test(id)) return 'eletroduto';
@@ -152,6 +164,7 @@ const nomeDaFamilia = (p: Project, familiaId: Id): string => p.componentFamilies
 /** Acumula as peças de uma lista de componentes nas linhas de eletroduto, curva, luva, caixa e outros. */
 interface Acumulador {
   eletrodutos: Map<number | null, LinhaEletrodutoBitola>;
+  corrugados: Map<string, LinhaCorrugado>;
   curvas: Map<number | null, LinhaPecaBitola>;
   luvas: Map<number | null, LinhaPecaBitola>;
   caixas: Map<Id, LinhaTipo>;
@@ -159,7 +172,7 @@ interface Acumulador {
   pontos: ContagemPontos;
 }
 
-const novoAcumulador = (): Acumulador => ({ eletrodutos: new Map(), curvas: new Map(), luvas: new Map(), caixas: new Map(), outros: new Map(), pontos: VAZIO_PONTOS() });
+const novoAcumulador = (): Acumulador => ({ eletrodutos: new Map(), corrugados: new Map(), curvas: new Map(), luvas: new Map(), caixas: new Map(), outros: new Map(), pontos: VAZIO_PONTOS() });
 
 function somaTipo(mapa: Map<Id, LinhaTipo>, p: Project, familiaId: Id): void {
   const linha = mapa.get(familiaId) ?? { familiaId, nome: nomeDaFamilia(p, familiaId), quantidade: 0 };
@@ -181,6 +194,15 @@ function acumula(a: Acumulador, p: Project, c: Component, classe: ClasseEletrica
       linha.trechos += 1;
       linha.comprimentoM += comprimentoDaPeca(p, c);
       a.eletrodutos.set(bitola, linha);
+      return;
+    }
+    case 'corrugado': {
+      const bitola = bitolaDaPeca(p, c);
+      const chave = `${c.familyId}|${bitola ?? ''}`;
+      const linha = a.corrugados.get(chave) ?? { familiaId: c.familyId, nome: nomeDaFamilia(p, c.familyId), bitola, trechos: 0, comprimentoM: 0 };
+      linha.trechos += 1;
+      linha.comprimentoM += comprimentoDaPeca(p, c);
+      a.corrugados.set(chave, linha);
       return;
     }
     case 'curva':
@@ -205,6 +227,7 @@ function acumula(a: Acumulador, p: Project, c: Component, classe: ClasseEletrica
   }
 }
 
+const listaCorrugados = (m: Map<string, LinhaCorrugado>): LinhaCorrugado[] => [...m.values()].sort((x, y) => x.nome.localeCompare(y.nome) || ordemBitola(x.bitola, y.bitola));
 const listaBitola = (m: Map<number | null, LinhaPecaBitola>): LinhaPecaBitola[] => [...m.values()].sort((x, y) => ordemBitola(x.bitola, y.bitola));
 const listaEletrodutos = (m: Map<number | null, LinhaEletrodutoBitola>): LinhaEletrodutoBitola[] => [...m.values()].sort((x, y) => ordemBitola(x.bitola, y.bitola));
 const listaTipo = (m: Map<Id, LinhaTipo>): LinhaTipo[] => [...m.values()].sort((x, y) => x.nome.localeCompare(y.nome) || (x.familiaId < y.familiaId ? -1 : x.familiaId > y.familiaId ? 1 : 0));
@@ -226,6 +249,7 @@ export function quantitativosEletricosDoProjeto(p: Project): QuantitativosEletri
 
   return {
     eletrodutos: listaEletrodutos(geral.eletrodutos),
+    ...(geral.corrugados.size > 0 ? { corrugados: listaCorrugados(geral.corrugados) } : {}),
     curvas: listaBitola(geral.curvas),
     luvas: listaBitola(geral.luvas),
     caixas: listaTipo(geral.caixas),
@@ -267,6 +291,7 @@ function quantitativosDoCircuito(p: Project, c: CircuitoEletrico, quadros: reado
     pontos: acc.pontos,
     semCaminho: semCaminho.length,
     eletrodutos: listaEletrodutos(acc.eletrodutos),
+    ...(acc.corrugados.size > 0 ? { corrugados: listaCorrugados(acc.corrugados) } : {}),
     curvas: listaBitola(acc.curvas),
     luvas: listaBitola(acc.luvas),
     caixas: listaTipo(acc.caixas),

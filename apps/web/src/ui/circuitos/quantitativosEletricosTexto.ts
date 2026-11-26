@@ -23,6 +23,8 @@ export interface LinhaQuantitativoEletrico {
 export const CABECALHO_QUANTITATIVO_ELETRICO: readonly string[] = ['Escopo', 'Grupo', 'Item', 'Quantidade', 'Medida', 'Unidade'];
 
 const PROJETO = 'Projeto';
+/** Grupo da linha do eletroduto corrugado (ficha F2): trecho reto flexível, sem curvas nem luvas. */
+const GRUPO_CORRUGADO = 'Eletroduto corrugado';
 const SEM_CAMINHO = 'pontos sem eletroduto até o quadro';
 
 /** Rótulo da bitola: "DN 20", ou "sem bitola" quando a família não tem DN. */
@@ -50,6 +52,7 @@ export function linhasQuantitativoEletrico(q: QuantitativosEletricos): LinhaQuan
   };
 
   for (const l of q.eletrodutos) add(PROJETO, 'Eletroduto', bitolaTexto(l.bitola), l.trechos, l.comprimentoM, 'm');
+  for (const l of q.corrugados ?? []) add(PROJETO, GRUPO_CORRUGADO, `${l.nome}, ${bitolaTexto(l.bitola)}`, l.trechos, l.comprimentoM, 'm');
   for (const l of q.curvas) add(PROJETO, 'Curva', bitolaTexto(l.bitola), l.quantidade);
   for (const l of q.luvas) add(PROJETO, 'Luva', bitolaTexto(l.bitola), l.quantidade);
   for (const l of q.caixas) add(PROJETO, 'Caixa', l.nome, l.quantidade);
@@ -63,6 +66,7 @@ export function linhasQuantitativoEletrico(q: QuantitativosEletricos): LinhaQuan
     add(c.nome, 'Potência', `${c.rotuloTipo}, ${pontos} ponto(s)`, pontos, c.totalVA, 'VA');
     for (const [rotulo, n] of linhasDePontos(c.pontos)) add(c.nome, 'Ponto', rotulo, n);
     for (const l of c.eletrodutos) add(c.nome, 'Eletroduto', bitolaTexto(l.bitola), l.trechos, l.comprimentoM, 'm');
+    for (const l of c.corrugados ?? []) add(c.nome, GRUPO_CORRUGADO, `${l.nome}, ${bitolaTexto(l.bitola)}`, l.trechos, l.comprimentoM, 'm');
     for (const l of c.curvas) add(c.nome, 'Curva', bitolaTexto(l.bitola), l.quantidade);
     for (const l of c.luvas) add(c.nome, 'Luva', bitolaTexto(l.bitola), l.quantidade);
     for (const l of c.caixas) add(c.nome, 'Caixa', l.nome, l.quantidade);

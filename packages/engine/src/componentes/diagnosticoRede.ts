@@ -4,6 +4,7 @@ import { dnDaInstancia } from './trocaBitolaGeometria.ts';
 import { categoriaDaFamilia } from './categoriaPeca.ts';
 import { parDiretoPermitido, trechoMinimoDe } from './conformidadeConexoes.ts';
 import { trechosAcimaDoLimite } from './curvasEntreCaixas.ts';
+import { curvaturasFechadas } from './curvaturaFlexivel.ts';
 import { diagnosticarEletrica } from '../eletrica/diagnosticoEletrico.ts';
 import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
 
@@ -41,6 +42,8 @@ export type CodigoDiagnostico =
   | 'curvas_entre_caixas'
   // Duas conexões ligadas direto, sem tubo entre elas, num par que o tipo de tubulação não libera (ficha F1).
   | 'conexoes_coladas'
+  // Eletroduto corrugado: os cantos não cabem no trecho com o raio mínimo de curvatura (ficha F2). `valor` = mm que as tangentes pedem; `limite` = mm do trecho.
+  | 'curvatura_fechada'
   // Elétrica, só traçado (ficha C5).
   | 'circuito_sem_quadro'
   | 'ponto_sem_eletroduto'
@@ -219,6 +222,8 @@ export function diagnosticarRede(p: Project): Diagnostico[] {
     const primeiro = t.componentes[0];
     if (primeiro !== undefined) out.push({ codigo: 'curvas_entre_caixas', elementId: primeiro, valor: t.curvas });
   }
+  // Corrugado: canto fechado demais para o raio mínimo (ficha F2).
+  for (const c of curvaturasFechadas(p)) out.push({ codigo: 'curvatura_fechada', elementId: c.elementId, valor: c.necessario, limite: c.disponivel });
   // Elétrica: circuitos, pontos e quadros (só traçado).
   out.push(...diagnosticarEletrica(p));
   return out;
