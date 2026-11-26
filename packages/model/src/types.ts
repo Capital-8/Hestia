@@ -53,7 +53,8 @@ export type Id = string;
 /** v27: `Wall.tilt` (parede inclinada, opcional; ausente = vertical): a migração 26 → 27 só avança a versão. */
 /** v26: massa conceitual (`Mass`, kind 'mass'). Arquivo antigo não tem massas: a migração 25 → 26 só avança a versão. */
 /** v34: `Component.inclinacao`, `Component.ligacoes` e `Project.sistemasMep` (ADR 0061, ficha B1). A migração 33 → 34 é identidade: tudo é opcional e ausente vale o comportamento anterior; o bump existe porque um programa antigo ignoraria os campos e os apagaria ao salvar. */
-export const SCHEMA_VERSION = 34;
+/** v35: `Project.circuitosEletricos` e `Project.quadrosEletricos` (ficha C4), `Corpo.furar` (D2) e `Ligacao.flexivel` (F2). A migração 34 → 35 é identidade: tudo é opcional e aditivo; o bump existe porque um programa antigo ignoraria esses campos e os apagaria ao salvar (agora o recusa). */
+export const SCHEMA_VERSION = 35;
 
 export type { Column, ColumnType, ColumnShape } from './column.ts';
 export type { Beam, BeamType, BeamShape, BeamJustify } from './beam.ts';

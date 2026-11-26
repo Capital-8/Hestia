@@ -317,6 +317,10 @@ const migrations: Record<number, Migration> = {
   // Tudo opcional e aditivo: ausente = `[0, 0]` / nenhuma conexão / nenhum sistema. A migração só avança a versão; o bump existe
   // porque um programa antigo ignoraria esses campos e os apagaria ao salvar.
   33: (raw) => ({ ...raw }),
+  // v34 → v35: circuitos e quadros elétricos (`Project.circuitosEletricos`, `Project.quadrosEletricos`, ficha C4), `Corpo.furar` (D2) e
+  // `Ligacao.flexivel` (F2). Identidade e idempotente: tudo é opcional e aditivo, e o que o arquivo já traz fica como está. O bump
+  // existe porque um programa antigo ignoraria esses campos e os apagaria ao salvar; agora ele recusa o arquivo.
+  34: (raw) => ({ ...raw }),
 };
 
 import { normalizeProjectMeshes } from './meshArrays.ts';

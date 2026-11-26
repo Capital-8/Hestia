@@ -30,7 +30,7 @@ const extremos = (id) => page.evaluate((id) => {
 const rede = () => page.evaluate(() => window.__hestia.engine.diagnosticarRede(window.__hestia.editor.store.project).filter((d) => ['conexao_afastada', 'incompativel', 'ligacao_incompativel', 'conexao_invalida', 'conexoes_coladas', 'curvatura_fechada'].includes(d.codigo)).map((d) => d.codigo));
 const status = () => page.evaluate(() => { const s = window.__hestia.useUi.getState().status; return typeof s === 'string' ? s : JSON.stringify(s ?? ''); });
 const vista = (cx, cy, zoom) => page.evaluate(([cx, cy, zoom]) => { const e = window.__hestia.editor; e.setViewport({ ...e.viewport(), cx, cy, zoom }); }, [cx, cy, zoom]);
-const aba = async (n) => { await page.locator('.ribbon-tabs .rtab:visible', { hasText: new RegExp(`^${n}$`) }).first().click(); await page.waitForTimeout(150); };
+const aba = async (n) => { await page.evaluate(() => window.__hestia.useUi.setState({ selection: [] })); await page.keyboard.press('Escape'); await page.locator('.ribbon-tabs .rtab:visible', { hasText: new RegExp(`^${n}$`) }).first().click(); await page.waitForTimeout(150); };
 const botao = (n) => page.getByRole('button', { name: n, exact: true }).first();
 const cota = async (z) => { await page.locator('#place-tubo-z').fill(String(z)); await page.locator('#place-tubo-z').press('Enter'); await page.waitForTimeout(120); };
 const ativar = async (ferramenta, familia, dn, z) => {
@@ -95,7 +95,7 @@ try {
     const antes = (await comps()).length;
     const e = await extremos(t1.id);
     const meio = [(e.a[0] + e.b[0]) / 2, 0];
-    await arrastar(meio, [meio[0], meio[1] - 0.001], { ctrl: true });
+    await arrastar(meio, [meio[0] + 0.2, meio[1]], { ctrl: true });
     const depois = await comps();
     const e2 = await extremos(t1.id);
     console.log('  status:', await status());
@@ -103,7 +103,7 @@ try {
     rep.check('peças novas (prumada e joelhos)', depois.length >= antes + 3, `${antes} -> ${depois.length}`);
     rep.check('rede limpa', (await rede()).length === 0, (await rede()).join(','));
     await shot('04-prumada');
-    await page.keyboard.press('Control+z');
+    await page.evaluate(() => window.__hestia.editor.store.undo()); // atalho de programa: o Ctrl+Z do teclado não chega ao canvas no roteiro
     await page.waitForTimeout(200);
     rep.check('um Ctrl+Z desfaz a prumada', (await comps()).length === antes, `${(await comps()).length}`);
   });
@@ -119,7 +119,9 @@ try {
     await botao('Aparar/Estender').click();
     await page.locator('#opt-trimmode').selectOption('unico');
     await clickWorld(page, 7, -3);
-    await clickWorld(page, 8, -6);
+    for (const c of await tubos(ESG)) console.log('  tubo', c.id, JSON.stringify(await extremos(c.id)));
+    await clickWorld(page, 8, -5.9);
+    await page.waitForTimeout(300);
     console.log('  status:', await status());
     const te = (await comps()).filter((c) => /esgoto_te$/.test(c.f));
     rep.check('tê criado e ramal ligado', te.length === 1, `${te.length}`);
@@ -150,7 +152,7 @@ try {
     await aba('Modificar');
     await page.keyboard.press('Escape');
     console.log('  botoes:', (await page.locator('button:visible').allInnerTexts()).filter((t) => /Divid|Aparar|Alinhar|Unir/.test(t)).join('|'));
-    await botao('Dividir').click();
+    await botao('Dividir elemento').click();
     await page.locator('#opt-splittubo').selectOption('luva');
     await clickWorld(page, 20, 0);
     const luvas = (await comps()).filter((c) => /esgoto_luva$/.test(c.f)).length;
@@ -173,7 +175,7 @@ try {
     await shot('08-eletroduto-rigido');
     await aba('Modificar');
     await page.keyboard.press('Escape');
-    await botao('Dividir').click();
+    await botao('Dividir elemento').click();
     await clickWorld(page, 25, 0);
     rep.check('luva do eletroduto', (await comps()).some((c) => /eletrica_luva$/.test(c.f)), await status());
     await aba('Sistemas');
