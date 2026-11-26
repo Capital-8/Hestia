@@ -113,6 +113,7 @@ try {
     await ativar('Tubo', ESG, 100, 0.5);
     await vista(8, -3, 110);
     await traco([[6, -3], [10, -3]]);
+    await ativar('Tubo', ESG, 100, 0.5);
     await traco([[8, -6], [8, -4.2]]);
     await aba('Modificar');
     await page.keyboard.press('Escape');
@@ -131,6 +132,7 @@ try {
     await ativar('Tubo', ESG, 100, 0.5);
     await vista(14, 0, 110);
     await traco([[12, 0], [16, 0]]);
+    await ativar('Tubo', ESG, 100, 0.5);
     await traco([[14, -2], [14, 2]]);
     await aba('Modificar');
     await page.keyboard.press('Escape');

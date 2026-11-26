@@ -182,8 +182,8 @@ describe('migração', () => {
     antigo.schemaVersion = 24;
     delete antigo.componentGroups;
     const p = migrateProject(antigo);
-    expect(SCHEMA_VERSION).toBe(34);
-    expect(p.schemaVersion).toBe(34);
+    expect(SCHEMA_VERSION).toBe(35);
+    expect(p.schemaVersion).toBe(35);
     expect(p.componentGroups).toBeUndefined();
   });
 });

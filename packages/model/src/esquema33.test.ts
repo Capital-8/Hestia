@@ -38,9 +38,9 @@ function arquivoV32(): Record<string, unknown> {
 
 describe('esquema 33 (apresentação por disciplina)', () => {
   it('a versão atual é 33 e o projeto novo sai na 33 sem planViews', () => {
-    expect(SCHEMA_VERSION).toBe(34);
+    expect(SCHEMA_VERSION).toBe(35);
     const p = createEmptyProject();
-    expect(p.schemaVersion).toBe(34);
+    expect(p.schemaVersion).toBe(35);
     expect('planViews' in p).toBe(false);
   });
 
@@ -48,7 +48,7 @@ describe('esquema 33 (apresentação por disciplina)', () => {
     const raw = arquivoV31();
     const antes = JSON.stringify({ levels: raw.levels, sheets: raw.sheets, planViews: raw.planViews });
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(34);
+    expect(p.schemaVersion).toBe(35);
     expect(JSON.stringify({ levels: p.levels, sheets: p.sheets, planViews: p.planViews })).toBe(antes);
     expect(p.disciplines).toBeUndefined();
     expect(p.disciplineProfiles).toBeUndefined();
@@ -64,9 +64,9 @@ describe('esquema 33 (apresentação por disciplina)', () => {
 
   it('arquivo 32 com perfis (tom e apresentação), disciplinas e remapeamento: migra para 33 preservando os dados', () => {
     const raw = arquivoV32();
-    const esperado = JSON.stringify({ ...raw, schemaVersion: 34 });
+    const esperado = JSON.stringify({ ...raw, schemaVersion: 35 });
     const volta = migrateProject(JSON.parse(JSON.stringify(raw)));
-    expect(volta.schemaVersion).toBe(34);
+    expect(volta.schemaVersion).toBe(35);
     expect(JSON.stringify(volta)).toBe(esperado);
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(esperado);
     expect(volta.disciplines).toEqual([{ id: 'paisagismo', name: 'Paisagismo', color: '#33aa55' }]);
@@ -101,7 +101,7 @@ describe('esquema 33 (apresentação por disciplina)', () => {
     });
     const texto = JSON.stringify(s.project);
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(34);
+    expect(volta.schemaVersion).toBe(35);
     expect(JSON.stringify(volta)).toBe(texto);
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
     expect(volta.planViews!.map((v) => v.id)).toEqual(['pv1', 'pv2']);
@@ -114,10 +114,10 @@ describe('esquema 33 (apresentação por disciplina)', () => {
   });
 
   it('arquivo de versão 35 é recusado com SchemaError citando 35 e 34', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 35 };
+    const raw = { ...(JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>), schemaVersion: 36 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 35');
-    expect(() => migrateProject(raw)).toThrow('(34)');
+    expect(() => migrateProject(raw)).toThrow('versão 36');
+    expect(() => migrateProject(raw)).toThrow('(35)');
   });
 
   it('arquivo de versão 25 percorre a cadeia até a 34 sem erro', () => {
@@ -127,7 +127,7 @@ describe('esquema 33 (apresentação por disciplina)', () => {
     delete raw.beamTypes;
     delete raw.footingTypes;
     const p = migrateProject(raw);
-    expect(p.schemaVersion).toBe(34);
+    expect(p.schemaVersion).toBe(35);
     expect(p.planViews).toBeUndefined();
   });
 });

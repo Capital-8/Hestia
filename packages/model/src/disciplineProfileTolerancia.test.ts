@@ -54,7 +54,7 @@ describe('tolerância a dado inválido de disciplina (leitura ignora, escrita pr
   it('o arquivo com esses dados inválidos salva e reabre com os MESMOS bytes', () => {
     const texto = JSON.stringify(projetoComDadoInvalido());
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(34);
+    expect(volta.schemaVersion).toBe(35);
     expect(JSON.stringify(volta)).toBe(texto);
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
   });

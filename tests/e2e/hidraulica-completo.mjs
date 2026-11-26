@@ -45,6 +45,8 @@ const escolhe = async (sel, valor) => {
 /** Ferramenta Tubo (Sistemas > Hidráulica e tubulação): tipo e bitola pelo painel da ferramenta. */
 const ferramentaTubo = async (familia, dn) => {
   await aba('Sistemas');
+  // Disciplina de trabalho = Hidrossanitário pelo seletor "Disciplinas" (na Arquitetura o tubo fica em meio-tom e não se seleciona; o programa só avisa).
+  await page.locator('select').filter({ has: page.locator('option', { hasText: 'Hidrossanitário' }) }).first().selectOption('Hidrossanitário').catch((e) => info(`disciplina: ${e.message.split('\n')[0]}`));
   // O botão Tubo liga e desliga a ferramenta: só clica quando o painel da ferramenta não está aberto.
   // Com um trecho selecionado o painel mostra o componente, não a ferramenta: Esc limpa a seleção e a ferramenta volta a aparecer.
   for (let k = 0; k < 2 && !(await page.locator('#place-tubo-familia').isVisible().catch(() => false)); k++) {

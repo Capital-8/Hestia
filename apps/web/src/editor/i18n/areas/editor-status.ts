@@ -181,6 +181,7 @@ export const PT_EDITOR_STATUS = {
   eds_msg_unhide_category_select: 'Selecione elementos de uma só categoria para reexibir a categoria.',
   eds_msg_category_select: 'Selecione elementos de uma só categoria.',
   eds_msg_blocked_discipline: 'Pertence a {disciplina}; troque a disciplina da vista ou libere a edição.',
+  eds_msg_trace_discipline_halftone: 'Os tubos/eletrodutos ficam em meio-tom nesta disciplina e não podem ser selecionados. Troque a disciplina em "Disciplinas" para Hidrossanitário (ou Elétrico).',
 
   // Gráficos
   eds_msg_graphics_invalid: 'Gráficos inválidos.',
@@ -411,6 +412,7 @@ export const EN_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Select elements of a single category to unhide the category.',
   eds_msg_category_select: 'Select elements of a single category.',
   eds_msg_blocked_discipline: 'Belongs to {disciplina}; change the view discipline or release editing.',
+  eds_msg_trace_discipline_halftone: 'Pipes and conduits are shown in halftone in this discipline and cannot be selected. Change the discipline in "Disciplines" to Plumbing (or Electrical).',
 
   // Gráficos
   eds_msg_graphics_invalid: 'Invalid graphics.',
@@ -629,6 +631,7 @@ export const ES_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Seleccione elementos de una sola categoría para reexhibir la categoría.',
   eds_msg_category_select: 'Seleccione elementos de una sola categoría.',
   eds_msg_blocked_discipline: 'Pertenece a {disciplina}; cambie la disciplina de la vista o libere la edición.',
+  eds_msg_trace_discipline_halftone: 'Los tubos y conductos se muestran en medio tono en esta disciplina y no se pueden seleccionar. Cambie la disciplina en "Disciplinas" a Sanitaria (o Eléctrica).',
 
   eds_msg_graphics_invalid: 'Gráficos no válidos.',
   eds_undo_change_view_graphics: 'Cambiar gráficos de la vista',
@@ -845,6 +848,7 @@ export const DE_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Wählen Sie Elemente einer einzigen Kategorie, um die Kategorie einzublenden.',
   eds_msg_category_select: 'Wählen Sie Elemente einer einzigen Kategorie.',
   eds_msg_blocked_discipline: 'Gehört zu {disciplina}; ändern Sie die Disziplin der Ansicht oder geben Sie die Bearbeitung frei.',
+  eds_msg_trace_discipline_halftone: 'Rohre und Leitungen werden in dieser Disziplin halbton dargestellt und lassen sich nicht auswählen. Ändern Sie die Disziplin unter „Disziplinen“ auf Sanitär (oder Elektro).',
 
   eds_msg_graphics_invalid: 'Ungültige Grafik.',
   eds_undo_change_view_graphics: 'Ansichtsgrafik ändern',
@@ -1061,6 +1065,7 @@ export const FR_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Sélectionnez des éléments d\'une seule catégorie pour afficher la catégorie.',
   eds_msg_category_select: 'Sélectionnez des éléments d\'une seule catégorie.',
   eds_msg_blocked_discipline: 'Appartient à {disciplina} ; changez la discipline de la vue ou libérez la modification.',
+  eds_msg_trace_discipline_halftone: 'Les tubes et conduits apparaissent en demi-teinte dans cette discipline et ne peuvent pas être sélectionnés. Changez la discipline dans « Disciplines » pour Plomberie (ou Électricité).',
 
   eds_msg_graphics_invalid: 'Graphismes non valides.',
   eds_undo_change_view_graphics: 'Modifier les graphismes de la vue',
@@ -1277,6 +1282,7 @@ export const IT_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Seleziona elementi di una sola categoria per mostrare la categoria.',
   eds_msg_category_select: 'Seleziona elementi di una sola categoria.',
   eds_msg_blocked_discipline: 'Appartiene a {disciplina}; cambia la disciplina della vista o libera la modifica.',
+  eds_msg_trace_discipline_halftone: 'Tubi e canaline appaiono in mezzatinta in questa disciplina e non possono essere selezionati. Cambia la disciplina in "Discipline" su Idrosanitario (o Elettrico).',
 
   eds_msg_graphics_invalid: 'Grafica non valida.',
   eds_undo_change_view_graphics: 'Modifica grafica della vista',
@@ -1493,6 +1499,7 @@ export const PL_EDITOR_STATUS: Record<keyof typeof PT_EDITOR_STATUS, string> = {
   eds_msg_unhide_category_select: 'Wybierz elementy jednej kategorii, aby pokazać kategorię.',
   eds_msg_category_select: 'Wybierz elementy jednej kategorii.',
   eds_msg_blocked_discipline: 'Należy do {disciplina}; zmień dyscyplinę widoku lub odblokuj edycję.',
+  eds_msg_trace_discipline_halftone: 'Rury i peszki są w tej dyscyplinie w półtonie i nie można ich zaznaczyć. Zmień dyscyplinę w „Dyscyplinach” na Instalacje sanitarne (lub Elektryczne).',
 
   eds_msg_graphics_invalid: 'Nieprawidłowa grafika.',
   eds_undo_change_view_graphics: 'Zmień grafikę widoku',

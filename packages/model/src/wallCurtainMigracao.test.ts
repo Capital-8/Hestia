@@ -48,13 +48,13 @@ const projetoComCortina = (): Project => {
 
 describe('migração 24 → 25 (parede cortina)', () => {
   it('SCHEMA_VERSION é 34', () => {
-    expect(SCHEMA_VERSION).toBe(34);
+    expect(SCHEMA_VERSION).toBe(35);
   });
 
   it('arquivo 24 abre, vira 28 e não ganha mapas nem família (ausente = parede básica)', () => {
     const antigo = projetoV24();
     const p = migrateProject(antigo);
-    expect(p.schemaVersion).toBe(34);
+    expect(p.schemaVersion).toBe(35);
     expect('mullionTypes' in p).toBe(false);
     expect('curtainPanelTypes' in p).toBe(false);
     for (const t of Object.values(p.wallTypes)) {
@@ -67,13 +67,13 @@ describe('migração 24 → 25 (parede cortina)', () => {
   it('arquivo 25 com cortina abre sem alterar a cortina, a instância nem os mapas', () => {
     const p = projetoComCortina();
     const volta = migrateProject(JSON.parse(JSON.stringify(p)));
-    expect(volta.schemaVersion).toBe(34);
+    expect(volta.schemaVersion).toBe(35);
     expect(volta.wallTypes.wt_ct).toEqual(p.wallTypes.wt_ct);
     expect(volta.elements.w_ct).toEqual(p.elements.w_ct);
   });
 
   it('arquivo de versão maior que a deste programa é recusado', () => {
-    expect(() => migrateProject({ ...projetoV24(), schemaVersion: 35 })).toThrow(SchemaError);
-    expect(() => migrateProject({ ...projetoV24(), schemaVersion: 35 })).toThrow('versão 35');
+    expect(() => migrateProject({ ...projetoV24(), schemaVersion: 36 })).toThrow(SchemaError);
+    expect(() => migrateProject({ ...projetoV24(), schemaVersion: 36 })).toThrow('versão 36');
   });
 });

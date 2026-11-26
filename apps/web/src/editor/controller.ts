@@ -756,9 +756,10 @@ export class Editor {
       return;
     }
     if (clearSelectionForTool(id)) useUi.setState({ selection: [] });
-    const rede = disciplinaParaTracar(id, st, this.store.project);
-    if (rede) useUi.setState((s) => ({ minhaDisciplina: rede, previewTick: s.previewTick + 1 }));
+    const avisarRede = disciplinaParaTracar(id, st, this.store.project) !== null;
     this.activate(id);
+    // Decisão do dono (B9): a disciplina NÃO muda; só avisa que a rede fica em meio-tom e não se seleciona.
+    if (avisarRede) useUi.setState({ status: { key: 'eds_msg_trace_discipline_halftone' } });
   }
 
   /** SUPLEMENTOS (fase H): ativa a ferramenta interativa de um suplemento; respeita as mesmas restrições de vista de `setTool`. */

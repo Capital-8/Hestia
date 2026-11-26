@@ -65,7 +65,7 @@ describe('esquema: fixtures de ida e volta (esquema 33)', () => {
   it('projeto com graphics, hidden, prancha, anotações e perfis: serializar → abrir → serializar é idêntico', () => {
     const texto = JSON.stringify(projetoComCampos());
     const volta = migrateProject(JSON.parse(texto));
-    expect(volta.schemaVersion).toBe(34);
+    expect(volta.schemaVersion).toBe(35);
     expect(JSON.stringify(volta)).toBe(texto);
     // Segunda volta: a estabilidade vale para mais de uma ida e volta.
     expect(JSON.stringify(migrateProject(JSON.parse(JSON.stringify(volta))))).toBe(texto);
@@ -95,16 +95,16 @@ describe('esquema: fixtures de ida e volta (esquema 33)', () => {
   });
 
   it('a versão atual é 33 e um arquivo de versão 33 abre e permanece na 33', () => {
-    expect(SCHEMA_VERSION).toBe(34);
+    expect(SCHEMA_VERSION).toBe(35);
     const raw = JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>;
-    expect(raw.schemaVersion).toBe(34);
-    expect(migrateProject(raw).schemaVersion).toBe(34);
+    expect(raw.schemaVersion).toBe(35);
+    expect(migrateProject(raw).schemaVersion).toBe(35);
   });
 
   it('versão futura (35 = atual + 1) é recusada com SchemaError citando 35 e 34 (migrate.ts:319)', () => {
-    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 35 };
+    const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 36 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
-    expect(() => migrateProject(raw)).toThrow('versão 35');
-    expect(() => migrateProject(raw)).toThrow('(34)');
+    expect(() => migrateProject(raw)).toThrow('versão 36');
+    expect(() => migrateProject(raw)).toThrow('(35)');
   });
 });
