@@ -283,6 +283,13 @@ export class MoveTool extends SelectionTool {
       this.base = null; // recusa não deixa o ponto-base preso: o próximo clique recomeça
       return;
     }
+    // F4: tubo esticado acima do comprimento máximo da família bloqueia o gesto inteiro (nada é gravado).
+    const bloqueadoLigado = this.componentesSel().length ? this.compMov().bloqueado(d, this.alt) : null;
+    if (bloqueadoLigado) {
+      this.env.say(`Bloqueado: ${bloqueadoLigado}`);
+      this.base = null;
+      return;
+    }
     const seps = movableSeparatorIds(this.env, this.copy);
     // Cotas, textos (decisão 0019) e marcas de corte/elevação seguem a seleção e entram no mesmo passo de desfazer.
     const notes = annotationMoveCommands(this.env.project(), this.env.levelId(), this.env.selection(), d, this.copy, viewPlanId(this.env));

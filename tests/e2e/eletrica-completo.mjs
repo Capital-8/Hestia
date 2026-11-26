@@ -64,7 +64,7 @@ const avisosEletricos = async () => {
 /** Coloca uma peça pela Biblioteca: cartão (aba Elétrico) e clique na planta. Devolve os ids das peças novas. */
 async function colocar(busca, cartao, x, y) {
   const antes = (await comps()).map((c) => c.id);
-  if (!(await page.locator('.pal-janela').isVisible().catch(() => false))) await botao('Eletrodutos e dispositivos').click();
+  if (!(await page.locator('.pal-janela').isVisible().catch(() => false))) await botao('Dispositivos elétricos').click();
   await page.locator('.pal-busca').fill(busca);
   await page.waitForTimeout(250);
   await page.locator('.pal-movel', { hasText: cartao }).first().click();
@@ -99,7 +99,7 @@ try {
     await page.evaluate(() => { const e = window.__hestia.editor; e.setViewport({ ...e.viewport(), cx: 3.5, cy: 1.5, zoom: 110 }); });
     await aba('Sistemas');
     const icones = [];
-    for (const n of ['Eletroduto', 'Eletrodutos e dispositivos', 'Circuitos', 'Quantitativos elétricos']) {
+    for (const n of ['Eletroduto', 'Dispositivos elétricos', 'Circuitos', 'Quantitativos elétricos']) {
       const b = botao(n);
       const vis = await b.isVisible();
       const ativo = await b.isEnabled();
@@ -115,7 +115,7 @@ try {
 
   // ---------- 2 ----------
   await rep.step('2. insere quadro, 2 caixas, 2 tomadas, 1 interruptor e 1 luminária pela Biblioteca', async () => {
-    await botao('Eletrodutos e dispositivos').click();
+    await botao('Dispositivos elétricos').click();
     await page.waitForSelector('.pal-janela', { timeout: 15_000 });
     await page.locator('.pal-busca').fill('');
     await page.waitForTimeout(300);
@@ -355,10 +355,10 @@ try {
     const el = await avisosEletricos();
     console.log('  info  avisos elétricos:', JSON.stringify(el));
     rep.check('circuito sem quadro', el.some((x) => /sem quadro/.test(x)), '');
-    // Decisão (C7): Mover não solta as ligações gravadas; a rede acusa 'ligação afastada' na ponta que ficou para trás
-    // (as portas já não se encontram) e 'sem eletroduto' vale quando o eletroduto é apagado.
+    // Ficha F4 (muda a decisão da C7): o Mover leva as ligações junto (o eletroduto estica) e, onde não há como acompanhar (ângulo da porta, tubo
+    // curto demais), desfaz a ligação com alerta. Por isso a rede NÃO acusa mais 'ligação afastada' na caixa movida: o que ela acusa é a ponta aberta.
     const afastadas = await page.evaluate(() => window.__hestia.engine.diagnosticarRede(window.__hestia.editor.store.project).filter((d) => d.codigo === 'conexao_afastada').length);
-    rep.check('ponto ou caixa sem eletroduto, ou ligação afastada da caixa movida', el.some((x) => /sem eletroduto/.test(x)) || afastadas > 0, `${afastadas} afastadas`);
+    rep.check('Mover não deixa ligação afastada (acompanhou, ou desfez a ligação com alerta)', afastadas === 0, `${afastadas} afastadas`);
     await shot('07-verificar-avisos');
     await fechar();
   });

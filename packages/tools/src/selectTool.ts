@@ -21,6 +21,7 @@ import { massIdsInBox, pickMassAt } from './massPick.ts';
 import { massHandlePreview } from './massHandles.ts';
 import { componentGhostItemsNasPoses } from './componentGhost.ts';
 import { ArrastoComponentes, textoStatusArrastoComponentes, type ResultadoArrastoComponentes } from './componentDrag.ts';
+import { aplicarPlanoDoGesto, itensDoPlano, planoDoGesto } from './movimentoLigadoTools.ts';
 import { floorIdsInBox, pickFloorAt, ringRemoveVertex } from './floorPick.ts';
 import { pickRoomAt, roomIdsInBox } from './roomPick.ts';
 import { pickRoomSeparatorAt } from './roomSeparatorPick.ts';
@@ -707,8 +708,10 @@ export class SelectTool extends ToolBase {
         this.items.push(...ghostBands(pr, els, t), ...ghostViews(pr, sel, t), ...gridGhosts(pr, grids, this.delta));
         if (comps.length) {
           const resultado = this.calcularArrastoComponentes(pr, comps, p.alt);
-          this.items.push(...componentGhostItemsNasPoses(pr, resultado.poses));
-          this.env.say(textoStatusArrastoComponentes(pr, resultado));
+          // F4: as ligações acompanham no arrasto (Alt solta): tubos esticados em fantasma, ou o trecho bloqueado em vermelho.
+          const plano = planoDoGesto(pr, resultado.poses, !p.alt);
+          this.items.push(...componentGhostItemsNasPoses(pr, resultado.poses), ...itensDoPlano(pr, plano));
+          this.env.say(plano?.bloqueado !== undefined ? `Bloqueado: ${plano.bloqueado}` : textoStatusArrastoComponentes(pr, resultado));
         }
         break;
       }
@@ -804,7 +807,7 @@ export class SelectTool extends ToolBase {
           if (els.length) moveWalls(this.env, els, this.delta, true, p.alt);
           if (views.length) transformViews(this.env, views, { kind: 'translate', d: this.delta });
           if (grids.length) this.env.transaction('Mover grade', () => moveGrids(this.env, grids, this.delta, false));
-          if (comps.length && this.compPoses && this.compArrasto) this.compArrasto.aplicar(this.env, this.compPoses.poses);
+          if (comps.length && this.compPoses && this.compArrasto) this.soltarComponentes(pr, p.alt);
         }
         break;
       }
@@ -888,6 +891,21 @@ export class SelectTool extends ToolBase {
     const resultado = this.compArrasto.mover(this.delta, enc.semEncaixe, enc.encaixeVizinho);
     this.compPoses = resultado;
     return resultado;
+  }
+
+  /** Grava o arrasto de componentes e o plano das ligações (Alt solta) num só passo de desfazer (ficha F4); plano bloqueado grava nada. */
+  private soltarComponentes(pr: Project, alt: boolean): void {
+    const poses = this.compPoses?.poses;
+    if (!poses || !this.compArrasto) return;
+    const plano = planoDoGesto(pr, poses, !alt);
+    if (plano?.bloqueado !== undefined) {
+      this.env.say(`Bloqueado: ${plano.bloqueado}`);
+      return;
+    }
+    this.env.transaction('Mover componente', () => {
+      this.compArrasto?.aplicar(this.env, poses);
+      if (plano) aplicarPlanoDoGesto(this.env, plano, [...poses.keys()]);
+    });
   }
 
   /** Caixa envolvente da seleção, para zoom e dimensões. */

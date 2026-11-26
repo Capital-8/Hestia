@@ -48,4 +48,5 @@ export * from './cortarCorpos.ts';
 export * from './detalharFamilia.ts';
 export * from './quadroDeDetalhe.ts';
 export * from './diagnosticoRede.ts';
+export { planejarMovimentoLigado, type AlertaMovimento, type LigacaoDesfeita, type PlanoMovimento, type TrechoEsticado } from './movimentoLigado.ts';
 export { planejarTrocaDeBitola, type AlertaTroca, type CodigoAlertaTroca, type Comando, type ConexaoRemovida, type ConexaoTrocada, type PlanoTrocaBitola, type RecusaTroca, type ReducaoInserida } from './trocaBitola.ts';
