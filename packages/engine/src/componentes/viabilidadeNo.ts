@@ -33,6 +33,8 @@ export interface TrechoViabilidade {
   comprimento: number;
   recuoInicio: number;
   recuoFim: number;
+  /** O tubo fica entre duas conexões (a do outro lado já existe): vale o mínimo mesmo sem recuo nesta ponta (ficha F1). */
+  entreConexoes?: boolean;
   /** Índice que o chamador usa para localizar o trecho (devolvido em `trechoAfetado`); padrão: a posição na lista. */
   indice?: number;
 }
@@ -64,6 +66,8 @@ export interface EntradaViabilidade {
   trechos?: readonly TrechoViabilidade[];
   prumadas?: readonly PrumadaViabilidade[];
   declividades?: readonly DeclividadeViabilidade[];
+  /** Tubo mínimo (mm) entre conexões do tipo de tubulação (ficha F1); ausente = `COMPRIMENTO_MINIMO_TRECHO`. */
+  trechoMinimo?: number;
 }
 
 /** Resultado: `{ ok: true }` ou o primeiro problema, com bloqueio antes de aviso. */
@@ -79,28 +83,28 @@ const num = (v: number, casas: number): string => String(Math.round(v * 10 ** ca
 
 const mm = (v: number): string => `${num(v, 1)} mm`;
 
-function conferirTrecho(t: TrechoViabilidade, i: number): Problema | null {
+function conferirTrecho(t: TrechoViabilidade, i: number, minimo: number): Problema | null {
   const indice = t.indice ?? i;
   const recuos = Math.max(0, t.recuoInicio) + Math.max(0, t.recuoFim);
   const restante = t.comprimento - recuos;
   if (t.recuoInicio > 0 && t.recuoFim > 0 && restante < -FOLGA) {
     return { ok: false, severidade: 'bloqueio', codigo: 'conexoes_se_tocam', trechoAfetado: indice, motivo: `As conexões das duas pontas do tubo se sobrepõem: juntas ocupam ${mm(recuos)} e o tubo tem só ${mm(t.comprimento)} entre os centros (faltam ${mm(-restante)}).` };
   }
-  if (recuos > 0 && restante < COMPRIMENTO_MINIMO_TRECHO - FOLGA) {
-    return { ok: false, severidade: 'bloqueio', codigo: 'trecho_curto', trechoAfetado: indice, motivo: `Trecho curto demais: depois das conexões sobram ${mm(Math.max(0, restante))} de tubo (mínimo ${mm(COMPRIMENTO_MINIMO_TRECHO)}; faltam ${mm(COMPRIMENTO_MINIMO_TRECHO - restante)}).` };
+  if ((recuos > 0 || t.entreConexoes === true) && restante < minimo - FOLGA) {
+    return { ok: false, severidade: 'bloqueio', codigo: 'trecho_curto', trechoAfetado: indice, motivo: `Trecho curto demais: depois das conexões sobram ${mm(Math.max(0, restante))} de tubo (mínimo ${mm(minimo)}; faltam ${mm(minimo - restante)}).` };
   }
   return null;
 }
 
-function conferirPrumada(p: PrumadaViabilidade, i: number): Problema | null {
+function conferirPrumada(p: PrumadaViabilidade, i: number, minimo: number): Problema | null {
   const desvio = Math.abs(p.desvioVertical);
   if (desvio < FOLGA) return null;
   const indice = p.indice ?? i;
   const recuos = Math.max(0, p.recuoBaixo ?? 0) + Math.max(0, p.recuoCima ?? 0);
-  const preciso = Math.max(p.diametroExterno, recuos > 0 ? recuos + COMPRIMENTO_MINIMO_TRECHO : 0);
+  const preciso = Math.max(p.diametroExterno, recuos > 0 ? recuos + minimo : 0);
   if (desvio >= preciso - FOLGA) return null;
   const porDiametro = desvio < p.diametroExterno - FOLGA;
-  const causa = porDiametro ? `menor que o diâmetro externo da peça de mudança de direção (${mm(p.diametroExterno)}): o joelho de cima e o de baixo se sobreporiam` : `o trecho vertical, depois dos recuos das duas peças (${mm(recuos)}), ficaria menor que o mínimo de ${mm(COMPRIMENTO_MINIMO_TRECHO)}`;
+  const causa = porDiametro ? `menor que o diâmetro externo da peça de mudança de direção (${mm(p.diametroExterno)}): o joelho de cima e o de baixo se sobreporiam` : `o trecho vertical, depois dos recuos das duas peças (${mm(recuos)}), ficaria menor que o mínimo de ${mm(minimo)}`;
   return { ok: false, severidade: 'bloqueio', codigo: 'cota_insuficiente', trechoAfetado: indice, faltam: preciso - desvio, motivo: `Mudança de cota de ${mm(desvio)} insuficiente para a prumada: ${causa}. Precisa de pelo menos ${mm(preciso)} (faltam ${mm(preciso - desvio)}).` };
 }
 
@@ -116,8 +120,9 @@ function conferirDeclividade(d: DeclividadeViabilidade, i: number): Problema | n
 /** Todos os problemas, na ordem fixa: trechos, prumadas, declividades. */
 export function listarProblemasDeViabilidade(entrada: EntradaViabilidade): Problema[] {
   const saida: Problema[] = [];
-  (entrada.trechos ?? []).forEach((t, i) => { const p = conferirTrecho(t, i); if (p) saida.push(p); });
-  (entrada.prumadas ?? []).forEach((t, i) => { const p = conferirPrumada(t, i); if (p) saida.push(p); });
+  const minimo = entrada.trechoMinimo ?? COMPRIMENTO_MINIMO_TRECHO;
+  (entrada.trechos ?? []).forEach((t, i) => { const p = conferirTrecho(t, i, minimo); if (p) saida.push(p); });
+  (entrada.prumadas ?? []).forEach((t, i) => { const p = conferirPrumada(t, i, minimo); if (p) saida.push(p); });
   (entrada.declividades ?? []).forEach((t, i) => { const p = conferirDeclividade(t, i); if (p) saida.push(p); });
   return saida;
 }

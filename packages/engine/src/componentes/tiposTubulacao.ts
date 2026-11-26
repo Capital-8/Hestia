@@ -1,4 +1,8 @@
 import { CONEXOES_POR_DOMINIO, type RegrasConexao } from './conexoesAutomaticas.ts';
+import { TRECHO_MINIMO_ENTRE_CONEXOES, type ParDireto } from './conformidadeConexoes.ts';
+
+// Tubo mínimo entre conexões vizinhas (mm). CONFERIR contra o fabricante/projeto; valor provisório (definição e motivo em `conformidadeConexoes.ts`).
+export { TRECHO_MINIMO_ENTRE_CONEXOES };
 
 /*
  * Tipos de tubulação (fase 2, ficha L1; equivalente às preferências de roteamento do Revit): cada tipo declara a família do trecho
@@ -16,6 +20,10 @@ export interface TipoTubulacao {
   bitolas: readonly number[] | null;
   /** Nome curto da linha de produto para os avisos. */
   linha: string;
+  /** Tubo mínimo (mm) entre duas conexões vizinhas (ficha F1). CONFERIR contra o fabricante/projeto; valor provisório. */
+  trechoMinimoEntreConexoes: number;
+  /** Pares de categoria de peça que podem encostar sem tubo (ficha F1). Padrão vazio: toda emenda peça-peça exige tubo; nada é liberado por palpite. */
+  paresDiretos: readonly ParDireto[];
 }
 
 export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
@@ -25,6 +33,8 @@ export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
     dominio: 'esgoto',
     linha: 'esgoto da Krona',
     bitolas: [40, 50, 75, 100, 150, 200, 250],
+    trechoMinimoEntreConexoes: TRECHO_MINIMO_ENTRE_CONEXOES,
+    paresDiretos: [],
     regras: {
       tubo: 'fam_krona_esgoto_tubo_corte',
       curva90: 'fam_krona_esgoto_joelho90',
@@ -42,6 +52,8 @@ export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
     dominio: 'agua_fria',
     linha: 'água fria soldável da Krona',
     bitolas: [20, 25, 32, 40, 50, 60, 75, 85, 110],
+    trechoMinimoEntreConexoes: TRECHO_MINIMO_ENTRE_CONEXOES,
+    paresDiretos: [],
     regras: {
       tubo: 'fam_krona_soldavel_tubo_corte',
       curva90: 'fam_krona_soldavel_joelho90',
@@ -62,6 +74,8 @@ export const TIPOS_TUBULACAO: readonly TipoTubulacao[] = [
     dominio: 'eletroduto',
     linha: 'eletroduto rígido soldável da Krona',
     bitolas: [20, 25, 32],
+    trechoMinimoEntreConexoes: TRECHO_MINIMO_ENTRE_CONEXOES,
+    paresDiretos: [],
     regras: {
       tubo: 'fam_krona_eletrica_tubo_corte',
       curva90: 'fam_krona_eletrica_curva90',

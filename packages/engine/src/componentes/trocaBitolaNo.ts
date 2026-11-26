@@ -1,7 +1,10 @@
 import { familiaDaBiblioteca, isComponent, type Component, type Familia, type Id } from '@hestia/model';
+import { categoriaDaFamilia } from './categoriaPeca.ts';
+import { empacotarLinha, lacunaMinima, motivoColadas, rotuloDaCategoria, trechoMinimoDe } from './conformidadeConexoes.ts';
 import { ligacaoNoMundo, ligacoesCompativeis } from './ligacoesEncaixe.ts';
 import { resolverComponente } from './instancia.ts';
 import { posicionarConexao, TOLERANCIA_ANGULO, type ConexaoEncontro, type PosicaoConexao, type TipoConexao } from './posicaoConexao.ts';
+import { trechoDeTubo } from './orientarSegmento.ts';
 import { resolverNo } from './resolvedorNo.ts';
 import { dnDaInstancia, dot, lerTubo, nega, pontaDe, posicionarPonta, semErrosNovos, soma, subtrai, tipoComDn, unitario } from './trocaBitolaGeometria.ts';
 import type { Ctx, Tubo, V3 } from './trocaBitolaTipos.ts';
@@ -163,12 +166,12 @@ function trocarDnDaPeca(ctx: Ctx, peca: Component, pernas: Perna[], tipoP: TipoP
     const tubo = l?.ehT ? ctx.tubo : l?.vizTubo;
     if (!l || !tubo) return;
     posicionarPonta(ctx, tubo, pontaDe(tubo, l.vizLig), centro, pos.recuos[k] ?? 0);
-    ctx.nos.push({ chave: peca.id, tuboId: tubo.comp.id, recuo: pos.recuos[k] ?? 0 });
+    ctx.nos.push({ chave: peca.id, tuboId: tubo.comp.id, recuo: pos.recuos[k] ?? 0, rotulo: ROTULO[tipoP] });
   });
   return true;
 }
 
-/** A peça fica como está (na bitola `dP`) e uma redução dP → novo DN entra no trecho do tubo trocado, junto a ela. */
+/** A peça fica como está (na bitola `dP`) e uma redução dP → novo DN entra no trecho do tubo trocado, com tubo entre as duas (ficha F1). */
 function reducaoJuntoDaPeca(ctx: Ctx, peca: Component, pernas: Perna[], minha: Perna, tipoP: TipoPeca, ponta: 'a' | 'b', dP: number, centro: V3): boolean {
   const n = ctx.novoDn;
   const famR = familiaDe(ctx, ctx.regras.reducao);
@@ -178,18 +181,42 @@ function reducaoJuntoDaPeca(ctx: Ctx, peca: Component, pernas: Perna[], minha: P
   if (!pos0) return false;
   const famP = ctx.p.componentFamilies?.[peca.familyId];
   const posP = famP ? posicionarConexao(famP, centro, { tipo: tipoConexaoDe(tipoP), familiaId: peca.familyId, direcoes: pernas.map((l) => l.dir), diametros: pernas.map(() => dP) }) : null;
-  const centroR = soma(centro, minha.dir, (posP?.recuos[minha.idx] ?? 0) + (pos0.recuos[0] ?? 0));
+  // Sequência ao longo do eixo do tubo trocado: peça, tubo (a lacuna do par, 0 só em `paresDiretos`), redução. Recuos com sinal.
+  const linha = empacotarLinha(ctx.tipo, [
+    { rotulo: ROTULO[tipoP], categoria: tipoP, recuoAntes: 0, recuoDepois: (posP?.recuosComSinal[minha.idx] ?? 0) * 1000 },
+    { rotulo: ROTULO.reducao, categoria: 'reducao', recuoAntes: (pos0.recuosComSinal[0] ?? 0) * 1000, recuoDepois: (pos0.recuosComSinal[1] ?? 0) * 1000 },
+  ]);
+  const lacuna = (linha.lacunas[0] ?? 0) / 1000;
+  const comTubo = lacuna > 1e-9;
+  const centroR = soma(centro, minha.dir, comTubo ? (linha.centros[1] ?? 0) / 1000 : (posP?.recuos[minha.idx] ?? 0) + (pos0.recuos[0] ?? 0));
   const pos = posicionarConexao(famR, centroR, conexaoR);
   if (!pos) return false;
   const T = ctx.tubo;
   const ligT = ponta === 'a' ? T.idA : T.idB;
   const id = adicionarPeca(ctx, famR, `${T.comp.id}_red_${ponta}`, pos);
   soltar(ctx, T.comp.id, ligT);
-  ctx.conectar.push({ a: id, la: pos.ligacoes[0] ?? '', b: peca.id, lb: minha.id }, { a: id, la: pos.ligacoes[1] ?? '', b: T.comp.id, lb: ligT });
-  posicionarPonta(ctx, T, ponta, centroR, pos.recuos[1] ?? 0);
-  ctx.nos.push({ chave: peca.id, tuboId: T.comp.id, recuo: pos.recuos[1] ?? 0 });
+  const recuoT = comTubo ? (pos.recuosComSinal[1] ?? 0) : (pos.recuos[1] ?? 0);
+  if (comTubo) {
+    const idTubo = tuboEntre(ctx, `${T.comp.id}_tubo_${ponta}`, soma(centro, minha.dir, posP?.recuosComSinal[minha.idx] ?? 0), lacuna, minha.dir, dP);
+    if (idTubo === null) return false;
+    ctx.conectar.push({ a: peca.id, la: minha.id, b: idTubo, lb: T.idA }, { a: idTubo, la: T.idB, b: id, lb: pos.ligacoes[0] ?? '' });
+    ctx.tubosCurtos.push({ elementId: idTubo, familiaId: T.comp.familyId, dn: dP, comprimento: lacuna * 1000, entre: [peca.id, id] });
+  } else ctx.conectar.push({ a: id, la: pos.ligacoes[0] ?? '', b: peca.id, lb: minha.id });
+  ctx.conectar.push({ a: id, la: pos.ligacoes[1] ?? '', b: T.comp.id, lb: ligT });
+  posicionarPonta(ctx, T, ponta, centroR, recuoT, true);
+  ctx.nos.push({ chave: peca.id, tuboId: T.comp.id, recuo: Math.max(0, recuoT), rotulo: ROTULO.reducao });
   ctx.reducoes.push({ elementId: id, familiaId: famR.id, dnMaior: Math.max(dP, n), dnMenor: Math.min(dP, n) });
   return true;
+}
+
+/** Tubo curto de DN `dn` (família do tubo trocado) de `de` até `lacuna` m na direção `dir`, com a ponta inicial junto à peça. Devolve o id, ou `null` se não há geometria. */
+function tuboEntre(ctx: Ctx, base: string, de: V3, lacuna: number, dir: V3, dn: number): Id | null {
+  const T = ctx.tubo;
+  const id = idNovo(ctx, base);
+  const t = trechoDeTubo(de, soma(de, dir, lacuna), { id: T.comp.familyId }, dn, { id, levelId: T.comp.levelId });
+  if (!t) return null;
+  ctx.adicionar.push({ id, kind: 'component', familyId: T.comp.familyId, typeId: tipoComDn(T.familia, dn) ?? T.comp.typeId, levelId: T.comp.levelId, x: t.x, y: t.y, z: t.z, rotation: t.rotation, inclinacao: t.inclinacao, mirrored: false, values: { ...(T.comp.values ?? {}), L: t.values?.L ?? lacuna * 1000, DN: dn }, mark: '' });
+  return id;
 }
 
 /** Peça reta (luva ou redução) entre DN diferentes: sai e entra uma redução no lugar. */
@@ -208,7 +235,7 @@ function substituirPorReducao(ctx: Ctx, peca: Component, pernas: Perna[], minha:
   ctx.conectar.push({ a: id, la: pos.ligacoes[0] ?? '', b: outra.viz.id, lb: outra.vizLig }, { a: id, la: pos.ligacoes[1] ?? '', b: T.comp.id, lb: ligT });
   posicionarPonta(ctx, T, ponta, centro, pos.recuos[1] ?? 0);
   if (outra.vizTubo) posicionarPonta(ctx, outra.vizTubo, pontaDe(outra.vizTubo, outra.vizLig), centro, pos.recuos[0] ?? 0);
-  ctx.nos.push({ chave: peca.id, tuboId: T.comp.id, recuo: pos.recuos[1] ?? 0 });
+  ctx.nos.push({ chave: peca.id, tuboId: T.comp.id, recuo: pos.recuos[1] ?? 0, rotulo: ROTULO.reducao });
   ctx.trocadas.push({ elementId: peca.id, familiaAntes: peca.familyId, familiaDepois: famR.id, dnAntes: dP, dnDepois: n });
   ctx.reducoes.push({ elementId: id, familiaId: famR.id, dnMaior: Math.max(dO, n), dnMenor: Math.min(dO, n) });
   return true;
@@ -238,6 +265,9 @@ function tratarPeca(ctx: Ctx, ponta: 'a' | 'b', peca: Component): void {
     const dO = outra.dn;
     const sol = resolverNo({ tipo: ctx.tipo, familias: ctx.p.componentFamilies, no: { tipo: 'encontro', trechos: [{ direcao: outra.dir, dn: dO }, { direcao: minha.dir, dn: n }] } });
     if (sol.status === 'ajustada' && iguais(dP, dO) && reducaoJuntoDaPeca(ctx, peca, pernas, minha, tipoP, ponta, dP, centro)) return;
+    const vizPeca = outra.viz && !outra.vizTubo ? categoriaDaFamilia(outra.viz.familyId) : null;
+    // A redução que substitui a peça encostaria direto noutra conexão (par fora de `paresDiretos`): nunca emendar, remove com alerta.
+    if (sol.status === 'ok' && sol.conexao.tipo === 'reducao' && vizPeca && lacunaMinima(ctx.tipo, vizPeca.categoria, 'reducao') > 0) return removerPeca(ctx, peca, pernas, rotulo, dP, motivoColadas(rotuloDaCategoria(vizPeca.categoria), 'redução', trechoMinimoDe(ctx.tipo)));
     if (sol.status === 'ok' && sol.conexao.tipo === 'reducao' && substituirPorReducao(ctx, peca, pernas, minha, outra, ponta, dP, centro)) return;
     const causa = sol.status === 'sem_solucao' && sol.codigo !== 'bitolas_diferentes_em_curva' && sol.codigo !== 'tipo_sem_peca' ? sol.motivo : `os trechos ligados ficam com DN ${dO} e DN ${n} e ${semRed ? 'este tipo de tubulação não tem redução' : 'a redução não pôde ser posicionada'}.`;
     return removerPeca(ctx, peca, pernas, rotulo, dP, causa);
@@ -274,7 +304,7 @@ function tratarDireto(ctx: Ctx, ponta: 'a' | 'b', viz: Tubo, vizLig: string): vo
   ctx.conectar.push({ a: id, la: pos.ligacoes[0] ?? '', b: viz.comp.id, lb: vizLig }, { a: id, la: pos.ligacoes[1] ?? '', b: T.comp.id, lb: ligT });
   posicionarPonta(ctx, T, ponta, centro, pos.recuos[1] ?? 0);
   posicionarPonta(ctx, viz, vPonta, centro, pos.recuos[0] ?? 0);
-  ctx.nos.push({ chave, tuboId: T.comp.id, recuo: pos.recuos[1] ?? 0 }, { chave, tuboId: viz.comp.id, recuo: pos.recuos[0] ?? 0 });
+  ctx.nos.push({ chave, tuboId: T.comp.id, recuo: pos.recuos[1] ?? 0, rotulo: ROTULO.reducao }, { chave, tuboId: viz.comp.id, recuo: pos.recuos[0] ?? 0, rotulo: ROTULO.reducao });
   ctx.reducoes.push({ elementId: id, familiaId: fam.id, dnMaior: Math.max(viz.dn, n), dnMenor: Math.min(viz.dn, n) });
 }
 

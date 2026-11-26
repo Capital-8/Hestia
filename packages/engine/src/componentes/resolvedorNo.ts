@@ -1,4 +1,5 @@
 import type { Familia } from '@hestia/model';
+import { conferirLinha, empacotarLinha, rotuloDaCategoria, type CategoriaPeca, type PecaNaLinha, type RegraConformidade } from './conformidadeConexoes.ts';
 import { posicionarConexao, TOLERANCIA_ANGULO, type ConexaoEncontro, type RegrasConexao, type TipoConexao } from './posicaoConexao.ts';
 
 /*
@@ -18,10 +19,22 @@ export interface TrechoNo {
   dn: number;
   /** Cota do nó neste trecho (m). Informativa por ora (reservada para prumadas, B4); não altera a decisão. */
   cota?: number;
+  /**
+   * Peça de tubulação que fecha este trecho no OUTRO extremo, quando conhecida (ficha F1). Com ela (e com `familias`) o resolvedor
+   * confere se a conexão do nó ficaria colada nela: tubo restante menor que o mínimo do tipo vira `sem_solucao` `conexoes_coladas`.
+   */
+  vizinha?: VizinhaNo;
+}
+
+/** Peça vizinha ao longo de um trecho: categoria, distância centro a centro até o nó (mm) e recuo (mm) dela rumo ao nó. */
+export interface VizinhaNo {
+  categoria: CategoriaPeca;
+  distancia: number;
+  recuo: number;
 }
 
 /** Tipo de tubulação visto pelo resolvedor: o subconjunto de `TipoTubulacao` de que a decisão precisa. */
-export interface TipoParaNo {
+export interface TipoParaNo extends RegraConformidade {
   /** Famílias das peças; id vazio = o tipo não oferece a peça. */
   regras: RegrasConexao;
   /** DN (mm) permitidos; `null` ou ausente = qualquer. */
@@ -65,7 +78,7 @@ export interface PecaAjuste {
 }
 
 /** Códigos estáveis de `sem_solucao`. Nunca renomear: a interface e os testes dependem deles. */
-export type CodigoSemSolucao = 'angulo_sem_peca' | 'bitola_fora_da_lista' | 'tipo_sem_peca' | 'trecho_nulo' | 'bitolas_diferentes_em_curva';
+export type CodigoSemSolucao = 'angulo_sem_peca' | 'bitola_fora_da_lista' | 'tipo_sem_peca' | 'trecho_nulo' | 'bitolas_diferentes_em_curva' | 'conexoes_coladas';
 
 /**
  * Solução do nó:
@@ -175,5 +188,43 @@ function resolverDerivacao(entrada: EntradaNo, no: DerivacaoNo): SolucaoNo {
  * lista de bitolas do tipo (`bitolas`, quando declarada) são recusados com código próprio.
  */
 export function resolverNo(entrada: EntradaNo): SolucaoNo {
-  return entrada.no.tipo === 'encontro' ? resolverEncontro(entrada, entrada.no) : resolverDerivacao(entrada, entrada.no);
+  if (entrada.no.tipo !== 'encontro') return resolverDerivacao(entrada, entrada.no);
+  return conferirVizinhas(entrada, entrada.no, resolverEncontro(entrada, entrada.no));
+}
+
+/**
+ * Ficha F1: com a peça vizinha de um trecho conhecida, monta a SEQUÊNCIA real ao longo dele (peças do nó, tubo, vizinha) com os recuos
+ * reais e recusa a solução se duas conexões ficarem coladas (tubo restante menor que o mínimo do tipo, ou par fora de `paresDiretos`).
+ * Na `ajustada` a sequência do segundo trecho é curva, redução, vizinha. Sem `familias` ou sem vizinha, nada a conferir.
+ */
+function conferirVizinhas(entrada: EntradaNo, no: EncontroNo, s: SolucaoNo): SolucaoNo {
+  if ((s.status !== 'ok' && s.status !== 'ajustada') || !no.trechos.some((t) => t.vizinha) || !entrada.familias) return s;
+  const [ta, tb] = no.trechos;
+  const dirs = [unitario(ta.direcao), unitario(tb.direcao)];
+  const nomeViz = (t: TrechoNo): PecaNaLinha => ({ rotulo: rotuloDaCategoria(t.vizinha?.categoria ?? 'luva'), categoria: t.vizinha?.categoria ?? 'luva', recuoAntes: t.vizinha?.recuo ?? 0, recuoDepois: 0 });
+  const peca = (tipo: TipoConexao, antes: number, depois: number): PecaNaLinha => ({ rotulo: NOME_DO_TIPO[tipo], categoria: tipo, recuoAntes: antes, recuoDepois: depois });
+  const linhas: Array<{ trecho: TrechoNo; pecas: PecaNaLinha[] }> = [];
+  if (s.status === 'ok') {
+    s.recuos.forEach((r, k) => linhas.push({ trecho: no.trechos[k] as TrechoNo, pecas: [peca(s.conexao.tipo, 0, r * 1000)] }));
+  } else {
+    const [curva, red] = s.pecas;
+    const fc = curva && entrada.familias[curva.familiaId];
+    const fr = red && entrada.familias[red.familiaId];
+    const ua = dirs[0];
+    const ub = dirs[1];
+    if (!curva || !red || !fc || !fr || !ua || !ub) return s;
+    const pc = posicionarConexao(fc, [0, 0, 0], { tipo: curva.tipo, familiaId: curva.familiaId, direcoes: [ua, ub], diametros: curva.diametros });
+    const pr = posicionarConexao(fr, [0, 0, 0], { tipo: 'reducao', familiaId: red.familiaId, direcoes: [[-ub[0], -ub[1], -ub[2]], ub], diametros: red.diametros });
+    if (!pc || !pr) return s;
+    linhas.push({ trecho: ta, pecas: [peca(curva.tipo, 0, (pc.recuosComSinal[0] ?? 0) * 1000)] });
+    linhas.push({ trecho: tb, pecas: [peca(curva.tipo, 0, (pc.recuosComSinal[1] ?? 0) * 1000), peca('reducao', (pr.recuosComSinal[0] ?? 0) * 1000, (pr.recuosComSinal[1] ?? 0) * 1000)] });
+  }
+  for (const { trecho, pecas } of linhas) {
+    if (!trecho.vizinha) continue;
+    const todas = [...pecas, nomeViz(trecho)];
+    const centros = [...empacotarLinha(entrada.tipo, pecas).centros, trecho.vizinha.distancia];
+    const colada = conferirLinha(entrada.tipo, todas, centros);
+    if (colada) return semSolucao('conexoes_coladas', colada.motivo);
+  }
+  return s;
 }

@@ -70,6 +70,11 @@ export interface PosicaoConexao {
    * (famílias antigas): o trecho vai até o ponto, como sempre foi.
    */
   recuos: number[];
+  /**
+   * Os mesmos recuos (m) COM sinal (ficha F1): negativo quando a ponta do tubo entra além do ponto de encontro (luva de redução
+   * soldável, cuja origem fica na boca grande). `recuos` é este valor limitado a 0.
+   */
+  recuosComSinal: number[];
   /** Tipo da família escolhido para o par de bitolas (só nas famílias de bitola composta, sem `DN`). */
   typeId?: string;
 }
@@ -238,8 +243,9 @@ export function posicionarConexao(familia: Familia, ponto: PontoSegmento, conexa
       // Luva de duas ligações (ficha C3): a origem da família fica numa boca, então o CENTRO entre as bocas é que vai ao ponto de encontro.
       const centro: V3 = lista.length === 2 && conexao.tipo === 'luva' ? [0, 1, 2].map((k) => ((lista[0]?.posicao[k] ?? 0) + (lista[1]?.posicao[k] ?? 0)) / 2) as V3 : [0, 0, 0];
       const deslocado = aplica(r, centro);
-      const recuos = lista.map((l) => (l.encaixe === undefined ? 0 : Math.max(0, Math.hypot(l.posicao[0] - centro[0], l.posicao[1] - centro[1], l.posicao[2] - centro[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0))));
-      return { x: ponto[0] - deslocado[0], y: ponto[1] - deslocado[1], z: ponto[2] - deslocado[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos, ...(tipo ? { typeId: tipo.typeId } : {}) };
+      const recuosComSinal = lista.map((l) => (l.encaixe === undefined ? 0 : Math.hypot(l.posicao[0] - centro[0], l.posicao[1] - centro[1], l.posicao[2] - centro[2]) - (l.encaixe.tipo === 'bolsa' ? l.encaixe.profundidade : 0)));
+      const recuos = recuosComSinal.map((r) => Math.max(0, r));
+      return { x: ponto[0] - deslocado[0], y: ponto[1] - deslocado[1], z: ponto[2] - deslocado[2], rotation: o.rotation, inclinacao: o.inclinacao, values, ligacoes: lista.map((l) => l.id), recuos, recuosComSinal, ...(tipo ? { typeId: tipo.typeId } : {}) };
     }
   }
   return null;

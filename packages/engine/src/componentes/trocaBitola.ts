@@ -1,6 +1,7 @@
 import { isComponent, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
 import { trechoDeTubo } from './orientarSegmento.ts';
+import { motivoColada, motivoColadas, trechoMinimoDe } from './conformidadeConexoes.ts';
 import { type RegrasConexao } from './posicaoConexao.ts';
 import { bitolasDoTubo, bitolaPermitida, regrasDoTubo, tipoDaFamiliaDeTubo } from './tiposTubulacao.ts';
 import { listarProblemasDeViabilidade } from './viabilidadeNo.ts';
@@ -8,7 +9,7 @@ import { entradasDeViabilidade, estadoDe, extremosFinais, lerTubo, semErrosNovos
 import { tratarNo } from './trocaBitolaNo.ts';
 import type { Comando, Ctx, EstadoTubo, PlanoTrocaBitola, RecusaTroca, Tubo } from './trocaBitolaTipos.ts';
 
-export type { AlertaTroca, CodigoAlertaTroca, Comando, ConexaoRemovida, ConexaoTrocada, PlanoTrocaBitola, RecusaTroca, ReducaoInserida } from './trocaBitolaTipos.ts';
+export type { AlertaTroca, CodigoAlertaTroca, Comando, ConexaoRemovida, ConexaoTrocada, PlanoTrocaBitola, RecusaTroca, ReducaoInserida, TuboInserido } from './trocaBitolaTipos.ts';
 
 /*
  * Troca de bitola de um tubo já traçado (fase 3, ficha B3). `planejarTrocaDeBitola` é PURO e determinístico: lê o projeto, não grava
@@ -28,7 +29,7 @@ const SEM_REGRAS: RegrasConexao = { tubo: '', curva90: '', curva45: '', te: '', 
 /** Teto de rodadas do laço de viabilidade (cada rodada remove uma conexão; uma rede real tem poucas). */
 const MAX_RODADAS = 24;
 
-const vazio = (): Omit<PlanoTrocaBitola, 'ok'> => ({ comandos: [], conexoesTrocadas: [], conexoesRemovidas: [], reducoesInseridas: [], alertas: [] });
+const vazio = (): Omit<PlanoTrocaBitola, 'ok'> => ({ comandos: [], conexoesTrocadas: [], conexoesRemovidas: [], reducoesInseridas: [], tubosInseridos: [], alertas: [] });
 
 function recusa(r: RecusaTroca): PlanoTrocaBitola {
   return { ok: false, recusa: r, ...vazio() };
@@ -44,14 +45,23 @@ function montar(p: Project, tubo: Tubo, novoDn: number, regras: RegrasConexao, f
   const tipoT = tipoDaFamiliaDeTubo(tubo.comp.familyId);
   const ctx: Ctx = {
     p, tubo, novoDn, regras, forcados,
-    tipo: { regras, bitolas: tipoT?.bitolas ?? null, ...(tipoT ? { linha: tipoT.linha } : {}) },
+    tipo: { regras, bitolas: tipoT?.bitolas ?? null, ...(tipoT ? { linha: tipoT.linha, trechoMinimoEntreConexoes: tipoT.trechoMinimoEntreConexoes, paresDiretos: tipoT.paresDiretos } : {}) },
     geo: new Map(), upserts: new Map(), desconectar: [], desfeitas: new Set(), apagar: [], adicionar: [], atualizar: [], conectar: [], usados: new Set(),
-    trocadas: [], removidas: [], reducoes: [], alertas: [], nos: [],
+    trocadas: [], removidas: [], reducoes: [], tubosCurtos: [], alertas: [], nos: [],
   };
   estadoDe(ctx, tubo).tocado = true;
   tratarNo(ctx, 'a');
   tratarNo(ctx, 'b');
   return ctx;
+}
+
+/** Motivo de conexões coladas no tubo `tuboId`: as duas peças dos nós dele (ou a única conhecida) e o tubo mínimo do tipo. */
+function motivoDasColadas(ctx: Ctx, tuboId: string): string {
+  const porNo = new Map(ctx.nos.filter((n) => n.tuboId === tuboId && n.rotulo).map((n) => [n.chave, n.rotulo as string]));
+  const nomes = [...porNo.values()];
+  const minimo = trechoMinimoDe(ctx.tipo);
+  if (nomes.length >= 2) return motivoColadas(nomes[0] as string, nomes[1] as string, minimo);
+  return motivoColada(nomes[0] ?? 'do trecho', minimo);
 }
 
 /** `updateComponent` do tubo: nova posição e comprimento pelos recuos finais e, no tubo trocado, o DN e o tipo. */
@@ -104,14 +114,14 @@ export function planejarTrocaDeBitola(projeto: Project, tuboId: Id, novoDn: numb
   let ctx = montar(projeto, tubo, novoDn, regras, forcados);
   for (let i = 0; i < MAX_RODADAS; i++) {
     const ent = entradasDeViabilidade(ctx);
-    const bloqueio = listarProblemasDeViabilidade({ trechos: ent.trechos, prumadas: ent.prumadas }).find((q) => q.severidade === 'bloqueio');
+    const bloqueio = listarProblemasDeViabilidade({ trechos: ent.trechos, prumadas: ent.prumadas, trechoMinimo: trechoMinimoDe(ctx.tipo) }).find((q) => q.severidade === 'bloqueio');
     const id = bloqueio?.trechoAfetado === undefined ? undefined : ent.ids[bloqueio.trechoAfetado];
     const candidato = bloqueio && id ? ctx.nos.filter((n) => n.tuboId === id && n.recuo > 1e-9 && !forcados.has(n.chave)).sort((a, b) => b.recuo - a.recuo)[0] : undefined;
     if (!bloqueio || !candidato) break;
-    forcados = new Map(forcados).set(candidato.chave, bloqueio.motivo);
+    forcados = new Map(forcados).set(candidato.chave, `${motivoDasColadas(ctx, id ?? '')} ${bloqueio.motivo}`);
     ctx = montar(projeto, tubo, novoDn, regras, forcados);
   }
   const avisos = listarProblemasDeViabilidade({ declividades: entradasDeViabilidade(ctx).declividades }).filter((q) => q.severidade === 'aviso');
   const alertas = [...ctx.alertas, ...avisos.map((q) => ({ codigo: 'declividade_fora_do_limite' as const, motivo: q.motivo, elementId: tubo.comp.id }))];
-  return { ok: true, comandos: comandosDe(ctx), conexoesTrocadas: ctx.trocadas, conexoesRemovidas: ctx.removidas, reducoesInseridas: ctx.reducoes, alertas };
+  return { ok: true, comandos: comandosDe(ctx), conexoesTrocadas: ctx.trocadas, conexoesRemovidas: ctx.removidas, reducoesInseridas: ctx.reducoes, tubosInseridos: ctx.tubosCurtos, alertas };
 }

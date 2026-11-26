@@ -1,5 +1,5 @@
-import { avaliarDerivacao, avaliarEncontro, listarProblemasDeViabilidade, posicionarConexao, resolverFamilia, type DeclividadeViabilidade, type PrumadaViabilidade, type RegrasConexao, type TrechoEncontro, type TrechoViabilidade } from '@hestia/engine';
-import { familiaDaBiblioteca, isComponent, type Familia, type Project } from '@hestia/model';
+import { avaliarDerivacao, categoriaDaFamilia, avaliarEncontro, listarProblemasDeViabilidade, posicionarConexao, resolverFamilia, tipoDaFamiliaDeTubo, trechoMinimoDe, type DeclividadeViabilidade, type PrumadaViabilidade, type RegrasConexao, type TrechoEncontro, type TrechoViabilidade } from '@hestia/engine';
+import { familiaDaBiblioteca, isComponent, type Component, type Familia, type Project } from '@hestia/model';
 import { extremosDoTubo, tuboSob, type ExtremosTubo, type PontoTubo } from './tuboGeometria.ts';
 
 /*
@@ -27,6 +27,15 @@ interface ParteDoTubo {
   /** Recuo (m) em `de` e em `para`. */
   recuoDe: number;
   recuoPara: number;
+  /** O tubo tem uma conexão no outro extremo (ficha F1): vale o mínimo de tubo entre as duas mesmo com recuo 0 aqui. */
+  entreConexoes?: boolean;
+}
+
+/** Há uma conexão de tubulação ligada à ligação `ligacaoId` do tubo `c`? */
+function temPecaLigada(p: Project, c: Component, ligacaoId: string): boolean {
+  const cx = c.ligacoes?.[ligacaoId];
+  const o = cx ? p.elements[cx.componenteId] : undefined;
+  return isComponent(o) && categoriaDaFamilia(o.familyId) !== null;
 }
 
 const comprimento = (u: readonly number[], v: readonly number[]): number => Math.hypot((u[0] ?? 0) - (v[0] ?? 0), (u[1] ?? 0) - (v[1] ?? 0), (u[2] ?? 0) - (v[2] ?? 0));
@@ -45,14 +54,14 @@ function diametroExterno(familia: Familia, dn: number): number {
 /** Converte as partes em entradas de viabilidade; parte vertical com recuo real vira prumada, as demais, trecho. */
 function paraEntradas(partes: ParteDoTubo[], de: number, trechos: TrechoViabilidade[], prumadas: PrumadaViabilidade[]): void {
   for (const t of partes) {
-    if (t.recuoDe + t.recuoPara <= 1e-9) continue;
+    if (t.recuoDe + t.recuoPara <= 1e-9 && !t.entreConexoes) continue;
     const dz = Math.abs(t.para[2] - t.de[2]);
     const horizontal = Math.hypot(t.para[0] - t.de[0], t.para[1] - t.de[1]);
     if (horizontal < HORIZONTAL_NULA && dz > 1e-9) {
       const deBaixo = t.de[2] <= t.para[2];
       prumadas.push({ desvioVertical: dz * 1000, diametroExterno: de, recuoBaixo: (deBaixo ? t.recuoDe : t.recuoPara) * 1000, recuoCima: (deBaixo ? t.recuoPara : t.recuoDe) * 1000 });
     } else {
-      trechos.push({ comprimento: comprimento(t.de, t.para) * 1000, recuoInicio: t.recuoDe * 1000, recuoFim: t.recuoPara * 1000 });
+      trechos.push({ comprimento: comprimento(t.de, t.para) * 1000, recuoInicio: t.recuoDe * 1000, recuoFim: t.recuoPara * 1000, ...(t.entreConexoes ? { entreConexoes: true } : {}) });
     }
   }
 }
@@ -75,7 +84,7 @@ export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio:
       const fam = r.conexao ? familiaDaConexao(projeto, r.conexao.familiaId) : undefined;
       const pos = r.conexao && fam ? posicionarConexao(fam, pt.xyz, r.conexao) : null;
       if (!pos) return;
-      partes.push({ de: [...sob.ext.a], para: [...pt.xyz], recuoDe: 0, recuoPara: pos.recuos[0] ?? 0 }, { de: [...pt.xyz], para: [...sob.ext.b], recuoDe: pos.recuos[1] ?? 0, recuoPara: 0 });
+      partes.push({ de: [...sob.ext.a], para: [...pt.xyz], recuoDe: 0, recuoPara: pos.recuos[0] ?? 0, entreConexoes: temPecaLigada(projeto, sob.c, sob.ext.idA) }, { de: [...pt.xyz], para: [...sob.ext.b], recuoDe: pos.recuos[1] ?? 0, recuoPara: 0, entreConexoes: temPecaLigada(projeto, sob.c, sob.ext.idB) });
       recuoNovo[ponta] = pos.recuos[2] ?? 0;
       return;
     }
@@ -91,7 +100,7 @@ export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio:
     const pos = fam ? posicionarConexao(fam, pt.xyz, r.conexao) : null;
     if (!pos) return;
     const recuo = pos.recuos[0] ?? 0;
-    partes.push({ de: [...ext.a], para: [...ext.b], recuoDe: lado === 'a' ? recuo : 0, recuoPara: lado === 'b' ? recuo : 0 });
+    partes.push({ de: [...ext.a], para: [...ext.b], recuoDe: lado === 'a' ? recuo : 0, recuoPara: lado === 'b' ? recuo : 0, entreConexoes: isComponent(outro) && temPecaLigada(projeto, outro, lado === 'a' ? ext.idB : ext.idA) });
     recuoNovo[ponta] = pos.recuos[1] ?? 0;
   };
   noNo(a, 'a');
@@ -107,7 +116,7 @@ export function viabilidadeDoTrecho(projeto: Project, familia: Familia, dominio:
   const dz = Math.abs(b.xyz[2] - a.xyz[2]);
   if (horizontal >= HORIZONTAL_NULA && dz > 1e-9) declividades.push({ percentual: (dz / horizontal) * 100, dominio: dominio as DeclividadeViabilidade['dominio'], dn });
 
-  const problemas = listarProblemasDeViabilidade({ trechos, prumadas, declividades });
+  const problemas = listarProblemasDeViabilidade({ trechos, prumadas, declividades, trechoMinimo: trechoMinimoDe(tipoDaFamiliaDeTubo(familia.id)) });
   const bloqueio = problemas.find((p) => p.severidade === 'bloqueio');
   const bloqueioCodigo = bloqueio && bloqueio.severidade === 'bloqueio' && bloqueio.codigo !== 'declividade_fora_do_limite' ? bloqueio.codigo : null;
   return { bloqueio: bloqueio ? bloqueio.motivo : null, avisos: problemas.filter((p) => p.severidade === 'aviso').map((p) => p.motivo), codigo: bloqueioCodigo, faltam: bloqueio?.codigo === 'cota_insuficiente' ? bloqueio.faltam : undefined };

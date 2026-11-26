@@ -44,6 +44,16 @@ export interface ReducaoInserida {
   dnMenor: number;
 }
 
+/** Tubo curto que o plano insere entre duas conexões vizinhas para elas não ficarem coladas (ficha F1). `entre` são as duas peças (ids). */
+export interface TuboInserido {
+  elementId: Id;
+  familiaId: string;
+  dn: number;
+  /** Comprimento do tubo (mm). */
+  comprimento: number;
+  entre: [Id, Id];
+}
+
 export type CodigoAlertaTroca = 'conexao_removida' | 'bitolas_diferentes' | 'declividade_fora_do_limite';
 
 /** Alerta para o usuário; `elementId` é o tubo trocado. */
@@ -64,6 +74,8 @@ export interface PlanoTrocaBitola {
   conexoesTrocadas: ConexaoTrocada[];
   conexoesRemovidas: ConexaoRemovida[];
   reducoesInseridas: ReducaoInserida[];
+  /** Tubos curtos inseridos entre conexões vizinhas (ficha F1). */
+  tubosInseridos: TuboInserido[];
   alertas: AlertaTroca[];
 }
 
@@ -91,6 +103,8 @@ export interface RegistroNo {
   chave: string;
   tuboId: Id;
   recuo: number;
+  /** Nome da peça do nó ('Redução', 'Joelho 90°'...), para o motivo de conexões coladas. */
+  rotulo?: string;
 }
 
 /** Contexto mutável de uma montagem do plano (`montar`): entradas fixas e acumuladores de comandos e relatórios. */
@@ -114,6 +128,7 @@ export interface Ctx {
   trocadas: ConexaoTrocada[];
   removidas: ConexaoRemovida[];
   reducoes: ReducaoInserida[];
+  tubosCurtos: TuboInserido[];
   alertas: AlertaTroca[];
   nos: RegistroNo[];
 }

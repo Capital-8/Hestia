@@ -71,10 +71,11 @@ export function estadoDe(ctx: Ctx, tubo: Tubo): EstadoTubo {
 }
 
 /** A ponta `ponta` do tubo passa a terminar `recuo` (m) antes do centro `centro` do nó, sobre o eixo do tubo. */
-export function posicionarPonta(ctx: Ctx, tubo: Tubo, ponta: 'a' | 'b', centro: V3, recuo: number): void {
+export function posicionarPonta(ctx: Ctx, tubo: Tubo, ponta: 'a' | 'b', centro: V3, recuo: number, comSinal = false): void {
   const e = estadoDe(ctx, tubo);
   e.cen[ponta] = centro;
-  e.rec[ponta] = Math.max(0, recuo);
+  // `comSinal` (ficha F1): recuo negativo = a ponta entra além do centro (bolsa grande da luva de redução); o padrão segue limitado a 0.
+  e.rec[ponta] = comSinal ? recuo : Math.max(0, recuo);
   e.tocado = true;
 }
 

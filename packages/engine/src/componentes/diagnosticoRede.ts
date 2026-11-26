@@ -1,6 +1,8 @@
 import { conexoesIssue, type Component, type DominioLigacao, type Id, type Project } from '@hestia/model';
 import { resolverComponente } from './instancia.ts';
 import { dnDaInstancia } from './trocaBitolaGeometria.ts';
+import { categoriaDaFamilia } from './categoriaPeca.ts';
+import { parDiretoPermitido, trechoMinimoDe } from './conformidadeConexoes.ts';
 import { trechosAcimaDoLimite } from './curvasEntreCaixas.ts';
 import { diagnosticarEletrica } from '../eletrica/diagnosticoEletrico.ts';
 import { afastamentoDoPar, ligacaoNoMundo, ligacoesCompativeis, type LigacaoNoMundo } from './ligacoesEncaixe.ts';
@@ -37,6 +39,8 @@ export type CodigoDiagnostico =
   | 'inclinacao_fora_limite'
   | 'rede_sem_saida'
   | 'curvas_entre_caixas'
+  // Duas conexões ligadas direto, sem tubo entre elas, num par que o tipo de tubulação não libera (ficha F1).
+  | 'conexoes_coladas'
   // Elétrica, só traçado (ficha C5).
   | 'circuito_sem_quadro'
   | 'ponto_sem_eletroduto'
@@ -52,7 +56,7 @@ export interface Diagnostico {
   ligacaoId?: string;
   /** Instância da outra ponta, na conexão. */
   outroId?: Id;
-  /** Número do diagnóstico: mm (`conexao_afastada`), % (`inclinacao_fora_limite`) ou nº de instâncias (`rede_sem_saida`). */
+  /** Número do diagnóstico: mm (`conexao_afastada`; `conexoes_coladas` = tubo mínimo exigido), % (`inclinacao_fora_limite`) ou nº de instâncias (`rede_sem_saida`). */
   valor?: number;
   /** Circuito do problema (códigos elétricos). */
   circuitoId?: Id;
@@ -105,7 +109,21 @@ function diagnosticarConexoes(p: Project, c: Component, noMundo: Map<Id, Ligacao
     }
     const compat = ligacoesCompativeis(lig, alvo);
     if (!compat.ok) out.push({ codigo: 'incompativel', elementId: c.id, ligacaoId: lig.id, outroId: outro.id, motivo: compat.motivo });
+    const colada = conexaoColada(c, outro);
+    if (colada !== null) out.push({ codigo: 'conexoes_coladas', elementId: c.id, ligacaoId: lig.id, outroId: outro.id, valor: colada });
   }
+}
+
+/**
+ * Ficha F1: as duas instâncias são conexões de tubulação (peça de alguma regra de tipo) ligadas uma na outra sem tubo entre elas, e o
+ * par de categorias não está em `paresDiretos` do tipo. Devolve o tubo mínimo (mm) que falta; `null` se está tudo bem.
+ */
+function conexaoColada(a: Component, b: Component): number | null {
+  const ca = categoriaDaFamilia(a.familyId);
+  const cb = categoriaDaFamilia(b.familyId);
+  if (!ca || !cb) return null;
+  const tipo = ca.tipo ?? cb.tipo;
+  return parDiretoPermitido(tipo, ca.categoria, cb.categoria) ? null : trechoMinimoDe(tipo);
 }
 
 /** Declividade de um trecho de dois pontos (% = |Δz| / distância horizontal). Vertical ou muito curto: sem valor. */
