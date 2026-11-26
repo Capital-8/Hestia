@@ -121,7 +121,7 @@ function rotuloDoTubo(c: Component, partes: Parte[]): LabelOp | null {
   if (typeof dn === 'number') partesTxt.push(`DN ${Math.round(dn)}`);
   const { a, b, dz } = alvo.forma;
   const decl = Math.abs(dz) / Math.hypot(b.x - a.x, b.y - a.y);
-  if (decl > 1e-4) partesTxt.push(`${(decl * 100).toFixed(1).replace('.', ',')}%`);
+  if (decl > 1e-4) partesTxt.push(`${(decl * 100).toFixed(1).replace('.', ',')}%`); // units-ok: declividade em porcentagem, não é medida de projeto
   if (partesTxt.length === 0) return null;
   let ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
   if (ang > 90) ang -= 180;

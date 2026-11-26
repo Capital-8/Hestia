@@ -214,3 +214,6 @@ Exceção: em `tuboReducao.test.ts` o teste "documenta a pendência da excêntri
 
 ## Teste atualizado por decisão (D3b)
 - `apps/web/src/ui/paletaGrupos.test.ts`: o teste 'Hidráulica traz as 39 famílias da Krona' contava 26 famílias `fam_krona_esgoto_*`; a D3b acrescentou 7 famílias especiais (tê de inspeção, junção dupla, joelho com visita, pé de coluna), então agora são 33 (46 no total com 13 soldável). Só o número esperado e o título mudaram.
+
+## Correção de duplicação de materiais (D1/C8b)
+- A C8b tinha acrescentado `comp_aluminio`, `comp_vidro_incolor`, `comp_cobre` e `comp_branco` em `materiaisInstalacoes.ts`, mas esses ids já existem em `acabamentos.ts` (outra cor para `comp_cobre`); a cópia reprovava `componentSolids.test.ts` e `planComponentsCor.test.ts`. As 4 cópias foram removidas; a miniatura já resolve a cor pelo catálogo de acabamentos. Teste novo da própria C8b (`miniaturaMepEletrica.test.ts`) ajustado para comparar com `MAPA_ACABAMENTOS`; nenhum teste antigo foi editado.

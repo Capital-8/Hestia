@@ -1,4 +1,4 @@
-import { BIBLIOTECA_MEP, corDoMaterialInstalacao, destinoDaFamilia, type Familia } from '@hestia/model';
+import { BIBLIOTECA_MEP, corDoMaterialInstalacao, destinoDaFamilia, MAPA_ACABAMENTOS, type Familia } from '@hestia/model';
 import { describe, expect, it } from 'vitest';
 import { corBaseDoMaterial, silhuetaMep } from './miniaturaMep.ts';
 
@@ -24,8 +24,8 @@ describe('miniatura MEP elétrica (ficha C8b, defeito G)', () => {
       expect(cor, apelido).not.toBe(NEUTRO);
       expect(cor, apelido).toMatch(/^#[0-9a-f]{6}$/i);
     }
-    expect(corBaseDoMaterial('mat_aluminio')).toBe(corDoMaterialInstalacao('comp_aluminio'));
-    expect(corBaseDoMaterial('mat_vidro')).toBe(corDoMaterialInstalacao('comp_vidro_incolor'));
+    expect(corBaseDoMaterial('mat_aluminio')).toBe(MAPA_ACABAMENTOS['comp_aluminio']?.cor); // o id vem do catálogo de acabamentos (mesmo id, sem cópia em instalações)
+    expect(corBaseDoMaterial('mat_vidro')).toBe(MAPA_ACABAMENTOS['comp_vidro_incolor']?.cor);
   });
 
   it('o material de instalações nunca sai madeira (o mesmo que antes para material desconhecido: cinza neutro)', () => {
