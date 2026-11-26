@@ -4,6 +4,7 @@ import { PT_LIGACAO, EN_LIGACAO, ES_LIGACAO, DE_LIGACAO, FR_LIGACAO, IT_LIGACAO,
 import { PT_DETALHE, EN_DETALHE, ES_DETALHE, DE_DETALHE, FR_DETALHE, IT_DETALHE, PL_DETALHE } from './familiasDetalhe.ts';
 import { PT_SIMBOLO, EN_SIMBOLO, ES_SIMBOLO, DE_SIMBOLO, FR_SIMBOLO, IT_SIMBOLO, PL_SIMBOLO } from './familiasSimbolo.ts';
 import { PT_ELREDE, EN_ELREDE, ES_ELREDE, DE_ELREDE, FR_ELREDE, IT_ELREDE, PL_ELREDE } from './eletricaRede.ts';
+import { PT_DIVTUBO, EN_DIVTUBO, ES_DIVTUBO, DE_DIVTUBO, FR_DIVTUBO, IT_DIVTUBO, PL_DIVTUBO } from './tuboDividir.ts';
 import { PT_TUBOAQUI, EN_TUBOAQUI, ES_TUBOAQUI, DE_TUBOAQUI, FR_TUBOAQUI, IT_TUBOAQUI, PL_TUBOAQUI } from './tuboAqui.ts';
 import { PT_COLADAS, EN_COLADAS, ES_COLADAS, DE_COLADAS, FR_COLADAS, IT_COLADAS, PL_COLADAS } from './redeColadas.ts';
 import { PT_CURVATURA, EN_CURVATURA, ES_CURVATURA, DE_CURVATURA, FR_CURVATURA, IT_CURVATURA, PL_CURVATURA } from './redeCurvatura.ts';
@@ -49,6 +50,7 @@ export const PT_FAMILIAS = {
   ...PT_SIMBOLO,
   ...PT_REDE,
   ...PT_ELREDE,
+  ...PT_DIVTUBO,
   ...PT_TUBOAQUI,
   ...PT_COLADAS,
   ...PT_CURVATURA,
@@ -90,6 +92,7 @@ export const EN_FAMILIAS: D = {
   ...EN_SIMBOLO,
   ...EN_REDE,
   ...EN_ELREDE,
+  ...EN_DIVTUBO,
   ...EN_TUBOAQUI,
   ...EN_COLADAS,
   ...EN_CURVATURA,
@@ -129,6 +132,7 @@ export const ES_FAMILIAS: D = {
   ...ES_SIMBOLO,
   ...ES_REDE,
   ...ES_ELREDE,
+  ...ES_DIVTUBO,
   ...ES_TUBOAQUI,
   ...ES_COLADAS,
   ...ES_CURVATURA,
@@ -168,6 +172,7 @@ export const DE_FAMILIAS: D = {
   ...DE_SIMBOLO,
   ...DE_REDE,
   ...DE_ELREDE,
+  ...DE_DIVTUBO,
   ...DE_TUBOAQUI,
   ...DE_COLADAS,
   ...DE_CURVATURA,
@@ -207,6 +212,7 @@ export const FR_FAMILIAS: D = {
   ...FR_SIMBOLO,
   ...FR_REDE,
   ...FR_ELREDE,
+  ...FR_DIVTUBO,
   ...FR_TUBOAQUI,
   ...FR_COLADAS,
   ...FR_CURVATURA,
@@ -246,6 +252,7 @@ export const IT_FAMILIAS: D = {
   ...IT_SIMBOLO,
   ...IT_REDE,
   ...IT_ELREDE,
+  ...IT_DIVTUBO,
   ...IT_TUBOAQUI,
   ...IT_COLADAS,
   ...IT_CURVATURA,
@@ -285,6 +292,7 @@ export const PL_FAMILIAS: D = {
   ...PL_SIMBOLO,
   ...PL_REDE,
   ...PL_ELREDE,
+  ...PL_DIVTUBO,
   ...PL_TUBOAQUI,
   ...PL_COLADAS,
   ...PL_CURVATURA,

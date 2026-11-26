@@ -357,6 +357,17 @@ export function OptionsBar(): ReactElement {
           </select>
         </label>
       )}
+      {tool === 'split' && (
+        <label>
+          {t('pro_split_tubo')}
+          <select id="opt-splittubo" className="select" value={o.splitTuboInserir ?? 'luva'} onChange={(e) => set({ splitTuboInserir: e.target.value as 'luva' | 'uniao' | 'te' | 'livre' })}>
+            <option value="luva">{t('pro_split_tubo_luva')}</option>
+            <option value="uniao">{t('pro_split_tubo_uniao')}</option>
+            <option value="te">{t('pro_split_tubo_te')}</option>
+            <option value="livre">{t('pro_split_tubo_livre')}</option>
+          </select>
+        </label>
+      )}
       {tool === 'move' && <DisjoinCheck id="opt-mdisjoin" checked={o.moveDisjoin ?? DEFAULT_DISJOIN.move} onChange={(v) => set({ moveDisjoin: v })} />}
       {tool === 'rotate' && (
         <>

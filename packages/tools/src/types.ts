@@ -95,6 +95,8 @@ export interface ToolEnv {
    * Mensagem “Pertence a <disciplina>; …” para o elemento bloqueado, no idioma da interface. Ausente = sem mensagem.
    */
   mensagemBloqueado?(id: Id): string | null;
+  /** Abre o traçado de Tubo ou Eletroduto na porta livre do componente `id` (Dividir com tê: o ramal). Ausente = só avisa. */
+  abrirTracado?(componentId: Id): void;
   /** Planta de área aberta na vista, quando a planta ativa é uma planta de área; null/ausente na planta de piso. */
   areaPlanId?(): Id | null;
   /**
@@ -158,6 +160,7 @@ export type ArrayAnchor = 'second' | 'last';
  * segunda parede; 'varios' acumula paredes com Shift e aplica todas na referência.
  */
 export type TrimMode = 'canto' | 'unico' | 'varios';
+export type SplitTuboInserir = 'luva' | 'uniao' | 'te' | 'livre';
 
 /** Quais capturas estão ligadas (AutoCAD / Revit Snaps). */
 export interface SnapOptions {
@@ -367,6 +370,8 @@ export interface ToolOptions {
   offsetDistance: number;
   /** Aparar/Estender: canto (duas paredes), um elemento (só a segunda muda) ou vários (Shift+clique). Ausente = vários. */
   trimMode?: TrimMode;
+  /** Dividir sobre tubo ou eletroduto (ficha F6a): o que entra no corte. Ausente = luva. */
+  splitTuboInserir?: SplitTuboInserir;
   rotateCopy: boolean;
   mirrorCopy: boolean;
   offsetCopy: boolean;

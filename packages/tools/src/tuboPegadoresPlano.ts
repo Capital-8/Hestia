@@ -90,7 +90,7 @@ export function problemasNovos(antes: Project, depois: Project): string[] {
 
 /** Ambiente que grava num projeto descartável (para ensaiar). */
 function ambienteDeEnsaio(env: ToolEnv, rascunho: ProjectStore, falas: string[]): ToolEnv {
-  return { ...env, project: () => rascunho.project, exec: (c) => rascunho.exec(c), transaction: (l, fn) => rascunho.transaction(l, fn), say: (m: string) => { falas.push(m); }, ...(env.alert ? { alert: () => {} } : {}) };
+  return { ...env, project: () => rascunho.project, exec: (c) => rascunho.exec(c), transaction: (l, fn) => rascunho.transaction(l, fn), say: (m: string) => { falas.push(m); }, abrirTracado: () => {}, ...(env.alert ? { alert: () => {} } : {}) };
 }
 
 export type ResultadoAplicacao = { ok: true; avisos: string[] } | { ok: false; motivo: string };

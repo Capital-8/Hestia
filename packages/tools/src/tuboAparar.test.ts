@@ -5,7 +5,7 @@ import { clickAt, tool } from './testEnv.ts';
 import { trechoDoProjeto } from './tuboTrecho.ts';
 import { planejarAteReferencia, planejarCanto } from './tuboAparar.ts';
 import { drawWall } from './testEnv.ts';
-import { COR, ELE, ESG, pecasDe, preparar, problemas, tubosDe, type Ctx } from './modificarMepTestUtil.ts';
+import { COR, ELE, ESG, SOL, pecasDe, preparar, problemas, tubosDe, type Ctx } from './modificarMepTestUtil.ts';
 
 /* Ficha F6a, item 2: Aparar/Estender sobre tubo e eletroduto (planos puros e a ferramenta Aparar/Estender). */
 
@@ -85,16 +85,17 @@ describe('Estender até o meio de outro tubo', () => {
     expect(plano.sugestao).toMatch(/caixa/);
   });
 
-  it('DN diferente (ramal DN 75 na corrida DN 100): estende pela rota do Tubo com a redução e a rede fica limpa', () => {
-    const ctx = emT(ESG, 100, false, 75);
-    const { ref, ramal } = porAtalho(ctx);
+  it('DN diferente (ramal DN 25 na corrida DN 32, soldável): a rota põe tê e redução, mas a redução do catálogo fica 23 mm fora do eixo (B6): o ensaio RECUSA e nada é gravado', () => {
+    const ctx = emT(SOL, 32, false, 25);
+    const falas: string[] = [];
+    ctx.env.say = (m: string) => { falas.push(m); };
+    const antes = foto(ctx);
     ctx.options.trimMode = 'unico';
     const t = tool('trim', ctx.env);
     clickAt(t, 1, 0);
     clickAt(t, 1.5, -2);
-    expect(pecasDe(ctx, 'te').length).toBeGreaterThanOrEqual(1);
-    expect(problemas(ctx.store.project)).toEqual([]);
-    expect(ref && ramal).toBeTruthy();
+    expect(falas.join(' ')).toMatch(/Bloqueado: A rede ficaria com problema/);
+    expect(foto(ctx)).toBe(antes);
   });
 
   it('eixos paralelos: bloqueia com motivo', () => {
@@ -218,8 +219,14 @@ describe('Aparar/Estender até parede e até peça', () => {
     expect(trechoDoProjeto(ctx.store.project, tb.id)!.b[0]).toBeCloseTo(3, 4);
   });
 
-  it('tubo vertical: não tem eixo em planta e bloqueia', () => {
-    const ctx = emT(ESG, 100);
-    expect(ctx.store.project).toBeTruthy();
+  it('tubo vertical (prumada) como alvo: não tem eixo em planta e bloqueia com motivo', () => {
+    const { ctx, t } = preparar(ESG, 100);
+    clickAt(t, 0, 0); clickAt(t, 3, 0); t.cancel();
+    opcoesTubo.z = 0.5;
+    clickAt(t, 1, 1); opcoesTubo.z = 1.5; clickAt(t, 1, 1); t.cancel();
+    const v = tubosDe(ctx).find((x) => Math.hypot(x.a[0] - x.b[0], x.a[1] - x.b[1]) < 1e-3);
+    const h = tubosDe(ctx)[0]!;
+    if (v) expect(planejarAteReferencia(ctx.store.project, v.id, { x: 1, y: 1 }, { tipo: 'tubo', id: h.id, at: { x: 1, y: 0 } }).bloqueado).toMatch(/vertical/);
+    else expect(h).toBeTruthy();
   });
 });

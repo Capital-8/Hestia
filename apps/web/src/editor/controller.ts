@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { criarTuboAPartirDaqui } from './tuboAqui.ts';
 import { disciplinaParaTracar } from './disciplinaDoTraco.ts';
 import { useSyncExternalStore } from 'react';
 import type { Vec2 } from '@hestia/geom';
@@ -293,6 +294,7 @@ export class Editor {
     halftoneInView: () => this.meioTomDaPlanta(),
     bloqueados: () => this.bloqueadosDaVista(),
     mensagemBloqueado: (id) => this.mensagemBloqueado(id),
+    abrirTracado: (id) => { queueMicrotask(() => { criarTuboAPartirDaqui(this, [id]); }); },
     underlayLevelId: () => { const st = useUi.getState(); return underlayIdOf(this.store.project, st.levelId, st.showUnderlay, st.underlayLevel); },
     selection: () => useUi.getState().selection,
     setSelection: (ids) => useUi.setState({ selection: ids, ...(ids.length ? { selectedLevel: null } : {}) }),

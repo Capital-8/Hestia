@@ -18,6 +18,7 @@ import { commitRoofPatch } from './roofCheck.ts';
 import { OUTLINE_LOCKED_MSG } from './outlineEdit.ts';
 import { splitRingByLine } from './splitRing.ts';
 import type { EdgePick } from './ringEdge.ts';
+import { DivideTubo } from './tuboDividir.ts';
 import type { PointerInfo } from './types.ts';
 
 const SNAP_PX = 10;
@@ -53,6 +54,8 @@ export class SplitTool extends ToolBase {
   private gapStart: Cut | null = null;
   private slabStart: SlabStart | null = null;
   private withGap = false;
+  /** Tubo e eletroduto (ficha F6a): `tuboDividir.ts`. */
+  private readonly tubos = new DivideTubo(this.env);
 
   protected reset(): void {
     this.hoverId = null;
@@ -120,6 +123,11 @@ export class SplitTool extends ToolBase {
   }
 
   override move(p: PointerInfo): void {
+    const tubo = this.tubos.move(p);
+    if (tubo) {
+      this.items = tubo;
+      return;
+    }
     this.items = [];
     this.inf = null;
     if (this.slabStart) {
@@ -187,6 +195,10 @@ export class SplitTool extends ToolBase {
   }
 
   override click(p: PointerInfo): void {
+    if (this.tubos.trata(p.raw)) {
+      this.tubos.click(p);
+      return;
+    }
     if (this.slabStart) {
       this.finishSlabSplit(p.raw);
       return;
