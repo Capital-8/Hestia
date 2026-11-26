@@ -13,7 +13,7 @@ import {
 /** Projeto cru da versão 33 com dado inválido de disciplina em todos os campos (como um arquivo editado à mão). */
 function projetoComDadoInvalido(): Record<string, unknown> {
   const p = JSON.parse(JSON.stringify(createEmptyProject())) as Record<string, unknown>;
-  p.schemaVersion = 34;
+  p.schemaVersion = 35;
   p.disciplineProfiles = { estrutura: { wall: 'x', inexistente: 'hidden' } };
   p.disciplines = [
     { id: '', name: 'x' },

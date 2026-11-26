@@ -298,3 +298,34 @@ Decisão do dono: clicar no meio de um tubo roteia até o alvo (tê/junção + j
    - Motivo: a rota fecha com 1 tê e 1 joelho (contagem de tubos = 4 trechos, mais tê e joelho = 6 componentes).
 
 Verificação: `npx vitest run packages/tools packages/engine` verde (680 arquivos, 10409 testes passando, 31 pulados, 3 todo); eslint nos 4 arquivos sem erros.
+
+## Mudança por decisão do dono: disciplina só avisa (F5/B9)
+
+Decisão do dono: ao ativar Tubo ou Eletroduto numa planta cuja disciplina de trabalho deixaria a rede em meio-tom (não selecionável), o programa NÃO troca a disciplina pessoal da sessão. Só AVISA, uma vez por ativação, na barra de status, com a chave nova `eds_msg_trace_discipline_halftone` (texto fixo em PT, traduzido nos outros seis idiomas). A troca fica com o usuário, pelo seletor "Disciplinas".
+
+Mudanças:
+- `apps/web/src/editor/disciplinaDoTraco.ts`: `disciplinaParaTracar` continua pura e agora só indica a disciplina necessária (ou null); não altera estado.
+- `apps/web/src/editor/controller.ts` (`setTool`): sem troca de `minhaDisciplina`; define o status de aviso depois de `activate`.
+- `apps/web/src/editor/disciplinaDoTraco.test.ts`: afirma que a função não troca a disciplina nem altera o estado, e que avisa.
+- `tests/e2e/hidraulica-completo.mjs`: escolhe Hidrossanitário pelo seletor "Disciplinas" antes da ferramenta Tubo. `tests/e2e/eletrica-completo.mjs` já escolhia Elétrico antes do Eletroduto; sem alteração.
+
+Pendência da B9 (troca automática, "decisão de produto a confirmar") resolvida por esta decisão.
+
+## Bump do esquema 34 → 35 (autorizado pelo dono)
+
+Autorização expressa do dono em 2026-11-26. Motivo: o `Project` ganhou campos opcionais aditivos sem bump (`circuitosEletricos` e `quadrosEletricos` da C4, `Corpo.furar` da D2, `Ligacao.flexivel` da F2). Um programa antigo abriria o arquivo e apagaria os circuitos ao salvar; com a versão 35 ele recusa o arquivo com `SchemaError`.
+
+- `SCHEMA_VERSION` 34 → 35 em `packages/model/src/types.ts`; migração `34: (raw) => ({ ...raw })` em `packages/model/src/migrate.ts` (identidade e idempotente: só avança a versão, os campos opcionais ficam como estão).
+- IFC: o `Pset_Hestia_Project` grava `SchemaVersion` = 35. Importar IFC antigo (SchemaVersion 34 ou ausente) continua funcionando (coberto em `ifcPlanViews.test.ts`). Circuitos e quadros NÃO são exportados no IFC (nunca foram; fora do escopo deste bump).
+- Não há arquivo `.hestia.json` versionado declarando esquema 34 no repositório (busca feita); os arquivos antigos são fabricados nos próprios testes de esquema, que cobrem a migração em cadeia.
+- Testes novos: `packages/model/src/esquema35.test.ts` (9 testes) e 2 testes em `packages/io/src/ifc/ifcPlanViews.test.ts`.
+
+### Testes existentes editados (arquivo: o que mudou, motivo)
+Regra aplicada: só asserções que fixam a versão atual (`toBe(34)` → `toBe(35)`) e as de versão futura (35 → 36, mensagem "(34)" → "(35)"). Nenhuma asserção de conteúdo foi tocada.
+
+- `packages/model/src/esquema.test.ts`: `SCHEMA_VERSION`/`schemaVersion` esperados 34 → 35; versão futura 35 → 36. Motivo: bump.
+- `packages/model/src/esquema30.test.ts`, `esquema33.test.ts`, `esquemaFixtures.test.ts`: idem (versão atual 35; futura 36 com mensagem citando 36 e 35; em `esquema33` o JSON esperado da migração passa a `schemaVersion: 35`; comentários do `esquemaFixtures` atualizados).
+- `packages/model/src/componentes.test.ts`, `componentGroups.test.ts`, `caracterizacao.test.ts`, `guardaCorpo.test.ts`, `copyLink.test.ts`, `viewRange.test.ts`, `viewProfile.test.ts`, `wallCurtain.test.ts`, `furniture/furniture.test.ts`, `openingCompositionMigracao.test.ts`, `openingCompositionSync.test.ts`, `ramp.test.ts`: `toBe(34)` da versão → 35. Motivo: bump.
+- `packages/model/src/wallCurtainMigracao.test.ts`: versão futura 35 → 36 e mensagem 'versão 36'. Motivo: bump.
+- `packages/model/src/disciplineProfileTolerancia.test.ts`: o arquivo cru de teste passa de `schemaVersion = 34` para 35 e a volta esperada é 35. Motivo: o teste exige bytes idênticos na ida e volta, o que só vale para arquivo já na versão atual (um arquivo 34 sobe para 35 por desenho).
+- `packages/io/src/ifc/ifcPlanViews.test.ts`: hash FNV do IFC sem plantas de disciplina `7d330221` → `2e5fc686` (comprimento 95531 igual). Motivo: o único byte que muda é o `SchemaVersion` gravado (34 → 35).

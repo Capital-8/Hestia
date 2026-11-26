@@ -5,7 +5,7 @@ import { DEFAULT_AREA_GRAPHICS, DEFAULT_TAG_FIELDS, SchemaError, SCHEMA_VERSION,
  * Fixtures de esquema (decisão 0060, fase 1B): um projeto com os campos que a fase 2 vai mexer (`Level.graphics`,
  * `Level.hidden`, pranchas com vista, anotações do nível e da planta de área) e os da fase 1B (`disciplines`,
  * `disciplineProfiles`, `categoryDiscipline`). A ida e volta serializar → abrir → serializar tem de ser idêntica no
- * esquema atual (34). Hoje o programa recusa arquivo de versão mais nova (35).
+ * esquema atual (35). Hoje o programa recusa arquivo de versão mais nova (36).
  */
 
 const sheet: Sheet = {
@@ -101,7 +101,7 @@ describe('esquema: fixtures de ida e volta (esquema 33)', () => {
     expect(migrateProject(raw).schemaVersion).toBe(35);
   });
 
-  it('versão futura (35 = atual + 1) é recusada com SchemaError citando 35 e 34 (migrate.ts:319)', () => {
+  it('versão futura (36 = atual + 1) é recusada com SchemaError citando 36 e 35', () => {
     const raw = { ...(JSON.parse(JSON.stringify(projetoComCampos())) as Record<string, unknown>), schemaVersion: 36 };
     expect(() => migrateProject(raw)).toThrow(SchemaError);
     expect(() => migrateProject(raw)).toThrow('versão 36');

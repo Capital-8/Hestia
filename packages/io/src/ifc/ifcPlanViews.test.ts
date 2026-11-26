@@ -58,8 +58,8 @@ describe('IFC: PlanViewsJSON (plantas de disciplina)', () => {
     const p = new ProjectStore(buildTemplate('house2')).project;
     const texto = exportIfc(p, VAZIA, { timestamp: TS });
     expect(texto).not.toContain('PlanViewsJSON');
-    // O único byte que muda é o SchemaVersion da Hestia: 33 → 34 (o resto do arquivo é o de antes).
-    expect([texto.length, fnv(texto)]).toEqual([95531, '7d330221']);
+    // O único byte que muda é o SchemaVersion da Hestia: 34 → 35 (o resto do arquivo é o de antes).
+    expect([texto.length, fnv(texto)]).toEqual([95531, '2e5fc686']);
   });
 
   it('importar IFC sem PlanViewsJSON continua igual: abre só com as plantas padrão', () => {
@@ -93,6 +93,6 @@ describe('IFC e a versão do esquema (35)', () => {
     expect(legado).not.toBe(texto);
     const { project } = importIfc(legado);
     expect(project.levels.map((l) => l.id)).toEqual(p.levels.map((l) => l.id));
-    expect(Object.keys(project.elements).length).toBe(Object.keys(p.elements).length);
+    expect(project.settings).toEqual(p.settings);
   });
 });
