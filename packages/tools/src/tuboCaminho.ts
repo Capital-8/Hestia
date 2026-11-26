@@ -82,22 +82,16 @@ function comprimentos(seq: readonly Eixo[], delta: readonly number[], minimo: nu
 }
 
 /**
- * Planeja `a`→`b` (m) em 90°. `saida` = sentido em que o primeiro trecho deixa `a` (direção da entrada de partida, ou null se `a` é
- * livre); `chegada` = sentido do último trecho ao chegar em `b` (oposto à direção da entrada de destino, ou null). `minimo` (m) é o
- * menor trecho que cabe com as curvas; `desvio` (m), o quanto um desvio em U ou em Z anda para fora. Devolve null sem caminho.
- * Empate de trechos: menor comprimento total, depois o `modo` (subir antes ou depois).
+ * Lista os caminhos em 90° de `a` a `b` (m), do melhor para o pior: menos trechos, depois menor comprimento, depois o `modo` (subir antes
+ * ou depois). `saidas` = sentidos permitidos ao primeiro trecho (null = livre); `chegadas` = sentidos permitidos ao último (null = livre).
+ * `minimo` (m) é o menor trecho que cabe com as curvas; `desvio` (m), o quanto um desvio em U ou em Z anda para fora. Ficha F5: a rota
+ * a partir do meio de um tubo (tê) admite os sentidos perpendiculares à corrida, não um só.
  */
-export function planejarCaminhoOrtogonal(a: PontoSegmento, b: PontoSegmento, saida: Eixo | null, chegada: Eixo | null, modo: ModoCota, minimo: number, desvio: number): CaminhoOrtogonal | null {
+export function listarCaminhosOrtogonais(a: PontoSegmento, b: PontoSegmento, saidas: readonly Eixo[] | null, chegadas: readonly Eixo[] | null, modo: ModoCota, minimo: number, desvio: number, maximo = 16): CaminhoOrtogonal[] {
   const delta = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-  let melhor: Candidato | null = null;
-  const melhorQue = (c: Candidato): boolean => {
-    if (!melhor) return true;
-    if (c.caminho.trechos !== melhor.caminho.trechos) return c.caminho.trechos < melhor.caminho.trechos;
-    if (Math.abs(c.comprimento - melhor.comprimento) > 1e-9) return c.comprimento < melhor.comprimento;
-    return c.verticalidade < melhor.verticalidade;
-  };
+  const todos: Candidato[] = [];
   const avaliar = (seq: readonly Eixo[]): void => {
-    if (chegada && seq[seq.length - 1] !== chegada) return;
+    if (chegadas && !chegadas.includes(seq[seq.length - 1] as Eixo)) return;
     const ls = comprimentos(seq, delta, minimo, desvio);
     if (!ls) return;
     const pontos: PontoSegmento[] = [];
@@ -110,19 +104,31 @@ export function planejarCaminhoOrtogonal(a: PontoSegmento, b: PontoSegmento, sai
     // 'subir primeiro' prefere trecho vertical cedo; 'andar primeiro', tarde.
     const verticais = seq.flatMap((e, i) => (eixoDe(e) === 2 ? [i] : []));
     const soma = verticais.reduce((s, i) => s + i, 0);
-    const c: Candidato = { caminho: { intermediarios: pontos, trechos: seq.length }, comprimento: ls.reduce((s, l) => s + l, 0), verticalidade: modo === 'andar_primeiro' ? -soma : soma };
-    if (melhorQue(c)) melhor = c;
+    todos.push({ caminho: { intermediarios: pontos, trechos: seq.length }, comprimento: ls.reduce((s, l) => s + l, 0), verticalidade: modo === 'andar_primeiro' ? -soma : soma });
   };
   const gerar = (seq: Eixo[]): void => {
     if (seq.length > 0) avaliar(seq);
     if (seq.length >= MAXIMO_TRECHOS) return;
     for (const e of DIRECOES) {
       const ultimo = seq[seq.length - 1];
-      // Joelho de 90°: o trecho seguinte é perpendicular ao anterior; o primeiro sai no sentido da entrada de partida.
-      if (ultimo ? eixoDe(ultimo) === eixoDe(e) : saida !== null && e !== saida) continue;
+      // Joelho de 90°: o trecho seguinte é perpendicular ao anterior; o primeiro sai num dos sentidos permitidos.
+      if (ultimo ? eixoDe(ultimo) === eixoDe(e) : saidas !== null && !saidas.includes(e)) continue;
       gerar([...seq, e]);
     }
   };
   gerar([]);
-  return melhor === null ? null : (melhor as Candidato).caminho;
+  todos.sort((x, y) => x.caminho.trechos - y.caminho.trechos || (Math.abs(x.comprimento - y.comprimento) > 1e-9 ? x.comprimento - y.comprimento : x.verticalidade - y.verticalidade));
+  return todos.slice(0, maximo).map((c) => c.caminho);
 }
+
+/**
+ * Planeja `a`→`b` (m) em 90°. `saida` = sentido em que o primeiro trecho deixa `a` (direção da entrada de partida, ou null se `a` é
+ * livre); `chegada` = sentido do último trecho ao chegar em `b` (oposto à direção da entrada de destino, ou null). Devolve o melhor
+ * caminho de `listarCaminhosOrtogonais` ou null sem caminho. Empate de trechos: menor comprimento total, depois o `modo`.
+ */
+export function planejarCaminhoOrtogonal(a: PontoSegmento, b: PontoSegmento, saida: Eixo | null, chegada: Eixo | null, modo: ModoCota, minimo: number, desvio: number): CaminhoOrtogonal | null {
+  return listarCaminhosOrtogonais(a, b, saida ? [saida] : null, chegada ? [chegada] : null, modo, minimo, desvio, 1)[0] ?? null;
+}
+
+/** Os seis sentidos do mundo (os mesmos objetos que a busca compara por identidade). */
+export const EIXOS: readonly Eixo[] = DIRECOES;

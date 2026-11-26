@@ -43,11 +43,11 @@ export function planejarPrumada(a: PontoSegmento, b: PontoSegmento, modo: ModoCo
 
 /**
  * Recuos (m) de cada trecho no joelho `p1` entre `p0`→`p1` e `p1`→`p2`, com a família da peça do projeto ou da biblioteca.
- * Sem regras, sem peça ou sem família: zero (o tubo liga direto).
+ * Sem regras, sem peça ou sem família: zero (o tubo liga direto). `dnDepois` (ficha F5): DN do trecho seguinte, quando difere (redução em linha).
  */
-export function recuosDoJoelho(projeto: Project, regras: RegrasConexao | null, dn: number, p0: PontoSegmento, p1: PontoSegmento, p2: PontoSegmento): [number, number] {
+export function recuosDoJoelho(projeto: Project, regras: RegrasConexao | null, dn: number, p0: PontoSegmento, p1: PontoSegmento, p2: PontoSegmento, dnDepois = dn): [number, number] {
   if (!regras) return [0, 0];
-  const r = avaliarEncontro({ a: p0, b: p1, dn }, 'b', { a: p1, b: p2, dn }, 'a', regras);
+  const r = avaliarEncontro({ a: p0, b: p1, dn }, 'b', { a: p1, b: p2, dn: dnDepois }, 'a', regras);
   if (!r.conexao || r.conexao.tipo === 'luva') return [0, 0];
   const fam: Familia | undefined = projeto.componentFamilies?.[r.conexao.familiaId] ?? familiaDaBiblioteca(r.conexao.familiaId) ?? undefined;
   const pos = fam ? posicionarConexao(fam, p1, r.conexao) : null;

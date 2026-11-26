@@ -1,15 +1,16 @@
 import type { Vec2 } from '@hestia/geom';
-import { avaliarDerivacao, avaliarEncontro, bitolaPermitida, comprimentoDoSegmento, idTuboDoProjeto, posicionarConexao, regrasDoTubo, trechoDeTubo, type ConexaoEncontro, type PontoSegmento, type PosicaoConexao, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
-import { familiaDaBiblioteca, isComponent, newId, type Component, type Id, type Project } from '@hestia/model';
+import { avaliarEncontro, bitolaPermitida, categoriaDaFamilia, idTuboDoProjeto, regrasDoTubo, tipoSemConexoes, type RegrasConexao, type TrechoEncontro } from '@hestia/engine';
+import { familiaDaBiblioteca, isComponent, type Component, type Id, type Project } from '@hestia/model';
 import { ToolBase } from './base.ts';
-import { extremosDoTubo, tuboSob, type PontoTubo } from './tuboGeometria.ts';
-import { viabilidadeDoTrecho } from './tuboViabilidade.ts';
-import { planejarPrumada, recuosDoJoelho, type ModoCota, type PlanoPrumada } from './tuboPrumada.ts';
-import { eixoDaDirecao, eixoOposto, planejarCaminhoOrtogonal } from './tuboCaminho.ts';
-import { alertaDeAngulo, avisoComSugestao, itensDoBloqueio, sugestaoDeBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
+import { extremosDoTubo, type PontoTubo } from './tuboGeometria.ts';
+import type { ModoCota } from './tuboPrumada.ts';
+import { alertaDeAngulo, avisoComSugestao, itensDoBloqueio, type BloqueioTubo } from './tuboBloqueio.ts';
 import { lerComprimentoDigitado } from './desenhoPolilinha.ts';
 import { fantasmaDoTrecho, ligacaoProxima, ligacoesAbertas, pontasDoTubo, semOrigem, temConexoes, type ContextoTraco, type LigacaoAberta } from './tuboApoio.ts';
 import { itensDePortas } from './tuboPortas.ts';
+import { aparar, derivarNoMeio, garantirFamilias, inserirConexao, type Aparo } from './tuboDerivacao.ts';
+import { itensDoMeio, meioDeTubo, semDerivacao, type MeioDeTubo } from './tuboMeio.ts';
+import { verificarTraco, type EntradaRota, type Verificacao } from './tuboRota.ts';
 import type { PointerInfo, ToolEnv } from './types.ts';
 
 export { pontasDoTubo };
@@ -55,10 +56,6 @@ export const CONFIG_TUBO: ConfigTraco = {
   luvaEmLinha: false,
 };
 
-/** Margem (m) somada ao dobro do recuo da curva para o menor trecho entre dois joelhos, e desvio (m) de U/Z sem curva no catálogo. PROVISÓRIOS, não vêm de catálogo nem de norma: CONFERIR. */
-const MARGEM_ENTRE_JOELHOS = 0.02;
-const DESVIO_SEM_CURVA = 0.1;
-
 /** Tolerância mínima (m) da captura de ligação aberta; cresce com o zoom (8 px). */
 const TOLERANCIA_MINIMA = 0.05;
 
@@ -79,10 +76,12 @@ export class TuboTool extends ToolBase {
   readonly pick3d = true;
   private inicio: PontoTubo | null = null;
   /** Recuos (m) a aplicar nas pontas dos trechos do passo atual, depois das conexões (tubo entra na bolsa). */
-  private aparos: Array<{ id: Id; ponta: 'a' | 'b'; recuo: number }> = [];
+  private aparos: Aparo[] = [];
   private bloqueio: BloqueioTubo | null = null;
   /** Porta livre que o cursor pega agora (a do último `ponto`), para o halo forte da prévia. */
   private porta: LigacaoAberta | null = null;
+  /** Meio de tubo que o cursor pega agora (snap 'derivar aqui', ficha F5). */
+  private meio: MeioDeTubo | null = null;
   protected readonly opc: OpcoesTraco;
 
   constructor(env: ToolEnv, protected readonly cfg: ConfigTraco = CONFIG_TUBO) {
@@ -154,18 +153,37 @@ export class TuboTool extends ToolBase {
     const regras = regrasDoDominio(ctx);
     const achada = ligacaoProxima(at.x, at.y, ehFim ? ctx.pontas.fim : ctx.pontas.inicio, semOrigem(ligacoesAbertas(projeto), this.inicio?.xyz), tol, this.bitolaLivre(ctx), this.opc.z);
     this.porta = achada;
+    this.meio = null;
     if (achada) {
       const [x, y, z] = achada.lig.posicaoMundo;
-      // F3: ponto, luminária, caixa e quadro (qualquer dono que não seja eletroduto) exigem chegar de frente para a porta; antes só a categoria dispositivo_eletrico.
-      const comEntrada = this.cfg.respeitaEntradas && projeto.componentFamilies?.[(projeto.elements[achada.componentId] as Component).familyId]?.categoria !== 'eletroduto';
+      // F3/F5: ponto, luminária, caixa, quadro e aparelho (dono que não é tubo nem peça de tubulação) exigem chegar de frente para a porta; a rota de derivação respeita isso nos dois ferramentas.
+      const dono = (projeto.elements[achada.componentId] as Component).familyId;
+      const comEntrada = projeto.componentFamilies?.[dono]?.categoria !== 'eletroduto' && categoriaDaFamilia(dono) === null;
       return { xyz: [x, y, z], alvo: { componentId: achada.componentId, ligacaoId: achada.lig.id }, ...(comEntrada ? { direcao: achada.lig.direcaoMundo } : {}) };
     }
-    // No meio de um tubo existente: derivação (tê ou junção 45°), quando o projeto tem as conexões do domínio.
-    const sob = regras && temConexoes(projeto, regras) ? tuboSob(projeto, ctx.familia.id, [at.x, at.y, this.opc.z], tol, tol) : null;
+    // No meio de um tubo existente (Alt desliga): derivação com tê ou junção 45°, quando o tipo as tem; o snap pega o ponto do EIXO em planta, qualquer cota.
+    const sob = p.alt ? null : this.meioSob(at, ctx, regras, tol);
+    this.meio = sob;
     if (sob) return { xyz: sob.xyz, alvo: null, derivacao: true };
     // Declividade (M2): o ponto FINAL livre sobe ou desce em % da distância em planta; ponto encaixado ou derivação mantém a cota do alvo.
     const z = ehFim && this.inicio && this.opc.declividade !== 0 ? this.inicio.xyz[2] + (this.opc.declividade / 100) * Math.hypot(at.x - this.inicio.xyz[0], at.y - this.inicio.xyz[1]) : this.opc.z;
     return { xyz: [at.x, at.y, z], alvo: null };
+  }
+
+  /** Tubo da mesma família sob `at`: qualquer cota se o tipo deriva; só na cota da ferramenta se não deriva (o bloqueio avisa o motivo). */
+  private meioSob(at: Vec2, ctx: ContextoTraco, regras: RegrasConexao | null, tol: number): MeioDeTubo | null {
+    const projeto = this.env.project();
+    const sem = tipoSemConexoes(ctx.familia.id) !== undefined;
+    if (!sem && !(regras && temConexoes(projeto, regras))) return null;
+    const deriva = !sem && regras !== null && (regras.te !== '' || regras.juncao45 !== '');
+    return meioDeTubo(projeto, ctx.familia.id, at, this.opc.z, tol, tol, deriva ? Infinity : tol, this.inicio?.alvo?.componentId);
+  }
+
+  /** Ficha F5, 'Criar tubo a partir daqui': começa o traçado em `origem` (porta livre ou meio de tubo), como se o primeiro clique fosse ali. */
+  iniciarEm(origem: PontoTubo): void {
+    this.inicio = origem;
+    this.bloqueio = null;
+    this.env.say(`${this.cfg.nome}: clique o ponto final${origem.derivacao ? ' (a partir do meio do tubo: o tubo será dividido e entra o tê ou a junção)' : ''}.`);
   }
 
   override move(p: PointerInfo): void {

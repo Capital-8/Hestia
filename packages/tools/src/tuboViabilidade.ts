@@ -46,7 +46,7 @@ function familiaDaConexao(p: Project, id: string): Familia | undefined {
 }
 
 /** Diâmetro externo (mm) da peça do tubo: o parâmetro `De` da família (Krona) ou, sem ele, o DN. */
-function diametroExterno(familia: Familia, dn: number): number {
+export function diametroExterno(familia: Familia, dn: number): number {
   const de = resolverFamilia(familia, { valores: { DN: dn, L: 1000 } }).env.De;
   return typeof de === 'number' && de > 0 ? de : dn;
 }
