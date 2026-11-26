@@ -14,7 +14,9 @@ import { annotationTypeOf, selectedAnnotations } from '../editor/viewAnnotations
 import { startCreateSimilar } from '../editor/createSimilar.ts';
 import { comEditarPerimetro, EDITAR_PERIMETRO_ID, idPerimetroEditavel } from './perimeter/perimeterEditavel.ts';
 import { componentesDaSelecao } from './componentPropAcoes.ts';
-import { comComponente, executarComandoDeComponente, PREFIXO_COMPONENTE } from './componenteMenu.ts';
+import { comComponente, executarComandoDeComponente, ID_TUBO_AQUI, PREFIXO_COMPONENTE } from './componenteMenu.ts';
+import { criarTuboAPartirDaqui } from '../editor/tuboAqui.ts';
+import type { Vec2 } from '@hestia/geom';
 
 /** Menu aberto: posição na tela, o contexto em que foi montado e as entradas. */
 export interface CanvasMenu {
@@ -22,6 +24,8 @@ export interface CanvasMenu {
   y: number;
   ctx: ContextMenuCtx;
   items: MenuEntry[];
+  /** Ponto da planta (m) em que o menu foi aberto; ausente no 3D, no corte e pelo teclado. */
+  mundo?: Vec2;
 }
 
 export const useCanvasMenu = create<{ menu: CanvasMenu | null }>()(() => ({ menu: null }));
@@ -72,7 +76,7 @@ function contextoAtual(view: MenuView): ContextMenuCtx {
  * Clique em elemento fora da seleção seleciona só ele (como em apps do Windows); sobre um selecionado, a seleção fica.
  * No vazio o menu é o de "sem seleção", e a seleção é mantida.
  */
-export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | undefined, view: MenuView): void {
+export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | undefined, view: MenuView, mundo?: Vec2): void {
   if (alvo && editor.bloqueadoNaVista(alvo)) {
     editor.avisarBloqueado(alvo);
     return;
@@ -84,7 +88,7 @@ export function abrirMenuDeContexto(x: number, y: number, alvo: Id | null | unde
   const itens = comEditarPerimetro(buildContextMenu(noVazio), noVazio.lang, editavel);
   const componentes = componentesDaSelecao(editor.project, useUi.getState().selection);
   const comComp = comComponente(itens, noVazio, noVazio.lang, componentes, editor.project.componentFamilies);
-  useCanvasMenu.setState({ menu: { x, y, ctx: noVazio, items: comComp } });
+  useCanvasMenu.setState({ menu: { x, y, ctx: noVazio, items: comComp, ...(mundo ? { mundo } : {}) } });
 }
 
 export function fecharMenuDeContexto(): void {
@@ -121,7 +125,8 @@ function envDeComponente(): ToolEnv {
 }
 
 /** Executa o comando de uma entrada. Entradas desabilitadas ("ainda não disponível") não chegam aqui. */
-export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3dMenu, centro: { x: number; y: number }): void {
+export function executaComandoDoMenu(id: string, view: MenuView, camera: Camera3dMenu, centro: { x: number; y: number }, mundo?: Vec2): void {
+  if (id === ID_TUBO_AQUI) { criarTuboAPartirDaqui(editor, useUi.getState().selection, mundo); return; }
   if (id.startsWith('recent:')) { editor.setTool(id.slice('recent:'.length) as ToolId); return; }
   if (id.startsWith(PREFIXO_COMPONENTE)) { executarComandoDeComponente(id, envDeComponente()); return; }
   switch (id) {

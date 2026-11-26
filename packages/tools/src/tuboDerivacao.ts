@@ -89,8 +89,9 @@ export function aparar(env: ToolEnv, id: Id, ponta: 'a' | 'b', recuo: number, av
  * Grava no projeto (dentro da transação do trecho) a família de tubo vinda da biblioteca MEP e, só então, as famílias de conexão do
  * domínio. Projeto que já tem o tubo (inclusive fixtures) não ganha conexões novas por trás.
  */
-export function garantirFamilias(env: ToolEnv, ctx: ContextoTraco, regras: RegrasConexao | null): void {
-  if (env.project().componentFamilies?.[ctx.familia.id] !== undefined) return;
+export function garantirFamilias(env: ToolEnv, ctx: ContextoTraco, regras: RegrasConexao | null, derivando = false): void {
+  // Derivação (ficha F5) pede o tê, a junção e a redução mesmo num projeto cujo tubo já existe sem elas (tubo da paleta).
+  if (!derivando && env.project().componentFamilies?.[ctx.familia.id] !== undefined) return;
   const ids = new Set<string>([ctx.familia.id, ...(regras ? Object.values(regras) : [])]);
   for (const id of ids) {
     if (env.project().componentFamilies?.[id] !== undefined) continue;

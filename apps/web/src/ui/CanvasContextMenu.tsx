@@ -37,7 +37,7 @@ export function CanvasContextMenu({ model, host }: { model: Camera3dMenu; host: 
       x={menu.x}
       y={menu.y}
       items={menu.items}
-      onPick={(id) => executaComandoDoMenu(id, menu.ctx.view, model, centro())}
+      onPick={(id) => executaComandoDoMenu(id, menu.ctx.view, model, centro(), menu.mundo)}
       onClose={fecharMenuDeContexto}
     />
   );

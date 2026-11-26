@@ -43,6 +43,8 @@ export * from './pasteTool.ts';
 export * from './furnitureTool.ts';
 export * from './tuboTool.ts';
 export * from './eletrodutoTool.ts';
+export { DOMINIOS_DE_TUBO, origemDoComponente, type OrigemDoTraco, type SemOrigem } from './tuboOrigem.ts';
+export type { PontoTubo } from './tuboGeometria.ts';
 export type { ModoCota } from './tuboPrumada.ts';
 export * from './trocaBitolaAplicar.ts';
 export * from './furnitureFootprint.ts';

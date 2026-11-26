@@ -284,7 +284,7 @@ export class TuboTool extends ToolBase {
     const cadeia = v.cadeia as Component[];
     try {
       this.env.transaction(`Desenhar ${this.cfg.nome.toLowerCase()}`, () => {
-        garantirFamilias(this.env, ctx, regrasDoDominio(ctx));
+        garantirFamilias(this.env, ctx, regrasDoDominio(ctx), a.derivacao === true || b.derivacao === true);
         this.aparos = [];
         cadeia.forEach((c, k) => {
           const de = pts[k] as PontoTubo;

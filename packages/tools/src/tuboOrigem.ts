@@ -10,6 +10,9 @@ import { extremosDoTubo, type PontoTubo } from './tuboGeometria.ts';
  * num tubo, o PONTO DO MEIO sob o cursor (derivação). Função pura; a interface ativa a ferramenta e chama `TuboTool.iniciarEm`.
  */
 
+/** Domínios que a ferramenta Tubo ou Eletroduto traça: as demais ligações (força, dados, ar, estrutura) não oferecem origem. */
+export const DOMINIOS_DE_TUBO: ReadonlySet<string> = new Set(['agua_fria', 'agua_quente', 'esgoto', 'ventilacao', 'pluvial', 'gas', 'incendio', 'eletroduto']);
+
 /** Raio (m) em planta em que uma ponta aberta do tubo vale mais que o meio dele. */
 const PERTO_DA_PONTA = 0.15;
 /** Distância (m) mínima das pontas para o ponto do meio. */
@@ -49,7 +52,7 @@ function dePorta(p: Project, c: LigacaoAberta): OrigemDoTraco {
 export function origemDoComponente(p: Project, id: Id, cursor?: Vec2): OrigemDoTraco | SemOrigem {
   const c = p.elements[id];
   if (!isComponent(c) || !p.componentFamilies?.[c.familyId]?.ligacoes?.length) return { erro: 'Esta peça não tem porta para sair com tubulação.' };
-  const livres = ligacoesAbertas(p).filter((l) => l.componentId === id).sort((a, b) => plano(a, cursor) - plano(b, cursor));
+  const livres = ligacoesAbertas(p).filter((l) => l.componentId === id && DOMINIOS_DE_TUBO.has(l.lig.dominio)).sort((a, b) => plano(a, cursor) - plano(b, cursor));
   const ext = tipoDaFamiliaDeTubo(c.familyId) ? extremosDoTubo(p, c) : null;
   const perto = livres[0];
   if (!ext) return perto ? dePorta(p, perto) : { erro: 'Esta peça não tem porta livre: todas as ligações já estão usadas.' };

@@ -1659,7 +1659,7 @@ export function ViewportCanvas({ projetoDePrevia, paneId, onActivate, visible = 
       if (!rp.moved) {
         // Na prévia do Colar alinhado o botão direito não abre o menu de edição.
         if (paneState().pastePreview) return;
-        abrirMenuDeContexto(e.clientX, e.clientY, paneState().view === '3d' ? (elementAt3d(s)?.id ?? null) : paneState().view === 'section' ? (sectionPickAt(s)?.id ?? null) : paneState().hover, viewDoMenu(paneState().view));
+        abrirMenuDeContexto(e.clientX, e.clientY, paneState().view === '3d' ? (elementAt3d(s)?.id ?? null) : paneState().view === 'section' ? (sectionPickAt(s)?.id ?? null) : paneState().hover, viewDoMenu(paneState().view), paneState().view === 'plan' && editor.viewport() ? screenToWorld(editor.viewport() as Viewport, s) : undefined);
       }
       return;
     }

@@ -4,6 +4,7 @@ import { PT_LIGACAO, EN_LIGACAO, ES_LIGACAO, DE_LIGACAO, FR_LIGACAO, IT_LIGACAO,
 import { PT_DETALHE, EN_DETALHE, ES_DETALHE, DE_DETALHE, FR_DETALHE, IT_DETALHE, PL_DETALHE } from './familiasDetalhe.ts';
 import { PT_SIMBOLO, EN_SIMBOLO, ES_SIMBOLO, DE_SIMBOLO, FR_SIMBOLO, IT_SIMBOLO, PL_SIMBOLO } from './familiasSimbolo.ts';
 import { PT_ELREDE, EN_ELREDE, ES_ELREDE, DE_ELREDE, FR_ELREDE, IT_ELREDE, PL_ELREDE } from './eletricaRede.ts';
+import { PT_TUBOAQUI, EN_TUBOAQUI, ES_TUBOAQUI, DE_TUBOAQUI, FR_TUBOAQUI, IT_TUBOAQUI, PL_TUBOAQUI } from './tuboAqui.ts';
 import { PT_COLADAS, EN_COLADAS, ES_COLADAS, DE_COLADAS, FR_COLADAS, IT_COLADAS, PL_COLADAS } from './redeColadas.ts';
 import { PT_CURVATURA, EN_CURVATURA, ES_CURVATURA, DE_CURVATURA, FR_CURVATURA, IT_CURVATURA, PL_CURVATURA } from './redeCurvatura.ts';
 import { PT_REDE, EN_REDE, ES_REDE, DE_REDE, FR_REDE, IT_REDE, PL_REDE } from './familiasRede.ts';
@@ -48,6 +49,7 @@ export const PT_FAMILIAS = {
   ...PT_SIMBOLO,
   ...PT_REDE,
   ...PT_ELREDE,
+  ...PT_TUBOAQUI,
   ...PT_COLADAS,
   ...PT_CURVATURA,
   ...PT_MODELOS,
@@ -88,6 +90,7 @@ export const EN_FAMILIAS: D = {
   ...EN_SIMBOLO,
   ...EN_REDE,
   ...EN_ELREDE,
+  ...EN_TUBOAQUI,
   ...EN_COLADAS,
   ...EN_CURVATURA,
   ...EN_MODELOS,
@@ -126,6 +129,7 @@ export const ES_FAMILIAS: D = {
   ...ES_SIMBOLO,
   ...ES_REDE,
   ...ES_ELREDE,
+  ...ES_TUBOAQUI,
   ...ES_COLADAS,
   ...ES_CURVATURA,
   ...ES_MODELOS,
@@ -164,6 +168,7 @@ export const DE_FAMILIAS: D = {
   ...DE_SIMBOLO,
   ...DE_REDE,
   ...DE_ELREDE,
+  ...DE_TUBOAQUI,
   ...DE_COLADAS,
   ...DE_CURVATURA,
   ...DE_MODELOS,
@@ -202,6 +207,7 @@ export const FR_FAMILIAS: D = {
   ...FR_SIMBOLO,
   ...FR_REDE,
   ...FR_ELREDE,
+  ...FR_TUBOAQUI,
   ...FR_COLADAS,
   ...FR_CURVATURA,
   ...FR_MODELOS,
@@ -240,6 +246,7 @@ export const IT_FAMILIAS: D = {
   ...IT_SIMBOLO,
   ...IT_REDE,
   ...IT_ELREDE,
+  ...IT_TUBOAQUI,
   ...IT_COLADAS,
   ...IT_CURVATURA,
   ...IT_MODELOS,
@@ -278,6 +285,7 @@ export const PL_FAMILIAS: D = {
   ...PL_SIMBOLO,
   ...PL_REDE,
   ...PL_ELREDE,
+  ...PL_TUBOAQUI,
   ...PL_COLADAS,
   ...PL_CURVATURA,
   ...PL_MODELOS,

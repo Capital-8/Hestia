@@ -14,6 +14,7 @@ import { agruparSelecao, desagruparSelecao, type ToolEnv } from '@hestia/tools';
 import type { ContextMenuCtx, MenuEntry, MenuLang } from '../editor/contextMenu.ts';
 import { componentesDaSelecao } from './componentPropAcoes.ts';
 import { t } from '../editor/i18n.ts';
+import { podeCriarTuboAqui } from '../editor/tuboAqui.ts';
 
 /*
  * Entradas de COMPONENTE no menu de contexto da planta e do 3D, no mesmo espírito de `perimeter/perimeterEditavel.ts`:
@@ -35,6 +36,8 @@ const ID_TIPO = `${PREFIXO_COMPONENTE}tipo`;
 const ID_TIPO_FILHO = `${ID_TIPO}:`;
 const ID_AGRUPAR = `${PREFIXO_COMPONENTE}group`;
 const ID_DESAGRUPAR = `${PREFIXO_COMPONENTE}ungroup`;
+/** 'Criar tubo a partir daqui' (ficha F5): quem executa é `useCanvasContextMenu.ts`, que tem a ferramenta e o ponto do clique. */
+export const ID_TUBO_AQUI = `${PREFIXO_COMPONENTE}tuboaqui`;
 
 /** Textos PT-BR e EN, no padrão de `editor/contextMenu.ts`. */
 const TEXTOS = {
@@ -48,6 +51,8 @@ const TEXTOS = {
   agruparMotivo: 'mov_menu_agrupar_motivo',
   desagrupar: 'mov_desagrupar',
   desagruparMotivo: 'mov_menu_desagrupar_motivo',
+  tuboAqui: 'tubo_aqui_menu',
+  eletrodutoAqui: 'tubo_aqui_menu_eletroduto',
 } as const;
 
 type Chave = keyof typeof TEXTOS;
@@ -117,7 +122,9 @@ export function comComponente(
 ): MenuEntry[] {
   if (!soComponentes(ctx, componentes)) return entradas;
   const T = rotulos(lang);
+  const tubo = componentes.length === 1 ? podeCriarTuboAqui(familias, componentes[0] as Component) : null;
   const grupo: MenuEntry[] = [
+    ...(tubo ? [{ id: ID_TUBO_AQUI, label: T(tubo === 'eletroduto' ? 'eletrodutoAqui' : 'tuboAqui'), separatorBefore: true }] : []),
     { id: ID_GIRAR, label: T('girar'), separatorBefore: true },
     { id: ID_GIRAR_MENOS, label: T('girarMenos') },
     { id: ID_ESPELHAR, label: T('espelhar') },

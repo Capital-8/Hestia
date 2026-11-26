@@ -72,7 +72,7 @@ export interface SemDerivacao {
   sugestao: string;
 }
 
-const SUGESTAO_CAIXA = 'Sugestão: ligue o eletroduto numa caixa (as entradas dela recebem os eletrodutos) e derive de lá.';
+const SUGESTAO_CAIXA = 'Sugestão: derive de uma caixa (ela tem as entradas).';
 
 /**
  * Tipo sem tê e sem junção (eletroduto rígido da Krona elétrica) ou sem nenhuma conexão (corrugado): derivar do meio do trecho é
