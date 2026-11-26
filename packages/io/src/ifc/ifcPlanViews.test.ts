@@ -78,3 +78,21 @@ describe('IFC: PlanViewsJSON (plantas de disciplina)', () => {
     expect(importIfc(texto).project.planViews).toBeUndefined();
   });
 });
+
+describe('IFC e a versão do esquema (35)', () => {
+  it('o IFC exportado carrega SchemaVersion 35 no Pset_Hestia_Project', () => {
+    const p = new ProjectStore(buildTemplate('house2')).project;
+    expect(p.schemaVersion).toBe(35);
+    expect(exportIfc(p, VAZIA, { timestamp: TS })).toContain("'SchemaVersion',$,IFCINTEGER(35)");
+  });
+
+  it('IFC legado gravado com SchemaVersion 34 continua abrindo, com os elementos e níveis', () => {
+    const p = new ProjectStore(buildTemplate('house2')).project;
+    const texto = exportIfc(p, VAZIA, { timestamp: TS });
+    const legado = texto.replace("IFCINTEGER(35)", 'IFCINTEGER(34)');
+    expect(legado).not.toBe(texto);
+    const { project } = importIfc(legado);
+    expect(project.levels.map((l) => l.id)).toEqual(p.levels.map((l) => l.id));
+    expect(Object.keys(project.elements).length).toBe(Object.keys(p.elements).length);
+  });
+});
